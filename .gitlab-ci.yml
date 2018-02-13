@@ -1,0 +1,120 @@
+# From: https://about.gitlab.com/2017/09/21/how-to-create-ci-cd-pipeline-with-autodeploy-to-kubernetes-using-gitlab-and-helm/
+
+cache:
+  untracked: true
+  key: "$CI_BUILD_REF_NAME"
+  paths:
+    - vendor/
+
+variables:
+  REPO_DIR: gitlab.com/privategrity
+  REPO_NAME: client
+  DOCKER_IMAGE: carback1/golang-glide:1.9-d638096cef01
+
+before_script:
+  ##
+  ## Go Setup
+  ##
+  - go version || echo "Go executable not found."
+  - echo $CI_BUILD_REF
+  - echo $CI_PROJECT_DIR
+  - mkdir -p $GOPATH/src/$REPO_DIR
+  - ln -s $CI_PROJECT_DIR $GOPATH/src/$REPO_DIR/$REPO_NAME
+  - cd $GOPATH/src/$REPO_DIR/$REPO_NAME
+  - echo $PWD
+
+stages:
+  - setup
+  - test
+  - build
+  - release
+  - deploy
+
+setup:
+  stage: setup
+  image: $DOCKER_IMAGE
+  script:
+    # https://docs.gitlab.com/ee/ci/ssh_keys/README.html
+
+    ##
+    ## Run ssh-agent (inside the build environment)
+    ##
+    - eval $(ssh-agent -s)
+
+    ##
+    ## Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
+    ## We're using tr to fix line endings which makes ed25519 keys work
+    ## without extra base64 encoding.
+    ## https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
+    ##
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+
+    ##
+    ## Create the SSH directory and give it the right permissions
+    ##
+    - mkdir -p ~/.ssh
+    - chmod 700 ~/.ssh
+
+    ##
+    ## Add SSH key for gitlab.com
+    ##
+    - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
+
+    - git clean -ffdx
+    - rm -fr ~/.glide
+    - glide install -v
+  artifacts:
+    paths:
+     - vendor/
+
+test:
+  stage: test
+  image: $DOCKER_IMAGE
+  script:
+    - go test -cover -v ./...
+
+build:
+  stage: build
+  image: $DOCKER_IMAGE
+  script:
+    - mkdir -p release
+    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
+    - cd release
+  artifacts:
+    paths:
+     - release/
+
+release:
+  stage: release
+  image: docker:latest
+  script:
+    - cd release
+    # - docker login -u gitlab-ci-token -p ${CI_BUILD_TOKEN} ${CI_REGISTRY}
+    # - docker build -t ${CONTAINER_IMAGE} .
+    # - docker tag ${CONTAINER_IMAGE} ${CONTAINER_IMAGE_LATEST}
+    # - docker push ${CONTAINER_IMAGE}
+    # - docker push ${CONTAINER_IMAGE_LATEST}
+
+deploy_staging:
+  stage: deploy
+  image: lwolf/helm-kubectl-docker:v152_213
+  before_script:
+    - mkdir -p /etc/deploy
+    # - echo ${kube_config} | base64 -d > ${KUBECONFIG}
+    # - kubectl config use-context homekube
+    # - helm init --client-only
+    # - helm repo add stable https://kubernetes-charts.storage.googleapis.com/
+    # - helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com/
+    # - helm repo update
+  script:
+    - cd /etc/deploy
+    # - helm dep build
+    # - export API_VERSION="$(grep "appVersion" Chart.yaml | cut -d" " -f2)"
+    # - export RELEASE_NAME="libr-files-v${API_VERSION/./-}"
+    # - export DEPLOYS=$(helm ls | grep $RELEASE_NAME | wc -l)
+    # - if [ ${DEPLOYS}  -eq 0 ]; then helm install --name=${RELEASE_NAME} . --namespace=${STAGING_NAMESPACE}; else helm upgrade ${RELEASE_NAME} . --namespace=${STAGING_NAMESPACE}; fi
+  environment:
+    name: staging
+    # url: https://librerio.example.com
+  only:
+  - master

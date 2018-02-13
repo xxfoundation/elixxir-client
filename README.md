@@ -30,6 +30,9 @@ For iOS support: TODO.
 
 In either case you will need to run $ gomobile init.
 
+After these steps are complete, run $ glide up to get all the other Go
+dependencies.
+
 Building
 ==
 
@@ -50,5 +53,51 @@ these steps:
 1. Click through the rest of the wizard.
 
 In any case, this isn't a recommended course of action because there might be
-some weirdness about gomobile generating more than one .aar.
+some weirdness about gomobile generating more than one .aar, and the .aar that
+building generates has already been added to the project.
 
+Project Structure
+==
+
+The top-level Go package is called "client". This package contains all of the
+APIs that the mobile apps will be able to access. If the mobile apps shouldn't
+be able to access some functions directly, put those functions in a different
+package!
+
+The package crypto will contain client cryptops, and the package comms will
+contain client communications. When working tickets related to crypto or
+communications, ask yourself whether the code you're writing would belong
+better in the crypto or comms repositories instead.
+
+Gomobile Usage and Caveats
+==
+
+Every exported symbol from the "client" package should be exported by the
+gomobile bindings. Only the following data types are allowed to be exported:
+
+- Signed integer and floating point types.
+
+- String and boolean types.
+
+- Byte slice types. Note that byte slices are passed by reference,
+  and support mutation.
+
+- Any function type all of whose parameters and results have
+  supported types. Functions must return either no results,
+  one result, or two results where the type of the second is
+  the built-in 'error' type.
+
+- Any interface type, all of whose exported methods have
+  supported function types.
+
+- Any struct type, all of whose exported methods have
+  supported function types and all of whose exported fields
+  have supported types.
+
+So, exporting a cyclic Int _shouldn't_ work, and you should get an error if you
+try to. But it's totally OK to have a cyclic Int in the "client" package, as
+long as it's not exported, and it's totally OK to have a cyclic Int exported
+from a package that "client" depends on.
+
+See https://godoc.org/golang.org/x/mobile/cmd/gobind for other important usage
+notes (avoiding reference cycles, calling Java or Objective-C from Go.)

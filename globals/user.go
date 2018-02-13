@@ -1,6 +1,6 @@
 package globals
 
-// Globally initiated UserRegistry
+// Globally instantiated UserRegistry
 var Users = newUserRegistry()
 
 // Interface for User Registry operations

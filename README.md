@@ -33,9 +33,22 @@ In either case you will need to run $ gomobile init.
 Building
 ==
 
-To build the .aar for the client, run
+To build the .aar for the client, cd to privategrity/client/android/client and
+run this command:
 
-$ gomobile bind
+$ gomobile bind -target=android gitlab.com/privategrity/client
 
-Then import the .aar in Android Studio. For future builds, you'll need to copy
-the new bindings .aar over the .aar that's been imported to Android Studio.
+Adding the .aar to the Android Studio project
+==
+
+In case you need to add another .aar to the Android Studio project, follow
+these steps:
+
+1. Go to File-\>New-\>New Module.
+1. Scroll to and click on Import .JAR/.AAR Package.
+1. Pick the .aar in the file chooser.
+1. Click through the rest of the wizard.
+
+In any case, this isn't a recommended course of action because there might be
+some weirdness about gomobile generating more than one .aar.
+

@@ -46,7 +46,7 @@ func NewMessage(sid uint64, pl string) *Message {
 }
 
 // Takes a message byte array and splits it into its component parts
-func ConstructMessage(msg *[]byte) *Message {
+func ConstructMessageBytes(msg *[]byte) *Message {
 
 	if uint32(len(*msg)) != TOTAL_LEN || (*msg)[0] != 0 {
 		return nil
@@ -63,7 +63,7 @@ func ConstructMessage(msg *[]byte) *Message {
 }
 
 // Takes a message and builds a message byte array
-func (message *Message) DeconstructMessage() *[]byte {
+func (message *Message) DeconstructMessageBytes() *[]byte {
 
 	sidarr := make([]byte, SID_LEN)
 

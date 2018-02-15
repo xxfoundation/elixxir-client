@@ -73,14 +73,14 @@ func TestNewMessage(t *testing.T) {
 
 }
 
-func TestConstructDeconstructMessage(t *testing.T) {
+func TestConstructDeconstructMessageBytes(t *testing.T) {
 	testString := "the game"
 
 	msg := NewMessage(uint64(42), testString)
 
-	dmsg := msg.DeconstructMessage()
+	dmsg := msg.DeconstructMessageBytes()
 
-	rtnmsg := *(ConstructMessage(dmsg))
+	rtnmsg := *(ConstructMessageBytes(dmsg))
 
 	if rtnmsg.senderID != msg.senderID {
 		t.Errorf("Test of Message Construction/Deconstruction failed, sID did"+

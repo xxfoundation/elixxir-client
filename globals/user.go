@@ -5,7 +5,7 @@ var Users = newUserRegistry()
 
 // Interface for User Registry operations
 type UserRegistry interface {
-	GetUser(id uint64) *User
+	GetUser(id uint64) (user *User, ok bool)
 	CountUsers() int
 }
 
@@ -31,15 +31,17 @@ func newUserRegistry() UserRegistry {
 	return UserRegistry(&UserMap{userCollection: uc, idCounter: 0})
 }
 
+// Struct representing a User in the system
 type User struct {
 	Id   uint64
 	Nick string
 }
 
-// GetUser returns a user with the given ID from userCollection.
-func (m *UserMap) GetUser(id uint64) *User {
-	// If key does not exist, return nil
-	return m.userCollection[id]
+// GetUser returns a user with the given ID from userCollection
+// and a boolean
+func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
+	user, ok = m.userCollection[id]
+	return
 }
 
 // CountUsers returns a count of the users in userCollection

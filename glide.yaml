@@ -5,6 +5,6 @@ import:
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
 - package: gitlab.com/privategrity/comms
-  version: master
+  version: ClientComms
   repo: git@gitlab.com:privategrity/comms
   vcs: git

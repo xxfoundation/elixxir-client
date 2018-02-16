@@ -7,18 +7,23 @@ var Session = newUserSession()
 type UserSession interface {
 	Login(id uint64) (isValidUser bool)
 	GetCurrentUser() (currentUser *User)
+	PushFifo(*Message)
+	PopFifo() *Message
 }
 
 // Creates a new UserSession interface
 func newUserSession() UserSession {
 	// With an underlying Session data structure
-	return UserSession(&sessionObj{currentUser: nil})
+	return UserSession(&sessionObj{currentUser: nil, fifo: make(chan *Message, 100)})
 }
 
 // Struct holding relevant session data
 type sessionObj struct {
 	// Currently authenticated user
 	currentUser *User
+
+	//Fifo buffer
+	fifo chan *Message
 }
 
 // Set CurrentUser to the user corresponding to the given id
@@ -37,9 +42,40 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	if s.currentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			Id: s.currentUser.Id,
-			Nick:s.currentUser.Nick,
+			Id:   s.currentUser.Id,
+			Nick: s.currentUser.Nick,
 		}
 	}
 	return
+}
+
+func (s *sessionObj) PushFifo(msg *Message) {
+
+	if s.currentUser == nil {
+		return
+	}
+
+	select {
+	case s.fifo <- msg:
+		return
+	default:
+		return
+	}
+}
+
+func (s *sessionObj) PopFifo() *Message {
+
+	if s.currentUser == nil {
+		return nil
+	}
+
+	var msg *Message
+
+	select {
+	case msg = <-s.fifo:
+		return msg
+	default:
+		return nil
+	}
+
 }

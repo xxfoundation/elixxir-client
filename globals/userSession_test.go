@@ -24,4 +24,14 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	}
 
+	inmsg := NewMessage(42, "test")
+
+	Session.PushFifo(inmsg)
+
+	outmsg := Session.PopFifo()
+
+	if inmsg != outmsg {
+		t.Errorf("Error: Incorrect Return Message from Fifo")
+	}
+
 }

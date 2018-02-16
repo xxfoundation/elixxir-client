@@ -34,3 +34,12 @@ func TryReceive() string {
 		return ""
 	}
 }
+
+func GetNick(userId int) string {
+	user, ok := globals.Users.GetUser(uint64(userId))
+	if ok && user != nil {
+		return user.Nick
+	} else {
+		return ""
+	}
+}

@@ -6,11 +6,13 @@ import (
 	"gitlab.com/privategrity/client/io"
 )
 
-func Login(userId int, serverAddress string) (isValidUser bool) {
-	isValidUser = globals.Session.Login(uint64(userId), serverAddress)
-	pollWaitTimeMillis := uint64(1000)
-	io.InitReceptionRunner(pollWaitTimeMillis, globals.Session.GetNodeAddress())
-	return
+func Login(userId int, serverAddress string) bool {
+	isValidUser := globals.Session.Login(uint64(userId), serverAddress)
+	if isValidUser {
+		pollWaitTimeMillis := uint64(1000)
+		io.InitReceptionRunner(pollWaitTimeMillis, globals.Session.GetNodeAddress())
+	}
+	return isValidUser
 }
 
 func Send(recipientID int, message string) {

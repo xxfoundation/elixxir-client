@@ -106,7 +106,7 @@ func (message *Message) GetSenderID() uint64 {
 	return message.senderID
 }
 
-func GenerateReceptipientIDBytes(rid uint64) *[]byte {
+func GenerateRecipientIDBytes(rid uint64) *[]byte {
 	ridarr := make([]byte, SID_LEN)
 
 	binary.BigEndian.PutUint64(ridarr, rid)

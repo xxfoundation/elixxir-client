@@ -21,7 +21,7 @@ func runfunc(wait uint64, addr string) {
 
 		if len(cmixMsg.MessagePayload) != 0 {
 			cmixmsgbuf := cmixMsg.MessagePayload[:]
-			msg := crypto.DecryptMessage(&cmixmsgbuf)
+			msg := crypto.Decrypt(&cmixmsgbuf)
 
 			globals.Session.PushFifo(msg)
 		}

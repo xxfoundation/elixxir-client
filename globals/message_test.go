@@ -78,9 +78,9 @@ func TestConstructDeconstructMessageBytes(t *testing.T) {
 
 	msg := NewMessage(uint64(42), testString)
 
-	dmsg := msg.DeconstructMessageBytes()
+	dmsg := msg.DeconstructMessageFromBytes()
 
-	rtnmsg := *(ConstructMessageBytes(dmsg))
+	rtnmsg := *(ConstructMessageFromBytes(dmsg))
 
 	if rtnmsg.senderID != msg.senderID {
 		t.Errorf("Test of Message Construction/Deconstruction failed, sID did"+

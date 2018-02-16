@@ -38,7 +38,7 @@ type User struct {
 }
 
 // GetUser returns a user with the given ID from userCollection
-// and a boolean
+// and a boolean for whether the user exists
 func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
 	user, ok = m.userCollection[id]
 	return

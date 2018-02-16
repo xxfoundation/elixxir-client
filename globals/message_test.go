@@ -111,3 +111,5 @@ func compareByteSlices(a, b *[]byte) bool {
 
 	return true
 }
+
+//TODO: Test End cases, messages over 2x length, at max length, and others.

@@ -5,6 +5,9 @@ import (
 )
 
 // Defines message structure.  Based the "Basic Message Structure" doc
+// Defining rangings in slices in go is inclusive for the beginning but
+// exclusive for the end, so the END consts are one more then the final
+// index.
 const (
 	BLANK_INDEX uint32 = 0
 	BLANK_LEN   uint32 = 1
@@ -19,6 +22,8 @@ const (
 
 	TOTAL_LEN uint32 = BLANK_LEN + PAYLOAD_LEN + SID_LEN
 )
+
+//TODO: generate ranges programmatic
 
 // Structure which contains a message payload and the sender in an easily
 // accessible format
@@ -54,6 +59,8 @@ func ConstructMessageFromBytes(msg *[]byte) *Message {
 	}
 
 	payload := (*msg)[PAYLOAD_START:PAYLOAD_END]
+	// Endianness is defined by the hardware in go, if this inst handled
+	// manually, there could be a mismatch in the resulting byte array
 	sid := binary.BigEndian.Uint64((*msg)[SID_START:SID_END])
 
 	message := Message{senderID: sid}

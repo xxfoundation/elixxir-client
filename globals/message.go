@@ -28,8 +28,8 @@ type Message struct {
 }
 
 // Makes a new message for a sender and a
-func NewMessage(sid uint64, pl string) *Message {
-	payload := []byte(pl)
+func NewMessage(sid uint64, messageString string) *Message {
+	payload := []byte(messageString)
 
 	if uint32(len(payload)) > PAYLOAD_LEN {
 		payload = payload[0:PAYLOAD_LEN]
@@ -49,6 +49,7 @@ func NewMessage(sid uint64, pl string) *Message {
 func ConstructMessageFromBytes(msg *[]byte) *Message {
 
 	if uint32(len(*msg)) != TOTAL_LEN || (*msg)[0] != 0 {
+		panic("invalid message bytes passed")
 		return nil
 	}
 

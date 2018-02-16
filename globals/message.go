@@ -63,7 +63,7 @@ func ConstructMessageFromBytes(msg *[]byte) *Message {
 }
 
 // Takes a message and builds a message byte array
-func (message *Message) DeconstructMessageFromBytes() *[]byte {
+func (message *Message) DeconstructMessageToBytes() *[]byte {
 
 	sidarr := make([]byte, SID_LEN)
 

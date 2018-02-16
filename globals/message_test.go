@@ -78,7 +78,7 @@ func TestConstructDeconstructMessageBytes(t *testing.T) {
 
 	msg := NewMessage(uint64(42), testString)
 
-	dmsg := msg.DeconstructMessageFromBytes()
+	dmsg := msg.DeconstructMessageToBytes()
 
 	rtnmsg := *(ConstructMessageFromBytes(dmsg))
 

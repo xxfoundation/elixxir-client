@@ -21,6 +21,8 @@ const (
 	SID_LEN   uint32 = 8
 
 	TOTAL_LEN uint32 = BLANK_LEN + PAYLOAD_LEN + SID_LEN
+
+	RID_LEN uint32 = 504
 )
 
 //TODO: generate ranges programmatic
@@ -102,4 +104,16 @@ func (message *Message) GetStringPayload() string {
 // Return the sender of the payload
 func (message *Message) GetSenderID() uint64 {
 	return message.senderID
+}
+
+func GenerateReceptipientIDBytes(rid uint64) *[]byte {
+	ridarr := make([]byte, SID_LEN)
+
+	binary.BigEndian.PutUint64(ridarr, rid)
+
+	ridbytes := make([]byte, RID_LEN)
+
+	ridbytes = append(ridbytes, ridarr...)
+
+	return &ridbytes
 }

@@ -1,4 +1,4 @@
-package client
+package api
 
 import (
 	"gitlab.com/privategrity/client/crypto"

@@ -101,7 +101,15 @@ func (message *Message) GetPayload() *[]byte {
 
 // Returns a string of the payload
 func (message *Message) GetStringPayload() string {
-	return string(message.payload[:])
+	// Find the first non-zero byte
+	messageStart := 0
+	for i := 0; i < len(message.payload); i++ {
+		if message.payload[i] != 0 {
+			messageStart = i
+			break
+		}
+	}
+	return string(message.payload[messageStart:])
 }
 
 // Return the sender of the payload

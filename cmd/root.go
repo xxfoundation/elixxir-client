@@ -34,8 +34,10 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		// Main client run function
 		api.Login(userId, serverAddr)
 		api.Send(userId, message)
+		// Loop until we get a message, then print and exit
 		for {
 			msg := api.TryReceive()
 			if msg != "" {

@@ -2,6 +2,7 @@ package globals
 
 import (
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Defines message structure.  Based the "Basic Message Structure" doc
@@ -56,7 +57,9 @@ func NewMessage(sid uint64, messageString string) *Message {
 func ConstructMessageFromBytes(msg *[]byte) *Message {
 
 	if uint32(len(*msg)) != TOTAL_LEN || (*msg)[0] != 0 {
-		panic("invalid message bytes passed")
+		jww.ERROR.Printf("Invalid message bytes passed! Got %v expected %v",
+			len(*msg), TOTAL_LEN)
+		panic("Invalid message bytes passed")
 		return nil
 	}
 

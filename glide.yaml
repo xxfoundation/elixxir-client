@@ -8,3 +8,7 @@ import:
   version: ClientComms
   repo: git@gitlab.com:privategrity/comms
   vcs: git
+- package: github.com/spf13/cobra
+  version: ^0.0.1
+  subpackages:
+  - cobra

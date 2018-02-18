@@ -2,6 +2,7 @@ package globals
 
 import (
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Defines message structure.  Based the "Basic Message Structure" doc
@@ -56,7 +57,9 @@ func NewMessage(sid uint64, messageString string) *Message {
 func ConstructMessageFromBytes(msg *[]byte) *Message {
 
 	if uint32(len(*msg)) != TOTAL_LEN || (*msg)[0] != 0 {
-		panic("invalid message bytes passed")
+		jww.ERROR.Printf("Invalid message bytes passed! Got %v expected %v",
+			len(*msg), TOTAL_LEN)
+		panic("Invalid message bytes passed")
 		return nil
 	}
 
@@ -98,7 +101,15 @@ func (message *Message) GetPayload() *[]byte {
 
 // Returns a string of the payload
 func (message *Message) GetStringPayload() string {
-	return string(message.payload[:])
+	// Find the first non-zero byte
+	messageStart := 0
+	for i := 0; i < len(message.payload); i++ {
+		if message.payload[i] != 0 {
+			messageStart = i
+			break
+		}
+	}
+	return string(message.payload[messageStart:])
 }
 
 // Return the sender of the payload
@@ -106,7 +117,7 @@ func (message *Message) GetSenderID() uint64 {
 	return message.senderID
 }
 
-func GenerateReceptipientIDBytes(rid uint64) *[]byte {
+func GenerateRecipientIDBytes(rid uint64) *[]byte {
 	ridarr := make([]byte, SID_LEN)
 
 	binary.BigEndian.PutUint64(ridarr, rid)

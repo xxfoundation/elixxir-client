@@ -5,8 +5,9 @@ var Session = newUserSession()
 
 // Interface for User Session operations
 type UserSession interface {
-	Login(id uint64) (isValidUser bool)
+	Login(id uint64, addr string) (isValidUser bool)
 	GetCurrentUser() (currentUser *User)
+	GetNodeAddress() string
 	PushFifo(*Message)
 	PopFifo() *Message
 }
@@ -24,16 +25,21 @@ type sessionObj struct {
 
 	//Fifo buffer
 	fifo chan *Message
+
+	// Node address that the user will send messages to
+	nodeAddress string
 }
 
 // Set CurrentUser to the user corresponding to the given id
 // if it exists. Return a bool for whether the given id exists
-func (s *sessionObj) Login(id uint64) (isValidUser bool) {
+func (s *sessionObj) Login(id uint64, addr string) (isValidUser bool) {
 	user, userExists := Users.GetUser(id)
 	// User must exist and no User can be previously logged in
 	if isValidUser = userExists && s.GetCurrentUser() == nil; isValidUser {
 		s.currentUser = user
 	}
+
+	s.nodeAddress = addr
 	return
 }
 
@@ -47,6 +53,10 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 		}
 	}
 	return
+}
+
+func (s *sessionObj) GetNodeAddress() string {
+	return s.nodeAddress
 }
 
 func (s *sessionObj) PushFifo(msg *Message) {

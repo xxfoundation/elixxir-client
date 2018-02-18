@@ -12,11 +12,11 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	}
 
-	if !Session.Login(1) {
+	if !Session.Login(1, "") {
 		t.Errorf("Error: Unable to login with valid user!")
 	}
 
-	if Session.Login(1) {
+	if Session.Login(1, "") {
 		t.Errorf("Error: Able to login with invalid user!")
 	}
 

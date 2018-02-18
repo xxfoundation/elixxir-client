@@ -112,18 +112,18 @@ func compareByteSlices(a, b *[]byte) bool {
 	return true
 }
 
-func TestGenerateReceptipientIDBytes(t *testing.T) {
+func TestGenerateRecipientIDBytes(t *testing.T) {
 	rid := uint64(2)
 
-	ridbytes := GenerateReceptipientIDBytes(rid)
+	ridbytes := GenerateRecipientIDBytes(rid)
 
 	if len(*ridbytes) != 512 {
-		t.Errorf("Test of GenerateReceptipientIDBytes failed, Incorrect "+
+		t.Errorf("Test of GenerateRecipientIDBytes failed, Incorrect "+
 			"Length;\n Expected: %v, Received: %v", 512, len(*ridbytes))
 	}
 
 	if (*ridbytes)[511] != byte(rid) {
-		t.Errorf("Test of GenerateReceptipientIDBytes failed, Incorrect "+
+		t.Errorf("Test of GenerateRecipientIDBytes failed, Incorrect "+
 			"rid;\n Expected: %v, Received: %v", byte(rid), (*ridbytes)[511])
 	}
 }

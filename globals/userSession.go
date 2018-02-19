@@ -1,5 +1,9 @@
 package globals
 
+import (
+	"gitlab.com/crypto/cyclic"
+)
+
 // Globally instantiated UserSession
 var Session = newUserSession()
 
@@ -15,7 +19,10 @@ type UserSession interface {
 // Creates a new UserSession interface
 func newUserSession() UserSession {
 	// With an underlying Session data structure
-	return UserSession(&sessionObj{currentUser: nil, fifo: make(chan *Message, 100)})
+	return UserSession(&sessionObj{
+		currentUser: nil,
+		fifo:        make(chan *Message, 100),
+		keys:        make([]*cyclic.Int, 2)})
 }
 
 // Struct holding relevant session data
@@ -28,6 +35,8 @@ type sessionObj struct {
 
 	// Node address that the user will send messages to
 	nodeAddress string
+
+	keys []*cyclic.Int
 }
 
 // Set CurrentUser to the user corresponding to the given id

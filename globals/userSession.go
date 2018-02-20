@@ -1,28 +1,63 @@
 package globals
 
 import (
-	"gitlab.com/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
 // Globally instantiated UserSession
-var Session = newUserSession()
+//
+var Session = newUserSession(1)
 
 // Interface for User Session operations
 type UserSession interface {
 	Login(id uint64, addr string) (isValidUser bool)
 	GetCurrentUser() (currentUser *User)
 	GetNodeAddress() string
+	GetKeys() []NodeKeys
+	GetPrivateKey() *cyclic.Int
 	PushFifo(*Message)
 	PopFifo() *Message
 }
 
+type NodeKeys struct {
+	PublicKey        *cyclic.Int
+	TransmissionKeys RatchetKey
+	ReceptionKeys    RatchetKey
+	ReceiptKeys      RatchetKey
+	ReturnKeys       RatchetKey
+}
+
+type RatchetKey struct {
+	Base      *cyclic.Int
+	Recursive *cyclic.Int
+}
+
 // Creates a new UserSession interface
-func newUserSession() UserSession {
+func newUserSession(numNodes int) UserSession {
+	keySlc := make([]NodeKeys, numNodes)
+
+	for i := 0; i < numNodes; i++ {
+		keySlc[i] = NodeKeys{PublicKey: cyclic.NewMaxInt(),
+			TransmissionKeys: RatchetKey{
+				Base:      cyclic.NewMaxInt(),
+				Recursive: cyclic.NewMaxInt()},
+			ReceptionKeys: RatchetKey{
+				Base:      cyclic.NewMaxInt(),
+				Recursive: cyclic.NewMaxInt()},
+			ReceiptKeys: RatchetKey{
+				Base:      cyclic.NewMaxInt(),
+				Recursive: cyclic.NewMaxInt()},
+			ReturnKeys: RatchetKey{
+				Base:      cyclic.NewMaxInt(),
+				Recursive: cyclic.NewMaxInt()}}
+	}
+
 	// With an underlying Session data structure
 	return UserSession(&sessionObj{
 		currentUser: nil,
 		fifo:        make(chan *Message, 100),
-		keys:        make([]*cyclic.Int, 2)})
+		keys:        keySlc,
+		privateKey:  cyclic.NewMaxInt()})
 }
 
 // Struct holding relevant session data
@@ -36,7 +71,16 @@ type sessionObj struct {
 	// Node address that the user will send messages to
 	nodeAddress string
 
-	keys []*cyclic.Int
+	keys       []NodeKeys
+	privateKey *cyclic.Int
+}
+
+func (s *sessionObj) GetKeys() []NodeKeys {
+	return s.keys
+}
+
+func (s *sessionObj) GetPrivateKey() *cyclic.Int {
+	return s.privateKey
 }
 
 // Set CurrentUser to the user corresponding to the given id

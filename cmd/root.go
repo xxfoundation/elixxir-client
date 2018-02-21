@@ -6,15 +6,16 @@
 package cmd
 
 import (
-	"os"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
+	"os"
 )
 
 var verbose bool
 var userId int
+var destinationUserId int
 var serverAddr string
 var message string
 
@@ -36,7 +37,7 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
 		api.Login(userId, serverAddr)
-		api.Send(userId, message)
+		api.Send(destinationUserId, message)
 		// Loop until we get a message, then print and exit
 		for {
 			msg := api.TryReceive()
@@ -69,6 +70,8 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
+	rootCmd.PersistentFlags().IntVarP(&destinationUserId, "destid", "d", 0,
+		"UserID to send message to")
 }
 
 // initConfig reads in config file and ENV variables if set.

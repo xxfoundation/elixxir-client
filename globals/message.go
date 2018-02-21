@@ -9,7 +9,9 @@ import (
 // exclusive for the end, so the END consts are one more then the final
 // index.
 const (
-	IV_LEN			uint64 = 72
+	TOTAL_LEN 		uint64 = 512
+
+	IV_LEN			uint64 = 9
 	IV_START		uint64 = 0
 	IV_END			uint64 = IV_LEN
 
@@ -21,11 +23,10 @@ const (
 	SID_START		uint64 = PAYLOAD_END
 	SID_END			uint64 = SID_START+SID_LEN
 
-	RID_LEN 		uint64 = 504
+	RID_LEN 		uint64 = TOTAL_LEN-IV_LEN
 	RID_START		uint64 = IV_END
 	RID_END			uint64 = RID_START+RID_LEN
 
-	TOTAL_LEN 		uint64 = 512
 
 
 )
@@ -69,15 +70,12 @@ func NewMessage(sender, recipient uint64, text string) []*Message {
 
 	var payloadLst [][]byte
 
-	for true{
-		if uint64(len(payload))<PAYLOAD_LEN {
-			payloadLst = append(payloadLst, payload[0:])
-			break
-		}else {
-			payloadLst = append(payloadLst, payload[0:PAYLOAD_LEN])
-			payload = payload[PAYLOAD_LEN:]
-		}
+	for uint64(len(payload))>PAYLOAD_LEN{
+		payloadLst = append(payloadLst, payload[0:PAYLOAD_LEN])
+		payload = payload[PAYLOAD_LEN:]
 	}
+	payloadLst = append(payloadLst, payload)
+
 
 	// create a message for every sub-payload
 	var messageList []*Message
@@ -177,11 +175,11 @@ func (m *Message)ConstructMessageBytes() *MessageBytes{
 
 func (mb *MessageBytes)DeconstructMessageBytes() *Message{
 	return &Message{
-		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(PAYLOAD_LEN)[SID_START:SID_END]),
-		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(PAYLOAD_LEN)[PAYLOAD_START:PAYLOAD_END]),
-		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(PAYLOAD_LEN)[RID_START:RID_END]),
-		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(PAYLOAD_LEN)[IV_START:IV_END]),
-		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(PAYLOAD_LEN)[IV_START:IV_END]),
+		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[SID_START:SID_END]),
+		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[PAYLOAD_START:PAYLOAD_END]),
+		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(TOTAL_LEN)[RID_START:RID_END]),
+		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[IV_START:IV_END]),
+		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(TOTAL_LEN)[IV_START:IV_END]),
 	}
 }
 

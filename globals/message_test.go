@@ -1,11 +1,8 @@
 package globals
 
 import (
-	//"encoding/binary"
-	//"fmt"
 	"testing"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"fmt"
 )
 
 func TestNewMessage(t *testing.T) {
@@ -80,9 +77,9 @@ func TestConstructDeconstructMessageBytes(t *testing.T) {
 
 	msg := NewMessage(uint64(42), uint64(69), testString)[0]
 
-	dmsg := msg.ConstructMessageBytes()
+	msg.recipientInitVect.SetInt64(1)
 
-	fmt.Println(dmsg.Payload.TextVerbose(10,0))
+	dmsg := msg.ConstructMessageBytes()
 
 	rtnmsg := dmsg.DeconstructMessageBytes()
 

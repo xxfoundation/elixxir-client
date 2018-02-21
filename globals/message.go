@@ -1,8 +1,7 @@
 package globals
 
 import (
-	"encoding/binary"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
 // Defines message structure.  Based the "Basic Message Structure" doc
@@ -10,121 +9,179 @@ import (
 // exclusive for the end, so the END consts are one more then the final
 // index.
 const (
-	BLANK_INDEX uint32 = 0
-	BLANK_LEN   uint32 = 1
+	IV_LEN			uint64 = 72
+	IV_START		uint64 = 0
+	IV_END			uint64 = IV_LEN
 
-	PAYLOAD_START uint32 = 1
-	PAYLOAD_END   uint32 = 504
-	PAYLOAD_LEN   uint32 = 503
+	PAYLOAD_LEN   	uint64 = 495
+	PAYLOAD_START	uint64 = IV_END
+	PAYLOAD_END		uint64 = PAYLOAD_START+PAYLOAD_LEN
 
-	SID_START uint32 = 504
-	SID_END   uint32 = 512
-	SID_LEN   uint32 = 8
+	SID_LEN   		uint64 = 8
+	SID_START		uint64 = PAYLOAD_END
+	SID_END			uint64 = SID_START+SID_LEN
 
-	TOTAL_LEN uint32 = BLANK_LEN + PAYLOAD_LEN + SID_LEN
+	RID_LEN 		uint64 = 504
+	RID_START		uint64 = IV_END
+	RID_END			uint64 = RID_START+RID_LEN
 
-	RID_LEN uint32 = 504
+	TOTAL_LEN 		uint64 = 512
+
+
 )
 
 //TODO: generate ranges programmatic
 
+
+type MessageBytes struct{
+	Payload 	 *cyclic.Int
+	PayloadMIC	 *cyclic.Int
+	Recipient 	 *cyclic.Int
+	RecipientMIC *cyclic.Int
+}
+
 // Structure which contains a message payload and the sender in an easily
 // accessible format
 type Message struct {
-	senderID uint64
-	payload  [PAYLOAD_LEN]byte
+	senderID 			*cyclic.Int
+	payload  			*cyclic.Int
+	recipientID 		*cyclic.Int
+	payloadInitVect		*cyclic.Int
+	recipientInitVect	*cyclic.Int
 }
 
 // Makes a new message for a sender and a
-func NewMessage(sid uint64, messageString string) *Message {
-	payload := []byte(messageString)
+func NewMessage(sender, recipient uint64, text string) []*Message {
 
-	if uint32(len(payload)) > PAYLOAD_LEN {
-		payload = payload[0:PAYLOAD_LEN]
-	} else if uint32(len(payload)) < PAYLOAD_LEN {
-		tmp := make([]byte, PAYLOAD_LEN-uint32(len(payload)))
-		payload = append(tmp, payload...)
-	}
-
-	message := Message{senderID: sid}
-
-	copy(message.payload[:], payload)
-
-	return &message
-}
-
-// Takes a message byte array and splits it into its component parts
-func ConstructMessageFromBytes(msg *[]byte) *Message {
-
-	if uint32(len(*msg)) != TOTAL_LEN || (*msg)[0] != 0 {
-		jww.ERROR.Printf("Invalid message bytes passed! Got %v expected %v",
-			len(*msg), TOTAL_LEN)
-		panic("Invalid message bytes passed")
+	if sender ==0 {
+		panic("Invalid sender id")
 		return nil
 	}
 
-	payload := (*msg)[PAYLOAD_START:PAYLOAD_END]
-	// Endianness is defined by the hardware in go, if this inst handled
-	// manually, there could be a mismatch in the resulting byte array
-	sid := binary.BigEndian.Uint64((*msg)[SID_START:SID_END])
+	if recipient ==0 {
+		panic("Invalid recipient id")
+		return nil
+	}
 
-	message := Message{senderID: sid}
+	// Split the payload into multiple sub-payloads if it is longer than the
+	// maximum allowed
+	payload := []byte(text)
 
-	copy(message.payload[:], payload)
+	var payloadLst [][]byte
 
-	return &message
-}
-
-// Takes a message and builds a message byte array
-func (message *Message) DeconstructMessageToBytes() *[]byte {
-
-	sidarr := make([]byte, SID_LEN)
-
-	binary.BigEndian.PutUint64(sidarr, message.senderID)
-
-	rtnslc := make([]byte, BLANK_LEN)
-	rtnslc[BLANK_INDEX] = 0x00
-	rtnslc = append(rtnslc, message.payload[:]...)
-	rtnslc = append(rtnslc, sidarr...)
-
-	return &rtnslc
-}
-
-// Returns a copy of the payload
-func (message *Message) GetPayload() *[]byte {
-	var rntpayload []byte
-
-	copy(rntpayload, message.payload[:])
-
-	return &rntpayload
-}
-
-// Returns a string of the payload
-func (message *Message) GetStringPayload() string {
-	// Find the first non-zero byte
-	messageStart := 0
-	for i := 0; i < len(message.payload); i++ {
-		if message.payload[i] != 0 {
-			messageStart = i
+	for true{
+		if uint64(len(payload))<PAYLOAD_LEN {
+			payloadLst = append(payloadLst, payload[0:])
 			break
+		}else {
+			payloadLst = append(payloadLst, payload[0:PAYLOAD_LEN])
+			payload = payload[PAYLOAD_LEN:]
 		}
 	}
-	return string(message.payload[messageStart:])
+
+	// create a message for every sub-payload
+	var messageList []*Message
+
+	for i:=0;i<len(payloadLst);i++{
+		msg := &Message{
+			cyclic.NewInt(int64(sender)),
+			cyclic.NewIntFromBytes(payloadLst[i]),
+			cyclic.NewInt(int64(recipient)),
+			cyclic.NewInt(0),
+			cyclic.NewInt(0),
+		}
+		messageList = append(messageList,msg)
+	}
+	return messageList
 }
 
-// Return the sender of the payload
-func (message *Message) GetSenderID() uint64 {
-	return message.senderID
+// These functions return pointers to the internal data in MessageCyclic
+// This ensures that while the data can be edited, it cant be reallocated
+func (m *Message)GetSenderID() *cyclic.Int{
+	return m.senderID
 }
 
-func GenerateRecipientIDBytes(rid uint64) *[]byte {
-	ridarr := make([]byte, SID_LEN)
-
-	binary.BigEndian.PutUint64(ridarr, rid)
-
-	ridbytes := make([]byte, RID_LEN)
-
-	ridbytes = append(ridbytes, ridarr...)
-
-	return &ridbytes
+func (m *Message)GetPayload() *cyclic.Int{
+	return m.payload
 }
+
+func (m *Message)GetRecipientID() *cyclic.Int{
+	return m.recipientID
+}
+
+func (m *Message)GetPayloadInitVector() *cyclic.Int{
+	return m.payloadInitVect
+}
+
+func (m *Message)GetRecipientInitVector() *cyclic.Int{
+	return m.recipientInitVect
+}
+
+func (m *Message) getSenderIDInt() uint64{
+	return m.senderID.Uint64()
+}
+
+func (m *Message) getRecipientIDInt() uint64{
+	return m.recipientID.Uint64()
+}
+
+func (m *Message) getPayloadString() string{
+	return string(m.payload.Bytes())
+}
+
+func (m *Message)ConstructMessageBytes() *MessageBytes{
+
+	/*CONSTRUCT MESSAGE PAYLOAD*/
+	var messagePayload []byte
+
+	// append the initialization vector
+	ivm := m.payloadInitVect.LeftpadBytes(IV_LEN)
+	// Set the highest order bit to zero to make the 'blank'
+	ivm[0] = ivm[0] & 0x7F
+
+	messagePayload = append(messagePayload, ivm...)
+
+	// append the payload
+	messagePayload = append(messagePayload,
+		m.payload.LeftpadBytes(PAYLOAD_LEN)...)
+
+	// append the sender id
+	messagePayload = append(messagePayload,
+		m.senderID.LeftpadBytes(SID_LEN)...)
+
+	/*CONSTRUCT RECIPIENT PAYLOAD*/
+	var recipientPayload []byte
+
+	// append the initialization vector
+	ivr := m.recipientInitVect.LeftpadBytes(IV_LEN)
+	// Set the highest order bit to zero to make the 'blank'
+	ivr[0] = ivr[0] & 0x7F
+
+	recipientPayload = append(recipientPayload, ivr...)
+
+	//append the recipientid
+	recipientPayload = append(recipientPayload,
+		m.recipientID.LeftpadBytes(RID_LEN)...)
+
+	//Create message
+
+	mb := &MessageBytes{
+		cyclic.NewIntFromBytes(messagePayload),
+		cyclic.NewInt(0),
+		cyclic.NewIntFromBytes(recipientPayload),
+		cyclic.NewInt(0),
+	}
+
+	return mb
+}
+
+func (mb *MessageBytes)DeconstructMessageBytes() *Message{
+	return &Message{
+		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(PAYLOAD_LEN)[SID_START:SID_END]),
+		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(PAYLOAD_LEN)[PAYLOAD_START:PAYLOAD_END]),
+		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(PAYLOAD_LEN)[RID_START:RID_END]),
+		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(PAYLOAD_LEN)[IV_START:IV_END]),
+		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(PAYLOAD_LEN)[IV_START:IV_END]),
+	}
+}
+

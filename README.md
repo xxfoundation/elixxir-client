@@ -5,6 +5,25 @@
 
 This repo will contain Privategrity clients for all platforms.
 
+Running the Command Line Client
+==
+
+In project directory, run `go run main.go`
+
+Required Args:
+
+`-s <STRING>` : Address of server to which messages will be sent
+
+`-i <INT>`    : User ID to log in as
+
+Optional Args:
+
+`-d <INT>`    : User ID of the user to send messages to
+
+`-m <STRING>` : Message to be sent
+
+`-v`          : Boolean indicating verbose logging
+
 Preparation to Build
 ==
 

@@ -1,20 +1,36 @@
 package crypto
 
 import (
-	"encoding/binary"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/forward"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
-//De constructs message
-func Encrypt(message *globals.Message, recipientID uint64) (*[]byte, *[]byte) {
-	payload := message.DeconstructMessageToBytes()
-	recipient := make([]byte, 504)
+func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
+MessageBytes {
 
-	recparr := make([]byte, 8)
+	keys := globals.Session.GetKeys()
+	result := message.ConstructMessageBytes()
 
-	binary.BigEndian.PutUint64(recparr, recipientID)
+	// TODO move this allocation somewhere sensible
+	sharedKeyStorage := make([]byte, 0, 8192)
 
-	recipient = append(recipient, recparr...)
+	// generate the product of the inverse transmission keys for encryption
+	sharedTransmissionKey := cyclic.NewMaxInt()
+	inverseTransmissionKeys := cyclic.NewInt(1)
+	for _, key := range keys {
+		// modify keys for next node
+		forward.GenerateSharedKey(g, key.TransmissionKeys.Base,
+			key.TransmissionKeys.Recursive, sharedTransmissionKey,
+			sharedKeyStorage)
+		g.Inverse(sharedTransmissionKey, sharedTransmissionKey)
+		g.Mul(inverseTransmissionKeys, sharedTransmissionKey,
+			inverseTransmissionKeys)
+	}
 
-	return payload, &recipient
+	// perform the encryption
+	g.Mul(result.Payload, inverseTransmissionKeys, result.Payload)
+	g.Mul(result.Recipient, inverseTransmissionKeys, result.Recipient)
+
+	return result
 }

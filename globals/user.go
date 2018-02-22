@@ -27,11 +27,11 @@ func newUserRegistry() UserRegistry {
 
 	uc := make(map[uint64]*User)
 
-	uc[0] = &User{Id: 1, Nick: "Phineas Flynn"}
-	uc[1] = &User{Id: 2, Nick: "Ferb Flynn"}
-	uc[2] = &User{Id: 3, Nick: "Cadance Flynn"}
-	uc[3] = &User{Id: 4, Nick: "Perry the Platypus"}
-	uc[4] = &User{Id: 5, Nick: "Heinz Doofenshmirtz"}
+	uc[1] = &User{Id: 1, Nick: "Phineas Flynn"}
+	uc[2] = &User{Id: 2, Nick: "Ferb Flynn"}
+	uc[3] = &User{Id: 3, Nick: "Cadance Flynn"}
+	uc[4] = &User{Id: 4, Nick: "Perry the Platypus"}
+	uc[5] = &User{Id: 5, Nick: "Heinz Doofenshmirtz"}
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc, idCounter: 0})

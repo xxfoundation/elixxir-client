@@ -1,3 +1,8 @@
+# privategrity/client
+
+[![pipeline status](https://gitlab.com/privategrity/client/badges/master/pipeline.svg)](https://gitlab.com/privategrity/client/commits/master)
+[![coverage report](https://gitlab.com/privategrity/client/badges/master/coverage.svg)](https://gitlab.com/privategrity/client/commits/master)
+
 This repo will contain Privategrity clients for all platforms.
 
 Preparation to Build

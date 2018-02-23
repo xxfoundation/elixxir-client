@@ -22,8 +22,8 @@ func Send(recipientID int, message string) {
 	newMessages := globals.NewMessage(sender.Id, uint64(recipientID), message)
 
 	// Prepare the new messages to be sent
-	for _, newMessage := range(newMessages) {
-		newMessageBytes := crypto.Encrypt(globals.Session.GetGroup(), newMessage)
+	for _, newMessage := range (newMessages) {
+		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
 		// Send the message
 		io.TransmitMessage(globals.Session.GetNodeAddress(), newMessageBytes)
 	}

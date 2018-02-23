@@ -28,7 +28,7 @@ func runfunc(wait uint64, addr string) {
 				RecipientMIC: cyclic.NewInt(0),
 			}
 
-			msg := crypto.Decrypt(globals.Session.GetGroup(), &msgBytes)
+			msg := crypto.Decrypt(globals.Grp, &msgBytes)
 
 			globals.Session.PushFifo(msg)
 		}

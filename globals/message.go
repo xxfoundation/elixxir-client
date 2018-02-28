@@ -51,7 +51,7 @@ type Message struct {
 	recipientInitVect	*cyclic.Int
 }
 
-// Makes a new message for a sender and a
+// Makes a new message for a certain sender and recipient
 func NewMessage(sender, recipient uint64, text string) []*Message {
 
 	if sender ==0 {
@@ -123,7 +123,7 @@ func (m *Message) getRecipientIDInt() uint64{
 	return m.recipientID.Uint64()
 }
 
-func (m *Message) getPayloadString() string{
+func (m *Message) GetPayloadString() string{
 	return string(m.payload.Bytes())
 }
 

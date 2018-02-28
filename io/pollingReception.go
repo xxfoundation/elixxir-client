@@ -10,7 +10,7 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/comms/mixserver/message"
+	"gitlab.com/privategrity/comms/mixclient"
 	"time"
 )
 
@@ -23,7 +23,7 @@ func runfunc(wait uint64, addr string) {
 	for true {
 		time.Sleep(time.Duration(wait) * time.Millisecond)
 
-		cmixMsg, _ := message.SendClientPoll(addr, rqMsg)
+		cmixMsg, _ := mixclient.SendClientPoll(addr, rqMsg)
 
 		if len(cmixMsg.MessagePayload) != 0 {
 			cmixmsgbuf := cmixMsg.MessagePayload[:]

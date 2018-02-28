@@ -9,7 +9,7 @@ package io
 import (
 	"gitlab.com/privategrity/client/globals"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/comms/mixserver/message"
+	"gitlab.com/privategrity/comms/mixclient"
 )
 
 func TransmitMessage(addr string, messageBytes, recipientBytes *[]byte) {
@@ -20,6 +20,6 @@ func TransmitMessage(addr string, messageBytes, recipientBytes *[]byte) {
 		RecipientID:    *recipientBytes,
 	}
 
-	message.SendMessageToServer(addr, cmixmsg)
+	mixclient.SendMessageToServer(addr, cmixmsg)
 
 }

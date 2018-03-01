@@ -12,5 +12,5 @@ import (
 
 // Disconnect from the server
 func Disconnect(address string) {
-	mixclient.Disconnect(string)
+	mixclient.Disconnect(address)
 }

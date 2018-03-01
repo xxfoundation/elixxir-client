@@ -5,7 +5,7 @@ import:
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
 - package: gitlab.com/privategrity/comms
-  version: feature/timeouts_CMIX-200
+  version: master
   repo: git@gitlab.com:privategrity/comms
   vcs: git
 - package: github.com/spf13/cobra

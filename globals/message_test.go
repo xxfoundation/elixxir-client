@@ -7,9 +7,8 @@
 package globals
 
 import (
-	//"encoding/binary"
-	//"fmt"
 	"testing"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
 func TestNewMessage(t *testing.T) {
@@ -48,31 +47,31 @@ func TestNewMessage(t *testing.T) {
 
 	expectedSlices := make([][]byte, tests)
 
-	shortSlc := []byte(testStrings[0])
-
-	tmpslc := make([]byte, PAYLOAD_LEN-uint32(len(shortSlc)))
-
-	expectedSlices[0] = append(expectedSlices[0], tmpslc...)
-	expectedSlices[0] = append(expectedSlices[0], shortSlc...)
+	expectedSlices[0] = []byte(testStrings[0])
 
 	expectedSlices[1] = ([]byte(testStrings[1]))[0:PAYLOAD_LEN]
 
 	expectedSlices[2] = ([]byte(testStrings[2]))[0:PAYLOAD_LEN]
 
 	for i := 0; i < tests; i++ {
-		msg := NewMessage(uint64(i), testStrings[i])
+		msg := NewMessage(uint64(i+1), uint64(i+1), testStrings[i])[0]
 
-		if uint64(i) != msg.senderID {
+		if uint64(i+1) != msg.senderID.Uint64() {
 			t.Errorf("Test of NewMessage failed on test %v, sID did not "+
 				"match;\n  Expected: %v, Received: %v", i, i, msg.senderID)
 		}
 
-		pl := msg.payload[:]
+		if uint64(i+1) != msg.recipientID.Uint64() {
+			t.Errorf("Test of NewMessage failed on test %v, rID did not "+
+				"match;\n  Expected: %v, Received: %v", i, i, msg.recipientID)
+		}
 
-		if !compareByteSlices(&pl, &expectedSlices[i]) {
+		expct := cyclic.NewIntFromBytes(expectedSlices[i])
+
+		if msg.payload.Cmp(expct)!=0{
 			t.Errorf("Test of NewMessage failed on test %v, bytes did not "+
-				"match;\n Len Expected: %v, Len Received: %v", i, len(pl),
-				len(expectedSlices[i]))
+				"match;\n Value Expected: %v, Value Received: %v", i,
+				string(expct.Bytes()), string(msg.payload.Bytes()))
 		}
 
 	}
@@ -82,18 +81,21 @@ func TestNewMessage(t *testing.T) {
 func TestConstructDeconstructMessageBytes(t *testing.T) {
 	testString := "the game"
 
-	msg := NewMessage(uint64(42), testString)
+	msg := NewMessage(uint64(42), uint64(69), testString)[0]
 
-	dmsg := msg.DeconstructMessageToBytes()
+	msg.recipientInitVect.SetInt64(1)
 
-	rtnmsg := *(ConstructMessageFromBytes(dmsg))
+	dmsg := msg.ConstructMessageBytes()
 
-	if rtnmsg.senderID != msg.senderID {
+	rtnmsg := dmsg.DeconstructMessageBytes()
+
+	if rtnmsg.senderID.Cmp(msg.senderID)!=0 {
 		t.Errorf("Test of Message Construction/Deconstruction failed, sID did"+
-			" not match;\n  Expected: %v, Received: %v", msg.senderID, rtnmsg.senderID)
+			" not match;\n  Expected: %v, Received: %v", msg.senderID.Text(10),
+				rtnmsg.senderID.Text(10))
 	}
-	rpl := rtnmsg.payload[:]
-	dpl := msg.payload[:]
+	rpl := rtnmsg.payload.Bytes()[:]
+	dpl := msg.payload.Bytes()[:]
 
 	if !compareByteSlices(&rpl, &dpl) {
 		t.Errorf("Test of Message Construction/Deconstruction failed, payloads did" +
@@ -118,20 +120,5 @@ func compareByteSlices(a, b *[]byte) bool {
 	return true
 }
 
-func TestGenerateRecipientIDBytes(t *testing.T) {
-	rid := uint64(2)
-
-	ridbytes := GenerateRecipientIDBytes(rid)
-
-	if len(*ridbytes) != 512 {
-		t.Errorf("Test of GenerateRecipientIDBytes failed, Incorrect "+
-			"Length;\n Expected: %v, Received: %v", 512, len(*ridbytes))
-	}
-
-	if (*ridbytes)[511] != byte(rid) {
-		t.Errorf("Test of GenerateRecipientIDBytes failed, Incorrect "+
-			"rid;\n Expected: %v, Received: %v", byte(rid), (*ridbytes)[511])
-	}
-}
 
 //TODO: Test End cases, messages over 2x length, at max length, and others.

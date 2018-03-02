@@ -4,11 +4,13 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package main
+package io
 
-import "gitlab.com/privategrity/client/cmd"
+import (
+	"gitlab.com/privategrity/comms/mixclient"
+)
 
-// main needs no introduction.
-func main() {
-	cmd.Execute()
+// Disconnect from the server
+func Disconnect(address string) {
+	mixclient.Disconnect(address)
 }

@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package api
 
 import (
@@ -45,4 +51,12 @@ func GetNick(userId int) string {
 	} else {
 		return ""
 	}
+}
+
+// Logout closes the connection to the server at this time and does
+// nothing with the user id. In the future this will release resources
+// and safely release any sensitive memory.
+func Logout(userId int, serverAddress string) bool {
+	io.Disconnect(serverAddress)
+	return true
 }

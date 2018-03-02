@@ -39,7 +39,8 @@ const (
 
 //TODO: generate ranges programmatic
 
-
+//Holds the payloads once they have been serialized
+//MIC stands for Message identification code
 type MessageBytes struct{
 	Payload 	 *cyclic.Int
 	PayloadMIC	 *cyclic.Int
@@ -99,40 +100,54 @@ func NewMessage(sender, recipient uint64, text string) []*Message {
 	return messageList
 }
 
-// These functions return pointers to the internal data in MessageCyclic
+// This function returns a pointer to the sender ID in Message
 // This ensures that while the data can be edited, it cant be reallocated
 func (m *Message)GetSenderID() *cyclic.Int{
 	return m.senderID
 }
 
+// This function returns a pointer to the payload in Message
+// This ensures that while the data can be edited, it cant be reallocated
 func (m *Message)GetPayload() *cyclic.Int{
 	return m.payload
 }
 
+// This function returns a pointer to the Recipient ID in Message
+// This ensures that while the data can be edited, it cant be reallocated
 func (m *Message)GetRecipientID() *cyclic.Int{
 	return m.recipientID
 }
 
+// This function returns a pointer to the Payload Initiliztion Vector in 
+// Message
+// This ensures that while the data can be edited, it cant be reallocated
 func (m *Message)GetPayloadInitVector() *cyclic.Int{
 	return m.payloadInitVect
 }
 
+// This function returns a pointer to the Recipient ID Initilization Vector in 
+// Message
+// This ensures that while the data can be edited, it cant be reallocated
 func (m *Message)GetRecipientInitVector() *cyclic.Int{
 	return m.recipientInitVect
 }
 
+// This function returns the Sender ID as a uint64 from Message
 func (m *Message) getSenderIDInt() uint64{
 	return m.senderID.Uint64()
 }
 
+// This function returns the Recipient ID as a uint64 from Message
 func (m *Message) getRecipientIDInt() uint64{
 	return m.recipientID.Uint64()
 }
 
+// This function returns a Payload String from Message
 func (m *Message) GetPayloadString() string{
 	return string(m.payload.Bytes())
 }
 
+//Builds the Serialized MessageBytes from Message
 func (m *Message)ConstructMessageBytes() *MessageBytes{
 
 	/*CONSTRUCT MESSAGE PAYLOAD*/
@@ -179,6 +194,7 @@ func (m *Message)ConstructMessageBytes() *MessageBytes{
 	return mb
 }
 
+//Deserializes MessageBytes
 func (mb *MessageBytes)DeconstructMessageBytes() *Message{
 	return &Message{
 		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[SID_START:SID_END]),

@@ -14,6 +14,8 @@ import (
 // surrounding the User struct and the UserRegistry interface
 func TestUserSession(t *testing.T) {
 
+	Session = newUserSession(1)
+
 	if Session.GetCurrentUser() != nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	}
@@ -56,7 +58,7 @@ func TestUserSession(t *testing.T) {
 		}
 	}
 
-	inmsg := NewMessage(42, 69,"test")[0]
+	inmsg := NewMessage(42, 69, "test")[0]
 
 	Session.PushFifo(inmsg)
 

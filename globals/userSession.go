@@ -11,8 +11,7 @@ import (
 )
 
 // Globally instantiated UserSession
-//
-var Session = newUserSession(1)
+var Session UserSession
 
 // Interface for User Session operations
 type UserSession interface {
@@ -97,6 +96,10 @@ func (s *sessionObj) GetKeys() []NodeKeys {
 
 func (s *sessionObj) GetPrivateKey() *cyclic.Int {
 	return s.privateKey
+}
+
+func InitSession(numNodes int) {
+	Session = newUserSession(numNodes)
 }
 
 // Set CurrentUser to the user corresponding to the given id

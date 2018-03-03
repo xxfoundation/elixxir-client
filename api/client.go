@@ -21,6 +21,10 @@ func Login(userId int, serverAddress string) bool {
 	return isValidUser
 }
 
+func InitSession(numNodes int) {
+	globals.InitSession(numNodes)
+}
+
 func Send(recipientID int, message string) {
 	// NewMessage takes the ID of the sender, not the recipient
 	sender := globals.Session.GetCurrentUser()
@@ -28,7 +32,7 @@ func Send(recipientID int, message string) {
 	newMessages := globals.NewMessage(sender.Id, uint64(recipientID), message)
 
 	// Prepare the new messages to be sent
-	for _, newMessage := range (newMessages) {
+	for _, newMessage := range newMessages {
 		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
 		// Send the message
 		io.TransmitMessage(globals.Session.GetNodeAddress(), newMessageBytes)

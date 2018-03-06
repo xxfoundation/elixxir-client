@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -46,7 +47,7 @@ var rootCmd = &cobra.Command{
 		for {
 			msg := api.TryReceive()
 			if msg != "" {
-				jww.INFO.Printf("Message Received: %s", msg)
+				fmt.Printf("Message Received: %s\n", msg)
 				break
 			}
 		}

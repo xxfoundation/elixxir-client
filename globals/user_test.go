@@ -14,38 +14,38 @@ import (
 // surrounding the User struct and the UserRegistry interface
 func TestUserRegistry(t *testing.T) {
 
-	if Users.CountUsers() != 5 {
+	if Users.CountUsers() != 1000 {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 
-	usr, _ := Users.GetUser(1)
-
-	if usr.Nick != "Phineas Flynn" {
-		t.Errorf("User 1 is not 'Phineas Flynn'")
+	reg, _ := Users.LookupUser(10001)
+	usr, _ := Users.GetUser(reg)
+	if usr.Nick != "David" {
+		t.Errorf("User 10001 is not 'David'")
 	}
 
-	usr, _ = Users.GetUser(2)
-
-	if usr.Nick != "Ferb Flynn" {
-		t.Errorf("User 2 is not 'Ferb Flynn'")
+	reg, _ = Users.LookupUser(10002)
+	usr, _ = Users.GetUser(reg)
+	if usr.Nick != "Jim" {
+		t.Errorf("User 10002 is not 'Jim'")
 	}
 
-	usr, _ = Users.GetUser(3)
-
-	if usr.Nick != "Cadance Flynn" {
-		t.Errorf("User 3 is not 'Cadance Flynn'")
+	reg, _ = Users.LookupUser(10003)
+	usr, _ = Users.GetUser(reg)
+	if usr.Nick != "Ben" {
+		t.Errorf("User 10008 is not 'Will'")
 	}
 
-	usr, _ = Users.GetUser(4)
-
-	if usr.Nick != "Perry the Platypus" {
-		t.Errorf("User 4 is not 'Perry the Platypus'")
+	reg, _ = Users.LookupUser(10004)
+	usr, _ = Users.GetUser(reg)
+	if usr.Nick != "Rick" {
+		t.Errorf("User 10003 is not 'Ben'")
 	}
 
-	usr, _ = Users.GetUser(5)
-
-	if usr.Nick != "Heinz Doofenshmirtz" {
-		t.Errorf("User 5 is not 'Heinz Doofenshmirtz'")
+	reg, _ = Users.LookupUser(10005)
+	usr, _ = Users.GetUser(reg)
+	if usr.Nick != "Spencer" {
+		t.Errorf("User 10004 is not 'Rick'")
 	}
 
 }

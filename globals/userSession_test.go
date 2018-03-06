@@ -22,7 +22,7 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("Error: Unable to login with valid user!")
 	}
 
-	if Session.Login(1, "") {
+	if Session.Login(10001, "") {
 		t.Errorf("Error: Able to login with invalid user!")
 	}
 

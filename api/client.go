@@ -24,7 +24,7 @@ func Login(userId int, serverAddress string) bool {
 func Send(recipientID int, message string) {
 	// NewMessage takes the ID of the sender, not the recipient
 	sender := globals.Session.GetCurrentUser()
-	newMessage := globals.NewMessage(sender.Id, message)
+	newMessage := globals.NewMessage(sender.UID, message)
 
 	// Prepare the new message to be sent
 	payload, rid := crypto.Encrypt(newMessage, uint64(recipientID))

@@ -15,7 +15,7 @@ import (
 func TransmitMessage(addr string, messageBytes, recipientBytes *[]byte) {
 
 	cmixmsg := &pb.CmixMessage{
-		SenderID:       globals.Session.GetCurrentUser().Id,
+		SenderID:       globals.Session.GetCurrentUser().UID,
 		MessagePayload: *messageBytes,
 		RecipientID:    *recipientBytes,
 	}

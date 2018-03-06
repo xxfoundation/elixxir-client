@@ -42,6 +42,7 @@ var rootCmd = &cobra.Command{
 		// Main client run function
 		api.InitSession(numNodes)
 		api.Login(userId, serverAddr)
+		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 		api.Send(destinationUserId, message)
 		// Loop until we get a message, then print and exit
 		for {

@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"os"
+	"time"
 )
 
 var verbose bool
@@ -51,6 +52,7 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Message Received: %s\n", msg)
 				break
 			}
+			time.Sleep(2 * time.Second)
 		}
 	},
 }

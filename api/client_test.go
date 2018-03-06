@@ -14,6 +14,8 @@ func TestLogin(t *testing.T) {
 	tests := len(expected)
 	pass := 0
 
+	InitSession(1)
+
 	for i := 0; i < tests; i++ {
 		actual[i] = Login(i, "127.0.0.1")
 	}

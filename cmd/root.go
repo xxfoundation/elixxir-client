@@ -8,11 +8,13 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"os"
+	"time"
 )
 
 var verbose bool
@@ -20,6 +22,7 @@ var userId int
 var destinationUserId int
 var serverAddr string
 var message string
+var numNodes int
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -38,15 +41,18 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
+		api.InitSession(numNodes)
 		api.Login(userId, serverAddr)
+		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 		api.Send(destinationUserId, message)
 		// Loop until we get a message, then print and exit
 		for {
 			msg := api.TryReceive()
 			if msg != "" {
-				jww.INFO.Printf("Message Received: %s", msg)
+				fmt.Printf("Message Received: %s\n", msg)
 				break
 			}
+			time.Sleep(2 * time.Second)
 		}
 	},
 }
@@ -67,10 +73,13 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")
 	rootCmd.MarkPersistentFlagRequired("serveraddr")
+	// TODO: support this negotiating separate keys with different servers
+	rootCmd.PersistentFlags().IntVarP(&numNodes, "numnodes", "n", 1,
+		"The number of servers in the network that the client is"+
+			" connecting to")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().IntVarP(&destinationUserId, "destid", "d", 0,
 		"UserID to send message to")
@@ -89,12 +98,14 @@ func initLog() {
 		jww.SetLogThreshold(jww.LevelInfo)
 		jww.SetStdoutThreshold(jww.LevelInfo)
 	}
-	// Create log file, overwrites if existing
-	logPath := viper.GetString("logPath")
-	logFile, err := os.Create(logPath)
-	if err != nil {
-		jww.WARN.Println("Invalid or missing log path, default path used.")
-	} else {
-		jww.SetLogOutput(logFile)
+	if viper.Get("logPath") != nil {
+		// Create log file, overwrites if existing
+		logPath := viper.GetString("logPath")
+		logFile, err := os.Create(logPath)
+		if err != nil {
+			jww.WARN.Println("Invalid or missing log path, default path used.")
+		} else {
+			jww.SetLogOutput(logFile)
+		}
 	}
 }

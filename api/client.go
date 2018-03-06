@@ -21,21 +21,28 @@ func Login(userId int, serverAddress string) bool {
 	return isValidUser
 }
 
+func InitSession(numNodes int) {
+	globals.InitSession(numNodes)
+}
+
 func Send(recipientID int, message string) {
 	// NewMessage takes the ID of the sender, not the recipient
 	sender := globals.Session.GetCurrentUser()
-	newMessage := globals.NewMessage(sender.UID, message)
+	// TODO: don't lose data with this type cast
+	newMessages := globals.NewMessage(sender.UID, uint64(recipientID), message)
 
-	// Prepare the new message to be sent
-	payload, rid := crypto.Encrypt(newMessage, uint64(recipientID))
-	// Send the message
-	io.TransmitMessage(globals.Session.GetNodeAddress(), payload, rid)
+	// Prepare the new messages to be sent
+	for _, newMessage := range newMessages {
+		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
+		// Send the message
+		io.TransmitMessage(globals.Session.GetNodeAddress(), newMessageBytes)
+	}
 }
 
 func TryReceive() string {
 	message := globals.Session.PopFifo()
 	if message != nil {
-		return message.GetStringPayload()
+		return message.GetPayloadString()
 	} else {
 		return ""
 	}

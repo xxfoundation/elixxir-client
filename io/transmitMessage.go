@@ -12,12 +12,12 @@ import (
 	"gitlab.com/privategrity/comms/mixclient"
 )
 
-func TransmitMessage(addr string, messageBytes, recipientBytes *[]byte) {
+func TransmitMessage(addr string, messageBytes *globals.MessageBytes) {
 
 	cmixmsg := &pb.CmixMessage{
-		SenderID:       globals.Session.GetCurrentUser().UID,
-		MessagePayload: *messageBytes,
-		RecipientID:    *recipientBytes,
+	    SenderID: 		globals.Session.GetCurrentUser().UID,
+		MessagePayload: messageBytes.Payload.Bytes(),
+		RecipientID:    messageBytes.Recipient.Bytes(),
 	}
 
 	mixclient.SendMessageToServer(addr, cmixmsg)

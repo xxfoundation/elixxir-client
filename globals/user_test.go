@@ -8,14 +8,13 @@ package globals
 
 import (
 	"testing"
-	"gitlab.com/privategrity/server/globals"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
 // surrounding the User struct and the UserRegistry interface
 func TestUserRegistry(t *testing.T) {
 
-	if Users.CountUsers() != DEMO_USERS {
+	if Users.CountUsers() != NUM_DEMO_USERS {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 

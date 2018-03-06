@@ -13,7 +13,7 @@ import (
 
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
-var DEMO_USERS = int(1000)
+var NUM_DEMO_USERS = int(1000)
 
 // Interface for User Registry operations
 type UserRegistry interface {
@@ -37,7 +37,7 @@ func newUserRegistry() UserRegistry {
 	uc := make(map[uint64]*User)
 	ul := make(map[uint64]uint64)
 	// Deterministically create 1000 users
-	for i := 1; i<=DEMO_USERS; i++ {
+	for i := 1; i<= NUM_DEMO_USERS; i++ {
 		t := new(User)
 		h := sha256.New()
 		// Generate user parameters
@@ -65,7 +65,7 @@ func newUserRegistry() UserRegistry {
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
-	idCounter: uint64(DEMO_USERS),
+	idCounter: uint64(NUM_DEMO_USERS),
 	userLookup: ul})
 }
 

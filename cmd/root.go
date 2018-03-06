@@ -94,12 +94,14 @@ func initLog() {
 		jww.SetLogThreshold(jww.LevelInfo)
 		jww.SetStdoutThreshold(jww.LevelInfo)
 	}
-	// Create log file, overwrites if existing
-	logPath := viper.GetString("logPath")
-	logFile, err := os.Create(logPath)
-	if err != nil {
-		jww.WARN.Println("Invalid or missing log path, default path used.")
-	} else {
-		jww.SetLogOutput(logFile)
+	if viper.Get("logPath") != nil {
+		// Create log file, overwrites if existing
+		logPath := viper.GetString("logPath")
+		logFile, err := os.Create(logPath)
+		if err != nil {
+			jww.WARN.Println("Invalid or missing log path, default path used.")
+		} else {
+			jww.SetLogOutput(logFile)
+		}
 	}
 }

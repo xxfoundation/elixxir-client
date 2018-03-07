@@ -32,16 +32,15 @@ func TestLogin(t *testing.T) {
 }
 
 func TestGetNick(t *testing.T) {
-	expected := []string{"", "Phineas Flynn", "Ferb Flynn", "Cadance Flynn",
-		"Perry the Platypus", "Heinz Doofenshmirtz"}
-	actual := make([]string, 6)
+	expected := []string{"David", "Jim", "Ben", "Rick", "Spencer"}
+	actual := make([]string, 5)
 	tests := len(expected)
 	pass := 0
 
-	for i := 1; i < tests; i++ {
-		actual[i] = GetNick(i)
+	for i := 0; i < tests; i++ {
+		actual[i] = GetNick(i+1)
 	}
-	for i := 1; i < tests; i++ {
+	for i := 0; i < tests; i++ {
 		if actual[i] != expected[i] {
 			t.Errorf("Test of GetNick() failed: expected[%v]=%v, actual[%v]=%v\n",
 				i, expected[i], i, actual[i])

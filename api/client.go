@@ -29,7 +29,7 @@ func Send(recipientID int, message string) {
 	// NewMessage takes the ID of the sender, not the recipient
 	sender := globals.Session.GetCurrentUser()
 	// TODO: don't lose data with this type cast
-	newMessages := globals.NewMessage(sender.Id, uint64(recipientID), message)
+	newMessages := globals.NewMessage(sender.UID, uint64(recipientID), message)
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {

@@ -123,7 +123,7 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	if s.currentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			Id:   s.currentUser.Id,
+			UID:   s.currentUser.UID,
 			Nick: s.currentUser.Nick,
 		}
 	}

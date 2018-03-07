@@ -19,7 +19,7 @@ func runfunc(wait uint64, addr string) {
 
 	usr := globals.Session.GetCurrentUser()
 
-	rqMsg := &pb.ClientPollMessage{UserID: usr.Id}
+	rqMsg := &pb.ClientPollMessage{UserID: usr.UID}
 	for true {
 		time.Sleep(time.Duration(wait) * time.Millisecond)
 

@@ -1,0 +1,61 @@
+package globals
+
+import (
+	"testing"
+	"time"
+)
+
+func TestNewThreadTerminator(t *testing.T){
+
+	term := NewThreadTerminator()
+
+	var success bool
+
+	go func(term ThreadTerminator){
+		term <- nil
+	}(term)
+
+	timer := time.NewTimer(time.Duration(1000) * time.Millisecond)
+	defer timer.Stop()
+
+	select{
+	case _ = <- term: success = true
+	case <-timer.C: success = false
+	}
+
+	if !success{
+		t.Errorf("NewThreadTerminator: Could not use the ThreadTerminator to" +
+			" stop a thread")
+	}
+
+}
+
+func TestBlockinngTerminate(t *testing.T){
+
+	term := NewThreadTerminator()
+
+
+	go func(term ThreadTerminator){
+		var killNotify chan<- bool
+
+		q := false
+
+		for !q{
+			select{
+			case killNotify = <-term: q = true
+		}
+
+		close(term)
+
+		killNotify <- true
+
+		}
+	}(term)
+
+	success := term.BlockinngTerminate(1000)
+
+	if !success{
+		t.Errorf("BlockinngTerminate: Thread did not terminate in time")
+	}
+
+}

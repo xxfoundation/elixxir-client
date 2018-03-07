@@ -28,9 +28,9 @@ func TestInitStorage(t *testing.T) {
 	//	LocalStorage.GetLocation())
 
 	// Test DS save
-	suc := true
-	LocalStorage, suc = LocalStorage.Save(TestData)
-	if !suc {
+	err := error(nil)
+	LocalStorage, err = LocalStorage.Save(TestData)
+	if err != nil {
 		t.Errorf("ds.Save failed to create a save file at: %v",
 			LocalStorage.GetLocation())
 	}
@@ -49,7 +49,7 @@ func TestInitStorage(t *testing.T) {
 	// Test RamStorage
 	LocalStorage = nil
 	store := RamStorage{new([]byte)}
-	suc = InitStorage(store,"")
+	suc := InitStorage(store,"")
 	if suc != true {
 		t.Errorf("InitStorage failed to initialize a RamStorage")
 	}

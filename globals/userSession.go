@@ -53,11 +53,11 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 		nodeAddress: nodeAddr,
 		fifo:        nil,
 		keys:        nk,
-		pollKill: 	 nil,
+		pollTerm: 	 nil,
 		privateKey:  cyclic.NewMaxInt()})
 }
 
-func LoadSession(UID uint64, pollch chan chan bool)(bool){
+func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 	if LocalStorage == nil {
 		jww.ERROR.Println("StoreSession: Local Storage not avalible")
 		return false
@@ -89,7 +89,7 @@ func LoadSession(UID uint64, pollch chan chan bool)(bool){
 
 	session.fifo = make(chan *Message, 100)
 
-	session.pollKill = pollch
+	session.pollTerm = pollTerm
 
 	Session = &session
 
@@ -108,7 +108,7 @@ type sessionObj struct {
 	nodeAddress string
 
 	// Used to kill the polling reception thread
-	pollKill chan chan bool
+	pollTerm ThreadTerminator
 
 	keys       []NodeKeys
 	privateKey *cyclic.Int
@@ -223,9 +223,9 @@ func (s *sessionObj) Immolate()(bool) {
 	}
 
 	//Kill Polling Reception
-	if s.pollKill != nil{
-		s.blockTerminatePolling()
+	if s.pollTerm != nil{
 
+		s.pollTerm.BlockinngTerminate(1000)
 		//Clear message fifo
 		for {
 			select {
@@ -271,12 +271,7 @@ func (s *sessionObj) Immolate()(bool) {
 	return true
 }
 
-func (s *sessionObj) blockTerminatePolling(){
-	killNotify := make(chan bool)
-	s.pollKill <- killNotify
-	_ = <- killNotify
-	close(killNotify)
-}
+
 
 func clearCyclicInt(c *cyclic.Int){
 	c.Set(cyclic.NewMaxInt())

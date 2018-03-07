@@ -102,9 +102,9 @@ func Login(UID uint64) bool {
 
 
 
-	pollkill := make(chan chan bool)
+	pollTerm := globals.NewThreadTerminator()
 
-	success := globals.LoadSession(UID, pollkill)
+	success := globals.LoadSession(UID, pollTerm)
 
 	if !success {
 		jww.ERROR.Printf("Login: Could not login")
@@ -112,8 +112,7 @@ func Login(UID uint64) bool {
 	}
 
 	pollWaitTimeMillis := uint64(1000)
-	io.InitReceptionRunner(pollWaitTimeMillis,
-		globals.Session.GetNodeAddress(), pollkill)
+	io.InitReceptionRunner(pollWaitTimeMillis, pollTerm)
 
 	return true
 }

@@ -15,7 +15,7 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 )
 
-func runfunc(wait uint64, addr string, quit chan chan bool) {
+func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 	usr := globals.Session.GetCurrentUser()
 
@@ -33,7 +33,7 @@ func runfunc(wait uint64, addr string, quit chan chan bool) {
 			default:
 				time.Sleep(time.Duration(wait) * time.Millisecond)
 
-				cmixMsg, _ := mixclient.SendClientPoll(addr, rqMsg)
+				cmixMsg, _ := mixclient.SendClientPoll(globals.Session.GetNodeAddress(), rqMsg)
 
 				if len(cmixMsg.MessagePayload) != 0 {
 
@@ -54,18 +54,22 @@ func runfunc(wait uint64, addr string, quit chan chan bool) {
 
 	close(quit)
 
-	killNotify <- true
+	if killNotify != nil{
+		killNotify <- true
+	}
 
 }
 
-func InitReceptionRunner(wait uint64, addr string,
-	quit chan chan bool)(chan chan bool) {
+//Starts the reception runner which waits "wait" between checks,
+// and quits via the "quit" chan
+func InitReceptionRunner(wait uint64,
+	quit globals.ThreadTerminator)( globals.ThreadTerminator) {
 
 	if quit == nil {
-		quit = make(chan chan bool)
+		quit = globals.NewThreadTerminator()
 	}
 
-	go runfunc(wait, addr, quit)
+	go runfunc(wait, quit)
 
 	return quit
 }

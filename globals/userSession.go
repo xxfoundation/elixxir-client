@@ -14,7 +14,6 @@ import (
 	"math"
 	"time"
 	"math/rand"
-	"gitlab.com/privategrity/client/io"
 )
 
 // Globally instantiated UserSession
@@ -58,7 +57,7 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 		privateKey:  cyclic.NewMaxInt()})
 }
 
-func LoadSession(UID uint64)(bool){
+func LoadSession(UID uint64, pollch chan chan bool)(bool){
 	if LocalStorage == nil {
 		jww.ERROR.Println("StoreSession: Local Storage not avalible")
 		return false
@@ -90,11 +89,9 @@ func LoadSession(UID uint64)(bool){
 
 	session.fifo = make(chan *Message, 100)
 
+	session.pollKill = pollch
+
 	Session = &session
-
-	pollWaitTimeMillis := uint64(1000)
-	io.InitReceptionRunner(pollWaitTimeMillis, Session.GetNodeAddress())
-
 
 	return true
 }

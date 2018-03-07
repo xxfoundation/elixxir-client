@@ -58,9 +58,12 @@ func runfunc(wait uint64, addr string, quit chan chan bool) {
 
 }
 
-func InitReceptionRunner(wait uint64, addr string)(chan chan bool) {
+func InitReceptionRunner(wait uint64, addr string,
+	quit chan chan bool)(chan chan bool) {
 
-	quit := make (chan chan bool)
+	if quit == nil {
+		quit = make(chan chan bool)
+	}
 
 	go runfunc(wait, addr, quit)
 

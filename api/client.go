@@ -99,12 +99,22 @@ func Register(HUID uint64, nick string, nodeAddr string,
 }
 
 func Login(UID uint64) bool {
-	success := globals.LoadSession(UID)
+
+
+
+	pollkill := make(chan chan bool)
+
+	success := globals.LoadSession(UID, pollkill)
 
 	if !success {
 		jww.ERROR.Printf("Login: Could not login")
 		return false
 	}
+
+	pollWaitTimeMillis := uint64(1000)
+	io.InitReceptionRunner(pollWaitTimeMillis,
+		globals.Session.GetNodeAddress(), pollkill)
+
 	return true
 }
 

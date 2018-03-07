@@ -15,7 +15,7 @@ func (t ThreadTerminator)Terminate(){
 
 // Try's to kill a thread controlled by a termination channel for the length of
 // the timeout, returns its success. pass 0 for no timeout
-func (t ThreadTerminator)BlockinngTerminate(timeout uint64)(bool){
+func (t ThreadTerminator) BlockingTerminate(timeout uint64)(bool){
 
 	killNotify := make(chan bool)
 	defer close(killNotify)

@@ -30,7 +30,7 @@ func TestNewThreadTerminator(t *testing.T){
 
 }
 
-func TestBlockinngTerminate(t *testing.T){
+func TestBlockingTerminate(t *testing.T){
 
 	term := NewThreadTerminator()
 
@@ -52,10 +52,10 @@ func TestBlockinngTerminate(t *testing.T){
 		}
 	}(term)
 
-	success := term.BlockinngTerminate(1000)
+	success := term.BlockingTerminate(1000)
 
 	if !success{
-		t.Errorf("BlockinngTerminate: Thread did not terminate in time")
+		t.Errorf("BlockingTerminate: Thread did not terminate in time")
 	}
 
 }

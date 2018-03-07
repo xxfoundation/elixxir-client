@@ -23,7 +23,7 @@ func InitStorage(store Storage, location string)(bool){
 		intermediateStorage = store
 	}
 
-	success := intermediateStorage.SetLocation(location)
+	intermediateStorage, success := intermediateStorage.SetLocation(location)
 
 	if !success{
 		jww.ERROR.Printf("Invalid Local Storage Location")
@@ -36,8 +36,9 @@ func InitStorage(store Storage, location string)(bool){
 }
 
 type Storage interface{
-	SetLocation(string)(bool)
-	Save([]byte)(bool)
+	SetLocation(string)(Storage, bool)
+	GetLocation()(string)
+	Save([]byte)(Storage, bool)
 	Load()([]byte)
 }
 
@@ -45,23 +46,28 @@ type DefaultStorage struct{
 	location string
 }
 
-func (ds DefaultStorage) SetLocation (location string) (bool){
+func (ds DefaultStorage) SetLocation (location string) (Storage, bool){
 	ds.location = location
-	return true
+	return ds, true
+}
+
+func (ds DefaultStorage) GetLocation () (string) {
+	return ds.location
 }
 
 
-func (ds DefaultStorage) Save(data []byte) bool{
+func (ds DefaultStorage) Save(data []byte) (Storage, bool){
 	//check if the file exists, delete if it does
 	_, err1 := os.Stat(ds.location)
 
 	if err1 == nil {
+		//jww.INFO.Printf("Storage file already exists, deleting.")
 		os.Remove(ds.location)
 	}else if !os.IsNotExist(err1){
 		jww.ERROR.Printf("Default Storage Save: Unknown Error Occurred on" +
 			" file check: \n  %v",
 			err1.Error())
-		return false
+		return ds, false
 	}
 
 	//create new file
@@ -72,7 +78,7 @@ func (ds DefaultStorage) Save(data []byte) bool{
 	if err2!=nil {
 		jww.ERROR.Printf("Default Storage Save: Unknown Error Occurred on" +
 			" file creation: \n %v",	err2.Error())
-		return false
+		return ds, false
 	}
 
 	//Save to file
@@ -81,10 +87,10 @@ func (ds DefaultStorage) Save(data []byte) bool{
 	if err3 != nil{
 		jww.ERROR.Printf("Default Storage Save: Unknown Error Occurred on" +
 			" file write: \n %v",	err3.Error())
-		return false
+		return ds, false
 	}
 
-	return true
+	return ds, true
 }
 
 func (ds DefaultStorage)Load() ([]byte){
@@ -124,22 +130,24 @@ func (ds DefaultStorage)Load() ([]byte){
 }
 
 type RamStorage struct{
-	data []byte
+	data *[]byte
+	//data []byte
 }
 
-func (rs RamStorage) SetLocation (location string) (bool){
-	return true
+func (rs RamStorage) SetLocation (location string) (Storage, bool){
+	return rs, true
 }
 
-func (rs RamStorage) Save(data []byte)(bool){
-	rs.data = make([]byte,len(data))
-	copy(rs.data,data)
-	return true
+func (rs RamStorage) GetLocation () (string) {
+	return ""
+}
+
+func (rs RamStorage) Save(data []byte)(Storage, bool){
+	*rs.data = data
+	return rs, true
 }
 
 func (rs RamStorage) Load() ([]byte){
-	b := make([]byte,len(rs.data))
-	copy(b,rs.data)
-	return b
+	return *rs.data
 }
 

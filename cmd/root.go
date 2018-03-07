@@ -15,14 +15,16 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"os"
 	"time"
+	"gitlab.com/privategrity/client/globals"
 )
 
 var verbose bool
-var userId int
-var destinationUserId int
+var userId uint64
+var destinationUserId uint64
 var serverAddr string
 var message string
 var numNodes int
+var sessionFile string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -41,19 +43,75 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
-		api.InitSession(numNodes)
-		api.Login(userId, serverAddr)
+
+		var success bool
+
+		register := false
+
+		if sessionFile == ""{
+			success = api.InitClient(globals.RamStorage{},"")
+			if !success{
+				fmt.Println("Could Not Initilize Ram Storage")
+				return
+			}
+			register = true
+		}else{
+
+			_, err := os.Stat(sessionFile)
+
+			if err!=nil{
+				if os.IsNotExist(err){
+					register = true
+				} else{
+					fmt.Println("Error with file path: %v", err.Error())
+				}
+			}
+
+
+			success = api.InitClient(globals.DefaultStorage{},sessionFile)
+
+			if !success{
+				fmt.Println("Could Not Initilize OS Storage")
+				return
+			}
+		}
+
+		if register{
+			UID := api.Register(globals.UserHash(userId),
+				"",serverAddr, 	numNodes)
+			if UID==0{
+				fmt.Println("Could Not Register User")
+				return
+			}
+		}
+
+		success = api.Login(userId)
+
+		if !success {
+			fmt.Println("Could Not Log In ")
+			return
+		}
+
 		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
-		api.Send(destinationUserId, message)
+
+		api.Send(api.APIMessage{userId,message,destinationUserId})
 		// Loop until we get a message, then print and exit
 		for {
 			msg := api.TryReceive()
-			if msg != "" {
-				fmt.Printf("Message Received: %s\n", msg)
+			if msg.Payload != "" {
+				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
 				break
 			}
-			time.Sleep(2 * time.Second)
+			time.Sleep(200 * time.Millisecond)
 		}
+
+		success = api.Logout()
+
+		if !success{
+			fmt.Printf("Could not logout")
+			return
+		}
+
 	},
 }
 
@@ -67,7 +125,7 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Verbose mode for debugging")
-	rootCmd.PersistentFlags().IntVarP(&userId, "userid", "i", 0,
+	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
 	rootCmd.MarkPersistentFlagRequired("userid")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
@@ -78,10 +136,16 @@ func init() {
 		"The number of servers in the network that the client is"+
 			" connecting to")
 
+	rootCmd.PersistentFlags().StringVarP(&sessionFile,"sessionfile", "f",
+		"", "Passes a file path for loading a session.  " +
+			"If the file doesn't exist the code will register the user and" +
+				" store it there.  If not passed the session will be stored" +
+					" to ram and lost when the cli finishes")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
-	rootCmd.PersistentFlags().IntVarP(&destinationUserId, "destid", "d", 0,
+	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"UserID to send message to")
 }
 

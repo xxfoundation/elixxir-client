@@ -8,6 +8,13 @@ package globals
 
 import (
 	"gitlab.com/privategrity/crypto/cyclic"
+	"bytes"
+	"encoding/gob"
+	jww "github.com/spf13/jwalterweatherman"
+	"math"
+	"time"
+	"math/rand"
+	"gitlab.com/privategrity/client/io"
 )
 
 // Globally instantiated UserSession
@@ -15,13 +22,14 @@ var Session UserSession
 
 // Interface for User Session operations
 type UserSession interface {
-	Login(id uint64, addr string) (isValidUser bool)
 	GetCurrentUser() (currentUser *User)
 	GetNodeAddress() string
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
-	PushFifo(*Message)
+	PushFifo(*Message) (bool)
 	PopFifo() *Message
+	StoreSession() bool
+	Immolate() bool
 }
 
 type NodeKeys struct {
@@ -37,40 +45,58 @@ type RatchetKey struct {
 	Recursive *cyclic.Int
 }
 
-// Creates a new UserSession interface
-func newUserSession(numNodes int) UserSession {
-	keySlc := make([]NodeKeys, numNodes)
-
-	for i := 0; i < numNodes; i++ {
-		keySlc[i] = NodeKeys{PublicKey: cyclic.NewMaxInt(),
-			TransmissionKeys: RatchetKey{
-				Base: cyclic.NewIntFromString(
-					"c1248f42f8127999e07c657896a26b56fd9a499c6199e1265053132451128f52", 16),
-				Recursive: cyclic.NewIntFromString(
-					"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)},
-			ReceptionKeys: RatchetKey{
-				Base: cyclic.NewIntFromString(
-					"83120e7bfaba497f8e2c95457a28006f73ff4ec75d3ad91d27bf7ce8f04e772c", 16),
-				Recursive: cyclic.NewIntFromString(
-					"979e574166ef0cd06d34e3260fe09512b69af6a414cf481770600d9c7447837b", 16)},
-			ReceiptKeys: RatchetKey{
-				Base: cyclic.NewIntFromString(
-					"de9a521b7d86d7706e9e0e23b072348e268b1afd5c987a295026e2baa808b78e", 16),
-				Recursive: cyclic.NewIntFromString(
-					"9b455586c58c77c0ff59520bfd7771d3f8dc4bddb63707cd7930a711f155ab8c", 16)},
-			ReturnKeys: RatchetKey{
-				Base: cyclic.NewIntFromString(
-					"fa7fe4aea8c9f57d462b2902fb6ef7235be7d5b62ceb10fee3a2852ad799bbbc", 16),
-				Recursive: cyclic.NewIntFromString(
-					"2af0a99575b36d39acc1e97df58f8655438f716134a693ffea03e2ce519870ce", 16)}}
-	}
+// Creates a new UserSession interface for registration
+func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
 	return UserSession(&sessionObj{
-		currentUser: nil,
-		fifo:        make(chan *Message, 100),
-		keys:        keySlc,
+		currentUser: u,
+		nodeAddress: nodeAddr,
+		fifo:        nil,
+		keys:        nk,
+		pollKill: 	 nil,
 		privateKey:  cyclic.NewMaxInt()})
+}
+
+func LoadSession(UID uint64)(bool){
+	if LocalStorage == nil {
+		jww.ERROR.Println("StoreSession: Local Storage not avalible")
+		return false
+	}
+
+	rand.Seed(time.Now().UnixNano())
+
+	sessionGob := LocalStorage.Load()
+
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Read(sessionGob)
+
+	dec := gob.NewDecoder(&sessionBytes)
+
+	var session sessionObj
+
+	err := dec.Decode(&session)
+
+	if err!=nil {
+		jww.ERROR.Println("LoadSession: unable to load session")
+		return false
+	}
+
+	if session.currentUser.UID!=UID{
+		jww.ERROR.Println("LoadSession: loaded incorrect user")
+		return false
+	}
+
+	session.fifo = make(chan *Message, 100)
+
+	Session = &session
+
+	pollWaitTimeMillis := uint64(1000)
+	io.InitReceptionRunner(pollWaitTimeMillis, Session.GetNodeAddress())
+
+
+	return true
 }
 
 // Struct holding relevant session data
@@ -84,10 +110,11 @@ type sessionObj struct {
 	// Node address that the user will send messages to
 	nodeAddress string
 
+	// Used to kill the polling reception thread
+	pollKill chan chan bool
+
 	keys       []NodeKeys
 	privateKey *cyclic.Int
-
-	grp cyclic.Group
 }
 
 func (s *sessionObj) GetKeys() []NodeKeys {
@@ -96,26 +123,6 @@ func (s *sessionObj) GetKeys() []NodeKeys {
 
 func (s *sessionObj) GetPrivateKey() *cyclic.Int {
 	return s.privateKey
-}
-
-func InitSession(numNodes int) {
-	Session = newUserSession(numNodes)
-}
-
-// Set CurrentUser to the user corresponding to the given id
-// if it exists. Return a bool for whether the given id exists
-func (s *sessionObj) Login(id uint64, addr string) (isValidUser bool) {
-	user, userExists := Users.GetUser(id)
-	// User must exist and no User can be previously logged in
-	if isValidUser = userExists && s.GetCurrentUser() == nil; isValidUser {
-		s.currentUser = user
-	}
-
-	s.nodeAddress = addr
-
-	initCrypto()
-
-	return
 }
 
 // Return a copy of the current user
@@ -134,23 +141,39 @@ func (s *sessionObj) GetNodeAddress() string {
 	return s.nodeAddress
 }
 
-func (s *sessionObj) PushFifo(msg *Message) {
+func (s *sessionObj) PushFifo(msg *Message)(bool) {
+
+	if s.fifo == nil {
+		jww.ERROR.Println("PushFifo: Cannot push an uninitialized fifo")
+		return false
+	}
 
 	if s.currentUser == nil {
-		return
+		jww.ERROR.Println("PushFifo: Cannot push a fifo for an uninitialized" +
+			" user")
+		return false
 	}
 
 	select {
 	case s.fifo <- msg:
-		return
+		return true
 	default:
-		return
+		jww.ERROR.Println("PushFifo: fifo full")
+		return false
 	}
 }
 
 func (s *sessionObj) PopFifo() *Message {
 
+	if s.fifo == nil {
+		jww.ERROR.Println("PopFifo: Cannot pop an uninitialized fifo")
+		return nil
+	}
+
+
 	if s.currentUser == nil {
+		jww.ERROR.Println("PopFifo: Cannot pop an fifo on an uninitialized" +
+			" user")
 		return nil
 	}
 
@@ -163,4 +186,119 @@ func (s *sessionObj) PopFifo() *Message {
 		return nil
 	}
 
+}
+
+
+func (s *sessionObj) StoreSession()(bool){
+
+	if LocalStorage == nil {
+		jww.ERROR.Println("StoreSession: Local Storage not avalible")
+		return false
+	}
+
+	var session bytes.Buffer
+
+	enc := gob.NewEncoder(&session)
+
+	err := enc.Encode(s)
+
+	if err!=nil{
+		jww.ERROR.Println("StoreSession: Could not encode and save user" +
+			" session")
+		return false
+	}
+
+	LocalStorage.Save(session.Bytes())
+
+	return true
+
+}
+
+
+
+// Scrubs all cryptographic data from ram and logs out
+// the ram overwriting can be improved
+func (s *sessionObj) Immolate()(bool) {
+	if s == nil {
+		jww.ERROR.Println("CryptographicallyImmolate: Cannot immolate when" +
+			" you are not alive")
+		return false
+	}
+
+	//Kill Polling Reception
+	if s.pollKill != nil{
+		s.blockTerminatePolling()
+
+		//Clear message fifo
+		for {
+			select {
+			case m := <-s.fifo:
+				clearCyclicInt(m.payload)
+				clearCyclicInt(m.senderID)
+				clearCyclicInt(m.recipientInitVect)
+				clearCyclicInt(m.recipientID)
+				clearCyclicInt(m.payloadInitVect)
+			default:
+				break
+			}
+		}
+
+		//close the message fifo
+		close(s.fifo)
+	}
+
+
+
+
+	// clear data stored in session
+	s.currentUser.UID = math.MaxUint64
+	s.currentUser.UID = 0
+	s.currentUser.Nick = burntString(len(s.currentUser.Nick))
+	s.currentUser.Nick = burntString(len(s.currentUser.Nick))
+	s.currentUser.Nick = ""
+
+	s.nodeAddress = burntString(len(s.nodeAddress))
+	s.nodeAddress = burntString(len(s.nodeAddress))
+	s.nodeAddress = ""
+
+	clearCyclicInt(s.privateKey)
+
+	for i:=0;i<len(s.keys);i++{
+		clearCyclicInt(s.keys[i].PublicKey)
+		clearRatchetKeys(&s.keys[i].TransmissionKeys)
+		clearRatchetKeys(&s.keys[i].ReceptionKeys)
+	}
+
+	Session = nil
+
+	return true
+}
+
+func (s *sessionObj) blockTerminatePolling(){
+	killNotify := make(chan bool)
+	s.pollKill <- killNotify
+	_ = <- killNotify
+	close(killNotify)
+}
+
+func clearCyclicInt(c *cyclic.Int){
+	c.Set(cyclic.NewMaxInt())
+	c.SetInt64(0)
+}
+
+func clearRatchetKeys(r *RatchetKey){
+	clearCyclicInt(r.Base)
+	clearCyclicInt(r.Recursive)
+}
+
+func burntString(length int)string{
+
+	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+
+	b := make([]rune, length)
+	for i := range b {
+		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	}
+
+	return string(b)
 }

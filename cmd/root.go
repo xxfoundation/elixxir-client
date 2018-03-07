@@ -23,7 +23,7 @@ var userId uint64
 var destinationUserId uint64
 var serverAddr string
 var message string
-var numNodes int
+var numNodes uint
 var sessionFile string
 
 // Execute adds all child commands to the root command and sets flags
@@ -44,51 +44,52 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
 
-		var success bool
+		var err error
 
 		register := false
 
 		if sessionFile == ""{
-			success = api.InitClient(globals.RamStorage{},"")
-			if !success{
-				fmt.Println("Could Not Initilize Ram Storage")
+			err = api.InitClient(globals.RamStorage{},"")
+			if err !=nil{
+				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
+					err.Error())
 				return
 			}
 			register = true
 		}else{
 
-			_, err := os.Stat(sessionFile)
+			_, err1 := os.Stat(sessionFile)
 
-			if err!=nil{
-				if os.IsNotExist(err){
+			if err1!=nil{
+				if os.IsNotExist(err1){
 					register = true
 				} else{
-					fmt.Println("Error with file path: %v", err.Error())
+					fmt.Printf("Error with file path: %s\n", err1.Error())
 				}
 			}
 
 
-			success = api.InitClient(globals.DefaultStorage{},sessionFile)
+			err = api.InitClient(globals.DefaultStorage{},sessionFile)
 
-			if !success{
-				fmt.Println("Could Not Initilize OS Storage")
+			if err!=nil {
+				fmt.Printf("Could Not Initilize OS Storage: %s\n",err.Error())
 				return
 			}
 		}
 
 		if register{
-			UID := api.Register(globals.UserHash(userId),
+			_, err := api.Register(globals.UserHash(userId),
 				"",serverAddr, 	numNodes)
-			if UID==0{
-				fmt.Println("Could Not Register User")
+			if err!=nil{
+				fmt.Printf("Could Not Register User: %s/n", err.Error())
 				return
 			}
 		}
 
-		success = api.Login(userId)
+		_, err = api.Login(userId)
 
-		if !success {
-			fmt.Println("Could Not Log In ")
+		if err!=nil {
+			fmt.Printf("Could Not Log In ")
 			return
 		}
 
@@ -97,7 +98,15 @@ var rootCmd = &cobra.Command{
 		api.Send(api.APIMessage{userId,message,destinationUserId})
 		// Loop until we get a message, then print and exit
 		for {
-			msg := api.TryReceive()
+			var msg api.APIMessage
+			msg, err = api.TryReceive()
+
+			if err!=nil{
+				fmt.Printf("Could not Receive Message: %s\n", err.Error())
+				break
+			}
+
+
 			if msg.Payload != "" {
 				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
 				break
@@ -105,10 +114,10 @@ var rootCmd = &cobra.Command{
 			time.Sleep(200 * time.Millisecond)
 		}
 
-		success = api.Logout()
+		err = api.Logout()
 
-		if !success{
-			fmt.Printf("Could not logout")
+		if err!=nil {
+			fmt.Printf("Could not logout: %s", err.Error())
 			return
 		}
 
@@ -132,7 +141,7 @@ func init() {
 		"Server address to send messages to")
 	rootCmd.MarkPersistentFlagRequired("serveraddr")
 	// TODO: support this negotiating separate keys with different servers
-	rootCmd.PersistentFlags().IntVarP(&numNodes, "numnodes", "n", 1,
+	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
 			" connecting to")
 

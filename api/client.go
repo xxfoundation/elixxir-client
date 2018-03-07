@@ -12,6 +12,7 @@ import (
 	"gitlab.com/privategrity/client/io"
 	jww "github.com/spf13/jwalterweatherman"
 	"math"
+	"errors"
 )
 
 //Structure used to return a message
@@ -23,24 +24,31 @@ type APIMessage struct{
 
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
-func InitClient(s globals.Storage, loc string)(bool){
+// returns in error if it fails
+func InitClient(s globals.Storage, loc string)(error){
+
+	var err error
 
 	storeState := globals.InitStorage(s, loc)
 
 	if !storeState{
-		jww.ERROR.Printf("could not init client")
+		err = errors.New("could not init client")
 	}
 
-	return storeState
+	return err
 }
 
-//Registers user and returns the User ID.  Returns 0 if registration fails.
+// Registers user and returns the User ID.
+// Returns an error if registration fails.
 func Register(HUID uint64, nick string, nodeAddr string,
-	numNodes int)(uint64){
+	numNodes uint)(uint64, error){
+
+	var err error
 
 	if numNodes<1{
 		jww.ERROR.Printf("Register: Invalid number of nodes")
-		return 0
+		err = errors.New("could not register due to invalid number of nodes")
+		return 0, err
 	}
 
 	UID, successLook := globals.Users.LookupUser(HUID)
@@ -48,19 +56,22 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	if !successLook {
 		jww.ERROR.Printf("Register: HUID does not match")
-		return 0
+		err = errors.New("could not register due to invalid HUID")
+		return 0, err
 	}
 
 	user, successGet  := globals.Users.GetUser(UID)
 
 	if !successGet {
 		jww.ERROR.Printf("Register: UID lookup failed")
-		return 0
+		err = errors.New("could not register due to UID lookup failure")
+		return 0, err
 	}
 
-	if len(nick) > 36 {
+	if len(nick) > 36 || len(nick)<1{
 		jww.ERROR.Printf("Register: Nickname too long")
-		return 0
+		err = errors.New("could not register due to invalid nickname")
+		return 0, err
 	}
 
 	user.Nick = nick
@@ -69,12 +80,13 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	if !successKeys {
 		jww.ERROR.Printf("Register: could not find user keys")
-		return 0
+		err = errors.New("could not register due to missing user keys")
+		return 0, err
 	}
 
 	nk := make([]globals.NodeKeys,numNodes)
 
-	for i:=0;i<numNodes;i++{
+	for i:=uint(0);i<numNodes;i++{
 		nk[i] = *nodekeys
 	}
 
@@ -84,23 +96,21 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	if !successStore{
 		jww.ERROR.Printf("Register: unable to save session")
-		return 0
+		err = errors.New("could not register due to failed session save")
+		return 0, err
 	}
-
-
 
 	nus.Immolate()
 	nus = nil
 
+	//TODO: Register nickname with contacts server
 
-	//TODO: Register nickname
-
-	return UID
+	return UID, err
 }
 
-func Login(UID uint64) bool {
-
-
+// Logs in user and returns their nickname.
+// returns an empty sting if login fails.
+func Login(UID uint64) (string, error) {
 
 	pollTerm := globals.NewThreadTerminator()
 
@@ -108,26 +118,26 @@ func Login(UID uint64) bool {
 
 	if !success {
 		jww.ERROR.Printf("Login: Could not login")
-		return false
+		return "", errors.New("could not login")
 	}
 
 	pollWaitTimeMillis := uint64(1000)
 	io.InitReceptionRunner(pollWaitTimeMillis, pollTerm)
 
-	return true
+	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func Send(message APIMessage) (bool){
+func Send(message APIMessage) (error){
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("Send: Could not send when not logged in")
-		return false
+		return errors.New("cannot send message when not logged in")
 	}
 
 	if message.Sender != globals.Session.GetCurrentUser().UID {
 		jww.ERROR.Printf("Send: Cannot send a message from someone other" +
 			" than yourself")
-		return false
+		return errors.New("cannot send message from a different user")
 	}
 
 	sender := globals.Session.GetCurrentUser()
@@ -140,17 +150,20 @@ func Send(message APIMessage) (bool){
 		io.TransmitMessage(globals.Session.GetNodeAddress(), newMessageBytes)
 	}
 
-	return true
+	return nil
 }
 
 // Checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
-func TryReceive() APIMessage {
+func TryReceive() (APIMessage, error) {
+
+	var err error
 
 	var m APIMessage
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
+		err = errors.New("cannot receive when not logged in")
 	}else{
 		message := globals.Session.PopFifo()
 		if message != nil {
@@ -160,17 +173,17 @@ func TryReceive() APIMessage {
 		}
 	}
 
-	return m
+	return m, err
 }
 
 
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
-func Logout() bool {
+func Logout() error {
 	if globals.Session == nil {
 		jww.ERROR.Printf("Logout: Cannot Logout when you are not logged in")
-		return false
+		return errors.New("cannot logout when you are not logged in")
 	}
 
 	io.Disconnect(globals.Session.GetNodeAddress())
@@ -179,17 +192,17 @@ func Logout() bool {
 
 	if !successStore {
 		jww.ERROR.Printf("Logout: Store Failed")
-		return false
+		return errors.New("cannot logout because state could not be saved")
 	}
 
 	successImmolate := globals.Session.Immolate()
 
 	if !successImmolate{
 		jww.ERROR.Printf("Logout: Immolation Failed")
-		return false
+		return errors.New("cannot logout because ram could not be cleared")
 	}
 
-	return true
+	return nil
 }
 
 func clearUint64(u *uint64){

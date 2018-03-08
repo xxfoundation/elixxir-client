@@ -15,7 +15,6 @@ import (
 	"time"
 	"math/rand"
 	"io"
-	"fmt"
 )
 
 // Globally instantiated UserSession
@@ -34,7 +33,7 @@ type UserSession interface {
 }
 
 type NodeKeys struct {
-	PublicKey        cyclic.Int
+	PublicKey        *cyclic.Int
 	TransmissionKeys RatchetKey
 	ReceptionKeys    RatchetKey
 	ReceiptKeys      RatchetKey
@@ -42,8 +41,8 @@ type NodeKeys struct {
 }
 
 type RatchetKey struct {
-	Base      cyclic.Int
-	Recursive cyclic.Int
+	Base      *cyclic.Int
+	Recursive *cyclic.Int
 }
 
 // Creates a new UserSession interface for registration
@@ -54,9 +53,9 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 		CurrentUser: u,
 		NodeAddress: nodeAddr,
 		fifo:        nil,
-		Keys:        nk,
+		Keys:        &nk,
 		pollTerm:    nil,
-		PrivateKey:  *cyclic.NewMaxInt()})
+		PrivateKey:  cyclic.NewMaxInt()})
 }
 
 func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
@@ -95,6 +94,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 		return false
 	}
 
+
 	session.fifo = make(chan *Message, 100)
 
 	session.pollTerm = pollTerm
@@ -118,16 +118,16 @@ type sessionObj struct {
 	// Used to kill the polling reception thread
 	pollTerm ThreadTerminator
 
-	Keys       []NodeKeys
-	PrivateKey cyclic.Int
+	Keys       *[]NodeKeys
+	PrivateKey *cyclic.Int
 }
 
 func (s *sessionObj) GetKeys() []NodeKeys {
-	return s.Keys
+	return *s.Keys
 }
 
 func (s *sessionObj) GetPrivateKey() *cyclic.Int {
-	return &s.PrivateKey
+	return s.PrivateKey
 }
 
 // Return a copy of the current user
@@ -274,13 +274,12 @@ func (s *sessionObj) Immolate()(bool) {
 	s.NodeAddress = burntString(len(s.NodeAddress))
 	s.NodeAddress = ""
 
-	clearCyclicInt(&s.PrivateKey)
+	clearCyclicInt(s.PrivateKey)
 
-	for i:=0;i<len(s.Keys);i++{
-		fmt.Println(s.Keys[i].PublicKey.Text(10))
-		clearCyclicInt(&s.Keys[i].PublicKey)
-		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
-		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
+	for i:=0;i<len(*s.Keys);i++{
+		clearCyclicInt((*s.Keys)[i].PublicKey)
+		clearRatchetKeys(&(*s.Keys)[i].TransmissionKeys)
+		clearRatchetKeys(&(*s.Keys)[i].ReceptionKeys)
 	}
 
 	Session = nil
@@ -295,8 +294,8 @@ func clearCyclicInt(c *cyclic.Int){
 }
 
 func clearRatchetKeys(r *RatchetKey){
-	clearCyclicInt(&r.Base)
-	clearCyclicInt(&r.Recursive)
+	clearCyclicInt(r.Base)
+	clearCyclicInt(r.Recursive)
 }
 
 func burntString(length int)string{

@@ -9,7 +9,6 @@ package globals
 import (
 	"testing"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"fmt"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -27,11 +26,11 @@ func TestUserSession(t *testing.T) {
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		PublicKey: *cyclic.NewInt(2),
-		TransmissionKeys: 	RatchetKey{*cyclic.NewInt(2), *cyclic.NewInt(2)},
-		ReceptionKeys: 		RatchetKey{*cyclic.NewInt(2), *cyclic.NewInt(2)},
-		ReceiptKeys: 		RatchetKey{*cyclic.NewInt(2), *cyclic.NewInt(2)},
-		ReturnKeys: 		RatchetKey{*cyclic.NewInt(2), *cyclic.NewInt(2)},
+		PublicKey: cyclic.NewInt(2),
+		TransmissionKeys: 	RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReceptionKeys: 		RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReceiptKeys: 		RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReturnKeys: 		RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
 	success := InitStorage(RamStorage{},"")
@@ -43,7 +42,7 @@ func TestUserSession(t *testing.T) {
 	//Ask Ben if there should be a Node Address here!
 	ses := NewUserSession(u, "abc", keys)
 
-	(&ses.(*sessionObj).PrivateKey).SetInt64(2)
+	ses.(*sessionObj).PrivateKey.SetInt64(2)
 
 	ses.StoreSession()
 
@@ -86,8 +85,6 @@ func TestUserSession(t *testing.T) {
 	} else {
 
 		test += len(Session.GetKeys())
-
-
 
 		for i := 0; i < len(Session.GetKeys()); i++ {
 

@@ -50,13 +50,13 @@ func newUserRegistry() UserRegistry {
 		// Generate user parameters
 		t.UID = uint64(i)
 		h.Write([]byte(string(20000+i)))
-		k.TransmissionKeys.Base = *cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(30000+i)))
-		k.TransmissionKeys.Recursive = *cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(40000+i)))
-		k.ReceptionKeys.Base = *cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(50000+i)))
-		k.ReceptionKeys.Recursive = *cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 		// Add user to collection and lookup table
 		uc[t.UID] = t
 		ul[UserHash(t.UID)] = t.UID

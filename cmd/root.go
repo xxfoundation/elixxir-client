@@ -79,7 +79,7 @@ var rootCmd = &cobra.Command{
 
 		if register{
 			_, err := api.Register(globals.UserHash(userId),
-				"",serverAddr, 	numNodes)
+				"testName",serverAddr, 	numNodes)
 			if err!=nil{
 				fmt.Printf("Could Not Register User: %s/n", err.Error())
 				return

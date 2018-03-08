@@ -26,7 +26,7 @@ type UserRegistry interface {
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
 	userCollection map[uint64]*User
-	// Increments sequentially for User.UID values
+	// Increments sequentially for User.UserID values
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	userLookup map[uint64]uint64
@@ -48,7 +48,7 @@ func newUserRegistry() UserRegistry {
 		k := new(NodeKeys)
 		h := sha256.New()
 		// Generate user parameters
-		t.UID = uint64(i)
+		t.UserID = uint64(i)
 		h.Write([]byte(string(20000+i)))
 		k.TransmissionKeys.Base = cyclic.NewIntFromString(
 			"c1248f42f8127999e07c657896a26b56fd9a499c6199e1265053132451128f52", 16)
@@ -62,9 +62,9 @@ func newUserRegistry() UserRegistry {
 		k.ReceptionKeys.Recursive = cyclic.NewIntFromString(
 			"979e574166ef0cd06d34e3260fe09512b69af6a414cf481770600d9c7447837b", 16)
 		// Add user to collection and lookup table
-		uc[t.UID] = t
-		ul[UserHash(t.UID)] = t.UID
-		nk[t.UID] = k
+		uc[t.UserID] = t
+		ul[UserHash(t.UserID)] = t.UserID
+		nk[t.UserID] = k
 	}
 
 	uc[1].Nick = "David"
@@ -87,7 +87,7 @@ func newUserRegistry() UserRegistry {
 
 // Struct representing a User in the system
 type User struct {
-	UID uint64
+	UserID uint64
 	Nick string
 }
 

@@ -13,8 +13,8 @@ import (
 	"gitlab.com/privategrity/client/globals"
 )
 
-func SetNick(addr string, user globals.User) {
-	msg := pb.SetNickMessage
+func SetNick(addr string, user *globals.User) {
+	msg := pb.Contact(*user)
 	_, err := mixclient.SetNick(addr, msg)
 
 	if err != nil {

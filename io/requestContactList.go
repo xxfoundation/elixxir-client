@@ -10,21 +10,29 @@ import (
 jww "github.com/spf13/jwalterweatherman"
 "gitlab.com/privategrity/comms/mixclient"
 pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/client/globals"
 )
 
-func GetContactList(addr string) (uids []uint64, nicks []string) {
+func UpdateUserRegistry(addr string) {
 	contacts, err := mixclient.RequestContactList(addr, &pb.ContactPoll{})
 
 	if err != nil {
 		jww.FATAL.Panicf("Couldn't get contact list from server: %s", err.Error())
 	}
 
-	uids = make([]uint64, len(contacts.Contacts))
-	nicks = make([]string, len(contacts.Contacts))
-	for i, contact := range (contacts.Contacts) {
-		uids[i] = contact.UserID
-		nicks[i] = contact.Nick
+	for _, contact := range (contacts.Contacts) {
+		// upsert nick data into user registry
+		user, ok := globals.Users.GetUser(contact.UserID)
+		if ok {
+			user.Nick = contact.Nick
+		} else {
+			// the user currently isn't stored in the user registry,
+			// so we must make a new one to put in it.
+			user = new(globals.User)
+			user.Nick = contact.Nick
+			user.UID = contact.UserID
+		}
+		// TODO implement this
+		globals.Users.UpsertUser(user)
 	}
-
-	return uids, nicks
 }

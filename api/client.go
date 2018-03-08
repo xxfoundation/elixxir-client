@@ -219,27 +219,13 @@ func GetNick(UID uint64) string {
 
 }
 
-func GetContactList() (uids []uint64, nicks []string) {
+func UpdateContactList() {
+	io.UpdateUserRegistry(globals.Session.GetNodeAddress())
+}
 
-	uids, nicks = io.GetContactList(globals.Session.GetNodeAddress())
-
-	for i := range (uids) {
-		// upsert nick data into user registry
-		user, ok := globals.Users.GetUser(uids[i])
-		if ok {
-			user.Nick = nicks[i]
-		} else {
-			// the user currently isn't stored in the user registry,
-			// so we must make a new one to put in it.
-			user = new(globals.User)
-			user.Nick = nicks[i]
-			user.UID = uids[i]
-		}
-		// TODO implement this
-		globals.Users.UpsertUser(user)
-	}
-
-	return uids, nicks
+func GetContactListJSON() string {
+	return "Hi, I'm a JSON file that contains the whole user registry" +
+		" serialized."
 }
 
 func clearUint64(u *uint64) {

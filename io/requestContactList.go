@@ -12,12 +12,19 @@ jww "github.com/spf13/jwalterweatherman"
 pb "gitlab.com/privategrity/comms/mixmessages"
 )
 
-func GetContactList(addr string) []*pb.Contact {
+func GetContactList(addr string) (uids []uint64, nicks []string) {
 	contacts, err := mixclient.RequestContactList(addr, &pb.ContactPoll{})
 
 	if err != nil {
 		jww.FATAL.Panicf("Couldn't get contact list from server: %s", err.Error())
 	}
 
-	return contacts.Contacts
+	uids = make([]uint64, len(contacts.Contacts))
+	nicks = make([]string, len(contacts.Contacts))
+	for i, contact := range (contacts.Contacts) {
+		uids[i] = contact.UserID
+		nicks[i] = contact.Nick
+	}
+
+	return uids, nicks
 }

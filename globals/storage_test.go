@@ -48,7 +48,7 @@ func TestInitStorage(t *testing.T) {
 
 	// Test RamStorage
 	LocalStorage = nil
-	store := RamStorage{new([]byte)}
+	store := RamStorage{}
 	suc := InitStorage(store,"")
 	if suc != true {
 		t.Errorf("InitStorage failed to initialize a RamStorage")
@@ -61,6 +61,8 @@ func TestInitStorage(t *testing.T) {
 			TestData, actualData)
 	}
 	os.Remove(TestSaveLoc)
+
+	LocalStorage = nil
 
 }
 

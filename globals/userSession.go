@@ -14,6 +14,7 @@ import (
 	"math"
 	"time"
 	"math/rand"
+	"io"
 )
 
 // Globally instantiated UserSession
@@ -49,12 +50,12 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
 	return UserSession(&sessionObj{
-		currentUser: u,
-		nodeAddress: nodeAddr,
+		CurrentUser: u,
+		NodeAddress: nodeAddr,
 		fifo:        nil,
-		keys:        nk,
-		pollTerm: 	 nil,
-		privateKey:  cyclic.NewMaxInt()})
+		Keys:        &nk,
+		pollTerm:    nil,
+		PrivateKey:  cyclic.NewMaxInt()})
 }
 
 func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
@@ -69,23 +70,30 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 
 	var sessionBytes bytes.Buffer
 
-	sessionBytes.Read(sessionGob)
+	sessionBytes.Write(sessionGob)
 
 	dec := gob.NewDecoder(&sessionBytes)
 
-	var session sessionObj
+	session := sessionObj{}
 
 	err := dec.Decode(&session)
 
-	if err!=nil {
-		jww.ERROR.Println("LoadSession: unable to load session")
+	if err!=nil && err!=io.EOF {
+		jww.ERROR.Printf("LoadSession: unable to load session: %s", err.Error())
 		return false
 	}
 
-	if session.currentUser.UID!=UID{
-		jww.ERROR.Println("LoadSession: loaded incorrect user")
+	if session.CurrentUser == nil {
+		jww.ERROR.Println("LoadSession: failed to load user %v", session)
+
 		return false
 	}
+
+	if session.CurrentUser.UID!=UID{
+		jww.ERROR.Printf("LoadSession: loaded incorrect user; Expected: %v; Received: %v", UID, session.CurrentUser.UID)
+		return false
+	}
+
 
 	session.fifo = make(chan *Message, 100)
 
@@ -99,43 +107,43 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 // Struct holding relevant session data
 type sessionObj struct {
 	// Currently authenticated user
-	currentUser *User
+	CurrentUser *User
 
-	//Fifo buffer
+	//fifo buffer
 	fifo chan *Message
 
 	// Node address that the user will send messages to
-	nodeAddress string
+	NodeAddress string
 
 	// Used to kill the polling reception thread
 	pollTerm ThreadTerminator
 
-	keys       []NodeKeys
-	privateKey *cyclic.Int
+	Keys       *[]NodeKeys
+	PrivateKey *cyclic.Int
 }
 
 func (s *sessionObj) GetKeys() []NodeKeys {
-	return s.keys
+	return *s.Keys
 }
 
 func (s *sessionObj) GetPrivateKey() *cyclic.Int {
-	return s.privateKey
+	return s.PrivateKey
 }
 
 // Return a copy of the current user
 func (s *sessionObj) GetCurrentUser() (currentUser *User) {
-	if s.currentUser != nil {
+	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			UID:   s.currentUser.UID,
-			Nick: s.currentUser.Nick,
+			UID:   s.CurrentUser.UID,
+			Nick: s.CurrentUser.Nick,
 		}
 	}
 	return
 }
 
 func (s *sessionObj) GetNodeAddress() string {
-	return s.nodeAddress
+	return s.NodeAddress
 }
 
 func (s *sessionObj) PushFifo(msg *Message)(bool) {
@@ -145,7 +153,7 @@ func (s *sessionObj) PushFifo(msg *Message)(bool) {
 		return false
 	}
 
-	if s.currentUser == nil {
+	if s.CurrentUser == nil {
 		jww.ERROR.Println("PushFifo: Cannot push a fifo for an uninitialized" +
 			" user")
 		return false
@@ -168,7 +176,7 @@ func (s *sessionObj) PopFifo() *Message {
 	}
 
 
-	if s.currentUser == nil {
+	if s.CurrentUser == nil {
 		jww.ERROR.Println("PopFifo: Cannot pop an fifo on an uninitialized" +
 			" user")
 		return nil
@@ -199,13 +207,21 @@ func (s *sessionObj) StoreSession()(bool){
 
 	err := enc.Encode(s)
 
+
 	if err!=nil{
-		jww.ERROR.Println("StoreSession: Could not encode and save user" +
-			" session")
+		jww.ERROR.Println("StoreSession: Could not encode user" +
+			" session: %s", err.Error())
 		return false
 	}
 
-	LocalStorage.Save(session.Bytes())
+
+	LocalStorage, err = LocalStorage.Save(session.Bytes())
+
+	if err!= nil{
+		jww.ERROR.Println("StoreSession: Could not save the encoded user" +
+			" session")
+		return false
+	}
 
 	return true
 
@@ -248,29 +264,28 @@ func (s *sessionObj) Immolate()(bool) {
 
 
 	// clear data stored in session
-	s.currentUser.UID = math.MaxUint64
-	s.currentUser.UID = 0
-	s.currentUser.Nick = burntString(len(s.currentUser.Nick))
-	s.currentUser.Nick = burntString(len(s.currentUser.Nick))
-	s.currentUser.Nick = ""
+	s.CurrentUser.UID = math.MaxUint64
+	s.CurrentUser.UID = 0
+	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
+	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
+	s.CurrentUser.Nick = ""
 
-	s.nodeAddress = burntString(len(s.nodeAddress))
-	s.nodeAddress = burntString(len(s.nodeAddress))
-	s.nodeAddress = ""
+	s.NodeAddress = burntString(len(s.NodeAddress))
+	s.NodeAddress = burntString(len(s.NodeAddress))
+	s.NodeAddress = ""
 
-	clearCyclicInt(s.privateKey)
+	clearCyclicInt(s.PrivateKey)
 
-	for i:=0;i<len(s.keys);i++{
-		clearCyclicInt(s.keys[i].PublicKey)
-		clearRatchetKeys(&s.keys[i].TransmissionKeys)
-		clearRatchetKeys(&s.keys[i].ReceptionKeys)
+	for i:=0;i<len(*s.Keys);i++{
+		clearCyclicInt((*s.Keys)[i].PublicKey)
+		clearRatchetKeys(&(*s.Keys)[i].TransmissionKeys)
+		clearRatchetKeys(&(*s.Keys)[i].ReceptionKeys)
 	}
 
 	Session = nil
 
 	return true
 }
-
 
 
 func clearCyclicInt(c *cyclic.Int){

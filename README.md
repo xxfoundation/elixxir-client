@@ -24,6 +24,10 @@ Optional Args:
 
 `-v`          : Boolean indicating verbose logging
 
+`-n`          : Unsigned Integer indicating the number of nodes in the system
+
+`-f`          : String containing path of file to store the session into.  If not included it will use Ram Storage
+
 Preparation to Build
 ==
 

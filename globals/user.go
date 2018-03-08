@@ -21,6 +21,7 @@ type UserRegistry interface {
 	CountUsers() int
 	LookupUser(hid uint64) (uid uint64, ok bool)
 	LookupKeys(uid uint64) (*NodeKeys, bool)
+	UpsertUser(user *User)
 }
 
 type UserMap struct {
@@ -105,6 +106,10 @@ func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
 // CountUsers returns a count of the users in userCollection
 func (m *UserMap) CountUsers() int {
 	return len(m.userCollection)
+}
+
+func (m *UserMap) UpsertUser(user *User) {
+	m.userCollection[user.UserID] = user
 }
 
 // Looks up the user id corresponding to the demo registration code

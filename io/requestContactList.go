@@ -31,7 +31,6 @@ func UpdateUserRegistry(addr string) {
 			newUser := globals.User(*contact)
 			user = &newUser
 		}
-		// TODO implement this
 		globals.Users.UpsertUser(user)
 	}
 }

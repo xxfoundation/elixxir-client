@@ -13,7 +13,6 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"math"
 	"errors"
-	"fmt"
 	"gitlab.com/privategrity/crypto/cyclic"
 )
 
@@ -82,8 +81,6 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	nodekeys, successKeys := globals.Users.LookupKeys(user.UID)
 	nodekeys.PublicKey = cyclic.NewInt(0)
-
-	fmt.Println(nodekeys)
 
 	if !successKeys {
 		jww.ERROR.Printf("Register: could not find user keys")
@@ -211,6 +208,31 @@ func Logout() error {
 
 	return nil
 }
+
+func GetNick(UID uint64)string{
+	u, success := globals.Users.GetUser(UID)
+
+	if success{
+		return u.Nick
+	}else{
+		return ""
+	}
+
+}
+
+func GetContactList()[]uint64{
+
+	clist := make([]uint64,globals.NUM_DEMO_USERS)
+
+	for i:=1;i<=globals.NUM_DEMO_USERS;i++{
+		clist[i-1] = uint64(i)
+	}
+
+	return clist
+
+}
+
+
 
 func clearUint64(u *uint64){
 	*u = math.MaxUint64

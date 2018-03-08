@@ -96,3 +96,20 @@ func TryReceive() (Message, error){
 func Logout() error{
 	return api.Logout()
 }
+
+func GetNick(UID []byte)(string){
+	return api.GetNick(cyclic.NewIntFromBytes(UID).Uint64())
+}
+
+func GetContactList()([]byte){
+	var blst []byte
+
+	clst := api.GetContactList()
+
+	for i:=0;i<len(clst);i++{
+		blst = append(blst, cyclic.NewIntFromUInt(clst[i]).LeftpadBytes(8)...)
+	}
+
+	return blst
+
+}

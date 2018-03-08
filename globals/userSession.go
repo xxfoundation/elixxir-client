@@ -244,7 +244,9 @@ func (s *sessionObj) Immolate()(bool) {
 
 		s.pollTerm.BlockingTerminate(1000)
 		//Clear message fifo
-		for {
+
+		q := false
+		for !q{
 			select {
 			case m := <-s.fifo:
 				clearCyclicInt(m.payload)
@@ -253,16 +255,13 @@ func (s *sessionObj) Immolate()(bool) {
 				clearCyclicInt(m.recipientID)
 				clearCyclicInt(m.payloadInitVect)
 			default:
-				break
+				q = true
 			}
 		}
 
 		//close the message fifo
 		close(s.fifo)
 	}
-
-
-
 
 	// clear data stored in session
 	s.CurrentUser.UID = math.MaxUint64

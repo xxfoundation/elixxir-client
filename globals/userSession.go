@@ -15,6 +15,7 @@ import (
 	"time"
 	"math/rand"
 	"io"
+	"fmt"
 )
 
 // Globally instantiated UserSession
@@ -53,7 +54,7 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 		CurrentUser: u,
 		NodeAddress: nodeAddr,
 		fifo:        nil,
-		Keys:        &nk,
+		Keys:        nk,
 		pollTerm:    nil,
 		PrivateKey:  cyclic.NewMaxInt()})
 }
@@ -77,6 +78,8 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 	session := sessionObj{}
 
 	err := dec.Decode(&session)
+
+	fmt.Println(session.Keys[0].TransmissionKeys.Recursive.Text(10))
 
 	if err!=nil && err!=io.EOF {
 		jww.ERROR.Printf("LoadSession: unable to load session: %s", err.Error())
@@ -118,12 +121,12 @@ type sessionObj struct {
 	// Used to kill the polling reception thread
 	pollTerm ThreadTerminator
 
-	Keys       *[]NodeKeys
+	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
 }
 
 func (s *sessionObj) GetKeys() []NodeKeys {
-	return *s.Keys
+	return s.Keys
 }
 
 func (s *sessionObj) GetPrivateKey() *cyclic.Int {
@@ -276,10 +279,10 @@ func (s *sessionObj) Immolate()(bool) {
 
 	clearCyclicInt(s.PrivateKey)
 
-	for i:=0;i<len(*s.Keys);i++{
-		clearCyclicInt((*s.Keys)[i].PublicKey)
-		clearRatchetKeys(&(*s.Keys)[i].TransmissionKeys)
-		clearRatchetKeys(&(*s.Keys)[i].ReceptionKeys)
+	for i:=0;i<len(s.Keys);i++{
+		clearCyclicInt(s.Keys[i].PublicKey)
+		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
+		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
 	}
 
 	Session = nil

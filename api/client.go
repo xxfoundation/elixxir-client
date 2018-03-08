@@ -13,6 +13,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"math"
 	"errors"
+	"fmt"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
 //Structure used to return a message
@@ -34,6 +36,8 @@ func InitClient(s globals.Storage, loc string)(error){
 	if !storeState{
 		err = errors.New("could not init client")
 	}
+
+	globals.InitCrypto()
 
 	return err
 }
@@ -77,6 +81,9 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	user.Nick = nick
 
 	nodekeys, successKeys := globals.Users.LookupKeys(user.UID)
+	nodekeys.PublicKey = cyclic.NewInt(0)
+
+	fmt.Println(nodekeys)
 
 	if !successKeys {
 		jww.ERROR.Printf("Register: could not find user keys")

@@ -16,6 +16,9 @@ func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
 MessageBytes {
 
 	keys := globals.Session.GetKeys()
+
+
+
 	result := message.ConstructMessageBytes()
 
 	// TODO move this allocation somewhere sensible

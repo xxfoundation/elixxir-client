@@ -92,7 +92,7 @@ func TestConstructDeconstructMessageBytes(t *testing.T) {
 	if rtnmsg.senderID.Cmp(msg.senderID)!=0 {
 		t.Errorf("Test of Message Construction/Deconstruction failed, sID did"+
 			" not match;\n  Expected: %v, Received: %v", msg.senderID.Text(10),
-				rtnmsg.senderID.Text(10))
+			rtnmsg.senderID.Text(10))
 	}
 	rpl := rtnmsg.payload.Bytes()[:]
 	dpl := msg.payload.Bytes()[:]

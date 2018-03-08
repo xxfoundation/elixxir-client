@@ -39,9 +39,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 					msgBytes := globals.MessageBytes{
 						Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-						PayloadMIC:   cyclic.NewInt(0),
 						Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-						RecipientMIC: cyclic.NewInt(0),
 					}
 
 					msg := crypto.Decrypt(globals.Grp, &msgBytes)

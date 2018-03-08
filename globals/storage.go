@@ -1,8 +1,8 @@
 package globals
 
 import (
-"os"
-jww "github.com/spf13/jwalterweatherman"
+	"os"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 
@@ -130,7 +130,7 @@ func (ds DefaultStorage)Load() ([]byte){
 }
 
 type RamStorage struct{
-	data *[]byte
+	data []byte
 	//data []byte
 }
 
@@ -143,11 +143,15 @@ func (rs RamStorage) GetLocation () (string) {
 }
 
 func (rs RamStorage) Save(data []byte)(Storage, error){
-	*rs.data = data
+	rs.data = make([]byte,len(data))
+	copy(rs.data,data)
 	return rs, nil
 }
 
 func (rs RamStorage) Load() ([]byte){
-	return *rs.data
+	b := make([]byte,len(rs.data))
+	copy(b,rs.data)
+
+	return b
 }
 

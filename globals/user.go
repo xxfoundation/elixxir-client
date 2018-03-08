@@ -20,6 +20,7 @@ type UserRegistry interface {
 	GetUser(id uint64) (user *User, ok bool)
 	CountUsers() int
 	LookupUser(hid uint64) (uid uint64, ok bool)
+	LookupKeys(uid uint64) (*NodeKeys, bool)
 }
 
 type UserMap struct {
@@ -29,6 +30,9 @@ type UserMap struct {
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	userLookup map[uint64]uint64
+	//Temporary placed to store the keys for each user
+	keysLookup map[uint64]*NodeKeys
+
 }
 
 // Creates a new UserRegistry interface
@@ -36,24 +40,29 @@ func newUserRegistry() UserRegistry {
 
 	uc := make(map[uint64]*User)
 	ul := make(map[uint64]uint64)
+	nk := make(map[uint64]*NodeKeys)
+
 	// Deterministically create 1000 users
 	for i := 1; i<= NUM_DEMO_USERS; i++ {
 		t := new(User)
+		k := new(NodeKeys)
 		h := sha256.New()
 		// Generate user parameters
 		t.UID = uint64(i)
 		h.Write([]byte(string(20000+i)))
-		t.Transmission.BaseKey = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(30000+i)))
-		t.Transmission.RecursiveKey = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(40000+i)))
-		t.Reception.BaseKey = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(50000+i)))
-		t.Reception.RecursiveKey = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 		// Add user to collection and lookup table
 		uc[t.UID] = t
-		ul[t.UID+10000] = t.UID
+		ul[UserHash(t.UID)] = t.UID
+		nk[t.UID] = k
 	}
+
 	uc[1].Nick = "David"
 	uc[2].Nick = "Jim"
 	uc[3].Nick = "Ben"
@@ -66,20 +75,18 @@ func newUserRegistry() UserRegistry {
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
 	idCounter: uint64(NUM_DEMO_USERS),
-	userLookup: ul})
+	userLookup: ul,
+	keysLookup:nk})
 }
 
 // Struct representing a User in the system
 type User struct {
 	UID uint64
-	Transmission ForwardKey
-	Reception    ForwardKey
 	Nick string
 }
 
-type ForwardKey struct {
-	BaseKey        *cyclic.Int
-	RecursiveKey   *cyclic.Int
+func UserHash(uid uint64)(uint64){
+	return uid + 10000
 }
 
 // GetUser returns a user with the given ID from userCollection
@@ -99,4 +106,10 @@ func (m *UserMap) LookupUser(hid uint64) (uid uint64, ok bool) {
 	uid, ok = m.userLookup[hid]
 	return
 }
+
+func (m *UserMap) LookupKeys(uid uint64)(*NodeKeys, bool){
+	nk, t := m.keysLookup[uid]
+	return nk, t
+}
+
 

@@ -15,33 +15,61 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 )
 
-func runfunc(wait uint64, addr string) {
+func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 	usr := globals.Session.GetCurrentUser()
 
 	rqMsg := &pb.ClientPollMessage{UserID: usr.UID}
-	for true {
-		time.Sleep(time.Duration(wait) * time.Millisecond)
 
-		cmixMsg, _ := mixclient.SendClientPoll(addr, rqMsg)
+	q := false
 
-		if len(cmixMsg.MessagePayload) != 0 {
+	var killNotify chan<- bool
 
-			msgBytes := globals.MessageBytes{
-				Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-				PayloadMIC:   cyclic.NewInt(0),
-				Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-				RecipientMIC: cyclic.NewInt(0),
-			}
+	for !q {
 
-			msg := crypto.Decrypt(globals.Grp, &msgBytes)
+		select{
+			case killNotify = <-quit:
+				q = true
+			default:
+				time.Sleep(time.Duration(wait) * time.Millisecond)
 
-			globals.Session.PushFifo(msg)
+				cmixMsg, _ := mixclient.SendClientPoll(globals.Session.GetNodeAddress(), rqMsg)
+
+				if len(cmixMsg.MessagePayload) != 0 {
+
+					msgBytes := globals.MessageBytes{
+						Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
+						PayloadMIC:   cyclic.NewInt(0),
+						Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
+						RecipientMIC: cyclic.NewInt(0),
+					}
+
+					msg := crypto.Decrypt(globals.Grp, &msgBytes)
+
+					globals.Session.PushFifo(msg)
+				}
 		}
 
 	}
+
+	close(quit)
+
+	if killNotify != nil{
+		killNotify <- true
+	}
+
 }
 
-func InitReceptionRunner(wait uint64, addr string) {
-	go runfunc(wait, addr)
+//Starts the reception runner which waits "wait" between checks,
+// and quits via the "quit" chan
+func InitReceptionRunner(wait uint64,
+	quit globals.ThreadTerminator)( globals.ThreadTerminator) {
+
+	if quit == nil {
+		quit = globals.NewThreadTerminator()
+	}
+
+	go runfunc(wait, quit)
+
+	return quit
 }

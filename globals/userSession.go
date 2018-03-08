@@ -15,7 +15,6 @@ import (
 	"time"
 	"math/rand"
 	"io"
-	"fmt"
 )
 
 // Globally instantiated UserSession
@@ -79,7 +78,6 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 
 	err := dec.Decode(&session)
 
-	fmt.Println(session.Keys[0].TransmissionKeys.Recursive.Text(10))
 
 	if err!=nil && err!=io.EOF {
 		jww.ERROR.Printf("LoadSession: unable to load session: %s", err.Error())

@@ -10,6 +10,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"fmt"
 )
 
 func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
@@ -32,9 +33,11 @@ MessageBytes {
 		g.Inverse(sharedTransmissionKey, sharedTransmissionKey)
 		g.Mul(inverseTransmissionKeys, sharedTransmissionKey,
 			inverseTransmissionKeys)
+
 	}
 
 	// perform the encryption
+	fmt.Println(result.Recipient.Text(10))
 	g.Mul(result.Payload, inverseTransmissionKeys, result.Payload)
 	g.Mul(result.Recipient, inverseTransmissionKeys, result.Recipient)
 

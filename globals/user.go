@@ -13,7 +13,7 @@ import (
 
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
-var NUM_DEMO_USERS = int(1000)
+var NUM_DEMO_USERS = int(10)
 
 // Interface for User Registry operations
 type UserRegistry interface {
@@ -50,13 +50,17 @@ func newUserRegistry() UserRegistry {
 		// Generate user parameters
 		t.UID = uint64(i)
 		h.Write([]byte(string(20000+i)))
-		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Base = cyclic.NewIntFromString(
+			"c1248f42f8127999e07c657896a26b56fd9a499c6199e1265053132451128f52", 16)
 		h.Write([]byte(string(30000+i)))
-		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Recursive = cyclic.NewIntFromString(
+			"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)
 		h.Write([]byte(string(40000+i)))
-		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Base = cyclic.NewIntFromString(
+			"83120e7bfaba497f8e2c95457a28006f73ff4ec75d3ad91d27bf7ce8f04e772c", 16)
 		h.Write([]byte(string(50000+i)))
-		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Recursive = cyclic.NewIntFromString(
+			"979e574166ef0cd06d34e3260fe09512b69af6a414cf481770600d9c7447837b", 16)
 		// Add user to collection and lookup table
 		uc[t.UID] = t
 		ul[UserHash(t.UID)] = t.UID
@@ -71,6 +75,8 @@ func newUserRegistry() UserRegistry {
 	uc[6].Nick = "Jake"
 	uc[7].Nick = "Mario"
 	uc[8].Nick = "Will"
+	uc[9].Nick = "Sydney"
+	uc[10].Nick = "Jono"
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,

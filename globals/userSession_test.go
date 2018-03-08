@@ -142,7 +142,4 @@ func TestUserSession(t *testing.T) {
 	} else{
 		pass++
 	}
-
-	t.Errorf("User Session Test:  Passed: %v out of %v tests", pass, test)
-
 }

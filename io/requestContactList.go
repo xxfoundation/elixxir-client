@@ -7,9 +7,9 @@
 package io
 
 import (
-jww "github.com/spf13/jwalterweatherman"
-"gitlab.com/privategrity/comms/mixclient"
-pb "gitlab.com/privategrity/comms/mixmessages"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/comms/mixclient"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/client/globals"
 )
 
@@ -28,9 +28,8 @@ func UpdateUserRegistry(addr string) {
 		} else {
 			// the user currently isn't stored in the user registry,
 			// so we must make a new one to put in it.
-			user = new(globals.User)
-			user.Nick = contact.Nick
-			user.UID = contact.UserID
+			newUser := globals.User(*contact)
+			user = &newUser
 		}
 		// TODO implement this
 		globals.Users.UpsertUser(user)

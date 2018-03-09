@@ -8,14 +8,14 @@ package io
 
 import (
 	"gitlab.com/privategrity/client/globals"
-	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/mixclient"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 )
 
 func TransmitMessage(addr string, messageBytes *globals.MessageBytes) {
 
 	cmixmsg := &pb.CmixMessage{
-	    SenderID: 		globals.Session.GetCurrentUser().UID,
+		SenderID:       globals.Session.GetCurrentUser().UID,
 		MessagePayload: messageBytes.Payload.Bytes(),
 		RecipientID:    messageBytes.Recipient.Bytes(),
 	}

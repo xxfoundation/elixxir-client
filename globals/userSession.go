@@ -7,14 +7,14 @@
 package globals
 
 import (
-	"gitlab.com/privategrity/crypto/cyclic"
 	"bytes"
 	"encoding/gob"
 	jww "github.com/spf13/jwalterweatherman"
-	"math"
-	"time"
-	"math/rand"
+	"gitlab.com/privategrity/crypto/cyclic"
 	"io"
+	"math"
+	"math/rand"
+	"time"
 )
 
 // Globally instantiated UserSession
@@ -26,7 +26,7 @@ type UserSession interface {
 	GetNodeAddress() string
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
-	PushFifo(*Message) (bool)
+	PushFifo(*Message) bool
 	PopFifo() *Message
 	StoreSession() bool
 	Immolate() bool
@@ -58,7 +58,7 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 		PrivateKey:  cyclic.NewMaxInt()})
 }
 
-func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
+func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
 	if LocalStorage == nil {
 		jww.ERROR.Println("StoreSession: Local Storage not avalible")
 		return false
@@ -78,8 +78,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 
 	err := dec.Decode(&session)
 
-
-	if err!=nil && err!=io.EOF {
+	if err != nil && err != io.EOF {
 		jww.ERROR.Printf("LoadSession: unable to load session: %s", err.Error())
 		return false
 	}
@@ -90,11 +89,10 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator)(bool){
 		return false
 	}
 
-	if session.CurrentUser.UID!=UID{
+	if session.CurrentUser.UID != UID {
 		jww.ERROR.Printf("LoadSession: loaded incorrect user; Expected: %v; Received: %v", UID, session.CurrentUser.UID)
 		return false
 	}
-
 
 	session.fifo = make(chan *Message, 100)
 
@@ -136,7 +134,7 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			UID:   s.CurrentUser.UID,
+			UID:  s.CurrentUser.UID,
 			Nick: s.CurrentUser.Nick,
 		}
 	}
@@ -147,7 +145,7 @@ func (s *sessionObj) GetNodeAddress() string {
 	return s.NodeAddress
 }
 
-func (s *sessionObj) PushFifo(msg *Message)(bool) {
+func (s *sessionObj) PushFifo(msg *Message) bool {
 
 	if s.fifo == nil {
 		jww.ERROR.Println("PushFifo: Cannot push an uninitialized fifo")
@@ -176,7 +174,6 @@ func (s *sessionObj) PopFifo() *Message {
 		return nil
 	}
 
-
 	if s.CurrentUser == nil {
 		jww.ERROR.Println("PopFifo: Cannot pop an fifo on an uninitialized" +
 			" user")
@@ -194,8 +191,7 @@ func (s *sessionObj) PopFifo() *Message {
 
 }
 
-
-func (s *sessionObj) StoreSession()(bool){
+func (s *sessionObj) StoreSession() bool {
 
 	if LocalStorage == nil {
 		jww.ERROR.Println("StoreSession: Local Storage not avalible")
@@ -208,17 +204,15 @@ func (s *sessionObj) StoreSession()(bool){
 
 	err := enc.Encode(s)
 
-
-	if err!=nil{
-		jww.ERROR.Println("StoreSession: Could not encode user" +
+	if err != nil {
+		jww.ERROR.Println("StoreSession: Could not encode user"+
 			" session: %s", err.Error())
 		return false
 	}
 
-
 	LocalStorage, err = LocalStorage.Save(session.Bytes())
 
-	if err!= nil{
+	if err != nil {
 		jww.ERROR.Println("StoreSession: Could not save the encoded user" +
 			" session")
 		return false
@@ -228,11 +222,9 @@ func (s *sessionObj) StoreSession()(bool){
 
 }
 
-
-
 // Scrubs all cryptographic data from ram and logs out
 // the ram overwriting can be improved
-func (s *sessionObj) Immolate()(bool) {
+func (s *sessionObj) Immolate() bool {
 	if s == nil {
 		jww.ERROR.Println("CryptographicallyImmolate: Cannot immolate when" +
 			" you are not alive")
@@ -240,13 +232,13 @@ func (s *sessionObj) Immolate()(bool) {
 	}
 
 	//Kill Polling Reception
-	if s.pollTerm != nil{
+	if s.pollTerm != nil {
 
 		s.pollTerm.BlockingTerminate(1000)
 		//Clear message fifo
 
 		q := false
-		for !q{
+		for !q {
 			select {
 			case m := <-s.fifo:
 				clearCyclicInt(m.payload)
@@ -276,7 +268,7 @@ func (s *sessionObj) Immolate()(bool) {
 
 	clearCyclicInt(s.PrivateKey)
 
-	for i:=0;i<len(s.Keys);i++{
+	for i := 0; i < len(s.Keys); i++ {
 		clearCyclicInt(s.Keys[i].PublicKey)
 		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
 		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
@@ -287,18 +279,17 @@ func (s *sessionObj) Immolate()(bool) {
 	return true
 }
 
-
-func clearCyclicInt(c *cyclic.Int){
+func clearCyclicInt(c *cyclic.Int) {
 	c.Set(cyclic.NewMaxInt())
 	c.SetInt64(0)
 }
 
-func clearRatchetKeys(r *RatchetKey){
+func clearRatchetKeys(r *RatchetKey) {
 	clearCyclicInt(r.Base)
 	clearCyclicInt(r.Recursive)
 }
 
-func burntString(length int)string{
+func burntString(length int) string {
 
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
 

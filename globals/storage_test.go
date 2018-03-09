@@ -1,14 +1,20 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package globals
 
 import (
-	"testing"
 	"os"
+	"testing"
 	//jww "github.com/spf13/jwalterweatherman"
 	"reflect"
 )
 
 func TestInitStorage(t *testing.T) {
-	TestData := []byte{12,14,54}
+	TestData := []byte{12, 14, 54}
 	TestSaveLoc := "testStorage.data"
 	// Test with existing storage
 	LocalStorage = new(RamStorage)
@@ -41,7 +47,7 @@ func TestInitStorage(t *testing.T) {
 	}
 	// Test DS load
 	actualData := LocalStorage.Load()
-	if reflect.DeepEqual(actualData,TestData) != true {
+	if reflect.DeepEqual(actualData, TestData) != true {
 		t.Errorf("ds.Load failed to load expected data. Expected:%v Actual:%v",
 			TestData, actualData)
 	}
@@ -49,14 +55,14 @@ func TestInitStorage(t *testing.T) {
 	// Test RamStorage
 	LocalStorage = nil
 	store := RamStorage{}
-	suc := InitStorage(store,"")
+	suc := InitStorage(store, "")
 	if suc != true {
 		t.Errorf("InitStorage failed to initialize a RamStorage")
 	}
 	actualData = nil
 	LocalStorage, _ = LocalStorage.Save(TestData)
 	actualData = LocalStorage.Load()
-	if reflect.DeepEqual(actualData,TestData) != true {
+	if reflect.DeepEqual(actualData, TestData) != true {
 		t.Errorf("rs.Load failed to load expected data. Expected:%v Actual:%v",
 			TestData, actualData)
 	}
@@ -67,9 +73,13 @@ func TestInitStorage(t *testing.T) {
 }
 
 // exists returns whether the given file or directory exists or not
-func exists(path string) (bool) {
+func exists(path string) bool {
 	_, err := os.Stat(path)
-	if err == nil {return true}
-	if os.IsNotExist(err) { return false}
+	if err == nil {
+		return true
+	}
+	if os.IsNotExist(err) {
+		return false
+	}
 	return true
 }

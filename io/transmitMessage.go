@@ -12,7 +12,8 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 )
 
-func TransmitMessage(addr string, messageBytes *globals.MessageBytes) {
+// Send a cMix message to the server
+func TransmitMessage(addr string, messageBytes *globals.MessageBytes) error {
 
 	cmixmsg := &pb.CmixMessage{
 		SenderID:       globals.Session.GetCurrentUser().UID,
@@ -20,6 +21,6 @@ func TransmitMessage(addr string, messageBytes *globals.MessageBytes) {
 		RecipientID:    messageBytes.Recipient.Bytes(),
 	}
 
-	mixclient.SendMessageToServer(addr, cmixmsg)
-
+	_, err := mixclient.SendMessageToServer(addr, cmixmsg)
+	return err
 }

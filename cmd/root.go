@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 		if sessionFile == "" {
 			err = api.InitClient(globals.RamStorage{}, "")
 			if err != nil {
-				fmt.Printf("Could Not Initilize Ram Storage: %s",
+				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
 				return
 			}
@@ -64,14 +64,14 @@ var rootCmd = &cobra.Command{
 				if os.IsNotExist(err1) {
 					register = true
 				} else {
-					fmt.Printf("Error with file path: %s", err1.Error())
+					fmt.Printf("Error with file path: %s\n", err1.Error())
 				}
 			}
 
 			err = api.InitClient(globals.DefaultStorage{}, sessionFile)
 
 			if err != nil {
-				fmt.Printf("Could Not Initilize OS Storage: %s", err.Error())
+				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
 				return
 			}
 		}
@@ -80,7 +80,7 @@ var rootCmd = &cobra.Command{
 			_, err := api.Register(globals.UserHash(userId),
 				"testName", serverAddr, numNodes)
 			if err != nil {
-				fmt.Printf("Could Not Register User: %s", err.Error())
+				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
 			}
 		}
@@ -88,11 +88,11 @@ var rootCmd = &cobra.Command{
 		_, err = api.Login(userId)
 
 		if err != nil {
-			fmt.Printf("Could Not Log In ")
+			fmt.Printf("Could Not Log In\n")
 			return
 		}
 
-		fmt.Printf("Sending Message to %d: %s", destinationUserId, message)
+		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 
 		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
@@ -101,12 +101,12 @@ var rootCmd = &cobra.Command{
 			msg, err = api.TryReceive()
 
 			if err != nil {
-				fmt.Printf("Could not Receive Message: %s", err.Error())
+				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
 
 			if msg.Payload != "" {
-				fmt.Printf("Message from %v Received: %s", msg.Sender, msg.Payload)
+				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
 				break
 			}
 			time.Sleep(200 * time.Millisecond)
@@ -115,7 +115,7 @@ var rootCmd = &cobra.Command{
 		err = api.Logout()
 
 		if err != nil {
-			fmt.Printf("Could not logout: %s", err.Error())
+			fmt.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 

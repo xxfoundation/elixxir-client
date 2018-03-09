@@ -7,20 +7,19 @@
 package io
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/comms/mixclient"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/client/globals"
 )
 
-func UpdateUserRegistry(addr string) {
+func UpdateUserRegistry(addr string) error {
 	contacts, err := mixclient.RequestContactList(addr, &pb.ContactPoll{})
 
 	if err != nil {
-		jww.FATAL.Panicf("Couldn't get contact list from server: %s", err.Error())
+		return err
 	}
 
-	for _, contact := range (contacts.Contacts) {
+	for _, contact := range contacts.Contacts {
 		// upsert nick data into user registry
 		user, ok := globals.Users.GetUser(contact.UserID)
 		if ok {
@@ -33,4 +32,6 @@ func UpdateUserRegistry(addr string) {
 		}
 		globals.Users.UpsertUser(user)
 	}
+
+	return nil
 }

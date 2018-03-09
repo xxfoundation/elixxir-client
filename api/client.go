@@ -7,13 +7,13 @@
 package api
 
 import (
+	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	jww "github.com/spf13/jwalterweatherman"
-	"math"
-	"errors"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"math"
 )
 
 //Structure used to return a message
@@ -26,7 +26,7 @@ type APIMessage struct {
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string) (error) {
+func InitClient(s globals.Storage, loc string) error {
 
 	var err error
 
@@ -131,7 +131,7 @@ func Login(UID uint64) (string, error) {
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func Send(message APIMessage) (error) {
+func Send(message APIMessage) error {
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("Send: Could not send when not logged in")
@@ -214,7 +214,7 @@ func SetNick(UID uint64, nick string) error {
 	if success {
 		io.SetNick(globals.Session.GetNodeAddress(), u)
 	} else {
-		jww.ERROR.Printf("Tried to set nick for user %v, " +
+		jww.ERROR.Printf("Tried to set nick for user %v, "+
 			"but that user wasn't in the registry", u.UserID)
 		return errors.New("That user wasn't in the user registry")
 	}
@@ -222,13 +222,14 @@ func SetNick(UID uint64, nick string) error {
 	return nil
 }
 
-func UpdateContactList() {
-	io.UpdateUserRegistry(globals.Session.GetNodeAddress())
+func UpdateContactList() error {
+	return io.UpdateUserRegistry(globals.Session.GetNodeAddress())
 }
 
-func GetContactListJSON() string {
-	return "Hi, I'm a JSON file that contains the whole user registry" +
-		" serialized."
+func GetContactListJSON() ([]byte, error) {
+	result, err := globals.Users.GetContactListJSON()
+
+	return result, err
 }
 
 func clearUint64(u *uint64) {

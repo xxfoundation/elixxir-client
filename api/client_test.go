@@ -4,20 +4,19 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package api
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/comms/mixclient"
-	pb "gitlab.com/privategrity/comms/mixmessages"
+	"testing"
 )
 
-func SetNick(addr string, user *globals.User) {
-	msg := pb.Contact(*user)
-	_, err := mixclient.SetNick(addr, &msg)
+func TestGetContactListJSON(t *testing.T) {
+	// todo: flesh this test out, print actual vs expected, and so on
+	result, err := GetContactListJSON()
 
 	if err != nil {
-		jww.FATAL.Panicf("Failed to set nick: %v", err.Error())
+		t.Error(err)
 	}
+
+	t.Log(string(result))
 }

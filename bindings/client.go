@@ -1,11 +1,11 @@
 package bindings
 
 import (
-	"gitlab.com/privategrity/client/api"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"errors"
-	"gitlab.com/privategrity/client/globals"
 	"encoding/binary"
+	"errors"
+	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
 // Copy of the storage interface.
@@ -13,9 +13,9 @@ import (
 // and a results the types can be passed freely between the two
 type Storage interface {
 	SetLocation(string) (Storage, error)
-	GetLocation() (string)
+	GetLocation() string
 	Save([]byte) (Storage, error)
-	Load() ([]byte)
+	Load() []byte
 }
 
 //Message used for binding
@@ -27,7 +27,7 @@ type Message struct {
 
 // Initializes the client by registering a storage mechanism.
 // For the mobile interface, one must be provided
-func InitClient(s Storage, loc string) (error) {
+func InitClient(s Storage, loc string) error {
 
 	if s == nil {
 		return errors.New("could not init client")
@@ -68,7 +68,7 @@ func Login(UID []byte) (string, error) {
 	return nick, err
 }
 
-func Send(m Message) (error) {
+func Send(m Message) error {
 	apiMsg := api.APIMessage{
 		Sender:    cyclic.NewIntFromBytes(m.Sender).Uint64(),
 		Payload:   m.Payload,
@@ -99,19 +99,14 @@ func Logout() error {
 }
 
 // Byte order for our APIs are conventionally going to be little-endian
-func GetNick(UID []byte, nick string) (error) {
+func SetNick(UID []byte, nick string) error {
 	return api.SetNick(binary.LittleEndian.Uint64(UID), nick)
 }
 
-func GetContactList() ([]byte) {
-	var blst []byte
+func UpdateContactList() {
+	api.UpdateContactList()
+}
 
-	clst := api.GetContactList()
-
-	for i := 0; i < len(clst); i++ {
-		blst = append(blst, cyclic.NewIntFromUInt(clst[i]).LeftpadBytes(8)...)
-	}
-
-	return blst
-
+func GetContactListJSON() ([]byte, error) {
+	return api.GetContactListJSON()
 }

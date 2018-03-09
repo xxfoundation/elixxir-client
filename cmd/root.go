@@ -80,7 +80,7 @@ var rootCmd = &cobra.Command{
 			_, err := api.Register(globals.UserHash(userId),
 				"testName", serverAddr, numNodes)
 			if err != nil {
-				fmt.Printf("Could Not Register User: %s/n", err.Error())
+				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
 			}
 		}
@@ -88,7 +88,7 @@ var rootCmd = &cobra.Command{
 		_, err = api.Login(userId)
 
 		if err != nil {
-			fmt.Printf("Could Not Log In ")
+			fmt.Printf("Could Not Log In\n")
 			return
 		}
 
@@ -115,7 +115,7 @@ var rootCmd = &cobra.Command{
 		err = api.Logout()
 
 		if err != nil {
-			fmt.Printf("Could not logout: %s", err.Error())
+			fmt.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 
@@ -142,6 +142,7 @@ func init() {
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
 			" connecting to")
+	rootCmd.MarkPersistentFlagRequired("numnodes")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

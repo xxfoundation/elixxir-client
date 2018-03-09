@@ -95,7 +95,7 @@ func newUserRegistry() UserRegistry {
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
-		idCounter: uint64(NUM_DEMO_USERS),
+		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
 }

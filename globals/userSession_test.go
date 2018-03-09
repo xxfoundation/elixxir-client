@@ -21,7 +21,7 @@ func TestUserSession(t *testing.T) {
 	u := new(User)
 	UID := uint64(1)
 
-	u.UID = UID
+	u.UserID = UID
 	u.Nick = "Mario"
 
 	keys := make([]NodeKeys, 1)

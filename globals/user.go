@@ -89,7 +89,7 @@ func newUserRegistry() UserRegistry {
 // Struct representing a User in the system
 type User struct {
 	UserID uint64
-	Nick string
+	Nick   string
 }
 
 func UserHash(uid uint64)(uint64){

@@ -66,8 +66,8 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	user, successGet := globals.Users.GetUser(UID)
 
 	if !successGet {
-		jww.ERROR.Printf("Register: UID lookup failed")
-		err = errors.New("could not register due to UID lookup failure")
+		jww.ERROR.Printf("Register: UserID lookup failed")
+		err = errors.New("could not register due to UserID lookup failure")
 		return 0, err
 	}
 
@@ -79,7 +79,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	user.Nick = nick
 
-	nodekeys, successKeys := globals.Users.LookupKeys(user.UID)
+	nodekeys, successKeys := globals.Users.LookupKeys(user.UserID)
 	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
@@ -138,14 +138,14 @@ func Send(message APIMessage) (error) {
 		return errors.New("cannot send message when not logged in")
 	}
 
-	if message.Sender != globals.Session.GetCurrentUser().UID {
+	if message.Sender != globals.Session.GetCurrentUser().UserID {
 		jww.ERROR.Printf("Send: Cannot send a message from someone other" +
 			" than yourself")
 		return errors.New("cannot send message from a different user")
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages := globals.NewMessage(sender.UID, message.Recipient, message.Payload)
+	newMessages := globals.NewMessage(sender.UserID, message.Recipient, message.Payload)
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {

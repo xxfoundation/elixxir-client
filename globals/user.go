@@ -25,6 +25,9 @@ var ContactListJsonSchema = `{
 	}
 }`
 
+var contactListSchema, contactListSchemaCreationError = gojsonschema.NewSchema(
+	gojsonschema.NewStringLoader(ContactListJsonSchema))
+
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
 var NUM_DEMO_USERS = int(10)
@@ -158,12 +161,10 @@ func (m *UserMap) buildContactListJSON() ([]byte, error) {
 }
 
 func (m *UserMap) GetContactListJSON() ([]byte, error) {
-	contactListSchema, err := gojsonschema.NewSchema(gojsonschema.
-		NewStringLoader(ContactListJsonSchema))
-	if err != nil {
+	if contactListSchemaCreationError != nil {
 		jwalterweatherman.ERROR.Printf(
-			"Couldn't instantiate JSON schema: %v", err.Error())
-		return nil, err
+			"Couldn't instantiate JSON schema: %v", contactListSchemaCreationError.Error())
+		return nil, contactListSchemaCreationError
 	}
 
 	result, err := m.buildContactListJSON()

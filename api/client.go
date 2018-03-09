@@ -151,7 +151,12 @@ func Send(message APIMessage) error {
 	for _, newMessage := range newMessages {
 		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
 		// Send the message
-		io.TransmitMessage(globals.Session.GetNodeAddress(), newMessageBytes)
+		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
+			newMessageBytes)
+		// If we get an error, return it
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -110,3 +110,7 @@ func UpdateContactList() {
 func GetContactListJSON() ([]byte, error) {
 	return api.GetContactListJSON()
 }
+
+func GetContactListJSONSchema() string {
+	return api.GetContactListJSONSchema()
+}

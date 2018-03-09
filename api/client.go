@@ -232,6 +232,10 @@ func GetContactListJSON() ([]byte, error) {
 	return result, err
 }
 
+func GetContactListJSONSchema() (string) {
+	return globals.ContactListJsonSchema
+}
+
 func clearUint64(u *uint64) {
 	*u = math.MaxUint64
 	*u = 0

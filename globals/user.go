@@ -8,10 +8,10 @@ package globals
 
 import (
 	"crypto/sha256"
-	"encoding/json"
 	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"github.com/spf13/jwalterweatherman"
+	"strconv"
 )
 
 var ContactListJsonSchema = `{
@@ -144,18 +144,16 @@ func (m *UserMap) buildContactListJSON() ([]byte, error) {
 	var result []byte
 	result = append(result, '[')
 	for _, user := range m.userCollection {
-		nextChunk, err := json.Marshal(user)
-
-		if err != nil {
-			jwalterweatherman.ERROR.Println(err.Error())
-			return nil, err
-		}
-
-		result = append(result, nextChunk...)
-		result = append(result, ',')
+		result = append(result, `{"UserID":`...)
+		result = append(result, strconv.FormatUint(user.UserID, 10)...)
+		result = append(result, `,"Nick":"`...)
+		result = append(result, user.Nick...)
+		result = append(result, `"},`...)
 	}
-	// replace the last byte with a bracket, ending the list
+	// replace the last comma with a bracket, ending the list
 	result[len(result)-1] = ']'
+
+	println(string(result))
 
 	return result, nil
 }

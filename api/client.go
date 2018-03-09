@@ -208,15 +208,18 @@ func Logout() error {
 	return nil
 }
 
-func GetNick(UID uint64) string {
+func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
 
 	if success {
-		return u.Nick
+		io.SetNick(globals.Session.GetNodeAddress(), u)
 	} else {
-		return ""
+		jww.ERROR.Printf("Tried to set nick for user %v, " +
+			"but that user wasn't in the registry", u.UserID)
+		return errors.New("That user wasn't in the user registry")
 	}
 
+	return nil
 }
 
 func UpdateContactList() {

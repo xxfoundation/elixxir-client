@@ -15,7 +15,7 @@ import (
 
 func SetNick(addr string, user *globals.User) {
 	msg := pb.Contact(*user)
-	_, err := mixclient.SetNick(addr, msg)
+	_, err := mixclient.SetNick(addr, &msg)
 
 	if err != nil {
 		jww.FATAL.Panicf("Failed to set nick: %v", err.Error())

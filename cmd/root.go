@@ -13,9 +13,9 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/globals"
 	"os"
 	"time"
-	"gitlab.com/privategrity/client/globals"
 )
 
 var verbose bool
@@ -48,39 +48,38 @@ var rootCmd = &cobra.Command{
 
 		register := false
 
-		if sessionFile == ""{
-			err = api.InitClient(globals.RamStorage{},"")
-			if err !=nil{
+		if sessionFile == "" {
+			err = api.InitClient(globals.RamStorage{}, "")
+			if err != nil {
 				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
 				return
 			}
 			register = true
-		}else{
+		} else {
 
 			_, err1 := os.Stat(sessionFile)
 
-			if err1!=nil{
-				if os.IsNotExist(err1){
+			if err1 != nil {
+				if os.IsNotExist(err1) {
 					register = true
-				} else{
+				} else {
 					fmt.Printf("Error with file path: %s\n", err1.Error())
 				}
 			}
 
+			err = api.InitClient(globals.DefaultStorage{}, sessionFile)
 
-			err = api.InitClient(globals.DefaultStorage{},sessionFile)
-
-			if err!=nil {
-				fmt.Printf("Could Not Initilize OS Storage: %s\n",err.Error())
+			if err != nil {
+				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
 				return
 			}
 		}
 
-		if register{
+		if register {
 			_, err := api.Register(globals.UserHash(userId),
-				"testName",serverAddr, 	numNodes)
-			if err!=nil{
+				"testName", serverAddr, numNodes)
+			if err != nil {
 				fmt.Printf("Could Not Register User: %s/n", err.Error())
 				return
 			}
@@ -88,24 +87,23 @@ var rootCmd = &cobra.Command{
 
 		_, err = api.Login(userId)
 
-		if err!=nil {
+		if err != nil {
 			fmt.Printf("Could Not Log In ")
 			return
 		}
 
 		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 
-		api.Send(api.APIMessage{userId,message,destinationUserId})
+		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
 		for {
 			var msg api.APIMessage
 			msg, err = api.TryReceive()
 
-			if err!=nil{
+			if err != nil {
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
-
 
 			if msg.Payload != "" {
 				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
@@ -116,7 +114,7 @@ var rootCmd = &cobra.Command{
 
 		err = api.Logout()
 
-		if err!=nil {
+		if err != nil {
 			fmt.Printf("Could not logout: %s", err.Error())
 			return
 		}
@@ -145,11 +143,11 @@ func init() {
 		"The number of servers in the network that the client is"+
 			" connecting to")
 
-	rootCmd.PersistentFlags().StringVarP(&sessionFile,"sessionfile", "f",
-		"", "Passes a file path for loading a session.  " +
-			"If the file doesn't exist the code will register the user and" +
-				" store it there.  If not passed the session will be stored" +
-					" to ram and lost when the cli finishes")
+	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
+		"", "Passes a file path for loading a session.  "+
+			"If the file doesn't exist the code will register the user and"+
+			" store it there.  If not passed the session will be stored"+
+			" to ram and lost when the cli finishes")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

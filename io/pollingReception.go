@@ -9,10 +9,10 @@ package io
 import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
-	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/mixclient"
-	"time"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"time"
 )
 
 func runfunc(wait uint64, quit globals.ThreadTerminator) {
@@ -27,34 +27,34 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 	for !q {
 
-		select{
-			case killNotify = <-quit:
-				q = true
-			default:
-				time.Sleep(time.Duration(wait) * time.Millisecond)
+		select {
+		case killNotify = <-quit:
+			q = true
+		default:
+			time.Sleep(time.Duration(wait) * time.Millisecond)
 
-				cmixMsg, _ := mixclient.SendClientPoll(globals.Session.GetNodeAddress(), rqMsg)
+			cmixMsg, _ := mixclient.SendClientPoll(globals.Session.GetNodeAddress(), rqMsg)
 
-				if len(cmixMsg.MessagePayload) != 0 {
+			if len(cmixMsg.MessagePayload) != 0 {
 
-					msgBytes := globals.MessageBytes{
-						Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-						PayloadMIC:   cyclic.NewInt(0),
-						Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-						RecipientMIC: cyclic.NewInt(0),
-					}
-
-					msg := crypto.Decrypt(globals.Grp, &msgBytes)
-
-					globals.Session.PushFifo(msg)
+				msgBytes := globals.MessageBytes{
+					Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
+					PayloadMIC:   cyclic.NewInt(0),
+					Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
+					RecipientMIC: cyclic.NewInt(0),
 				}
+
+				msg := crypto.Decrypt(globals.Grp, &msgBytes)
+
+				globals.Session.PushFifo(msg)
+			}
 		}
 
 	}
 
 	close(quit)
 
-	if killNotify != nil{
+	if killNotify != nil {
 		killNotify <- true
 	}
 
@@ -63,7 +63,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 //Starts the reception runner which waits "wait" between checks,
 // and quits via the "quit" chan
 func InitReceptionRunner(wait uint64,
-	quit globals.ThreadTerminator)( globals.ThreadTerminator) {
+	quit globals.ThreadTerminator) globals.ThreadTerminator {
 
 	if quit == nil {
 		quit = globals.NewThreadTerminator()

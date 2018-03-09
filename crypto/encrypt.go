@@ -8,12 +8,12 @@ package crypto
 
 import (
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/forward"
 )
 
 func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
-MessageBytes {
+	MessageBytes {
 
 	keys := globals.Session.GetKeys()
 	result := message.ConstructMessageBytes()

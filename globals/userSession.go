@@ -234,7 +234,7 @@ func (s *sessionObj) Immolate() bool {
 	//Kill Polling Reception
 	if s.pollTerm != nil {
 
-		s.pollTerm.BlockingTerminate(1000)
+		s.pollTerm.BlockingTerminate(60000)
 		//Clear message fifo
 
 		q := false

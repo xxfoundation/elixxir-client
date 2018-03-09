@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 		if sessionFile == "" {
 			err = api.InitClient(globals.RamStorage{}, "")
 			if err != nil {
-				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
+				fmt.Printf("Could Not Initilize Ram Storage: %s",
 					err.Error())
 				return
 			}
@@ -64,14 +64,14 @@ var rootCmd = &cobra.Command{
 				if os.IsNotExist(err1) {
 					register = true
 				} else {
-					fmt.Printf("Error with file path: %s\n", err1.Error())
+					fmt.Printf("Error with file path: %s", err1.Error())
 				}
 			}
 
 			err = api.InitClient(globals.DefaultStorage{}, sessionFile)
 
 			if err != nil {
-				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
+				fmt.Printf("Could Not Initilize OS Storage: %s", err.Error())
 				return
 			}
 		}
@@ -80,7 +80,7 @@ var rootCmd = &cobra.Command{
 			_, err := api.Register(globals.UserHash(userId),
 				"testName", serverAddr, numNodes)
 			if err != nil {
-				fmt.Printf("Could Not Register User: %s/n", err.Error())
+				fmt.Printf("Could Not Register User: %s", err.Error())
 				return
 			}
 		}
@@ -92,7 +92,7 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
+		fmt.Printf("Sending Message to %d: %s", destinationUserId, message)
 
 		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
@@ -101,12 +101,12 @@ var rootCmd = &cobra.Command{
 			msg, err = api.TryReceive()
 
 			if err != nil {
-				fmt.Printf("Could not Receive Message: %s\n", err.Error())
+				fmt.Printf("Could not Receive Message: %s", err.Error())
 				break
 			}
 
 			if msg.Payload != "" {
-				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
+				fmt.Printf("Message from %v Received: %s", msg.Sender, msg.Payload)
 				break
 			}
 			time.Sleep(200 * time.Millisecond)
@@ -142,6 +142,7 @@ func init() {
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
 			" connecting to")
+	rootCmd.MarkPersistentFlagRequired("numnodes")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

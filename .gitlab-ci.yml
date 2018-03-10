@@ -9,7 +9,7 @@ cache:
 variables:
   REPO_DIR: gitlab.com/privategrity
   REPO_NAME: client
-  DOCKER_IMAGE: carback1/golang-glide:1.9-d638096cef01
+  DOCKER_IMAGE: carback1/golang-glide:1.9-3b2621654f38
 
 before_script:
   ##
@@ -72,7 +72,10 @@ test:
   stage: test
   image: $DOCKER_IMAGE
   script:
-    - go test -cover -v ./...
+    - mkdir -p testdata
+    - goverage -coverprofile=testdata/coverage.out -v ./... | grep -v "no packages being tested depend on"
+    - go tool cover -func=testdata/coverage.out
+    - go tool cover -html=testdata/coverage.out -o testdata/coverage.html
 
 build:
   stage: build

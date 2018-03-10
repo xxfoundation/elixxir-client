@@ -48,4 +48,22 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("User 10005 is not 'Spencer'")
 	}
 
+	usr = Users.NewUser(2002, "Will I am")
+
+	if usr.Nick != "Will I am" {
+		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
+	}
+
+	Users.UpsertUser(usr)
+
+	if Users.CountUsers() == NUM_DEMO_USERS {
+		t.Errorf("Upsert did not work properly")
+	}
+
+	Users.DeleteUser(2)
+
+	_, ok := Users.LookupUser(10002)
+	if !ok {
+		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
+	}
 }

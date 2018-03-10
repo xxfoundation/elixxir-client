@@ -8,6 +8,7 @@ package globals
 
 import (
 	"crypto/sha256"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/crypto/cyclic"
 )
 
@@ -17,7 +18,10 @@ var NUM_DEMO_USERS = int(1000)
 
 // Interface for User Registry operations
 type UserRegistry interface {
+	NewUser(id uint64, nickname string) *User
+	DeleteUser(id uint64)
 	GetUser(id uint64) (user *User, ok bool)
+	UpsertUser(user *User)
 	CountUsers() int
 	LookupUser(hid uint64) (uid uint64, ok bool)
 	LookupKeys(uid uint64) (*NodeKeys, bool)
@@ -32,7 +36,6 @@ type UserMap struct {
 	userLookup map[uint64]uint64
 	//Temporary placed to store the keys for each user
 	keysLookup map[uint64]*NodeKeys
-
 }
 
 // Creates a new UserRegistry interface
@@ -43,19 +46,19 @@ func newUserRegistry() UserRegistry {
 	nk := make(map[uint64]*NodeKeys)
 
 	// Deterministically create 1000 users
-	for i := 1; i<= NUM_DEMO_USERS; i++ {
+	for i := 1; i <= NUM_DEMO_USERS; i++ {
 		t := new(User)
 		k := new(NodeKeys)
 		h := sha256.New()
 		// Generate user parameters
 		t.UID = uint64(i)
-		h.Write([]byte(string(20000+i)))
+		h.Write([]byte(string(20000 + i)))
 		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
-		h.Write([]byte(string(30000+i)))
+		h.Write([]byte(string(30000 + i)))
 		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
-		h.Write([]byte(string(40000+i)))
+		h.Write([]byte(string(40000 + i)))
 		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
-		h.Write([]byte(string(50000+i)))
+		h.Write([]byte(string(50000 + i)))
 		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 		// Add user to collection and lookup table
 		uc[t.UID] = t
@@ -74,26 +77,62 @@ func newUserRegistry() UserRegistry {
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
-	idCounter: uint64(NUM_DEMO_USERS),
-	userLookup: ul,
-	keysLookup:nk})
+		idCounter:  uint64(NUM_DEMO_USERS),
+		userLookup: ul,
+		keysLookup: nk})
 }
 
 // Struct representing a User in the system
 type User struct {
-	UID uint64
+	UID  uint64
 	Nick string
 }
 
-func UserHash(uid uint64)(uint64){
+func (u *User) DeepCopy() *User {
+
+	if u == nil {
+		return nil
+	}
+
+	nu := new(User)
+
+	nu.UID = u.UID
+	nu.Nick = u.Nick
+
+	return nu
+}
+
+func UserHash(uid uint64) uint64 {
 	return uid + 10000
+}
+
+// NewUser creates a new User object with default fields and given address.
+func (m *UserMap) NewUser(id uint64, nickname string) *User {
+
+	if id < uint64(NUM_DEMO_USERS) {
+		jww.FATAL.Panicf("Invalid User ID!")
+	}
+	return &User{UID: id, Nick: nickname}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
 func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
 	user, ok = m.userCollection[id]
+	user = user.DeepCopy()
 	return
+}
+
+// DeleteUser deletes a user with the given ID from userCollection.
+func (m *UserMap) DeleteUser(id uint64) {
+	// If key does not exist, do nothing
+	delete(m.userCollection, id)
+}
+
+// UpsertUser inserts given user into userCollection or update the user if it
+// already exists (Upsert operation).
+func (m *UserMap) UpsertUser(user *User) {
+	m.userCollection[user.UID] = user
 }
 
 // CountUsers returns a count of the users in userCollection
@@ -107,9 +146,7 @@ func (m *UserMap) LookupUser(hid uint64) (uid uint64, ok bool) {
 	return
 }
 
-func (m *UserMap) LookupKeys(uid uint64)(*NodeKeys, bool){
+func (m *UserMap) LookupKeys(uid uint64) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[uid]
 	return nk, t
 }
-
-

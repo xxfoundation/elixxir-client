@@ -28,8 +28,11 @@ func InitCrypto() {
 		"1F612970CEE2D7AFB81BDD762170481CD0069127D5B05AA9" +
 		"93B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199" +
 		"FFFFFFFFFFFFFFFF"
-	rng := cyclic.NewRandom(cyclic.NewInt(0), cyclic.NewInt(1000))
-	g := cyclic.NewGroup(cyclic.NewIntFromString(primeString, 16),
-		cyclic.NewInt(5), cyclic.NewInt(4), rng)
+	prime := cyclic.NewIntFromString(primeString, 16)
+	one := cyclic.NewInt(1)
+	primeMinusOne := cyclic.NewInt(0)
+	primeMinusOne.Sub(prime, one)
+	rng := cyclic.NewRandom(cyclic.NewInt(2), primeMinusOne)
+	g := cyclic.NewGroup(prime, cyclic.NewInt(5), cyclic.NewInt(4), rng)
 	Grp = &g
 }

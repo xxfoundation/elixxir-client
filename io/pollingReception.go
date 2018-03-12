@@ -13,6 +13,7 @@ import (
 	"gitlab.com/privategrity/comms/mixclient"
 	"time"
 	"gitlab.com/privategrity/crypto/cyclic"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 func runfunc(wait uint64, quit globals.ThreadTerminator) {
@@ -42,9 +43,15 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 						Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
 					}
 
-					msg := crypto.Decrypt(globals.Grp, &msgBytes)
+					msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
 
-					globals.Session.PushFifo(msg)
+					if err != nil{
+						jww.ERROR.Println("Decryption failed: %v", err.Error())
+					}else{
+						globals.Session.PushFifo(msg)
+					}
+
+
 				}
 		}
 

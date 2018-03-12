@@ -39,12 +39,12 @@ const (
 
 	// Length and Position of the Recipient ID
 	RID_LEN 		uint64 = TOTAL_LEN-IV_LEN-RMIC_LEN
-	RID_START		uint64 = IV_END
+	RID_START		uint64 = RMIC_END
 	RID_END			uint64 = RID_START+RID_LEN
 
 	// Length and Position of the Recipient MIC
 	RMIC_LEN	    uint64 = 8
-	RMIC_START		uint64 = RID_END
+	RMIC_START		uint64 = IV_END
 	RMIC_END		uint64 = RMIC_START+RMIC_LEN
 )
 

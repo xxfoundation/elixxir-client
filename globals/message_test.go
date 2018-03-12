@@ -7,8 +7,8 @@
 package globals
 
 import (
-	"testing"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"testing"
 )
 
 func TestNewMessage(t *testing.T) {
@@ -68,7 +68,7 @@ func TestNewMessage(t *testing.T) {
 
 		expct := cyclic.NewIntFromBytes(expectedSlices[i])
 
-		if msg.payload.Cmp(expct)!=0{
+		if msg.payload.Cmp(expct) != 0 {
 			t.Errorf("Test of NewMessage failed on test %v, bytes did not "+
 				"match;\n Value Expected: %v, Value Received: %v", i,
 				string(expct.Bytes()), string(msg.payload.Bytes()))
@@ -89,7 +89,7 @@ func TestConstructDeconstructMessageBytes(t *testing.T) {
 
 	rtnmsg := dmsg.DeconstructMessageBytes()
 
-	if rtnmsg.senderID.Cmp(msg.senderID)!=0 {
+	if rtnmsg.senderID.Cmp(msg.senderID) != 0 {
 		t.Errorf("Test of Message Construction/Deconstruction failed, sID did"+
 			" not match;\n  Expected: %v, Received: %v", msg.senderID.Text(10),
 			rtnmsg.senderID.Text(10))
@@ -119,6 +119,5 @@ func compareByteSlices(a, b *[]byte) bool {
 
 	return true
 }
-
 
 //TODO: Test End cases, messages over 2x length, at max length, and others.

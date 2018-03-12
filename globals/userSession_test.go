@@ -7,8 +7,8 @@
 package globals
 
 import (
-	"testing"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"testing"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -26,16 +26,16 @@ func TestUserSession(t *testing.T) {
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		PublicKey: cyclic.NewInt(2),
-		TransmissionKeys: 	RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReceptionKeys: 		RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReceiptKeys: 		RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReturnKeys: 		RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		PublicKey:        cyclic.NewInt(2),
+		TransmissionKeys: RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReceptionKeys:    RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReceiptKeys:      RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	success := InitStorage(RamStorage{},"")
+	success := InitStorage(RamStorage{}, "")
 
-	if !success{
+	if !success {
 		t.Errorf("User Session: Local storage could not be created")
 	}
 
@@ -50,33 +50,33 @@ func TestUserSession(t *testing.T) {
 
 	//TODO: write test which validates the immolation
 
-	if Session!= nil {
+	if Session != nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
-	} else{
+	} else {
 		pass++
 	}
 
 	if !LoadSession(UID, nil) {
 		t.Errorf("Error: Unable to login with valid user!")
-	} else{
+	} else {
 		pass++
 	}
 
 	if LoadSession(100002, nil) {
 		t.Errorf("Error: Able to login with invalid user!")
-	} else{
+	} else {
 		pass++
 	}
 
 	if Session == nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
-	} else{
+	} else {
 		pass++
 	}
 
 	if Session.GetNodeAddress() == "" {
 		t.Errorf("Error: Node Address not set correctly!")
-	} else{
+	} else {
 		pass++
 	}
 
@@ -94,7 +94,7 @@ func TestUserSession(t *testing.T) {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			} else if Session.GetKeys()[i].ReceiptKeys.Recursive.Cmp(cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].ReceptionKeys.Base.Cmp(cyclic.NewInt(2)) != 0{
+			} else if Session.GetKeys()[i].ReceptionKeys.Base.Cmp(cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			} else if Session.GetKeys()[i].ReceptionKeys.Recursive.Cmp(cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
@@ -119,7 +119,6 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-
 	inmsg := NewMessage(42, 69, "test")[0]
 
 	Session.PushFifo(inmsg)
@@ -128,18 +127,16 @@ func TestUserSession(t *testing.T) {
 
 	if inmsg != outmsg {
 		t.Errorf("Error: Incorrect Return Message from fifo")
-	} else{
+	} else {
 		pass++
 	}
 
 	//Logout
 	Session.Immolate()
 
-
-
 	if Session != nil {
 		t.Errorf("Error: Logout / Immolate did not work!")
-	} else{
+	} else {
 		pass++
 	}
 }

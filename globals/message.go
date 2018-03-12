@@ -15,7 +15,7 @@ import (
 // exclusive for the end, so the END consts are one more then the final
 // index.
 const (
-	TOTAL_LEN 		uint64 = 512
+	TOTAL_LEN uint64 = 512
 
 	// Length and Position of the Initialization Vector for both the payload and
 	// the recipient
@@ -28,10 +28,9 @@ const (
 	PAYLOAD_START	uint64 = IV_END
 	PAYLOAD_END		uint64 = PAYLOAD_START+PAYLOAD_LEN
 
-	// Length and Position of the Sender ID in the payload
 	SID_LEN   		uint64 = 8
 	SID_START		uint64 = PAYLOAD_END
-	SID_END			uint64 = SID_START + SID_LEN
+	SID_END			uint64 = SID_START+SID_LEN
 
 	// Length and Position of the Payload MIC
 	PMIC_LEN	    uint64 = 8
@@ -73,12 +72,12 @@ type Message struct {
 // Makes a new message for a certain sender and recipient
 func NewMessage(sender, recipient uint64, text string) []*Message {
 
-	if sender ==0 {
+	if sender == 0 {
 		panic("Invalid sender id")
 		return nil
 	}
 
-	if recipient ==0 {
+	if recipient == 0 {
 		panic("Invalid recipient id")
 		return nil
 	}
@@ -89,17 +88,16 @@ func NewMessage(sender, recipient uint64, text string) []*Message {
 
 	var payloadLst [][]byte
 
-	for uint64(len(payload))>PAYLOAD_LEN{
+	for uint64(len(payload)) > PAYLOAD_LEN {
 		payloadLst = append(payloadLst, payload[0:PAYLOAD_LEN])
 		payload = payload[PAYLOAD_LEN:]
 	}
 	payloadLst = append(payloadLst, payload)
 
-
 	// create a message for every sub-payload
 	var messageList []*Message
 
-	for i:=0;i<len(payloadLst);i++{
+	for i := 0; i < len(payloadLst); i++ {
 		msg := &Message{
 			cyclic.NewInt(int64(sender)),
 			cyclic.NewIntFromBytes(payloadLst[i]),
@@ -109,55 +107,55 @@ func NewMessage(sender, recipient uint64, text string) []*Message {
 			cyclic.NewInt(0),
 			cyclic.NewInt(0),
 		}
-		messageList = append(messageList,msg)
+		messageList = append(messageList, msg)
 	}
 	return messageList
 }
 
 // This function returns a pointer to the sender ID in Message
 // This ensures that while the data can be edited, it cant be reallocated
-func (m *Message)GetSenderID() *cyclic.Int{
+func (m *Message) GetSenderID() *cyclic.Int {
 	return m.senderID
 }
 
 // This function returns a pointer to the payload in Message
 // This ensures that while the data can be edited, it cant be reallocated
-func (m *Message)GetPayload() *cyclic.Int{
+func (m *Message) GetPayload() *cyclic.Int {
 	return m.payload
 }
 
 // This function returns a pointer to the Recipient ID in Message
 // This ensures that while the data can be edited, it cant be reallocated
-func (m *Message)GetRecipientID() *cyclic.Int{
+func (m *Message) GetRecipientID() *cyclic.Int {
 	return m.recipientID
 }
 
 // This function returns a pointer to the Payload Initiliztion Vector in
 // Message
 // This ensures that while the data can be edited, it cant be reallocated
-func (m *Message)GetPayloadInitVector() *cyclic.Int{
+func (m *Message) GetPayloadInitVector() *cyclic.Int {
 	return m.payloadInitVect
 }
 
 // This function returns a pointer to the Recipient ID Initilization Vector in
 // Message
 // This ensures that while the data can be edited, it cant be reallocated
-func (m *Message)GetRecipientInitVector() *cyclic.Int{
+func (m *Message) GetRecipientInitVector() *cyclic.Int {
 	return m.recipientInitVect
 }
 
 // This function returns the Sender ID as a uint64 from Message
-func (m *Message) getSenderIDInt() uint64{
+func (m *Message) getSenderIDInt() uint64 {
 	return m.senderID.Uint64()
 }
 
 // This function returns the Recipient ID as a uint64 from Message
-func (m *Message) getRecipientIDInt() uint64{
+func (m *Message) getRecipientIDInt() uint64 {
 	return m.recipientID.Uint64()
 }
 
 // This function returns a Payload String from Message
-func (m *Message) GetPayloadString() string{
+func (m *Message) GetPayloadString() string {
 	return string(m.payload.Bytes())
 }
 
@@ -171,7 +169,7 @@ func (m *Message) GetRecipientMIC() *cyclic.Int{
 
 
 //Builds the Serialized MessageBytes from Message
-func (m *Message)ConstructMessageBytes() *MessageBytes{
+func (m *Message) ConstructMessageBytes() *MessageBytes {
 
 	/*CONSTRUCT MESSAGE PAYLOAD*/
 	var messagePayload []byte
@@ -205,7 +203,7 @@ func (m *Message)ConstructMessageBytes() *MessageBytes{
 
 	recipientPayload = append(recipientPayload, ivr...)
 
-	//append the recipient id
+	//append the recipientid
 	recipientPayload = append(recipientPayload,
 		m.recipientID.LeftpadBytes(RID_LEN)...)
 
@@ -238,4 +236,3 @@ func (mb *MessageBytes)DeconstructMessageBytes() *Message{
 		cyclic.NewIntFromBytes(recipientBytes[RMIC_START:RMIC_END]),
 	}
 }
-

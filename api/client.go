@@ -7,32 +7,32 @@
 package api
 
 import (
+	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	jww "github.com/spf13/jwalterweatherman"
-	"math"
-	"errors"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"math"
 )
 
 //Structure used to return a message
-type APIMessage struct{
-	Sender 	uint64
-	Payload string
+type APIMessage struct {
+	Sender    uint64
+	Payload   string
 	Recipient uint64
 }
 
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string)(error){
+func InitClient(s globals.Storage, loc string) error {
 
 	var err error
 
 	storeState := globals.InitStorage(s, loc)
 
-	if !storeState{
+	if !storeState {
 		err = errors.New("could not init client")
 	}
 
@@ -44,11 +44,11 @@ func InitClient(s globals.Storage, loc string)(error){
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(HUID uint64, nick string, nodeAddr string,
-	numNodes uint)(uint64, error){
+	numNodes uint) (uint64, error) {
 
 	var err error
 
-	if numNodes<1{
+	if numNodes < 1 {
 		jww.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
 		return 0, err
@@ -63,7 +63,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 		return 0, err
 	}
 
-	user, successGet  := globals.Users.GetUser(UID)
+	user, successGet := globals.Users.GetUser(UID)
 
 	if !successGet {
 		jww.ERROR.Printf("Register: UID lookup failed")
@@ -71,7 +71,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 		return 0, err
 	}
 
-	if len(nick) > 36 || len(nick)<1{
+	if len(nick) > 36 || len(nick) < 1 {
 		jww.ERROR.Printf("Register: Nickname too long")
 		err = errors.New("could not register due to invalid nickname")
 		return 0, err
@@ -88,9 +88,9 @@ func Register(HUID uint64, nick string, nodeAddr string,
 		return 0, err
 	}
 
-	nk := make([]globals.NodeKeys,numNodes)
+	nk := make([]globals.NodeKeys, numNodes)
 
-	for i:=uint(0);i<numNodes;i++{
+	for i := uint(0); i < numNodes; i++ {
 		nk[i] = *nodekeys
 	}
 
@@ -98,7 +98,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	successStore := nus.StoreSession()
 
-	if !successStore{
+	if !successStore {
 		jww.ERROR.Printf("Register: unable to save session")
 		err = errors.New("could not register due to failed session save")
 		return 0, err
@@ -131,7 +131,7 @@ func Login(UID uint64) (string, error) {
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func Send(message APIMessage) (error){
+func Send(message APIMessage) error {
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("Send: Could not send when not logged in")
@@ -151,7 +151,12 @@ func Send(message APIMessage) (error){
 	for _, newMessage := range newMessages {
 		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
 		// Send the message
-		io.TransmitMessage(globals.Session.GetNodeAddress(), newMessageBytes)
+		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
+			newMessageBytes)
+		// If we get an error, return it
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -168,7 +173,7 @@ func TryReceive() (APIMessage, error) {
 	if globals.Session == nil {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
 		err = errors.New("cannot receive when not logged in")
-	}else{
+	} else {
 		message := globals.Session.PopFifo()
 		if message != nil {
 			m.Payload = message.GetPayloadString()
@@ -179,7 +184,6 @@ func TryReceive() (APIMessage, error) {
 
 	return m, err
 }
-
 
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
@@ -201,7 +205,7 @@ func Logout() error {
 
 	successImmolate := globals.Session.Immolate()
 
-	if !successImmolate{
+	if !successImmolate {
 		jww.ERROR.Printf("Logout: Immolation Failed")
 		return errors.New("cannot logout because ram could not be cleared")
 	}
@@ -209,22 +213,22 @@ func Logout() error {
 	return nil
 }
 
-func GetNick(UID uint64)string{
+func GetNick(UID uint64) string {
 	u, success := globals.Users.GetUser(UID)
 
-	if success{
+	if success {
 		return u.Nick
-	}else{
+	} else {
 		return ""
 	}
 
 }
 
-func GetContactList()[]uint64{
+func GetContactList() []uint64 {
 
-	clist := make([]uint64,globals.NUM_DEMO_USERS)
+	clist := make([]uint64, globals.NUM_DEMO_USERS)
 
-	for i:=1;i<=globals.NUM_DEMO_USERS;i++{
+	for i := 1; i <= globals.NUM_DEMO_USERS; i++ {
 		clist[i-1] = uint64(i)
 	}
 
@@ -232,9 +236,7 @@ func GetContactList()[]uint64{
 
 }
 
-
-
-func clearUint64(u *uint64){
+func clearUint64(u *uint64) {
 	*u = math.MaxUint64
 	*u = 0
 }

@@ -14,7 +14,7 @@ import (
 )
 
 func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
-MessageBytes {
+	MessageBytes {
 
 	keys := globals.Session.GetKeys()
 

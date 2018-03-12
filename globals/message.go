@@ -203,13 +203,15 @@ func (m *Message) ConstructMessageBytes() *MessageBytes {
 
 	recipientPayload = append(recipientPayload, ivr...)
 
+	//append the recipient MIC
+	recipientPayload = append(recipientPayload,
+		m.recipientMIC.LeftpadBytes(RMIC_LEN)...)
+
 	//append the recipientid
 	recipientPayload = append(recipientPayload,
 		m.recipientID.LeftpadBytes(RID_LEN)...)
 
-	//append the recipient MIC
-	recipientPayload = append(recipientPayload,
-		m.recipientMIC.LeftpadBytes(RMIC_LEN)...)
+
 
 	//Create message
 

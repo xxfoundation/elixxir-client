@@ -15,6 +15,8 @@ import (
 // Send a cMix message to the server
 func TransmitMessage(addr string, messageBytes *globals.MessageBytes) error {
 
+	globals.TransmissionMutex.Lock()
+
 	cmixmsg := &pb.CmixMessage{
 		SenderID:       globals.Session.GetCurrentUser().UID,
 		MessagePayload: messageBytes.Payload.Bytes(),
@@ -22,5 +24,8 @@ func TransmitMessage(addr string, messageBytes *globals.MessageBytes) error {
 	}
 
 	_, err := mixclient.SendMessageToServer(addr, cmixmsg)
+
+	globals.TransmissionMutex.Unlock()
+
 	return err
 }

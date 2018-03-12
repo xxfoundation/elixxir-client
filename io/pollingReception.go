@@ -9,10 +9,11 @@ package io
 import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/comms/mixclient"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/comms/mixclient"
 	"time"
+	"gitlab.com/privategrity/crypto/cyclic"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 func runfunc(wait uint64, quit globals.ThreadTerminator) {
@@ -37,17 +38,21 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 			if len(cmixMsg.MessagePayload) != 0 {
 
-				msgBytes := globals.MessageBytes{
-					Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-					PayloadMIC:   cyclic.NewInt(0),
-					Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-					RecipientMIC: cyclic.NewInt(0),
+					msgBytes := globals.MessageBytes{
+						Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
+						Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
+					}
+
+					msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
+
+					if err != nil{
+						jww.ERROR.Println("Decryption failed: %v", err.Error())
+					}else{
+						globals.Session.PushFifo(msg)
+					}
+
+
 				}
-
-				msg := crypto.Decrypt(globals.Grp, &msgBytes)
-
-				globals.Session.PushFifo(msg)
-			}
 		}
 
 	}

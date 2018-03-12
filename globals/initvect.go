@@ -6,6 +6,8 @@ import(
 
 var vectGen *cyclic.Random
 
+// Creates a random string for the initlization vector with lazy creatiuon of the
+// Underlying random number generator
 func MakeInitVect(v *cyclic.Int)*cyclic.Int{
 	if vectGen == nil {
 		min := cyclic.NewInt(2)

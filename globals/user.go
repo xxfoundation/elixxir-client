@@ -10,7 +10,6 @@ import (
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/hash"
-	"fmt"
 )
 
 // Globally instantiated UserRegistry
@@ -66,7 +65,6 @@ func newUserRegistry() UserRegistry {
 		// Add user to collection and lookup table
 		uc[t.UID] = t
 		ul[UserHash(t.UID)] = t.UID
-		fmt.Println(cyclic.NewIntFromUInt(UserHash(t.UID)).TextVerbose(32, 0))
 		nk[t.UID] = k
 	}
 

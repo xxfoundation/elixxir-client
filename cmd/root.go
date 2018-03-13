@@ -152,10 +152,6 @@ func init() {
 			" connecting to")
 	rootCmd.MarkPersistentFlagRequired("numnodes")
 
-	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
-		"The number of servers in the network that the client is"+
-			" connecting to")
-
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+
 			"If the file doesn't exist the code will register the user and"+

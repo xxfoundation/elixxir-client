@@ -9,6 +9,8 @@ package globals
 import (
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/hash"
+	"fmt"
 )
 
 // Globally instantiated UserRegistry
@@ -64,6 +66,7 @@ func newUserRegistry() UserRegistry {
 		// Add user to collection and lookup table
 		uc[t.UID] = t
 		ul[UserHash(t.UID)] = t.UID
+		fmt.Println(cyclic.NewIntFromUInt(UserHash(t.UID)).TextVerbose(32, 0))
 		nk[t.UID] = k
 	}
 
@@ -75,7 +78,7 @@ func newUserRegistry() UserRegistry {
 	uc[6].Nick = "Jake"
 	uc[7].Nick = "Mario"
 	uc[8].Nick = "Will"
-	uc[9].Nick = "Sydney"
+	uc[9].Nick = "Allan"
 	uc[10].Nick = "Jono"
 
 	// With an underlying UserMap data structure
@@ -92,7 +95,11 @@ type User struct {
 }
 
 func UserHash(uid uint64) uint64 {
-	return uid + 10000
+	var huid []byte
+	h, _ := hash.NewCMixHash()
+	h.Write(cyclic.NewIntFromUInt(uid).LeftpadBytes(8))
+	huid = h.Sum(huid)
+	return cyclic.NewIntFromBytes(huid).Uint64()
 }
 
 // GetUser returns a user with the given ID from userCollection

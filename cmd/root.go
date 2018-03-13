@@ -13,9 +13,9 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/globals"
 	"os"
 	"time"
-	"gitlab.com/privategrity/client/globals"
 )
 
 var verbose bool
@@ -25,6 +25,8 @@ var serverAddr string
 var message string
 var numNodes uint
 var sessionFile string
+var noRatchet bool
+var dummyFrequency float64
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -44,80 +46,113 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
 
+		var dummyPeroid time.Duration
+
+		var timer *time.Timer
+
+		if dummyFrequency!=0 {
+			dummyPeroid = time.Nanosecond *
+				(time.Duration(1000000000*(1.0/dummyFrequency)))
+		}
+
+		if noRatchet{
+			api.DisableRatchet()
+		}
+
 		var err error
 
 		register := false
 
-		if sessionFile == ""{
-			err = api.InitClient(globals.RamStorage{},"")
-			if err !=nil{
+		if sessionFile == "" {
+			err = api.InitClient(globals.RamStorage{}, "")
+			if err != nil {
 				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
 				return
 			}
 			register = true
-		}else{
+		} else {
 
 			_, err1 := os.Stat(sessionFile)
 
-			if err1!=nil{
-				if os.IsNotExist(err1){
+			if err1 != nil {
+				if os.IsNotExist(err1) {
 					register = true
-				} else{
+				} else {
 					fmt.Printf("Error with file path: %s\n", err1.Error())
 				}
 			}
 
+			err = api.InitClient(globals.DefaultStorage{}, sessionFile)
 
-			err = api.InitClient(globals.DefaultStorage{},sessionFile)
-
-			if err!=nil {
-				fmt.Printf("Could Not Initilize OS Storage: %s\n",err.Error())
+			if err != nil {
+				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
 				return
 			}
 		}
 
-		if register{
+		if register {
 			_, err := api.Register(globals.UserHash(userId),
-				"",serverAddr, 	numNodes)
-			if err!=nil{
-				fmt.Printf("Could Not Register User: %s/n", err.Error())
+				"testName", serverAddr, numNodes)
+			if err != nil {
+				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
 			}
 		}
 
 		_, err = api.Login(userId)
 
-		if err!=nil {
-			fmt.Printf("Could Not Log In ")
+		if err != nil {
+			fmt.Printf("Could Not Log In\n")
 			return
 		}
 
 		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 
-		api.Send(api.APIMessage{userId,message,destinationUserId})
+		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
+
+		if dummyFrequency != 0{
+			timer = time.NewTimer(dummyPeroid)
+		}
+
 		for {
+
 			var msg api.APIMessage
 			msg, err = api.TryReceive()
 
-			if err!=nil{
+			end := false
+
+			if err != nil {
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
 
-
 			if msg.Payload != "" {
 				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
+				end = true
+			}
+
+			if dummyPeroid!=0{
+				end = false
+				<-timer.C
+				fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
+				api.Send(api.APIMessage{userId, message, destinationUserId})
+				timer = time.NewTimer(dummyPeroid)
+			}else{
+				time.Sleep(200 * time.Millisecond)
+			}
+
+			if end {
 				break
 			}
-			time.Sleep(200 * time.Millisecond)
+
 		}
 
 		err = api.Logout()
 
-		if err!=nil {
-			fmt.Printf("Could not logout: %s", err.Error())
+		if err != nil {
+			fmt.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 
@@ -134,6 +169,9 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Verbose mode for debugging")
+	rootCmd.Flags().BoolVar(&noRatchet, "noratchet", false,
+		"Avoid ratcheting the keys for forward secrecy")
+
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
 	rootCmd.MarkPersistentFlagRequired("userid")
@@ -144,18 +182,23 @@ func init() {
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
 			" connecting to")
+	rootCmd.MarkPersistentFlagRequired("numnodes")
 
-	rootCmd.PersistentFlags().StringVarP(&sessionFile,"sessionfile", "f",
-		"", "Passes a file path for loading a session.  " +
-			"If the file doesn't exist the code will register the user and" +
-				" store it there.  If not passed the session will be stored" +
-					" to ram and lost when the cli finishes")
+	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
+		"", "Passes a file path for loading a session.  "+
+			"If the file doesn't exist the code will register the user and"+
+			" store it there.  If not passed the session will be stored"+
+			" to ram and lost when the cli finishes")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"UserID to send message to")
+
+	rootCmd.Flags().Float64Var(&dummyFrequency, "dummyfrequency", 0,
+		"Frequency of dummy messages in Hz.  If no message is passed, " +
+			"will transmit a random message.  Dummies are only sent if this flag is passed")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -10,12 +10,34 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/verification"
 )
 
 func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
-MessageBytes {
+	MessageBytes {
 
 	keys := globals.Session.GetKeys()
+
+	globals.MakeInitVect(message.GetPayloadInitVector())
+	globals.MakeInitVect(message.GetRecipientInitVector())
+
+	payloadMicList :=
+		[][]byte{ message.GetPayloadInitVector().LeftpadBytes(globals.IV_LEN),
+					message.GetSenderID().LeftpadBytes(globals.SID_LEN),
+					message.GetPayload().LeftpadBytes(globals.PAYLOAD_LEN),
+					}
+
+	message.GetPayloadMIC().SetBytes(verification.GenerateMIC(payloadMicList,
+		globals.PMIC_LEN))
+
+	recipientMicList :=
+		[][]byte{ message.GetRecipientInitVector().LeftpadBytes(globals.IV_LEN),
+					message.GetRecipientID().LeftpadBytes(globals.RID_LEN),
+					}
+
+	message.GetRecipientMIC().SetBytes(verification.GenerateMIC(recipientMicList,
+		globals.RMIC_LEN))
+
 	result := message.ConstructMessageBytes()
 
 	// TODO move this allocation somewhere sensible
@@ -32,6 +54,7 @@ MessageBytes {
 		g.Inverse(sharedTransmissionKey, sharedTransmissionKey)
 		g.Mul(inverseTransmissionKeys, sharedTransmissionKey,
 			inverseTransmissionKeys)
+
 	}
 
 	// perform the encryption

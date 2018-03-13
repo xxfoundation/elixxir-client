@@ -4,7 +4,7 @@ import "gitlab.com/privategrity/crypto/cyclic"
 
 var Grp *cyclic.Group
 
-func initCrypto() {
+func InitCrypto() {
 	// TODO: don't hard code the cyclic group
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +

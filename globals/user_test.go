@@ -62,8 +62,8 @@ func TestUserRegistry(t *testing.T) {
 
 	Users.DeleteUser(2)
 
-	_, ok := Users.LookupUser(10002)
-	if !ok {
+	_, ok := Users.GetUser(2)
+	if ok {
 		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
 	}
 }

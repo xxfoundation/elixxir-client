@@ -18,6 +18,7 @@ var NUM_DEMO_USERS = int(10)
 // Interface for User Registry operations
 type UserRegistry interface {
 	GetUser(id uint64) (user *User, ok bool)
+	UpsertUser(user *User) bool
 	CountUsers() int
 	LookupUser(hid uint64) (uid uint64, ok bool)
 	LookupKeys(uid uint64) (*NodeKeys, bool)
@@ -96,9 +97,13 @@ func UserHash(uid uint64) uint64 {
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
-	user, ok = m.userCollection[id]
-	return
+func (m *UserMap) GetUser(id uint64) (*User, bool) {
+	user, ok := m.userCollection[id]
+	if !ok{
+		return nil, ok
+	}
+	temp := User{user.UID,user.Nick}
+	return &temp, ok
 }
 
 // CountUsers returns a count of the users in userCollection
@@ -115,4 +120,9 @@ func (m *UserMap) LookupUser(hid uint64) (uid uint64, ok bool) {
 func (m *UserMap) LookupKeys(uid uint64) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[uid]
 	return nk, t
+}
+
+func (m *UserMap) UpsertUser(user *User) bool {
+	m.userCollection[user.UID] = user
+	return true
 }

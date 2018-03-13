@@ -25,6 +25,7 @@ var serverAddr string
 var message string
 var numNodes uint
 var sessionFile string
+var noRatchet bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -43,6 +44,10 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
+
+		if noRatchet{
+			api.DisableRatchet()
+		}
 
 		var err error
 
@@ -132,6 +137,9 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Verbose mode for debugging")
+	rootCmd.Flags().BoolVar(&noRatchet, "noratchet", false,
+		"Avoid ratcheting the keys for forward secrecy")
+
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
 	rootCmd.MarkPersistentFlagRequired("userid")
@@ -143,6 +151,10 @@ func init() {
 		"The number of servers in the network that the client is"+
 			" connecting to")
 	rootCmd.MarkPersistentFlagRequired("numnodes")
+
+	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
+		"The number of servers in the network that the client is"+
+			" connecting to")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

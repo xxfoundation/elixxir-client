@@ -14,6 +14,7 @@ import (
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"math"
+	"gitlab.com/privategrity/crypto/forward"
 )
 
 //Structure used to return a message
@@ -239,4 +240,8 @@ func GetContactList() []uint64 {
 func clearUint64(u *uint64) {
 	*u = math.MaxUint64
 	*u = 0
+}
+
+func DisableRatchet(){
+	forward.SetRatchetStatus(false)
 }

@@ -99,9 +99,11 @@ func UserHash(uid uint64) uint64 {
 // and a boolean for whether the user exists
 func (m *UserMap) GetUser(id uint64) (*User, bool) {
 	user, ok := m.userCollection[id]
-	temp := new(User)
-	*temp = *user
-	return temp, ok
+	if !ok{
+		return nil, ok
+	}
+	temp := User{user.UID,user.Nick}
+	return &temp, ok
 }
 
 // CountUsers returns a count of the users in userCollection

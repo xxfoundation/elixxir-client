@@ -33,7 +33,7 @@ func TestUserSession(t *testing.T) {
 		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	success := InitStorage(RamStorage{}, "")
+	success := InitStorage(&RamStorage{}, "")
 
 	if !success {
 		t.Errorf("User Session: Local storage could not be created")

@@ -7,11 +7,11 @@
 package crypto
 
 import (
+	"errors"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
-	"errors"
 )
 
 func Decrypt(g *cyclic.Group, encryptedMessage *globals.MessageBytes) (
@@ -39,13 +39,11 @@ func Decrypt(g *cyclic.Group, encryptedMessage *globals.MessageBytes) (
 	g.Mul(encryptedMessage.Payload, inverseReceptionKeys, encryptedMessage.Payload)
 	g.Mul(encryptedMessage.Recipient, inverseReceptionKeys, encryptedMessage.Recipient)
 
-	
-
 	// unpack the message from a MessageBytes
 	message := encryptedMessage.DeconstructMessageBytes()
 
 	payloadMicList :=
-		[][]byte{ message.GetPayloadInitVector().LeftpadBytes(globals.IV_LEN),
+		[][]byte{message.GetPayloadInitVector().LeftpadBytes(globals.IV_LEN),
 			message.GetSenderID().LeftpadBytes(globals.SID_LEN),
 			message.GetPayload().LeftpadBytes(globals.PAYLOAD_LEN),
 		}
@@ -53,10 +51,9 @@ func Decrypt(g *cyclic.Group, encryptedMessage *globals.MessageBytes) (
 	success := verification.CheckMic(payloadMicList,
 		message.GetPayloadMIC().LeftpadBytes(globals.PMIC_LEN))
 
-	if !success{
+	if !success {
 		err = errors.New("MIC did not match")
 	}
-	
-	
+
 	return message, err
 }

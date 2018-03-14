@@ -50,12 +50,12 @@ var rootCmd = &cobra.Command{
 
 		var timer *time.Timer
 
-		if dummyFrequency!=0 {
+		if dummyFrequency != 0 {
 			dummyPeroid = time.Nanosecond *
-				(time.Duration(1000000000*(1.0/dummyFrequency)))
+				(time.Duration(1000000000 * (1.0 / dummyFrequency)))
 		}
 
-		if noRatchet{
+		if noRatchet {
 			api.DisableRatchet()
 		}
 
@@ -64,7 +64,7 @@ var rootCmd = &cobra.Command{
 		register := false
 
 		if sessionFile == "" {
-			err = api.InitClient(globals.RamStorage{}, "")
+			err = api.InitClient(&globals.RamStorage{}, "")
 			if err != nil {
 				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
@@ -83,7 +83,7 @@ var rootCmd = &cobra.Command{
 				}
 			}
 
-			err = api.InitClient(globals.DefaultStorage{}, sessionFile)
+			err = api.InitClient(&globals.DefaultStorage{}, sessionFile)
 
 			if err != nil {
 				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
@@ -112,7 +112,7 @@ var rootCmd = &cobra.Command{
 		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
 
-		if dummyFrequency != 0{
+		if dummyFrequency != 0 {
 			timer = time.NewTimer(dummyPeroid)
 		}
 
@@ -133,13 +133,13 @@ var rootCmd = &cobra.Command{
 				end = true
 			}
 
-			if dummyPeroid!=0{
+			if dummyPeroid != 0 {
 				end = false
 				<-timer.C
 				fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 				api.Send(api.APIMessage{userId, message, destinationUserId})
 				timer = time.NewTimer(dummyPeroid)
-			}else{
+			} else {
 				time.Sleep(200 * time.Millisecond)
 			}
 
@@ -197,7 +197,7 @@ func init() {
 		"UserID to send message to")
 
 	rootCmd.Flags().Float64Var(&dummyFrequency, "dummyfrequency", 0,
-		"Frequency of dummy messages in Hz.  If no message is passed, " +
+		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
 }
 

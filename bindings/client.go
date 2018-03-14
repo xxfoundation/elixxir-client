@@ -17,9 +17,9 @@ import (
 // It is identical to the interface used in Globals,
 // and a results the types can be passed freely between the two
 type Storage interface {
-	SetLocation(string) (Storage, error)
+	SetLocation(string) (*Storage, error)
 	GetLocation() string
-	Save([]byte) (Storage, error)
+	Save([]byte) (*Storage, error)
 	Load() []byte
 }
 
@@ -32,13 +32,13 @@ type Message struct {
 
 // Initializes the client by registering a storage mechanism.
 // For the mobile interface, one must be provided
-func InitClient(s Storage, loc string) error {
+func InitClient(s *Storage, loc string) error {
 
 	if s == nil {
 		return errors.New("could not init client")
 	}
 
-	storeState := api.InitClient(s.(globals.Storage), loc)
+	storeState := api.InitClient((*s).(globals.Storage), loc)
 
 	return storeState
 }
@@ -73,7 +73,7 @@ func Login(UID []byte) (string, error) {
 	return nick, err
 }
 
-func Send(m Message) error {
+func Send(m *Message) error {
 	apiMsg := api.APIMessage{
 		Sender:    cyclic.NewIntFromBytes(m.Sender).Uint64(),
 		Payload:   m.Payload,
@@ -83,13 +83,13 @@ func Send(m Message) error {
 	return api.Send(apiMsg)
 }
 
-func TryReceive() (Message, error) {
+func TryReceive() (*Message, error) {
 	m, err := api.TryReceive()
 
-	var msg Message
+	var msg *Message
 
 	if err != nil {
-		msg = Message{
+		msg = &Message{
 			Sender:    cyclic.NewIntFromUInt(m.Sender).Bytes(),
 			Payload:   m.Payload,
 			Recipient: cyclic.NewIntFromUInt(m.Recipient).Bytes(),

@@ -232,14 +232,8 @@ func UpdateContactList() error {
 	return io.UpdateUserRegistry(globals.Session.GetNodeAddress())
 }
 
-func GetContactListJSON() ([]byte, error) {
-	result, err := globals.Users.GetContactListJSON()
-
-	return result, err
-}
-
-func GetContactListJSONSchema() (string) {
-	return globals.ContactListJsonSchema
+func GetContactList() ([]uint64, []string) {
+	return globals.Users.GetContactList()
 }
 
 func clearUint64(u *uint64) {

@@ -8,26 +8,9 @@ package globals
 
 import (
 	"crypto/sha256"
-	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"github.com/spf13/jwalterweatherman"
-	"strconv"
 	"gitlab.com/privategrity/crypto/hash"
 )
-
-var ContactListJsonSchema = `{
-	"type": "array",
-	"items": {
-		"type": "object",
-		"properties": {
-			"UserID": { "type": "number" },
-			"Nick": { "type": "string" }
-		}
-	}
-}`
-
-var contactListSchema, contactListSchemaCreationError = gojsonschema.NewSchema(
-	gojsonschema.NewStringLoader(ContactListJsonSchema))
 
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
@@ -40,7 +23,7 @@ type UserRegistry interface {
 	LookupUser(hid uint64) (uid uint64, ok bool)
 	LookupKeys(uid uint64) (*NodeKeys, bool)
 	UpsertUser(user *User)
-	GetContactListJSON() ([]byte, error)
+	GetContactList() ([]uint64, []string)
 }
 
 type UserMap struct {
@@ -99,7 +82,7 @@ func newUserRegistry() UserRegistry {
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
-		idCounter:  uint64(NUM_DEMO_USERS),
+		idCounter: uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
 }
@@ -122,10 +105,10 @@ func UserHash(uid uint64) uint64 {
 // and a boolean for whether the user exists
 func (m *UserMap) GetUser(id uint64) (*User, bool) {
 	user, ok := m.userCollection[id]
-	if !ok{
+	if !ok {
 		return nil, ok
 	}
-	temp := User{user.UserID,user.Nick}
+	temp := User{user.UserID, user.Nick}
 	return &temp, ok
 }
 
@@ -149,50 +132,16 @@ func (m *UserMap) LookupKeys(uid uint64) (*NodeKeys, bool) {
 	return nk, t
 }
 
-func (m *UserMap) buildContactListJSON() ([]byte, error) {
-	var result []byte
-	result = append(result, '[')
+func (m *UserMap) GetContactList() (ids []uint64, nicks []string) {
+	ids = make([]uint64, len(m.userCollection))
+	nicks = make([]string, len(m.userCollection))
+
+	index := uint64(0)
 	for _, user := range m.userCollection {
-		result = append(result, `{"UserID":`...)
-		result = append(result, strconv.FormatUint(user.UserID, 10)...)
-		result = append(result, `,"Nick":"`...)
-		result = append(result, user.Nick...)
-		result = append(result, `"},`...)
-	}
-	// replace the last comma with a bracket, ending the list
-	result[len(result)-1] = ']'
-
-	println(string(result))
-
-	return result, nil
-}
-
-func (m *UserMap) GetContactListJSON() ([]byte, error) {
-	if contactListSchemaCreationError != nil {
-		jwalterweatherman.ERROR.Printf(
-			"Couldn't instantiate JSON schema: %v", contactListSchemaCreationError.Error())
-		return nil, contactListSchemaCreationError
+		ids[index] = user.UserID
+		nicks[index] = user.Nick
+		index++
 	}
 
-	result, err := m.buildContactListJSON()
-	if err != nil {
-		return nil, err
-	}
-
-	jsonLoader := gojsonschema.NewStringLoader(string(result))
-	valid, err := contactListSchema.Validate(jsonLoader)
-
-	if err != nil {
-		jwalterweatherman.ERROR.Printf(
-			"Failed to validate JSON: %v", err.Error())
-		return nil, err
-	}
-	if !valid.Valid() {
-		jwalterweatherman.ERROR.Println("The produced JSON wasn't valid")
-		for _, validationError := range (valid.Errors()) {
-			jwalterweatherman.ERROR.Println(validationError.String())
-		}
-	}
-
-	return result, nil
+	return ids, nicks
 }

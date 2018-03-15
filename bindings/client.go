@@ -12,6 +12,9 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"github.com/xeipuuv/gojsonschema"
+	"strconv"
+	"github.com/spf13/jwalterweatherman"
 )
 
 // Copy of the storage interface.
@@ -113,10 +116,70 @@ func UpdateContactList() {
 	api.UpdateContactList()
 }
 
-func GetContactListJSON() ([]byte, error) {
-	return api.GetContactListJSON()
+// We use this schema to validate the JSON we've generated at runtime,
+// and users of the bindings can use it as a description of the data they'll get
+// when they get the contact list.
+var ContactListJsonSchema = `{
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"UserID": { "type": "number" },
+			"Nick": { "type": "string" }
+		}
+	}
+}`
+
+var contactListSchema, contactListSchemaCreationError = gojsonschema.NewSchema(
+	gojsonschema.NewStringLoader(ContactListJsonSchema))
+
+func buildContactListJSON(ids []uint64, nicks []string) ([]byte) {
+	var result []byte
+	result = append(result, '[')
+	for i := 0; i < len(ids) && i < len(nicks); i++ {
+		result = append(result, `{"UserID":`...)
+		result = append(result, strconv.FormatUint(ids[i], 10)...)
+		result = append(result, `,"Nick":"`...)
+		result = append(result, nicks[i]...)
+		result = append(result, `"},`...)
+	}
+	// replace the last comma with a bracket, ending the list
+	result[len(result)-1] = ']'
+
+	return result
 }
 
-func GetContactListJSONSchema() string {
-	return api.GetContactListJSONSchema()
+
+func validateContactListJSON(json []byte) error {
+	if contactListSchemaCreationError != nil {
+		jwalterweatherman.ERROR.Printf(
+			"Couldn't instantiate JSON schema: %v", contactListSchemaCreationError.Error())
+		return contactListSchemaCreationError
+	}
+
+	jsonLoader := gojsonschema.NewBytesLoader(json)
+	valid, err := contactListSchema.Validate(jsonLoader)
+
+	if err != nil {
+		annotatedError := errors.New("Failed to validate JSON: " + err.Error())
+		jwalterweatherman.ERROR.Println(annotatedError.Error())
+		return annotatedError
+	}
+	if !valid.Valid() {
+		for _, validationError := range (valid.Errors()) {
+			annotatedError := errors.New(
+				"The produced JSON wasn't valid" + validationError.String())
+			jwalterweatherman.ERROR.Println(annotatedError.Error())
+			return annotatedError
+		}
+	}
+
+	return nil
+}
+
+func GetContactListJSON() ([]byte, error) {
+	ids, nicks := api.GetContactList()
+	result := buildContactListJSON(ids, nicks)
+	err := validateContactListJSON(result)
+	return result, err
 }

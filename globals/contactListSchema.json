@@ -1,7 +1,0 @@
-[{"type": "object",
-	"properties":
-	{
-		"UserID": { "type": "number" },
-		"Nick": {"type": "string"}
-	}
-}]

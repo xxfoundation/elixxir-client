@@ -34,24 +34,6 @@ type Message interface {
 	GetRecipient() []byte
 }
 
-type GoMessage struct {
-	sender    []byte
-	payload   string
-	recipient []byte
-}
-
-func (gm *GoMessage) GetSender() []byte {
-	return gm.sender
-}
-
-func (gm *GoMessage) GetPayload() string {
-	return gm.payload
-}
-
-func (gm *GoMessage) GetRecipient() []byte {
-	return gm.recipient
-}
-
 // Initializes the client by registering a storage mechanism.
 // For the mobile interface, one must be provided
 func InitClient(s *Storage, loc string) error {
@@ -106,19 +88,7 @@ func Send(m Message) error {
 }
 
 func TryReceive() (Message, error) {
-	m, err := api.TryReceive()
-
-	var msg Message
-
-	if err != nil {
-		msg = &GoMessage{
-			sender:    cyclic.NewIntFromUInt(m.Sender).Bytes(),
-			payload:   m.Payload,
-			recipient: cyclic.NewIntFromUInt(m.Recipient).Bytes(),
-		}
-	}
-
-	return msg, err
+	return api.TryReceive()
 }
 
 func Logout() error {

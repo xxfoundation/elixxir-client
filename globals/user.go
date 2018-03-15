@@ -8,7 +8,9 @@ package globals
 
 import (
 	"crypto/sha256"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/hash"
 )
 
 // Globally instantiated UserRegistry
@@ -17,7 +19,10 @@ var NUM_DEMO_USERS = int(10)
 
 // Interface for User Registry operations
 type UserRegistry interface {
+	NewUser(id uint64, nickname string) *User
+	DeleteUser(id uint64)
 	GetUser(id uint64) (user *User, ok bool)
+	UpsertUser(user *User)
 	CountUsers() int
 	LookupUser(hid uint64) (uid uint64, ok bool)
 	LookupKeys(uid uint64) (*NodeKeys, bool)
@@ -74,7 +79,7 @@ func newUserRegistry() UserRegistry {
 	uc[6].Nick = "Jake"
 	uc[7].Nick = "Mario"
 	uc[8].Nick = "Will"
-	uc[9].Nick = "Sydney"
+	uc[9].Nick = "Allan"
 	uc[10].Nick = "Jono"
 
 	// With an underlying UserMap data structure
@@ -90,15 +95,55 @@ type User struct {
 	Nick string
 }
 
+func (u *User) DeepCopy() *User {
+
+	if u == nil {
+		return nil
+	}
+
+	nu := new(User)
+
+	nu.UID = u.UID
+	nu.Nick = u.Nick
+
+	return nu
+}
+
 func UserHash(uid uint64) uint64 {
-	return uid + 10000
+	var huid []byte
+	h, _ := hash.NewCMixHash()
+	h.Write(cyclic.NewIntFromUInt(uid).LeftpadBytes(8))
+	huid = h.Sum(huid)
+	return cyclic.NewIntFromBytes(huid).Uint64()
+}
+
+// NewUser creates a new User object with default fields and given address.
+func (m *UserMap) NewUser(id uint64, nickname string) *User {
+
+	if id < uint64(NUM_DEMO_USERS) {
+		jww.FATAL.Panicf("Invalid User ID!")
+	}
+	return &User{UID: id, Nick: nickname}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
 func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
 	user, ok = m.userCollection[id]
+	user = user.DeepCopy()
 	return
+}
+
+// DeleteUser deletes a user with the given ID from userCollection.
+func (m *UserMap) DeleteUser(id uint64) {
+	// If key does not exist, do nothing
+	delete(m.userCollection, id)
+}
+
+// UpsertUser inserts given user into userCollection or update the user if it
+// already exists (Upsert operation).
+func (m *UserMap) UpsertUser(user *User) {
+	m.userCollection[user.UID] = user
 }
 
 // CountUsers returns a count of the users in userCollection

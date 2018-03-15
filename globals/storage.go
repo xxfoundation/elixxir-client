@@ -51,16 +51,16 @@ type DefaultStorage struct {
 	location string
 }
 
-func (ds DefaultStorage) SetLocation(location string) (Storage, error) {
+func (ds *DefaultStorage) SetLocation(location string) (Storage, error) {
 	ds.location = location
 	return ds, nil
 }
 
-func (ds DefaultStorage) GetLocation() string {
+func (ds *DefaultStorage) GetLocation() string {
 	return ds.location
 }
 
-func (ds DefaultStorage) Save(data []byte) (Storage, error) {
+func (ds *DefaultStorage) Save(data []byte) (Storage, error) {
 	//check if the file exists, delete if it does
 	_, err1 := os.Stat(ds.location)
 
@@ -97,7 +97,7 @@ func (ds DefaultStorage) Save(data []byte) (Storage, error) {
 	return ds, nil
 }
 
-func (ds DefaultStorage) Load() []byte {
+func (ds *DefaultStorage) Load() []byte {
 	// Check if the file exists, return nil if it does not
 	finfo, err1 := os.Stat(ds.location)
 
@@ -138,21 +138,21 @@ type RamStorage struct {
 	//data []byte
 }
 
-func (rs RamStorage) SetLocation(location string) (Storage, error) {
+func (rs *RamStorage) SetLocation(location string) (Storage, error) {
 	return rs, nil
 }
 
-func (rs RamStorage) GetLocation() string {
+func (rs *RamStorage) GetLocation() string {
 	return ""
 }
 
-func (rs RamStorage) Save(data []byte) (Storage, error) {
+func (rs *RamStorage) Save(data []byte) (Storage, error) {
 	rs.data = make([]byte, len(data))
 	copy(rs.data, data)
 	return rs, nil
 }
 
-func (rs RamStorage) Load() []byte {
+func (rs *RamStorage) Load() []byte {
 	b := make([]byte, len(rs.data))
 	copy(b, rs.data)
 

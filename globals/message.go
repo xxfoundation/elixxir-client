@@ -17,11 +17,14 @@ import (
 const (
 	TOTAL_LEN uint64 = 512
 
+	// Length and Position of the Initialization Vector for both the payload and
+	// the recipient
 	IV_LEN   uint64 = 9
 	IV_START uint64 = 0
 	IV_END   uint64 = IV_LEN
 
-	PAYLOAD_LEN   uint64 = 495
+	// Length and Position of message payload
+	PAYLOAD_LEN   uint64 = TOTAL_LEN - SID_LEN - IV_LEN - PMIC_LEN
 	PAYLOAD_START uint64 = IV_END
 	PAYLOAD_END   uint64 = PAYLOAD_START + PAYLOAD_LEN
 
@@ -29,9 +32,20 @@ const (
 	SID_START uint64 = PAYLOAD_END
 	SID_END   uint64 = SID_START + SID_LEN
 
-	RID_LEN   uint64 = TOTAL_LEN - IV_LEN
-	RID_START uint64 = IV_END
+	// Length and Position of the Payload MIC
+	PMIC_LEN   uint64 = 8
+	PMIC_START uint64 = SID_END
+	PMIC_END   uint64 = PMIC_START + PMIC_LEN
+
+	// Length and Position of the Recipient ID
+	RID_LEN   uint64 = TOTAL_LEN - IV_LEN - RMIC_LEN
+	RID_START uint64 = RMIC_END
 	RID_END   uint64 = RID_START + RID_LEN
+
+	// Length and Position of the Recipient MIC
+	RMIC_LEN   uint64 = 8
+	RMIC_START uint64 = IV_END
+	RMIC_END   uint64 = RMIC_START + RMIC_LEN
 )
 
 //TODO: generate ranges programmatic
@@ -39,10 +53,8 @@ const (
 //Holds the payloads once they have been serialized
 //MIC stands for Message identification code
 type MessageBytes struct {
-	Payload      *cyclic.Int
-	PayloadMIC   *cyclic.Int
-	Recipient    *cyclic.Int
-	RecipientMIC *cyclic.Int
+	Payload   *cyclic.Int
+	Recipient *cyclic.Int
 }
 
 // Structure which contains a message payload and the sender in an easily
@@ -53,6 +65,8 @@ type Message struct {
 	recipientID       *cyclic.Int
 	payloadInitVect   *cyclic.Int
 	recipientInitVect *cyclic.Int
+	payloadMIC        *cyclic.Int
+	recipientMIC      *cyclic.Int
 }
 
 // Makes a new message for a certain sender and recipient
@@ -88,6 +102,8 @@ func NewMessage(sender, recipient uint64, text string) []*Message {
 			cyclic.NewInt(int64(sender)),
 			cyclic.NewIntFromBytes(payloadLst[i]),
 			cyclic.NewInt(int64(recipient)),
+			cyclic.NewInt(0),
+			cyclic.NewInt(0),
 			cyclic.NewInt(0),
 			cyclic.NewInt(0),
 		}
@@ -143,6 +159,14 @@ func (m *Message) GetPayloadString() string {
 	return string(m.payload.Bytes())
 }
 
+func (m *Message) GetPayloadMIC() *cyclic.Int {
+	return m.payloadMIC
+}
+
+func (m *Message) GetRecipientMIC() *cyclic.Int {
+	return m.recipientMIC
+}
+
 //Builds the Serialized MessageBytes from Message
 func (m *Message) ConstructMessageBytes() *MessageBytes {
 
@@ -164,6 +188,10 @@ func (m *Message) ConstructMessageBytes() *MessageBytes {
 	messagePayload = append(messagePayload,
 		m.senderID.LeftpadBytes(SID_LEN)...)
 
+	// append the Payload MIC
+	messagePayload = append(messagePayload,
+		m.payloadMIC.LeftpadBytes(PMIC_LEN)...)
+
 	/*CONSTRUCT RECIPIENT PAYLOAD*/
 	var recipientPayload []byte
 
@@ -174,6 +202,10 @@ func (m *Message) ConstructMessageBytes() *MessageBytes {
 
 	recipientPayload = append(recipientPayload, ivr...)
 
+	//append the recipient MIC
+	recipientPayload = append(recipientPayload,
+		m.recipientMIC.LeftpadBytes(RMIC_LEN)...)
+
 	//append the recipientid
 	recipientPayload = append(recipientPayload,
 		m.recipientID.LeftpadBytes(RID_LEN)...)
@@ -182,9 +214,7 @@ func (m *Message) ConstructMessageBytes() *MessageBytes {
 
 	mb := &MessageBytes{
 		cyclic.NewIntFromBytes(messagePayload),
-		cyclic.NewInt(0),
 		cyclic.NewIntFromBytes(recipientPayload),
-		cyclic.NewInt(0),
 	}
 
 	return mb
@@ -192,11 +222,16 @@ func (m *Message) ConstructMessageBytes() *MessageBytes {
 
 //Deserializes MessageBytes
 func (mb *MessageBytes) DeconstructMessageBytes() *Message {
+	payloadBytes := mb.Payload.LeftpadBytes(TOTAL_LEN)
+	recipientBytes := mb.Recipient.LeftpadBytes(TOTAL_LEN)
+
 	return &Message{
-		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[SID_START:SID_END]),
-		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[PAYLOAD_START:PAYLOAD_END]),
-		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(TOTAL_LEN)[RID_START:RID_END]),
-		cyclic.NewIntFromBytes(mb.Payload.LeftpadBytes(TOTAL_LEN)[IV_START:IV_END]),
-		cyclic.NewIntFromBytes(mb.Recipient.LeftpadBytes(TOTAL_LEN)[IV_START:IV_END]),
+		cyclic.NewIntFromBytes(payloadBytes[SID_START:SID_END]),
+		cyclic.NewIntFromBytes(payloadBytes[PAYLOAD_START:PAYLOAD_END]),
+		cyclic.NewIntFromBytes(recipientBytes[RID_START:RID_END]),
+		cyclic.NewIntFromBytes(payloadBytes[IV_START:IV_END]),
+		cyclic.NewIntFromBytes(recipientBytes[IV_START:IV_END]),
+		cyclic.NewIntFromBytes(payloadBytes[PMIC_START:PMIC_END]),
+		cyclic.NewIntFromBytes(recipientBytes[RMIC_START:RMIC_END]),
 	}
 }

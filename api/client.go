@@ -79,6 +79,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	}
 
 	user.Nick = nick
+	io.SetNick(globals.Session.GetNodeAddress(), user)
 
 	nodekeys, successKeys := globals.Users.LookupKeys(user.UserID)
 	nodekeys.PublicKey = cyclic.NewInt(0)

@@ -79,9 +79,9 @@ func Login(UID []byte) (string, error) {
 
 func Send(m Message) error {
 	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
+		Sender:    binary.LittleEndian.Uint64(m.GetSender()),
 		Payload:   m.GetPayload(),
-		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
+		Recipient: binary.LittleEndian.Uint64(m.GetRecipient()),
 	}
 
 	return api.Send(apiMsg)

@@ -24,10 +24,28 @@ type Storage interface {
 }
 
 //Message used for binding
-type Message struct {
-	Sender    []byte
-	Payload   string
-	Recipient []byte
+type Message interface {
+	GetSender() []byte
+	GetPayload() string
+	GetRecipient() []byte
+}
+
+type GoMessage struct {
+	sender    []byte
+	payload   string
+	recipient []byte
+}
+
+func (gm *GoMessage) GetSender() []byte {
+	return gm.sender
+}
+
+func (gm *GoMessage) GetPayload() string {
+	return gm.payload
+}
+
+func (gm *GoMessage) GetRecipient() []byte {
+	return gm.recipient
 }
 
 // Initializes the client by registering a storage mechanism.
@@ -73,26 +91,26 @@ func Login(UID []byte) (string, error) {
 	return nick, err
 }
 
-func Send(m *Message) error {
+func Send(m Message) error {
 	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.Sender).Uint64(),
-		Payload:   m.Payload,
-		Recipient: cyclic.NewIntFromBytes(m.Recipient).Uint64(),
+		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
+		Payload:   m.GetPayload(),
+		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
 	}
 
 	return api.Send(apiMsg)
 }
 
-func TryReceive() (*Message, error) {
+func TryReceive() (Message, error) {
 	m, err := api.TryReceive()
 
-	var msg *Message
+	var msg Message
 
 	if err != nil {
-		msg = &Message{
-			Sender:    cyclic.NewIntFromUInt(m.Sender).Bytes(),
-			Payload:   m.Payload,
-			Recipient: cyclic.NewIntFromUInt(m.Recipient).Bytes(),
+		msg = &GoMessage{
+			sender:    cyclic.NewIntFromUInt(m.Sender).Bytes(),
+			payload:   m.Payload,
+			recipient: cyclic.NewIntFromUInt(m.Recipient).Bytes(),
 		}
 	}
 

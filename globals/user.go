@@ -104,7 +104,7 @@ func (u *User) DeepCopy() *User {
 
 	nu := new(User)
 
-	nu.UID = u.UID
+	nu.UserID = u.UserID
 	nu.Nick = u.Nick
 
 	return nu
@@ -124,7 +124,7 @@ func (m *UserMap) NewUser(id uint64, nickname string) *User {
 	if id < uint64(NUM_DEMO_USERS) {
 		jww.FATAL.Panicf("Invalid User ID!")
 	}
-	return &User{UID: id, Nick: nickname}
+	return &User{UserID: id, Nick: nickname}
 }
 
 // GetUser returns a user with the given ID from userCollection
@@ -144,7 +144,7 @@ func (m *UserMap) DeleteUser(id uint64) {
 // UpsertUser inserts given user into userCollection or update the user if it
 // already exists (Upsert operation).
 func (m *UserMap) UpsertUser(user *User) {
-	m.userCollection[user.UID] = user
+	m.userCollection[user.UserID] = user
 }
 
 // CountUsers returns a count of the users in userCollection

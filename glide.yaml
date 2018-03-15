@@ -1,5 +1,8 @@
 package: gitlab.com/privategrity/client
 import:
+- package: github.com/xeipuuv/gojsonschema
+  version: master
+  vcs: git
 - package: gitlab.com/privategrity/crypto
   version: master
   repo: git@gitlab.com:privategrity/crypto

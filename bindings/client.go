@@ -88,7 +88,8 @@ func Send(m Message) error {
 }
 
 func TryReceive() (Message, error) {
-	return api.TryReceive()
+	message, err := api.TryReceive()
+	return &message, err
 }
 
 func Logout() error {

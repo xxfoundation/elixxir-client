@@ -7,6 +7,7 @@
 package api
 
 import (
+	"encoding/binary"
 	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"

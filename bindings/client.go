@@ -7,10 +7,14 @@
 package bindings
 
 import (
+	"encoding/binary"
 	"errors"
+	"github.com/spf13/jwalterweatherman"
+	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"strconv"
 )
 
 // Copy of the storage interface.
@@ -103,19 +107,94 @@ func Logout() error {
 	return api.Logout()
 }
 
-func GetNick(UID []byte) string {
-	return api.GetNick(cyclic.NewIntFromBytes(UID).Uint64())
+// Byte order for our APIs are conventionally going to be little-endian
+/* Set this user's nick on the server */
+func SetNick(UID []byte, nick string) error {
+	return api.SetNick(binary.LittleEndian.Uint64(UID), nick)
 }
 
-func GetContactList() []byte {
-	var blst []byte
+/* Get an updated list of all users that the server knows about and update the
+ * user structure to include all of them */
+func UpdateContactList() {
+	api.UpdateContactList()
+}
 
-	clst := api.GetContactList()
+/* We use this schema to validate the JSON we've generated at runtime,
+ * and users of the bindings can use it as a description of the data they'll get
+ * when they get the contact list. */
+var ContactListJsonSchema = `{
+	"type": "array",
+	"items": {
+		"type": "object",
+		"properties": {
+			"UserID": { "type": "number" },
+			"Nick": { "type": "string" }
+		}
+	}
+}`
 
-	for i := 0; i < len(clst); i++ {
-		blst = append(blst, cyclic.NewIntFromUInt(clst[i]).LeftpadBytes(8)...)
+var contactListSchema, contactListSchemaCreationError = gojsonschema.NewSchema(
+	gojsonschema.NewStringLoader(ContactListJsonSchema))
+
+/* Represent slices of UserID and Nick as JSON. ContactListJsonSchema is the
+ * JSON schema that shows how the resulting data are structured. */
+func buildContactListJSON(ids []uint64, nicks []string) []byte {
+	var result []byte
+	result = append(result, '[')
+	for i := 0; i < len(ids) && i < len(nicks); i++ {
+		result = append(result, `{"UserID":`...)
+		result = append(result, strconv.FormatUint(ids[i], 10)...)
+		result = append(result, `,"Nick":"`...)
+		result = append(result, nicks[i]...)
+		result = append(result, `"},`...)
+	}
+	// replace the last comma with a bracket, ending the list
+	result[len(result)-1] = ']'
+
+	return result
+}
+
+/* Make sure that a JSON file conforms to the schema for contact list information */
+func validateContactListJSON(json []byte) error {
+	// Ensure that the schema was created correctly
+	if contactListSchemaCreationError != nil {
+		jwalterweatherman.ERROR.Printf(
+			"Couldn't instantiate JSON schema: %v", contactListSchemaCreationError.Error())
+		return contactListSchemaCreationError
 	}
 
-	return blst
+	jsonLoader := gojsonschema.NewBytesLoader(json)
+	valid, err := contactListSchema.Validate(jsonLoader)
 
+	// Ensure that the schema could validate the JSON
+	if err != nil {
+		annotatedError := errors.New("Failed to validate JSON: " + err.Error())
+		jwalterweatherman.ERROR.Println(annotatedError.Error())
+		return annotatedError
+	}
+	// Ensure that the JSON matches the schema
+	if !valid.Valid() {
+		for _, validationError := range valid.Errors() {
+			annotatedError := errors.New(
+				"The produced JSON wasn't valid" + validationError.String())
+			jwalterweatherman.ERROR.Println(annotatedError.Error())
+			return annotatedError
+		}
+	}
+
+	// No errors occurred in any of the steps, so this JSON is good.
+	return nil
+}
+
+/* Gets a list of user IDs and nicks and returns them as a JSON object because
+ * Gomobile has dumb limitations.
+ *
+ * ContactListJSONSchema is the JSON schema that shows how the resulting data
+ * are structured. You'll get an array, and each element of the array has a
+ * UserID which is a number, and a Nick which is a string. */
+func GetContactListJSON() ([]byte, error) {
+	ids, nicks := api.GetContactList()
+	result := buildContactListJSON(ids, nicks)
+	err := validateContactListJSON(result)
+	return result, err
 }

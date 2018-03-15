@@ -8,6 +8,7 @@ package globals
 
 import (
 	"crypto/sha256"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/hash"
 )
@@ -18,11 +19,13 @@ var NUM_DEMO_USERS = int(10)
 
 // Interface for User Registry operations
 type UserRegistry interface {
+	NewUser(id uint64, nickname string) *User
+	DeleteUser(id uint64)
 	GetUser(id uint64) (user *User, ok bool)
+	UpsertUser(user *User)
 	CountUsers() int
 	LookupUser(hid uint64) (uid uint64, ok bool)
 	LookupKeys(uid uint64) (*NodeKeys, bool)
-	UpsertUser(user *User)
 	GetContactList() ([]uint64, []string)
 }
 
@@ -82,7 +85,7 @@ func newUserRegistry() UserRegistry {
 
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
-		idCounter: uint64(NUM_DEMO_USERS),
+		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
 }
@@ -93,6 +96,20 @@ type User struct {
 	Nick   string
 }
 
+func (u *User) DeepCopy() *User {
+
+	if u == nil {
+		return nil
+	}
+
+	nu := new(User)
+
+	nu.UID = u.UID
+	nu.Nick = u.Nick
+
+	return nu
+}
+
 func UserHash(uid uint64) uint64 {
 	var huid []byte
 	h, _ := hash.NewCMixHash()
@@ -101,24 +118,38 @@ func UserHash(uid uint64) uint64 {
 	return cyclic.NewIntFromBytes(huid).Uint64()
 }
 
+// NewUser creates a new User object with default fields and given address.
+func (m *UserMap) NewUser(id uint64, nickname string) *User {
+
+	if id < uint64(NUM_DEMO_USERS) {
+		jww.FATAL.Panicf("Invalid User ID!")
+	}
+	return &User{UID: id, Nick: nickname}
+}
+
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id uint64) (*User, bool) {
-	user, ok := m.userCollection[id]
-	if !ok {
-		return nil, ok
-	}
-	temp := User{user.UserID, user.Nick}
-	return &temp, ok
+func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
+	user, ok = m.userCollection[id]
+	user = user.DeepCopy()
+	return
+}
+
+// DeleteUser deletes a user with the given ID from userCollection.
+func (m *UserMap) DeleteUser(id uint64) {
+	// If key does not exist, do nothing
+	delete(m.userCollection, id)
+}
+
+// UpsertUser inserts given user into userCollection or update the user if it
+// already exists (Upsert operation).
+func (m *UserMap) UpsertUser(user *User) {
+	m.userCollection[user.UID] = user
 }
 
 // CountUsers returns a count of the users in userCollection
 func (m *UserMap) CountUsers() int {
 	return len(m.userCollection)
-}
-
-func (m *UserMap) UpsertUser(user *User) {
-	m.userCollection[user.UserID] = user
 }
 
 // Looks up the user id corresponding to the demo registration code

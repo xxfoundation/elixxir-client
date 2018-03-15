@@ -13,8 +13,8 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"math"
 	"gitlab.com/privategrity/crypto/forward"
+	"math"
 )
 
 //Structure used to return a message

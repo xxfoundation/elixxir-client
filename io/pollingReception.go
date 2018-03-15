@@ -7,13 +7,13 @@
 package io
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
-	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/mixclient"
-	"time"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
-	jww "github.com/spf13/jwalterweatherman"
+	"time"
 )
 
 func runfunc(wait uint64, quit globals.ThreadTerminator) {
@@ -38,21 +38,20 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 			if len(cmixMsg.MessagePayload) != 0 {
 
-					msgBytes := globals.MessageBytes{
-						Payload:      cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-						Recipient:    cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-					}
-
-					msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
-
-					if err != nil{
-						jww.ERROR.Println("Decryption failed: %v", err.Error())
-					}else{
-						globals.Session.PushFifo(msg)
-					}
-
-
+				msgBytes := globals.MessageBytes{
+					Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
+					Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
 				}
+
+				msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
+
+				if err != nil {
+					jww.ERROR.Println("Decryption failed: %v", err.Error())
+				} else {
+					globals.Session.PushFifo(msg)
+				}
+
+			}
 		}
 
 	}

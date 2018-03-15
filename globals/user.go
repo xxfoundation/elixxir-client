@@ -12,6 +12,7 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"github.com/spf13/jwalterweatherman"
 	"strconv"
+	"gitlab.com/privategrity/crypto/hash"
 )
 
 var ContactListJsonSchema = `{
@@ -93,7 +94,7 @@ func newUserRegistry() UserRegistry {
 	uc[6].Nick = "Jake"
 	uc[7].Nick = "Mario"
 	uc[8].Nick = "Will"
-	uc[9].Nick = "Sydney"
+	uc[9].Nick = "Allan"
 	uc[10].Nick = "Jono"
 
 	// With an underlying UserMap data structure
@@ -110,14 +111,22 @@ type User struct {
 }
 
 func UserHash(uid uint64) uint64 {
-	return uid + 10000
+	var huid []byte
+	h, _ := hash.NewCMixHash()
+	h.Write(cyclic.NewIntFromUInt(uid).LeftpadBytes(8))
+	huid = h.Sum(huid)
+	return cyclic.NewIntFromBytes(huid).Uint64()
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
-	user, ok = m.userCollection[id]
-	return
+func (m *UserMap) GetUser(id uint64) (*User, bool) {
+	user, ok := m.userCollection[id]
+	if !ok{
+		return nil, ok
+	}
+	temp := User{user.UserID,user.Nick}
+	return &temp, ok
 }
 
 // CountUsers returns a count of the users in userCollection

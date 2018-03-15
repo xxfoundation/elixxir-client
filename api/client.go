@@ -28,19 +28,19 @@ type APIMessage struct {
 // Implement the bindings/Message interface
 // Uint64s are passed in little-endian byte arrays by convention
 // Get the sender as a byte array from an APIMessage
-func (m *APIMessage) GetSender() []byte {
+func (m APIMessage) GetSender() []byte {
 	result := make([]byte, 8)
 	binary.LittleEndian.PutUint64(result, m.Sender)
 	return result
 }
 
 // Get the message payload out of an APIMessage
-func (m *APIMessage) GetPayload() string {
+func (m APIMessage) GetPayload() string {
 	return m.Payload
 }
 
 // Get the recipient as a byte array from an APIMessage
-func (m *APIMessage) GetRecipient() []byte {
+func (m APIMessage) GetRecipient() []byte {
 	result := make([]byte, 8)
 	binary.LittleEndian.PutUint64(result, m.Recipient)
 	return result

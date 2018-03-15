@@ -53,6 +53,7 @@ func newUserRegistry() UserRegistry {
 		t := new(User)
 		k := new(NodeKeys)
 		h := sha256.New()
+
 		// Generate user parameters
 		t.UID = uint64(i)
 		h.Write([]byte(string(20000 + i)))
@@ -63,6 +64,7 @@ func newUserRegistry() UserRegistry {
 		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(50000 + i)))
 		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+
 		// Add user to collection and lookup table
 		uc[t.UID] = t
 		ul[UserHash(t.UID)] = t.UID

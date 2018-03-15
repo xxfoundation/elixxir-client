@@ -205,7 +205,7 @@ func (s *sessionObj) StoreSession() bool {
 	err := enc.Encode(s)
 
 	if err != nil {
-		jww.ERROR.Println("StoreSession: Could not encode user"+
+		jww.ERROR.Printf("StoreSession: Could not encode user"+
 			" session: %s", err.Error())
 		return false
 	}

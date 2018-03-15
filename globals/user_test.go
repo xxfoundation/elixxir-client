@@ -18,37 +18,16 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 
-	reg, _ := Users.LookupUser(UserHash(1))
-	usr, _ := Users.GetUser(reg)
-	if usr.Nick != "David" {
-		t.Errorf("User 10001 is not 'David'")
+	for i := 0; i < len(DEMO_NICKS); i++ {
+		reg, _ := Users.LookupUser(UserHash(uint64(i+1)))
+		usr, _ := Users.GetUser(reg)
+		if usr.Nick != DEMO_NICKS[i] {
+			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
+				DEMO_NICKS[i], usr.Nick)
+		}
 	}
 
-	reg, _ = Users.LookupUser(UserHash(2))
-	usr, _ = Users.GetUser(reg)
-	if usr.Nick != "Jim" {
-		t.Errorf("User 10002 is not 'Jim'")
-	}
-
-	reg, _ = Users.LookupUser(UserHash(3))
-	usr, _ = Users.GetUser(reg)
-	if usr.Nick != "Ben" {
-		t.Errorf("User 10003 is not 'Ben'")
-	}
-
-	reg, _ = Users.LookupUser(UserHash(4))
-	usr, _ = Users.GetUser(reg)
-	if usr.Nick != "Rick" {
-		t.Errorf("User 10004 is not 'Rick'")
-	}
-
-	reg, _ = Users.LookupUser(UserHash(5))
-	usr, _ = Users.GetUser(reg)
-	if usr.Nick != "Spencer" {
-		t.Errorf("User 10005 is not 'Spencer'")
-	}
-
-	usr = Users.NewUser(2002, "Will I am")
+	usr := Users.NewUser(2002, "Will I am")
 
 	if usr.Nick != "Will I am" {
 		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
@@ -60,6 +39,7 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("Upsert did not work properly")
 	}
 
+
 	Users.DeleteUser(2)
 
 	_, ok := Users.GetUser(2)
@@ -67,3 +47,4 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
 	}
 }
+

@@ -103,8 +103,8 @@ func SetNick(UID []byte, nick string) error {
 
 /* Get an updated list of all users that the server knows about and update the
  * user structure to include all of them */
-func UpdateContactList() {
-	api.UpdateContactList()
+func UpdateContactList() error {
+	return api.UpdateContactList()
 }
 
 /* We use this schema to validate the JSON we've generated at runtime,

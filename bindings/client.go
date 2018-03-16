@@ -10,21 +10,21 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/spf13/jwalterweatherman"
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"strconv"
-	"fmt"
 )
 
 // Copy of the storage interface.
 // It is identical to the interface used in Globals,
 // and a results the types can be passed freely between the two
 type Storage interface {
-	SetLocation(string) (error)
+	SetLocation(string) error
 	GetLocation() string
-	Save([]byte) (error)
+	Save([]byte) error
 	Load() []byte
 }
 
@@ -52,16 +52,15 @@ func InitClient(s Storage, loc string) error {
 func Register(registrationCode string, nick string, nodeAddr string,
 	numNodes int) ([]byte, error) {
 
-
 	if numNodes < 1 {
 		return nil, errors.New("invalid number of nodes")
 	}
 
-	HashUID := cyclic.NewIntFromString(registrationCode,32).Uint64()
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 
-	fmt.Println(HashUID)
+	jww.INFO.Printf("Hash UID: %v", hashUID)
 
-	UID, err := api.Register(HashUID, nick, nodeAddr, uint(numNodes))
+	UID, err := api.Register(hashUID, nick, nodeAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err
@@ -184,14 +183,14 @@ func validateContactListJSON(json []byte) error {
 func GetContactListJSON() ([]byte, error) {
 	updateError := api.UpdateContactList()
 	if updateError != nil {
-		updateError = errors.New("Update contact list failed: "+ updateError.
+		updateError = errors.New("Update contact list failed: " + updateError.
 			Error())
 	}
 	ids, nicks := api.GetContactList()
 	result := buildContactListJSON(ids, nicks)
 	validateError := validateContactListJSON(result)
 	if validateError != nil {
-		validateError = errors.New("Validate contact list failed: "+
+		validateError = errors.New("Validate contact list failed: " +
 			validateError.Error())
 	}
 	if updateError != nil && validateError != nil {
@@ -204,6 +203,6 @@ func GetContactListJSON() ([]byte, error) {
 }
 
 //Disables Ratcheting, only for debugging
-func DisableRatchet(){
+func DisableRatchet() {
 	api.DisableRatchet()
 }

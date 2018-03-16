@@ -26,7 +26,7 @@ type APIMessage struct {
 }
 
 // Implement the bindings/Message interface
-// Uint64s are passed in little-endian byte arrays by convention
+// Uint64s are passed in big-endian byte arrays by convention
 // Get the sender as a byte array from an APIMessage
 func (m APIMessage) GetSender() []byte {
 	result := make([]byte, 8)

@@ -15,15 +15,16 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"strconv"
+	"fmt"
 )
 
 // Copy of the storage interface.
 // It is identical to the interface used in Globals,
 // and a results the types can be passed freely between the two
 type Storage interface {
-	SetLocation(string) (*Storage, error)
+	SetLocation(string) (error)
 	GetLocation() string
-	Save([]byte) (*Storage, error)
+	Save([]byte) (error)
 	Load() []byte
 }
 
@@ -36,30 +37,29 @@ type Message interface {
 
 // Initializes the client by registering a storage mechanism.
 // For the mobile interface, one must be provided
-func InitClient(s *Storage, loc string) error {
+func InitClient(s Storage, loc string) error {
 
 	if s == nil {
 		return errors.New("could not init client")
 	}
 
-	storeState := api.InitClient((*s).(globals.Storage), loc)
+	storeState := api.InitClient(s.(globals.Storage), loc)
 
 	return storeState
 }
 
 //Registers user and returns the User ID.  Returns nil if registration fails.
-func Register(HUID []byte, nick string, nodeAddr string,
+func Register(registrationCode string, nick string, nodeAddr string,
 	numNodes int) ([]byte, error) {
 
-	if len(HUID) > 8 {
-		return nil, errors.New("HUID is to long")
-	}
 
 	if numNodes < 1 {
 		return nil, errors.New("invalid number of nodes")
 	}
 
-	HashUID := cyclic.NewIntFromBytes(HUID).Uint64()
+	HashUID := cyclic.NewIntFromString(registrationCode,32).Uint64()
+
+	fmt.Println(HashUID)
 
 	UID, err := api.Register(HashUID, nick, nodeAddr, uint(numNodes))
 
@@ -79,9 +79,9 @@ func Login(UID []byte) (string, error) {
 
 func Send(m Message) error {
 	apiMsg := api.APIMessage{
-		Sender:    binary.LittleEndian.Uint64(m.GetSender()),
+		Sender:    binary.BigEndian.Uint64(m.GetSender()),
 		Payload:   m.GetPayload(),
-		Recipient: binary.LittleEndian.Uint64(m.GetRecipient()),
+		Recipient: binary.BigEndian.Uint64(m.GetRecipient()),
 	}
 
 	return api.Send(apiMsg)
@@ -182,8 +182,28 @@ func validateContactListJSON(json []byte) error {
  * are structured. You'll get an array, and each element of the array has a
  * UserID which is a number, and a Nick which is a string. */
 func GetContactListJSON() ([]byte, error) {
+	updateError := api.UpdateContactList()
+	if updateError != nil {
+		updateError = errors.New("Update contact list failed: "+ updateError.
+			Error())
+	}
 	ids, nicks := api.GetContactList()
 	result := buildContactListJSON(ids, nicks)
-	err := validateContactListJSON(result)
-	return result, err
+	validateError := validateContactListJSON(result)
+	if validateError != nil {
+		validateError = errors.New("Validate contact list failed: "+
+			validateError.Error())
+	}
+	if updateError != nil && validateError != nil {
+		return result, errors.New(updateError.Error() + validateError.Error())
+	}
+	if updateError != nil && validateError == nil {
+		return result, updateError
+	}
+	return result, validateError
+}
+
+//Disables Ratcheting, only for debugging
+func DisableRatchet(){
+	api.DisableRatchet()
 }

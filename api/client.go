@@ -30,7 +30,7 @@ type APIMessage struct {
 // Get the sender as a byte array from an APIMessage
 func (m APIMessage) GetSender() []byte {
 	result := make([]byte, 8)
-	binary.LittleEndian.PutUint64(result, m.Sender)
+	binary.BigEndian.PutUint64(result, m.Sender)
 	return result
 }
 
@@ -42,7 +42,7 @@ func (m APIMessage) GetPayload() string {
 // Get the recipient as a byte array from an APIMessage
 func (m APIMessage) GetRecipient() []byte {
 	result := make([]byte, 8)
-	binary.LittleEndian.PutUint64(result, m.Recipient)
+	binary.BigEndian.PutUint64(result, m.Recipient)
 	return result
 }
 

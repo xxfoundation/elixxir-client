@@ -35,7 +35,7 @@ func TestInitStorage(t *testing.T) {
 
 	// Test DS save
 	err := error(nil)
-	LocalStorage, err = LocalStorage.Save(TestData)
+	err = LocalStorage.Save(TestData)
 	if err != nil {
 		t.Errorf("ds.Save failed to create a save file at: %v",
 			LocalStorage.GetLocation())
@@ -60,7 +60,7 @@ func TestInitStorage(t *testing.T) {
 		t.Errorf("InitStorage failed to initialize a RamStorage")
 	}
 	actualData = nil
-	LocalStorage, _ = LocalStorage.Save(TestData)
+	LocalStorage.Save(TestData)
 	actualData = LocalStorage.Load()
 	if reflect.DeepEqual(actualData, TestData) != true {
 		t.Errorf("rs.Load failed to load expected data. Expected:%v Actual:%v",

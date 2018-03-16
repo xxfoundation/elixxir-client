@@ -10,7 +10,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"github.com/spf13/jwalterweatherman"
-	jww "github.com/spf13/jwalterweatherman"
 	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
@@ -22,21 +21,33 @@ import (
 // It is identical to the interface used in Globals,
 // and a results the types can be passed freely between the two
 type Storage interface {
+	// Give a Location for storage.  Does not need to be implemented if unused.
 	SetLocation(string) error
+	// Returns the Location for storage.
+	// Does not need to be implemented if unused.
 	GetLocation() string
+	// Stores the passed byte slice
 	Save([]byte) error
+	// Returns the stored byte slice
 	Load() []byte
 }
 
 //Message used for binding
 type Message interface {
+	// Returns the message's sender ID
+	// (uint64) BigEndian serialized into a byte slice
 	GetSender() []byte
+	// Returns the message payload
 	GetPayload() string
+	// Returns the message's recipient ID
+	// (uint64) BigEndian serialized into a byte slice
 	GetRecipient() []byte
 }
 
 // Initializes the client by registering a storage mechanism.
 // For the mobile interface, one must be provided
+// The loc can be empty, it is only necessary if the passed storage interface
+// requires it to be passed via "SetLocation"
 func InitClient(s Storage, loc string) error {
 
 	if s == nil {
@@ -48,7 +59,11 @@ func InitClient(s Storage, loc string) error {
 	return storeState
 }
 
-//Registers user and returns the User ID.  Returns nil if registration fails.
+// Registers user and returns the User ID.  Returns nil if registration fails.
+// registrationCode is a one time use string.
+// nick is a nickname which must be 32 characters or less.
+// nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000
+// numNodes is the number of nodes in the system
 func Register(registrationCode string, nick string, nodeAddr string,
 	numNodes int) ([]byte, error) {
 
@@ -57,8 +72,6 @@ func Register(registrationCode string, nick string, nodeAddr string,
 	}
 
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-
-	jww.INFO.Printf("Hash UID: %v", hashUID)
 
 	UID, err := api.Register(hashUID, nick, nodeAddr, uint(numNodes))
 
@@ -70,12 +83,14 @@ func Register(registrationCode string, nick string, nodeAddr string,
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
-// Returns an empty string if the login is unsuccessful
+// Returns an empty string and an error
+// UID is a uint64 BigEndian serialized into a byte slice
 func Login(UID []byte) (string, error) {
 	nick, err := api.Login(cyclic.NewIntFromBytes(UID).Uint64())
 	return nick, err
 }
 
+//Sends a message structured via the message interface
 func Send(m Message) error {
 	apiMsg := api.APIMessage{
 		Sender:    binary.BigEndian.Uint64(m.GetSender()),
@@ -86,11 +101,15 @@ func Send(m Message) error {
 	return api.Send(apiMsg)
 }
 
+// Attempts to retrieve a message from the que.
+// Returns a nil message if none are available.
 func TryReceive() (Message, error) {
 	message, err := api.TryReceive()
 	return &message, err
 }
 
+// Logs the user out, saving the state fo the system and clearing all data
+// from ram
 func Logout() error {
 	return api.Logout()
 }
@@ -174,8 +193,8 @@ func validateContactListJSON(json []byte) error {
 	return nil
 }
 
-/* Gets the current list of user IDs and nicks and returns them as a JSON
- * object because Gomobile has dumb limitations.
+/* Gets a list of user IDs and nicks and returns them as a JSON object because
+ * Gomobile has dumb limitations.
  *
  * ContactListJSONSchema is the JSON schema that shows how the resulting data
  * are structured. You'll get an array, and each element of the array has a

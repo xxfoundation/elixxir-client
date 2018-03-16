@@ -176,3 +176,5 @@ func (m *UserMap) GetContactList() (ids []uint64, nicks []string) {
 
 	return ids, nicks
 }
+
+

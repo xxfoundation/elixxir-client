@@ -107,7 +107,8 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
+		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+			message)
 
 		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
@@ -129,7 +130,8 @@ var rootCmd = &cobra.Command{
 			}
 
 			if msg.Payload != "" {
-				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
+				fmt.Printf("Message from %v Received: %s\n", msg.Sender,
+					msg.Payload)
 				end = true
 			}
 

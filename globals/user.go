@@ -71,7 +71,7 @@ func newUserRegistry() UserRegistry {
 		ul[UserHash(t.UserID)] = t.UserID
 		nk[t.UserID] = k
 	}
-
+/*
 	uc[1].Nick = "David"
 	uc[2].Nick = "Jim"
 	uc[3].Nick = "Ben"
@@ -82,7 +82,7 @@ func newUserRegistry() UserRegistry {
 	uc[8].Nick = "Will"
 	uc[9].Nick = "Allan"
 	uc[10].Nick = "Jono"
-
+*/
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
 		idCounter:  uint64(NUM_DEMO_USERS),
@@ -97,16 +97,12 @@ type User struct {
 }
 
 func (u *User) DeepCopy() *User {
-
 	if u == nil {
 		return nil
 	}
-
 	nu := new(User)
-
 	nu.UserID = u.UserID
 	nu.Nick = u.Nick
-
 	return nu
 }
 

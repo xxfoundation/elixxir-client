@@ -201,9 +201,12 @@ func GetContactListJSON() ([]byte, error) {
 	ids, nicks := api.GetContactList()
 	result := buildContactListJSON(ids, nicks)
 	validateError := validateContactListJSON(result)
+	if validateError != nil {
+		validateError = errors.New("Validate contact list failed: "+
+			validateError.Error())
+	}
 	if updateError != nil && validateError != nil {
-		return result, errors.New(updateError.Error() +
-			"\nValidation of contact list failed: " + validateError.Error())
+		return result, errors.New(updateError.Error() + validateError.Error())
 	}
 	if updateError != nil && validateError == nil {
 		return result, updateError

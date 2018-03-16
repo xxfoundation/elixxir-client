@@ -101,15 +101,15 @@ func Send(m Message) error {
 	return api.Send(apiMsg)
 }
 
-// Attempts to retrieve a message from the que.
+// Attempts to retrieve a message from the queue.
 // Returns a nil message if none are available.
 func TryReceive() (Message, error) {
 	message, err := api.TryReceive()
 	return &message, err
 }
 
-// Logs the user out, saving the state fo the system and clearing all data
-// from ram
+// Logs the user out, saving the state for the system and clearing all data
+// from RAM
 func Logout() error {
 	return api.Logout()
 }

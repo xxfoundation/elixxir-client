@@ -67,7 +67,7 @@ Building
 To build the `.aar` for the client, cd to `privategrity/client/android/client` and
 run this command:
 
-`$ gomobile bind -target=android gitlab.com/privategrity/client/bindings`
+`$ gomobile bind -target=android gitlab.com/privategrity/client/api`
 
 Adding the `.aar` to the Android Studio project
 ==

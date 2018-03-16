@@ -7,7 +7,6 @@
 package api
 
 import (
-	"encoding/binary"
 	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
@@ -23,27 +22,6 @@ type APIMessage struct {
 	Sender    uint64
 	Payload   string
 	Recipient uint64
-}
-
-// Implement the bindings/Message interface
-// Uint64s are passed in little-endian byte arrays by convention
-// Get the sender as a byte array from an APIMessage
-func (m APIMessage) GetSender() []byte {
-	result := make([]byte, 8)
-	binary.LittleEndian.PutUint64(result, m.Sender)
-	return result
-}
-
-// Get the message payload out of an APIMessage
-func (m APIMessage) GetPayload() string {
-	return m.Payload
-}
-
-// Get the recipient as a byte array from an APIMessage
-func (m APIMessage) GetRecipient() []byte {
-	result := make([]byte, 8)
-	binary.LittleEndian.PutUint64(result, m.Recipient)
-	return result
 }
 
 // Initializes the client by registering a storage mechanism.

@@ -28,10 +28,10 @@ type Storage interface {
 }
 
 //Message used for binding
-type Message struct {
-	Sender    []byte
-	Payload   string
-	Recipient []byte
+type Message interface {
+	GetSender() []byte
+	GetPayload() string
+	GetRecipient() []byte
 }
 
 // Initializes the client by registering a storage mechanism.
@@ -77,30 +77,19 @@ func Login(UID []byte) (string, error) {
 	return nick, err
 }
 
-func Send(m *Message) error {
+func Send(m Message) error {
 	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.Sender).Uint64(),
-		Payload:   m.Payload,
-		Recipient: cyclic.NewIntFromBytes(m.Recipient).Uint64(),
+		Sender:    binary.LittleEndian.Uint64(m.GetSender()),
+		Payload:   m.GetPayload(),
+		Recipient: binary.LittleEndian.Uint64(m.GetRecipient()),
 	}
 
 	return api.Send(apiMsg)
 }
 
-func TryReceive() (*Message, error) {
-	m, err := api.TryReceive()
-
-	var msg *Message
-
-	if err != nil {
-		msg = &Message{
-			Sender:    cyclic.NewIntFromUInt(m.Sender).Bytes(),
-			Payload:   m.Payload,
-			Recipient: cyclic.NewIntFromUInt(m.Recipient).Bytes(),
-		}
-	}
-
-	return msg, err
+func TryReceive() (Message, error) {
+	message, err := api.TryReceive()
+	return &message, err
 }
 
 func Logout() error {

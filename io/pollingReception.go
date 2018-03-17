@@ -53,9 +53,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 			}
 		}
-
 	}
-
 	close(quit)
 
 	if killNotify != nil {

@@ -210,7 +210,7 @@ func (s *sessionObj) StoreSession() bool {
 		return false
 	}
 
-	LocalStorage, err = LocalStorage.Save(session.Bytes())
+	err = LocalStorage.Save(session.Bytes())
 
 	if err != nil {
 		jww.ERROR.Println("StoreSession: Could not save the encoded user" +

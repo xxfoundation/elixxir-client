@@ -7,7 +7,6 @@
 package bindings
 
 import (
-	"encoding/binary"
 	"errors"
 	"github.com/spf13/jwalterweatherman"
 	"github.com/xeipuuv/gojsonschema"
@@ -86,16 +85,17 @@ func Register(registrationCode string, nick string, nodeAddr string,
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func Login(UID []byte) (string, error) {
-	nick, err := api.Login(cyclic.NewIntFromBytes(UID).Uint64())
+	userID := cyclic.NewIntFromBytes(UID).Uint64()
+	nick, err := api.Login(userID)
 	return nick, err
 }
 
 //Sends a message structured via the message interface
 func Send(m Message) error {
 	apiMsg := api.APIMessage{
-		Sender:    binary.BigEndian.Uint64(m.GetSender()),
+		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
 		Payload:   m.GetPayload(),
-		Recipient: binary.BigEndian.Uint64(m.GetRecipient()),
+		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
 	}
 
 	return api.Send(apiMsg)
@@ -117,7 +117,8 @@ func Logout() error {
 // Byte order for our APIs are conventionally going to be little-endian
 /* Set this user's nick on the server */
 func SetNick(UID []byte, nick string) error {
-	return api.SetNick(binary.LittleEndian.Uint64(UID), nick)
+	userID := cyclic.NewIntFromBytes(UID).Uint64()
+	return api.SetNick(userID, nick)
 }
 
 /* Get an updated list of all users that the server knows about and update the

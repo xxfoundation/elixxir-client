@@ -8,17 +8,17 @@
 package cmd
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
-	"gitlab.com/privategrity/client/bindings"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/client/api"
-	"encoding/binary"
 )
 
 var verbose bool
@@ -98,8 +98,9 @@ var rootCmd = &cobra.Command{
 			fmt.Println(globals.UserHash(userId))
 			_, err := bindings.Register(
 				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
-					32,0),
+					32, 0),
 				"testName", serverAddr, int(numNodes))
+			fmt.Println("Set nick with test name")
 			if err != nil {
 				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
@@ -148,7 +149,7 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 				fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 				bindings.Send(api.APIMessage{userId, message,
-				destinationUserId})
+					destinationUserId})
 				timer = time.NewTimer(dummyPeroid)
 			} else {
 				time.Sleep(200 * time.Millisecond)

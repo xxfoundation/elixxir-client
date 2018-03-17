@@ -99,7 +99,6 @@ var rootCmd = &cobra.Command{
 				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
 					32, 0),
 				"testName", serverAddr, int(numNodes))
-			fmt.Println("Set nick with test name")
 			if err != nil {
 				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return

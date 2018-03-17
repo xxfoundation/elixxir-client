@@ -95,7 +95,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		if register {
-			fmt.Println(globals.UserHash(userId))
 			_, err := bindings.Register(
 				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
 					32, 0),

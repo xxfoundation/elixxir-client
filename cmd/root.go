@@ -105,12 +105,15 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Could Not Log In\n")
 			return
 		}
-		api.UpdateContactList()
 		contact := ""
-		user, ok := globals.Users.GetUser(destinationUserId)
-		if ok {
-			contact = user.Nick
+		api.UpdateContactList()
+		users, nicks := api.GetContactList()
+		for i := range users {
+			if destinationUserId == users[i] {
+				contact = nicks[i]
+			}
 		}
+
 		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 			contact, message)
 
@@ -133,7 +136,7 @@ var rootCmd = &cobra.Command{
 				break
 			}
 			contact = ""
-			user, ok := globals.Users.GetUser(destinationUserId)
+			user, ok := globals.Users.GetUser(msg.Sender)
 			if ok {
 				contact = user.Nick
 			}

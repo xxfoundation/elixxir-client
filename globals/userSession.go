@@ -89,8 +89,8 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
 		return false
 	}
 
-	if session.CurrentUser.UID != UID {
-		jww.ERROR.Printf("LoadSession: loaded incorrect user; Expected: %v; Received: %v", UID, session.CurrentUser.UID)
+	if session.CurrentUser.UserID != UID {
+		jww.ERROR.Printf("LoadSession: loaded incorrect user; Expected: %v; Received: %v", UID, session.CurrentUser.UserID)
 		return false
 	}
 
@@ -134,8 +134,8 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			UID:  s.CurrentUser.UID,
-			Nick: s.CurrentUser.Nick,
+			UserID: s.CurrentUser.UserID,
+			Nick:   s.CurrentUser.Nick,
 		}
 	}
 	return
@@ -256,8 +256,8 @@ func (s *sessionObj) Immolate() bool {
 	}
 
 	// clear data stored in session
-	s.CurrentUser.UID = math.MaxUint64
-	s.CurrentUser.UID = 0
+	s.CurrentUser.UserID = math.MaxUint64
+	s.CurrentUser.UserID = 0
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""

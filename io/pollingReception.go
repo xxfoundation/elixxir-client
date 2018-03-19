@@ -20,7 +20,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 	usr := globals.Session.GetCurrentUser()
 
-	rqMsg := &pb.ClientPollMessage{UserID: usr.UID}
+	rqMsg := &pb.ClientPollMessage{UserID: usr.UserID}
 
 	q := false
 
@@ -53,9 +53,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 			}
 		}
-
 	}
-
 	close(quit)
 
 	if killNotify != nil {

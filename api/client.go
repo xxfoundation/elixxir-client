@@ -67,8 +67,8 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	user, successGet := globals.Users.GetUser(UID)
 
 	if !successGet {
-		jww.ERROR.Printf("Register: UID lookup failed")
-		err = errors.New("could not register due to UID lookup failure")
+		jww.ERROR.Printf("Register: UserID lookup failed")
+		err = errors.New("could not register due to UserID lookup failure")
 		return 0, err
 	}
 
@@ -79,8 +79,9 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	}
 
 	user.Nick = nick
+	io.SetNick(nodeAddr, user)
 
-	nodekeys, successKeys := globals.Users.LookupKeys(user.UID)
+	nodekeys, successKeys := globals.Users.LookupKeys(user.UserID)
 	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
@@ -139,14 +140,14 @@ func Send(message APIMessage) error {
 		return errors.New("cannot send message when not logged in")
 	}
 
-	if message.Sender != globals.Session.GetCurrentUser().UID {
+	if message.Sender != globals.Session.GetCurrentUser().UserID {
 		jww.ERROR.Printf("Send: Cannot send a message from someone other" +
 			" than yourself")
 		return errors.New("cannot send message from a different user")
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages := globals.NewMessage(sender.UID, message.Recipient, message.Payload)
+	newMessages := globals.NewMessage(sender.UserID, message.Recipient, message.Payload)
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
@@ -214,27 +215,26 @@ func Logout() error {
 	return nil
 }
 
-func GetNick(UID uint64) string {
+func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
 
 	if success {
-		return u.Nick
+		io.SetNick(globals.Session.GetNodeAddress(), u)
 	} else {
-		return ""
+		jww.ERROR.Printf("Tried to set nick for user %v, "+
+			"but that user wasn't in the registry", u.UserID)
+		return errors.New("That user wasn't in the user registry")
 	}
 
+	return nil
 }
 
-func GetContactList() []uint64 {
+func UpdateContactList() error {
+	return io.UpdateUserRegistry(globals.Session.GetNodeAddress())
+}
 
-	clist := make([]uint64, globals.NUM_DEMO_USERS)
-
-	for i := 1; i <= globals.NUM_DEMO_USERS; i++ {
-		clist[i-1] = uint64(i)
-	}
-
-	return clist
-
+func GetContactList() ([]uint64, []string) {
+	return globals.Users.GetContactList()
 }
 
 func clearUint64(u *uint64) {

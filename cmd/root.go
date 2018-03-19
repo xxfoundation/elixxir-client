@@ -27,6 +27,7 @@ var numNodes uint
 var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
+var nick string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -46,12 +47,11 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
 
-		var dummyPeroid time.Duration
-
+		var dummyPeriod time.Duration
 		var timer *time.Timer
 
 		if dummyFrequency != 0 {
-			dummyPeroid = time.Nanosecond *
+			dummyPeriod = time.Nanosecond *
 				(time.Duration(1000000000 * (1.0 / dummyFrequency)))
 		}
 
@@ -60,7 +60,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		var err error
-
 		register := false
 
 		if sessionFile == "" {
@@ -93,7 +92,7 @@ var rootCmd = &cobra.Command{
 
 		if register {
 			_, err := api.Register(globals.UserHash(userId),
-				"testName", serverAddr, numNodes)
+				nick, serverAddr, numNodes)
 			if err != nil {
 				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
@@ -106,14 +105,23 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Could Not Log In\n")
 			return
 		}
+		contact := ""
+		api.UpdateContactList()
+		users, nicks := api.GetContactList()
+		for i := range users {
+			if destinationUserId == users[i] {
+				contact = nicks[i]
+			}
+		}
 
-		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
+		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+			contact, message)
 
 		api.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
 
 		if dummyFrequency != 0 {
-			timer = time.NewTimer(dummyPeroid)
+			timer = time.NewTimer(dummyPeriod)
 		}
 
 		for {
@@ -127,18 +135,29 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
-
+			contact = ""
+			user, ok := globals.Users.GetUser(msg.Sender)
+			if ok {
+				contact = user.Nick
+			}
 			if msg.Payload != "" {
-				fmt.Printf("Message from %v Received: %s\n", msg.Sender, msg.Payload)
+				fmt.Printf("Message from %v, %v Received: %s\n", msg.Sender,
+					contact, msg.Payload)
 				end = true
 			}
 
-			if dummyPeroid != 0 {
+			if dummyPeriod != 0 {
 				end = false
 				<-timer.C
-				fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
+				contact = ""
+				user, ok := globals.Users.GetUser(destinationUserId)
+				if ok {
+					contact = user.Nick
+				}
+				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+					contact, message)
 				api.Send(api.APIMessage{userId, message, destinationUserId})
-				timer = time.NewTimer(dummyPeroid)
+				timer = time.NewTimer(dummyPeriod)
 			} else {
 				time.Sleep(200 * time.Millisecond)
 			}
@@ -175,6 +194,8 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
 	rootCmd.MarkPersistentFlagRequired("userid")
+	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "","",
+		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")
 	rootCmd.MarkPersistentFlagRequired("serveraddr")

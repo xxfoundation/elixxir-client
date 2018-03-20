@@ -9,6 +9,7 @@ package api
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
@@ -122,9 +123,11 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	successStore := nus.StoreSession()
 
-	if !successStore {
-		jww.ERROR.Printf("Register: unable to save session")
-		err = errors.New("could not register due to failed session save")
+	if successStore != nil {
+		err = errors.New(fmt.Sprintf(
+			"Register: could not register due to failed session save"+
+				": %s", successStore.Error()))
+		jww.ERROR.Printf(err.Error())
 		return 0, err
 	}
 
@@ -142,11 +145,13 @@ func Login(UID uint64) (string, error) {
 
 	pollTerm := globals.NewThreadTerminator()
 
-	success := globals.LoadSession(UID, pollTerm)
+	err := globals.LoadSession(UID, pollTerm)
 
-	if !success {
-		jww.ERROR.Printf("Login: Could not login")
-		return "", errors.New("could not login")
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
+			err.Error()))
+		jww.ERROR.Printf(err.Error())
+		return "", err
 	}
 
 	pollWaitTimeMillis := uint64(1000)
@@ -158,14 +163,16 @@ func Login(UID uint64) (string, error) {
 func Send(message APIMessage) error {
 
 	if globals.Session == nil {
-		jww.ERROR.Printf("Send: Could not send when not logged in")
-		return errors.New("cannot send message when not logged in")
+		err := errors.New("Send: Could not send when not logged in")
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	if message.Sender != globals.Session.GetCurrentUser().UserID {
-		jww.ERROR.Printf("Send: Cannot send a message from someone other" +
+		err := errors.New("Send: Cannot send a message from someone other" +
 			" than yourself")
-		return errors.New("cannot send message from a different user")
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	sender := globals.Session.GetCurrentUser()
@@ -198,8 +205,10 @@ func TryReceive() (APIMessage, error) {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
 		err = errors.New("cannot receive when not logged in")
 	} else {
-		message := globals.Session.PopFifo()
-		if message != nil {
+		var message *globals.Message
+		message, err = globals.Session.PopFifo()
+
+		if err == nil || err != globals.FifoEmptyErr {
 			m.Payload = message.GetPayloadString()
 			m.Sender = message.GetSenderID().Uint64()
 			m.Recipient = message.GetRecipientID().Uint64()
@@ -214,24 +223,30 @@ func TryReceive() (APIMessage, error) {
 // and safely release any sensitive memory.
 func Logout() error {
 	if globals.Session == nil {
-		jww.ERROR.Printf("Logout: Cannot Logout when you are not logged in")
-		return errors.New("cannot logout when you are not logged in")
+		err := errors.New("Logout: Cannot Logout when you are not logged in" +
+			" than yourself")
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	io.Disconnect(globals.Session.GetNodeAddress())
 
-	successStore := globals.Session.StoreSession()
+	errStore := globals.Session.StoreSession()
 
-	if !successStore {
-		jww.ERROR.Printf("Logout: Store Failed")
-		return errors.New("cannot logout because state could not be saved")
+	if errStore != nil {
+		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
+			errStore.Error()))
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
-	successImmolate := globals.Session.Immolate()
+	errImmolate := globals.Session.Immolate()
 
-	if !successImmolate {
-		jww.ERROR.Printf("Logout: Immolation Failed")
-		return errors.New("cannot logout because ram could not be cleared")
+	if errImmolate != nil {
+		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
+			errImmolate.Error()))
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	return nil

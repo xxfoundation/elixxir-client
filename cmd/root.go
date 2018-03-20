@@ -130,7 +130,7 @@ var rootCmd = &cobra.Command{
 
 			end := false
 
-			if err != nil {
+			if err != nil && err != globals.FifoEmptyErr{
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}

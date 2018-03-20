@@ -7,10 +7,9 @@
 package globals
 
 import (
-	"os"
 	"testing"
-	//jww "github.com/spf13/jwalterweatherman"
 	"reflect"
+	"os"
 )
 
 func TestInitStorage(t *testing.T) {

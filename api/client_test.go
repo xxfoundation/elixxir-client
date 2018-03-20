@@ -165,5 +165,5 @@ func TestDisableRatchet(t *testing.T) {
 		pass++
 	}
 
-	println("API Client test", pass, "out of", tests, "tests passed.")
+	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
 }

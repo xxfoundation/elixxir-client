@@ -121,12 +121,12 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	nus := globals.NewUserSession(user, nodeAddr, nk)
 
-	successStore := nus.StoreSession()
+	errStore := nus.StoreSession()
 
-	if successStore != nil {
+	if errStore != nil {
 		err = errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+
-				": %s", successStore.Error()))
+				": %s", errStore.Error()))
 		jww.ERROR.Printf(err.Error())
 		return 0, err
 	}

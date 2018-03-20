@@ -8,18 +8,44 @@
 package api
 
 import (
-        pb "gitlab.com/privategrity/comms/mixmessages"
-        "gitlab.com/privategrity/comms/mixserver"
-        "os"
-        "testing"
+		pb "gitlab.com/privategrity/comms/mixmessages"
+		"gitlab.com/privategrity/comms/mixserver"
+		"os"
+		"testing"
+		"bytes"
+		"encoding/gob"
+		"gitlab.com/privategrity/client/globals"
+		"strconv"
 )
 
 const SERVER_ADDRESS = "localhost:5556"
 
-// Start server for testing
+const NICK = "Alduin"
+
+var Session globals.SessionObj
+
 func TestMain(m *testing.M) {
-        go mixserver.StartServer(SERVER_ADDRESS, TestInterface{})
-        os.Exit(m.Run())
+	// Verifying the registration gob requires additional setup
+	// Start server for testing
+	go mixserver.StartServer(SERVER_ADDRESS, TestInterface{})
+
+	// Put some user data into a gob
+	globals.InitStorage(&globals.RamStorage{}, "")
+
+	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
+
+	// populate a gob in the store
+	Register(huid, NICK, SERVER_ADDRESS, 1)
+
+	// get the gob out of there again
+	sessionGob := globals.LocalStorage.Load()
+	var sessionBytes bytes.Buffer
+	sessionBytes.Write(sessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+	Session = globals.SessionObj{}
+	dec.Decode(&Session)
+
+	os.Exit(m.Run())
 }
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
@@ -54,12 +80,12 @@ func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
 func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
 
 func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
-        return &pb.CmixMessage{}
+		return &pb.CmixMessage{}
 }
 
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
 ContactMessage {
-        return &pb.ContactMessage{}
+		return &pb.ContactMessage{}
 }
 
 func (m TestInterface) SetNick(message *pb.Contact) {}

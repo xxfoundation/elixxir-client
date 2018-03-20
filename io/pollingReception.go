@@ -51,7 +51,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 					err := globals.Session.PushFifo(msg)
 
 					if err != nil {
-						jww.ERROR.Println("Could not push message onto FIFO,"+
+						jww.ERROR.Printf("Could not push message onto FIFO,"+
 							" message lost: %s",
 							err.Error())
 					}

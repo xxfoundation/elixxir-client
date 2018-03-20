@@ -9,7 +9,8 @@ package globals
 import (
 	"bytes"
 	"encoding/gob"
-	jww "github.com/spf13/jwalterweatherman"
+	"errors"
+	"fmt"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"io"
 	"math"
@@ -26,10 +27,10 @@ type UserSession interface {
 	GetNodeAddress() string
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
-	PushFifo(*Message) bool
-	PopFifo() *Message
-	StoreSession() bool
-	Immolate() bool
+	PushFifo(*Message) error
+	PopFifo() (*Message, error)
+	StoreSession() error
+	Immolate() error
 }
 
 type NodeKeys struct {
@@ -45,6 +46,8 @@ type RatchetKey struct {
 	Recursive *cyclic.Int
 }
 
+var FifoEmptyErr error = errors.New("PopFifo: Fifo Empty")
+
 // Creates a new UserSession interface for registration
 func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 
@@ -58,10 +61,10 @@ func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 		PrivateKey:  cyclic.NewMaxInt()})
 }
 
-func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
+func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 	if LocalStorage == nil {
-		jww.ERROR.Println("StoreSession: Local Storage not avalible")
-		return false
+		err := errors.New("StoreSession: Local Storage not avalible")
+		return err
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -78,20 +81,21 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
 
 	err := dec.Decode(&session)
 
-	if err != nil && err != io.EOF {
-		jww.ERROR.Printf("LoadSession: unable to load session: %s", err.Error())
-		return false
+	if (err != nil && err != io.EOF) || (session.CurrentUser == nil) {
+		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
+		return err
+	} else if err != nil {
+		err = errors.New(fmt.Sprintf("LoadSession: unknown error: %s",
+			err.Error()))
+		return err
 	}
 
-	if session.CurrentUser == nil {
-		jww.ERROR.Println("LoadSession: failed to load user %v", session)
-
-		return false
-	}
-
-	if session.CurrentUser.UID != UID {
-		jww.ERROR.Printf("LoadSession: loaded incorrect user; Expected: %v; Received: %v", UID, session.CurrentUser.UID)
-		return false
+	if session.CurrentUser.UserID != UID {
+		err = errors.New(fmt.Sprintf(
+			"LoadSession: loaded incorrect + +"+
+				"user; Expected: %v; Received: %v", UID,
+			session.CurrentUser.UserID))
+		return err
 	}
 
 	session.fifo = make(chan *Message, 100)
@@ -100,7 +104,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
 
 	Session = &session
 
-	return true
+	return nil
 }
 
 // Struct holding relevant session data
@@ -134,8 +138,8 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			UID:  s.CurrentUser.UID,
-			Nick: s.CurrentUser.Nick,
+			UserID: s.CurrentUser.UserID,
+			Nick:   s.CurrentUser.Nick,
 		}
 	}
 	return
@@ -145,57 +149,57 @@ func (s *sessionObj) GetNodeAddress() string {
 	return s.NodeAddress
 }
 
-func (s *sessionObj) PushFifo(msg *Message) bool {
+func (s *sessionObj) PushFifo(msg *Message) error {
 
 	if s.fifo == nil {
-		jww.ERROR.Println("PushFifo: Cannot push an uninitialized fifo")
-		return false
+		err := errors.New("PushFifo: Cannot push an uninitialized fifo")
+		return err
 	}
 
 	if s.CurrentUser == nil {
-		jww.ERROR.Println("PushFifo: Cannot push a fifo for an uninitialized" +
-			" user")
-		return false
+		err := errors.New("PushFifo: Cannot push a fifo for an uninitialized")
+		return err
 	}
 
 	select {
 	case s.fifo <- msg:
-		return true
+		return nil
 	default:
-		jww.ERROR.Println("PushFifo: fifo full")
-		return false
+		err := errors.New("PushFifo: fifo full")
+		return err
 	}
 }
 
-func (s *sessionObj) PopFifo() *Message {
+func (s *sessionObj) PopFifo() (*Message, error) {
 
 	if s.fifo == nil {
-		jww.ERROR.Println("PopFifo: Cannot pop an uninitialized fifo")
-		return nil
+		err := errors.New("PopFifo: Cannot pop an uninitialized fifo")
+		return nil, err
 	}
 
 	if s.CurrentUser == nil {
-		jww.ERROR.Println("PopFifo: Cannot pop an fifo on an uninitialized" +
+		err := errors.New("PopFifo: Cannot pop an fifo on an uninitialized" +
 			" user")
-		return nil
+		return nil, err
 	}
 
 	var msg *Message
 
 	select {
 	case msg = <-s.fifo:
-		return msg
+		return msg, nil
 	default:
-		return nil
+		err := errors.New("PopFifo: Fifo Empty")
+		return nil, err
 	}
 
 }
 
-func (s *sessionObj) StoreSession() bool {
+func (s *sessionObj) StoreSession() error {
 
 	if LocalStorage == nil {
-		jww.ERROR.Println("StoreSession: Local Storage not avalible")
-		return false
+		err := errors.New("StoreSession: Local Storage not available")
+		return err
 	}
 
 	var session bytes.Buffer
@@ -205,30 +209,31 @@ func (s *sessionObj) StoreSession() bool {
 	err := enc.Encode(s)
 
 	if err != nil {
-		jww.ERROR.Println("StoreSession: Could not encode user"+
-			" session: %s", err.Error())
-		return false
+		err = errors.New(fmt.Sprintf("StoreSession: Could not encode user"+
+			" session: %s", err.Error()))
+		return err
 	}
 
-	LocalStorage, err = LocalStorage.Save(session.Bytes())
+	err = LocalStorage.Save(session.Bytes())
 
 	if err != nil {
-		jww.ERROR.Println("StoreSession: Could not save the encoded user" +
-			" session")
-		return false
+
+		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+			" session: %s", err.Error()))
+		return err
 	}
 
-	return true
+	return nil
 
 }
 
 // Scrubs all cryptographic data from ram and logs out
 // the ram overwriting can be improved
-func (s *sessionObj) Immolate() bool {
+func (s *sessionObj) Immolate() error {
 	if s == nil {
-		jww.ERROR.Println("CryptographicallyImmolate: Cannot immolate when" +
+		err := errors.New("immolate: Cannot immolate when" +
 			" you are not alive")
-		return false
+		return err
 	}
 
 	//Kill Polling Reception
@@ -256,8 +261,8 @@ func (s *sessionObj) Immolate() bool {
 	}
 
 	// clear data stored in session
-	s.CurrentUser.UID = math.MaxUint64
-	s.CurrentUser.UID = 0
+	s.CurrentUser.UserID = math.MaxUint64
+	s.CurrentUser.UserID = 0
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""
@@ -276,7 +281,7 @@ func (s *sessionObj) Immolate() bool {
 
 	Session = nil
 
-	return true
+	return nil
 }
 
 func clearCyclicInt(c *cyclic.Int) {

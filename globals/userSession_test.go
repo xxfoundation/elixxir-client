@@ -21,7 +21,7 @@ func TestUserSession(t *testing.T) {
 	u := new(User)
 	UID := uint64(1)
 
-	u.UID = UID
+	u.UserID = UID
 	u.Nick = "Mario"
 
 	keys := make([]NodeKeys, 1)
@@ -56,13 +56,13 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if !LoadSession(UID, nil) {
+	if LoadSession(UID, nil) != nil {
 		t.Errorf("Error: Unable to login with valid user!")
 	} else {
 		pass++
 	}
 
-	if LoadSession(100002, nil) {
+	if LoadSession(100002, nil) == nil {
 		t.Errorf("Error: Able to login with invalid user!")
 	} else {
 		pass++
@@ -123,7 +123,7 @@ func TestUserSession(t *testing.T) {
 
 	Session.PushFifo(inmsg)
 
-	outmsg := Session.PopFifo()
+	outmsg, _ := Session.PopFifo()
 
 	if inmsg != outmsg {
 		t.Errorf("Error: Incorrect Return Message from fifo")

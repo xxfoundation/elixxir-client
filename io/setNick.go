@@ -7,25 +7,17 @@
 package io
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/comms/mixclient"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 )
 
-// Send a cMix message to the server
-func TransmitMessage(addr string, messageBytes *globals.MessageBytes) error {
+func SetNick(addr string, user *globals.User) {
+	msg := pb.Contact(*user)
+	_, err := mixclient.SetNick(addr, &msg)
 
-	globals.TransmissionMutex.Lock()
-
-	cmixmsg := &pb.CmixMessage{
-		SenderID:       globals.Session.GetCurrentUser().UserID,
-		MessagePayload: messageBytes.Payload.Bytes(),
-		RecipientID:    messageBytes.Recipient.Bytes(),
+	if err != nil {
+		jww.FATAL.Panicf("Failed to set nick: %v", err.Error())
 	}
-
-	_, err := mixclient.SendMessageToServer(addr, cmixmsg)
-
-	globals.TransmissionMutex.Unlock()
-
-	return err
 }

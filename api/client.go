@@ -7,7 +7,9 @@
 package api
 
 import (
+	"encoding/binary"
 	"errors"
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
@@ -22,6 +24,27 @@ type APIMessage struct {
 	Sender    uint64
 	Payload   string
 	Recipient uint64
+}
+
+// Implement the bindings/Message interface
+// Uint64s are passed in big-endian byte arrays by convention
+// Get the sender as a byte array from an APIMessage
+func (m APIMessage) GetSender() []byte {
+	result := make([]byte, 8)
+	binary.BigEndian.PutUint64(result, m.Sender)
+	return result
+}
+
+// Get the message payload out of an APIMessage
+func (m APIMessage) GetPayload() string {
+	return m.Payload
+}
+
+// Get the recipient as a byte array from an APIMessage
+func (m APIMessage) GetRecipient() []byte {
+	result := make([]byte, 8)
+	binary.BigEndian.PutUint64(result, m.Recipient)
+	return result
 }
 
 // Initializes the client by registering a storage mechanism.
@@ -67,8 +90,8 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	user, successGet := globals.Users.GetUser(UID)
 
 	if !successGet {
-		jww.ERROR.Printf("Register: UID lookup failed")
-		err = errors.New("could not register due to UID lookup failure")
+		jww.ERROR.Printf("Register: UserID lookup failed")
+		err = errors.New("could not register due to UserID lookup failure")
 		return 0, err
 	}
 
@@ -79,8 +102,9 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	}
 
 	user.Nick = nick
+	io.SetNick(nodeAddr, user)
 
-	nodekeys, successKeys := globals.Users.LookupKeys(user.UID)
+	nodekeys, successKeys := globals.Users.LookupKeys(user.UserID)
 	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
@@ -97,11 +121,13 @@ func Register(HUID uint64, nick string, nodeAddr string,
 
 	nus := globals.NewUserSession(user, nodeAddr, nk)
 
-	successStore := nus.StoreSession()
+	errStore := nus.StoreSession()
 
-	if !successStore {
-		jww.ERROR.Printf("Register: unable to save session")
-		err = errors.New("could not register due to failed session save")
+	if errStore != nil {
+		err = errors.New(fmt.Sprintf(
+			"Register: could not register due to failed session save"+
+				": %s", errStore.Error()))
+		jww.ERROR.Printf(err.Error())
 		return 0, err
 	}
 
@@ -119,11 +145,13 @@ func Login(UID uint64) (string, error) {
 
 	pollTerm := globals.NewThreadTerminator()
 
-	success := globals.LoadSession(UID, pollTerm)
+	err := globals.LoadSession(UID, pollTerm)
 
-	if !success {
-		jww.ERROR.Printf("Login: Could not login")
-		return "", errors.New("could not login")
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
+			err.Error()))
+		jww.ERROR.Printf(err.Error())
+		return "", err
 	}
 
 	pollWaitTimeMillis := uint64(1000)
@@ -135,18 +163,20 @@ func Login(UID uint64) (string, error) {
 func Send(message APIMessage) error {
 
 	if globals.Session == nil {
-		jww.ERROR.Printf("Send: Could not send when not logged in")
-		return errors.New("cannot send message when not logged in")
+		err := errors.New("Send: Could not send when not logged in")
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
-	if message.Sender != globals.Session.GetCurrentUser().UID {
-		jww.ERROR.Printf("Send: Cannot send a message from someone other" +
+	if message.Sender != globals.Session.GetCurrentUser().UserID {
+		err := errors.New("Send: Cannot send a message from someone other" +
 			" than yourself")
-		return errors.New("cannot send message from a different user")
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages := globals.NewMessage(sender.UID, message.Recipient, message.Payload)
+	newMessages := globals.NewMessage(sender.UserID, message.Recipient, message.Payload)
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
@@ -175,8 +205,10 @@ func TryReceive() (APIMessage, error) {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
 		err = errors.New("cannot receive when not logged in")
 	} else {
-		message := globals.Session.PopFifo()
-		if message != nil {
+		var message *globals.Message
+		message, err = globals.Session.PopFifo()
+
+		if err == nil{
 			m.Payload = message.GetPayloadString()
 			m.Sender = message.GetSenderID().Uint64()
 			m.Recipient = message.GetRecipientID().Uint64()
@@ -191,50 +223,55 @@ func TryReceive() (APIMessage, error) {
 // and safely release any sensitive memory.
 func Logout() error {
 	if globals.Session == nil {
-		jww.ERROR.Printf("Logout: Cannot Logout when you are not logged in")
-		return errors.New("cannot logout when you are not logged in")
+		err := errors.New("Logout: Cannot Logout when you are not logged in" +
+			" than yourself")
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	io.Disconnect(globals.Session.GetNodeAddress())
 
-	successStore := globals.Session.StoreSession()
+	errStore := globals.Session.StoreSession()
 
-	if !successStore {
-		jww.ERROR.Printf("Logout: Store Failed")
-		return errors.New("cannot logout because state could not be saved")
+	if errStore != nil {
+		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
+			errStore.Error()))
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
-	successImmolate := globals.Session.Immolate()
+	errImmolate := globals.Session.Immolate()
 
-	if !successImmolate {
-		jww.ERROR.Printf("Logout: Immolation Failed")
-		return errors.New("cannot logout because ram could not be cleared")
+	if errImmolate != nil {
+		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
+			errImmolate.Error()))
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	return nil
 }
 
-func GetNick(UID uint64) string {
+func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
 
 	if success {
-		return u.Nick
+		io.SetNick(globals.Session.GetNodeAddress(), u)
 	} else {
-		return ""
+		jww.ERROR.Printf("Tried to set nick for user %v, "+
+			"but that user wasn't in the registry", u.UserID)
+		return errors.New("That user wasn't in the user registry")
 	}
 
+	return nil
 }
 
-func GetContactList() []uint64 {
+func UpdateContactList() error {
+	return io.UpdateUserRegistry(globals.Session.GetNodeAddress())
+}
 
-	clist := make([]uint64, globals.NUM_DEMO_USERS)
-
-	for i := 1; i <= globals.NUM_DEMO_USERS; i++ {
-		clist[i-1] = uint64(i)
-	}
-
-	return clist
-
+func GetContactList() ([]uint64, []string) {
+	return globals.Users.GetContactList()
 }
 
 func clearUint64(u *uint64) {

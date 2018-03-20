@@ -189,7 +189,7 @@ func (s *sessionObj) PopFifo() (*Message, error) {
 	case msg = <-s.fifo:
 		return msg, nil
 	default:
-		err := errors.New("PopFifo: Fifo Empty")
+		err := FifoEmptyErr
 		return nil, err
 	}
 

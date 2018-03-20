@@ -48,7 +48,13 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 				if err != nil {
 					jww.ERROR.Println("Decryption failed: %v", err.Error())
 				} else {
-					globals.Session.PushFifo(msg)
+					err := globals.Session.PushFifo(msg)
+
+					if err != nil {
+						jww.ERROR.Printf("Could not push message onto FIFO,"+
+							" message lost: %s",
+							err.Error())
+					}
 				}
 
 			}

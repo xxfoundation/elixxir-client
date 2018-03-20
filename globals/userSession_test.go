@@ -42,7 +42,7 @@ func TestUserSession(t *testing.T) {
 	//Ask Ben if there should be a Node Address here!
 	ses := NewUserSession(u, "abc", keys)
 
-	ses.(*sessionObj).PrivateKey.SetInt64(2)
+	ses.(*SessionObj).PrivateKey.SetInt64(2)
 
 	ses.StoreSession()
 

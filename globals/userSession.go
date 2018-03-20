@@ -49,7 +49,7 @@ type RatchetKey struct {
 func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
-	return UserSession(&sessionObj{
+	return UserSession(&SessionObj{
 		CurrentUser: u,
 		NodeAddress: nodeAddr,
 		fifo:        nil,
@@ -74,7 +74,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
 
 	dec := gob.NewDecoder(&sessionBytes)
 
-	session := sessionObj{}
+	session := SessionObj{}
 
 	err := dec.Decode(&session)
 
@@ -104,7 +104,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) bool {
 }
 
 // Struct holding relevant session data
-type sessionObj struct {
+type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
@@ -121,16 +121,16 @@ type sessionObj struct {
 	PrivateKey *cyclic.Int
 }
 
-func (s *sessionObj) GetKeys() []NodeKeys {
+func (s *SessionObj) GetKeys() []NodeKeys {
 	return s.Keys
 }
 
-func (s *sessionObj) GetPrivateKey() *cyclic.Int {
+func (s *SessionObj) GetPrivateKey() *cyclic.Int {
 	return s.PrivateKey
 }
 
 // Return a copy of the current user
-func (s *sessionObj) GetCurrentUser() (currentUser *User) {
+func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
@@ -141,11 +141,11 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	return
 }
 
-func (s *sessionObj) GetNodeAddress() string {
+func (s *SessionObj) GetNodeAddress() string {
 	return s.NodeAddress
 }
 
-func (s *sessionObj) PushFifo(msg *Message) bool {
+func (s *SessionObj) PushFifo(msg *Message) bool {
 
 	if s.fifo == nil {
 		jww.ERROR.Println("PushFifo: Cannot push an uninitialized fifo")
@@ -167,7 +167,7 @@ func (s *sessionObj) PushFifo(msg *Message) bool {
 	}
 }
 
-func (s *sessionObj) PopFifo() *Message {
+func (s *SessionObj) PopFifo() *Message {
 
 	if s.fifo == nil {
 		jww.ERROR.Println("PopFifo: Cannot pop an uninitialized fifo")
@@ -191,7 +191,7 @@ func (s *sessionObj) PopFifo() *Message {
 
 }
 
-func (s *sessionObj) StoreSession() bool {
+func (s *SessionObj) StoreSession() bool {
 
 	if LocalStorage == nil {
 		jww.ERROR.Println("StoreSession: Local Storage not avalible")
@@ -224,7 +224,7 @@ func (s *sessionObj) StoreSession() bool {
 
 // Scrubs all cryptographic data from ram and logs out
 // the ram overwriting can be improved
-func (s *sessionObj) Immolate() bool {
+func (s *SessionObj) Immolate() bool {
 	if s == nil {
 		jww.ERROR.Println("CryptographicallyImmolate: Cannot immolate when" +
 			" you are not alive")

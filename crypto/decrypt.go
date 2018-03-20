@@ -12,10 +12,11 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
+	"gitlab.com/privategrity/crypto/message"
 )
 
-func Decrypt(g *cyclic.Group, encryptedMessage *globals.MessageBytes) (
-	*globals.Message, error) {
+func Decrypt(g *cyclic.Group, encryptedMessage *message.MessageSerial) (
+	*message.Message, error) {
 
 	var err error
 
@@ -40,20 +41,20 @@ func Decrypt(g *cyclic.Group, encryptedMessage *globals.MessageBytes) (
 	g.Mul(encryptedMessage.Recipient, inverseReceptionKeys, encryptedMessage.Recipient)
 
 	// unpack the message from a MessageBytes
-	message := encryptedMessage.DeconstructMessageBytes()
+	decryptedMessage := message.DeserializeMessage(*encryptedMessage)
 
 	payloadMicList :=
-		[][]byte{message.GetPayloadInitVector().LeftpadBytes(globals.IV_LEN),
-			message.GetSenderID().LeftpadBytes(globals.SID_LEN),
-			message.GetPayload().LeftpadBytes(globals.PAYLOAD_LEN),
+		[][]byte{decryptedMessage.GetPayloadInitVect().LeftpadBytes(message.PIV_LEN),
+			decryptedMessage.GetSenderID().LeftpadBytes(message.SID_LEN),
+			decryptedMessage.GetData().LeftpadBytes(message.DATA_END),
 		}
 
 	success := verification.CheckMic(payloadMicList,
-		message.GetPayloadMIC().LeftpadBytes(globals.PMIC_LEN))
+		decryptedMessage.GetPayloadMIC().LeftpadBytes(message.PMIC_LEN))
 
 	if !success {
 		err = errors.New("MIC did not match")
 	}
 
-	return message, err
+	return &decryptedMessage, err
 }

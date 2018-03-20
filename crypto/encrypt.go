@@ -11,34 +11,35 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
+	"gitlab.com/privategrity/crypto/message"
 )
 
-func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
-	MessageBytes {
+func Encrypt(g *cyclic.Group, plainMessage *message.Message) *message.
+MessageSerial {
 
 	keys := globals.Session.GetKeys()
 
-	globals.MakeInitVect(message.GetPayloadInitVector())
-	globals.MakeInitVect(message.GetRecipientInitVector())
+	globals.MakeInitVect(plainMessage.GetPayloadInitVect())
+	globals.MakeInitVect(plainMessage.GetRecipientInitVect())
 
 	payloadMicList :=
-		[][]byte{message.GetPayloadInitVector().LeftpadBytes(globals.IV_LEN),
-			message.GetSenderID().LeftpadBytes(globals.SID_LEN),
-			message.GetPayload().LeftpadBytes(globals.PAYLOAD_LEN),
+		[][]byte{plainMessage.GetPayloadInitVect().LeftpadBytes(message.PIV_LEN),
+			plainMessage.GetSenderID().LeftpadBytes(message.SID_LEN),
+			plainMessage.GetData().LeftpadBytes(message.DATA_LEN),
 		}
 
-	message.GetPayloadMIC().SetBytes(verification.GenerateMIC(payloadMicList,
-		globals.PMIC_LEN))
+	plainMessage.GetPayloadMIC().SetBytes(verification.GenerateMIC(payloadMicList,
+		message.PMIC_LEN))
 
 	recipientMicList :=
-		[][]byte{message.GetRecipientInitVector().LeftpadBytes(globals.IV_LEN),
-			message.GetRecipientID().LeftpadBytes(globals.RID_LEN),
+		[][]byte{plainMessage.GetRecipientInitVect().LeftpadBytes(message.RIV_LEN),
+			plainMessage.GetRecipientID().LeftpadBytes(message.RID_LEN),
 		}
 
-	message.GetRecipientMIC().SetBytes(verification.GenerateMIC(recipientMicList,
-		globals.RMIC_LEN))
+	plainMessage.GetRecipientMIC().SetBytes(verification.GenerateMIC(recipientMicList,
+		message.RMIC_LEN))
 
-	result := message.ConstructMessageBytes()
+	result := plainMessage.SerializeMessage()
 
 	// TODO move this allocation somewhere sensible
 	sharedKeyStorage := make([]byte, 0, 8192)
@@ -61,5 +62,5 @@ func Encrypt(g *cyclic.Group, message *globals.Message) *globals.
 	g.Mul(result.Payload, inverseTransmissionKeys, result.Payload)
 	g.Mul(result.Recipient, inverseTransmissionKeys, result.Recipient)
 
-	return result
+	return &result
 }

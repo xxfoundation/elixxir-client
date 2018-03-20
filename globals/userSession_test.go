@@ -9,6 +9,7 @@ package globals
 import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"gitlab.com/privategrity/crypto/message"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -119,13 +120,16 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	inmsg := NewMessage(42, 69, "test")[0]
+	inmsg, err := message.NewMessage(42, 69, "test")
+	if err != nil {
+		t.Errorf("Error: Couldn't create new message%v", err.Error())
+	}
 
-	Session.PushFifo(inmsg)
+	Session.PushFifo(&inmsg[0])
 
 	outmsg := Session.PopFifo()
 
-	if inmsg != outmsg {
+	if &inmsg[0] != outmsg {
 		t.Errorf("Error: Incorrect Return Message from fifo")
 	} else {
 		pass++

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
+	"gitlab.com/privategrity/crypto/message"
 )
 
 //Structure used to return a message
@@ -155,25 +156,26 @@ func Login(UID uint64) (string, error) {
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func Send(message APIMessage) error {
+func Send(apiMessage APIMessage) error {
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("Send: Could not send when not logged in")
 		return errors.New("cannot send message when not logged in")
 	}
 
-	if message.Sender != globals.Session.GetCurrentUser().UserID {
+	if apiMessage.Sender != globals.Session.GetCurrentUser().UserID {
 		jww.ERROR.Printf("Send: Cannot send a message from someone other" +
 			" than yourself")
 		return errors.New("cannot send message from a different user")
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages := globals.NewMessage(sender.UserID, message.Recipient, message.Payload)
+	newMessages, _ := message.NewMessage(sender.UserID, apiMessage.Recipient,
+		apiMessage.Payload)
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
-		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
+		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
 		// Send the message
 		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
 			newMessageBytes)
@@ -200,7 +202,7 @@ func TryReceive() (APIMessage, error) {
 	} else {
 		message := globals.Session.PopFifo()
 		if message != nil {
-			m.Payload = message.GetPayloadString()
+			m.Payload = message.GetPayload()
 			m.Sender = message.GetSenderID().Uint64()
 			m.Recipient = message.GetRecipientID().Uint64()
 		}

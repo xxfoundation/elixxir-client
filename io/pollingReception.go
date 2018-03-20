@@ -14,6 +14,7 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"time"
+	"gitlab.com/privategrity/crypto/message"
 )
 
 func runfunc(wait uint64, quit globals.ThreadTerminator) {
@@ -38,7 +39,8 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 			if len(cmixMsg.MessagePayload) != 0 {
 
-				msgBytes := globals.MessageBytes{
+				// TODO change this to put this message in the receiver
+				msgBytes := message.MessageSerial{
 					Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
 					Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
 				}

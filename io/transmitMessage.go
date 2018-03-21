@@ -18,8 +18,6 @@ func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 
 	globals.TransmissionMutex.Lock()
 
-	// TODO remove senderID from CMIX Message as it's now part of the message
-	// payload
 	cmixmsg := &pb.CmixMessage{
 		SenderID:       globals.Session.GetCurrentUser().UserID,
 		MessagePayload: messageBytes.Payload.Bytes(),

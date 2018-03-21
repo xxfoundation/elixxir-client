@@ -14,32 +14,32 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 )
 
-func Encrypt(g *cyclic.Group, plainMessage *format.Message) *format.
+func Encrypt(g *cyclic.Group, message *format.Message) *format.
 MessageSerial {
 
 	keys := globals.Session.GetKeys()
 
-	globals.MakeInitVect(plainMessage.GetPayloadInitVect())
-	globals.MakeInitVect(plainMessage.GetRecipientInitVect())
+	globals.MakeInitVect(message.GetPayloadInitVect())
+	globals.MakeInitVect(message.GetRecipientInitVect())
 
 	payloadMicList :=
-		[][]byte{plainMessage.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),
-			plainMessage.GetSenderID().LeftpadBytes(format.SID_LEN),
-			plainMessage.GetData().LeftpadBytes(format.DATA_LEN),
+		[][]byte{message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),
+			message.GetSenderID().LeftpadBytes(format.SID_LEN),
+			message.GetData().LeftpadBytes(format.DATA_LEN),
 		}
 
-	plainMessage.GetPayloadMIC().SetBytes(verification.GenerateMIC(payloadMicList,
+	message.GetPayloadMIC().SetBytes(verification.GenerateMIC(payloadMicList,
 		format.PMIC_LEN))
 
 	recipientMicList :=
-		[][]byte{plainMessage.GetRecipientInitVect().LeftpadBytes(format.RIV_LEN),
-			plainMessage.GetRecipientID().LeftpadBytes(format.RID_LEN),
+		[][]byte{message.GetRecipientInitVect().LeftpadBytes(format.RIV_LEN),
+			message.GetRecipientID().LeftpadBytes(format.RID_LEN),
 		}
 
-	plainMessage.GetRecipientMIC().SetBytes(verification.GenerateMIC(recipientMicList,
+	message.GetRecipientMIC().SetBytes(verification.GenerateMIC(recipientMicList,
 		format.RMIC_LEN))
 
-	result := plainMessage.SerializeMessage()
+	result := message.SerializeMessage()
 
 	// TODO move this allocation somewhere sensible
 	sharedKeyStorage := make([]byte, 0, 8192)

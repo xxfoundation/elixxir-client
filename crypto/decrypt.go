@@ -15,7 +15,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 )
 
-func Decrypt(g *cyclic.Group, encryptedMessage *format.MessageSerial) (
+func Decrypt(g *cyclic.Group, message *format.MessageSerial) (
 	*format.Message, error) {
 
 	var err error
@@ -37,11 +37,11 @@ func Decrypt(g *cyclic.Group, encryptedMessage *format.MessageSerial) (
 	}
 
 	// perform the decryption
-	g.Mul(encryptedMessage.Payload, inverseReceptionKeys, encryptedMessage.Payload)
-	g.Mul(encryptedMessage.Recipient, inverseReceptionKeys, encryptedMessage.Recipient)
+	g.Mul(message.Payload, inverseReceptionKeys, message.Payload)
+	g.Mul(message.Recipient, inverseReceptionKeys, message.Recipient)
 
 	// unpack the message from a MessageBytes
-	decryptedMessage := format.DeserializeMessage(*encryptedMessage)
+	decryptedMessage := format.DeserializeMessage(*message)
 
 	payloadMicList :=
 		[][]byte{decryptedMessage.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),

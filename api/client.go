@@ -207,13 +207,13 @@ func TryReceive() (APIMessage, error) {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
 		err = errors.New("cannot receive when not logged in")
 	} else {
-		var receivedMessage *format.Message
-		receivedMessage, err = globals.Session.PopFifo()
+		var message *format.Message
+		message, err = globals.Session.PopFifo()
 
 		if err == nil {
-			m.Payload = receivedMessage.GetPayload()
-			m.Sender = receivedMessage.GetSenderID().Uint64()
-			m.Recipient = receivedMessage.GetRecipientID().Uint64()
+			m.Payload = message.GetPayload()
+			m.Sender = message.GetSenderID().Uint64()
+			m.Recipient = message.GetRecipientID().Uint64()
 		}
 	}
 

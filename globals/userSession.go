@@ -53,7 +53,7 @@ var FifoEmptyErr error = errors.New("PopFifo: Fifo Empty")
 func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
-	return UserSession(&sessionObj{
+	return UserSession(&SessionObj{
 		CurrentUser: u,
 		NodeAddress: nodeAddr,
 		fifo:        nil,
@@ -78,7 +78,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 
 	dec := gob.NewDecoder(&sessionBytes)
 
-	session := sessionObj{}
+	session := SessionObj{}
 
 	err := dec.Decode(&session)
 
@@ -109,7 +109,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 }
 
 // Struct holding relevant session data
-type sessionObj struct {
+type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
@@ -126,16 +126,16 @@ type sessionObj struct {
 	PrivateKey *cyclic.Int
 }
 
-func (s *sessionObj) GetKeys() []NodeKeys {
+func (s *SessionObj) GetKeys() []NodeKeys {
 	return s.Keys
 }
 
-func (s *sessionObj) GetPrivateKey() *cyclic.Int {
+func (s *SessionObj) GetPrivateKey() *cyclic.Int {
 	return s.PrivateKey
 }
 
 // Return a copy of the current user
-func (s *sessionObj) GetCurrentUser() (currentUser *User) {
+func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
@@ -146,11 +146,11 @@ func (s *sessionObj) GetCurrentUser() (currentUser *User) {
 	return
 }
 
-func (s *sessionObj) GetNodeAddress() string {
+func (s *SessionObj) GetNodeAddress() string {
 	return s.NodeAddress
 }
 
-func (s *sessionObj) PushFifo(msg *format.Message) error {
+func (s *SessionObj) PushFifo(msg *format.Message) error {
 
 	if s.fifo == nil {
 		err := errors.New("PushFifo: Cannot push an uninitialized fifo")
@@ -171,7 +171,7 @@ func (s *sessionObj) PushFifo(msg *format.Message) error {
 	}
 }
 
-func (s *sessionObj) PopFifo() (*format.Message, error) {
+func (s *SessionObj) PopFifo() (*format.Message, error) {
 
 	if s.fifo == nil {
 		err := errors.New("PopFifo: Cannot pop an uninitialized fifo")
@@ -196,7 +196,7 @@ func (s *sessionObj) PopFifo() (*format.Message, error) {
 
 }
 
-func (s *sessionObj) StoreSession() error {
+func (s *SessionObj) StoreSession() error {
 
 	if LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not available")
@@ -230,7 +230,7 @@ func (s *sessionObj) StoreSession() error {
 
 // Scrubs all cryptographic data from ram and logs out
 // the ram overwriting can be improved
-func (s *sessionObj) Immolate() error {
+func (s *SessionObj) Immolate() error {
 	if s == nil {
 		err := errors.New("immolate: Cannot immolate when" +
 			" you are not alive")

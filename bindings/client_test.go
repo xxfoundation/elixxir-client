@@ -38,22 +38,31 @@ func TestGetContactListJSON(t *testing.T) {
 	}
 }
 
+// BytesReceiver receives the last message and puts the data it received into
+// byte slices
 type BytesReceiver struct {
 	receptionBuffer []byte
 	lastSID         []byte
 	lastRID         []byte
-	receiveMethod   func(messageInterface format.MessageInterface)
 }
 
+// This is the method that globals.Receive calls when you set a BytesReceiver
+// as the global receiver
 func (br *BytesReceiver) Receive(message Message) {
 	br.receptionBuffer = append(br.receptionBuffer, message.GetPayload()...)
 	br.lastRID = message.GetRecipient()
 	br.lastSID = message.GetSender()
 }
 
+// This test creates a struct that implements the Receiver interface, then makes
+// sure that that struct can receive a message when it's set as the global
+// Receiver.
 func TestReceiveMessageByInterface(t *testing.T) {
+	// set up the receiver
 	receiver := BytesReceiver{}
 	SetReceiver(&receiver)
+
+	// set up the message
 	payload := "hello there"
 	senderID := cyclic.NewIntFromUInt(50).LeftpadBytes(format.SID_LEN)
 	recipientID := cyclic.NewIntFromUInt(60).LeftpadBytes(format.RID_LEN)
@@ -62,7 +71,11 @@ func TestReceiveMessageByInterface(t *testing.T) {
 	if err != nil {
 		t.Errorf("Couldn't create messages: %v", err.Error())
 	}
+
+	// receive the message
 	globals.Receive(msg[0])
+
+	// verify that the message was correctly received
 	if !bytes.Equal(receiver.receptionBuffer, []byte(payload)) {
 		t.Errorf("Message payload didn't match. Got: %v, expected %v",
 			string(receiver.receptionBuffer), payload)

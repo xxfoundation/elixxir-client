@@ -14,6 +14,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"strconv"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 // Copy of the storage interface.
@@ -41,6 +42,23 @@ type Message interface {
 	// Returns the message's recipient ID
 	// (uint64) BigEndian serialized into a byte slice
 	GetRecipient() []byte
+}
+
+// An object implementing this interface can be called back when the client
+// gets a message
+type Receiver interface {
+	Receive(message Message)
+}
+
+// This method sets up the callback for message reception
+func SetReceiver(receiver Receiver) {
+	r := globals.ReceiverProto{}
+
+	r.ReceiveMethod = func(messageInterface format.MessageInterface) {
+		receiver.Receive(messageInterface.(Message))
+	}
+
+	api.SetReceiver(&r)
 }
 
 // Initializes the client by registering a storage mechanism.

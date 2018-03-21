@@ -134,8 +134,6 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	nus.Immolate()
 	nus = nil
 
-	//TODO: Register nickname with contacts server
-
 	return UID, err
 }
 

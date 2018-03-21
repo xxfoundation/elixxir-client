@@ -16,7 +16,7 @@ import (
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
-	"gitlab.com/privategrity/crypto/message"
+	"gitlab.com/privategrity/crypto/format"
 	"math"
 )
 
@@ -177,7 +177,7 @@ func Send(apiMessage APIMessage) error {
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages, _ := message.NewMessage(sender.UserID, apiMessage.Recipient,
+	newMessages, _ := format.NewMessage(sender.UserID, apiMessage.Recipient,
 		apiMessage.Payload)
 
 	// Prepare the new messages to be sent
@@ -207,7 +207,7 @@ func TryReceive() (APIMessage, error) {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
 		err = errors.New("cannot receive when not logged in")
 	} else {
-		var receivedMessage *message.Message
+		var receivedMessage *format.Message
 		receivedMessage, err = globals.Session.PopFifo()
 
 		if err == nil {

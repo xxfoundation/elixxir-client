@@ -10,11 +10,11 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/comms/mixclient"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/message"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 // Send a cMix message to the server
-func TransmitMessage(addr string, messageBytes *message.MessageSerial) error {
+func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 
 	globals.TransmissionMutex.Lock()
 

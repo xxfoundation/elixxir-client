@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/message"
+	"gitlab.com/privategrity/crypto/format"
 	"io"
 	"math"
 	"math/rand"
@@ -28,8 +28,8 @@ type UserSession interface {
 	GetNodeAddress() string
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
-	PushFifo(*message.Message) error
-	PopFifo() (*message.Message, error)
+	PushFifo(*format.Message) error
+	PopFifo() (*format.Message, error)
 	StoreSession() error
 	Immolate() error
 }
@@ -99,7 +99,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 		return err
 	}
 
-	session.fifo = make(chan *message.Message, 100)
+	session.fifo = make(chan *format.Message, 100)
 
 	session.pollTerm = pollTerm
 
@@ -114,7 +114,7 @@ type sessionObj struct {
 	CurrentUser *User
 
 	//fifo buffer
-	fifo chan *message.Message
+	fifo chan *format.Message
 
 	// Node address that the user will send messages to
 	NodeAddress string
@@ -150,7 +150,7 @@ func (s *sessionObj) GetNodeAddress() string {
 	return s.NodeAddress
 }
 
-func (s *sessionObj) PushFifo(msg *message.Message) error {
+func (s *sessionObj) PushFifo(msg *format.Message) error {
 
 	if s.fifo == nil {
 		err := errors.New("PushFifo: Cannot push an uninitialized fifo")
@@ -171,7 +171,7 @@ func (s *sessionObj) PushFifo(msg *message.Message) error {
 	}
 }
 
-func (s *sessionObj) PopFifo() (*message.Message, error) {
+func (s *sessionObj) PopFifo() (*format.Message, error) {
 
 	if s.fifo == nil {
 		err := errors.New("PopFifo: Cannot pop an uninitialized fifo")
@@ -184,7 +184,7 @@ func (s *sessionObj) PopFifo() (*message.Message, error) {
 		return nil, err
 	}
 
-	var msg *message.Message
+	var msg *format.Message
 
 	select {
 	case msg = <-s.fifo:

@@ -9,7 +9,7 @@ package globals
 import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
-	"gitlab.com/privategrity/crypto/message"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -120,7 +120,7 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	inmsg, err := message.NewMessage(42, 69, "test")
+	inmsg, err := format.NewMessage(42, 69, "test")
 	if err != nil {
 		t.Errorf("Error: Couldn't create new message%v", err.Error())
 	}

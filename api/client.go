@@ -7,7 +7,6 @@
 package api
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -18,35 +17,8 @@ import (
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/format"
 	"math"
+	"bytes"
 )
-
-//Structure used to return a message
-type APIMessage struct {
-	Sender    uint64
-	Payload   string
-	Recipient uint64
-}
-
-// Implement the bindings/Message interface
-// Uint64s are passed in big-endian byte arrays by convention
-// Get the sender as a byte array from an APIMessage
-func (m APIMessage) GetSender() []byte {
-	result := make([]byte, 8)
-	binary.BigEndian.PutUint64(result, m.Sender)
-	return result
-}
-
-// Get the message payload out of an APIMessage
-func (m APIMessage) GetPayload() string {
-	return m.Payload
-}
-
-// Get the recipient as a byte array from an APIMessage
-func (m APIMessage) GetRecipient() []byte {
-	result := make([]byte, 8)
-	binary.BigEndian.PutUint64(result, m.Recipient)
-	return result
-}
 
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
@@ -159,7 +131,7 @@ func Login(UID uint64) (string, error) {
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func Send(apiMessage APIMessage) error {
+func Send(message format.MessageInterface) error {
 
 	if globals.Session == nil {
 		err := errors.New("Send: Could not send when not logged in")
@@ -167,7 +139,9 @@ func Send(apiMessage APIMessage) error {
 		return err
 	}
 
-	if apiMessage.Sender != globals.Session.GetCurrentUser().UserID {
+	// TODO: this could be a lot cleaner if we stored IDs as byte slices
+	if bytes.Equal(message.GetSender(), cyclic.NewIntFromUInt(globals.Session.
+		GetCurrentUser().UserID).LeftpadBytes(format.SID_LEN)) {
 		err := errors.New("Send: Cannot send a message from someone other" +
 			" than yourself")
 		jww.ERROR.Printf(err.Error())
@@ -175,8 +149,9 @@ func Send(apiMessage APIMessage) error {
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages, _ := format.NewMessage(sender.UserID, apiMessage.Recipient,
-		apiMessage.Payload)
+	newMessages, _ := format.NewMessage(sender.UserID,
+		cyclic.NewIntFromBytes(message.GetRecipient()).Uint64(),
+		message.GetPayload())
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
@@ -195,11 +170,11 @@ func Send(apiMessage APIMessage) error {
 
 // Checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
-func TryReceive() (APIMessage, error) {
+func TryReceive() (format.MessageInterface, error) {
 
 	var err error
 
-	var m APIMessage
+	var m format.Message
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
@@ -209,9 +184,9 @@ func TryReceive() (APIMessage, error) {
 		message, err = globals.Session.PopFifo()
 
 		if err == nil {
-			m.Payload = message.GetPayload()
-			m.Sender = message.GetSenderID().Uint64()
-			m.Recipient = message.GetRecipientID().Uint64()
+			messages, _ := format.NewMessage(message.GetSenderIDUint(),
+				message.GetRecipientIDUint(), message.GetPayload())
+			m = messages[0]
 		}
 	}
 

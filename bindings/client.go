@@ -92,20 +92,13 @@ func Login(UID []byte) (string, error) {
 
 //Sends a message structured via the message interface
 func Send(m Message) error {
-	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
-		Payload:   m.GetPayload(),
-		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
-	}
-
-	return api.Send(apiMsg)
+	return api.Send(m)
 }
 
 // Attempts to retrieve a message from the queue.
 // Returns a nil message if none are available.
 func TryReceive() (Message, error) {
-	message, err := api.TryReceive()
-	return &message, err
+	return api.TryReceive()
 }
 
 // Logs the user out, saving the state for the system and clearing all data

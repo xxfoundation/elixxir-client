@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/privategrity/client/api"
+	//"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -116,7 +116,7 @@ var rootCmd = &cobra.Command{
 
 		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
 
-		bindings.Send(api.APIMessage{userId, message, destinationUserId})
+		//bindings.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
 
 		if dummyFrequency != 0 {
@@ -146,8 +146,8 @@ var rootCmd = &cobra.Command{
 				end = false
 				<-timer.C
 				fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
-				bindings.Send(api.APIMessage{userId, message,
-					destinationUserId})
+				//bindings.Send(api.APIMessage{userId, message,
+				//	destinationUserId})
 				timer = time.NewTimer(dummyPeroid)
 			} else {
 				time.Sleep(200 * time.Millisecond)

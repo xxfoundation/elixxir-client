@@ -131,7 +131,7 @@ func Login(UID uint64) (string, error) {
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func SetReceiver(receiver *globals.ReceiverProto) {
+func SetReceiver(receiver globals.Receiver) {
 	globals.CurrentReceiver = receiver
 }
 

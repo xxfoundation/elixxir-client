@@ -52,13 +52,11 @@ type Receiver interface {
 
 // This method sets up the callback for message reception
 func SetReceiver(receiver Receiver) {
-	r := globals.ReceiverProto{}
-
-	r.ReceiveMethod = func(messageInterface format.MessageInterface) {
+	r := func (messageInterface format.MessageInterface) {
 		receiver.Receive(messageInterface.(Message))
 	}
 
-	api.SetReceiver(&r)
+	api.SetReceiver(r)
 }
 
 // Initializes the client by registering a storage mechanism.

@@ -14,8 +14,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 )
 
-func Encrypt(g *cyclic.Group, message *format.Message) *format.
-MessageSerial {
+func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {
 
 	keys := globals.Session.GetKeys()
 

@@ -60,7 +60,10 @@ func (br *BytesReceiver) Receive(message Message) {
 func TestReceiveMessageByInterface(t *testing.T) {
 	// set up the receiver
 	receiver := BytesReceiver{}
-	SetReceiver(&receiver)
+	err := InitClient(&globals.RamStorage{}, "", &receiver)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	// set up the message
 	payload := "hello there"

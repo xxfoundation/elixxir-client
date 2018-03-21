@@ -49,8 +49,13 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 				if err != nil {
 					jww.ERROR.Printf("Decryption failed: %v", err.Error())
 				} else {
-					if globals.CurrentReceiver != nil {
-						globals.Receive(msg)
+					if globals.UsingReceiver() {
+						err = globals.Receive(msg)
+						if err != nil {
+							jww.ERROR.Printf(
+								"Couldn't receive message using receiver: %s",
+									err.Error())
+						}
 					} else {
 						// TODO deprecate FIFO reception?
 						err := globals.Session.PushFifo(msg)

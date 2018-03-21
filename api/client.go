@@ -23,19 +23,30 @@ import (
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string) error {
+func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error {
+	storageErr := globals.InitStorage(s, loc)
 
-	var err error
-
-	storeState := globals.InitStorage(s, loc)
-
-	if !storeState {
-		err = errors.New("could not init client")
+	if storageErr != nil {
+		storageErr = errors.New(
+			"could not init client storage: " + storageErr.Error())
 	}
 
 	globals.InitCrypto()
 
-	return err
+	receiverErr := globals.SetReceiver(receiver)
+
+	errorText := ""
+	if storageErr != nil {
+		errorText = errorText + storageErr.Error()
+	}
+	if receiverErr != nil {
+		errorText = errorText + receiverErr.Error()
+	}
+	if errorText != "" {
+		return errors.New(errorText)
+	} else {
+		return nil
+	}
 }
 
 // Registers user and returns the User ID.
@@ -129,10 +140,6 @@ func Login(UID uint64) (string, error) {
 	io.InitReceptionRunner(pollWaitTimeMillis, pollTerm)
 
 	return globals.Session.GetCurrentUser().Nick, nil
-}
-
-func SetReceiver(receiver globals.Receiver) {
-	globals.CurrentReceiver = receiver
 }
 
 func Send(message format.MessageInterface) error {

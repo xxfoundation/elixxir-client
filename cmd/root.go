@@ -67,7 +67,7 @@ var rootCmd = &cobra.Command{
 		register := false
 
 		if sessionFile == "" {
-			err = bindings.InitClient(&globals.RamStorage{}, "")
+			err = bindings.InitClient(&globals.RamStorage{}, "", nil)
 			if err != nil {
 				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
@@ -86,7 +86,8 @@ var rootCmd = &cobra.Command{
 				}
 			}
 
-			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
+			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile,
+			nil)
 
 			if err != nil {
 				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())

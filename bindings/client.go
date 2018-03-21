@@ -50,28 +50,23 @@ type Receiver interface {
 	Receive(message Message)
 }
 
-// This method sets up the callback for message reception
-func SetReceiver(receiver Receiver) {
+// Initializes the client by registering a storage mechanism and a reception
+// callback.
+// For the mobile interface, one must be provided
+// The loc can be empty, it is only necessary if the passed storage interface
+// requires it to be passed via "SetLocation"
+func InitClient(s Storage, loc string, receiver Receiver) error {
 	r := func (messageInterface format.MessageInterface) {
 		receiver.Receive(messageInterface.(Message))
 	}
 
-	api.SetReceiver(r)
-}
-
-// Initializes the client by registering a storage mechanism.
-// For the mobile interface, one must be provided
-// The loc can be empty, it is only necessary if the passed storage interface
-// requires it to be passed via "SetLocation"
-func InitClient(s Storage, loc string) error {
-
 	if s == nil {
-		return errors.New("could not init client")
+		return errors.New("could not init client: Storage was nil")
 	}
 
-	storeState := api.InitClient(s.(globals.Storage), loc)
+	err := api.InitClient(s.(globals.Storage), loc, r)
 
-	return storeState
+	return err
 }
 
 // Registers user and returns the User ID.  Returns nil if registration fails.

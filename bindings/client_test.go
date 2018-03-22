@@ -234,3 +234,21 @@ func TestLogin(t *testing.T) {
 	}
 	globals.LocalStorage = nil
 }
+
+func TestLogout(t *testing.T) {
+	registrationCode := "JHJ6L9BACDVC"
+	nick := "Nickname"
+	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&d, "hello", nil)
+
+	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+	Login(regRes)
+
+	err2 := Logout()
+	if err2 != nil {
+		t.Errorf("Logoutfailed: %s", err.Error())
+	}
+	globals.LocalStorage = nil
+}
+
+

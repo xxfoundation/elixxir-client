@@ -16,6 +16,8 @@ import (
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
 var NUM_DEMO_USERS = int(10)
+var DEMO_NICKS = []string {"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
+"Mario", "Will", "Allan", "Jono"}
 
 // Interface for User Registry operations
 type UserRegistry interface {
@@ -40,7 +42,7 @@ type UserMap struct {
 	keysLookup map[uint64]*NodeKeys
 }
 
-// Creates a new UserRegistry interface
+// newUserRegistry creates a new UserRegistry interface
 func newUserRegistry() UserRegistry {
 
 	uc := make(map[uint64]*User)
@@ -52,37 +54,28 @@ func newUserRegistry() UserRegistry {
 		t := new(User)
 		k := new(NodeKeys)
 		h := sha256.New()
+
 		// Generate user parameters
 		t.UserID = uint64(i)
 		h.Write([]byte(string(20000 + i)))
-		k.TransmissionKeys.Base = cyclic.NewIntFromString(
-			"c1248f42f8127999e07c657896a26b56fd9a499c6199e1265053132451128f52", 16)
+		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(30000 + i)))
-		k.TransmissionKeys.Recursive = cyclic.NewIntFromString(
-			"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)
+		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(40000 + i)))
-		k.ReceptionKeys.Base = cyclic.NewIntFromString(
-			"83120e7bfaba497f8e2c95457a28006f73ff4ec75d3ad91d27bf7ce8f04e772c", 16)
+		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
 		h.Write([]byte(string(50000 + i)))
-		k.ReceptionKeys.Recursive = cyclic.NewIntFromString(
-			"979e574166ef0cd06d34e3260fe09512b69af6a414cf481770600d9c7447837b", 16)
+		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+
 		// Add user to collection and lookup table
 		uc[t.UserID] = t
 		ul[UserHash(t.UserID)] = t.UserID
 		nk[t.UserID] = k
 	}
-/*
-	uc[1].Nick = "David"
-	uc[2].Nick = "Jim"
-	uc[3].Nick = "Ben"
-	uc[4].Nick = "Rick"
-	uc[5].Nick = "Spencer"
-	uc[6].Nick = "Jake"
-	uc[7].Nick = "Mario"
-	uc[8].Nick = "Will"
-	uc[9].Nick = "Allan"
-	uc[10].Nick = "Jono"
-*/
+
+	for i := 0; i < len(DEMO_NICKS); i++ {
+		uc[uint64(i+1)].Nick = DEMO_NICKS[i]
+	}
+
 	// With an underlying UserMap data structure
 	return UserRegistry(&UserMap{userCollection: uc,
 		idCounter:  uint64(NUM_DEMO_USERS),
@@ -96,16 +89,19 @@ type User struct {
 	Nick   string
 }
 
+// DeepCopy performs a deep copy of a user and returns a pointer to the new copy
 func (u *User) DeepCopy() *User {
 	if u == nil {
 		return nil
 	}
 	nu := new(User)
-	nu.UserID = u.UserID
+	nu.UID = u.UID
 	nu.Nick = u.Nick
 	return nu
 }
 
+// UserHash generates a hash of the UID to be used as a registration code for
+// demos
 func UserHash(uid uint64) uint64 {
 	var huid []byte
 	h, _ := hash.NewCMixHash()
@@ -148,12 +144,13 @@ func (m *UserMap) CountUsers() int {
 	return len(m.userCollection)
 }
 
-// Looks up the user id corresponding to the demo registration code
+// LookupUser returns the user id corresponding to the demo registration code
 func (m *UserMap) LookupUser(hid uint64) (uid uint64, ok bool) {
 	uid, ok = m.userLookup[hid]
 	return
 }
 
+// LookupKeys returns the keys for the given user from the temporary key map
 func (m *UserMap) LookupKeys(uid uint64) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[uid]
 	return nk, t

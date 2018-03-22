@@ -29,24 +29,18 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 	if storageErr != nil {
 		storageErr = errors.New(
 			"could not init client storage: " + storageErr.Error())
+		return storageErr
 	}
 
 	globals.InitCrypto()
 
 	receiverErr := globals.SetReceiver(receiver)
 
-	errorText := ""
-	if storageErr != nil {
-		errorText = errorText + storageErr.Error()
-	}
 	if receiverErr != nil {
-		errorText = errorText + receiverErr.Error()
+		return receiverErr
 	}
-	if errorText != "" {
-		return errors.New(errorText)
-	} else {
-		return nil
-	}
+
+	return nil
 }
 
 // Registers user and returns the User ID.

@@ -42,7 +42,7 @@ func TestUserSession(t *testing.T) {
 	//Ask Ben if there should be a Node Address here!
 	ses := NewUserSession(u, "abc", keys)
 
-	ses.(*sessionObj).PrivateKey.SetInt64(2)
+	ses.(*SessionObj).PrivateKey.SetInt64(2)
 
 	ses.StoreSession()
 
@@ -56,13 +56,13 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if !LoadSession(UID, nil) {
+	if LoadSession(UID, nil) != nil {
 		t.Errorf("Error: Unable to login with valid user!")
 	} else {
 		pass++
 	}
 
-	if LoadSession(100002, nil) {
+	if LoadSession(100002, nil) == nil {
 		t.Errorf("Error: Able to login with invalid user!")
 	} else {
 		pass++
@@ -123,7 +123,7 @@ func TestUserSession(t *testing.T) {
 
 	Session.PushFifo(inmsg)
 
-	outmsg := Session.PopFifo()
+	outmsg, _ := Session.PopFifo()
 
 	if inmsg != outmsg {
 		t.Errorf("Error: Incorrect Return Message from fifo")

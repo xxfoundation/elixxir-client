@@ -8,12 +8,15 @@
 package cmd
 
 import (
+	"encoding/binary"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
 )
@@ -56,14 +59,14 @@ var rootCmd = &cobra.Command{
 		}
 
 		if noRatchet {
-			api.DisableRatchet()
+			bindings.DisableRatchet()
 		}
 
 		var err error
 		register := false
 
 		if sessionFile == "" {
-			err = api.InitClient(&globals.RamStorage{}, "")
+			err = bindings.InitClient(&globals.RamStorage{}, "")
 			if err != nil {
 				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
@@ -82,7 +85,7 @@ var rootCmd = &cobra.Command{
 				}
 			}
 
-			err = api.InitClient(&globals.DefaultStorage{}, sessionFile)
+			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
 
 			if err != nil {
 				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
@@ -91,15 +94,18 @@ var rootCmd = &cobra.Command{
 		}
 
 		if register {
-			_, err := api.Register(globals.UserHash(userId),
-				nick, serverAddr, numNodes)
+			_, err := bindings.Register(
+				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
+					32, 0),
+				nick, serverAddr, int(numNodes))
 			if err != nil {
 				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
 			}
 		}
 
-		_, err = api.Login(userId)
+		_, err = bindings.Login(
+			cyclic.NewIntFromUInt(userId).LeftpadBytes(8))
 
 		if err != nil {
 			fmt.Printf("Could Not Log In\n")
@@ -117,7 +123,7 @@ var rootCmd = &cobra.Command{
 		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 			contact, message)
 
-		api.Send(api.APIMessage{userId, message, destinationUserId})
+		bindings.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
 
 		if dummyFrequency != 0 {
@@ -126,23 +132,25 @@ var rootCmd = &cobra.Command{
 
 		for {
 
-			var msg api.APIMessage
-			msg, err = api.TryReceive()
+			var msg bindings.Message
+			msg, err = bindings.TryReceive()
 
 			end := false
 
-			if err != nil {
+			if err != nil && err != globals.FifoEmptyErr{
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
+			sender := binary.BigEndian.Uint64(msg.GetSender())
+
 			contact = ""
-			user, ok := globals.Users.GetUser(msg.Sender)
+			user, ok := globals.Users.GetUser(sender)
 			if ok {
 				contact = user.Nick
 			}
-			if msg.Payload != "" {
-				fmt.Printf("Message from %v, %v Received: %s\n", msg.Sender,
-					contact, msg.Payload)
+			if msg.GetPayload() != "" {
+				fmt.Printf("Message from %v, %v Received: %s\n", sender,
+					contact, msg.GetPayload())
 				end = true
 			}
 
@@ -156,7 +164,8 @@ var rootCmd = &cobra.Command{
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
-				api.Send(api.APIMessage{userId, message, destinationUserId})
+				bindings.Send(api.APIMessage{userId, message,
+				destinationUserId})
 				timer = time.NewTimer(dummyPeriod)
 			} else {
 				time.Sleep(200 * time.Millisecond)
@@ -168,7 +177,7 @@ var rootCmd = &cobra.Command{
 
 		}
 
-		err = api.Logout()
+		err = bindings.Logout()
 
 		if err != nil {
 			fmt.Printf("Could not logout: %s\n", err.Error())

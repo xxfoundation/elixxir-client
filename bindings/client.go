@@ -7,7 +7,6 @@
 package bindings
 
 import (
-	"encoding/binary"
 	"errors"
 	"github.com/spf13/jwalterweatherman"
 	"github.com/xeipuuv/gojsonschema"
@@ -21,47 +20,59 @@ import (
 // It is identical to the interface used in Globals,
 // and a results the types can be passed freely between the two
 type Storage interface {
-	SetLocation(string) (*Storage, error)
+	// Give a Location for storage.  Does not need to be implemented if unused.
+	SetLocation(string) error
+	// Returns the Location for storage.
+	// Does not need to be implemented if unused.
 	GetLocation() string
-	Save([]byte) (*Storage, error)
+	// Stores the passed byte slice
+	Save([]byte) error
+	// Returns the stored byte slice
 	Load() []byte
 }
 
 //Message used for binding
-type Message struct {
-	Sender    []byte
-	Payload   string
-	Recipient []byte
+type Message interface {
+	// Returns the message's sender ID
+	// (uint64) BigEndian serialized into a byte slice
+	GetSender() []byte
+	// Returns the message payload
+	GetPayload() string
+	// Returns the message's recipient ID
+	// (uint64) BigEndian serialized into a byte slice
+	GetRecipient() []byte
 }
 
 // Initializes the client by registering a storage mechanism.
 // For the mobile interface, one must be provided
-func InitClient(s *Storage, loc string) error {
+// The loc can be empty, it is only necessary if the passed storage interface
+// requires it to be passed via "SetLocation"
+func InitClient(s Storage, loc string) error {
 
 	if s == nil {
 		return errors.New("could not init client")
 	}
 
-	storeState := api.InitClient((*s).(globals.Storage), loc)
+	storeState := api.InitClient(s.(globals.Storage), loc)
 
 	return storeState
 }
 
-//Registers user and returns the User ID.  Returns nil if registration fails.
-func Register(HUID []byte, nick string, nodeAddr string,
+// Registers user and returns the User ID.  Returns nil if registration fails.
+// registrationCode is a one time use string.
+// nick is a nickname which must be 32 characters or less.
+// nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000
+// numNodes is the number of nodes in the system
+func Register(registrationCode string, nick string, nodeAddr string,
 	numNodes int) ([]byte, error) {
-
-	if len(HUID) > 8 {
-		return nil, errors.New("HUID is to long")
-	}
 
 	if numNodes < 1 {
 		return nil, errors.New("invalid number of nodes")
 	}
 
-	HashUID := cyclic.NewIntFromBytes(HUID).Uint64()
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 
-	UID, err := api.Register(HashUID, nick, nodeAddr, uint(numNodes))
+	UID, err := api.Register(hashUID, nick, nodeAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err
@@ -71,38 +82,34 @@ func Register(HUID []byte, nick string, nodeAddr string,
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
-// Returns an empty string if the login is unsuccessful
+// Returns an empty string and an error
+// UID is a uint64 BigEndian serialized into a byte slice
 func Login(UID []byte) (string, error) {
-	nick, err := api.Login(cyclic.NewIntFromBytes(UID).Uint64())
+	userID := cyclic.NewIntFromBytes(UID).Uint64()
+	nick, err := api.Login(userID)
 	return nick, err
 }
 
-func Send(m *Message) error {
+//Sends a message structured via the message interface
+func Send(m Message) error {
 	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.Sender).Uint64(),
-		Payload:   m.Payload,
-		Recipient: cyclic.NewIntFromBytes(m.Recipient).Uint64(),
+		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
+		Payload:   m.GetPayload(),
+		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
 	}
 
 	return api.Send(apiMsg)
 }
 
-func TryReceive() (*Message, error) {
-	m, err := api.TryReceive()
-
-	var msg *Message
-
-	if err != nil {
-		msg = &Message{
-			Sender:    cyclic.NewIntFromUInt(m.Sender).Bytes(),
-			Payload:   m.Payload,
-			Recipient: cyclic.NewIntFromUInt(m.Recipient).Bytes(),
-		}
-	}
-
-	return msg, err
+// Attempts to retrieve a message from the queue.
+// Returns a nil message if none are available.
+func TryReceive() (Message, error) {
+	message, err := api.TryReceive()
+	return &message, err
 }
 
+// Logs the user out, saving the state for the system and clearing all data
+// from RAM
 func Logout() error {
 	return api.Logout()
 }
@@ -110,13 +117,14 @@ func Logout() error {
 // Byte order for our APIs are conventionally going to be little-endian
 /* Set this user's nick on the server */
 func SetNick(UID []byte, nick string) error {
-	return api.SetNick(binary.LittleEndian.Uint64(UID), nick)
+	userID := cyclic.NewIntFromBytes(UID).Uint64()
+	return api.SetNick(userID, nick)
 }
 
 /* Get an updated list of all users that the server knows about and update the
  * user structure to include all of them */
-func UpdateContactList() {
-	api.UpdateContactList()
+func UpdateContactList() error {
+	return api.UpdateContactList()
 }
 
 /* We use this schema to validate the JSON we've generated at runtime,
@@ -212,4 +220,9 @@ func GetContactListJSON() ([]byte, error) {
 		return result, updateError
 	}
 	return result, validateError
+}
+
+//Disables Ratcheting, only for debugging
+func DisableRatchet() {
+	api.DisableRatchet()
 }

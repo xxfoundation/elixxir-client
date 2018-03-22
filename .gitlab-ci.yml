@@ -73,9 +73,13 @@ test:
   image: $DOCKER_IMAGE
   script:
     - mkdir -p testdata
+
+    # Test coverage
     - goverage -coverprofile=testdata/coverage.out -v ./... | grep -v "no packages being tested depend on"
-    - go tool cover -func=testdata/coverage.out
-    - go tool cover -html=testdata/coverage.out -o testdata/coverage.html
+    # Exclude some specific packages and files
+    - grep -v cmd testdata/coverage.out > testdata/coverage-real.out
+    - go tool cover -func=testdata/coverage-real.out
+    - go tool cover -html=testdata/coverage-real.out -o testdata/coverage.html
   artifacts:
     paths:
       - testdata/

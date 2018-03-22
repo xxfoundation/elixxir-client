@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"io"
 	"math"
 	"math/rand"
@@ -27,8 +28,8 @@ type UserSession interface {
 	GetNodeAddress() string
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
-	PushFifo(*Message) error
-	PopFifo() (*Message, error)
+	PushFifo(*format.Message) error
+	PopFifo() (*format.Message, error)
 	StoreSession() error
 	Immolate() error
 }
@@ -98,7 +99,7 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 		return err
 	}
 
-	session.fifo = make(chan *Message, 100)
+	session.fifo = make(chan *format.Message, 100)
 
 	session.pollTerm = pollTerm
 
@@ -113,7 +114,7 @@ type SessionObj struct {
 	CurrentUser *User
 
 	//fifo buffer
-	fifo chan *Message
+	fifo chan *format.Message
 
 	// Node address that the user will send messages to
 	NodeAddress string
@@ -149,7 +150,7 @@ func (s *SessionObj) GetNodeAddress() string {
 	return s.NodeAddress
 }
 
-func (s *SessionObj) PushFifo(msg *Message) error {
+func (s *SessionObj) PushFifo(msg *format.Message) error {
 
 	if s.fifo == nil {
 		err := errors.New("PushFifo: Cannot push an uninitialized fifo")
@@ -170,7 +171,7 @@ func (s *SessionObj) PushFifo(msg *Message) error {
 	}
 }
 
-func (s *SessionObj) PopFifo() (*Message, error) {
+func (s *SessionObj) PopFifo() (*format.Message, error) {
 
 	if s.fifo == nil {
 		err := errors.New("PopFifo: Cannot pop an uninitialized fifo")
@@ -183,7 +184,7 @@ func (s *SessionObj) PopFifo() (*Message, error) {
 		return nil, err
 	}
 
-	var msg *Message
+	var msg *format.Message
 
 	select {
 	case msg = <-s.fifo:
@@ -246,11 +247,18 @@ func (s *SessionObj) Immolate() error {
 		for !q {
 			select {
 			case m := <-s.fifo:
-				clearCyclicInt(m.payload)
-				clearCyclicInt(m.senderID)
-				clearCyclicInt(m.recipientInitVect)
-				clearCyclicInt(m.recipientID)
-				clearCyclicInt(m.payloadInitVect)
+				// clear all fields of the message
+				// TODO make sure that this really overwrites the correct memory
+				// TODO maybe move this functionality to crypto/message
+				clearCyclicInt(m.GetPayloadInitVect())
+				clearCyclicInt(m.GetSenderID())
+				clearCyclicInt(m.GetData())
+				clearCyclicInt(m.GetPayloadMIC())
+
+				clearCyclicInt(m.GetRecipientInitVect())
+				clearCyclicInt(m.GetRecipientEmpty())
+				clearCyclicInt(m.GetRecipientID())
+				clearCyclicInt(m.GetRecipientMIC())
 			default:
 				q = true
 			}

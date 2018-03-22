@@ -14,6 +14,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"strconv"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 // Copy of the storage interface.
@@ -43,19 +44,29 @@ type Message interface {
 	GetRecipient() []byte
 }
 
-// Initializes the client by registering a storage mechanism.
+// An object implementing this interface can be called back when the client
+// gets a message
+type Receiver interface {
+	Receive(message Message)
+}
+
+// Initializes the client by registering a storage mechanism and a reception
+// callback.
 // For the mobile interface, one must be provided
 // The loc can be empty, it is only necessary if the passed storage interface
 // requires it to be passed via "SetLocation"
-func InitClient(s Storage, loc string) error {
-
-	if s == nil {
-		return errors.New("could not init client")
+func InitClient(s Storage, loc string, receiver Receiver) error {
+	r := func (messageInterface format.MessageInterface) {
+		receiver.Receive(messageInterface.(Message))
 	}
 
-	storeState := api.InitClient(s.(globals.Storage), loc)
+	if s == nil {
+		return errors.New("could not init client: Storage was nil")
+	}
 
-	return storeState
+	err := api.InitClient(s.(globals.Storage), loc, r)
+
+	return err
 }
 
 // Registers user and returns the User ID.  Returns nil if registration fails.
@@ -92,20 +103,13 @@ func Login(UID []byte) (string, error) {
 
 //Sends a message structured via the message interface
 func Send(m Message) error {
-	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
-		Payload:   m.GetPayload(),
-		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
-	}
-
-	return api.Send(apiMsg)
+	return api.Send(m)
 }
 
 // Attempts to retrieve a message from the queue.
 // Returns a nil message if none are available.
 func TryReceive() (Message, error) {
-	message, err := api.TryReceive()
-	return &message, err
+	return api.TryReceive()
 }
 
 // Logs the user out, saving the state for the system and clearing all data

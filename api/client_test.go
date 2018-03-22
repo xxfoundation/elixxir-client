@@ -167,3 +167,12 @@ func TestDisableRatchet(t *testing.T) {
 
 	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
 }
+
+func TestVerifySetNick(t *testing.T) {
+	if (nick != NICK) {
+		t.Errorf("Nick set on server during register was %v, expected %v",
+			nick, NICK)
+	} else {
+		println("TestVerifySetNick: 1 test passed")
+	}
+}

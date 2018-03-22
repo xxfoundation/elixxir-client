@@ -8,16 +8,18 @@ import java.math.BigInteger;
 
 import bindings.Bindings;
 import bindings.Message;
+import bindings.Receiver;
 
 public class MainActivity extends AppCompatActivity {
 
     final String TAG = "bindings_test";
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        Log.i(TAG, "jsonSchema: "+Bindings.getContactListJsonSchema());
+        Log.i(TAG, "jsonSchema: "+ Bindings.getContactListJsonSchema());
         BigInteger userID = null;
         try {
-            Bindings.initClient(new AndroidFakeRAMStorage(), "");
+            AndroidMessageReceiver receiver = new AndroidMessageReceiver();
+            Bindings.initClient(new AndroidFakeRAMStorage(), "", receiver);
             // This uses the registration code for user 1
             // 10.0.2.2:50004 is the address of the last node of 5 nodes that I'm running locally on
             // my machine, accessed by the secret Android IP address for your local machine when running the Android emulator
@@ -34,12 +36,10 @@ public class MainActivity extends AppCompatActivity {
             Bindings.setNick(userID.toByteArray(), "Angela Merkel");
 
             Bindings.send(new AndroidFakeMessage());
-            Message result = null;
-            while (result == null || result.getPayload() == null || result.getPayload().equals("")) {
-                result = Bindings.tryReceive();
-                Thread.sleep(50);
+            while (!receiver.received) {
+                Thread.sleep(10);
             }
-            Log.i(TAG, "Received message: " + result.getPayload());
+            Log.i(TAG, "Received message: " + receiver.lastMessage);
 
             // Don't forget to log out when you're done
             Bindings.logout();

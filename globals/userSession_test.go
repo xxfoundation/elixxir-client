@@ -9,6 +9,7 @@ package globals
 import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -33,10 +34,10 @@ func TestUserSession(t *testing.T) {
 		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	success := InitStorage(&RamStorage{}, "")
+	err := InitStorage(&RamStorage{}, "")
 
-	if !success {
-		t.Errorf("User Session: Local storage could not be created")
+	if err != nil {
+		t.Errorf("User Session: Local storage could not be created: %s", err.Error())
 	}
 
 	//Ask Ben if there should be a Node Address here!
@@ -119,13 +120,16 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	inmsg := NewMessage(42, 69, "test")[0]
+	inmsg, err := format.NewMessage(42, 69, "test")
+	if err != nil {
+		t.Errorf("Error: Couldn't create new message%v", err.Error())
+	}
 
-	Session.PushFifo(inmsg)
+	Session.PushFifo(&inmsg[0])
 
 	outmsg, _ := Session.PopFifo()
 
-	if inmsg != outmsg {
+	if &inmsg[0] != outmsg {
 		t.Errorf("Error: Incorrect Return Message from fifo")
 	} else {
 		pass++

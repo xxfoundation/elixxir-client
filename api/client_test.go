@@ -10,6 +10,7 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
 	"testing"
+	"crypto/sha256"
 )
 
 func TestVerifyRegisterGobAddress(t *testing.T) {
@@ -39,40 +40,33 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 		t.Errorf("Public key was %v, expected %v",
 			Session.GetKeys()[0].PublicKey.Text(16), "0")
 	}
-
-	expectedTransmissionRecursiveKey := cyclic.NewIntFromString(
-		"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251",
-		16)
+	h := sha256.New()
+	h.Write([]byte(string(30000+Session.GetCurrentUser().UserID)))
+	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
 		expectedTransmissionRecursiveKey) != 0 {
 		t.Errorf("Transmission recursive key was %v, expected %v",
 			Session.GetKeys()[0].TransmissionKeys.Recursive.Text(16),
 			expectedTransmissionRecursiveKey.Text(16))
 	}
-
-	expectedTransmissionBaseKey := cyclic.NewIntFromString(
-		"c1248f42f8127999e07c657896a26b56fd9a499c6199e1265053132451128f52",
-		16)
+	h.Write([]byte(string(20000+Session.GetCurrentUser().UserID)))
+	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
 			Session.GetKeys()[0].TransmissionKeys.Base.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
-
-	expectedReceptionRecursiveKey := cyclic.NewIntFromString(
-		"979e574166ef0cd06d34e3260fe09512b69af6a414cf481770600d9c7447837b",
-		16)
+	h.Write([]byte(string(50000+Session.GetCurrentUser().UserID)))
+	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
 		expectedReceptionRecursiveKey) != 0 {
 		t.Errorf("Reception recursive key was %v, expected %v",
 			Session.GetKeys()[0].ReceptionKeys.Recursive.Text(16),
 			expectedReceptionRecursiveKey.Text(16))
 	}
-
-	expectedReceptionBaseKey := cyclic.NewIntFromString(
-		"83120e7bfaba497f8e2c95457a28006f73ff4ec75d3ad91d27bf7ce8f04e772c",
-		16)
+	h.Write([]byte(string(40000+Session.GetCurrentUser().UserID)))
+	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",

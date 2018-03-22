@@ -7,12 +7,47 @@ package bindings
 
 import (
 	"strings"
+	"gitlab.com/privategrity/comms/mixserver"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/format"
 	"bytes"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"os"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 )
+
+const SERVER_ADDRESS = "localhost:5557"
+var nick = "Mario"
+// Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
+type TestInterface struct{}
+func (m TestInterface) NewRound(roundId string) {}
+func (m TestInterface) SetPublicKey(roundId string, pkey []byte) {}
+func (m TestInterface) PrecompDecrypt(message *pb.PrecompDecryptMessage) {}
+func (m TestInterface) PrecompEncrypt(message *pb.PrecompEncryptMessage) {}
+func (m TestInterface) PrecompReveal(message *pb.PrecompRevealMessage) {}
+func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage) {}
+func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
+func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
+func (m TestInterface) PrecompShareCompare(message *pb.
+PrecompShareCompareMessage) {}
+func (m TestInterface) PrecompShareConfirm(message *pb.
+PrecompShareConfirmMessage) {}
+func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
+func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
+func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
+func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
+		return &pb.CmixMessage{}
+}
+func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
+ContactMessage {
+		return &pb.ContactMessage{}
+}
+func (m TestInterface) SetNick(message *pb.Contact) {
+	nick = message.Nick
+}
+func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
+
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
@@ -47,6 +82,12 @@ type DummyReceiver struct {
 
 func (d *DummyReceiver) Receive(message Message) {
 	d.LastMessage = message
+}
+
+func TestMain(m *testing.M) {
+	go mixserver.StartServer(SERVER_ADDRESS, TestInterface{})
+
+	os.Exit(m.Run())
 }
 
 
@@ -157,6 +198,22 @@ func TestReceiveMessageByInterface(t *testing.T) {
 		t.Errorf("Recipient ID didn't match. Got: %v, expected %v",
 			cyclic.NewIntFromBytes(receiver.lastRID).Uint64(),
 			cyclic.NewIntFromBytes(recipientID).Uint64())
+	}
+	globals.LocalStorage = nil
+}
+
+func TestRegister(t *testing.T) {
+	registrationCode := "JHJ6L9BACDVC"
+	nick := "Nickname"
+	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&d, "hello", nil)
+
+	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+	if err != nil {
+		t.Errorf("Registration failed: %s", err.Error())
+	}
+	if regRes == nil || len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
 	}
 	globals.LocalStorage = nil
 }

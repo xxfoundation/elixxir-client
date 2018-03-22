@@ -6,6 +6,11 @@
 package bindings
 
 import (
+	"strings"
+	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/format"
+	"bytes"
+	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
 )
 
@@ -15,51 +20,59 @@ type DummyStorage struct {
 	LastSave []byte
 }
 
-func (d DummyStorage) SetLocation(l string) (*Storage, error) {
+func (d *DummyStorage) SetLocation(l string) (error) {
 	d.Location = l
-	return &d, nil
+	return nil
 }
 
-func (d DummyStorage) GetLocation() string {
+func (d *DummyStorage) GetLocation() string {
 	return d.Location
 }
 
-func (d DummyStorage) Save(b []byte) (*Storage, error) {
+func (d *DummyStorage) Save(b []byte) (error) {
 	d.LastSave = make([]byte, len(b))
-	for i = 0; i < len(b); i++ {
+	for i := 0; i < len(b); i++ {
 		d.LastSave[i] = b[i]
 	}
-	return &d, nil
+	return nil
 }
 
-func (d DummyStorage) Load() []byte {
+func (d *DummyStorage) Load() []byte {
 	return d.LastSave
+}
+
+type DummyReceiver struct {
+	LastMessage Message
+}
+
+func (d *DummyReceiver) Receive(message Message) {
+	d.LastMessage = message
 }
 
 
 // Make sure InitClient returns an error when called incorrectly.
 func TestInitClientNil(t *testing.T) {
-	err := InitClient(nil, nil)
+	err := InitClient(nil, "", nil)
 	if err == nil {
 		t.Errorf("InitClient returned nil on invalid (nil, nil) input!")
 	}
-	err := InitClient(nil, "hello")
+	globals.LocalStorage = nil
+
+	err = InitClient(nil, "hello", nil)
 	if err == nil {
 		t.Errorf("InitClient returned nil on invalid (nil, 'hello') input!")
 	}
+	globals.LocalStorage = nil
 }
 
 func TestInitClient(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
+	err := InitClient(&d, "hello", nil)
 	if err != nil {
 		t.Errorf("InitClient returned error: %v", err)
-	"strings"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/format"
-	"bytes"
-	"gitlab.com/privategrity/crypto/cyclic"
-)
+	}
+	globals.LocalStorage = nil
+}
 
 func TestGetContactListJSON(t *testing.T) {
 	// This call includes validating the JSON against the schema
@@ -145,4 +158,5 @@ func TestReceiveMessageByInterface(t *testing.T) {
 			cyclic.NewIntFromBytes(receiver.lastRID).Uint64(),
 			cyclic.NewIntFromBytes(recipientID).Uint64())
 	}
+	globals.LocalStorage = nil
 }

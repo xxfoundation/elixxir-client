@@ -95,7 +95,7 @@ func (u *User) DeepCopy() *User {
 		return nil
 	}
 	nu := new(User)
-	nu.UID = u.UID
+	nu.UserID = u.UserID
 	nu.Nick = u.Nick
 	return nu
 }

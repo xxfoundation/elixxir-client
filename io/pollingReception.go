@@ -39,7 +39,6 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 
 			if len(cmixMsg.MessagePayload) != 0 {
 
-				// TODO change this to put this message in the receiver
 				msgBytes := format.MessageSerial{
 					Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
 					Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
@@ -50,12 +49,22 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 				if err != nil {
 					jww.ERROR.Printf("Decryption failed: %v", err.Error())
 				} else {
-					err := globals.Session.PushFifo(msg)
+					if globals.UsingReceiver() {
+						err = globals.Receive(msg)
+						if err != nil {
+							jww.ERROR.Printf(
+								"Couldn't receive message using receiver: %s",
+									err.Error())
+						}
+					} else {
+						// TODO deprecate FIFO reception?
+						err := globals.Session.PushFifo(msg)
 
-					if err != nil {
-						jww.ERROR.Printf("Could not push message onto FIFO,"+
-							" message lost: %s",
-							err.Error())
+						if err != nil {
+							jww.ERROR.Printf("Could not push message onto FIFO,"+
+								" message lost: %s",
+								err.Error())
+						}
 					}
 				}
 

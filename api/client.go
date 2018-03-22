@@ -23,19 +23,24 @@ import (
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string) error {
+func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error {
+	storageErr := globals.InitStorage(s, loc)
 
-	var err error
-
-	storeState := globals.InitStorage(s, loc)
-
-	if !storeState {
-		err = errors.New("could not init client")
+	if storageErr != nil {
+		storageErr = errors.New(
+			"could not init client storage: " + storageErr.Error())
+		return storageErr
 	}
 
 	globals.InitCrypto()
 
-	return err
+	receiverErr := globals.SetReceiver(receiver)
+
+	if receiverErr != nil {
+		return receiverErr
+	}
+
+	return nil
 }
 
 // Registers user and returns the User ID.

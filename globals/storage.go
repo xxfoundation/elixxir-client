@@ -9,15 +9,17 @@ package globals
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"os"
+	"errors"
 )
 
 var LocalStorage Storage
 
-func InitStorage(store Storage, location string) bool {
+func InitStorage(store Storage, location string) error {
 	if LocalStorage != nil {
-		jww.ERROR.Printf("Invalid Local Storage Creation: Local storage" +
+		err := errors.New("Invalid Local Storage Creation: Local storage" +
 			" already created")
-		return false
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	var intermediateStorage Storage
@@ -31,13 +33,14 @@ func InitStorage(store Storage, location string) bool {
 	err := intermediateStorage.SetLocation(location)
 
 	if err != nil {
-		jww.ERROR.Printf("Invalid Local Storage Location: %s", err.Error())
-		return false
+		err = errors.New("Invalid Local Storage Location: " + err.Error())
+		jww.ERROR.Printf(err.Error())
+		return err
 	}
 
 	LocalStorage = intermediateStorage
 
-	return true
+	return nil
 }
 
 type Storage interface {

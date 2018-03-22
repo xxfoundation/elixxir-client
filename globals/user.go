@@ -53,16 +53,19 @@ func newUserRegistry() UserRegistry {
 	for i := 1; i <= NUM_DEMO_USERS; i++ {
 		t := new(User)
 		k := new(NodeKeys)
-		h := sha256.New()
 
 		// Generate user parameters
 		t.UserID = uint64(i)
+		h := sha256.New()
 		h.Write([]byte(string(20000 + i)))
 		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
+		h = sha256.New()
 		h.Write([]byte(string(30000 + i)))
 		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+		h = sha256.New()
 		h.Write([]byte(string(40000 + i)))
 		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
+		h = sha256.New()
 		h.Write([]byte(string(50000 + i)))
 		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
 

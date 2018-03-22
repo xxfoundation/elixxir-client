@@ -53,11 +53,11 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test LookupKeys
-	h := sha256.New()
 	keys, suc := Users.LookupKeys(1)
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}
+	h := sha256.New()
 	h.Write([]byte(string(20001)))
 	key := cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKeys.Base.Text(16) != key.Text(16) {
@@ -65,6 +65,7 @@ func TestUserRegistry(t *testing.T) {
 			"Expected:%v \nActual%v", key.Text(16),
 				keys.TransmissionKeys.Base.Text(16))
 	}
+	h = sha256.New()
 	h.Write([]byte(string(30001)))
 	key = cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKeys.Recursive.Text(16) != key.Text(16) {
@@ -72,6 +73,7 @@ func TestUserRegistry(t *testing.T) {
 			"Expected:%v \nActual%v", key.Text(16),
 			keys.TransmissionKeys.Recursive.Text(16))
 	}
+	h = sha256.New()
 	h.Write([]byte(string(40001)))
 	key = cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.ReceptionKeys.Base.Text(16) != key.Text(16) {
@@ -79,6 +81,7 @@ func TestUserRegistry(t *testing.T) {
 			"Expected:%v \nActual%v", key.Text(16),
 			keys.ReceptionKeys.Base.Text(16))
 	}
+	h = sha256.New()
 	h.Write([]byte(string(50001)))
 	key = cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.ReceptionKeys.Recursive.Text(16) != key.Text(16) {

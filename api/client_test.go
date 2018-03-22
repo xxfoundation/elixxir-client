@@ -49,6 +49,7 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 			Session.GetKeys()[0].TransmissionKeys.Recursive.Text(16),
 			expectedTransmissionRecursiveKey.Text(16))
 	}
+	h = sha256.New()
 	h.Write([]byte(string(20000+Session.GetCurrentUser().UserID)))
 	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
@@ -57,6 +58,7 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 			Session.GetKeys()[0].TransmissionKeys.Base.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
+	h = sha256.New()
 	h.Write([]byte(string(50000+Session.GetCurrentUser().UserID)))
 	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
@@ -65,6 +67,7 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 			Session.GetKeys()[0].ReceptionKeys.Recursive.Text(16),
 			expectedReceptionRecursiveKey.Text(16))
 	}
+	h = sha256.New()
 	h.Write([]byte(string(40000+Session.GetCurrentUser().UserID)))
 	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(

@@ -17,14 +17,15 @@ func TestInitStorage(t *testing.T) {
 	TestSaveLoc := "testStorage.data"
 	// Test with existing storage
 	LocalStorage = new(RamStorage)
-	err := InitStorage(nil, "")
-	if err == nil {
-		t.Errorf("InitStorage failed to fail with existing storage")
-	}
+	// err := InitStorage(nil, "")
+	// if err == nil {
+	// 	t.Errorf("InitStorage failed to fail with existing storage")
+	// }
+	// LocalStorage = nil
 
 	// Test DefaultStorage initialization without existing storage
 	LocalStorage = nil
-	InitStorage(nil, TestSaveLoc)
+	err := InitStorage(nil, TestSaveLoc)
 	if LocalStorage == nil {
 		t.Errorf("InitStorage failed to create a default storage")
 	}
@@ -50,6 +51,8 @@ func TestInitStorage(t *testing.T) {
 		t.Errorf("ds.Load failed to load expected data. Expected:%v Actual:%v",
 			TestData, actualData)
 	}
+	LocalStorage = nil
+
 
 	// Test RamStorage
 	LocalStorage = nil

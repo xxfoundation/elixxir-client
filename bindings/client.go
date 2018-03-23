@@ -14,6 +14,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"strconv"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 // Copy of the storage interface.
@@ -43,26 +44,81 @@ type Message interface {
 	GetRecipient() []byte
 }
 
-// Initializes the client by registering a storage mechanism.
+// An object implementing this interface can be called back when the client
+// gets a message
+type Receiver interface {
+	Receive(message Message)
+}
+
+// Initializes the client by registering a storage mechanism and a reception
+// callback.
 // For the mobile interface, one must be provided
 // The loc can be empty, it is only necessary if the passed storage interface
 // requires it to be passed via "SetLocation"
-func InitClient(s Storage, loc string) error {
-
-	if s == nil {
-		return errors.New("could not init client")
+//
+// Parameters: storage implements Storage.
+// Implement this interface to store the user session data locally.
+// You must give us something for this parameter.
+//
+// loc is a string. If you're using DefaultStorage for your storage,
+// this would be the filename of the file that you're storing the user
+// session in.
+//
+// receiver implements Receiver.
+// This parameter is optional. If this parameter is null,
+// you can receive messages by polling the API with TryReceive.
+// If you pass a non-null object implementing Receiver in this
+// parameter, we will call that Receiver when the client gets a message.
+func InitClient(storage Storage, loc string, receiver Receiver) error {
+	r := func (messageInterface format.MessageInterface) {
+		receiver.Receive(messageInterface.(Message))
 	}
 
-	storeState := api.InitClient(s.(globals.Storage), loc)
+	if storage == nil {
+		return errors.New("could not init client: Storage was nil")
+	}
 
-	return storeState
+	err := api.InitClient(storage.(globals.Storage), loc, r)
+
+	return err
 }
 
-// Registers user and returns the User ID.  Returns nil if registration fails.
+// Registers user and returns the User ID.  Returns null if registration fails.
 // registrationCode is a one time use string.
 // nick is a nickname which must be 32 characters or less.
 // nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000
 // numNodes is the number of nodes in the system
+// Valid codes:
+// 1
+// “David”
+// 2HOAAFKIVKEJ0
+// 2
+// “Jim”
+// EPJHMGE1KHTVS
+// 3
+// “Ben”
+// 8L7U3HHEOC04T
+// 4
+// “Rick”
+// 4DU574DN9R292
+// 5
+// “Spencer”
+// BE50NHQPQJTJJ
+// 6
+// “Jake”
+// 1JB2L6A6L76KU
+// 7
+// “Mario”
+// DEFJS3NIG55P5
+// 8
+// “Will”
+// F2MIJJ1S8DLV6
+// 9
+// “Allan”
+// 3GENI79B65V2A
+// 10
+// “Jono”
+// JHJ6L9BACDVC
 func Register(registrationCode string, nick string, nodeAddr string,
 	numNodes int) ([]byte, error) {
 
@@ -92,20 +148,13 @@ func Login(UID []byte) (string, error) {
 
 //Sends a message structured via the message interface
 func Send(m Message) error {
-	apiMsg := api.APIMessage{
-		Sender:    cyclic.NewIntFromBytes(m.GetSender()).Uint64(),
-		Payload:   m.GetPayload(),
-		Recipient: cyclic.NewIntFromBytes(m.GetRecipient()).Uint64(),
-	}
-
-	return api.Send(apiMsg)
+	return api.Send(m)
 }
 
 // Attempts to retrieve a message from the queue.
 // Returns a nil message if none are available.
 func TryReceive() (Message, error) {
-	message, err := api.TryReceive()
-	return &message, err
+	return api.TryReceive()
 }
 
 // Logs the user out, saving the state for the system and clearing all data

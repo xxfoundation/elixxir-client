@@ -88,6 +88,10 @@ ContactMessage {
 		return &pb.ContactMessage{}
 }
 
-func (m TestInterface) SetNick(message *pb.Contact) {}
+var nick = "Mario"
+
+func (m TestInterface) SetNick(message *pb.Contact) {
+	nick = message.Nick
+}
 
 func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}

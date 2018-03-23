@@ -7,7 +7,7 @@
 package api
 
 import (
-	"encoding/binary"
+	"bytes"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -15,54 +15,54 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
 )
 
-//Structure used to return a message
+// APIMessages are an implementation of the format.Message interface that's
+// easy to use from Go
 type APIMessage struct {
-	Sender    uint64
-	Payload   string
-	Recipient uint64
+	Payload     string
+	SenderID    uint64
+	RecipientID uint64
 }
 
-// Implement the bindings/Message interface
-// Uint64s are passed in big-endian byte arrays by convention
-// Get the sender as a byte array from an APIMessage
 func (m APIMessage) GetSender() []byte {
-	result := make([]byte, 8)
-	binary.BigEndian.PutUint64(result, m.Sender)
-	return result
+	senderAsInt := cyclic.NewIntFromUInt(m.SenderID)
+	return senderAsInt.LeftpadBytes(format.SID_LEN)
 }
 
-// Get the message payload out of an APIMessage
+func (m APIMessage) GetRecipient() []byte {
+	recipientAsInt := cyclic.NewIntFromUInt(m.RecipientID)
+	return recipientAsInt.LeftpadBytes(format.RID_LEN)
+}
+
 func (m APIMessage) GetPayload() string {
 	return m.Payload
-}
-
-// Get the recipient as a byte array from an APIMessage
-func (m APIMessage) GetRecipient() []byte {
-	result := make([]byte, 8)
-	binary.BigEndian.PutUint64(result, m.Recipient)
-	return result
 }
 
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string) error {
+func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error {
+	storageErr := globals.InitStorage(s, loc)
 
-	var err error
-
-	storeState := globals.InitStorage(s, loc)
-
-	if !storeState {
-		err = errors.New("could not init client")
+	if storageErr != nil {
+		storageErr = errors.New(
+			"could not init client storage: " + storageErr.Error())
+		return storageErr
 	}
 
 	globals.InitCrypto()
 
-	return err
+	receiverErr := globals.SetReceiver(receiver)
+
+	if receiverErr != nil {
+		return receiverErr
+	}
+
+	return nil
 }
 
 // Registers user and returns the User ID.
@@ -158,7 +158,7 @@ func Login(UID uint64) (string, error) {
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
-func Send(message APIMessage) error {
+func Send(message format.MessageInterface) error {
 
 	if globals.Session == nil {
 		err := errors.New("Send: Could not send when not logged in")
@@ -166,7 +166,9 @@ func Send(message APIMessage) error {
 		return err
 	}
 
-	if message.Sender != globals.Session.GetCurrentUser().UserID {
+	// TODO: this could be a lot cleaner if we stored IDs as byte slices
+	if bytes.Equal(message.GetSender(), cyclic.NewIntFromUInt(globals.Session.
+		GetCurrentUser().UserID).LeftpadBytes(format.SID_LEN)) {
 		err := errors.New("Send: Cannot send a message from someone other" +
 			" than yourself")
 		jww.ERROR.Printf(err.Error())
@@ -174,11 +176,13 @@ func Send(message APIMessage) error {
 	}
 
 	sender := globals.Session.GetCurrentUser()
-	newMessages := globals.NewMessage(sender.UserID, message.Recipient, message.Payload)
+	newMessages, _ := format.NewMessage(sender.UserID,
+		cyclic.NewIntFromBytes(message.GetRecipient()).Uint64(),
+		message.GetPayload())
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
-		newMessageBytes := crypto.Encrypt(globals.Grp, newMessage)
+		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
 		// Send the message
 		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
 			newMessageBytes)
@@ -193,23 +197,23 @@ func Send(message APIMessage) error {
 
 // Checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
-func TryReceive() (APIMessage, error) {
+func TryReceive() (format.MessageInterface, error) {
 
 	var err error
 
-	var m APIMessage
+	var m format.Message
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
 		err = errors.New("cannot receive when not logged in")
 	} else {
-		var message *globals.Message
+		var message *format.Message
 		message, err = globals.Session.PopFifo()
 
 		if err == nil && message != nil {
-			m.Payload = message.GetPayloadString()
-			m.Sender = message.GetSenderID().Uint64()
-			m.Recipient = message.GetRecipientID().Uint64()
+			messages, _ := format.NewMessage(message.GetSenderIDUint(),
+				message.GetRecipientIDUint(), message.GetPayload())
+			m = messages[0]
 		}
 	}
 

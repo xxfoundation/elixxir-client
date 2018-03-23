@@ -73,7 +73,7 @@ var rootCmd = &cobra.Command{
 
 		//If no session file is passed initialize with RAM Storage
 		if sessionFile == "" {
-			err = bindings.InitClient(&globals.RamStorage{}, "")
+			err = bindings.InitClient(&globals.RamStorage{}, "", nil)
 			if err != nil {
 				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
 					err.Error())
@@ -96,10 +96,10 @@ var rootCmd = &cobra.Command{
 			}
 
 			//Initialize client with OS Storage
-			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
+			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile, nil)
 
 			if err != nil {
-				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
+				fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 				return
 			}
 		}
@@ -138,8 +138,9 @@ var rootCmd = &cobra.Command{
 
 		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 			contact, message)
+
 		//Send the message
-		bindings.Send(api.APIMessage{userId, message, destinationUserId})
+		bindings.Send(api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId})
 
 		if dummyFrequency != 0 {
 			timer = time.NewTimer(dummyPeriod)
@@ -177,6 +178,7 @@ var rootCmd = &cobra.Command{
 			if dummyPeriod != 0 {
 				end = false
 				<-timer.C
+
 				contact = ""
 				user, ok := globals.Users.GetUser(destinationUserId)
 				if ok {
@@ -184,8 +186,10 @@ var rootCmd = &cobra.Command{
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
-				bindings.Send(api.APIMessage{userId, message,
-					destinationUserId})
+
+				message := api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId}
+				bindings.Send(message)
+
 				timer = time.NewTimer(dummyPeriod)
 				//otherwise just wait to check for new messages
 			} else {

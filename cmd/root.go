@@ -53,11 +53,13 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
+		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
 			dummyPeriod = time.Nanosecond *
 				(time.Duration(1000000000 * (1.0 / dummyFrequency)))
 		}
 
+		// Disable ratcheting if the flag is set
 		if noRatchet {
 			bindings.DisableRatchet()
 		}
@@ -65,6 +67,7 @@ var rootCmd = &cobra.Command{
 		var err error
 		register := false
 
+		//If no session file is passed initialize with RAM Storage
 		if sessionFile == "" {
 			err = bindings.InitClient(&globals.RamStorage{}, "")
 			if err != nil {
@@ -75,16 +78,20 @@ var rootCmd = &cobra.Command{
 			register = true
 		} else {
 
+			//If a session file is passed, check if its valid
 			_, err1 := os.Stat(sessionFile)
 
 			if err1 != nil {
+				//If the file does not exist, register a new user
 				if os.IsNotExist(err1) {
 					register = true
 				} else {
+					//Fail if any other error is received[
 					fmt.Printf("Error with file path: %s\n", err1.Error())
 				}
 			}
 
+			//Initlize client with OS Stroage
 			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
 
 			if err != nil {
@@ -93,6 +100,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		//Register a new user if requested
 		if register {
 			_, err := bindings.Register(
 				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
@@ -104,6 +112,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		//log the user in
 		_, err = bindings.Login(
 			cyclic.NewIntFromUInt(userId).LeftpadBytes(8))
 
@@ -111,9 +120,12 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Could Not Log In\n")
 			return
 		}
+
+		//Get contact list (just for testing)
 		contact := ""
 		api.UpdateContactList()
 		users, nicks := api.GetContactList()
+
 		for i := range users {
 			if destinationUserId == users[i] {
 				contact = nicks[i]
@@ -122,14 +134,14 @@ var rootCmd = &cobra.Command{
 
 		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 			contact, message)
-
+		//Send the message
 		bindings.Send(api.APIMessage{userId, message, destinationUserId})
-		// Loop until we get a message, then print and exit
 
 		if dummyFrequency != 0 {
 			timer = time.NewTimer(dummyPeriod)
 		}
 
+		// Loop until we get a message, then print and exit
 		for {
 
 			var msg bindings.Message
@@ -137,7 +149,8 @@ var rootCmd = &cobra.Command{
 
 			end := false
 
-			if err != nil && err != globals.FifoEmptyErr{
+			//Report failed message reception
+			if err != nil && err != globals.FifoEmptyErr {
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
@@ -148,12 +161,15 @@ var rootCmd = &cobra.Command{
 			if ok {
 				contact = user.Nick
 			}
+
+			//Return the received message to console
 			if msg.GetPayload() != "" {
 				fmt.Printf("Message from %v, %v Received: %s\n", sender,
 					contact, msg.GetPayload())
 				end = true
 			}
 
+			//If dummy messages are enabled, send the next one
 			if dummyPeriod != 0 {
 				end = false
 				<-timer.C
@@ -165,8 +181,9 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 				bindings.Send(api.APIMessage{userId, message,
-				destinationUserId})
+					destinationUserId})
 				timer = time.NewTimer(dummyPeriod)
+				//otherwise just wait to check for new messages
 			} else {
 				time.Sleep(200 * time.Millisecond)
 			}
@@ -177,6 +194,7 @@ var rootCmd = &cobra.Command{
 
 		}
 
+		//Logout
 		err = bindings.Logout()
 
 		if err != nil {
@@ -203,7 +221,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
 	rootCmd.MarkPersistentFlagRequired("userid")
-	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "","",
+	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "", "",
 		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")

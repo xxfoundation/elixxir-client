@@ -206,7 +206,7 @@ func TryReceive() (APIMessage, error) {
 		var message *globals.Message
 		message, err = globals.Session.PopFifo()
 
-		if err == nil{
+		if err == nil && message != nil {
 			m.Payload = message.GetPayloadString()
 			m.Sender = message.GetSenderID().Uint64()
 			m.Recipient = message.GetRecipientID().Uint64()

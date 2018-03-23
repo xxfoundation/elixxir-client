@@ -218,6 +218,20 @@ func TestRegister(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
+func TestRegisterBadNumNodes(t *testing.T) {
+	registrationCode := "JHJ6L9BACDVC"
+	nick := "Nickname"
+	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&d, "hello", nil)
+
+	_, err = Register(registrationCode, nick, SERVER_ADDRESS, 0)
+	if err == nil {
+		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
+	}
+	globals.LocalStorage = nil
+}
+
+
 func TestLogin(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
@@ -251,4 +265,20 @@ func TestLogout(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
+// func TestSend(t *testing.T) {
+// 	registrationCode := "JHJ6L9BACDVC"
+// 	nick := "Nickname"
+// 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+// 	err := InitClient(&d, "hello", nil)
 
+// 	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+// 	loginRes, err2 := Login(regRes)
+	
+// 	if err2 != nil {
+// 		t.Errorf("Login failed: %s", err.Error())
+// 	}
+// 	if len(loginRes) == 0 {
+// 		t.Errorf("Invalid login received: %v", loginRes)
+// 	}
+// 	globals.LocalStorage = nil
+// }

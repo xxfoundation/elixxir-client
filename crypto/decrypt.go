@@ -10,9 +10,9 @@ import (
 	"errors"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
-	"gitlab.com/privategrity/crypto/format"
 )
 
 func Decrypt(g *cyclic.Group, message *format.MessageSerial) (
@@ -46,7 +46,7 @@ func Decrypt(g *cyclic.Group, message *format.MessageSerial) (
 	payloadMicList :=
 		[][]byte{decryptedMessage.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),
 			decryptedMessage.GetSenderID().LeftpadBytes(format.SID_LEN),
-			decryptedMessage.GetData().LeftpadBytes(format.DATA_END),
+			decryptedMessage.GetData().LeftpadBytes(format.DATA_LEN),
 		}
 
 	success := verification.CheckMic(payloadMicList,

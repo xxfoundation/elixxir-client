@@ -9,9 +9,9 @@ package crypto
 import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
-	"gitlab.com/privategrity/crypto/format"
 )
 
 func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {

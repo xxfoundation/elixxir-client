@@ -7,5 +7,5 @@
 package globals
 
 import "sync"
-
+// TODO move to transmitMessage.go
 var TransmissionMutex = &sync.Mutex{}

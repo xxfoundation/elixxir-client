@@ -84,10 +84,6 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 	if (err != nil && err != io.EOF) || (session.CurrentUser == nil) {
 		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
 		return err
-	} else if err != nil {
-		err = errors.New(fmt.Sprintf("LoadSession: unknown error: %s",
-			err.Error()))
-		return err
 	}
 
 	if session.CurrentUser.UserID != UID {
@@ -227,12 +223,11 @@ func (s *SessionObj) StoreSession() error {
 
 }
 
-// Scrubs all cryptographic data from ram and logs out
+// Immolate scrubs all cryptographic data from ram and logs out
 // the ram overwriting can be improved
 func (s *SessionObj) Immolate() error {
 	if s == nil {
-		err := errors.New("immolate: Cannot immolate when" +
-			" you are not alive")
+		err := errors.New("immolate: Cannot immolate that which has no life")
 		return err
 	}
 

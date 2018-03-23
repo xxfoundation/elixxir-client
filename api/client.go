@@ -160,7 +160,7 @@ func Send(message format.MessageInterface) error {
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
-		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
+		newMessageBytes := crypto.Encrypt(&newMessage)
 		// Send the message
 		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
 			newMessageBytes)

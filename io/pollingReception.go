@@ -44,7 +44,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 					Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
 				}
 
-				msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
+				msg, err := crypto.Decrypt(&msgBytes)
 
 				if err != nil {
 					jww.ERROR.Printf("Decryption failed: %v", err.Error())

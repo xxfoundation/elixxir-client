@@ -135,7 +135,7 @@ func TestUserSession(t *testing.T) {
 	// Test immolate on nonempty FIFO
 	inmsg = NewMessage(42, 69, "test")[0]
 	Session.PushFifo(inmsg)
-	messagePointers :=
+
 	//Logout
 	Session.Immolate()
 

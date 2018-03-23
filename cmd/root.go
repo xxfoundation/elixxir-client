@@ -13,10 +13,11 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	//"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"time"
 )
@@ -30,6 +31,7 @@ var numNodes uint
 var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
+var nick string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -49,12 +51,11 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
 
-		var dummyPeroid time.Duration
-
+		var dummyPeriod time.Duration
 		var timer *time.Timer
 
 		if dummyFrequency != 0 {
-			dummyPeroid = time.Nanosecond *
+			dummyPeriod = time.Nanosecond *
 				(time.Duration(1000000000 * (1.0 / dummyFrequency)))
 		}
 
@@ -63,7 +64,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		var err error
-
 		register := false
 
 		if sessionFile == "" {
@@ -87,7 +87,7 @@ var rootCmd = &cobra.Command{
 			}
 
 			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile,
-			nil)
+				nil)
 
 			if err != nil {
 				fmt.Printf("Could Not Initilize OS Storage: %s\n", err.Error())
@@ -99,12 +99,11 @@ var rootCmd = &cobra.Command{
 			_, err := bindings.Register(
 				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
 					32, 0),
-				"testName", serverAddr, int(numNodes))
+				nick, serverAddr, int(numNodes))
 			if err != nil {
 				fmt.Printf("Could Not Register User: %s\n", err.Error())
 				return
 			}
-
 		}
 
 		_, err = bindings.Login(
@@ -114,14 +113,22 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Could Not Log In\n")
 			return
 		}
+		contact := ""
+		api.UpdateContactList()
+		users, nicks := api.GetContactList()
+		for i := range users {
+			if destinationUserId == users[i] {
+				contact = nicks[i]
+			}
+		}
 
-		fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
+		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+			contact, message)
 
-		//bindings.Send(api.APIMessage{userId, message, destinationUserId})
 		// Loop until we get a message, then print and exit
 
 		if dummyFrequency != 0 {
-			timer = time.NewTimer(dummyPeroid)
+			timer = time.NewTimer(dummyPeriod)
 		}
 
 		for {
@@ -131,25 +138,44 @@ var rootCmd = &cobra.Command{
 
 			end := false
 
-			if err != nil && err != globals.FifoEmptyErr{
+			if err != nil && err != globals.FifoEmptyErr {
 				fmt.Printf("Could not Receive Message: %s\n", err.Error())
 				break
 			}
-
 			sender := binary.BigEndian.Uint64(msg.GetSender())
 
+			contact = ""
+			user, ok := globals.Users.GetUser(sender)
+			if ok {
+				contact = user.Nick
+			}
 			if msg.GetPayload() != "" {
-				fmt.Printf("Message from %v Received: %s\n", sender, msg.GetPayload())
+				fmt.Printf("Message from %v, %v Received: %s\n", sender,
+					contact, msg.GetPayload())
 				end = true
 			}
 
-			if dummyPeroid != 0 {
+			if dummyPeriod != 0 {
 				end = false
 				<-timer.C
-				fmt.Printf("Sending Message to %d: %s\n", destinationUserId, message)
-				//bindings.Send(api.APIMessage{userId, message,
-				//	destinationUserId})
-				timer = time.NewTimer(dummyPeroid)
+
+				contact = ""
+				user, ok := globals.Users.GetUser(destinationUserId)
+				if ok {
+					contact = user.Nick
+				}
+				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+					contact, message)
+
+				messages, err := format.NewMessage(userId, destinationUserId, message)
+				if err != nil {
+					jww.ERROR.Printf("Error creating messages: %v",
+						err.Error())
+				}
+				for _, msg := range messages {
+					bindings.Send(msg)
+				}
+				timer = time.NewTimer(dummyPeriod)
 			} else {
 				time.Sleep(200 * time.Millisecond)
 			}
@@ -186,6 +212,8 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
 	rootCmd.MarkPersistentFlagRequired("userid")
+	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "", "",
+		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")
 	rootCmd.MarkPersistentFlagRequired("serveraddr")

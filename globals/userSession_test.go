@@ -7,9 +7,10 @@
 package globals
 
 import (
+	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"testing"
 	"gitlab.com/privategrity/crypto/format"
+	"testing"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -135,6 +136,10 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
+	// Test immolate on nonempty FIFO
+	inmsg = NewMessage(42, 69, "test")[0]
+	Session.PushFifo(inmsg)
+
 	//Logout
 	Session.Immolate()
 
@@ -142,5 +147,24 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("Error: Logout / Immolate did not work!")
 	} else {
 		pass++
+	}
+
+	// Error tests
+
+	// Test nil LocalStorage
+	temp := LocalStorage
+	LocalStorage = nil
+	if LoadSession(6, nil) == nil {
+		t.Errorf("Error did not catch a nil LocalStorage")
+	}
+	LocalStorage = temp
+
+	// Test invalid / corrupted LocalStorage
+	h := sha256.New()
+	h.Write([]byte(string(20000)))
+	randBytes := h.Sum(nil)
+	LocalStorage.Save(randBytes)
+	if LoadSession(6, nil) == nil {
+		t.Errorf("Error did not catch a corrupt LocalStorage")
 	}
 }

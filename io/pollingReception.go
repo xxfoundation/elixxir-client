@@ -13,8 +13,8 @@ import (
 	"gitlab.com/privategrity/comms/mixclient"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"time"
 	"gitlab.com/privategrity/crypto/format"
+	"time"
 )
 
 func runfunc(wait uint64, quit globals.ThreadTerminator) {
@@ -44,7 +44,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 					Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
 				}
 
-				msg, err := crypto.Decrypt(&msgBytes)
+				msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
 
 				if err != nil {
 					jww.ERROR.Printf("Decryption failed: %v", err.Error())
@@ -54,7 +54,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 						if err != nil {
 							jww.ERROR.Printf(
 								"Couldn't receive message using receiver: %s",
-									err.Error())
+								err.Error())
 						}
 					} else {
 						// TODO deprecate FIFO reception?

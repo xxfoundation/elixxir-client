@@ -7,6 +7,7 @@
 package api
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -14,10 +15,9 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/privategrity/crypto/forward"
 	"math"
-	"bytes"
 )
 
 // Initializes the client by registering a storage mechanism.
@@ -160,7 +160,7 @@ func Send(message format.MessageInterface) error {
 
 	// Prepare the new messages to be sent
 	for _, newMessage := range newMessages {
-		newMessageBytes := crypto.Encrypt(&newMessage)
+		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
 		// Send the message
 		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
 			newMessageBytes)

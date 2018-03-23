@@ -10,15 +10,13 @@ import (
 	"errors"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
-	"gitlab.com/privategrity/crypto/format"
 )
 
-func Decrypt(message *format.MessageSerial) (
+func Decrypt(g *cyclic.Group, message *format.MessageSerial) (
 	*format.Message, error) {
-
-	g := globals.Grp
 
 	var err error
 

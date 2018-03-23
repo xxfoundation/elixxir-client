@@ -1,11 +1,11 @@
 package crypto
 
 import (
-	"testing"
-	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
+	"testing"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -68,8 +68,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	}
 
 	// do the encryption and the decryption
-	encrypted := Encrypt(&msg[0])
-	decrypted, err := Decrypt(encrypted)
+	encrypted := Encrypt(globals.Grp, &msg[0])
+	decrypted, err := Decrypt(globals.Grp, encrypted)
 
 	if err != nil {
 		t.Errorf("Couldn't decrypt message: %v", err.Error())

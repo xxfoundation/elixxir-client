@@ -20,6 +20,28 @@ import (
 	"math"
 )
 
+// APIMessages are an implementation of the format.Message interface that's
+// easy to use from Go
+type APIMessage struct {
+	Payload     string
+	SenderID    uint64
+	RecipientID uint64
+}
+
+func (m APIMessage) GetSender() []byte {
+	senderAsInt := cyclic.NewIntFromUInt(m.SenderID)
+	return senderAsInt.LeftpadBytes(format.SID_LEN)
+}
+
+func (m APIMessage) GetRecipient() []byte {
+	recipientAsInt := cyclic.NewIntFromUInt(m.RecipientID)
+	return recipientAsInt.LeftpadBytes(format.RID_LEN)
+}
+
+func (m APIMessage) GetPayload() string {
+	return m.Payload
+}
+
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
@@ -188,7 +210,7 @@ func TryReceive() (format.MessageInterface, error) {
 		var message *format.Message
 		message, err = globals.Session.PopFifo()
 
-		if err == nil {
+		if err == nil && message != nil {
 			messages, _ := format.NewMessage(message.GetSenderIDUint(),
 				message.GetRecipientIDUint(), message.GetPayload())
 			m = messages[0]

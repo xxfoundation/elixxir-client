@@ -74,7 +74,7 @@ func InitClient(storage Storage, loc string, receiver Receiver) error {
 		receiver.Receive(messageInterface.(Message))
 	}
 
-	if s == nil {
+	if storage == nil {
 		return errors.New("could not init client: Storage was nil")
 	}
 

@@ -20,6 +20,7 @@ func UsingReceiver() bool {
 }
 
 func SetReceiver(receiver Receiver) error {
+	//TODO: Add mutex
 	currentReceiver = receiver
 	return nil
 }

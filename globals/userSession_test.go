@@ -137,8 +137,12 @@ func TestUserSession(t *testing.T) {
 	}
 
 	// Test immolate on nonempty FIFO
-	inmsg = NewMessage(42, 69, "test")[0]
-	Session.PushFifo(inmsg)
+	inmsg, err = format.NewMessage(42, 69, "test")
+	if err != nil {
+		t.Errorf("Error: Couldn't create new message%v", err.Error())
+	}
+
+	Session.PushFifo(&inmsg[0])
 
 	//Logout
 	Session.Immolate()

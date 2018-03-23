@@ -64,6 +64,10 @@ var rootCmd = &cobra.Command{
 			bindings.DisableRatchet()
 		}
 
+		for len(nick) < 8 {
+			nick = nick + "#"
+		}
+
 		var err error
 		register := false
 

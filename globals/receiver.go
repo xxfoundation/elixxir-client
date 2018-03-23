@@ -20,13 +20,9 @@ func UsingReceiver() bool {
 }
 
 func SetReceiver(receiver Receiver) error {
-	if currentReceiver == nil {
-		currentReceiver = receiver
-		return nil
-	} else {
-		return errors.New("Couldn't set the receiver: Receiver was already" +
-			" set")
-	}
+	//TODO: Add mutex
+	currentReceiver = receiver
+	return nil
 }
 
 func Receive(message format.MessageInterface) error {

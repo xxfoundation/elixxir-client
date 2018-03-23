@@ -74,6 +74,37 @@ func InitClient(s Storage, loc string, receiver Receiver) error {
 // nick is a nickname which must be 32 characters or less.
 // nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000
 // numNodes is the number of nodes in the system
+// Valid codes:
+// 1
+// “David”
+// 2HOAAFKIVKEJ0
+// 2
+// “Jim”
+// EPJHMGE1KHTVS
+// 3
+// “Ben”
+// 8L7U3HHEOC04T
+// 4
+// “Rick”
+// 4DU574DN9R292
+// 5
+// “Spencer”
+// BE50NHQPQJTJJ
+// 6
+// “Jake”
+// 1JB2L6A6L76KU
+// 7
+// “Mario”
+// DEFJS3NIG55P5
+// 8
+// “Will”
+// F2MIJJ1S8DLV6
+// 9
+// “Allan”
+// 3GENI79B65V2A
+// 10
+// “Jono”
+// JHJ6L9BACDVC
 func Register(registrationCode string, nick string, nodeAddr string,
 	numNodes int) ([]byte, error) {
 

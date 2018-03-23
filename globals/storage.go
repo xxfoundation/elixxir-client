@@ -16,10 +16,9 @@ var LocalStorage Storage
 
 func InitStorage(store Storage, location string) error {
 	if LocalStorage != nil {
-		err := errors.New("Invalid Local Storage Creation: Local storage" +
-			" already created")
-		jww.ERROR.Printf(err.Error())
-		return err
+		errStr := "Invalid Local Storage Creation: Local storage already created"
+		jww.ERROR.Printf(errStr)
+		panic(errStr)
 	}
 
 	var intermediateStorage Storage

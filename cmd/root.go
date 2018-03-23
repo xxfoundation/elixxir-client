@@ -78,7 +78,7 @@ var rootCmd = &cobra.Command{
 			register = true
 		} else {
 
-			//If a session file is passed, check if its valid
+			//If a session file is passed, check if it's valid
 			_, err1 := os.Stat(sessionFile)
 
 			if err1 != nil {
@@ -86,12 +86,12 @@ var rootCmd = &cobra.Command{
 				if os.IsNotExist(err1) {
 					register = true
 				} else {
-					//Fail if any other error is received[
+					//Fail if any other error is received
 					fmt.Printf("Error with file path: %s\n", err1.Error())
 				}
 			}
 
-			//Initlize client with OS Stroage
+			//Initialize client with OS Storage
 			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
 
 			if err != nil {

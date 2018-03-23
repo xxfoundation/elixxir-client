@@ -55,7 +55,21 @@ type Receiver interface {
 // For the mobile interface, one must be provided
 // The loc can be empty, it is only necessary if the passed storage interface
 // requires it to be passed via "SetLocation"
-func InitClient(s Storage, loc string, receiver Receiver) error {
+//
+// Parameters: storage implements Storage.
+// Implement this interface to store the user session data locally.
+// You must give us something for this parameter.
+//
+// loc is a string. If you're using DefaultStorage for your storage,
+// this would be the filename of the file that you're storing the user
+// session in.
+//
+// receiver implements Receiver.
+// This parameter is optional. If this parameter is null,
+// you can receive messages by polling the API with TryReceive.
+// If you pass a non-null object implementing Receiver in this
+// parameter, we will call that Receiver when the client gets a message.
+func InitClient(storage Storage, loc string, receiver Receiver) error {
 	r := func (messageInterface format.MessageInterface) {
 		receiver.Receive(messageInterface.(Message))
 	}
@@ -64,12 +78,12 @@ func InitClient(s Storage, loc string, receiver Receiver) error {
 		return errors.New("could not init client: Storage was nil")
 	}
 
-	err := api.InitClient(s.(globals.Storage), loc, r)
+	err := api.InitClient(storage.(globals.Storage), loc, r)
 
 	return err
 }
 
-// Registers user and returns the User ID.  Returns nil if registration fails.
+// Registers user and returns the User ID.  Returns null if registration fails.
 // registrationCode is a one time use string.
 // nick is a nickname which must be 32 characters or less.
 // nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000

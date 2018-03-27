@@ -12,7 +12,6 @@ variables:
   DOCKER_IMAGE: carback1/golang-glide:1.9-4a49ace8cac8
   MIN_CODE_COVERAGE: "70.0"
 
-
 before_script:
   ##
   ## Go Setup
@@ -87,7 +86,7 @@ test:
     - go tool cover -func=testdata/coverage-real.out | grep "total:" | awk '{print $3}' | sed 's/\%//g' > testdata/coverage-percentage.txt
     - export CODE_CHECK=$(echo "$(cat testdata/coverage-percentage.txt) >= $MIN_CODE_COVERAGE" | bc -l)
     - (if [ "$CODE_CHECK" == "1" ]; then echo "Minimum coverage of $MIN_CODE_COVERAGE succeeded"; else echo "Minimum coverage of $MIN_CODE_COVERAGE failed"; exit 1; fi);
-artifacts:
+  artifacts:
     paths:
       - testdata/
 

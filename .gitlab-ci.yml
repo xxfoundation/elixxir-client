@@ -9,7 +9,9 @@ cache:
 variables:
   REPO_DIR: gitlab.com/privategrity
   REPO_NAME: client
-  DOCKER_IMAGE: carback1/golang-glide:1.9-3b2621654f38
+  DOCKER_IMAGE: carback1/golang-glide:1.9-4a49ace8cac8
+  MIN_CODE_COVERAGE: "70.0"
+
 
 before_script:
   ##
@@ -80,7 +82,12 @@ test:
     - grep -v cmd testdata/coverage.out > testdata/coverage-real.out
     - go tool cover -func=testdata/coverage-real.out
     - go tool cover -html=testdata/coverage-real.out -o testdata/coverage.html
-  artifacts:
+
+    # Test Coverage Check
+    - go tool cover -func=testdata/coverage-real.out | grep "total:" | awk '{print $3}' | sed 's/\%//g' > testdata/coverage-percentage.txt
+    - export CODE_CHECK=$(echo "$(cat testdata/coverage-percentage.txt) >= $MIN_CODE_COVERAGE" | bc -l)
+    - (if [ "$CODE_CHECK" == "1" ]; then echo "Minimum coverage of $MIN_CODE_COVERAGE succeeded"; else echo "Minimum coverage of $MIN_CODE_COVERAGE failed"; exit 1; fi);
+artifacts:
     paths:
       - testdata/
 

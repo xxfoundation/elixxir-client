@@ -167,7 +167,7 @@ func Send(message format.MessageInterface) error {
 	}
 
 	// TODO: this could be a lot cleaner if we stored IDs as byte slices
-	if bytes.Equal(message.GetSender(), cyclic.NewIntFromUInt(globals.Session.
+	if !bytes.Equal(message.GetSender(), cyclic.NewIntFromUInt(globals.Session.
 		GetCurrentUser().UserID).LeftpadBytes(format.SID_LEN)) {
 		err := errors.New("Send: Cannot send a message from someone other" +
 			" than yourself")
@@ -201,7 +201,7 @@ func TryReceive() (format.MessageInterface, error) {
 
 	var err error
 
-	var m format.Message
+	var m APIMessage
 
 	if globals.Session == nil {
 		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
@@ -211,9 +211,9 @@ func TryReceive() (format.MessageInterface, error) {
 		message, err = globals.Session.PopFifo()
 
 		if err == nil && message != nil {
-			messages, _ := format.NewMessage(message.GetSenderIDUint(),
-				message.GetRecipientIDUint(), message.GetPayload())
-			m = messages[0]
+			m.Payload = message.GetPayload()
+			m.RecipientID = message.GetRecipientIDUint()
+			m.SenderID = message.GetSenderIDUint()
 		}
 	}
 

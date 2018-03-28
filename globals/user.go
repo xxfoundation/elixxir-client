@@ -134,8 +134,8 @@ func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
 func (m *UserMap) DeleteUser(id uint64) {
 	// If key does not exist, do nothing
 	delete(m.userCollection, id)
-	delete(m.keysLookup, id)
-	delete(m.userLookup, id)
+	/*delete(m.keysLookup, id)
+	delete(m.userLookup, id)*/
 }
 
 // UpsertUser inserts given user into userCollection or update the user if it

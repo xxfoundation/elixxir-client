@@ -16,7 +16,7 @@ type Receiver func (messageInterface format.MessageInterface)
 var currentReceiver Receiver
 
 func UsingReceiver() bool {
-	return currentReceiver == nil
+	return currentReceiver != nil
 }
 
 func SetReceiver(receiver Receiver) error {

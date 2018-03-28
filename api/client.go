@@ -67,7 +67,7 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(HUID uint64, nick string, nodeAddr string,
+func Register(registrationCode uint64, nick string, nodeAddr string,
 	numNodes uint) (uint64, error) {
 
 	var err error
@@ -78,7 +78,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 		return 0, err
 	}
 
-	UID, successLook := globals.Users.LookupUser(HUID)
+	UID, successLook := globals.Users.LookupUser(registrationCode)
 	defer clearUint64(&UID)
 
 	if !successLook {
@@ -96,7 +96,7 @@ func Register(HUID uint64, nick string, nodeAddr string,
 	}
 
 	if len(nick) > 36 || len(nick) < 1 {
-		jww.ERROR.Printf("Register: Nickname too long")
+		jww.ERROR.Printf("Register: Nickname length invalid")
 		err = errors.New("could not register due to invalid nickname")
 		return 0, err
 	}

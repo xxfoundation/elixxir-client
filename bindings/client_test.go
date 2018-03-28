@@ -90,7 +90,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-
 // Make sure InitClient returns an error when called incorrectly.
 func TestInitClientNil(t *testing.T) {
 	err := InitClient(nil, "", nil)

@@ -50,7 +50,7 @@ func runfunc(wait uint64, quit globals.ThreadTerminator) {
 					jww.ERROR.Printf("Decryption failed: %v", err.Error())
 				} else {
 					if globals.UsingReceiver() {
-						err = globals.Receive(msg)
+						err = globals.Receive(*msg)
 						if err != nil {
 							jww.ERROR.Printf(
 								"Couldn't receive message using receiver: %s",

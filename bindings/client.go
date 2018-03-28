@@ -70,8 +70,12 @@ type Receiver interface {
 // If you pass a non-null object implementing Receiver in this
 // parameter, we will call that Receiver when the client gets a message.
 func InitClient(storage Storage, loc string, receiver Receiver) error {
-	r := func (messageInterface format.MessageInterface) {
-		receiver.Receive(messageInterface.(Message))
+	var r func(messageInterface format.MessageInterface)
+
+	if receiver != nil {
+		r = func(messageInterface format.MessageInterface) {
+			receiver.Receive(messageInterface.(Message))
+		}
 	}
 
 	if storage == nil {

@@ -134,12 +134,16 @@ func (m *UserMap) GetUser(id uint64) (user *User, ok bool) {
 func (m *UserMap) DeleteUser(id uint64) {
 	// If key does not exist, do nothing
 	delete(m.userCollection, id)
+	/*delete(m.keysLookup, id)
+	delete(m.userLookup, id)*/
 }
 
 // UpsertUser inserts given user into userCollection or update the user if it
 // already exists (Upsert operation).
 func (m *UserMap) UpsertUser(user *User) {
 	m.userCollection[user.UserID] = user
+	/*m.userLookup[huid] = user.UserID
+	m.keysLookup[user.UserID] = keys*/
 }
 
 // CountUsers returns a count of the users in userCollection
@@ -172,5 +176,3 @@ func (m *UserMap) GetContactList() (ids []uint64, nicks []string) {
 
 	return ids, nicks
 }
-
-

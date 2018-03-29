@@ -1,4 +1,4 @@
-package channel
+package channelbot
 
 import (
 	"bytes"
@@ -7,45 +7,45 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 )
 
-// This is the message type that the subscribers to the channel send to the
+// This is the message type that the subscribers to the channelbot send to the
 // channel bot, by serialization.
-type ChannelMessage struct {
+type ChannelbotMessage struct {
 	GroupID uint64
 	// This is the same as the user ID of the person who sent the message to
-	// the channel
+	// the channelbot
 	SpeakerID uint64
 	// This holds the actual message.
 	Message string
 }
 
-// Returns all channel message fields packed into a payload string
-func (m ChannelMessage) SerializeChannelMessage() *bytes.Buffer {
+// Returns all channelbot message fields packed into a payload string
+func (m ChannelbotMessage) SerializeChannelbotMessage() *bytes.Buffer {
 	var result bytes.Buffer
 	enc := gob.NewEncoder(&result)
 	err := enc.Encode(m)
 	if err != nil {
-		jww.ERROR.Printf("Failed to encode gob for channel message: %v", err.Error())
+		jww.ERROR.Printf("Failed to encode gob for channelbot message: %v", err.Error())
 	}
 	return &result
 }
 
-func ParseChannelMessage(serializedChannelMessage *bytes.
-Buffer) *ChannelMessage {
+func ParseChannelbotMessage(serializedChannelMessage *bytes.
+Buffer) *ChannelbotMessage {
 	dec := gob.NewDecoder(serializedChannelMessage)
-	var result ChannelMessage
+	var result ChannelbotMessage
 	err := dec.Decode(&result)
 	if err != nil {
-		jww.ERROR.Printf("Failed to decode gob for channel message: %v", err.Error())
+		jww.ERROR.Printf("Failed to decode gob for channelbot message: %v", err.Error())
 	}
 	return &result
 }
 
-func NewSerializedChannelMessages(GroupID, SpeakerID uint64,
+func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
 	Message string) []*bytes.Buffer {
 	// Try to serialize a gob with the message fields left untouched,
 	// and see if it fits in the length of a message payload
-	length := ChannelMessage{GroupID: GroupID, SpeakerID: SpeakerID,
-		Message: Message}.SerializeChannelMessage()
+	length := ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,
+		Message: Message}.SerializeChannelbotMessage()
 
 	if uint64(length.Len()) > format.DATA_LEN {
 		// If in this loop, the gob was too long and we need to break the
@@ -58,12 +58,13 @@ func NewSerializedChannelMessages(GroupID, SpeakerID uint64,
 			nextMessagePayload := Message[partition:]
 			Message = Message[:partition]
 
-			nextChannelMessage := ChannelMessage{GroupID: GroupID,
-				SpeakerID: SpeakerID, Message: nextMessagePayload}.SerializeChannelMessage()
+			nextChannelMessage := ChannelbotMessage{GroupID: GroupID,
+				SpeakerID: SpeakerID, Message: nextMessagePayload}.
+					SerializeChannelbotMessage()
 			// prepend the resulting message
 			result = append([]*bytes.Buffer{nextChannelMessage}, result...)
-			length = ChannelMessage{GroupID: GroupID, SpeakerID: SpeakerID,
-				Message: Message}.SerializeChannelMessage()
+			length = ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,
+				Message: Message}.SerializeChannelbotMessage()
 		}
 		result = append([]*bytes.Buffer{length}, result...)
 		return result

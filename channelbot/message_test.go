@@ -1,4 +1,4 @@
-package channel
+package channelbot
 
 import (
 	"testing"
@@ -6,10 +6,10 @@ import (
 )
 
 func TestChannelMessageSerializationAndParsing(t *testing.T) {
-	expected := ChannelMessage{1, 5, "what do you guys think about straws?"}
-	serialization := expected.SerializeChannelMessage()
+	expected := ChannelbotMessage{1, 5, "what do you guys think about straws?"}
+	serialization := expected.SerializeChannelbotMessage()
 	println(serialization.String())
-	actual := ParseChannelMessage(serialization)
+	actual := ParseChannelbotMessage(serialization)
 
 	if actual.SpeakerID != expected.SpeakerID {
 		t.Errorf("Speaker ID differed from expected. Expected: %v, got %v",
@@ -57,7 +57,8 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 		"vehicula eget dolor a, pretium fringilla lectus. " +
 		"Sed at placerat neque. Nulla pellentesque vestibulum nulla quis end."
 
-	multipleSerializedMessages := NewSerializedChannelMessages(1, 5, longMessageToChannel)
+	multipleSerializedMessages := NewSerializedChannelbotMessages(1, 5,
+		longMessageToChannel)
 
 	expectedMessages := []string{
 		"Beginning pretium venenatis dui vitae rhoncus. " +
@@ -95,7 +96,7 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 			"Sed at placerat neque. " +
 			"Nulla pellentesque vestibulum nulla quis end.",
 	}
-	// if there isn't too much metadata embedded in the channel messages,
+	// if there isn't too much metadata embedded in the channelbot messages,
 	// you can expect this number of submessages to be needed.
 	expectedNumberOfMessages := uint64(len(longMessageToChannel)) / format.
 		DATA_LEN + 1
@@ -105,7 +106,7 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 			" expected %v.")
 	}
 	for i := range multipleSerializedMessages {
-		result := ParseChannelMessage(multipleSerializedMessages[i])
+		result := ParseChannelbotMessage(multipleSerializedMessages[i])
 		if result.Message != expectedMessages[i] {
 			t.Errorf("Got a different sub-message than expected at %v. " +
 				"Got: %v..., expected %v...", i, result.Message[:10],

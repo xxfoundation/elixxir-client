@@ -9,6 +9,7 @@ package channelbot
 import (
 	"testing"
 	"gitlab.com/privategrity/crypto/format"
+	"strings"
 )
 
 func TestChannelMessageSerializationAndParsing(t *testing.T) {
@@ -66,42 +67,6 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 	multipleSerializedMessages := NewSerializedChannelbotMessages(1, 5,
 		longMessageToChannel)
 
-	expectedMessages := []string{
-		"Beginning pretium venenatis dui vitae rhoncus. " +
-			"Nunc ut lorem id arcu eleifend porta ac a orci. " +
-			"Quisque mattis maximus porta. Sed congue, " +
-			"libero in ornare tincidunt, felis nunc tincidunt odio, " +
-			"eu pharetra nisi tortor non mauris. In nunc odio, " +
-			"vehicula eget dolor a, pretium fringilla lectus. " +
-			"Sed at placerat neque. Nulla pe",
-		"llentesque vestibulum nulla quis vulputate. " +
-			"Quisque ut tellus a orci vehicula facilisis. " +
-			"Aliquam pretium venenatis dui vitae rhoncus. " +
-			"Nunc ut lorem id arcu eleifend porta ac a orci. " +
-			"Quisque mattis maximus porta. Sed congue, " +
-			"libero in ornare tincidunt, felis nunc tincidunt odio, " +
-			"eu pharetra nisi tortor non mauris. In nunc odio, " +
-			"vehicula eget dolor a, pretium fringilla lectus. " +
-			"Sed at placerat neque. Nulla",
-		" pellentesque vestibulum nulla quis vulputate. " +
-			"Quisque ut tellus a orci vehicula facilisis." +
-			"Nunc ut lorem id arcu eleifend porta ac a orci. " +
-			"Quisque mattis maximus porta. Sed congue, " +
-			"libero in ornare tincidunt, felis nunc tincidunt odio, " +
-			"eu pharetra nisi tortor non mauris. In nunc odio, " +
-			"vehicula eget dolor a, pretium fringilla lectus. " +
-			"Sed at placerat neque. " +
-			"Nulla pellentesque vestibulum nulla quis vulputa",
-		"te. Quisque ut tellus a orci vehicula facilisis. " +
-			"Aliquam pretium venenatis dui vitae rhoncus. " +
-			"Nunc ut lorem id arcu eleifend porta ac a orci. " +
-			"Quisque mattis maximus porta. Sed congue, " +
-			"libero in ornare tincidunt, felis nunc tincidunt odio, " +
-			"eu pharetra nisi tortor non mauris. In nunc odio, " +
-			"vehicula eget dolor a, pretium fringilla lectus. " +
-			"Sed at placerat neque. " +
-			"Nulla pellentesque vestibulum nulla quis end.",
-	}
 	// if there isn't too much metadata embedded in the channelbot messages,
 	// you can expect this number of submessages to be needed.
 	expectedNumberOfMessages := uint64(len(longMessageToChannel)) / format.
@@ -111,12 +76,14 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 		t.Errorf("Got a different number of messages than expected. Got: %v," +
 			" expected %v.")
 	}
-	for i := range multipleSerializedMessages {
-		result := ParseChannelbotMessage(multipleSerializedMessages[i])
-		if result.Message != expectedMessages[i] {
-			t.Errorf("Got a different sub-message than expected at %v. " +
-				"Got: %v..., expected %v...", i, result.Message[:10],
-					expectedMessages[i][:10])
-		}
+	if !strings.Contains(ParseChannelbotMessage(
+		multipleSerializedMessages[0]).Message, "Beginning") {
+		t.Errorf("First message didn't contain the beginning of the" +
+			" long message")
+	}
+	if !strings.Contains(ParseChannelbotMessage(
+		multipleSerializedMessages[len(multipleSerializedMessages)-1]).
+		Message, "end.") {
+		t.Errorf("Last message didn't contain the end of the long message")
 	}
 }

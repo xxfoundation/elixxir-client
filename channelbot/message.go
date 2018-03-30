@@ -35,9 +35,8 @@ func (m ChannelbotMessage) SerializeChannelbotMessage() string {
 	return result.String()
 }
 
-func ParseChannelbotMessage(serializedChannelMessage *bytes.
-Buffer) *ChannelbotMessage {
-	dec := gob.NewDecoder(serializedChannelMessage)
+func ParseChannelbotMessage(serializedChannelMessage string) *ChannelbotMessage {
+	dec := gob.NewDecoder(bytes.NewBufferString(serializedChannelMessage))
 	var result ChannelbotMessage
 	err := dec.Decode(&result)
 	if err != nil {

@@ -15,7 +15,6 @@ import (
 func TestChannelMessageSerializationAndParsing(t *testing.T) {
 	expected := ChannelbotMessage{1, 5, "what do you guys think about straws?"}
 	serialization := expected.SerializeChannelbotMessage()
-	println(serialization.String())
 	actual := ParseChannelbotMessage(serialization)
 
 	if actual.SpeakerID != expected.SpeakerID {

@@ -14,7 +14,7 @@ func BroadcastMessage(messageInterface format.MessageInterface) {
 
 	for _, message := range messages {
 		for _, subscriber := range subscribers {
-			go api.Send(&api.APIMessage{
+			api.Send(&api.APIMessage{
 				Payload:     message,
 				SenderID:    globals.Session.GetCurrentUser().UserID,
 				RecipientID: subscriber})

@@ -1,7 +1,7 @@
 package channelbot
 
 // everyone's in every channel for now
-var subscribers = []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
+var subscribers = []uint64{1, 2, 3, 4, 5, 6, 7, 8, 9}
 
 func AddSubscriber(newSubscriber uint64) {
 	subscribers = append(subscribers, newSubscriber)

@@ -220,11 +220,30 @@ func TestReceive(t *testing.T) {
 	}
 }
 
-func TestLogout(t *testing.T) {
-	Logout()
+func TestSetNick(t *testing.T) {
+	err := SetNick(0,"Guy")
+	if err == nil {
+		t.Errorf("SetNick did not error out on an invalid UID")
+	}
+	err = SetNick(5, "Guy")
+	if err != nil {
+		t.Errorf("SetNick failed: %v", err)
+	}
 
+}
+
+func TestLogout(t *testing.T) {
+	err := Logout()
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+	err = Logout()
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
 	// Test send when logged out
-	err := Send(APIMessage{"test", 5, 5})
+	err = Send(APIMessage{"test", 5, 5})
 	if err == nil {
 		t.Errorf("Message was accepted by Send when not logged in.")
 	}
@@ -282,24 +301,7 @@ func (m TestInterface) SetNick(message *pb.Contact) {
 	nick = message.Nick
 }
 
-func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {
-	/*fmt.Printf("Sender: %v\n Recipient: %v\n Payload: %v\n",
-		message.SenderID, cyclic.NewIntFromBytes(message.RecipientID).Uint64(),
-			string(message.MessagePayload))
-	msgBytes := format.MessageSerial{
-		Payload:   cyclic.NewIntFromBytes(message.MessagePayload),
-		Recipient: cyclic.NewIntFromBytes(message.RecipientID),
-	}
-
-	msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
-	if err != nil {
-		fmt.Errorf("Decryption failed on message")
-	}
-	/*msg, _ := format.NewMessage(message.SenderID,
-		binary.BigEndian.Uint64(message.RecipientID),
-		string(message.MessagePayload))*/
-	//globals.Session.PushFifo(msg)
-}
+func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {

@@ -256,6 +256,7 @@ func Logout() error {
 
 func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
+	u.Nick = nick
 
 	if success {
 		io.SetNick(globals.Session.GetNodeAddress(), u)

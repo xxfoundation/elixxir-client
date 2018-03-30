@@ -19,6 +19,8 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
+	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/privategrity/client/channelbot"
 )
 
 var verbose bool
@@ -42,6 +44,70 @@ func Execute() {
 	}
 }
 
+func sessionInitialization() {
+	// Disable ratcheting if the flag is set
+	if noRatchet {
+		bindings.DisableRatchet()
+	}
+
+	var err error
+	register := false
+
+	//If no session file is passed initialize with RAM Storage
+	if sessionFile == "" {
+		err = bindings.InitClient(&globals.RamStorage{}, "", nil)
+		if err != nil {
+			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
+				err.Error())
+			return
+		}
+		register = true
+	} else {
+
+		//If a session file is passed, check if it's valid
+		_, err1 := os.Stat(sessionFile)
+
+		if err1 != nil {
+			//If the file does not exist, register a new user
+			if os.IsNotExist(err1) {
+				register = true
+			} else {
+				//Fail if any other error is received
+				fmt.Printf("Error with file path: %s\n", err1.Error())
+			}
+		}
+
+		//Initialize client with OS Storage
+		err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile, nil)
+
+		if err != nil {
+			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
+			return
+		}
+	}
+
+	//Register a new user if requested
+	if register {
+		_, err := bindings.Register(
+			cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
+				32, 0),
+			nick, serverAddr, int(numNodes))
+		if err != nil {
+			fmt.Printf("Could Not Register User: %s\n", err.Error())
+			return
+		}
+	}
+
+	//log the user in
+	_, err = bindings.Login(
+		cyclic.NewIntFromUInt(userId).LeftpadBytes(8))
+
+	if err != nil {
+		fmt.Printf("Could Not Log In\n")
+		return
+	}
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "client",
@@ -59,67 +125,7 @@ var rootCmd = &cobra.Command{
 				(time.Duration(1000000000 * (1.0 / dummyFrequency)))
 		}
 
-		// Disable ratcheting if the flag is set
-		if noRatchet {
-			bindings.DisableRatchet()
-		}
-
-		var err error
-		register := false
-
-		//If no session file is passed initialize with RAM Storage
-		if sessionFile == "" {
-			err = bindings.InitClient(&globals.RamStorage{}, "", nil)
-			if err != nil {
-				fmt.Printf("Could Not Initilize Ram Storage: %s\n",
-					err.Error())
-				return
-			}
-			register = true
-		} else {
-
-			//If a session file is passed, check if it's valid
-			_, err1 := os.Stat(sessionFile)
-
-			if err1 != nil {
-				//If the file does not exist, register a new user
-				if os.IsNotExist(err1) {
-					register = true
-				} else {
-					//Fail if any other error is received
-					fmt.Printf("Error with file path: %s\n", err1.Error())
-				}
-			}
-
-			//Initialize client with OS Storage
-			err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile, nil)
-
-			if err != nil {
-				fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-				return
-			}
-		}
-
-		//Register a new user if requested
-		if register {
-			_, err := bindings.Register(
-				cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
-					32, 0),
-				nick, serverAddr, int(numNodes))
-			if err != nil {
-				fmt.Printf("Could Not Register User: %s\n", err.Error())
-				return
-			}
-		}
-
-		//log the user in
-		_, err = bindings.Login(
-			cyclic.NewIntFromUInt(userId).LeftpadBytes(8))
-
-		if err != nil {
-			fmt.Printf("Could Not Log In\n")
-			return
-		}
+		sessionInitialization()
 
 		//Get contact list (just for testing)
 		contact := ""
@@ -146,7 +152,7 @@ var rootCmd = &cobra.Command{
 		for {
 
 			var msg bindings.Message
-			msg, err = bindings.TryReceive()
+			msg, err := bindings.TryReceive()
 
 			end := false
 
@@ -199,13 +205,30 @@ var rootCmd = &cobra.Command{
 		}
 
 		//Logout
-		err = bindings.Logout()
+		err := bindings.Logout()
 
 		if err != nil {
 			fmt.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 
+	},
+}
+
+var channelbotCmd = &cobra.Command{
+	Use:   "channelbot",
+	Short: "Run a channel for communications in a group",
+	Run: func(cmd *cobra.Command, args []string) {
+		// Logs in, starts reception runner, and so on
+		sessionInitialization()
+
+		globals.SetReceiver(func(message format.MessageInterface) {
+			channelbot.BroadcastMessage(message)
+		})
+
+		// Block forever as a keepalive
+		quit := make(chan bool)
+		<-quit
 	},
 }
 
@@ -251,6 +274,8 @@ func init() {
 	rootCmd.Flags().Float64Var(&dummyFrequency, "dummyfrequency", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
+
+	rootCmd.AddCommand(channelbotCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

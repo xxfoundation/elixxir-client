@@ -25,14 +25,14 @@ type ChannelbotMessage struct {
 }
 
 // Returns all channelbot message fields packed into a payload string
-func (m ChannelbotMessage) SerializeChannelbotMessage() *bytes.Buffer {
+func (m ChannelbotMessage) SerializeChannelbotMessage() string {
 	var result bytes.Buffer
 	enc := gob.NewEncoder(&result)
 	err := enc.Encode(m)
 	if err != nil {
 		jww.ERROR.Printf("Failed to encode gob for channelbot message: %v", err.Error())
 	}
-	return &result
+	return result.String()
 }
 
 func ParseChannelbotMessage(serializedChannelMessage *bytes.
@@ -47,20 +47,20 @@ Buffer) *ChannelbotMessage {
 }
 
 func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
-	Message string) []*bytes.Buffer {
+	Message string) []string {
 	// Try to serialize a gob with the message fields left untouched,
 	// and see if it fits in the length of a message payload
 	length := ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,
 		Message: Message}.SerializeChannelbotMessage()
 
-	if uint64(length.Len()) > format.DATA_LEN {
+	if uint64(len(length)) > format.DATA_LEN {
 		// If in this loop, the gob was too long and we need to break the
 		// message up into multiple messages
 		// TODO: we should have some sort of ordering guarantee for
 		// sending these, like a unique identifier for the group of messages
-		result := make([]*bytes.Buffer, 0)
-		for uint64(length.Len()) > format.DATA_LEN {
-			partition := uint64(length.Len()) - format.DATA_LEN
+		result := make([]string, 0)
+		for uint64(len(length)) > format.DATA_LEN {
+			partition := uint64(len(length)) - format.DATA_LEN
 			nextMessagePayload := Message[partition:]
 			Message = Message[:partition]
 
@@ -68,13 +68,13 @@ func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
 				SpeakerID: SpeakerID, Message: nextMessagePayload}.
 					SerializeChannelbotMessage()
 			// prepend the resulting message
-			result = append([]*bytes.Buffer{nextChannelMessage}, result...)
+			result = append([]string{nextChannelMessage}, result...)
 			length = ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,
 				Message: Message}.SerializeChannelbotMessage()
 		}
-		result = append([]*bytes.Buffer{length}, result...)
+		result = append([]string{length}, result...)
 		return result
 	} else {
-		return []*bytes.Buffer{length}
+		return []string{length}
 	}
 }

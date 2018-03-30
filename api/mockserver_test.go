@@ -16,7 +16,8 @@ import (
 		"encoding/gob"
 		"gitlab.com/privategrity/client/globals"
 		"strconv"
-	"gitlab.com/privategrity/crypto/cyclic"
+		"gitlab.com/privategrity/crypto/cyclic"
+		"gitlab.com/privategrity/crypto/format"
 )
 
 const SERVER_ADDRESS = "localhost:5556"
@@ -151,6 +152,89 @@ func TestRegisterInvalidNick(t *testing.T) {
 	globals.LocalStorage = nil
 }*/
 
+func TestSend(t *testing.T) {
+	globals.LocalStorage = nil
+	registrationCode := "be50nhqpqjtjj"
+	nick := "Nickname"
+	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&d, "hello", nil)
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
+	userID, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	loginRes, err2 := Login(userID)
+
+	if err2 != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+	if len(loginRes) == 0 {
+		t.Errorf("Invalid login received: %v", loginRes)
+	}
+
+	// Test send with invalid sender ID
+	err = Send(APIMessage{SenderID: 12, Payload: "test",
+		RecipientID: userID})
+	if err == nil {
+		t.Errorf("Invalid message was accepted by Send. " +
+			"Sender ID must match current user")
+	}
+
+	// Test send with valid inputs
+	err = Send(APIMessage{SenderID: userID, Payload: "test",
+		RecipientID: userID})
+	if err != nil {
+		t.Errorf("Error sending message: %v", err)
+	}
+}
+
+func TestReceive(t *testing.T) {
+	globals.LocalStorage = nil
+
+	// Initialize client and log in
+	registrationCode := "be50nhqpqjtjj"
+	nick := "Nickname"
+
+	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&d, "hello", nil)
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
+	userID, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	loginRes, err2 := Login(userID)
+
+	if err2 != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+	if len(loginRes) == 0 {
+		t.Errorf("Invalid login received: %v", loginRes)
+	}
+	// Push a message into the FIFO
+	msg, _ := format.NewMessage(10, 10, "test")
+	globals.Session.PushFifo(&msg[0])
+
+	// Test receive with message in FIFO
+	receivedMsg, err := TryReceive()
+	if err != nil {
+		t.Errorf("Could not receive a message from a nonempty FIFO.")
+	}
+	if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 10 {
+		t.Errorf("Recipient of received message is incorrect. " +
+			"Expected: 10 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
+				GetRecipient()).Uint64())
+	}
+}
+
+func TestLogout(t *testing.T) {
+	Logout()
+
+	// Test send when logged out
+	err := Send(APIMessage{"test", 5, 5})
+	if err == nil {
+		t.Errorf("Message was accepted by Send when not logged in.")
+	}
+
+	// Test receive when not logged in. Should return an error
+	_, err = TryReceive()
+	if err == nil {
+		t.Errorf("Client tried to receive a message when not logged in.")
+	}
+}
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
 type TestInterface struct{}
@@ -198,7 +282,24 @@ func (m TestInterface) SetNick(message *pb.Contact) {
 	nick = message.Nick
 }
 
-func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
+func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {
+	/*fmt.Printf("Sender: %v\n Recipient: %v\n Payload: %v\n",
+		message.SenderID, cyclic.NewIntFromBytes(message.RecipientID).Uint64(),
+			string(message.MessagePayload))
+	msgBytes := format.MessageSerial{
+		Payload:   cyclic.NewIntFromBytes(message.MessagePayload),
+		Recipient: cyclic.NewIntFromBytes(message.RecipientID),
+	}
+
+	msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
+	if err != nil {
+		fmt.Errorf("Decryption failed on message")
+	}
+	/*msg, _ := format.NewMessage(message.SenderID,
+		binary.BigEndian.Uint64(message.RecipientID),
+		string(message.MessagePayload))*/
+	//globals.Session.PushFifo(msg)
+}
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {

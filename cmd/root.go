@@ -223,7 +223,8 @@ var channelbotCmd = &cobra.Command{
 		sessionInitialization()
 
 		globals.SetReceiver(func(message format.MessageInterface) {
-			channelbot.BroadcastMessage(message)
+			channelbot.BroadcastMessage(message, &channelbot.APISender{},
+				globals.Session.GetCurrentUser().UserID)
 		})
 
 		// Block forever as a keepalive

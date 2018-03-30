@@ -4,19 +4,29 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/client/globals"
 )
 
-func BroadcastMessage(messageInterface format.MessageInterface) {
-	speakerID := cyclic.NewIntFromBytes(messageInterface.GetSender()).Uint64()
+type Sender interface {
+	Send(messageInterface format.MessageInterface)
+}
+
+type APISender struct {}
+
+func (s APISender) Send(messageInterface format.MessageInterface) {
+	api.Send(messageInterface)
+}
+
+func BroadcastMessage(message format.MessageInterface, sendFunc Sender,
+	senderID uint64) {
+	speakerID := cyclic.NewIntFromBytes(message.GetSender()).Uint64()
 	messages := NewSerializedChannelbotMessages(1,
-		speakerID, messageInterface.GetPayload())
+		speakerID, message.GetPayload())
 
 	for _, message := range messages {
 		for _, subscriber := range subscribers {
-			api.Send(&api.APIMessage{
+			sendFunc.Send(&api.APIMessage{
 				Payload:     message,
-				SenderID:    globals.Session.GetCurrentUser().UserID,
+				SenderID:    senderID,
 				RecipientID: subscriber})
 		}
 	}

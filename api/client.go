@@ -225,8 +225,7 @@ func TryReceive() (format.MessageInterface, error) {
 // and safely release any sensitive memory.
 func Logout() error {
 	if globals.Session == nil {
-		err := errors.New("Logout: Cannot Logout when you are not logged in" +
-			" than yourself")
+		err := errors.New("Logout: Cannot Logout when you are not logged in")
 		jww.ERROR.Printf(err.Error())
 		return err
 	}

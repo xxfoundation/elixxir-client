@@ -15,7 +15,10 @@ import (
 func TestChannelMessageSerializationAndParsing(t *testing.T) {
 	expected := ChannelbotMessage{1, 5, "what do you guys think about straws?"}
 	serialization := expected.SerializeChannelbotMessage()
-	actual := ParseChannelbotMessage(serialization)
+	actual, err := ParseChannelbotMessage(serialization)
+	if err != nil {
+		t.Errorf("Error parsing channelbot message: %v", err.Error())
+	}
 
 	if actual.SpeakerID != expected.SpeakerID {
 		t.Errorf("Speaker ID differed from expected. Expected: %v, got %v",
@@ -75,14 +78,17 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 		t.Errorf("Got a different number of messages than expected. Got: %v," +
 			" expected %v.")
 	}
-	if !strings.Contains(ParseChannelbotMessage(
-		multipleSerializedMessages[0]).Message, "Beginning") {
+	message, err := ParseChannelbotMessage(multipleSerializedMessages[0])
+	if err != nil {
+		t.Errorf("Failed to parse first channelbot message: %v", err.Error())
+	}
+	if !strings.Contains(message.Message, "Beginning") {
 		t.Errorf("First message didn't contain the beginning of the" +
 			" long message")
 	}
-	if !strings.Contains(ParseChannelbotMessage(
-		multipleSerializedMessages[len(multipleSerializedMessages)-1]).
-		Message, "end.") {
+
+	message, err = ParseChannelbotMessage(multipleSerializedMessages[len(multipleSerializedMessages)-1])
+	if !strings.Contains(message.Message, "end.") {
 		t.Errorf("Last message didn't contain the end of the long message")
 	}
 }

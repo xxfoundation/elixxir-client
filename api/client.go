@@ -256,13 +256,14 @@ func Logout() error {
 
 func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
-	u.Nick = nick
+
 
 	if success {
+		u.Nick = nick
 		io.SetNick(globals.Session.GetNodeAddress(), u)
 	} else {
 		jww.ERROR.Printf("Tried to set nick for user %v, "+
-			"but that user wasn't in the registry", u.UserID)
+			"but that user wasn't in the registry", u)
 		return errors.New("That user wasn't in the user registry")
 	}
 

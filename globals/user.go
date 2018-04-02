@@ -49,7 +49,7 @@ func newUserRegistry() UserRegistry {
 	ul := make(map[uint64]uint64)
 	nk := make(map[uint64]*NodeKeys)
 
-	// Deterministically create 1000 users
+	// Deterministically create NUM_DEMO_USERS users
 	for i := 1; i <= NUM_DEMO_USERS; i++ {
 		t := new(User)
 		k := new(NodeKeys)

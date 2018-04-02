@@ -171,8 +171,21 @@ var rootCmd = &cobra.Command{
 
 			//Return the received message to console
 			if msg.GetPayload() != "" {
-				fmt.Printf("Message from %v, %v Received: %s\n", sender,
-					contact, msg.GetPayload())
+				channelMessage, err := channelbot.ParseChannelbotMessage(msg.
+					GetPayload())
+				if err == nil {
+					speakerContact := ""
+					user, ok := globals.Users.GetUser(channelMessage.SpeakerID)
+					if ok {
+						speakerContact = user.Nick
+					}
+					fmt.Printf("Message from channel %v, %v:\n%v, %v: %v\n",
+						sender, contact, channelMessage.SpeakerID,
+						speakerContact, channelMessage.Message)
+				} else {
+					fmt.Printf("Message from %v, %v Received: %s\n", sender,
+						contact, msg.GetPayload())
+				}
 				end = true
 			}
 

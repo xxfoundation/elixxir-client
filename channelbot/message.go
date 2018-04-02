@@ -35,14 +35,16 @@ func (m ChannelbotMessage) SerializeChannelbotMessage() string {
 	return result.String()
 }
 
-func ParseChannelbotMessage(serializedChannelMessage string) *ChannelbotMessage {
+func ParseChannelbotMessage(
+	serializedChannelMessage string) (*ChannelbotMessage, error) {
 	dec := gob.NewDecoder(bytes.NewBufferString(serializedChannelMessage))
 	var result ChannelbotMessage
 	err := dec.Decode(&result)
 	if err != nil {
-		jww.ERROR.Printf("Failed to decode gob for channelbot message: %v", err.Error())
+		jww.INFO.Printf("Failed to decode gob for channelbot message: %v",
+			err.Error())
 	}
-	return &result
+	return &result, err
 }
 
 func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
@@ -65,7 +67,7 @@ func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
 
 			nextChannelMessage := ChannelbotMessage{GroupID: GroupID,
 				SpeakerID: SpeakerID, Message: nextMessagePayload}.
-					SerializeChannelbotMessage()
+				SerializeChannelbotMessage()
 			// prepend the resulting message
 			result = append([]string{nextChannelMessage}, result...)
 			length = ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,

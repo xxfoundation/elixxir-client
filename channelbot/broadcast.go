@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package channelbot
 
 import (
@@ -23,11 +29,13 @@ func BroadcastMessage(message format.MessageInterface, sendFunc Sender,
 		speakerID, message.GetPayload())
 
 	for _, message := range messages {
-		for _, subscriber := range subscribers {
-			sendFunc.Send(&api.APIMessage{
-				Payload:     message,
-				SenderID:    senderID,
-				RecipientID: subscriber})
+		for subscriber, access := range users {
+			if access.CanReceive() {
+				sendFunc.Send(&api.APIMessage{
+					Payload:     message,
+					SenderID:    senderID,
+					RecipientID: subscriber})
+			}
 		}
 	}
 }

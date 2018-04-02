@@ -15,6 +15,7 @@ import (
 
 // This is the message type that the subscribers to the channelbot send to the
 // channel bot, by serialization.
+// TODO: serialize this for the network/cross-language communication using something better than gobs
 type ChannelbotMessage struct {
 	GroupID uint64
 	// This is the same as the user ID of the person who sent the message to

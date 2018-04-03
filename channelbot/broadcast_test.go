@@ -30,11 +30,11 @@ func TestBroadcastMessage(t *testing.T) {
 	// Only powers of two will be subscribers
 	sender := uint64(4)
 	users = map[uint64]AccessControl{
-		1:  UserAccess{true, true},
-		2:  UserAccess{true, true},
-		4:  UserAccess{true, true},
-		8:  UserAccess{true, true},
-		16: UserAccess{true, true},
+		1:  &OwnerAccess{},
+		2:  &OwnerAccess{},
+		4:  &OwnerAccess{},
+		8:  &OwnerAccess{},
+		16: &OwnerAccess{},
 	}
 
 	message := "This cheese is neat"

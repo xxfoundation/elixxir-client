@@ -13,38 +13,40 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 )
 
-var broadcastedRecipients []uint64
+var broadcastedRecipients map[uint64]struct{}
 
 type TestSender struct{}
 
 func (s TestSender) Send(messageInterface format.MessageInterface) {
-	broadcastedRecipients = append(broadcastedRecipients,
-		cyclic.NewIntFromBytes(messageInterface.GetRecipient()).Uint64())
+	// put the recipient in the map of recipients
+	broadcastedRecipients[cyclic.NewIntFromBytes(messageInterface.GetRecipient()).Uint64()] = struct{}{}
 }
 
 func TestBroadcastMessage(t *testing.T) {
-	broadcastedRecipients = make([]uint64, 0)
+	broadcastedRecipients = make(map[uint64]struct{})
 
 	// Make sure that when a message is broadcast,
 	// it gets send to the right people
 	// Only powers of two will be subscribers
 	sender := uint64(4)
-	subscribers = []uint64{1, 2, 4, 8, 16}
+	users = map[uint64]AccessControl{
+		1:  UserAccess{true, true},
+		2:  UserAccess{true, true},
+		4:  UserAccess{true, true},
+		8:  UserAccess{true, true},
+		16: UserAccess{true, true},
+	}
+
 	message := "This cheese is neat"
 	BroadcastMessage(&api.APIMessage{message, sender, 30}, &TestSender{}, 0)
-	for i := range subscribers {
-		found := false
-		// Each subscriber should be in the list of recipients that received
+	for i := range users {
+		// Each subscriber should be in the map of recipients that received
 		// the broadcast
-		for j := range broadcastedRecipients {
-			if broadcastedRecipients[j] == subscribers[i] {
-				found = true
-				break
-			}
-		}
+		_, found := broadcastedRecipients[i]
+
 		if !found {
-			t.Errorf("Couldn't find %v in the list of users who received the"+
-				" broadcast", subscribers[i])
+			t.Errorf("Couldn't find %v in the map of users who received the"+
+				" broadcast", users[i])
 		}
 	}
 }

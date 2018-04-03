@@ -6,7 +6,10 @@
 
 package channelbot
 
-import "errors"
+import (
+	"errors"
+	jww "github.com/spf13/jwalterweatherman"
+)
 
 type AccessControl interface {
 	CanReceive() bool
@@ -47,6 +50,7 @@ func AddUser(newUser uint64, commandSender uint64) error {
 	}
 	if sender.CanAddUser() {
 		users[newUser] = &OwnerAccess{}
+		jww.INFO.Printf("Adding user %v to channel", newUser)
 		return nil
 	} else {
 		return errors.New("Couldn't add user to channel: Access denied")
@@ -60,6 +64,7 @@ func RemoveUser(user, commandSender uint64) error {
 	}
 	if sender.CanRemoveUser() {
 		delete(users, user)
+		jww.INFO.Printf("Removing user %v from channel", user)
 		return nil
 	} else {
 		return errors.New("Couldn't remove user from channel: Access denied")

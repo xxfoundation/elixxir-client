@@ -20,9 +20,6 @@ type AccessControl interface {
 // The person who creates the channel has OwnerAccess
 type OwnerAccess struct{}
 
-// make sure that OwnerAccess implements AccessControl
-//var _ AccessControl = (OwnerAccess)(nil)
-
 func (o *OwnerAccess) CanReceive() bool    { return true }
 func (o *OwnerAccess) CanSend() bool       { return true }
 func (o *OwnerAccess) CanSetTopic() bool   { return true }

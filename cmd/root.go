@@ -21,6 +21,7 @@ import (
 	"time"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/client/channelbot"
+	"strings"
 )
 
 var verbose bool
@@ -236,8 +237,21 @@ var channelbotCmd = &cobra.Command{
 		sessionInitialization()
 
 		globals.SetReceiver(func(message format.MessageInterface) {
-			channelbot.BroadcastMessage(message, &channelbot.APISender{},
-				globals.Session.GetCurrentUser().UserID)
+			payload := message.GetPayload()
+			if payload != "" && strings.Index(payload, "/") == 0 {
+				// this is a command and we should parse it as a command
+				sender := cyclic.NewIntFromBytes(message.GetSender()).Uint64()
+				err := channelbot.ParseCommand(payload, sender)
+				if err != nil {
+					// report the error back to the user who's run the command
+					bindings.Send(api.APIMessage{err.Error(),
+						globals.Session.GetCurrentUser().UserID, sender})
+				}
+			} else {
+				// this is a normal message that should be rebroadcast
+				channelbot.BroadcastMessage(message, &channelbot.APISender{},
+					globals.Session.GetCurrentUser().UserID)
+			}
 		})
 
 		// Block forever as a keepalive

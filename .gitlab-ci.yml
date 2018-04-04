@@ -65,7 +65,7 @@ setup:
     ##
     ## Glide diagnostics
     ##
-    - glide version
+    - glide --version
 
     - git clean -ffdx
     - rm -fr ~/.glide

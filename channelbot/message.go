@@ -41,8 +41,7 @@ func ParseChannelbotMessage(
 	var result ChannelbotMessage
 	err := dec.Decode(&result)
 	if err != nil {
-		jww.INFO.Printf("Failed to decode gob for channelbot message: %v",
-			err.Error())
+		err = errors.New("Failed to decode gob for channelbot message: " + err.Error())
 	}
 	return &result, err
 }

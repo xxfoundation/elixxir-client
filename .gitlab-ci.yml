@@ -68,7 +68,7 @@ setup:
     - glide --version
 
     - git clean -ffdx
-    - rm -fr ~/.glide
+    - rm -fr /root/.glide
     - glide install -v
   artifacts:
     paths:

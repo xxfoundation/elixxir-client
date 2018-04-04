@@ -7,13 +7,13 @@
 package channelbot
 
 import (
-	"testing"
 	"gitlab.com/privategrity/crypto/format"
 	"strings"
+	"testing"
 )
 
 func TestChannelMessageSerializationAndParsing(t *testing.T) {
-	expected := ChannelbotMessage{1, 5, "what do you guys think about straws?"}
+	expected := ChannelbotMessage{5, "what do you guys think about straws?"}
 	serialization := expected.SerializeChannelbotMessage()
 	actual, err := ParseChannelbotMessage(serialization)
 	if err != nil {
@@ -23,10 +23,6 @@ func TestChannelMessageSerializationAndParsing(t *testing.T) {
 	if actual.SpeakerID != expected.SpeakerID {
 		t.Errorf("Speaker ID differed from expected. Expected: %v, got %v",
 			expected.SpeakerID, actual.SpeakerID)
-	}
-	if actual.GroupID != expected.GroupID {
-		t.Errorf("Group ID differed from expected. Expected: %v, got %v",
-			expected.GroupID, actual.GroupID)
 	}
 	if actual.Message != expected.Message {
 		t.Errorf("Message differed from expected. Expected: %v, got %v",
@@ -71,7 +67,7 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 
 	// if there isn't too much metadata embedded in the channelbot messages,
 	// you can expect this number of submessages to be needed.
-	expectedNumberOfMessages := uint64(len(longMessageToChannel)) / format.
+	expectedNumberOfMessages := uint64(len(longMessageToChannel))/format.
 		DATA_LEN + 1
 
 	if expectedNumberOfMessages != uint64(len(multipleSerializedMessages)) {

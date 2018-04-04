@@ -17,7 +17,6 @@ import (
 // channel bot, by serialization.
 // TODO: serialize this for the network/cross-language communication using something better than gobs
 type ChannelbotMessage struct {
-	GroupID uint64
 	// This is the same as the user ID of the person who sent the message to
 	// the channelbot
 	SpeakerID uint64
@@ -52,7 +51,7 @@ func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
 	Message string) []string {
 	// Try to serialize a gob with the message fields left untouched,
 	// and see if it fits in the length of a message payload
-	length := ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,
+	length := ChannelbotMessage{SpeakerID: SpeakerID,
 		Message: Message}.SerializeChannelbotMessage()
 
 	if uint64(len(length)) > format.DATA_LEN {
@@ -66,12 +65,12 @@ func NewSerializedChannelbotMessages(GroupID, SpeakerID uint64,
 			nextMessagePayload := Message[partition:]
 			Message = Message[:partition]
 
-			nextChannelMessage := ChannelbotMessage{GroupID: GroupID,
+			nextChannelMessage := ChannelbotMessage{
 				SpeakerID: SpeakerID, Message: nextMessagePayload}.
 				SerializeChannelbotMessage()
 			// prepend the resulting message
 			result = append([]string{nextChannelMessage}, result...)
-			length = ChannelbotMessage{GroupID: GroupID, SpeakerID: SpeakerID,
+			length = ChannelbotMessage{SpeakerID: SpeakerID,
 				Message: Message}.SerializeChannelbotMessage()
 		}
 		result = append([]string{length}, result...)

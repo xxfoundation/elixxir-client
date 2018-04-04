@@ -9,6 +9,7 @@ package channelbot
 import (
 	"bytes"
 	"encoding/gob"
+	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/crypto/format"
 )

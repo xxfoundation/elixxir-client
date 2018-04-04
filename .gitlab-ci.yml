@@ -62,6 +62,11 @@ setup:
     ##
     - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
 
+    ##
+    ## Glide diagnostics
+    ##
+    - glide version
+
     - git clean -ffdx
     - rm -fr ~/.glide
     - glide install -v

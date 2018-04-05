@@ -270,7 +270,7 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Verbose mode for debugging")
-	rootCmd.Flags().BoolVar(&noRatchet, "noratchet", false,
+	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,

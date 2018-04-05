@@ -20,12 +20,12 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
-	for i := 0; i < len(DEMO_NICKS); i++ {
+	for i := 0; i < len(DEMO_USER_NICKS); i++ {
 		reg, _ := Users.LookupUser(UserHash(uint64(i+1)))
 		usr, _ := Users.GetUser(reg)
-		if usr.Nick != DEMO_NICKS[i] {
+		if usr.Nick != DEMO_USER_NICKS[i] {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
-				DEMO_NICKS[i], usr.Nick)
+				DEMO_USER_NICKS[i], usr.Nick)
 		}
 	}
 	// Test the NewUser function

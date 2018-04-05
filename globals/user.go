@@ -15,9 +15,11 @@ import (
 
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
-var NUM_DEMO_USERS = int(10)
-var DEMO_NICKS = []string {"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
+var NUM_DEMO_USERS = int(40)
+var DEMO_USER_NICKS = []string {"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
 "Mario", "Will", "Allan", "Jono"}
+var DEMO_CHANNEL_NAMES = []string {"#General", "#Engineering", "#Lunch",
+"#Random"}
 
 // Interface for User Registry operations
 type UserRegistry interface {
@@ -44,8 +46,10 @@ type UserMap struct {
 
 // newUserRegistry creates a new UserRegistry interface
 func newUserRegistry() UserRegistry {
-
-	uc := make(map[uint64]*User)
+	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
+		jww.ERROR.Print("Not enough demo users have been hardcoded.")
+	}
+ 	uc := make(map[uint64]*User)
 	ul := make(map[uint64]uint64)
 	nk := make(map[uint64]*NodeKeys)
 
@@ -75,8 +79,12 @@ func newUserRegistry() UserRegistry {
 		nk[t.UserID] = k
 	}
 
-	for i := 0; i < len(DEMO_NICKS); i++ {
-		uc[uint64(i+1)].Nick = DEMO_NICKS[i]
+	// Channels have been hardcoded to users 101-200
+	for i := 0; i < len(DEMO_USER_NICKS); i++ {
+		uc[uint64(i+1)].Nick = DEMO_USER_NICKS[i]
+	}
+	for i := 0; i < len(DEMO_CHANNEL_NAMES); i++ {
+		uc[uint64(i+31)].Nick = DEMO_CHANNEL_NAMES[i]
 	}
 
 	// With an underlying UserMap data structure
@@ -173,6 +181,5 @@ func (m *UserMap) GetContactList() (ids []uint64, nicks []string) {
 		nicks[index] = user.Nick
 		index++
 	}
-
 	return ids, nicks
 }

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
+	"gitlab.com/privategrity/client/channelbot"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
@@ -211,13 +212,35 @@ func TryReceive() (format.MessageInterface, error) {
 		message, err = globals.Session.PopFifo()
 
 		if err == nil && message != nil {
-			m.Payload = message.GetPayload()
+			if message.GetPayload() != "" {
+				// try to parse the gob (in case it's from a channel)
+				channelMessage, err := channelbot.ParseChannelbotMessage(
+					message.GetPayload())
+				if err == nil {
+					// Message from channelbot
+					m.SenderID = channelMessage.SpeakerID
+					m.Payload = channelMessage.Message
+				} else {
+					// Message from normal client
+					m.SenderID = message.GetSenderIDUint()
+					m.Payload = message.GetPayload()
+				}
+			}
 			m.RecipientID = message.GetRecipientIDUint()
-			m.SenderID = message.GetSenderIDUint()
 		}
 	}
 
 	return m, err
+}
+
+type APISender struct{}
+
+func (s APISender) Send(messageInterface format.MessageInterface) {
+	Send(messageInterface)
+}
+
+type Sender interface {
+	Send(messageInterface format.MessageInterface)
 }
 
 // Logout closes the connection to the server at this time and does
@@ -255,7 +278,6 @@ func Logout() error {
 
 func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
-
 
 	if success {
 		u.Nick = nick

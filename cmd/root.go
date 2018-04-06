@@ -249,7 +249,7 @@ var channelbotCmd = &cobra.Command{
 				}
 			} else {
 				// this is a normal message that should be rebroadcast
-				channelbot.BroadcastMessage(message, &channelbot.APISender{},
+				channelbot.BroadcastMessage(message, &api.APISender{},
 					globals.Session.GetCurrentUser().UserID)
 			}
 		})

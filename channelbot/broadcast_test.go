@@ -8,7 +8,6 @@ package channelbot
 
 import (
 	"testing"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/cyclic"
 )
@@ -17,7 +16,7 @@ var broadcastedRecipients map[uint64]struct{}
 
 type TestSender struct{}
 
-func (s TestSender) Send(messageInterface format.MessageInterface) {
+func (s *TestSender) Send(messageInterface format.MessageInterface) {
 	// put the recipient in the map of recipients
 	broadcastedRecipients[cyclic.NewIntFromBytes(messageInterface.GetRecipient()).Uint64()] = struct{}{}
 }
@@ -38,7 +37,11 @@ func TestBroadcastMessage(t *testing.T) {
 	}
 
 	message := "This cheese is neat"
-	BroadcastMessage(&api.APIMessage{message, sender, 30}, &TestSender{}, 0)
+	preparedMessage, err := format.NewMessage(sender, 30, message)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	BroadcastMessage(preparedMessage[0], &TestSender{}, sender)
 	for i := range users {
 		// Each subscriber should be in the map of recipients that received
 		// the broadcast
@@ -46,7 +49,7 @@ func TestBroadcastMessage(t *testing.T) {
 
 		if !found {
 			t.Errorf("Couldn't find %v in the map of users who received the"+
-				" broadcast", users[i])
+				" broadcast", i)
 		}
 	}
 }

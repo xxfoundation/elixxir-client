@@ -159,9 +159,19 @@ func Login(UID uint64) (string, error) {
 }
 
 func Send(message format.MessageInterface) error {
+	var err error
+
+	// If blocking transmission is disabled,
+	// check if there are any waiting errors
+	if !globals.BlockingTransmission {
+		select {
+		case err = <-globals.TransmissionErrCh:
+		default:
+		}
+	}
 
 	if globals.Session == nil {
-		err := errors.New("Send: Could not send when not logged in")
+		err = errors.New("Send: Could not send when not logged in")
 		jww.ERROR.Printf(err.Error())
 		return err
 	}
@@ -169,7 +179,7 @@ func Send(message format.MessageInterface) error {
 	// TODO: this could be a lot cleaner if we stored IDs as byte slices
 	if !bytes.Equal(message.GetSender(), cyclic.NewIntFromUInt(globals.Session.
 		GetCurrentUser().UserID).LeftpadBytes(format.SID_LEN)) {
-		err := errors.New("Send: Cannot send a message from someone other" +
+		err = errors.New("Send: Cannot send a message from someone other" +
 			" than yourself")
 		jww.ERROR.Printf(err.Error())
 		return err
@@ -181,18 +191,32 @@ func Send(message format.MessageInterface) error {
 		message.GetPayload())
 
 	// Prepare the new messages to be sent
+
 	for _, newMessage := range newMessages {
 		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
-		// Send the message
-		err := io.TransmitMessage(globals.Session.GetNodeAddress(),
-			newMessageBytes)
-		// If we get an error, return it
-		if err != nil {
-			return err
+		// Send the message in a separate thread
+		if globals.BlockingTransmission {
+
+		} else {
+			go func(newMessageBytes *format.MessageSerial) {
+				globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
+					GetNodeAddress(),
+					newMessageBytes)
+			}(newMessageBytes)
 		}
 	}
 
-	return nil
+	// Wait for the return if blocking transmission is enabled
+	if globals.BlockingTransmission {
+		return <-globals.TransmissionErrCh
+	}
+
+	return err
+}
+
+// Turns off blocking transmission, for use with the channel bot and dummy bot
+func DisableBlockingTransmission() {
+	globals.BlockingTransmission = false
 }
 
 // Checks if there is a received message on the internal fifo.
@@ -255,7 +279,6 @@ func Logout() error {
 
 func SetNick(UID uint64, nick string) error {
 	u, success := globals.Users.GetUser(UID)
-
 
 	if success {
 		u.Nick = nick

@@ -15,13 +15,13 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
+	"gitlab.com/privategrity/client/channelbot"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"os"
-	"time"
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/client/channelbot"
+	"os"
 	"strings"
+	"time"
 )
 
 var verbose bool
@@ -34,6 +34,7 @@ var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
 var nick string
+var blockingTransmission bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -47,6 +48,15 @@ func Execute() {
 
 func sessionInitialization() {
 	// Disable ratcheting if the flag is set
+
+	if !blockingTransmission {
+		if !noRatchet {
+			fmt.Printf("Cannot disable Blocking Transmission with" +
+				" Ratcheting turned on\n")
+		}
+		api.DisableBlockingTransmission()
+	}
+
 	if noRatchet {
 		bindings.DisableRatchet()
 	}
@@ -272,6 +282,9 @@ func init() {
 		"Verbose mode for debugging")
 	rootCmd.Flags().BoolVar(&noRatchet, "noratchet", false,
 		"Avoid ratcheting the keys for forward secrecy")
+
+	rootCmd.Flags().BoolVar(&blockingTransmission, "blockingTransmission",
+		true, "Sets if transmitting messages blocks or not")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")

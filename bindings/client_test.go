@@ -6,48 +6,53 @@
 package bindings
 
 import (
-	"strings"
-	"gitlab.com/privategrity/comms/mixserver"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/format"
 	"bytes"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"testing"
-	"os"
+	"gitlab.com/privategrity/client/globals"
 	pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/comms/mixserver"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
+	"os"
+	"strings"
+	"testing"
+	"time"
 )
 
 const SERVER_ADDRESS = "localhost:5557"
+
 var nick = "Mario"
+
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
 type TestInterface struct{}
-func (m TestInterface) NewRound(roundId string) {}
-func (m TestInterface) SetPublicKey(roundId string, pkey []byte) {}
-func (m TestInterface) PrecompDecrypt(message *pb.PrecompDecryptMessage) {}
-func (m TestInterface) PrecompEncrypt(message *pb.PrecompEncryptMessage) {}
-func (m TestInterface) PrecompReveal(message *pb.PrecompRevealMessage) {}
-func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage) {}
-func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
+
+func (m TestInterface) NewRound(roundId string)                              {}
+func (m TestInterface) SetPublicKey(roundId string, pkey []byte)             {}
+func (m TestInterface) PrecompDecrypt(message *pb.PrecompDecryptMessage)     {}
+func (m TestInterface) PrecompEncrypt(message *pb.PrecompEncryptMessage)     {}
+func (m TestInterface) PrecompReveal(message *pb.PrecompRevealMessage)       {}
+func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage)     {}
+func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage)         {}
 func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
 func (m TestInterface) PrecompShareCompare(message *pb.
-PrecompShareCompareMessage) {}
+	PrecompShareCompareMessage) {
+}
 func (m TestInterface) PrecompShareConfirm(message *pb.
-PrecompShareConfirmMessage) {}
+	PrecompShareConfirmMessage) {
+}
 func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
 func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
 func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
 func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
-		return &pb.CmixMessage{}
+	return &pb.CmixMessage{}
 }
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-ContactMessage {
-		return &pb.ContactMessage{}
+	ContactMessage {
+	return &pb.ContactMessage{}
 }
 func (m TestInterface) SetNick(message *pb.Contact) {
 	nick = message.Nick
 }
 func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
-
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
@@ -55,7 +60,7 @@ type DummyStorage struct {
 	LastSave []byte
 }
 
-func (d *DummyStorage) SetLocation(l string) (error) {
+func (d *DummyStorage) SetLocation(l string) error {
 	d.Location = l
 	return nil
 }
@@ -64,7 +69,7 @@ func (d *DummyStorage) GetLocation() string {
 	return d.Location
 }
 
-func (d *DummyStorage) Save(b []byte) (error) {
+func (d *DummyStorage) Save(b []byte) error {
 	d.LastSave = make([]byte, len(b))
 	for i := 0; i < len(b); i++ {
 		d.LastSave[i] = b[i]
@@ -230,7 +235,6 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-
 func TestLogin(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
@@ -264,6 +268,26 @@ func TestLogout(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
+func TestDisableBlockingTransmission(t *testing.T) {
+	if !globals.BlockingTransmission {
+		t.Errorf("BlockingTransmission not intilized properly")
+	}
+	DisableBlockingTransmission()
+	if globals.BlockingTransmission {
+		t.Errorf("BlockingTransmission not disabled properly")
+	}
+}
+
+func TestSetRateLimiting(t *testing.T) {
+	if globals.TransmitDelay != time.Duration(globals.DefaultTransmitDelay)*time.Millisecond {
+		t.Errorf("SetRateLimiting not intilized properly")
+	}
+	SetRateLimiting(10)
+	if globals.TransmitDelay != time.Duration(10)*time.Millisecond {
+		t.Errorf("SetRateLimiting not updated properly")
+	}
+}
+
 // func TestSend(t *testing.T) {
 // 	registrationCode := "JHJ6L9BACDVC"
 // 	nick := "Nickname"
@@ -272,7 +296,7 @@ func TestLogout(t *testing.T) {
 
 // 	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
 // 	loginRes, err2 := Login(regRes)
-	
+
 // 	if err2 != nil {
 // 		t.Errorf("Login failed: %s", err.Error())
 // 	}

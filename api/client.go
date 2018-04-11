@@ -18,6 +18,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
+	"time"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
@@ -161,6 +162,12 @@ func Login(UID uint64) (string, error) {
 func Send(message format.MessageInterface) error {
 	var err error
 
+	if globals.Session == nil {
+		err = errors.New("Send: Could not send when not logged in")
+		jww.ERROR.Printf(err.Error())
+		return err
+	}
+
 	// If blocking transmission is disabled,
 	// check if there are any waiting errors
 	if !globals.BlockingTransmission {
@@ -168,12 +175,6 @@ func Send(message format.MessageInterface) error {
 		case err = <-globals.TransmissionErrCh:
 		default:
 		}
-	}
-
-	if globals.Session == nil {
-		err = errors.New("Send: Could not send when not logged in")
-		jww.ERROR.Printf(err.Error())
-		return err
 	}
 
 	// TODO: this could be a lot cleaner if we stored IDs as byte slices
@@ -218,7 +219,12 @@ func Send(message format.MessageInterface) error {
 // Turns off blocking transmission, for use with the channel bot and dummy bot
 func DisableBlockingTransmission() {
 	globals.BlockingTransmission = false
-	globals.TransmitDelay = 0
+}
+
+//Sets the minimum amount of time between message transmissions
+// Just for testing, probably to be removed in production
+func SetRateLimiting(limit uint32) {
+	globals.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
 // Checks if there is a received message on the internal fifo.

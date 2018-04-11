@@ -13,8 +13,8 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"strconv"
 	"gitlab.com/privategrity/crypto/format"
+	"strconv"
 )
 
 // Copy of the storage interface.
@@ -264,7 +264,7 @@ func GetContactListJSON() ([]byte, error) {
 	result := buildContactListJSON(ids, nicks)
 	validateError := validateContactListJSON(result)
 	if validateError != nil {
-		validateError = errors.New("Validate contact list failed: "+
+		validateError = errors.New("Validate contact list failed: " +
 			validateError.Error())
 	}
 	if updateError != nil && validateError != nil {
@@ -276,7 +276,19 @@ func GetContactListJSON() ([]byte, error) {
 	return result, validateError
 }
 
-//Disables Ratcheting, only for debugging
+// Disables Ratcheting, only for debugging
 func DisableRatchet() {
 	api.DisableRatchet()
+}
+
+// Turns off blocking transmission so multiple messages can be sent
+// simultaneously
+func DisableBlockingTransmission() {
+	api.DisableBlockingTransmission()
+}
+
+// Sets the minimum amount of time, in ms, between message transmissions
+// Just for testing, probably to be removed in production
+func SetRateLimiting(limit int) {
+	api.SetRateLimiting(uint32(limit))
 }

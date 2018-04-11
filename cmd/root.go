@@ -35,6 +35,7 @@ var noRatchet bool
 var dummyFrequency float64
 var nick string
 var blockingTransmission bool
+var rateLimiting uint32
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -56,6 +57,8 @@ func sessionInitialization() {
 		}
 		api.DisableBlockingTransmission()
 	}
+
+	bindings.SetRateLimiting(int(rateLimiting))
 
 	if noRatchet {
 		bindings.DisableRatchet()
@@ -286,6 +289,12 @@ func init() {
 	rootCmd.Flags().BoolVar(&blockingTransmission, "blockingTransmission",
 		true, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
+
+	rootCmd.Flags().Uint32Var(&rateLimiting, "rateLimiting",
+		globals.DefaultTransmitDelay, "Sets the amount of time, in ms, "+
+			"that the client waits between sending messages.  "+
+			"set to zero to disable.  "+
+			"Automatically disabled if 'blockingTransmission' is false")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")

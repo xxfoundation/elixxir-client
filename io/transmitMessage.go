@@ -28,9 +28,8 @@ func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 
 	_, err := mixclient.SendMessageToServer(addr, cmixmsg)
 
-	time.Sleep(globals.TransmitDelay)
-
 	if globals.BlockingTransmission {
+		time.Sleep(globals.TransmitDelay)
 		globals.TransmissionMutex.Unlock()
 	}
 

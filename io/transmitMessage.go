@@ -11,6 +11,7 @@ import (
 	"gitlab.com/privategrity/comms/mixclient"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
+	"time"
 )
 
 // Send a cMix message to the server
@@ -26,6 +27,8 @@ func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 	}
 
 	_, err := mixclient.SendMessageToServer(addr, cmixmsg)
+
+	time.Sleep(globals.TransmitDelay)
 
 	if globals.BlockingTransmission {
 		globals.TransmissionMutex.Unlock()

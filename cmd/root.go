@@ -284,7 +284,8 @@ func init() {
 		"Avoid ratcheting the keys for forward secrecy")
 
 	rootCmd.Flags().BoolVar(&blockingTransmission, "blockingTransmission",
-		true, "Sets if transmitting messages blocks or not")
+		true, "Sets if transmitting messages blocks or not.  "+
+			"Defaults to true if unset.")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")

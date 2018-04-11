@@ -195,21 +195,22 @@ func Send(message format.MessageInterface) error {
 	for _, newMessage := range newMessages {
 		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
 		// Send the message in a separate thread
-		if globals.BlockingTransmission {
 
-		} else {
-			go func(newMessageBytes *format.MessageSerial) {
-				globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
-					GetNodeAddress(),
-					newMessageBytes)
-			}(newMessageBytes)
+		go func(newMessageBytes *format.MessageSerial) {
+			globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
+				GetNodeAddress(), newMessageBytes)
+		}(newMessageBytes)
+
+		if globals.BlockingTransmission {
+			err = <-globals.TransmissionErrCh
+			if err != nil {
+				return err
+			}
 		}
+
 	}
 
 	// Wait for the return if blocking transmission is enabled
-	if globals.BlockingTransmission {
-		return <-globals.TransmissionErrCh
-	}
 
 	return err
 }
@@ -217,6 +218,7 @@ func Send(message format.MessageInterface) error {
 // Turns off blocking transmission, for use with the channel bot and dummy bot
 func DisableBlockingTransmission() {
 	globals.BlockingTransmission = false
+	globals.TransmitDelay = 0
 }
 
 // Checks if there is a received message on the internal fifo.

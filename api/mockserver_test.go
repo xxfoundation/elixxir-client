@@ -8,16 +8,16 @@
 package api
 
 import (
-		pb "gitlab.com/privategrity/comms/mixmessages"
-		"gitlab.com/privategrity/comms/mixserver"
-		"os"
-		"testing"
-		"bytes"
-		"encoding/gob"
-		"gitlab.com/privategrity/client/globals"
-		"strconv"
-		"gitlab.com/privategrity/crypto/cyclic"
-		"gitlab.com/privategrity/crypto/format"
+	"bytes"
+	"encoding/gob"
+	"gitlab.com/privategrity/client/globals"
+	pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/comms/mixserver"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
+	"os"
+	"strconv"
+	"testing"
 )
 
 const SERVER_ADDRESS = "localhost:5556"
@@ -160,7 +160,7 @@ func TestSend(t *testing.T) {
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	userID, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
-	loginRes, err2 := Login(userID)
+	loginRes, err2 := Login(userID, SERVER_ADDRESS)
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -196,7 +196,7 @@ func TestReceive(t *testing.T) {
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	userID, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
-	loginRes, err2 := Login(userID)
+	loginRes, err2 := Login(userID, SERVER_ADDRESS)
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -214,14 +214,14 @@ func TestReceive(t *testing.T) {
 		t.Errorf("Could not receive a message from a nonempty FIFO.")
 	}
 	if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 10 {
-		t.Errorf("Recipient of received message is incorrect. " +
+		t.Errorf("Recipient of received message is incorrect. "+
 			"Expected: 10 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
-				GetRecipient()).Uint64())
+			GetRecipient()).Uint64())
 	}
 }
 
 func TestSetNick(t *testing.T) {
-	err := SetNick(0,"Guy")
+	err := SetNick(0, "Guy")
 	if err == nil {
 		t.Errorf("SetNick did not error out on an invalid UID")
 	}
@@ -275,10 +275,12 @@ func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
 func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
 
 func (m TestInterface) PrecompShareCompare(message *pb.
-PrecompShareCompareMessage) {}
+	PrecompShareCompareMessage) {
+}
 
 func (m TestInterface) PrecompShareConfirm(message *pb.
-PrecompShareConfirmMessage) {}
+	PrecompShareConfirmMessage) {
+}
 
 func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
 
@@ -287,12 +289,12 @@ func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
 func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
 
 func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
-		return &pb.CmixMessage{}
+	return &pb.CmixMessage{}
 }
 
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-ContactMessage {
-		return &pb.ContactMessage{}
+	ContactMessage {
+	return &pb.ContactMessage{}
 }
 
 var nick = "Mario"
@@ -309,7 +311,7 @@ type DummyStorage struct {
 	LastSave []byte
 }
 
-func (d *DummyStorage) SetLocation(l string) (error) {
+func (d *DummyStorage) SetLocation(l string) error {
 	d.Location = l
 	return nil
 }
@@ -318,7 +320,7 @@ func (d *DummyStorage) GetLocation() string {
 	return d.Location
 }
 
-func (d *DummyStorage) Save(b []byte) (error) {
+func (d *DummyStorage) Save(b []byte) error {
 	d.LastSave = make([]byte, len(b))
 	for i := 0; i < len(b); i++ {
 		d.LastSave[i] = b[i]

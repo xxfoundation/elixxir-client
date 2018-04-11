@@ -17,7 +17,7 @@ import (
 // surrounding the User struct and the UserRegistry interface
 func TestUserSession(t *testing.T) {
 
-	test := 8
+	test := 9
 	pass := 0
 
 	u := new(User)
@@ -77,7 +77,15 @@ func TestUserSession(t *testing.T) {
 	}
 
 	if Session.GetNodeAddress() == "" {
-		t.Errorf("Error: Node Address not set correctly!")
+		t.Errorf("Error: Node Address not set correctly with Regestration!")
+	} else {
+		pass++
+	}
+
+	Session.SetNodeAddress("test")
+
+	if Session.GetNodeAddress() != "test" {
+		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
 	} else {
 		pass++
 	}

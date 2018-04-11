@@ -7,7 +7,6 @@
 package api
 
 import (
-	"bytes"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -178,10 +177,11 @@ func Send(message format.MessageInterface) error {
 	}
 
 	// TODO: this could be a lot cleaner if we stored IDs as byte slices
-	if !bytes.Equal(message.GetSender(), cyclic.NewIntFromUInt(globals.Session.
-		GetCurrentUser().UserID).LeftpadBytes(format.SID_LEN)) {
-		err = errors.New("Send: Cannot send a message from someone other" +
-			" than yourself")
+	if cyclic.NewIntFromBytes(message.GetSender()).Uint64() != globals.Session.GetCurrentUser().UserID {
+		err := errors.New(fmt.Sprintf("Send: Cannot send a message from someone other"+
+			" than yourself. Expected sender: %v, got sender: %v",
+			cyclic.NewIntFromBytes(message.GetSender()).Uint64(),
+			globals.Session.GetCurrentUser().UserID))
 		jww.ERROR.Printf(err.Error())
 		return err
 	}

@@ -276,6 +276,10 @@ var channelbotCmd = &cobra.Command{
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {
+	// NOTE: The point of init() is to be declarative.
+	// There is one init in each sub command. Do not put variable declarations
+	// here, and ensure all the Flags are of the *P variety, unless there's a
+	// very good reason not to have them as local params to sub command."
 	cobra.OnInitialize(initConfig, initLog)
 
 	// Here you will define your flags and configuration settings.

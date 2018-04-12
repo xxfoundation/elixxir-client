@@ -286,11 +286,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
 
-	rootCmd.Flags().BoolVar(&noBlockingTransmission, "noBlockingTransmission",
-		false, "Sets if transmitting messages blocks or not.  "+
+	rootCmd.Flags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
+		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
 
-	rootCmd.Flags().Uint32Var(&rateLimiting, "rateLimiting",
+	rootCmd.Flags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		globals.DefaultTransmitDelay, "Sets the amount of time, in ms, "+
 			"that the client waits between sending messages.  "+
 			"set to zero to disable.  "+
@@ -322,7 +322,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"UserID to send message to")
 
-	rootCmd.Flags().Float64Var(&dummyFrequency, "dummyfrequency", 0,
+	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
 

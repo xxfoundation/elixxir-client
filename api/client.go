@@ -235,9 +235,7 @@ func SetRateLimiting(limit uint32) {
 // Checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
 func TryReceive() (format.MessageInterface, error) {
-
 	var err error
-
 	var m APIMessage
 
 	if globals.Session == nil {

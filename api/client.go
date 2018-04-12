@@ -197,7 +197,6 @@ func Send(message format.MessageInterface) error {
 		message.GetPayload())
 
 	// Prepare the new messages to be sent
-
 	for _, newMessage := range newMessages {
 		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
 		// Send the message in a separate thread
@@ -217,7 +216,6 @@ func Send(message format.MessageInterface) error {
 	}
 
 	// Wait for the return if blocking transmission is enabled
-
 	return err
 }
 
@@ -252,8 +250,11 @@ func TryReceive() (format.MessageInterface, error) {
 					message.GetPayload())
 				if err == nil {
 					// Message from channelbot
+					// TODO Speaker ID has been hacked into the Recipient ID
+					// for channels
 					m.SenderID = message.GetSenderIDUint()
 					m.Payload = channelMessage.Message
+					m.RecipientID = channelMessage.SpeakerID
 				} else {
 					// Message from normal client
 					m.SenderID = message.GetSenderIDUint()

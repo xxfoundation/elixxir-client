@@ -290,11 +290,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
 
-	rootCmd.Flags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
+	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
 
-	rootCmd.Flags().Uint32VarP(&rateLimiting, "rateLimiting", "",
+	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		globals.DefaultTransmitDelay, "Sets the amount of time, in ms, "+
 			"that the client waits between sending messages.  "+
 			"set to zero to disable.  "+

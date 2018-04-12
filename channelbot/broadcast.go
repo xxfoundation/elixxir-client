@@ -8,34 +8,37 @@ package channelbot
 
 import (
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/crypto/cyclic"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type Sender interface {
 	Send(messageInterface format.MessageInterface)
 }
 
-type APISender struct{}
-
-func (s APISender) Send(messageInterface format.MessageInterface) {
-	api.Send(messageInterface)
-}
-
 func BroadcastMessage(message format.MessageInterface, sendFunc Sender,
 	senderID uint64) {
 	speakerID := cyclic.NewIntFromBytes(message.GetSender()).Uint64()
 	if users[speakerID].CanSend() {
-		messages := NewSerializedChannelbotMessages(1,
+		payloads := NewSerializedChannelbotMessages(1,
 			speakerID, message.GetPayload())
 
-		for _, message := range messages {
+		// broadcast the message to all subscribers
+		for _, payload := range payloads {
 			for subscriber, access := range users {
+				// only send to users that can receive
 				if access.CanReceive() {
-					sendFunc.Send(&api.APIMessage{
-						Payload:     message,
-						SenderID:    senderID,
-						RecipientID: subscriber})
+					preparedMessages, err := format.NewMessage(senderID,
+						subscriber, payload)
+					if err == nil {
+						// there should only be one serialized message per slice
+						for _, preparedMessage := range preparedMessages {
+							sendFunc.Send(preparedMessage)
+						}
+					} else {
+						jww.ERROR.Printf("Couldn't construct format messages" +
+							": %v", err.Error())
+					}
 				}
 			}
 		}

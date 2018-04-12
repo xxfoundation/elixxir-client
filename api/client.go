@@ -254,7 +254,7 @@ func TryReceive() (format.MessageInterface, error) {
 					message.GetPayload())
 				if err == nil {
 					// Message from channelbot
-					m.SenderID = channelMessage.SpeakerID
+					m.SenderID = message.GetSenderIDUint()
 					m.Payload = channelMessage.Message
 				} else {
 					// Message from normal client

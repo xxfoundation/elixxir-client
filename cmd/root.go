@@ -34,7 +34,7 @@ var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
 var nick string
-var blockingTransmission bool
+var noBlockingTransmission bool
 var rateLimiting uint32
 
 // Execute adds all child commands to the root command and sets flags
@@ -50,7 +50,7 @@ func Execute() {
 func sessionInitialization() {
 	// Disable ratcheting if the flag is set
 
-	if !blockingTransmission {
+	if noBlockingTransmission {
 		if !noRatchet {
 			fmt.Printf("Cannot disable Blocking Transmission with" +
 				" Ratcheting turned on\n")
@@ -129,7 +129,6 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
-		blockingTransmission = !blockingTransmission
 
 		var dummyPeriod time.Duration
 		var timer *time.Timer
@@ -287,7 +286,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
 
-	rootCmd.Flags().BoolVar(&blockingTransmission, "blockingTransmission",
+	rootCmd.Flags().BoolVar(&noBlockingTransmission, "noBlockingTransmission",
 		false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
 

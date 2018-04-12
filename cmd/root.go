@@ -129,6 +129,7 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
+		blockingTransmission = !blockingTransmission
 
 		var dummyPeriod time.Duration
 		var timer *time.Timer
@@ -287,7 +288,7 @@ func init() {
 		"Avoid ratcheting the keys for forward secrecy")
 
 	rootCmd.Flags().BoolVar(&blockingTransmission, "blockingTransmission",
-		true, "Sets if transmitting messages blocks or not.  "+
+		false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
 
 	rootCmd.Flags().Uint32Var(&rateLimiting, "rateLimiting",

@@ -15,13 +15,13 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
+	"gitlab.com/privategrity/client/channelbot"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"os"
-	"time"
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/client/channelbot"
+	"os"
 	"strings"
+	"time"
 )
 
 var verbose bool
@@ -34,6 +34,8 @@ var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
 var nick string
+var blockingTransmission bool
+var rateLimiting uint32
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -47,6 +49,17 @@ func Execute() {
 
 func sessionInitialization() {
 	// Disable ratcheting if the flag is set
+
+	if !blockingTransmission {
+		if !noRatchet {
+			fmt.Printf("Cannot disable Blocking Transmission with" +
+				" Ratcheting turned on\n")
+		}
+		api.DisableBlockingTransmission()
+	}
+
+	bindings.SetRateLimiting(int(rateLimiting))
+
 	if noRatchet {
 		bindings.DisableRatchet()
 	}
@@ -116,6 +129,7 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
+		blockingTransmission = !blockingTransmission
 
 		var dummyPeriod time.Duration
 		var timer *time.Timer
@@ -272,6 +286,16 @@ func init() {
 		"Verbose mode for debugging")
 	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
+
+	rootCmd.Flags().BoolVar(&blockingTransmission, "blockingTransmission",
+		false, "Sets if transmitting messages blocks or not.  "+
+			"Defaults to true if unset.")
+
+	rootCmd.Flags().Uint32Var(&rateLimiting, "rateLimiting",
+		globals.DefaultTransmitDelay, "Sets the amount of time, in ms, "+
+			"that the client waits between sending messages.  "+
+			"set to zero to disable.  "+
+			"Automatically disabled if 'blockingTransmission' is false")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")

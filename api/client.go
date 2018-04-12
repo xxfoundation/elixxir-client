@@ -140,11 +140,15 @@ func Register(registrationCode uint64, nick string, nodeAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID uint64) (string, error) {
+func Login(UID uint64, addr string) (string, error) {
 
 	pollTerm := globals.NewThreadTerminator()
 
 	err := globals.LoadSession(UID, pollTerm)
+
+	if addr != "" {
+		globals.Session.SetNodeAddress(addr)
+	}
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",

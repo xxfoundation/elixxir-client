@@ -26,6 +26,7 @@ var Session UserSession
 type UserSession interface {
 	GetCurrentUser() (currentUser *User)
 	GetNodeAddress() string
+	SetNodeAddress(addr string)
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
 	PushFifo(*format.Message) error
@@ -144,6 +145,10 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 
 func (s *SessionObj) GetNodeAddress() string {
 	return s.NodeAddress
+}
+
+func (s *SessionObj) SetNodeAddress(addr string) {
+	s.NodeAddress = addr
 }
 
 func (s *SessionObj) PushFifo(msg *format.Message) error {

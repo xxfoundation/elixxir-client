@@ -114,7 +114,7 @@ func sessionInitialization() {
 
 	//log the user in
 	_, err = bindings.Login(
-		cyclic.NewIntFromUInt(userId).LeftpadBytes(8))
+		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), serverAddr)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")

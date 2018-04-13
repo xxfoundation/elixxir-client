@@ -249,6 +249,7 @@ func TestLogin(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
+	Logout()
 	globals.LocalStorage = nil
 }
 

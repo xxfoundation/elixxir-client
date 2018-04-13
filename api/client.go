@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/channelbot"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
@@ -17,7 +18,6 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
-	"gitlab.com/privategrity/client/channelbot"
 	"time"
 )
 
@@ -259,9 +259,9 @@ func TryReceive() (format.MessageInterface, error) {
 					// Message from normal client
 					m.SenderID = message.GetSenderIDUint()
 					m.Payload = message.GetPayload()
+					m.RecipientID = message.GetRecipientIDUint()
 				}
 			}
-			m.RecipientID = message.GetRecipientIDUint()
 		}
 	}
 

@@ -6,6 +6,7 @@
 
 package channelbot
 
+/*
 import (
 	"gitlab.com/privategrity/crypto/format"
 	"strings"
@@ -88,3 +89,4 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 		t.Errorf("Last message didn't contain the end of the long message")
 	}
 }
+*/

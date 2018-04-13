@@ -8,7 +8,7 @@ import:
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
 - package: gitlab.com/privategrity/comms
-  version: cmix138
+  version: cmix183
   repo: git@gitlab.com:privategrity/comms
   vcs: git
 - package: github.com/spf13/cobra

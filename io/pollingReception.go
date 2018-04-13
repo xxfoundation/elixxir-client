@@ -17,66 +17,61 @@ import (
 	"time"
 )
 
-func runfunc(wait uint64, quit globals.ThreadTerminator) {
-
+// This function continually polls for new messages for this client on the
+// server.
+func PollForMessages(wait uint64, quit globals.ThreadTerminator) {
 	usr := globals.Session.GetCurrentUser()
-
 	rqMsg := &pb.ClientPollMessage{UserID: usr.UserID}
 
-	q := false
+	for len(quit) == 0 {
+		time.Sleep(time.Duration(wait) * time.Millisecond)
+		cmixMsg, err := mixclient.SendClientPoll(globals.Session.GetNodeAddress(),
+			rqMsg)
 
-	var killNotify chan<- bool
-
-	for !q {
-
-		select {
-		case killNotify = <-quit:
-			q = true
-		default:
-			time.Sleep(time.Duration(wait) * time.Millisecond)
-
-			cmixMsg, _ := mixclient.SendClientPoll(globals.Session.GetNodeAddress(), rqMsg)
-
-			if len(cmixMsg.MessagePayload) != 0 {
-
-				msgBytes := format.MessageSerial{
-					Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-					Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-				}
-
-				msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
-
-				if err != nil {
-					jww.ERROR.Printf("Decryption failed: %v", err.Error())
-				} else {
-					if globals.UsingReceiver() {
-						err = globals.Receive(*msg)
-						if err != nil {
-							jww.ERROR.Printf(
-								"Couldn't receive message using receiver: %s",
-								err.Error())
-						}
-					} else {
-						// TODO deprecate FIFO reception?
-						err := globals.Session.PushFifo(msg)
-
-						if err != nil {
-							jww.ERROR.Printf("Could not push message onto FIFO,"+
-								" message lost: %s",
-								err.Error())
-						}
-					}
-				}
-
-			}
+		// Skip process if we don't have content
+		if err != nil {
+			jww.WARN.Printf("SendClientPoll error during Polling: %v", err.Error())
+			continue
 		}
-	}
-	close(quit)
+		if cmixMsg == nil || len(cmixMsg.MessagePayload) == 0 {
+			continue
+		}
 
+		// Receive and decrypt a message
+		msgBytes := format.MessageSerial{
+			Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
+			Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
+		}
+		msg, err := crypto.Decrypt(globals.Grp, &msgBytes)
+		if err != nil {
+			jww.ERROR.Printf("Decryption failed: %v", err.Error())
+			continue
+		}
+
+		err = globals.Receive(*msg)
+		if err != nil {
+			jww.ERROR.Printf(
+				"Couldn't receive message using receiver: %s",
+				err.Error())
+		}
+
+	}
+
+	// Signal to the thread terminator that I have finished.
+	killNotify := <-quit
+	close(quit)
 	if killNotify != nil {
 		killNotify <- true
 	}
+}
 
+// Wrapper for pushfifo function, which may be deprecated soon.
+func ReceiveFifo(message format.MessageInterface) {
+	Msg := message.(format.Message)
+	err := globals.Session.PushFifo(&Msg)
+	if err != nil {
+		jww.WARN.Printf("Error when calling PushFifo: %v", err.Error())
+	}
 }
 
 //Starts the reception runner which waits "wait" between checks,
@@ -88,7 +83,11 @@ func InitReceptionRunner(wait uint64,
 		quit = globals.NewThreadTerminator()
 	}
 
-	go runfunc(wait, quit)
+	if !globals.UsingReceiver() {
+		globals.SetReceiver(ReceiveFifo)
+	}
+
+	go PollForMessages(wait, quit)
 
 	return quit
 }

@@ -6,12 +6,14 @@
 
 package globals
 
-import "time"
+import (
+	"time"
+)
 
 type ThreadTerminator chan chan bool
 
 func NewThreadTerminator() ThreadTerminator {
-	t := make(chan chan bool)
+	t := make(chan chan bool, 1)
 	return t
 }
 

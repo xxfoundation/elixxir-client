@@ -6,9 +6,8 @@
 
 package channelbot
 
-/*
 import (
-	"gitlab.com/privategrity/crypto/format"
+	//"gitlab.com/privategrity/crypto/format"
 	"strings"
 	"testing"
 )
@@ -68,12 +67,12 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 
 	// if there isn't too much metadata embedded in the channelbot messages,
 	// you can expect this number of submessages to be needed.
-	expectedNumberOfMessages := uint64(len(longMessageToChannel))/format.
-		DATA_LEN + 1
+	expectedNumberOfMessages := uint64(10)
 
 	if expectedNumberOfMessages != uint64(len(multipleSerializedMessages)) {
-		t.Errorf("Got a different number of messages than expected. Got: %v," +
-			" expected %v.")
+		t.Errorf("Got a different number of messages than expected. Got: %v,"+
+			" expected %v.", len(multipleSerializedMessages),
+			expectedNumberOfMessages)
 	}
 	message, err := ParseChannelbotMessage(multipleSerializedMessages[0])
 	if err != nil {
@@ -89,4 +88,3 @@ func TestNewSerializedChannelMessages(t *testing.T) {
 		t.Errorf("Last message didn't contain the end of the long message")
 	}
 }
-*/

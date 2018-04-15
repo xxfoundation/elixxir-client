@@ -36,15 +36,18 @@ var dummyFrequency float64
 var nick string
 var noBlockingTransmission bool
 var rateLimiting uint32
+var autoRestart bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
 func Execute() {
+
 	if err := rootCmd.Execute(); err != nil {
 		jww.ERROR.Println(err)
-		os.Exit(1)
+		panic("dead")
 	}
+
 }
 
 func sessionInitialization() {
@@ -290,12 +293,15 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
 
+	rootCmd.PersistentFlags().BoolVarP(&autoRestart, "autoRestart", "", false,
+		"Makes the client restart after a failure")
+
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
 
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
-		globals.DefaultTransmitDelay, "Sets the amount of time, in ms, "+
+		globals.DEFAULT_TRANSMIT_DELAY, "Sets the amount of time, in ms, "+
 			"that the client waits between sending messages.  "+
 			"set to zero to disable.  "+
 			"Automatically disabled if 'blockingTransmission' is false")

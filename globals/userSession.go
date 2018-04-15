@@ -33,6 +33,7 @@ type UserSession interface {
 	PopFifo() (*format.Message, error)
 	StoreSession() error
 	Immolate() error
+	ReplacePollingReception(ThreadTerminator)
 }
 
 type NodeKeys struct {
@@ -289,6 +290,11 @@ func (s *SessionObj) Immolate() error {
 	Session = nil
 
 	return nil
+}
+
+func (s *SessionObj) ReplacePollingReception(terminator ThreadTerminator) {
+	s.pollTerm.Terminate()
+	s.pollTerm = terminator
 }
 
 func clearCyclicInt(c *cyclic.Int) {

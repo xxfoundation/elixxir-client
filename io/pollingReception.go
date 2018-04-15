@@ -14,17 +14,18 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
+	"sync/atomic"
 	"time"
 )
 
 // This function continually polls for new messages for this client on the
 // server.
-func PollForMessages(wait uint64, quit globals.ThreadTerminator) {
+func PollForMessages(wait time.Duration, quit globals.ThreadTerminator) {
 	usr := globals.Session.GetCurrentUser()
 	rqMsg := &pb.ClientPollMessage{UserID: usr.UserID}
 
 	for len(quit) == 0 {
-		time.Sleep(time.Duration(wait) * time.Millisecond)
+		time.Sleep(wait)
 		cmixMsg, err := mixclient.SendClientPoll(globals.Session.GetNodeAddress(),
 			rqMsg)
 
@@ -54,7 +55,7 @@ func PollForMessages(wait uint64, quit globals.ThreadTerminator) {
 				"Couldn't receive message using receiver: %s",
 				err.Error())
 		}
-
+		atomic.AddUint64(&globals.ReceptionCounter, uint64(1))
 	}
 
 	// Signal to the thread terminator that I have finished.
@@ -76,7 +77,7 @@ func ReceiveFifo(message format.MessageInterface) {
 
 //Starts the reception runner which waits "wait" between checks,
 // and quits via the "quit" chan
-func InitReceptionRunner(wait uint64,
+func InitReceptionRunner(wait time.Duration,
 	quit globals.ThreadTerminator) globals.ThreadTerminator {
 
 	if quit == nil {

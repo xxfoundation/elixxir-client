@@ -36,7 +36,6 @@ var dummyFrequency float64
 var nick string
 var noBlockingTransmission bool
 var rateLimiting uint32
-var autoRestart bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -45,7 +44,7 @@ func Execute() {
 
 	if err := rootCmd.Execute(); err != nil {
 		jww.ERROR.Println(err)
-		panic("dead")
+		os.Exit(1)
 	}
 
 }
@@ -292,9 +291,6 @@ func init() {
 		"Verbose mode for debugging")
 	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
 		"Avoid ratcheting the keys for forward secrecy")
-
-	rootCmd.PersistentFlags().BoolVarP(&autoRestart, "autoRestart", "", false,
-		"Makes the client restart after a failure")
 
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+

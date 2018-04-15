@@ -371,7 +371,7 @@ func checkPollingReception() {
 
 	receptionDelta := lastReceptionTime.Sub(oldReceptionTime)
 
-	if oldReceptionCounter == lastReceptionCounter && receptionDelta < WORST_RECEPTION_DELTA {
+	if oldReceptionCounter == lastReceptionCounter && receptionDelta > WORST_RECEPTION_DELTA {
 		pollTerm := globals.NewThreadTerminator()
 		globals.Session.ReplacePollingReception(pollTerm)
 		io.InitReceptionRunner(RECEPTION_POLLING_DELAY, pollTerm)

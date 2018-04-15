@@ -226,7 +226,7 @@ func Send(message format.MessageInterface) error {
 
 	}
 
-	checkPollingReception()
+	checkPollingRecpetion()
 
 	// Wait for the return if blocking transmission is enabled
 	return err
@@ -278,7 +278,7 @@ func TryReceive() (format.MessageInterface, error) {
 		}
 	}
 
-	checkPollingReception()
+	checkPollingRecpetion()
 
 	return m, err
 }
@@ -358,7 +358,7 @@ func DisableRatchet() {
 	forward.SetRatchetStatus(false)
 }
 
-func checkPollingReception() {
+func checkPollingRecpetion() {
 	if globals.Session == nil {
 		return
 	}

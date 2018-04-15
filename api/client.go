@@ -18,8 +18,6 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
-	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -30,14 +28,6 @@ type APIMessage struct {
 	SenderID    uint64
 	RecipientID uint64
 }
-
-var lastReceptionCounter = uint64(0)
-var lastReceptionTime time.Time
-
-const RECEPTION_POLLING_DELAY = time.Duration(1) * time.Second
-const WORST_RECEPTION_DELTA = 10 * RECEPTION_POLLING_DELAY
-
-var receptionLock = &sync.Mutex{}
 
 func (m APIMessage) GetSender() []byte {
 	senderAsInt := cyclic.NewIntFromUInt(m.SenderID)
@@ -72,8 +62,6 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 	if receiverErr != nil {
 		return receiverErr
 	}
-
-	lastReceptionTime = time.Now()
 
 	return nil
 }
@@ -169,7 +157,8 @@ func Login(UID uint64, addr string) (string, error) {
 		return "", err
 	}
 
-	io.InitReceptionRunner(RECEPTION_POLLING_DELAY, pollTerm)
+	pollWaitTimeMillis := uint64(1000)
+	io.InitReceptionRunner(pollWaitTimeMillis, pollTerm)
 
 	return globals.Session.GetCurrentUser().Nick, nil
 }
@@ -226,8 +215,6 @@ func Send(message format.MessageInterface) error {
 
 	}
 
-	checkPollingRecpetion()
-
 	// Wait for the return if blocking transmission is enabled
 	return err
 }
@@ -277,8 +264,6 @@ func TryReceive() (format.MessageInterface, error) {
 			}
 		}
 	}
-
-	checkPollingRecpetion()
 
 	return m, err
 }
@@ -356,25 +341,4 @@ func clearUint64(u *uint64) {
 
 func DisableRatchet() {
 	forward.SetRatchetStatus(false)
-}
-
-func checkPollingRecpetion() {
-	if globals.Session == nil {
-		return
-	}
-	receptionLock.Lock()
-	oldReceptionCounter := lastReceptionCounter
-	lastReceptionCounter = atomic.LoadUint64(&globals.ReceptionCounter)
-
-	oldReceptionTime := lastReceptionTime
-	lastReceptionTime = time.Now()
-
-	receptionDelta := lastReceptionTime.Sub(oldReceptionTime)
-
-	if oldReceptionCounter == lastReceptionCounter && receptionDelta < WORST_RECEPTION_DELTA {
-		pollTerm := globals.NewThreadTerminator()
-		globals.Session.ReplacePollingReception(pollTerm)
-		io.InitReceptionRunner(RECEPTION_POLLING_DELAY, pollTerm)
-	}
-	receptionLock.Unlock()
 }

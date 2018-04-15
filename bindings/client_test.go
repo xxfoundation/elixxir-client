@@ -280,7 +280,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 }
 
 func TestSetRateLimiting(t *testing.T) {
-	if globals.TransmitDelay != time.Duration(globals.DEFAULT_TRANSMIT_DELAY)*time.Millisecond {
+	if globals.TransmitDelay != time.Duration(globals.DefaultTransmitDelay)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}
 	SetRateLimiting(10)

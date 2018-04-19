@@ -14,11 +14,15 @@ import (
 
 func UpdateUserRegistry(addr string) error {
 	contacts, err := mixclient.RequestContactList(addr, &pb.ContactPoll{})
-
 	if err != nil {
 		return err
 	}
+	CheckContacts(contacts)
+	return nil
+}
 
+// TODO Do we want to remove contacts if they aren't in the retrieved list?
+func CheckContacts(contacts *pb.ContactMessage) {
 	for _, contact := range contacts.Contacts {
 		// upsert nick data into user registry
 		user, ok := globals.Users.GetUser(contact.UserID)
@@ -32,6 +36,4 @@ func UpdateUserRegistry(addr string) error {
 		}
 		globals.Users.UpsertUser(user)
 	}
-
-	return nil
 }

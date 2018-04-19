@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/io"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/mixserver"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -152,6 +153,37 @@ func TestRegisterInvalidNick(t *testing.T) {
 	globals.LocalStorage = nil
 }*/
 
+func TestUpdateUserRegistry(t *testing.T) {
+	registrationCode := "JHJ6L9BACDVC"
+	nick := "Nickname"
+	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&d, "hello", nil)
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
+	regRes, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	if err != nil {
+		t.Errorf("Registration failed: %s", err.Error())
+	}
+	if regRes == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+	testContact := pb.Contact{uint64(15), "Guy"}
+	testContactList := []*pb.Contact{&testContact}
+	io.CheckContacts(&pb.ContactMessage{testContactList})
+	userIDs, nicks := globals.Users.GetContactList()
+	pass := false
+	for i, id := range userIDs {
+		if id == uint64(15) {
+			if nicks[i] == "Guy" {
+				pass = true
+			}
+		}
+	}
+	if !pass {
+		t.Errorf("UpdateUserRegistry failed to update the user registry when" +
+			" the helper function was passed a pb.ContactMessage")
+	}
+}
+
 func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
 	registrationCode := "be50nhqpqjtjj"
@@ -231,6 +263,8 @@ func TestSetNick(t *testing.T) {
 	}
 
 }
+
+
 
 func TestLogout(t *testing.T) {
 	err := Logout()

@@ -170,6 +170,10 @@ func TestUpdateUserRegistry(t *testing.T) {
 	testContactList := []*pb.Contact{&testContact}
 	io.CheckContacts(&pb.ContactMessage{testContactList})
 	userIDs, nicks := globals.Users.GetContactList()
+	err = io.UpdateUserRegistry(SERVER_ADDRESS)
+	if err != nil {
+		t.Errorf("UpdateUserRegistry failed")
+	}
 	pass := false
 	for i, id := range userIDs {
 		if id == uint64(15) {

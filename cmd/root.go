@@ -36,6 +36,7 @@ var dummyFrequency float64
 var nick string
 var noBlockingTransmission bool
 var rateLimiting uint32
+var showVer bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -130,6 +131,15 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		// Main client run function
 
+		if showVer {
+			printVersion()
+			return
+		} else {
+			cmd.MarkPersistentFlagRequired("userid")
+			cmd.MarkPersistentFlagRequired("numnodes")
+			cmd.MarkPersistentFlagRequired("serveraddr")
+		}
+
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
@@ -152,11 +162,14 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-			contact, message)
+		// Only send a message if we have a message to send (except dummy messages)
+		if message != "" {
+			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				contact, message)
 
-		//Send the message
-		bindings.Send(api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId})
+			//Send the message
+			bindings.Send(api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId})
+		}
 
 		if dummyFrequency != 0 {
 			timer = time.NewTimer(dummyPeriod)
@@ -302,17 +315,17 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
-	rootCmd.MarkPersistentFlagRequired("userid")
+	//rootCmd.MarkPersistentFlagRequired("userid")
 	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "", "",
 		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")
-	rootCmd.MarkPersistentFlagRequired("serveraddr")
+	//rootCmd.MarkPersistentFlagRequired("serveraddr")
 	// TODO: support this negotiating separate keys with different servers
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
 			" connecting to")
-	rootCmd.MarkPersistentFlagRequired("numnodes")
+	//rootCmd.MarkPersistentFlagRequired("numnodes")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+
@@ -325,6 +338,8 @@ func init() {
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"UserID to send message to")
+	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
+		"Show the server version information.")
 
 	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+

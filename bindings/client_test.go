@@ -150,6 +150,43 @@ func TestGetContactListJSON(t *testing.T) {
 
 	// Finally, make sure that all the names we expect are in the JSON
 	// Ben's name should have changed to Snicklefritz
+	expected := []string{"Ben", "Rick", "Jake", "Mario",
+		"Allan", "David", "Jim", "Spencer", "Will", "Jono"}
+
+	actual := string(result)
+
+	for _, nick := range expected {
+		if !strings.Contains(actual, nick) {
+			t.Errorf("Error: Expected name %v wasn't in JSON %v", nick, actual)
+		}
+	}
+}
+
+func TestUpdateContactList(t *testing.T) {
+	user, _ := globals.Users.GetUser(1)
+	nk := make([]globals.NodeKeys, 1)
+	globals.Session = globals.NewUserSession(user, SERVER_ADDRESS, nk)
+	err := UpdateContactList()
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	result, err := GetContactListJSON()
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// But, just in case,
+	// let's make sure that we got the error out of validateContactList anyway
+	err = validateContactListJSON(result)
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Finally, make sure that all the names we expect are in the JSON
+	// Ben's name should have changed to Snicklefritz
 	expected := []string{"Snicklefritz", "Jonwayne", "Rick", "Jake", "Mario",
 		"Allan", "David", "Jim", "Spencer", "Will", "Jono"}
 
@@ -159,6 +196,22 @@ func TestGetContactListJSON(t *testing.T) {
 		if !strings.Contains(actual, nick) {
 			t.Errorf("Error: Expected name %v wasn't in JSON %v", nick, actual)
 		}
+	}
+}
+
+func TestValidateContactListJSON(t *testing.T) {
+	err := validateContactListJSON(([]byte)("{invalidJSON:\"hmmm\"}"))
+	if err == nil {
+		t.Errorf("No error from invalid JSON")
+	} else {
+		t.Log(err.Error())
+	}
+
+	err = validateContactListJSON(([]byte)(`{"Nick":"Jono"}`))
+	if err == nil {
+		t.Errorf("No error from JSON that doesn't match the schema")
+	} else {
+		t.Log(err.Error())
 	}
 }
 

@@ -174,12 +174,6 @@ func SetNick(UID []byte, nick string) error {
 	return api.SetNick(userID, nick)
 }
 
-/* Get an updated list of all users that the server knows about and update the
- * user structure to include all of them */
-func UpdateContactList() error {
-	return api.UpdateContactList()
-}
-
 /* We use this schema to validate the JSON we've generated at runtime,
  * and users of the bindings can use it as a description of the data they'll get
  * when they get the contact list. */
@@ -247,6 +241,12 @@ func validateContactListJSON(json []byte) error {
 	return nil
 }
 
+/* Get an updated list of all users that the server knows about and update the
+ * user structure to include all of them */
+func UpdateContactList() error {
+	return api.UpdateContactList()
+}
+
 /* Gets a list of user IDs and nicks and returns them as a JSON object because
  * Gomobile has dumb limitations.
  *
@@ -254,24 +254,12 @@ func validateContactListJSON(json []byte) error {
  * are structured. You'll get an array, and each element of the array has a
  * UserID which is a number, and a Nick which is a string. */
 func GetContactListJSON() ([]byte, error) {
-	updateError := api.UpdateContactList()
-	if updateError != nil {
-		updateError = errors.New("Update contact list failed: "+ updateError.
-			Error())
-	}
-
 	ids, nicks := api.GetContactList()
 	result := buildContactListJSON(ids, nicks)
 	validateError := validateContactListJSON(result)
 	if validateError != nil {
 		validateError = errors.New("Validate contact list failed: " +
 			validateError.Error())
-	}
-	if updateError != nil && validateError != nil {
-		return result, errors.New(updateError.Error() + validateError.Error())
-	}
-	if updateError != nil && validateError == nil {
-		return result, updateError
 	}
 	return result, validateError
 }

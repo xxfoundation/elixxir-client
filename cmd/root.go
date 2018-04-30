@@ -315,17 +315,14 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
-	//rootCmd.MarkPersistentFlagRequired("userid")
 	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "", "",
 		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")
-	//rootCmd.MarkPersistentFlagRequired("serveraddr")
 	// TODO: support this negotiating separate keys with different servers
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
 			" connecting to")
-	//rootCmd.MarkPersistentFlagRequired("numnodes")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

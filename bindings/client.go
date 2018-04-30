@@ -254,12 +254,12 @@ func validateContactListJSON(json []byte) error {
  * are structured. You'll get an array, and each element of the array has a
  * UserID which is a number, and a Nick which is a string. */
 func GetContactListJSON() ([]byte, error) {
-	/*updateError := api.UpdateContactList()
+	updateError := api.UpdateContactList()
 	if updateError != nil {
 		updateError = errors.New("Update contact list failed: "+ updateError.
 			Error())
-	}*/
-	var updateError error
+	}
+
 	ids, nicks := api.GetContactList()
 	result := buildContactListJSON(ids, nicks)
 	validateError := validateContactListJSON(result)

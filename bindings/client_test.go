@@ -34,10 +34,10 @@ func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage)     {}
 func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage)         {}
 func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
 func (m TestInterface) PrecompShareCompare(message *pb.
-	PrecompShareCompareMessage) {
+PrecompShareCompareMessage) {
 }
 func (m TestInterface) PrecompShareConfirm(message *pb.
-	PrecompShareConfirmMessage) {
+PrecompShareConfirmMessage) {
 }
 func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
 func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
@@ -46,8 +46,18 @@ func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage
 	return &pb.CmixMessage{}
 }
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-	ContactMessage {
-	return &pb.ContactMessage{}
+ContactMessage {
+	return &pb.ContactMessage{
+		Contacts: []*pb.Contact{
+			{
+				UserID: 3,
+				Nick:   "Snicklefritz",
+			}, {
+				UserID: 5786,
+				Nick:   "Jonwayne",
+			},
+		},
+	}
 }
 func (m TestInterface) SetNick(message *pb.Contact) {
 	nick = message.Nick
@@ -120,6 +130,9 @@ func TestInitClient(t *testing.T) {
 }
 
 func TestGetContactListJSON(t *testing.T) {
+	user, _ := globals.Users.GetUser(1)
+	nk := make([]globals.NodeKeys, 1)
+	globals.Session = globals.NewUserSession(user, SERVER_ADDRESS, nk)
 	// This call includes validating the JSON against the schema
 	result, err := GetContactListJSON()
 
@@ -136,8 +149,9 @@ func TestGetContactListJSON(t *testing.T) {
 	}
 
 	// Finally, make sure that all the names we expect are in the JSON
-	expected := []string{"Ben", "Rick", "Jake", "Mario", "Allan", "David",
-		"Jim", "Spencer", "Will", "Jono"}
+	// Ben's name should have changed to Snicklefritz
+	expected := []string{"Snicklefritz", "Jonwayne", "Rick", "Jake", "Mario",
+		"Allan", "David", "Jim", "Spencer", "Will", "Jono"}
 
 	actual := string(result)
 

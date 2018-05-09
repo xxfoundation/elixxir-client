@@ -8,12 +8,12 @@ package io
 
 import (
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/comms/mixclient"
+	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 )
 
 func UpdateUserRegistry(addr string) error {
-	contacts, err := mixclient.RequestContactList(addr, &pb.ContactPoll{})
+	contacts, err := client.RequestContactList(addr, &pb.ContactPoll{})
 	if err != nil {
 		return err
 	}

@@ -10,7 +10,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/comms/mixclient"
+	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
@@ -25,7 +25,7 @@ func PollForMessages(wait uint64, quit globals.ThreadTerminator) {
 
 	for len(quit) == 0 {
 		time.Sleep(time.Duration(wait) * time.Millisecond)
-		cmixMsg, err := mixclient.SendClientPoll(globals.Session.GetNodeAddress(),
+		cmixMsg, err := client.SendClientPoll(globals.Session.GetNodeAddress(),
 			rqMsg)
 
 		// Skip process if we don't have content

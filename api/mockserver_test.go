@@ -13,7 +13,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/comms/mixserver"
+	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
@@ -30,7 +30,7 @@ var Session globals.SessionObj
 func TestMain(m *testing.M) {
 	// Verifying the registration gob requires additional setup
 	// Start server for testing
-	go mixserver.StartServer(SERVER_ADDRESS, TestInterface{})
+	go node.StartServer(SERVER_ADDRESS, TestInterface{})
 
 	// Put some user data into a gob
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -267,8 +267,6 @@ func TestSetNick(t *testing.T) {
 	}
 
 }
-
-
 
 func TestLogout(t *testing.T) {
 	err := Logout()

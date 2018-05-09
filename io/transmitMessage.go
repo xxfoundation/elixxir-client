@@ -8,7 +8,7 @@ package io
 
 import (
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/comms/mixclient"
+	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
@@ -26,7 +26,7 @@ func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 		RecipientID:    messageBytes.Recipient.Bytes(),
 	}
 
-	_, err := mixclient.SendMessageToServer(addr, cmixmsg)
+	_, err := client.SendMessageToServer(addr, cmixmsg)
 
 	if globals.BlockingTransmission {
 		time.Sleep(globals.TransmitDelay)

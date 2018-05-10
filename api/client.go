@@ -10,10 +10,10 @@ import (
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/channelbot"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
@@ -246,7 +246,7 @@ func TryReceive() (format.MessageInterface, error) {
 		if err == nil && message != nil {
 			if message.GetPayload() != "" {
 				// try to parse the gob (in case it's from a channel)
-				channelMessage, err := channelbot.ParseChannelbotMessage(
+				channelMessage, err := parse.ParseChannelbotMessage(
 					message.GetPayload())
 				if err == nil {
 					// Message from channelbot

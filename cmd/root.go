@@ -15,12 +15,10 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
-	"gitlab.com/privategrity/client/channelbot"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -198,7 +196,7 @@ var rootCmd = &cobra.Command{
 
 			//Return the received message to console
 			if msg.GetPayload() != "" {
-				channelMessage, err := channelbot.ParseChannelbotMessage(msg.
+				channelMessage, err := parse.ParseChannelbotMessage(msg.
 					GetPayload())
 				if err == nil {
 					speakerContact := ""
@@ -252,37 +250,6 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-	},
-}
-
-var channelbotCmd = &cobra.Command{
-	Use:   "channelbot",
-	Short: "Run a channel for communications in a group",
-	Run: func(cmd *cobra.Command, args []string) {
-		// Logs in, starts reception runner, and so on
-		sessionInitialization()
-
-		globals.SetReceiver(func(message format.MessageInterface) {
-			payload := message.GetPayload()
-			if payload != "" && strings.Index(payload, "/") == 0 {
-				// this is a command and we should parse it as a command
-				sender := cyclic.NewIntFromBytes(message.GetSender()).Uint64()
-				err := channelbot.ParseCommand(payload, sender)
-				if err != nil {
-					// report the error back to the user who's run the command
-					bindings.Send(api.APIMessage{err.Error(),
-						globals.Session.GetCurrentUser().UserID, sender})
-				}
-			} else {
-				// this is a normal message that should be rebroadcast
-				channelbot.BroadcastMessage(message, &api.APISender{},
-					globals.Session.GetCurrentUser().UserID)
-			}
-		})
-
-		// Block forever as a keepalive
-		quit := make(chan bool)
-		<-quit
 	},
 }
 
@@ -341,8 +308,6 @@ func init() {
 	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
-
-	rootCmd.AddCommand(channelbotCmd)
 }
 
 // initConfig reads in config file and ENV variables if set.

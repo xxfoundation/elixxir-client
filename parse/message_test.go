@@ -4,10 +4,9 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package channelbot
+package parse
 
 import (
-	//"gitlab.com/privategrity/crypto/format"
 	"strings"
 	"testing"
 )

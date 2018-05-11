@@ -7,10 +7,10 @@
 package io
 
 import (
-	"gitlab.com/privategrity/comms/client"
+	"gitlab.com/privategrity/comms/connect"
 )
 
 // Disconnect from the server
 func Disconnect(address string) {
-	client.Disconnect(address)
+	connect.Disconnect(address)
 }

@@ -335,11 +335,14 @@ func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
 
 var nick = "Mario"
 
+func (m TestInterface) UserUpsert(message *pb.UpsertUserMessage) {}
+
 func (m TestInterface) SetNick(message *pb.Contact) {
 	nick = message.Nick
 }
 
 func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
+func (m TestInterface) StartRound(message *pb.InputMessages)             {}
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {

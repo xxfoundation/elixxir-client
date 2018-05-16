@@ -26,6 +26,7 @@ var verbose bool
 var userId uint64
 var destinationUserId uint64
 var serverAddr string
+var gwAddr string
 var message string
 var numNodes uint
 var sessionFile string
@@ -101,10 +102,10 @@ func sessionInitialization() {
 
 	//Register a new user if requested
 	if register {
-		_, err := bindings.Register(
+		_, err := bindings.RegisterGW(
 			cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
 				32, 0),
-			nick, serverAddr, int(numNodes))
+			nick, serverAddr, gwAddr, int(numNodes))
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -286,6 +287,8 @@ func init() {
 		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
 		"Server address to send messages to")
+	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
+		"Gateway address to send messages to")
 	// TODO: support this negotiating separate keys with different servers
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+

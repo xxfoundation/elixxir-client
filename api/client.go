@@ -68,7 +68,7 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode uint64, nick string, nodeAddr string,
+func Register(registrationCode uint64, nick string, nodeAddr, gwAddr string,
 	numNodes uint) (uint64, error) {
 
 	var err error
@@ -120,7 +120,7 @@ func Register(registrationCode uint64, nick string, nodeAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := globals.NewUserSession(user, nodeAddr, nk)
+	nus := globals.NewUserSession(user, nodeAddr, gwAddr, nk)
 
 	errStore := nus.StoreSession()
 
@@ -202,8 +202,13 @@ func Send(message format.MessageInterface) error {
 		// Send the message in a separate thread
 
 		go func(newMessageBytes *format.MessageSerial) {
-			globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
-				GetNodeAddress(), newMessageBytes)
+			if globals.Session.GetGWAddress() == "" {
+				globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
+					GetNodeAddress(), newMessageBytes)
+			} else {
+				globals.TransmissionErrCh <- io.TransmitMessageGW(globals.Session.
+					GetGWAddress(), newMessageBytes)
+			}
 		}(newMessageBytes)
 
 		if globals.BlockingTransmission {

@@ -26,6 +26,7 @@ var Session UserSession
 type UserSession interface {
 	GetCurrentUser() (currentUser *User)
 	GetNodeAddress() string
+	GetGWAddress() string
 	SetNodeAddress(addr string)
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
@@ -51,12 +52,13 @@ type RatchetKey struct {
 var FifoEmptyErr error = errors.New("PopFifo: Fifo Empty")
 
 // Creates a new UserSession interface for registration
-func NewUserSession(u *User, nodeAddr string, nk []NodeKeys) UserSession {
+func NewUserSession(u *User, nodeAddr, GatewayAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
 	return UserSession(&SessionObj{
 		CurrentUser: u,
 		NodeAddress: nodeAddr,
+		GWAddress:   GatewayAddr,
 		fifo:        nil,
 		Keys:        nk,
 		pollTerm:    nil,
@@ -115,6 +117,8 @@ type SessionObj struct {
 
 	// Node address that the user will send messages to
 	NodeAddress string
+	// Gateway address to the cMix network
+	GWAddress string
 
 	// Used to kill the polling reception thread
 	pollTerm ThreadTerminator
@@ -145,6 +149,10 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 
 func (s *SessionObj) GetNodeAddress() string {
 	return s.NodeAddress
+}
+
+func (s *SessionObj) GetGWAddress() string {
+	return s.GWAddress
 }
 
 func (s *SessionObj) SetNodeAddress(addr string) {

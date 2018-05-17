@@ -14,7 +14,10 @@ import (
 )
 
 func SetNick(addr string, user *globals.User) {
-	msg := pb.Contact(*user)
+	msg := pb.Contact{
+		UserID:               user.UserID,
+		Nick:                 user.Nick,
+	}
 	_, err := client.SetNick(addr, &msg)
 
 	if err != nil {

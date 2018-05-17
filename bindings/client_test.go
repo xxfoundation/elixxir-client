@@ -34,10 +34,10 @@ func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage)     {}
 func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage)         {}
 func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
 func (m TestInterface) PrecompShareCompare(message *pb.
-	PrecompShareCompareMessage) {
+PrecompShareCompareMessage) {
 }
 func (m TestInterface) PrecompShareConfirm(message *pb.
-	PrecompShareConfirmMessage) {
+PrecompShareConfirmMessage) {
 }
 func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
 func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
@@ -46,7 +46,7 @@ func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage
 	return &pb.CmixMessage{}
 }
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-	ContactMessage {
+ContactMessage {
 	return &pb.ContactMessage{
 		Contacts: []*pb.Contact{
 			{
@@ -67,6 +67,7 @@ func (m TestInterface) SetNick(message *pb.Contact) {
 }
 func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
 func (m TestInterface) StartRound(message *pb.InputMessages)             {}
+func (m TestInterface) RoundtripPing(message *pb.TimePing)               {}
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {

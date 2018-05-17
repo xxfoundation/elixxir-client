@@ -8,8 +8,6 @@
 package api
 
 import (
-	"bytes"
-	"encoding/gob"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	pb "gitlab.com/privategrity/comms/mixmessages"
@@ -17,7 +15,6 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
-	"strconv"
 	"testing"
 )
 
@@ -28,25 +25,8 @@ const NICK = "Alduin"
 var Session globals.SessionObj
 
 func TestMain(m *testing.M) {
-	// Verifying the registration gob requires additional setup
-	// Start server for testing
+	// Start server for all tests in this package
 	go node.StartServer(SERVER_ADDRESS, TestInterface{})
-
-	// Put some user data into a gob
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
-
-	// populate a gob in the store
-	Register(huid, NICK, SERVER_ADDRESS, 1)
-
-	// get the gob out of there again
-	sessionGob := globals.LocalStorage.Load()
-	var sessionBytes bytes.Buffer
-	sessionBytes.Write(sessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
-	Session = globals.SessionObj{}
-	dec.Decode(&Session)
 
 	os.Exit(m.Run())
 }
@@ -166,9 +146,11 @@ func TestUpdateUserRegistry(t *testing.T) {
 	if regRes == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
-	testContact := pb.Contact{uint64(15), "Guy"}
+	testContact := pb.Contact{UserID: uint64(15), Nick: "Guy"}
 	testContactList := []*pb.Contact{&testContact}
-	io.CheckContacts(&pb.ContactMessage{testContactList})
+	io.CheckContacts(&pb.ContactMessage{
+		Contacts: testContactList,
+	})
 	userIDs, nicks := globals.Users.GetContactList()
 	err = io.UpdateUserRegistry(SERVER_ADDRESS)
 	if err != nil {
@@ -311,11 +293,11 @@ func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
 func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
 
 func (m TestInterface) PrecompShareCompare(message *pb.
-	PrecompShareCompareMessage) {
+PrecompShareCompareMessage) {
 }
 
 func (m TestInterface) PrecompShareConfirm(message *pb.
-	PrecompShareConfirmMessage) {
+PrecompShareConfirmMessage) {
 }
 
 func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
@@ -329,7 +311,7 @@ func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage
 }
 
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-	ContactMessage {
+ContactMessage {
 	return &pb.ContactMessage{}
 }
 
@@ -343,6 +325,8 @@ func (m TestInterface) SetNick(message *pb.Contact) {
 
 func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
 func (m TestInterface) StartRound(message *pb.InputMessages)             {}
+
+func (m TestInterface) RoundtripPing(message *pb.TimePing) {}
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {

@@ -11,9 +11,36 @@ import (
 	"gitlab.com/privategrity/crypto/forward"
 	"testing"
 	"crypto/sha256"
+	"gitlab.com/privategrity/client/globals"
+	"strconv"
+	"bytes"
+	"encoding/gob"
 )
 
-func TestVerifyRegisterGobAddress(t *testing.T) {
+func TestRegistrationGob(t *testing.T) {
+	// Put some user data into a gob
+	globals.InitStorage(&globals.RamStorage{}, "")
+
+	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
+
+	// populate a gob in the store
+	Register(huid, NICK, SERVER_ADDRESS, 1)
+
+	// get the gob out of there again
+	sessionGob := globals.LocalStorage.Load()
+	var sessionBytes bytes.Buffer
+	sessionBytes.Write(sessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+	Session = globals.SessionObj{}
+	dec.Decode(&Session)
+
+	VerifyRegisterGobAddress(t)
+	VerifyRegisterGobKeys(t)
+	VerifyRegisterGobNick(t)
+	VerifyRegisterGobUserID(t)
+}
+
+func VerifyRegisterGobAddress(t *testing.T) {
 
 	if Session.GetNodeAddress() != SERVER_ADDRESS {
 		t.Errorf("GetNodeAddress() returned %v, expected %v",
@@ -21,27 +48,27 @@ func TestVerifyRegisterGobAddress(t *testing.T) {
 	}
 }
 
-func TestVerifyRegisterGobNick(t *testing.T) {
+func VerifyRegisterGobNick(t *testing.T) {
 	if Session.GetCurrentUser().Nick != NICK {
 		t.Errorf("User's nick was %v, expected %v",
 			Session.GetCurrentUser().Nick, NICK)
 	}
 }
 
-func TestVerifyRegisterGobUserID(t *testing.T) {
+func VerifyRegisterGobUserID(t *testing.T) {
 	if Session.GetCurrentUser().UserID != 5 {
 		t.Errorf("User's ID was %v, expected %v",
 			Session.GetCurrentUser().UserID, 5)
 	}
 }
 
-func TestVerifyRegisterGobKeys(t *testing.T) {
+func VerifyRegisterGobKeys(t *testing.T) {
 	if Session.GetKeys()[0].PublicKey.Cmp(cyclic.NewInt(0)) != 0 {
 		t.Errorf("Public key was %v, expected %v",
 			Session.GetKeys()[0].PublicKey.Text(16), "0")
 	}
 	h := sha256.New()
-	h.Write([]byte(string(30000+Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(30000 + Session.GetCurrentUser().UserID)))
 	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
 		expectedTransmissionRecursiveKey) != 0 {
@@ -50,7 +77,7 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 			expectedTransmissionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(20000+Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(20000 + Session.GetCurrentUser().UserID)))
 	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
 		expectedTransmissionBaseKey) != 0 {
@@ -59,7 +86,7 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 			expectedTransmissionBaseKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(50000+Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(50000 + Session.GetCurrentUser().UserID)))
 	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
 		expectedReceptionRecursiveKey) != 0 {
@@ -68,7 +95,7 @@ func TestVerifyRegisterGobKeys(t *testing.T) {
 			expectedReceptionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(40000+Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(40000 + Session.GetCurrentUser().UserID)))
 	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
 		expectedReceptionBaseKey) != 0 {

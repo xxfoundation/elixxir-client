@@ -31,7 +31,10 @@ func CheckContacts(contacts *pb.ContactMessage) {
 		} else {
 			// the user currently isn't stored in the user registry,
 			// so we must make a new one to put in it.
-			newUser := globals.User(*contact)
+			newUser := globals.User{
+				UserID: contact.UserID,
+				Nick:   contact.Nick,
+			}
 			user = &newUser
 		}
 		globals.Users.UpsertUser(user)

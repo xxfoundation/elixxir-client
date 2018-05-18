@@ -123,7 +123,7 @@ func InitClient(storage Storage, loc string, receiver Receiver) error {
 // 10
 // “Jono”
 // JHJ6L9BACDVC
-func Register(registrationCode string, nick string, nodeAddr string,
+func RegisterGW(registrationCode string, nick string, nodeAddr, gwAddr string,
 	numNodes int) ([]byte, error) {
 
 	if numNodes < 1 {
@@ -132,13 +132,19 @@ func Register(registrationCode string, nick string, nodeAddr string,
 
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 
-	UID, err := api.Register(hashUID, nick, nodeAddr, uint(numNodes))
+	UID, err := api.Register(hashUID, nick, nodeAddr, gwAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err
 	}
 
 	return cyclic.NewIntFromUInt(UID).Bytes(), nil
+}
+
+func Register(registrationCode string, nick string, nodeAddr string,
+	numNodes int) ([]byte, error) {
+	r, err := RegisterGW(registrationCode, nick, nodeAddr, "", numNodes)
+	return r, err
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.

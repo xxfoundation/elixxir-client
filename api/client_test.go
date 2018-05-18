@@ -7,14 +7,14 @@
 package api
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/gob"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/forward"
-	"testing"
-	"crypto/sha256"
-	"gitlab.com/privategrity/client/globals"
 	"strconv"
-	"bytes"
-	"encoding/gob"
+	"testing"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -24,7 +24,7 @@ func TestRegistrationGob(t *testing.T) {
 	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
 
 	// populate a gob in the store
-	Register(huid, NICK, SERVER_ADDRESS, 1)
+	Register(huid, NICK, SERVER_ADDRESS, "", 1)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -193,7 +193,7 @@ func TestDisableRatchet(t *testing.T) {
 }
 
 func TestVerifySetNick(t *testing.T) {
-	if (nick != NICK) {
+	if nick != NICK {
 		t.Errorf("Nick set on server during register was %v, expected %v",
 			nick, NICK)
 	} else {

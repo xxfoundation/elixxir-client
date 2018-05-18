@@ -50,7 +50,7 @@ func TestRegister(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	regRes, err := Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -66,7 +66,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, nick, SERVER_ADDRESS, 0)
+	_, err = Register(hashUID, nick, SERVER_ADDRESS, "", 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -79,7 +79,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, nick, SERVER_ADDRESS, 1)
+	_, err = Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
 			err.Error())
@@ -95,7 +95,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	tempUser, _ := globals.Users.GetUser(10)
 	globals.Users.DeleteUser(10)
-	_, err = Register(hashUID, nick, SERVER_ADDRESS, 1)
+	_, err = Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -110,7 +110,7 @@ func TestRegisterInvalidNick(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, nick, SERVER_ADDRESS, 1)
+	_, err = Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	if err == nil {
 		t.Errorf("Registration worked with invalid nickname! %s",
 			err.Error())
@@ -139,7 +139,7 @@ func TestUpdateUserRegistry(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	regRes, err := Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -177,7 +177,7 @@ func TestSend(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	userID, err := Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	loginRes, err2 := Login(userID, SERVER_ADDRESS)
 
 	if err2 != nil {
@@ -213,7 +213,7 @@ func TestReceive(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, nick, SERVER_ADDRESS, 1)
+	userID, err := Register(hashUID, nick, SERVER_ADDRESS, "", 1)
 	loginRes, err2 := Login(userID, SERVER_ADDRESS)
 
 	if err2 != nil {
@@ -293,11 +293,11 @@ func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
 func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
 
 func (m TestInterface) PrecompShareCompare(message *pb.
-PrecompShareCompareMessage) {
+	PrecompShareCompareMessage) {
 }
 
 func (m TestInterface) PrecompShareConfirm(message *pb.
-PrecompShareConfirmMessage) {
+	PrecompShareConfirmMessage) {
 }
 
 func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
@@ -311,7 +311,7 @@ func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage
 }
 
 func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-ContactMessage {
+	ContactMessage {
 	return &pb.ContactMessage{}
 }
 

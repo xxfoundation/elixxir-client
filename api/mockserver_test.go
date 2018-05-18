@@ -328,6 +328,8 @@ func (m TestInterface) StartRound(message *pb.InputMessages)             {}
 
 func (m TestInterface) RoundtripPing(message *pb.TimePing) {}
 
+func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage) {}
+
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
 	Location string

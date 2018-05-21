@@ -206,7 +206,7 @@ func Send(message format.MessageInterface) error {
 				globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
 					GetNodeAddress(), newMessageBytes)
 			} else {
-				globals.TransmissionErrCh <- io.TransmitMessageGW(globals.Session.
+				globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
 					GetGWAddress(), newMessageBytes)
 			}
 		}(newMessageBytes)

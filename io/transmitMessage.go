@@ -39,22 +39,6 @@ func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 
 // Send a cMix message to the gateway
 func TransmitMessageGW(addr string, messageBytes *format.MessageSerial) error {
-	if globals.BlockingTransmission {
-		globals.TransmissionMutex.Lock()
-	}
-
-	cmixmsg := &pb.CmixMessage{
-		SenderID:       globals.Session.GetCurrentUser().UserID,
-		MessagePayload: messageBytes.Payload.Bytes(),
-		RecipientID:    messageBytes.Recipient.Bytes(),
-	}
-
-	err := gateway.SendPutMessage(addr, cmixmsg)
-
-	if globals.BlockingTransmission {
-		time.Sleep(globals.TransmitDelay)
-		globals.TransmissionMutex.Unlock()
-	}
-
+	err := TransmitMessage(addr, messageBytes)
 	return err
 }

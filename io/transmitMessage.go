@@ -15,30 +15,26 @@ import (
 	"time"
 )
 
+type transmitFunc func(addr string, messageBytes *pb.CmixMessage) error
+
 // Send a cMix message to the server
 func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
-	if globals.BlockingTransmission {
-		globals.TransmissionMutex.Lock()
+	oldTransmit := func(addr string, cmixmsg *pb.CmixMessage) error {
+		_, err := client.SendMessageToServer(addr, cmixmsg)
+		return err
 	}
-
-	cmixmsg := &pb.CmixMessage{
-		SenderID:       globals.Session.GetCurrentUser().UserID,
-		MessagePayload: messageBytes.Payload.Bytes(),
-		RecipientID:    messageBytes.Recipient.Bytes(),
-	}
-
-	_, err := client.SendMessageToServer(addr, cmixmsg)
-
-	if globals.BlockingTransmission {
-		time.Sleep(globals.TransmitDelay)
-		globals.TransmissionMutex.Unlock()
-	}
-
+	err := Transmit(oldTransmit, addr, messageBytes)
 	return err
 }
 
 // Send a cMix message to the gateway
 func TransmitMessageGW(addr string, messageBytes *format.MessageSerial) error {
+	err := Transmit(gateway.SendPutMessage, addr, messageBytes)
+	return err
+}
+
+func Transmit(tFunc transmitFunc, addr string,
+	messageBytes *format.MessageSerial) error {
 	if globals.BlockingTransmission {
 		globals.TransmissionMutex.Lock()
 	}
@@ -49,7 +45,7 @@ func TransmitMessageGW(addr string, messageBytes *format.MessageSerial) error {
 		RecipientID:    messageBytes.Recipient.Bytes(),
 	}
 
-	err := gateway.SendPutMessage(addr, cmixmsg)
+	err := tFunc(addr, cmixmsg)
 
 	if globals.BlockingTransmission {
 		time.Sleep(globals.TransmitDelay)

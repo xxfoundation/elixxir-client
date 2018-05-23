@@ -18,8 +18,8 @@ func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {
 
 	keys := globals.Session.GetKeys()
 
-	globals.MakeInitVect(message.GetPayloadInitVect())
-	globals.MakeInitVect(message.GetRecipientInitVect())
+	MakeInitVect(message.GetPayloadInitVect())
+	MakeInitVect(message.GetRecipientInitVect())
 
 	payloadMicList :=
 		[][]byte{message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),

@@ -9,16 +9,23 @@ package crypto
 import (
 	"errors"
 	"gitlab.com/privategrity/client/globals"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
 )
 
-func Decrypt(g *cyclic.Group, message *format.MessageSerial) (
+func Decrypt(g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 	*format.Message, error) {
 
 	var err error
+
+	// Receive and decrypt a message
+	message := &format.MessageSerial{
+		Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
+		Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
+	}
 
 	// Get inverse reception key to decrypt the message
 	keys := globals.Session.GetKeys()

@@ -330,6 +330,11 @@ func (m TestInterface) RoundtripPing(message *pb.TimePing) {}
 
 func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage) {}
 
+func (m TestInterface) PollRegistrationStatus(message *pb.
+	RegistrationPoll) *pb.RegistrationConfirmation {
+	return &pb.RegistrationConfirmation{}
+}
+
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
 	Location string

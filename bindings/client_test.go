@@ -8,6 +8,7 @@ package bindings
 import (
 	"bytes"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/io"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -18,7 +19,7 @@ import (
 	"time"
 )
 
-const SERVER_ADDRESS = "localhost:5557"
+const serverAddress = "localhost:5557"
 
 var nick = "Mario"
 
@@ -70,6 +71,10 @@ func (m TestInterface) StartRound(message *pb.InputMessages)             {}
 func (m TestInterface) RoundtripPing(message *pb.TimePing)               {}
 func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage)   {}
 
+func (m TestInterface) PollRegistrationStatus(message *pb.RegistrationPoll) *pb.RegistrationConfirmation {
+	return nil
+}
+
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
 	Location string
@@ -106,7 +111,9 @@ func (d *DummyReceiver) Receive(message Message) {
 }
 
 func TestMain(m *testing.M) {
-	go node.StartServer(SERVER_ADDRESS, TestInterface{})
+	io.SendAddress = serverAddress
+	io.ReceiveAddress = serverAddress
+	go node.StartServer(serverAddress, TestInterface{})
 
 	os.Exit(m.Run())
 }
@@ -138,7 +145,7 @@ func TestInitClient(t *testing.T) {
 func TestGetContactListJSON(t *testing.T) {
 	user, _ := globals.Users.GetUser(1)
 	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, SERVER_ADDRESS, "", nk)
+	globals.Session = globals.NewUserSession(user, serverAddress, "", nk)
 	// This call includes validating the JSON against the schema
 	result, err := GetContactListJSON()
 
@@ -171,7 +178,7 @@ func TestGetContactListJSON(t *testing.T) {
 func TestUpdateContactList(t *testing.T) {
 	user, _ := globals.Users.GetUser(1)
 	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, SERVER_ADDRESS, "", nk)
+	globals.Session = globals.NewUserSession(user, serverAddress, "", nk)
 	err := UpdateContactList()
 	if err != nil {
 		t.Error(err.Error())
@@ -285,7 +292,7 @@ func TestRegister(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+	regRes, err := Register(registrationCode, nick, serverAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -301,7 +308,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	_, err = Register(registrationCode, nick, SERVER_ADDRESS, 0)
+	_, err = Register(registrationCode, nick, serverAddress, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -314,8 +321,8 @@ func TestLogin(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
-	loginRes, err2 := Login(regRes, SERVER_ADDRESS)
+	regRes, err := Register(registrationCode, nick, serverAddress, 1)
+	loginRes, err2 := Login(regRes, serverAddress)
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -332,8 +339,8 @@ func TestLogout(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
-	Login(regRes, SERVER_ADDRESS)
+	regRes, err := Register(registrationCode, nick, serverAddress, 1)
+	Login(regRes, serverAddress)
 
 	err2 := Logout()
 	if err2 != nil {
@@ -343,21 +350,21 @@ func TestLogout(t *testing.T) {
 }
 
 func TestDisableBlockingTransmission(t *testing.T) {
-	if !globals.BlockingTransmission {
+	if !io.BlockTransmissions {
 		t.Errorf("BlockingTransmission not intilized properly")
 	}
 	DisableBlockingTransmission()
-	if globals.BlockingTransmission {
+	if io.BlockTransmissions {
 		t.Errorf("BlockingTransmission not disabled properly")
 	}
 }
 
 func TestSetRateLimiting(t *testing.T) {
-	if globals.TransmitDelay != time.Duration(globals.DefaultTransmitDelay)*time.Millisecond {
+	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}
 	SetRateLimiting(10)
-	if globals.TransmitDelay != time.Duration(10)*time.Millisecond {
+	if io.TransmitDelay != time.Duration(10)*time.Millisecond {
 		t.Errorf("SetRateLimiting not updated properly")
 	}
 }
@@ -368,7 +375,7 @@ func TestSetRateLimiting(t *testing.T) {
 // 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 // 	err := InitClient(&d, "hello", nil)
 
-// 	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+// 	regRes, err := Register(registrationCode, nick, serverAddress, 1)
 // 	loginRes, err2 := Login(regRes)
 
 // 	if err2 != nil {

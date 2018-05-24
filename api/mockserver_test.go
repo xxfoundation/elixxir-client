@@ -8,12 +8,12 @@
 package api
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"

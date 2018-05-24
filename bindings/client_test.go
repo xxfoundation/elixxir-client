@@ -22,41 +22,6 @@ import (
 const serverAddress = "localhost:5557"
 var ServerData *api.TestInterface
 
-// Mock dummy storage interface for testing.
-type DummyStorage struct {
-	Location string
-	LastSave []byte
-}
-
-func (d *DummyStorage) SetLocation(l string) error {
-	d.Location = l
-	return nil
-}
-
-func (d *DummyStorage) GetLocation() string {
-	return d.Location
-}
-
-func (d *DummyStorage) Save(b []byte) error {
-	d.LastSave = make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		d.LastSave[i] = b[i]
-	}
-	return nil
-}
-
-func (d *DummyStorage) Load() []byte {
-	return d.LastSave
-}
-
-type DummyReceiver struct {
-	LastMessage Message
-}
-
-func (d *DummyReceiver) Receive(message Message) {
-	d.LastMessage = message
-}
-
 func TestMain(m *testing.M) {
 	io.SendAddress = serverAddress
 	io.ReceiveAddress = serverAddress

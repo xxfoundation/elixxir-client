@@ -7,6 +7,7 @@
 package api
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -55,7 +56,7 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 		return storageErr
 	}
 
-	globals.InitCrypto()
+	crypto.InitCrypto()
 
 	receiverErr := globals.SetReceiver(receiver)
 
@@ -133,9 +134,7 @@ func Register(registrationCode uint64, nodeAddr, gwAddr string,
 // returns an empty sting if login fails.
 func Login(UID uint64, addr string) (string, error) {
 
-	pollTerm := globals.NewThreadTerminator()
-
-	err := globals.LoadSession(UID, pollTerm)
+	err := globals.LoadSession(UID)
 
 	if addr != "" {
 		globals.Session.SetNodeAddress(addr)
@@ -148,120 +147,71 @@ func Login(UID uint64, addr string) (string, error) {
 		return "", err
 	}
 
-	pollWaitTimeMillis := uint64(1000)
-	io.InitReceptionRunner(pollWaitTimeMillis, pollTerm)
+	pollWaitTimeMillis := 1000 * time.Millisecond
+	listenCh = io.Listen(0)
+	go io.MessageReceiver(pollWaitTimeMillis)
 
 	return globals.Session.GetCurrentUser().Nick, nil
 }
 
+// Send prepares and sends a message to the cMix network
+// FIXME: We need to think through the message interface part.
 func Send(message format.MessageInterface) error {
-	var err error
-
-	if globals.Session == nil {
-		err = errors.New("Send: Could not send when not logged in")
-		jww.ERROR.Printf(err.Error())
-		return err
-	}
-
-	// If blocking transmission is disabled,
-	// check if there are any waiting errors
-	if !globals.BlockingTransmission {
-		select {
-		case err = <-globals.TransmissionErrCh:
-		default:
-		}
-	}
-
-	// TODO: this could be a lot cleaner if we stored IDs as byte slices
-	if cyclic.NewIntFromBytes(message.GetSender()).Uint64() != globals.Session.GetCurrentUser().UserID {
-		err := errors.New(fmt.Sprintf("Send: Cannot send a message from someone other"+
-			" than yourself. Expected sender: %v, got sender: %v",
-			cyclic.NewIntFromBytes(message.GetSender()).Uint64(),
-			globals.Session.GetCurrentUser().UserID))
-		jww.ERROR.Printf(err.Error())
-		return err
-	}
-
-	sender := globals.Session.GetCurrentUser()
-	newMessages, _ := format.NewMessage(sender.UserID,
-		cyclic.NewIntFromBytes(message.GetRecipient()).Uint64(),
-		message.GetPayload())
-
-	// Prepare the new messages to be sent
-	for _, newMessage := range newMessages {
-		newMessageBytes := crypto.Encrypt(globals.Grp, &newMessage)
-		// Send the message in a separate thread
-
-		go func(newMessageBytes *format.MessageSerial) {
-			if globals.Session.GetGWAddress() == "" {
-				globals.TransmissionErrCh <- io.TransmitMessage(globals.Session.
-					GetNodeAddress(), newMessageBytes)
-			} else {
-				globals.TransmissionErrCh <- io.TransmitMessageGW(globals.Session.
-					GetGWAddress(), newMessageBytes)
-			}
-		}(newMessageBytes)
-
-		if globals.BlockingTransmission {
-			err = <-globals.TransmissionErrCh
-			if err != nil {
-				return err
-			}
-		}
-
-	}
-
-	// Wait for the return if blocking transmission is enabled
+	// FIXME: There should (at least) be a version of this that takes a byte array
+	recipientID := binary.LittleEndian.Uint64(message.GetRecipient())
+	err := io.SendMessage(recipientID, message.GetPayload())
 	return err
 }
 
-// Turns off blocking transmission, for use with the channel bot and dummy bot
+// DisableBlockingTransmission turns off blocking transmission, for
+// use with the channel bot and dummy bot
 func DisableBlockingTransmission() {
-	globals.BlockingTransmission = false
+	io.BlockTransmissions = false
 }
 
-//Sets the minimum amount of time between message transmissions
-// Just for testing, probably to be removed in production
+// SetRateLimiting sets the minimum amount of time between message
+// transmissions just for testing, probably to be removed in production
 func SetRateLimiting(limit uint32) {
-	globals.TransmitDelay = time.Duration(limit) * time.Millisecond
+	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-// Checks if there is a received message on the internal fifo.
+var listenCh chan *format.Message
+
+// TryReceive checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
+// FIXME: There's not a good reason to return an error here. I nil'd it out
+// for now but it should be removed. Before it was returning an error only if
+// the user had not been logged in yet.
 func TryReceive() (format.MessageInterface, error) {
-	var err error
-	var m APIMessage
-
-	if globals.Session == nil {
-		jww.ERROR.Printf("TryReceive: Could not receive when not logged in")
-		err = errors.New("cannot receive when not logged in")
-	} else {
-		var message *format.Message
-		message, err = globals.Session.PopFifo()
-
-		if err == nil && message != nil {
-			if message.GetPayload() != "" {
-				// try to parse the gob (in case it's from a channel)
-				channelMessage, err := parse.ParseChannelbotMessage(
-					message.GetPayload())
-				if err == nil {
-					// Message from channelbot
-					// TODO Speaker ID has been hacked into the Recipient ID
-					// for channels
-					m.SenderID = message.GetSenderIDUint()
-					m.Payload = channelMessage.Message
-					m.RecipientID = channelMessage.SpeakerID
-				} else {
-					// Message from normal client
-					m.SenderID = message.GetSenderIDUint()
-					m.Payload = message.GetPayload()
-					m.RecipientID = message.GetRecipientIDUint()
-				}
+	select {
+	case message := <-listenCh:
+		var m APIMessage
+		if message.GetPayload() != "" {
+			// FIXME: Post-refactor, it would mak emore sense to
+			// have a channel bot listener that populates the channel
+			// bot messages, and to ignore the channelbot messages in this
+			// loop or to try to get & parse them a different way.
+			// try to parse the gob (in case it's from a channel)
+			channelMessage, err := parse.ParseChannelbotMessage(
+				message.GetPayload())
+			if err == nil {
+				// Message from channelbot
+				// TODO Speaker ID has been hacked into the Recipient ID
+				// for channels
+				m.SenderID = message.GetSenderIDUint()
+				m.Payload = channelMessage.Message
+				m.RecipientID = channelMessage.SpeakerID
+			} else {
+				// Message from normal client
+				m.SenderID = message.GetSenderIDUint()
+				m.Payload = message.GetPayload()
+				m.RecipientID = message.GetRecipientIDUint()
 			}
 		}
+		return m, nil
+	default:
+		return nil, nil
 	}
-
-	return m, err
 }
 
 type APISender struct{}

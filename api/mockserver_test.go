@@ -16,15 +16,22 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
+	"time"
 )
 
-const SERVER_ADDRESS = "localhost:5556"
+const serverAddress = "localhost:5556"
 
 var Session globals.SessionObj
+var ServerData *TestInterface
 
 func TestMain(m *testing.M) {
+	io.SendAddress = serverAddress
+	io.ReceiveAddress = serverAddress
+	ServerData = &TestInterface{
+		LastReceivedMessage: nil,
+	}
 	// Start server for all tests in this package
-	go node.StartServer(SERVER_ADDRESS, TestInterface{})
+	go node.StartServer(serverAddress, ServerData)
 
 	os.Exit(m.Run())
 }
@@ -47,7 +54,7 @@ func TestRegister(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, SERVER_ADDRESS, "", 1)
+	regRes, err := Register(hashUID, serverAddress, "", 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -62,7 +69,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, SERVER_ADDRESS, "", 0)
+	_, err = Register(hashUID, serverAddress, "", 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -74,7 +81,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, SERVER_ADDRESS, "", 1)
+	_, err = Register(hashUID, serverAddress, "", 1)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
 			err.Error())
@@ -89,7 +96,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	tempUser, _ := globals.Users.GetUser(10)
 	globals.Users.DeleteUser(10)
-	_, err = Register(hashUID, SERVER_ADDRESS, "", 1)
+	_, err = Register(hashUID, serverAddress, "", 1)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -98,26 +105,12 @@ func TestRegisterDeletedUser(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-/*func TestRegisterDeletedKeys(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-
-	_, err = Register(hashUID, SERVER_ADDRESS, 1)
-	if err == nil {
-		t.Errorf("Registration worked with invalid nickname! %s",
-			err.Error())
-	}
-	globals.LocalStorage = nil
-}*/
-
 func TestUpdateUserRegistry(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, SERVER_ADDRESS, "", 1)
+	regRes, err := Register(hashUID, serverAddress, "", 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -130,7 +123,7 @@ func TestUpdateUserRegistry(t *testing.T) {
 		Contacts: testContactList,
 	})
 	userIDs, nicks := globals.Users.GetContactList()
-	err = io.UpdateUserRegistry(SERVER_ADDRESS)
+	err = io.UpdateUserRegistry(serverAddress)
 	if err != nil {
 		t.Errorf("UpdateUserRegistry failed")
 	}
@@ -154,8 +147,8 @@ func TestSend(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, SERVER_ADDRESS, "", 1)
-	loginRes, err2 := Login(userID, SERVER_ADDRESS)
+	userID, err := Register(hashUID, serverAddress, "", 1)
+	loginRes, err2 := Login(userID, serverAddress)
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -167,7 +160,9 @@ func TestSend(t *testing.T) {
 	// Test send with invalid sender ID
 	err = Send(APIMessage{SenderID: 12, Payload: "test",
 		RecipientID: userID})
-	if err == nil {
+	// 500ms for the other thread to catch it
+	time.Sleep(5000 * time.Millisecond)
+	if err == nil && ServerData.LastReceivedMessage.SenderID == 12 {
 		t.Errorf("Invalid message was accepted by Send. " +
 			"Sender ID must match current user")
 	}
@@ -189,8 +184,8 @@ func TestReceive(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, SERVER_ADDRESS, "", 1)
-	loginRes, err2 := Login(userID, SERVER_ADDRESS)
+	userID, err := Register(hashUID, serverAddress, "", 1)
+	loginRes, err2 := Login(userID, serverAddress)
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -198,16 +193,16 @@ func TestReceive(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	// Push a message into the FIFO
-	msg, _ := format.NewMessage(10, 10, "test")
-	globals.Session.PushFifo(&msg[0])
 
-	// Test receive with message in FIFO
+	msg, _ := format.NewMessage(10, 10, "test")
+	Send(&msg[0])
+	time.Sleep(500*time.Millisecond)
+
 	receivedMsg, err := TryReceive()
 	if err != nil {
 		t.Errorf("Could not receive a message from a nonempty FIFO.")
 	}
-	if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 10 {
+	if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 0 {
 		t.Errorf("Recipient of received message is incorrect. "+
 			"Expected: 10 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
 			GetRecipient()).Uint64())
@@ -224,108 +219,4 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Logout did not throw an error when called on a client that" +
 			" is not currently logged in.")
 	}
-	// Test send when logged out
-	err = Send(APIMessage{"test", 5, 5})
-	if err == nil {
-		t.Errorf("Message was accepted by Send when not logged in.")
-	}
-
-	// Test receive when not logged in. Should return an error
-	_, err = TryReceive()
-	if err == nil {
-		t.Errorf("Client tried to receive a message when not logged in.")
-	}
-}
-
-// Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
-type TestInterface struct{}
-
-func (m TestInterface) NewRound(roundId string) {}
-
-func (m TestInterface) SetPublicKey(roundId string, pkey []byte) {}
-
-func (m TestInterface) PrecompDecrypt(message *pb.PrecompDecryptMessage) {}
-
-func (m TestInterface) PrecompEncrypt(message *pb.PrecompEncryptMessage) {}
-
-func (m TestInterface) PrecompReveal(message *pb.PrecompRevealMessage) {}
-
-func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage) {}
-
-func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
-
-func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
-
-func (m TestInterface) PrecompShareCompare(message *pb.
-	PrecompShareCompareMessage) {
-}
-
-func (m TestInterface) PrecompShareConfirm(message *pb.
-	PrecompShareConfirmMessage) {
-}
-
-func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
-
-func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
-
-func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
-
-func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
-	return &pb.CmixMessage{}
-}
-
-func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-	ContactMessage {
-	return &pb.ContactMessage{}
-}
-
-var nick = "Mario"
-
-func (m TestInterface) UserUpsert(message *pb.UpsertUserMessage) {}
-
-func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
-func (m TestInterface) StartRound(message *pb.InputMessages)             {}
-
-func (m TestInterface) RoundtripPing(message *pb.TimePing) {}
-
-func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage) {}
-
-func (m TestInterface) PollRegistrationStatus(message *pb.
-	RegistrationPoll) *pb.RegistrationConfirmation {
-	return &pb.RegistrationConfirmation{}
-}
-
-// Mock dummy storage interface for testing.
-type DummyStorage struct {
-	Location string
-	LastSave []byte
-}
-
-func (d *DummyStorage) SetLocation(l string) error {
-	d.Location = l
-	return nil
-}
-
-func (d *DummyStorage) GetLocation() string {
-	return d.Location
-}
-
-func (d *DummyStorage) Save(b []byte) error {
-	d.LastSave = make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		d.LastSave[i] = b[i]
-	}
-	return nil
-}
-
-func (d *DummyStorage) Load() []byte {
-	return d.LastSave
-}
-
-type DummyReceiver struct {
-	LastMessage APIMessage
-}
-
-func (d *DummyReceiver) Receive(message APIMessage) {
-	d.LastMessage = message
 }

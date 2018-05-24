@@ -123,7 +123,7 @@ func InitClient(storage Storage, loc string, receiver Receiver) error {
 // 10
 // “Jono”
 // JHJ6L9BACDVC
-func RegisterGW(registrationCode string, nick string, nodeAddr, gwAddr string,
+func RegisterGW(registrationCode string, nodeAddr, gwAddr string,
 	numNodes int) ([]byte, error) {
 
 	if numNodes < 1 {
@@ -141,9 +141,9 @@ func RegisterGW(registrationCode string, nick string, nodeAddr, gwAddr string,
 	return cyclic.NewIntFromUInt(UID).Bytes(), nil
 }
 
-func Register(registrationCode string, nick string, nodeAddr string,
+func Register(registrationCode string, nodeAddr string,
 	numNodes int) ([]byte, error) {
-	r, err := RegisterGW(registrationCode, nick, nodeAddr, "", numNodes)
+	r, err := RegisterGW(registrationCode, nodeAddr, "", numNodes)
 	return r, err
 }
 

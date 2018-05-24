@@ -9,6 +9,7 @@ package io
 import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/comms/client"
+	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
@@ -28,7 +29,7 @@ func TransmitMessage(addr string, messageBytes *format.MessageSerial) error {
 
 // Send a cMix message to the gateway
 func TransmitMessageGW(addr string, messageBytes *format.MessageSerial) error {
-	err := Transmit(client.SendPutMessage, addr, messageBytes)
+	err := Transmit(gateway.SendPutMessage, addr, messageBytes)
 	return err
 }
 

@@ -337,9 +337,6 @@ func (m TestInterface) StartRound(message *pb.InputMessages) {}
 func (m TestInterface) RoundtripPing(message *pb.TimePing) {}
 
 func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage) {}
-func (m TestInterface) PollRegistrationStatus(message *pb.RegistrationPoll) *pb.RegistrationConfirmation {
-	return nil
-}
 
 func (m TestInterface) PollRegistrationStatus(message *pb.
 	RegistrationPoll) *pb.RegistrationConfirmation {

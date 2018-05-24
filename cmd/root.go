@@ -105,7 +105,7 @@ func sessionInitialization() {
 		_, err := bindings.RegisterGW(
 			cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
 				32, 0),
-			nick, serverAddr, gwAddr, int(numNodes))
+			serverAddr, gwAddr, int(numNodes))
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return

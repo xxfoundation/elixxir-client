@@ -2,6 +2,7 @@ package crypto
 
 import (
 	"gitlab.com/privategrity/client/globals"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
@@ -69,7 +70,11 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	// do the encryption and the decryption
 	encrypted := Encrypt(Grp, &msg[0])
-	decrypted, err := Decrypt(Grp, encrypted)
+	encryptedNet := &pb.CmixMessage{
+		MessagePayload: encrypted.Payload.Bytes(),
+		RecipientID:    encrypted.Recipient.Bytes(),
+	}
+	decrypted, err := Decrypt(Grp, encryptedNet)
 
 	if err != nil {
 		t.Errorf("Couldn't decrypt message: %v", err.Error())

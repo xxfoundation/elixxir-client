@@ -24,7 +24,7 @@ func TestRegistrationGob(t *testing.T) {
 	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
 
 	// populate a gob in the store
-	Register(huid, NICK, SERVER_ADDRESS, "", 1)
+	Register(huid, NICK, serverAddress, "", 1)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -42,9 +42,9 @@ func TestRegistrationGob(t *testing.T) {
 
 func VerifyRegisterGobAddress(t *testing.T) {
 
-	if Session.GetNodeAddress() != SERVER_ADDRESS {
+	if Session.GetNodeAddress() != serverAddress {
 		t.Errorf("GetNodeAddress() returned %v, expected %v",
-			Session.GetNodeAddress(), SERVER_ADDRESS)
+			Session.GetNodeAddress(), serverAddress)
 	}
 }
 

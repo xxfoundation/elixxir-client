@@ -98,19 +98,6 @@ func TestRegisterDeletedUser(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-func TestRegisterInvalidNick(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, SERVER_ADDRESS, "", 1)
-	if err == nil {
-		t.Errorf("Registration worked with invalid nickname! %s",
-			err.Error())
-	}
-	globals.LocalStorage = nil
-}
-
 /*func TestRegisterDeletedKeys(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}

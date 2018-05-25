@@ -144,6 +144,18 @@ func Login(UID uint64, addr string) (string, error) {
 		globals.Session.SetNodeAddress(addr)
 	}
 
+	addrToUse := globals.Session.GetGWAddress()
+	if addrToUse == "" {
+		addrToUse = globals.Session.GetNodeAddress()
+	} else {
+		io.UseGateway = true
+	}
+
+	// TODO: These can be separate, but we set them to the same thing
+	//       until registration is completed.
+	io.SendAddress = addrToUse
+	io.ReceiveAddress = addrToUse
+
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))

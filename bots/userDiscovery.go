@@ -44,6 +44,8 @@ func Register(valueType, value string, publicKey []byte) error {
 }
 
 // Search returns a userID and public key based on the search criteria
+// it accepts a valueType of EMAIL and value of an e-mail address, and
+// returns a map of userid -> public key
 func Search(valueType, value string) (map[uint64][]byte, error) {
 	response := sendCommand(udbID, fmt.Sprintf("SEARCH %s %s", valueType, value))
 	empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
@@ -79,7 +81,8 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 	return retval, nil
 }
 
-// parseSearch parses the responses from SEARCH
+// parseSearch parses the responses from SEARCH. It returns the user's id and
+// the user's public key fingerprint
 func parseSearch(msg string) (uint64, string) {
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 5 {
@@ -94,7 +97,8 @@ func parseSearch(msg string) (uint64, string) {
 	return cMixUID, resParts[4]
 }
 
-// parseGetKey parses the responses from GETKEY
+// parseGetKey parses the responses from GETKEY. It returns the index offset
+// value (0 or 128) and the part of the corresponding public key.
 func parseGetKey(msg string) (int, []byte) {
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 4 {
@@ -116,7 +120,7 @@ func parseGetKey(msg string) (int, []byte) {
 	return int(idx), keymat
 }
 
-// pushKey uploads the users' key
+// pushKey uploads the users' public key
 func pushKey(udbID uint64, keyFP string, publicKey []byte) error {
 	publicKeyParts := make([]string, 2)
 	publicKeyParts[0] = base64.StdEncoding.EncodeToString(publicKey[:128])

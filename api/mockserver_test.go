@@ -14,6 +14,7 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"
@@ -21,19 +22,21 @@ import (
 
 const serverAddress = "localhost:5556"
 
-const NICK = "Alduin"
+const Nick = "Alduin"
 
 var Session globals.SessionObj
-var ServerData *TestInterface
+var ServerData TestInterface
 
 func TestMain(m *testing.M) {
 	io.SendAddress = serverAddress
 	io.ReceiveAddress = serverAddress
-	ServerData = &TestInterface{
-		LastReceivedMessage: nil,
+	ServerData = TestInterface{
+		LastReceivedMessage: pb.CmixMessage{},
 	}
+	jww.SetLogThreshold(jww.LevelTrace)
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Start server for all tests in this package
-	go node.StartServer(serverAddress, ServerData)
+	go node.StartServer(serverAddress, &ServerData)
 
 	os.Exit(m.Run())
 }
@@ -125,21 +128,6 @@ func TestRegisterInvalidNick(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-/*func TestRegisterDeletedKeys(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
-	nick := "test"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-
-	_, err = Register(hashUID, nick, serverAddress, 1)
-	if err == nil {
-		t.Errorf("Registration worked with invalid nickname! %s",
-			err.Error())
-	}
-	globals.LocalStorage = nil
-}*/
-
 func TestUpdateUserRegistry(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
@@ -177,15 +165,26 @@ func TestUpdateUserRegistry(t *testing.T) {
 	}
 }
 
+func SetNulKeys() {
+	// Set the transmit keys to be 1, so send/receive can work
+	// FIXME: Why doesn't crypto panic when these keys are empty?
+	keys := globals.Session.GetKeys()
+	for i := range keys {
+		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
+		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
+	}
+	DisableRatchet()
+}
+
 func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
-	registrationCode := "be50nhqpqjtjj"
 	nick := "Nickname"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
+	hashUID := globals.UserHash(5)
 	userID, err := Register(hashUID, nick, serverAddress, "", 1)
 	loginRes, err2 := Login(userID, serverAddress)
+	SetNulKeys()
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -198,8 +197,8 @@ func TestSend(t *testing.T) {
 	err = Send(APIMessage{SenderID: 12, Payload: "test",
 		RecipientID: userID})
 	// 500ms for the other thread to catch it
-	time.Sleep(5000 * time.Millisecond)
-	if err == nil && ServerData.LastReceivedMessage.SenderID == 12 {
+	time.Sleep(100 * time.Millisecond)
+	if err == nil && ServerData.LastReceivedMessage.SenderID != userID {
 		t.Errorf("Invalid message was accepted by Send. " +
 			"Sender ID must match current user")
 	}
@@ -216,14 +215,14 @@ func TestReceive(t *testing.T) {
 	globals.LocalStorage = nil
 
 	// Initialize client and log in
-	registrationCode := "be50nhqpqjtjj"
 	nick := "Nickname"
 
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
+	hashUID := globals.UserHash(5)
 	userID, err := Register(hashUID, nick, serverAddress, "", 1)
 	loginRes, err2 := Login(userID, serverAddress)
+	SetNulKeys()
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -231,20 +230,23 @@ func TestReceive(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
+	if globals.Session == nil {
+		t.Errorf("Could not load session!")
+	}
 
-	// msg, _ := format.NewMessage(10, 10, "test")
-	// Send(&msg[0])
-	// time.Sleep(500*time.Millisecond)
+	msg, _ := format.NewMessage(userID, userID, "test")
+	Send(&msg[0])
+	time.Sleep(100 * time.Millisecond)
 
-	// receivedMsg, err := TryReceive()
-	// if err != nil {
-	// 	t.Errorf("Could not receive a message from a nonempty FIFO.")
-	// }
-	// if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 10 {
-	// 	t.Errorf("Recipient of received message is incorrect. "+
-	// 		"Expected: 10 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
-	// 		GetRecipient()).Uint64())
-	// }
+	receivedMsg, err := TryReceive()
+	if err != nil || receivedMsg == nil {
+		t.Errorf("Could not receive a message.")
+	}
+	if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 0 {
+		t.Errorf("Recipient of received message is incorrect. "+
+			"Expected: 0 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
+			GetRecipient()).Uint64())
+	}
 }
 
 func TestSetNick(t *testing.T) {
@@ -269,111 +271,4 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Logout did not throw an error when called on a client that" +
 			" is not currently logged in.")
 	}
-}
-
-// Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
-type TestInterface struct {
-	LastReceivedMessage *pb.CmixMessage
-}
-
-func (m TestInterface) NewRound(roundId string) {}
-
-func (m TestInterface) SetPublicKey(roundId string, pkey []byte) {}
-
-func (m TestInterface) PrecompDecrypt(message *pb.PrecompDecryptMessage) {}
-
-func (m TestInterface) PrecompEncrypt(message *pb.PrecompEncryptMessage) {}
-
-func (m TestInterface) PrecompReveal(message *pb.PrecompRevealMessage) {}
-
-func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage) {}
-
-func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage) {}
-
-func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
-
-func (m TestInterface) PrecompShareCompare(message *pb.
-	PrecompShareCompareMessage) {
-}
-
-func (m TestInterface) PrecompShareConfirm(message *pb.
-	PrecompShareConfirmMessage) {
-}
-
-func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
-
-func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
-
-func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
-
-func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
-	time.Sleep(1000 * time.Millisecond)
-	if m.LastReceivedMessage != nil {
-		return m.LastReceivedMessage
-	}
-
-	return &pb.CmixMessage{}
-}
-
-func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-	ContactMessage {
-	return &pb.ContactMessage{}
-}
-
-var nick = "Mario"
-
-func (m TestInterface) UserUpsert(message *pb.UpsertUserMessage) {}
-
-func (m TestInterface) SetNick(message *pb.Contact) {
-	nick = message.Nick
-}
-
-func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {
-	jww.ERROR.Printf("Received Msg from: %d", message.SenderID)
-	m.LastReceivedMessage = message
-}
-func (m TestInterface) StartRound(message *pb.InputMessages) {}
-
-func (m TestInterface) RoundtripPing(message *pb.TimePing) {}
-
-func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage) {}
-
-func (m TestInterface) PollRegistrationStatus(message *pb.
-	RegistrationPoll) *pb.RegistrationConfirmation {
-	return &pb.RegistrationConfirmation{}
-}
-
-// Mock dummy storage interface for testing.
-type DummyStorage struct {
-	Location string
-	LastSave []byte
-}
-
-func (d *DummyStorage) SetLocation(l string) error {
-	d.Location = l
-	return nil
-}
-
-func (d *DummyStorage) GetLocation() string {
-	return d.Location
-}
-
-func (d *DummyStorage) Save(b []byte) error {
-	d.LastSave = make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		d.LastSave[i] = b[i]
-	}
-	return nil
-}
-
-func (d *DummyStorage) Load() []byte {
-	return d.LastSave
-}
-
-type DummyReceiver struct {
-	LastMessage APIMessage
-}
-
-func (d *DummyReceiver) Receive(message APIMessage) {
-	d.LastMessage = message
 }

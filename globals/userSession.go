@@ -52,8 +52,8 @@ func NewUserSession(u *User, nodeAddr, GatewayAddr string, nk []NodeKeys) UserSe
 	// With an underlying Session data structure
 	return UserSession(&SessionObj{
 		CurrentUser: u,
-		NodeAddress: nodeAddr,
-		GWAddress:   GatewayAddr,
+		NodeAddress: nodeAddr,    // FIXME: don't store this here.
+		GWAddress:   GatewayAddr, // FIXME: don't store this here
 		Keys:        nk,
 		PrivateKey:  cyclic.NewMaxInt()})
 }

@@ -24,7 +24,7 @@ func TestRegistrationGob(t *testing.T) {
 	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
 
 	// populate a gob in the store
-	Register(huid, NICK, serverAddress, "", 1)
+	Register(huid, Nick, serverAddress, "", 1)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -49,9 +49,9 @@ func VerifyRegisterGobAddress(t *testing.T) {
 }
 
 func VerifyRegisterGobNick(t *testing.T) {
-	if Session.GetCurrentUser().Nick != NICK {
+	if Session.GetCurrentUser().Nick != Nick {
 		t.Errorf("User's nick was %v, expected %v",
-			Session.GetCurrentUser().Nick, NICK)
+			Session.GetCurrentUser().Nick, Nick)
 	}
 }
 
@@ -193,9 +193,9 @@ func TestDisableRatchet(t *testing.T) {
 }
 
 func TestVerifySetNick(t *testing.T) {
-	if nick != NICK {
+	if nick != Nick {
 		t.Errorf("Nick set on server during register was %v, expected %v",
-			nick, NICK)
+			nick, Nick)
 	} else {
 		println("TestVerifySetNick: 1 test passed")
 	}

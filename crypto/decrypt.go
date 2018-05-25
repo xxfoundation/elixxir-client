@@ -16,6 +16,7 @@ import (
 	"gitlab.com/privategrity/crypto/verification"
 )
 
+// Decrypt decrypts messages
 func Decrypt(g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 	*format.Message, error) {
 
@@ -56,6 +57,7 @@ func Decrypt(g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 			decryptedMessage.GetData().LeftpadBytes(format.DATA_LEN),
 		}
 
+	// FIXME: This should not be done here. Do it as part of the receive/display.
 	success := verification.CheckMic(payloadMicList,
 		decryptedMessage.GetPayloadMIC().LeftpadBytes(format.PMIC_LEN))
 

@@ -7,6 +7,7 @@
 package crypto
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
@@ -51,6 +52,9 @@ func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {
 		forward.GenerateSharedKey(g, key.TransmissionKeys.Base,
 			key.TransmissionKeys.Recursive, sharedTransmissionKey,
 			sharedKeyStorage)
+		if len(sharedTransmissionKey.Bytes()) == 0 {
+			jww.FATAL.Panicf("Invalid Transmission keys!")
+		}
 		g.Inverse(sharedTransmissionKey, sharedTransmissionKey)
 		g.Mul(inverseTransmissionKeys, sharedTransmissionKey,
 			inverseTransmissionKeys)

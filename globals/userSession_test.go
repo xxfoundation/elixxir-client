@@ -9,7 +9,6 @@ package globals
 import (
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"testing"
 )
 
@@ -58,13 +57,13 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if LoadSession(UID, nil) != nil {
+	if LoadSession(UID) != nil {
 		t.Errorf("Error: Unable to login with valid user!")
 	} else {
 		pass++
 	}
 
-	if LoadSession(100002, nil) == nil {
+	if LoadSession(100002) == nil {
 		t.Errorf("Error: Able to login with invalid user!")
 	} else {
 		pass++
@@ -129,29 +128,6 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	inmsg, err := format.NewMessage(42, 69, "test")
-	if err != nil {
-		t.Errorf("Error: Couldn't create new message%v", err.Error())
-	}
-
-	Session.PushFifo(&inmsg[0])
-
-	outmsg, _ := Session.PopFifo()
-
-	if &inmsg[0] != outmsg {
-		t.Errorf("Error: Incorrect Return Message from fifo")
-	} else {
-		pass++
-	}
-
-	// Test immolate on nonempty FIFO
-	inmsg, err = format.NewMessage(42, 69, "test")
-	if err != nil {
-		t.Errorf("Error: Couldn't create new message%v", err.Error())
-	}
-
-	Session.PushFifo(&inmsg[0])
-
 	//Logout
 	Session.Immolate()
 
@@ -166,7 +142,7 @@ func TestUserSession(t *testing.T) {
 	// Test nil LocalStorage
 	temp := LocalStorage
 	LocalStorage = nil
-	if LoadSession(6, nil) == nil {
+	if LoadSession(6) == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
 	}
 	LocalStorage = temp
@@ -176,7 +152,7 @@ func TestUserSession(t *testing.T) {
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
 	LocalStorage.Save(randBytes)
-	if LoadSession(6, nil) == nil {
+	if LoadSession(6) == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
 	}
 }

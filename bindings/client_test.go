@@ -7,6 +7,7 @@ package bindings
 
 import (
 	"bytes"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	pb "gitlab.com/privategrity/comms/mixmessages"
@@ -21,103 +22,17 @@ import (
 
 const serverAddress = "localhost:5557"
 
-var nick = "Mario"
-
-// Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
-type TestInterface struct{}
-
-func (m TestInterface) NewRound(roundId string)                              {}
-func (m TestInterface) SetPublicKey(roundId string, pkey []byte)             {}
-func (m TestInterface) PrecompDecrypt(message *pb.PrecompDecryptMessage)     {}
-func (m TestInterface) PrecompEncrypt(message *pb.PrecompEncryptMessage)     {}
-func (m TestInterface) PrecompReveal(message *pb.PrecompRevealMessage)       {}
-func (m TestInterface) PrecompPermute(message *pb.PrecompPermuteMessage)     {}
-func (m TestInterface) PrecompShare(message *pb.PrecompShareMessage)         {}
-func (m TestInterface) PrecompShareInit(message *pb.PrecompShareInitMessage) {}
-func (m TestInterface) PrecompShareCompare(message *pb.
-	PrecompShareCompareMessage) {
-}
-func (m TestInterface) PrecompShareConfirm(message *pb.
-	PrecompShareConfirmMessage) {
-}
-func (m TestInterface) RealtimeDecrypt(message *pb.RealtimeDecryptMessage) {}
-func (m TestInterface) RealtimeEncrypt(message *pb.RealtimeEncryptMessage) {}
-func (m TestInterface) RealtimePermute(message *pb.RealtimePermuteMessage) {}
-func (m TestInterface) ClientPoll(message *pb.ClientPollMessage) *pb.CmixMessage {
-	return &pb.CmixMessage{}
-}
-func (m TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
-	ContactMessage {
-	return &pb.ContactMessage{
-		Contacts: []*pb.Contact{
-			{
-				UserID: 3,
-				Nick:   "Snicklefritz",
-			}, {
-				UserID: 5786,
-				Nick:   "Jonwayne",
-			},
-		},
-	}
-}
-
-func (m TestInterface) UserUpsert(message *pb.UpsertUserMessage) {}
-func (m TestInterface) PollRegistrationStatus(message *pb.
-	RegistrationPoll) *pb.RegistrationConfirmation {
-	return &pb.RegistrationConfirmation{}
-}
-
-func (m TestInterface) SetNick(message *pb.Contact) {
-	nick = message.Nick
-}
-func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
-func (m TestInterface) StartRound(message *pb.InputMessages)             {}
-func (m TestInterface) RoundtripPing(message *pb.TimePing)               {}
-func (m TestInterface) ServerMetrics(message *pb.ServerMetricsMessage)   {}
-
-func (m TestInterface) PollRegistrationStatus(message *pb.RegistrationPoll) *pb.RegistrationConfirmation {
-	return nil
-}
-
-// Mock dummy storage interface for testing.
-type DummyStorage struct {
-	Location string
-	LastSave []byte
-}
-
-func (d *DummyStorage) SetLocation(l string) error {
-	d.Location = l
-	return nil
-}
-
-func (d *DummyStorage) GetLocation() string {
-	return d.Location
-}
-
-func (d *DummyStorage) Save(b []byte) error {
-	d.LastSave = make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		d.LastSave[i] = b[i]
-	}
-	return nil
-}
-
-func (d *DummyStorage) Load() []byte {
-	return d.LastSave
-}
-
-type DummyReceiver struct {
-	LastMessage Message
-}
-
-func (d *DummyReceiver) Receive(message Message) {
-	d.LastMessage = message
-}
+var ServerData api.TestInterface
 
 func TestMain(m *testing.M) {
 	io.SendAddress = serverAddress
 	io.ReceiveAddress = serverAddress
-	go node.StartServer(serverAddress, TestInterface{})
+
+	ServerData = api.TestInterface{
+		LastReceivedMessage: pb.CmixMessage{},
+	}
+
+	go node.StartServer(serverAddress, &ServerData)
 
 	os.Exit(m.Run())
 }
@@ -138,7 +53,7 @@ func TestInitClientNil(t *testing.T) {
 }
 
 func TestInitClient(t *testing.T) {
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	if err != nil {
 		t.Errorf("InitClient returned error: %v", err)
@@ -293,7 +208,7 @@ func TestReceiveMessageByInterface(t *testing.T) {
 func TestRegister(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	regRes, err := Register(registrationCode, nick, serverAddress, 1)
@@ -309,7 +224,7 @@ func TestRegister(t *testing.T) {
 func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	_, err = Register(registrationCode, nick, serverAddress, 0)
@@ -322,7 +237,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 func TestLogin(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	regRes, err := Register(registrationCode, nick, serverAddress, 1)
@@ -333,14 +248,15 @@ func TestLogin(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	Logout()
+	//Logout() -- we can't do this because some tests run in parallel and
+	// it's not thread safe
 	globals.LocalStorage = nil
 }
 
 func TestLogout(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	nick := "Nickname"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	regRes, err := Register(registrationCode, nick, serverAddress, 1)
@@ -372,21 +288,3 @@ func TestSetRateLimiting(t *testing.T) {
 		t.Errorf("SetRateLimiting not updated properly")
 	}
 }
-
-// func TestSend(t *testing.T) {
-// 	registrationCode := "JHJ6L9BACDVC"
-// 	nick := "Nickname"
-// 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-// 	err := InitClient(&d, "hello", nil)
-
-// 	regRes, err := Register(registrationCode, nick, serverAddress, 1)
-// 	loginRes, err2 := Login(regRes)
-
-// 	if err2 != nil {
-// 		t.Errorf("Login failed: %s", err.Error())
-// 	}
-// 	if len(loginRes) == 0 {
-// 		t.Errorf("Invalid login received: %v", loginRes)
-// 	}
-// 	globals.LocalStorage = nil
-// }

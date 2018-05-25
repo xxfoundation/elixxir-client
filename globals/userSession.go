@@ -12,7 +12,6 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"io"
 	"math"
 	"math/rand"
@@ -30,8 +29,6 @@ type UserSession interface {
 	SetNodeAddress(addr string)
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
-	PushFifo(*format.Message) error
-	PopFifo() (*format.Message, error)
 	StoreSession() error
 	Immolate() error
 }
@@ -49,23 +46,19 @@ type RatchetKey struct {
 	Recursive *cyclic.Int
 }
 
-var FifoEmptyErr error = errors.New("PopFifo: Fifo Empty")
-
 // Creates a new UserSession interface for registration
 func NewUserSession(u *User, nodeAddr, GatewayAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
 	return UserSession(&SessionObj{
 		CurrentUser: u,
-		NodeAddress: nodeAddr,
-		GWAddress:   GatewayAddr,
-		fifo:        nil,
+		NodeAddress: nodeAddr,    // FIXME: don't store this here.
+		GWAddress:   GatewayAddr, // FIXME: don't store this here
 		Keys:        nk,
-		pollTerm:    nil,
 		PrivateKey:  cyclic.NewMaxInt()})
 }
 
-func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
+func LoadSession(UID uint64) error {
 	if LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return err
@@ -98,10 +91,6 @@ func LoadSession(UID uint64, pollTerm ThreadTerminator) error {
 		return err
 	}
 
-	session.fifo = make(chan *format.Message, 100)
-
-	session.pollTerm = pollTerm
-
 	Session = &session
 
 	return nil
@@ -112,16 +101,10 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	//fifo buffer
-	fifo chan *format.Message
-
 	// Node address that the user will send messages to
 	NodeAddress string
 	// Gateway address to the cMix network
 	GWAddress string
-
-	// Used to kill the polling reception thread
-	pollTerm ThreadTerminator
 
 	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
@@ -157,51 +140,6 @@ func (s *SessionObj) GetGWAddress() string {
 
 func (s *SessionObj) SetNodeAddress(addr string) {
 	s.NodeAddress = addr
-}
-
-func (s *SessionObj) PushFifo(msg *format.Message) error {
-
-	if s.fifo == nil {
-		err := errors.New("PushFifo: Cannot push an uninitialized fifo")
-		return err
-	}
-
-	if s.CurrentUser == nil {
-		err := errors.New("PushFifo: Cannot push a fifo for an uninitialized")
-		return err
-	}
-
-	select {
-	case s.fifo <- msg:
-		return nil
-	default:
-		err := errors.New("PushFifo: fifo full")
-		return err
-	}
-}
-
-func (s *SessionObj) PopFifo() (*format.Message, error) {
-
-	if s.fifo == nil {
-		err := errors.New("PopFifo: Cannot pop an uninitialized fifo")
-		return nil, err
-	}
-
-	if s.CurrentUser == nil {
-		err := errors.New("PopFifo: Cannot pop an fifo on an uninitialized" +
-			" user")
-		return nil, err
-	}
-
-	var msg *format.Message
-
-	select {
-	case msg = <-s.fifo:
-		return msg, nil
-	default:
-		return nil, nil
-	}
-
 }
 
 func (s *SessionObj) StoreSession() error {
@@ -242,37 +180,6 @@ func (s *SessionObj) Immolate() error {
 	if s == nil {
 		err := errors.New("immolate: Cannot immolate that which has no life")
 		return err
-	}
-
-	//Kill Polling Reception
-	if s.pollTerm != nil {
-
-		s.pollTerm.BlockingTerminate(60000)
-		//Clear message fifo
-
-		q := false
-		for !q {
-			select {
-			case m := <-s.fifo:
-				// clear all fields of the message
-				// TODO make sure that this really overwrites the correct memory
-				// TODO maybe move this functionality to crypto/message
-				clearCyclicInt(m.GetPayloadInitVect())
-				clearCyclicInt(m.GetSenderID())
-				clearCyclicInt(m.GetData())
-				clearCyclicInt(m.GetPayloadMIC())
-
-				clearCyclicInt(m.GetRecipientInitVect())
-				clearCyclicInt(m.GetRecipientEmpty())
-				clearCyclicInt(m.GetRecipientID())
-				clearCyclicInt(m.GetRecipientMIC())
-			default:
-				q = true
-			}
-		}
-
-		//close the message fifo
-		close(s.fifo)
 	}
 
 	// clear data stored in session

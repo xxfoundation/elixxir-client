@@ -4,17 +4,23 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package globals
+package crypto
 
 import (
-	"sync"
-	"time"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"testing"
 )
 
-// TODO move to transmitMessage.go
-const DefaultTransmitDelay = 1000
-
-var BlockingTransmission = true
-var TransmissionMutex = &sync.Mutex{}
-var TransmissionErrCh = make(chan error, 100)
-var TransmitDelay = time.Duration(DefaultTransmitDelay) * time.Millisecond
+// Smoke test for MakeInitVect
+func TestMakeInitVect(t *testing.T) {
+	InitCrypto()
+	tests := 100
+	min := cyclic.NewInt(2)
+	max := cyclic.NewIntFromString("7FFFFFFFFFFFFFFFFF", 16)
+	for i := 0; i < tests; i++ {
+		rand := MakeInitVect(cyclic.NewInt(0))
+		if rand.Cmp(min) < 0 || rand.Cmp(max) >= 0 {
+			t.Error("MakeInitVector is out of range.")
+		}
+	}
+}

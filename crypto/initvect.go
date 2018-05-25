@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package globals
+package crypto
 
 import (
 	"gitlab.com/privategrity/crypto/cyclic"

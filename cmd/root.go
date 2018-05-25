@@ -174,15 +174,11 @@ var rootCmd = &cobra.Command{
 		for {
 
 			var msg bindings.Message
-			msg, err := bindings.TryReceive()
+			msg, _ = bindings.TryReceive()
 
 			end := false
 
 			//Report failed message reception
-			if err != nil && err != globals.FifoEmptyErr {
-				fmt.Printf("Could not Receive Message: %s\n", err.Error())
-				break
-			}
 			sender := binary.BigEndian.Uint64(msg.GetSender())
 
 			// Get sender's nick
@@ -273,7 +269,7 @@ func init() {
 			"Defaults to true if unset.")
 
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
-		globals.DefaultTransmitDelay, "Sets the amount of time, in ms, "+
+		1000, "Sets the amount of time, in ms, "+
 			"that the client waits between sending messages.  "+
 			"set to zero to disable.  "+
 			"Automatically disabled if 'blockingTransmission' is false")

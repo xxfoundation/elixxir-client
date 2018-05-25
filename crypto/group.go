@@ -1,9 +1,16 @@
-package globals
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+package crypto
 
 import "gitlab.com/privategrity/crypto/cyclic"
 
+// Grp is the global cyclic group used by cMix
 var Grp *cyclic.Group
 
+// InitCrypto sets up the cryptographic constants for cMix
 func InitCrypto() {
 	// TODO: don't hard code the cyclic group
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +

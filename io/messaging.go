@@ -182,7 +182,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		listenersLock.Lock()
 		for i := range listeners {
 			// Skip if not 0 or not senderID matched
-			if listeners[i].SenderID != 0 || listeners[i].SenderID != senderID {
+			if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
 				continue
 			}
 			listeners[i].Messages <- decryptedMsg

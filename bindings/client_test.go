@@ -11,6 +11,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/api"
+	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
@@ -21,7 +22,7 @@ import (
 )
 
 const serverAddress = "localhost:5557"
-var ServerData *api.TestInterface
+var ServerData api.TestInterface
 
 func TestMain(m *testing.M) {
 	io.SendAddress = serverAddress

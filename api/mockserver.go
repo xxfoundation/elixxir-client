@@ -3,11 +3,8 @@
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
-<<<<<<< HEAD
-=======
 
 // This sets up a dummy/mock server instance for testing purposes
->>>>>>> Make unit tests work
 package api
 
 import (
@@ -76,7 +73,6 @@ func (m *TestInterface) RequestContactList(message *pb.ContactPoll) *pb.
 func (m *TestInterface) UserUpsert(message *pb.UpsertUserMessage) {}
 
 func (m *TestInterface) SetNick(message *pb.Contact) {
-	nick = message.Nick
 }
 
 func (m *TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {

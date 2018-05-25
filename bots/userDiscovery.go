@@ -172,7 +172,6 @@ func sendCommandMulti(responseCnt int, botID uint64, command string) []string {
 
 	for i := 0; i < responseCnt; i++ {
 		response := <-listener
-		jww.ERROR.Printf(response.GetPayload())
 		responses = append(responses, response.GetPayload())
 	}
 	return responses

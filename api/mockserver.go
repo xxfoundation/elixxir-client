@@ -10,7 +10,6 @@ package api
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"time"
 )
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)

@@ -10,6 +10,7 @@ package bot
 import (
 	"encoding/base64"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/hash"
 )
@@ -80,12 +81,13 @@ func fingerprint(publicKey []byte) string {
 // we will eventually receive a response from the server. Callers
 // to registration that need timeouts should implement it themselves.
 func sendCommand(botID uint64, command string) string {
-	listener := io.Listen(botID)
-	defer io.StopListening(listener)
-	err := io.SendMessage(botID, command)
+	listener := io.Messaging.Listen(botID)
+	defer io.Messaging.StopListening(listener)
+	err := io.Messaging.SendMessage(botID, command)
 	if err != nil {
 		return err.Error()
 	}
 	response := <-listener
+	jww.ERROR.Printf(response.GetPayload())
 	return response.GetPayload()
 }

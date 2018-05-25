@@ -20,6 +20,11 @@ import (
 	"time"
 )
 
+type messaging struct{}
+
+// Messaging implements the Communications interface
+var Messaging Communications = &messaging{}
+
 // SendAddress is the address of the server to send messages
 var SendAddress string
 
@@ -52,7 +57,7 @@ var listenersLock sync.Mutex
 // SendMessage to the provided Recipient
 // TODO: It's not clear why we wouldn't hand off a sender object (with
 // the keys) here. I won't touch crypto at this time, though...
-func SendMessage(recipientID uint64, message string) error {
+func (m *messaging) SendMessage(recipientID uint64, message string) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
 	// the cMix network. This NewMessage does way too many things: break the
@@ -107,7 +112,7 @@ func send(senderID uint64, message *format.Message) error {
 }
 
 // Listen adds a listener to the receiver thread
-func Listen(senderID uint64) chan *format.Message {
+func (m *messaging) Listen(senderID uint64) chan *format.Message {
 	listenersLock.Lock()
 	defer listenersLock.Unlock()
 	if listeners == nil {
@@ -123,7 +128,7 @@ func Listen(senderID uint64) chan *format.Message {
 }
 
 // StopListening closes and deletes the listener
-func StopListening(listenerCh chan *format.Message) {
+func (m *messaging) StopListening(listenerCh chan *format.Message) {
 	listenersLock.Lock()
 	defer listenersLock.Unlock()
 	for i := range listeners {
@@ -143,7 +148,7 @@ func StopListening(listenerCh chan *format.Message) {
 // list for the listeners?
 // Accessing all of these global variables is extremely problematic for this
 // kind of thread.
-func MessageReceiver(delay time.Duration) {
+func (m *messaging) MessageReceiver(delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if globals.Session == nil {
 		jww.FATAL.Panicf("No user session available")

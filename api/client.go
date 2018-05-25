@@ -153,8 +153,8 @@ func Login(UID uint64, addr string) (string, error) {
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	if listenCh == nil {
-		listenCh = io.Listen(0)
-		go io.MessageReceiver(pollWaitTimeMillis)
+		listenCh = io.Messaging.Listen(0)
+		go io.Messaging.MessageReceiver(pollWaitTimeMillis)
 	} else {
 		jww.ERROR.Printf("Message receiver already started!")
 	}
@@ -167,7 +167,7 @@ func Login(UID uint64, addr string) (string, error) {
 func Send(message format.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := binary.LittleEndian.Uint64(message.GetRecipient())
-	err := io.SendMessage(recipientID, message.GetPayload())
+	err := io.Messaging.SendMessage(recipientID, message.GetPayload())
 	return err
 }
 

@@ -152,5 +152,7 @@ trigger_integration:
   script:
     - "curl -X POST -F token=e34aa19ef1530e579c5d590873d3c6 -F ref=master https://gitlab.com/api/v4/projects/5615854/trigger/pipeline"
     - "curl -X POST -F token=d1888aeb7d0e1e6573b313a59ff16e -F ref=master https://gitlab.com/api/v4/projects/5681102/trigger/pipeline"
+    # channelbot
+    - "curl -X POST -F token=de4b7c93b0c2ce5d76e8780ab0fd73 -F ref=master https://gitlab.com/api/v4/projects/6204331/trigger/pipeline"
   only:
     - master

@@ -123,7 +123,7 @@ func InitClient(storage Storage, loc string, receiver Receiver) error {
 // 10
 // “Jono”
 // JHJ6L9BACDVC
-func RegisterGW(registrationCode string, nick string, nodeAddr, gwAddr string,
+func RegisterGW(registrationCode string, nodeAddr, gwAddr string,
 	numNodes int) ([]byte, error) {
 
 	if numNodes < 1 {
@@ -132,7 +132,7 @@ func RegisterGW(registrationCode string, nick string, nodeAddr, gwAddr string,
 
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 
-	UID, err := api.Register(hashUID, nick, nodeAddr, gwAddr, uint(numNodes))
+	UID, err := api.Register(hashUID, nodeAddr, gwAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err
@@ -141,9 +141,9 @@ func RegisterGW(registrationCode string, nick string, nodeAddr, gwAddr string,
 	return cyclic.NewIntFromUInt(UID).Bytes(), nil
 }
 
-func Register(registrationCode string, nick string, nodeAddr string,
+func Register(registrationCode string, nodeAddr string,
 	numNodes int) ([]byte, error) {
-	r, err := RegisterGW(registrationCode, nick, nodeAddr, "", numNodes)
+	r, err := RegisterGW(registrationCode, nodeAddr, "", numNodes)
 	return r, err
 }
 
@@ -171,13 +171,6 @@ func TryReceive() (Message, error) {
 // from RAM
 func Logout() error {
 	return api.Logout()
-}
-
-// Byte order for our APIs are conventionally going to be little-endian
-/* Set this user's nick on the server */
-func SetNick(UID []byte, nick string) error {
-	userID := cyclic.NewIntFromBytes(UID).Uint64()
-	return api.SetNick(userID, nick)
 }
 
 /* We use this schema to validate the JSON we've generated at runtime,

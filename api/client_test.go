@@ -24,7 +24,7 @@ func TestRegistrationGob(t *testing.T) {
 	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
 
 	// populate a gob in the store
-	Register(huid, NICK, SERVER_ADDRESS, "", 1)
+	Register(huid, SERVER_ADDRESS, "", 1)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -36,7 +36,6 @@ func TestRegistrationGob(t *testing.T) {
 
 	VerifyRegisterGobAddress(t)
 	VerifyRegisterGobKeys(t)
-	VerifyRegisterGobNick(t)
 	VerifyRegisterGobUserID(t)
 }
 
@@ -45,13 +44,6 @@ func VerifyRegisterGobAddress(t *testing.T) {
 	if Session.GetNodeAddress() != SERVER_ADDRESS {
 		t.Errorf("GetNodeAddress() returned %v, expected %v",
 			Session.GetNodeAddress(), SERVER_ADDRESS)
-	}
-}
-
-func VerifyRegisterGobNick(t *testing.T) {
-	if Session.GetCurrentUser().Nick != NICK {
-		t.Errorf("User's nick was %v, expected %v",
-			Session.GetCurrentUser().Nick, NICK)
 	}
 }
 
@@ -190,13 +182,4 @@ func TestDisableRatchet(t *testing.T) {
 	}
 
 	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
-}
-
-func TestVerifySetNick(t *testing.T) {
-	if nick != NICK {
-		t.Errorf("Nick set on server during register was %v, expected %v",
-			nick, NICK)
-	} else {
-		println("TestVerifySetNick: 1 test passed")
-	}
 }

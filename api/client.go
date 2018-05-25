@@ -68,7 +68,7 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode uint64, nick string, nodeAddr, gwAddr string,
+func Register(registrationCode uint64, nodeAddr, gwAddr string,
 	numNodes uint) (uint64, error) {
 
 	var err error
@@ -95,15 +95,6 @@ func Register(registrationCode uint64, nick string, nodeAddr, gwAddr string,
 		err = errors.New("could not register due to UserID lookup failure")
 		return 0, err
 	}
-
-	if len(nick) > 36 || len(nick) < 1 {
-		jww.ERROR.Printf("Register: Nickname length invalid")
-		err = errors.New("could not register due to invalid nickname")
-		return 0, err
-	}
-
-	user.Nick = nick
-	io.SetNick(nodeAddr, user)
 
 	nodekeys, successKeys := globals.Users.LookupKeys(user.UserID)
 	nodekeys.PublicKey = cyclic.NewInt(0)
@@ -311,21 +302,6 @@ func Logout() error {
 			errImmolate.Error()))
 		jww.ERROR.Printf(err.Error())
 		return err
-	}
-
-	return nil
-}
-
-func SetNick(UID uint64, nick string) error {
-	u, success := globals.Users.GetUser(UID)
-
-	if success {
-		u.Nick = nick
-		io.SetNick(globals.Session.GetNodeAddress(), u)
-	} else {
-		jww.ERROR.Printf("Tried to set nick for user %v, "+
-			"but that user wasn't in the registry", u)
-		return errors.New("That user wasn't in the user registry")
 	}
 
 	return nil

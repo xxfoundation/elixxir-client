@@ -16,10 +16,10 @@ import (
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
 var NUM_DEMO_USERS = int(40)
-var DEMO_USER_NICKS = []string {"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
-"Mario", "Will", "Allan", "Jono"}
-var DEMO_CHANNEL_NAMES = []string {"#General", "#Engineering", "#Lunch",
-"#Random"}
+var DEMO_USER_NICKS = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
+	"Mario", "Will", "Allan", "Jono", "", "", "UDB"}
+var DEMO_CHANNEL_NAMES = []string{"#General", "#Engineering", "#Lunch",
+	"#Random"}
 
 // Interface for User Registry operations
 type UserRegistry interface {
@@ -49,7 +49,7 @@ func newUserRegistry() UserRegistry {
 	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
 		jww.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
- 	uc := make(map[uint64]*User)
+	uc := make(map[uint64]*User)
 	ul := make(map[uint64]uint64)
 	nk := make(map[uint64]*NodeKeys)
 

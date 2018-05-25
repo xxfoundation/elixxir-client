@@ -65,10 +65,6 @@ func (m TestInterface) PollRegistrationStatus(message *pb.
 	RegistrationPoll) *pb.RegistrationConfirmation {
 	return &pb.RegistrationConfirmation{}
 }
-
-func (m TestInterface) SetNick(message *pb.Contact) {
-	nick = message.Nick
-}
 func (m TestInterface) ReceiveMessageFromClient(message *pb.CmixMessage) {}
 func (m TestInterface) StartRound(message *pb.InputMessages)             {}
 func (m TestInterface) RoundtripPing(message *pb.TimePing)               {}
@@ -285,11 +281,10 @@ func TestReceiveMessageByInterface(t *testing.T) {
 
 func TestRegister(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+	regRes, err := Register(registrationCode, SERVER_ADDRESS, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -301,11 +296,10 @@ func TestRegister(t *testing.T) {
 
 func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	_, err = Register(registrationCode, nick, SERVER_ADDRESS, 0)
+	_, err = Register(registrationCode, SERVER_ADDRESS, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -314,11 +308,10 @@ func TestRegisterBadNumNodes(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+	regRes, err := Register(registrationCode, SERVER_ADDRESS, 1)
 	loginRes, err2 := Login(regRes, SERVER_ADDRESS)
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -332,11 +325,10 @@ func TestLogin(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, nick, SERVER_ADDRESS, 1)
+	regRes, err := Register(registrationCode, SERVER_ADDRESS, 1)
 	Login(regRes, SERVER_ADDRESS)
 
 	err2 := Logout()

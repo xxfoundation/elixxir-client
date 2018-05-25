@@ -7,6 +7,7 @@ package bindings
 
 import (
 	"bytes"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/api"
@@ -25,11 +26,12 @@ var ServerData *api.TestInterface
 func TestMain(m *testing.M) {
 	io.SendAddress = serverAddress
 	io.ReceiveAddress = serverAddress
-		ServerData = &api.TestInterface{
-		LastReceivedMessage: nil,
+
+	ServerData = api.TestInterface{
+		LastReceivedMessage: pb.CmixMessage{},
 	}
-	// Start server for all tests in this package
-	go node.StartServer(serverAddress, ServerData)
+
+	go node.StartServer(serverAddress, &ServerData)
 
 	os.Exit(m.Run())
 }
@@ -50,7 +52,7 @@ func TestInitClientNil(t *testing.T) {
 }
 
 func TestInitClient(t *testing.T) {
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	if err != nil {
 		t.Errorf("InitClient returned error: %v", err)
@@ -204,7 +206,8 @@ func TestReceiveMessageByInterface(t *testing.T) {
 
 func TestRegister(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	nick := "Nickname"
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	regRes, err := Register(registrationCode, serverAddress, 1)
@@ -219,7 +222,8 @@ func TestRegister(t *testing.T) {
 
 func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	nick := "Nickname"
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	_, err = Register(registrationCode, serverAddress, 0)
@@ -231,7 +235,8 @@ func TestRegisterBadNumNodes(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	nick := "Nickname"
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	regRes, err := Register(registrationCode, serverAddress, 1)
@@ -242,13 +247,15 @@ func TestLogin(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	Logout()
+	//Logout() -- we can't do this because some tests run in parallel and
+	// it's not thread safe
 	globals.LocalStorage = nil
 }
 
 func TestLogout(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	nick := "Nickname"
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
 	regRes, err := Register(registrationCode, serverAddress, 1)

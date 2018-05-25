@@ -63,6 +63,7 @@ func SendMessage(recipientID uint64, message string) error {
 	// in this library? why not pass a sender object instead?
 	userID := globals.Session.GetCurrentUser().UserID
 	messages, err := format.NewMessage(userID, recipientID, message)
+
 	if err != nil {
 		return err
 	}
@@ -87,7 +88,7 @@ func send(senderID uint64, message *format.Message) error {
 	}
 
 	// TBD: Is there a really good reason we have to specify the Grp and not a
-	// key?
+	// key? Should we even be doing the encryption here?
 	encryptedMessage := crypto.Encrypt(crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       senderID,
@@ -127,42 +128,65 @@ func StopListening(listenerCh chan *format.Message) {
 	defer listenersLock.Unlock()
 	for i := range listeners {
 		if listeners[i].Messages == listenerCh {
-			listeners = append(listeners[:i], listeners[i+1:]...)
 			close(listeners[i].Messages)
+			if len(listeners) == i+1 {
+				listeners = listeners[:i]
+			} else {
+				listeners = append(listeners[:i], listeners[i+1:]...)
+			}
 		}
 	}
 }
 
 // Polling thread for receiving messages -- again.. we should be passing
 // this a user object with some keys, and maybe a shared list for the listeners?
+// Accessing all of these global variables is extremely problematic for this
+// kind of thread.
 func MessageReceiver(delay time.Duration) {
+	// FIXME: It's not clear we should be doing decryption here.
+	if globals.Session == nil {
+		jww.FATAL.Panicf("No user session available")
+	}
 	pollingMessage := pb.ClientPollMessage{
 		UserID: globals.Session.GetCurrentUser().UserID,
 	}
 
 	for {
+		time.Sleep(delay)
+		if len(listeners) == 0 {
+			jww.FATAL.Panicf("No listeners for receiver thread!")
+		}
+		jww.WARN.Printf("Poll")
 		encryptedMsg, err := client.SendClientPoll(ReceiveAddress, &pollingMessage)
 		if err != nil {
 			jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
 			continue
 		}
-
-		decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
-		if err2 != nil {
-			jww.WARN.Printf("Could not decrypt message: %v", err2.Error())
+		if encryptedMsg.MessagePayload == nil &&
+			encryptedMsg.RecipientID == nil &&
+			encryptedMsg.SenderID == 0 {
 			continue
 		}
 
+		jww.WARN.Printf("DECrypt")
+
+		decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
+		if err2 != nil {
+			jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
+		}
+
+		jww.WARN.Printf("POPULATE")
 		senderID := decryptedMsg.GetSenderIDUint()
 		listenersLock.Lock()
 		for i := range listeners {
+			jww.WARN.Printf("ADDLIST")
+
 			// Skip if not 0 or not senderID matched
-			if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
+			if listeners[i].SenderID != 0 || listeners[i].SenderID != senderID {
 				continue
 			}
 			listeners[i].Messages <- decryptedMsg
 		}
 		listenersLock.Unlock()
-		time.Sleep(delay)
 	}
 }

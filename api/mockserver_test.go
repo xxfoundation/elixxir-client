@@ -14,6 +14,7 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"
@@ -22,16 +23,18 @@ import (
 const serverAddress = "localhost:5556"
 
 var Session globals.SessionObj
-var ServerData *TestInterface
+var ServerData TestInterface
 
 func TestMain(m *testing.M) {
 	io.SendAddress = serverAddress
 	io.ReceiveAddress = serverAddress
-	ServerData = &TestInterface{
-		LastReceivedMessage: nil,
+	ServerData = TestInterface{
+		LastReceivedMessage: pb.CmixMessage{},
 	}
+	jww.SetLogThreshold(jww.LevelTrace)
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Start server for all tests in this package
-	go node.StartServer(serverAddress, ServerData)
+	go node.StartServer(serverAddress, &ServerData)
 
 	os.Exit(m.Run())
 }
@@ -141,6 +144,17 @@ func TestUpdateUserRegistry(t *testing.T) {
 	}
 }
 
+func SetNulKeys() {
+	// Set the transmit keys to be 1, so send/receive can work
+	// FIXME: Why doesn't crypto panic when these keys are empty?
+	keys := globals.Session.GetKeys()
+	for i := range keys {
+		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
+		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
+	}
+	DisableRatchet()
+}
+
 func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
 	registrationCode := "be50nhqpqjtjj"
@@ -149,6 +163,7 @@ func TestSend(t *testing.T) {
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	userID, err := Register(hashUID, serverAddress, "", 1)
 	loginRes, err2 := Login(userID, serverAddress)
+	SetNulKeys()
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -161,8 +176,8 @@ func TestSend(t *testing.T) {
 	err = Send(APIMessage{SenderID: 12, Payload: "test",
 		RecipientID: userID})
 	// 500ms for the other thread to catch it
-	time.Sleep(5000 * time.Millisecond)
-	if err == nil && ServerData.LastReceivedMessage.SenderID == 12 {
+	time.Sleep(100 * time.Millisecond)
+	if err == nil && ServerData.LastReceivedMessage.SenderID != userID {
 		t.Errorf("Invalid message was accepted by Send. " +
 			"Sender ID must match current user")
 	}
@@ -186,6 +201,7 @@ func TestReceive(t *testing.T) {
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	userID, err := Register(hashUID, serverAddress, "", 1)
 	loginRes, err2 := Login(userID, serverAddress)
+	SetNulKeys()
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -193,18 +209,21 @@ func TestReceive(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
+	if globals.Session == nil {
+		t.Errorf("Could not load session!")
+	}
 
 	msg, _ := format.NewMessage(10, 10, "test")
 	Send(&msg[0])
 	time.Sleep(500*time.Millisecond)
 
 	receivedMsg, err := TryReceive()
-	if err != nil {
-		t.Errorf("Could not receive a message from a nonempty FIFO.")
+	if err != nil || receivedMsg == nil {
+		t.Errorf("Could not receive a message.")
 	}
 	if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 0 {
 		t.Errorf("Recipient of received message is incorrect. "+
-			"Expected: 10 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
+			"Expected: 0 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
 			GetRecipient()).Uint64())
 	}
 }

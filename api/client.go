@@ -136,6 +136,10 @@ func Login(UID uint64, addr string) (string, error) {
 
 	err := globals.LoadSession(UID)
 
+	if globals.Session == nil {
+		return "", errors.New("Unable to load session")
+	}
+
 	if addr != "" {
 		globals.Session.SetNodeAddress(addr)
 	}
@@ -148,8 +152,12 @@ func Login(UID uint64, addr string) (string, error) {
 	}
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
-	listenCh = io.Listen(0)
-	go io.MessageReceiver(pollWaitTimeMillis)
+	if listenCh == nil {
+		listenCh = io.Listen(0)
+		go io.MessageReceiver(pollWaitTimeMillis)
+	} else {
+		jww.ERROR.Printf("Message receiver already started!")
+	}
 
 	return globals.Session.GetCurrentUser().Nick, nil
 }
@@ -234,7 +242,10 @@ func Logout() error {
 		return err
 	}
 
-	io.Disconnect(globals.Session.GetNodeAddress())
+	io.Disconnect(io.SendAddress)
+	if io.SendAddress != io.ReceiveAddress {
+		io.Disconnect(io.ReceiveAddress)
+	}
 
 	errStore := globals.Session.StoreSession()
 

@@ -122,7 +122,7 @@ func Listen(senderID uint64) chan *format.Message {
 	return listenerCh
 }
 
-// Delete the listener
+// StopListening closes and deletes the listener
 func StopListening(listenerCh chan *format.Message) {
 	listenersLock.Lock()
 	defer listenersLock.Unlock()
@@ -138,8 +138,9 @@ func StopListening(listenerCh chan *format.Message) {
 	}
 }
 
-// Polling thread for receiving messages -- again.. we should be passing
-// this a user object with some keys, and maybe a shared list for the listeners?
+// MessageReceiver is a polling thread for receiving messages -- again.. we
+// should be passing this a user object with some keys, and maybe a shared
+// list for the listeners?
 // Accessing all of these global variables is extremely problematic for this
 // kind of thread.
 func MessageReceiver(delay time.Duration) {

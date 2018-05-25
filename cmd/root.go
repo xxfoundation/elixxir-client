@@ -150,21 +150,17 @@ var rootCmd = &cobra.Command{
 
 		sessionInitialization()
 
-		//Get contact list (just for testing)
-		contact := ""
-		api.UpdateContactList()
-		users, nicks := api.GetContactList()
-
-		for i := range users {
-			if destinationUserId == users[i] {
-				contact = nicks[i]
-			}
-		}
-
 		// Only send a message if we have a message to send (except dummy messages)
 		if message != "" {
+			// Get the recipient's nick
+			recipientNick := ""
+			user, ok := globals.Users.GetUser(destinationUserId)
+			if ok {
+				recipientNick = user.Nick
+			}
+
 			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-				contact, message)
+				recipientNick, message)
 
 			//Send the message
 			bindings.Send(api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId})
@@ -189,10 +185,11 @@ var rootCmd = &cobra.Command{
 			}
 			sender := binary.BigEndian.Uint64(msg.GetSender())
 
-			contact = ""
+			// Get sender's nick
 			user, ok := globals.Users.GetUser(sender)
+			var senderNick string
 			if ok {
-				contact = user.Nick
+				senderNick = user.Nick
 			}
 
 			//Return the received message to console
@@ -206,11 +203,11 @@ var rootCmd = &cobra.Command{
 						speakerContact = user.Nick
 					}
 					fmt.Printf("Message from channel %v, %v:\n%v, %v: %v\n",
-						sender, contact, channelMessage.SpeakerID,
+						sender, senderNick, channelMessage.SpeakerID,
 						speakerContact, channelMessage.Message)
 				} else {
 					fmt.Printf("Message from %v, %v Received: %s\n", sender,
-						contact, msg.GetPayload())
+						senderNick, msg.GetPayload())
 				}
 				end = true
 			}
@@ -220,7 +217,7 @@ var rootCmd = &cobra.Command{
 				end = false
 				<-timer.C
 
-				contact = ""
+				contact := ""
 				user, ok := globals.Users.GetUser(destinationUserId)
 				if ok {
 					contact = user.Nick

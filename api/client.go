@@ -7,7 +7,6 @@
 package api
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -178,7 +177,7 @@ func Login(UID uint64, addr string) (string, error) {
 // FIXME: We need to think through the message interface part.
 func Send(message format.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
-	recipientID := binary.LittleEndian.Uint64(message.GetRecipient())
+	recipientID := cyclic.NewIntFromBytes(message.GetRecipient()).Uint64()
 	err := io.Messaging.SendMessage(recipientID, message.GetPayload())
 	return err
 }

@@ -79,6 +79,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 	return retval, nil
 }
 
+// parseSearch parses the responses from SEARCH
 func parseSearch(msg string) (uint64, string) {
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 5 {
@@ -93,6 +94,7 @@ func parseSearch(msg string) (uint64, string) {
 	return cMixUID, resParts[4]
 }
 
+// parseGetKey parses the responses from GETKEY
 func parseGetKey(msg string) (int, []byte) {
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 4 {
@@ -114,6 +116,7 @@ func parseGetKey(msg string) (int, []byte) {
 	return int(idx), keymat
 }
 
+// pushKey uploads the users' key
 func pushKey(udbID uint64, keyFP string, publicKey []byte) error {
 	publicKeyParts := make([]string, 2)
 	publicKeyParts[0] = base64.StdEncoding.EncodeToString(publicKey[:128])
@@ -128,6 +131,7 @@ func pushKey(udbID uint64, keyFP string, publicKey []byte) error {
 	return nil
 }
 
+// keyExists checks for the existence of a key on the bot
 func keyExists(udbID uint64, keyFP string) bool {
 	cmd := fmt.Sprintf("GETKEY %s", keyFP)
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
@@ -159,6 +163,8 @@ func sendCommand(botID uint64, command string) string {
 	return response.GetPayload()
 }
 
+// sendCommandMulti waits for responseCnt responses, but does what sendCommand
+// does
 func sendCommandMulti(responseCnt int, botID uint64, command string) []string {
 	listener := io.Messaging.Listen(botID)
 	defer io.Messaging.StopListening(listener)

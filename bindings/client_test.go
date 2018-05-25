@@ -207,7 +207,6 @@ func TestReceiveMessageByInterface(t *testing.T) {
 
 func TestRegister(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
@@ -223,7 +222,6 @@ func TestRegister(t *testing.T) {
 
 func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
@@ -236,7 +234,6 @@ func TestRegisterBadNumNodes(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
@@ -255,7 +252,6 @@ func TestLogin(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
-	nick := "Nickname"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 

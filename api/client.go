@@ -230,7 +230,8 @@ func TryReceive() (format.MessageInterface, error) {
 		}
 		return m, nil
 	default:
-		return nil, nil
+		// Would want to return nil here, but callers are used to this
+		return &APIMessage{SenderID: 0, Payload: "", RecipientID: 0}, nil
 	}
 }
 

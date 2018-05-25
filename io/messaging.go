@@ -156,7 +156,6 @@ func MessageReceiver(delay time.Duration) {
 		if len(listeners) == 0 {
 			jww.FATAL.Panicf("No listeners for receiver thread!")
 		}
-		jww.WARN.Printf("Poll")
 		encryptedMsg, err := client.SendClientPoll(ReceiveAddress, &pollingMessage)
 		if err != nil {
 			jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
@@ -168,19 +167,14 @@ func MessageReceiver(delay time.Duration) {
 			continue
 		}
 
-		jww.WARN.Printf("DECrypt")
-
 		decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
 		if err2 != nil {
 			jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 		}
 
-		jww.WARN.Printf("POPULATE")
 		senderID := decryptedMsg.GetSenderIDUint()
 		listenersLock.Lock()
 		for i := range listeners {
-			jww.WARN.Printf("ADDLIST")
-
 			// Skip if not 0 or not senderID matched
 			if listeners[i].SenderID != 0 || listeners[i].SenderID != senderID {
 				continue

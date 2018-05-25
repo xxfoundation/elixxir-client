@@ -14,7 +14,6 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/comms/client"
-	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"sync"
@@ -99,7 +98,7 @@ func send(senderID uint64, message *format.Message) error {
 
 	var err error
 	if UseGateway {
-		err = gateway.SendPutMessage(SendAddress, msgPacket)
+		err = client.SendPutMessage(SendAddress, msgPacket)
 	} else {
 		_, err = client.SendMessageToServer(SendAddress, msgPacket)
 	}
@@ -123,7 +122,7 @@ func Listen(senderID uint64) chan *format.Message {
 	return listenerCh
 }
 
-// Delete the listener
+// StopListening closes and deletes the listener
 func StopListening(listenerCh chan *format.Message) {
 	listenersLock.Lock()
 	defer listenersLock.Unlock()
@@ -139,8 +138,9 @@ func StopListening(listenerCh chan *format.Message) {
 	}
 }
 
-// Polling thread for receiving messages -- again.. we should be passing
-// this a user object with some keys, and maybe a shared list for the listeners?
+// MessageReceiver is a polling thread for receiving messages -- again.. we
+// should be passing this a user object with some keys, and maybe a shared
+// list for the listeners?
 // Accessing all of these global variables is extremely problematic for this
 // kind of thread.
 func MessageReceiver(delay time.Duration) {

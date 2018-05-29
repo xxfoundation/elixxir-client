@@ -187,6 +187,12 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 			}
 			listeners[i].Messages <- decryptedMsg
 		}
+		// FIXME: HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK HACK
+		// Send the message to any global listener
+		if globals.UsingReceiver() {
+			globals.Receive(decryptedMessage)
+		}
+		// ENDHACK ENDHACK ENDHACK ENDHACK ENDHACK ENDHACK ENDHACK ENDHACK ENDHACK
 		listenersLock.Unlock()
 	}
 }

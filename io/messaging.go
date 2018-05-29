@@ -187,6 +187,18 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 			}
 			listeners[i].Messages <- decryptedMsg
 		}
+
+		// FIXME: Remove this.
+		// Send the message to any global listener
+		if globals.UsingReceiver() {
+			jww.WARN.Printf("This client implemenation is using the deprecated " +
+				"globals.Receiver API. This will stop working shortly.")
+			err := globals.Receive(decryptedMsg)
+			if err != nil {
+				jww.ERROR.Printf("Could not call global receiver: %s", err.Error())
+			}
+		}
+
 		listenersLock.Unlock()
 	}
 }

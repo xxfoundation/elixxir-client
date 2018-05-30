@@ -11,11 +11,11 @@ import (
 )
 
 func TestListeners(t *testing.T) {
-	b := Listen(25)
+	b := Messaging.Listen(25)
 	if len(listeners) == 0 {
 		t.Errorf("Failed to add a listener")
 	}
-	StopListening(25)
+	Messaging.StopListening(b)
 	if len(listeners) != 0 {
 		t.Errorf("Failed to stop listening")
 	}

@@ -42,6 +42,10 @@ var BlockTransmissions = true
 // TransmitDelay is the minimum delay between transmissions.
 var TransmitDelay = 1000 * time.Millisecond
 
+// Map that holds a record of the messages that this client successfully
+// received during this session
+var ReceivedMessages map[string]struct{}
+
 var sendLock sync.Mutex
 
 // MessageListener allows threads to listen for messages from specific
@@ -103,6 +107,7 @@ func send(senderID uint64, message *format.Message) error {
 
 	var err error
 	if UseGateway {
+		jww.FATAL.Println("Sending put message to gateway")
 		err = client.SendPutMessage(SendAddress, msgPacket)
 	} else {
 		_, err = client.SendMessageToServer(SendAddress, msgPacket)
@@ -162,43 +167,94 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		if len(listeners) == 0 {
 			jww.FATAL.Panicf("No listeners for receiver thread!")
 		}
-		encryptedMsg, err := client.SendClientPoll(ReceiveAddress, &pollingMessage)
-		if err != nil {
-			jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
-			continue
+		if UseGateway {
+			jww.FATAL.Printf("Attempting to receive message from gateway")
+			m.receiveNewMessagesFromGateway(&pollingMessage)
+		} else {
+			m.receiveMessageFromServer(&pollingMessage)
 		}
-		if encryptedMsg.MessagePayload == nil &&
-			encryptedMsg.RecipientID == nil &&
-			encryptedMsg.SenderID == 0 {
-			continue
-		}
-
-		decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
-		if err2 != nil {
-			jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
-		}
-
-		senderID := decryptedMsg.GetSenderIDUint()
-		listenersLock.Lock()
-		for i := range listeners {
-			// Skip if not 0 or not senderID matched
-			if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
-				continue
-			}
-			listeners[i].Messages <- decryptedMsg
-		}
-
-		// FIXME: Remove this.
-		// Send the message to any global listener
-		if globals.UsingReceiver() {
-			jww.WARN.Printf("This client implemenation is using the deprecated " +
-				"globals.Receiver API. This will stop working shortly.")
-			err := globals.Receive(decryptedMsg)
-			if err != nil {
-				jww.ERROR.Printf("Could not call global receiver: %s", err.Error())
-			}
-		}
-
-		listenersLock.Unlock()
 	}
+}
+
+func (m *messaging) receiveNewMessagesFromGateway(pollingMessage *pb.
+	ClientPollMessage) {
+	messages, err := client.SendCheckMessages(globals.Session.
+		GetGWAddress(),
+		pollingMessage)
+
+	if err != nil {
+		jww.WARN.Printf("CheckMessages error during polling: %v", err.Error())
+		return
+	}
+
+	for _, messageID := range messages.MessageIDs {
+		// are there any new messages with those IDs?
+		_, received := ReceivedMessages[messageID]
+		if !received {
+			// We haven't seen this message before.
+			// So, we should retrieve it from the gateway.
+			newMessage, err := client.SendGetMessage(globals.
+				Session.GetGWAddress(),
+				&pb.ClientPollMessage{
+					UserID:    globals.Session.GetCurrentUser().UserID,
+					MessageID: messageID,
+				})
+			if err != nil {
+				jww.WARN.Printf(
+					"Couldn't receive message with ID %v while"+
+						" polling gateway", messageID)
+			} else {
+				decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
+				if err2 != nil {
+					jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
+				}
+
+				broadcastMessageReception(decryptedMsg)
+			}
+		}
+	}
+}
+
+func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessage) {
+	encryptedMsg, err := client.SendClientPoll(ReceiveAddress, pollingMessage)
+	if err != nil {
+		jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
+		return
+	}
+	if encryptedMsg.MessagePayload == nil &&
+		encryptedMsg.RecipientID == nil &&
+		encryptedMsg.SenderID == 0 {
+		return
+	}
+
+	decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
+	if err2 != nil {
+		jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
+	}
+
+	broadcastMessageReception(decryptedMsg)
+}
+
+func broadcastMessageReception(decryptedMsg *format.Message) {
+	senderID := decryptedMsg.GetSenderIDUint()
+	listenersLock.Lock()
+	for i := range listeners {
+		// Skip if not 0 or not senderID matched
+		if listeners[i].SenderID != 0 || listeners[i].SenderID != senderID {
+			continue
+		}
+		listeners[i].Messages <- decryptedMsg
+	}
+
+	// FIXME: Remove this.
+	// Send the message to any global listener
+	if globals.UsingReceiver() {
+		jww.WARN.Printf("This client implemenation is using the deprecated " +
+			"globals.Receiver API. This will stop working shortly.")
+		err := globals.Receive(decryptedMsg)
+		if err != nil {
+			jww.ERROR.Printf("Could not call global receiver: %s", err.Error())
+		}
+	}
+	listenersLock.Unlock()
 }

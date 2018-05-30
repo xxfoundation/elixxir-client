@@ -12,6 +12,7 @@ import (
 	"encoding/gob"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"strconv"
 	"testing"
@@ -182,4 +183,25 @@ func TestDisableRatchet(t *testing.T) {
 	}
 
 	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
+}
+
+func TestTryReceive(t *testing.T) {
+	listenCh = make(chan *format.Message, 10)
+
+	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
+
+	Register(huid, serverAddress, "", 1)
+	expectEmpty, err := TryReceive()
+	if expectEmpty.GetPayload() != "" || err != nil {
+		t.Errorf("Expected empty message, but got %s", expectEmpty.GetPayload())
+	}
+	m, _ := format.NewMessage(13, 1, "Hello")
+	listenCh <- &m[0]
+	something, err := TryReceive()
+	if err != nil {
+		t.Errorf("Got error when expecting message: %s", err.Error())
+	}
+	if something.GetPayload() != "Hello" {
+		t.Errorf("Did not get expected message, got %s", something.GetPayload())
+	}
 }

@@ -29,6 +29,7 @@ type UserSession interface {
 	SetNodeAddress(addr string)
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
+	GetPublicKey() *cyclic.Int
 	StoreSession() error
 	Immolate() error
 }
@@ -116,6 +117,10 @@ func (s *SessionObj) GetKeys() []NodeKeys {
 
 func (s *SessionObj) GetPrivateKey() *cyclic.Int {
 	return s.PrivateKey
+}
+
+func (s *SessionObj) GetPublicKey() *cyclic.Int {
+	return cyclic.NewMaxInt()
 }
 
 // Return a copy of the current user

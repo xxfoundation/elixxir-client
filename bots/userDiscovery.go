@@ -5,7 +5,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 // Package bot functions for working with the user discovery bot (UDB)
-package bot
+package bots
 
 import (
 	"encoding/base64"

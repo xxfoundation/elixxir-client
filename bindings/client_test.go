@@ -276,6 +276,9 @@ func TestDisableBlockingTransmission(t *testing.T) {
 }
 
 func TestSetRateLimiting(t *testing.T) {
+	user, _ := globals.Users.GetUser(1)
+	nk := make([]globals.NodeKeys, 1)
+	globals.Session = globals.NewUserSession(user, serverAddress, "", nk)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

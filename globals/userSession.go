@@ -86,9 +86,9 @@ func LoadSession(UID uint64) error {
 
 	if session.CurrentUser.UserID != UID {
 		err = errors.New(fmt.Sprintf(
-			"LoadSession: loaded incorrect + +"+
-				"user; Expected: %v; Received: %v", UID,
-			session.CurrentUser.UserID))
+			"LoadSession: loaded incorrect "+
+				"user; Expected: %v; Received: %v",
+				session.CurrentUser.UserID, UID))
 		return err
 	}
 

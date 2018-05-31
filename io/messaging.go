@@ -45,6 +45,7 @@ var TransmitDelay = 1000 * time.Millisecond
 // Map that holds a record of the messages that this client successfully
 // received during this session
 var ReceivedMessages map[string]struct{}
+var lastReceivedMessageID string = ""
 
 var sendLock sync.Mutex
 
@@ -179,7 +180,9 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 	}
 }
 
-func (m *messaging) receiveMessageFromGateway(pollingMessage *pb.ClientPollMessage) *format.Message {
+func (m *messaging) receiveMessageFromGateway(
+	pollingMessage *pb.ClientPollMessage) *format.Message {
+	pollingMessage.MessageID = lastReceivedMessageID
 	messages, err := client.SendCheckMessages(globals.Session.GetGWAddress(),
 		pollingMessage)
 
@@ -224,6 +227,7 @@ func (m *messaging) receiveMessageFromGateway(pollingMessage *pb.ClientPollMessa
 					jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 				}
 				ReceivedMessages[messageID] = struct{}{}
+				lastReceivedMessageID = messageID
 
 				return decryptedMsg
 			}

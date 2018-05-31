@@ -279,3 +279,11 @@ func DisableBlockingTransmission() {
 func SetRateLimiting(limit int) {
 	api.SetRateLimiting(uint32(limit))
 }
+
+func RegisterForUserDiscovery(emailAddress string) error {
+	return api.RegisterForUserDiscovery(emailAddress)
+}
+
+func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
+	return api.SearchForUser(emailAddress)
+}

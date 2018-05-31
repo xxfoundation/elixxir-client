@@ -156,3 +156,26 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
 	}
 }
+
+func TestGetPubKey(t *testing.T) {
+	u := new(User)
+	UID := uint64(1)
+
+	u.UserID = UID
+	u.Nick = "Mario"
+
+	keys := make([]NodeKeys, 1)
+	keys[0] = NodeKeys{
+		PublicKey:        cyclic.NewInt(2),
+		TransmissionKeys: RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReceptionKeys:    RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReceiptKeys:      RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+	}
+
+	ses := NewUserSession(u, "abc", "", keys)
+	pubKey := ses.GetPublicKey()
+	if pubKey.Cmp(cyclic.NewMaxInt()) != 0 {
+		t.Errorf("Public key is not set to max int!")
+	}
+}

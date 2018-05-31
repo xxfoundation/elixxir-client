@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
@@ -295,4 +296,35 @@ func clearUint64(u *uint64) {
 
 func DisableRatchet() {
 	forward.SetRatchetStatus(false)
+}
+
+func RegisterForUserDiscovery(emailAddress string) error {
+	valueType := "EMAIL"
+	userExists, err := bots.Search(valueType, emailAddress)
+	if userExists != nil {
+		jww.DEBUG.Printf("Already registered %s", emailAddress)
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	publicKey := globals.Session.GetPublicKey()
+	// Does cyclic do auto-pad? probably not...
+	publicKeyBytes := publicKey.Bytes()
+	fixedPubBytes := make([]byte, 256)
+	for i := range publicKeyBytes {
+		idx := len(fixedPubBytes) - i
+		if idx < 0 {
+			jww.ERROR.Printf("Trimming pubkey because it exceeds 2048 bit length!")
+			break
+		}
+		fixedPubBytes[idx] = publicKeyBytes[idx]
+	}
+	return bots.Register(valueType, emailAddress, fixedPubBytes)
+}
+
+func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
+	valueType := "EMAIL"
+	return bots.Search(valueType, emailAddress)
 }

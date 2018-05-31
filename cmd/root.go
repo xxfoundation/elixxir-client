@@ -313,11 +313,11 @@ func initConfig() {}
 func initLog() {
 	// If verbose flag set then log more info for debugging
 	if verbose || viper.GetBool("verbose") {
-		jww.SetLogThreshold(jww.LevelDebug)
-		jww.SetStdoutThreshold(jww.LevelDebug)
-	} else {
 		jww.SetLogThreshold(jww.LevelInfo)
 		jww.SetStdoutThreshold(jww.LevelInfo)
+	} else {
+		jww.SetLogThreshold(jww.LevelWarn)
+		jww.SetStdoutThreshold(jww.LevelWarn)
 	}
 	if viper.Get("logPath") != nil {
 		// Create log file, overwrites if existing

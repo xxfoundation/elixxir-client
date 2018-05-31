@@ -258,13 +258,13 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 	listenersLock.Lock()
 	for i := range listeners {
 		// Skip if not 0 or not senderID matched
-		if listeners[i].SenderID != 0 || listeners[i].SenderID != senderID {
+		if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
 			continue
 		}
 		listeners[i].Messages <- decryptedMsg
 	}
 
-	// FIXME: Remove this.
+	// FIXME: RemovRe this.
 	// Send the message to any global listener
 	if globals.UsingReceiver() {
 		jww.WARN.Printf("This client implemenation is using the deprecated " +

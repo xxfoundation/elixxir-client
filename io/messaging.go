@@ -180,8 +180,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 }
 
 func (m *messaging) receiveMessageFromGateway(pollingMessage *pb.ClientPollMessage) *format.Message {
-	messages, err := client.SendCheckMessages(globals.Session.
-		GetGWAddress(),
+	messages, err := client.SendCheckMessages(globals.Session.GetGWAddress(),
 		pollingMessage)
 
 	if err != nil {
@@ -189,10 +188,17 @@ func (m *messaging) receiveMessageFromGateway(pollingMessage *pb.ClientPollMessa
 		return nil
 	}
 
+	jww.FATAL.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
+
+	if ReceivedMessages == nil {
+		ReceivedMessages = make(map[string]struct{})
+	}
+
 	for _, messageID := range messages.MessageIDs {
 		// Get the first unseen message from the list of IDs
 		_, received := ReceivedMessages[messageID]
 		if !received {
+			jww.FATAL.Printf("Got a message waiting on the gateway: %v", messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
 			newMessage, err := client.SendGetMessage(globals.
@@ -206,7 +212,14 @@ func (m *messaging) receiveMessageFromGateway(pollingMessage *pb.ClientPollMessa
 					"Couldn't receive message with ID %v while"+
 						" polling gateway", messageID)
 			} else {
+				if newMessage.MessagePayload == nil &&
+					newMessage.RecipientID == nil &&
+					newMessage.SenderID == 0 {
+					jww.FATAL.Println("Message fields not populated")
+					return nil
+				}
 				decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
+				jww.FATAL.Println(decryptedMsg.GetPayload())
 				if err2 != nil {
 					jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 				}
@@ -240,6 +253,7 @@ func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessag
 }
 
 func broadcastMessageReception(decryptedMsg *format.Message) {
+	jww.FATAL.Println("Attempting to broadcast received message")
 	senderID := decryptedMsg.GetSenderIDUint()
 	listenersLock.Lock()
 	for i := range listeners {

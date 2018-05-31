@@ -108,7 +108,7 @@ func send(senderID uint64, message *format.Message) error {
 
 	var err error
 	if UseGateway {
-		jww.FATAL.Println("Sending put message to gateway")
+		jww.INFO.Println("Sending put message to gateway")
 		err = client.SendPutMessage(SendAddress, msgPacket)
 	} else {
 		_, err = client.SendMessageToServer(SendAddress, msgPacket)
@@ -169,7 +169,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 			jww.FATAL.Panicf("No listeners for receiver thread!")
 		}
 		if UseGateway {
-			jww.FATAL.Printf("Attempting to receive message from gateway")
+			jww.INFO.Printf("Attempting to receive message from gateway")
 			decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 			if decryptedMessage != nil {
 				broadcastMessageReception(decryptedMessage)
@@ -191,7 +191,7 @@ func (m *messaging) receiveMessageFromGateway(
 		return nil
 	}
 
-	jww.FATAL.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
+	jww.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
 
 	if ReceivedMessages == nil {
 		ReceivedMessages = make(map[string]struct{})
@@ -201,7 +201,8 @@ func (m *messaging) receiveMessageFromGateway(
 		// Get the first unseen message from the list of IDs
 		_, received := ReceivedMessages[messageID]
 		if !received {
-			jww.FATAL.Printf("Got a message waiting on the gateway: %v", messageID)
+			jww.INFO.Printf("Got a message waiting on the gateway: %v",
+				messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
 			newMessage, err := client.SendGetMessage(globals.
@@ -218,11 +219,10 @@ func (m *messaging) receiveMessageFromGateway(
 				if newMessage.MessagePayload == nil &&
 					newMessage.RecipientID == nil &&
 					newMessage.SenderID == 0 {
-					jww.FATAL.Println("Message fields not populated")
+					jww.INFO.Println("Message fields not populated")
 					return nil
 				}
 				decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
-				jww.FATAL.Println(decryptedMsg.GetPayload())
 				if err2 != nil {
 					jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 				}
@@ -257,7 +257,7 @@ func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessag
 }
 
 func broadcastMessageReception(decryptedMsg *format.Message) {
-	jww.FATAL.Println("Attempting to broadcast received message")
+	jww.INFO.Println("Attempting to broadcast received message")
 	senderID := decryptedMsg.GetSenderIDUint()
 	listenersLock.Lock()
 	for i := range listeners {
@@ -268,7 +268,7 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 		listeners[i].Messages <- decryptedMsg
 	}
 
-	// FIXME: RemovRe this.
+	// FIXME: Remove this.
 	// Send the message to any global listener
 	if globals.UsingReceiver() {
 		jww.WARN.Printf("This client implemenation is using the deprecated " +

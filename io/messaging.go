@@ -260,14 +260,6 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 	jww.INFO.Println("Attempting to broadcast received message")
 	senderID := decryptedMsg.GetSenderIDUint()
 	listenersLock.Lock()
-	for i := range listeners {
-		// Skip if not 0 or not senderID matched
-		if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
-			continue
-		}
-		listeners[i].Messages <- decryptedMsg
-	}
-
 	// FIXME: Remove this.
 	// Send the message to any global listener
 	if globals.UsingReceiver() {
@@ -276,6 +268,14 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 		err := globals.Receive(decryptedMsg)
 		if err != nil {
 			jww.ERROR.Printf("Could not call global receiver: %s", err.Error())
+		}
+	} else {
+		for i := range listeners {
+			// Skip if not 0 or not senderID matched
+			if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
+				continue
+			}
+			listeners[i].Messages <- decryptedMsg
 		}
 	}
 	listenersLock.Unlock()

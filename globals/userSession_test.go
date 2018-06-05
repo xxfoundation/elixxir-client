@@ -45,7 +45,11 @@ func TestUserSession(t *testing.T) {
 
 	ses.(*SessionObj).PrivateKey.SetInt64(2)
 
-	ses.StoreSession()
+	err = ses.StoreSession()
+
+	if err != nil {
+		t.Errorf("Error: Session not stored correctly: %s", err.Error())
+	}
 
 	ses.Immolate()
 
@@ -126,6 +130,25 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("Error: Private Keys not set correctly!")
 	} else {
 		pass++
+	}
+
+	err = Session.UpsertMap("test", 5)
+
+	if err != nil {
+		t.Errorf("Error: Could not store in session map interface: %s",
+			err.Error())
+	}
+
+	element, err := Session.QueryMap("test")
+
+	if err != nil {
+		t.Errorf("Error: Could not read element in session map "+
+			"interface: %s", err.Error())
+	}
+
+	if element.(int) != 5 {
+		t.Errorf("Error: Could not read element in session map "+
+			"interface: Expected: 5, Recieved: %v", element)
 	}
 
 	//Logout

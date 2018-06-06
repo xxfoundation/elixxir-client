@@ -12,21 +12,45 @@ In project directory, run `go run main.go`
 
 Required Args:
 
-`-s <STRING>` : Address of server to which messages will be sent
+`-n <INT>`    : Number of nodes in the cMix network being connected to
 
 `-i <INT>`    : User ID to log in as
 
 Optional Args:
 
+`-g <STRING>` : Address of the gateway to connect to (Reqiured if not specified
+in the config file)
+
 `-d <INT>`    : User ID of the user to send messages to
 
 `-m <STRING>` : Message to be sent
 
-`-v`          : Boolean indicating verbose logging
+`-v`          : Enables verbose logging when specified
 
-`-n`          : Unsigned Integer indicating the number of nodes in the system
+`-V`          : Show version information
 
-`-f`          : String containing path of file to store the session into.  If not included it will use Ram Storage
+`-f`          : String containing path of file to store the session into.
+If not included it will use Ram Storage
+
+`--noratchet` : Disables ratcheting when specified
+
+`--noBlockingTransmission` : Disables transmission frequency limiting when 
+specified
+
+Example Configuration File
+==
+
+```yaml
+logPath: "client.log"
+numnodes : 3
+sessionstore: "session.data"
+noratchet: true
+textcolor: -1
+gateways:
+    - "gateway-0.prod.cmix.rip:11420"
+    - "gateway-1.prod.cmix.rip:11420"
+    - "gateway-2.prod.cmix.rip:11420"
+```
 
 Preparation to Build
 ==

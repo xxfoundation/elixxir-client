@@ -31,7 +31,6 @@ var numNodes uint
 var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
-var nick string
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
@@ -149,7 +148,6 @@ var rootCmd = &cobra.Command{
 		} else {
 			cmd.MarkPersistentFlagRequired("userid")
 			cmd.MarkPersistentFlagRequired("numnodes")
-			cmd.MarkPersistentFlagRequired("serveraddr")
 		}
 
 		var dummyPeriod time.Duration
@@ -289,8 +287,6 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
-	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "", "",
-		"Nickname to register as")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
 	// TODO: support this negotiating separate keys with different servers

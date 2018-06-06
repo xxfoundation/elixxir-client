@@ -31,6 +31,8 @@ type UserSession interface {
 	GetPublicKey() *cyclic.Int
 	StoreSession() error
 	Immolate() error
+	UpsertMap(key string, element interface{}) error
+	QueryMap(key string) (interface{}, error)
 }
 
 type NodeKeys struct {
@@ -51,10 +53,13 @@ func NewUserSession(u *User, GatewayAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
 	return UserSession(&SessionObj{
-		CurrentUser: u,
-		GWAddress:   GatewayAddr, // FIXME: don't store this here
-		Keys:        nk,
-		PrivateKey:  cyclic.NewMaxInt()})
+		CurrentUser:  u,
+		GWAddress:    GatewayAddr, // FIXME: don't store this here
+		Keys:         nk,
+		PrivateKey:   cyclic.NewMaxInt(),
+		InterfaceMap: make(map[string]interface{}),
+	})
+
 }
 
 func LoadSession(UID uint64) error {
@@ -105,6 +110,9 @@ type SessionObj struct {
 
 	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
+
+	//Interface map for random data storage
+	InterfaceMap map[string]interface{}
 }
 
 func (s *SessionObj) GetKeys() []NodeKeys {
@@ -201,6 +209,22 @@ func (s *SessionObj) Immolate() error {
 	Session = nil
 
 	return nil
+}
+
+//Upserts an element into the interface map and saves the session object
+func (s *SessionObj) UpsertMap(key string, element interface{}) error {
+	s.InterfaceMap[key] = element
+	err := s.StoreSession()
+	return err
+}
+
+//Pulls an element from the interface in the map
+func (s *SessionObj) QueryMap(key string) (interface{}, error) {
+	element, ok := s.InterfaceMap[key]
+	if !ok {
+		return nil, errors.New("element not in map")
+	}
+	return element, nil
 }
 
 func clearCyclicInt(c *cyclic.Int) {

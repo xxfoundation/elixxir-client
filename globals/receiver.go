@@ -7,11 +7,11 @@
 package globals
 
 import (
-	"gitlab.com/privategrity/crypto/format"
 	"errors"
+	"gitlab.com/privategrity/crypto/format"
 )
 
-type Receiver func (messageInterface format.MessageInterface)
+type Receiver func(messageInterface format.MessageInterface)
 
 var currentReceiver Receiver
 

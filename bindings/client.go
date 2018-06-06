@@ -234,12 +234,6 @@ func validateContactListJSON(json []byte) error {
 	return nil
 }
 
-/* Get an updated list of all users that the server knows about and update the
- * user structure to include all of them */
-func UpdateContactList() error {
-	return api.UpdateContactList()
-}
-
 /* Gets a list of user IDs and nicks and returns them as a JSON object because
  * Gomobile has dumb limitations.
  *

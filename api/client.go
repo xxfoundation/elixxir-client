@@ -276,10 +276,6 @@ func Logout() error {
 	return nil
 }
 
-func UpdateContactList() error {
-	return io.UpdateUserRegistry(globals.Session.GetGWAddress())
-}
-
 func GetContactList() ([]uint64, []string) {
 	return globals.Users.GetContactList()
 }

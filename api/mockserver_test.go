@@ -108,42 +108,6 @@ func TestRegisterDeletedUser(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-func TestUpdateUserRegistry(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, gwAddress, 1)
-	if err != nil {
-		t.Errorf("Registration failed: %s", err.Error())
-	}
-	if regRes == 0 {
-		t.Errorf("Invalid registration number received: %v", regRes)
-	}
-	testContact := pb.Contact{UserID: uint64(15), Nick: "Guy"}
-	testContactList := []*pb.Contact{&testContact}
-	io.CheckContacts(&pb.ContactMessage{
-		Contacts: testContactList,
-	})
-	userIDs, nicks := globals.Users.GetContactList()
-	err = io.UpdateUserRegistry(gwAddress)
-	if err != nil {
-		t.Errorf("UpdateUserRegistry failed! %s", err)
-	}
-	pass := false
-	for i, id := range userIDs {
-		if id == uint64(15) {
-			if nicks[i] == "Guy" {
-				pass = true
-			}
-		}
-	}
-	if !pass {
-		t.Errorf("UpdateUserRegistry failed to update the user registry when" +
-			" the helper function was passed a pb.ContactMessage")
-	}
-}
-
 func SetNulKeys() {
 	// Set the transmit keys to be 1, so send/receive can work
 	// FIXME: Why doesn't crypto panic when these keys are empty?

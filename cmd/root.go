@@ -98,6 +98,22 @@ func sessionInitialization() {
 		}
 	}
 
+	// Handle parsing gateway addresses from the config file
+	gateways := viper.GetStringSlice("gateways")
+	if gwAddr == "" {
+		// If gwAddr was not passed via command line, check config file
+		if len(gateways) < 1 {
+			// No gateways in config file or passed via command line
+			fmt.Printf("Error: No gateway specified! Add to" +
+				" configuration file or pass via command line using -g!")
+			return
+		} else {
+			// List of gateways found in config file, select one to use
+			// TODO: For now, just use the first one?
+			gwAddr = gateways[0]
+		}
+	}
+
 	//Register a new user if requested
 	if register {
 		_, err := bindings.Register(
@@ -302,22 +318,7 @@ func init() {
 }
 
 // initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	// Handle parsing gateway addresses from the config file
-	gateways := viper.GetStringSlice("gateways")
-	if gwAddr == "" {
-		// If gwAddr was not passed via command line, check config file
-		if len(gateways) < 1 {
-			// No gateways in config file or passed via command line
-			jww.FATAL.Panicf("Error: No gateway specified! Add to" +
-				" configuration file or pass via command line using -g!")
-		} else {
-			// List of gateways found in config file, select one to use
-			// TODO: For now, just use the first one?
-			gwAddr = gateways[0]
-		}
-	}
-}
+func initConfig() {}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {

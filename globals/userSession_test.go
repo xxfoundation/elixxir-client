@@ -41,7 +41,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewUserSession(u, "abc", "", keys)
+	ses := NewUserSession(u, "abc", keys)
 
 	ses.(*SessionObj).PrivateKey.SetInt64(2)
 
@@ -75,15 +75,15 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if Session.GetNodeAddress() == "" {
+	if Session.GetGWAddress() == "" {
 		t.Errorf("Error: Node Address not set correctly with Regestration!")
 	} else {
 		pass++
 	}
 
-	Session.SetNodeAddress("test")
+	Session.SetGWAddress("test")
 
-	if Session.GetNodeAddress() != "test" {
+	if Session.GetGWAddress() != "test" {
 		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
 	} else {
 		pass++
@@ -173,7 +173,7 @@ func TestGetPubKey(t *testing.T) {
 		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	ses := NewUserSession(u, "abc", "", keys)
+	ses := NewUserSession(u, "abc", keys)
 	pubKey := ses.GetPublicKey()
 	if pubKey.Cmp(cyclic.NewMaxInt()) != 0 {
 		t.Errorf("Public key is not set to max int!")

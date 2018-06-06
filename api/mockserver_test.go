@@ -11,8 +11,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
@@ -20,21 +20,21 @@ import (
 	"time"
 )
 
-const serverAddress = "localhost:5556"
+const gwAddress = "localhost:8080"
 
 var Session globals.SessionObj
-var ServerData TestInterface
+var GatewayData TestInterface
 
 func TestMain(m *testing.M) {
-	io.SendAddress = serverAddress
-	io.ReceiveAddress = serverAddress
-	ServerData = TestInterface{
+	io.SendAddress = gwAddress
+	io.ReceiveAddress = gwAddress
+	GatewayData = TestInterface{
 		LastReceivedMessage: pb.CmixMessage{},
 	}
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Start server for all tests in this package
-	go node.StartServer(serverAddress, &ServerData)
+	go gateway.StartGateway(gwAddress, &GatewayData)
 
 	os.Exit(m.Run())
 }
@@ -57,7 +57,7 @@ func TestRegister(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, serverAddress, "", 1)
+	regRes, err := Register(hashUID, gwAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -72,7 +72,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, serverAddress, "", 0)
+	_, err = Register(hashUID, gwAddress, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -84,7 +84,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, serverAddress, "", 1)
+	_, err = Register(hashUID, gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
 			err.Error())
@@ -99,7 +99,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	tempUser, _ := globals.Users.GetUser(10)
 	globals.Users.DeleteUser(10)
-	_, err = Register(hashUID, serverAddress, "", 1)
+	_, err = Register(hashUID, gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -113,7 +113,7 @@ func TestUpdateUserRegistry(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, serverAddress, "", 1)
+	regRes, err := Register(hashUID, gwAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -126,9 +126,9 @@ func TestUpdateUserRegistry(t *testing.T) {
 		Contacts: testContactList,
 	})
 	userIDs, nicks := globals.Users.GetContactList()
-	err = io.UpdateUserRegistry(serverAddress)
+	err = io.UpdateUserRegistry(gwAddress)
 	if err != nil {
-		t.Errorf("UpdateUserRegistry failed")
+		t.Errorf("UpdateUserRegistry failed! %s", err)
 	}
 	pass := false
 	for i, id := range userIDs {
@@ -161,8 +161,8 @@ func TestSend(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, serverAddress, "", 1)
-	loginRes, err2 := Login(userID, serverAddress)
+	userID, err := Register(hashUID, gwAddress, 1)
+	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
 	if err2 != nil {
@@ -177,7 +177,7 @@ func TestSend(t *testing.T) {
 		RecipientID: userID})
 	// 500ms for the other thread to catch it
 	time.Sleep(100 * time.Millisecond)
-	if err == nil && ServerData.LastReceivedMessage.SenderID != userID {
+	if err == nil && GatewayData.LastReceivedMessage.SenderID != userID {
 		t.Errorf("Invalid message was accepted by Send. " +
 			"Sender ID must match current user")
 	}
@@ -199,8 +199,8 @@ func TestReceive(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, serverAddress, "", 1)
-	loginRes, err2 := Login(userID, serverAddress)
+	userID, err := Register(hashUID, gwAddress, 1)
+	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
 	if err2 != nil {
@@ -215,7 +215,7 @@ func TestReceive(t *testing.T) {
 
 	msg, _ := format.NewMessage(10, 10, "test")
 	Send(&msg[0])
-	time.Sleep(500*time.Millisecond)
+	time.Sleep(500 * time.Millisecond)
 
 	receivedMsg, err := TryReceive()
 	if err != nil || receivedMsg == nil {

@@ -24,9 +24,8 @@ var Session UserSession
 // Interface for User Session operations
 type UserSession interface {
 	GetCurrentUser() (currentUser *User)
-	GetNodeAddress() string
 	GetGWAddress() string
-	SetNodeAddress(addr string)
+	SetGWAddress(addr string)
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
 	GetPublicKey() *cyclic.Int
@@ -50,12 +49,11 @@ type RatchetKey struct {
 }
 
 // Creates a new UserSession interface for registration
-func NewUserSession(u *User, nodeAddr, GatewayAddr string, nk []NodeKeys) UserSession {
+func NewUserSession(u *User, GatewayAddr string, nk []NodeKeys) UserSession {
 
 	// With an underlying Session data structure
 	return UserSession(&SessionObj{
 		CurrentUser:  u,
-		NodeAddress:  nodeAddr,    // FIXME: don't store this here.
 		GWAddress:    GatewayAddr, // FIXME: don't store this here
 		Keys:         nk,
 		PrivateKey:   cyclic.NewMaxInt(),
@@ -107,8 +105,6 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	// Node address that the user will send messages to
-	NodeAddress string
 	// Gateway address to the cMix network
 	GWAddress string
 
@@ -143,16 +139,12 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	return
 }
 
-func (s *SessionObj) GetNodeAddress() string {
-	return s.NodeAddress
-}
-
 func (s *SessionObj) GetGWAddress() string {
 	return s.GWAddress
 }
 
-func (s *SessionObj) SetNodeAddress(addr string) {
-	s.NodeAddress = addr
+func (s *SessionObj) SetGWAddress(addr string) {
+	s.GWAddress = addr
 }
 
 func (s *SessionObj) StoreSession() error {
@@ -202,9 +194,9 @@ func (s *SessionObj) Immolate() error {
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""
 
-	s.NodeAddress = burntString(len(s.NodeAddress))
-	s.NodeAddress = burntString(len(s.NodeAddress))
-	s.NodeAddress = ""
+	s.GWAddress = burntString(len(s.GWAddress))
+	s.GWAddress = burntString(len(s.GWAddress))
+	s.GWAddress = ""
 
 	clearCyclicInt(s.PrivateKey)
 

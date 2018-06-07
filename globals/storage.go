@@ -7,9 +7,9 @@
 package globals
 
 import (
+	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"os"
-	"errors"
 )
 
 var LocalStorage Storage
@@ -43,9 +43,9 @@ func InitStorage(store Storage, location string) error {
 }
 
 type Storage interface {
-	SetLocation(string) (error)
+	SetLocation(string) error
 	GetLocation() string
-	Save([]byte) (error)
+	Save([]byte) error
 	Load() []byte
 }
 
@@ -53,7 +53,7 @@ type DefaultStorage struct {
 	location string
 }
 
-func (ds *DefaultStorage) SetLocation(location string) (error) {
+func (ds *DefaultStorage) SetLocation(location string) error {
 	ds.location = location
 	return nil
 }
@@ -62,7 +62,7 @@ func (ds *DefaultStorage) GetLocation() string {
 	return ds.location
 }
 
-func (ds *DefaultStorage) Save(data []byte) (error) {
+func (ds *DefaultStorage) Save(data []byte) error {
 	//check if the file exists, delete if it does
 	_, err1 := os.Stat(ds.location)
 
@@ -139,7 +139,7 @@ type RamStorage struct {
 	data []byte
 }
 
-func (rs *RamStorage) SetLocation(location string) (error) {
+func (rs *RamStorage) SetLocation(location string) error {
 	return nil
 }
 
@@ -147,7 +147,7 @@ func (rs *RamStorage) GetLocation() string {
 	return ""
 }
 
-func (rs *RamStorage) Save(data []byte) (error) {
+func (rs *RamStorage) Save(data []byte) error {
 	rs.data = make([]byte, len(data))
 	copy(rs.data, data)
 	return nil

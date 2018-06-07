@@ -10,8 +10,8 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/comms/node"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
@@ -20,19 +20,19 @@ import (
 	"time"
 )
 
-const serverAddress = "localhost:5557"
+const gwAddress = "localhost:5557"
 
-var ServerData api.TestInterface
+var gatewayData api.TestInterface
 
 func TestMain(m *testing.M) {
-	io.SendAddress = serverAddress
-	io.ReceiveAddress = serverAddress
+	io.SendAddress = gwAddress
+	io.ReceiveAddress = gwAddress
 
-	ServerData = api.TestInterface{
+	gatewayData = api.TestInterface{
 		LastReceivedMessage: pb.CmixMessage{},
 	}
 
-	go node.StartServer(serverAddress, &ServerData)
+	go gateway.StartGateway(gwAddress, &gatewayData)
 
 	os.Exit(m.Run())
 }
@@ -64,7 +64,7 @@ func TestInitClient(t *testing.T) {
 func TestGetContactListJSON(t *testing.T) {
 	user, _ := globals.Users.GetUser(1)
 	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, serverAddress, "", nk)
+	globals.Session = globals.NewUserSession(user, gwAddress, nk)
 	// This call includes validating the JSON against the schema
 	result, err := GetContactListJSON()
 
@@ -83,43 +83,6 @@ func TestGetContactListJSON(t *testing.T) {
 	// Finally, make sure that all the names we expect are in the JSON
 	// Ben's name should have changed to Snicklefritz
 	expected := []string{"Ben", "Rick", "Jake", "Mario",
-		"Allan", "David", "Jim", "Spencer", "Will", "Jono"}
-
-	actual := string(result)
-
-	for _, nick := range expected {
-		if !strings.Contains(actual, nick) {
-			t.Errorf("Error: Expected name %v wasn't in JSON %v", nick, actual)
-		}
-	}
-}
-
-func TestUpdateContactList(t *testing.T) {
-	user, _ := globals.Users.GetUser(1)
-	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, serverAddress, "", nk)
-	err := UpdateContactList()
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	result, err := GetContactListJSON()
-
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// But, just in case,
-	// let's make sure that we got the error out of validateContactList anyway
-	err = validateContactListJSON(result)
-
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// Finally, make sure that all the names we expect are in the JSON
-	// Ben's name should have changed to Snicklefritz
-	expected := []string{"Snicklefritz", "Jonwayne", "Rick", "Jake", "Mario",
 		"Allan", "David", "Jim", "Spencer", "Will", "Jono"}
 
 	actual := string(result)
@@ -210,7 +173,7 @@ func TestRegister(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, serverAddress, 1)
+	regRes, err := Register(registrationCode, gwAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -225,7 +188,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	_, err = Register(registrationCode, serverAddress, 0)
+	_, err = Register(registrationCode, gwAddress, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -237,8 +200,8 @@ func TestLogin(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, serverAddress, 1)
-	loginRes, err2 := Login(regRes, serverAddress)
+	regRes, err := Register(registrationCode, gwAddress, 1)
+	loginRes, err2 := Login(regRes, gwAddress)
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -255,8 +218,8 @@ func TestLogout(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
 
-	regRes, err := Register(registrationCode, serverAddress, 1)
-	Login(regRes, serverAddress)
+	regRes, err := Register(registrationCode, gwAddress, 1)
+	Login(regRes, gwAddress)
 
 	err2 := Logout()
 	if err2 != nil {
@@ -278,7 +241,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	user, _ := globals.Users.GetUser(1)
 	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, serverAddress, "", nk)
+	globals.Session = globals.NewUserSession(user, gwAddress, nk)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

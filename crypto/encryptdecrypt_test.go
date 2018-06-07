@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package crypto
 
 import (
@@ -52,7 +58,7 @@ func setup() {
 		nk[i].ReceptionKeys.Base = cyclic.NewInt(1)
 		nk[i].ReceptionKeys.Recursive = grp.Inverse(nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
 	}
-	globals.Session = globals.NewUserSession(user, "", "", nk)
+	globals.Session = globals.NewUserSession(user, "", nk)
 	// ratcheting will stop the keys from being inverses of each other
 	forward.SetRatchetStatus(false)
 }

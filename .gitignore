@@ -27,3 +27,5 @@ localdev_*
 *.class
 *.aar
 *.jar
+# Ignore genered version file
+cmd/version_vars.go

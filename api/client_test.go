@@ -25,7 +25,7 @@ func TestRegistrationGob(t *testing.T) {
 	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
 
 	// populate a gob in the store
-	Register(huid, serverAddress, "", 1)
+	Register(huid, gwAddress, 1)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -42,9 +42,9 @@ func TestRegistrationGob(t *testing.T) {
 
 func VerifyRegisterGobAddress(t *testing.T) {
 
-	if Session.GetNodeAddress() != serverAddress {
+	if Session.GetGWAddress() != gwAddress {
 		t.Errorf("GetNodeAddress() returned %v, expected %v",
-			Session.GetNodeAddress(), serverAddress)
+			Session.GetGWAddress(), gwAddress)
 	}
 }
 
@@ -190,7 +190,7 @@ func TestTryReceive(t *testing.T) {
 
 	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
 
-	Register(huid, serverAddress, "", 1)
+	Register(huid, gwAddress, 1)
 	expectEmpty, err := TryReceive()
 	if expectEmpty.GetPayload() != "" || err != nil {
 		t.Errorf("Expected empty message, but got %s", expectEmpty.GetPayload())

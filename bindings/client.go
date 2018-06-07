@@ -123,8 +123,8 @@ func InitClient(storage Storage, loc string, receiver Receiver) error {
 // 10
 // “Jono”
 // JHJ6L9BACDVC
-func RegisterGW(registrationCode string, nodeAddr, gwAddr string,
-	numNodes int) ([]byte, error) {
+func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
+	error) {
 
 	if numNodes < 1 {
 		return nil, errors.New("invalid number of nodes")
@@ -132,19 +132,13 @@ func RegisterGW(registrationCode string, nodeAddr, gwAddr string,
 
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 
-	UID, err := api.Register(hashUID, nodeAddr, gwAddr, uint(numNodes))
+	UID, err := api.Register(hashUID, gwAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err
 	}
 
 	return cyclic.NewIntFromUInt(UID).Bytes(), nil
-}
-
-func Register(registrationCode string, nodeAddr string,
-	numNodes int) ([]byte, error) {
-	r, err := RegisterGW(registrationCode, nodeAddr, "", numNodes)
-	return r, err
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
@@ -238,12 +232,6 @@ func validateContactListJSON(json []byte) error {
 
 	// No errors occurred in any of the steps, so this JSON is good.
 	return nil
-}
-
-/* Get an updated list of all users that the server knows about and update the
- * user structure to include all of them */
-func UpdateContactList() error {
-	return api.UpdateContactList()
 }
 
 /* Gets a list of user IDs and nicks and returns them as a JSON object because

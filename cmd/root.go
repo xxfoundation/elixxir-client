@@ -25,14 +25,12 @@ import (
 var verbose bool
 var userId uint64
 var destinationUserId uint64
-var serverAddr string
 var gwAddr string
 var message string
 var numNodes uint
 var sessionFile string
 var noRatchet bool
 var dummyFrequency float64
-var nick string
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
@@ -48,8 +46,6 @@ func Execute() {
 }
 
 func sessionInitialization() {
-	// Disable ratcheting if the flag is set
-
 	if noBlockingTransmission {
 		if !noRatchet {
 			fmt.Printf("Cannot disable Blocking Transmission with" +
@@ -60,6 +56,7 @@ func sessionInitialization() {
 
 	bindings.SetRateLimiting(int(rateLimiting))
 
+	// Disable ratcheting if the flag is set
 	if noRatchet {
 		bindings.DisableRatchet()
 	}
@@ -100,12 +97,27 @@ func sessionInitialization() {
 		}
 	}
 
+	// Handle parsing gateway addresses from the config file
+	gateways := viper.GetStringSlice("gateways")
+	if gwAddr == "" {
+		// If gwAddr was not passed via command line, check config file
+		if len(gateways) < 1 {
+			// No gateways in config file or passed via command line
+			fmt.Printf("Error: No gateway specified! Add to" +
+				" configuration file or pass via command line using -g!")
+			return
+		} else {
+			// List of gateways found in config file, select one to use
+			// TODO: For now, just use the first one?
+			gwAddr = gateways[0]
+		}
+	}
+
 	//Register a new user if requested
 	if register {
-		_, err := bindings.RegisterGW(
+		_, err := bindings.Register(
 			cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
-				32, 0),
-			serverAddr, gwAddr, int(numNodes))
+				32, 0), gwAddr, int(numNodes))
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -114,7 +126,7 @@ func sessionInitialization() {
 
 	//log the user in
 	_, err = bindings.Login(
-		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), serverAddr)
+		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")
@@ -136,7 +148,6 @@ var rootCmd = &cobra.Command{
 		} else {
 			cmd.MarkPersistentFlagRequired("userid")
 			cmd.MarkPersistentFlagRequired("numnodes")
-			cmd.MarkPersistentFlagRequired("serveraddr")
 		}
 
 		var dummyPeriod time.Duration
@@ -276,10 +287,6 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"UserID to sign in as")
-	rootCmd.PersistentFlags().StringVarP(&nick, "nick", "", "",
-		"Nickname to register as")
-	rootCmd.PersistentFlags().StringVarP(&serverAddr, "serveraddr", "s", "",
-		"Server address to send messages to")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
 	// TODO: support this negotiating separate keys with different servers

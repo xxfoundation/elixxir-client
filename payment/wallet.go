@@ -4,17 +4,11 @@ import (
 	"errors"
 )
 
-const CoinLen = 15
 const NumDenominations = 8
 
 var ErrCannotFund = errors.New("not enough coins in wallet to fund")
 var ErrIncorrectChange = errors.New("coins in incorrect denominations to fund")
-
-type Coin struct {
-	Preimage [CoinLen]byte
-	Image    [CoinLen]byte
-	Value    uint8
-}
+var ErrInvalidCoin = errors.New("coin is not valid")
 
 type WalletStorage struct {
 	Coins [NumDenominations][]Coin
@@ -35,7 +29,7 @@ func (w *WalletStorage) Value() uint32 {
 	return value
 }
 
-func (w *WalletStorage) Fund(value uint32) ([]Coin, error) {
+func (w *WalletStorage) Withdraw(value uint32) ([]Coin, error) {
 	if value > w.Value() {
 		return nil, ErrCannotFund
 	}
@@ -60,4 +54,19 @@ func (w *WalletStorage) Fund(value uint32) ([]Coin, error) {
 	}
 
 	return coinList, nil
+}
+
+func (w *WalletStorage) Deposit(coins []*Coin) error {
+	for _, c := range coins {
+		if !c.Validate() {
+			return ErrInvalidCoin
+		}
+	}
+
+	for _, c := range coins {
+		w.Coins[c.Denomination] = append(w.Coins[c.Denomination], *c)
+	}
+
+	return nil
+
 }

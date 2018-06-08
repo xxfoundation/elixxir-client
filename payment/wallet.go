@@ -121,7 +121,7 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 	return coinList, nil
 }
 
-// deposits the coins passed if valid
+// adds the coins passed if all are valid
 func (w *Wallet) deposit(coins []*Coin) error {
 
 	var err error

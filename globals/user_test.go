@@ -7,9 +7,9 @@
 package globals
 
 import (
-	"testing"
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"testing"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -21,7 +21,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		reg, _ := Users.LookupUser(UserHash(uint64(i+1)))
+		reg, _ := Users.LookupUser(UserHash(uint64(i + 1)))
 		usr, _ := Users.GetUser(reg)
 		if usr.Nick != DEMO_USER_NICKS[i] {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
@@ -47,9 +47,9 @@ func TestUserRegistry(t *testing.T) {
 			"The UserID was not found by GetUser.")
 	}
 	if newUsr.Nick != "Will I am" {
-		t.Errorf("Upsert did not add the test user correctly. " +
-			"The set nickname was incorrect. Expected: Will I am, " +
-				"Actual: %v",newUsr.Nick)
+		t.Errorf("Upsert did not add the test user correctly. "+
+			"The set nickname was incorrect. Expected: Will I am, "+
+			"Actual: %v", newUsr.Nick)
 	}
 
 	// Test LookupKeys
@@ -61,15 +61,15 @@ func TestUserRegistry(t *testing.T) {
 	h.Write([]byte(string(20001)))
 	key := cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKeys.Base.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. " +
+		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
-				keys.TransmissionKeys.Base.Text(16))
+			keys.TransmissionKeys.Base.Text(16))
 	}
 	h = sha256.New()
 	h.Write([]byte(string(30001)))
 	key = cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKeys.Recursive.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. " +
+		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
 			keys.TransmissionKeys.Recursive.Text(16))
 	}
@@ -77,7 +77,7 @@ func TestUserRegistry(t *testing.T) {
 	h.Write([]byte(string(40001)))
 	key = cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.ReceptionKeys.Base.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. " +
+		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
 			keys.ReceptionKeys.Base.Text(16))
 	}
@@ -85,7 +85,7 @@ func TestUserRegistry(t *testing.T) {
 	h.Write([]byte(string(50001)))
 	key = cyclic.NewIntFromBytes(h.Sum(nil))
 	if keys.ReceptionKeys.Recursive.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. " +
+		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
 			keys.ReceptionKeys.Recursive.Text(16))
 	}

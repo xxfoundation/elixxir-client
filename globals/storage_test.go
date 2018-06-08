@@ -7,9 +7,9 @@
 package globals
 
 import (
-	"testing"
-	"reflect"
 	"os"
+	"reflect"
+	"testing"
 )
 
 func TestInitStorage(t *testing.T) {
@@ -52,7 +52,6 @@ func TestInitStorage(t *testing.T) {
 			TestData, actualData)
 	}
 	LocalStorage = nil
-
 
 	// Test RamStorage
 	LocalStorage = nil

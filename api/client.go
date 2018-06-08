@@ -69,7 +69,7 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode uint64, nodeAddr, gwAddr string,
+func Register(registrationCode uint64, gwAddr string,
 	numNodes uint) (uint64, error) {
 
 	var err error
@@ -112,7 +112,7 @@ func Register(registrationCode uint64, nodeAddr, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := globals.NewUserSession(user, nodeAddr, gwAddr, nk)
+	nus := globals.NewUserSession(user, gwAddr, nk)
 
 	errStore := nus.StoreSession()
 
@@ -141,15 +141,10 @@ func Login(UID uint64, addr string) (string, error) {
 	}
 
 	if addr != "" {
-		globals.Session.SetNodeAddress(addr)
+		globals.Session.SetGWAddress(addr)
 	}
 
 	addrToUse := globals.Session.GetGWAddress()
-	if addrToUse == "" {
-		addrToUse = globals.Session.GetNodeAddress()
-	} else {
-		io.UseGateway = true
-	}
 
 	// TODO: These can be separate, but we set them to the same thing
 	//       until registration is completed.
@@ -279,10 +274,6 @@ func Logout() error {
 	}
 
 	return nil
-}
-
-func UpdateContactList() error {
-	return io.UpdateUserRegistry(globals.Session.GetNodeAddress())
 }
 
 func GetContactList() ([]uint64, []string) {

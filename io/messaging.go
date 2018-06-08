@@ -31,10 +31,6 @@ var SendAddress string
 // ReceiveAddress is the address of the server to receive messages from
 var ReceiveAddress string
 
-// UseGateway decides if we should use the gateway calls instead of
-// the deprecated server RPCs
-var UseGateway = false
-
 // BlockTransmissions will use a mutex to prevent multiple threads from sending
 // messages at the same time.
 var BlockTransmissions = true
@@ -107,12 +103,8 @@ func send(senderID uint64, message *format.Message) error {
 	}
 
 	var err error
-	if UseGateway {
-		jww.INFO.Println("Sending put message to gateway")
-		err = client.SendPutMessage(SendAddress, msgPacket)
-	} else {
-		_, err = client.SendMessageToServer(SendAddress, msgPacket)
-	}
+	jww.INFO.Println("Sending put message to gateway")
+	err = client.SendPutMessage(SendAddress, msgPacket)
 
 	return err
 }
@@ -168,14 +160,10 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		if len(listeners) == 0 {
 			jww.FATAL.Panicf("No listeners for receiver thread!")
 		}
-		if UseGateway {
-			jww.INFO.Printf("Attempting to receive message from gateway")
-			decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
-			if decryptedMessage != nil {
-				broadcastMessageReception(decryptedMessage)
-			}
-		} else {
-			m.receiveMessageFromServer(&pollingMessage)
+		jww.INFO.Printf("Attempting to receive message from gateway")
+		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
+		if decryptedMessage != nil {
+			broadcastMessageReception(decryptedMessage)
 		}
 	}
 }

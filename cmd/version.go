@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package cmd
 
 import (
@@ -18,9 +24,9 @@ func printVersion() {
 }
 
 var versionCmd = &cobra.Command{
-	Use:	 "version",
+	Use:   "version",
 	Short: "Print the version number of Privategrity Client",
-	Long:	 `Print the version number of Privategrity Client. This also prints
+	Long: `Print the version number of Privategrity Client. This also prints
 the glide cache versions of all of its dependencies.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		printVersion()

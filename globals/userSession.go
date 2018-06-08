@@ -18,6 +18,9 @@ import (
 	"time"
 )
 
+// Errors
+var ErrQuery = errors.New("element not in map")
+
 // Globally instantiated UserSession
 var Session UserSession
 
@@ -34,6 +37,7 @@ type UserSession interface {
 	Immolate() error
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
+	DeleteMap(key string) error
 }
 
 type NodeKeys struct {
@@ -230,9 +234,14 @@ func (s *SessionObj) UpsertMap(key string, element interface{}) error {
 func (s *SessionObj) QueryMap(key string) (interface{}, error) {
 	element, ok := s.InterfaceMap[key]
 	if !ok {
-		return nil, errors.New("element not in map")
+		return nil, ErrQuery
 	}
 	return element, nil
+}
+
+func (s *SessionObj) DeleteMap(key string) error {
+	delete(s.InterfaceMap, key)
+	return s.StoreSession()
 }
 
 func clearCyclicInt(c *cyclic.Int) {

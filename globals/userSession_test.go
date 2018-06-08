@@ -151,6 +151,15 @@ func TestUserSession(t *testing.T) {
 			"interface: Expected: 5, Recieved: %v", element)
 	}
 
+	Session.DeleteMap("test")
+
+	_, err = Session.QueryMap("test")
+
+	if err == nil {
+		t.Errorf("Error: Could not delete element in session map " +
+			"interface")
+	}
+
 	//Logout
 	Session.Immolate()
 

@@ -1,36 +1,76 @@
 package payment
 
 import (
+	"encoding/gob"
 	"errors"
+	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/crypto/coin"
 )
 
 const NumDenominations = 8
+const WalletStorageKey = "WalletStorage"
 
 var ErrCannotFund = errors.New("not enough coins in wallet to fund")
 var ErrIncorrectChange = errors.New("coins in incorrect denominations to fund")
 var ErrInvalidCoin = errors.New("coin is not valid")
 
-type WalletStorage struct {
-	Coins [NumDenominations][]Coin
+// Stores the actual coins
+type WalletStorage [NumDenominations][]Coin
+
+// Struct which wil exposed
+type Wallet struct {
+	storage **WalletStorage
 }
 
-func NewWalletStorage() *WalletStorage {
-	var a [8][]Coin
-	return &WalletStorage{a}
+// Returns a wallet.  it is loaded from the session object if one exists,
+// otherwise a new one is created and stored in the session object
+func NewWallet() (*Wallet, error) {
+	var w WalletStorage
+
+	ws := &w
+
+	gob.Register(WalletStorage{})
+
+	// gets the wallet from the session
+	wsi, err := globals.Session.QueryMap(WalletStorageKey)
+	if err != nil {
+		//make a new session object if none exists
+		if err == globals.ErrQuery {
+
+			for i := 0; i < int(coin.Denominations); i++ {
+				(*ws)[i] = make([]Coin, 0)
+			}
+
+			err = globals.Session.UpsertMap(WalletStorageKey, &ws)
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		ws = *(wsi.(**WalletStorage))
+	}
+
+	return &Wallet{&ws}, nil
 }
 
-func (w *WalletStorage) Value() uint32 {
+// Returns the entire value of the wallet
+func (w *Wallet) Value() int {
 
 	value := uint32(0)
-	for indx, d := range w.Coins {
+	//Sums the value of all coins
+	for indx, d := range *w.storage {
 		value += (uint32(1) << uint32(indx)) * uint32(len(d))
 	}
 
-	return value
+	return int(value)
 }
 
-func (w *WalletStorage) Withdraw(value uint32) ([]Coin, error) {
-	if value > w.Value() {
+// Withdraws coins equal to the value passed
+func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
+	//Copy the old state of the wallet
+	storageCopy := w.copyStorage()
+
+	if value > uint32(w.Value()) {
 		return nil, ErrCannotFund
 	}
 
@@ -39,7 +79,7 @@ func (w *WalletStorage) Withdraw(value uint32) ([]Coin, error) {
 	for i := uint32(0); i < uint32(8); i++ {
 		d := value >> i
 
-		if d == 1 && len(w.Coins[i]) < 1 {
+		if d == 1 && len((*w.storage)[i]) < 1 {
 			return nil, ErrIncorrectChange
 		}
 	}
@@ -48,15 +88,28 @@ func (w *WalletStorage) Withdraw(value uint32) ([]Coin, error) {
 		d := value >> i
 
 		if d == 1 {
-			coinList = append(coinList, w.Coins[i][0])
-			w.Coins[i] = w.Coins[i][1:len(w.Coins[i])]
+			coinList = append(coinList, (*w.storage)[i][0])
+			(*w.storage)[i] = (*w.storage)[i][1:len((*w.storage)[i])]
 		}
+	}
+
+	err := globals.Session.StoreSession()
+
+	if err != nil {
+		*w.storage = storageCopy
+		return nil, err
 	}
 
 	return coinList, nil
 }
 
-func (w *WalletStorage) Deposit(coins []*Coin) error {
+// deposits the coins passed if valid
+func (w *Wallet) deposit(coins []*Coin) error {
+
+	var err error
+
+	storageCopy := w.copyStorage()
+
 	for _, c := range coins {
 		if !c.Validate() {
 			return ErrInvalidCoin
@@ -64,9 +117,27 @@ func (w *WalletStorage) Deposit(coins []*Coin) error {
 	}
 
 	for _, c := range coins {
-		w.Coins[c.Denomination] = append(w.Coins[c.Denomination], *c)
+		(*w.storage)[c.Denomination] = append((*w.storage)[c.Denomination], *c)
 	}
 
-	return nil
+	err = globals.Session.StoreSession()
 
+	if err != nil {
+		*w.storage = storageCopy
+	}
+
+	return err
+
+}
+
+// copies the wallet storage object
+func (w *Wallet) copyStorage() *WalletStorage {
+	var ws WalletStorage
+
+	for i := 0; i < int(coin.Denominations); i++ {
+		ws[i] = make([]Coin, len((**w.storage)[i]))
+		copy(ws[i], (*w.storage)[i])
+	}
+
+	return &ws
 }

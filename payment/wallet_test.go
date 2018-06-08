@@ -1,68 +1,87 @@
 package payment
 
 import (
+	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/coin"
 	"math"
+	"strconv"
 	"testing"
 )
 
-func TestWalletStorage(t *testing.T) {
-	wallet := NewWalletStorage()
+func TestWallet(t *testing.T) {
+
+	globals.InitStorage(&globals.RamStorage{}, "")
+
+	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
+
+	// populate a gob in the store
+	api.Register(huid, "localhost:5556", "", 1)
+
+	api.Login(5, "localhost:5556")
+
+	wallet, err := NewWallet()
+
+	if err != nil {
+		t.Errorf("NewWallet(): Could not make new wallet: %s", err.Error())
+	}
 
 	values := []uint8{2, 6, 3, 2, 1, 4, 5, 7, 7, 4, 2, 4, 2}
 	expectedValue := uint32(0)
 
 	for _, denomination := range values {
 		c, _ := NewCoin(denomination)
-		wallet.Deposit([]*Coin{c})
+		wallet.deposit([]*Coin{c})
 		expectedValue += 1 << denomination
-		if wallet.Value() != expectedValue {
-			t.Errorf("WalletStorage.Value(): Value did not match,"+
+		if wallet.Value() != int(expectedValue) {
+			t.Errorf("Wallet.Value(): Value did not match,"+
 				" Expected: %v, Recieved: %v", expectedValue, wallet.Value())
 		}
 	}
 
-	cLst, err := wallet.Withdraw(2)
+	cLst, err := wallet.withdraw(2)
 
 	if err != nil {
-		t.Errorf("WalletStorage.Withdraw(): Did not return withdral,"+
+		t.Errorf("Wallet.ithdraw(): Did not return withdral,"+
 			" on valid withdrawl: %s", err.Error())
 	} else {
 		if len(cLst) != 1 {
-			t.Errorf("WalletStorage.Withdraw(): Did not withdraw correct"+
+			t.Errorf("Wallet.withdraw(): Did not withdraw correct"+
 				"coins; len: %v", len(cLst))
 		}
 		if !cLst[0].Validate() {
-			t.Errorf("WalletStorage.Withdraw(): Did not withdraw valid" +
+			t.Errorf("Wallet.withdraw(): Did not withdraw valid" +
 				"coins")
 		}
 
-		for _, c := range wallet.Coins[2] {
+		for _, c := range (*wallet.storage)[2] {
 			if compareCoins(&c, &cLst[0]) {
-				t.Errorf("WalletStorage.Withdraw(" +
+				t.Errorf("Wallet.withdraw(" +
 					"): Coin not removed from wallet")
 			}
 		}
 	}
 
-	_, err = wallet.Withdraw(math.MaxUint32)
+	_, err = wallet.withdraw(math.MaxUint32)
 
 	if err == nil {
-		t.Errorf("WalletStorage.Withdraw(" +
+		t.Errorf("Wallet.withdraw(" +
 			"): Allowed withdrawl on invalid ammount")
 	}
 
-	wallet = NewWalletStorage()
+	globals.Session.DeleteMap(WalletStorageKey)
+
+	wallet, err = NewWallet()
 
 	c0, _ := NewCoin(0)
 	c1, _ := NewCoin(0)
 
-	wallet.Deposit([]*Coin{c0, c1})
+	wallet.deposit([]*Coin{c0, c1})
 
-	_, err = wallet.Withdraw(2)
+	_, err = wallet.withdraw(2)
 
 	if err == nil {
-		t.Errorf("WalletStorage.Withdraw(" +
+		t.Errorf("Wallet.withdraw(" +
 			"): Allowed withdrawl with incorrect change")
 	}
 }

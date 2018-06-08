@@ -35,8 +35,8 @@ func TestWallet(t *testing.T) {
 	cLst, err := wallet.withdraw(2)
 
 	if err != nil {
-		t.Errorf("Wallet.ithdraw(): Did not return withdral,"+
-			" on valid withdrawl: %s", err.Error())
+		t.Errorf("Wallet.withdraw(): Did not return withdrawal"+
+			" on valid withdrawal: %s", err.Error())
 	} else {
 		if len(cLst) != 1 {
 			t.Errorf("Wallet.withdraw(): Did not withdraw correct"+
@@ -59,7 +59,7 @@ func TestWallet(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("Wallet.withdraw(" +
-			"): Allowed withdrawl on invalid ammount")
+			"): Allowed withdrawal on invalid ammount")
 	}
 
 	globals.Session.DeleteMap(WalletStorageKey)
@@ -75,7 +75,7 @@ func TestWallet(t *testing.T) {
 
 	if err == nil {
 		t.Errorf("Wallet.withdraw(" +
-			"): Allowed withdrawl with incorrect change")
+			"): Allowed withdrawal with incorrect change")
 	}
 }
 

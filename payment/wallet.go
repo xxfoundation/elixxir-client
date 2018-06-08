@@ -5,6 +5,7 @@ import (
 	"errors"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/coin"
+	"sync"
 )
 
 const NumDenominations = 8
@@ -20,6 +21,7 @@ type WalletStorage [NumDenominations][]Coin
 // Struct which wil exposed
 type Wallet struct {
 	storage **WalletStorage
+	lock    *sync.Mutex
 }
 
 // Returns a wallet.  it is loaded from the session object if one exists,
@@ -50,23 +52,31 @@ func NewWallet() (*Wallet, error) {
 		ws = *(wsi.(**WalletStorage))
 	}
 
-	return &Wallet{&ws}, nil
+	return &Wallet{&ws, &sync.Mutex{}}, nil
 }
 
 // Returns the entire value of the wallet
 func (w *Wallet) Value() int {
 
 	value := uint32(0)
+
+	w.lock.Lock()
+
 	//Sums the value of all coins
 	for indx, d := range *w.storage {
 		value += (uint32(1) << uint32(indx)) * uint32(len(d))
 	}
+
+	w.lock.Unlock()
 
 	return int(value)
 }
 
 // Withdraws coins equal to the value passed
 func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
+
+	w.lock.Lock()
+
 	//Copy the old state of the wallet
 	storageCopy := w.copyStorage()
 
@@ -100,6 +110,8 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 		return nil, err
 	}
 
+	w.lock.Unlock()
+
 	return coinList, nil
 }
 
@@ -107,6 +119,8 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 func (w *Wallet) deposit(coins []*Coin) error {
 
 	var err error
+
+	w.lock.Lock()
 
 	storageCopy := w.copyStorage()
 
@@ -125,6 +139,8 @@ func (w *Wallet) deposit(coins []*Coin) error {
 	if err != nil {
 		*w.storage = storageCopy
 	}
+
+	w.lock.Unlock()
 
 	return err
 

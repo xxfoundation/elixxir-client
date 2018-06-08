@@ -1,11 +1,9 @@
 package payment
 
 import (
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/coin"
 	"math"
-	"strconv"
 	"testing"
 )
 
@@ -13,12 +11,7 @@ func TestWallet(t *testing.T) {
 
 	globals.InitStorage(&globals.RamStorage{}, "")
 
-	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
-
-	// populate a gob in the store
-	api.Register(huid, "localhost:5556", "", 1)
-
-	api.Login(5, "localhost:5556")
+	globals.Session = globals.NewUserSession(nil, "abc", nil)
 
 	wallet, err := NewWallet()
 

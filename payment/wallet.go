@@ -55,21 +55,27 @@ func NewWallet() (*Wallet, error) {
 	return &Wallet{&ws, &sync.Mutex{}}, nil
 }
 
-// Returns the entire value of the wallet
+// Returns the entire value of the wallet without a lock
 func (w *Wallet) Value() int {
 
-	value := uint32(0)
-
 	w.lock.Lock()
+	v := w.value()
+	w.lock.Unlock()
+
+	return int(v)
+}
+
+// Returns the entire value of the wallet with a lock
+func (w *Wallet) value() uint32 {
+
+	value := uint32(0)
 
 	//Sums the value of all coins
 	for indx, d := range *w.storage {
 		value += (uint32(1) << uint32(indx)) * uint32(len(d))
 	}
 
-	w.lock.Unlock()
-
-	return int(value)
+	return value
 }
 
 // Withdraws coins equal to the value passed
@@ -80,7 +86,7 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 	//Copy the old state of the wallet
 	storageCopy := w.copyStorage()
 
-	if value > uint32(w.Value()) {
+	if value > w.value() {
 		return nil, ErrCannotFund
 	}
 

@@ -14,7 +14,6 @@ type TypedBody struct {
 
 // Determine the type of a message body. Returns the type and the part of the
 // body that doesn't include the type.
-// TODO test error cases where there are too many bytes with MSB set
 func Parse(body []byte) (*TypedBody, error) {
 	messageType, numBytesRead := binary.Uvarint(body)
 	if numBytesRead < 0 {

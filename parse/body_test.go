@@ -35,3 +35,12 @@ func TestParseTypeTooLong(t *testing.T) {
 			") when the body type was too long")
 	}
 }
+
+func TestTypeAsBytes(t *testing.T) {
+	expected := []byte{0x80, 0x02}
+	actual := TypeAsBytes(256)
+	if !bytes.Equal(expected, actual) {
+		t.Errorf("Type magic number didn't match. Expected: %v, actual: %v",
+			expected, actual)
+	}
+}

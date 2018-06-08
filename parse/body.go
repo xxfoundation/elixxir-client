@@ -25,3 +25,11 @@ func Parse(body []byte) (*TypedBody, error) {
 	result.Body = body[numBytesRead:]
 	return result, nil
 }
+
+// Mobile or other packages can use this wrapper to easily determine the
+// correct magic number for a type
+func TypeAsBytes(messageType int64) []byte {
+	buf := make([]byte, binary.MaxVarintLen64)
+	n := binary.PutUvarint(buf, uint64(messageType))
+	return buf[:n]
+}

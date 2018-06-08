@@ -95,7 +95,7 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 	for i := uint32(0); i < uint32(8); i++ {
 		d := value >> i
 
-		if d == 1 && len((*w.storage)[i]) < 1 {
+		if d == 1 && len((storageCopy)[i]) < 1 {
 			return nil, ErrIncorrectChange
 		}
 	}
@@ -104,15 +104,19 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 		d := value >> i
 
 		if d == 1 {
-			coinList = append(coinList, (*w.storage)[i][0])
-			(*w.storage)[i] = (*w.storage)[i][1:len((*w.storage)[i])]
+			coinList = append(coinList, (storageCopy)[i][0])
+			(storageCopy)[i] = (*w.storage)[i][1:len((storageCopy)[i])]
 		}
 	}
+
+	oldStorage := *w.storage
+
+	*w.storage = storageCopy
 
 	err := globals.Session.StoreSession()
 
 	if err != nil {
-		*w.storage = storageCopy
+		*w.storage = oldStorage
 		return nil, err
 	}
 
@@ -137,13 +141,17 @@ func (w *Wallet) deposit(coins []*Coin) error {
 	}
 
 	for _, c := range coins {
-		(*w.storage)[c.Denomination] = append((*w.storage)[c.Denomination], *c)
+		(storageCopy)[c.Denomination] = append((storageCopy)[c.Denomination], *c)
 	}
+
+	oldStorage := *w.storage
+
+	*w.storage = storageCopy
 
 	err = globals.Session.StoreSession()
 
 	if err != nil {
-		*w.storage = storageCopy
+		*w.storage = oldStorage
 	}
 
 	w.lock.Unlock()

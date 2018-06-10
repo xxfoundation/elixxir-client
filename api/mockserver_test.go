@@ -37,8 +37,6 @@ func TestMain(m *testing.M) {
 	}
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
-	// Start server for all tests in this package
-	go gateway.StartGateway(gwAddress, &GatewayData)
 
 	os.Exit(m.Run())
 }
@@ -57,6 +55,10 @@ func TestInitClient(t *testing.T) {
 }
 
 func TestRegister(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
@@ -72,6 +74,10 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisterBadNumNodes(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
@@ -84,6 +90,10 @@ func TestRegisterBadNumNodes(t *testing.T) {
 }
 
 func TestRegisterBadHUID(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	registrationCode := "JHJ6L9BACDV"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
@@ -97,6 +107,10 @@ func TestRegisterBadHUID(t *testing.T) {
 }
 
 func TestRegisterDeletedUser(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
@@ -124,6 +138,10 @@ func SetNulKeys() {
 }
 
 func TestSend(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, &GatewayData)
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	globals.LocalStorage = nil
 	registrationCode := "be50nhqpqjtjj"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -159,6 +177,10 @@ func TestSend(t *testing.T) {
 }
 
 func TestReceive(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	globals.LocalStorage = nil
 
 	// Initialize client and log in
@@ -197,6 +219,10 @@ func TestReceive(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
 	err := Logout()
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)

@@ -8,6 +8,7 @@
 package api
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
@@ -15,17 +16,20 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
+	"math/rand"
 	"os"
 	"testing"
 	"time"
 )
 
-const gwAddress = "localhost:8080"
+var gwAddress = "localhost:8080"
 
 var Session globals.SessionObj
 var GatewayData TestInterface
 
 func TestMain(m *testing.M) {
+	rand.Seed(time.Now().Unix())
+	gwAddress = fmt.Sprintf("localhost:%d", (rand.Intn(1000) + 5001))
 	io.SendAddress = gwAddress
 	io.ReceiveAddress = gwAddress
 	GatewayData = TestInterface{

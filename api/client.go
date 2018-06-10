@@ -305,7 +305,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	publicKeyBytes := publicKey.Bytes()
 	fixedPubBytes := make([]byte, 256)
 	for i := range publicKeyBytes {
-		idx := len(fixedPubBytes) - i
+		idx := len(fixedPubBytes) - i - 1
 		if idx < 0 {
 			jww.ERROR.Printf("Trimming pubkey because it exceeds 2048 bit length!")
 			break

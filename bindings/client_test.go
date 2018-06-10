@@ -168,6 +168,7 @@ func TestReceiveMessageByInterface(t *testing.T) {
 
 func TestRegister(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -185,6 +186,7 @@ func TestRegister(t *testing.T) {
 
 func TestRegisterBadNumNodes(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -199,6 +201,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 
 func TestLogin(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -219,6 +222,7 @@ func TestLogin(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	time.Sleep(1000 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}

@@ -2,7 +2,7 @@ syntax = "proto3";
 
 // Common types for text messages
 
-// TODO: Transparently combine multi-part messages based on these fields
+// TODO: Automatically combine multi-part messages based on these fields
 message RepeatedOrdering {
     uint64 time = 1; // Unix time
     uint32 chunkIndex = 2; // Which chunk of the message this is

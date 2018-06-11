@@ -20,7 +20,7 @@ func NewCoin(denomination uint8) (*Coin, error) {
 	}
 
 	c := Coin{}
-	pi, err := coin.NewCoinPreimage()
+	pi, err := coin.NewCoinPreimage(denomination)
 
 	c.Preimage = &pi
 

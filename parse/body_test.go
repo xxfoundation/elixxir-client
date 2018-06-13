@@ -44,3 +44,15 @@ func TestTypeAsBytes(t *testing.T) {
 			expected, actual)
 	}
 }
+
+func TestPack(t *testing.T) {
+	expected := []byte{0x01, 0x02, 0x03, 0x04}
+	actual := Pack(&TypedBody{
+		BodyType: 1,
+		Body:     []byte{0x02, 0x03, 0x04},
+	})
+	if !bytes.Equal(expected, actual) {
+		t.Errorf("Pack didn't return correctly packed byte slice. " +
+			"Expected: %v, actual: %v", expected, actual)
+	}
+}

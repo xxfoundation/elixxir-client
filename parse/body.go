@@ -26,6 +26,11 @@ func Parse(body []byte) (*TypedBody, error) {
 	return result, nil
 }
 
+// Pack this message for the network
+func Pack(body *TypedBody) []byte {
+	return append(TypeAsBytes(body.BodyType), body.Body...)
+}
+
 // Mobile or other packages can use this wrapper to easily determine the
 // correct magic number for a type
 func TypeAsBytes(messageType int64) []byte {

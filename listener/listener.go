@@ -77,12 +77,13 @@ func (lm *ListenerMap) StopListening(listenerID string) {
 	defer lm.mux.Unlock()
 
 	// Iterate over all listeners in the map
-	for _, perUser := range (lm.listeners) {
-		for _, perType := range (perUser) {
+	for user, perUser := range (lm.listeners) {
+		for messageType, perType := range (perUser) {
 			for i, listener := range (perType) {
 				if listener.id == listenerID {
 					// this matches. remove listener from the data structure
-					perType = append(perType[i:], perType[:i+1]...)
+					lm.listeners[user][messageType] = append(perType[:i],
+						perType[i+1:]...)
 					// since the id is unique per listener,
 					// we can terminate the loop early.
 					return
@@ -138,12 +139,12 @@ func (lm *ListenerMap) Speak(sender globals.UserID, body parse.TypedBody) {
 
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
-		for _, listener := range(accumNormals) {
+		for _, listener := range (accumNormals) {
 			listener.l.Hear(body.Body, body.BodyType)
 		}
 	} else {
 		// notify all fallback listeners
-		for _, listener := range(accumFallbacks) {
+		for _, listener := range (accumFallbacks) {
 			listener.l.Hear(body.Body, body.BodyType)
 		}
 	}

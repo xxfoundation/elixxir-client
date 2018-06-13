@@ -248,3 +248,14 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 			listener.LastMessageType, specificMessageType)
 	}
 }
+
+func TestListenerMap_StopListening(t *testing.T) {
+	listeners := NewListenerMap()
+	id := listeners.Listen(specificUserID, specificMessageType,
+		&MockListener{}, false)
+	listeners.StopListening(id)
+	if len(listeners.listeners[specificUserID][specificMessageType]) != 0 {
+		t.Error("The listener was still in the map after we stopped" +
+			" listening on it")
+	}
+}

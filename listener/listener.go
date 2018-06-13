@@ -47,7 +47,7 @@ func NewListenerMap() *ListenerMap {
 // non-fallback listeners have already heard.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *ListenerMap) Listen(user globals.UserID, messageType int,
+func (lm *ListenerMap) Listen(user globals.UserID, messageType int64,
 	newListener Listener, isFallback bool) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
@@ -61,13 +61,13 @@ func (lm *ListenerMap) Listen(user globals.UserID, messageType int,
 		lm.listeners[user][messageType] = make([]*listenerRecord, 0)
 	}
 
-	thisListenerSlice := lm.listeners[user][messageType]
 	newListenerRecord := &listenerRecord{
 		l:          newListener,
 		id:         strconv.Itoa(lm.lastID),
 		isFallback: isFallback,
 	}
-	thisListenerSlice = append(thisListenerSlice, newListenerRecord)
+	lm.listeners[user][messageType] = append(lm.listeners[user][messageType],
+		newListenerRecord)
 
 	return newListenerRecord.id
 }

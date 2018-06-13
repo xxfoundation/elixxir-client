@@ -13,6 +13,9 @@ import (
 	"gitlab.com/privategrity/crypto/hash"
 )
 
+// TODO use this type for User IDs consistently throughout
+type UserID string
+
 // Globally instantiated UserRegistry
 var Users = newUserRegistry()
 var NUM_DEMO_USERS = int(40)

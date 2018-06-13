@@ -8,7 +8,7 @@ import (
 )
 
 type Listener interface {
-	Hear(message []byte)
+	Hear(message []byte, messageType int64)
 }
 
 type listenerRecord struct {
@@ -139,12 +139,12 @@ func (lm *ListenerMap) Speak(sender globals.UserID, body parse.TypedBody) {
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
 		for _, listener := range(accumNormals) {
-			listener.l.Hear(body.Body)
+			listener.l.Hear(body.Body, body.BodyType)
 		}
 	} else {
 		// notify all fallback listeners
 		for _, listener := range(accumFallbacks) {
-			listener.l.Hear(body.Body)
+			listener.l.Hear(body.Body, body.BodyType)
 		}
 	}
 }

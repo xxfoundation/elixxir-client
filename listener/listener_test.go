@@ -6,20 +6,23 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"time"
+	"bytes"
 )
 
 type MockListener struct {
 	NumHeard    int
 	LastMessage []byte
+	LastMessageType int64
 	mux         sync.Mutex
 }
 
-func (ml *MockListener) Hear(message []byte) {
+func (ml *MockListener) Hear(message []byte, messageType int64) {
 	ml.mux.Lock()
 	defer ml.mux.Unlock()
 
 	ml.NumHeard++
 	ml.LastMessage = message
+	ml.LastMessageType = messageType
 }
 
 var specificUserID globals.UserID = "5"
@@ -185,7 +188,7 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	expectedAllWildcard := 40
 	for i := 0; i < len(individualListeners); i++ {
 		if individualListeners[i].NumHeard != expectedIndividuals {
-			t.Errorf("Individual listener got %v messages, " +
+			t.Errorf("Individual listener got %v messages, "+
 				"expected %v messages", individualListeners[i].NumHeard, expectedIndividuals)
 		}
 	}
@@ -212,9 +215,9 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 
 	// send exactly one message to each of them
 	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType,
-	make([]byte, 0)})
+		make([]byte, 0)})
 	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType + 1,
-	make([]byte, 0)})
+		make([]byte, 0)})
 
 	time.Sleep(delay)
 
@@ -227,5 +230,21 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 	if fallbackListener.NumHeard != expected {
 		t.Errorf("Fallback listener: Expected %v, got %v messages", expected,
 			specificListener.NumHeard)
+	}
+}
+
+func TestListenerMap_SpeakBody(t *testing.T) {
+	listeners, listener := OneListenerSetup()
+	expected := []byte{0x01, 0x02, 0x03, 0x04}
+	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType,
+		expected})
+	time.Sleep(delay)
+	if !bytes.Equal(listener.LastMessage, expected) {
+		t.Errorf("Received message was %v, expected %v",
+			listener.LastMessage, expected)
+	}
+	if listener.LastMessageType != specificMessageType {
+		t.Errorf("Received message type was %v, expected %v",
+			listener.LastMessageType, specificMessageType)
 	}
 }

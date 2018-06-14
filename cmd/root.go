@@ -20,6 +20,9 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
+	"github.com/golang/protobuf/proto"
+	"sync"
+	"sync/atomic"
 )
 
 var verbose bool
@@ -134,6 +137,57 @@ func sessionInitialization() {
 	}
 }
 
+type TextListener struct {
+	messagesReceived int64
+}
+
+func (l *TextListener) Hear(message *parse.Message) {
+	result := parse.TextMessage{}
+	proto.Unmarshal(message, &result)
+
+	sender, ok := globals.Users.GetUser(message.Sender)
+	var senderNick string
+	if !ok {
+		jww.ERROR.Println("Couldn't get sender %v", message.Sender)
+	} else {
+		senderNick = sender.Nick
+	}
+	fmt.Printf("Message from %v, %v Received: %s\n", message.Sender,
+		senderNick, result.Message)
+
+	atomic.AddInt64(&l.messagesReceived, 1)
+}
+
+type ChannelbotListener struct {
+	messagesReceived int64
+}
+
+func (l *ChannelbotListener) Hear(message *parse.Message) {
+	result := parse.ChannelMessage{}
+	proto.Unmarshal(message.Body, &result)
+
+	sender, ok := globals.Users.GetUser(message.Sender)
+	var senderNick string
+	if !ok {
+		jww.ERROR.Println("Couldn't get sender %v", message.Sender)
+	} else {
+		senderNick = sender.Nick
+	}
+
+	speaker, ok := globals.Users.GetUser(globals.UserID(result.SpeakerID))
+	var speakerNick string
+	if !ok {
+		jww.ERROR.Println("Couldn't get speaker %v", result.SpeakerID)
+	} else {
+		speakerNick = speaker.Nick
+	}
+	fmt.Printf("Message from channel %v, %v:\n%v, %v: %v\n",
+		message.Sender, senderNick, result.SpeakerID,
+		speakerNick, result.Message)
+
+	atomic.AddInt64(&l.messagesReceived, 1)
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "client",
@@ -181,43 +235,21 @@ var rootCmd = &cobra.Command{
 			timer = time.NewTimer(dummyPeriod)
 		}
 
-		// Loop until we get a message, then print and exit
-		for {
+		// Set up the listeners for both of the types the client needs for
+		// the integration test
+		// Normal text messages
+		text := TextListener{}
+		api.Listen(globals.UserID(""), 1, &text, false)
+		// Channelbot messages
+		channel := ChannelbotListener{}
+		api.Listen(globals.UserID(""), 2, &channel, false)
 
-			var msg bindings.Message
-			msg, _ = bindings.TryReceive()
+		// Loop until we get a message, then print and exit
+		for text.messagesReceived == 0 && channel.messagesReceived == 0 {
+
+			_, _ = bindings.TryReceive()
 
 			end := false
-
-			//Report failed message reception
-			sender := binary.BigEndian.Uint64(msg.GetSender())
-
-			// Get sender's nick
-			user, ok := globals.Users.GetUser(sender)
-			var senderNick string
-			if ok {
-				senderNick = user.Nick
-			}
-
-			//Return the received message to console
-			if msg.GetPayload() != "" {
-				channelMessage, err := parse.ParseChannelbotMessage(msg.
-					GetPayload())
-				if err == nil {
-					speakerContact := ""
-					user, ok := globals.Users.GetUser(channelMessage.SpeakerID)
-					if ok {
-						speakerContact = user.Nick
-					}
-					fmt.Printf("Message from channel %v, %v:\n%v, %v: %v\n",
-						sender, senderNick, channelMessage.SpeakerID,
-						speakerContact, channelMessage.Message)
-				} else {
-					fmt.Printf("Message from %v, %v Received: %s\n", sender,
-						senderNick, msg.GetPayload())
-				}
-				end = true
-			}
 
 			//If dummy messages are enabled, send the next one
 			if dummyPeriod != 0 {

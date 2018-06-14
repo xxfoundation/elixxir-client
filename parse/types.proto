@@ -1,5 +1,8 @@
 syntax = "proto3";
 
+package parse;
+option go_package = "parse";
+
 // Common types for text messages
 
 // TODO: Automatically combine multi-part messages based on these fields
@@ -11,4 +14,22 @@ message RepeatedOrdering {
 
 message DisplayData {
     uint64 color = 1;
+}
+
+
+// Text message types
+
+// Type 1
+message TextMessage {
+    RepeatedOrdering order = 1;
+    DisplayData display = 2;
+    string message = 3;
+}
+
+// Type 2
+message ChannelMessage {
+    RepeatedOrdering order = 1;
+    DisplayData display = 2;
+    bytes speakerID = 3;
+    string message = 4;
 }

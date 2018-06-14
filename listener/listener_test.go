@@ -45,7 +45,7 @@ func TestListenerMap_SpeakOne(t *testing.T) {
 	listeners, fullyMatchedListener := OneListenerSetup()
 
 	// speak
-	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType,
+	listeners.Speak(specificUserID, &parse.TypedBody{specificMessageType,
 		make([]byte, 0)})
 
 	// determine whether the listener heard the message
@@ -63,7 +63,7 @@ func TestListenerMap_SpeakManyToOneListener(t *testing.T) {
 
 	// speak
 	for i := 0; i < 20; i++ {
-		go listeners.Speak(specificUserID, parse.TypedBody{specificMessageType,
+		go listeners.Speak(specificUserID, &parse.TypedBody{specificMessageType,
 			make([]byte, 0)})
 	}
 
@@ -83,7 +83,7 @@ func TestListenerMap_SpeakToAnother(t *testing.T) {
 	// speak
 	otherUserID := globals.UserID(specificUserID[0] + 1)
 	listeners.Speak(otherUserID,
-		parse.TypedBody{specificMessageType,
+		&parse.TypedBody{specificMessageType,
 			make([]byte, 0)})
 
 	// determine whether the listener heard the message
@@ -101,7 +101,7 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 
 	// speak
 	listeners.Speak(specificUserID,
-		parse.TypedBody{specificMessageType + 1,
+		&parse.TypedBody{specificMessageType + 1,
 			make([]byte, 0)})
 
 	// determine whether the listener heard the message
@@ -133,7 +133,7 @@ func TestListenerMap_SpeakWildcard(t *testing.T) {
 
 	// speak
 	listeners.Speak(specificUserID,
-		parse.TypedBody{specificMessageType + 1,
+		&parse.TypedBody{specificMessageType + 1,
 			make([]byte, 0)})
 
 	// determine whether the listener heard the message
@@ -167,7 +167,7 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 
 	// send to all types for our user
 	for messageType := 1; messageType <= 20; messageType++ {
-		go listeners.Speak(specificUserID, parse.TypedBody{
+		go listeners.Speak(specificUserID, &parse.TypedBody{
 			BodyType: int64(messageType),
 			Body:     make([]byte, 0),
 		})
@@ -175,7 +175,7 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	// send to all types for a different user
 	otherUser := globals.UserID(specificUserID[0] + 1)
 	for messageType := 1; messageType <= 20; messageType++ {
-		go listeners.Speak(otherUser, parse.TypedBody{
+		go listeners.Speak(otherUser, &parse.TypedBody{
 			BodyType: int64(messageType),
 			Body:     make([]byte, 0),
 		})
@@ -214,9 +214,9 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 		false)
 
 	// send exactly one message to each of them
-	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType,
+	listeners.Speak(specificUserID, &parse.TypedBody{specificMessageType,
 		make([]byte, 0)})
-	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType + 1,
+	listeners.Speak(specificUserID, &parse.TypedBody{specificMessageType + 1,
 		make([]byte, 0)})
 
 	time.Sleep(delay)
@@ -236,7 +236,7 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 func TestListenerMap_SpeakBody(t *testing.T) {
 	listeners, listener := OneListenerSetup()
 	expected := []byte{0x01, 0x02, 0x03, 0x04}
-	listeners.Speak(specificUserID, parse.TypedBody{specificMessageType,
+	listeners.Speak(specificUserID, &parse.TypedBody{specificMessageType,
 		expected})
 	time.Sleep(delay)
 	if !bytes.Equal(listener.LastMessage, expected) {

@@ -20,6 +20,7 @@ import (
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
+	"gitlab.com/privategrity/client/listener"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
@@ -190,44 +191,45 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
+// FIXME there can only be one
 var listenCh chan *format.Message
+var listeners *listener.ListenerMap
+
+func getListeners() *listener.ListenerMap {
+	if listeners == nil {
+		listeners = listener.NewListenerMap()
+	}
+	return listeners
+}
+
+// Add a new listener to the map
+func Listen(user globals.UserID, messageType int64,
+	newListener listener.Listener, isFallback bool) {
+	listeners := getListeners()
+	listeners.Listen(user, messageType, newListener, isFallback)
+}
 
 // TryReceive checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
-// FIXME: There's not a good reason to return an error here. I nil'd it out
-// for now but it should be removed. Before it was returning an error only if
-// the user had not been logged in yet.
+// TODO remove this whole method, for real this time
 func TryReceive() (format.MessageInterface, error) {
 	select {
+	// TODO replace or remove listenCh?
+	// TODO should parse.Parse actually return an error?
 	case message := <-listenCh:
-		var m APIMessage
 		if message.GetPayload() != "" {
-			// FIXME: Post-refactor, it would mak emore sense to
-			// have a channel bot listener that populates the channel
-			// bot messages, and to ignore the channelbot messages in this
-			// loop or to try to get & parse them a different way.
-			// try to parse the gob (in case it's from a channel)
-			channelMessage, err := parse.ParseChannelbotMessage(
-				message.GetPayload())
-			if err == nil {
-				// Message from channelbot
-				// TODO Speaker ID has been hacked into the Recipient ID
-				// for channels
-				m.SenderID = message.GetSenderIDUint()
-				m.Payload = channelMessage.Message
-				m.RecipientID = channelMessage.SpeakerID
-			} else {
-				// Message from normal client
-				m.SenderID = message.GetSenderIDUint()
-				m.Payload = message.GetPayload()
-				m.RecipientID = message.GetRecipientIDUint()
+			typedBody, err := parse.Parse([]byte(message.GetPayload()))
+			getListeners().Speak(globals.UserID(message.GetSender()), typedBody)
+			result := APIMessage{
+				Payload:     string(typedBody.Body),
+				SenderID:    message.GetSenderIDUint(),
+				RecipientID: message.GetRecipientIDUint(),
 			}
+			return &result, err
 		}
-		return m, nil
 	default:
-		// Would want to return nil here, but callers are used to this
-		return &APIMessage{SenderID: 0, Payload: "", RecipientID: 0}, nil
 	}
+	return &APIMessage{}, nil
 }
 
 type APISender struct{}

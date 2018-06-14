@@ -16,6 +16,7 @@ import (
 	"gitlab.com/privategrity/crypto/forward"
 	"strconv"
 	"testing"
+	"gitlab.com/privategrity/client/parse"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -185,6 +186,7 @@ func TestDisableRatchet(t *testing.T) {
 	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
 }
 
+// TODO remove this with TryReceive
 func TestTryReceive(t *testing.T) {
 	listenCh = make(chan *format.Message, 10)
 
@@ -195,7 +197,11 @@ func TestTryReceive(t *testing.T) {
 	if expectEmpty.GetPayload() != "" || err != nil {
 		t.Errorf("Expected empty message, but got %s", expectEmpty.GetPayload())
 	}
-	m, _ := format.NewMessage(13, 1, "Hello")
+	body := parse.Pack(&parse.TypedBody{
+		BodyType: 1, // normal text message
+		Body:     []byte("Hello"),
+	})
+	m, _ := format.NewMessage(13, 1, string(body))
 	listenCh <- &m[0]
 	something, err := TryReceive()
 	if err != nil {

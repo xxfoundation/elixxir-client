@@ -8,7 +8,7 @@ import (
 )
 
 type Listener interface {
-	Hear(message []byte, messageType int64)
+	Hear(msg *parse.Message)
 }
 
 type listenerRecord struct {
@@ -113,7 +113,7 @@ func (lm *ListenerMap) matchListeners(userID globals.UserID,
 }
 
 // Broadcast a message to the appropriate listeners
-func (lm *ListenerMap) Speak(sender globals.UserID, body parse.TypedBody) {
+func (lm *ListenerMap) Speak(sender globals.UserID, msg *parse.Message) {
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 
@@ -121,7 +121,7 @@ func (lm *ListenerMap) Speak(sender globals.UserID, body parse.TypedBody) {
 	accumNormals := make([]*listenerRecord, 0)
 	accumFallbacks := make([]*listenerRecord, 0)
 	// match perfect matches
-	normals, fallbacks := lm.matchListeners(sender, body.BodyType)
+	normals, fallbacks := lm.matchListeners(sender, msg.BodyType)
 	accumNormals = append(accumNormals, normals...)
 	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match listeners that want just the user ID for all message types
@@ -129,7 +129,7 @@ func (lm *ListenerMap) Speak(sender globals.UserID, body parse.TypedBody) {
 	accumNormals = append(accumNormals, normals...)
 	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match just the type
-	normals, fallbacks = lm.matchListeners(zeroUserID, body.BodyType)
+	normals, fallbacks = lm.matchListeners(zeroUserID, msg.BodyType)
 	accumNormals = append(accumNormals, normals...)
 	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match wildcard listeners that hear everything
@@ -140,12 +140,12 @@ func (lm *ListenerMap) Speak(sender globals.UserID, body parse.TypedBody) {
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
 		for _, listener := range (accumNormals) {
-			listener.l.Hear(body.Body, body.BodyType)
+			listener.l.Hear(msg)
 		}
 	} else {
 		// notify all fallback listeners
 		for _, listener := range (accumFallbacks) {
-			listener.l.Hear(body.Body, body.BodyType)
+			listener.l.Hear(msg)
 		}
 	}
 }

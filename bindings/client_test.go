@@ -7,6 +7,7 @@ package bindings
 
 import (
 	"bytes"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"

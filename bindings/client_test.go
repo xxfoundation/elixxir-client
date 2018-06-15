@@ -24,9 +24,39 @@ const gwAddress = "localhost:5557"
 
 var gatewayData api.TestInterface
 
+// NOTE: These need to be set up as io.Messaging is called during Init...
+var ListenCh chan *format.Message
+var lastmsg string
+
+type dummyMessaging struct {
+	listener chan *format.Message
+}
+
+// SendMessage to the server
+func (d *dummyMessaging) SendMessage(recipientID uint64, message string) error {
+	jww.INFO.Printf("Sending: %s", message)
+	lastmsg = message
+	return nil
+}
+
+// Listen for messages from a given sender
+func (d *dummyMessaging) Listen(senderID uint64) chan *format.Message {
+	return d.listener
+}
+
+// StopListening to a given listener (closes and deletes)
+func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
+
+// MessageReceiver thread to get new messages
+func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+
 func TestMain(m *testing.M) {
 	io.SendAddress = gwAddress
 	io.ReceiveAddress = gwAddress
+	ListenCh = make(chan *format.Message, 100)
+	io.Messaging = &dummyMessaging{
+		listener: ListenCh,
+	}
 
 	gatewayData = api.TestInterface{
 		LastReceivedMessage: pb.CmixMessage{},
@@ -199,7 +229,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-func TestLogin(t *testing.T) {
+func TestLoginLogout(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
@@ -215,24 +245,9 @@ func TestLogin(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	//Logout() -- we can't do this because some tests run in parallel and
-	// it's not thread safe
-	globals.LocalStorage = nil
-}
-
-func TestLogout(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
 	time.Sleep(2000 * time.Millisecond)
-	defer gwShutDown()
-	registrationCode := "JHJ6L9BACDVC"
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
-
-	regRes, err := Register(registrationCode, gwAddress, 1)
-	Login(regRes, gwAddress)
-
-	err2 := Logout()
-	if err2 != nil {
+	err3 := Logout()
+	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err.Error())
 	}
 	globals.LocalStorage = nil

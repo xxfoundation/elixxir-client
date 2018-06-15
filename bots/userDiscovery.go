@@ -137,10 +137,20 @@ func pushKey(udbID uint64, keyFP string, publicKey []byte) error {
 
 // keyExists checks for the existence of a key on the bot
 func keyExists(udbID uint64, keyFP string) bool {
+	listener := io.Messaging.Listen(udbID)
+	defer io.Messaging.StopListening(listener)
 	cmd := fmt.Sprintf("GETKEY %s", keyFP)
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
 	getKeyResponse := sendCommand(udbID, cmd)
-	return getKeyResponse != expected
+	if getKeyResponse != expected {
+		// Listen twice to ensure we get the full error message
+		// Note that the sendCommand helper listens on a seperate one. We are
+		// ensuring that this function waits for 2 messages
+		<-listener
+		<-listener
+		return true
+	}
+	return false
 }
 
 // fingerprint generates the same fingerprint that the udb should generate

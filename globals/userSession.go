@@ -13,9 +13,9 @@ import (
 	"fmt"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"io"
-	"math"
 	"math/rand"
 	"time"
+	"math"
 )
 
 // Globally instantiated UserSession
@@ -62,7 +62,7 @@ func NewUserSession(u *User, GatewayAddr string, nk []NodeKeys) UserSession {
 
 }
 
-func LoadSession(UID uint64) error {
+func LoadSession(UID UserID) error {
 	if LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return err

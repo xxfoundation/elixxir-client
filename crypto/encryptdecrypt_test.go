@@ -44,7 +44,7 @@ func setup() {
 		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
 	Grp = &grp
 
-	user, _ := globals.Users.GetUser(1)
+	user, _ := globals.Users.GetUser(globals.UserID(1))
 
 	nk := make([]globals.NodeKeys, 1)
 

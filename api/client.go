@@ -27,18 +27,16 @@ import (
 // easy to use from Go
 type APIMessage struct {
 	Payload     string
-	SenderID    uint64
-	RecipientID uint64
+	SenderID    globals.UserID
+	RecipientID globals.UserID
 }
 
 func (m APIMessage) GetSender() []byte {
-	senderAsInt := cyclic.NewIntFromUInt(m.SenderID)
-	return senderAsInt.LeftpadBytes(format.SID_LEN)
+	return m.SenderID.Bytes()
 }
 
 func (m APIMessage) GetRecipient() []byte {
-	recipientAsInt := cyclic.NewIntFromUInt(m.RecipientID)
-	return recipientAsInt.LeftpadBytes(format.RID_LEN)
+	return m.RecipientID.Bytes()
 }
 
 func (m APIMessage) GetPayload() string {
@@ -70,8 +68,8 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode uint64, gwAddr string,
-	numNodes uint) (uint64, error) {
+func Register(registrationCode string, gwAddr string,
+	numNodes uint) (globals.UserID, error) {
 
 	var err error
 
@@ -82,7 +80,7 @@ func Register(registrationCode uint64, gwAddr string,
 	}
 
 	UID, successLook := globals.Users.LookupUser(registrationCode)
-	defer clearUint64(&UID)
+	defer clearUserID(&UID)
 
 	if !successLook {
 		jww.ERROR.Printf("Register: HUID does not match")
@@ -133,7 +131,7 @@ func Register(registrationCode uint64, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID uint64, addr string) (string, error) {
+func Login(UID globals.UserID, addr string) (string, error) {
 
 	err := globals.LoadSession(UID)
 
@@ -174,7 +172,8 @@ func Login(UID uint64, addr string) (string, error) {
 // FIXME: We need to think through the message interface part.
 func Send(message format.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
-	recipientID := cyclic.NewIntFromBytes(message.GetRecipient()).Uint64()
+	recipientID := globals.UserID(cyclic.NewIntFromBytes(message.
+		GetRecipient()).Uint64())
 	err := io.Messaging.SendMessage(recipientID, message.GetPayload())
 	return err
 }
@@ -219,11 +218,15 @@ func TryReceive() (format.MessageInterface, error) {
 	case message := <-listenCh:
 		if message.GetPayload() != "" {
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
-			getListeners().Speak(globals.UserID(message.GetSender()), typedBody)
+			getListeners().Speak(&parse.Message{
+				TypedBody: *typedBody,
+				Sender:    globals.NewUserIDFromBytes(message.GetSender()),
+				Receiver:  0,
+			})
 			result := APIMessage{
 				Payload:     string(typedBody.Body),
-				SenderID:    message.GetSenderIDUint(),
-				RecipientID: message.GetRecipientIDUint(),
+				SenderID:    globals.NewUserIDFromBytes(message.GetSender()),
+				RecipientID: globals.NewUserIDFromBytes(message.GetRecipient()),
 			}
 			return &result, err
 		}
@@ -278,11 +281,16 @@ func Logout() error {
 	return nil
 }
 
-func GetContactList() ([]uint64, []string) {
+func GetContactList() ([]globals.UserID, []string) {
 	return globals.Users.GetContactList()
 }
 
 func clearUint64(u *uint64) {
+	*u = math.MaxUint64
+	*u = 0
+}
+
+func clearUserID(u *globals.UserID) {
 	*u = math.MaxUint64
 	*u = 0
 }

@@ -130,22 +130,23 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 		return nil, errors.New("invalid number of nodes")
 	}
 
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
+	// FIXME write bespoke method to marshal a registration code to a user ID
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Bytes()
 
-	UID, err := api.Register(hashUID, gwAddr, uint(numNodes))
+	UID, err := api.Register(string(hashUID), gwAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err
 	}
 
-	return cyclic.NewIntFromUInt(UID).Bytes(), nil
+	return UID.Bytes(), nil
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func Login(UID []byte, addr string) (string, error) {
-	userID := cyclic.NewIntFromBytes(UID).Uint64()
+	userID := globals.NewUserIDFromBytes(UID)
 	nick, err := api.Login(userID, addr)
 	return nick, err
 }
@@ -186,12 +187,12 @@ var contactListSchema, contactListSchemaCreationError = gojsonschema.NewSchema(
 
 /* Represent slices of UserID and Nick as JSON. ContactListJsonSchema is the
  * JSON schema that shows how the resulting data are structured. */
-func buildContactListJSON(ids []uint64, nicks []string) []byte {
+func buildContactListJSON(ids []globals.UserID, nicks []string) []byte {
 	var result []byte
 	result = append(result, '[')
 	for i := 0; i < len(ids) && i < len(nicks); i++ {
 		result = append(result, `{"UserID":`...)
-		result = append(result, strconv.FormatUint(ids[i], 10)...)
+		result = append(result, strconv.FormatUint(uint64(ids[i]), 10)...)
 		result = append(result, `,"Nick":"`...)
 		result = append(result, nicks[i]...)
 		result = append(result, `"},`...)

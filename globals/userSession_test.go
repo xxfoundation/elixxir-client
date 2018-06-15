@@ -20,7 +20,7 @@ func TestUserSession(t *testing.T) {
 	pass := 0
 
 	u := new(User)
-	UID := uint64(1)
+	UID := UserID(1)
 
 	u.UserID = UID
 	u.Nick = "Mario"
@@ -67,7 +67,7 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if LoadSession(100002) == nil {
+	if LoadSession(UserID(10002)) == nil {
 		t.Errorf("Error: Able to login with invalid user!")
 	} else {
 		pass++
@@ -165,7 +165,7 @@ func TestUserSession(t *testing.T) {
 	// Test nil LocalStorage
 	temp := LocalStorage
 	LocalStorage = nil
-	if LoadSession(6) == nil {
+	if LoadSession(UserID(6)) == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
 	}
 	LocalStorage = temp
@@ -175,14 +175,14 @@ func TestUserSession(t *testing.T) {
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
 	LocalStorage.Save(randBytes)
-	if LoadSession(6) == nil {
+	if LoadSession(UserID(6)) == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
 	}
 }
 
 func TestGetPubKey(t *testing.T) {
 	u := new(User)
-	UID := uint64(1)
+	UID := UserID(1)
 
 	u.UserID = UID
 	u.Nick = "Mario"

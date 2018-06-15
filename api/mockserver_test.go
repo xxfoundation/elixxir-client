@@ -53,11 +53,9 @@ func TestInitClient(t *testing.T) {
 }
 
 func TestRegister(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, gwAddress, 1)
+	regRes, err := Register("jhj6l9bacdvc", gwAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -68,11 +66,9 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisterBadNumNodes(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, gwAddress, 0)
+	_, err = Register("jhj6l9bacdvc", gwAddress, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -80,11 +76,9 @@ func TestRegisterBadNumNodes(t *testing.T) {
 }
 
 func TestRegisterBadHUID(t *testing.T) {
-	registrationCode := "JHJ6L9BACDV"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, gwAddress, 1)
+	_, err = Register("jhj6l9bacdv", gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
 			err.Error())
@@ -93,13 +87,11 @@ func TestRegisterBadHUID(t *testing.T) {
 }
 
 func TestRegisterDeletedUser(t *testing.T) {
-	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
 	tempUser, _ := globals.Users.GetUser(10)
 	globals.Users.DeleteUser(10)
-	_, err = Register(hashUID, gwAddress, 1)
+	_, err = Register("jhj6l9bacdvc", gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -121,11 +113,9 @@ func SetNulKeys() {
 
 func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
-	registrationCode := "be50nhqpqjtjj"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, gwAddress, 1)
+	userID, err := Register("be50nhqpqjtjj", gwAddress, 1)
 	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
@@ -141,7 +131,7 @@ func TestSend(t *testing.T) {
 		RecipientID: userID})
 	// 500ms for the other thread to catch it
 	time.Sleep(100 * time.Millisecond)
-	if err == nil && GatewayData.LastReceivedMessage.SenderID != userID {
+	if err == nil && globals.UserID(GatewayData.LastReceivedMessage.SenderID) != userID {
 		t.Errorf("Invalid message was accepted by Send. " +
 			"Sender ID must match current user")
 	}
@@ -159,11 +149,9 @@ func TestReceive(t *testing.T) {
 
 	// Initialize client and log in
 	registrationCode := "be50nhqpqjtjj"
-
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, gwAddress, 1)
+	userID, err := Register(registrationCode, gwAddress, 1)
 	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 

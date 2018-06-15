@@ -21,7 +21,8 @@ func TestUserRegistry(t *testing.T) {
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		reg, _ := Users.LookupUser(UserHash(uint64(i + 1)))
+		uid := UserID(i + 1)
+		reg, _ := Users.LookupUser(string(UserHash(uid)))
 		usr, _ := Users.GetUser(reg)
 		if usr.Nick != DEMO_USER_NICKS[i] {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
@@ -29,7 +30,8 @@ func TestUserRegistry(t *testing.T) {
 		}
 	}
 	// Test the NewUser function
-	usr := Users.NewUser(2002, "Will I am")
+	id := UserID(2002)
+	usr := Users.NewUser(id, "Will I am")
 
 	if usr.Nick != "Will I am" {
 		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
@@ -41,7 +43,7 @@ func TestUserRegistry(t *testing.T) {
 	if Users.CountUsers() != userCount+1 {
 		t.Errorf("Upsert did not add a new user. User count is incorrect")
 	}
-	newUsr, suc := Users.GetUser(2002)
+	newUsr, suc := Users.GetUser(id)
 	if !suc {
 		t.Errorf("Upsert did not add the test user correctly. " +
 			"The UserID was not found by GetUser.")
@@ -53,7 +55,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test LookupKeys
-	keys, suc := Users.LookupKeys(1)
+	keys, suc := Users.LookupKeys(UserID(1))
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}

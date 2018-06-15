@@ -15,10 +15,11 @@ import (
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
 	"strings"
+	"gitlab.com/privategrity/client/globals"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
-const udbID = uint64(13)
+const udbID = globals.UserID(13)
 
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
@@ -121,7 +122,7 @@ func parseGetKey(msg string) (int, []byte) {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID uint64, keyFP string, publicKey []byte) error {
+func pushKey(udbID globals.UserID, keyFP string, publicKey []byte) error {
 	publicKeyParts := make([]string, 2)
 	publicKeyParts[0] = base64.StdEncoding.EncodeToString(publicKey[:128])
 	publicKeyParts[1] = base64.StdEncoding.EncodeToString(publicKey[128:])
@@ -136,7 +137,7 @@ func pushKey(udbID uint64, keyFP string, publicKey []byte) error {
 }
 
 // keyExists checks for the existence of a key on the bot
-func keyExists(udbID uint64, keyFP string) bool {
+func keyExists(udbID globals.UserID, keyFP string) bool {
 	cmd := fmt.Sprintf("GETKEY %s", keyFP)
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
 	getKeyResponse := sendCommand(udbID, cmd)
@@ -155,7 +156,7 @@ func fingerprint(publicKey []byte) string {
 // only does so if the send command succeeds. Our assumption is that
 // we will eventually receive a response from the server. Callers
 // to registration that need timeouts should implement it themselves.
-func sendCommand(botID uint64, command string) string {
+func sendCommand(botID globals.UserID, command string) string {
 	listener := io.Messaging.Listen(botID)
 	defer io.Messaging.StopListening(listener)
 	err := io.Messaging.SendMessage(botID, command)
@@ -169,7 +170,8 @@ func sendCommand(botID uint64, command string) string {
 
 // sendCommandMulti waits for responseCnt responses, but does what sendCommand
 // does
-func sendCommandMulti(responseCnt int, botID uint64, command string) []string {
+func sendCommandMulti(responseCnt int, botID globals.UserID,
+	command string) []string {
 	listener := io.Messaging.Listen(botID)
 	defer io.Messaging.StopListening(listener)
 	err := io.Messaging.SendMessage(botID, command)

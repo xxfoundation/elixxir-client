@@ -113,7 +113,7 @@ func (lm *ListenerMap) matchListeners(userID globals.UserID,
 }
 
 // Broadcast a message to the appropriate listeners
-func (lm *ListenerMap) Speak(sender globals.UserID, msg *parse.Message) {
+func (lm *ListenerMap) Speak(msg *parse.Message) {
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 
@@ -121,11 +121,11 @@ func (lm *ListenerMap) Speak(sender globals.UserID, msg *parse.Message) {
 	accumNormals := make([]*listenerRecord, 0)
 	accumFallbacks := make([]*listenerRecord, 0)
 	// match perfect matches
-	normals, fallbacks := lm.matchListeners(sender, msg.BodyType)
+	normals, fallbacks := lm.matchListeners(msg.Sender, msg.BodyType)
 	accumNormals = append(accumNormals, normals...)
 	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match listeners that want just the user ID for all message types
-	normals, fallbacks = lm.matchListeners(sender, 0)
+	normals, fallbacks = lm.matchListeners(msg.Sender, 0)
 	accumNormals = append(accumNormals, normals...)
 	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match just the type

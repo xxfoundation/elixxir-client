@@ -8,7 +8,6 @@
 package cmd
 
 import (
-	"encoding/binary"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -17,15 +16,14 @@ import (
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
 	"github.com/golang/protobuf/proto"
-	"sync"
 	"sync/atomic"
 )
 
 var verbose bool
+// TODO convert these to string or byte-slice params
 var userId uint64
 var destinationUserId uint64
 var gwAddr string
@@ -118,9 +116,8 @@ func sessionInitialization() {
 
 	//Register a new user if requested
 	if register {
-		_, err := bindings.Register(
-			cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
-				32, 0), gwAddr, int(numNodes))
+		_, err := bindings.Register(globals.UserID(userId).RegistrationCode(), gwAddr,
+			int(numNodes))
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -128,8 +125,7 @@ func sessionInitialization() {
 	}
 
 	//log the user in
-	_, err = bindings.Login(
-		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
+	_, err = bindings.Login(globals.UserID(userId).Bytes(), gwAddr)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")
@@ -143,12 +139,12 @@ type TextListener struct {
 
 func (l *TextListener) Hear(message *parse.Message) {
 	result := parse.TextMessage{}
-	proto.Unmarshal(message, &result)
+	proto.Unmarshal(message.Body, &result)
 
 	sender, ok := globals.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		jww.ERROR.Println("Couldn't get sender %v", message.Sender)
+		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
 	}
@@ -169,15 +165,15 @@ func (l *ChannelbotListener) Hear(message *parse.Message) {
 	sender, ok := globals.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		jww.ERROR.Println("Couldn't get sender %v", message.Sender)
+		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
 	}
 
-	speaker, ok := globals.Users.GetUser(globals.UserID(result.SpeakerID))
+	speaker, ok := globals.Users.GetUser(globals.NewUserIDFromBytes(result.SpeakerID))
 	var speakerNick string
 	if !ok {
-		jww.ERROR.Println("Couldn't get speaker %v", result.SpeakerID)
+		jww.ERROR.Printf("Couldn't get speaker %v", result.SpeakerID)
 	} else {
 		speakerNick = speaker.Nick
 	}
@@ -219,7 +215,7 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			user, ok := globals.Users.GetUser(destinationUserId)
+			user, ok := globals.Users.GetUser(globals.UserID(destinationUserId))
 			if ok {
 				recipientNick = user.Nick
 			}
@@ -228,7 +224,8 @@ var rootCmd = &cobra.Command{
 				recipientNick, message)
 
 			//Send the message
-			bindings.Send(api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId})
+			bindings.Send(api.APIMessage{SenderID: globals.UserID(userId),
+			Payload: message,	RecipientID: globals.UserID(destinationUserId)})
 		}
 
 		if dummyFrequency != 0 {
@@ -239,10 +236,10 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(globals.UserID(""), 1, &text, false)
+		api.Listen(globals.UserID(0), 1, &text, false)
 		// Channelbot messages
 		channel := ChannelbotListener{}
-		api.Listen(globals.UserID(""), 2, &channel, false)
+		api.Listen(globals.UserID(0), 2, &channel, false)
 
 		// Loop until we get a message, then print and exit
 		for text.messagesReceived == 0 && channel.messagesReceived == 0 {
@@ -257,14 +254,15 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				user, ok := globals.Users.GetUser(destinationUserId)
+				user, ok := globals.Users.GetUser(globals.UserID(destinationUserId))
 				if ok {
 					contact = user.Nick
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId}
+				message := api.APIMessage{SenderID: globals.UserID(userId),
+				Payload: message, RecipientID: globals.UserID(destinationUserId)}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)

@@ -16,6 +16,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/globals"
 )
 
 var ListenCh chan *format.Message
@@ -25,13 +26,14 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID uint64, message string) error {
+func (d *dummyMessaging) SendMessage(recipientID globals.UserID,
+	message string) error {
 	jww.INFO.Printf("Sending: %s", message)
 	return nil
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID uint64) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID globals.UserID) chan *format.Message {
 	return d.listener
 }
 

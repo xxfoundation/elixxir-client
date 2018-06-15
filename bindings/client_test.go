@@ -222,7 +222,7 @@ func TestLogin(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
-	time.Sleep(1000 * time.Millisecond)
+	time.Sleep(2000 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}

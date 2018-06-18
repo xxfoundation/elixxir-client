@@ -7,7 +7,7 @@ option go_package = "parse";
 
 // TODO: Automatically combine multi-part messages based on these fields
 message RepeatedOrdering {
-    uint64 time = 1; // Unix time
+    int64 time = 1; // Unix time
     uint32 chunkIndex = 2; // Which chunk of the message this is
     uint32 length = 3; // Total number of chunks to expect in this message
 }

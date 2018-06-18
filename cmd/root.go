@@ -9,6 +9,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -17,12 +18,12 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"os"
-	"time"
-	"github.com/golang/protobuf/proto"
 	"sync/atomic"
+	"time"
 )
 
 var verbose bool
+
 // TODO convert these to string or byte-slice params
 var userId uint64
 var destinationUserId uint64
@@ -223,9 +224,32 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 				recipientNick, message)
 
-			//Send the message
+			// Build the message
+			textMessage := parse.TextMessage{
+				// FIXME the receiving client should maybe use these fields
+				Order:   &parse.RepeatedOrdering{
+					Time:       time.Now().Unix(),
+					ChunkIndex: 0,
+					Length:     1,
+				},
+				Display: &parse.DisplayData{
+					Color: 0,
+				},
+				Message: message,
+			}
+			body, err := proto.Marshal(&textMessage)
+			if err != nil {
+				fmt.Printf("Couldn't pack text message body: %s\n", err.Error())
+			}
+			bodyBytes := parse.Pack(&parse.TypedBody{
+				BodyType: 1, // text message
+				Body:     body,
+			})
+
+			// Send the message
 			bindings.Send(api.APIMessage{SenderID: globals.UserID(userId),
-			Payload: message,	RecipientID: globals.UserID(destinationUserId)})
+				Payload: string(bodyBytes), RecipientID: globals.UserID(
+					destinationUserId)})
 		}
 
 		if dummyFrequency != 0 {
@@ -262,7 +286,7 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := api.APIMessage{SenderID: globals.UserID(userId),
-				Payload: message, RecipientID: globals.UserID(destinationUserId)}
+					Payload: message, RecipientID: globals.UserID(destinationUserId)}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)

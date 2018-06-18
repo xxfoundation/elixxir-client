@@ -206,7 +206,7 @@ var rootCmd = &cobra.Command{
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
 			dummyPeriod = time.Nanosecond *
-				(time.Duration(1000000000 * (1.0 / dummyFrequency)))
+				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
 		}
 
 		sessionInitialization()

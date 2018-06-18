@@ -9,13 +9,19 @@ package api
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/gob"
+	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"testing"
-	"gitlab.com/privategrity/client/parse"
+	"time"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -204,5 +210,78 @@ func TestTryReceive(t *testing.T) {
 	}
 	if something.GetPayload() != "Hello" {
 		t.Errorf("Did not get expected message, got %s", something.GetPayload())
+	}
+}
+
+var ListenCh chan *format.Message
+var lastmsg string
+
+type dummyMessaging struct {
+	listener chan *format.Message
+}
+
+// SendMessage to the server
+func (d *dummyMessaging) SendMessage(recipientID globals.UserID, message string) error {
+	jww.INFO.Printf("Sending: %s", message)
+	lastmsg = message
+	return nil
+}
+
+// Listen for messages from a given sender
+func (d *dummyMessaging) Listen(senderID globals.UserID) chan *format.Message {
+	return d.listener
+}
+
+// StopListening to a given listener (closes and deletes)
+func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
+
+// MessageReceiver thread to get new messages
+func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+
+var pubKeyBits []string
+var keyFingerprint string
+var pubKey []byte
+
+// SendMsg puts a fake udb response message on the channel
+func SendMsg(msg string) {
+	m, _ := format.NewMessage(13, 1, msg)
+	ListenCh <- &m[0]
+}
+
+func TestRegisterPubKeyByteLen(t *testing.T) {
+	ListenCh = make(chan *format.Message, 100)
+	io.Messaging = &dummyMessaging{
+		listener: ListenCh,
+	}
+	pubKeyBits = []string{
+		"S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNz" +
+			"LU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClp" +
+			"q4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY4=",
+		"8Lg/eoeKGgPlleTYfO3JyGfnwBtLi73ti0h2dBQWW94JTqTQDr+z" +
+			"xVpLzdgTt+87TkAl0yXu9mOUXqGJ+51lTcRlIdIpWpfgUbibdRme8IThg0RNCF31ESKCts" +
+			"o8gJ8mSVljIXxrC+Uuoi+Gl1LNN5nPARykatx0Y70xNdJd2BQ=",
+	}
+	pubKey = make([]byte, 256)
+	for i := range pubKeyBits {
+		bytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
+		for j := range bytes {
+			pubKey[j+i*128] = bytes[j]
+		}
+	}
+
+	keyFingerprint = "8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
+	//SendMsg("SEARCH blah@privategrity.com NOTFOUND")
+	SendMsg(fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint))
+	SendMsg("PUSHKEY ACK NEED 128")
+	SendMsg(fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint))
+	SendMsg("REGISTRATION COMPLETE")
+
+	err := bots.Register("EMAIL", "blah@privategrity.com", pubKey)
+
+	if err != nil {
+		t.Errorf("Unexpected error: %s", err.Error())
+	}
+	if len(lastmsg) != 81 {
+		t.Errorf("Message wrong length: %d v. expected 81", len(lastmsg))
 	}
 }

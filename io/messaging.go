@@ -255,6 +255,12 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 	if globals.UsingReceiver() {
 		jww.WARN.Printf("This client implemenation is using the deprecated " +
 			"globals.Receiver API. This will stop working shortly.")
+		// To prevent a deadlock, empty the Listener channels
+		for i := range listeners {
+			for len(listeners[i].Messages) > 0 {
+				<-listeners[i].Messages
+			}
+		}
 		err := globals.Receive(decryptedMsg)
 		if err != nil {
 			jww.ERROR.Printf("Could not call global receiver: %s", err.Error())

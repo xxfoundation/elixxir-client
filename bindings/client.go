@@ -12,7 +12,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"strconv"
 )
@@ -130,10 +129,8 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 		return nil, errors.New("invalid number of nodes")
 	}
 
-	// FIXME write bespoke method to marshal a registration code to a user ID
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Bytes()
 
-	UID, err := api.Register(string(hashUID), gwAddr, uint(numNodes))
+	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes))
 
 	if err != nil {
 		return nil, err

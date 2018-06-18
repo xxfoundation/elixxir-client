@@ -159,6 +159,7 @@ func (s *SessionObj) StoreSession() error {
 	enc := gob.NewEncoder(&session)
 
 	err := enc.Encode(s)
+	fmt.Println(session.String())
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("StoreSession: Could not encode user"+

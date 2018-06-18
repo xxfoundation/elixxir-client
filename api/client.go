@@ -79,7 +79,8 @@ func Register(registrationCode string, gwAddr string,
 		return 0, err
 	}
 
-	UID, successLook := globals.Users.LookupUser(registrationCode)
+	hashUID := cyclic.NewIntFromString(registrationCode, 32).Bytes()
+	UID, successLook := globals.Users.LookupUser(string(hashUID))
 	defer clearUserID(&UID)
 
 	if !successLook {

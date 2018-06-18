@@ -143,10 +143,14 @@ func (u *User) DeepCopy() *User {
 
 // UserHash generates a hash of the UID to be used as a registration code for
 // demos
+// TODO Should we use the full-length hash? Should we even be doing registration
+// like this?
 func UserHash(uid UserID) []byte {
 	h, _ := hash.NewCMixHash()
 	h.Write(uid.Bytes())
-	return h.Sum(nil)
+	huid := h.Sum(nil)
+	huid = huid[len(huid) - UserIDLen:]
+	return huid
 }
 
 // NewUser creates a new User object with default fields and given address.

@@ -35,7 +35,11 @@ func (u UserID) RegistrationCode() string {
 }
 
 func NewUserIDFromBytes(id []byte) UserID {
-	return UserID(binary.BigEndian.Uint64(id))
+	// to keep compatibility with old user registration codes, we need to use
+	// the last part of the byte array that we pass in
+	// FIXME break compatibility here during the migration to 128 bit ids
+	result := UserID(binary.BigEndian.Uint64(id[len(id)-UserIDLen:]))
+	return result
 }
 
 // Globally instantiated UserRegistry
@@ -140,13 +144,9 @@ func (u *User) DeepCopy() *User {
 // UserHash generates a hash of the UID to be used as a registration code for
 // demos
 func UserHash(uid UserID) []byte {
-	var huid []byte
 	h, _ := hash.NewCMixHash()
-	uidBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(uidBytes, uint64(uid))
-	h.Write(uidBytes)
-	huid = h.Sum(huid)
-	return huid
+	h.Write(uid.Bytes())
+	return h.Sum(nil)
 }
 
 // NewUser creates a new User object with default fields and given address.

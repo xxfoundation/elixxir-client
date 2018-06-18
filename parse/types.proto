@@ -29,7 +29,6 @@ message TextMessage {
 // Type 2
 message ChannelMessage {
     RepeatedOrdering order = 1;
-    DisplayData display = 2;
     bytes speakerID = 3;
-    string message = 4;
+    bytes message = 4;
 }

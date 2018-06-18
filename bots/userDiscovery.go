@@ -11,11 +11,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
 	"strings"
-	"gitlab.com/privategrity/client/globals"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
@@ -138,10 +138,20 @@ func pushKey(udbID globals.UserID, keyFP string, publicKey []byte) error {
 
 // keyExists checks for the existence of a key on the bot
 func keyExists(udbID globals.UserID, keyFP string) bool {
+	listener := io.Messaging.Listen(udbID)
+	defer io.Messaging.StopListening(listener)
 	cmd := fmt.Sprintf("GETKEY %s", keyFP)
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
 	getKeyResponse := sendCommand(udbID, cmd)
-	return getKeyResponse != expected
+	if getKeyResponse != expected {
+		// Listen twice to ensure we get the full error message
+		// Note that the sendCommand helper listens on a seperate one. We are
+		// ensuring that this function waits for 2 messages
+		<-listener
+		<-listener
+		return true
+	}
+	return false
 }
 
 // fingerprint generates the same fingerprint that the udb should generate

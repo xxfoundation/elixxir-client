@@ -202,6 +202,8 @@ func TryReceive() (format.MessageInterface, error) {
 	// TODO should parse.Parse actually return an error?
 	case message := <-listenCh:
 		if message.GetPayload() != "" {
+			// Currently the only purpose of this is to strip off and ignore the type at the start of the message.
+			// If a message comes in without a type on the front, it could result in an error parsing the type.
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
 			result := APIMessage{
 				Payload:     string(typedBody.Body),

@@ -183,13 +183,17 @@ var rootCmd = &cobra.Command{
 			if ok {
 				recipientNick = user.Nick
 			}
+			wireRepresentation := bindings.FormatTextMessage(message)
 
 			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 				recipientNick, message)
 
 			//Send the message
-			bindings.Send(api.APIMessage{SenderID: globals.UserID(userId),
-			Payload: message,	RecipientID: globals.UserID(destinationUserId)})
+			bindings.Send(api.APIMessage{
+				SenderID: globals.UserID(userId),
+				Payload: string(wireRepresentation),
+				RecipientID: globals.UserID(destinationUserId),
+			})
 		}
 
 		if dummyFrequency != 0 {

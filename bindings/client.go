@@ -49,6 +49,10 @@ type Receiver interface {
 	Receive(message Message)
 }
 
+func FormatTextMessage(message string) []byte {
+	return api.FormatTextMessage(message)
+}
+
 // Initializes the client by registering a storage mechanism and a reception
 // callback.
 // For the mobile interface, one must be provided

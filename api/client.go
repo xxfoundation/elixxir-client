@@ -20,6 +20,7 @@ import (
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
+	"github.com/golang/protobuf/proto"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
@@ -40,6 +41,27 @@ func (m APIMessage) GetRecipient() []byte {
 
 func (m APIMessage) GetPayload() string {
 	return m.Payload
+}
+
+// Populates a text message and returns its wire representation
+// TODO support multi-type messages or telling if a message is too long?
+func FormatTextMessage(message string) []byte {
+	textMessage := parse.TextMessage{
+		Order:   &parse.RepeatedOrdering{
+			Time:       time.Now().Unix(),
+			ChunkIndex: 0,
+			Length:     1,
+		},
+		Display: &parse.DisplayData{
+			Color: 0,
+		},
+		Message: message,
+	}
+	wireRepresentation, _ := proto.Marshal(&textMessage)
+	return parse.Pack(&parse.TypedBody{
+		BodyType: 1,
+		Body:     wireRepresentation,
+	})
 }
 
 // Initializes the client by registering a storage mechanism.

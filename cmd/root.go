@@ -163,11 +163,16 @@ var rootCmd = &cobra.Command{
 
 		// Loop until we don't get a message, draining the queue of messages on the
 		// gateway buffer
-		time.Sleep(500 * time.Millisecond) // Give the receive thread a chance...
-		for {
+		gotMsg := false
+		for i := 0; i < 5; i++ {
+			time.Sleep(1000 * time.Millisecond) // wait 1s in between
 			msg, _ := bindings.TryReceive()
-			if msg.GetPayload() == "" {
+			if msg.GetPayload() == "" && gotMsg {
 				break
+			}
+			if msg.GetPayload() != "" {
+				i = 0 // Make sure to loop until all messages exhausted
+				gotMsg = true
 			}
 		}
 

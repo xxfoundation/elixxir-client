@@ -134,6 +134,22 @@ func sessionInitialization() {
 	}
 }
 
+type FallbackListener struct {
+	messagesReceived int64
+}
+
+func (l *FallbackListener) Hear(message *parse.Message) {
+	sender, ok := globals.Users.GetUser(message.Sender)
+	var senderNick string
+	if !ok {
+		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+	} else {
+		senderNick = sender.Nick
+	}
+	fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
+		message.BodyType, message.Sender, senderNick, string(message.Body))
+}
+
 type TextListener struct {
 	messagesReceived int64
 }
@@ -171,17 +187,16 @@ func (l *ChannelbotListener) Hear(message *parse.Message) {
 		senderNick = sender.Nick
 	}
 
-	speaker, ok := globals.Users.GetUser(globals.NewUserIDFromBytes(result.SpeakerID))
-	var speakerNick string
-	if !ok {
-		jww.ERROR.Printf("Couldn't get speaker %v", result.SpeakerID)
-	} else {
-		speakerNick = speaker.Nick
-	}
-	fmt.Printf("Message from channel %v, %v:\n%v, %v: %v\n",
-		message.Sender, senderNick, result.SpeakerID,
-		speakerNick, result.Message)
+	speakerID := globals.NewUserIDFromBytes(result.SpeakerID)
 
+	fmt.Printf("Message from channel %v, %v: ",
+		message.Sender, senderNick)
+	typedBody, _ := parse.Parse(result.Message)
+	api.GetListeners().Speak(&parse.Message{
+		TypedBody: *typedBody,
+		Sender:   speakerID,
+		Receiver: 0,
+	})
 	atomic.AddInt64(&l.messagesReceived, 1)
 }
 
@@ -227,7 +242,7 @@ var rootCmd = &cobra.Command{
 			// Build the message
 			textMessage := parse.TextMessage{
 				// FIXME the receiving client should maybe use these fields
-				Order:   &parse.RepeatedOrdering{
+				Order: &parse.RepeatedOrdering{
 					Time:       time.Now().Unix(),
 					ChunkIndex: 0,
 					Length:     1,
@@ -264,6 +279,9 @@ var rootCmd = &cobra.Command{
 		// Channelbot messages
 		channel := ChannelbotListener{}
 		api.Listen(globals.UserID(0), 2, &channel, false)
+		// All other messages
+		fallback := FallbackListener{}
+		api.Listen(globals.UserID(0), 0, &fallback, true)
 
 		// Loop until we get a message, then print and exit
 		for text.messagesReceived == 0 && channel.messagesReceived == 0 {

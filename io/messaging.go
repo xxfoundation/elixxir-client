@@ -113,6 +113,7 @@ func send(senderID globals.UserID, message *format.Message) error {
 
 // Listen adds a listener to the receiver thread
 func (m *messaging) Listen(senderID globals.UserID) chan *format.Message {
+	jww.INFO.Printf("IO: Listening to sender %v", senderID)
 	listenersLock.Lock()
 	defer listenersLock.Unlock()
 	if listeners == nil {
@@ -271,6 +272,7 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 			if listeners[i].SenderID != 0 && listeners[i].SenderID != globals.UserID(senderID) {
 				continue
 			}
+			jww.INFO.Printf("Posting to listener %v's channel, sender ID %v", i, listeners[i].SenderID)
 			listeners[i].Messages <- decryptedMsg
 		}
 	}

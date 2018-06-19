@@ -14,13 +14,13 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/listener"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
-	"gitlab.com/privategrity/client/listener"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
@@ -195,7 +195,7 @@ func SetRateLimiting(limit uint32) {
 var listenCh chan *format.Message
 var listeners *listener.ListenerMap
 
-func getListeners() *listener.ListenerMap {
+func GetListeners() *listener.ListenerMap {
 	if listeners == nil {
 		listeners = listener.NewListenerMap()
 	}
@@ -205,7 +205,7 @@ func getListeners() *listener.ListenerMap {
 // Add a new listener to the map
 func Listen(user globals.UserID, messageType int64,
 	newListener listener.Listener, isFallback bool) {
-	listeners := getListeners()
+	listeners := GetListeners()
 	listeners.Listen(user, messageType, newListener, isFallback)
 }
 
@@ -213,13 +213,15 @@ func Listen(user globals.UserID, messageType int64,
 // returns nil if there isn't.
 // TODO remove this whole method, for real this time
 func TryReceive() (format.MessageInterface, error) {
+	jww.INFO.Println("Trying to receive a message")
 	select {
 	// TODO replace or remove listenCh?
 	// TODO should parse.Parse actually return an error?
 	case message := <-listenCh:
 		if message.GetPayload() != "" {
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
-			getListeners().Speak(&parse.Message{
+			jww.INFO.Println("Received a message. Speaking now.")
+			GetListeners().Speak(&parse.Message{
 				TypedBody: *typedBody,
 				Sender:    globals.NewUserIDFromBytes(message.GetSender()),
 				Receiver:  0,

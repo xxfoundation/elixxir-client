@@ -1,10 +1,11 @@
 package listener
 
 import (
-	"sync"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
-	"strconv"
 	"gitlab.com/privategrity/client/parse"
+	"strconv"
+	"sync"
 )
 
 type Listener interface {
@@ -77,9 +78,9 @@ func (lm *ListenerMap) StopListening(listenerID string) {
 	defer lm.mux.Unlock()
 
 	// Iterate over all listeners in the map
-	for user, perUser := range (lm.listeners) {
-		for messageType, perType := range (perUser) {
-			for i, listener := range (perType) {
+	for user, perUser := range lm.listeners {
+		for messageType, perType := range perUser {
+			for i, listener := range perType {
 				if listener.id == listenerID {
 					// this matches. remove listener from the data structure
 					lm.listeners[user][messageType] = append(perType[:i],
@@ -100,7 +101,7 @@ func (lm *ListenerMap) matchListeners(userID globals.UserID,
 	normals = make([]*listenerRecord, 0)
 	fallbacks = make([]*listenerRecord, 0)
 
-	for _, listener := range (lm.listeners[userID][messageType]) {
+	for _, listener := range lm.listeners[userID][messageType] {
 		if listener.isFallback {
 			// matched a fallback listener
 			fallbacks = append(fallbacks, listener)
@@ -114,6 +115,7 @@ func (lm *ListenerMap) matchListeners(userID globals.UserID,
 
 // Broadcast a message to the appropriate listeners
 func (lm *ListenerMap) Speak(msg *parse.Message) {
+	jww.INFO.Printf("Speaking message: %v", string(msg.Body))
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 
@@ -139,13 +141,25 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
-		for _, listener := range (accumNormals) {
+		for _, listener := range accumNormals {
+			jww.INFO.Printf("Hearing on listener %v", listener.id)
+			listener.l.Hear(msg)
+		}
+	} else if len(accumFallbacks) > 0 {
+		// notify all fallback listeners
+		for _, listener := range accumFallbacks {
+			jww.INFO.Printf("Hearing on listener %v", listener.id)
 			listener.l.Hear(msg)
 		}
 	} else {
-		// notify all fallback listeners
-		for _, listener := range (accumFallbacks) {
-			listener.l.Hear(msg)
+		jww.ERROR.Println("Message didn't match any listeners in the map")
+		// dump representation of the map
+		for user, perUser := range lm.listeners {
+			for messageType, perType := range perUser {
+				for i, listener := range perType {
+					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, is fallback: %v", i, listener.id, user, messageType, listener.isFallback)
+				}
+			}
 		}
 	}
 }

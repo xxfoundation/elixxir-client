@@ -129,7 +129,6 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 		return nil, errors.New("invalid number of nodes")
 	}
 
-
 	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes))
 
 	if err != nil {

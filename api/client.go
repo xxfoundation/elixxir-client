@@ -14,7 +14,6 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/listener"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
@@ -191,23 +190,7 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-// FIXME there can only be one
 var listenCh chan *format.Message
-var listeners *listener.ListenerMap
-
-func GetListeners() *listener.ListenerMap {
-	if listeners == nil {
-		listeners = listener.NewListenerMap()
-	}
-	return listeners
-}
-
-// Add a new listener to the map
-func Listen(user globals.UserID, messageType int64,
-	newListener listener.Listener, isFallback bool) {
-	listeners := GetListeners()
-	listeners.Listen(user, messageType, newListener, isFallback)
-}
 
 // TryReceive checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
@@ -220,12 +203,6 @@ func TryReceive() (format.MessageInterface, error) {
 	case message := <-listenCh:
 		if message.GetPayload() != "" {
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
-			jww.INFO.Println("Received a message. Speaking now.")
-			GetListeners().Speak(&parse.Message{
-				TypedBody: *typedBody,
-				Sender:    globals.NewUserIDFromBytes(message.GetSender()),
-				Receiver:  0,
-			})
 			result := APIMessage{
 				Payload:     string(typedBody.Body),
 				SenderID:    globals.NewUserIDFromBytes(message.GetSender()),

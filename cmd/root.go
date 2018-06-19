@@ -227,6 +227,21 @@ var rootCmd = &cobra.Command{
 
 		sessionInitialization()
 
+		// Loop until we don't get a message, draining the queue of messages on the
+		// gateway buffer
+		gotMsg := false
+		for i := 0; i < 5; i++ {
+			time.Sleep(1000 * time.Millisecond) // wait 1s in between
+			msg, _ := bindings.TryReceive()
+			if msg.GetPayload() == "" && gotMsg {
+				break
+			}
+			if msg.GetPayload() != "" {
+				i = 0 // Make sure to loop until all messages exhausted
+				gotMsg = true
+			}
+		}
+
 		// Only send a message if we have a message to send (except dummy messages)
 		if message != "" {
 			// Get the recipient's nick

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 type messaging struct{}
@@ -41,14 +42,14 @@ var TransmitDelay = 1000 * time.Millisecond
 // Map that holds a record of the messages that this client successfully
 // received during this session
 var ReceivedMessages map[string]struct{}
-var lastReceivedMessageID string = ""
+var lastReceivedMessageID = ""
 
 var sendLock sync.Mutex
 
 // MessageListener allows threads to listen for messages from specific
 // users
 type messageListener struct {
-	SenderID uint64
+	SenderID user.ID
 	Messages chan *format.Message
 }
 
@@ -58,7 +59,8 @@ var listenersLock sync.Mutex
 // SendMessage to the provided Recipient
 // TODO: It's not clear why we wouldn't hand off a sender object (with
 // the keys) here. I won't touch crypto at this time, though...
-func (m *messaging) SendMessage(recipientID uint64, message string) error {
+func (m *messaging) SendMessage(recipientID user.ID,
+	message string) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
 	// the cMix network. This NewMessage does way too many things: break the
@@ -67,8 +69,9 @@ func (m *messaging) SendMessage(recipientID uint64, message string) error {
 
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
-	userID := globals.Session.GetCurrentUser().UserID
-	messages, err := format.NewMessage(userID, recipientID, message)
+	userID := user.TheSession.GetCurrentUser().UserID
+	messages, err := format.NewMessage(uint64(userID), uint64(recipientID),
+		message)
 
 	if err != nil {
 		return err
@@ -83,7 +86,7 @@ func (m *messaging) SendMessage(recipientID uint64, message string) error {
 }
 
 // send actually sends the message to the server
-func send(senderID uint64, message *format.Message) error {
+func send(senderID user.ID, message *format.Message) error {
 	// Enable transmission blocking if enabled
 	if BlockTransmissions {
 		sendLock.Lock()
@@ -97,7 +100,7 @@ func send(senderID uint64, message *format.Message) error {
 	// key? Should we even be doing the encryption here?
 	encryptedMessage := crypto.Encrypt(crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
-		SenderID:       senderID,
+		SenderID:       uint64(senderID),
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
 	}
@@ -110,7 +113,8 @@ func send(senderID uint64, message *format.Message) error {
 }
 
 // Listen adds a listener to the receiver thread
-func (m *messaging) Listen(senderID uint64) chan *format.Message {
+func (m *messaging) Listen(senderID user.ID) chan *format.Message {
+	jww.INFO.Printf("IO: Listening to sender %v", senderID)
 	listenersLock.Lock()
 	defer listenersLock.Unlock()
 	if listeners == nil {
@@ -148,11 +152,11 @@ func (m *messaging) StopListening(listenerCh chan *format.Message) {
 // kind of thread.
 func (m *messaging) MessageReceiver(delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
-	if globals.Session == nil {
+	if user.TheSession == nil {
 		jww.FATAL.Panicf("No user session available")
 	}
 	pollingMessage := pb.ClientPollMessage{
-		UserID: globals.Session.GetCurrentUser().UserID,
+		UserID: uint64(user.TheSession.GetCurrentUser().UserID),
 	}
 
 	for {
@@ -171,7 +175,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 func (m *messaging) receiveMessageFromGateway(
 	pollingMessage *pb.ClientPollMessage) *format.Message {
 	pollingMessage.MessageID = lastReceivedMessageID
-	messages, err := client.SendCheckMessages(globals.Session.GetGWAddress(),
+	messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
 		pollingMessage)
 
 	if err != nil {
@@ -193,10 +197,10 @@ func (m *messaging) receiveMessageFromGateway(
 				messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
-			newMessage, err := client.SendGetMessage(globals.
-				Session.GetGWAddress(),
+			newMessage, err := client.SendGetMessage(user.
+				TheSession.GetGWAddress(),
 				&pb.ClientPollMessage{
-					UserID:    globals.Session.GetCurrentUser().UserID,
+					UserID:    uint64(user.TheSession.GetCurrentUser().UserID),
 					MessageID: messageID,
 				})
 			if err != nil {
@@ -266,9 +270,10 @@ func broadcastMessageReception(decryptedMsg *format.Message) {
 	} else {
 		for i := range listeners {
 			// Skip if not 0 or not senderID matched
-			if listeners[i].SenderID != 0 && listeners[i].SenderID != senderID {
+			if listeners[i].SenderID != 0 && listeners[i].SenderID != user.ID(senderID) {
 				continue
 			}
+			jww.INFO.Printf("Posting to listener %v's channel, sender ID %v", i, listeners[i].SenderID)
 			listeners[i].Messages <- decryptedMsg
 		}
 	}

@@ -16,29 +16,28 @@ import (
 	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
-	"strconv"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 func TestRegistrationGob(t *testing.T) {
 	// Put some user data into a gob
 	globals.InitStorage(&globals.RamStorage{}, "")
 
-	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
-
 	// populate a gob in the store
-	Register(huid, gwAddress, 1)
+	Register("be50nhqpqjtjj", gwAddress, 1)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
-	Session = globals.SessionObj{}
+	Session = user.SessionObj{}
 	dec.Decode(&Session)
 
 	VerifyRegisterGobAddress(t)
@@ -191,17 +190,20 @@ func TestDisableRatchet(t *testing.T) {
 	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
 }
 
+// TODO remove this with TryReceive
 func TestTryReceive(t *testing.T) {
 	listenCh = make(chan *format.Message, 10)
 
-	huid, _ := strconv.ParseUint("be50nhqpqjtjj", 32, 64)
-
-	Register(huid, gwAddress, 1)
+	Register("be50nhqpqjtjj", gwAddress, 1)
 	expectEmpty, err := TryReceive()
 	if expectEmpty.GetPayload() != "" || err != nil {
 		t.Errorf("Expected empty message, but got %s", expectEmpty.GetPayload())
 	}
-	m, _ := format.NewMessage(13, 1, "Hello")
+	body := parse.Pack(&parse.TypedBody{
+		BodyType: 1, // normal text message
+		Body:     []byte("Hello"),
+	})
+	m, _ := format.NewMessage(13, 1, string(body))
 	listenCh <- &m[0]
 	something, err := TryReceive()
 	if err != nil {
@@ -220,14 +222,15 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID uint64, message string) error {
+func (d *dummyMessaging) SendMessage(recipientID user.ID,
+	message string) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
 	return nil
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID uint64) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID user.ID) 	chan *format.Message {
 	return d.listener
 }
 
@@ -262,9 +265,9 @@ func TestRegisterPubKeyByteLen(t *testing.T) {
 	}
 	pubKey = make([]byte, 256)
 	for i := range pubKeyBits {
-		bytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
-		for j := range bytes {
-			pubKey[j+i*128] = bytes[j]
+		pubkeyBytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
+		for j := range pubkeyBytes {
+			pubKey[j+i*128] = pubkeyBytes[j]
 		}
 	}
 

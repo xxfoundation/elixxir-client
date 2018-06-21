@@ -1,0 +1,40 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+
+package parse;
+option go_package = "parse";
+
+// Common types for text messages
+
+// TODO: Automatically combine multi-part messages based on these fields
+message RepeatedOrdering {
+    int64 time = 1; // Unix time
+    uint32 chunkIndex = 2; // Which chunk of the message this is
+    uint32 length = 3; // Total number of chunks to expect in this message
+}
+
+message DisplayData {
+    uint64 color = 1;
+}
+
+
+// Text message types
+
+// Type 1
+message TextMessage {
+    RepeatedOrdering order = 1;
+    DisplayData display = 2;
+    string message = 3;
+}
+
+// Type 2
+message ChannelMessage {
+    RepeatedOrdering order = 1;
+    bytes speakerID = 3;
+    bytes message = 4;
+}

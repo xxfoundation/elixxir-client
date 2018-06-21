@@ -20,11 +20,12 @@ import (
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 var gwAddress = "localhost:8080"
 
-var Session globals.SessionObj
+var Session user.SessionObj
 var GatewayData TestInterface
 
 func TestMain(m *testing.M) {
@@ -62,8 +63,7 @@ func TestRegister(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	regRes, err := Register(hashUID, gwAddress, 1)
+	regRes, err := Register(registrationCode, gwAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -81,8 +81,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, gwAddress, 0)
+	_, err = Register(registrationCode, gwAddress, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -97,8 +96,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	registrationCode := "JHJ6L9BACDV"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	_, err = Register(hashUID, gwAddress, 1)
+	_, err = Register(registrationCode, gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
 			err.Error())
@@ -114,22 +112,21 @@ func TestRegisterDeletedUser(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	tempUser, _ := globals.Users.GetUser(10)
-	globals.Users.DeleteUser(10)
-	_, err = Register(hashUID, gwAddress, 1)
+	tempUser, _ := user.Users.GetUser(10)
+	user.Users.DeleteUser(10)
+	_, err = Register(registrationCode, gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
 	}
-	globals.Users.UpsertUser(tempUser)
+	user.Users.UpsertUser(tempUser)
 	globals.LocalStorage = nil
 }
 
 func SetNulKeys() {
 	// Set the transmit keys to be 1, so send/receive can work
 	// FIXME: Why doesn't crypto panic when these keys are empty?
-	keys := globals.Session.GetKeys()
+	keys := user.TheSession.GetKeys()
 	for i := range keys {
 		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
 		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
@@ -143,11 +140,9 @@ func TestSend(t *testing.T) {
 	defer gwShutDown()
 
 	globals.LocalStorage = nil
-	registrationCode := "be50nhqpqjtjj"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, gwAddress, 1)
+	userID, err := Register("be50nhqpqjtjj", gwAddress, 1)
 	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
@@ -184,11 +179,9 @@ func TestReceive(t *testing.T) {
 
 	// Initialize client and log in
 	registrationCode := "be50nhqpqjtjj"
-
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Uint64()
-	userID, err := Register(hashUID, gwAddress, 1)
+	userID, err := Register(registrationCode, gwAddress, 1)
 	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
@@ -198,7 +191,7 @@ func TestReceive(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	if globals.Session == nil {
+	if user.TheSession == nil {
 		t.Errorf("Could not load session!")
 	}
 

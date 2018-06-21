@@ -16,10 +16,10 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 var verbose bool
@@ -116,8 +116,8 @@ func sessionInitialization() {
 	//Register a new user if requested
 	if register {
 		_, err := bindings.Register(
-			cyclic.NewIntFromUInt(globals.UserHash(userId)).TextVerbose(
-				32, 0), gwAddr, int(numNodes))
+			cyclic.NewIntFromBytes(user.UserHash(user.ID(userId))).
+				TextVerbose(32, 0), gwAddr, int(numNodes))
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -180,16 +180,21 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			user, ok := globals.Users.GetUser(destinationUserId)
+			u, ok := user.Users.GetUser(user.ID(destinationUserId))
 			if ok {
-				recipientNick = user.Nick
+				recipientNick = u.Nick
 			}
+			wireRepresentation := bindings.FormatTextMessage(message)
 
 			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 				recipientNick, message)
 
 			//Send the message
-			bindings.Send(api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId})
+			bindings.Send(api.APIMessage{
+				SenderID:    user.ID(userId),
+				Payload:     string(wireRepresentation),
+				RecipientID: user.ID(destinationUserId),
+			})
 		}
 
 		if dummyFrequency != 0 {
@@ -208,29 +213,16 @@ var rootCmd = &cobra.Command{
 			sender := binary.BigEndian.Uint64(msg.GetSender())
 
 			// Get sender's nick
-			user, ok := globals.Users.GetUser(sender)
+			u, ok := user.Users.GetUser(user.ID(sender))
 			var senderNick string
 			if ok {
-				senderNick = user.Nick
+				senderNick = u.Nick
 			}
 
 			//Return the received message to console
 			if msg.GetPayload() != "" {
-				channelMessage, err := parse.ParseChannelbotMessage(msg.
-					GetPayload())
-				if err == nil {
-					speakerContact := ""
-					user, ok := globals.Users.GetUser(channelMessage.SpeakerID)
-					if ok {
-						speakerContact = user.Nick
-					}
-					fmt.Printf("Message from channel %v, %v:\n%v, %v: %v\n",
-						sender, senderNick, channelMessage.SpeakerID,
-						speakerContact, channelMessage.Message)
-				} else {
-					fmt.Printf("Message from %v, %v Received: %s\n", sender,
-						senderNick, msg.GetPayload())
-				}
+				fmt.Printf("Message from %v, %v Received: %s\n", sender,
+					senderNick, msg.GetPayload())
 				end = true
 			}
 
@@ -240,14 +232,17 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				user, ok := globals.Users.GetUser(destinationUserId)
+				u, ok := user.Users.GetUser(user.ID(destinationUserId))
 				if ok {
-					contact = user.Nick
+					contact = u.Nick
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := api.APIMessage{SenderID: userId, Payload: message, RecipientID: destinationUserId}
+				message := api.APIMessage{
+					SenderID: user.ID(userId),
+					Payload:  message, RecipientID: user.ID(
+						destinationUserId)}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
@@ -301,7 +296,7 @@ func init() {
 			"Automatically disabled if 'blockingTransmission' is false")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
-		"UserID to sign in as")
+		"ID to sign in as")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
 	// TODO: support this negotiating separate keys with different servers
@@ -319,7 +314,7 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
-		"UserID to send message to")
+		"ID to send message to")
 	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
 		"Show the server version information.")
 

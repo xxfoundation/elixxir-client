@@ -8,16 +8,16 @@ package crypto
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
+	"gitlab.com/privategrity/client/user"
 )
 
 func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {
 
-	keys := globals.Session.GetKeys()
+	keys := user.TheSession.GetKeys()
 
 	MakeInitVect(message.GetPayloadInitVect())
 	MakeInitVect(message.GetRecipientInitVect())

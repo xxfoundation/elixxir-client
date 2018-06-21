@@ -182,8 +182,9 @@ func Login(UID user.ID, addr string) (string, error) {
 	}
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
+	// FIXME listenCh won't exist - how do you tell if the reception thread
+	// is running?
 	if listenCh == nil {
-		listenCh = io.Messaging.Listen(0)
 		go io.Messaging.MessageReceiver(pollWaitTimeMillis)
 	} else {
 		jww.ERROR.Printf("Message receiver already started!")
@@ -216,20 +217,12 @@ func SetRateLimiting(limit uint32) {
 
 // FIXME there can only be one
 var listenCh chan *format.Message
-var listeners *listener.ListenerMap
-
-func GetListeners() *listener.ListenerMap {
-	if listeners == nil {
-		listeners = listener.NewListenerMap()
-	}
-	return listeners
-}
 
 func Listen(user user.ID, messageType int64,
 	newListener listener.Listener, isFallback bool) {
 	jww.INFO.Println("Listening now: user %v, message type %v, "+
 		"is fallback %v", user, messageType, isFallback)
-	GetListeners().Listen(user, messageType, newListener, isFallback)
+	listener.Listeners.Listen(user, messageType, newListener, isFallback)
 }
 
 // TryReceive checks if there is a received message on the internal fifo.
@@ -245,7 +238,7 @@ func TryReceive() (format.MessageInterface, error) {
 			// Currently the only purpose of this is to strip off and ignore the type at the start of the message.
 			// If a message comes in without a type on the front, it could result in an error parsing the type.
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
-			GetListeners().Speak(&parse.Message{
+			listener.Listeners.Speak(&parse.Message{
 				TypedBody: *typedBody,
 				Sender:   user.NewIDFromBytes(message.GetSender()),
 				Receiver: user.NewIDFromBytes(message.GetRecipient()),

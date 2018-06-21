@@ -26,6 +26,8 @@ type ListenerMap struct {
 	mux sync.RWMutex
 }
 
+var Listeners = NewListenerMap()
+
 func NewListenerMap() *ListenerMap {
 	return &ListenerMap{
 		listeners: make(map[user.ID]map[int64][]*listenerRecord),

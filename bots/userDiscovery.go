@@ -138,8 +138,9 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 
 // keyExists checks for the existence of a key on the bot
 func keyExists(udbID user.ID, keyFP string) bool {
-	listener := io.Messaging.Listen(udbID)
-	defer io.Messaging.StopListening(listener)
+	// FIXME hook up new listeners with the UDB here
+	//listener := io.Messaging.Listen(udbID)
+	//defer io.Messaging.StopListening(listener)
 	cmd := fmt.Sprintf("GETKEY %s", keyFP)
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
 	getKeyResponse := sendCommand(udbID, cmd)
@@ -147,8 +148,8 @@ func keyExists(udbID user.ID, keyFP string) bool {
 		// Listen twice to ensure we get the full error message
 		// Note that the sendCommand helper listens on a seperate one. We are
 		// ensuring that this function waits for 2 messages
-		<-listener
-		<-listener
+		//<-listener
+		//<-listener
 		return true
 	}
 	return false
@@ -167,23 +168,27 @@ func fingerprint(publicKey []byte) string {
 // we will eventually receive a response from the server. Callers
 // to registration that need timeouts should implement it themselves.
 func sendCommand(botID user.ID, command string) string {
-	listener := io.Messaging.Listen(botID)
-	defer io.Messaging.StopListening(listener)
+	// FIXME hook up UDB with the new listeners here
+	//listener := io.Messaging.Listen(botID)
+	//defer io.Messaging.StopListening(listener)
 	err := io.Messaging.SendMessage(botID, command)
 	if err != nil {
 		return err.Error()
 	}
-	response := <-listener
-	jww.ERROR.Printf(response.GetPayload())
-	return response.GetPayload()
+	//response := <-listener
+	//jww.ERROR.Printf(response.GetPayload())
+
+	//return response.GetPayload()
+	return ""
 }
 
 // sendCommandMulti waits for responseCnt responses, but does what sendCommand
 // does
 func sendCommandMulti(responseCnt int, botID user.ID,
 	command string) []string {
-	listener := io.Messaging.Listen(botID)
-	defer io.Messaging.StopListening(listener)
+	// FIXME hook up UDB with the new listeners here
+	//listener := io.Messaging.Listen(botID)
+	//defer io.Messaging.StopListening(listener)
 	err := io.Messaging.SendMessage(botID, command)
 
 	responses := make([]string, 0)
@@ -193,8 +198,8 @@ func sendCommandMulti(responseCnt int, botID user.ID,
 	}
 
 	for i := 0; i < responseCnt; i++ {
-		response := <-listener
-		responses = append(responses, response.GetPayload())
+		//response := <-listener
+		//responses = append(responses, response.GetPayload())
 	}
 	return responses
 }

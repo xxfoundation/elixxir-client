@@ -22,6 +22,7 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"github.com/golang/protobuf/proto"
 	"sync/atomic"
+	"gitlab.com/privategrity/client/listener"
 )
 
 var verbose bool
@@ -194,7 +195,7 @@ func (l *ChannelbotListener) Hear(message *parse.Message) {
 	fmt.Printf("Message from channel %v, %v: ",
 		message.Sender, senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	api.GetListeners().Speak(&parse.Message{
+	listener.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerID,
 		Receiver:  0,

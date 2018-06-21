@@ -9,19 +9,20 @@ package api
 import (
 	"errors"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/listener"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/privategrity/client/user"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
@@ -48,7 +49,7 @@ func (m APIMessage) GetPayload() string {
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
 	textMessage := parse.TextMessage{
-		Order:   &parse.RepeatedOrdering{
+		Order: &parse.RepeatedOrdering{
 			Time:       time.Now().Unix(),
 			ChunkIndex: 0,
 			Length:     1,
@@ -213,7 +214,23 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
+// FIXME there can only be one
 var listenCh chan *format.Message
+var listeners *listener.ListenerMap
+
+func GetListeners() *listener.ListenerMap {
+	if listeners == nil {
+		listeners = listener.NewListenerMap()
+	}
+	return listeners
+}
+
+func Listen(user user.ID, messageType int64,
+	newListener listener.Listener, isFallback bool) {
+	jww.INFO.Println("Listening now: user %v, message type %v, "+
+		"is fallback %v", user, messageType, isFallback)
+	GetListeners().Listen(user, messageType, newListener, isFallback)
+}
 
 // TryReceive checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
@@ -228,6 +245,11 @@ func TryReceive() (format.MessageInterface, error) {
 			// Currently the only purpose of this is to strip off and ignore the type at the start of the message.
 			// If a message comes in without a type on the front, it could result in an error parsing the type.
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
+			GetListeners().Speak(&parse.Message{
+				TypedBody: *typedBody,
+				Sender:   user.NewIDFromBytes(message.GetSender()),
+				Receiver: user.NewIDFromBytes(message.GetRecipient()),
+			})
 			result := APIMessage{
 				Payload:     string(typedBody.Body),
 				SenderID:    user.NewIDFromBytes(message.GetSender()),

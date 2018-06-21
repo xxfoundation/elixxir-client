@@ -9,20 +9,20 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
-	"time"
-	"gitlab.com/privategrity/client/parse"
-	"github.com/golang/protobuf/proto"
 	"sync/atomic"
-	"gitlab.com/privategrity/client/listener"
+	"time"
 )
 
 var verbose bool
@@ -232,7 +232,9 @@ var rootCmd = &cobra.Command{
 
 		// Loop until we don't get a message, draining the queue of messages on the
 		// gateway buffer
-		gotMsg := false
+		// TODO What's equivalent functionality with the revised reception functions?
+		// Should there be some sort of way to get the last existing
+		/*gotMsg := false
 		for i := 0; i < 5; i++ {
 			time.Sleep(1000 * time.Millisecond) // wait 1s in between
 			msg, _ := bindings.TryReceive()
@@ -243,7 +245,7 @@ var rootCmd = &cobra.Command{
 				i = 0 // Make sure to loop until all messages exhausted
 				gotMsg = true
 			}
-		}
+		}*/
 
 		// Only send a message if we have a message to send (except dummy messages)
 		if message != "" {
@@ -284,9 +286,6 @@ var rootCmd = &cobra.Command{
 
 		// Loop until we get a message, then print and exit
 		for text.messagesReceived == 0 && channel.messagesReceived == 0 {
-
-			_, _ = bindings.TryReceive()
-
 			end := false
 
 			//If dummy messages are enabled, send the next one

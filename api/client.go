@@ -225,36 +225,6 @@ func Listen(user user.ID, messageType int64,
 	listener.Listeners.Listen(user, messageType, newListener, isFallback)
 }
 
-// TryReceive checks if there is a received message on the internal fifo.
-// returns nil if there isn't.
-// TODO remove this whole method, for real this time
-func TryReceive() (format.MessageInterface, error) {
-	jww.INFO.Println("Trying to receive a message")
-	select {
-	// TODO replace or remove listenCh?
-	// TODO should parse.Parse actually return an error?
-	case message := <-listenCh:
-		if message.GetPayload() != "" {
-			// Currently the only purpose of this is to strip off and ignore the type at the start of the message.
-			// If a message comes in without a type on the front, it could result in an error parsing the type.
-			typedBody, err := parse.Parse([]byte(message.GetPayload()))
-			listener.Listeners.Speak(&parse.Message{
-				TypedBody: *typedBody,
-				Sender:   user.NewIDFromBytes(message.GetSender()),
-				Receiver: user.NewIDFromBytes(message.GetRecipient()),
-			})
-			result := APIMessage{
-				Payload:     string(typedBody.Body),
-				SenderID:    user.NewIDFromBytes(message.GetSender()),
-				RecipientID: user.NewIDFromBytes(message.GetRecipient()),
-			}
-			return &result, err
-		}
-	default:
-	}
-	return &APIMessage{}, nil
-}
-
 type APISender struct{}
 
 func (s APISender) Send(messageInterface format.MessageInterface) {

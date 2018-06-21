@@ -16,7 +16,6 @@ import (
 	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
@@ -188,30 +187,6 @@ func TestDisableRatchet(t *testing.T) {
 	}
 
 	println("API disable ratchet test", pass, "out of", tests, "tests passed.")
-}
-
-// TODO remove this with TryReceive
-func TestTryReceive(t *testing.T) {
-	listenCh = make(chan *format.Message, 10)
-
-	Register("be50nhqpqjtjj", gwAddress, 1)
-	expectEmpty, err := TryReceive()
-	if expectEmpty.GetPayload() != "" || err != nil {
-		t.Errorf("Expected empty message, but got %s", expectEmpty.GetPayload())
-	}
-	body := parse.Pack(&parse.TypedBody{
-		BodyType: 1, // normal text message
-		Body:     []byte("Hello"),
-	})
-	m, _ := format.NewMessage(13, 1, string(body))
-	listenCh <- &m[0]
-	something, err := TryReceive()
-	if err != nil {
-		t.Errorf("Got error when expecting message: %s", err.Error())
-	}
-	if something.GetPayload() != "Hello" {
-		t.Errorf("Did not get expected message, got %s", something.GetPayload())
-	}
 }
 
 var ListenCh chan *format.Message

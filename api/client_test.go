@@ -22,6 +22,7 @@ import (
 	"gitlab.com/privategrity/crypto/forward"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -36,7 +37,7 @@ func TestRegistrationGob(t *testing.T) {
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
-	Session = globals.SessionObj{}
+	Session = user.SessionObj{}
 	dec.Decode(&Session)
 
 	VerifyRegisterGobAddress(t)
@@ -221,14 +222,15 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID globals.UserID, message string) error {
+func (d *dummyMessaging) SendMessage(recipientID user.ID,
+	message string) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
 	return nil
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID globals.UserID) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID user.ID) 	chan *format.Message {
 	return d.listener
 }
 
@@ -263,9 +265,9 @@ func TestRegisterPubKeyByteLen(t *testing.T) {
 	}
 	pubKey = make([]byte, 256)
 	for i := range pubKeyBits {
-		bytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
-		for j := range bytes {
-			pubKey[j+i*128] = bytes[j]
+		pubkeyBytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
+		for j := range pubkeyBytes {
+			pubKey[j+i*128] = pubkeyBytes[j]
 		}
 	}
 

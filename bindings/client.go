@@ -14,6 +14,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/format"
 	"strconv"
+	"gitlab.com/privategrity/client/user"
 )
 
 // Copy of the storage interface.
@@ -146,7 +147,7 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func Login(UID []byte, addr string) (string, error) {
-	userID := globals.NewUserIDFromBytes(UID)
+	userID := user.NewUserIDFromBytes(UID)
 	nick, err := api.Login(userID, addr)
 	return nick, err
 }
@@ -176,7 +177,7 @@ var ContactListJsonSchema = `{
 	"items": {
 		"type": "object",
 		"properties": {
-			"UserID": { "type": "number" },
+			"ID": { "type": "number" },
 			"Nick": { "type": "string" }
 		}
 	}
@@ -185,13 +186,13 @@ var ContactListJsonSchema = `{
 var contactListSchema, contactListSchemaCreationError = gojsonschema.NewSchema(
 	gojsonschema.NewStringLoader(ContactListJsonSchema))
 
-/* Represent slices of UserID and Nick as JSON. ContactListJsonSchema is the
+/* Represent slices of ID and Nick as JSON. ContactListJsonSchema is the
  * JSON schema that shows how the resulting data are structured. */
-func buildContactListJSON(ids []globals.UserID, nicks []string) []byte {
+func buildContactListJSON(ids []user.ID, nicks []string) []byte {
 	var result []byte
 	result = append(result, '[')
 	for i := 0; i < len(ids) && i < len(nicks); i++ {
-		result = append(result, `{"UserID":`...)
+		result = append(result, `{"ID":`...)
 		result = append(result, strconv.FormatUint(uint64(ids[i]), 10)...)
 		result = append(result, `,"Nick":"`...)
 		result = append(result, nicks[i]...)
@@ -240,7 +241,7 @@ func validateContactListJSON(json []byte) error {
  *
  * ContactListJSONSchema is the JSON schema that shows how the resulting data
  * are structured. You'll get an array, and each element of the array has a
- * UserID which is a number, and a Nick which is a string. */
+ * ID which is a number, and a Nick which is a string. */
 func GetContactListJSON() ([]byte, error) {
 	ids, nicks := api.GetContactList()
 	result := buildContactListJSON(ids, nicks)

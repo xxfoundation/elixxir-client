@@ -20,11 +20,12 @@ import (
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 var gwAddress = "localhost:8080"
 
-var Session globals.SessionObj
+var Session user.SessionObj
 var GatewayData TestInterface
 
 func TestMain(m *testing.M) {
@@ -111,21 +112,21 @@ func TestRegisterDeletedUser(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello", nil)
-	tempUser, _ := globals.Users.GetUser(10)
-	globals.Users.DeleteUser(10)
+	tempUser, _ := user.Users.GetUser(10)
+	user.Users.DeleteUser(10)
 	_, err = Register(registrationCode, gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
 	}
-	globals.Users.UpsertUser(tempUser)
+	user.Users.UpsertUser(tempUser)
 	globals.LocalStorage = nil
 }
 
 func SetNulKeys() {
 	// Set the transmit keys to be 1, so send/receive can work
 	// FIXME: Why doesn't crypto panic when these keys are empty?
-	keys := globals.Session.GetKeys()
+	keys := user.TheSession.GetKeys()
 	for i := range keys {
 		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
 		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
@@ -190,7 +191,7 @@ func TestReceive(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	if globals.Session == nil {
+	if user.TheSession == nil {
 		t.Errorf("Could not load session!")
 	}
 

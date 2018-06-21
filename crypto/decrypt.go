@@ -8,12 +8,12 @@ package crypto
 
 import (
 	"errors"
-	"gitlab.com/privategrity/client/globals"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
+	"gitlab.com/privategrity/client/user"
 )
 
 // Decrypt decrypts messages
@@ -29,7 +29,7 @@ func Decrypt(g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 	}
 
 	// Get inverse reception key to decrypt the message
-	keys := globals.Session.GetKeys()
+	keys := user.TheSession.GetKeys()
 	// TODO move this allocation somewhere sensible
 	sharedKeyStorage := make([]byte, 0, 8192)
 

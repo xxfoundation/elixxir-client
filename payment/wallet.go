@@ -3,9 +3,9 @@ package payment
 import (
 	"encoding/gob"
 	"errors"
-	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/coin"
 	"sync"
+	"gitlab.com/privategrity/client/user"
 )
 
 const NumDenominations = 8
@@ -34,16 +34,16 @@ func NewWallet() (*Wallet, error) {
 	gob.Register(WalletStorage{})
 
 	// gets the wallet from the session
-	wsi, err := globals.Session.QueryMap(WalletStorageKey)
+	wsi, err := user.TheSession.QueryMap(WalletStorageKey)
 	if err != nil {
 		//make a new session object if none exists
-		if err == globals.ErrQuery {
+		if err == user.ErrQuery {
 
 			for i := 0; i < int(coin.Denominations); i++ {
 				(*ws)[i] = make([]Coin, 0)
 			}
 
-			err = globals.Session.UpsertMap(WalletStorageKey, &ws)
+			err = user.TheSession.UpsertMap(WalletStorageKey, &ws)
 		}
 		if err != nil {
 			return nil, err
@@ -113,7 +113,7 @@ func (w *Wallet) withdraw(value uint32) ([]Coin, error) {
 
 	*w.storage = storageCopy
 
-	err := globals.Session.StoreSession()
+	err := user.TheSession.StoreSession()
 
 	if err != nil {
 		*w.storage = oldStorage
@@ -148,7 +148,7 @@ func (w *Wallet) deposit(coins []*Coin) error {
 
 	*w.storage = storageCopy
 
-	err = globals.Session.StoreSession()
+	err = user.TheSession.StoreSession()
 
 	if err != nil {
 		*w.storage = oldStorage

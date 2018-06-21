@@ -1,9 +1,11 @@
 package parse
 
-import "gitlab.com/privategrity/client/globals"
+import (
+	"gitlab.com/privategrity/client/user"
+)
 
 type Message struct {
 	TypedBody
-	Sender globals.UserID
-	Receiver globals.UserID
+	Sender   user.ID
+	Receiver user.ID
 }

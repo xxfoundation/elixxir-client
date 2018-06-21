@@ -4,12 +4,13 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package globals
+package user
 
 import (
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"gitlab.com/privategrity/client/globals"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -20,7 +21,7 @@ func TestUserSession(t *testing.T) {
 	pass := 0
 
 	u := new(User)
-	UID := UserID(1)
+	UID := ID(1)
 
 	u.UserID = UID
 	u.Nick = "Mario"
@@ -34,7 +35,7 @@ func TestUserSession(t *testing.T) {
 		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	err := InitStorage(&RamStorage{}, "")
+	err := globals.InitStorage(&globals.RamStorage{}, "")
 
 	if err != nil {
 		t.Errorf("User Session: Local storage could not be created: %s", err.Error())
@@ -55,7 +56,7 @@ func TestUserSession(t *testing.T) {
 
 	//TODO: write test which validates the immolation
 
-	if Session != nil {
+	if TheSession != nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	} else {
 		pass++
@@ -67,57 +68,65 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if LoadSession(UserID(10002)) == nil {
+	if LoadSession(ID(10002)) == nil {
 		t.Errorf("Error: Able to login with invalid user!")
 	} else {
 		pass++
 	}
 
-	if Session == nil {
+	if TheSession == nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	} else {
 		pass++
 	}
 
-	if Session.GetGWAddress() == "" {
+	if TheSession.GetGWAddress() == "" {
 		t.Errorf("Error: Node Address not set correctly with Regestration!")
 	} else {
 		pass++
 	}
 
-	Session.SetGWAddress("test")
+	TheSession.SetGWAddress("test")
 
-	if Session.GetGWAddress() != "test" {
+	if TheSession.GetGWAddress() != "test" {
 		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
 	} else {
 		pass++
 	}
 
-	if Session.GetKeys() == nil {
+	if TheSession.GetKeys() == nil {
 		t.Errorf("Error: Keys not set correctly!")
 	} else {
 
-		test += len(Session.GetKeys())
+		test += len(TheSession.GetKeys())
 
-		for i := 0; i < len(Session.GetKeys()); i++ {
+		for i := 0; i < len(TheSession.GetKeys()); i++ {
 
-			if Session.GetKeys()[i].PublicKey.Cmp(cyclic.NewInt(2)) != 0 {
+			if TheSession.GetKeys()[i].PublicKey.Cmp(cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Public key not set correctly!")
-			} else if Session.GetKeys()[i].ReceiptKeys.Base.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].ReceiptKeys.Base.Cmp(cyclic.
+				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].ReceiptKeys.Recursive.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].ReceiptKeys.Recursive.Cmp(cyclic.
+				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].ReceptionKeys.Base.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].ReceptionKeys.Base.Cmp(cyclic.
+				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].ReceptionKeys.Recursive.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].ReceptionKeys.Recursive.Cmp(
+				cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].ReturnKeys.Base.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].ReturnKeys.Base.Cmp(cyclic.
+				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].ReturnKeys.Recursive.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].ReturnKeys.Recursive.Cmp(cyclic.
+				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].TransmissionKeys.Base.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].TransmissionKeys.Base.Cmp(cyclic.
+				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if Session.GetKeys()[i].TransmissionKeys.Recursive.Cmp(cyclic.NewInt(2)) != 0 {
+			} else if TheSession.GetKeys()[i].TransmissionKeys.Recursive.Cmp(
+				cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			}
 
@@ -126,20 +135,20 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//TODO: FIX THIS?
-	if Session.GetPrivateKey() == nil {
+	if TheSession.GetPrivateKey() == nil {
 		t.Errorf("Error: Private Keys not set correctly!")
 	} else {
 		pass++
 	}
 
-	err = Session.UpsertMap("test", 5)
+	err = TheSession.UpsertMap("test", 5)
 
 	if err != nil {
 		t.Errorf("Error: Could not store in session map interface: %s",
 			err.Error())
 	}
 
-	element, err := Session.QueryMap("test")
+	element, err := TheSession.QueryMap("test")
 
 	if err != nil {
 		t.Errorf("Error: Could not read element in session map "+
@@ -151,9 +160,9 @@ func TestUserSession(t *testing.T) {
 			"interface: Expected: 5, Recieved: %v", element)
 	}
 
-	Session.DeleteMap("test")
+	TheSession.DeleteMap("test")
 
-	_, err = Session.QueryMap("test")
+	_, err = TheSession.QueryMap("test")
 
 	if err == nil {
 		t.Errorf("Error: Could not delete element in session map " +
@@ -161,9 +170,9 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Logout
-	Session.Immolate()
+	TheSession.Immolate()
 
-	if Session != nil {
+	if TheSession != nil {
 		t.Errorf("Error: Logout / Immolate did not work!")
 	} else {
 		pass++
@@ -172,26 +181,26 @@ func TestUserSession(t *testing.T) {
 	// Error tests
 
 	// Test nil LocalStorage
-	temp := LocalStorage
-	LocalStorage = nil
-	if LoadSession(UserID(6)) == nil {
+	temp := globals.LocalStorage
+	globals.LocalStorage = nil
+	if LoadSession(ID(6)) == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
 	}
-	LocalStorage = temp
+	globals.LocalStorage = temp
 
 	// Test invalid / corrupted LocalStorage
 	h := sha256.New()
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
-	LocalStorage.Save(randBytes)
-	if LoadSession(UserID(6)) == nil {
+	globals.LocalStorage.Save(randBytes)
+	if LoadSession(ID(6)) == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
 	}
 }
 
 func TestGetPubKey(t *testing.T) {
 	u := new(User)
-	UID := UserID(1)
+	UID := ID(1)
 
 	u.UserID = UID
 	u.Nick = "Mario"

@@ -5,13 +5,14 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"math"
 	"testing"
+	"gitlab.com/privategrity/client/user"
 )
 
 func TestWallet(t *testing.T) {
 
 	globals.InitStorage(&globals.RamStorage{}, "")
 
-	globals.Session = globals.NewUserSession(nil, "abc", nil)
+	user.TheSession = user.NewUserSession(nil, "abc", nil)
 
 	wallet, err := NewWallet()
 
@@ -62,7 +63,7 @@ func TestWallet(t *testing.T) {
 			"): Allowed withdrawal on invalid ammount")
 	}
 
-	globals.Session.DeleteMap(WalletStorageKey)
+	user.TheSession.DeleteMap(WalletStorageKey)
 
 	wallet, err = NewWallet()
 

@@ -19,6 +19,7 @@ import (
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 var verbose bool
@@ -115,7 +116,7 @@ func sessionInitialization() {
 	//Register a new user if requested
 	if register {
 		_, err := bindings.Register(
-			cyclic.NewIntFromBytes(globals.UserHash(globals.UserID(userId))).
+			cyclic.NewIntFromBytes(user.UserHash(user.ID(userId))).
 				TextVerbose(32, 0), gwAddr, int(numNodes))
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
@@ -179,9 +180,9 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			user, ok := globals.Users.GetUser(globals.UserID(destinationUserId))
+			u, ok := user.Users.GetUser(user.ID(destinationUserId))
 			if ok {
-				recipientNick = user.Nick
+				recipientNick = u.Nick
 			}
 			wireRepresentation := bindings.FormatTextMessage(message)
 
@@ -190,9 +191,9 @@ var rootCmd = &cobra.Command{
 
 			//Send the message
 			bindings.Send(api.APIMessage{
-				SenderID: globals.UserID(userId),
-				Payload: string(wireRepresentation),
-				RecipientID: globals.UserID(destinationUserId),
+				SenderID:    user.ID(userId),
+				Payload:     string(wireRepresentation),
+				RecipientID: user.ID(destinationUserId),
 			})
 		}
 
@@ -212,10 +213,10 @@ var rootCmd = &cobra.Command{
 			sender := binary.BigEndian.Uint64(msg.GetSender())
 
 			// Get sender's nick
-			user, ok := globals.Users.GetUser(globals.UserID(sender))
+			u, ok := user.Users.GetUser(user.ID(sender))
 			var senderNick string
 			if ok {
-				senderNick = user.Nick
+				senderNick = u.Nick
 			}
 
 			//Return the received message to console
@@ -231,17 +232,16 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				user, ok := globals.Users.GetUser(globals.
-					UserID(destinationUserId))
+				u, ok := user.Users.GetUser(user.ID(destinationUserId))
 				if ok {
-					contact = user.Nick
+					contact = u.Nick
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
 				message := api.APIMessage{
-					SenderID: globals.UserID(userId),
-					Payload:  message, RecipientID: globals.UserID(
+					SenderID: user.ID(userId),
+					Payload:  message, RecipientID: user.ID(
 						destinationUserId)}
 				bindings.Send(message)
 
@@ -296,7 +296,7 @@ func init() {
 			"Automatically disabled if 'blockingTransmission' is false")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
-		"UserID to sign in as")
+		"ID to sign in as")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
 	// TODO: support this negotiating separate keys with different servers
@@ -314,7 +314,7 @@ func init() {
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
-		"UserID to send message to")
+		"ID to send message to")
 	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
 		"Show the server version information.")
 

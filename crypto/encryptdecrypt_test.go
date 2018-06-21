@@ -7,12 +7,12 @@
 package crypto
 
 import (
-	"gitlab.com/privategrity/client/globals"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"testing"
+	"gitlab.com/privategrity/client/user"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -44,9 +44,9 @@ func setup() {
 		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
 	Grp = &grp
 
-	user, _ := globals.Users.GetUser(globals.UserID(1))
+	u, _ := user.Users.GetUser(user.ID(1))
 
-	nk := make([]globals.NodeKeys, 1)
+	nk := make([]user.NodeKeys, 1)
 
 	for i := range nk {
 		// transmission and reception keys need to be inverses of each other.
@@ -58,7 +58,7 @@ func setup() {
 		nk[i].ReceptionKeys.Base = cyclic.NewInt(1)
 		nk[i].ReceptionKeys.Recursive = grp.Inverse(nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
 	}
-	globals.Session = globals.NewUserSession(user, "", nk)
+	user.TheSession = user.NewUserSession(u, "", nk)
 	// ratcheting will stop the keys from being inverses of each other
 	forward.SetRatchetStatus(false)
 }

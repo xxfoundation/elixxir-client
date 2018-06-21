@@ -8,18 +8,58 @@ package payment
 
 import (
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"math"
+	"os"
 	"testing"
-	"gitlab.com/privategrity/client/user"
 )
 
-func TestWallet(t *testing.T) {
-
+func TestMain(m *testing.M) {
 	globals.InitStorage(&globals.RamStorage{}, "")
-
 	user.TheSession = user.NewSession(nil, "abc", nil)
+	os.Exit(m.Run())
+}
 
+// Guarantees it is impossible to withdraw from an empty wallet
+func TestWallet_withdraw_empty(t *testing.T) {
+	wallet, _ := NewWallet()
+
+	// Make sure the wallet is empty
+	emptyWallet := &WalletStorage{}
+	wallet.storage = &(emptyWallet)
+
+	// Attempt to withdraw from the empty wallet
+	_, err := wallet.withdraw(2)
+
+	if err != ErrCannotFund {
+		t.Errorf("Wallet.withdraw: Expected an error withdrawing from empty" +
+			" wallet.")
+	}
+}
+
+// Guarantees it is impossible to withdraw an invalid denomination
+func TestWallet_withdraw_invalid(t *testing.T) {
+	wallet, _ := NewWallet()
+
+	// Create large denomination so smaller denomination can't be withdrawn
+	testWallet := &WalletStorage{}
+	testCoin, _ := NewCoin(2)
+	testCoin2, _ := NewCoin(2)
+	testWallet[2] = append(testWallet[2], *testCoin)
+	testWallet[2] = append(testWallet[2], *testCoin2)
+	wallet.storage = &(testWallet)
+
+	// Attempt to withdraw a small denomination
+	_, err := wallet.withdraw(2)
+
+	if err != ErrIncorrectChange {
+		t.Errorf("Wallet.withdraw: Expected an error withdrawing invalid" +
+			" amount from wallet.")
+	}
+}
+
+func TestWallet(t *testing.T) {
 	wallet, err := NewWallet()
 
 	if err != nil {

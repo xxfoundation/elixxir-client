@@ -14,21 +14,22 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/listener"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/privategrity/client/user"
 )
 
 // APIMessages are an implementation of the format.Message interface that's
 // easy to use from Go
 type APIMessage struct {
 	Payload     string
-	SenderID    globals.UserID
-	RecipientID globals.UserID
+	SenderID    user.ID
+	RecipientID user.ID
 }
 
 func (m APIMessage) GetSender() []byte {
@@ -41,6 +42,27 @@ func (m APIMessage) GetRecipient() []byte {
 
 func (m APIMessage) GetPayload() string {
 	return m.Payload
+}
+
+// Populates a text message and returns its wire representation
+// TODO support multi-type messages or telling if a message is too long?
+func FormatTextMessage(message string) []byte {
+	textMessage := parse.TextMessage{
+		Order:   &parse.RepeatedOrdering{
+			Time:       time.Now().Unix(),
+			ChunkIndex: 0,
+			Length:     1,
+		},
+		Display: &parse.DisplayData{
+			Color: 0,
+		},
+		Message: message,
+	}
+	wireRepresentation, _ := proto.Marshal(&textMessage)
+	return parse.Pack(&parse.TypedBody{
+		BodyType: 1,
+		Body:     wireRepresentation,
+	})
 }
 
 // Initializes the client by registering a storage mechanism.
@@ -69,7 +91,7 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint) (globals.UserID, error) {
+	numNodes uint) (user.ID, error) {
 
 	var err error
 
@@ -80,7 +102,7 @@ func Register(registrationCode string, gwAddr string,
 	}
 
 	hashUID := cyclic.NewIntFromString(registrationCode, 32).Bytes()
-	UID, successLook := globals.Users.LookupUser(string(hashUID))
+	UID, successLook := user.Users.LookupUser(string(hashUID))
 	defer clearUserID(&UID)
 
 	if !successLook {
@@ -89,15 +111,15 @@ func Register(registrationCode string, gwAddr string,
 		return 0, err
 	}
 
-	user, successGet := globals.Users.GetUser(UID)
+	u, successGet := user.Users.GetUser(UID)
 
 	if !successGet {
-		jww.ERROR.Printf("Register: UserID lookup failed")
-		err = errors.New("could not register due to UserID lookup failure")
+		jww.ERROR.Printf("Register: ID lookup failed")
+		err = errors.New("could not register due to ID lookup failure")
 		return 0, err
 	}
 
-	nodekeys, successKeys := globals.Users.LookupKeys(user.UserID)
+	nodekeys, successKeys := user.Users.LookupKeys(u.UserID)
 	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
@@ -106,13 +128,13 @@ func Register(registrationCode string, gwAddr string,
 		return 0, err
 	}
 
-	nk := make([]globals.NodeKeys, numNodes)
+	nk := make([]user.NodeKeys, numNodes)
 
 	for i := uint(0); i < numNodes; i++ {
 		nk[i] = *nodekeys
 	}
 
-	nus := globals.NewUserSession(user, gwAddr, nk)
+	nus := user.NewSession(u, gwAddr, nk)
 
 	errStore := nus.StoreSession()
 
@@ -132,19 +154,19 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID globals.UserID, addr string) (string, error) {
+func Login(UID user.ID, addr string) (string, error) {
 
-	err := globals.LoadSession(UID)
+	err := user.LoadSession(UID)
 
-	if globals.Session == nil {
+	if user.TheSession == nil {
 		return "", errors.New("Unable to load session")
 	}
 
 	if addr != "" {
-		globals.Session.SetGWAddress(addr)
+		user.TheSession.SetGWAddress(addr)
 	}
 
-	addrToUse := globals.Session.GetGWAddress()
+	addrToUse := user.TheSession.GetGWAddress()
 
 	// TODO: These can be separate, but we set them to the same thing
 	//       until registration is completed.
@@ -166,14 +188,14 @@ func Login(UID globals.UserID, addr string) (string, error) {
 		jww.ERROR.Printf("Message receiver already started!")
 	}
 
-	return globals.Session.GetCurrentUser().Nick, nil
+	return user.TheSession.GetCurrentUser().Nick, nil
 }
 
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func Send(message format.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
-	recipientID := globals.UserID(cyclic.NewIntFromBytes(message.
+	recipientID := user.ID(cyclic.NewIntFromBytes(message.
 		GetRecipient()).Uint64())
 	err := io.Messaging.SendMessage(recipientID, message.GetPayload())
 	return err
@@ -191,23 +213,7 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-// FIXME there can only be one
 var listenCh chan *format.Message
-var listeners *listener.ListenerMap
-
-func GetListeners() *listener.ListenerMap {
-	if listeners == nil {
-		listeners = listener.NewListenerMap()
-	}
-	return listeners
-}
-
-// Add a new listener to the map
-func Listen(user globals.UserID, messageType int64,
-	newListener listener.Listener, isFallback bool) {
-	listeners := GetListeners()
-	listeners.Listen(user, messageType, newListener, isFallback)
-}
 
 // TryReceive checks if there is a received message on the internal fifo.
 // returns nil if there isn't.
@@ -219,17 +225,13 @@ func TryReceive() (format.MessageInterface, error) {
 	// TODO should parse.Parse actually return an error?
 	case message := <-listenCh:
 		if message.GetPayload() != "" {
+			// Currently the only purpose of this is to strip off and ignore the type at the start of the message.
+			// If a message comes in without a type on the front, it could result in an error parsing the type.
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
-			jww.INFO.Println("Received a message. Speaking now.")
-			GetListeners().Speak(&parse.Message{
-				TypedBody: *typedBody,
-				Sender:    globals.NewUserIDFromBytes(message.GetSender()),
-				Receiver:  0,
-			})
 			result := APIMessage{
 				Payload:     string(typedBody.Body),
-				SenderID:    globals.NewUserIDFromBytes(message.GetSender()),
-				RecipientID: globals.NewUserIDFromBytes(message.GetRecipient()),
+				SenderID:    user.NewIDFromBytes(message.GetSender()),
+				RecipientID: user.NewIDFromBytes(message.GetRecipient()),
 			}
 			return &result, err
 		}
@@ -252,7 +254,7 @@ type Sender interface {
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
 func Logout() error {
-	if globals.Session == nil {
+	if user.TheSession == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
 		jww.ERROR.Printf(err.Error())
 		return err
@@ -263,7 +265,7 @@ func Logout() error {
 		io.Disconnect(io.ReceiveAddress)
 	}
 
-	errStore := globals.Session.StoreSession()
+	errStore := user.TheSession.StoreSession()
 
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
@@ -272,7 +274,7 @@ func Logout() error {
 		return err
 	}
 
-	errImmolate := globals.Session.Immolate()
+	errImmolate := user.TheSession.Immolate()
 
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
@@ -284,16 +286,11 @@ func Logout() error {
 	return nil
 }
 
-func GetContactList() ([]globals.UserID, []string) {
-	return globals.Users.GetContactList()
+func GetContactList() ([]user.ID, []string) {
+	return user.Users.GetContactList()
 }
 
-func clearUint64(u *uint64) {
-	*u = math.MaxUint64
-	*u = 0
-}
-
-func clearUserID(u *globals.UserID) {
+func clearUserID(u *user.ID) {
 	*u = math.MaxUint64
 	*u = 0
 }
@@ -313,7 +310,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 		return err
 	}
 
-	publicKey := globals.Session.GetPublicKey()
+	publicKey := user.TheSession.GetPublicKey()
 	// Does cyclic do auto-pad? probably not...
 	publicKeyBytes := publicKey.Bytes()
 	fixedPubBytes := make([]byte, 256)

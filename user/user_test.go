@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package globals
+package user
 
 import (
 	"crypto/sha256"
@@ -13,7 +13,7 @@ import (
 )
 
 // TestUserRegistry tests the constructors/getters/setters
-// surrounding the User struct and the UserRegistry interface
+// surrounding the User struct and the Registry interface
 func TestUserRegistry(t *testing.T) {
 	// Test if CountUsers correctly counts the hard-coded demo users
 	if Users.CountUsers() != NUM_DEMO_USERS {
@@ -21,7 +21,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		uid := UserID(i + 1)
+		uid := ID(i + 1)
 		reg, _ := Users.LookupUser(string(UserHash(uid)))
 		usr, _ := Users.GetUser(reg)
 		if usr.Nick != DEMO_USER_NICKS[i] {
@@ -30,7 +30,7 @@ func TestUserRegistry(t *testing.T) {
 		}
 	}
 	// Test the NewUser function
-	id := UserID(2002)
+	id := ID(2002)
 	usr := Users.NewUser(id, "Will I am")
 
 	if usr.Nick != "Will I am" {
@@ -46,7 +46,7 @@ func TestUserRegistry(t *testing.T) {
 	newUsr, suc := Users.GetUser(id)
 	if !suc {
 		t.Errorf("Upsert did not add the test user correctly. " +
-			"The UserID was not found by GetUser.")
+			"The ID was not found by GetUser.")
 	}
 	if newUsr.Nick != "Will I am" {
 		t.Errorf("Upsert did not add the test user correctly. "+
@@ -55,7 +55,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test LookupKeys
-	keys, suc := Users.LookupKeys(UserID(1))
+	keys, suc := Users.LookupKeys(ID(1))
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}

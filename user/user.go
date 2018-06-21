@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package globals
+package user
 
 import (
 	"crypto/sha256"
@@ -18,32 +18,32 @@ import (
 // FIXME use string or []byte for this - string works as a key for hash maps
 // and []byte is compatible with more other languages.
 // string probably makes more sense
-type UserID uint64
+type ID uint64
 
-var UserIDLen = 8
+var IDLen = 8
 
-// TODO remove this when UserID becomes a string
-func (u UserID) Bytes() []byte {
-	result := make([]byte, UserIDLen)
+// TODO remove this when ID becomes a string
+func (u ID) Bytes() []byte {
+	result := make([]byte, IDLen)
 	binary.BigEndian.PutUint64(result, uint64(u))
 	return result
 }
 
 // TODO clean this up
-func (u UserID) RegistrationCode() string {
-	return cyclic.NewIntFromUInt(uint64(NewUserIDFromBytes(UserHash(u)))).TextVerbose(32, 0)
+func (u ID) RegistrationCode() string {
+	return cyclic.NewIntFromUInt(uint64(NewIDFromBytes(UserHash(u)))).TextVerbose(32, 0)
 }
 
-func NewUserIDFromBytes(id []byte) UserID {
+func NewIDFromBytes(id []byte) ID {
 	// to keep compatibility with old user registration codes, we need to use
 	// the last part of the byte array that we pass in
 	// FIXME break compatibility here during the migration to 128 bit ids
-	result := UserID(binary.BigEndian.Uint64(id[len(id)-UserIDLen:]))
+	result := ID(binary.BigEndian.Uint64(id[len(id)-IDLen:]))
 	return result
 }
 
-// Globally instantiated UserRegistry
-var Users = newUserRegistry()
+// Globally instantiated Registry
+var Users = newRegistry()
 var NUM_DEMO_USERS = int(40)
 var DEMO_USER_NICKS = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
 	"Mario", "Will", "Allan", "Jono", "", "", "UDB"}
@@ -51,37 +51,37 @@ var DEMO_CHANNEL_NAMES = []string{"#General", "#Engineering", "#Lunch",
 	"#Random"}
 
 // Interface for User Registry operations
-type UserRegistry interface {
-	NewUser(id UserID, nickname string) *User
-	DeleteUser(id UserID)
-	GetUser(id UserID) (user *User, ok bool)
+type Registry interface {
+	NewUser(id ID, nickname string) *User
+	DeleteUser(id ID)
+	GetUser(id ID) (user *User, ok bool)
 	UpsertUser(user *User)
 	CountUsers() int
-	LookupUser(hid string) (uid UserID, ok bool)
-	LookupKeys(uid UserID) (*NodeKeys, bool)
-	GetContactList() ([]UserID, []string)
+	LookupUser(hid string) (uid ID, ok bool)
+	LookupKeys(uid ID) (*NodeKeys, bool)
+	GetContactList() ([]ID, []string)
 }
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
-	userCollection map[UserID]*User
-	// Increments sequentially for User.UserID values
+	userCollection map[ID]*User
+	// Increments sequentially for User.ID values
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	// Key type is string because keys must implement == and []byte doesn't
-	userLookup map[string]UserID
+	userLookup map[string]ID
 	//Temporary placed to store the keys for each user
-	keysLookup map[UserID]*NodeKeys
+	keysLookup map[ID]*NodeKeys
 }
 
-// newUserRegistry creates a new UserRegistry interface
-func newUserRegistry() UserRegistry {
+// newRegistry creates a new Registry interface
+func newRegistry() Registry {
 	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
 		jww.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
-	uc := make(map[UserID]*User)
-	ul := make(map[string]UserID)
-	nk := make(map[UserID]*NodeKeys)
+	uc := make(map[ID]*User)
+	ul := make(map[string]ID)
+	nk := make(map[ID]*NodeKeys)
 
 	// Deterministically create NUM_DEMO_USERS users
 	for i := 1; i <= NUM_DEMO_USERS; i++ {
@@ -89,7 +89,7 @@ func newUserRegistry() UserRegistry {
 		k := new(NodeKeys)
 
 		// Generate user parameters
-		t.UserID = UserID(i)
+		t.UserID = ID(i)
 		h := sha256.New()
 		h.Write([]byte(string(20000 + i)))
 		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
@@ -111,14 +111,14 @@ func newUserRegistry() UserRegistry {
 
 	// Channels have been hardcoded to users 101-200
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		uc[UserID(i+1)].Nick = DEMO_USER_NICKS[i]
+		uc[ID(i+1)].Nick = DEMO_USER_NICKS[i]
 	}
 	for i := 0; i < len(DEMO_CHANNEL_NAMES); i++ {
-		uc[UserID(i+31)].Nick = DEMO_CHANNEL_NAMES[i]
+		uc[ID(i+31)].Nick = DEMO_CHANNEL_NAMES[i]
 	}
 
 	// With an underlying UserMap data structure
-	return UserRegistry(&UserMap{userCollection: uc,
+	return Registry(&UserMap{userCollection: uc,
 		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
@@ -126,7 +126,7 @@ func newUserRegistry() UserRegistry {
 
 // Struct representing a User in the system
 type User struct {
-	UserID UserID
+	UserID ID
 	Nick   string
 }
 
@@ -145,29 +145,29 @@ func (u *User) DeepCopy() *User {
 // demos
 // TODO Should we use the full-length hash? Should we even be doing registration
 // like this?
-func UserHash(uid UserID) []byte {
+func UserHash(uid ID) []byte {
 	h, _ := hash.NewCMixHash()
 	h.Write(uid.Bytes())
 	huid := h.Sum(nil)
-	huid = huid[len(huid) - UserIDLen:]
+	huid = huid[len(huid) -IDLen:]
 	return huid
 }
 
 // NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id UserID, nickname string) *User {
+func (m *UserMap) NewUser(id ID, nickname string) *User {
 	return &User{UserID: id, Nick: nickname}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id UserID) (user *User, ok bool) {
+func (m *UserMap) GetUser(id ID) (user *User, ok bool) {
 	user, ok = m.userCollection[id]
 	user = user.DeepCopy()
 	return
 }
 
 // DeleteUser deletes a user with the given ID from userCollection.
-func (m *UserMap) DeleteUser(id UserID) {
+func (m *UserMap) DeleteUser(id ID) {
 	// If key does not exist, do nothing
 	delete(m.userCollection, id)
 }
@@ -184,19 +184,19 @@ func (m *UserMap) CountUsers() int {
 }
 
 // LookupUser returns the user id corresponding to the demo registration code
-func (m *UserMap) LookupUser(hid string) (uid UserID, ok bool) {
+func (m *UserMap) LookupUser(hid string) (uid ID, ok bool) {
 	uid, ok = m.userLookup[hid]
 	return
 }
 
 // LookupKeys returns the keys for the given user from the temporary key map
-func (m *UserMap) LookupKeys(uid UserID) (*NodeKeys, bool) {
+func (m *UserMap) LookupKeys(uid ID) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[uid]
 	return nk, t
 }
 
-func (m *UserMap) GetContactList() (ids []UserID, nicks []string) {
-	ids = make([]UserID, len(m.userCollection))
+func (m *UserMap) GetContactList() (ids []ID, nicks []string) {
+	ids = make([]ID, len(m.userCollection))
 	nicks = make([]string, len(m.userCollection))
 
 	index := uint64(0)

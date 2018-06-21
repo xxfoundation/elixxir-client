@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package globals
+package user
 
 import (
 	"bytes"
@@ -16,16 +16,18 @@ import (
 	"math"
 	"math/rand"
 	"time"
+	"gitlab.com/privategrity/client/globals"
 )
 
 // Errors
 var ErrQuery = errors.New("element not in map")
 
-// Globally instantiated UserSession
-var Session UserSession
+// Globally instantiated Session
+// FIXME remove this sick filth
+var TheSession Session
 
 // Interface for User Session operations
-type UserSession interface {
+type Session interface {
 	GetCurrentUser() (currentUser *User)
 	GetGWAddress() string
 	SetGWAddress(addr string)
@@ -52,11 +54,11 @@ type RatchetKey struct {
 	Recursive *cyclic.Int
 }
 
-// Creates a new UserSession interface for registration
-func NewUserSession(u *User, GatewayAddr string, nk []NodeKeys) UserSession {
+// Creates a new Session interface for registration
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 
 	// With an underlying Session data structure
-	return UserSession(&SessionObj{
+	return Session(&SessionObj{
 		CurrentUser:  u,
 		GWAddress:    GatewayAddr, // FIXME: don't store this here
 		Keys:         nk,
@@ -66,15 +68,15 @@ func NewUserSession(u *User, GatewayAddr string, nk []NodeKeys) UserSession {
 
 }
 
-func LoadSession(UID UserID) error {
-	if LocalStorage == nil {
+func LoadSession(UID ID) error {
+	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return err
 	}
 
 	rand.Seed(time.Now().UnixNano())
 
-	sessionGob := LocalStorage.Load()
+	sessionGob := globals.LocalStorage.Load()
 
 	var sessionBytes bytes.Buffer
 
@@ -99,7 +101,7 @@ func LoadSession(UID UserID) error {
 		return err
 	}
 
-	Session = &session
+	TheSession = &session
 
 	return nil
 }
@@ -153,7 +155,7 @@ func (s *SessionObj) SetGWAddress(addr string) {
 
 func (s *SessionObj) StoreSession() error {
 
-	if LocalStorage == nil {
+	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not available")
 		return err
 	}
@@ -170,7 +172,7 @@ func (s *SessionObj) StoreSession() error {
 		return err
 	}
 
-	err = LocalStorage.Save(session.Bytes())
+	err = globals.LocalStorage.Save(session.Bytes())
 
 	if err != nil {
 
@@ -210,7 +212,7 @@ func (s *SessionObj) Immolate() error {
 		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
 	}
 
-	Session = nil
+	TheSession = nil
 
 	return nil
 }

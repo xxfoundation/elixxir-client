@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/user"
 )
 
 const gwAddress = "localhost:5557"
@@ -34,14 +35,15 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID globals.UserID, message string) error {
+func (d *dummyMessaging) SendMessage(recipientID user.ID,
+	message string) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
 	return nil
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID globals.UserID) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID user.ID) chan *format.Message {
 	return d.listener
 }
 
@@ -91,9 +93,9 @@ func TestInitClient(t *testing.T) {
 }
 
 func TestGetContactListJSON(t *testing.T) {
-	user, _ := globals.Users.GetUser(1)
-	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, gwAddress, nk)
+	u, _ := user.Users.GetUser(1)
+	nk := make([]user.NodeKeys, 1)
+	user.TheSession = user.NewSession(u, gwAddress, nk)
 	// This call includes validating the JSON against the schema
 	result, err := GetContactListJSON()
 
@@ -265,9 +267,9 @@ func TestDisableBlockingTransmission(t *testing.T) {
 }
 
 func TestSetRateLimiting(t *testing.T) {
-	user, _ := globals.Users.GetUser(1)
-	nk := make([]globals.NodeKeys, 1)
-	globals.Session = globals.NewUserSession(user, gwAddress, nk)
+	u, _ := user.Users.GetUser(1)
+	nk := make([]user.NodeKeys, 1)
+	user.TheSession = user.NewSession(u, gwAddress, nk)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

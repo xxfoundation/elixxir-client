@@ -13,7 +13,7 @@ import (
 )
 
 // TestUserRegistry tests the constructors/getters/setters
-// surrounding the User struct and the UserRegistry interface
+// surrounding the User struct and the Registry interface
 func TestUserRegistry(t *testing.T) {
 	// Test if CountUsers correctly counts the hard-coded demo users
 	if Users.CountUsers() != NUM_DEMO_USERS {

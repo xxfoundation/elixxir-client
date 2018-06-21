@@ -134,7 +134,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewUserSession(u, gwAddr, nk)
+	nus := user.NewSession(u, gwAddr, nk)
 
 	errStore := nus.StoreSession()
 
@@ -230,8 +230,8 @@ func TryReceive() (format.MessageInterface, error) {
 			typedBody, err := parse.Parse([]byte(message.GetPayload()))
 			result := APIMessage{
 				Payload:     string(typedBody.Body),
-				SenderID:    user.NewUserIDFromBytes(message.GetSender()),
-				RecipientID: user.NewUserIDFromBytes(message.GetRecipient()),
+				SenderID:    user.NewIDFromBytes(message.GetSender()),
+				RecipientID: user.NewIDFromBytes(message.GetRecipient()),
 			}
 			return &result, err
 		}

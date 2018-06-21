@@ -55,7 +55,7 @@ type RatchetKey struct {
 }
 
 // Creates a new Session interface for registration
-func NewUserSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{

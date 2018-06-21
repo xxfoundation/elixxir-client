@@ -20,30 +20,30 @@ import (
 // string probably makes more sense
 type ID uint64
 
-var UserIDLen = 8
+var IDLen = 8
 
 // TODO remove this when ID becomes a string
 func (u ID) Bytes() []byte {
-	result := make([]byte, UserIDLen)
+	result := make([]byte, IDLen)
 	binary.BigEndian.PutUint64(result, uint64(u))
 	return result
 }
 
 // TODO clean this up
 func (u ID) RegistrationCode() string {
-	return cyclic.NewIntFromUInt(uint64(NewUserIDFromBytes(UserHash(u)))).TextVerbose(32, 0)
+	return cyclic.NewIntFromUInt(uint64(NewIDFromBytes(UserHash(u)))).TextVerbose(32, 0)
 }
 
-func NewUserIDFromBytes(id []byte) ID {
+func NewIDFromBytes(id []byte) ID {
 	// to keep compatibility with old user registration codes, we need to use
 	// the last part of the byte array that we pass in
 	// FIXME break compatibility here during the migration to 128 bit ids
-	result := ID(binary.BigEndian.Uint64(id[len(id)-UserIDLen:]))
+	result := ID(binary.BigEndian.Uint64(id[len(id)-IDLen:]))
 	return result
 }
 
-// Globally instantiated UserRegistry
-var Users = newUserRegistry()
+// Globally instantiated Registry
+var Users = newRegistry()
 var NUM_DEMO_USERS = int(40)
 var DEMO_USER_NICKS = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
 	"Mario", "Will", "Allan", "Jono", "", "", "UDB"}
@@ -51,7 +51,7 @@ var DEMO_CHANNEL_NAMES = []string{"#General", "#Engineering", "#Lunch",
 	"#Random"}
 
 // Interface for User Registry operations
-type UserRegistry interface {
+type Registry interface {
 	NewUser(id ID, nickname string) *User
 	DeleteUser(id ID)
 	GetUser(id ID) (user *User, ok bool)
@@ -74,8 +74,8 @@ type UserMap struct {
 	keysLookup map[ID]*NodeKeys
 }
 
-// newUserRegistry creates a new UserRegistry interface
-func newUserRegistry() UserRegistry {
+// newRegistry creates a new Registry interface
+func newRegistry() Registry {
 	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
 		jww.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
@@ -118,7 +118,7 @@ func newUserRegistry() UserRegistry {
 	}
 
 	// With an underlying UserMap data structure
-	return UserRegistry(&UserMap{userCollection: uc,
+	return Registry(&UserMap{userCollection: uc,
 		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
@@ -149,7 +149,7 @@ func UserHash(uid ID) []byte {
 	h, _ := hash.NewCMixHash()
 	h.Write(uid.Bytes())
 	huid := h.Sum(nil)
-	huid = huid[len(huid) - UserIDLen:]
+	huid = huid[len(huid) -IDLen:]
 	return huid
 }
 

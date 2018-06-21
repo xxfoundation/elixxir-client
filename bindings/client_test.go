@@ -95,7 +95,7 @@ func TestInitClient(t *testing.T) {
 func TestGetContactListJSON(t *testing.T) {
 	u, _ := user.Users.GetUser(1)
 	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewUserSession(u, gwAddress, nk)
+	user.TheSession = user.NewSession(u, gwAddress, nk)
 	// This call includes validating the JSON against the schema
 	result, err := GetContactListJSON()
 
@@ -269,7 +269,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(1)
 	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewUserSession(u, gwAddress, nk)
+	user.TheSession = user.NewSession(u, gwAddress, nk)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

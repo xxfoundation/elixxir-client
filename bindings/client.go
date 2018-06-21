@@ -147,7 +147,7 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func Login(UID []byte, addr string) (string, error) {
-	userID := user.NewUserIDFromBytes(UID)
+	userID := user.NewIDFromBytes(UID)
 	nick, err := api.Login(userID, addr)
 	return nick, err
 }

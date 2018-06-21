@@ -12,7 +12,7 @@ func TestWallet(t *testing.T) {
 
 	globals.InitStorage(&globals.RamStorage{}, "")
 
-	user.TheSession = user.NewUserSession(nil, "abc", nil)
+	user.TheSession = user.NewSession(nil, "abc", nil)
 
 	wallet, err := NewWallet()
 

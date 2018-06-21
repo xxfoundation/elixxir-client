@@ -14,7 +14,7 @@ import (
 )
 
 // TestUserRegistry tests the constructors/getters/setters
-// surrounding the User struct and the UserRegistry interface
+// surrounding the User struct and the Registry interface
 func TestUserSession(t *testing.T) {
 
 	test := 9
@@ -42,7 +42,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewUserSession(u, "abc", keys)
+	ses := NewSession(u, "abc", keys)
 
 	ses.(*SessionObj).PrivateKey.SetInt64(2)
 
@@ -214,7 +214,7 @@ func TestGetPubKey(t *testing.T) {
 		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	ses := NewUserSession(u, "abc", keys)
+	ses := NewSession(u, "abc", keys)
 	pubKey := ses.GetPublicKey()
 	if pubKey.Cmp(cyclic.NewMaxInt()) != 0 {
 		t.Errorf("Public key is not set to max int!")

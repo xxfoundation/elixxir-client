@@ -58,7 +58,7 @@ func setup() {
 		nk[i].ReceptionKeys.Base = cyclic.NewInt(1)
 		nk[i].ReceptionKeys.Recursive = grp.Inverse(nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
 	}
-	user.TheSession = user.NewUserSession(u, "", nk)
+	user.TheSession = user.NewSession(u, "", nk)
 	// ratcheting will stop the keys from being inverses of each other
 	forward.SetRatchetStatus(false)
 }

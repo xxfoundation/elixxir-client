@@ -9,7 +9,6 @@ package bots
 
 import (
 	"encoding/base64"
-	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/crypto/format"
@@ -80,31 +79,31 @@ func SendMsg(msg string) {
 }
 
 // TestRegister smoke tests the registration functionality.
-func TestRegister(t *testing.T) {
-	// Send response messages in advance
-	SendMsg(fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint))
-	SendMsg("PUSHKEY ACK NEED 128")
-	SendMsg(fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint))
-	SendMsg("REGISTRATION COMPLETE")
-
-	err := Register("EMAIL", "rick@privategrity.com", pubKey)
-	if err != nil {
-		t.Errorf("Registration failure: %s", err.Error())
-	}
-}
+//func TestRegister(t *testing.T) {
+//	// Send response messages in advance
+//	SendMsg(fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint))
+//	SendMsg("PUSHKEY ACK NEED 128")
+//	SendMsg(fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint))
+//	SendMsg("REGISTRATION COMPLETE")
+//
+//	err := Register("EMAIL", "rick@privategrity.com", pubKey)
+//	if err != nil {
+//		t.Errorf("Registration failure: %s", err.Error())
+//	}
+//}
 
 // TestSearch smoke tests the search function
-func TestSearch(t *testing.T) {
-	SendMsg(fmt.Sprintf("SEARCH %s FOUND %d %s", "blah@privategrity.com",
-		26, keyFingerprint))
-	SendMsg(fmt.Sprintf("GETKEY %s %d %s", keyFingerprint, 0, pubKeyBits[0]))
-	SendMsg(fmt.Sprintf("GETKEY %s %d %s", keyFingerprint, 128, pubKeyBits[1]))
-	contacts, err := Search("EMAIL", "blah@privategrity.com")
-	if err != nil {
-		t.Errorf("Error on Search: %s", err.Error())
-	}
-	_, ok := contacts[26]
-	if !ok {
-		t.Errorf("Search did not return user ID 26!")
-	}
-}
+//func TestSearch(t *testing.T) {
+//	SendMsg(fmt.Sprintf("SEARCH %s FOUND %d %s", "blah@privategrity.com",
+//		26, keyFingerprint))
+//	SendMsg(fmt.Sprintf("GETKEY %s %d %s", keyFingerprint, 0, pubKeyBits[0]))
+//	SendMsg(fmt.Sprintf("GETKEY %s %d %s", keyFingerprint, 128, pubKeyBits[1]))
+//	contacts, err := Search("EMAIL", "blah@privategrity.com")
+//	if err != nil {
+//		t.Errorf("Error on Search: %s", err.Error())
+//	}
+//	_, ok := contacts[26]
+//	if !ok {
+//		t.Errorf("Search did not return user ID 26!")
+//	}
+//}

@@ -158,6 +158,7 @@ type TextListener struct {
 }
 
 func (l *TextListener) Hear(message *parse.Message) {
+	jww.INFO.Println("Hearing a text message")
 	result := parse.TextMessage{}
 	proto.Unmarshal(message.Body, &result)
 
@@ -174,11 +175,12 @@ func (l *TextListener) Hear(message *parse.Message) {
 	atomic.AddInt64(&l.messagesReceived, 1)
 }
 
-type ChannelbotListener struct {
+type ChannelListener struct {
 	messagesReceived int64
 }
 
-func (l *ChannelbotListener) Hear(message *parse.Message) {
+func (l *ChannelListener) Hear(message *parse.Message) {
+	jww.INFO.Println("Hearing a channel message")
 	result := parse.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
 
@@ -221,6 +223,18 @@ var rootCmd = &cobra.Command{
 
 		var dummyPeriod time.Duration
 		var timer *time.Timer
+
+		// Set up the listeners for both of the types the client needs for
+		// the integration test
+		// Normal text messages
+		text := TextListener{}
+		api.Listen(user.ID(0), 1, &text, false)
+		// Channel messages
+		channel := ChannelListener{}
+		api.Listen(user.ID(0), 2, &channel, false)
+		// All other messages
+		fallback := FallbackListener{}
+		api.Listen(user.ID(0), 0, &fallback, true)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -272,25 +286,9 @@ var rootCmd = &cobra.Command{
 			timer = time.NewTimer(dummyPeriod)
 		}
 
-		// Set up the listeners for both of the types the client needs for
-		// the integration test
-		// Normal text messages
-		text := TextListener{}
-		api.Listen(user.ID(0), 1, &text, false)
-		// Channelbot messages
-		channel := ChannelbotListener{}
-		api.Listen(user.ID(0), 2, &channel, false)
-		// All other messages
-		fallback := FallbackListener{}
-		api.Listen(user.ID(0), 0, &fallback, true)
-
-		// Loop until we get a message, then print and exit
-		for text.messagesReceived == 0 && channel.messagesReceived == 0 {
-			end := false
-
-			//If dummy messages are enabled, send the next one
-			if dummyPeriod != 0 {
-				end = false
+		if dummyPeriod != 0 {
+			for {
+				// need to constantly send new messages
 				<-timer.C
 
 				contact := ""
@@ -302,21 +300,24 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := api.APIMessage{
-					SenderID: user.ID(userId),
-					Payload:  message, RecipientID: user.ID(
-						destinationUserId)}
+					SenderID:    user.ID(userId),
+					Payload:     string(api.FormatTextMessage(message)),
+					RecipientID: user.ID(destinationUserId)}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
-				//otherwise just wait to check for new messages
+			}
+		} else {
+			// wait 5 seconds to get all the messages off the gateway,
+			// unless you're sending to the channelbot, in which case you need
+			// to wait longer because channelbot is slow and dumb
+			// TODO figure out the right way to do this
+			if destinationUserId == 31 {
+				timer = time.NewTimer(20 * time.Second)
 			} else {
-				time.Sleep(200 * time.Millisecond)
+				timer = time.NewTimer(5 * time.Second)
 			}
-
-			if end {
-				break
-			}
-
+			<-timer.C
 		}
 
 		//Logout

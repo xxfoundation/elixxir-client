@@ -8,7 +8,6 @@
 package io
 
 import (
-	"gitlab.com/privategrity/crypto/format"
 	"time"
 	"gitlab.com/privategrity/client/user"
 )
@@ -17,10 +16,6 @@ import (
 type Communications interface {
 	// SendMessage to the server
 	SendMessage(recipientID user.ID, message string) error
-	// Listen for messages from a given sender
-	Listen(senderID user.ID) chan *format.Message
-	// StopListening to a given listener (closes and deletes)
-	StopListening(listenerCh chan *format.Message)
 	// MessageReceiver thread to get new messages
 	MessageReceiver(delay time.Duration)
 }

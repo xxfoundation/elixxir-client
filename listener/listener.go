@@ -9,11 +9,12 @@ package listener
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
 	"strconv"
 	"sync"
-	"gitlab.com/privategrity/client/user"
 )
 
+// This is an interface so you can receive callbacks through the Gomobile boundary
 type Listener interface {
 	Hear(msg *parse.Message)
 }
@@ -165,7 +166,7 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {
 				for i, listener := range perType {
-					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, " +
+					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, "+
 						"is fallback: %v", i, listener.id, u, messageType, listener.isFallback)
 				}
 			}

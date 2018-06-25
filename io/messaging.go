@@ -12,14 +12,14 @@ package io
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
+	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/listener"
 )
 
 type messaging struct{}
@@ -130,53 +130,55 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 func (m *messaging) receiveMessageFromGateway(
 	pollingMessage *pb.ClientPollMessage) *format.Message {
 	pollingMessage.MessageID = lastReceivedMessageID
-	messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
-		pollingMessage)
+	if user.TheSession != nil {
+		messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
+			pollingMessage)
 
-	if err != nil {
-		jww.WARN.Printf("CheckMessages error during polling: %v", err.Error())
-		return nil
-	}
+		if err != nil {
+			jww.WARN.Printf("CheckMessages error during polling: %v", err.Error())
+			return nil
+		}
 
-	jww.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
+		jww.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
 
-	if ReceivedMessages == nil {
-		ReceivedMessages = make(map[string]struct{})
-	}
+		if ReceivedMessages == nil {
+			ReceivedMessages = make(map[string]struct{})
+		}
 
-	for _, messageID := range messages.MessageIDs {
-		// Get the first unseen message from the list of IDs
-		_, received := ReceivedMessages[messageID]
-		if !received {
-			jww.INFO.Printf("Got a message waiting on the gateway: %v",
-				messageID)
-			// We haven't seen this message before.
-			// So, we should retrieve it from the gateway.
-			newMessage, err := client.SendGetMessage(user.
-				TheSession.GetGWAddress(),
-				&pb.ClientPollMessage{
-					UserID:    uint64(user.TheSession.GetCurrentUser().UserID),
-					MessageID: messageID,
-				})
-			if err != nil {
-				jww.WARN.Printf(
-					"Couldn't receive message with ID %v while"+
-						" polling gateway", messageID)
-			} else {
-				if newMessage.MessagePayload == nil &&
-					newMessage.RecipientID == nil &&
-					newMessage.SenderID == 0 {
-					jww.INFO.Println("Message fields not populated")
-					return nil
+		for _, messageID := range messages.MessageIDs {
+			// Get the first unseen message from the list of IDs
+			_, received := ReceivedMessages[messageID]
+			if !received {
+				jww.INFO.Printf("Got a message waiting on the gateway: %v",
+					messageID)
+				// We haven't seen this message before.
+				// So, we should retrieve it from the gateway.
+				newMessage, err := client.SendGetMessage(user.
+					TheSession.GetGWAddress(),
+					&pb.ClientPollMessage{
+						UserID:    uint64(user.TheSession.GetCurrentUser().UserID),
+						MessageID: messageID,
+					})
+				if err != nil {
+					jww.WARN.Printf(
+						"Couldn't receive message with ID %v while"+
+							" polling gateway", messageID)
+				} else {
+					if newMessage.MessagePayload == nil &&
+						newMessage.RecipientID == nil &&
+						newMessage.SenderID == 0 {
+						jww.INFO.Println("Message fields not populated")
+						return nil
+					}
+					decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
+					if err2 != nil {
+						jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
+					}
+					ReceivedMessages[messageID] = struct{}{}
+					lastReceivedMessageID = messageID
+
+					return decryptedMsg
 				}
-				decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
-				if err2 != nil {
-					jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
-				}
-				ReceivedMessages[messageID] = struct{}{}
-				lastReceivedMessageID = messageID
-
-				return decryptedMsg
 			}
 		}
 	}

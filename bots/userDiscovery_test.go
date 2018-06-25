@@ -74,7 +74,8 @@ func TestMain(m *testing.M) {
 
 // SendMsg puts a fake udb response message on the channel
 func SendMsg(msg string) {
-	m, _ := format.NewMessage(13, 1, msg)
+	typedMsg := typeCommand(msg)
+	m, _ := format.NewMessage(13, 1, typedMsg)
 	ListenCh <- &m[0]
 }
 

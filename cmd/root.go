@@ -69,7 +69,7 @@ func sessionInitialization() {
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
-		err = bindings.InitClient(&globals.RamStorage{}, "", nil)
+		err = bindings.InitClient(&globals.RamStorage{}, "")
 		if err != nil {
 			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -92,7 +92,7 @@ func sessionInitialization() {
 		}
 
 		//Initialize client with OS Storage
-		err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile, nil)
+		err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
 
 		if err != nil {
 			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())

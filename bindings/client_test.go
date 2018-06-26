@@ -6,14 +6,12 @@
 package bindings
 
 import (
-	"bytes"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"strings"
@@ -70,13 +68,13 @@ func TestMain(m *testing.M) {
 
 // Make sure InitClient returns an error when called incorrectly.
 func TestInitClientNil(t *testing.T) {
-	err := InitClient(nil, "", nil)
+	err := InitClient(nil, "")
 	if err == nil {
 		t.Errorf("InitClient returned nil on invalid (nil, nil) input!")
 	}
 	globals.LocalStorage = nil
 
-	err = InitClient(nil, "hello", nil)
+	err = InitClient(nil, "hello")
 	if err == nil {
 		t.Errorf("InitClient returned nil on invalid (nil, 'hello') input!")
 	}
@@ -85,7 +83,7 @@ func TestInitClientNil(t *testing.T) {
 
 func TestInitClient(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	if err != nil {
 		t.Errorf("InitClient returned error: %v", err)
 	}
@@ -157,55 +155,13 @@ func (br *BytesReceiver) Receive(message Message) {
 	br.lastSID = message.GetSender()
 }
 
-// This test creates a struct that implements the Receiver interface, then makes
-// sure that that struct can receive a message when it's set as the global
-// Receiver.
-func TestReceiveMessageByInterface(t *testing.T) {
-	// set up the receiver
-	receiver := BytesReceiver{}
-	err := InitClient(&globals.RamStorage{}, "", &receiver)
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// set up the message
-	payload := "hello there"
-	senderID := cyclic.NewIntFromUInt(50).LeftpadBytes(format.SID_LEN)
-	recipientID := cyclic.NewIntFromUInt(60).LeftpadBytes(format.RID_LEN)
-	msg, err := format.NewMessage(cyclic.NewIntFromBytes(senderID).Uint64(),
-		cyclic.NewIntFromBytes(recipientID).Uint64(), payload)
-	if err != nil {
-		t.Errorf("Couldn't create messages: %v", err.Error())
-	}
-
-	// receive the message
-	globals.Receive(msg[0])
-
-	// verify that the message was correctly received
-	if !bytes.Equal(receiver.receptionBuffer, []byte(payload)) {
-		t.Errorf("Message payload didn't match. Got: %v, expected %v",
-			string(receiver.receptionBuffer), payload)
-	}
-	if !bytes.Equal(senderID, receiver.lastSID) {
-		t.Errorf("Sender ID didn't match. Got: %v, expected %v",
-			cyclic.NewIntFromBytes(receiver.lastSID).Uint64(),
-			cyclic.NewIntFromBytes(senderID).Uint64())
-	}
-	if !bytes.Equal(recipientID, receiver.lastRID) {
-		t.Errorf("Recipient ID didn't match. Got: %v, expected %v",
-			cyclic.NewIntFromBytes(receiver.lastRID).Uint64(),
-			cyclic.NewIntFromBytes(recipientID).Uint64())
-	}
-	globals.LocalStorage = nil
-}
-
 func TestRegister(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 
 	regRes, err := Register(registrationCode, gwAddress, 1)
 	if err != nil {
@@ -223,7 +179,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 
 	_, err = Register(registrationCode, gwAddress, 0)
 	if err == nil {
@@ -238,7 +194,7 @@ func TestLoginLogout(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "JHJ6L9BACDVC"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 
 	regRes, err := Register(registrationCode, gwAddress, 1)
 	loginRes, err2 := Login(regRes, gwAddress)

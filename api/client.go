@@ -69,7 +69,7 @@ func FormatTextMessage(message string) []byte {
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error {
+func InitClient(s globals.Storage, loc string) error {
 	storageErr := globals.InitStorage(s, loc)
 
 	if storageErr != nil {
@@ -79,12 +79,6 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 	}
 
 	crypto.InitCrypto()
-
-	receiverErr := globals.SetReceiver(receiver)
-
-	if receiverErr != nil {
-		return receiverErr
-	}
 
 	return nil
 }

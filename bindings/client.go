@@ -12,7 +12,6 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/format"
 	"strconv"
 	"gitlab.com/privategrity/client/user"
 )
@@ -67,26 +66,12 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-//
-// receiver implements Receiver.
-// This parameter is optional. If this parameter is null,
-// you can receive messages by polling the API with TryReceive.
-// If you pass a non-null object implementing Receiver in this
-// parameter, we will call that Receiver when the client gets a message.
-func InitClient(storage Storage, loc string, receiver Receiver) error {
-	var r func(messageInterface format.MessageInterface)
-
-	if receiver != nil {
-		r = func(messageInterface format.MessageInterface) {
-			receiver.Receive(messageInterface.(Message))
-		}
-	}
-
+func InitClient(storage Storage, loc string) error {
 	if storage == nil {
 		return errors.New("could not init client: Storage was nil")
 	}
 
-	err := api.InitClient(storage.(globals.Storage), loc, r)
+	err := api.InitClient(storage.(globals.Storage), loc)
 
 	return err
 }

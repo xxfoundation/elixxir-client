@@ -16,13 +16,12 @@ import (
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
 type Listener interface {
-	Hear(msg *parse.Message)
+	Hear(msg *parse.Message, isHeardElsewhere bool)
 }
 
 type listenerRecord struct {
-	l          Listener
-	id         string
-	isFallback bool
+	l  Listener
+	id string
 }
 
 type ListenerMap struct {
@@ -39,7 +38,6 @@ func NewListenerMap() *ListenerMap {
 	return &ListenerMap{
 		listeners: make(map[user.ID]map[int64][]*listenerRecord),
 		lastID:    0,
-		mux:       sync.RWMutex{},
 	}
 }
 
@@ -53,12 +51,10 @@ func NewListenerMap() *ListenerMap {
 // type.
 // newListener: something implementing the Listener callback interface.
 // Don't pass nil to this.
-// isFallback: if true, this listener will only hear messages that no
-// non-fallback listeners have already heard.
 //
 // If a message matches multiple listeners, all of them will hear the message.
 func (lm *ListenerMap) Listen(user user.ID, messageType int64,
-	newListener Listener, isFallback bool) string {
+	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
 
@@ -72,9 +68,8 @@ func (lm *ListenerMap) Listen(user user.ID, messageType int64,
 	}
 
 	newListenerRecord := &listenerRecord{
-		l:          newListener,
-		id:         strconv.Itoa(lm.lastID),
-		isFallback: isFallback,
+		l:  newListener,
+		id: strconv.Itoa(lm.lastID),
 	}
 	lm.listeners[user][messageType] = append(lm.listeners[user][messageType],
 		newListenerRecord)
@@ -104,22 +99,14 @@ func (lm *ListenerMap) StopListening(listenerID string) {
 }
 
 func (lm *ListenerMap) matchListeners(userID user.ID,
-	messageType int64) (normals []*listenerRecord,
-	fallbacks []*listenerRecord) {
+	messageType int64) []*listenerRecord {
 
-	normals = make([]*listenerRecord, 0)
-	fallbacks = make([]*listenerRecord, 0)
+	normals := make([]*listenerRecord, 0)
 
 	for _, listener := range lm.listeners[userID][messageType] {
-		if listener.isFallback {
-			// matched a fallback listener
-			fallbacks = append(fallbacks, listener)
-		} else {
-			// matched a normal listener
-			normals = append(normals, listener)
-		}
+		normals = append(normals, listener)
 	}
-	return normals, fallbacks
+	return normals
 }
 
 // Broadcast a message to the appropriate listeners
@@ -130,35 +117,24 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 
 	var zeroUserID user.ID
 	accumNormals := make([]*listenerRecord, 0)
-	accumFallbacks := make([]*listenerRecord, 0)
 	// match perfect matches
-	normals, fallbacks := lm.matchListeners(msg.Sender, msg.BodyType)
+	normals := lm.matchListeners(msg.Sender, msg.BodyType)
 	accumNormals = append(accumNormals, normals...)
-	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match listeners that want just the user ID for all message types
-	normals, fallbacks = lm.matchListeners(msg.Sender, 0)
+	normals = lm.matchListeners(msg.Sender, 0)
 	accumNormals = append(accumNormals, normals...)
-	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match just the type
-	normals, fallbacks = lm.matchListeners(zeroUserID, msg.BodyType)
+	normals = lm.matchListeners(zeroUserID, msg.BodyType)
 	accumNormals = append(accumNormals, normals...)
-	accumFallbacks = append(accumFallbacks, fallbacks...)
 	// match wildcard listeners that hear everything
-	normals, fallbacks = lm.matchListeners(zeroUserID, 0)
+	normals = lm.matchListeners(zeroUserID, 0)
 	accumNormals = append(accumNormals, normals...)
-	accumFallbacks = append(accumFallbacks, fallbacks...)
 
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
 		for _, listener := range accumNormals {
 			jww.INFO.Printf("Hearing on listener %v", listener.id)
-			listener.l.Hear(msg)
-		}
-	} else if len(accumFallbacks) > 0 {
-		// notify all fallback listeners
-		for _, listener := range accumFallbacks {
-			jww.INFO.Printf("Hearing on listener %v", listener.id)
-			listener.l.Hear(msg)
+			listener.l.Hear(msg, len(accumNormals) > 1)
 		}
 	} else {
 		jww.ERROR.Println("Message didn't match any listeners in the map")
@@ -166,8 +142,8 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {
 				for i, listener := range perType {
-					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, "+
-						"is fallback: %v", i, listener.id, u, messageType, listener.isFallback)
+					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
+						i, listener.id, u, messageType)
 				}
 			}
 		}

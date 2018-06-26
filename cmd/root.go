@@ -141,23 +141,26 @@ type FallbackListener struct {
 	messagesReceived int64
 }
 
-func (l *FallbackListener) Hear(message *parse.Message) {
-	sender, ok := user.Users.GetUser(message.Sender)
-	var senderNick string
-	if !ok {
-		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
-	} else {
-		senderNick = sender.Nick
+func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
+	if !isHeardElsewhere {
+		sender, ok := user.Users.GetUser(message.Sender)
+		var senderNick string
+		if !ok {
+			jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		} else {
+			senderNick = sender.Nick
+		}
+		atomic.AddInt64(&l.messagesReceived, 1)
+		fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
+			message.BodyType, message.Sender, senderNick, string(message.Body))
 	}
-	fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
-		message.BodyType, message.Sender, senderNick, string(message.Body))
 }
 
 type TextListener struct {
 	messagesReceived int64
 }
 
-func (l *TextListener) Hear(message *parse.Message) {
+func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	jww.INFO.Println("Hearing a text message")
 	result := parse.TextMessage{}
 	proto.Unmarshal(message.Body, &result)
@@ -179,7 +182,7 @@ type ChannelListener struct {
 	messagesReceived int64
 }
 
-func (l *ChannelListener) Hear(message *parse.Message) {
+func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	jww.INFO.Println("Hearing a channel message")
 	result := parse.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
@@ -228,13 +231,13 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(user.ID(0), 1, &text, false)
+		api.Listen(user.ID(0), 1, &text)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(user.ID(0), 2, &channel, false)
+		api.Listen(user.ID(0), 2, &channel)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(user.ID(0), 0, &fallback, true)
+		api.Listen(user.ID(0), 0, &fallback)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {

@@ -219,10 +219,10 @@ func SetRateLimiting(limit uint32) {
 var listenCh chan *format.Message
 
 func Listen(user user.ID, messageType int64,
-	newListener listener.Listener, isFallback bool) {
-	jww.INFO.Println("Listening now: user %v, message type %v, "+
-		"is fallback %v", user, messageType, isFallback)
-	listener.Listeners.Listen(user, messageType, newListener, isFallback)
+	newListener listener.Listener) {
+	jww.INFO.Printf("Listening now: user %v, message type %v, ",
+		user, messageType)
+	listener.Listeners.Listen(user, messageType, newListener)
 }
 
 type APISender struct{}

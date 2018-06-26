@@ -141,7 +141,7 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 
 type udbListener chan *format.Message
 
-func (l *udbListener) Hear(msg *parse.Message) {
+func (l *udbListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	newFormatMessage, _ := format.NewMessage(uint64(msg.Sender),
 		uint64(msg.Receiver), string(msg.Body))
 	*l <- &newFormatMessage[0]
@@ -187,7 +187,7 @@ func getSendListener() udbListener {
 		// need to add a new listener to a map
 		sendCommandListener = make(udbListener, 1)
 		sendCommandListenerID = listener.Listeners.Listen(udbID,
-			udbType, &sendCommandListener, false)
+			udbType, &sendCommandListener)
 	}
 	return sendCommandListener
 }

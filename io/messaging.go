@@ -13,12 +13,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/crypto/csprng"
 	"gitlab.com/privategrity/crypto/format"
+	cryptoMessaging "gitlab.com/privategrity/crypto/messaging"
 	"sync"
 	"time"
-	"gitlab.com/privategrity/client/user"
 )
 
 type messaging struct{}
@@ -96,13 +98,21 @@ func send(senderID user.ID, message *format.Message) error {
 		}()
 	}
 
+	salt := cryptoMessaging.NewSalt(csprng.Source(&csprng.SystemRNG{}, 16))
+
+	// TBD: Add key macs to this message
+	macs := make([]byte, 0)
+
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?
+	// TODO: Use salt here
 	encryptedMessage := crypto.Encrypt(crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       uint64(senderID),
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
+		Salt:           salt,
+		MACs:           macs,
 	}
 
 	var err error

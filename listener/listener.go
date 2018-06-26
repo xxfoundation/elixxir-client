@@ -82,12 +82,12 @@ func (lm *ListenerMap) StopListening(listenerID string) {
 	defer lm.mux.Unlock()
 
 	// Iterate over all listeners in the map
-	for user, perUser := range lm.listeners {
+	for u, perUser := range lm.listeners {
 		for messageType, perType := range perUser {
 			for i, listener := range perType {
 				if listener.id == listenerID {
 					// this matches. remove listener from the data structure
-					lm.listeners[user][messageType] = append(perType[:i],
+					lm.listeners[u][messageType] = append(perType[:i],
 						perType[i+1:]...)
 					// since the id is unique per listener,
 					// we can terminate the loop early.

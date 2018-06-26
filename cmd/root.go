@@ -231,13 +231,13 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(user.ID(0), 1, &text)
+		api.Listen(user.ID(0), parse.Type_TEXT_MESSAGE, &text)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(user.ID(0), 2, &channel)
+		api.Listen(user.ID(0), parse.Type_CHANNEL_MESSAGE, &channel)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(user.ID(0), 0, &fallback)
+		api.Listen(user.ID(0), parse.Type_NO_TYPE, &fallback)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {

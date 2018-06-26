@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package listener
+package switchboard
 
 import (
 	"testing"
@@ -44,7 +44,7 @@ func OneListenerSetup() (*ListenerMap, *MockListener) {
 	// add one listener to the map
 	fullyMatchedListener := &MockListener{}
 	// TODO different type for message types?
-	listeners.Listen(specificUserID, specificMessageType,
+	listeners.Register(specificUserID, specificMessageType,
 		fullyMatchedListener)
 	return listeners, fullyMatchedListener
 }
@@ -151,7 +151,7 @@ func WildcardListenerSetup() (*ListenerMap, *MockListener) {
 	// add one listener to the map
 	wildcardListener := &MockListener{}
 	// TODO different type for message types?
-	listeners.Listen(zeroUserID, zeroType,
+	listeners.Register(zeroUserID, zeroType,
 		wildcardListener)
 	return listeners, wildcardListener
 }
@@ -188,16 +188,16 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	for messageType := parse.Type(1); messageType <= parse.
 		Type(20); messageType++ {
 		newListener := MockListener{}
-		listeners.Listen(specificUserID, messageType,
+		listeners.Register(specificUserID, messageType,
 			&newListener)
 		individualListeners = append(individualListeners, &newListener)
 	}
 	// wildcard listener for the user
 	userListener := &MockListener{}
-	listeners.Listen(specificUserID, zeroType, userListener)
+	listeners.Register(specificUserID, zeroType, userListener)
 	// wildcard listener for all messages
 	wildcardListener := &MockListener{}
-	listeners.Listen(zeroUserID, zeroType, wildcardListener)
+	listeners.Register(zeroUserID, zeroType, wildcardListener)
 
 	// send to all types for our user
 	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
@@ -250,10 +250,10 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 	// add one normal and one fallback listener to the map
 	fallbackListener := &MockListener{}
 	fallbackListener.IsFallback = true
-	listeners.Listen(zeroUserID, zeroType,
+	listeners.Register(zeroUserID, zeroType,
 		fallbackListener)
 	specificListener := &MockListener{}
-	listeners.Listen(specificUserID, specificMessageType, specificListener)
+	listeners.Register(specificUserID, specificMessageType, specificListener)
 
 	// send exactly one message to each of them
 	listeners.Speak(&parse.Message{
@@ -309,10 +309,10 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 	}
 }
 
-func TestListenerMap_StopListening(t *testing.T) {
+func TestListenerMap_Unregister(t *testing.T) {
 	listeners := NewListenerMap()
-	id := listeners.Listen(specificUserID, specificMessageType, &MockListener{})
-	listeners.StopListening(id)
+	id := listeners.Register(specificUserID, specificMessageType, &MockListener{})
+	listeners.Unregister(id)
 	if len(listeners.listeners[specificUserID][specificMessageType]) != 0 {
 		t.Error("The listener was still in the map after we stopped" +
 			" listening on it")

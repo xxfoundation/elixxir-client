@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package listener
+package switchboard
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
@@ -53,7 +53,7 @@ func NewListenerMap() *ListenerMap {
 // Don't pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *ListenerMap) Listen(user user.ID, messageType parse.Type,
+func (lm *ListenerMap) Register(user user.ID, messageType parse.Type,
 	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
@@ -77,7 +77,7 @@ func (lm *ListenerMap) Listen(user user.ID, messageType parse.Type,
 	return newListenerRecord.id
 }
 
-func (lm *ListenerMap) StopListening(listenerID string) {
+func (lm *ListenerMap) Unregister(listenerID string) {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
 

@@ -16,7 +16,7 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -200,7 +200,7 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	fmt.Printf("Message from channel %v, %v: ",
 		message.Sender, senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	listener.Listeners.Speak(&parse.Message{
+	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerID,
 		Receiver:  0,
@@ -246,23 +246,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		sessionInitialization()
-
-		// Loop until we don't get a message, draining the queue of messages on the
-		// gateway buffer
-		// TODO What's equivalent functionality with the revised reception functions?
-		// Should there be some sort of way to get the last existing
-		/*gotMsg := false
-		for i := 0; i < 5; i++ {
-			time.Sleep(1000 * time.Millisecond) // wait 1s in between
-			msg, _ := bindings.TryReceive()
-			if msg.GetPayload() == "" && gotMsg {
-				break
-			}
-			if msg.GetPayload() != "" {
-				i = 0 // Make sure to loop until all messages exhausted
-				gotMsg = true
-			}
-		}*/
 
 		// Only send a message if we have a message to send (except dummy messages)
 		if message != "" {

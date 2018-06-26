@@ -12,7 +12,7 @@ package io
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
-	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
@@ -122,7 +122,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		jww.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 		if decryptedMessage != nil {
-			broadcastMessageReception(decryptedMessage, listener.Listeners)
+			broadcastMessageReception(decryptedMessage, switchboard.Listeners)
 		}
 	}
 }
@@ -202,11 +202,11 @@ func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessag
 		jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 	}
 
-	broadcastMessageReception(decryptedMsg, listener.Listeners)
+	broadcastMessageReception(decryptedMsg, switchboard.Listeners)
 }
 
 func broadcastMessageReception(decryptedMsg *format.Message,
-	listeners *listener.ListenerMap) {
+	listeners *switchboard.ListenerMap) {
 	jww.INFO.Println("Attempting to broadcast received message")
 	typedBody, err := parse.Parse([]byte(decryptedMsg.GetPayload()))
 	// Panic the error for now

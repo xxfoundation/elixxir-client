@@ -45,7 +45,7 @@ func (d *dummyMessaging) Listen(senderID user.ID) chan *format.Message {
 	return d.listener
 }
 
-// StopListening to a given listener (closes and deletes)
+// StopListening to a given switchboard (closes and deletes)
 func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
 
 // MessageReceiver thread to get new messages

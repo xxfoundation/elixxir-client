@@ -18,7 +18,7 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/switchboard"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
@@ -186,7 +186,7 @@ func getSendListener() udbListener {
 	if sendCommandListenerID == "" {
 		// need to add a new listener to a map
 		sendCommandListener = make(udbListener, 1)
-		sendCommandListenerID = listener.Listeners.Listen(udbID,
+		sendCommandListenerID = switchboard.Listeners.Register(udbID,
 			udbType, &sendCommandListener)
 	}
 	return sendCommandListener

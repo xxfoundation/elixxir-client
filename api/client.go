@@ -15,7 +15,7 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -213,10 +213,10 @@ func SetRateLimiting(limit uint32) {
 var listenCh chan *format.Message
 
 func Listen(user user.ID, messageType parse.Type,
-	newListener listener.Listener) {
+	newListener switchboard.Listener) {
 	jww.INFO.Printf("Listening now: user %v, message type %v, ",
 		user, messageType)
-	listener.Listeners.Listen(user, messageType, newListener)
+	switchboard.Listeners.Register(user, messageType, newListener)
 }
 
 type APISender struct{}

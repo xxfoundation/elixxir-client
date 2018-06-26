@@ -152,7 +152,7 @@ func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
 		fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
-			message.BodyType, message.Sender, senderNick, string(message.Body))
+			message.Type, message.Sender, senderNick, string(message.Body))
 	}
 }
 

@@ -61,8 +61,8 @@ func FormatTextMessage(message string) []byte {
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)
 	return parse.Pack(&parse.TypedBody{
-		BodyType: 1,
-		Body:     wireRepresentation,
+		Type: 1,
+		Body: wireRepresentation,
 	})
 }
 
@@ -212,7 +212,7 @@ func SetRateLimiting(limit uint32) {
 // FIXME there can only be one
 var listenCh chan *format.Message
 
-func Listen(user user.ID, messageType int64,
+func Listen(user user.ID, messageType parse.Type,
 	newListener listener.Listener) {
 	jww.INFO.Printf("Listening now: user %v, message type %v, ",
 		user, messageType)

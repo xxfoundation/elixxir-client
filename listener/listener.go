@@ -26,7 +26,7 @@ type listenerRecord struct {
 
 type ListenerMap struct {
 	// Hmmm...
-	listeners map[user.ID]map[int64][]*listenerRecord
+	listeners map[user.ID]map[parse.Type][]*listenerRecord
 	lastID    int
 	// TODO right mutex type?
 	mux sync.RWMutex
@@ -36,7 +36,7 @@ var Listeners = NewListenerMap()
 
 func NewListenerMap() *ListenerMap {
 	return &ListenerMap{
-		listeners: make(map[user.ID]map[int64][]*listenerRecord),
+		listeners: make(map[user.ID]map[parse.Type][]*listenerRecord),
 		lastID:    0,
 	}
 }
@@ -53,14 +53,14 @@ func NewListenerMap() *ListenerMap {
 // Don't pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *ListenerMap) Listen(user user.ID, messageType int64,
+func (lm *ListenerMap) Listen(user user.ID, messageType parse.Type,
 	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
 
 	lm.lastID++
 	if lm.listeners[user] == nil {
-		lm.listeners[user] = make(map[int64][]*listenerRecord)
+		lm.listeners[user] = make(map[parse.Type][]*listenerRecord)
 	}
 
 	if lm.listeners[user][messageType] == nil {
@@ -99,7 +99,7 @@ func (lm *ListenerMap) StopListening(listenerID string) {
 }
 
 func (lm *ListenerMap) matchListeners(userID user.ID,
-	messageType int64) []*listenerRecord {
+	messageType parse.Type) []*listenerRecord {
 
 	normals := make([]*listenerRecord, 0)
 
@@ -118,13 +118,13 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 	var zeroUserID user.ID
 	accumNormals := make([]*listenerRecord, 0)
 	// match perfect matches
-	normals := lm.matchListeners(msg.Sender, msg.BodyType)
+	normals := lm.matchListeners(msg.Sender, msg.Type)
 	accumNormals = append(accumNormals, normals...)
 	// match listeners that want just the user ID for all message types
 	normals = lm.matchListeners(msg.Sender, 0)
 	accumNormals = append(accumNormals, normals...)
 	// match just the type
-	normals = lm.matchListeners(zeroUserID, msg.BodyType)
+	normals = lm.matchListeners(zeroUserID, msg.Type)
 	accumNormals = append(accumNormals, normals...)
 	// match wildcard listeners that hear everything
 	normals = lm.matchListeners(zeroUserID, 0)

@@ -9,6 +9,12 @@ syntax = "proto3";
 package parse;
 option go_package = "parse";
 
+enum Type {
+    NO_TYPE = 0;
+    TEXT_MESSAGE = 1;
+    CHANNEL_MESSAGE = 2;
+}
+
 // Common types for text messages
 
 // TODO: Automatically combine multi-part messages based on these fields

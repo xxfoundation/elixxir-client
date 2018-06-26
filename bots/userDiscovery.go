@@ -194,8 +194,8 @@ func getSendListener() udbListener {
 
 func typeCommand(command string) string {
 	typedCommand := parse.Pack(&parse.TypedBody{
-		BodyType: udbType,
-		Body:     []byte(command),
+		Type: udbType,
+		Body: []byte(command),
 	})
 
 	return string(typedCommand)

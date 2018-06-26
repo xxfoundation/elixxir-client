@@ -19,7 +19,7 @@ type MockListener struct {
 	NumHeard        int
 	IsFallback      bool
 	LastMessage     []byte
-	LastMessageType int64
+	LastMessageType parse.Type
 	mux             sync.Mutex
 }
 
@@ -30,12 +30,12 @@ func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	if !isHeardElsewhere || !ml.IsFallback {
 		ml.NumHeard++
 		ml.LastMessage = msg.Body
-		ml.LastMessageType = msg.BodyType
+		ml.LastMessageType = msg.Type
 	}
 }
 
 var specificUserID user.ID = 5
-var specificMessageType int64 = 8
+var specificMessageType parse.Type = 8
 var delay = 10 * time.Millisecond
 
 func OneListenerSetup() (*ListenerMap, *MockListener) {
@@ -56,8 +56,8 @@ func TestListenerMap_SpeakOne(t *testing.T) {
 	// speak
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     make([]byte, 0),
+			Type: specificMessageType,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 0,
@@ -79,8 +79,8 @@ func TestListenerMap_SpeakManyToOneListener(t *testing.T) {
 	// speak
 	for i := 0; i < 20; i++ {
 		go listeners.Speak(&parse.Message{TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     make([]byte, 0),
+			Type: specificMessageType,
+			Body: make([]byte, 0),
 		},
 			Sender: specificUserID,
 			Receiver: 0})
@@ -103,8 +103,8 @@ func TestListenerMap_SpeakToAnother(t *testing.T) {
 	otherUserID := specificUserID + 1
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     make([]byte, 0),
+			Type: specificMessageType,
+			Body: make([]byte, 0),
 		},
 		Sender:   otherUserID,
 		Receiver: 0,
@@ -126,8 +126,8 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 	// speak
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType + 1,
-			Body:     make([]byte, 0),
+			Type: specificMessageType + 1,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 0,
@@ -143,7 +143,7 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 }
 
 var zeroUserID user.ID
-var zeroType int64
+var zeroType parse.Type
 
 func WildcardListenerSetup() (*ListenerMap, *MockListener) {
 	var listeners *ListenerMap
@@ -163,8 +163,8 @@ func TestListenerMap_SpeakWildcard(t *testing.T) {
 	// speak
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType + 1,
-			Body:     make([]byte, 0),
+			Type: specificMessageType + 1,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
@@ -185,9 +185,10 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	individualListeners := make([]*MockListener, 0)
 
 	// one user, many types
-	for messageType := 1; messageType <= 20; messageType++ {
+	for messageType := parse.Type(1); messageType <= parse.
+		Type(20); messageType++ {
 		newListener := MockListener{}
-		listeners.Listen(specificUserID, int64(messageType),
+		listeners.Listen(specificUserID, messageType,
 			&newListener)
 		individualListeners = append(individualListeners, &newListener)
 	}
@@ -199,15 +200,11 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	listeners.Listen(zeroUserID, zeroType, wildcardListener)
 
 	// send to all types for our user
-	for messageType := 1; messageType <= 20; messageType++ {
-		//go listeners.Speak(specificUserID, &parse.TypedBody{
-		//	BodyType: int64(messageType),
-		//	Body:     make([]byte, 0),
-		//})
+	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
 		go listeners.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				BodyType: int64(messageType),
-				Body:     make([]byte, 0),
+				Type: messageType,
+				Body: make([]byte, 0),
 			},
 			Sender:   specificUserID,
 			Receiver: 2,
@@ -215,11 +212,11 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	}
 	// send to all types for a different user
 	otherUser := user.ID(specificUserID + 1)
-	for messageType := 1; messageType <= 20; messageType++ {
+	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
 		go listeners.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				BodyType: int64(messageType),
-				Body:     make([]byte, 0),
+				Type: messageType,
+				Body: make([]byte, 0),
 			},
 			Sender:   otherUser,
 			Receiver: 2,
@@ -261,16 +258,16 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 	// send exactly one message to each of them
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     make([]byte, 0),
+			Type: specificMessageType,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
 	})
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType + 1,
-			Body:     make([]byte, 0),
+			Type: specificMessageType + 1,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
@@ -295,8 +292,8 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 	expected := []byte{0x01, 0x02, 0x03, 0x04}
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     expected,
+			Type: specificMessageType,
+			Body: expected,
 		},
 		Sender:   specificUserID,
 		Receiver: 2,

@@ -16,6 +16,9 @@ import (
 	"strconv"
 	"strings"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/listener"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
@@ -136,10 +139,17 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 	return nil
 }
 
+type udbListener chan *format.Message
+
+func (l *udbListener) Hear(msg *parse.Message) {
+	newFormatMessage, _ := format.NewMessage(uint64(msg.Sender),
+		uint64(msg.Receiver), string(msg.Body))
+	*l <- &newFormatMessage[0]
+}
+
 // keyExists checks for the existence of a key on the bot
 func keyExists(udbID user.ID, keyFP string) bool {
-	listener := io.Messaging.Listen(udbID)
-	defer io.Messaging.StopListening(listener)
+	// FIXME hook up new listeners with the UDB here
 	cmd := fmt.Sprintf("GETKEY %s", keyFP)
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
 	getKeyResponse := sendCommand(udbID, cmd)
@@ -147,8 +157,8 @@ func keyExists(udbID user.ID, keyFP string) bool {
 		// Listen twice to ensure we get the full error message
 		// Note that the sendCommand helper listens on a seperate one. We are
 		// ensuring that this function waits for 2 messages
-		<-listener
-		<-listener
+		<-getSendListener()
+		<-getSendListener()
 		return true
 	}
 	return false
@@ -162,19 +172,47 @@ func fingerprint(publicKey []byte) string {
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
 }
 
+var sendCommandListenerID string
+var sendCommandListener udbListener
+// TODO how many types do we actually need to replicate the old UDB's behavior?
+// does UDB even need a type? it's got string-based command sending with the
+// type as a string in front right now. maybe we could actually just use 0.
+// actually we can't use 0 - the listener will match
+// TODO UDB messages should populate the type field to avoid getting the first
+// message character parsed out.
+const udbType = 8
+
+func getSendListener() udbListener {
+	if sendCommandListenerID == "" {
+		// need to add a new listener to a map
+		sendCommandListener = make(udbListener, 1)
+		sendCommandListenerID = listener.Listeners.Listen(udbID,
+			udbType, &sendCommandListener, false)
+	}
+	return sendCommandListener
+}
+
+func typeCommand(command string) string {
+	typedCommand := parse.Pack(&parse.TypedBody{
+		BodyType: udbType,
+		Body:     []byte(command),
+	})
+
+	return string(typedCommand)
+}
+
 // sendCommand sends a command to the udb. This can block forever, but
 // only does so if the send command succeeds. Our assumption is that
 // we will eventually receive a response from the server. Callers
 // to registration that need timeouts should implement it themselves.
 func sendCommand(botID user.ID, command string) string {
-	listener := io.Messaging.Listen(botID)
-	defer io.Messaging.StopListening(listener)
-	err := io.Messaging.SendMessage(botID, command)
+	// prepend command with the UDB type
+	err := io.Messaging.SendMessage(botID, typeCommand(command))
 	if err != nil {
 		return err.Error()
 	}
-	response := <-listener
-	jww.ERROR.Printf(response.GetPayload())
+	response := <-getSendListener()
+
 	return response.GetPayload()
 }
 
@@ -182,9 +220,8 @@ func sendCommand(botID user.ID, command string) string {
 // does
 func sendCommandMulti(responseCnt int, botID user.ID,
 	command string) []string {
-	listener := io.Messaging.Listen(botID)
-	defer io.Messaging.StopListening(listener)
-	err := io.Messaging.SendMessage(botID, command)
+	// FIXME hook up UDB with the new listeners here
+	err := io.Messaging.SendMessage(botID, typeCommand(command))
 
 	responses := make([]string, 0)
 	if err != nil {
@@ -193,7 +230,7 @@ func sendCommandMulti(responseCnt int, botID user.ID,
 	}
 
 	for i := 0; i < responseCnt; i++ {
-		response := <-listener
+		response := <-getSendListener()
 		responses = append(responses, response.GetPayload())
 	}
 	return responses

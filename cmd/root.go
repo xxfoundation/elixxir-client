@@ -8,18 +8,21 @@
 package cmd
 
 import (
-	"encoding/binary"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
+	"sync/atomic"
 	"time"
-	"gitlab.com/privategrity/client/user"
 )
 
 var verbose bool
@@ -134,6 +137,74 @@ func sessionInitialization() {
 	}
 }
 
+type FallbackListener struct {
+	messagesReceived int64
+}
+
+func (l *FallbackListener) Hear(message *parse.Message) {
+	sender, ok := user.Users.GetUser(message.Sender)
+	var senderNick string
+	if !ok {
+		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+	} else {
+		senderNick = sender.Nick
+	}
+	fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
+		message.BodyType, message.Sender, senderNick, string(message.Body))
+}
+
+type TextListener struct {
+	messagesReceived int64
+}
+
+func (l *TextListener) Hear(message *parse.Message) {
+	jww.INFO.Println("Hearing a text message")
+	result := parse.TextMessage{}
+	proto.Unmarshal(message.Body, &result)
+
+	sender, ok := user.Users.GetUser(message.Sender)
+	var senderNick string
+	if !ok {
+		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+	} else {
+		senderNick = sender.Nick
+	}
+	fmt.Printf("Message from %v, %v Received: %s\n", message.Sender,
+		senderNick, result.Message)
+
+	atomic.AddInt64(&l.messagesReceived, 1)
+}
+
+type ChannelListener struct {
+	messagesReceived int64
+}
+
+func (l *ChannelListener) Hear(message *parse.Message) {
+	jww.INFO.Println("Hearing a channel message")
+	result := parse.ChannelMessage{}
+	proto.Unmarshal(message.Body, &result)
+
+	sender, ok := user.Users.GetUser(message.Sender)
+	var senderNick string
+	if !ok {
+		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+	} else {
+		senderNick = sender.Nick
+	}
+
+	speakerID := user.NewIDFromBytes(result.SpeakerID)
+
+	fmt.Printf("Message from channel %v, %v: ",
+		message.Sender, senderNick)
+	typedBody, _ := parse.Parse(result.Message)
+	listener.Listeners.Speak(&parse.Message{
+		TypedBody: *typedBody,
+		Sender:    speakerID,
+		Receiver:  0,
+	})
+	atomic.AddInt64(&l.messagesReceived, 1)
+}
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "client",
@@ -153,6 +224,18 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
+		// Set up the listeners for both of the types the client needs for
+		// the integration test
+		// Normal text messages
+		text := TextListener{}
+		api.Listen(user.ID(0), 1, &text, false)
+		// Channel messages
+		channel := ChannelListener{}
+		api.Listen(user.ID(0), 2, &channel, false)
+		// All other messages
+		fallback := FallbackListener{}
+		api.Listen(user.ID(0), 0, &fallback, true)
+
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
 			dummyPeriod = time.Nanosecond *
@@ -163,7 +246,9 @@ var rootCmd = &cobra.Command{
 
 		// Loop until we don't get a message, draining the queue of messages on the
 		// gateway buffer
-		gotMsg := false
+		// TODO What's equivalent functionality with the revised reception functions?
+		// Should there be some sort of way to get the last existing
+		/*gotMsg := false
 		for i := 0; i < 5; i++ {
 			time.Sleep(1000 * time.Millisecond) // wait 1s in between
 			msg, _ := bindings.TryReceive()
@@ -174,7 +259,7 @@ var rootCmd = &cobra.Command{
 				i = 0 // Make sure to loop until all messages exhausted
 				gotMsg = true
 			}
-		}
+		}*/
 
 		// Only send a message if we have a message to send (except dummy messages)
 		if message != "" {
@@ -184,7 +269,7 @@ var rootCmd = &cobra.Command{
 			if ok {
 				recipientNick = u.Nick
 			}
-			wireRepresentation := bindings.FormatTextMessage(message)
+			wireOut := bindings.FormatTextMessage(message)
 
 			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 				recipientNick, message)
@@ -192,7 +277,7 @@ var rootCmd = &cobra.Command{
 			//Send the message
 			bindings.Send(api.APIMessage{
 				SenderID:    user.ID(userId),
-				Payload:     string(wireRepresentation),
+				Payload:     string(wireOut),
 				RecipientID: user.ID(destinationUserId),
 			})
 		}
@@ -201,34 +286,9 @@ var rootCmd = &cobra.Command{
 			timer = time.NewTimer(dummyPeriod)
 		}
 
-		// Loop until we get a message, then print and exit
-		for {
-
-			var msg bindings.Message
-			msg, _ = bindings.TryReceive()
-
-			end := false
-
-			//Report failed message reception
-			sender := binary.BigEndian.Uint64(msg.GetSender())
-
-			// Get sender's nick
-			u, ok := user.Users.GetUser(user.ID(sender))
-			var senderNick string
-			if ok {
-				senderNick = u.Nick
-			}
-
-			//Return the received message to console
-			if msg.GetPayload() != "" {
-				fmt.Printf("Message from %v, %v Received: %s\n", sender,
-					senderNick, msg.GetPayload())
-				end = true
-			}
-
-			//If dummy messages are enabled, send the next one
-			if dummyPeriod != 0 {
-				end = false
+		if dummyPeriod != 0 {
+			for {
+				// need to constantly send new messages
 				<-timer.C
 
 				contact := ""
@@ -240,21 +300,24 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := api.APIMessage{
-					SenderID: user.ID(userId),
-					Payload:  message, RecipientID: user.ID(
-						destinationUserId)}
+					SenderID:    user.ID(userId),
+					Payload:     string(api.FormatTextMessage(message)),
+					RecipientID: user.ID(destinationUserId)}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
-				//otherwise just wait to check for new messages
+			}
+		} else {
+			// wait 5 seconds to get all the messages off the gateway,
+			// unless you're sending to the channelbot, in which case you need
+			// to wait longer because channelbot is slow and dumb
+			// TODO figure out the right way to do this
+			if destinationUserId == 31 {
+				timer = time.NewTimer(20 * time.Second)
 			} else {
-				time.Sleep(200 * time.Millisecond)
+				timer = time.NewTimer(5 * time.Second)
 			}
-
-			if end {
-				break
-			}
-
+			<-timer.C
 		}
 
 		//Logout

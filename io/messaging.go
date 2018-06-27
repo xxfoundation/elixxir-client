@@ -92,7 +92,7 @@ func send(senderID user.ID, message *format.Message) error {
 	salt := cryptoMessaging.NewSalt(csprng.Source(&csprng.SystemRNG{}, 16))
 
 	// TBD: Add key macs to this message
-	macs := make([]byte, 0)
+	macs := make([][]byte, 0)
 
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?

@@ -195,7 +195,7 @@ func (m *messaging) receiveMessageFromGateway(
 					salt := newMessage.Salt
 					decryptionKey := cyclic.NewInt(1)
 					for _, key := range user.TheSession.GetKeys() {
-						baseKey := key.TransmissionKeys.Base
+						baseKey := key.ReceptionKeys.Base
 						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
 							crypto.Grp)
 						crypto.Grp.Mul(decryptionKey, decryptionKey, partialDecryptionKey)

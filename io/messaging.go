@@ -218,37 +218,6 @@ func (m *messaging) receiveMessageFromGateway(
 	return nil
 }
 
-func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessage) {
-	encryptedMsg, err := client.SendClientPoll(ReceiveAddress, pollingMessage)
-	if err != nil {
-		jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
-		return
-	}
-	if encryptedMsg.MessagePayload == nil &&
-		encryptedMsg.RecipientID == nil &&
-		encryptedMsg.SenderID == 0 {
-		return
-	}
-
-	// Generate a compound decryption key
-	salt := encryptedMsg.Salt
-	decryptionKey := cyclic.NewInt(1)
-	for _, key := range user.TheSession.GetKeys() {
-		baseKey := key.TransmissionKeys.Base
-		partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
-			crypto.Grp)
-		crypto.Grp.Mul(decryptionKey, decryptionKey, partialDecryptionKey)
-		//TODO: Add KMAC verification here
-	}
-
-	decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp, encryptedMsg)
-	if err2 != nil {
-		jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
-	}
-
-	broadcastMessageReception(decryptedMsg, listener.Listeners)
-}
-
 func broadcastMessageReception(decryptedMsg *format.Message,
 	listeners *listener.ListenerMap) {
 	jww.INFO.Println("Attempting to broadcast received message")

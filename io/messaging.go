@@ -89,7 +89,7 @@ func send(senderID user.ID, message *format.Message) error {
 		}()
 	}
 
-	salt := cryptoMessaging.NewSalt(csprng.Source(&csprng.SystemRNG{}, 16))
+	salt := cryptoMessaging.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
 
 	// TBD: Add key macs to this message
 	macs := make([][]byte, 0)

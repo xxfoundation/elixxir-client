@@ -35,6 +35,8 @@ func (i *idCounter) reset() {
 }
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
+// length in bytes of index and max index
+const indexLength = 2
 
 func Partition(body []byte, id []byte) ([][]byte, error) {
 	// index and quantity of the partitioned message are a fixed length of 8
@@ -46,7 +48,8 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	// number of partitions if you do them that way and i'm having none of that
 
 	// a zero here means that the message has one partition
-	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(id)))
+	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
+		id)) - indexLength)
 	if maxIndex > math.MaxUint8 {
 		return nil, errors.New(MessageTooLongError)
 	}
@@ -54,11 +57,17 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	partitions := make([][]byte, maxIndex+1)
 	var lastPartitionLength int
 	partitionReadIdx := 0
+	println("Making partitions!")
+	totalLen := 0
 	for i := range partitions {
 		partitions[i], lastPartitionLength = makePartition(format.DATA_LEN,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
 		partitionReadIdx += lastPartitionLength
+		totalLen += lastPartitionLength
 	}
+
+	// for debugging
+	println("Total length of partitions", totalLen)
 
 	return partitions, nil
 }
@@ -103,6 +112,13 @@ func makePartition(maxLength uint64, body []byte, id []byte, i byte,
 func Assemble(partitions [][]byte) []byte {
 	// this will allocate a bit more capacity than needed but not so much that
 	// it breaks the bank
+	println("Received", len(partitions), "partitions to assemble")
+	totalLength := 0
+	for i := range partitions {
+		totalLength += len(partitions[i])
+		totalLength -= 3
+	}
+	println("Total length:", totalLength)
 	result := make([]byte, 0, int(format.DATA_LEN)*len(partitions))
 
 	for i := range partitions {

@@ -100,7 +100,7 @@ func send(senderID user.ID, message *format.Message) error {
 	for _, key := range user.TheSession.GetKeys() {
 		baseKey := key.TransmissionKeys.Base
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, crypto.Grp)
-		crypto.Grp.Mul(encryptionKey, encryptionKey, partialEncryptionKey)
+		crypto.Grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
 		//TODO: Add KMAC generation here
 	}
 
@@ -113,7 +113,7 @@ func send(senderID user.ID, message *format.Message) error {
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
 		Salt:           salt,
-		MACs:           macs,
+		KMACs:          macs,
 	}
 
 	var err error
@@ -198,7 +198,7 @@ func (m *messaging) receiveMessageFromGateway(
 						baseKey := key.ReceptionKeys.Base
 						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
 							crypto.Grp)
-						crypto.Grp.Mul(decryptionKey, decryptionKey, partialDecryptionKey)
+						crypto.Grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)
 						//TODO: Add KMAC verification here
 					}
 

@@ -5,6 +5,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"sync"
+	"errors"
 )
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -33,7 +34,9 @@ func (i *idCounter) reset() {
 	i.mux.Unlock()
 }
 
-func Partition(body []byte, id []byte) [][]byte {
+const MessageTooLongError = "Partition(): Message is too long to partition"
+
+func Partition(body []byte, id []byte) ([][]byte, error) {
 	// index and quantity of the partitioned message are a fixed length of 8
 	// bits because sending more than that through the system is really slow and
 	// making them variable length makes the required length of the body part
@@ -45,7 +48,7 @@ func Partition(body []byte, id []byte) [][]byte {
 	// a zero here means that the message has one partition
 	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(id)))
 	if maxIndex > math.MaxUint8 {
-		panic("Partition(): Message is too long to partition")
+		return nil, errors.New(MessageTooLongError)
 	}
 
 	partitions := make([][]byte, maxIndex+1)
@@ -57,7 +60,7 @@ func Partition(body []byte, id []byte) [][]byte {
 		partitionReadIdx += lastPartitionLength
 	}
 
-	return partitions
+	return partitions, nil
 }
 
 // can you believe that golang doesn't provide a min function in the std lib?
@@ -112,16 +115,16 @@ func Assemble(partitions [][]byte) []byte {
 func stripPartition(partition []byte) []byte {
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
-	idEndLoc := 0
+	indexInformationStart := 0
 	for i := 0; i < len(partition); i++ {
-		if msbMask&partition[i] != 0 {
+		if msbMask&partition[i] == 0 {
 			// this is the last byte in the ID. stop the loop
-			idEndLoc = i
+			indexInformationStart = i + 1
 			break
 		}
 	}
 	// 1 byte for index, 1 byte for length.
 	// Change this if you change the data type for these fields
 	indexInformationLength := 2
-	return partition[idEndLoc+indexInformationLength:]
+	return partition[indexInformationStart+indexInformationLength:]
 }

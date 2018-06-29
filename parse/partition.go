@@ -10,15 +10,15 @@ import (
 
 // TODO is there a better way to generate unique message IDs locally?
 // also, dummy message sender needs to have some way to get around this
-type idCounter struct {
+type IDCounter struct {
 	// 32 bits to put a smaller upper bound on the varint size on the wire
 	currentID uint32
 	mux       sync.Mutex
 }
 
-var currentCounter idCounter
+var currentCounter IDCounter
 
-func (i *idCounter) nextID() []byte {
+func (i *IDCounter) nextID() []byte {
 	// this will use up to 5 bytes for the message ID
 	result := make([]byte, binary.MaxVarintLen32)
 	i.mux.Lock()
@@ -28,7 +28,7 @@ func (i *idCounter) nextID() []byte {
 	return result[:n]
 }
 
-func (i *idCounter) reset() {
+func (i *IDCounter) reset() {
 	i.mux.Lock()
 	i.currentID = 0
 	i.mux.Unlock()

@@ -35,9 +35,10 @@ func (i *IDCounter) reset() {
 }
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
+
 // length in bytes of index and max index.
 // change this if you change the index type
-const indexLength = 2
+const IndexLength = 2
 
 func Partition(body []byte, id []byte) ([][]byte, error) {
 	// index and quantity of the partitioned message are a fixed length of 8
@@ -50,7 +51,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 
 	// a zero here means that the message has one partition
 	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
-		id)) - indexLength)
+		id)) - IndexLength)
 	if maxIndex > math.MaxUint8 {
 		return nil, errors.New(MessageTooLongError)
 	}
@@ -100,26 +101,28 @@ func makePartition(maxLength uint64, body []byte, id []byte, i byte,
 	return partition, len(partition) - lengthBeforeBodyAppend
 }
 
-// Assemble ignores message IDs and assumes that all messages have the same ID
-// It also assumes that messages are already correctly ordered by their index
+// Assemble assumes that messages are correctly ordered by their index
+// It also assumes that messages have had all of their front matter stripped.
 func Assemble(partitions [][]byte) []byte {
 	// this will allocate a bit more capacity than needed but not so much that
 	// it breaks the bank
 	result := make([]byte, 0, int(format.DATA_LEN)*len(partitions))
 
 	for i := range partitions {
-		result = append(result, stripPartition(partitions[i])...)
+		result = append(result, partitions[i]...)
 	}
 	return result
 }
 
-// Strips the metadata (index, length, ID) from the start of a partition
-func stripPartition(partition []byte) []byte {
-	_, remainder := ParseID(partition)
-	return remainder[indexLength:]
+type MultiPartMessage struct {
+	id     []byte
+	idx    byte
+	maxIdx byte
+	body   []byte
 }
 
-func ParseID(partition []byte) (id []byte, remainder []byte){
+func ValidatePartition(partition []byte) (message *MultiPartMessage,
+	ok bool) {
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0
@@ -130,5 +133,21 @@ func ParseID(partition []byte) (id []byte, remainder []byte){
 			break
 		}
 	}
-	return partition[:indexInformationStart], partition[indexInformationStart:]
+	// validate: make sure that there's a payload beyond the front matter
+	if indexInformationStart+IndexLength >= len(partition) ||
+	// make sure that the ID is within the length we expect
+		indexInformationStart > binary.MaxVarintLen32 ||
+	// make sure that the index is less than or equal to the maximum
+		partition[indexInformationStart] > partition[indexInformationStart+1] ||
+	// make sure that we found a boundary between the index and ID
+		indexInformationStart == 0 {
+		return nil, false
+	}
+	result := &MultiPartMessage{
+		id:     partition[:indexInformationStart],
+		idx:    partition[indexInformationStart],
+		maxIdx: partition[indexInformationStart+1],
+		body:   partition[indexInformationStart+2:],
+	}
+	return result, true
 }

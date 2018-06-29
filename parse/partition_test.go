@@ -134,10 +134,6 @@ func TestPartitionTooLong(t *testing.T) {
 
 // Tests Assemble with a synthetic test case, without invoking Partition.
 func TestOnlyAssemble(t *testing.T) {
-	id := []byte{0xf0, 0xe0, 0xd0, 0xc0, 0xb0, 0xa0, 0x04}
-	// Assemble ignores these. Messages should be ordered elsewhere
-	indexAndMaxIndex := []byte{0x4, 0x8}
-
 	messageChunks := []string{"Han Singular, ", "my child, ",
 		"awaken and embrace ", "the glory that is", " your birthright."}
 
@@ -148,8 +144,6 @@ func TestOnlyAssemble(t *testing.T) {
 
 	partitions := make([][]byte, len(messageChunks))
 	for i := range partitions {
-		partitions[i] = append(partitions[i], id...)
-		partitions[i] = append(partitions[i], indexAndMaxIndex...)
 		partitions[i] = append(partitions[i], messageChunks[i]...)
 	}
 
@@ -163,12 +157,11 @@ func TestOnlyAssemble(t *testing.T) {
 // into partitioning can come out of it intact.
 func TestAssembleAndPartition(t *testing.T) {
 	expected := []string{
-		"",
 		"short message",
 		// 5008 bytes
-`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce tristique neque sed diam efficitur pulvinar. Proin posuere tortor id sodales elementum. Ut nec viverra libero. Proin et dui consequat nulla rhoncus facilisis. Phasellus semper at tortor ut ullamcorper. Aliquam accumsan auctor elit, vel tincidunt nulla bibendum et. Integer dictum ligula mauris, sit amet dignissim quam ornare sed. Mauris diam orci, ultrices vitae tellus non, faucibus scelerisque ante. Morbi fringilla massa purus, eu fringilla eros ultricies vel. Suspendisse nisi nisl, interdum quis porttitor quis, facilisis ac mauris. Integer in pretium erat, sed egestas quam. Donec eleifend felis dapibus mauris ullamcorper feugiat. Nulla at pharetra lectus. Pellentesque libero metus, efficitur at venenatis non, pharetra eu nisl. Donec id lorem dignissim, euismod elit vel, efficitur lacus. In finibus, orci ut rhoncus mollis, sem ex aliquet nunc, sed pretium eros justo ac tortor. Etiam vehicula dapibus lectus sed condimentum. Cras porta nulla sit amet pretium suscipit. Vivamus vestibulum sed nibh non vestibulum. Suspendisse sit amet purus at sapien mollis sollicitudin eu id turpis. Nulla dapibus in urna sit amet luctus. Proin faucibus quis dui porta volutpat. Duis sed ultrices lacus. Integer interdum finibus sem, in finibus urna eleifend at. Curabitur urna mi, auctor et ligula a, tristique pretium ex. Vivamus vitae felis non nunc rhoncus mattis. Integer fringilla volutpat lorem ac dictum. Praesent sed nibh et purus sollicitudin iaculis at eu metus. Nunc lobortis fermentum magna, quis varius velit blandit vel. Quisque fringilla lacinia magna ac euismod. Vestibulum velit ipsum, bibendum sagittis leo sed, pretium porta magna. Nulla facilisi. Aenean elementum posuere consequat. Cras placerat vulputate magna, at condimentum nibh sagittis quis. Pellentesque auctor tortor vehicula ante tristique, in auctor purus efficitur. Vivamus sapien lorem, viverra ut lacinia at, laoreet nec diam. Proin finibus, elit ac ultricies fermentum, eros erat imperdiet lacus, sed laoreet dui elit sed odio. Etiam id hendrerit quam, quis rhoncus mauris. Proin ac ante bibendum, malesuada mauris vitae, tempor quam. Nulla vitae pulvinar nunc. Vestibulum quis vulputate risus, et gravida enim. Sed tellus lacus, sagittis sit amet sodales non, varius ultrices massa. Aliquam nec volutpat sem. Nam porttitor, nibh vitae iaculis posuere, magna ante placerat elit, ut suscipit odio dui vitae libero. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam tincidunt tellus risus, eget laoreet odio suscipit et. Nulla scelerisque interdum sapien, in tempus mi malesuada vel. Donec et urna sit amet purus pulvinar tincidunt. Mauris fermentum quis lacus at scelerisque. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aenean viverra erat vel sagittis blandit. Praesent in purus sed tortor consequat vehicula. Mauris non iaculis diam, nec vestibulum nisl. Phasellus arcu mi, luctus id felis sit amet, feugiat pellentesque tortor. Curabitur at dui dolor. Nunc semper quam pharetra, suscipit quam at, fringilla justo. In feugiat ipsum eu lectus aliquet ultrices. Curabitur fringilla tincidunt vehicula. Donec laoreet facilisis ante ac maximus. Aliquam lectus diam, pulvinar quis arcu in, molestie tincidunt quam. Sed aliquet orci id arcu finibus congue. Ut nulla lacus, dictum eget sem in, condimentum mattis massa. Donec suscipit, sapien nec euismod tincidunt, velit lectus iaculis ligula, sed sagittis tellus odio at nisl. Aenean mattis tellus in convallis aliquet. Duis posuere, augue id pellentesque accumsan, enim orci congue diam, a venenatis metus tellus id nibh. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed ex massa, lobortis sed risus in, blandit tincidunt enim. Suspendisse fringilla lacinia velit sit amet varius. Donec ac malesuada nisl, vel sagittis mauris. Sed eu blandit orci. Ut porta orci sed dui blandit tristique. Donec ac tellus et nisl fermentum volutpat. Nullam ipsum mi, aliquet ut mattis non, imperdiet non massa. Phasellus tincidunt mauris ac convallis convallis. Nunc blandit velit vel fermentum rhoncus. Nam dictum mi in fringilla semper. Nunc tristique congue velit et cursus. Vivamus rhoncus porta lacus posuere sodales. Quisque in interdum lectus, in imperdiet lacus. Proin vel arcu non arcu commodo rhoncus ac rhoncus velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nulla eget massa et nibh suscipit egestas nec a justo. Morbi a semper diam, vitae rutrum odio. Nunc a nisl quam. Proin ornare luctus sem, et rhoncus est mattis in. Donec hendrerit, augue id sodales maximus, justo magna faucibus libero, eu hendrerit diam elit vel massa. Nulla dictum purus nisi, eget varius dui lacinia non. Fusce ut mauris ut massa imperdiet consequat. Proin id eros vitae odio gravida convallis. Donec faucibus, massa quis volutpat. `,
-// 58051 bytes
-`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc ipsum odio, suscipit nec tempor vitae, pretium convallis felis. Integer rutrum dolor sit amet tellus semper volutpat. Mauris eleifend massa ac iaculis aliquam. Ut ac urna faucibus, commodo risus vitae, eleifend urna. Duis nec diam quam. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Vestibulum aliquam at elit ut eleifend. Phasellus id massa malesuada, elementum ante sed, porta velit. In finibus a nulla at maximus. Suspendisse condimentum consequat volutpat. Cras varius volutpat dapibus. Curabitur venenatis semper varius. Etiam condimentum ligula diam, eu commodo purus placerat id. Morbi ut ipsum ac elit egestas tempor.
+		`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Fusce tristique neque sed diam efficitur pulvinar. Proin posuere tortor id sodales elementum. Ut nec viverra libero. Proin et dui consequat nulla rhoncus facilisis. Phasellus semper at tortor ut ullamcorper. Aliquam accumsan auctor elit, vel tincidunt nulla bibendum et. Integer dictum ligula mauris, sit amet dignissim quam ornare sed. Mauris diam orci, ultrices vitae tellus non, faucibus scelerisque ante. Morbi fringilla massa purus, eu fringilla eros ultricies vel. Suspendisse nisi nisl, interdum quis porttitor quis, facilisis ac mauris. Integer in pretium erat, sed egestas quam. Donec eleifend felis dapibus mauris ullamcorper feugiat. Nulla at pharetra lectus. Pellentesque libero metus, efficitur at venenatis non, pharetra eu nisl. Donec id lorem dignissim, euismod elit vel, efficitur lacus. In finibus, orci ut rhoncus mollis, sem ex aliquet nunc, sed pretium eros justo ac tortor. Etiam vehicula dapibus lectus sed condimentum. Cras porta nulla sit amet pretium suscipit. Vivamus vestibulum sed nibh non vestibulum. Suspendisse sit amet purus at sapien mollis sollicitudin eu id turpis. Nulla dapibus in urna sit amet luctus. Proin faucibus quis dui porta volutpat. Duis sed ultrices lacus. Integer interdum finibus sem, in finibus urna eleifend at. Curabitur urna mi, auctor et ligula a, tristique pretium ex. Vivamus vitae felis non nunc rhoncus mattis. Integer fringilla volutpat lorem ac dictum. Praesent sed nibh et purus sollicitudin iaculis at eu metus. Nunc lobortis fermentum magna, quis varius velit blandit vel. Quisque fringilla lacinia magna ac euismod. Vestibulum velit ipsum, bibendum sagittis leo sed, pretium porta magna. Nulla facilisi. Aenean elementum posuere consequat. Cras placerat vulputate magna, at condimentum nibh sagittis quis. Pellentesque auctor tortor vehicula ante tristique, in auctor purus efficitur. Vivamus sapien lorem, viverra ut lacinia at, laoreet nec diam. Proin finibus, elit ac ultricies fermentum, eros erat imperdiet lacus, sed laoreet dui elit sed odio. Etiam id hendrerit quam, quis rhoncus mauris. Proin ac ante bibendum, malesuada mauris vitae, tempor quam. Nulla vitae pulvinar nunc. Vestibulum quis vulputate risus, et gravida enim. Sed tellus lacus, sagittis sit amet sodales non, varius ultrices massa. Aliquam nec volutpat sem. Nam porttitor, nibh vitae iaculis posuere, magna ante placerat elit, ut suscipit odio dui vitae libero. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nullam tincidunt tellus risus, eget laoreet odio suscipit et. Nulla scelerisque interdum sapien, in tempus mi malesuada vel. Donec et urna sit amet purus pulvinar tincidunt. Mauris fermentum quis lacus at scelerisque. Interdum et malesuada fames ac ante ipsum primis in faucibus. Aenean viverra erat vel sagittis blandit. Praesent in purus sed tortor consequat vehicula. Mauris non iaculis diam, nec vestibulum nisl. Phasellus arcu mi, luctus id felis sit amet, feugiat pellentesque tortor. Curabitur at dui dolor. Nunc semper quam pharetra, suscipit quam at, fringilla justo. In feugiat ipsum eu lectus aliquet ultrices. Curabitur fringilla tincidunt vehicula. Donec laoreet facilisis ante ac maximus. Aliquam lectus diam, pulvinar quis arcu in, molestie tincidunt quam. Sed aliquet orci id arcu finibus congue. Ut nulla lacus, dictum eget sem in, condimentum mattis massa. Donec suscipit, sapien nec euismod tincidunt, velit lectus iaculis ligula, sed sagittis tellus odio at nisl. Aenean mattis tellus in convallis aliquet. Duis posuere, augue id pellentesque accumsan, enim orci congue diam, a venenatis metus tellus id nibh. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Sed ex massa, lobortis sed risus in, blandit tincidunt enim. Suspendisse fringilla lacinia velit sit amet varius. Donec ac malesuada nisl, vel sagittis mauris. Sed eu blandit orci. Ut porta orci sed dui blandit tristique. Donec ac tellus et nisl fermentum volutpat. Nullam ipsum mi, aliquet ut mattis non, imperdiet non massa. Phasellus tincidunt mauris ac convallis convallis. Nunc blandit velit vel fermentum rhoncus. Nam dictum mi in fringilla semper. Nunc tristique congue velit et cursus. Vivamus rhoncus porta lacus posuere sodales. Quisque in interdum lectus, in imperdiet lacus. Proin vel arcu non arcu commodo rhoncus ac rhoncus velit. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Orci varius natoque penatibus et magnis dis parturient montes, nascetur ridiculus mus. Nulla eget massa et nibh suscipit egestas nec a justo. Morbi a semper diam, vitae rutrum odio. Nunc a nisl quam. Proin ornare luctus sem, et rhoncus est mattis in. Donec hendrerit, augue id sodales maximus, justo magna faucibus libero, eu hendrerit diam elit vel massa. Nulla dictum purus nisi, eget varius dui lacinia non. Fusce ut mauris ut massa imperdiet consequat. Proin id eros vitae odio gravida convallis. Donec faucibus, massa quis volutpat. `,
+		// 58051 bytes
+		`Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nunc ipsum odio, suscipit nec tempor vitae, pretium convallis felis. Integer rutrum dolor sit amet tellus semper volutpat. Mauris eleifend massa ac iaculis aliquam. Ut ac urna faucibus, commodo risus vitae, eleifend urna. Duis nec diam quam. Pellentesque habitant morbi tristique senectus et netus et malesuada fames ac turpis egestas. Vestibulum aliquam at elit ut eleifend. Phasellus id massa malesuada, elementum ante sed, porta velit. In finibus a nulla at maximus. Suspendisse condimentum consequat volutpat. Cras varius volutpat dapibus. Curabitur venenatis semper varius. Etiam condimentum ligula diam, eu commodo purus placerat id. Morbi ut ipsum ac elit egestas tempor.
 
 Ut consectetur elementum orci, nec feugiat sapien tincidunt eget. Vivamus tincidunt ut massa nec imperdiet. Suspendisse potenti. Donec venenatis iaculis libero, vel facilisis diam dictum vel. Nam id orci turpis. Integer nec turpis id nunc consequat ornare. Aenean rhoncus interdum tortor, ut suscipit leo faucibus ornare. Etiam fringilla neque sit amet dolor ullamcorper rutrum. Quisque pharetra maximus nibh quis tincidunt. Phasellus eu risus nisi. Nunc vitae viverra tellus, id porta nisi. Proin condimentum fringilla risus, ut placerat arcu imperdiet eget. Nunc nec interdum est. Sed semper, purus non cursus interdum, turpis tellus ultricies felis, nec venenatis velit nunc at lacus.
 
@@ -365,13 +358,73 @@ Donec blandit purus tellus, sit amet pretium mi feugiat in. Ut eget pharetra mas
 Nulla facilisi. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. In vel malesuada odio, ut congue metus. Morbi turpis odio, sollicitudin nec elementum eget, hendrerit in erat. Pellentesque luctus nunc vitae lectus pharetra, non tincidunt lacus volutpat. Praesent convallis tempor eros, eu semper risus auctor vitae. Class aptent taciti sociosqu ad litora torquent per conubia nostra, per inceptos himenaeos. Proin in semper ante, quis euismod dui. Curabitur quis tincidunt mauris. Etiam a semper sapien. Vivamus pretium, felis sit amet pretium luctus, nunc dui pulvinar libero, sit amet dapibus nibh felis eget quam. Pellentesque ligula ligula, volutpat vitae justo ut, aliquam accumsan metus. `,
 	}
 
-	for i := range (expected) {
+	for i := range expected {
+		// create partitions
 		partitions, _ := Partition([]byte(expected[i]), []byte{0x05})
+		// strip front matter from partitions
+		for j := range partitions {
+			strippedPartition, ok := ValidatePartition(partitions[j])
+			if !ok {
+				t.Errorf("Didn't validate a valid partition: %v", j)
+			}
+			partitions[j] = strippedPartition.body
+		}
+		// assemble stripped partitionsj
 		actual := Assemble(partitions)
 
 		if string(actual) != expected[i] {
 			t.Errorf("Actual (length %v): %v", len(string(actual)), string(actual))
 			t.Errorf("Expected (length %v): %v", len(expected[i]), expected[i])
+		}
+	}
+}
+
+// We need to be sure that these invalid payloads get rejected for collation
+// without crashing the client with an out of bounds array access.
+func TestPayloadValidation(t *testing.T) {
+	invalidPayloads := [][]byte{
+		// empty
+		{},
+		// ID only
+		{0x05},
+		// ID only, and is too long to have been generated according to our
+		// expectations
+		{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0f},
+		// no ID, only index and max index
+		{0x3f, 0xff},
+		// ID without an ending byte
+		{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+		// ID and index info without a payload
+		{0x00, 0x00, 0x00},
+	}
+
+	// these contain a variable-length ID,
+	// an index that's less than or equal to the max index,
+	// a max index that's greater than or equal to the index,
+	// and a message after the front matter
+	validPayloads := [][]byte{
+		// Message 0 of 0 with id 0. Note that we're appending a payload to this
+		{0x00, 0x00, 0x00},
+		// Note that in some cases, the system validates something that's
+		// readable. In this case, the first three letters will be consumed.
+		[]byte("telecommunication is neat"),
+	}
+	// make this payload valid by adding a payload to it
+	validPayloads[0] = append(validPayloads[0], []byte("apples and grapes")...)
+
+	for i := range invalidPayloads {
+		result, ok := ValidatePartition(invalidPayloads[i])
+		if ok {
+			t.Errorf("Payload %v was incorrectly validated.", i)
+			t.Errorf("Printing lengths. ID: %v, partition: %v",
+				len(result.id), len(result.body))
+		}
+	}
+
+	for i := range validPayloads {
+		_, ok := ValidatePartition(validPayloads[i])
+		if !ok {
+			t.Errorf("Payload %v was incorrectly invalidated.", i)
 		}
 	}
 }

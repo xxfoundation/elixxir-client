@@ -35,7 +35,8 @@ func (i *IDCounter) reset() {
 }
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
-// length in bytes of index and max index
+// length in bytes of index and max index.
+// change this if you change the index type
 const indexLength = 2
 
 func Partition(body []byte, id []byte) ([][]byte, error) {
@@ -99,8 +100,6 @@ func makePartition(maxLength uint64, body []byte, id []byte, i byte,
 	return partition, len(partition) - lengthBeforeBodyAppend
 }
 
-// TODO use map to hold pending messages by ID and sender
-
 // Assemble ignores message IDs and assumes that all messages have the same ID
 // It also assumes that messages are already correctly ordered by their index
 func Assemble(partitions [][]byte) []byte {
@@ -116,6 +115,11 @@ func Assemble(partitions [][]byte) []byte {
 
 // Strips the metadata (index, length, ID) from the start of a partition
 func stripPartition(partition []byte) []byte {
+	_, remainder := ParseID(partition)
+	return remainder[indexLength:]
+}
+
+func ParseID(partition []byte) (id []byte, remainder []byte){
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0
@@ -126,8 +130,5 @@ func stripPartition(partition []byte) []byte {
 			break
 		}
 	}
-	// 1 byte for index, 1 byte for length.
-	// Change this if you change the data type for these fields
-	indexInformationLength := 2
-	return partition[indexInformationStart+indexInformationLength:]
+	return partition[:indexInformationStart], partition[indexInformationStart:]
 }

@@ -57,17 +57,11 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	partitions := make([][]byte, maxIndex+1)
 	var lastPartitionLength int
 	partitionReadIdx := 0
-	println("Making partitions!")
-	totalLen := 0
 	for i := range partitions {
 		partitions[i], lastPartitionLength = makePartition(format.DATA_LEN,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
 		partitionReadIdx += lastPartitionLength
-		totalLen += lastPartitionLength
 	}
-
-	// for debugging
-	println("Total length of partitions", totalLen)
 
 	return partitions, nil
 }
@@ -112,13 +106,6 @@ func makePartition(maxLength uint64, body []byte, id []byte, i byte,
 func Assemble(partitions [][]byte) []byte {
 	// this will allocate a bit more capacity than needed but not so much that
 	// it breaks the bank
-	println("Received", len(partitions), "partitions to assemble")
-	totalLength := 0
-	for i := range partitions {
-		totalLength += len(partitions[i])
-		totalLength -= 3
-	}
-	println("Total length:", totalLength)
 	result := make([]byte, 0, int(format.DATA_LEN)*len(partitions))
 
 	for i := range partitions {

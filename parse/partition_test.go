@@ -367,7 +367,7 @@ Nulla facilisi. Class aptent taciti sociosqu ad litora torquent per conubia nost
 			if !ok {
 				t.Errorf("Didn't validate a valid partition: %v", j)
 			}
-			partitions[j] = strippedPartition.body
+			partitions[j] = strippedPartition.Body
 		}
 		// assemble stripped partitionsj
 		actual := Assemble(partitions)
@@ -417,7 +417,7 @@ func TestPayloadValidation(t *testing.T) {
 		if ok {
 			t.Errorf("Payload %v was incorrectly validated.", i)
 			t.Errorf("Printing lengths. ID: %v, partition: %v",
-				len(result.id), len(result.body))
+				len(result.ID), len(result.Body))
 		}
 	}
 

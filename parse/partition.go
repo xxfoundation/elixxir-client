@@ -115,10 +115,10 @@ func Assemble(partitions [][]byte) []byte {
 }
 
 type MultiPartMessage struct {
-	id     []byte
-	idx    byte
-	maxIdx byte
-	body   []byte
+	ID     []byte
+	Index    byte
+	MaxIndex byte
+	Body   []byte
 }
 
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
@@ -144,10 +144,10 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		return nil, false
 	}
 	result := &MultiPartMessage{
-		id:     partition[:indexInformationStart],
-		idx:    partition[indexInformationStart],
-		maxIdx: partition[indexInformationStart+1],
-		body:   partition[indexInformationStart+2:],
+		ID:     partition[:indexInformationStart],
+		Index:    partition[indexInformationStart],
+		MaxIndex: partition[indexInformationStart+1],
+		Body:   partition[indexInformationStart+2:],
 	}
 	return result, true
 }

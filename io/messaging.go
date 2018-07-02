@@ -122,7 +122,8 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		jww.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 		if decryptedMessage != nil {
-			broadcastMessageReception(decryptedMessage, switchboard.Listeners)
+			theCollator.AddMessage([]byte(decryptedMessage.GetPayload()),
+				user.NewIDFromBytes(decryptedMessage.GetSender()))
 		}
 	}
 }
@@ -185,37 +186,17 @@ func (m *messaging) receiveMessageFromGateway(
 	return nil
 }
 
-func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessage) {
-	encryptedMsg, err := client.SendClientPoll(ReceiveAddress, pollingMessage)
-	if err != nil {
-		jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
-		return
-	}
-	if encryptedMsg.MessagePayload == nil &&
-		encryptedMsg.RecipientID == nil &&
-		encryptedMsg.SenderID == 0 {
-		return
-	}
-
-	decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
-	if err2 != nil {
-		jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
-	}
-
-	broadcastMessageReception(decryptedMsg, switchboard.Listeners)
-}
-
-func broadcastMessageReception(decryptedMsg *format.Message,
+func broadcastMessageReception(payload []byte, sender user.ID,
 	listeners *switchboard.ListenerMap) {
 	jww.INFO.Println("Attempting to broadcast received message")
-	typedBody, err := parse.Parse([]byte(decryptedMsg.GetPayload()))
+	typedBody, err := parse.Parse(payload)
 	// Panic the error for now
 	if err != nil {
 		panic(err.Error())
 	}
 	listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
-		Sender:    user.NewIDFromBytes(decryptedMsg.GetSender()),
-		Receiver:  user.NewIDFromBytes(decryptedMsg.GetRecipient()),
+		Sender:    sender,
+		Receiver:  0,
 	})
 }

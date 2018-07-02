@@ -16,9 +16,10 @@ type IDCounter struct {
 	mux       sync.Mutex
 }
 
-var currentCounter IDCounter
+// TODO rename or make it a param instead of a receiver
+var CurrentCounter IDCounter
 
-func (i *IDCounter) nextID() []byte {
+func (i *IDCounter) NextID() []byte {
 	// this will use up to 5 bytes for the message ID
 	result := make([]byte, binary.MaxVarintLen32)
 	i.mux.Lock()
@@ -28,7 +29,7 @@ func (i *IDCounter) nextID() []byte {
 	return result[:n]
 }
 
-func (i *IDCounter) reset() {
+func (i *IDCounter) Reset() {
 	i.mux.Lock()
 	i.currentID = 0
 	i.mux.Unlock()

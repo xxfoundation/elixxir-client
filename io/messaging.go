@@ -61,14 +61,23 @@ func (m *messaging) SendMessage(recipientID user.ID,
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
 	userID := user.TheSession.GetCurrentUser().UserID
-	messages, err := format.NewMessage(uint64(userID), uint64(recipientID),
-		message)
-
+	parts, err := parse.Partition([]byte(message),
+		parse.CurrentCounter.NextID())
 	if err != nil {
 		return err
 	}
-	for i := range messages {
-		err = send(userID, &messages[i])
+	for i := range parts {
+		messages, err := format.NewMessage(uint64(userID),
+			uint64(recipientID), string(parts[i]))
+		if err != nil {
+			return err
+		}
+		if len(messages) != 1 {
+			jww.ERROR.Printf("Expected one message from already-partitioned" +
+				" message of length %v. Got %v messages instead.",
+				len(parts[i]), len(messages))
+		}
+		err = send(userID, &messages[0])
 		if err != nil {
 			return err
 		}

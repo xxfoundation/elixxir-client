@@ -1,13 +1,13 @@
 package io
 
 import (
-	"sync"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/switchboard"
-	"time"
-	"gitlab.com/privategrity/client/user"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
+	"gitlab.com/privategrity/client/user"
+	"sync"
+	"time"
 )
 
 type multiPartMessage struct {
@@ -19,7 +19,7 @@ type collator struct {
 	pendingMessages map[string]*multiPartMessage
 	// TODO do we need a lock here? or can we assume that requests will come
 	// from only one thread?
-	mux             sync.Mutex
+	mux sync.Mutex
 }
 
 var theCollator *collator
@@ -86,9 +86,9 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) {
 			mb.mux.Unlock()
 		}
 	} else {
-		fmt.Printf("Received an invalid partition: %v\n", err.Error())
+		jww.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
 	}
-	jww.DEBUG.Println("Message collator: %v", mb.dump())
+	jww.DEBUG.Printf("Message collator: %v", mb.dump())
 }
 
 // Debug: dump all messages that are currently in the map

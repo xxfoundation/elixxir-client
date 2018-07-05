@@ -67,6 +67,7 @@ func (m *messaging) SendMessage(recipientID user.ID,
 		return err
 	}
 	for i := range parts {
+		jww.DEBUG.Printf("Sending message part: %v\n", parts[i])
 		messages, err := format.NewMessage(uint64(userID),
 			uint64(recipientID), string(parts[i]))
 		if err != nil {
@@ -131,7 +132,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		jww.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 		if decryptedMessage != nil {
-			theCollator.AddMessage([]byte(decryptedMessage.GetPayload()),
+			GetCollator().AddMessage([]byte(decryptedMessage.GetPayload()),
 				user.NewIDFromBytes(decryptedMessage.GetSender()))
 		}
 	}

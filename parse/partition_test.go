@@ -363,9 +363,9 @@ Nulla facilisi. Class aptent taciti sociosqu ad litora torquent per conubia nost
 		partitions, _ := Partition([]byte(expected[i]), []byte{0x05})
 		// strip front matter from partitions
 		for j := range partitions {
-			strippedPartition, ok := ValidatePartition(partitions[j])
-			if !ok {
-				t.Errorf("Didn't validate a valid partition: %v", j)
+			strippedPartition, err := ValidatePartition(partitions[j])
+			if err != nil {
+				t.Errorf("Didn't validate a valid partition: %v, %v", j, err.Error())
 			}
 			partitions[j] = strippedPartition.Body
 		}
@@ -381,7 +381,7 @@ Nulla facilisi. Class aptent taciti sociosqu ad litora torquent per conubia nost
 
 // We need to be sure that these invalid payloads get rejected for collation
 // without crashing the client with an out of bounds array access.
-func TestPayloadValidation(t *testing.T) {
+func TestValidatePartition(t *testing.T) {
 	invalidPayloads := [][]byte{
 		// empty
 		{},
@@ -403,28 +403,63 @@ func TestPayloadValidation(t *testing.T) {
 	// a max index that's greater than or equal to the index,
 	// and a message after the front matter
 	validPayloads := [][]byte{
-		// Message 0 of 0 with id 0. Note that we're appending a payload to this
+		// Message 2 of 2 with id 0. Note that we're appending a payload to this
+		{0x00, 0x01, 0x01},
+		// Message 1 of 1 with id 0. Note that we're appending a payload to this
 		{0x00, 0x00, 0x00},
 		// Note that in some cases, the system validates something that's
 		// readable. In this case, the first three letters will be consumed.
 		[]byte("telecommunication is neat"),
+		// This test case is one that should be valid but failed to validate
+		// in the integration test during development after passing through the
+		// whole system.
+		// Putting it here for posterity.
+		{0, 0, 0, 1, 10, 8, 8, 216, 153, 249, 217, 5, 24, 1, 18, 0, 26, 8,
+		72, 101, 108, 108, 111, 44, 32, 50},
 	}
-	// make this payload valid by adding a payload to it
-	validPayloads[0] = append(validPayloads[0], []byte("apples and grapes")...)
+	expectedIDs := [][]byte{{0x00}, {0x00}, {'t'}, {0}}
+	expectedIndexes := []byte{0x01, 0x00, 'e', 0}
+	expectedMaxIndexes := []byte{0x01, 0x00, 'l', 0}
+	expectedBodies := [][]byte{
+		[]byte("apples and grapes"),
+		[]byte("apples and grapes"),
+		[]byte("ecommunication is neat"),
+		{1, 10, 8, 8, 216, 153, 249, 217, 5, 24, 1, 18, 0, 26, 8,
+			72, 101, 108, 108, 111, 44, 32, 50},
+	}
+
+	// make first two payloads valid by adding a payload to them
+	for i := 0; i < 2; i++ {
+		validPayloads[i] = append(validPayloads[i], []byte("apples and grapes")...)
+	}
 
 	for i := range invalidPayloads {
-		result, ok := ValidatePartition(invalidPayloads[i])
-		if ok {
+		_, err := ValidatePartition(invalidPayloads[i])
+		if err == nil {
 			t.Errorf("Payload %v was incorrectly validated.", i)
-			t.Errorf("Printing lengths. ID: %v, partition: %v",
-				len(result.ID), len(result.Body))
 		}
 	}
 
 	for i := range validPayloads {
-		_, ok := ValidatePartition(validPayloads[i])
-		if !ok {
-			t.Errorf("Payload %v was incorrectly invalidated.", i)
+		result, err := ValidatePartition(validPayloads[i])
+		if err != nil {
+			t.Errorf("Payload %v was incorrectly invalidated: %v", i, err.Error())
+		}
+		if !bytes.Equal(result.ID, expectedIDs[i]) {
+			t.Errorf("Payload %v's ID was parsed incorrectly. Got %v, "+
+				"expected %v", i, result.ID, expectedIDs[i])
+		}
+		if result.Index != expectedIndexes[i] {
+			t.Errorf("Payload %v's index was parsed incorrectly. Got %v, " +
+				"expected %v", i, result.Index, expectedIndexes[i])
+		}
+		if result.MaxIndex != expectedMaxIndexes[i] {
+			t.Errorf("Payload %v's max index was parsed incorrectly. Got %v, " +
+				"expected %v", i, result.MaxIndex, expectedMaxIndexes[i])
+		}
+		if !bytes.Equal(result.Body, expectedBodies[i]) {
+			t.Errorf("Payload %v's body was parsed incorrectly. Got %v, " +
+				"expected %v", i, result.Body, expectedBodies[i])
 		}
 	}
 }

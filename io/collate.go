@@ -6,6 +6,8 @@ import (
 	"gitlab.com/privategrity/client/switchboard"
 	"time"
 	"gitlab.com/privategrity/client/user"
+	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type multiPartMessage struct {
@@ -20,18 +22,30 @@ type collator struct {
 	mux             sync.Mutex
 }
 
-var theCollator collator
+var theCollator *collator
+
+func GetCollator() *collator {
+	if theCollator == nil {
+		theCollator = &collator{
+			pendingMessages: make(map[string]*multiPartMessage),
+		}
+	}
+	return theCollator
+}
 
 // AddMessage validates its input and silently does nothing on failure
 // TODO should this return an error?
 // TODO this should take a different type as parameter.
 // TODO this takes too many types. i should split it up.
 func (mb *collator) AddMessage(payload []byte, sender user.ID) {
-	partition, ok := parse.ValidatePartition(payload)
-	if ok {
+	partition, err := parse.ValidatePartition(payload)
+
+	if err == nil {
 		if partition.MaxIndex == 0 {
 			// this is the only part of the message. we should take the fast
 			// path and skip putting it in the map
+			jww.DEBUG.Println("Taking the fast-path: Broadcasting message" +
+				" reception.")
 			broadcastMessageReception(partition.Body, sender, switchboard.Listeners)
 		} else {
 			// TODO hash here for better security properties?
@@ -71,5 +85,25 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) {
 			}
 			mb.mux.Unlock()
 		}
+	} else {
+		fmt.Printf("Received an invalid partition: %v\n", err.Error())
 	}
+	jww.DEBUG.Println("Message collator: %v", mb.dump())
+}
+
+// Debug: dump all messages that are currently in the map
+func (mb *collator) dump() string {
+	dump := ""
+	mb.mux.Lock()
+	for key := range mb.pendingMessages {
+		if mb.pendingMessages[key].parts != nil {
+			for i, part := range mb.pendingMessages[key].parts {
+				dump += fmt.Sprintf("Part %v: %s\n", i, part)
+			}
+			dump += fmt.Sprintf("Total parts received: %v\n",
+				mb.pendingMessages[key].numPartsReceived)
+		}
+	}
+	mb.mux.Unlock()
+	return dump
 }

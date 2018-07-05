@@ -6,6 +6,8 @@ import (
 	"math"
 	"sync"
 	"errors"
+	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -24,6 +26,14 @@ func (i *IDCounter) NextID() []byte {
 	result := make([]byte, binary.MaxVarintLen32)
 	i.mux.Lock()
 	n := binary.PutUvarint(result, uint64(i.currentID))
+	// TODO remove this hack by moving multi-part message fields and parsing to
+	// crypto/format. we need the first byte non-zero to keep cyclic from taking
+	// bytes off the front
+	if result[0] == 0 {
+		result[0] = 1
+		i.currentID++
+	}
+	// end hack
 	i.currentID++
 	i.mux.Unlock()
 	return result[:n]
@@ -116,14 +126,15 @@ func Assemble(partitions [][]byte) []byte {
 }
 
 type MultiPartMessage struct {
-	ID     []byte
+	ID       []byte
 	Index    byte
 	MaxIndex byte
-	Body   []byte
+	Body     []byte
 }
 
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
-	ok bool) {
+	err error) {
+	jww.DEBUG.Printf("%v\n", partition)
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0
@@ -131,24 +142,34 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		if msbMask&partition[i] == 0 {
 			// this is the last byte in the ID. stop the loop
 			indexInformationStart = i + 1
+			jww.DEBUG.Println("Index information start:", indexInformationStart)
 			break
 		}
 	}
 	// validate: make sure that there's a payload beyond the front matter
-	if indexInformationStart+IndexLength >= len(partition) ||
-	// make sure that the ID is within the length we expect
-		indexInformationStart > binary.MaxVarintLen32 ||
-	// make sure that the index is less than or equal to the maximum
-		partition[indexInformationStart] > partition[indexInformationStart+1] ||
-	// make sure that we found a boundary between the index and ID
-		indexInformationStart == 0 {
-		return nil, false
+	if indexInformationStart+IndexLength >= len(partition) {
+		return nil, errors.New("There was nothing after the partition info")
+		// make sure that the ID is within the length we expect
+	} else if indexInformationStart > binary.MaxVarintLen32 {
+		return nil, errors.New("ID was longer than expected")
+		// make sure that the index is less than or equal to the maximum
+	} else if partition[indexInformationStart] > partition [indexInformationStart+1] {
+		return nil, errors.New(fmt.Sprintf(
+			"Index %v was more than max index %v",
+			partition[indexInformationStart],
+			partition[indexInformationStart+1]))
+		// make sure that we found a boundary between the index and ID
+	} else if indexInformationStart == 0 {
+		return nil, errors.New("Couldn't find end of ID")
 	}
 	result := &MultiPartMessage{
-		ID:     partition[:indexInformationStart],
+		ID:       partition[:indexInformationStart],
 		Index:    partition[indexInformationStart],
 		MaxIndex: partition[indexInformationStart+1],
-		Body:   partition[indexInformationStart+2:],
+		Body:     partition[indexInformationStart+2:],
 	}
-	return result, true
+
+	jww.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,
+		result.Index, result.MaxIndex, string(result.Body))
+	return result, nil
 }

@@ -98,7 +98,7 @@ func (mb *collator) dump() string {
 	for key := range mb.pendingMessages {
 		if mb.pendingMessages[key].parts != nil {
 			for i, part := range mb.pendingMessages[key].parts {
-				dump += fmt.Sprintf("Part %v: %s\n", i, part)
+				dump += fmt.Sprintf("Part %v: %v\n", i, part)
 			}
 			dump += fmt.Sprintf("Total parts received: %v\n",
 				mb.pendingMessages[key].numPartsReceived)

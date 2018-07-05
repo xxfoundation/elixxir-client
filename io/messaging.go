@@ -12,8 +12,8 @@ package io
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
-	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
@@ -70,14 +70,13 @@ func (m *messaging) SendMessage(recipientID user.ID,
 		return err
 	}
 	for i := range parts {
-		jww.DEBUG.Printf("Sending message part: %v\n", parts[i])
 		messages, err := format.NewMessage(uint64(userID),
 			uint64(recipientID), string(parts[i]))
 		if err != nil {
 			return err
 		}
 		if len(messages) != 1 {
-			jww.ERROR.Printf("Expected one message from already-partitioned" +
+			jww.ERROR.Printf("Expected one message from already-partitioned"+
 				" message of length %v. Got %v messages instead.",
 				len(parts[i]), len(messages))
 		}

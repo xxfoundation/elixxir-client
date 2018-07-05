@@ -4,11 +4,11 @@ import:
   version: master
   vcs: git
 - package: gitlab.com/privategrity/crypto
-  version: feature/new-ratchet_CMIX-564
+  version: master
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
 - package: gitlab.com/privategrity/comms
-  version: feature/salt_CMIX-564
+  version: master
   repo: git@gitlab.com:privategrity/comms
   vcs: git
 - package: github.com/spf13/cobra

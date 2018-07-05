@@ -7,18 +7,16 @@
 package crypto
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/forward"
 	"gitlab.com/privategrity/crypto/verification"
-	"gitlab.com/privategrity/client/user"
 )
 
-func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {
+// Encrypt uses the encryption key to encrypt a message
+func Encrypt(key *cyclic.Int, g *cyclic.Group, message *format.Message) *format.MessageSerial {
 
-	keys := user.TheSession.GetKeys()
-
+	// TODO: This is all MIC code and should be moved outside the encrypt
+	//       function.
 	MakeInitVect(message.GetPayloadInitVect())
 	MakeInitVect(message.GetRecipientInitVect())
 
@@ -41,29 +39,9 @@ func Encrypt(g *cyclic.Group, message *format.Message) *format.MessageSerial {
 
 	result := message.SerializeMessage()
 
-	// TODO move this allocation somewhere sensible
-	sharedKeyStorage := make([]byte, 0, 8192)
-
-	// generate the product of the inverse transmission keys for encryption
-	sharedTransmissionKey := cyclic.NewMaxInt()
-	inverseTransmissionKeys := cyclic.NewInt(1)
-	for _, key := range keys {
-		// modify keys for next node
-		forward.GenerateSharedKey(g, key.TransmissionKeys.Base,
-			key.TransmissionKeys.Recursive, sharedTransmissionKey,
-			sharedKeyStorage)
-		if len(sharedTransmissionKey.Bytes()) == 0 {
-			jww.FATAL.Panicf("Invalid Transmission keys!")
-		}
-		g.Inverse(sharedTransmissionKey, sharedTransmissionKey)
-		g.Mul(inverseTransmissionKeys, sharedTransmissionKey,
-			inverseTransmissionKeys)
-
-	}
-
 	// perform the encryption
-	g.Mul(result.Payload, inverseTransmissionKeys, result.Payload)
-	g.Mul(result.Recipient, inverseTransmissionKeys, result.Recipient)
+	g.Mul(result.Payload, key, result.Payload)
+	g.Mul(result.Recipient, key, result.Recipient)
 
 	return &result
 }

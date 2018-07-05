@@ -17,7 +17,10 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/crypto/csprng"
+	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
+	cmix "gitlab.com/privategrity/crypto/messaging"
 	"sync"
 	"time"
 )
@@ -97,13 +100,30 @@ func send(senderID user.ID, message *format.Message) error {
 		}()
 	}
 
+	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
+
+	// TBD: Add key macs to this message
+	macs := make([][]byte, 0)
+
+	// Generate a compound encryption key
+	encryptionKey := cyclic.NewInt(1)
+	for _, key := range user.TheSession.GetKeys() {
+		baseKey := key.TransmissionKeys.Base
+		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, crypto.Grp)
+		crypto.Grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
+		//TODO: Add KMAC generation here
+	}
+
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?
-	encryptedMessage := crypto.Encrypt(crypto.Grp, message)
+	// TODO: Use salt here
+	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       uint64(senderID),
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
+		Salt:           salt,
+		KMACs:          macs,
 	}
 
 	var err error
@@ -181,7 +201,20 @@ func (m *messaging) receiveMessageFromGateway(
 						jww.INFO.Println("Message fields not populated")
 						return nil
 					}
-					decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
+
+					// Generate a compound decryption key
+					salt := newMessage.Salt
+					decryptionKey := cyclic.NewInt(1)
+					for _, key := range user.TheSession.GetKeys() {
+						baseKey := key.ReceptionKeys.Base
+						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
+							crypto.Grp)
+						crypto.Grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)
+						//TODO: Add KMAC verification here
+					}
+
+					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
+						newMessage)
 					if err2 != nil {
 						jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}

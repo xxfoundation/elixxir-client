@@ -49,14 +49,7 @@ func (m APIMessage) GetPayload() string {
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
 	textMessage := parse.TextMessage{
-		Order: &parse.RepeatedOrdering{
-			Time:       time.Now().Unix(),
-			ChunkIndex: 0,
-			Length:     1,
-		},
-		Display: &parse.DisplayData{
-			Color: 0,
-		},
+		Color:   0,
 		Message: message,
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)

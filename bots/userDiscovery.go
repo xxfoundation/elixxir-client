@@ -60,7 +60,6 @@ func Register(valueType, value string, publicKey []byte) error {
 
 	// check if key already exists and push one if it doesn't
 	if !keyExists(udbID, keyFP) {
-		// MARK
 		err := pushKey(udbID, keyFP, publicKey)
 		if err != nil {
 			return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
@@ -148,10 +147,15 @@ func parseSearch(msg string) (uint64, string) {
 	return cMixUID, resParts[4]
 }
 
-// parseGetKey parses the responses from GETKEY. It returns the index offset
-// value (0 or 128) and the part of the corresponding public key.
+// parseGetKey parses the responses from GETKEY. It returns the
+// corresponding public key.
 func parseGetKey(msg string) []byte {
-	keymat, err := base64.StdEncoding.DecodeString(msg)
+	resParts := strings.Split(msg, " ")
+	if len(resParts) != 3 {
+		jww.WARN.Printf("Invalid response from GETKEY: %s", msg)
+		return nil
+	}
+	keymat, err := base64.StdEncoding.DecodeString(resParts[2])
 	if err != nil || len(keymat) != 256 {
 		jww.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil

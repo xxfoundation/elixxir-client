@@ -7,12 +7,13 @@
 package crypto
 
 import (
+	"gitlab.com/privategrity/client/user"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
+	cmix "gitlab.com/privategrity/crypto/messaging"
 	"testing"
-	"gitlab.com/privategrity/client/user"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -37,6 +38,8 @@ var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 	"1F612970CEE2D7AFB81BDD762170481CD0069127D5B05AA9" +
 	"93B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199" +
 	"FFFFFFFFFFFFFFFF"
+var salt = []byte(
+	"fdecfa52a8ad1688dbfa7d16df74ebf27e535903c469cefc007ebbe1ee895064")
 
 func setup() {
 	rng := cyclic.NewRandom(cyclic.NewInt(0), cyclic.NewInt(1000))
@@ -54,9 +57,11 @@ func setup() {
 		// transmission key without spinning up a whole server to decouple them
 
 		nk[i].TransmissionKeys.Base = cyclic.NewInt(1)
-		nk[i].TransmissionKeys.Recursive = cyclic.NewIntFromString("ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)
+		nk[i].TransmissionKeys.Recursive = cyclic.NewIntFromString(
+			"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)
 		nk[i].ReceptionKeys.Base = cyclic.NewInt(1)
-		nk[i].ReceptionKeys.Recursive = grp.Inverse(nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
+		nk[i].ReceptionKeys.Recursive = grp.Inverse(
+			nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
 	}
 	user.TheSession = user.NewSession(u, "", nk)
 	// ratcheting will stop the keys from being inverses of each other
@@ -73,14 +78,25 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error: %s", err.Error())
 	}
+	// Generate a compound encryption key
+	encryptionKey := cyclic.NewInt(1)
+	for _, key := range user.TheSession.GetKeys() {
+		baseKey := key.TransmissionKeys.Base
+		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, Grp)
+		Grp.Mul(encryptionKey, encryptionKey, partialEncryptionKey)
+		//TODO: Add KMAC generation here
+	}
+
+	decryptionKey := cyclic.NewMaxInt()
+	Grp.Inverse(encryptionKey, decryptionKey)
 
 	// do the encryption and the decryption
-	encrypted := Encrypt(Grp, &msg[0])
+	encrypted := Encrypt(encryptionKey, Grp, &msg[0])
 	encryptedNet := &pb.CmixMessage{
 		MessagePayload: encrypted.Payload.Bytes(),
 		RecipientID:    encrypted.Recipient.Bytes(),
 	}
-	decrypted, err := Decrypt(Grp, encryptedNet)
+	decrypted, err := Decrypt(decryptionKey, Grp, encryptedNet)
 
 	if err != nil {
 		t.Errorf("Couldn't decrypt message: %v", err.Error())

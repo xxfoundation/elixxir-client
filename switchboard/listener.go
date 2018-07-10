@@ -111,7 +111,7 @@ func (lm *ListenerMap) matchListeners(userID user.ID,
 
 // Broadcast a message to the appropriate listeners
 func (lm *ListenerMap) Speak(msg *parse.Message) {
-	jww.INFO.Printf("Speaking message: %v", string(msg.Body))
+	jww.INFO.Printf("Speaking message: %q", msg.Body)
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 

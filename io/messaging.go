@@ -12,12 +12,15 @@ package io
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
-	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/crypto/csprng"
+	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
+	cmix "gitlab.com/privategrity/crypto/messaging"
 	"sync"
 	"time"
 )
@@ -61,14 +64,23 @@ func (m *messaging) SendMessage(recipientID user.ID,
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
 	userID := user.TheSession.GetCurrentUser().UserID
-	messages, err := format.NewMessage(uint64(userID), uint64(recipientID),
-		message)
-
+	parts, err := parse.Partition([]byte(message),
+		parse.CurrentCounter.NextID())
 	if err != nil {
 		return err
 	}
-	for i := range messages {
-		err = send(userID, &messages[i])
+	for i := range parts {
+		messages, err := format.NewMessage(uint64(userID),
+			uint64(recipientID), string(parts[i]))
+		if err != nil {
+			return err
+		}
+		if len(messages) != 1 {
+			jww.ERROR.Printf("Expected one message from already-partitioned"+
+				" message of length %v. Got %v messages instead.",
+				len(parts[i]), len(messages))
+		}
+		err = send(userID, &messages[0])
 		if err != nil {
 			return err
 		}
@@ -87,13 +99,30 @@ func send(senderID user.ID, message *format.Message) error {
 		}()
 	}
 
+	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
+
+	// TBD: Add key macs to this message
+	macs := make([][]byte, 0)
+
+	// Generate a compound encryption key
+	encryptionKey := cyclic.NewInt(1)
+	for _, key := range user.TheSession.GetKeys() {
+		baseKey := key.TransmissionKeys.Base
+		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, crypto.Grp)
+		crypto.Grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
+		//TODO: Add KMAC generation here
+	}
+
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?
-	encryptedMessage := crypto.Encrypt(crypto.Grp, message)
+	// TODO: Use salt here
+	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       uint64(senderID),
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
+		Salt:           salt,
+		KMACs:          macs,
 	}
 
 	var err error
@@ -122,7 +151,8 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		jww.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 		if decryptedMessage != nil {
-			broadcastMessageReception(decryptedMessage, switchboard.Listeners)
+			GetCollator().AddMessage([]byte(decryptedMessage.GetPayload()),
+				user.NewIDFromBytes(decryptedMessage.GetSender()))
 		}
 	}
 }
@@ -170,7 +200,20 @@ func (m *messaging) receiveMessageFromGateway(
 						jww.INFO.Println("Message fields not populated")
 						return nil
 					}
-					decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, newMessage)
+
+					// Generate a compound decryption key
+					salt := newMessage.Salt
+					decryptionKey := cyclic.NewInt(1)
+					for _, key := range user.TheSession.GetKeys() {
+						baseKey := key.ReceptionKeys.Base
+						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
+							crypto.Grp)
+						crypto.Grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)
+						//TODO: Add KMAC verification here
+					}
+
+					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
+						newMessage)
 					if err2 != nil {
 						jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}
@@ -185,37 +228,17 @@ func (m *messaging) receiveMessageFromGateway(
 	return nil
 }
 
-func (m *messaging) receiveMessageFromServer(pollingMessage *pb.ClientPollMessage) {
-	encryptedMsg, err := client.SendClientPoll(ReceiveAddress, pollingMessage)
-	if err != nil {
-		jww.WARN.Printf("MessageReceiver error during Polling: %v", err.Error())
-		return
-	}
-	if encryptedMsg.MessagePayload == nil &&
-		encryptedMsg.RecipientID == nil &&
-		encryptedMsg.SenderID == 0 {
-		return
-	}
-
-	decryptedMsg, err2 := crypto.Decrypt(crypto.Grp, encryptedMsg)
-	if err2 != nil {
-		jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
-	}
-
-	broadcastMessageReception(decryptedMsg, switchboard.Listeners)
-}
-
-func broadcastMessageReception(decryptedMsg *format.Message,
+func broadcastMessageReception(payload []byte, sender user.ID,
 	listeners *switchboard.ListenerMap) {
 	jww.INFO.Println("Attempting to broadcast received message")
-	typedBody, err := parse.Parse([]byte(decryptedMsg.GetPayload()))
+	typedBody, err := parse.Parse(payload)
 	// Panic the error for now
 	if err != nil {
 		panic(err.Error())
 	}
 	listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
-		Sender:    user.NewIDFromBytes(decryptedMsg.GetSender()),
-		Receiver:  user.NewIDFromBytes(decryptedMsg.GetRecipient()),
+		Sender:    sender,
+		Receiver:  0,
 	})
 }

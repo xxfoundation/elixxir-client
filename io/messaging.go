@@ -12,8 +12,8 @@ package io
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
-	"gitlab.com/privategrity/client/listener"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/client"
 	pb "gitlab.com/privategrity/comms/mixmessages"
@@ -64,14 +64,23 @@ func (m *messaging) SendMessage(recipientID user.ID,
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
 	userID := user.TheSession.GetCurrentUser().UserID
-	messages, err := format.NewMessage(uint64(userID), uint64(recipientID),
-		message)
-
+	parts, err := parse.Partition([]byte(message),
+		parse.CurrentCounter.NextID())
 	if err != nil {
 		return err
 	}
-	for i := range messages {
-		err = send(userID, &messages[i])
+	for i := range parts {
+		messages, err := format.NewMessage(uint64(userID),
+			uint64(recipientID), string(parts[i]))
+		if err != nil {
+			return err
+		}
+		if len(messages) != 1 {
+			jww.ERROR.Printf("Expected one message from already-partitioned"+
+				" message of length %v. Got %v messages instead.",
+				len(parts[i]), len(messages))
+		}
+		err = send(userID, &messages[0])
 		if err != nil {
 			return err
 		}
@@ -142,7 +151,8 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		jww.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 		if decryptedMessage != nil {
-			broadcastMessageReception(decryptedMessage, listener.Listeners)
+			GetCollator().AddMessage([]byte(decryptedMessage.GetPayload()),
+				user.NewIDFromBytes(decryptedMessage.GetSender()))
 		}
 	}
 }
@@ -218,17 +228,17 @@ func (m *messaging) receiveMessageFromGateway(
 	return nil
 }
 
-func broadcastMessageReception(decryptedMsg *format.Message,
-	listeners *listener.ListenerMap) {
+func broadcastMessageReception(payload []byte, sender user.ID,
+	listeners *switchboard.ListenerMap) {
 	jww.INFO.Println("Attempting to broadcast received message")
-	typedBody, err := parse.Parse([]byte(decryptedMsg.GetPayload()))
+	typedBody, err := parse.Parse(payload)
 	// Panic the error for now
 	if err != nil {
 		panic(err.Error())
 	}
 	listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
-		Sender:    user.NewIDFromBytes(decryptedMsg.GetSender()),
-		Receiver:  user.NewIDFromBytes(decryptedMsg.GetRecipient()),
+		Sender:    sender,
+		Receiver:  0,
 	})
 }

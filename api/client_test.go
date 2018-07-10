@@ -205,7 +205,7 @@ func (d *dummyMessaging) Listen(senderID user.ID) 	chan *format.Message {
 	return d.listener
 }
 
-// StopListening to a given listener (closes and deletes)
+// StopListening to a given switchboard (closes and deletes)
 func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
 
 // MessageReceiver thread to get new messages
@@ -224,7 +224,7 @@ func SendMsg(msg string) {
 //func TestRegisterPubKeyByteLen(t *testing.T) {
 //	ListenCh = make(chan *format.Message, 100)
 //	io.Messaging = &dummyMessaging{
-//		listener: ListenCh,
+//		switchboard: ListenCh,
 //	}
 //	pubKeyBits = []string{
 //		"S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNz" +

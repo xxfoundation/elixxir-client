@@ -15,7 +15,7 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -49,27 +49,20 @@ func (m APIMessage) GetPayload() string {
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
 	textMessage := parse.TextMessage{
-		Order: &parse.RepeatedOrdering{
-			Time:       time.Now().Unix(),
-			ChunkIndex: 0,
-			Length:     1,
-		},
-		Display: &parse.DisplayData{
-			Color: 0,
-		},
+		Color:   0,
 		Message: message,
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)
 	return parse.Pack(&parse.TypedBody{
-		BodyType: 1,
-		Body:     wireRepresentation,
+		Type: 1,
+		Body: wireRepresentation,
 	})
 }
 
 // Initializes the client by registering a storage mechanism.
 // If none is provided, the system defaults to using OS file access
 // returns in error if it fails
-func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error {
+func InitClient(s globals.Storage, loc string) error {
 	storageErr := globals.InitStorage(s, loc)
 
 	if storageErr != nil {
@@ -79,12 +72,6 @@ func InitClient(s globals.Storage, loc string, receiver globals.Receiver) error 
 	}
 
 	crypto.InitCrypto()
-
-	receiverErr := globals.SetReceiver(receiver)
-
-	if receiverErr != nil {
-		return receiverErr
-	}
 
 	return nil
 }
@@ -218,11 +205,11 @@ func SetRateLimiting(limit uint32) {
 // FIXME there can only be one
 var listenCh chan *format.Message
 
-func Listen(user user.ID, messageType int64,
-	newListener listener.Listener, isFallback bool) {
-	jww.INFO.Println("Listening now: user %v, message type %v, "+
-		"is fallback %v", user, messageType, isFallback)
-	listener.Listeners.Listen(user, messageType, newListener, isFallback)
+func Listen(user user.ID, messageType parse.Type,
+	newListener switchboard.Listener) {
+	jww.INFO.Printf("Listening now: user %v, message type %v, ",
+		user, messageType)
+	switchboard.Listeners.Register(user, messageType, newListener)
 }
 
 type APISender struct{}

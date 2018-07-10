@@ -16,7 +16,7 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/listener"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -69,7 +69,7 @@ func sessionInitialization() {
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
-		err = bindings.InitClient(&globals.RamStorage{}, "", nil)
+		err = bindings.InitClient(&globals.RamStorage{}, "")
 		if err != nil {
 			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -92,7 +92,7 @@ func sessionInitialization() {
 		}
 
 		//Initialize client with OS Storage
-		err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile, nil)
+		err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
 
 		if err != nil {
 			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
@@ -141,23 +141,26 @@ type FallbackListener struct {
 	messagesReceived int64
 }
 
-func (l *FallbackListener) Hear(message *parse.Message) {
-	sender, ok := user.Users.GetUser(message.Sender)
-	var senderNick string
-	if !ok {
-		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
-	} else {
-		senderNick = sender.Nick
+func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
+	if !isHeardElsewhere {
+		sender, ok := user.Users.GetUser(message.Sender)
+		var senderNick string
+		if !ok {
+			jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		} else {
+			senderNick = sender.Nick
+		}
+		atomic.AddInt64(&l.messagesReceived, 1)
+		fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
+			message.Type, message.Sender, senderNick, string(message.Body))
 	}
-	fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
-		message.BodyType, message.Sender, senderNick, string(message.Body))
 }
 
 type TextListener struct {
 	messagesReceived int64
 }
 
-func (l *TextListener) Hear(message *parse.Message) {
+func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	jww.INFO.Println("Hearing a text message")
 	result := parse.TextMessage{}
 	proto.Unmarshal(message.Body, &result)
@@ -179,7 +182,7 @@ type ChannelListener struct {
 	messagesReceived int64
 }
 
-func (l *ChannelListener) Hear(message *parse.Message) {
+func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	jww.INFO.Println("Hearing a channel message")
 	result := parse.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
@@ -197,7 +200,7 @@ func (l *ChannelListener) Hear(message *parse.Message) {
 	fmt.Printf("Message from channel %v, %v: ",
 		message.Sender, senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	listener.Listeners.Speak(&parse.Message{
+	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerID,
 		Receiver:  0,
@@ -228,13 +231,13 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(user.ID(0), 1, &text, false)
+		api.Listen(user.ID(0), parse.Type_TEXT_MESSAGE, &text)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(user.ID(0), 2, &channel, false)
+		api.Listen(user.ID(0), parse.Type_CHANNEL_MESSAGE, &channel)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(user.ID(0), 0, &fallback, true)
+		api.Listen(user.ID(0), parse.Type_NO_TYPE, &fallback)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -243,23 +246,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		sessionInitialization()
-
-		// Loop until we don't get a message, draining the queue of messages on the
-		// gateway buffer
-		// TODO What's equivalent functionality with the revised reception functions?
-		// Should there be some sort of way to get the last existing
-		/*gotMsg := false
-		for i := 0; i < 5; i++ {
-			time.Sleep(1000 * time.Millisecond) // wait 1s in between
-			msg, _ := bindings.TryReceive()
-			if msg.GetPayload() == "" && gotMsg {
-				break
-			}
-			if msg.GetPayload() != "" {
-				i = 0 // Make sure to loop until all messages exhausted
-				gotMsg = true
-			}
-		}*/
 
 		// Only send a message if we have a message to send (except dummy messages)
 		if message != "" {

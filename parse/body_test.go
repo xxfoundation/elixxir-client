@@ -16,15 +16,15 @@ func TestParse(t *testing.T) {
 	actual, err := Parse(body)
 	expected := &TypedBody{}
 	expected.Body = []byte{0x89, 0x02, 0x03, 0x04}
-	expected.BodyType = 256
+	expected.Type = 256
 
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	if actual.BodyType != expected.BodyType {
+	if actual.Type != expected.Type {
 		t.Errorf("Body type didn't match. Expected: %v, actual: %v",
-			expected.BodyType, actual.BodyType)
+			expected.Type, actual.Type)
 	} else if !bytes.Equal(actual.Body, expected.Body) {
 		t.Errorf("Body didn't match. Expected: %v, actual: %v",
 			expected.Body, actual.Body)
@@ -54,8 +54,8 @@ func TestTypeAsBytes(t *testing.T) {
 func TestPack(t *testing.T) {
 	expected := []byte{0x01, 0x02, 0x03, 0x04}
 	actual := Pack(&TypedBody{
-		BodyType: 1,
-		Body:     []byte{0x02, 0x03, 0x04},
+		Type: 1,
+		Body: []byte{0x02, 0x03, 0x04},
 	})
 	if !bytes.Equal(expected, actual) {
 		t.Errorf("Pack didn't return correctly packed byte slice. " +

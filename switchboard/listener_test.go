@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package listener
+package switchboard
 
 import (
 	"testing"
@@ -16,23 +16,26 @@ import (
 )
 
 type MockListener struct {
-	NumHeard    int
-	LastMessage []byte
-	LastMessageType int64
-	mux         sync.Mutex
+	NumHeard        int
+	IsFallback      bool
+	LastMessage     []byte
+	LastMessageType parse.Type
+	mux             sync.Mutex
 }
 
-func (ml *MockListener) Hear(msg *parse.Message) {
+func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	ml.mux.Lock()
 	defer ml.mux.Unlock()
 
-	ml.NumHeard++
-	ml.LastMessage = msg.Body
-	ml.LastMessageType = msg.BodyType
+	if !isHeardElsewhere || !ml.IsFallback {
+		ml.NumHeard++
+		ml.LastMessage = msg.Body
+		ml.LastMessageType = msg.Type
+	}
 }
 
 var specificUserID user.ID = 5
-var specificMessageType int64 = 8
+var specificMessageType parse.Type = 8
 var delay = 10 * time.Millisecond
 
 func OneListenerSetup() (*ListenerMap, *MockListener) {
@@ -41,8 +44,8 @@ func OneListenerSetup() (*ListenerMap, *MockListener) {
 	// add one listener to the map
 	fullyMatchedListener := &MockListener{}
 	// TODO different type for message types?
-	listeners.Listen(specificUserID, specificMessageType,
-		fullyMatchedListener, false)
+	listeners.Register(specificUserID, specificMessageType,
+		fullyMatchedListener)
 	return listeners, fullyMatchedListener
 }
 
@@ -52,13 +55,13 @@ func TestListenerMap_SpeakOne(t *testing.T) {
 
 	// speak
 	listeners.Speak(&parse.Message{
-			TypedBody: parse.TypedBody{
-				BodyType: specificMessageType,
-				Body:     make([]byte, 0),
-			},
-			Sender:    specificUserID,
-			Receiver:  0,
-		})
+		TypedBody: parse.TypedBody{
+			Type: specificMessageType,
+			Body: make([]byte, 0),
+		},
+		Sender:   specificUserID,
+		Receiver: 0,
+	})
 
 	// determine whether the listener heard the message
 	time.Sleep(delay)
@@ -76,11 +79,11 @@ func TestListenerMap_SpeakManyToOneListener(t *testing.T) {
 	// speak
 	for i := 0; i < 20; i++ {
 		go listeners.Speak(&parse.Message{TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
+			Type: specificMessageType,
 			Body: make([]byte, 0),
 		},
-		Sender: specificUserID,
-		Receiver: 0})
+			Sender: specificUserID,
+			Receiver: 0})
 	}
 
 	// determine whether the listener heard the message
@@ -100,8 +103,8 @@ func TestListenerMap_SpeakToAnother(t *testing.T) {
 	otherUserID := specificUserID + 1
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     make([]byte, 0),
+			Type: specificMessageType,
+			Body: make([]byte, 0),
 		},
 		Sender:   otherUserID,
 		Receiver: 0,
@@ -123,8 +126,8 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 	// speak
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType + 1,
-			Body:     make([]byte, 0),
+			Type: specificMessageType + 1,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 0,
@@ -140,7 +143,7 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 }
 
 var zeroUserID user.ID
-var zeroType int64
+var zeroType parse.Type
 
 func WildcardListenerSetup() (*ListenerMap, *MockListener) {
 	var listeners *ListenerMap
@@ -148,8 +151,8 @@ func WildcardListenerSetup() (*ListenerMap, *MockListener) {
 	// add one listener to the map
 	wildcardListener := &MockListener{}
 	// TODO different type for message types?
-	listeners.Listen(zeroUserID, zeroType,
-		wildcardListener, false)
+	listeners.Register(zeroUserID, zeroType,
+		wildcardListener)
 	return listeners, wildcardListener
 }
 
@@ -160,8 +163,8 @@ func TestListenerMap_SpeakWildcard(t *testing.T) {
 	// speak
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType + 1,
-			Body:     make([]byte, 0),
+			Type: specificMessageType + 1,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
@@ -182,45 +185,41 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	individualListeners := make([]*MockListener, 0)
 
 	// one user, many types
-	for messageType := 1; messageType <= 20; messageType++ {
+	for messageType := parse.Type(1); messageType <= parse.
+		Type(20); messageType++ {
 		newListener := MockListener{}
-		listeners.Listen(specificUserID, int64(messageType),
-			&newListener,
-			false)
+		listeners.Register(specificUserID, messageType,
+			&newListener)
 		individualListeners = append(individualListeners, &newListener)
 	}
 	// wildcard listener for the user
 	userListener := &MockListener{}
-	listeners.Listen(specificUserID, zeroType, userListener, false)
+	listeners.Register(specificUserID, zeroType, userListener)
 	// wildcard listener for all messages
 	wildcardListener := &MockListener{}
-	listeners.Listen(zeroUserID, zeroType, wildcardListener, false)
+	listeners.Register(zeroUserID, zeroType, wildcardListener)
 
 	// send to all types for our user
-	for messageType := 1; messageType <= 20; messageType++ {
-		//go listeners.Speak(specificUserID, &parse.TypedBody{
-		//	BodyType: int64(messageType),
-		//	Body:     make([]byte, 0),
-		//})
+	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
 		go listeners.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				BodyType: int64(messageType),
-				Body:     make([]byte, 0),
+				Type: messageType,
+				Body: make([]byte, 0),
 			},
-			Sender:    specificUserID,
-			Receiver:  2,
+			Sender:   specificUserID,
+			Receiver: 2,
 		})
 	}
 	// send to all types for a different user
 	otherUser := user.ID(specificUserID + 1)
-	for messageType := 1; messageType <= 20; messageType++ {
+	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
 		go listeners.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				BodyType: int64(messageType),
-				Body:     make([]byte, 0),
+				Type: messageType,
+				Body: make([]byte, 0),
 			},
-			Sender:    otherUser,
-			Receiver:  2,
+			Sender:   otherUser,
+			Receiver: 2,
 		})
 	}
 
@@ -250,25 +249,25 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 	listeners = NewListenerMap()
 	// add one normal and one fallback listener to the map
 	fallbackListener := &MockListener{}
-	listeners.Listen(zeroUserID, zeroType,
-		fallbackListener, true)
+	fallbackListener.IsFallback = true
+	listeners.Register(zeroUserID, zeroType,
+		fallbackListener)
 	specificListener := &MockListener{}
-	listeners.Listen(specificUserID, specificMessageType, specificListener,
-		false)
+	listeners.Register(specificUserID, specificMessageType, specificListener)
 
 	// send exactly one message to each of them
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     make([]byte, 0),
+			Type: specificMessageType,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
 	})
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType + 1,
-			Body:     make([]byte, 0),
+			Type: specificMessageType + 1,
+			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
@@ -293,8 +292,8 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 	expected := []byte{0x01, 0x02, 0x03, 0x04}
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			BodyType: specificMessageType,
-			Body:     expected,
+			Type: specificMessageType,
+			Body: expected,
 		},
 		Sender:   specificUserID,
 		Receiver: 2,
@@ -310,11 +309,10 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 	}
 }
 
-func TestListenerMap_StopListening(t *testing.T) {
+func TestListenerMap_Unregister(t *testing.T) {
 	listeners := NewListenerMap()
-	id := listeners.Listen(specificUserID, specificMessageType,
-		&MockListener{}, false)
-	listeners.StopListening(id)
+	id := listeners.Register(specificUserID, specificMessageType, &MockListener{})
+	listeners.Unregister(id)
 	if len(listeners.listeners[specificUserID][specificMessageType]) != 0 {
 		t.Error("The listener was still in the map after we stopped" +
 			" listening on it")

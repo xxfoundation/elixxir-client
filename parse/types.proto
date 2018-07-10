@@ -9,32 +9,32 @@ syntax = "proto3";
 package parse;
 option go_package = "parse";
 
-// Common types for text messages
-
-// TODO: Automatically combine multi-part messages based on these fields
-message RepeatedOrdering {
-    int64 time = 1; // Unix time
-    uint32 chunkIndex = 2; // Which chunk of the message this is
-    uint32 length = 3; // Total number of chunks to expect in this message
+enum Type {
+    NO_TYPE = 0;
+    TEXT_MESSAGE = 1;
+    CHANNEL_MESSAGE = 2;
+    // We currently parse these types without using proto buffers
+    // We use the types, but don't look for proto buffer definitions
+    UDB_PUSH_KEY = 10;
+    UDB_PUSH_KEY_RESPONSE=11;
+    UDB_GET_KEY = 12;
+    UDB_GET_KEY_RESPONSE = 13;
+    UDB_REGISTER = 14;
+    UDB_REGISTER_RESPONSE = 15;
+    UDB_SEARCH = 16;
+    UDB_SEARCH_RESPONSE = 17;
 }
-
-message DisplayData {
-    uint64 color = 1;
-}
-
 
 // Text message types
 
 // Type 1
 message TextMessage {
-    RepeatedOrdering order = 1;
-    DisplayData display = 2;
+    uint64 color = 2;
     string message = 3;
 }
 
 // Type 2
 message ChannelMessage {
-    RepeatedOrdering order = 1;
     bytes speakerID = 3;
     bytes message = 4;
 }

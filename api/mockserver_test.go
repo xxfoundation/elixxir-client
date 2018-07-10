@@ -45,7 +45,7 @@ func TestMain(m *testing.M) {
 // Make sure InitClient registers storage.
 func TestInitClient(t *testing.T) {
 	globals.LocalStorage = nil
-	err := InitClient(nil, "", nil)
+	err := InitClient(nil, "")
 	if err != nil {
 		t.Errorf("InitClient failed on valid input: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestRegister(t *testing.T) {
 
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	regRes, err := Register(registrationCode, gwAddress, 1)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
@@ -80,7 +80,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	_, err = Register(registrationCode, gwAddress, 0)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
@@ -95,7 +95,7 @@ func TestRegisterBadHUID(t *testing.T) {
 
 	registrationCode := "JHJ6L9BACDV"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	_, err = Register(registrationCode, gwAddress, 1)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
@@ -111,7 +111,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	tempUser, _ := user.Users.GetUser(10)
 	user.Users.DeleteUser(10)
 	_, err = Register(registrationCode, gwAddress, 1)
@@ -141,7 +141,7 @@ func TestSend(t *testing.T) {
 
 	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	userID, err := Register("be50nhqpqjtjj", gwAddress, 1)
 	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()
@@ -181,7 +181,7 @@ func TestReceive(t *testing.T) {
 	// Initialize client and log in
 	registrationCode := "be50nhqpqjtjj"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello", nil)
+	err := InitClient(&d, "hello")
 	userID, err := Register(registrationCode, gwAddress, 1)
 	loginRes, err2 := Login(userID, gwAddress)
 	SetNulKeys()

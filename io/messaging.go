@@ -151,8 +151,13 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		jww.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
 		if decryptedMessage != nil {
-			GetCollator().AddMessage([]byte(decryptedMessage.GetPayload()),
-				user.NewIDFromBytes(decryptedMessage.GetSender()))
+			sender := user.NewIDFromBytes(decryptedMessage.GetSender())
+			assembledMessage := GetCollator().AddMessage([]byte(
+				decryptedMessage.GetPayload()), sender)
+			if assembledMessage != nil {
+				// we got a fully assembled message. let's broadcast it
+				broadcastMessageReception(assembledMessage, sender, switchboard.Listeners)
+			}
 		}
 	}
 }

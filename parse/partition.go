@@ -76,6 +76,11 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 		partitionReadIdx += lastPartitionLength
 	}
 
+	var file []byte
+	for i := range partitions {
+		file = append(file, []byte(fmt.Sprintf("%q\n", partitions[i]))...)
+	}
+
 	return partitions, nil
 }
 

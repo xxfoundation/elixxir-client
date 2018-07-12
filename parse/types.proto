@@ -29,8 +29,9 @@ enum Type {
 
 // Type 1
 message TextMessage {
-    uint64 color = 2;
+    sint32 color = 2;
     string message = 3;
+    int64 time = 4;
 }
 
 // Type 2

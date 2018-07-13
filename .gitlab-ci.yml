@@ -84,7 +84,7 @@ test:
     # Test coverage
     - goverage -coverprofile=testdata/coverage.out -v ./... 2>&1 | grep -v "no packages being tested depend on"
     # Exclude some specific packages and files
-    - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go > testdata/coverage-real.out
+    - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go | grep -v main.go > testdata/coverage-real.out
     - go tool cover -func=testdata/coverage-real.out
     - go tool cover -html=testdata/coverage-real.out -o testdata/coverage.html
 

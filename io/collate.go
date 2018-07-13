@@ -40,7 +40,6 @@ func GetCollator() *collator {
 // received a completed message.
 func (mb *collator) AddMessage(payload []byte, sender user.ID,
 	timeout time.Duration) []byte {
-	//fmt.Printf("Adding a message from %v to the collator", sender)
 	partition, err := parse.ValidatePartition(payload)
 
 	if err == nil {

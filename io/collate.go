@@ -7,7 +7,6 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"sync"
 	"time"
-	"gitlab.com/privategrity/client/switchboard"
 )
 
 type multiPartMessage struct {
@@ -39,7 +38,8 @@ func GetCollator() *collator {
 // TODO this takes too many types. i should split it up.
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
-func (mb *collator) AddMessage(payload []byte, sender user.ID) []byte {
+func (mb *collator) AddMessage(payload []byte, sender user.ID,
+	timeout time.Duration) []byte {
 	//fmt.Printf("Adding a message from %v to the collator", sender)
 	partition, err := parse.ValidatePartition(payload)
 
@@ -47,9 +47,7 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) []byte {
 		if partition.MaxIndex == 0 {
 			//this is the only part of the message. we should take the fast
 			//path and skip putting it in the map
-			fmt.Println("Taking the fast-path: Broadcasting message" +
-				" reception.")
-			broadcastMessageReception(partition.Body, sender, switchboard.Listeners)
+			return partition.Body
 		} else {
 			// TODO hash something here for better security properties?
 			// assemble the map key into a new chunk of memory
@@ -76,7 +74,7 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) []byte {
 
 				// start timeout for these partitions
 				// TODO vary timeout depending on number of messages?
-				time.AfterFunc(time.Minute, func() {
+				time.AfterFunc(timeout, func() {
 					mb.mux.Lock()
 					_, ok := mb.pendingMessages[key]
 					if ok {
@@ -89,7 +87,7 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) []byte {
 				message.numPartsReceived++
 				message.parts[partition.Index] = partition.Body
 			}
-			if message.numPartsReceived >= partition.MaxIndex {
+			if message.numPartsReceived > partition.MaxIndex {
 				// TODO broadcastMessageReception should maybe take a container
 				// type. something like format. MessageInterface? or parse.Message?
 				assembledMessages := parse.Assemble(message.parts)

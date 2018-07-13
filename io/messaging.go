@@ -153,7 +153,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		if decryptedMessage != nil {
 			sender := user.NewIDFromBytes(decryptedMessage.GetSender())
 			assembledMessage := GetCollator().AddMessage([]byte(
-				decryptedMessage.GetPayload()), sender)
+				decryptedMessage.GetPayload()), sender, time.Minute)
 			if assembledMessage != nil {
 				// we got a fully assembled message. let's broadcast it
 				broadcastMessageReception(assembledMessage, sender, switchboard.Listeners)

@@ -23,6 +23,8 @@ enum Type {
     UDB_REGISTER_RESPONSE = 15;
     UDB_SEARCH = 16;
     UDB_SEARCH_RESPONSE = 17;
+    // Same with the payment bot types
+    PAYMENT = 20;
 }
 
 // Text message types

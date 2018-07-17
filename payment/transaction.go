@@ -6,18 +6,17 @@ import (
 	"time"
 )
 
-type Transaction struct{
-	Create 	coin.Sleeve
-	Destroy	[]coin.Sleeve
-	Change 	coin.Sleeve
+type Transaction struct {
+	Create  coin.Sleeve
+	Destroy []coin.Sleeve
+	Change  coin.Sleeve
 
-	From 	user.ID
-	To 		user.ID
+	From user.ID
+	To   user.ID
 
 	Description string
 
-	Timestamp 	time.Time
+	Timestamp time.Time
 
 	Value uint64
 }
-

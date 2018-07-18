@@ -11,8 +11,8 @@ type Transaction struct{
 	Destroy	[]coin.Sleeve
 	Change 	coin.Sleeve
 
-	From 	user.ID
-	To 		user.ID
+	Sender 		user.ID
+	Recipient 	user.ID
 
 	Description string
 

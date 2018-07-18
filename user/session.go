@@ -17,6 +17,7 @@ import (
 	"math/rand"
 	"time"
 	"gitlab.com/privategrity/client/globals"
+	"sync"
 )
 
 // Errors
@@ -25,6 +26,9 @@ var ErrQuery = errors.New("element not in map")
 // Globally instantiated Session
 // FIXME remove this sick filth
 var TheSession Session
+
+//Lock for storage access
+var StorageMutex sync.Mutex
 
 // Interface for User Session operations
 type Session interface {
@@ -153,7 +157,7 @@ func (s *SessionObj) SetGWAddress(addr string) {
 	s.GWAddress = addr
 }
 
-func (s *SessionObj) StoreSession() error {
+func (s *SessionObj) storeSession() error {
 
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not available")
@@ -183,6 +187,13 @@ func (s *SessionObj) StoreSession() error {
 
 	return nil
 
+}
+
+func (s *SessionObj) StoreSession() error {
+	StorageMutex.Lock()
+	err := s.storeSession()
+	StorageMutex.Unlock()
+	return err
 }
 
 // Immolate scrubs all cryptographic data from ram and logs out
@@ -219,23 +230,32 @@ func (s *SessionObj) Immolate() error {
 
 //Upserts an element into the interface map and saves the session object
 func (s *SessionObj) UpsertMap(key string, element interface{}) error {
+	StorageMutex.Lock()
 	s.InterfaceMap[key] = element
-	err := s.StoreSession()
+	err := s.storeSession()
+	StorageMutex.Unlock()
 	return err
 }
 
 //Pulls an element from the interface in the map
 func (s *SessionObj) QueryMap(key string) (interface{}, error) {
+	var err error
+	StorageMutex.Lock()
 	element, ok := s.InterfaceMap[key]
 	if !ok {
-		return nil, ErrQuery
+		err = ErrQuery
+		element = nil
 	}
-	return element, nil
+	StorageMutex.Unlock()
+	return element, err
 }
 
 func (s *SessionObj) DeleteMap(key string) error {
+	StorageMutex.Lock()
 	delete(s.InterfaceMap, key)
-	return s.StoreSession()
+	err := s.storeSession()
+	StorageMutex.Unlock()
+	return err
 }
 
 func clearCyclicInt(c *cyclic.Int) {

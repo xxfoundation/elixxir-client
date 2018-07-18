@@ -62,7 +62,8 @@ func (mb *collator) AddMessage(message *format.Message,
 			typedBody, err := parse.Parse(partition.Body)
 			// Panic the error for now
 			if err != nil {
-				panic(err.Error())
+				jww.ERROR.Printf("Malformed message recieved")
+				return nil
 			}
 
 			msg := parse.Message{
@@ -122,7 +123,10 @@ func (mb *collator) AddMessage(message *format.Message,
 				typedBody, err := parse.Parse(parse.Assemble(message.parts))
 				// Panic the error for now
 				if err != nil {
-					panic(err.Error())
+					delete(mb.pendingMessages, key)
+					mb.mux.Unlock()
+					jww.ERROR.Printf("Malformed message Recieved")
+					return nil
 				}
 
 				msg := parse.Message{

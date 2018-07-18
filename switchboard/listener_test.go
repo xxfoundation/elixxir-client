@@ -7,12 +7,12 @@
 package switchboard
 
 import (
-	"testing"
-	"sync"
-	"gitlab.com/privategrity/client/parse"
-	"time"
 	"bytes"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
+	"sync"
+	"testing"
+	"time"
 )
 
 type MockListener struct {
@@ -82,7 +82,7 @@ func TestListenerMap_SpeakManyToOneListener(t *testing.T) {
 			Type: specificMessageType,
 			Body: make([]byte, 0),
 		},
-			Sender: specificUserID,
+			Sender:   specificUserID,
 			Receiver: 0})
 	}
 

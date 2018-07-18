@@ -8,8 +8,8 @@
 package io
 
 import (
-	"time"
 	"gitlab.com/privategrity/client/user"
+	"time"
 )
 
 // Communication interface implements send/receive functionality with the server

@@ -12,12 +12,12 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
 	"strings"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/switchboard"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13

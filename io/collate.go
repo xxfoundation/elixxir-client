@@ -1,21 +1,29 @@
 package io
 
 import (
+	"crypto/sha256"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
 )
 
 type multiPartMessage struct {
 	parts            [][]byte
+	nonces           [][]byte
 	numPartsReceived uint8
 }
 
+const PendingMessageKeyLenBits = uint64(256)
+const PendingMessageKeyLen = PendingMessageKeyLenBits / 8
+
+type PendingMessageKey [PendingMessageKeyLen]byte
+
 type collator struct {
-	pendingMessages map[string]*multiPartMessage
+	pendingMessages map[PendingMessageKey]*multiPartMessage
 	// TODO do we need a lock here? or can we assume that requests will come
 	// from only one thread?
 	mux sync.Mutex
@@ -26,7 +34,7 @@ var theCollator *collator
 func GetCollator() *collator {
 	if theCollator == nil {
 		theCollator = &collator{
-			pendingMessages: make(map[string]*multiPartMessage),
+			pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 		}
 	}
 	return theCollator
@@ -38,23 +46,42 @@ func GetCollator() *collator {
 // TODO this takes too many types. i should split it up.
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
-func (mb *collator) AddMessage(payload []byte, sender user.ID,
-	timeout time.Duration) []byte {
+func (mb *collator) AddMessage(message *format.Message,
+	timeout time.Duration) *parse.Message {
+
+	payload := []byte(message.GetPayload())
+	sender := user.NewIDFromBytes(message.GetSender())
+	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
+
 	partition, err := parse.ValidatePartition(payload)
 
 	if err == nil {
 		if partition.MaxIndex == 0 {
 			//this is the only part of the message. we should take the fast
 			//path and skip putting it in the map
-			return partition.Body
+			typedBody, err := parse.Parse(partition.Body)
+			// Log an error if the message is malformed and return nothing
+			if err != nil {
+				jww.ERROR.Printf("Malformed message recieved")
+				return nil
+			}
+
+			msg := parse.Message{
+				TypedBody: *typedBody,
+				Nonce:     nonce,
+				Sender:    sender,
+				Receiver:  user.TheSession.GetCurrentUser().UserID,
+			}
+
+			return &msg
 		} else {
-			// TODO hash something here for better security properties?
 			// assemble the map key into a new chunk of memory
-			senderBytes := sender.Bytes()
-			keyBytes := make([]byte, len(partition.ID)+len(senderBytes))
-			copiedBytes := copy(keyBytes, partition.ID)
-			copy(keyBytes[copiedBytes:], senderBytes)
-			key := string(keyBytes)
+			var key PendingMessageKey
+			h := sha256.New()
+			h.Write(partition.ID)
+			h.Write(sender.Bytes())
+			keyHash := h.Sum(nil)
+			copy(key[:], keyHash[:PendingMessageKeyLen])
 
 			mb.mux.Lock()
 			message, ok := mb.pendingMessages[key]
@@ -64,8 +91,12 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID,
 				newMessage := make([][]byte, partition.MaxIndex+1)
 				newMessage[partition.Index] = partition.Body
 
+				newNonce := make([][]byte, partition.MaxIndex+1)
+				newNonce[partition.Index] = nonce
+
 				message = &multiPartMessage{
 					parts:            newMessage,
+					nonces:           newNonce,
 					numPartsReceived: 1,
 				}
 
@@ -85,14 +116,29 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID,
 				// append to array for this key
 				message.numPartsReceived++
 				message.parts[partition.Index] = partition.Body
+				message.nonces[partition.Index] = nonce
 			}
 			if message.numPartsReceived > partition.MaxIndex {
-				// TODO broadcastMessageReception should maybe take a container
-				// type. something like format. MessageInterface? or parse.Message?
-				assembledMessages := parse.Assemble(message.parts)
+				// Construct message
+				typedBody, err := parse.Parse(parse.Assemble(message.parts))
+				// Log an error if the message is malformed and return nothing
+				if err != nil {
+					delete(mb.pendingMessages, key)
+					mb.mux.Unlock()
+					jww.ERROR.Printf("Malformed message Recieved")
+					return nil
+				}
+
+				msg := parse.Message{
+					TypedBody: *typedBody,
+					Nonce:     parse.Assemble(message.nonces),
+					Sender:    sender,
+					Receiver:  user.TheSession.GetCurrentUser().UserID,
+				}
+
 				delete(mb.pendingMessages, key)
 				mb.mux.Unlock()
-				return assembledMessages
+				return &msg
 			}
 			mb.mux.Unlock()
 		}

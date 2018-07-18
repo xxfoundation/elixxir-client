@@ -1,55 +1,80 @@
 package io
 
 import (
-	"testing"
 	"gitlab.com/privategrity/client/parse"
-	"math/rand"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/format"
+	"math/rand"
+	"reflect"
+	"testing"
 	"time"
 )
 
 func TestCollator_AddMessage(t *testing.T) {
+
+	user.TheSession = user.NewSession(&user.User{20, "test"}, "", []user.NodeKeys{})
+
 	collator := &collator{
-		pendingMessages: make(map[string]*multiPartMessage),
+		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
-	var bodies []string
-	for length := uint64(5); length < 20 * format.DATA_LEN; length += 20 {
+	var bodies [][]byte
+	for length := uint64(5); length < 20*format.DATA_LEN; length += 20 {
 		newBody := make([]byte, length)
 		_, err := rand.Read(newBody)
 		if err != nil {
 			t.Errorf("Couldn't generate enough random bytes: %v", err.Error())
 		}
-		bodies = append(bodies, string(newBody))
+
+		bodies = append(bodies, newBody)
 	}
 	for i := range bodies {
 		partitions, err := parse.Partition([]byte(bodies[i]), []byte{5})
 		if err != nil {
 			t.Errorf("Error partitioning messages: %v", err.Error())
 		}
-		var result []byte
+		var result *parse.Message
 		for j := range partitions {
-			result = collator.AddMessage(partitions[j], 5, time.Minute)
+
+			fm, errFNM := format.NewMessage(5, 6, string(partitions[j]))
+
+			if errFNM != nil {
+				t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
+			}
+
+			result = collator.AddMessage(&fm[0], time.Minute)
 		}
-		if string(result) != bodies[i] {
-			t.Errorf("Input didn't match output for %v. Got: %q, expected %q",
-				i, result, bodies[i])
+
+		typedBody, err := parse.Parse(bodies[i])
+
+		if !reflect.DeepEqual(result.Body, typedBody.Body) {
+			t.Errorf("Input didn't match output for %v. Got: %v, expected %v",
+				i, result.Body, typedBody.Body)
 		}
 	}
 }
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
+
+	user.TheSession = user.NewSession(&user.User{20, "test"}, "", []user.NodeKeys{})
+
 	collator := &collator{
-		pendingMessages: make(map[string]*multiPartMessage),
+		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
 	//enough for four partitions
-	body := make([]byte, 3 * format.DATA_LEN)
+	body := make([]byte, 3*format.DATA_LEN)
 	partitions, err := parse.Partition(body, []byte{88})
 	if err != nil {
 		t.Errorf("Error partitioning messages: %v", err.Error())
 	}
-	var result []byte
+	var result *parse.Message
 	for i := range partitions {
-		result = collator.AddMessage(partitions[i], 88, 80 * time.Millisecond)
+		fm, errFNM := format.NewMessage(5, 6, string(partitions[i]))
+
+		if errFNM != nil {
+			t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
+		}
+
+		result = collator.AddMessage(&fm[0], 80*time.Millisecond)
 		if result != nil {
 			t.Error("Got a result from collator when it should be timing out" +
 				" submessages")

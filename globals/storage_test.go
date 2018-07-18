@@ -85,13 +85,12 @@ func exists(path string) bool {
 	return true
 }
 
-
 func TestDefaultStorage_GetLocation(t *testing.T) {
 	location := "hi"
 
 	ds := DefaultStorage{location}
 
-	if ds.GetLocation()!=location{
+	if ds.GetLocation() != location {
 		t.Errorf("defaultStorage.GetLocation returned incorrect location. Expected:%v Actual:%v",
 			location, ds.GetLocation())
 	}
@@ -102,7 +101,7 @@ func TestRamStorage_GetLocation(t *testing.T) {
 
 	ds := RamStorage{}
 
-	if ds.GetLocation()!=location{
+	if ds.GetLocation() != location {
 		t.Errorf("RamStorage.GetLocation returned incorrect location. Expected:%v Actual:%v",
 			location, ds.GetLocation())
 	}

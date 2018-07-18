@@ -8,7 +8,7 @@ import (
 )
 
 type TransactionList struct{
-	transactionMap *map[parse.MessageHash]Transaction
+	transactionMap *map[parse.MessageHash]*Transaction
 	mutex sync.Mutex
 	value uint64
 }
@@ -16,13 +16,13 @@ type TransactionList struct{
 func NewTransactionList(tag string)(*TransactionList,error){
 	gob.Register(TransactionList{})
 
-	var tlmPtr *map[parse.MessageHash]Transaction
+	var tlmPtr *map[parse.MessageHash]*Transaction
 
 	tli, err := user.TheSession.QueryMap(tag)
 
 	if err!=nil{
 		//If there is an err make the object
-		tlMap := make(map[parse.MessageHash]Transaction)
+		tlMap := make(map[parse.MessageHash]*Transaction)
 		tlmPtr = &tlMap
 
 		if err == user.ErrQuery {
@@ -32,7 +32,7 @@ func NewTransactionList(tag string)(*TransactionList,error){
 			return nil, err
 		}
 	}else{
-		tlmPtr = tli.(*map[parse.MessageHash]Transaction)
+		tlmPtr = tli.(*map[parse.MessageHash]*Transaction)
 	}
 
 	value := uint64(0)
@@ -51,23 +51,23 @@ func (tl *TransactionList) Value()uint64{
 	return v
 }
 
-func (tl *TransactionList) add(mh parse.MessageHash, t Transaction){
+func (tl *TransactionList) add(mh parse.MessageHash, t *Transaction){
 	(*tl.transactionMap)[mh] = t
 	tl.value += tl.Value()
 }
 
-func (tl *TransactionList) Add(mh parse.MessageHash, t Transaction){
+func (tl *TransactionList) Add(mh parse.MessageHash, t *Transaction){
 	tl.mutex.Lock()
 	tl.add(mh, t)
 	tl.mutex.Unlock()
 }
 
-func (tl *TransactionList) get(mh parse.MessageHash)(Transaction, bool){
+func (tl *TransactionList) get(mh parse.MessageHash)(*Transaction, bool){
 	t, b := (*tl.transactionMap)[mh]
 	return t, b
 }
 
-func (tl *TransactionList) Get(mh parse.MessageHash)(Transaction, bool){
+func (tl *TransactionList) Get(mh parse.MessageHash)(*Transaction, bool){
 	tl.mutex.Lock()
 	t, b := tl.get(mh)
 	tl.mutex.Unlock()

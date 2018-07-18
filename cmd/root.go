@@ -38,6 +38,26 @@ var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
 
+// CMDMessage are an implementation of the interface in bindings and API
+// easy to use from Go
+type CMDMessage struct {
+	Payload     string
+	SenderID    user.ID
+	RecipientID user.ID
+}
+
+func (m CMDMessage) GetSender() []byte {
+	return m.SenderID.Bytes()
+}
+
+func (m CMDMessage) GetRecipient() []byte {
+	return m.RecipientID.Bytes()
+}
+
+func (m CMDMessage) GetPayload() string {
+	return m.Payload
+}
+
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
@@ -261,7 +281,7 @@ var rootCmd = &cobra.Command{
 				recipientNick, message)
 
 			//Send the message
-			bindings.Send(api.APIMessage{
+			bindings.Send(CMDMessage{
 				SenderID:    user.ID(userId),
 				Payload:     string(wireOut),
 				RecipientID: user.ID(destinationUserId),
@@ -285,7 +305,7 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := api.APIMessage{
+				message := CMDMessage{
 					SenderID:    user.ID(userId),
 					Payload:     string(api.FormatTextMessage(message)),
 					RecipientID: user.ID(destinationUserId)}

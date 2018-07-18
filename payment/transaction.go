@@ -20,4 +20,3 @@ type Transaction struct{
 
 	Value uint64
 }
-

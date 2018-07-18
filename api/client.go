@@ -25,26 +25,6 @@ import (
 	"time"
 )
 
-// APIMessages are an implementation of the format.Message interface that's
-// easy to use from Go
-type APIMessage struct {
-	Payload     string
-	SenderID    user.ID
-	RecipientID user.ID
-}
-
-func (m APIMessage) GetSender() []byte {
-	return m.SenderID.Bytes()
-}
-
-func (m APIMessage) GetRecipient() []byte {
-	return m.RecipientID.Bytes()
-}
-
-func (m APIMessage) GetPayload() string {
-	return m.Payload
-}
-
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {

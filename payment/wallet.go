@@ -6,7 +6,7 @@ const InboundRequestsTag string = "InboundRequests"
 const PendingTransactionsTag string = "PendingTransactions"
 
 type Wallet struct {
-	coinStorage 			*OrderedStorage
+	coinStorage 			*OrderedCoinStorage
 	outboundRequests 		*TransactionList
 	inboundRequests  		*TransactionList
 	pendingTransactions 	*TransactionList

@@ -57,9 +57,10 @@ func NewWallet() (*Wallet, error) {
 
 // FIXME Limit this to one part message (requires message ID revamp for accuracy)
 func (t *Transaction) FormatInvoice() (*parse.Message, error) {
+	compound := t.Create.Compound()
 	invoice := parse.PaymentInvoice{
 		Time:         time.Now().Unix(),
-		CreatedCoins: t.Create.Compound()[:],
+		CreatedCoins: compound[:],
 		Memo:         t.Description,
 	}
 	wireRep, err := proto.Marshal(&invoice)

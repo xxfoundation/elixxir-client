@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package parse
 
 import (
@@ -47,9 +53,15 @@ func (i *IDCounter) Reset() {
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
 
-// length in bytes of index and max index.
+// length in bytes of index and max index together
 // change this if you change the index type
 const IndexLength = 2
+
+func GetMaxIndex(body []byte, id []byte) uint64 {
+	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
+		id)) - IndexLength)
+	return maxIndex
+}
 
 func Partition(body []byte, id []byte) ([][]byte, error) {
 	// index and quantity of the partitioned message are a fixed length of 8
@@ -61,8 +73,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	// number of partitions if you do them that way and i'm having none of that
 
 	// a zero here means that the message has one partition
-	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
-		id)) - IndexLength)
+	maxIndex := GetMaxIndex(body, id)
 	if maxIndex > math.MaxUint8 {
 		return nil, errors.New(MessageTooLongError)
 	}

@@ -53,6 +53,8 @@ var sendLock sync.Mutex
 // SendMessage to the provided Recipient
 // TODO: It's not clear why we wouldn't hand off a sender object (with
 // the keys) here. I won't touch crypto at this time, though...
+// TODO This method would be cleaner if it took a parse.Message (particularly
+// w.r.t. generating message IDs for multi-part messages.)
 func (m *messaging) SendMessage(recipientID user.ID,
 	message string) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic

@@ -25,19 +25,26 @@ enum Type {
     UDB_SEARCH_RESPONSE = 17;
     // Same with the payment bot types
     PAYMENT = 20;
+    // Payment invoice uses a proto buffer because it might make things easier
+    PAYMENT_INVOICE = 21;
 }
 
 // Text message types
 
-// Type 1
 message TextMessage {
     sint32 color = 2;
     string message = 3;
     int64 time = 4;
 }
 
-// Type 2
 message ChannelMessage {
     bytes speakerID = 3;
     bytes message = 4;
+}
+
+// Payment message types
+message PaymentInvoice {
+    int64 time = 1; // Unix time (seconds)
+    bytes createdCoins = 2; // type: compound coin: vessel for the payment
+    string memo = 3;
 }

@@ -9,7 +9,28 @@ package api
 
 import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
+	"gitlab.com/privategrity/client/user"
 )
+
+// APIMessage are an implementation of the interface in bindings and API
+// easy to use from Go
+type APIMessage struct {
+	Payload     string
+	SenderID    user.ID
+	RecipientID user.ID
+}
+
+func (m APIMessage) GetSender() []byte {
+	return m.SenderID.Bytes()
+}
+
+func (m APIMessage) GetRecipient() []byte {
+	return m.RecipientID.Bytes()
+}
+
+func (m APIMessage) GetPayload() string {
+	return m.Payload
+}
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
 type TestInterface struct {

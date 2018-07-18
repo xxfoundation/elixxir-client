@@ -28,25 +28,7 @@ var gwAddress = "localhost:8080"
 var Session user.SessionObj
 var GatewayData TestInterface
 
-// APIMessage are an implementation of the interface in bindings and API
-// easy to use from Go
-type APIMessage struct {
-	Payload     string
-	SenderID    user.ID
-	RecipientID user.ID
-}
 
-func (m APIMessage) GetSender() []byte {
-	return m.SenderID.Bytes()
-}
-
-func (m APIMessage) GetRecipient() []byte {
-	return m.RecipientID.Bytes()
-}
-
-func (m APIMessage) GetPayload() string {
-	return m.Payload
-}
 
 
 func TestMain(m *testing.M) {

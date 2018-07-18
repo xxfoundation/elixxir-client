@@ -60,7 +60,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			//this is the only part of the message. we should take the fast
 			//path and skip putting it in the map
 			typedBody, err := parse.Parse(partition.Body)
-			// Panic the error for now
+			// Log an error if the message is malformed and return nothing
 			if err != nil {
 				jww.ERROR.Printf("Malformed message recieved")
 				return nil
@@ -121,7 +121,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			if message.numPartsReceived > partition.MaxIndex {
 				// Construct message
 				typedBody, err := parse.Parse(parse.Assemble(message.parts))
-				// Panic the error for now
+				// Log an error if the message is malformed and return nothing
 				if err != nil {
 					delete(mb.pendingMessages, key)
 					mb.mux.Unlock()

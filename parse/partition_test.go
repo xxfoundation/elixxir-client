@@ -1,10 +1,10 @@
 package parse
 
 import (
-	"testing"
-	"math/rand"
 	"bytes"
 	"gitlab.com/privategrity/crypto/format"
+	"math/rand"
+	"testing"
 )
 
 func randomString(seed int64, length int) []byte {
@@ -22,7 +22,7 @@ func TestPartitionEmptyMessage(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	expected := [][]byte{{0x05, 0x0, 0x0},}
+	expected := [][]byte{{0x05, 0x0, 0x0}}
 	for i := range actual {
 		if !bytes.Equal(actual[i], expected[i]) {
 			t.Errorf("Partition empty message: expected partition %v differed"+
@@ -415,7 +415,7 @@ func TestValidatePartition(t *testing.T) {
 		// whole system.
 		// Putting it here for posterity.
 		{0, 0, 0, 1, 10, 8, 8, 216, 153, 249, 217, 5, 24, 1, 18, 0, 26, 8,
-		72, 101, 108, 108, 111, 44, 32, 50},
+			72, 101, 108, 108, 111, 44, 32, 50},
 	}
 	expectedIDs := [][]byte{{0x00}, {0x00}, {'t'}, {0}}
 	expectedIndexes := []byte{0x01, 0x00, 'e', 0}
@@ -450,15 +450,15 @@ func TestValidatePartition(t *testing.T) {
 				"expected %v", i, result.ID, expectedIDs[i])
 		}
 		if result.Index != expectedIndexes[i] {
-			t.Errorf("Payload %v's index was parsed incorrectly. Got %v, " +
+			t.Errorf("Payload %v's index was parsed incorrectly. Got %v, "+
 				"expected %v", i, result.Index, expectedIndexes[i])
 		}
 		if result.MaxIndex != expectedMaxIndexes[i] {
-			t.Errorf("Payload %v's max index was parsed incorrectly. Got %v, " +
+			t.Errorf("Payload %v's max index was parsed incorrectly. Got %v, "+
 				"expected %v", i, result.MaxIndex, expectedMaxIndexes[i])
 		}
 		if !bytes.Equal(result.Body, expectedBodies[i]) {
-			t.Errorf("Payload %v's body was parsed incorrectly. Got %v, " +
+			t.Errorf("Payload %v's body was parsed incorrectly. Got %v, "+
 				"expected %v", i, result.Body, expectedBodies[i])
 		}
 	}

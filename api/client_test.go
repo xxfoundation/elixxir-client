@@ -12,12 +12,12 @@ import (
 	"encoding/gob"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"gitlab.com/privategrity/crypto/forward"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/client/user"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -201,7 +201,7 @@ func (d *dummyMessaging) SendMessage(recipientID user.ID,
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID user.ID) 	chan *format.Message {
+func (d *dummyMessaging) Listen(senderID user.ID) chan *format.Message {
 	return d.listener
 }
 

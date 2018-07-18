@@ -11,13 +11,13 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"io"
 	"math"
 	"math/rand"
-	"time"
-	"gitlab.com/privategrity/client/globals"
 	"sync"
+	"time"
 )
 
 // Errors

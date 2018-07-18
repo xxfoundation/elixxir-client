@@ -1,24 +1,24 @@
 package io
 
 import (
+	"crypto/sha256"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
-	"gitlab.com/privategrity/crypto/format"
-	"crypto/sha256"
 )
 
 type multiPartMessage struct {
-	parts			[][]byte
-	nonces		 	[][]byte
+	parts            [][]byte
+	nonces           [][]byte
 	numPartsReceived uint8
 }
 
 const PendingMessageKeyLenBits = uint64(256)
-const PendingMessageKeyLen = PendingMessageKeyLenBits/8
+const PendingMessageKeyLen = PendingMessageKeyLenBits / 8
 
 type PendingMessageKey [PendingMessageKeyLen]byte
 
@@ -50,8 +50,8 @@ func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
 	payload := []byte(message.GetPayload())
-	sender  := user.NewIDFromBytes(message.GetSender())
-	nonce 	:= message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
+	sender := user.NewIDFromBytes(message.GetSender())
+	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
 
 	partition, err := parse.ValidatePartition(payload)
 
@@ -68,9 +68,9 @@ func (mb *collator) AddMessage(message *format.Message,
 
 			msg := parse.Message{
 				TypedBody: *typedBody,
-				Nonce: nonce,
-				Sender: sender,
-				Receiver: user.TheSession.GetCurrentUser().UserID,
+				Nonce:     nonce,
+				Sender:    sender,
+				Receiver:  user.TheSession.GetCurrentUser().UserID,
 			}
 
 			return &msg
@@ -81,7 +81,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			h.Write(partition.ID)
 			h.Write(sender.Bytes())
 			keyHash := h.Sum(nil)
-			copy(key[:],keyHash[:PendingMessageKeyLen])
+			copy(key[:], keyHash[:PendingMessageKeyLen])
 
 			mb.mux.Lock()
 			message, ok := mb.pendingMessages[key]
@@ -95,9 +95,9 @@ func (mb *collator) AddMessage(message *format.Message,
 				newNonce[partition.Index] = nonce
 
 				message = &multiPartMessage{
-					parts:            	newMessage,
-					nonces:			  	newNonce,
-					numPartsReceived: 	1,
+					parts:            newMessage,
+					nonces:           newNonce,
+					numPartsReceived: 1,
 				}
 
 				mb.pendingMessages[key] = message
@@ -131,9 +131,9 @@ func (mb *collator) AddMessage(message *format.Message,
 
 				msg := parse.Message{
 					TypedBody: *typedBody,
-					Nonce: parse.Assemble(message.nonces),
-					Sender: sender,
-					Receiver: user.TheSession.GetCurrentUser().UserID,
+					Nonce:     parse.Assemble(message.nonces),
+					Sender:    sender,
+					Receiver:  user.TheSession.GetCurrentUser().UserID,
 				}
 
 				delete(mb.pendingMessages, key)

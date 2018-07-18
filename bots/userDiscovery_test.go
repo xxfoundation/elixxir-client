@@ -9,14 +9,14 @@ package bots
 
 import (
 	"encoding/base64"
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/client/user"
-	"fmt"
-	"gitlab.com/privategrity/client/io"
 )
 
 var ListenCh chan *format.Message

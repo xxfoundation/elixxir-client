@@ -7,13 +7,13 @@
 package parse
 
 import (
-	"gitlab.com/privategrity/client/user"
 	"crypto/sha256"
 	"fmt"
+	"gitlab.com/privategrity/client/user"
 )
 
 const MessageHashLenBits = uint64(256)
-const MessageHashLen = MessageHashLenBits/8
+const MessageHashLen = MessageHashLenBits / 8
 
 type MessageHash [MessageHashLen]byte
 
@@ -21,10 +21,10 @@ type Message struct {
 	TypedBody
 	Sender   user.ID
 	Receiver user.ID
-	Nonce 	 []byte
+	Nonce    []byte
 }
 
-func (m Message) Hash()MessageHash{
+func (m Message) Hash() MessageHash {
 	var mh MessageHash
 
 	h := sha256.New()
@@ -39,7 +39,7 @@ func (m Message) Hash()MessageHash{
 
 	fmt.Println(len(hashed))
 
-	copy(mh[:],hashed[:MessageHashLen])
+	copy(mh[:], hashed[:MessageHashLen])
 
 	return mh
 }

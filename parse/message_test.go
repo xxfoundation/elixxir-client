@@ -1,18 +1,18 @@
 package parse
 
 import (
-	"testing"
 	"reflect"
+	"testing"
 )
 
 //Shows that MessageHash ia an independent function of every field in Message
 func TestMessage_Hash(t *testing.T) {
 	m := Message{}
 	m.Type = 0
-	m.Body = []byte{0,0}
+	m.Body = []byte{0, 0}
 	m.Sender = 0
 	m.Receiver = 0
-	m.Nonce = []byte{0,0}
+	m.Nonce = []byte{0, 0}
 
 	baseHash := m.Hash()
 
@@ -20,27 +20,27 @@ func TestMessage_Hash(t *testing.T) {
 
 	typeHash := m.Hash()
 
-	if reflect.DeepEqual(baseHash,typeHash){
+	if reflect.DeepEqual(baseHash, typeHash) {
 		t.Errorf("Message.Hash: Output did not change with modified type")
 	}
 
 	m.Type = 0
 
-	m.Body = []byte{1,1}
+	m.Body = []byte{1, 1}
 
 	bodyHash := m.Hash()
 
-	if reflect.DeepEqual(baseHash,bodyHash){
+	if reflect.DeepEqual(baseHash, bodyHash) {
 		t.Errorf("Message.Hash: Output did not change with modified body")
 	}
 
-	m.Body = []byte{0,0}
+	m.Body = []byte{0, 0}
 
 	m.Sender = 1
 
 	senderHash := m.Hash()
 
-	if reflect.DeepEqual(baseHash,senderHash){
+	if reflect.DeepEqual(baseHash, senderHash) {
 		t.Errorf("Message.Hash: Output did not change with modified sender")
 	}
 
@@ -50,19 +50,19 @@ func TestMessage_Hash(t *testing.T) {
 
 	receiverHash := m.Hash()
 
-	if reflect.DeepEqual(baseHash,receiverHash){
+	if reflect.DeepEqual(baseHash, receiverHash) {
 		t.Errorf("Message.Hash: Output did not change with modified receiver")
 	}
 
 	m.Receiver = 0
 
-	m.Nonce = []byte{1,1}
+	m.Nonce = []byte{1, 1}
 
 	nonceHash := m.Hash()
 
-	if reflect.DeepEqual(baseHash,nonceHash){
+	if reflect.DeepEqual(baseHash, nonceHash) {
 		t.Errorf("Message.Hash: Output did not change with modified nonce")
 	}
 
-	m.Nonce = []byte{0,0}
+	m.Nonce = []byte{0, 0}
 }

@@ -2,12 +2,12 @@ package parse
 
 import (
 	"encoding/binary"
-	"gitlab.com/privategrity/crypto/format"
-	"math"
-	"sync"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/crypto/format"
+	"math"
+	"sync"
 )
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -158,7 +158,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	} else if indexInformationStart > binary.MaxVarintLen32 {
 		return nil, errors.New("ID was longer than expected")
 		// make sure that the index is less than or equal to the maximum
-	} else if partition[indexInformationStart] > partition [indexInformationStart+1] {
+	} else if partition[indexInformationStart] > partition[indexInformationStart+1] {
 		return nil, errors.New(fmt.Sprintf(
 			"Index %v was more than max index %v",
 			partition[indexInformationStart],

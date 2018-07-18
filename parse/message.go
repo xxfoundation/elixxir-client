@@ -8,7 +8,6 @@ package parse
 
 import (
 	"crypto/sha256"
-	"fmt"
 	"gitlab.com/privategrity/client/user"
 )
 
@@ -36,8 +35,6 @@ func (m Message) Hash() MessageHash {
 	h.Write(m.Nonce)
 
 	hashed := h.Sum(nil)
-
-	fmt.Println(len(hashed))
 
 	copy(mh[:], hashed[:MessageHashLen])
 

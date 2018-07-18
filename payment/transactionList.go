@@ -2,9 +2,7 @@ package payment
 
 import (
 	"sync"
-	"gitlab.com/privategrity/client - Copy/parse"
-	"encoding/gob"
-	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/privategrity/client/parse"
 )
 
 type TransactionList struct{
@@ -12,7 +10,7 @@ type TransactionList struct{
 	mutex sync.Mutex
 	value uint64
 }
-
+/*
 
 func NewTransactionList(tag string)(*TransactionList,error){
 	gob.Register(TransactionList{})
@@ -108,3 +106,4 @@ func (os *OrderedStorage) Get(index uint64)coin.Sleeve{
 	os.mutex.Unlock()
 	return cs
 }
+*/

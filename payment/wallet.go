@@ -8,10 +8,12 @@ package payment
 
 import (
 	"gitlab.com/privategrity/client/parse"
-	"time"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/crypto/coin"
+	"time"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/client/api"
 )
 
 const CoinStorageTag string = "CoinStorage"
@@ -24,6 +26,14 @@ type Wallet struct {
 	outboundRequests    *TransactionList
 	inboundRequests     *TransactionList
 	pendingTransactions *TransactionList
+}
+
+// TODO initialize this? should this be global?
+var WalletyMcWalletFace Wallet
+
+func init() {
+	// Add incoming invoice listener
+	api.Listen(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{})
 }
 
 func NewWallet() (*Wallet, error) {
@@ -55,34 +65,9 @@ func NewWallet() (*Wallet, error) {
 	return &Wallet{coinStorage: cs, outboundRequests: obr, inboundRequests: ibr, pendingTransactions: pt}, nil
 }
 
-// FIXME Limit this to one part message (requires message ID revamp for accuracy)
-func (t *Transaction) FormatInvoice() (*parse.Message, error) {
-	compound := t.Create.Compound()
-	invoice := parse.PaymentInvoice{
-		Time:         time.Now().Unix(),
-		CreatedCoins: compound[:],
-		Memo:         t.Description,
-	}
-	wireRep, err := proto.Marshal(&invoice)
-	if err != nil {
-		return nil, err
-	}
+type InvoiceListener struct{}
 
-	typedBody := parse.TypedBody{
-		Type: parse.Type_PAYMENT_INVOICE,
-		Body: wireRep,
-	}
-
-	return &parse.Message{
-		TypedBody: typedBody,
-		Sender:    t.Sender,
-		Receiver:  t.Recipient,
-		// TODO populate nonce and panic if any outgoing message has none
-		Nonce: nil,
-	}, nil
-}
-
-func (w *Wallet) HearInboundRequest(msg *parse.Message) {
+func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var invoice parse.PaymentInvoice
 
 	// Don't humor people who send malformed messages
@@ -91,14 +76,14 @@ func (w *Wallet) HearInboundRequest(msg *parse.Message) {
 		return
 	}
 
-	if !coin.IsCompound(invoice.CreatedCoins) {
+	if !coin.IsCompound(invoice.CreatedCoin) {
 		jww.WARN.Printf("Got an invoice with an incorrect coin type")
 		return
 	}
 
 	// Convert the message to a compound
 	var compound coin.Compound
-	copy(compound[:], invoice.CreatedCoins)
+	copy(compound[:], invoice.CreatedCoin)
 
 	transaction := &Transaction{
 		Create:      coin.ConstructSleeve(nil, &compound),
@@ -111,15 +96,8 @@ func (w *Wallet) HearInboundRequest(msg *parse.Message) {
 		Value:       compound.Value(),
 	}
 
-	w.inboundRequests.Add(msg.Hash(), transaction)
-}
-
-// This listener hears incoming invoices and puts them on the list
-// TODO hook the wallet up to the listeners somewhere
-func (w *Wallet) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	switch msg.Type {
-	case parse.Type_PAYMENT_INVOICE:
-		w.HearInboundRequest(msg)
-		break
-	}
+	// Actually add the request to the list of inbound requests
+	WalletyMcWalletFace.inboundRequests.Add(msg.Hash(), transaction)
+	// and save it
+	user.TheSession.StoreSession()
 }

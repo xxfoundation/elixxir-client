@@ -45,6 +45,6 @@ message ChannelMessage {
 // Payment message types
 message PaymentInvoice {
     int64 time = 1; // Unix time (seconds)
-    bytes createdCoins = 2; // type: compound coin: vessel for the payment
+    bytes createdCoin = 2; // type: compound coin: vessel for the payment
     string memo = 3;
 }

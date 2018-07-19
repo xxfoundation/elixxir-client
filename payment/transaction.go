@@ -10,6 +10,8 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/client/user"
 	"time"
+	"gitlab.com/privategrity/client/parse"
+	"github.com/golang/protobuf/proto"
 )
 
 type Transaction struct{
@@ -25,4 +27,31 @@ type Transaction struct{
 	Timestamp 	time.Time
 
 	Value uint64
+}
+
+// FIXME Limit this to one part message (requires message ID revamp for accuracy)
+func (t *Transaction) FormatInvoice() (*parse.Message, error) {
+	compound := t.Create.Compound()
+	invoice := parse.PaymentInvoice{
+		Time:         time.Now().Unix(),
+		CreatedCoins: compound[:],
+		Memo:         t.Description,
+	}
+	wireRep, err := proto.Marshal(&invoice)
+	if err != nil {
+		return nil, err
+	}
+
+	typedBody := parse.TypedBody{
+		Type: parse.Type_PAYMENT_INVOICE,
+		Body: wireRep,
+	}
+
+	return &parse.Message{
+		TypedBody: typedBody,
+		Sender:    t.Sender,
+		Receiver:  t.Recipient,
+		// TODO populate nonce and panic if any outgoing message has none
+		Nonce: nil,
+	}, nil
 }

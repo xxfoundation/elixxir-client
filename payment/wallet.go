@@ -9,11 +9,11 @@ package payment
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"time"
+	"gitlab.com/privategrity/client/api"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -26,14 +26,6 @@ type Wallet struct {
 	outboundRequests    *TransactionList
 	inboundRequests     *TransactionList
 	pendingTransactions *TransactionList
-}
-
-// TODO initialize this? should this be global?
-var WalletyMcWalletFace Wallet
-
-func init() {
-	// Add incoming invoice listener
-	api.Listen(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{})
 }
 
 // Modify new wallet so that when it is called a bunch of listeners have to be passed
@@ -63,7 +55,15 @@ func NewWallet() (*Wallet, error) {
 		return nil, err
 	}
 
-	return &Wallet{coinStorage: cs, outboundRequests: obr, inboundRequests: ibr, pendingTransactions: pt}, nil
+	w := &Wallet{coinStorage: cs, outboundRequests: obr,
+	inboundRequests: ibr, pendingTransactions: pt}
+
+	// Add incoming invoice listener
+	api.Listen(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
+		wallet: w,
+	})
+
+	return w, nil
 }
 
 // Adds a fund request to the wallet and returns the message to make it
@@ -97,7 +97,9 @@ func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse
 	return invoiceMessage, nil
 }
 
-type InvoiceListener struct{}
+type InvoiceListener struct{
+	wallet *Wallet
+}
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var invoice parse.PaymentInvoice

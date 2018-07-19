@@ -13,7 +13,7 @@ import (
 )
 
 type TransactionList struct {
-	transactionMap *map[parse.MessageHash]*Transaction
+	transactionMap map[parse.MessageHash]*Transaction
 	value          uint64
 
 	session user.Session
@@ -22,60 +22,59 @@ type TransactionList struct {
 func CreateTransactionList(tag string, session user.Session) (*TransactionList, error) {
 	gob.Register(TransactionList{})
 
-	var tlmPtr *map[parse.MessageHash]*Transaction
+	var tlm map[parse.MessageHash]*Transaction
 
 	tli, err := session.QueryMap(tag)
 
 	if err != nil {
 		//If there is an err make the object
-		tlMap := make(map[parse.MessageHash]*Transaction)
-		tlmPtr = &tlMap
+		tlm = make(map[parse.MessageHash]*Transaction)
 
 		if err == user.ErrQuery {
-			err = session.UpsertMap(tag, tlmPtr)
+			err = session.UpsertMap(tag, tlm)
 		}
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		tlmPtr = tli.(*map[parse.MessageHash]*Transaction)
+		tlm = tli.(map[parse.MessageHash]*Transaction)
 	}
 
 	value := uint64(0)
 
-	for _, t := range *tlmPtr {
+	for _, t := range tlm {
 		value += t.Value
 	}
 
-	return &TransactionList{transactionMap: tlmPtr, value: value, session: session}, nil
+	return &TransactionList{transactionMap: tlm, value: value, session: session}, nil
 }
 
 func (tl *TransactionList) Value() uint64 {
-	(tl.session).LockStorage()
+	tl.session.LockStorage()
 	v := tl.value
-	(tl.session).UnlockStorage()
+	tl.session.UnlockStorage()
 	return v
 }
 
 func (tl *TransactionList) add(mh parse.MessageHash, t *Transaction) {
-	(*tl.transactionMap)[mh] = t
+	tl.transactionMap[mh] = t
 	tl.value += tl.Value()
 }
 
 func (tl *TransactionList) Add(mh parse.MessageHash, t *Transaction) {
-	(tl.session).LockStorage()
+	tl.session.LockStorage()
 	tl.add(mh, t)
-	(tl.session).UnlockStorage()
+	tl.session.UnlockStorage()
 }
 
 func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
-	t, b := (*tl.transactionMap)[mh]
+	t, b := tl.transactionMap[mh]
 	return t, b
 }
 
 func (tl *TransactionList) Get(mh parse.MessageHash) (*Transaction, bool) {
-	(tl.session).LockStorage()
+	tl.session.LockStorage()
 	t, b := tl.get(mh)
-	(tl.session).UnlockStorage()
+	tl.session.UnlockStorage()
 	return t, b
 }

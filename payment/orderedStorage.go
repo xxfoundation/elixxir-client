@@ -34,7 +34,7 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 		osclPtr = &osl
 
 		if err == user.ErrQuery {
-			err = session.UpsertMap(tag, &osclPtr)
+			err = session.UpsertMap(tag, osclPtr)
 		}
 		if err != nil {
 			return nil, err

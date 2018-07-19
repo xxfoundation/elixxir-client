@@ -100,13 +100,17 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 
 func TestOrderedCoinStorage_Value(t *testing.T) {
 
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
 	src := rand.NewSource(42)
 	rng := rand.New(src)
 
 	for i := 0; i < 100; i++ {
 		value := rng.Uint64() % uint64(coin.MaxValueDenominationRegister)
 
-		ocs := &OrderedCoinStorage{nil, value, nil}
+		ocs := &OrderedCoinStorage{nil, value, s}
 
 		if ocs.Value() != value {
 			t.Errorf("OrderedCoinStorage.Value: Returned incorrect value: "+
@@ -114,4 +118,25 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 		}
 
 	}
+}
+
+func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	cs, err := coin.NewSleeve(69)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Add: sleeve creation failed: %s", err.Error())
+	}
+
+	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
+
+	ocs.Add(cs)
+
+	if !reflect.DeepEqual(cs, (*ocs.list)[0]) {
+		t.Errorf("OrderedCoinStorage.Add: coin sleeve not added to list: %s", err.Error())
+	}
+
 }

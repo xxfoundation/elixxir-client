@@ -22,7 +22,7 @@ type Transaction struct {
 	Sender    user.ID
 	Recipient user.ID
 
-	Description string
+	Memo string
 
 	Timestamp time.Time
 
@@ -30,12 +30,14 @@ type Transaction struct {
 }
 
 // FIXME Limit this to one part message (requires message ID revamp for accuracy)
+// Place the compound coin that's the vessel for payment in the Create sleeve,
+// as it's the coin that will be created on the payment bot.
 func (t *Transaction) FormatInvoice() (*parse.Message, error) {
 	compound := t.Create.Compound()
 	invoice := parse.PaymentInvoice{
-		Time:        time.Now().Unix(),
+		Time:        t.Timestamp.Unix(),
 		CreatedCoin: compound[:],
-		Memo:        t.Description,
+		Memo:        t.Memo,
 	}
 	wireRep, err := proto.Marshal(&invoice)
 	if err != nil {

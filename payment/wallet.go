@@ -120,14 +120,14 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	copy(compound[:], invoice.CreatedCoin)
 
 	transaction := &Transaction{
-		Create:      coin.ConstructSleeve(nil, &compound),
-		Destroy:     nil,
-		Change:      NilSleeve,
-		Sender:      msg.Sender,
-		Recipient:   msg.Receiver,
-		Description: invoice.Memo,
-		Timestamp:   time.Unix(invoice.Time, 0),
-		Value:       compound.Value(),
+		Create:    coin.ConstructSleeve(nil, &compound),
+		Destroy:   nil,
+		Change:    NilSleeve,
+		Sender:    msg.Sender,
+		Recipient: msg.Receiver,
+		Memo:      invoice.Memo,
+		Timestamp: time.Unix(invoice.Time, 0),
+		Value:     compound.Value(),
 	}
 
 	// Actually add the request to the list of inbound requests

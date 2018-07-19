@@ -8,8 +8,9 @@
 package api
 
 import (
-	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/client/user"
+	pb "gitlab.com/privategrity/comms/mixmessages"
+	"sync"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
@@ -65,6 +66,7 @@ func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
 type DummyStorage struct {
 	Location string
 	LastSave []byte
+	mutex    sync.Mutex
 }
 
 func (d *DummyStorage) SetLocation(l string) error {
@@ -82,6 +84,14 @@ func (d *DummyStorage) Save(b []byte) error {
 		d.LastSave[i] = b[i]
 	}
 	return nil
+}
+
+func (d *DummyStorage) Lock() {
+	d.mutex.Lock()
+}
+
+func (d *DummyStorage) Unlock() {
+	d.mutex.Unlock()
 }
 
 func (d *DummyStorage) Load() []byte {

@@ -16,10 +16,10 @@ import (
 	"time"
 )
 
-const CoinStorageTag string = "CoinStorage"
-const OutboundRequestsTag string = "OutboundRequests"
-const InboundRequestsTag string = "InboundRequests"
-const PendingTransactionsTag string = "PendingTransactions"
+const CoinStorageTag = "CoinStorage"
+const OutboundRequestsTag = "OutboundRequests"
+const InboundRequestsTag = "InboundRequests"
+const PendingTransactionsTag = "PendingTransactions"
 
 type Wallet struct {
 	coinStorage         *OrderedCoinStorage

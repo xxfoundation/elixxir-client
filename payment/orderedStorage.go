@@ -7,7 +7,6 @@
 package payment
 
 import (
-	"encoding/gob"
 	"errors"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
@@ -26,8 +25,6 @@ var ErrInvalidOrganizationOfFunds = errors.New("cannot fit requested funds withi
 var NilSleeve = coin.Sleeve{}
 
 func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage, error) {
-	gob.Register(OrderedCoinStorage{})
-
 	var osclPtr *[]coin.Sleeve
 
 	oscli, err := session.QueryMap(tag)
@@ -37,7 +34,7 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 		osclPtr = &osl
 
 		if err == user.ErrQuery {
-			err = session.UpsertMap(tag, &osclPtr)
+			err = session.UpsertMap(tag, osclPtr)
 		}
 		if err != nil {
 			return nil, err

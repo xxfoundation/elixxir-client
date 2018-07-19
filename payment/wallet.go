@@ -7,13 +7,13 @@
 package payment
 
 import (
-	"gitlab.com/privategrity/client/parse"
 	"github.com/golang/protobuf/proto"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/client/api"
 )
 
 const CoinStorageTag string = "CoinStorage"
@@ -36,6 +36,7 @@ func init() {
 	api.Listen(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{})
 }
 
+// Modify new wallet so that when it is called a bunch of listeners have to be passed
 func NewWallet() (*Wallet, error) {
 
 	cs, err := NewOrderedStorage(CoinStorageTag)
@@ -63,6 +64,37 @@ func NewWallet() (*Wallet, error) {
 	}
 
 	return &Wallet{coinStorage: cs, outboundRequests: obr, inboundRequests: ibr, pendingTransactions: pt}, nil
+}
+
+// Adds a fund request to the wallet and returns the message to make it
+func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse.Message, error) {
+
+	newCoin, err := coin.NewSleeve(value)
+
+	if err != nil {
+		return nil, err
+	}
+
+	invoiceTransaction := Transaction{
+		Create:    newCoin,
+		Sender:    user.TheSession.GetCurrentUser().UserID,
+		Recipient: from,
+		Value:     value,
+	}
+
+	invoiceMessage, err := invoiceTransaction.FormatInvoice()
+
+	if err != nil {
+		return nil, err
+	}
+
+	invoiceHash := invoiceMessage.Hash()
+
+	w.outboundRequests.Add(invoiceHash, &invoiceTransaction)
+
+	user.TheSession.StoreSession()
+
+	return invoiceMessage, nil
 }
 
 type InvoiceListener struct{}

@@ -7,24 +7,24 @@
 package payment
 
 import (
-	"gitlab.com/privategrity/crypto/coin"
-	"gitlab.com/privategrity/client/user"
-	"time"
-	"gitlab.com/privategrity/client/parse"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/coin"
+	"time"
 )
 
-type Transaction struct{
-	Create 	coin.Sleeve
-	Destroy	[]coin.Sleeve
-	Change 	coin.Sleeve
+type Transaction struct {
+	Create  coin.Sleeve
+	Destroy []coin.Sleeve
+	Change  coin.Sleeve
 
-	Sender 		user.ID
-	Recipient 	user.ID
+	Sender    user.ID
+	Recipient user.ID
 
 	Description string
 
-	Timestamp 	time.Time
+	Timestamp time.Time
 
 	Value uint64
 }
@@ -33,9 +33,9 @@ type Transaction struct{
 func (t *Transaction) FormatInvoice() (*parse.Message, error) {
 	compound := t.Create.Compound()
 	invoice := parse.PaymentInvoice{
-		Time:         time.Now().Unix(),
-		CreatedCoins: compound[:],
-		Memo:         t.Description,
+		Time:        time.Now().Unix(),
+		CreatedCoin: compound[:],
+		Memo:        t.Description,
 	}
 	wireRep, err := proto.Marshal(&invoice)
 	if err != nil {

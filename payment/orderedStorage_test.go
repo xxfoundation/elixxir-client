@@ -29,13 +29,13 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 
 	// create the ordered storage
 
-	ocs, err := CreateOrderedStorage(key, &s)
+	ocs, err := CreateOrderedStorage(key, s)
 
 	if err != nil {
 		t.Errorf("CreateOrderedStorage: error returned on valid ordered storage creation: %s", err.Error())
 	}
 
-	if ocs.session != &s {
+	if ocs.session != s {
 		t.Errorf("CreateOrderedStorage: does not point to session correctly")
 	}
 
@@ -62,13 +62,13 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
 
-	ocs, err := CreateOrderedStorage(key, &s)
+	ocs, err := CreateOrderedStorage(key, s)
 
 	if err != nil {
 		t.Errorf("CreateOrderedStorage: error returned on valid ordered storage creation: %s", err.Error())
 	}
 
-	if ocs.session != &s {
+	if ocs.session != s {
 		t.Errorf("CreateOrderedStorage: does not point to session correctly")
 	}
 
@@ -86,7 +86,7 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 
 	s.StoreSession()
 
-	ocs2, err := CreateOrderedStorage(key, &s)
+	ocs2, err := CreateOrderedStorage(key, s)
 
 	if err != nil {
 		t.Errorf("CreateOrderedStorage: error returned on valid ordered storage creation: %s", err.Error())

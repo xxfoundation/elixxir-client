@@ -30,7 +30,6 @@ type Wallet struct {
 	session user.Session
 }
 
-// Modify new wallet so that when it is called a bunch of listeners have to be passed
 func CreateWallet(s user.Session) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
@@ -60,12 +59,21 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
 	inboundRequests: ibr, pendingTransactions: pt}
 
+	return w, nil
+}
+
+// You need to call this method after creating the wallet to have the wallet
+// behave correctly when receiving messages
+// TODO: Should this take the listeners as parameters?
+func (w *Wallet) RegisterListeners() {
+	w.registerInvoiceListener()
+}
+
+func (w *Wallet) registerInvoiceListener() {
 	// Add incoming invoice listener
 	api.Listen(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
 		wallet: w,
 	})
-
-	return w, nil
 }
 
 // Adds a fund request to the wallet and returns the message to make it
@@ -107,18 +115,29 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var invoice parse.PaymentInvoice
 
 	// Test for incorrect message type, just in case
-	if !(msg.Type == parse.Type_PAYMENT_INVOICE) {
-		jww.WARN.Printf("Got an invoice with the incorrect type: %v", msg.Type.String())
+	if msg.Type != parse.Type_PAYMENT_INVOICE {
+		jww.WARN.Printf("InvoiceListener: Got an invoice with the incorrect" +
+			" type: %v",
+			msg.Type.String())
+		return
 	}
 
 	// Don't humor people who send malformed messages
 	if err := proto.Unmarshal(msg.Body, &invoice); err != nil {
-		jww.WARN.Printf("Got error unmarshaling inbound invoice: %v", err.Error())
+		jww.WARN.Printf("InvoiceListener: Got error unmarshaling inbound" +
+			" invoice: %v", err.Error())
+		return
+	}
+
+	if uint64(len(invoice.CreatedCoin)) != coin.BaseFrameLen {
+		jww.WARN.Printf("InvoiceListener: Created coin has incorrect length" +
+			" %v and is likely invalid", len(invoice.CreatedCoin))
 		return
 	}
 
 	if !coin.IsCompound(invoice.CreatedCoin) {
-		jww.WARN.Printf("Got an invoice with an incorrect coin type")
+		jww.WARN.Printf("InvoiceListener: Got an invoice with an incorrect" +
+			" coin type")
 		return
 	}
 

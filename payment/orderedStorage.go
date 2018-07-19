@@ -26,7 +26,8 @@ var ErrInvalidOrganizationOfFunds = errors.New("cannot fit requested funds withi
 var NilSleeve = coin.Sleeve{}
 
 func CreateOrderedStorage(tag string, session *user.Session) (*OrderedCoinStorage, error) {
-	gob.Register(OrderedCoinStorage{})
+	gob.Register(coin.Sleeve{})
+	gob.Register([]coin.Sleeve{})
 
 	var osclPtr *[]coin.Sleeve
 
@@ -37,7 +38,7 @@ func CreateOrderedStorage(tag string, session *user.Session) (*OrderedCoinStorag
 		osclPtr = &osl
 
 		if err == user.ErrQuery {
-			err = (*session).UpsertMap(tag, &osclPtr)
+			err = (*session).UpsertMap(tag, osclPtr)
 		}
 		if err != nil {
 			return nil, err

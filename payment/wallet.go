@@ -31,7 +31,7 @@ type Wallet struct {
 }
 
 // Modify new wallet so that when it is called a bunch of listeners have to be passed
-func CreateWallet(s *user.Session) (*Wallet, error) {
+func CreateWallet(s user.Session) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
@@ -79,7 +79,7 @@ func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse
 
 	invoiceTransaction := Transaction{
 		Create:    newCoin,
-		Sender:    user.TheSession.GetCurrentUser().UserID,
+		Sender:    w.session.GetCurrentUser().UserID,
 		Recipient: from,
 		Value:     value,
 	}
@@ -94,7 +94,7 @@ func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse
 
 	w.outboundRequests.Add(invoiceHash, &invoiceTransaction)
 
-	user.TheSession.StoreSession()
+	w.session.StoreSession()
 
 	return invoiceMessage, nil
 }
@@ -105,6 +105,11 @@ type InvoiceListener struct{
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var invoice parse.PaymentInvoice
+
+	// Test for incorrect message type, just in case
+	if !(msg.Type == parse.Type_PAYMENT_INVOICE) {
+		jww.WARN.Printf("Got an invoice with the incorrect type: %v", msg.Type.String())
+	}
 
 	// Don't humor people who send malformed messages
 	if err := proto.Unmarshal(msg.Body, &invoice); err != nil {
@@ -135,5 +140,5 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	// Actually add the request to the list of inbound requests
 	il.wallet.inboundRequests.Add(msg.Hash(), transaction)
 	// and save it
-	user.TheSession.StoreSession()
+	il.wallet.session.StoreSession()
 }

@@ -17,7 +17,7 @@ type OrderedCoinStorage struct {
 	list  *[]coin.Sleeve
 	value uint64
 
-	session *user.Session
+	session user.Session
 }
 
 var ErrInsufficientFunds = errors.New("not enough funds to fund request")
@@ -25,19 +25,19 @@ var ErrInvalidOrganizationOfFunds = errors.New("cannot fit requested funds withi
 
 var NilSleeve = coin.Sleeve{}
 
-func CreateOrderedStorage(tag string, session *user.Session) (*OrderedCoinStorage, error) {
+func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage, error) {
 	gob.Register(OrderedCoinStorage{})
 
 	var osclPtr *[]coin.Sleeve
 
-	oscli, err := (*session).QueryMap(tag)
+	oscli, err := session.QueryMap(tag)
 	if err != nil {
 		//If there is an err make the object
 		osl := make([]coin.Sleeve, 0)
 		osclPtr = &osl
 
 		if err == user.ErrQuery {
-			err = (*session).UpsertMap(tag, &osclPtr)
+			err = session.UpsertMap(tag, &osclPtr)
 		}
 		if err != nil {
 			return nil, err
@@ -56,9 +56,9 @@ func CreateOrderedStorage(tag string, session *user.Session) (*OrderedCoinStorag
 }
 
 func (ocs *OrderedCoinStorage) Value() uint64 {
-	(*ocs.session).LockStorage()
+	ocs.session.LockStorage()
 	v := ocs.value
-	(*ocs.session).UnlockStorage()
+	ocs.session.UnlockStorage()
 	return v
 }
 
@@ -78,9 +78,9 @@ func (ocs *OrderedCoinStorage) add(cs coin.Sleeve) {
 }
 
 func (ocs *OrderedCoinStorage) Add(cs coin.Sleeve) {
-	(*ocs.session).LockStorage()
+	ocs.session.LockStorage()
 	ocs.add(cs)
-	(*ocs.session).UnlockStorage()
+	ocs.session.UnlockStorage()
 }
 
 func (ocs *OrderedCoinStorage) pop(index uint64) coin.Sleeve {
@@ -98,9 +98,9 @@ func (ocs *OrderedCoinStorage) pop(index uint64) coin.Sleeve {
 }
 
 func (ocs *OrderedCoinStorage) Pop(index uint64) coin.Sleeve {
-	(*ocs.session).LockStorage()
+	ocs.session.LockStorage()
 	cs := ocs.Pop(index)
-	(*ocs.session).UnlockStorage()
+	ocs.session.UnlockStorage()
 	return cs
 }
 
@@ -113,18 +113,18 @@ func (ocs *OrderedCoinStorage) get(index uint64) coin.Sleeve {
 }
 
 func (ocs *OrderedCoinStorage) Get(index uint64) coin.Sleeve {
-	(*ocs.session).LockStorage()
+	ocs.session.LockStorage()
 	cs := ocs.get(index)
-	(*ocs.session).UnlockStorage()
+	ocs.session.UnlockStorage()
 	return cs
 }
 
 func (ocs *OrderedCoinStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Sleeve, error) {
-	(*ocs.session).LockStorage()
+	ocs.session.LockStorage()
 
 	// Return an error if there are insufficient funds
 	if value > ocs.value {
-		(*ocs.session).UnlockStorage()
+		ocs.session.UnlockStorage()
 		return []coin.Sleeve{}, NilSleeve, ErrInsufficientFunds
 	}
 
@@ -172,7 +172,7 @@ func (ocs *OrderedCoinStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin
 	// it will be all the highest coins so it can just be appended
 	*ocs.list = append(*ocs.list, funds...)
 	ocs.value += sum
-	(*ocs.session).UnlockStorage()
+	ocs.session.UnlockStorage()
 
 	return []coin.Sleeve{}, NilSleeve, ErrInvalidOrganizationOfFunds
 
@@ -191,6 +191,6 @@ Success:
 		}
 	}
 
-	(*ocs.session).UnlockStorage()
+	ocs.session.UnlockStorage()
 	return funds, change, nil
 }

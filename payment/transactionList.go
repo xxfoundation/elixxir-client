@@ -16,15 +16,15 @@ type TransactionList struct {
 	transactionMap *map[parse.MessageHash]*Transaction
 	value          uint64
 
-	session *user.Session
+	session user.Session
 }
 
-func CreateTransactionList(tag string, session *user.Session) (*TransactionList, error) {
+func CreateTransactionList(tag string, session user.Session) (*TransactionList, error) {
 	gob.Register(TransactionList{})
 
 	var tlmPtr *map[parse.MessageHash]*Transaction
 
-	tli, err := (*session).QueryMap(tag)
+	tli, err := session.QueryMap(tag)
 
 	if err != nil {
 		//If there is an err make the object
@@ -32,7 +32,7 @@ func CreateTransactionList(tag string, session *user.Session) (*TransactionList,
 		tlmPtr = &tlMap
 
 		if err == user.ErrQuery {
-			err = (*session).UpsertMap(tag, tlmPtr)
+			err = session.UpsertMap(tag, tlmPtr)
 		}
 		if err != nil {
 			return nil, err
@@ -51,9 +51,9 @@ func CreateTransactionList(tag string, session *user.Session) (*TransactionList,
 }
 
 func (tl *TransactionList) Value() uint64 {
-	(*tl.session).LockStorage()
+	(tl.session).LockStorage()
 	v := tl.value
-	(*tl.session).UnlockStorage()
+	(tl.session).UnlockStorage()
 	return v
 }
 
@@ -63,9 +63,9 @@ func (tl *TransactionList) add(mh parse.MessageHash, t *Transaction) {
 }
 
 func (tl *TransactionList) Add(mh parse.MessageHash, t *Transaction) {
-	(*tl.session).LockStorage()
+	(tl.session).LockStorage()
 	tl.add(mh, t)
-	(*tl.session).UnlockStorage()
+	(tl.session).UnlockStorage()
 }
 
 func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
@@ -74,8 +74,8 @@ func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
 }
 
 func (tl *TransactionList) Get(mh parse.MessageHash) (*Transaction, bool) {
-	(*tl.session).LockStorage()
+	(tl.session).LockStorage()
 	t, b := tl.get(mh)
-	(*tl.session).UnlockStorage()
+	(tl.session).UnlockStorage()
 	return t, b
 }

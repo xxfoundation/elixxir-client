@@ -58,7 +58,7 @@ func (tl *TransactionList) Value() uint64 {
 
 func (tl *TransactionList) add(mh parse.MessageHash, t *Transaction) {
 	tl.transactionMap[mh] = t
-	tl.value += tl.Value()
+	tl.value += tl.value
 }
 
 func (tl *TransactionList) Add(mh parse.MessageHash, t *Transaction) {

@@ -57,7 +57,7 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	}
 
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
-	inboundRequests: ibr, pendingTransactions: pt}
+		inboundRequests: ibr, pendingTransactions: pt}
 
 	return w, nil
 }
@@ -77,7 +77,8 @@ func (w *Wallet) registerInvoiceListener() {
 }
 
 // Adds a fund request to the wallet and returns the message to make it
-func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse.Message, error) {
+func (w *Wallet) Invoice(moneyFrom user.ID, value uint64,
+	description string) (*parse.Message, error) {
 
 	newCoin, err := coin.NewSleeve(value)
 
@@ -88,8 +89,9 @@ func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse
 	invoiceTransaction := Transaction{
 		Create:    newCoin,
 		Sender:    w.session.GetCurrentUser().UserID,
-		Recipient: from,
+		Recipient: moneyFrom,
 		Value:     value,
+		Memo:      description,
 	}
 
 	invoiceMessage, err := invoiceTransaction.FormatPaymentInvoice()
@@ -107,7 +109,7 @@ func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse
 	return invoiceMessage, nil
 }
 
-type InvoiceListener struct{
+type InvoiceListener struct {
 	wallet *Wallet
 }
 
@@ -116,7 +118,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	// Test for incorrect message type, just in case
 	if msg.Type != parse.Type_PAYMENT_INVOICE {
-		jww.WARN.Printf("InvoiceListener: Got an invoice with the incorrect" +
+		jww.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
 			" type: %v",
 			msg.Type.String())
 		return
@@ -124,13 +126,13 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	// Don't humor people who send malformed messages
 	if err := proto.Unmarshal(msg.Body, &invoice); err != nil {
-		jww.WARN.Printf("InvoiceListener: Got error unmarshaling inbound" +
+		jww.WARN.Printf("InvoiceListener: Got error unmarshaling inbound"+
 			" invoice: %v", err.Error())
 		return
 	}
 
 	if uint64(len(invoice.CreatedCoin)) != coin.BaseFrameLen {
-		jww.WARN.Printf("InvoiceListener: Created coin has incorrect length" +
+		jww.WARN.Printf("InvoiceListener: Created coin has incorrect length"+
 			" %v and is likely invalid", len(invoice.CreatedCoin))
 		return
 	}

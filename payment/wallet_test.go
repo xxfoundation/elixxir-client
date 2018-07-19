@@ -7,10 +7,38 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/privategrity/client/globals"
 )
 
 func TestWallet_Invoice(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{user.ID(1), "test"}, "", []user.NodeKeys{})
 
+	or := TransactionList{
+		transactionMap: make(map[parse.MessageHash]*Transaction),
+		value:          0,
+		session:        s,
+	}
+
+	w := Wallet{
+		coinStorage:         nil,
+		outboundRequests:    &or,
+		inboundRequests:     nil,
+		pendingTransactions: nil,
+		session:             s,
+	}
+
+	// Request 50 unicoins from user 2
+	msg, err := w.Invoice(user.ID(2), 50, "please gib")
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	if msg.Sender != s.GetCurrentUser().UserID {
+		t.Errorf("Invoice sender didn't match. Got: %v, expected %v",
+			msg.Sender, s.GetCurrentUser().UserID)
+	}
 }
 
 // Make sure the session stays untouched when passing malformed inputs to the

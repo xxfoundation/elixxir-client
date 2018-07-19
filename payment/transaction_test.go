@@ -31,7 +31,7 @@ func TestTransaction_FormatInvoice(t *testing.T) {
 		Value:     value,
 	}
 
-	formattedInvoice, err := transaction.FormatInvoice()
+	formattedInvoice, err := transaction.FormatPaymentInvoice()
 	if err != nil {
 		t.Error(err.Error())
 	}

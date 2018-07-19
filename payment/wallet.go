@@ -82,7 +82,7 @@ func (w *Wallet) Invoice(from user.ID, value uint64, description string) (*parse
 		Value:     value,
 	}
 
-	invoiceMessage, err := invoiceTransaction.FormatInvoice()
+	invoiceMessage, err := invoiceTransaction.FormatPaymentInvoice()
 
 	if err != nil {
 		return nil, err

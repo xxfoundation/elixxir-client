@@ -10,6 +10,7 @@ import (
 	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"os"
+	"sync"
 )
 
 var LocalStorage Storage
@@ -47,10 +48,13 @@ type Storage interface {
 	GetLocation() string
 	Save([]byte) error
 	Load() []byte
+	Lock()
+	Unlock()
 }
 
 type DefaultStorage struct {
 	location string
+	mutex    sync.Mutex
 }
 
 func (ds *DefaultStorage) SetLocation(location string) error {
@@ -135,8 +139,17 @@ func (ds *DefaultStorage) Load() []byte {
 
 }
 
+func (ds *DefaultStorage) Lock() {
+	ds.mutex.Lock()
+}
+
+func (ds *DefaultStorage) Unlock() {
+	ds.mutex.Unlock()
+}
+
 type RamStorage struct {
-	data []byte
+	data  []byte
+	mutex sync.Mutex
 }
 
 func (rs *RamStorage) SetLocation(location string) error {
@@ -158,4 +171,12 @@ func (rs *RamStorage) Load() []byte {
 	copy(b, rs.data)
 
 	return b
+}
+
+func (rs *RamStorage) Lock() {
+	rs.mutex.Lock()
+}
+
+func (rs *RamStorage) Unlock() {
+	rs.mutex.Unlock()
 }

@@ -7,75 +7,75 @@
 package payment
 
 import (
-	"sync"
-	"gitlab.com/privategrity/client/parse"
 	"encoding/gob"
+	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 )
 
-type TransactionList struct{
+type TransactionList struct {
 	transactionMap *map[parse.MessageHash]*Transaction
-	mutex sync.Mutex
-	value uint64
+	value          uint64
+
+	session *user.Session
 }
 
-func NewTransactionList(tag string)(*TransactionList,error){
+func CreateTransactionList(tag string, session *user.Session) (*TransactionList, error) {
 	gob.Register(TransactionList{})
 
 	var tlmPtr *map[parse.MessageHash]*Transaction
 
-	tli, err := user.TheSession.QueryMap(tag)
+	tli, err := (*session).QueryMap(tag)
 
-	if err!=nil{
+	if err != nil {
 		//If there is an err make the object
 		tlMap := make(map[parse.MessageHash]*Transaction)
 		tlmPtr = &tlMap
 
 		if err == user.ErrQuery {
-			err = user.TheSession.UpsertMap(tag, tlmPtr)
+			err = (*session).UpsertMap(tag, tlmPtr)
 		}
 		if err != nil {
 			return nil, err
 		}
-	}else{
+	} else {
 		tlmPtr = tli.(*map[parse.MessageHash]*Transaction)
 	}
 
 	value := uint64(0)
 
-	for _, t := range *tlmPtr{
+	for _, t := range *tlmPtr {
 		value += t.Value
 	}
 
-	return &TransactionList{transactionMap:tlmPtr,value:value}, nil
+	return &TransactionList{transactionMap: tlmPtr, value: value, session: session}, nil
 }
 
-func (tl *TransactionList) Value()uint64{
-	tl.mutex.Lock()
+func (tl *TransactionList) Value() uint64 {
+	(*tl.session).LockStorage()
 	v := tl.value
-	tl.mutex.Unlock()
+	(*tl.session).UnlockStorage()
 	return v
 }
 
-func (tl *TransactionList) add(mh parse.MessageHash, t *Transaction){
+func (tl *TransactionList) add(mh parse.MessageHash, t *Transaction) {
 	(*tl.transactionMap)[mh] = t
 	tl.value += tl.Value()
 }
 
-func (tl *TransactionList) Add(mh parse.MessageHash, t *Transaction){
-	tl.mutex.Lock()
+func (tl *TransactionList) Add(mh parse.MessageHash, t *Transaction) {
+	(*tl.session).LockStorage()
 	tl.add(mh, t)
-	tl.mutex.Unlock()
+	(*tl.session).UnlockStorage()
 }
 
-func (tl *TransactionList) get(mh parse.MessageHash)(*Transaction, bool){
+func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
 	t, b := (*tl.transactionMap)[mh]
 	return t, b
 }
 
-func (tl *TransactionList) Get(mh parse.MessageHash)(*Transaction, bool){
-	tl.mutex.Lock()
+func (tl *TransactionList) Get(mh parse.MessageHash) (*Transaction, bool) {
+	(*tl.session).LockStorage()
 	t, b := tl.get(mh)
-	tl.mutex.Unlock()
-	return t,b
+	(*tl.session).UnlockStorage()
+	return t, b
 }

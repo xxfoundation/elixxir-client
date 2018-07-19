@@ -26,6 +26,8 @@ type Wallet struct {
 	outboundRequests    *TransactionList
 	inboundRequests     *TransactionList
 	pendingTransactions *TransactionList
+
+	session user.Session
 }
 
 // TODO initialize this? should this be global?
@@ -37,27 +39,27 @@ func init() {
 }
 
 // Modify new wallet so that when it is called a bunch of listeners have to be passed
-func NewWallet() (*Wallet, error) {
+func CreateWallet(s *user.Session) (*Wallet, error) {
 
-	cs, err := NewOrderedStorage(CoinStorageTag)
-
-	if err != nil {
-		return nil, err
-	}
-
-	obr, err := NewTransactionList(OutboundRequestsTag)
+	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ibr, err := NewTransactionList(InboundRequestsTag)
+	obr, err := CreateTransactionList(OutboundRequestsTag, s)
 
 	if err != nil {
 		return nil, err
 	}
 
-	pt, err := NewTransactionList(PendingTransactionsTag)
+	ibr, err := CreateTransactionList(InboundRequestsTag, s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
 
 	if err != nil {
 		return nil, err

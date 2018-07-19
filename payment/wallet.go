@@ -131,7 +131,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 
 	// Actually add the request to the list of inbound requests
-	WalletyMcWalletFace.inboundRequests.Add(msg.Hash(), transaction)
+	il.wallet.inboundRequests.Add(msg.Hash(), transaction)
 	// and save it
 	user.TheSession.StoreSession()
 }

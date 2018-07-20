@@ -8,15 +8,22 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/client/globals"
-	"bytes"
 	"time"
 	"reflect"
+	"bytes"
 )
 
-func TestWallet_Invoice(t *testing.T) {
+// Tests whether invoice transactions get stored in the session correctly
+func TestWallet_registerInvoice(t *testing.T) {
+	payee := user.ID(1)
+	payer := user.ID(2)
+	memo := "for serious cryptography"
+	value := uint64(85)
+
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{user.ID(1), "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{payee, "Taxman McGee"}, "",
+		[]user.NodeKeys{})
 
 	or, err := CreateTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -31,23 +38,81 @@ func TestWallet_Invoice(t *testing.T) {
 		session:             s,
 	}
 
-	// Request 50 unicoins from user 2
-	memo := "please gib"
-	value := uint64(50)
-	invoiceTime := time.Now()
-	msg, err := w.Invoice(user.ID(2), value, memo)
+	sleeve, err := coin.NewSleeve(value)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	expected := Transaction{
+		Create:    sleeve,
+		Sender:    payer,
+		Recipient: payee,
+		Memo:      memo,
+		Timestamp: time.Now(),
+		Value:     value,
+	}
+
+	hash := parse.MessageHash{1, 2, 3, 4, 5}
+	w.registerInvoice(hash, &expected)
+
+	sessionReqs, err := s.QueryMap(OutboundRequestsTag)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
-	// Validate message
-	if msg.Sender != s.GetCurrentUser().UserID {
-		t.Errorf("Invoice sender didn't match. Got: %v, expected %v",
-			msg.Sender, s.GetCurrentUser().UserID)
+	actualReqs := sessionReqs.(map[parse.MessageHash]*Transaction)
+	if len(actualReqs) != 1 {
+		t.Error("Transaction map stored in outbound transactions contained" +
+			" other transactions than expected")
 	}
-	if msg.Receiver != user.ID(2) {
+	actualReq := actualReqs[hash]
+	if !reflect.DeepEqual(actualReq, &expected) {
+		t.Error("Register invoice didn't match the invoice in the session")
+	}
+}
+
+// Tests Invoice's message creation, and smoke tests the message's storage in
+// the wallet's session
+func TestWallet_Invoice(t *testing.T) {
+	payee := user.ID(1)
+	payer := user.ID(2)
+	memo := "please gib"
+	value := uint64(50)
+	invoiceTime := time.Now()
+
+	// Set up the wallet and its storage
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payee, "Taxman McGee"}, "",
+		[]user.NodeKeys{})
+
+	or, err := CreateTransactionList(OutboundRequestsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Nil fields are there to make sure fields that shouldn't get touched
+	// don't get touched
+	w := Wallet{
+		coinStorage:         nil,
+		outboundRequests:    or,
+		inboundRequests:     nil,
+		pendingTransactions: nil,
+		session:             s,
+	}
+
+	msg, err := w.Invoice(payer, value, memo)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	//Validate message
+	if msg.Sender != payee {
+		t.Errorf("Invoice sender didn't match. Got: %v, expected %v",
+			msg.Sender, payee)
+	}
+	if msg.Receiver != payer {
 		t.Errorf("Invoice receiver didn't match. Got: %v, expected %v",
-			msg.Receiver, user.ID(2))
+			msg.Receiver, payer)
 	}
 	if msg.Type != parse.Type_PAYMENT_INVOICE {
 		t.Errorf("Invoice type didn't match. Got: %v, expected %v",
@@ -69,47 +134,33 @@ func TestWallet_Invoice(t *testing.T) {
 		t.Error("Created coin in invoice message and outbound request's" +
 			" compound differed")
 	}
-	// make sure that we're within one second to avoid random,
-	// infrequent failures
-	if time.Now().Unix() - invoiceMsg.Time > 1 {
-		t.Errorf("Invoice message time wasn't in acceptable bounds. Now: %v, " +
+	//make sure that we're within one second to avoid random,
+	//infrequent failures
+	if time.Now().Unix()-invoiceMsg.Time > 1 {
+		t.Errorf("Invoice message time wasn't in acceptable bounds. Now: %v, "+
 			"message time %v", invoiceTime.Unix(), invoiceMsg.Time)
 	}
 	if invoiceMsg.Memo != memo {
-		t.Errorf("Invoice message memo didn't match input memo. Got: %v, " +
+		t.Errorf("Invoice message memo didn't match input memo. Got: %v, "+
 			"expected %v", invoiceMsg.Memo, memo)
 	}
-	// FIXME make sure nonce is populated
+	//FIXME make sure nonce is populated
 
-	// TODO This separate validation step indicates that this method is more
-	// than one unit
-	// Validate session object contents
+	// Make sure there's exactly one entry in the session
 	sessionReqs, err := s.QueryMap(OutboundRequestsTag)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	// It doesn't seem to work quite how I'd hoped
+
 	actualReqs := sessionReqs.(map[parse.MessageHash]*Transaction)
 	if len(actualReqs) != 1 {
 		t.Error("Transaction map stored in outbound transactions contained" +
 			" other transactions than expected")
 	}
-	actualReq := actualReqs[msg.Hash()]
-	expectedReq := Transaction{
-		Create:    coin.ConstructSleeve(nil, compound),
-		Sender:    s.GetCurrentUser().UserID,
-		Recipient: user.ID(2),
-		Memo:      memo,
-		Timestamp: time.Unix(invoiceMsg.Time, 0),
-		Value:     value,
-	}
-	if !reflect.DeepEqual(actualReq, &expectedReq) {
-		t.Error("Transaction stored in map differed from expected")
-	}
 }
 
-// Make sure the session stays untouched when passing malformed inputs to the
-// invoice listener
+//Make sure the session stays untouched when passing malformed inputs to the
+//invoice listener
 func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	var s MockSession
 	w := Wallet{

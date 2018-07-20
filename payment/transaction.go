@@ -32,7 +32,7 @@ type Transaction struct {
 // FIXME Limit this to one part message (requires message ID revamp for accuracy)
 // Place the compound coin that's the vessel for payment in the Create sleeve,
 // as it's the coin that will be created on the payment bot.
-func (t *Transaction) FormatPaymentInvoice() (*parse.Message, error) {
+func (t *Transaction) FormatPaymentInvoice() *parse.Message  {
 	compound := t.Create.Compound()
 	invoice := parse.PaymentInvoice{
 		Time:        t.Timestamp.Unix(),
@@ -41,7 +41,9 @@ func (t *Transaction) FormatPaymentInvoice() (*parse.Message, error) {
 	}
 	wireRep, err := proto.Marshal(&invoice)
 	if err != nil {
-		return nil, err
+		// This should never happen
+		panic("FormatPaymentInvoice: Got error while marshaling invoice: " +
+			err.Error())
 	}
 
 	typedBody := parse.TypedBody{
@@ -51,9 +53,11 @@ func (t *Transaction) FormatPaymentInvoice() (*parse.Message, error) {
 
 	return &parse.Message{
 		TypedBody: typedBody,
-		Sender:    t.Sender,
-		Receiver:  t.Recipient,
+		// The person who sends the invoice is the one who will receive the
+		// money
+		Sender:   t.Recipient,
+		Receiver: t.Sender,
 		// TODO populate nonce and panic if any outgoing message has none
 		Nonce: nil,
-	}, nil
+	}
 }

@@ -386,3 +386,42 @@ func TestInvoiceListener_Hear(t *testing.T) {
 			" request")
 	}
 }
+
+func TestWallet_Invoice_Error(t *testing.T) {
+	payee := user.ID(1)
+	payer := user.ID(2)
+	memo := "please gib"
+	// A value of zero should cause an error
+	value := uint64(0)
+
+	// Set up the wallet and its storage
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payee, "Taxman McGee"}, "",
+		[]user.NodeKeys{})
+
+	or, err := CreateTransactionList(OutboundRequestsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Nil fields are there to make sure fields that shouldn't get touched
+	// don't get touched
+	w := Wallet{
+		outboundRequests: or,
+		session:          s,
+	}
+
+	_, err = w.Invoice(payer, value, memo)
+	if err == nil {
+		t.Error("Didn't get an error for a worthless invoice")
+	}
+
+	// A value greater than the greatest possible value should cause an error
+	value = coin.MaxValueDenominationRegister + 1
+
+	_, err = w.Invoice(payer, value, memo)
+	if err == nil {
+		t.Error("Didn't get an error for an invoice that's too large")
+	}
+}

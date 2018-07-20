@@ -21,6 +21,7 @@ type TransactionList struct {
 
 func CreateTransactionList(tag string, session user.Session) (*TransactionList, error) {
 	gob.Register(TransactionList{})
+	gob.Register(make(map[parse.MessageHash]*Transaction))
 
 	var tlm map[parse.MessageHash]*Transaction
 

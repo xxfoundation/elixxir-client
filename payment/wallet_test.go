@@ -8,6 +8,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/client/globals"
+	"bytes"
+	"time"
 )
 
 func TestWallet_Invoice(t *testing.T) {
@@ -15,30 +17,75 @@ func TestWallet_Invoice(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{user.ID(1), "test"}, "", []user.NodeKeys{})
 
-	or := TransactionList{
-		transactionMap: make(map[parse.MessageHash]*Transaction),
-		value:          0,
-		session:        s,
+	or, err := CreateTransactionList(OutboundRequestsTag, s)
+	if err != nil {
+		t.Error(err.Error())
 	}
 
 	w := Wallet{
 		coinStorage:         nil,
-		outboundRequests:    &or,
+		outboundRequests:    or,
 		inboundRequests:     nil,
 		pendingTransactions: nil,
 		session:             s,
 	}
 
 	// Request 50 unicoins from user 2
-	msg, err := w.Invoice(user.ID(2), 50, "please gib")
+	memo := "please gib"
+	msg, err := w.Invoice(user.ID(2), 50, memo)
 	if err != nil {
 		t.Error(err.Error())
 	}
 
+	// Validate message
 	if msg.Sender != s.GetCurrentUser().UserID {
 		t.Errorf("Invoice sender didn't match. Got: %v, expected %v",
 			msg.Sender, s.GetCurrentUser().UserID)
 	}
+	if msg.Receiver != user.ID(2) {
+		t.Errorf("Invoice receiver didn't match. Got: %v, expected %v",
+			msg.Receiver, user.ID(2))
+	}
+	if msg.Type != parse.Type_PAYMENT_INVOICE {
+		t.Errorf("Invoice type didn't match. Got: %v, expected %v",
+			msg.Type.String(), parse.Type_PAYMENT_INVOICE.String())
+	}
+	// Parse the body and make sure the fields are correct
+	invoiceMsg := parse.PaymentInvoice{}
+	err = proto.Unmarshal(msg.Body, &invoiceMsg)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	request, ok := or.Get(msg.Hash())
+	if !ok {
+		t.Error("Couldn't get outbound request out of the wallet's list")
+	}
+	compound := request.Create.Compound()
+	t.Logf("Added compound: %q", compound)
+	if !bytes.Equal(invoiceMsg.CreatedCoin, compound[:]) {
+		t.Error("Created coin in invoice message and outbound request's" +
+			" compound differed")
+	}
+	// make sure that we're within one second to avoid random,
+	// infrequent failures
+	if time.Now().Unix() - invoiceMsg.Time > 1 {
+		t.Errorf("Invoice message time wasn't in acceptable bounds. Now: %v, " +
+			"message time %v", time.Now().Unix(), invoiceMsg.Time)
+	}
+	if invoiceMsg.Memo != memo {
+		t.Errorf("Invoice message memo didn't match input memo. Got: %v, " +
+			"expected %v", invoiceMsg.Memo, memo)
+	}
+	// TODO make sure nonce is populated
+
+	// Validate session object contents
+	sessionReqs, err := s.QueryMap(OutboundRequestsTag)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	// It doesn't seem to work quite how I'd hoped
+	actualReqs := sessionReqs.(TransactionList)
+	println(actualReqs.value)
 }
 
 // Make sure the session stays untouched when passing malformed inputs to the

@@ -92,6 +92,7 @@ func (w *Wallet) Invoice(moneyFrom user.ID, value uint64,
 		Recipient: moneyFrom,
 		Value:     value,
 		Memo:      description,
+		Timestamp: time.Now(),
 	}
 
 	invoiceMessage, err := invoiceTransaction.FormatPaymentInvoice()

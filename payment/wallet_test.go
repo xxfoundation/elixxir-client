@@ -10,6 +10,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"bytes"
 	"time"
+	"reflect"
 )
 
 func TestWallet_Invoice(t *testing.T) {
@@ -32,7 +33,9 @@ func TestWallet_Invoice(t *testing.T) {
 
 	// Request 50 unicoins from user 2
 	memo := "please gib"
-	msg, err := w.Invoice(user.ID(2), 50, memo)
+	value := uint64(50)
+	invoiceTime := time.Now()
+	msg, err := w.Invoice(user.ID(2), value, memo)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -70,22 +73,39 @@ func TestWallet_Invoice(t *testing.T) {
 	// infrequent failures
 	if time.Now().Unix() - invoiceMsg.Time > 1 {
 		t.Errorf("Invoice message time wasn't in acceptable bounds. Now: %v, " +
-			"message time %v", time.Now().Unix(), invoiceMsg.Time)
+			"message time %v", invoiceTime.Unix(), invoiceMsg.Time)
 	}
 	if invoiceMsg.Memo != memo {
 		t.Errorf("Invoice message memo didn't match input memo. Got: %v, " +
 			"expected %v", invoiceMsg.Memo, memo)
 	}
-	// TODO make sure nonce is populated
+	// FIXME make sure nonce is populated
 
+	// TODO This separate validation step indicates that this method is more
+	// than one unit
 	// Validate session object contents
 	sessionReqs, err := s.QueryMap(OutboundRequestsTag)
 	if err != nil {
 		t.Error(err.Error())
 	}
 	// It doesn't seem to work quite how I'd hoped
-	actualReqs := sessionReqs.(TransactionList)
-	println(actualReqs.value)
+	actualReqs := sessionReqs.(map[parse.MessageHash]*Transaction)
+	if len(actualReqs) != 1 {
+		t.Error("Transaction map stored in outbound transactions contained" +
+			" other transactions than expected")
+	}
+	actualReq := actualReqs[msg.Hash()]
+	expectedReq := Transaction{
+		Create:    coin.ConstructSleeve(nil, compound),
+		Sender:    s.GetCurrentUser().UserID,
+		Recipient: user.ID(2),
+		Memo:      memo,
+		Timestamp: time.Unix(invoiceMsg.Time, 0),
+		Value:     value,
+	}
+	if !reflect.DeepEqual(actualReq, &expectedReq) {
+		t.Error("Transaction stored in map differed from expected")
+	}
 }
 
 // Make sure the session stays untouched when passing malformed inputs to the

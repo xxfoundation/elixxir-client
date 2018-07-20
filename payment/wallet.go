@@ -76,38 +76,32 @@ func (w *Wallet) registerInvoiceListener() {
 	})
 }
 
-// Adds a fund request to the wallet and returns the message to make it
-func (w *Wallet) Invoice(moneyFrom user.ID, value uint64,
-	description string) (*parse.Message, error) {
-
+// Creates an invoice, which you can add to the wallet and create a message of
+// You must call RegisterInvoice after this to put the invoice in the
+// queue of outbound requests, so that you can keep the coins in your wallet
+// if your payer pays the invoice.
+func (w *Wallet) CreateInvoice(moneyFrom user.ID, value uint64,
+	memo string) (*Transaction, error) {
 	newCoin, err := coin.NewSleeve(value)
 
 	if err != nil {
 		return nil, err
 	}
 
-	invoiceTransaction := Transaction{
+	return &Transaction{
 		Create:    newCoin,
 		Sender:    w.session.GetCurrentUser().UserID,
 		Recipient: moneyFrom,
 		Value:     value,
-		Memo:      description,
+		Memo:      memo,
 		Timestamp: time.Now(),
-	}
+	}, nil
+}
 
-	invoiceMessage, err := invoiceTransaction.FormatPaymentInvoice()
-
-	if err != nil {
-		return nil, err
-	}
-
-	invoiceHash := invoiceMessage.Hash()
-
-	w.outboundRequests.Add(invoiceHash, &invoiceTransaction)
-
-	w.session.StoreSession()
-
-	return invoiceMessage, nil
+func (w *Wallet) RegisterInvoice(id parse.MessageHash,
+	invoice *Transaction) error {
+	w.outboundRequests.Add(id, invoice)
+	return w.session.StoreSession()
 }
 
 type InvoiceListener struct {

@@ -52,7 +52,7 @@ func TestTransaction_FormatInvoice(t *testing.T) {
 	}
 	var createdCompound coin.Compound
 	copy(createdCompound[:], invoice.CreatedCoin)
-	if createdCompound != sleeve.Compound() {
+	if createdCompound != *sleeve.Compound() {
 		t.Errorf("Created compound didn't match. Got %q, expected %q",
 			createdCompound, sleeve.Compound())
 	}

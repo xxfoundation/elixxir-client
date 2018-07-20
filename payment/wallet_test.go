@@ -93,11 +93,8 @@ func TestWallet_Invoice(t *testing.T) {
 	// Nil fields are there to make sure fields that shouldn't get touched
 	// don't get touched
 	w := Wallet{
-		coinStorage:         nil,
-		outboundRequests:    or,
-		inboundRequests:     nil,
-		pendingTransactions: nil,
-		session:             s,
+		outboundRequests: or,
+		session:          s,
 	}
 
 	msg, err := w.Invoice(payer, value, memo)
@@ -303,4 +300,89 @@ func (ms *MockSession) LockStorage() {
 
 func (ms *MockSession) UnlockStorage() {
 	*ms = true
+}
+
+func TestInvoiceListener_Hear(t *testing.T) {
+	payee := user.ID(1)
+	payer := user.ID(2)
+	value := uint64(50)
+	memo := "please gib"
+	// Set up the wallet and its storage
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "CEO MF DOOM"}, "",
+		[]user.NodeKeys{})
+
+	ir, err := CreateTransactionList(InboundRequestsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Nil fields are there to make sure fields that shouldn't get touched
+	// don't get touched
+	w := Wallet{
+		inboundRequests: ir,
+		session:         s,
+	}
+
+	invoiceListener := InvoiceListener{wallet: &w}
+
+	invoiceTransaction, err := createInvoice(payer, payee, value, memo)
+	msg := invoiceTransaction.FormatPaymentInvoice()
+	hash := msg.Hash()
+
+	invoiceListener.Hear(msg, false)
+
+	req, ok := ir.Get(hash)
+	if !ok {
+		t.Error("Couldn't get invoice message from inbound requests structure")
+	}
+	// Memo, payer, payee, value should all be equal
+	if req.Memo != memo {
+		t.Errorf("Memo didn't match. Got: %v, expected %v", req.Memo, memo)
+	}
+	if req.Sender != payer {
+		t.Errorf("Payer didn't match. Got: %v, expected %v", req.Sender, payer)
+	}
+	if req.Recipient != payee {
+		t.Errorf("Payee didn't match. Got: %v, expected %v", req.Recipient,
+			payee)
+	}
+	if req.Value != value {
+		t.Errorf("Value didn't match. Got: %v, expected %v", req.Value, value)
+	}
+	// The coin itself is a special case. You shouldn't send a coin's seed
+	// over the network, except to the payment bot when you're proving that you
+	// own a coin
+	// So, the resulting coin's seed should be nil and its compound should be
+	// the same
+	if req.Create.Seed() != nil {
+		t.Error("Created coin's seed wasn't nil on the message's recipient")
+	}
+	if *req.Create.Compound() != *invoiceTransaction.Create.Compound() {
+		t.Error("Created coin's compounds weren't equal")
+	}
+
+	// Need to unmarshal the message to get the expected timestamp out of it
+	var paymentInvoice parse.PaymentInvoice
+	proto.Unmarshal(msg.Body, &paymentInvoice)
+	// The timestamp on the network message is only precise up to a second,
+	// so we have to compare the timestamp on the outgoing network message
+	// to the timestamp on the incoming network message rather than to the
+	// timestamp on the transaction.
+	if req.Timestamp.Unix() != paymentInvoice.Time {
+		t.Errorf("Timestamp differed from expected. Got %v, expected %v",
+			req.Timestamp.Unix(), paymentInvoice.Time)
+	}
+
+	// Now, verify that the session contains the same request
+	incomingRequests, err := s.QueryMap(InboundRequestsTag)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	actualRequests := incomingRequests.(map[parse.MessageHash]*Transaction)
+	if !reflect.DeepEqual(actualRequests[hash], req){
+		t.Error("Request in incoming requests map didn't match received" +
+			" request")
+	}
 }

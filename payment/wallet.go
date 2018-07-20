@@ -157,10 +157,8 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	transaction := &Transaction{
 		Create:    coin.ConstructSleeve(nil, &compound),
-		Destroy:   nil,
-		Change:    NilSleeve,
-		Sender:    msg.Sender,
-		Recipient: msg.Receiver,
+		Sender:    msg.Receiver,
+		Recipient: msg.Sender,
 		Memo:      invoice.Memo,
 		Timestamp: time.Unix(invoice.Time, 0),
 		Value:     compound.Value(),

@@ -203,7 +203,7 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 		Sender:   w.session.GetCurrentUser().UserID,
 		Receiver: getPaymentBotID(),
 		// TODO panic on blank nonce
-		Nonce:    nil,
+		Nonce: nil,
 	}
 
 	// Register the transaction on the list of outbound transactions
@@ -222,4 +222,51 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	// Return the result.
 	return &msg, nil
+}
+
+type PaymentResponseListener struct {
+	wallet *Wallet
+}
+
+func (l *PaymentResponseListener) Hear(msg *parse.Message,
+	isHeardElsewhere bool) {
+	var response parse.PaymentResponse
+	err := proto.Unmarshal(msg.Body, &response)
+	if err != nil {
+		jww.WARN.Printf("Heard an invalid response from the payment bot. "+
+			"Error: %v", err.Error())
+	}
+
+	var hash parse.MessageHash
+	copy(hash[:], response.ID)
+
+	if !response.Success {
+		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
+		if !ok {
+			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
+				hash)
+		} else {
+			// Move the coins from pending transactions back to the wallet
+			// for now.
+			// This may not always be correct - for example, if the coins aren't on
+			// the payment bot there should be some way to remove them from the
+			// user's wallet.
+			for i := range transaction.Destroy {
+				l.wallet.coinStorage.Add(transaction.Destroy[i])
+			}
+			l.wallet.coinStorage.Add(transaction.Change)
+		}
+	} else {
+		// Does it make sense to have the payment bot send the value of the
+		// transaction as a response for some quick and dirty verification?
+		// Transaction was successful, so remove pending from the wallet
+		_, ok := l.wallet.pendingTransactions.Pop(hash)
+		if !ok {
+			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
+				hash)
+		} else {
+			// TODO send receipt to invoice initiator hereabouts
+		}
+	}
+	jww.DEBUG.Printf("Payment response: %v", response.Response)
 }

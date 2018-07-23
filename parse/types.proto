@@ -16,7 +16,7 @@ enum Type {
     // We currently parse these types without using proto buffers
     // We use the types, but don't look for proto buffer definitions
     UDB_PUSH_KEY = 10;
-    UDB_PUSH_KEY_RESPONSE=11;
+    UDB_PUSH_KEY_RESPONSE = 11;
     UDB_GET_KEY = 12;
     UDB_GET_KEY_RESPONSE = 13;
     UDB_REGISTER = 14;
@@ -25,8 +25,9 @@ enum Type {
     UDB_SEARCH_RESPONSE = 17;
     // Same with the payment bot types
     PAYMENT = 20;
+    PAYMENT_RESPONSE = 21;
     // Payment invoice uses a proto buffer because it might make things easier
-    PAYMENT_INVOICE = 21;
+    PAYMENT_INVOICE = 22;
 }
 
 // Text message types
@@ -43,6 +44,13 @@ message ChannelMessage {
 }
 
 // Payment message types
+message PaymentResponse {
+    bool success = 1;
+    string response = 2;
+    // TODO Is it correct to use the whole hash?
+    string ID = 3; // hash of the payment message that the payment bot received
+}
+
 message PaymentInvoice {
     int64 time = 1; // Unix time (seconds)
     bytes createdCoin = 2; // type: compound coin: vessel for the payment

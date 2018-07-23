@@ -60,16 +60,23 @@ func (ocs *OrderedCoinStorage) Value() uint64 {
 }
 
 func (ocs *OrderedCoinStorage) add(cs coin.Sleeve) {
-	if len(*ocs.list) == 0 {
-		*ocs.list = append(*ocs.list, cs)
-	} else {
-		for i := 0; i < len(*ocs.list); i++ {
-			if (*ocs.list)[i].Value() > cs.Value() {
-				tmp := append((*ocs.list)[:i], cs)
-				*ocs.list = append(tmp, (*ocs.list)[i:]...)
-			}
+
+	i := 0
+
+	for i < len(*ocs.list) {
+		if cs.Value() < (*ocs.list)[i].Value() {
+			break
 		}
+		i++
 	}
+
+	newList := make([]coin.Sleeve, len(*ocs.list)+1)
+
+	copy(newList[:i], (*ocs.list)[:i])
+	newList[i] = cs
+	copy(newList[i+1:], (*ocs.list)[i:])
+
+	(*ocs.list) = newList
 
 	ocs.value += cs.Value()
 }
@@ -81,7 +88,7 @@ func (ocs *OrderedCoinStorage) Add(cs coin.Sleeve) {
 }
 
 func (ocs *OrderedCoinStorage) pop(index uint64) coin.Sleeve {
-	if uint64(len(*ocs.list)) >= index {
+	if uint64(len(*ocs.list)) <= index {
 		return coin.Sleeve{}
 	}
 
@@ -96,7 +103,7 @@ func (ocs *OrderedCoinStorage) pop(index uint64) coin.Sleeve {
 
 func (ocs *OrderedCoinStorage) Pop(index uint64) coin.Sleeve {
 	ocs.session.LockStorage()
-	cs := ocs.Pop(index)
+	cs := ocs.pop(index)
 	ocs.session.UnlockStorage()
 	return cs
 }

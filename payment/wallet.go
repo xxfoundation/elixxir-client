@@ -14,6 +14,7 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"time"
 	"gitlab.com/privategrity/client/api"
+	"gitlab.com/privategrity/crypto/format"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -96,7 +97,7 @@ func createInvoice(payer user.ID, payee user.ID, value uint64,
 	}, nil
 }
 
-// Registers an invoice with the session and walalet
+// Registers an invoice with the session and wallet
 func (w *Wallet) registerInvoice(id parse.MessageHash,
 	invoice *Transaction) error {
 	w.outboundRequests.Add(id, invoice)
@@ -168,4 +169,57 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	il.wallet.inboundRequests.Add(msg.Hash(), transaction)
 	// and save it
 	il.wallet.session.StoreSession()
+}
+
+func getPaymentBotID() user.ID {
+	return 17
+}
+
+// Create a payment message and register the outgoing payment on pending
+// transactions
+func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
+	// Fund from ordered coin storage
+	// TODO calculate correct max coins programatically?
+	// TODO What are you supposed to do with the change?
+	funds, change, err := w.coinStorage.Fund(inboundRequest.Value, 5)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build payment message
+	paymentMessage := make([]byte, 0, format.DATA_LEN)
+	// The invoiced coin can go first
+	paymentMessage = append(paymentMessage, inboundRequest.Create.Compound()[:]...)
+	// The funding coins can go next
+	for i := range funds {
+		paymentMessage = append(paymentMessage, funds[i].Seed()[:]...)
+	}
+
+	msg := parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT,
+			Body: paymentMessage,
+		},
+		Sender:   w.session.GetCurrentUser().UserID,
+		Receiver: getPaymentBotID(),
+		// TODO panic on blank nonce
+		Nonce:    nil,
+	}
+
+	// Register the transaction on the list of outbound transactions
+	pendingTransaction := Transaction{
+		Create:    inboundRequest.Create,
+		Destroy:   funds,
+		Change:    change,
+		Sender:    inboundRequest.Sender,
+		Recipient: inboundRequest.Recipient,
+		Memo:      inboundRequest.Memo,
+		Timestamp: inboundRequest.Timestamp,
+		Value:     inboundRequest.Value,
+	}
+
+	w.pendingTransactions.Add(msg.Hash(), &pendingTransaction)
+
+	// Return the result.
+	return &msg, nil
 }

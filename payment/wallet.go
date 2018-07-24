@@ -9,12 +9,12 @@ package payment
 import (
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
-	"time"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/crypto/format"
+	"time"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -58,7 +58,7 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	}
 
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
-	inboundRequests: ibr, pendingTransactions: pt}
+		inboundRequests: ibr, pendingTransactions: pt}
 
 	return w, nil
 }
@@ -199,7 +199,7 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 		paymentMessage = append(paymentMessage, funds[i].Seed()[:]...)
 	}
 
-	if uint64(len(parse.Type_PAYMENT.Bytes())) + uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
@@ -207,7 +207,7 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT,
+			Type: parse.Type_PAYMENT_TRANSACTION,
 			Body: paymentMessage,
 		},
 		Sender:   w.session.GetCurrentUser().UserID,

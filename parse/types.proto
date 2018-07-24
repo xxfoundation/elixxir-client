@@ -19,8 +19,7 @@ enum Type {
     TEXT_MESSAGE = 1;
     // See proto buf
     CHANNEL_MESSAGE = 2;
-    // We currently parse these types without using proto buffers
-    // We use the types, but don't look for proto buffer definitions
+    //
     UDB_PUSH_KEY = 10;
     UDB_PUSH_KEY_RESPONSE = 11;
     UDB_GET_KEY = 12;

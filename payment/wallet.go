@@ -1,19 +1,57 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package payment
 
-const CoinStorageTag string = "CoinStorage"
+import (
+	"gitlab.com/privategrity/client/user"
+)
+
+const CoinStorageTag = "CoinStorage"
+const OutboundRequestsTag = "OutboundRequests"
+const InboundRequestsTag = "InboundRequests"
+const PendingTransactionsTag = "PendingTransactions"
 
 type Wallet struct {
-	coinStorage *OrderedStorage
+	coinStorage         *OrderedCoinStorage
+	outboundRequests    *TransactionList
+	inboundRequests     *TransactionList
+	pendingTransactions *TransactionList
+
+	session user.Session
 }
 
-func NewWallet()(*Wallet,error){
+func CreateWallet(s user.Session) (*Wallet, error) {
 
-	cs, err := NewOrderedStorage(CoinStorageTag)
+	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
-	if err!=nil{
-		return nil,err
+	if err != nil {
+		return nil, err
 	}
 
-	return &Wallet{coinStorage:cs}, nil
-}
+	obr, err := CreateTransactionList(OutboundRequestsTag, s)
 
+	if err != nil {
+		return nil, err
+	}
+
+	ibr, err := CreateTransactionList(InboundRequestsTag, s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	w := &Wallet{coinStorage: cs, outboundRequests: obr,
+		inboundRequests: ibr, pendingTransactions: pt}
+
+	return w, nil
+}

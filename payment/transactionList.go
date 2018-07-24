@@ -1,34 +1,51 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package payment
 
-type MessageHash [512]byte
+import (
+	"encoding/gob"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
+)
 
-/*
 type TransactionList struct {
-	transactionMap *map[MessageHash]Transaction
-	mutex          sync.Mutex
+	transactionMap *map[parse.MessageHash]*Transaction
 	value          uint64
+
+	session user.Session
 }
 
-func NewTransactionList(tag string) (*TransactionList, error) {
+func init() {
+	m := make(map[parse.MessageHash]*Transaction)
+	gob.Register(&m)
+}
+
+// Checks to see if a transaction list of the given tag is present in session.  If one is, then it returns it.
+// If one isn't, then a new one is created
+func CreateTransactionList(tag string, session user.Session) (*TransactionList, error) {
 	gob.Register(TransactionList{})
 
-	var tlmPtr *map[MessageHash]Transaction
+	var tlmPtr *map[parse.MessageHash]*Transaction
 
-	tli, err := user.TheSession.QueryMap(tag)
+	tli, err := session.QueryMap(tag)
 
 	if err != nil {
 		//If there is an err make the object
-		tlMap := make(map[MessageHash]Transaction)
+		tlMap := make(map[parse.MessageHash]*Transaction)
 		tlmPtr = &tlMap
 
 		if err == user.ErrQuery {
-			err = user.TheSession.UpsertMap(tag, tlmPtr)
+			err = session.UpsertMap(tag, tlmPtr)
 		}
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		tlmPtr = tli.(*map[MessageHash]Transaction)
+		tlmPtr = tli.(*map[parse.MessageHash]*Transaction)
 	}
 
 	value := uint64(0)
@@ -37,70 +54,56 @@ func NewTransactionList(tag string) (*TransactionList, error) {
 		value += t.Value
 	}
 
-	return &TransactionList{transactionMap: tlmPtr, value: value}, nil
+	return &TransactionList{transactionMap: tlmPtr, value: value, session: session}, nil
 }
 
+// Returns the value of all transactions in the list
 func (tl *TransactionList) Value() uint64 {
-	tl.mutex.Lock()
+	(tl.session).LockStorage()
 	v := tl.value
-	tl.mutex.Unlock()
+	(tl.session).UnlockStorage()
 	return v
 }
 
-func (tl *TransactionList) add(mh MessageHash, t Transaction) (error) {
-	if len(*tl.transactionMap) == 0 {
-		*tl.transactionMap[]
-	} else {
-		for i := 0; i < len(*os.list); i++ {
-			if (*os.list)[i].Value() > cs.Value() {
-				tmp := append((*os.list)[:i], cs)
-				*os.list = append(tmp, (*os.list)[i:]...)
-			}
-		}
+// Adds or updates a transaction to the list with a key of the given hash
+func (tl *TransactionList) Upsert(mh parse.MessageHash, t *Transaction) {
+	(tl.session).LockStorage()
+	tl.upsert(mh, t)
+	(tl.session).UnlockStorage()
+}
+
+// Gets a transaction from the list with a key of the given hash
+func (tl *TransactionList) Get(mh parse.MessageHash) (*Transaction, bool) {
+	(tl.session).LockStorage()
+	t, b := tl.get(mh)
+	(tl.session).UnlockStorage()
+	return t, b
+}
+
+// Pops a transaction from the list with a key of the given hash
+func (tl *TransactionList) Pop(mh parse.MessageHash) (*Transaction, bool) {
+	tl.session.LockStorage()
+	t, b := tl.pop(mh)
+	tl.session.UnlockStorage()
+	return t, b
+}
+
+// INTERNAL FUNCTIONS
+
+func (tl *TransactionList) upsert(mh parse.MessageHash, t *Transaction) {
+	(*tl.transactionMap)[mh] = t
+	tl.value += t.Value
+}
+
+func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
+	t, b := (*tl.transactionMap)[mh]
+	return t, b
+}
+
+func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
+	t, b := tl.get(mh)
+	if b {
+		delete(*tl.transactionMap, mh)
 	}
-
-	os.value += cs.Value()
+	return t, b
 }
-
-func (os *OrderedStorage) Add(cs coin.Sleeve) {
-	os.mutex.Lock()
-	os.add(cs)
-	os.mutex.Unlock()
-}
-
-func (os *OrderedStorage) pop(index uint64) coin.Sleeve {
-	if uint64(len(*os.list)) >= index {
-		return coin.Sleeve{}
-	}
-
-	cs := (*os.list)[index]
-
-	*os.list = append((*os.list)[:index], (*os.list)[index+1:]...)
-
-	os.value -= cs.Value()
-
-	return cs
-}
-
-func (os *OrderedStorage) Pop(index uint64) coin.Sleeve {
-	os.mutex.Lock()
-	cs := os.Pop(index)
-	os.mutex.Unlock()
-	return cs
-}
-
-func (os *OrderedStorage) get(index uint64) coin.Sleeve {
-	if uint64(len(*os.list)) >= index {
-		return coin.Sleeve{}
-	}
-
-	return (*os.list)[index]
-}
-
-func (os *OrderedStorage) Get(index uint64) coin.Sleeve {
-	os.mutex.Lock()
-	cs := os.get(index)
-	os.mutex.Unlock()
-	return cs
-}
-*/

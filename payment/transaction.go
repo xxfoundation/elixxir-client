@@ -1,8 +1,14 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package payment
 
 import (
-	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/coin"
 	"time"
 )
 
@@ -11,10 +17,10 @@ type Transaction struct {
 	Destroy []coin.Sleeve
 	Change  coin.Sleeve
 
-	From user.ID
-	To   user.ID
+	Sender    user.ID
+	Recipient user.ID
 
-	Description string
+	Memo string
 
 	Timestamp time.Time
 

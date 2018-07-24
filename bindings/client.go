@@ -12,8 +12,8 @@ import (
 	"github.com/xeipuuv/gojsonschema"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
-	"strconv"
 	"gitlab.com/privategrity/client/user"
+	"strconv"
 )
 
 // Copy of the storage interface.

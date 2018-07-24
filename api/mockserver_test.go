@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
@@ -20,13 +21,15 @@ import (
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/client/user"
 )
 
 var gwAddress = "localhost:8080"
 
 var Session user.SessionObj
 var GatewayData TestInterface
+
+
+
 
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().Unix())

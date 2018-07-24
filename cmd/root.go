@@ -16,8 +16,8 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
 	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"os"
@@ -37,6 +37,26 @@ var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
+
+// CmdMessage are an implementation of the interface in bindings and API
+// easy to use from Go
+type CmdMessage struct {
+	Payload     string
+	SenderID    user.ID
+	RecipientID user.ID
+}
+
+func (m CmdMessage) GetSender() []byte {
+	return m.SenderID.Bytes()
+}
+
+func (m CmdMessage) GetRecipient() []byte {
+	return m.RecipientID.Bytes()
+}
+
+func (m CmdMessage) GetPayload() string {
+	return m.Payload
+}
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -261,7 +281,7 @@ var rootCmd = &cobra.Command{
 				recipientNick, message)
 
 			//Send the message
-			bindings.Send(api.APIMessage{
+			bindings.Send(CmdMessage{
 				SenderID:    user.ID(userId),
 				Payload:     string(wireOut),
 				RecipientID: user.ID(destinationUserId),
@@ -285,7 +305,7 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := api.APIMessage{
+				message := CmdMessage{
 					SenderID:    user.ID(userId),
 					Payload:     string(api.FormatTextMessage(message)),
 					RecipientID: user.ID(destinationUserId)}

@@ -1,17 +1,22 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package payment
 
 import (
-	"gitlab.com/privategrity/crypto/coin"
 	"errors"
-	"sync"
-	"encoding/gob"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/coin"
 )
 
-type OrderedStorage struct {
+type OrderedCoinStorage struct {
 	list  *[]coin.Sleeve
-	mutex sync.Mutex
 	value uint64
+
+	session user.Session
 }
 
 var ErrInsufficientFunds = errors.New("not enough funds to fund request")
@@ -19,112 +24,80 @@ var ErrInvalidOrganizationOfFunds = errors.New("cannot fit requested funds withi
 
 var NilSleeve = coin.Sleeve{}
 
-func NewOrderedStorage(tag string) (*OrderedStorage, error) {
-	gob.Register(OrderedStorage{})
+// Checks to see if an ordered storage of the given tag is present in session.  If one is, then it returns it.
+// If one isn't, then a new one is created
+func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage, error) {
+	var osclPtr *[]coin.Sleeve
 
-	var oslPtr *[]coin.Sleeve
-
-	osli, err := user.TheSession.QueryMap(tag)
+	oscli, err := session.QueryMap(tag)
 	if err != nil {
 		//If there is an err make the object
 		osl := make([]coin.Sleeve, 0)
-		oslPtr = &osl
+		osclPtr = &osl
 
 		if err == user.ErrQuery {
-			err = user.TheSession.UpsertMap(tag, &oslPtr)
+			err = session.UpsertMap(tag, osclPtr)
 		}
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		oslPtr = osli.(*[]coin.Sleeve)
+		osclPtr = oscli.(*[]coin.Sleeve)
 	}
 
 	value := uint64(0)
 
-	for _, cs := range *oslPtr {
+	for _, cs := range *osclPtr {
 		value += cs.Value()
 	}
 
-	return &OrderedStorage{list: oslPtr, value: value}, nil
+	return &OrderedCoinStorage{list: osclPtr, value: value, session: session}, nil
 }
 
-func (os *OrderedStorage) Value() uint64 {
-	os.mutex.Lock()
-	v := os.value
-	os.mutex.Unlock()
+// Returns the value of all coins in the ordered storage
+func (ocs *OrderedCoinStorage) Value() uint64 {
+	ocs.session.LockStorage()
+	v := ocs.value
+	ocs.session.UnlockStorage()
 	return v
 }
 
-func (os *OrderedStorage) add(cs coin.Sleeve) {
-	if len(*os.list) == 0 {
-		*os.list = append(*os.list, cs)
-	} else {
-		for i := 0; i < len(*os.list); i++ {
-			if (*os.list)[i].Value() > cs.Value() {
-				tmp := append((*os.list)[:i], cs)
-				*os.list = append(tmp, (*os.list)[i:]...)
-			}
-		}
-	}
-
-	os.value += cs.Value()
+// Adds a coin to the ordered storage
+func (ocs *OrderedCoinStorage) Add(cs coin.Sleeve) {
+	ocs.session.LockStorage()
+	ocs.add(cs)
+	ocs.session.UnlockStorage()
 }
 
-func (os *OrderedStorage) Add(cs coin.Sleeve) {
-	os.mutex.Lock()
-	os.add(cs)
-	os.mutex.Unlock()
+// gets the coin at a specific index in the ordered storage
+func (ocs *OrderedCoinStorage) Get(index uint64) (coin.Sleeve, bool) {
+	ocs.session.LockStorage()
+	cs, b := ocs.get(index)
+	ocs.session.UnlockStorage()
+	return cs, b
 }
 
-func (os *OrderedStorage) pop(index uint64) coin.Sleeve {
-	if uint64(len(*os.list)) >= index {
-		return coin.Sleeve{}
-	}
-
-	cs := (*os.list)[index]
-
-	*os.list = append((*os.list)[:index], (*os.list)[index+1:]...)
-
-	os.value -= cs.Value()
-
-	return cs
+// pops a coin at the specific index int eh ordered storage
+func (ocs *OrderedCoinStorage) Pop(index uint64) (coin.Sleeve, bool) {
+	ocs.session.LockStorage()
+	cs, b := ocs.pop(index)
+	ocs.session.UnlockStorage()
+	return cs, b
 }
 
-func (os *OrderedStorage) Pop(index uint64) coin.Sleeve {
-	os.mutex.Lock()
-	cs := os.Pop(index)
-	os.mutex.Unlock()
-	return cs
-}
-
-func (os *OrderedStorage) get(index uint64) coin.Sleeve {
-	if uint64(len(*os.list)) >= index {
-		return coin.Sleeve{}
-	}
-
-	return (*os.list)[index]
-}
-
-func (os *OrderedStorage) Get(index uint64) coin.Sleeve {
-	os.mutex.Lock()
-	cs := os.get(index)
-	os.mutex.Unlock()
-	return cs
-}
-
-func (os *OrderedStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Sleeve, error) {
-	os.mutex.Lock()
+// Funds coins up to the requested amount with change which stores the excess
+func (ocs *OrderedCoinStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Sleeve, error) {
+	ocs.session.LockStorage()
 
 	// Return an error if there are insufficient funds
-	if value > os.value {
-		os.mutex.Unlock()
+	if value > ocs.value {
+		ocs.session.UnlockStorage()
 		return []coin.Sleeve{}, NilSleeve, ErrInsufficientFunds
 	}
 
 	// Reduce max coins if it is greater than the total number of coins
-	if maxCoins > uint64(len(*os.list)) {
-		maxCoins = uint64(len(*os.list))
+	if maxCoins > uint64(len(*ocs.list)) {
+		maxCoins = uint64(len(*ocs.list))
 	}
 
 	// Create variables
@@ -133,7 +106,7 @@ func (os *OrderedStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Slee
 
 	// Step 1: Fill with all smallest coins
 	for i := uint64(0); i < maxCoins; i++ {
-		cs := os.pop(0)
+		cs, _ := ocs.pop(0)
 		funds = append(funds, cs)
 		sum += cs.Value()
 		if sum >= value {
@@ -143,19 +116,21 @@ func (os *OrderedStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Slee
 
 	// Step 2: unwind and remove each coin from the highest to
 	// lowest
-	for i := maxCoins - 1; i >= 0; i-- {
-		j := uint64(0)
+	for i := int64(maxCoins) - 1; i >= 0; i-- {
+		j := int64(-1)
 		newSum := uint64(0)
-		for j < uint64(len(funds)) {
-			newSum = sum - funds[i].Value() + os.get(j).Value()
+		for j < int64(len(*ocs.list)-1) {
+			j++
+			csg, _ := ocs.get(uint64(j))
+			newSum = sum - funds[i].Value() + csg.Value()
 			if newSum >= value {
 				break
 			}
-			j++
 		}
+
 		oldSleeve := funds[i]
-		funds[i] = os.pop(j)
-		os.add(oldSleeve)
+		funds[i], _ = ocs.pop(uint64(j))
+		ocs.add(oldSleeve)
 		sum = newSum
 		if sum >= value {
 			goto Success
@@ -164,9 +139,9 @@ func (os *OrderedStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Slee
 
 	// Step 3: If nothing is found, add funds back onto the ordered list,
 	// it will be all the highest coins so it can just be appended
-	*os.list = append(*os.list, funds...)
-	os.value += sum
-	os.mutex.Unlock()
+	*ocs.list = append(*ocs.list, funds...)
+	ocs.value += sum
+	ocs.session.UnlockStorage()
 
 	return []coin.Sleeve{}, NilSleeve, ErrInvalidOrganizationOfFunds
 
@@ -179,12 +154,55 @@ Success:
 		change, err = coin.NewSleeve(sum - value)
 		if err != nil {
 			for _, c := range funds {
-				os.add(c)
+				ocs.add(c)
 			}
 			return []coin.Sleeve{}, NilSleeve, err
 		}
 	}
 
-	os.mutex.Unlock()
+	ocs.session.UnlockStorage()
 	return funds, change, nil
+}
+
+// INTERNAL FUNCTIONS
+func (ocs *OrderedCoinStorage) add(cs coin.Sleeve) {
+
+	i := 0
+
+	for i < len(*ocs.list) {
+		if cs.Value() < (*ocs.list)[i].Value() {
+			break
+		}
+		i++
+	}
+
+	newList := make([]coin.Sleeve, len(*ocs.list)+1)
+
+	copy(newList[:i], (*ocs.list)[:i])
+	newList[i] = cs
+	copy(newList[i+1:], (*ocs.list)[i:])
+
+	*ocs.list = newList
+
+	ocs.value += cs.Value()
+}
+
+func (ocs *OrderedCoinStorage) get(index uint64) (coin.Sleeve, bool) {
+	if index >= uint64(len(*ocs.list)) {
+		return coin.Sleeve{}, false
+	}
+
+	return (*ocs.list)[index], true
+}
+
+func (ocs *OrderedCoinStorage) pop(index uint64) (coin.Sleeve, bool) {
+	cs, b := ocs.get(index)
+
+	if b {
+		*ocs.list = append((*ocs.list)[:index], (*ocs.list)[index+1:]...)
+
+		ocs.value -= cs.Value()
+	}
+
+	return cs, b
 }

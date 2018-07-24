@@ -8,10 +8,10 @@ package user
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/hash"
-	"encoding/binary"
 )
 
 // TODO use this type for User IDs consistently throughout
@@ -149,7 +149,7 @@ func UserHash(uid ID) []byte {
 	h, _ := hash.NewCMixHash()
 	h.Write(uid.Bytes())
 	huid := h.Sum(nil)
-	huid = huid[len(huid) -IDLen:]
+	huid = huid[len(huid)-IDLen:]
 	return huid
 }
 

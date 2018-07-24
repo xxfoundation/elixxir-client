@@ -58,7 +58,7 @@ func TestPack(t *testing.T) {
 		Body: []byte{0x02, 0x03, 0x04},
 	})
 	if !bytes.Equal(expected, actual) {
-		t.Errorf("Pack didn't return correctly packed byte slice. " +
+		t.Errorf("Pack didn't return correctly packed byte slice. "+
 			"Expected: %v, actual: %v", expected, actual)
 	}
 }

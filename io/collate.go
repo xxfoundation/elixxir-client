@@ -1,22 +1,29 @@
 package io
 
 import (
+	"crypto/sha256"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
 )
 
 type multiPartMessage struct {
 	parts            [][]byte
+	nonces           [][]byte
 	numPartsReceived uint8
 }
 
+const PendingMessageKeyLenBits = uint64(256)
+const PendingMessageKeyLen = PendingMessageKeyLenBits / 8
+
+type PendingMessageKey [PendingMessageKeyLen]byte
+
 type collator struct {
-	pendingMessages map[string]*multiPartMessage
+	pendingMessages map[PendingMessageKey]*multiPartMessage
 	// TODO do we need a lock here? or can we assume that requests will come
 	// from only one thread?
 	mux sync.Mutex
@@ -27,7 +34,7 @@ var theCollator *collator
 func GetCollator() *collator {
 	if theCollator == nil {
 		theCollator = &collator{
-			pendingMessages: make(map[string]*multiPartMessage),
+			pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 		}
 	}
 	return theCollator
@@ -37,19 +44,45 @@ func GetCollator() *collator {
 // TODO should this return an error?
 // TODO this should take a different type as parameter.
 // TODO this takes too many types. i should split it up.
-func (mb *collator) AddMessage(payload []byte, sender user.ID) {
+// This method returns a byte slice with the assembled message if it's
+// received a completed message.
+func (mb *collator) AddMessage(message *format.Message,
+	timeout time.Duration) *parse.Message {
+
+	payload := []byte(message.GetPayload())
+	sender := user.NewIDFromBytes(message.GetSender())
+	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
+
 	partition, err := parse.ValidatePartition(payload)
 
 	if err == nil {
 		if partition.MaxIndex == 0 {
-			// this is the only part of the message. we should take the fast
-			// path and skip putting it in the map
-			jww.DEBUG.Println("Taking the fast-path: Broadcasting message" +
-				" reception.")
-			broadcastMessageReception(partition.Body, sender, switchboard.Listeners)
+			//this is the only part of the message. we should take the fast
+			//path and skip putting it in the map
+			typedBody, err := parse.Parse(partition.Body)
+			// Log an error if the message is malformed and return nothing
+			if err != nil {
+				jww.ERROR.Printf("Malformed message recieved")
+				return nil
+			}
+
+			msg := parse.Message{
+				TypedBody: *typedBody,
+				Nonce:     nonce,
+				Sender:    sender,
+				Receiver:  user.TheSession.GetCurrentUser().UserID,
+			}
+
+			return &msg
 		} else {
-			// TODO hash here for better security properties?
-			key := string(append(partition.ID, sender.Bytes()...))
+			// assemble the map key into a new chunk of memory
+			var key PendingMessageKey
+			h := sha256.New()
+			h.Write(partition.ID)
+			h.Write(sender.Bytes())
+			keyHash := h.Sum(nil)
+			copy(key[:], keyHash[:PendingMessageKeyLen])
+
 			mb.mux.Lock()
 			message, ok := mb.pendingMessages[key]
 			if !ok {
@@ -58,30 +91,54 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) {
 				newMessage := make([][]byte, partition.MaxIndex+1)
 				newMessage[partition.Index] = partition.Body
 
-				newMultiPartMessage := &multiPartMessage{
+				newNonce := make([][]byte, partition.MaxIndex+1)
+				newNonce[partition.Index] = nonce
+
+				message = &multiPartMessage{
 					parts:            newMessage,
+					nonces:           newNonce,
 					numPartsReceived: 1,
 				}
 
-				mb.pendingMessages[key] = newMultiPartMessage
+				mb.pendingMessages[key] = message
 
 				// start timeout for these partitions
 				// TODO vary timeout depending on number of messages?
-				time.AfterFunc(time.Minute, func() {
-					delete(mb.pendingMessages, key)
+				time.AfterFunc(timeout, func() {
+					mb.mux.Lock()
+					_, ok := mb.pendingMessages[key]
+					if ok {
+						delete(mb.pendingMessages, key)
+					}
+					mb.mux.Unlock()
 				})
 			} else {
 				// append to array for this key
 				message.numPartsReceived++
 				message.parts[partition.Index] = partition.Body
-
-				if message.numPartsReceived > partition.MaxIndex {
-					// TODO broadcastMessageReception should maybe take a container
-					// type. something like format. MessageInterface? or parse.Message?
-					broadcastMessageReception(parse.Assemble(message.parts),
-						sender, switchboard.Listeners)
+				message.nonces[partition.Index] = nonce
+			}
+			if message.numPartsReceived > partition.MaxIndex {
+				// Construct message
+				typedBody, err := parse.Parse(parse.Assemble(message.parts))
+				// Log an error if the message is malformed and return nothing
+				if err != nil {
 					delete(mb.pendingMessages, key)
+					mb.mux.Unlock()
+					jww.ERROR.Printf("Malformed message Recieved")
+					return nil
 				}
+
+				msg := parse.Message{
+					TypedBody: *typedBody,
+					Nonce:     parse.Assemble(message.nonces),
+					Sender:    sender,
+					Receiver:  user.TheSession.GetCurrentUser().UserID,
+				}
+
+				delete(mb.pendingMessages, key)
+				mb.mux.Unlock()
+				return &msg
 			}
 			mb.mux.Unlock()
 		}
@@ -89,6 +146,7 @@ func (mb *collator) AddMessage(payload []byte, sender user.ID) {
 		jww.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
 	}
 	jww.DEBUG.Printf("Message collator: %v", mb.dump())
+	return nil
 }
 
 // Debug: dump all messages that are currently in the map

@@ -11,13 +11,12 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"io"
 	"math"
 	"math/rand"
 	"time"
-	"gitlab.com/privategrity/client/globals"
-	"sync"
 )
 
 // Errors
@@ -26,9 +25,6 @@ var ErrQuery = errors.New("element not in map")
 // Globally instantiated Session
 // FIXME remove this sick filth
 var TheSession Session
-
-//Lock for storage access
-var StorageMutex sync.Mutex
 
 // Interface for User Session operations
 type Session interface {
@@ -43,6 +39,8 @@ type Session interface {
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
+	LockStorage()
+	UnlockStorage()
 }
 
 type NodeKeys struct {
@@ -190,9 +188,9 @@ func (s *SessionObj) storeSession() error {
 }
 
 func (s *SessionObj) StoreSession() error {
-	StorageMutex.Lock()
+	globals.LocalStorage.Lock()
 	err := s.storeSession()
-	StorageMutex.Unlock()
+	globals.LocalStorage.Unlock()
 	return err
 }
 
@@ -230,32 +228,40 @@ func (s *SessionObj) Immolate() error {
 
 //Upserts an element into the interface map and saves the session object
 func (s *SessionObj) UpsertMap(key string, element interface{}) error {
-	StorageMutex.Lock()
+	globals.LocalStorage.Lock()
 	s.InterfaceMap[key] = element
 	err := s.storeSession()
-	StorageMutex.Unlock()
+	globals.LocalStorage.Unlock()
 	return err
 }
 
 //Pulls an element from the interface in the map
 func (s *SessionObj) QueryMap(key string) (interface{}, error) {
 	var err error
-	StorageMutex.Lock()
+	globals.LocalStorage.Lock()
 	element, ok := s.InterfaceMap[key]
 	if !ok {
 		err = ErrQuery
 		element = nil
 	}
-	StorageMutex.Unlock()
+	globals.LocalStorage.Unlock()
 	return element, err
 }
 
 func (s *SessionObj) DeleteMap(key string) error {
-	StorageMutex.Lock()
+	globals.LocalStorage.Lock()
 	delete(s.InterfaceMap, key)
 	err := s.storeSession()
-	StorageMutex.Unlock()
+	globals.LocalStorage.Unlock()
 	return err
+}
+
+func (s *SessionObj) LockStorage() {
+	globals.LocalStorage.Lock()
+}
+
+func (s *SessionObj) UnlockStorage() {
+	globals.LocalStorage.Unlock()
 }
 
 func clearCyclicInt(c *cyclic.Int) {

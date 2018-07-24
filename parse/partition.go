@@ -1,13 +1,19 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package parse
 
 import (
 	"encoding/binary"
-	"gitlab.com/privategrity/crypto/format"
-	"math"
-	"sync"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/crypto/format"
+	"math"
+	"sync"
 )
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -47,9 +53,15 @@ func (i *IDCounter) Reset() {
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
 
-// length in bytes of index and max index.
+// length in bytes of index and max index together
 // change this if you change the index type
 const IndexLength = 2
+
+func GetMaxIndex(body []byte, id []byte) uint64 {
+	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
+		id)) - IndexLength)
+	return maxIndex
+}
 
 func Partition(body []byte, id []byte) ([][]byte, error) {
 	// index and quantity of the partitioned message are a fixed length of 8
@@ -61,8 +73,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	// number of partitions if you do them that way and i'm having none of that
 
 	// a zero here means that the message has one partition
-	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
-		id)) - IndexLength)
+	maxIndex := GetMaxIndex(body, id)
 	if maxIndex > math.MaxUint8 {
 		return nil, errors.New(MessageTooLongError)
 	}
@@ -74,6 +85,11 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 		partitions[i], lastPartitionLength = makePartition(format.DATA_LEN,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
 		partitionReadIdx += lastPartitionLength
+	}
+
+	var file []byte
+	for i := range partitions {
+		file = append(file, []byte(fmt.Sprintf("%q\n", partitions[i]))...)
 	}
 
 	return partitions, nil
@@ -153,7 +169,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	} else if indexInformationStart > binary.MaxVarintLen32 {
 		return nil, errors.New("ID was longer than expected")
 		// make sure that the index is less than or equal to the maximum
-	} else if partition[indexInformationStart] > partition [indexInformationStart+1] {
+	} else if partition[indexInformationStart] > partition[indexInformationStart+1] {
 		return nil, errors.New(fmt.Sprintf(
 			"Index %v was more than max index %v",
 			partition[indexInformationStart],

@@ -1,13 +1,13 @@
 package payment
 
 import (
+	"gitlab.com/privategrity/client/globals"
 	"testing"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/client/parse"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/crypto/coin"
-	"gitlab.com/privategrity/client/globals"
 	"time"
 	"reflect"
 	"bytes"
@@ -59,15 +59,57 @@ func TestWallet_registerInvoice(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	actualReqs := sessionReqs.(map[parse.MessageHash]*Transaction)
-	if len(actualReqs) != 1 {
+	actualReqs := sessionReqs.(*map[parse.MessageHash]*Transaction)
+	if len(*actualReqs) != 1 {
 		t.Error("Transaction map stored in outbound transactions contained" +
 			" other transactions than expected")
 	}
-	actualReq := actualReqs[hash]
+	actualReq := (*actualReqs)[hash]
 	if !reflect.DeepEqual(actualReq, &expected) {
 		t.Error("Register invoice didn't match the invoice in the session")
 	}
+}
+
+// Shows that CreateWallet creates new wallet properly
+func TestCreateWallet(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	_, err := CreateWallet(s)
+
+	if err != nil {
+		t.Errorf("CreateWallet: error returned on valid wallet creation: %s", err.Error())
+	}
+
+	//Test that Coin storage was added to the storage map properly
+	_, err = s.QueryMap(CoinStorageTag)
+
+	if err != nil {
+		t.Errorf("CreateWallet: CoinStorage not created: %s", err.Error())
+	}
+
+	//Test that Outbound Request List was added to the storage map properly
+	_, err = s.QueryMap(OutboundRequestsTag)
+
+	if err != nil {
+		t.Errorf("CreateWallet: Outbound Request List not created: %s", err.Error())
+	}
+
+	//Test that Inbound Request was added to the storage map properly
+	_, err = s.QueryMap(InboundRequestsTag)
+
+	if err != nil {
+		t.Errorf("CreateWallet: Inbound Request List not created: %s", err.Error())
+	}
+
+	//Test that Pending Transaction List Request was added to the storage map properly
+	_, err = s.QueryMap(PendingTransactionsTag)
+
+	if err != nil {
+		t.Errorf("CreateWallet: Pending Transaction List not created: %s", err.Error())
+	}
+
 }
 
 // Tests Invoice's message creation, and smoke tests the message's storage in
@@ -149,15 +191,15 @@ func TestWallet_Invoice(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	actualReqs := sessionReqs.(map[parse.MessageHash]*Transaction)
-	if len(actualReqs) != 1 {
+	actualReqs := sessionReqs.(*map[parse.MessageHash]*Transaction)
+	if len(*actualReqs) != 1 {
 		t.Error("Transaction map stored in outbound transactions contained" +
 			" other transactions than expected")
 	}
 }
 
-//Make sure the session stays untouched when passing malformed inputs to the
-//invoice listener
+// Make sure the session stays untouched when passing malformed inputs to the
+// invoice listener
 func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	var s MockSession
 	w := Wallet{
@@ -380,8 +422,8 @@ func TestInvoiceListener_Hear(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	actualRequests := incomingRequests.(map[parse.MessageHash]*Transaction)
-	if !reflect.DeepEqual(actualRequests[hash], req){
+	actualRequests := incomingRequests.(*map[parse.MessageHash]*Transaction)
+	if !reflect.DeepEqual((*actualRequests)[hash], req){
 		t.Error("Request in incoming requests map didn't match received" +
 			" request")
 	}

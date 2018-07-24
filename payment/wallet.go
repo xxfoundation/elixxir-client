@@ -58,7 +58,7 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	}
 
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
-		inboundRequests: ibr, pendingTransactions: pt}
+	inboundRequests: ibr, pendingTransactions: pt}
 
 	return w, nil
 }
@@ -100,7 +100,7 @@ func createInvoice(payer user.ID, payee user.ID, value uint64,
 // Registers an invoice with the session and wallet
 func (w *Wallet) registerInvoice(id parse.MessageHash,
 	invoice *Transaction) error {
-	w.outboundRequests.Add(id, invoice)
+	w.outboundRequests.Upsert(id, invoice)
 	return w.session.StoreSession()
 }
 
@@ -166,7 +166,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 
 	// Actually add the request to the list of inbound requests
-	il.wallet.inboundRequests.Add(msg.Hash(), transaction)
+	il.wallet.inboundRequests.Upsert(msg.Hash(), transaction)
 	// and save it
 	il.wallet.session.StoreSession()
 }

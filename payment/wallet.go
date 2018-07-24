@@ -179,9 +179,9 @@ func getPaymentBotID() user.ID {
 // transactions
 func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 	// Fund from ordered coin storage
-	// TODO calculate correct max coins programatically?
-	// TODO What are you supposed to do with the change?
-	funds, change, err := w.coinStorage.Fund(inboundRequest.Value, 5)
+	// TODO calculate max coins programmatically? depends on wallet state
+	// because change may or may not be present
+	funds, change, err := w.coinStorage.Fund(inboundRequest.Value, 4)
 	if err != nil {
 		return nil, err
 	}
@@ -190,9 +190,19 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 	paymentMessage := make([]byte, 0, format.DATA_LEN)
 	// The invoiced coin can go first
 	paymentMessage = append(paymentMessage, inboundRequest.Create.Compound()[:]...)
+	// Then, the change, if there is any
+	if change != NilSleeve {
+		paymentMessage = append(paymentMessage, change.Compound()[:]...)
+	}
 	// The funding coins can go next
 	for i := range funds {
 		paymentMessage = append(paymentMessage, funds[i].Seed()[:]...)
+	}
+
+	if uint64(len(parse.Type_PAYMENT.Bytes())) + uint64(len(
+		paymentMessage)) > format.DATA_LEN {
+		// The message is too long to fit in a single payment message
+		panic("Payment message doesn't fit in a single message")
 	}
 
 	msg := parse.Message{
@@ -260,7 +270,8 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 		// Does it make sense to have the payment bot send the value of the
 		// transaction as a response for some quick and dirty verification?
 		// Transaction was successful, so remove pending from the wallet
-		_, ok := l.wallet.pendingTransactions.Pop(hash)
+		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
+		l.wallet.coinStorage.Add(transaction.Change)
 		if !ok {
 			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
 				hash)

@@ -1,11 +1,11 @@
 package payment
 
 import (
-	"testing"
-	"gitlab.com/privategrity/crypto/coin"
-	"time"
-	"gitlab.com/privategrity/client/parse"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/crypto/coin"
+	"testing"
+	"time"
 )
 
 // TODO are there any error cases for formatting the invoice that we should

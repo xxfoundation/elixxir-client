@@ -1,16 +1,16 @@
 package payment
 
 import (
-	"gitlab.com/privategrity/client/globals"
-	"testing"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/client/parse"
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/privategrity/crypto/coin"
-	"time"
-	"reflect"
 	"bytes"
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"reflect"
+	"testing"
+	"time"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -215,7 +215,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_NO_TYPE,
 			Body: nil,
-		},}, false)
+		}}, false)
 
 	if s {
 		t.Error("Invoice listener heard a message with the wrong type")
@@ -260,7 +260,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	}
 
 	// Test 4: good proto buffer, coin has right length but wrong type
-	erroneousCompound := [coin.BaseFrameLen]byte{0x04,}
+	erroneousCompound := [coin.BaseFrameLen]byte{0x04}
 	invoice.CreatedCoin = erroneousCompound[:]
 	wireRep, err = proto.Marshal(&invoice)
 	if err != nil {
@@ -423,7 +423,7 @@ func TestInvoiceListener_Hear(t *testing.T) {
 		t.Error(err.Error())
 	}
 	actualRequests := incomingRequests.(*map[parse.MessageHash]*Transaction)
-	if !reflect.DeepEqual((*actualRequests)[hash], req){
+	if !reflect.DeepEqual((*actualRequests)[hash], req) {
 		t.Error("Request in incoming requests map didn't match received" +
 			" request")
 	}

@@ -24,6 +24,8 @@ var ErrInvalidOrganizationOfFunds = errors.New("cannot fit requested funds withi
 
 var NilSleeve = coin.Sleeve{}
 
+// Checks to see if an ordered storage of the given tag is present in session.  If one is, then it returns it.
+// If one isn't, then a new one is created
 func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage, error) {
 	var osclPtr *[]coin.Sleeve
 
@@ -52,6 +54,7 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 	return &OrderedCoinStorage{list: osclPtr, value: value, session: session}, nil
 }
 
+// Returns the value of all coins in the ordered storage
 func (ocs *OrderedCoinStorage) Value() uint64 {
 	ocs.session.LockStorage()
 	v := ocs.value
@@ -59,70 +62,30 @@ func (ocs *OrderedCoinStorage) Value() uint64 {
 	return v
 }
 
-func (ocs *OrderedCoinStorage) add(cs coin.Sleeve) {
-
-	i := 0
-
-	for i < len(*ocs.list) {
-		if cs.Value() < (*ocs.list)[i].Value() {
-			break
-		}
-		i++
-	}
-
-	newList := make([]coin.Sleeve, len(*ocs.list)+1)
-
-	copy(newList[:i], (*ocs.list)[:i])
-	newList[i] = cs
-	copy(newList[i+1:], (*ocs.list)[i:])
-
-	(*ocs.list) = newList
-
-	ocs.value += cs.Value()
-}
-
+// Adds a coin to the ordered storage
 func (ocs *OrderedCoinStorage) Add(cs coin.Sleeve) {
 	ocs.session.LockStorage()
 	ocs.add(cs)
 	ocs.session.UnlockStorage()
 }
 
-func (ocs *OrderedCoinStorage) pop(index uint64) coin.Sleeve {
-	if uint64(len(*ocs.list)) <= index {
-		return coin.Sleeve{}
-	}
-
-	cs := (*ocs.list)[index]
-
-	*ocs.list = append((*ocs.list)[:index], (*ocs.list)[index+1:]...)
-
-	ocs.value -= cs.Value()
-
-	return cs
-}
-
-func (ocs *OrderedCoinStorage) Pop(index uint64) coin.Sleeve {
+// gets the coin at a specific index in the ordered storage
+func (ocs *OrderedCoinStorage) Get(index uint64) (coin.Sleeve, bool) {
 	ocs.session.LockStorage()
-	cs := ocs.pop(index)
+	cs, b := ocs.get(index)
 	ocs.session.UnlockStorage()
-	return cs
+	return cs, b
 }
 
-func (ocs *OrderedCoinStorage) get(index uint64) coin.Sleeve {
-	if uint64(len(*ocs.list)) >= index {
-		return coin.Sleeve{}
-	}
-
-	return (*ocs.list)[index]
-}
-
-func (ocs *OrderedCoinStorage) Get(index uint64) coin.Sleeve {
+// pops a coin at the specific index int eh ordered storage
+func (ocs *OrderedCoinStorage) Pop(index uint64) (coin.Sleeve, bool) {
 	ocs.session.LockStorage()
-	cs := ocs.get(index)
+	cs, b := ocs.pop(index)
 	ocs.session.UnlockStorage()
-	return cs
+	return cs, b
 }
 
+// Funds coins up to the requested amount with change which stores the excess
 func (ocs *OrderedCoinStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin.Sleeve, error) {
 	ocs.session.LockStorage()
 
@@ -143,7 +106,7 @@ func (ocs *OrderedCoinStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin
 
 	// Step 1: Fill with all smallest coins
 	for i := uint64(0); i < maxCoins; i++ {
-		cs := ocs.pop(0)
+		cs, _ := ocs.pop(0)
 		funds = append(funds, cs)
 		sum += cs.Value()
 		if sum >= value {
@@ -153,18 +116,20 @@ func (ocs *OrderedCoinStorage) Fund(value, maxCoins uint64) ([]coin.Sleeve, coin
 
 	// Step 2: unwind and remove each coin from the highest to
 	// lowest
-	for i := maxCoins - 1; i >= 0; i-- {
-		j := uint64(0)
+	for i := int64(maxCoins) - 1; i >= 0; i-- {
+		j := int64(-1)
 		newSum := uint64(0)
-		for j < uint64(len(funds)) {
-			newSum = sum - funds[i].Value() + ocs.get(j).Value()
+		for j < int64(len(*ocs.list)-1) {
+			j++
+			csg, _ := ocs.get(uint64(j))
+			newSum = sum - funds[i].Value() + csg.Value()
 			if newSum >= value {
 				break
 			}
-			j++
 		}
+
 		oldSleeve := funds[i]
-		funds[i] = ocs.pop(j)
+		funds[i], _ = ocs.pop(uint64(j))
 		ocs.add(oldSleeve)
 		sum = newSum
 		if sum >= value {
@@ -197,4 +162,47 @@ Success:
 
 	ocs.session.UnlockStorage()
 	return funds, change, nil
+}
+
+// INTERNAL FUNCTIONS
+func (ocs *OrderedCoinStorage) add(cs coin.Sleeve) {
+
+	i := 0
+
+	for i < len(*ocs.list) {
+		if cs.Value() < (*ocs.list)[i].Value() {
+			break
+		}
+		i++
+	}
+
+	newList := make([]coin.Sleeve, len(*ocs.list)+1)
+
+	copy(newList[:i], (*ocs.list)[:i])
+	newList[i] = cs
+	copy(newList[i+1:], (*ocs.list)[i:])
+
+	*ocs.list = newList
+
+	ocs.value += cs.Value()
+}
+
+func (ocs *OrderedCoinStorage) get(index uint64) (coin.Sleeve, bool) {
+	if index >= uint64(len(*ocs.list)) {
+		return coin.Sleeve{}, false
+	}
+
+	return (*ocs.list)[index], true
+}
+
+func (ocs *OrderedCoinStorage) pop(index uint64) (coin.Sleeve, bool) {
+	cs, b := ocs.get(index)
+
+	if b {
+		*ocs.list = append((*ocs.list)[:index], (*ocs.list)[index+1:]...)
+
+		ocs.value -= cs.Value()
+	}
+
+	return cs, b
 }

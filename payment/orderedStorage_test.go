@@ -223,8 +223,8 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 	}
 }
 
-// Shows that a single sleeve can be popped from ordered coin storage
-func TestOrderedCoinStorage_Pop_Single(t *testing.T) {
+// Shows that a single sleeve can be gotten from ordered coin storage
+func TestOrderedCoinStorage_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
@@ -233,24 +233,36 @@ func TestOrderedCoinStorage_Pop_Single(t *testing.T) {
 
 	ocs, err := CreateOrderedStorage(key, s)
 
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Get: ordered storage creation failed: %s", err.Error())
+	}
+
 	cs, err := coin.NewSleeve(69)
 
 	if err != nil {
-		t.Errorf("OrderedCoinStorage.Pop: sleeve creation failed: %s", err.Error())
+		t.Errorf("OrderedCoinStorage.Get: sleeve creation failed: %s", err.Error())
 	}
 
 	ocs.Add(cs)
 
-	csr := ocs.Pop(0)
+	csr, b := ocs.Get(0)
+
+	if !b {
+		t.Errorf("OrderedCoinStorage.Get: could not find valid coin")
+	}
 
 	if !reflect.DeepEqual(cs, csr) {
-		t.Errorf("OrderedCoinStorage.Pop: popped coin not the same as created coin: "+
-			"Created: %v, Popped: %v", cs, csr)
+		t.Errorf("OrderedCoinStorage.Get: gotten coin not the same as created coin: "+
+			"Created: %v, Got: %v", cs, csr)
+	}
+
+	if len(*ocs.list) != 1 {
+		t.Errorf("OrderedCoinStorage.Get: gotten coin not present in list")
 	}
 }
 
-// Shows that a can be popped from ordered coin storage
-func TestOrderedCoinStorage_Pop_Single(t *testing.T) {
+// Shows that a single sleeve can be popped from ordered coin storage
+func TestOrderedCoinStorage_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
@@ -258,6 +270,10 @@ func TestOrderedCoinStorage_Pop_Single(t *testing.T) {
 	key := "TestOrderedList"
 
 	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Pop: ordered storage creation failed: %s", err.Error())
+	}
 
 	cs, err := coin.NewSleeve(69)
 
@@ -267,10 +283,359 @@ func TestOrderedCoinStorage_Pop_Single(t *testing.T) {
 
 	ocs.Add(cs)
 
-	csr := ocs.Pop(0)
+	csr, b := ocs.Pop(0)
+
+	if !b {
+		t.Errorf("OrderedCoinStorage.Pop: could not find valid coin")
+	}
 
 	if !reflect.DeepEqual(cs, csr) {
 		t.Errorf("OrderedCoinStorage.Pop: popped coin not the same as created coin: "+
 			"Created: %v, Popped: %v", cs, csr)
+	}
+
+	if len(*ocs.list) != 0 {
+		t.Errorf("OrderedCoinStorage.Pop: popped coin not removed from list")
+	}
+}
+
+// Shows that when a sleeve is popped from ordered coin storage the result can be saved properly
+func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Pop: ordered storage creation failed: %s", err.Error())
+	}
+
+	cs, err := coin.NewSleeve(69)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Pop: sleeve creation failed: %s", err.Error())
+	}
+
+	ocs.Add(cs)
+
+	if len(*ocs.list) == 0 {
+		t.Errorf("OrderedCoinStorage.Pop: added coin not present in list")
+	}
+
+	s.StoreSession()
+
+	ocs2, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Pop: ordered storage creation failed: %s", err.Error())
+	}
+
+	csr, b := ocs2.Pop(0)
+
+	if !b {
+		t.Errorf("OrderedCoinStorage.Pop: could not find valid coin")
+	}
+
+	if !reflect.DeepEqual(cs, csr) {
+		t.Errorf("OrderedCoinStorage.Pop: popped coin not the same as created coin: "+
+			"Created: %v, Popped: %v", cs, csr)
+	}
+
+	if len(*ocs2.list) != 0 {
+		t.Errorf("OrderedCoinStorage.Pop: popped coin not removed from list")
+	}
+
+	ocs3, err := CreateOrderedStorage(key, s)
+
+	if len(*ocs3.list) != 0 {
+		t.Errorf("OrderedCoinStorage.Pop: popped coin not removed from saved list")
+	}
+}
+
+// Test that fund responds correct with insufficient funds
+func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: ordered storage creation failed: %s", err.Error())
+	}
+
+	cs, err := coin.NewSleeve(69)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+	}
+
+	ocs.Add(cs)
+
+	dst, chng, err := ocs.Fund(100, 1)
+
+	if err != ErrInsufficientFunds {
+		if err == nil {
+			t.Errorf("OrderedCoinStorage.Fund: Did not report insufficent funds when there are insufficent funds")
+		} else {
+			t.Errorf("OrderedCoinStorage.Fund: Reported a diferent error than insufficent funds when there are"+
+				"insufficent funds: %s", err.Error())
+		}
+	} else {
+		if len(dst) != 0 {
+			t.Errorf("OrderedCoinStorage.Fund: returned a list of coins when funds are insufficent: %v", dst)
+		}
+		if !chng.IsNil() {
+			t.Errorf("OrderedCoinStorage.Fund: returned change when funds are insufficent: %v", chng)
+		}
+	}
+}
+
+// Tests that a single coin equal to the correct value returns properly
+func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: ordered storage creation failed: %s", err.Error())
+	}
+
+	cs, err := coin.NewSleeve(69)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+	}
+
+	ocs.Add(cs)
+
+	dst, chng, err := ocs.Fund(69, 1)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: error returned on valid fund: %s", err.Error())
+	}
+
+	if len(dst) != 1 {
+		t.Errorf("OrderedCoinStorage.Fund: incorrect number fo coins returned to destroy: %v", dst)
+	}
+
+	if !chng.IsNil() {
+		t.Errorf("OrderedCoinStorage.Fund: change returned on exact transaction: %v", chng)
+	}
+
+	if !reflect.DeepEqual(dst[0], cs) {
+		t.Errorf("OrderedCoinStorage.Fund: single exact change coin not returned proeprly: "+
+			"Expecterd: %v, Recieved: %v", cs, dst[0])
+	}
+}
+
+// Tests that a multiple coins equal to the correct value returns properly
+func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: ordered storage creation failed: %s", err.Error())
+	}
+
+	cs, err := coin.NewSleeve(69)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+	}
+
+	ocs.Add(cs)
+
+	cs2, err := coin.NewSleeve(42)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+	}
+
+	ocs.Add(cs2)
+
+	dst, chng, err := ocs.Fund(111, 2)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: error returned on valid fund: %s", err.Error())
+	}
+
+	if len(dst) != 2 {
+		t.Errorf("OrderedCoinStorage.Fund: incorrect number of coins returned to destroy: %v", dst)
+	}
+
+	if !chng.IsNil() {
+		t.Errorf("OrderedCoinStorage.Fund: change returned on exact transaction: %v", chng)
+	}
+
+	if len(*ocs.list) != 0 {
+		t.Errorf("OrderedCoinStorage.Fund: coins not removed from ordered list: %v", *ocs.list)
+	}
+
+	if !reflect.DeepEqual(dst, []coin.Sleeve{cs2, cs}) {
+		t.Errorf("OrderedCoinStorage.Fund: exact change coins not returned proeprly: "+
+			"Expecterd: %v, Recieved: %v", []coin.Sleeve{cs2, cs}, dst)
+	}
+}
+
+// Tests that a multiple coins equal to the correct value returns properly when there are other coins
+func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: ordered storage creation failed: %s", err.Error())
+	}
+
+	valueList := []uint64{42, 69, 16}
+	var coinList []coin.Sleeve
+
+	for _, v := range valueList {
+		cs, err := coin.NewSleeve(v)
+		coinList = append(coinList, cs)
+
+		if err != nil {
+			t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+		}
+
+		ocs.Add(cs)
+	}
+
+	expected := coinList[:2]
+
+	dst, chng, err := ocs.Fund(111, 2)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: error returned on valid fund: %s", err.Error())
+	}
+
+	if len(dst) != 2 {
+		t.Errorf("OrderedCoinStorage.Fund: incorrect number of coins returned to destroy: %v", dst)
+	}
+
+	if !chng.IsNil() {
+		t.Errorf("OrderedCoinStorage.Fund: change returned on exact transaction: %v", chng)
+	}
+
+	if len(*ocs.list) != 1 {
+		t.Errorf("OrderedCoinStorage.Fund: coins not removed from ordered list: %v", *ocs.list)
+	}
+
+	if !reflect.DeepEqual(dst, expected) {
+		t.Errorf("OrderedCoinStorage.Fund: exact change coins not returned proeprly: "+
+			"Expecterd: %v, Recieved: %v", expected, dst)
+	}
+}
+
+// Tests that fund returns an error when the value cannot be created in the given number of coins
+func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: ordered storage creation failed: %s", err.Error())
+	}
+
+	valueList := []uint64{42, 69, 16}
+	var coinList []coin.Sleeve
+
+	for _, v := range valueList {
+		cs, err := coin.NewSleeve(v)
+		coinList = append(coinList, cs)
+
+		if err != nil {
+			t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+		}
+
+		ocs.Add(cs)
+	}
+
+	_, _, err = ocs.Fund(111, 1)
+
+	if err != ErrInvalidOrganizationOfFunds {
+		if err == nil {
+			t.Errorf("OrderedCoinStorage.Fund: no error returned on invalid fund orgonization")
+		} else {
+			t.Errorf("OrderedCoinStorage.Fund: incorrect error returned on invalid fund orgonization: %s", err.Error())
+		}
+	}
+}
+
+// Tests that a multiple coins equal greater than the expected value returns properly when there are other coins
+func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: ordered storage creation failed: %s", err.Error())
+	}
+
+	valueList := []uint64{42, 69, 16}
+	var coinList []coin.Sleeve
+
+	for _, v := range valueList {
+		cs, err := coin.NewSleeve(v)
+		coinList = append(coinList, cs)
+
+		if err != nil {
+			t.Errorf("OrderedCoinStorage.Fund: sleeve creation failed: %s", err.Error())
+		}
+
+		ocs.Add(cs)
+	}
+
+	expected := coinList[:2]
+
+	dst, chng, err := ocs.Fund(105, 2)
+
+	if err != nil {
+		t.Errorf("OrderedCoinStorage.Fund: error returned on valid fund: %s", err.Error())
+	}
+
+	if len(dst) != 2 {
+		t.Errorf("OrderedCoinStorage.Fund: incorrect number of coins returned to destroy: %v", dst)
+	}
+
+	if chng.IsNil() {
+		t.Errorf("OrderedCoinStorage.Fund: change not returned on inexact transaction: %v", chng)
+	}
+
+	if chng.Value() != 6 {
+		t.Errorf("OrderedCoinStorage.Fund: change not equal to what it should be: Expected: %v; Recieved: %v",
+			6, chng.Value())
+	}
+
+	if !reflect.DeepEqual(dst, expected) {
+		t.Errorf("OrderedCoinStorage.Fund: exact change coins not returned proeprly: "+
+			"Expecterd: %v, Recieved: %v", expected, dst)
 	}
 }

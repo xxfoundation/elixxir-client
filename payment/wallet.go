@@ -259,19 +259,25 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 			// Move the coins from pending transactions back to the wallet
 			// for now.
 			// This may not always be correct - for example, if the coins aren't on
-			// the payment bot there should be some way to remove them from the
-			// user's wallet.
+			// the payment bot they might need to be removed from user's wallet
+			// so they don't get nothing but declined transactions in the event
+			// of corruption.
 			for i := range transaction.Destroy {
 				l.wallet.coinStorage.Add(transaction.Destroy[i])
 			}
-			l.wallet.coinStorage.Add(transaction.Change)
+			if transaction.Change != NilSleeve {
+				l.wallet.coinStorage.Add(transaction.Change)
+			}
 		}
 	} else {
 		// Does it make sense to have the payment bot send the value of the
 		// transaction as a response for some quick and dirty verification?
+
 		// Transaction was successful, so remove pending from the wallet
 		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
-		l.wallet.coinStorage.Add(transaction.Change)
+		if transaction.Change != NilSleeve {
+			l.wallet.coinStorage.Add(transaction.Change)
+		}
 		if !ok {
 			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
 				hash)

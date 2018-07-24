@@ -228,7 +228,7 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 		Value:     inboundRequest.Value,
 	}
 
-	w.pendingTransactions.Add(msg.Hash(), &pendingTransaction)
+	w.pendingTransactions.Upsert(msg.Hash(), &pendingTransaction)
 
 	// Return the result.
 	return &msg, nil

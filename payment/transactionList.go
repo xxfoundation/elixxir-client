@@ -107,18 +107,3 @@ func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 	}
 	return t, b
 }
-
-func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
-	t, b := tl.get(mh)
-	if b {
-		delete(tl.transactionMap, mh)
-	}
-	return t, b
-}
-
-func (tl *TransactionList) Pop(mh parse.MessageHash) (*Transaction, bool) {
-	tl.session.LockStorage()
-	t, b := tl.pop(mh)
-	tl.session.UnlockStorage()
-	return t, b
-}

@@ -74,9 +74,9 @@ enum Type {
     // the third argument. To register successfully, you must have already
     // pushed the key with that fingerprint.
     UDB_REGISTER = 14;
-    // The registration response is a normal old, regular old string. It will
-    // be either an error message to show to the user, or the message
-    // "REGISTRATION COMPLETE" if registration was successful.
+    // The registration response is just a string. It will be either an error
+    // message to show to the user, or the message "REGISTRATION COMPLETE" if
+    // registration was successful.
     UDB_REGISTER_RESPONSE = 15;
     // The search message is just another space separated list. The first field
     // will contain the type of registered user you're searching for, namely

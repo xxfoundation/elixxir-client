@@ -175,8 +175,28 @@ func getPaymentBotID() user.ID {
 	return 17
 }
 
+func buildPaymentPayload(request, change coin.Sleeve,
+	funds []coin.Sleeve) []byte {
+	// The order of these doesn't matter because the coin's header determines
+	// whether you are funding or destroying the coin on the payment bot.
+	payload := make([]byte, 0, format.DATA_LEN)
+	// So, I'll just use an arbitrary order. The invoiced coin can go first.
+	payload = append(payload, request.Compound()[:]...)
+	// Then, the change, if there is any
+	if change != NilSleeve {
+		payload = append(payload, change.Compound()[:]...)
+	}
+	// The funding coins can go next
+	for i := range funds {
+		payload = append(payload, funds[i].Seed()[:]...)
+	}
+
+	return payload
+}
+
 // Create a payment message and register the outgoing payment on pending
 // transactions
+// TODO As written, the caller is responsible for popping the inbound request
 func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 	// Fund from ordered coin storage
 	// TODO calculate max coins programmatically? depends on wallet state
@@ -186,18 +206,7 @@ func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
 		return nil, err
 	}
 
-	// Build payment message
-	paymentMessage := make([]byte, 0, format.DATA_LEN)
-	// The invoiced coin can go first
-	paymentMessage = append(paymentMessage, inboundRequest.Create.Compound()[:]...)
-	// Then, the change, if there is any
-	if change != NilSleeve {
-		paymentMessage = append(paymentMessage, change.Compound()[:]...)
-	}
-	// The funding coins can go next
-	for i := range funds {
-		paymentMessage = append(paymentMessage, funds[i].Seed()[:]...)
-	}
+	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
 	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
 		paymentMessage)) > format.DATA_LEN {

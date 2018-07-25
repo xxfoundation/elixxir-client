@@ -467,3 +467,213 @@ func TestWallet_Invoice_Error(t *testing.T) {
 		t.Error("Didn't get an error for an invoice that's too large")
 	}
 }
+
+func TestPaymentResponseListener_Hear(t *testing.T) {
+
+}
+
+func TestPaymentResponseListener_Hear_Errors(t *testing.T) {
+
+}
+
+func TestWallet_Pay_NoChange(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	paymentAmount := uint64(5008)
+	walletAmount := uint64(5008)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	sleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.Add(sleeve)
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	inboundTransaction, err := createInvoice(payer, payee, paymentAmount,
+		"podracer maintenance")
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	msg, err := w.Pay(inboundTransaction)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// verify message contents
+	if !bytes.Contains(msg.Body, sleeve.Seed()[:]) {
+		t.Error("Message body didn't contain the payment's source")
+	}
+	if !bytes.Contains(msg.Body, inboundTransaction.Create.Compound()[:]) {
+		t.Error("Message body didn't contain the payment's destination")
+	}
+	if !(uint64(len(msg.Body)) == 2 * coin.BaseFrameLen) {
+		t.Error("Message body should have exactly two coins in it, " +
+			"but it doesn't")
+	}
+
+	// verify wallet contents
+	transaction, ok := w.pendingTransactions.Get(msg.Hash())
+	if !ok {
+		t.Error("Couldn't find the transaction in the map")
+	} else {
+		if transaction.Create != inboundTransaction.Create {
+			t.Error("The transactions are creating different coins")
+		}
+		if transaction.Value != inboundTransaction.Value {
+			t.Error("The transactions have different values")
+		}
+		if transaction.Sender != inboundTransaction.Sender {
+			t.Error("The transactions have a different sender")
+		}
+		if transaction.Recipient != inboundTransaction.Recipient {
+			t.Error("The transactions have a different recipient")
+		}
+		if transaction.Timestamp != inboundTransaction.Timestamp {
+			t.Error("The transactions have a different timestamp")
+		}
+		if transaction.Memo != inboundTransaction.Memo {
+			t.Error("The transactions have a different memo")
+		}
+		if transaction.Change != NilSleeve {
+			t.Error("There shouldn't have been change for this transaction")
+		}
+		if !reflect.DeepEqual(transaction.Destroy[0], sleeve) {
+			t.Error("The destroyed coin and the coin we forged to test the" +
+				" transaction weren't identical")
+		}
+	}
+
+	// TODO verify session contents? or do the wallet tests cover that enough?
+}
+
+func TestWallet_Pay_YesChange(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	paymentAmount := uint64(2611)
+	walletAmount := uint64(5008)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	sleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.Add(sleeve)
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	inboundTransaction, err := createInvoice(payer, payee, paymentAmount,
+		"podracer maintenance")
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	msg, err := w.Pay(inboundTransaction)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// verify message contents
+	if !bytes.Contains(msg.Body, sleeve.Seed()[:]) {
+		t.Error("Message body didn't contain the payment's source")
+	}
+	if !bytes.Contains(msg.Body, inboundTransaction.Create.Compound()[:]) {
+		t.Error("Message body didn't contain the payment's destination")
+	}
+	// look for the change and make sure it's reasonable
+	for i := uint64(0); i < uint64(len(msg.Body)); i += coin.BaseFrameLen {
+		thisCoin := msg.Body[i:i+coin.BaseFrameLen]
+		if coin.IsCompound(msg.Body[i:i+coin.BaseFrameLen]) {
+			if !bytes.Equal(inboundTransaction.Create.Compound()[:], thisCoin) {
+				// we've found the change
+				// make a compound with it and see if the value is correct
+				var compound coin.Compound
+				copy(compound[:], thisCoin)
+				if compound.Value() != walletAmount - paymentAmount {
+					t.Error("Change in the message didn't have the right value")
+				}
+			}
+		}
+	}
+
+	if !(uint64(len(msg.Body)) == 3 * coin.BaseFrameLen) {
+		t.Error("Message body should have exactly three coins in it, " +
+			"but it doesn't")
+	}
+
+	// verify wallet contents
+	transaction, ok := w.pendingTransactions.Get(msg.Hash())
+	if !ok {
+		t.Error("Couldn't find the transaction in the map")
+	} else {
+		if transaction.Create != inboundTransaction.Create {
+			t.Error("The transactions are creating different coins")
+		}
+		if transaction.Value != inboundTransaction.Value {
+			t.Error("The transactions have different values")
+		}
+		if transaction.Sender != inboundTransaction.Sender {
+			t.Error("The transactions have a different sender")
+		}
+		if transaction.Recipient != inboundTransaction.Recipient {
+			t.Error("The transactions have a different recipient")
+		}
+		if transaction.Timestamp != inboundTransaction.Timestamp {
+			t.Error("The transactions have a different timestamp")
+		}
+		if transaction.Memo != inboundTransaction.Memo {
+			t.Error("The transactions have a different memo")
+		}
+		if transaction.Change.Value() != walletAmount - paymentAmount {
+			t.Error("Incorrect amount of change for this transaction")
+		}
+		if !reflect.DeepEqual(transaction.Destroy[0], sleeve) {
+			t.Error("The destroyed coin and the coin we forged to test the" +
+				" transaction weren't identical")
+		}
+	}
+
+	// TODO verify session contents
+}

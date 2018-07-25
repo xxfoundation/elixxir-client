@@ -274,9 +274,6 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 			for i := range transaction.Destroy {
 				l.wallet.coinStorage.Add(transaction.Destroy[i])
 			}
-			if transaction.Change != NilSleeve {
-				l.wallet.coinStorage.Add(transaction.Change)
-			}
 		}
 	} else {
 		// Does it make sense to have the payment bot send the value of the

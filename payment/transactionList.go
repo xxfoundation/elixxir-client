@@ -92,6 +92,9 @@ func (tl *TransactionList) Pop(mh parse.MessageHash) (*Transaction, bool) {
 
 func (tl *TransactionList) upsert(mh parse.MessageHash, t *Transaction) {
 	(*tl.transactionMap)[mh] = t
+	// FIXME for an Upsert the recalculation of the value isn't technically
+	// correct. this only matters if you upsert the same hash more than once.
+	// The easiest fix is to iterate the whole map and update its value.
 	tl.value += t.Value
 }
 
@@ -103,6 +106,7 @@ func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
 func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 	t, b := tl.get(mh)
 	if b {
+		tl.value -= t.Value
 		delete(*tl.transactionMap, mh)
 	}
 	return t, b

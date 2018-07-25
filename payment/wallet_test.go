@@ -469,11 +469,93 @@ func TestWallet_Invoice_Error(t *testing.T) {
 }
 
 func TestPaymentResponseListener_Hear(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
 
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	walletAmount := uint64(8970)
+	paymentAmount := uint64(walletAmount)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	sleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.Add(sleeve)
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// the contents of the sleeve don't actually matter as long as we say the
+	// transaction succeeded. so we can just use the same sleeve for creation
+	// and destruction
+
+	// create the pending wallet transaction
+	transaction := Transaction{
+		Create:    sleeve,
+		Destroy:   []coin.Sleeve{sleeve},
+		Change:    NilSleeve,
+		Sender:    payer,
+		Recipient: payee,
+		Memo:      "for midichlorians and midichlorian paraphernalia",
+		Timestamp: time.Now(),
+		Value:     paymentAmount,
+	}
+	// for the purposes of this test the hash could be anything,
+	// as long it's the same for the key to the map and in the return message
+	var hash parse.MessageHash
+	copy(hash[:], []byte("even though this hash may seem unlikely to the" +
+		" casual observer, it is in fact a valid, real, and correct message hash"))
+	pt.Upsert(hash, &transaction)
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	response := parse.PaymentResponse{
+		Success:  true,
+		Response: "200 OK",
+		ID:       string(hash[:]),
+	}
+	// marshal response into a parse message
+	wire, err := proto.Marshal(&response)
+
+	listener := PaymentResponseListener{wallet: &w}
+	listener.Hear(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_RESPONSE,
+			Body: wire,
+		},
+		Sender:    payer,
+		Receiver:  payee,
+		Nonce:     nil,
+	}, false)
+
+	if len(*w.pendingTransactions.transactionMap) != 0 {
+		t.Error("There should be zero transactions pending in the map" +
+			" after receiving a successful payment response.")
+	}
+	if w.pendingTransactions.Value() != 0 {
+		t.Errorf("Pending transactions' total value should be zero after" +
+			" receiving the payment response. It was %v",
+			w.pendingTransactions.Value())
+	}
 }
 
 func TestPaymentResponseListener_Hear_Errors(t *testing.T) {
-
 }
 
 func TestWallet_Pay_NoChange(t *testing.T) {

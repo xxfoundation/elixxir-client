@@ -40,25 +40,51 @@ const (
 	Type_TEXT_MESSAGE Type = 1
 	// See proto buf
 	Type_CHANNEL_MESSAGE Type = 2
-	// We currently parse these types without using proto buffers
-	// We use the types, but don't look for proto buffer definitions
-	Type_UDB_PUSH_KEY          Type = 10
+	// Second field is the key data itself. This should be 2048 bits long
+	// (according to the message length that our prime allows) and is
+	// base64-encoded.
+	Type_UDB_PUSH_KEY Type = 10
+	// The push key response message is a string. If the key push was a
+	// success, the UDB should respond with a message that starts with "PUSHKEY
+	// COMPLETE", followed by the fingerprint of the key that was pushed.
+	// If the response doesn't begin with "PUSHKEY COMPLETE", the message is
+	// an error message and should be shown to the user.
 	Type_UDB_PUSH_KEY_RESPONSE Type = 11
-	Type_UDB_GET_KEY           Type = 12
-	Type_UDB_GET_KEY_RESPONSE  Type = 13
-	Type_UDB_REGISTER          Type = 14
+	// The get key message includes a single string field with the key
+	// fingerprint of the key that needs gettin'. This is the same fingerprint
+	// you would have pushed.
+	Type_UDB_GET_KEY Type = 12
+	// The get key response message is a string. The first space-separated
+	// field should always be "GETKEY". The second field is the fingerprint of
+	// the key. The third field is "NOTFOUND" if the UDB didn't find the key,
+	// or the key itself, encoded in base64, otherwise.
+	Type_UDB_GET_KEY_RESPONSE Type = 13
+	// To wit: The first argument in the list of space-separated fields is
+	// the type of the registration. Currently the only allowed type is
+	// "EMAIL". The second argument is the value of the type you're registering
+	// with. In all currently acceptable registration types, this would be an
+	// email address. If you could register with your phone, it would be your
+	// phone number, and so on. Then, the key fingerprint of the user's key is
+	// the third argument. To register successfully, you must have already
+	// pushed the key with that fingerprint.
+	Type_UDB_REGISTER Type = 14
+	// The registration response is a normal old, regular old string. It will
+	// be either an error message to show to the user, or the message
+	// "REGISTRATION COMPLETE" if registration was successful.
 	Type_UDB_REGISTER_RESPONSE Type = 15
-	Type_UDB_SEARCH            Type = 16
-	Type_UDB_SEARCH_RESPONSE   Type = 17
-	// The client sends payment transaction messages to the payment bot to
-	// fund compound coins with seed coins. In the current implementation,
-	// there's one compound that gets funded that's from the payee. This comes
-	// across in a PAYMENT_INVOICE. And there's a second compound that contains
-	// the change from the seeds that the payer is using to fund the invoice.
-	// The rest are the seeds that are the source of the payment.
-	//      All of the seeds and compounds are in an ordered list, and they get
-	// categorized and processed on the payment bot.
-	//      To get a message of this type, call the methods in the wallet.
+	// The search message is just another space separated list. The first field
+	// will contain the type of registered user you're searching for, namely
+	// "EMAIL". The second field with contain the value of that type that
+	// you're searching for.
+	Type_UDB_SEARCH Type = 16
+	// The search response is a list of fields. The first is always "SEARCH".
+	// The second is always the value that the user searched for. The third is
+	// "FOUND" or "NOTFOUND" depending on whether the UDB found the user. If
+	// the user was FOUND, the last field will contain their key fingerprint,
+	// which you can use with GET_KEY to get the keys you need to talk with
+	// that user. Otherwise, this fourth field won't exist.
+	Type_UDB_SEARCH_RESPONSE Type = 17
+	// To get a message of this type, call the methods in the wallet.
 	// TODO expose these methods over the API
 	Type_PAYMENT_TRANSACTION Type = 20
 	// See proto buf

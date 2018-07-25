@@ -478,17 +478,31 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 		[]user.NodeKeys{})
 
 	walletAmount := uint64(8970)
-	paymentAmount := uint64(walletAmount)
+	paymentAmount := uint64(962)
+	changeAmount := walletAmount - paymentAmount
 
 	storage, err := CreateOrderedStorage(CoinStorageTag, s)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	sleeve, err := coin.NewSleeve(walletAmount)
+	walletSleeve, err := coin.NewSleeve(walletAmount)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	storage.Add(sleeve)
+
+	// We don't add the coin to the storage to concisely emulate the Pay()
+	// method, which would remove the coin that we had added, and which should
+	// always get called before getting a response from the payment bot.
+
+	changeSleeve, err := coin.NewSleeve(changeAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	paymentSleeve, err := coin.NewSleeve(paymentAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
 
 	pt, err := CreateTransactionList(PendingTransactionsTag, s)
 	if err != nil {
@@ -501,9 +515,9 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 
 	// create the pending wallet transaction
 	transaction := Transaction{
-		Create:    sleeve,
-		Destroy:   []coin.Sleeve{sleeve},
-		Change:    NilSleeve,
+		Create:    paymentSleeve,
+		Destroy:   []coin.Sleeve{walletSleeve},
+		Change:    changeSleeve,
 		Sender:    payer,
 		Recipient: payee,
 		Memo:      "for midichlorians and midichlorian paraphernalia",
@@ -553,6 +567,12 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 			" receiving the payment response. It was %v",
 			w.pendingTransactions.Value())
 	}
+	if w.coinStorage.Value() != changeAmount {
+		t.Errorf("Wallet didn't have value equal to the value of the change. " +
+			"Got %v, expected %v", w.coinStorage.Value(), changeAmount)
+
+	}
+
 }
 
 func TestPaymentResponseListener_Hear_Errors(t *testing.T) {

@@ -728,7 +728,7 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	msg, err := w.Pay(inboundTransaction)
+	msg, err := w.pay(inboundTransaction)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -821,7 +821,7 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 		t.Error(err.Error())
 	}
 
-	msg, err := w.Pay(inboundTransaction)
+	msg, err := w.pay(inboundTransaction)
 	if err != nil {
 		t.Error(err.Error())
 	}

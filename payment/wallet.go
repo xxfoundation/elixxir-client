@@ -15,6 +15,7 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
+	"errors"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -194,10 +195,19 @@ func buildPaymentPayload(request, change coin.Sleeve,
 	return payload
 }
 
+func (w *Wallet) Pay(requestID parse.MessageHash) (*parse.Message, error) {
+	transaction, ok := w.inboundRequests.Pop(requestID)
+	if !ok {
+		return nil, errors.New("That request wasn't in the list of inbound" +
+			" requests")
+	}
+	return w.pay(transaction)
+}
+
 // Create a payment message and register the outgoing payment on pending
 // transactions
 // TODO As written, the caller is responsible for popping the inbound request
-func (w *Wallet) Pay(inboundRequest *Transaction) (*parse.Message, error) {
+func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 	// Fund from ordered coin storage
 	// TODO calculate max coins programmatically? depends on wallet state
 	// because change may or may not be present

@@ -173,8 +173,6 @@ func TestDisableRatchet(t *testing.T) {
 	baseKey := cyclic.NewIntFromString("da9f8137821987b978164932015c105263ae769310269b510937c190768e2930",
 		16)
 
-	DisableRatchet()
-
 	// If Ratchet is Disabled, then the return of Generate() needs to be equal to outSharedKey
 	if forward.GenerateSharedKey(&g, baseKey, recursiveKeys, outSharedKey, outSharedKeyStorage) != outSharedKey {
 		t.Errorf("GenerateSharedKey() did not run properly with ratchet set to false")

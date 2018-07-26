@@ -32,8 +32,6 @@ in the config file)
 `-f`          : String containing path of file to store the session into.
 If not included it will use Ram Storage
 
-`--noratchet` : Disables ratcheting when specified
-
 `--noBlockingTransmission` : Disables transmission frequency limiting when 
 specified
 
@@ -44,7 +42,6 @@ Example Configuration File
 logPath: "client.log"
 numnodes : 3
 sessionstore: "session.data"
-noratchet: true
 textcolor: -1
 gateways:
     - "gateway-0.prod.cmix.rip:11420"

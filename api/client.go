@@ -20,7 +20,6 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
 )
@@ -245,10 +244,6 @@ func GetContactList() ([]user.ID, []string) {
 func clearUserID(u *user.ID) {
 	*u = math.MaxUint64
 	*u = 0
-}
-
-func DisableRatchet() {
-	forward.SetRatchetStatus(false)
 }
 
 func RegisterForUserDiscovery(emailAddress string) error {

@@ -32,7 +32,6 @@ var gwAddr string
 var message string
 var numNodes uint
 var sessionFile string
-var noRatchet bool
 var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
@@ -70,19 +69,10 @@ func Execute() {
 
 func sessionInitialization() {
 	if noBlockingTransmission {
-		if !noRatchet {
-			fmt.Printf("Cannot disable Blocking Transmission with" +
-				" Ratcheting turned on\n")
-		}
 		api.DisableBlockingTransmission()
 	}
 
 	bindings.SetRateLimiting(int(rateLimiting))
-
-	// Disable ratcheting if the flag is set
-	if noRatchet {
-		bindings.DisableRatchet()
-	}
 
 	var err error
 	register := false
@@ -351,8 +341,6 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Verbose mode for debugging")
-	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
-		"Avoid ratcheting the keys for forward secrecy")
 
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+

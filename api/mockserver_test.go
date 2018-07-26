@@ -131,7 +131,6 @@ func SetNulKeys() {
 		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
 		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
 	}
-	DisableRatchet()
 }
 
 func TestSend(t *testing.T) {

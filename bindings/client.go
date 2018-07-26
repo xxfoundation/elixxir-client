@@ -232,11 +232,6 @@ func GetContactListJSON() ([]byte, error) {
 	return result, validateError
 }
 
-// Disables Ratcheting, only for debugging
-func DisableRatchet() {
-	api.DisableRatchet()
-}
-
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
 func DisableBlockingTransmission() {

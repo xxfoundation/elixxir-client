@@ -7,6 +7,7 @@
 package payment
 
 import (
+	"errors"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/api"
@@ -15,7 +16,6 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
-	"errors"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -201,7 +201,19 @@ func (w *Wallet) Pay(requestID parse.MessageHash) (*parse.Message, error) {
 		return nil, errors.New("That request wasn't in the list of inbound" +
 			" requests")
 	}
-	return w.pay(transaction)
+	msg, err := w.pay(transaction)
+	if err != nil {
+		// Roll back the popping
+		w.inboundRequests.Upsert(requestID, transaction)
+		return nil, err
+	}
+	errStore := w.session.StoreSession()
+	if errStore != nil {
+		// Roll back the popping
+		w.inboundRequests.Upsert(requestID, transaction)
+		return nil, err
+	}
+	return msg, nil
 }
 
 // Create a payment message and register the outgoing payment on pending

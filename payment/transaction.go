@@ -32,7 +32,7 @@ type Transaction struct {
 // FIXME Limit this to one part message (requires message ID revamp for accuracy)
 // Place the compound coin that's the vessel for payment in the Create sleeve,
 // as it's the coin that will be created on the payment bot.
-func (t *Transaction) FormatPaymentInvoice() *parse.Message  {
+func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 	compound := t.Create.Compound()
 	invoice := parse.PaymentInvoice{
 		Time:        t.Timestamp.Unix(),

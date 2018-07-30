@@ -7,13 +7,15 @@
 package payment
 
 import (
+	"errors"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/privategrity/crypto/format"
 	"time"
-	"gitlab.com/privategrity/client/api"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -57,7 +59,7 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	}
 
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
-	inboundRequests: ibr, pendingTransactions: pt}
+		inboundRequests: ibr, pendingTransactions: pt}
 
 	return w, nil
 }
@@ -96,7 +98,7 @@ func createInvoice(payer user.ID, payee user.ID, value uint64,
 	}, nil
 }
 
-// Registers an invoice with the session and walalet
+// Registers an invoice with the session and wallet
 func (w *Wallet) registerInvoice(id parse.MessageHash,
 	invoice *Transaction) error {
 	w.outboundRequests.Upsert(id, invoice)
@@ -168,4 +170,148 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	il.wallet.inboundRequests.Upsert(msg.Hash(), transaction)
 	// and save it
 	il.wallet.session.StoreSession()
+}
+
+func getPaymentBotID() user.ID {
+	return 17
+}
+
+func buildPaymentPayload(request, change coin.Sleeve,
+	funds []coin.Sleeve) []byte {
+	// The order of these doesn't matter because the coin's header determines
+	// whether you are funding or destroying the coin on the payment bot.
+	payload := make([]byte, 0, format.DATA_LEN)
+	// So, I'll just use an arbitrary order. The invoiced coin can go first.
+	payload = append(payload, request.Compound()[:]...)
+	// Then, the change, if there is any
+	if change != NilSleeve {
+		payload = append(payload, change.Compound()[:]...)
+	}
+	// The funding coins can go next
+	for i := range funds {
+		payload = append(payload, funds[i].Seed()[:]...)
+	}
+
+	return payload
+}
+
+func (w *Wallet) Pay(requestID parse.MessageHash) (*parse.Message, error) {
+	transaction, ok := w.inboundRequests.Pop(requestID)
+	if !ok {
+		return nil, errors.New("That request wasn't in the list of inbound" +
+			" requests")
+	}
+	msg, err := w.pay(transaction)
+	if err != nil {
+		// Roll back the popping
+		w.inboundRequests.Upsert(requestID, transaction)
+		return nil, err
+	}
+	errStore := w.session.StoreSession()
+	if errStore != nil {
+		// Roll back the popping
+		w.inboundRequests.Upsert(requestID, transaction)
+		return nil, err
+	}
+	return msg, nil
+}
+
+// Create a payment message and register the outgoing payment on pending
+// transactions
+// TODO As written, the caller is responsible for popping the inbound request
+func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
+	// Fund from ordered coin storage
+	// TODO calculate max coins programmatically? depends on wallet state
+	// because change may or may not be present
+	funds, change, err := w.coinStorage.Fund(inboundRequest.Value, 4)
+	if err != nil {
+		return nil, err
+	}
+
+	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
+
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
+		paymentMessage)) > format.DATA_LEN {
+		// The message is too long to fit in a single payment message
+		panic("Payment message doesn't fit in a single message")
+	}
+
+	msg := parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_TRANSACTION,
+			Body: paymentMessage,
+		},
+		Sender:   w.session.GetCurrentUser().UserID,
+		Receiver: getPaymentBotID(),
+		// TODO panic on blank nonce
+		Nonce: nil,
+	}
+
+	// Register the transaction on the list of outbound transactions
+	pendingTransaction := Transaction{
+		Create:    inboundRequest.Create,
+		Destroy:   funds,
+		Change:    change,
+		Sender:    inboundRequest.Sender,
+		Recipient: inboundRequest.Recipient,
+		Memo:      inboundRequest.Memo,
+		Timestamp: inboundRequest.Timestamp,
+		Value:     inboundRequest.Value,
+	}
+
+	w.pendingTransactions.Upsert(msg.Hash(), &pendingTransaction)
+
+	// Return the result.
+	return &msg, nil
+}
+
+type PaymentResponseListener struct {
+	wallet *Wallet
+}
+
+func (l *PaymentResponseListener) Hear(msg *parse.Message,
+	isHeardElsewhere bool) {
+	var response parse.PaymentResponse
+	err := proto.Unmarshal(msg.Body, &response)
+	if err != nil {
+		jww.WARN.Printf("Heard an invalid response from the payment bot. "+
+			"Error: %v", err.Error())
+	}
+
+	var hash parse.MessageHash
+	copy(hash[:], response.ID)
+
+	if !response.Success {
+		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
+		if !ok {
+			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
+				hash)
+		} else {
+			// Move the coins from pending transactions back to the wallet
+			// for now.
+			// This may not always be correct - for example, if the coins aren't on
+			// the payment bot they might need to be removed from user's wallet
+			// so they don't get nothing but declined transactions in the event
+			// of corruption.
+			for i := range transaction.Destroy {
+				l.wallet.coinStorage.Add(transaction.Destroy[i])
+			}
+		}
+	} else {
+		// Does it make sense to have the payment bot send the value of the
+		// transaction as a response for some quick and dirty verification?
+
+		// Transaction was successful, so remove pending from the wallet
+		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
+		if transaction.Change != NilSleeve {
+			l.wallet.coinStorage.Add(transaction.Change)
+		}
+		if !ok {
+			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
+				hash)
+		} else {
+			// TODO send receipt to invoice initiator hereabouts
+		}
+	}
+	jww.DEBUG.Printf("Payment response: %v", response.Response)
 }

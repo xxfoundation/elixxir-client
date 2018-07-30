@@ -1,16 +1,16 @@
 package payment
 
 import (
-	"gitlab.com/privategrity/client/globals"
-	"testing"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/client/parse"
-	"github.com/golang/protobuf/proto"
-	"gitlab.com/privategrity/crypto/coin"
-	"time"
-	"reflect"
 	"bytes"
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"reflect"
+	"testing"
+	"time"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -215,7 +215,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_NO_TYPE,
 			Body: nil,
-		},}, false)
+		}}, false)
 
 	if s {
 		t.Error("Invoice listener heard a message with the wrong type")
@@ -260,7 +260,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	}
 
 	// Test 4: good proto buffer, coin has right length but wrong type
-	erroneousCompound := [coin.BaseFrameLen]byte{0x04,}
+	erroneousCompound := [coin.BaseFrameLen]byte{0x04}
 	invoice.CreatedCoin = erroneousCompound[:]
 	wireRep, err = proto.Marshal(&invoice)
 	if err != nil {
@@ -423,7 +423,7 @@ func TestInvoiceListener_Hear(t *testing.T) {
 		t.Error(err.Error())
 	}
 	actualRequests := incomingRequests.(*map[parse.MessageHash]*Transaction)
-	if !reflect.DeepEqual((*actualRequests)[hash], req){
+	if !reflect.DeepEqual((*actualRequests)[hash], req) {
 		t.Error("Request in incoming requests map didn't match received" +
 			" request")
 	}
@@ -466,4 +466,425 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	if err == nil {
 		t.Error("Didn't get an error for an invoice that's too large")
 	}
+}
+
+func TestPaymentResponseListener_Hear(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	walletAmount := uint64(8970)
+	paymentAmount := uint64(962)
+	changeAmount := walletAmount - paymentAmount
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	walletSleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// We don't add the coin to the storage to concisely emulate the Pay()
+	// method, which would remove the coin that we had added, and which should
+	// always get called before getting a response from the payment bot.
+
+	changeSleeve, err := coin.NewSleeve(changeAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	paymentSleeve, err := coin.NewSleeve(paymentAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// the contents of the sleeve don't actually matter as long as we say the
+	// transaction succeeded. so we can just use the same sleeve for creation
+	// and destruction
+
+	// create the pending wallet transaction
+	transaction := Transaction{
+		Create:    paymentSleeve,
+		Destroy:   []coin.Sleeve{walletSleeve},
+		Change:    changeSleeve,
+		Sender:    payer,
+		Recipient: payee,
+		Memo:      "for midichlorians and midichlorian paraphernalia",
+		Timestamp: time.Now(),
+		Value:     paymentAmount,
+	}
+	// for the purposes of this test the hash could be anything,
+	// as long it's the same for the key to the map and in the return message
+	var hash parse.MessageHash
+	copy(hash[:], []byte("even though this hash may seem unlikely to the" +
+		" casual observer, it is in fact a valid, real, and correct message hash"))
+	pt.Upsert(hash, &transaction)
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	response := parse.PaymentResponse{
+		Success:  true,
+		Response: "200 OK",
+		ID:       string(hash[:]),
+	}
+	// marshal response into a parse message
+	wire, err := proto.Marshal(&response)
+
+	listener := PaymentResponseListener{wallet: &w}
+	listener.Hear(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_RESPONSE,
+			Body: wire,
+		},
+		Sender:    payer,
+		Receiver:  payee,
+		Nonce:     nil,
+	}, false)
+
+	// In the success case, the transaction is no longer pending because it
+	// succeeded.
+	if len(*w.pendingTransactions.transactionMap) != 0 {
+		t.Error("There should be zero transactions pending in the map" +
+			" after receiving a successful payment response.")
+	}
+	if w.pendingTransactions.Value() != 0 {
+		t.Errorf("Pending transactions' total value should be zero after" +
+			" receiving the payment response. It was %v",
+			w.pendingTransactions.Value())
+	}
+	// After a successful transaction,
+	// the coin storage should have the change in it
+	if w.coinStorage.Value() != changeAmount {
+		t.Errorf("Wallet didn't have value equal to the value of the change. " +
+			"Got %v, expected %v", w.coinStorage.Value(), changeAmount)
+
+	}
+}
+
+func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	walletAmount := uint64(8970)
+	paymentAmount := uint64(962)
+	changeAmount := walletAmount - paymentAmount
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	walletSleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// We don't add the coin to the storage to concisely emulate the Pay()
+	// method, which would remove the coin that we had added, and which should
+	// always get called before getting a response from the payment bot.
+
+	changeSleeve, err := coin.NewSleeve(changeAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	paymentSleeve, err := coin.NewSleeve(paymentAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// the contents of the sleeve don't actually matter as long as we say the
+	// transaction succeeded. so we can just use the same sleeve for creation
+	// and destruction
+
+	// create the pending wallet transaction
+	transaction := Transaction{
+		Create:    paymentSleeve,
+		Destroy:   []coin.Sleeve{walletSleeve},
+		Change:    changeSleeve,
+		Sender:    payer,
+		Recipient: payee,
+		Memo:      "for midichlorians and midichlorian paraphernalia",
+		Timestamp: time.Now(),
+		Value:     paymentAmount,
+	}
+	// for the purposes of this test the hash could be anything,
+	// as long it's the same for the key to the map and in the return message
+	var hash parse.MessageHash
+	copy(hash[:], []byte("even though this hash may seem unlikely to the" +
+		" casual observer, it is in fact a valid, real, and correct message hash"))
+	pt.Upsert(hash, &transaction)
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	response := parse.PaymentResponse{
+		Success:  false,
+		Response: "404 Not Found",
+		ID:       string(hash[:]),
+	}
+	// marshal response into a parse message
+	wire, err := proto.Marshal(&response)
+
+	listener := PaymentResponseListener{wallet: &w}
+	listener.Hear(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_RESPONSE,
+			Body: wire,
+		},
+		Sender:    payer,
+		Receiver:  payee,
+		Nonce:     nil,
+	}, false)
+
+	// In the failure case, the transaction is no longer pending because it's
+	// declined. The payee must invoice again if they want to retry the payment.
+	if len(*w.pendingTransactions.transactionMap) != 0 {
+		t.Error("There should be zero transactions pending in the map" +
+			" after receiving a payment response.")
+	}
+	if w.pendingTransactions.Value() != 0 {
+		t.Errorf("Pending transactions' total value should be zero after" +
+			" receiving the payment response. It was %v",
+			w.pendingTransactions.Value())
+	}
+	// The wallet should be restored to its original value after the
+	// failed transaction
+	if w.coinStorage.Value() != walletAmount {
+		t.Errorf("Wallet didn't have value equal to the value of the change. " +
+			"Got %v, expected %v", w.coinStorage.Value(), walletAmount)
+	}
+}
+
+func TestWallet_Pay_NoChange(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	paymentAmount := uint64(5008)
+	walletAmount := uint64(5008)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	sleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.Add(sleeve)
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	inboundTransaction, err := createInvoice(payer, payee, paymentAmount,
+		"podracer maintenance")
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	msg, err := w.pay(inboundTransaction)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// verify message contents
+	if !bytes.Contains(msg.Body, sleeve.Seed()[:]) {
+		t.Error("Message body didn't contain the payment's source")
+	}
+	if !bytes.Contains(msg.Body, inboundTransaction.Create.Compound()[:]) {
+		t.Error("Message body didn't contain the payment's destination")
+	}
+	if !(uint64(len(msg.Body)) == 2 * coin.BaseFrameLen) {
+		t.Error("Message body should have exactly two coins in it, " +
+			"but it doesn't")
+	}
+
+	// verify wallet contents
+	transaction, ok := w.pendingTransactions.Get(msg.Hash())
+	if !ok {
+		t.Error("Couldn't find the transaction in the map")
+	} else {
+		if transaction.Create != inboundTransaction.Create {
+			t.Error("The transactions are creating different coins")
+		}
+		if transaction.Value != inboundTransaction.Value {
+			t.Error("The transactions have different values")
+		}
+		if transaction.Sender != inboundTransaction.Sender {
+			t.Error("The transactions have a different sender")
+		}
+		if transaction.Recipient != inboundTransaction.Recipient {
+			t.Error("The transactions have a different recipient")
+		}
+		if transaction.Timestamp != inboundTransaction.Timestamp {
+			t.Error("The transactions have a different timestamp")
+		}
+		if transaction.Memo != inboundTransaction.Memo {
+			t.Error("The transactions have a different memo")
+		}
+		if transaction.Change != NilSleeve {
+			t.Error("There shouldn't have been change for this transaction")
+		}
+		if !reflect.DeepEqual(transaction.Destroy[0], sleeve) {
+			t.Error("The destroyed coin and the coin we forged to test the" +
+				" transaction weren't identical")
+		}
+	}
+
+	// TODO verify session contents? or do the wallet tests cover that enough?
+}
+
+func TestWallet_Pay_YesChange(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	paymentAmount := uint64(2611)
+	walletAmount := uint64(5008)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	sleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.Add(sleeve)
+
+	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Create wallet that has the compound coins in it to do a payment
+	// Unaffected lists are unpopulated
+	w := Wallet{
+		coinStorage:         storage,
+		pendingTransactions: pt,
+		session:             s,
+	}
+
+	inboundTransaction, err := createInvoice(payer, payee, paymentAmount,
+		"podracer maintenance")
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	msg, err := w.pay(inboundTransaction)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// verify message contents
+	if !bytes.Contains(msg.Body, sleeve.Seed()[:]) {
+		t.Error("Message body didn't contain the payment's source")
+	}
+	if !bytes.Contains(msg.Body, inboundTransaction.Create.Compound()[:]) {
+		t.Error("Message body didn't contain the payment's destination")
+	}
+	// look for the change and make sure it's reasonable
+	for i := uint64(0); i < uint64(len(msg.Body)); i += coin.BaseFrameLen {
+		thisCoin := msg.Body[i:i+coin.BaseFrameLen]
+		if coin.IsCompound(msg.Body[i:i+coin.BaseFrameLen]) {
+			if !bytes.Equal(inboundTransaction.Create.Compound()[:], thisCoin) {
+				// we've found the change
+				// make a compound with it and see if the value is correct
+				var compound coin.Compound
+				copy(compound[:], thisCoin)
+				if compound.Value() != walletAmount - paymentAmount {
+					t.Error("Change in the message didn't have the right value")
+				}
+			}
+		}
+	}
+
+	if !(uint64(len(msg.Body)) == 3 * coin.BaseFrameLen) {
+		t.Error("Message body should have exactly three coins in it, " +
+			"but it doesn't")
+	}
+
+	// verify wallet contents
+	transaction, ok := w.pendingTransactions.Get(msg.Hash())
+	if !ok {
+		t.Error("Couldn't find the transaction in the map")
+	} else {
+		if transaction.Create != inboundTransaction.Create {
+			t.Error("The transactions are creating different coins")
+		}
+		if transaction.Value != inboundTransaction.Value {
+			t.Error("The transactions have different values")
+		}
+		if transaction.Sender != inboundTransaction.Sender {
+			t.Error("The transactions have a different sender")
+		}
+		if transaction.Recipient != inboundTransaction.Recipient {
+			t.Error("The transactions have a different recipient")
+		}
+		if transaction.Timestamp != inboundTransaction.Timestamp {
+			t.Error("The transactions have a different timestamp")
+		}
+		if transaction.Memo != inboundTransaction.Memo {
+			t.Error("The transactions have a different memo")
+		}
+		if transaction.Change.Value() != walletAmount - paymentAmount {
+			t.Error("Incorrect amount of change for this transaction")
+		}
+		if !reflect.DeepEqual(transaction.Destroy[0], sleeve) {
+			t.Error("The destroyed coin and the coin we forged to test the" +
+				" transaction weren't identical")
+		}
+	}
+
+	// TODO verify session contents
 }

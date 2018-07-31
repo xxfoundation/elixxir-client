@@ -315,3 +315,7 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 	}
 	jww.DEBUG.Printf("Payment response: %v", response.Response)
 }
+
+func (w *Wallet) AvailableFunds() uint64 {
+	return w.coinStorage.Value()
+}

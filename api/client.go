@@ -22,6 +22,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"time"
+	"gitlab.com/privategrity/client/payment"
 )
 
 // Populates a text message and returns its wire representation
@@ -128,6 +129,14 @@ func Login(UID user.ID, addr string) (string, error) {
 	if user.TheSession == nil {
 		return "", errors.New("Unable to load session")
 	}
+
+	TheWallet, err = payment.CreateWallet(user.TheSession)
+	if err != nil {
+		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
+		jww.ERROR.Printf(err.Error())
+		return "", err
+	}
+
 
 	if addr != "" {
 		user.TheSession.SetGWAddress(addr)
@@ -274,4 +283,28 @@ func RegisterForUserDiscovery(emailAddress string) error {
 func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
 	valueType := "EMAIL"
 	return bots.Search(valueType, emailAddress)
+}
+
+// TODO Support more than one wallet per user? Maybe in v2
+var TheWallet *payment.Wallet
+
+// int64 amount for easy binding
+// Implementers need to make a listener that hears invoices and gets their
+// message hash and the relevant data for displaying to the user
+// You still need to send the formatted message to actually invoice someone
+func Invoice(payer user.ID, value int64, memo string) (*parse.Message, error) {
+	if value < 0 {
+		return nil, errors.New("can't request a negative amount of funds")
+	}
+	return TheWallet.Invoice(payer, uint64(value), memo)
+}
+
+// Pays the identified invoice if there's enough funding
+func Pay(ID parse.MessageHash) (*parse.Message, error) {
+	return TheWallet.Pay(ID)
+}
+
+// Query the local wallet's value
+func AvailableFunds() int64 {
+	return int64(TheWallet.AvailableFunds())
 }

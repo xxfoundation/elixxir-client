@@ -10,12 +10,12 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
+	"gitlab.com/privategrity/client/switchboard"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -73,7 +73,7 @@ func (w *Wallet) RegisterListeners() {
 
 func (w *Wallet) registerInvoiceListener() {
 	// Add incoming invoice listener
-	api.Listen(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
+	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
 		wallet: w,
 	})
 }

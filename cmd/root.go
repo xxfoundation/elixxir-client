@@ -268,8 +268,8 @@ var rootCmd = &cobra.Command{
 			}
 
 			// Handle sending to UDB
-			if destinationUserId == uint64(globals.UDB_USERID) {
-				bots.ParseUdbMessage(message)
+			if destinationUserId == uint64(bots.UdbID) {
+				ParseUdbMessage(message)
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)

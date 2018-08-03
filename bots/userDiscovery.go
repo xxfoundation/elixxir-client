@@ -11,7 +11,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
@@ -22,7 +21,7 @@ import (
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
-const udbID = user.ID(13)
+const UdbID = user.ID(13)
 
 type udbResponseListener chan string
 
@@ -36,27 +35,6 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 	*l <- string(msg.Body)
 }
 
-// Determines what UDB send function to call based on the text in the message
-func ParseUdbMessage(msg string) {
-	// Split the message on spaces
-	args := strings.Fields(msg)
-	if len(args) < 3 {
-		jww.ERROR.Printf("UDB command must have at least three arguments!")
-	}
-	// The first arg is the command
-	// the second is the valueType
-	// the third is the value
-	keyword := args[0]
-	// Case-insensitive match the keyword to a command
-	if strings.EqualFold(keyword, "SEARCH") {
-		api.SearchForUser(args[2])
-	} else if strings.EqualFold(keyword, "REGISTER") {
-		api.RegisterForUserDiscovery(args[2])
-	} else {
-		jww.ERROR.Printf("UDB command not recognized!")
-	}
-}
-
 // The go runtime calls init() before calling any methods in the package
 func init() {
 	pushKeyResponseListener = make(udbResponseListener)
@@ -64,13 +42,13 @@ func init() {
 	registerResponseListener = make(udbResponseListener)
 	searchResponseListener = make(udbResponseListener)
 
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_PUSH_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_PUSH_KEY_RESPONSE,
 		&pushKeyResponseListener)
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_GET_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_GET_KEY_RESPONSE,
 		&getKeyResponseListener)
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_REGISTER_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_REGISTER_RESPONSE,
 		&registerResponseListener)
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_SEARCH_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_SEARCH_RESPONSE,
 		&searchResponseListener)
 }
 
@@ -82,8 +60,8 @@ func Register(valueType, value string, publicKey []byte) error {
 	keyFP := fingerprint(publicKey)
 
 	// check if key already exists and push one if it doesn't
-	if !keyExists(udbID, keyFP) {
-		err := pushKey(udbID, keyFP, publicKey)
+	if !keyExists(UdbID, keyFP) {
+		err := pushKey(UdbID, keyFP, publicKey)
 		if err != nil {
 			return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
 		}
@@ -95,7 +73,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	})
 
 	// Send register command
-	err := sendCommand(udbID, msgBody)
+	err := sendCommand(UdbID, msgBody)
 	if err == nil {
 		regResult := <-registerResponseListener
 		if regResult != "REGISTRATION COMPLETE" {
@@ -115,7 +93,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 		Type: parse.Type_UDB_SEARCH,
 		Body: []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
-	err := sendCommand(udbID, msgBody)
+	err := sendCommand(UdbID, msgBody)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +113,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 		Type: parse.Type_UDB_GET_KEY,
 		Body: []byte(keyFP),
 	})
-	err = sendCommand(udbID, msgBody)
+	err = sendCommand(UdbID, msgBody)
 	if err != nil {
 		return nil, err
 	}

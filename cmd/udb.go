@@ -13,7 +13,7 @@ import (
 )
 
 // Determines what UDB send function to call based on the text in the message
-func ParseUdbMessage(msg string) {
+func parseUdbMessage(msg string) {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {

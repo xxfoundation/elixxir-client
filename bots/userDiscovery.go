@@ -41,7 +41,7 @@ func ParseUdbMessage(msg string) {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
-		jww.ERROR.Printf("UDB command must have at least three arguments!!")
+		jww.ERROR.Printf("UDB command must have at least three arguments!")
 	}
 	// The first arg is the command
 	// the second is the valueType

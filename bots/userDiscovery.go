@@ -21,7 +21,7 @@ import (
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
-const udbID = user.ID(13)
+const UdbID = user.ID(13)
 
 type udbResponseListener chan string
 
@@ -42,25 +42,26 @@ func init() {
 	registerResponseListener = make(udbResponseListener)
 	searchResponseListener = make(udbResponseListener)
 
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_PUSH_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_PUSH_KEY_RESPONSE,
 		&pushKeyResponseListener)
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_GET_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_GET_KEY_RESPONSE,
 		&getKeyResponseListener)
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_REGISTER_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_REGISTER_RESPONSE,
 		&registerResponseListener)
-	switchboard.Listeners.Register(udbID, parse.Type_UDB_SEARCH_RESPONSE,
+	switchboard.Listeners.Register(UdbID, parse.Type_UDB_SEARCH_RESPONSE,
 		&searchResponseListener)
 }
 
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
+// valueType: Currently only "EMAIL"
 func Register(valueType, value string, publicKey []byte) error {
 	keyFP := fingerprint(publicKey)
 
 	// check if key already exists and push one if it doesn't
-	if !keyExists(udbID, keyFP) {
-		err := pushKey(udbID, keyFP, publicKey)
+	if !keyExists(UdbID, keyFP) {
+		err := pushKey(UdbID, keyFP, publicKey)
 		if err != nil {
 			return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
 		}
@@ -72,7 +73,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	})
 
 	// Send register command
-	err := sendCommand(udbID, msgBody)
+	err := sendCommand(UdbID, msgBody)
 	if err == nil {
 		regResult := <-registerResponseListener
 		if regResult != "REGISTRATION COMPLETE" {
@@ -92,7 +93,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 		Type: parse.Type_UDB_SEARCH,
 		Body: []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
-	err := sendCommand(udbID, msgBody)
+	err := sendCommand(UdbID, msgBody)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +113,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 		Type: parse.Type_UDB_GET_KEY,
 		Body: []byte(keyFP),
 	})
-	err = sendCommand(udbID, msgBody)
+	err = sendCommand(UdbID, msgBody)
 	if err != nil {
 		return nil, err
 	}

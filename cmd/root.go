@@ -15,6 +15,7 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
+	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
@@ -265,17 +266,24 @@ var rootCmd = &cobra.Command{
 			if ok {
 				recipientNick = u.Nick
 			}
-			wireOut := bindings.FormatTextMessage(message)
 
-			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-				recipientNick, message)
+			// Handle sending to UDB
+			if destinationUserId == uint64(bots.UdbID) {
+				parseUdbMessage(message)
+			} else {
+				// Handle sending to any other destination
+				wireOut := bindings.FormatTextMessage(message)
 
-			//Send the message
-			bindings.Send(CmdMessage{
-				SenderID:    user.ID(userId),
-				Payload:     string(wireOut),
-				RecipientID: user.ID(destinationUserId),
-			})
+				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+					recipientNick, message)
+
+				// Send the message
+				bindings.Send(CmdMessage{
+					SenderID:    user.ID(userId),
+					Payload:     string(wireOut),
+					RecipientID: user.ID(destinationUserId),
+				})
+			}
 		}
 
 		if dummyFrequency != 0 {

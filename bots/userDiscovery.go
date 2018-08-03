@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
@@ -35,6 +36,27 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 	*l <- string(msg.Body)
 }
 
+// Determines what UDB send function to call based on the text in the message
+func ParseUdbMessage(msg string) {
+	// Split the message on spaces
+	args := strings.Fields(msg)
+	if len(args) < 3 {
+		jww.ERROR.Printf("UDB command must have at least three arguments!!")
+	}
+	// The first arg is the command
+	// the second is the valueType
+	// the third is the value
+	keyword := args[0]
+	// Case-insensitive match the keyword to a command
+	if strings.EqualFold(keyword, "SEARCH") {
+		api.SearchForUser(args[2])
+	} else if strings.EqualFold(keyword, "REGISTER") {
+		api.RegisterForUserDiscovery(args[2])
+	} else {
+		jww.ERROR.Printf("UDB command not recognized!")
+	}
+}
+
 // The go runtime calls init() before calling any methods in the package
 func init() {
 	pushKeyResponseListener = make(udbResponseListener)
@@ -55,6 +77,7 @@ func init() {
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
+// valueType: Currently only "EMAIL"
 func Register(valueType, value string, publicKey []byte) error {
 	keyFP := fingerprint(publicKey)
 

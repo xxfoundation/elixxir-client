@@ -21,7 +21,6 @@ import (
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/user-discovery-bot/udb"
 	"os"
 	"sync/atomic"
 	"time"
@@ -269,7 +268,7 @@ var rootCmd = &cobra.Command{
 			}
 
 			// Handle sending to UDB
-			if destinationUserId == uint64(udb.UDB_USERID) {
+			if destinationUserId == uint64(globals.UDB_USERID) {
 				bots.ParseUdbMessage(message)
 			} else {
 				// Handle sending to any other destination

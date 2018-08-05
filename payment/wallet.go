@@ -316,6 +316,22 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 	jww.DEBUG.Printf("Payment response: %v", response.Response)
 }
 
-func (w *Wallet) AvailableFunds() uint64 {
+func (w *Wallet) GetAvailableFunds() uint64 {
 	return w.coinStorage.Value()
+}
+
+// Returns a copy of the transaction to keep UIs from changing transaction
+func (w *Wallet) GetInboundRequest(id parse.MessageHash) (Transaction, bool) {
+	transaction, ok := w.inboundRequests.Get(id)
+	return *transaction, ok
+}
+
+func (w *Wallet) GetOutboundRequest(id parse.MessageHash) (Transaction, bool) {
+	transaction, ok := w.outboundRequests.Get(id)
+	return *transaction, ok
+}
+
+func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool) {
+	transaction, ok := w.pendingTransactions.Get(id)
+	return *transaction, ok
 }

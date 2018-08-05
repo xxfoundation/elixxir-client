@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"errors"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -527,7 +528,7 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	// for the purposes of this test the hash could be anything,
 	// as long it's the same for the key to the map and in the return message
 	var hash parse.MessageHash
-	copy(hash[:], []byte("even though this hash may seem unlikely to the" +
+	copy(hash[:], []byte("even though this hash may seem unlikely to the"+
 		" casual observer, it is in fact a valid, real, and correct message hash"))
 	pt.Upsert(hash, &transaction)
 
@@ -553,9 +554,9 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 			Type: parse.Type_PAYMENT_RESPONSE,
 			Body: wire,
 		},
-		Sender:    payer,
-		Receiver:  payee,
-		Nonce:     nil,
+		Sender:   payer,
+		Receiver: payee,
+		Nonce:    nil,
 	}, false)
 
 	// In the success case, the transaction is no longer pending because it
@@ -565,14 +566,14 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 			" after receiving a successful payment response.")
 	}
 	if w.pendingTransactions.Value() != 0 {
-		t.Errorf("Pending transactions' total value should be zero after" +
+		t.Errorf("Pending transactions' total value should be zero after"+
 			" receiving the payment response. It was %v",
 			w.pendingTransactions.Value())
 	}
 	// After a successful transaction,
 	// the coin storage should have the change in it
 	if w.coinStorage.Value() != changeAmount {
-		t.Errorf("Wallet didn't have value equal to the value of the change. " +
+		t.Errorf("Wallet didn't have value equal to the value of the change. "+
 			"Got %v, expected %v", w.coinStorage.Value(), changeAmount)
 
 	}
@@ -637,7 +638,7 @@ func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
 	// for the purposes of this test the hash could be anything,
 	// as long it's the same for the key to the map and in the return message
 	var hash parse.MessageHash
-	copy(hash[:], []byte("even though this hash may seem unlikely to the" +
+	copy(hash[:], []byte("even though this hash may seem unlikely to the"+
 		" casual observer, it is in fact a valid, real, and correct message hash"))
 	pt.Upsert(hash, &transaction)
 
@@ -663,9 +664,9 @@ func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
 			Type: parse.Type_PAYMENT_RESPONSE,
 			Body: wire,
 		},
-		Sender:    payer,
-		Receiver:  payee,
-		Nonce:     nil,
+		Sender:   payer,
+		Receiver: payee,
+		Nonce:    nil,
 	}, false)
 
 	// In the failure case, the transaction is no longer pending because it's
@@ -675,14 +676,14 @@ func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
 			" after receiving a payment response.")
 	}
 	if w.pendingTransactions.Value() != 0 {
-		t.Errorf("Pending transactions' total value should be zero after" +
+		t.Errorf("Pending transactions' total value should be zero after"+
 			" receiving the payment response. It was %v",
 			w.pendingTransactions.Value())
 	}
 	// The wallet should be restored to its original value after the
 	// failed transaction
 	if w.coinStorage.Value() != walletAmount {
-		t.Errorf("Wallet didn't have value equal to the value of the change. " +
+		t.Errorf("Wallet didn't have value equal to the value of the change. "+
 			"Got %v, expected %v", w.coinStorage.Value(), walletAmount)
 	}
 }
@@ -740,7 +741,7 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 	if !bytes.Contains(msg.Body, inboundTransaction.Create.Compound()[:]) {
 		t.Error("Message body didn't contain the payment's destination")
 	}
-	if !(uint64(len(msg.Body)) == 2 * coin.BaseFrameLen) {
+	if !(uint64(len(msg.Body)) == 2*coin.BaseFrameLen) {
 		t.Error("Message body should have exactly two coins in it, " +
 			"but it doesn't")
 	}
@@ -835,21 +836,21 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	}
 	// look for the change and make sure it's reasonable
 	for i := uint64(0); i < uint64(len(msg.Body)); i += coin.BaseFrameLen {
-		thisCoin := msg.Body[i:i+coin.BaseFrameLen]
-		if coin.IsCompound(msg.Body[i:i+coin.BaseFrameLen]) {
+		thisCoin := msg.Body[i : i+coin.BaseFrameLen]
+		if coin.IsCompound(msg.Body[i : i+coin.BaseFrameLen]) {
 			if !bytes.Equal(inboundTransaction.Create.Compound()[:], thisCoin) {
 				// we've found the change
 				// make a compound with it and see if the value is correct
 				var compound coin.Compound
 				copy(compound[:], thisCoin)
-				if compound.Value() != walletAmount - paymentAmount {
+				if compound.Value() != walletAmount-paymentAmount {
 					t.Error("Change in the message didn't have the right value")
 				}
 			}
 		}
 	}
 
-	if !(uint64(len(msg.Body)) == 3 * coin.BaseFrameLen) {
+	if !(uint64(len(msg.Body)) == 3*coin.BaseFrameLen) {
 		t.Error("Message body should have exactly three coins in it, " +
 			"but it doesn't")
 	}
@@ -877,7 +878,7 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 		if transaction.Memo != inboundTransaction.Memo {
 			t.Error("The transactions have a different memo")
 		}
-		if transaction.Change.Value() != walletAmount - paymentAmount {
+		if transaction.Change.Value() != walletAmount-paymentAmount {
 			t.Error("Incorrect amount of change for this transaction")
 		}
 		if !reflect.DeepEqual(transaction.Destroy[0], sleeve) {
@@ -887,4 +888,146 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	}
 
 	// TODO verify session contents
+}
+
+
+func setupGetTests() (*Wallet, error) {
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{user.ID(5), "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	w, err := CreateWallet(s)
+	if err != nil {
+		return nil, err
+	}
+	return w, nil
+}
+
+// a mile should do fine
+const transactionValue = uint64(5280)
+
+// Puts a transaction in the list,
+// proves that you can get it back out through the exported function,
+// and proves that changing the transaction you get doesn't change the version
+// in the wallet
+func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
+	Transaction,
+	bool)) error {
+	id := parse.MessageHash{}
+	copy(id[:], "testKey")
+
+	numSleeves := 10
+
+	sleeves := make([]coin.Sleeve, numSleeves)
+	var err error
+	for i := 0; i < numSleeves; i++ {
+		sleeves[i], err = coin.NewSleeve(uint64(i + 100))
+		if err != nil {
+			return err
+		}
+	}
+	upsertedTransaction := &Transaction{
+		Create:    sleeves[0],
+		Destroy:   sleeves[2:],
+		Change:    sleeves[1],
+		Sender:    user.ID(5),
+		Recipient: user.ID(6),
+		Memo:      "dog buns",
+		Timestamp: time.Now(),
+		Value:     transactionValue,
+	}
+	tl.Upsert(id, upsertedTransaction)
+	transaction, ok := get(id)
+
+	// Test that the ID can get the transaction
+	if !ok {
+		return errors.New("Got no transaction from the list")
+	}
+	// Test that the transaction that we got was the same
+	if !reflect.DeepEqual(*upsertedTransaction, transaction) {
+		return errors.New("Transaction wasn't the same after upserting")
+	}
+	// Prove immutability of the original transaction in the wallet from the
+	// transaction we got
+	transaction.Value = 0
+	if reflect.DeepEqual(*upsertedTransaction, transaction) {
+		return errors.New("Transactions tracked the same state: value")
+	}
+	transaction, ok = get(id)
+	transaction.Sender = user.ID(0)
+	if reflect.DeepEqual(*upsertedTransaction, transaction) {
+		return errors.New("Transactions tracked the same state: sender")
+	}
+	transaction, ok = get(id)
+	// Individual fields of sleeves aren't assignable out of the coin package,
+	// so we'll just change one of the sleeves in the transaction
+	transaction.Create = sleeves[3]
+	if reflect.DeepEqual(*upsertedTransaction, transaction) {
+		return errors.New("Transactions tracked the same state: create")
+	}
+	transaction, ok = get(id)
+	transaction.Timestamp = time.Now()
+	if reflect.DeepEqual(*upsertedTransaction, transaction) {
+		return errors.New("Transactions tracked the same state: timestamp")
+	}
+	transaction, ok = get(id)
+	// Individual characters of strings aren't mutable, so we'll just change the
+	// whole string and see if we get any real changes
+	transaction.Memo = "hotburger buns"
+	if reflect.DeepEqual(*upsertedTransaction, transaction) {
+		return errors.New("Transactions tracked the same state: memo")
+	}
+	return nil
+}
+
+func TestWallet_GetOutboundRequest(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.outboundRequests, w.GetOutboundRequest)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestWallet_GetPendingTransaction(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.pendingTransactions, w.GetPendingTransaction)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestWallet_GetAvailableFunds(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	sleeve, err := coin.NewSleeve(transactionValue)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	w.coinStorage.Add(sleeve)
+	if w.GetAvailableFunds() != transactionValue {
+		t.Error("The amount of available funds in the wallet wasn't as" +
+			" expected. Got: %v, expected %v", w.GetAvailableFunds(),
+			transactionValue)
+	}
+}
+
+func TestWallet_GetInboundRequest(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.inboundRequests, w.GetInboundRequest)
+	if err != nil {
+		t.Error(err.Error())
+	}
 }

@@ -303,8 +303,3 @@ func Invoice(payer user.ID, value int64, memo string) (*parse.Message, error) {
 func Pay(ID parse.MessageHash) (*parse.Message, error) {
 	return TheWallet.Pay(ID)
 }
-
-// Query the local wallet's value
-func AvailableFunds() int64 {
-	return int64(TheWallet.AvailableFunds())
-}

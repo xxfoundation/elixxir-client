@@ -16,13 +16,13 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/payment"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"time"
-	"gitlab.com/privategrity/client/payment"
 )
 
 // Populates a text message and returns its wire representation
@@ -124,7 +124,7 @@ func Register(registrationCode string, gwAddr string,
 // returns an empty sting if login fails.
 func Login(UID user.ID, addr string) (string, error) {
 
-	err := user.LoadSession(UID)
+	_, err := user.LoadSession(UID)
 
 	if user.TheSession == nil {
 		return "", errors.New("Unable to load session")
@@ -136,7 +136,6 @@ func Login(UID user.ID, addr string) (string, error) {
 		jww.ERROR.Printf(err.Error())
 		return "", err
 	}
-
 
 	if addr != "" {
 		user.TheSession.SetGWAddress(addr)

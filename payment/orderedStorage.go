@@ -8,6 +8,7 @@ package payment
 
 import (
 	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 )
@@ -42,7 +43,18 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 			return nil, err
 		}
 	} else {
-		osclPtr = oscli.(*[]coin.Sleeve)
+		switch v := oscli.(type) {
+		case *[]coin.Sleeve:
+			osclPtr = v
+		case []coin.Sleeve:
+			osclPtr = &v
+			err = session.UpsertMap(tag, osclPtr)
+			if err != nil {
+				return nil, err
+			}
+		default:
+			jww.FATAL.Panicf("wong type returned when loading ordered storage")
+		}
 	}
 
 	value := uint64(0)

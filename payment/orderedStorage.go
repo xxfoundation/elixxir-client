@@ -43,6 +43,13 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 			return nil, err
 		}
 	} else {
+		// FIXME We need this type switch because of our terrible gob/interface
+		// serialization structure. We should come up with a new serialization
+		// structure that actually does what we want without this type of hack.
+
+		// When gob encodes a pointer type that's put in an empty interface, it
+		// removes the pointer and just encodes the underlying type. This causes
+		// a type assertion error when we load the session from a file.
 		switch v := oscli.(type) {
 		case *[]coin.Sleeve:
 			osclPtr = v

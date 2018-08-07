@@ -646,12 +646,13 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 func TestOrderedStorage_FileLoading(t *testing.T) {
 	globals.LocalStorage = nil
 
-	storagePath, err := homedir.Expand("~/.privategrity/orderedstoragetest." +
-		"session")
+	storagePath, err := homedir.Expand("~/.privategrity")
+	filename := "/orderedstoragetest.session"
+	os.MkdirAll(storagePath, 0775)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	globals.InitStorage(&globals.DefaultStorage{}, storagePath)
+	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
 	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
@@ -740,5 +741,5 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	*ocs3.list = append(*ocs3.list, ns3)
 
 	s3.StoreSession()
-	os.Remove(storagePath)
+	os.Remove(storagePath+filename)
 }

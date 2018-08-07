@@ -967,7 +967,7 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 		return errors.New("Transactions tracked the same state: create")
 	}
 	transaction, ok = get(id)
-	transaction.Timestamp = time.Now()
+	transaction.Timestamp = time.Unix(0, 0)
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: timestamp")
 	}

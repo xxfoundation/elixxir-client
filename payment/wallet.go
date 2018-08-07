@@ -335,3 +335,10 @@ func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool)
 	transaction, ok := w.pendingTransactions.Get(id)
 	return *transaction, ok
 }
+
+// Used for adding testing funds to the wallet
+func (w *Wallet) Add(funds []coin.Sleeve) {
+	for i := range funds {
+		w.coinStorage.Add(funds[i])
+	}
+}

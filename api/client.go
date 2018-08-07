@@ -23,6 +23,10 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"time"
+	"gitlab.com/privategrity/crypto/hash"
+	"encoding/binary"
+	"math/rand"
+	"gitlab.com/privategrity/crypto/coin"
 )
 
 // Populates a text message and returns its wire representation
@@ -122,7 +126,7 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID user.ID, addr string) (string, error) {
+func Login(UID user.ID, addr string, doMinting bool) (string, error) {
 
 	_, err := user.LoadSession(UID)
 
@@ -135,6 +139,10 @@ func Login(UID user.ID, addr string) (string, error) {
 		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
 		jww.ERROR.Printf(err.Error())
 		return "", err
+	}
+	if doMinting {
+		funds := MintUser(UID)
+		TheWallet.Add(funds)
 	}
 
 	if addr != "" {
@@ -301,4 +309,19 @@ func Invoice(payer user.ID, value int64, memo string) (*parse.Message, error) {
 // Pays the identified invoice if there's enough funding
 func Pay(ID parse.MessageHash) (*parse.Message, error) {
 	return TheWallet.Pay(ID)
+}
+
+// Mints testing coins for demo/testing
+// This isn't official currency, and should be considered counterfeit
+// This is in API because access to the user.ID type gives this code more meaning
+func MintUser(id user.ID) []coin.Sleeve {
+	prngSeedGen, _ := hash.NewCMixHash()
+	prngSeedGen.Reset()
+	prngSeedGen.Write(id.Bytes())
+	sum := prngSeedGen.Sum(nil)
+	seed := int64(binary.BigEndian.Uint64(sum))
+	value := rand.New(rand.NewSource(seed)).Int63n(int64(coin.
+		MaxValueDenominationRegister))
+
+	return coin.Mint(value, seed, 10)
 }

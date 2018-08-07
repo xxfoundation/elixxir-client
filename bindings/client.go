@@ -131,9 +131,9 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
-func Login(UID []byte, addr string) (string, error) {
+func Login(UID []byte, addr string, doMint bool) (string, error) {
 	userID := user.NewIDFromBytes(UID)
-	nick, err := api.Login(userID, addr)
+	nick, err := api.Login(userID, addr, doMint)
 	return nick, err
 }
 

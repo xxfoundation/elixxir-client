@@ -34,6 +34,7 @@ var numNodes uint
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
+var mint bool
 var rateLimiting uint32
 var showVer bool
 
@@ -137,9 +138,11 @@ func sessionInitialization() {
 		}
 	}
 
-	//log the user in
+	// Mint coins only if the flag is set and it's a new session
+	doMint := mint && register
+	// Log the user in
 	_, err = bindings.Login(
-		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
+		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr, doMint)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")
@@ -345,6 +348,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
+	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "m", false,
+		"Mint some coins for testing")
 
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		1000, "Sets the amount of time, in ms, "+

@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	"github.com/mitchellh/go-homedir"
+	"os"
 )
 
 // Shows that CreateOrderedStorage creates new storage properly
@@ -644,7 +646,12 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 func TestOrderedStorage_FileLoading(t *testing.T) {
 	globals.LocalStorage = nil
 
-	globals.InitStorage(&globals.DefaultStorage{}, "C:/Users/benger/.privategrity/s.store")
+	storagePath, err := homedir.Expand("~/.privategrity/orderedstoragetest." +
+		"session")
+	if err != nil {
+		t.Error(err.Error())
+	}
+	globals.InitStorage(&globals.DefaultStorage{}, storagePath)
 	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
@@ -733,4 +740,5 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	*ocs3.list = append(*ocs3.list, ns3)
 
 	s3.StoreSession()
+	os.Remove(storagePath)
 }

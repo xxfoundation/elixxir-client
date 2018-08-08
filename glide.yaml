@@ -4,7 +4,7 @@ import:
   version: master
   vcs: git
 - package: gitlab.com/privategrity/crypto
-  version: hardcoded-coins
+  version: master
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
 - package: gitlab.com/privategrity/comms

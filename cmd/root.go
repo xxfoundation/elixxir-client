@@ -348,7 +348,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
-	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "m", false,
+	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "", false,
 		"Mint some coins for testing")
 
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",

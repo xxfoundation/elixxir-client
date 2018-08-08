@@ -142,7 +142,7 @@ func TestSend(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	userID, err := Register("be50nhqpqjtjj", gwAddress, 1)
-	loginRes, err2 := Login(userID, gwAddress)
+	loginRes, err2 := Login(userID, gwAddress, false)
 	SetNulKeys()
 
 	if err2 != nil {
@@ -182,7 +182,7 @@ func TestReceive(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	userID, err := Register(registrationCode, gwAddress, 1)
-	loginRes, err2 := Login(userID, gwAddress)
+	loginRes, err2 := Login(userID, gwAddress, false)
 	SetNulKeys()
 
 	if err2 != nil {

@@ -197,7 +197,7 @@ func TestLoginLogout(t *testing.T) {
 	err := InitClient(&d, "hello")
 
 	regRes, err := Register(registrationCode, gwAddress, 1)
-	loginRes, err2 := Login(regRes, gwAddress)
+	loginRes, err2 := Login(regRes, gwAddress, false)
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}

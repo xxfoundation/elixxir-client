@@ -68,12 +68,10 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	w.registerInvoiceListener()
-}
-
-func (w *Wallet) registerInvoiceListener() {
-	// Add incoming invoice listener
 	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
+		wallet: w,
+	})
+	switchboard.Listeners.Register(getPaymentBotID(), parse.Type_PAYMENT_RESPONSE, &PaymentResponseListener{
 		wallet: w,
 	})
 }
@@ -166,10 +164,28 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		Value:     compound.Value(),
 	}
 
+	invoiceID := msg.Hash()
 	// Actually add the request to the list of inbound requests
-	il.wallet.inboundRequests.Upsert(msg.Hash(), transaction)
+	il.wallet.inboundRequests.Upsert(invoiceID, transaction)
 	// and save it
 	il.wallet.session.StoreSession()
+
+	// Build the message to send the necessary information to the UI
+	// It's a list of fixed-length transaction IDs that the UI can use to get
+	// the transactions in the list in time order.
+	// This way, if the UI needs ten photos, it doesn't need to get and
+	// deserialize a hundred complete invoices all in one protobuf.
+	// It can just get the transaction information that it needs.
+	keyList := il.wallet.inboundRequests.getKeyListByTimestamp()
+	switchboard.Listeners.Speak(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_INVOICE_UI,
+			Body: keyList,
+		},
+		Sender:    0,
+		Receiver:  0,
+		Nonce:     nil,
+	})
 }
 
 func getPaymentBotID() user.ID {
@@ -230,7 +246,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")

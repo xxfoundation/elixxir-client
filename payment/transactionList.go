@@ -10,6 +10,8 @@ import (
 	"encoding/gob"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
+	"time"
+	"sort"
 )
 
 type TransactionList struct {
@@ -111,4 +113,33 @@ func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 		delete(*tl.transactionMap, mh)
 	}
 	return t, b
+}
+
+type keyAndTime struct {
+	key parse.MessageHash
+	time time.Time
+}
+
+// TODO Write unit test for this!
+func (tl *TransactionList) getKeyListByTimestamp() []byte {
+	tl.session.LockStorage()
+	keys := make([]keyAndTime, 0, len(*tl.transactionMap))
+	for k, v := range *tl.transactionMap {
+		keys = append(keys, keyAndTime{
+			key:  k,
+			time: v.Timestamp,
+		})
+	}
+	// Sort the keys in descending order by timestamp
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[j].time.Before(keys[i].time)
+	})
+
+	keyList := make([]byte, 0, uint64(len(*tl.transactionMap)) * parse.
+		MessageHashLen)
+	tl.session.UnlockStorage()
+	for i := range keys {
+		keyList = append(keyList, keys[i].key[:]...)
+	}
+	return keyList
 }

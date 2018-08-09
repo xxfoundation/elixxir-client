@@ -109,6 +109,15 @@ enum Type {
     PAYMENT_RESPONSE = 21;
     // See proto buf
     PAYMENT_INVOICE = 22;
+
+
+    // These are specialized messages that convey the information that
+    // the UI needs to know once the wallet's finished updating. They shouldn't
+    // go over the network. Types 9000-9999 are reserved for messages like this.
+
+    // This message type is a list of fixed-length hashes, currently 256 bits
+    // each, that are used as indexes into the inbound requests transaction list
+    PAYMENT_INVOICE_UI = 9000;
 }
 
 // Text message types

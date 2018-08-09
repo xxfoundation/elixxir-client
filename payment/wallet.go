@@ -59,7 +59,7 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	}
 
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
-		inboundRequests: ibr, pendingTransactions: pt}
+		inboundRequests: ibr, pendingTransactions: pt, session: s}
 
 	return w, nil
 }

@@ -61,6 +61,8 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 	w := &Wallet{coinStorage: cs, outboundRequests: obr,
 		inboundRequests: ibr, pendingTransactions: pt, session: s}
 
+	w.RegisterListeners()
+
 	return w, nil
 }
 
@@ -182,7 +184,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 			Type: parse.Type_PAYMENT_INVOICE_UI,
 			Body: keyList,
 		},
-		Sender:    0,
+		Sender:    getPaymentBotID(),
 		Receiver:  0,
 		Nonce:     nil,
 	})

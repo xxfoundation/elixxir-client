@@ -163,7 +163,7 @@ func TestRegister(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	regRes, err := Register(registrationCode, gwAddress, 1)
+	regRes, err := Register(registrationCode, gwAddress, 1, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -181,7 +181,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	_, err = Register(registrationCode, gwAddress, 0)
+	_, err = Register(registrationCode, gwAddress, 0, false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -196,8 +196,8 @@ func TestLoginLogout(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	regRes, err := Register(registrationCode, gwAddress, 1)
-	loginRes, err2 := Login(regRes, gwAddress, false)
+	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	loginRes, err2 := Login(regRes, gwAddress)
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}

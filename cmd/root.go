@@ -131,18 +131,16 @@ func sessionInitialization() {
 	if register {
 		_, err := bindings.Register(
 			cyclic.NewIntFromBytes(user.UserHash(user.ID(userId))).
-				TextVerbose(32, 0), gwAddr, int(numNodes))
+				TextVerbose(32, 0), gwAddr, int(numNodes), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
 		}
 	}
 
-	// Mint coins only if the flag is set and it's a new session
-	doMint := mint && register
 	// Log the user in
 	_, err = bindings.Login(
-		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr, doMint)
+		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")

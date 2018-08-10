@@ -178,15 +178,15 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	// This way, if the UI needs ten photos, it doesn't need to get and
 	// deserialize a hundred complete invoices all in one protobuf.
 	// It can just get the transaction information that it needs.
-	keyList := il.wallet.inboundRequests.getKeyListByTimestamp()
+	keyList := il.wallet.inboundRequests.GetKeysByTimestampDescending()
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_INVOICE_UI,
 			Body: keyList,
 		},
-		Sender:    getPaymentBotID(),
-		Receiver:  0,
-		Nonce:     nil,
+		Sender:   getPaymentBotID(),
+		Receiver: 0,
+		Nonce:    nil,
 	})
 }
 
@@ -341,17 +341,30 @@ func (w *Wallet) GetAvailableFunds() uint64 {
 // Returns a copy of the transaction to keep UIs from changing transaction
 func (w *Wallet) GetInboundRequest(id parse.MessageHash) (Transaction, bool) {
 	transaction, ok := w.inboundRequests.Get(id)
-	return *transaction, ok
+	// Need to check ok to avoid dereferencing nil transaction
+	if !ok {
+		return Transaction{}, ok
+	} else {
+		return *transaction, ok
+	}
 }
 
 func (w *Wallet) GetOutboundRequest(id parse.MessageHash) (Transaction, bool) {
 	transaction, ok := w.outboundRequests.Get(id)
-	return *transaction, ok
+	if !ok {
+		return Transaction{}, ok
+	} else {
+		return *transaction, ok
+	}
 }
 
 func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool) {
 	transaction, ok := w.pendingTransactions.Get(id)
-	return *transaction, ok
+	if !ok {
+		return Transaction{}, ok
+	} else {
+		return *transaction, ok
+	}
 }
 
 // Used for adding testing funds to the wallet

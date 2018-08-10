@@ -10,7 +10,6 @@ import (
 	"encoding/gob"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
-	"time"
 	"sort"
 )
 
@@ -115,27 +114,35 @@ func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 	return t, b
 }
 
-type keyAndTime struct {
-	key parse.MessageHash
-	time time.Time
+type keyAndTransaction struct {
+	key         parse.MessageHash
+	transaction *Transaction
+}
+
+// TODO Ensure correct order
+func (tl *TransactionList) GetKeysByTimestampDescending() []byte {
+	return tl.getKeyList(func(t1, t2 *Transaction) bool {
+		return t1.Timestamp.After(t2.Timestamp)
+	})
 }
 
 // TODO Write unit test for this!
-func (tl *TransactionList) getKeyListByTimestamp() []byte {
+// Sorts the keys by a function comparing two transactions
+func (tl *TransactionList) getKeyList(lessThan func(t1, t2 *Transaction) bool) []byte {
 	tl.session.LockStorage()
-	keys := make([]keyAndTime, 0, len(*tl.transactionMap))
+	keys := make([]keyAndTransaction, 0, len(*tl.transactionMap))
 	for k, v := range *tl.transactionMap {
-		keys = append(keys, keyAndTime{
-			key:  k,
-			time: v.Timestamp,
+		keys = append(keys, keyAndTransaction{
+			key:         k,
+			transaction: v,
 		})
 	}
 	// Sort the keys in descending order by timestamp
 	sort.Slice(keys, func(i, j int) bool {
-		return keys[j].time.Before(keys[i].time)
+		return lessThan(keys[i].transaction, keys[j].transaction)
 	})
 
-	keyList := make([]byte, 0, uint64(len(*tl.transactionMap)) * parse.
+	keyList := make([]byte, 0, uint64(len(*tl.transactionMap))* parse.
 		MessageHashLen)
 	tl.session.UnlockStorage()
 	for i := range keys {

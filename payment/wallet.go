@@ -321,13 +321,13 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 
 		// Transaction was successful, so remove pending from the wallet
 		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
-		if transaction.Change != NilSleeve {
-			l.wallet.coinStorage.Add(transaction.Change)
-		}
 		if !ok {
 			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
 				hash)
 		} else {
+			if transaction.Change != NilSleeve {
+				l.wallet.coinStorage.Add(transaction.Change)
+			}
 			// TODO send receipt to invoice initiator hereabouts
 		}
 	}

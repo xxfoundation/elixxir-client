@@ -164,11 +164,11 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		Memo:      invoice.Memo,
 		Timestamp: time.Unix(invoice.Time, 0),
 		Value:     compound.Value(),
+		InvoiceID: msg.Hash(),
 	}
 
-	invoiceID := msg.Hash()
 	// Actually add the request to the list of inbound requests
-	il.wallet.inboundRequests.Upsert(invoiceID, transaction)
+	il.wallet.inboundRequests.Upsert(transaction.InvoiceID, transaction)
 	// and save it
 	il.wallet.session.StoreSession()
 
@@ -296,14 +296,14 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 			"Error: %v", err.Error())
 	}
 
-	var hash parse.MessageHash
-	copy(hash[:], response.ID)
+	var invoiceID parse.MessageHash
+	copy(invoiceID[:], response.ID)
 
 	if !response.Success {
-		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
+		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
 		if !ok {
-			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
-				hash)
+			jww.WARN.Printf("Couldn't find the transaction with that invoice" +
+				" ID: %q", invoiceID)
 		} else {
 			// Move the coins from pending transactions back to the wallet
 			// for now.
@@ -320,18 +320,34 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 		// transaction as a response for some quick and dirty verification?
 
 		// Transaction was successful, so remove pending from the wallet
-		transaction, ok := l.wallet.pendingTransactions.Pop(hash)
+		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
 		if !ok {
-			jww.WARN.Printf("Couldn't find the transaction with that hash: %q",
-				hash)
+			jww.WARN.Printf("PaymentResponseListener: Couldn't find the" +
+				" transaction with that invoice ID: %q",
+				invoiceID)
 		} else {
 			if transaction.Change != NilSleeve {
 				l.wallet.coinStorage.Add(transaction.Change)
 			}
-			// TODO send receipt to invoice initiator hereabouts
+			// Send receipt: Need ID of original invoice corresponding to this
+			// transaction. That's something that the invoicing client should be
+			// able to keep track of.
+			formatReceipt(invoiceID, transaction)
 		}
 	}
 	jww.DEBUG.Printf("Payment response: %v", response.Response)
+}
+
+func formatReceipt(invoiceID parse.MessageHash, transaction *Transaction) *parse.Message{
+	return &parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_RECEIPT,
+			Body: invoiceID[:],
+		},
+		Sender:    user.TheSession.GetCurrentUser().UserID,
+		Receiver:  transaction.Recipient,
+		Nonce:     nil,
+	}
 }
 
 func (w *Wallet) GetAvailableFunds() uint64 {

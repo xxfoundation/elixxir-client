@@ -109,7 +109,12 @@ enum Type {
     PAYMENT_RESPONSE = 21;
     // See proto buf
     PAYMENT_INVOICE = 22;
-
+    // This message type includes only the message hash of the original
+    // invoice message. Since there are no fields to delimit, it's not a
+    // proto buffer. When the payee gets a receipt back, they know that the
+    // other person probably paid them, and to check the next published
+    // blockchain for the images of their coins to make sure.
+    PAYMENT_RECEIPT = 23;
 
     // These are specialized messages that convey the information that
     // the UI needs to know once the wallet's finished updating. They shouldn't

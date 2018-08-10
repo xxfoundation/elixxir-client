@@ -209,10 +209,11 @@ func SetRateLimiting(limit uint32) {
 var listenCh chan *format.Message
 
 func Listen(user user.ID, messageType parse.Type,
-	newListener switchboard.Listener) {
-	jww.INFO.Printf("Listening now: user %v, message type %v, ",
-		user, messageType)
-	switchboard.Listeners.Register(user, messageType, newListener)
+	newListener switchboard.Listener) string {
+	id := switchboard.Listeners.Register(user, messageType, newListener)
+	jww.INFO.Printf("Listening now: user %v, message type %v, id %v",
+		user, messageType, id)
+	return id
 }
 
 type APISender struct{}

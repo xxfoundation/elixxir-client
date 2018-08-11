@@ -16,9 +16,6 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"time"
 	"gitlab.com/privategrity/client/switchboard"
-	"gitlab.com/privategrity/crypto/hash"
-	"encoding/binary"
-	"math/rand"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -34,7 +31,6 @@ type Wallet struct {
 
 	session user.Session
 }
-
 
 func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 
@@ -241,7 +237,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")

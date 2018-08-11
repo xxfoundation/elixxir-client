@@ -36,9 +36,9 @@ type Wallet struct {
 	// Transactions that are in processing on the payment bot
 	pendingTransactions *TransactionList
 	// Completed payments to the user
-	inboundPayments *TransactionList
+	completedInboundPayments *TransactionList
 	// Completed payments from the user
-	outboundPayments *TransactionList
+	completedOutboundPayments *TransactionList
 
 	session user.Session
 }
@@ -89,13 +89,13 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 	}
 
 	w := &Wallet{
-		coinStorage:         cs,
-		outboundRequests:    obr,
-		inboundRequests:     ibr,
-		pendingTransactions: pt,
-		inboundPayments:     ip,
-		outboundPayments:    op,
-		session:             s}
+		coinStorage:               cs,
+		outboundRequests:          obr,
+		inboundRequests:           ibr,
+		pendingTransactions:       pt,
+		completedInboundPayments:  ip,
+		completedOutboundPayments: op,
+		session:                   s}
 
 	w.RegisterListeners()
 
@@ -367,7 +367,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 			// Send receipt: Need ID of original invoice corresponding to this
 			// transaction. That's something that the invoicing client should
 			// be able to keep track of.
-			l.wallet.outboundPayments.Upsert(invoiceID, transaction)
+			l.wallet.completedOutboundPayments.Upsert(invoiceID, transaction)
 			receipt := l.formatReceipt(invoiceID, transaction)
 			io.Messaging.SendMessage(transaction.Recipient, receipt.GetPayload())
 		}
@@ -401,7 +401,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 			": %q", msg.Sender, invoiceID)
 	} else {
 		// Mark the transaction in the log of completed transactions
-		rl.wallet.inboundPayments.Upsert(invoiceID, transaction)
+		rl.wallet.completedInboundPayments.Upsert(invoiceID, transaction)
 		// Add the user's new coins to coin storage
 		rl.wallet.coinStorage.Add(transaction.Create)
 		// Let the payment receipt UI listeners know that a payment's come in
@@ -451,7 +451,7 @@ func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool)
 }
 
 func (w *Wallet) GetOutboundPayment(id parse.MessageHash) (Transaction, bool) {
-	transaction, ok := w.outboundPayments.Get(id)
+	transaction, ok := w.completedOutboundPayments.Get(id)
 	if !ok {
 		return Transaction{}, ok
 	} else {
@@ -460,7 +460,7 @@ func (w *Wallet) GetOutboundPayment(id parse.MessageHash) (Transaction, bool) {
 }
 
 func (w *Wallet) GetInboundPayment(id parse.MessageHash) (Transaction, bool) {
-	transaction, ok := w.inboundPayments.Get(id)
+	transaction, ok := w.completedInboundPayments.Get(id)
 	if !ok {
 		return Transaction{}, ok
 	} else {

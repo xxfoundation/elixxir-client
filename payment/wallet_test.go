@@ -548,10 +548,10 @@ func TestResponseListener_Hear(t *testing.T) {
 	// Create wallet that has the compound coins in it to do a payment
 	// Unaffected lists are unpopulated
 	w := Wallet{
-		coinStorage:         storage,
-		pendingTransactions: pt,
-		outboundPayments:    op,
-		session:             s,
+		coinStorage:               storage,
+		pendingTransactions:       pt,
+		completedOutboundPayments: op,
+		session:                   s,
 	}
 
 	response := parse.PaymentResponse{
@@ -599,9 +599,9 @@ func TestResponseListener_Hear(t *testing.T) {
 
 	// After a successful transaction, we should have the transaction's value
 	// recorded in the outbound payments list for posterity.
-	if w.outboundPayments.Value() != paymentAmount {
+	if w.completedOutboundPayments.Value() != paymentAmount {
 		t.Errorf("Outbound payments didn't have the value expected. Got: %v, "+
-			"expected %v", w.outboundPayments.Value(), paymentAmount)
+			"expected %v", w.completedOutboundPayments.Value(), paymentAmount)
 	}
 }
 
@@ -1070,7 +1070,7 @@ func TestWallet_GetOutboundPayment(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.outboundPayments, w.GetOutboundPayment)
+	err = testGetTransaction(w.completedOutboundPayments, w.GetOutboundPayment)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1081,7 +1081,7 @@ func TestWallet_GetInboundPayment(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.inboundPayments, w.GetInboundPayment)
+	err = testGetTransaction(w.completedInboundPayments, w.GetInboundPayment)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1144,10 +1144,10 @@ func TestReceiptListener_Hear(t *testing.T) {
 		t.Error(err.Error())
 	}
 	w := &Wallet{
-		coinStorage:      storage,
-		outboundRequests: or,
-		inboundPayments:  ip,
-		session:          s,
+		coinStorage:              storage,
+		outboundRequests:         or,
+		completedInboundPayments: ip,
+		session:                  s,
 	}
 
 	listener := ReceiptListener{
@@ -1190,9 +1190,9 @@ func TestReceiptListener_Hear(t *testing.T) {
 		t.Errorf("Wallet outboundrequests value should be zero. Got: %v",
 			w.outboundRequests.Value())
 	}
-	if w.inboundPayments.Value() != paymentAmount {
+	if w.completedInboundPayments.Value() != paymentAmount {
 		t.Errorf("Wallet inboundpayments value should be the value of the" +
-			" payment. Got %v, expected %v.", w.inboundPayments.Value(), paymentAmount)
+			" payment. Got %v, expected %v.", w.completedInboundPayments.Value(), paymentAmount)
 	}
 	if w.coinStorage.Value() != paymentAmount + walletAmount {
 		t.Errorf("Expected funds to be added to the wallet upon receipt. " +

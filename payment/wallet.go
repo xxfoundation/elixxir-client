@@ -16,18 +16,29 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"time"
 	"gitlab.com/privategrity/client/switchboard"
+	"gitlab.com/privategrity/client/api"
 )
 
 const CoinStorageTag = "CoinStorage"
 const OutboundRequestsTag = "OutboundRequests"
 const InboundRequestsTag = "InboundRequests"
 const PendingTransactionsTag = "PendingTransactions"
+const InboundPaymentsTag = "InboundPayments"
+const OutboundPaymentsTag = "OutboundPayments"
 
 type Wallet struct {
-	coinStorage         *OrderedCoinStorage
-	outboundRequests    *TransactionList
-	inboundRequests     *TransactionList
+	// Stores the user's compound coins
+	coinStorage *OrderedCoinStorage
+	// Invoices this user made to another user
+	outboundRequests *TransactionList
+	// Invoices this user got from another user
+	inboundRequests *TransactionList
+	// Transactions that are in processing on the payment bot
 	pendingTransactions *TransactionList
+	// Completed payments to the user
+	inboundPayments *TransactionList
+	// Completed payments from the user
+	outboundPayments *TransactionList
 
 	session user.Session
 }
@@ -58,8 +69,26 @@ func CreateWallet(s user.Session) (*Wallet, error) {
 		return nil, err
 	}
 
-	w := &Wallet{coinStorage: cs, outboundRequests: obr,
-		inboundRequests: ibr, pendingTransactions: pt, session: s}
+	ip, err := CreateTransactionList(InboundPaymentsTag, s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	op, err := CreateTransactionList(OutboundPaymentsTag, s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	w := &Wallet{
+		coinStorage:         cs,
+		outboundRequests:    obr,
+		inboundRequests:     ibr,
+		pendingTransactions: pt,
+		inboundPayments:     ip,
+		outboundPayments:    op,
+		session:             s}
 
 	w.RegisterListeners()
 
@@ -73,7 +102,7 @@ func (w *Wallet) RegisterListeners() {
 	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(getPaymentBotID(), parse.Type_PAYMENT_RESPONSE, &PaymentResponseListener{
+	switchboard.Listeners.Register(getPaymentBotID(), parse.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
 }
@@ -164,11 +193,10 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		Memo:      invoice.Memo,
 		Timestamp: time.Unix(invoice.Time, 0),
 		Value:     compound.Value(),
-		InvoiceID: msg.Hash(),
 	}
 
 	// Actually add the request to the list of inbound requests
-	il.wallet.inboundRequests.Upsert(transaction.InvoiceID, transaction)
+	il.wallet.inboundRequests.Upsert(msg.Hash(), transaction)
 	// and save it
 	il.wallet.session.StoreSession()
 
@@ -216,7 +244,7 @@ func buildPaymentPayload(request, change coin.Sleeve,
 func (w *Wallet) Pay(requestID parse.MessageHash) (*parse.Message, error) {
 	transaction, ok := w.inboundRequests.Pop(requestID)
 	if !ok {
-		return nil, errors.New("That request wasn't in the list of inbound" +
+		return nil, errors.New("that request wasn't in the list of inbound" +
 			" requests")
 	}
 	msg, err := w.pay(transaction)
@@ -283,11 +311,11 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 	return &msg, nil
 }
 
-type PaymentResponseListener struct {
+type ResponseListener struct {
 	wallet *Wallet
 }
 
-func (l *PaymentResponseListener) Hear(msg *parse.Message,
+func (l *ResponseListener) Hear(msg *parse.Message,
 	isHeardElsewhere bool) {
 	var response parse.PaymentResponse
 	err := proto.Unmarshal(msg.Body, &response)
@@ -302,7 +330,7 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 	if !response.Success {
 		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
 		if !ok {
-			jww.WARN.Printf("Couldn't find the transaction with that invoice" +
+			jww.WARN.Printf("Couldn't find the transaction with that invoice"+
 				" ID: %q", invoiceID)
 		} else {
 			// Move the coins from pending transactions back to the wallet
@@ -322,7 +350,7 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 		// Transaction was successful, so remove pending from the wallet
 		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
 		if !ok {
-			jww.WARN.Printf("PaymentResponseListener: Couldn't find the" +
+			jww.WARN.Printf("ResponseListener: Couldn't find the"+
 				" transaction with that invoice ID: %q",
 				invoiceID)
 		} else {
@@ -332,22 +360,32 @@ func (l *PaymentResponseListener) Hear(msg *parse.Message,
 			// Send receipt: Need ID of original invoice corresponding to this
 			// transaction. That's something that the invoicing client should be
 			// able to keep track of.
-			formatReceipt(invoiceID, transaction)
+			l.wallet.outboundPayments.Upsert(invoiceID, transaction)
+			receipt := formatReceipt(invoiceID, transaction)
+			api.Send(receipt)
 		}
 	}
 	jww.DEBUG.Printf("Payment response: %v", response.Response)
 }
 
-func formatReceipt(invoiceID parse.MessageHash, transaction *Transaction) *parse.Message{
+func formatReceipt(invoiceID parse.MessageHash, transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RECEIPT,
 			Body: invoiceID[:],
 		},
-		Sender:    user.TheSession.GetCurrentUser().UserID,
-		Receiver:  transaction.Recipient,
-		Nonce:     nil,
+		Sender:   user.TheSession.GetCurrentUser().UserID,
+		Receiver: transaction.Recipient,
+		Nonce:    nil,
 	}
+}
+
+type ReceiptListener struct {
+	wallet *Wallet
+}
+
+func (rl *ReceiptListener) Hear(msg *parse.MessageHash, isHeardElsewhere bool) {
+	// UI needs to show that the transaction was paid _before_ we remove it
 }
 
 func (w *Wallet) GetAvailableFunds() uint64 {

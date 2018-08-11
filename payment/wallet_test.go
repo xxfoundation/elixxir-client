@@ -548,7 +548,7 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	// marshal response into a parse message
 	wire, err := proto.Marshal(&response)
 
-	listener := PaymentResponseListener{wallet: &w}
+	listener := ResponseListener{wallet: &w}
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RESPONSE,
@@ -658,7 +658,7 @@ func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
 	// marshal response into a parse message
 	wire, err := proto.Marshal(&response)
 
-	listener := PaymentResponseListener{wallet: &w}
+	listener := ResponseListener{wallet: &w}
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RESPONSE,

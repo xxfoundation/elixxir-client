@@ -13,6 +13,8 @@ import (
 	"time"
 	"errors"
 	"gitlab.com/privategrity/client/io"
+	"gitlab.com/privategrity/client/switchboard"
+	"fmt"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -478,7 +480,7 @@ func (m *MockMessaging) SendMessage(recipientID user.ID, message string) error {
 
 func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
 
-func TestPaymentResponseListener_Hear(t *testing.T) {
+func TestResponseListener_Hear(t *testing.T) {
 	payer := user.ID(5)
 	payee := user.ID(12)
 
@@ -596,7 +598,7 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	}
 
 	// After a successful transaction, we should have the transaction's value
-	// recorded in the outbound payments list.
+	// recorded in the outbound payments list for posterity.
 	if w.outboundPayments.Value() != paymentAmount {
 		t.Errorf("Outbound payments didn't have the value expected. Got: %v, "+
 			"expected %v", w.outboundPayments.Value(), paymentAmount)
@@ -1082,5 +1084,119 @@ func TestWallet_GetInboundPayment(t *testing.T) {
 	err = testGetTransaction(w.inboundPayments, w.GetInboundPayment)
 	if err != nil {
 		t.Error(err.Error())
+	}
+}
+
+type ReceiptUIListener struct {
+	hasHeard       bool
+	gotTransaction bool
+	w              *Wallet
+}
+
+func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+	rl.hasHeard = true
+	var invoiceID parse.MessageHash
+	copy(invoiceID[:], msg.Body)
+	_, rl.gotTransaction = rl.w.GetInboundPayment(invoiceID)
+	fmt.Printf("Heard receipt in the UI. Receipt sender: %v, invoice id %q\n",
+		msg.Sender, msg.Body)
+}
+
+// Tests the side effects of getting a receipt for a transaction that you
+// sent out an invoice for
+func TestReceiptListener_Hear(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	walletAmount := uint64(8970)
+	paymentAmount := uint64(1234)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	walletSleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.add(walletSleeve)
+
+	or, err := CreateTransactionList(OutboundRequestsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	var invoiceID parse.MessageHash
+	copy(invoiceID[:], "you can make haute cuisine with dog biscuits")
+	invoice, err := createInvoice(payer, payee, paymentAmount, "for counting to four")
+	if err != nil {
+		t.Error(err.Error())
+	}
+	or.Upsert(invoiceID, invoice)
+
+	ip, err := CreateTransactionList(InboundPaymentsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	w := &Wallet{
+		coinStorage:      storage,
+		outboundRequests: or,
+		inboundPayments:  ip,
+		session:          s,
+	}
+
+	listener := ReceiptListener{
+		wallet: w,
+	}
+
+	// Test the register UI listener as well
+	uiListener := &ReceiptUIListener{
+		w: w,
+	}
+	switchboard.Listeners.Register(0, parse.Type_PAYMENT_RECEIPT_UI, uiListener)
+
+	listener.Hear(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_RECEIPT,
+			Body: invoiceID[:],
+		},
+		Sender:   invoice.Sender,
+		Receiver: invoice.Recipient,
+		Nonce:    nil,
+	}, false)
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// make sure the UI gets informed afterwards
+	if !uiListener.hasHeard {
+		t.Error("UI listener hasn't heard the UI message")
+	}
+
+	// make sure the UI can get the transaction from the correct list
+	if !uiListener.gotTransaction {
+		t.Error("UI listener couldn't get the transaction from the list of" +
+			" completed payments")
+	}
+
+	// Ensure correct state of wallet transaction lists after hearing receipt
+	if w.outboundRequests.Value() != 0 {
+		t.Errorf("Wallet outboundrequests value should be zero. Got: %v",
+			w.outboundRequests.Value())
+	}
+	if w.inboundPayments.Value() != paymentAmount {
+		t.Errorf("Wallet inboundpayments value should be the value of the" +
+			" payment. Got %v, expected %v.", w.inboundPayments.Value(), paymentAmount)
+	}
+	if w.coinStorage.Value() != paymentAmount + walletAmount {
+		t.Errorf("Expected funds to be added to the wallet upon receipt. " +
+			"Got total value %v, expected %v.", w.coinStorage.Value(),
+			paymentAmount + walletAmount)
 	}
 }

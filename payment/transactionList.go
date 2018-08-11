@@ -114,20 +114,28 @@ func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 	return t, b
 }
 
+// Used for sorting transaction lists by their various fields.
+// For bindings reasons, we can't return sorted slices of transactions, so
+// when sorting the transaction map we need to return the keys that go with
+// the sorted transaction
 type keyAndTransaction struct {
 	key         parse.MessageHash
 	transaction *Transaction
 }
 
-// TODO Ensure correct order
+// TODO Expose to API? There are a lot of variants...
+// Golang randomizes map keys' order when you range through a map.
+// To avoid showing transactions to our users in that random order, we have to
+// sort the map's keys by values in the transactions.
+// Useful sorting criteria are timestamp and value (possibly also grouped by the
+// other party to the transaction.)
 func (tl *TransactionList) GetKeysByTimestampDescending() []byte {
 	return tl.getKeyList(func(t1, t2 *Transaction) bool {
 		return t1.Timestamp.After(t2.Timestamp)
 	})
 }
 
-// TODO Write unit test for this!
-// Sorts the keys by a function comparing two transactions
+// Sorts the keys in a transaction list by a function comparing two transactions
 func (tl *TransactionList) getKeyList(lessThan func(t1, t2 *Transaction) bool) []byte {
 	tl.session.LockStorage()
 	keys := make([]keyAndTransaction, 0, len(*tl.transactionMap))

@@ -43,12 +43,19 @@ type Wallet struct {
 	session user.Session
 }
 
-func CreateWallet(s user.Session) (*Wallet, error) {
+func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if doMint {
+		mintedCoins := coin.MintUser(uint64(s.GetCurrentUser().UserID))
+		for i := range mintedCoins {
+			cs.add(mintedCoins[i])
+		}
 	}
 
 	obr, err := CreateTransactionList(OutboundRequestsTag, s)
@@ -458,12 +465,5 @@ func (w *Wallet) GetInboundPayment(id parse.MessageHash) (Transaction, bool) {
 		return Transaction{}, ok
 	} else {
 		return *transaction, ok
-	}
-}
-
-// Used for adding testing funds to the wallet
-func (w *Wallet) Add(funds []coin.Sleeve) {
-	for i := range funds {
-		w.coinStorage.Add(funds[i])
 	}
 }

@@ -10,13 +10,13 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
-	"gitlab.com/privategrity/client/switchboard"
-	"gitlab.com/privategrity/client/api"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -200,12 +200,12 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	// and save it
 	il.wallet.session.StoreSession()
 
-	// Build the message to send the necessary information to the UI
-	// It's a list of fixed-length transaction IDs that the UI can use to get
-	// the transactions in the list in time order.
-	// This way, if the UI needs ten photos, it doesn't need to get and
-	// deserialize a hundred complete invoices all in one protobuf.
-	// It can just get the transaction information that it needs.
+	// Build the message to send the necessary information to the UI It's a
+	// list of fixed-length transaction IDs that the UI can use to get the
+	// transactions in the list in time order.  This way, if the UI needs ten
+	// photos, it doesn't need to get and deserialize a hundred complete
+	// invoices all in one protobuf.  It can just get the transaction
+	// information that it needs.
 	keyList := il.wallet.inboundRequests.GetKeysByTimestampDescending()
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
@@ -276,7 +276,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
@@ -335,10 +335,10 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		} else {
 			// Move the coins from pending transactions back to the wallet
 			// for now.
-			// This may not always be correct - for example, if the coins aren't on
-			// the payment bot they might need to be removed from user's wallet
-			// so they don't get nothing but declined transactions in the event
-			// of corruption.
+			// This may not always be correct - for example, if the coins
+			// aren't on the payment bot they might need to be removed from
+			// user's wallet so they don't get nothing but declined
+			// transactions in the event of corruption.
 			for i := range transaction.Destroy {
 				l.wallet.coinStorage.Add(transaction.Destroy[i])
 			}
@@ -358,8 +358,8 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 				l.wallet.coinStorage.Add(transaction.Change)
 			}
 			// Send receipt: Need ID of original invoice corresponding to this
-			// transaction. That's something that the invoicing client should be
-			// able to keep track of.
+			// transaction. That's something that the invoicing client should
+			// be able to keep track of.
 			l.wallet.outboundPayments.Upsert(invoiceID, transaction)
 			receipt := formatReceipt(invoiceID, transaction)
 			api.Send(receipt)
@@ -384,8 +384,29 @@ type ReceiptListener struct {
 	wallet *Wallet
 }
 
-func (rl *ReceiptListener) Hear(msg *parse.MessageHash, isHeardElsewhere bool) {
-	// UI needs to show that the transaction was paid _before_ we remove it
+func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+	var invoiceID parse.MessageHash
+	copy(invoiceID[:], msg.Body)
+	transaction, ok := rl.wallet.outboundRequests.Pop(invoiceID)
+	if !ok {
+		jww.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v" +
+			": %q", msg.Sender, invoiceID)
+	} else {
+		// Mark the transaction in the log of completed transactions
+		rl.wallet.inboundPayments.Upsert(invoiceID, transaction)
+		// Add the user's new coins to coin storage
+		rl.wallet.coinStorage.Add(transaction.Create)
+		// Let the payment receipt UI listeners know that a payment's come in
+		switchboard.Listeners.Speak(&parse.Message{
+			TypedBody: parse.TypedBody{
+				Type: parse.Type_PAYMENT_RECEIPT_UI,
+				Body: invoiceID[:],
+			},
+			Sender:    msg.Sender,
+			Receiver:  0,
+			Nonce:     nil,
+		})
+	}
 }
 
 func (w *Wallet) GetAvailableFunds() uint64 {
@@ -414,6 +435,24 @@ func (w *Wallet) GetOutboundRequest(id parse.MessageHash) (Transaction, bool) {
 
 func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool) {
 	transaction, ok := w.pendingTransactions.Get(id)
+	if !ok {
+		return Transaction{}, ok
+	} else {
+		return *transaction, ok
+	}
+}
+
+func (w *Wallet) GetOutboundPayment(id parse.MessageHash) (Transaction, bool) {
+	transaction, ok := w.outboundPayments.Get(id)
+	if !ok {
+		return Transaction{}, ok
+	} else {
+		return *transaction, ok
+	}
+}
+
+func (w *Wallet) GetInboundPayment(id parse.MessageHash) (Transaction, bool) {
+	transaction, ok := w.inboundPayments.Get(id)
 	if !ok {
 		return Transaction{}, ok
 	} else {

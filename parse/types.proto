@@ -123,6 +123,7 @@ enum Type {
     // This message type is a list of fixed-length hashes, currently 256 bits
     // each, that are used as indexes into the inbound requests transaction list
     PAYMENT_INVOICE_UI = 9000;
+    PAYMENT_RECEIPT_UI = 9001;
 }
 
 // Text message types

@@ -134,6 +134,8 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 		// notify all normal listeners
 		for _, listener := range accumNormals {
 			jww.INFO.Printf("Hearing on listener %v", listener.id)
+			// TODO Should this launch a new goroutine for each listener that
+			// hears? Or would that make things too awful?
 			listener.l.Hear(msg, len(accumNormals) > 1)
 		}
 	} else {

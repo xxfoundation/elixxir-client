@@ -935,8 +935,7 @@ const transactionValue = uint64(5280)
 // and proves that changing the transaction you get doesn't change the version
 // in the wallet
 func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
-	Transaction,
-	bool)) error {
+	Transaction, bool)) error {
 	id := parse.MessageHash{}
 	copy(id[:], "testKey")
 
@@ -1001,6 +1000,15 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: memo")
 	}
+
+	// Make sure that the transaction list returns false if we get with an
+	// incorrect ID
+	copy(id[:], "notInTheMap")
+	transaction, ok = get(id)
+	if ok {
+		return errors.New("Transaction map returned a transaction with a key" +
+			" that shouldn't have been in the map")
+	}
 	return nil
 }
 
@@ -1050,6 +1058,28 @@ func TestWallet_GetInboundRequest(t *testing.T) {
 		t.Error(err.Error())
 	}
 	err = testGetTransaction(w.inboundRequests, w.GetInboundRequest)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestWallet_GetOutboundPayment(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.outboundPayments, w.GetOutboundPayment)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestWallet_GetInboundPayment(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.inboundPayments, w.GetInboundPayment)
 	if err != nil {
 		t.Error(err.Error())
 	}

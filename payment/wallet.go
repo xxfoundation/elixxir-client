@@ -202,22 +202,18 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		Value:     compound.Value(),
 	}
 
+	invoiceID := msg.Hash()
 	// Actually add the request to the list of inbound requests
 	il.wallet.inboundRequests.Upsert(msg.Hash(), transaction)
 	// and save it
 	il.wallet.session.StoreSession()
 
-	// Build the message to send the necessary information to the UI It's a
-	// list of fixed-length transaction IDs that the UI can use to get the
-	// transactions in the list in time order.  This way, if the UI needs ten
-	// photos, it doesn't need to get and deserialize a hundred complete
-	// invoices all in one protobuf.  It can just get the transaction
-	// information that it needs.
-	keyList := il.wallet.inboundRequests.GetKeysByTimestampDescending()
+	// The invoice UI message allows the UI to notify the user that the new
+	// invoice is here and ready to be paid
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_INVOICE_UI,
-			Body: keyList,
+			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
 		Receiver: 0,

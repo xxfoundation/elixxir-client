@@ -10,13 +10,13 @@ import (
 	"errors"
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
+	"gitlab.com/privategrity/client/io"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -276,7 +276,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
@@ -361,20 +361,21 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 			// transaction. That's something that the invoicing client should
 			// be able to keep track of.
 			l.wallet.outboundPayments.Upsert(invoiceID, transaction)
-			receipt := formatReceipt(invoiceID, transaction)
-			api.Send(receipt)
+			receipt := l.formatReceipt(invoiceID, transaction)
+			io.Messaging.SendMessage(transaction.Recipient, receipt.GetPayload())
 		}
 	}
 	jww.DEBUG.Printf("Payment response: %v", response.Response)
 }
 
-func formatReceipt(invoiceID parse.MessageHash, transaction *Transaction) *parse.Message {
+func (l *ResponseListener) formatReceipt(invoiceID parse.MessageHash,
+	transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RECEIPT,
 			Body: invoiceID[:],
 		},
-		Sender:   user.TheSession.GetCurrentUser().UserID,
+		Sender:   l.wallet.session.GetCurrentUser().UserID,
 		Receiver: transaction.Recipient,
 		Nonce:    nil,
 	}
@@ -389,7 +390,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	copy(invoiceID[:], msg.Body)
 	transaction, ok := rl.wallet.outboundRequests.Pop(invoiceID)
 	if !ok {
-		jww.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v" +
+		jww.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
 			": %q", msg.Sender, invoiceID)
 	} else {
 		// Mark the transaction in the log of completed transactions
@@ -402,9 +403,9 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 				Type: parse.Type_PAYMENT_RECEIPT_UI,
 				Body: invoiceID[:],
 			},
-			Sender:    msg.Sender,
-			Receiver:  0,
-			Nonce:     nil,
+			Sender:   msg.Sender,
+			Receiver: 0,
+			Nonce:    nil,
 		})
 	}
 }

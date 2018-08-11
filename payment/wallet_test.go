@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 	"errors"
+	"gitlab.com/privategrity/client/io"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -469,6 +470,14 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	}
 }
 
+type MockMessaging struct{}
+
+func (m *MockMessaging) SendMessage(recipientID user.ID, message string) error {
+	return nil
+}
+
+func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
+
 func TestPaymentResponseListener_Hear(t *testing.T) {
 	payer := user.ID(5)
 	payee := user.ID(12)
@@ -532,11 +541,14 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 		" casual observer, it is in fact a valid, real, and correct message hash"))
 	pt.Upsert(hash, &transaction)
 
+	op, err := CreateTransactionList(OutboundPaymentsTag, s)
+
 	// Create wallet that has the compound coins in it to do a payment
 	// Unaffected lists are unpopulated
 	w := Wallet{
 		coinStorage:         storage,
 		pendingTransactions: pt,
+		outboundPayments:    op,
 		session:             s,
 	}
 
@@ -549,6 +561,12 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	wire, err := proto.Marshal(&response)
 
 	listener := ResponseListener{wallet: &w}
+
+	// The payment response listener sends a receipt to the invoice originator.
+	// To prevent actually hitting the network in this test, replace the
+	// messaging with a mock that doesn't send anything
+	io.Messaging = &MockMessaging{}
+
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RESPONSE,
@@ -575,7 +593,13 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	if w.coinStorage.Value() != changeAmount {
 		t.Errorf("Wallet didn't have value equal to the value of the change. "+
 			"Got %v, expected %v", w.coinStorage.Value(), changeAmount)
+	}
 
+	// After a successful transaction, we should have the transaction's value
+	// recorded in the outbound payments list.
+	if w.outboundPayments.Value() != paymentAmount {
+		t.Errorf("Outbound payments didn't have the value expected. Got: %v, "+
+			"expected %v", w.outboundPayments.Value(), paymentAmount)
 	}
 }
 
@@ -890,7 +914,6 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	// TODO verify session contents
 }
 
-
 func setupGetTests() (*Wallet, error) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -1015,7 +1038,7 @@ func TestWallet_GetAvailableFunds(t *testing.T) {
 
 	w.coinStorage.Add(sleeve)
 	if w.GetAvailableFunds() != transactionValue {
-		t.Error("The amount of available funds in the wallet wasn't as" +
+		t.Error("The amount of available funds in the wallet wasn't as"+
 			" expected. Got: %v, expected %v", w.GetAvailableFunds(),
 			transactionValue)
 	}

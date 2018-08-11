@@ -16,6 +16,9 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"time"
 	"gitlab.com/privategrity/client/switchboard"
+	"gitlab.com/privategrity/crypto/hash"
+	"encoding/binary"
+	"math/rand"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -32,12 +35,20 @@ type Wallet struct {
 	session user.Session
 }
 
-func CreateWallet(s user.Session) (*Wallet, error) {
+
+func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if doMint {
+		mintedCoins := coin.MintUser(s.GetCurrentUser().UserID)
+		for i := range mintedCoins {
+			cs.add(mintedCoins[i])
+		}
 	}
 
 	obr, err := CreateTransactionList(OutboundRequestsTag, s)
@@ -334,11 +345,4 @@ func (w *Wallet) GetOutboundRequest(id parse.MessageHash) (Transaction, bool) {
 func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool) {
 	transaction, ok := w.pendingTransactions.Get(id)
 	return *transaction, ok
-}
-
-// Used for adding testing funds to the wallet
-func (w *Wallet) Add(funds []coin.Sleeve) {
-	for i := range funds {
-		w.coinStorage.Add(funds[i])
-	}
 }

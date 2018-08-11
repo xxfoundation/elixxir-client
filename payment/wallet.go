@@ -446,7 +446,8 @@ func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool)
 	}
 }
 
-func (w *Wallet) GetOutboundPayment(id parse.MessageHash) (Transaction, bool) {
+func (w *Wallet) GetCompletedOutboundPayment(id parse.MessageHash) (
+	Transaction, bool) {
 	transaction, ok := w.completedOutboundPayments.Get(id)
 	if !ok {
 		return Transaction{}, ok
@@ -455,7 +456,8 @@ func (w *Wallet) GetOutboundPayment(id parse.MessageHash) (Transaction, bool) {
 	}
 }
 
-func (w *Wallet) GetInboundPayment(id parse.MessageHash) (Transaction, bool) {
+func (w *Wallet) GetCompletedInboundPayment(id parse.MessageHash) (
+	Transaction, bool) {
 	transaction, ok := w.completedInboundPayments.Get(id)
 	if !ok {
 		return Transaction{}, ok

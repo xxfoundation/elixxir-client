@@ -1070,7 +1070,7 @@ func TestWallet_GetOutboundPayment(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.completedOutboundPayments, w.GetOutboundPayment)
+	err = testGetTransaction(w.completedOutboundPayments, w.GetCompletedOutboundPayment)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1081,7 +1081,7 @@ func TestWallet_GetInboundPayment(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.completedInboundPayments, w.GetInboundPayment)
+	err = testGetTransaction(w.completedInboundPayments, w.GetCompletedInboundPayment)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1097,7 +1097,7 @@ func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	rl.hasHeard = true
 	var invoiceID parse.MessageHash
 	copy(invoiceID[:], msg.Body)
-	_, rl.gotTransaction = rl.w.GetInboundPayment(invoiceID)
+	_, rl.gotTransaction = rl.w.GetCompletedInboundPayment(invoiceID)
 	fmt.Printf("Heard receipt in the UI. Receipt sender: %v, invoice id %q\n",
 		msg.Sender, msg.Body)
 }

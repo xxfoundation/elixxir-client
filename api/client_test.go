@@ -24,7 +24,7 @@ func TestRegistrationGob(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	// populate a gob in the store
-	Register("be50nhqpqjtjj", gwAddress, 1)
+	Register("be50nhqpqjtjj", gwAddress, 1, false)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()

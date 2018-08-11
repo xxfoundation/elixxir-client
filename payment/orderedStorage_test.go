@@ -7,6 +7,8 @@ import (
 	"math/rand"
 	"reflect"
 	"testing"
+	"github.com/mitchellh/go-homedir"
+	"os"
 )
 
 // Shows that CreateOrderedStorage creates new storage properly
@@ -638,4 +640,106 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 		t.Errorf("OrderedCoinStorage.Fund: exact change coins not returned proeprly: "+
 			"Expecterd: %v, Recieved: %v", expected, dst)
 	}
+}
+
+// Shows that Ordered Storage reloads from a stored map properly
+func TestOrderedStorage_FileLoading(t *testing.T) {
+	globals.LocalStorage = nil
+
+	storagePath, err := homedir.Expand("~/.privategrity")
+	filename := "/orderedstoragetest.session"
+	os.MkdirAll(storagePath, 0775)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+
+	// show that the ordered list does not exist
+	key := "TestOrderedList"
+
+	ocs, err := CreateOrderedStorage(key, s)
+
+	if err != nil {
+		t.Errorf("CreateOrderedStorage: error returned on valid ordered storage creation: %s", err.Error())
+	}
+
+	if ocs.session != s {
+		t.Errorf("CreateOrderedStorage: does not point to session correctly")
+	}
+
+	if ocs.value != 0 {
+		t.Errorf("CreateOrderedStorage: inital value incorrect: Expected: %v, Recieved: %v", 0, ocs.value)
+	}
+
+	ns, err := coin.NewSleeve(10)
+
+	if err != nil {
+		t.Errorf("CreateOrderedStorage: sleeve creation failed: %s", err.Error())
+	}
+
+	*ocs.list = append(*ocs.list, ns)
+
+	s.StoreSession()
+
+	s2, err := user.LoadSession(1)
+
+	if err != nil {
+		t.Errorf("session load error: %s", err.Error())
+	}
+
+	ocs2, err := CreateOrderedStorage(key, s2)
+
+	if err != nil {
+		t.Errorf("CreateOrderedStorage: error returned on valid ordered storage creation: %s", err.Error())
+	}
+
+	if ocs2.session != s2 {
+		t.Errorf("CreateOrderedStorage: does not point to session correctly")
+	}
+
+	if ocs2.value != 10 {
+		t.Errorf("CreateOrderedStorage: inital value incorrect: Expected: %v, Recieved: %v", 0, ocs2.value)
+	}
+
+	ns2, err := coin.NewSleeve(10)
+
+	if err != nil {
+		t.Errorf("CreateOrderedStorage: sleeve creation failed: %s", err.Error())
+	}
+
+	*ocs2.list = append(*ocs2.list, ns2)
+
+	s2.StoreSession()
+
+	s3, err := user.LoadSession(1)
+
+	if err != nil {
+		t.Errorf("session load error: %s", err.Error())
+	}
+
+	ocs3, err := CreateOrderedStorage(key, s3)
+
+	if err != nil {
+		t.Errorf("CreateOrderedStorage: error returned on valid ordered storage creation: %s", err.Error())
+	}
+
+	if ocs3.session != s3 {
+		t.Errorf("CreateOrderedStorage: does not point to session correctly")
+	}
+
+	if ocs3.value != 20 {
+		t.Errorf("CreateOrderedStorage: inital value incorrect: Expected: %v, Recieved: %v", 0, ocs3.value)
+	}
+
+	ns3, err := coin.NewSleeve(10)
+
+	if err != nil {
+		t.Errorf("CreateOrderedStorage: sleeve creation failed: %s", err.Error())
+	}
+
+	*ocs3.list = append(*ocs3.list, ns3)
+
+	s3.StoreSession()
+	os.Remove(storagePath+filename)
 }

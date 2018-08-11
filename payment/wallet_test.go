@@ -77,7 +77,7 @@ func TestCreateWallet(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
 
-	_, err := CreateWallet(s)
+	_, err := CreateWallet(s, false)
 
 	if err != nil {
 		t.Errorf("CreateWallet: error returned on valid wallet creation: %s", err.Error())
@@ -897,7 +897,7 @@ func setupGetTests() (*Wallet, error) {
 	s := user.NewSession(&user.User{user.ID(5), "Darth Icky"}, "",
 		[]user.NodeKeys{})
 
-	w, err := CreateWallet(s)
+	w, err := CreateWallet(s, false)
 	if err != nil {
 		return nil, err
 	}
@@ -967,7 +967,7 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 		return errors.New("Transactions tracked the same state: create")
 	}
 	transaction, ok = get(id)
-	transaction.Timestamp = time.Now()
+	transaction.Timestamp = time.Unix(0, 0)
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: timestamp")
 	}

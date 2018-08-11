@@ -34,6 +34,7 @@ var numNodes uint
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
+var mint bool
 var rateLimiting uint32
 var showVer bool
 
@@ -130,14 +131,14 @@ func sessionInitialization() {
 	if register {
 		_, err := bindings.Register(
 			cyclic.NewIntFromBytes(user.UserHash(user.ID(userId))).
-				TextVerbose(32, 0), gwAddr, int(numNodes))
+				TextVerbose(32, 0), gwAddr, int(numNodes), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
 		}
 	}
 
-	//log the user in
+	// Log the user in
 	_, err = bindings.Login(
 		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
 
@@ -345,6 +346,8 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
+	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "", false,
+		"Mint some coins for testing")
 
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		1000, "Sets the amount of time, in ms, "+

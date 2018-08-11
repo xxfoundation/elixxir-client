@@ -70,10 +70,10 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 
 }
 
-func LoadSession(UID ID) error {
+func LoadSession(UID ID) (Session, error) {
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
-		return err
+		return nil, err
 	}
 
 	rand.Seed(time.Now().UnixNano())
@@ -92,7 +92,7 @@ func LoadSession(UID ID) error {
 
 	if (err != nil && err != io.EOF) || (session.CurrentUser == nil) {
 		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
-		return err
+		return nil, err
 	}
 
 	if session.CurrentUser.UserID != UID {
@@ -100,12 +100,12 @@ func LoadSession(UID ID) error {
 			"LoadSession: loaded incorrect "+
 				"user; Expected: %v; Received: %v",
 			session.CurrentUser.UserID, UID))
-		return err
+		return nil, err
 	}
 
 	TheSession = &session
 
-	return nil
+	return &session, nil
 }
 
 // Struct holding relevant session data

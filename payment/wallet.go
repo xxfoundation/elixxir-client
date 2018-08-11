@@ -32,12 +32,19 @@ type Wallet struct {
 	session user.Session
 }
 
-func CreateWallet(s user.Session) (*Wallet, error) {
+func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
 	if err != nil {
 		return nil, err
+	}
+
+	if doMint {
+		mintedCoins := coin.MintUser(uint64(s.GetCurrentUser().UserID))
+		for i := range mintedCoins {
+			cs.add(mintedCoins[i])
+		}
 	}
 
 	obr, err := CreateTransactionList(OutboundRequestsTag, s)
@@ -230,7 +237,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")

@@ -16,13 +16,13 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/payment"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"time"
-	"gitlab.com/privategrity/client/payment"
 )
 
 // Populates a text message and returns its wire representation
@@ -59,7 +59,7 @@ func InitClient(s globals.Storage, loc string) error {
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint) (user.ID, error) {
+	numNodes uint, mint bool) (user.ID, error) {
 
 	var err error
 
@@ -104,8 +104,15 @@ func Register(registrationCode string, gwAddr string,
 
 	nus := user.NewSession(u, gwAddr, nk)
 
+	_, err = payment.CreateWallet(nus, mint)
+	if err != nil {
+		return 0, err
+	}
+
 	errStore := nus.StoreSession()
 
+	// FIXME If we have an error here, the session that gets created doesn't get immolated.
+	// Immolation should happen in a deferred call instead.
 	if errStore != nil {
 		err = errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+
@@ -122,27 +129,26 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID user.ID, addr string) (string, error) {
+func Login(UID user.ID, addr string) (user.Session, error) {
 
-	err := user.LoadSession(UID)
+	session, err := user.LoadSession(UID)
 
-	if user.TheSession == nil {
-		return "", errors.New("Unable to load session")
+	if session == nil {
+		return nil, errors.New("Unable to load session")
 	}
 
-	TheWallet, err = payment.CreateWallet(user.TheSession)
+	TheWallet, err = payment.CreateWallet(session, false)
 	if err != nil {
 		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
 		jww.ERROR.Printf(err.Error())
-		return "", err
+		return nil, err
 	}
-
 
 	if addr != "" {
-		user.TheSession.SetGWAddress(addr)
+		session.SetGWAddress(addr)
 	}
 
-	addrToUse := user.TheSession.GetGWAddress()
+	addrToUse := session.GetGWAddress()
 
 	// TODO: These can be separate, but we set them to the same thing
 	//       until registration is completed.
@@ -153,7 +159,7 @@ func Login(UID user.ID, addr string) (string, error) {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))
 		jww.ERROR.Printf(err.Error())
-		return "", err
+		return nil, err
 	}
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
@@ -165,7 +171,9 @@ func Login(UID user.ID, addr string) (string, error) {
 		jww.ERROR.Printf("Message receiver already started!")
 	}
 
-	return user.TheSession.GetCurrentUser().Nick, nil
+	user.TheSession = session
+
+	return session, nil
 }
 
 // Send prepares and sends a message to the cMix network

@@ -46,6 +46,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
+	hash := parse.MessageHash{1, 2, 3, 4, 5}
 	expected := Transaction{
 		Create:    sleeve,
 		Sender:    payer,
@@ -53,10 +54,10 @@ func TestWallet_registerInvoice(t *testing.T) {
 		Memo:      memo,
 		Timestamp: time.Now(),
 		Value:     value,
+		OriginID:  hash,
 	}
 
-	hash := parse.MessageHash{1, 2, 3, 4, 5}
-	w.registerInvoice(hash, &expected)
+	w.registerInvoice(&expected)
 
 	sessionReqs, err := s.QueryMap(OutboundRequestsTag)
 	if err != nil {

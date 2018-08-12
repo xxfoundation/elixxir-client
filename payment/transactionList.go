@@ -150,7 +150,7 @@ func (tl *TransactionList) getKeyList(lessThan func(t1, t2 *Transaction) bool) [
 		return lessThan(keys[i].transaction, keys[j].transaction)
 	})
 
-	keyList := make([]byte, 0, uint64(len(*tl.transactionMap))* parse.
+	keyList := make([]byte, 0, uint64(len(*tl.transactionMap))*parse.
 		MessageHashLen)
 	tl.session.UnlockStorage()
 	for i := range keys {

@@ -3,12 +3,12 @@ package io
 import (
 	"crypto/sha256"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
+	"gitlab.com/privategrity/client/globals"
 )
 
 type multiPartMessage struct {
@@ -62,7 +62,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			typedBody, err := parse.Parse(partition.Body)
 			// Log an error if the message is malformed and return nothing
 			if err != nil {
-				jww.ERROR.Printf("Malformed message recieved")
+				globals.N.ERROR.Printf("Malformed message recieved")
 				return nil
 			}
 
@@ -125,7 +125,7 @@ func (mb *collator) AddMessage(message *format.Message,
 				if err != nil {
 					delete(mb.pendingMessages, key)
 					mb.mux.Unlock()
-					jww.ERROR.Printf("Malformed message Recieved")
+					globals.N.ERROR.Printf("Malformed message Recieved")
 					return nil
 				}
 
@@ -143,9 +143,9 @@ func (mb *collator) AddMessage(message *format.Message,
 			mb.mux.Unlock()
 		}
 	} else {
-		jww.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
+		globals.N.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
 	}
-	jww.DEBUG.Printf("Message collator: %v", mb.dump())
+	globals.N.DEBUG.Printf("Message collator: %v", mb.dump())
 	return nil
 }
 

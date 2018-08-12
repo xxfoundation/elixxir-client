@@ -2,19 +2,19 @@ package payment
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"reflect"
 	"testing"
 	"time"
-	"errors"
-	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/switchboard"
-	"fmt"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -1191,12 +1191,12 @@ func TestReceiptListener_Hear(t *testing.T) {
 			w.outboundRequests.Value())
 	}
 	if w.completedInboundPayments.Value() != paymentAmount {
-		t.Errorf("Wallet inboundpayments value should be the value of the" +
+		t.Errorf("Wallet inboundpayments value should be the value of the"+
 			" payment. Got %v, expected %v.", w.completedInboundPayments.Value(), paymentAmount)
 	}
-	if w.coinStorage.Value() != paymentAmount + walletAmount {
-		t.Errorf("Expected funds to be added to the wallet upon receipt. " +
+	if w.coinStorage.Value() != paymentAmount+walletAmount {
+		t.Errorf("Expected funds to be added to the wallet upon receipt. "+
 			"Got total value %v, expected %v.", w.coinStorage.Value(),
-			paymentAmount + walletAmount)
+			paymentAmount+walletAmount)
 	}
 }

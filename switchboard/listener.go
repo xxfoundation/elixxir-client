@@ -7,11 +7,11 @@
 package switchboard
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"strconv"
 	"sync"
+	"gitlab.com/privategrity/client/globals"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
@@ -111,7 +111,7 @@ func (lm *ListenerMap) matchListeners(userID user.ID,
 
 // Broadcast a message to the appropriate listeners
 func (lm *ListenerMap) Speak(msg *parse.Message) {
-	jww.INFO.Printf("Speaking message: %q", msg.Body)
+	globals.N.INFO.Printf("Speaking message: %q", msg.Body)
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 
@@ -133,18 +133,18 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
 		for _, listener := range accumNormals {
-			jww.INFO.Printf("Hearing on listener %v", listener.id)
+			globals.N.INFO.Printf("Hearing on listener %v", listener.id)
 			// TODO Should this launch a new goroutine for each listener that
 			// hears? Or would that make things too awful?
 			listener.l.Hear(msg, len(accumNormals) > 1)
 		}
 	} else {
-		jww.ERROR.Println("Message didn't match any listeners in the map")
+		globals.N.ERROR.Println("Message didn't match any listeners in the map")
 		// dump representation of the map
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {
 				for i, listener := range perType {
-					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
+					globals.N.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
 						i, listener.id, u, messageType)
 				}
 			}

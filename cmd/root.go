@@ -20,10 +20,11 @@ import (
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"io/ioutil"
+	"log"
 	"os"
 	"sync/atomic"
 	"time"
-	"log"
 )
 
 var verbose bool
@@ -158,7 +159,7 @@ func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 		sender, ok := user.Users.GetUser(message.Sender)
 		var senderNick string
 		if !ok {
-			jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+			globals.N.ERROR.Printf("Couldn't get sender %v", message.Sender)
 		} else {
 			senderNick = sender.Nick
 		}
@@ -173,14 +174,14 @@ type TextListener struct {
 }
 
 func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
-	jww.INFO.Println("Hearing a text message")
+	globals.N.INFO.Println("Hearing a text message")
 	result := parse.TextMessage{}
 	proto.Unmarshal(message.Body, &result)
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.N.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
 	}
@@ -195,14 +196,14 @@ type ChannelListener struct {
 }
 
 func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
-	jww.INFO.Println("Hearing a channel message")
+	globals.N.INFO.Println("Hearing a channel message")
 	result := parse.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.N.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
 	}
@@ -389,23 +390,25 @@ func initConfig() {}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {
+	globals.N = jww.NewNotepad(jww.LevelError, jww.LevelWarn, os.Stdout,
+		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
 	// If verbose flag set then log more info for debugging
 	if verbose || viper.GetBool("verbose") {
-		jww.SetLogThreshold(jww.LevelInfo)
-		jww.SetStdoutThreshold(jww.LevelInfo)
-		jww.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+		globals.N.SetLogThreshold(jww.LevelInfo)
+		globals.N.SetStdoutThreshold(jww.LevelInfo)
+		globals.N.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	} else {
-		jww.SetLogThreshold(jww.LevelWarn)
-		jww.SetStdoutThreshold(jww.LevelWarn)
+		globals.N.SetLogThreshold(jww.LevelWarn)
+		globals.N.SetStdoutThreshold(jww.LevelWarn)
 	}
 	if viper.Get("logPath") != nil {
 		// Create log file, overwrites if existing
 		logPath := viper.GetString("logPath")
 		logFile, err := os.Create(logPath)
 		if err != nil {
-			jww.WARN.Println("Invalid or missing log path, default path used.")
+			globals.N.WARN.Println("Invalid or missing log path, default path used.")
 		} else {
-			jww.SetLogOutput(logFile)
+			globals.N.SetLogOutput(logFile)
 		}
 	}
 }

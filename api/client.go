@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
@@ -64,7 +63,7 @@ func Register(registrationCode string, gwAddr string,
 	var err error
 
 	if numNodes < 1 {
-		jww.ERROR.Printf("Register: Invalid number of nodes")
+		globals.N.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
 		return 0, err
 	}
@@ -74,7 +73,7 @@ func Register(registrationCode string, gwAddr string,
 	defer clearUserID(&UID)
 
 	if !successLook {
-		jww.ERROR.Printf("Register: HUID does not match")
+		globals.N.ERROR.Printf("Register: HUID does not match")
 		err = errors.New("could not register due to invalid HUID")
 		return 0, err
 	}
@@ -82,7 +81,7 @@ func Register(registrationCode string, gwAddr string,
 	u, successGet := user.Users.GetUser(UID)
 
 	if !successGet {
-		jww.ERROR.Printf("Register: ID lookup failed")
+		globals.N.ERROR.Printf("Register: ID lookup failed")
 		err = errors.New("could not register due to ID lookup failure")
 		return 0, err
 	}
@@ -91,7 +90,7 @@ func Register(registrationCode string, gwAddr string,
 	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
-		jww.ERROR.Printf("Register: could not find user keys")
+		globals.N.ERROR.Printf("Register: could not find user keys")
 		err = errors.New("could not register due to missing user keys")
 		return 0, err
 	}
@@ -117,7 +116,7 @@ func Register(registrationCode string, gwAddr string,
 		err = errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.N.ERROR.Printf(err.Error())
 		return 0, err
 	}
 
@@ -140,7 +139,7 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 	TheWallet, err = payment.CreateWallet(session, false)
 	if err != nil {
 		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
-		jww.ERROR.Printf(err.Error())
+		globals.N.ERROR.Printf(err.Error())
 		return nil, err
 	}
 
@@ -158,7 +157,7 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.N.ERROR.Printf(err.Error())
 		return nil, err
 	}
 
@@ -170,7 +169,7 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 	if listenCh == nil {
 		go io.Messaging.MessageReceiver(pollWaitTimeMillis)
 	} else {
-		jww.ERROR.Printf("Message receiver already started!")
+		globals.N.ERROR.Printf("Message receiver already started!")
 	}
 
 	return session, nil
@@ -204,7 +203,7 @@ var listenCh chan *format.Message
 func Listen(user user.ID, messageType parse.Type,
 	newListener switchboard.Listener) string {
 	id := switchboard.Listeners.Register(user, messageType, newListener)
-	jww.INFO.Printf("Listening now: user %v, message type %v, id %v",
+	globals.N.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, id)
 	return id
 }
@@ -225,7 +224,7 @@ type Sender interface {
 func Logout() error {
 	if user.TheSession == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
-		jww.ERROR.Printf(err.Error())
+		globals.N.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -239,7 +238,7 @@ func Logout() error {
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
 			errStore.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.N.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -248,7 +247,7 @@ func Logout() error {
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
 			errImmolate.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.N.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -268,7 +267,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userExists, err := bots.Search(valueType, emailAddress)
 	if userExists != nil {
-		jww.DEBUG.Printf("Already registered %s", emailAddress)
+		globals.N.DEBUG.Printf("Already registered %s", emailAddress)
 		return nil
 	}
 	if err != nil {
@@ -282,7 +281,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	for i := range publicKeyBytes {
 		idx := len(fixedPubBytes) - i - 1
 		if idx < 0 {
-			jww.FATAL.Panicf("pubkey exceeds 2048 bit length!")
+			globals.N.FATAL.Panicf("pubkey exceeds 2048 bit length!")
 		}
 		fixedPubBytes[idx] = publicKeyBytes[idx]
 	}

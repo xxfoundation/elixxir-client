@@ -5,11 +5,11 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
+	"math"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"math"
 )
 
 // Shows that CreateTransactionList creates new storage properly

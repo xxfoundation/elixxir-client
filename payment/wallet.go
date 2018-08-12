@@ -9,14 +9,15 @@ package payment
 import (
 	"errors"
 	"github.com/golang/protobuf/proto"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
+	"os"
 	"time"
-	"gitlab.com/privategrity/client/io"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -167,7 +168,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	// Test for incorrect message type, just in case
 	if msg.Type != parse.Type_PAYMENT_INVOICE {
-		jww.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
+		globals.N.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
 			" type: %v",
 			msg.Type.String())
 		return
@@ -175,19 +176,19 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	// Don't humor people who send malformed messages
 	if err := proto.Unmarshal(msg.Body, &invoice); err != nil {
-		jww.WARN.Printf("InvoiceListener: Got error unmarshaling inbound"+
+		globals.N.WARN.Printf("InvoiceListener: Got error unmarshaling inbound"+
 			" invoice: %v", err.Error())
 		return
 	}
 
 	if uint64(len(invoice.CreatedCoin)) != coin.BaseFrameLen {
-		jww.WARN.Printf("InvoiceListener: Created coin has incorrect length"+
+		globals.N.WARN.Printf("InvoiceListener: Created coin has incorrect length"+
 			" %v and is likely invalid", len(invoice.CreatedCoin))
 		return
 	}
 
 	if !coin.IsCompound(invoice.CreatedCoin) {
-		jww.WARN.Printf("InvoiceListener: Got an invoice with an incorrect" +
+		globals.N.WARN.Printf("InvoiceListener: Got an invoice with an incorrect" +
 			" coin type")
 		return
 	}
@@ -326,7 +327,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 	var response parse.PaymentResponse
 	err := proto.Unmarshal(msg.Body, &response)
 	if err != nil {
-		jww.WARN.Printf("Heard an invalid response from the payment bot. "+
+		globals.N.WARN.Printf("Heard an invalid response from the payment bot. "+
 			"Error: %v", err.Error())
 	}
 
@@ -336,7 +337,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 	if !response.Success {
 		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
 		if !ok {
-			jww.WARN.Printf("Couldn't find the transaction with that invoice"+
+			globals.N.WARN.Printf("Couldn't find the transaction with that invoice"+
 				" ID: %q", invoiceID)
 		} else {
 			// Move the coins from pending transactions back to the wallet
@@ -356,7 +357,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		// Transaction was successful, so remove pending from the wallet
 		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
 		if !ok {
-			jww.WARN.Printf("ResponseListener: Couldn't find the"+
+			globals.N.WARN.Printf("ResponseListener: Couldn't find the"+
 				" transaction with that invoice ID: %q",
 				invoiceID)
 		} else {
@@ -368,10 +369,18 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 			// be able to keep track of.
 			l.wallet.completedOutboundPayments.Upsert(invoiceID, transaction)
 			receipt := l.formatReceipt(invoiceID, transaction)
-			io.Messaging.SendMessage(transaction.Recipient, receipt.GetPayload())
+			globals.N.CRITICAL.Printf("Attempting to send receipt to transaction"+
+				" recipient: %v!", transaction.Recipient)
+			os.Exit(0)
+			err := io.Messaging.SendMessage(transaction.Recipient,
+				receipt.GetPayload())
+			if err != nil {
+				globals.N.ERROR.Printf("Payment response listener couldn't send"+
+					" receipt: %v", err.Error())
+			}
 		}
 	}
-	jww.DEBUG.Printf("Payment response: %v", response.Response)
+	globals.N.DEBUG.Printf("Payment response: %v", response.Response)
 }
 
 func (l *ResponseListener) formatReceipt(invoiceID parse.MessageHash,
@@ -396,7 +405,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	copy(invoiceID[:], msg.Body)
 	transaction, ok := rl.wallet.outboundRequests.Pop(invoiceID)
 	if !ok {
-		jww.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
+		globals.N.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
 			": %q", msg.Sender, invoiceID)
 	} else {
 		// Mark the transaction in the log of completed transactions

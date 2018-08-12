@@ -112,6 +112,9 @@ func (w *Wallet) RegisterListeners() {
 	switchboard.Listeners.Register(getPaymentBotID(), parse.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
+	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_RECEIPT, &ReceiptListener{
+		wallet: w,
+	})
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of

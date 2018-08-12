@@ -27,6 +27,8 @@ type Transaction struct {
 	Timestamp time.Time
 
 	Value uint64
+
+	OriginID parse.MessageHash
 }
 
 // FIXME Limit this to one part message (requires message ID revamp for accuracy)

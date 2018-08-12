@@ -16,8 +16,8 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
-	"os"
 	"time"
+	"encoding/base64"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -139,9 +139,8 @@ func createInvoice(payer user.ID, payee user.ID, value uint64,
 }
 
 // Registers an invoice with the session and wallet
-func (w *Wallet) registerInvoice(id parse.MessageHash,
-	invoice *Transaction) error {
-	w.outboundRequests.Upsert(id, invoice)
+func (w *Wallet) registerInvoice(invoice *Transaction) error {
+	w.outboundRequests.Upsert(invoice.OriginID, invoice)
 	return w.session.StoreSession()
 }
 
@@ -155,7 +154,8 @@ func (w *Wallet) Invoice(payer user.ID, value uint64,
 		return nil, err
 	}
 	msg := transaction.FormatPaymentInvoice()
-	w.registerInvoice(msg.Hash(), transaction)
+	transaction.OriginID = msg.Hash()
+	w.registerInvoice(transaction)
 	return msg, nil
 }
 
@@ -197,6 +197,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var compound coin.Compound
 	copy(compound[:], invoice.CreatedCoin)
 
+	invoiceID := msg.Hash()
 	transaction := &Transaction{
 		Create:    coin.ConstructSleeve(nil, &compound),
 		Sender:    msg.Receiver,
@@ -204,11 +205,11 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		Memo:      invoice.Memo,
 		Timestamp: time.Unix(invoice.Time, 0),
 		Value:     compound.Value(),
+		OriginID:  invoiceID,
 	}
 
-	invoiceID := msg.Hash()
 	// Actually add the request to the list of inbound requests
-	il.wallet.inboundRequests.Upsert(msg.Hash(), transaction)
+	il.wallet.inboundRequests.Upsert(invoiceID, transaction)
 	// and save it
 	il.wallet.session.StoreSession()
 
@@ -310,8 +311,12 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 		Memo:      inboundRequest.Memo,
 		Timestamp: inboundRequest.Timestamp,
 		Value:     inboundRequest.Value,
+		OriginID:  inboundRequest.OriginID,
 	}
 
+	paymentID := msg.Hash()
+	globals.N.INFO.Printf("Prepared payment message. Its ID is %v",
+		base64.StdEncoding.EncodeToString(paymentID[:]))
 	w.pendingTransactions.Upsert(msg.Hash(), &pendingTransaction)
 
 	// Return the result.
@@ -331,53 +336,48 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 			"Error: %v", err.Error())
 	}
 
-	var invoiceID parse.MessageHash
-	copy(invoiceID[:], response.ID)
+	var paymentID parse.MessageHash
+	copy(paymentID[:], response.ID)
+	globals.N.INFO.Printf("Heard response from payment bot. ID: %v",
+		base64.StdEncoding.EncodeToString(paymentID[:]))
+	transaction, ok := l.wallet.pendingTransactions.Pop(paymentID)
+	if !ok {
+		globals.N.ERROR.Printf("Couldn't find the transaction with that"+
+			" payment message ID: %q", paymentID)
+		return
+	}
 
 	if !response.Success {
-		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
-		if !ok {
-			globals.N.WARN.Printf("Couldn't find the transaction with that invoice"+
-				" ID: %q", invoiceID)
-		} else {
-			// Move the coins from pending transactions back to the wallet
-			// for now.
-			// This may not always be correct - for example, if the coins
-			// aren't on the payment bot they might need to be removed from
-			// user's wallet so they don't get nothing but declined
-			// transactions in the event of corruption.
-			for i := range transaction.Destroy {
-				l.wallet.coinStorage.Add(transaction.Destroy[i])
-			}
+		// Move the coins from pending transactions back to the wallet
+		// for now.
+		// This may not always be correct - for example, if the coins
+		// aren't on the payment bot they might need to be removed from
+		// user's wallet so they don't get nothing but declined
+		// transactions in the event of corruption.
+		for i := range transaction.Destroy {
+			l.wallet.coinStorage.Add(transaction.Destroy[i])
 		}
 	} else {
 		// Does it make sense to have the payment bot send the value of the
 		// transaction as a response for some quick and dirty verification?
 
 		// Transaction was successful, so remove pending from the wallet
-		transaction, ok := l.wallet.pendingTransactions.Pop(invoiceID)
-		if !ok {
-			globals.N.WARN.Printf("ResponseListener: Couldn't find the"+
-				" transaction with that invoice ID: %q",
-				invoiceID)
-		} else {
-			if transaction.Change != NilSleeve {
-				l.wallet.coinStorage.Add(transaction.Change)
-			}
-			// Send receipt: Need ID of original invoice corresponding to this
-			// transaction. That's something that the invoicing client should
-			// be able to keep track of.
-			l.wallet.completedOutboundPayments.Upsert(invoiceID, transaction)
-			receipt := l.formatReceipt(invoiceID, transaction)
-			globals.N.CRITICAL.Printf("Attempting to send receipt to transaction"+
-				" recipient: %v!", transaction.Recipient)
-			os.Exit(0)
-			err := io.Messaging.SendMessage(transaction.Recipient,
-				receipt.GetPayload())
-			if err != nil {
-				globals.N.ERROR.Printf("Payment response listener couldn't send"+
-					" receipt: %v", err.Error())
-			}
+		if transaction.Change != NilSleeve {
+			l.wallet.coinStorage.Add(transaction.Change)
+		}
+		// Send receipt: Need ID of original invoice corresponding to this
+		// transaction. That's something that the invoicing client should
+		// be able to keep track of.
+		l.wallet.completedOutboundPayments.Upsert(transaction.OriginID, transaction)
+		// FIXME!!! formatReceipt only needs to take the transaction now
+		receipt := l.formatReceipt(transaction.OriginID, transaction)
+		globals.N.CRITICAL.Printf("Attempting to send receipt to transaction"+
+			" recipient: %v!", transaction.Recipient)
+		err := io.Messaging.SendMessage(transaction.Recipient,
+			receipt.GetPayload())
+		if err != nil {
+			globals.N.ERROR.Printf("Payment response listener couldn't send"+
+				" receipt: %v", err.Error())
 		}
 	}
 	globals.N.DEBUG.Printf("Payment response: %v", response.Response)

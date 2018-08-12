@@ -227,9 +227,6 @@ func (m *messaging) receiveMessageFromGateway(
 					if err2 != nil {
 						jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}
-					// FIXME This sleep seems to help prevent a rare bug where a
-					// client will get a message off the gateway more than once.
-					time.Sleep(2 * time.Millisecond)
 
 					return decryptedMsg
 				}

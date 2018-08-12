@@ -162,6 +162,8 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 		return nil, err
 	}
 
+	user.TheSession = session
+
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// FIXME listenCh won't exist - how do you tell if the reception thread
 	// is running?
@@ -170,8 +172,6 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 	} else {
 		jww.ERROR.Printf("Message receiver already started!")
 	}
-
-	user.TheSession = session
 
 	return session, nil
 }

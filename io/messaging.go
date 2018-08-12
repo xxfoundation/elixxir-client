@@ -180,6 +180,8 @@ func (m *messaging) receiveMessageFromGateway(
 			ReceivedMessages = make(map[string]struct{})
 		}
 
+		lastReceivedMessageID = messages.MessageIDs[len(messages.MessageIDs) - 1]
+
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
 			_, received := ReceivedMessages[messageID]
@@ -205,6 +207,7 @@ func (m *messaging) receiveMessageFromGateway(
 						jww.INFO.Println("Message fields not populated")
 						return nil
 					}
+					ReceivedMessages[messageID] = struct{}{}
 
 					// Generate a compound decryption key
 					salt := newMessage.Salt
@@ -222,8 +225,9 @@ func (m *messaging) receiveMessageFromGateway(
 					if err2 != nil {
 						jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}
-					ReceivedMessages[messageID] = struct{}{}
-					lastReceivedMessageID = messageID
+					// FIXME This sleep seems to help prevent a rare bug where a
+					// client will get a message off the gateway more than once.
+					time.Sleep(2 * time.Millisecond)
 
 					return decryptedMsg
 				}

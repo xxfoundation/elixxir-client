@@ -23,6 +23,7 @@ import (
 	"os"
 	"sync/atomic"
 	"time"
+	"log"
 )
 
 var verbose bool
@@ -392,6 +393,7 @@ func initLog() {
 	if verbose || viper.GetBool("verbose") {
 		jww.SetLogThreshold(jww.LevelInfo)
 		jww.SetStdoutThreshold(jww.LevelInfo)
+		jww.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	} else {
 		jww.SetLogThreshold(jww.LevelWarn)
 		jww.SetStdoutThreshold(jww.LevelWarn)

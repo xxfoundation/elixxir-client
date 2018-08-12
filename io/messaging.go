@@ -180,7 +180,9 @@ func (m *messaging) receiveMessageFromGateway(
 			ReceivedMessages = make(map[string]struct{})
 		}
 
-		lastReceivedMessageID = messages.MessageIDs[len(messages.MessageIDs) - 1]
+		if len(messages.MessageIDs) >= 1 {
+			lastReceivedMessageID = messages.MessageIDs[len(messages.MessageIDs)-1]
+		}
 
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs

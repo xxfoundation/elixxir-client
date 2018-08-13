@@ -7,11 +7,11 @@
 package switchboard
 
 import (
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"strconv"
 	"sync"
-	"gitlab.com/privategrity/client/globals"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary

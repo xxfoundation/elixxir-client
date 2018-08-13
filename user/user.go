@@ -127,7 +127,7 @@ func newRegistry() Registry {
 
 	// With an underlying UserMap data structure
 	return Registry(&UserMap{userCollection: uc,
-		idCounter: uint64(NUM_DEMO_USERS),
+		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
 }

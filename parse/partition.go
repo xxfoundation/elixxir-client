@@ -10,10 +10,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"sync"
-	"gitlab.com/privategrity/client/globals"
 )
 
 // TODO is there a better way to generate unique message IDs locally?

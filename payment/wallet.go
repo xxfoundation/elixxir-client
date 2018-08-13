@@ -7,6 +7,7 @@
 package payment
 
 import (
+	"encoding/base64"
 	"errors"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/client/globals"
@@ -17,7 +18,6 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
-	"encoding/base64"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -284,7 +284,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
@@ -369,7 +369,6 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		// transaction. That's something that the invoicing client should
 		// be able to keep track of.
 		l.wallet.completedOutboundPayments.Upsert(transaction.OriginID, transaction)
-		// FIXME!!! formatReceipt only needs to take the transaction now
 		receipt := l.formatReceipt(transaction)
 		globals.N.CRITICAL.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)

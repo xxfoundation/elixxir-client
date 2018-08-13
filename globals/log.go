@@ -2,9 +2,9 @@ package globals
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"os"
 	"io/ioutil"
 	"log"
+	"os"
 )
 
 // We're now logging everything to this notepad so that the CUI can replace it

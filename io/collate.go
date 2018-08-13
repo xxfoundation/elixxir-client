@@ -3,12 +3,12 @@ package io
 import (
 	"crypto/sha256"
 	"fmt"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
-	"gitlab.com/privategrity/client/globals"
 )
 
 type multiPartMessage struct {

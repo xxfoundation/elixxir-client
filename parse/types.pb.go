@@ -96,10 +96,19 @@ const (
 	// proto buffer. When the payee gets a receipt back, they know that the
 	// other person probably paid them, and to check the next published
 	// blockchain for the images of their coins to make sure.
+	// The wallet sends this message after receiving a PAYMENT_RESPONSE
+	// indicating success.
 	Type_PAYMENT_RECEIPT Type = 23
-	// This message type is a list of fixed-length hashes, currently 256 bits
-	// each, that are used as indexes into the inbound requests transaction list
+	// This message type is a single fixed-length hash of the invoice
+	// that the client just received. The client can look up this hash in the
+	// inbound transaction list to display the most recently received invoice
+	// in the UI.
 	Type_PAYMENT_INVOICE_UI Type = 9000
+	// This message type is a single fixed-length hash of the original invoice
+	// that this client sent to the paying client. The UI can look up the
+	// corresponding transaction in the list of completed transactions and
+	// display payment success on the UI. The wallet sends this message
+	// locally after receiving a PAYMENT_RECEIPT message.
 	Type_PAYMENT_RECEIPT_UI Type = 9001
 )
 

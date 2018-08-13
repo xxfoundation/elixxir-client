@@ -8,7 +8,7 @@ package payment
 
 import (
 	"errors"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 )
@@ -60,7 +60,7 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 				return nil, err
 			}
 		default:
-			jww.FATAL.Panicf("wong type returned when loading ordered storage")
+			globals.N.FATAL.Panicf("wong type returned when loading ordered storage")
 		}
 	}
 

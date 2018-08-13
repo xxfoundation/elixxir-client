@@ -62,13 +62,16 @@ func TestMessage_Hash(t *testing.T) {
 
 	m.Receiver = 0
 
-	m.Nonce = []byte{1, 1}
-
-	nonceHash := m.Hash()
-
-	if reflect.DeepEqual(baseHash, nonceHash) {
-		t.Errorf("Message.Hash: Output did not change with modified nonce")
-	}
-
-	m.Nonce = []byte{0, 0}
+	// FIXME Add a "bake" step to the message to partition and nonceify it
+	// before hashing. We need this to be able to identify messages by their
+	// hash on both the message's sending and receiving clients.
+	//m.Nonce = []byte{1, 1}
+	//
+	//nonceHash := m.Hash()
+	//
+	//if reflect.DeepEqual(baseHash, nonceHash) {
+	//	t.Errorf("Message.Hash: Output did not change with modified nonce")
+	//}
+	//
+	//m.Nonce = []byte{0, 0}
 }

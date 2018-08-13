@@ -5,9 +5,11 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
+	"math"
 	"math/rand"
 	"reflect"
 	"testing"
+	"time"
 )
 
 // Shows that CreateTransactionList creates new storage properly
@@ -354,4 +356,66 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 		t.Errorf("TransactionList.Pop: transaction not deleted from List after load")
 	}
 
+}
+
+func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
+	// populate a transaction list with some items
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{1, "test"}, "", []user.NodeKeys{})
+	transactionMap := make(map[parse.MessageHash]*Transaction)
+	transactions := TransactionList{
+		transactionMap: &transactionMap,
+		session:        s,
+	}
+
+	keys := []string{
+		"a,ir.g",
+		"ri,a'p",
+		"ouxr;a",
+		"ai8,9p",
+		"xrgdls",
+	}
+
+	times := []time.Time{
+		time.Unix(1, 0),
+		time.Unix(2, 0),
+		time.Unix(3, 0),
+		time.Unix(5, 0),
+		time.Unix(4, 0),
+	}
+
+	ids := make([]parse.MessageHash, len(keys))
+	for i := range ids {
+		copy(ids[i][:], keys[i])
+		transactions.Upsert(ids[i], &Transaction{
+			Timestamp: times[i],
+		})
+	}
+
+	// get the transactions sorted by their timestamp, most to least recent
+	keyList := transactions.GetKeysByTimestampDescending()
+
+	// verify that the keys we got correspond to correctly sorted transactions
+	numKeys := uint64(len(keyList)) / parse.MessageHashLen
+	var thisKey parse.MessageHash
+	// Maxint Unix time is divided by two because golang's after function gets
+	// weird with dates that are too far in the future
+	lastTransactionTime := time.Unix(math.MaxInt64/2, 0)
+	for i := uint64(0); i < numKeys; i++ {
+		copy(thisKey[:], keyList[i*parse.MessageHashLen:])
+		thisTransaction, ok := transactions.Get(thisKey)
+		if !ok {
+			t.Errorf("Couldn't get a transaction with the key %q", thisKey)
+		} else {
+			thisTransactionTime := thisTransaction.Timestamp
+			// We should have the most recent transaction first
+			if thisTransactionTime.After(lastTransactionTime) {
+				t.Errorf("Transaction %v at time %v was after time %v", i,
+					thisTransactionTime.Format(time.UnixDate),
+					lastTransactionTime.Format(time.UnixDate))
+			}
+			lastTransactionTime = thisTransactionTime
+		}
+	}
 }

@@ -1,14 +1,14 @@
 package payment
 
 import (
+	"github.com/mitchellh/go-homedir"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"math/rand"
+	"os"
 	"reflect"
 	"testing"
-	"github.com/mitchellh/go-homedir"
-	"os"
 )
 
 // Shows that CreateOrderedStorage creates new storage properly
@@ -741,5 +741,5 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	*ocs3.list = append(*ocs3.list, ns3)
 
 	s3.StoreSession()
-	os.Remove(storagePath+filename)
+	os.Remove(storagePath + filename)
 }

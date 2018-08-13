@@ -9,7 +9,7 @@ package user
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
@@ -85,7 +85,7 @@ type UserMap struct {
 // newRegistry creates a new Registry interface
 func newRegistry() Registry {
 	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
-		jww.ERROR.Print("Not enough demo users have been hardcoded.")
+		globals.N.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
 	uc := make(map[ID]*User)
 	ul := make(map[string]ID)

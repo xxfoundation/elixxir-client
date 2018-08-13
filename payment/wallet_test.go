@@ -2,16 +2,19 @@ package payment
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"reflect"
 	"testing"
 	"time"
-	"errors"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -43,6 +46,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
+	hash := parse.MessageHash{1, 2, 3, 4, 5}
 	expected := Transaction{
 		Create:    sleeve,
 		Sender:    payer,
@@ -50,10 +54,10 @@ func TestWallet_registerInvoice(t *testing.T) {
 		Memo:      memo,
 		Timestamp: time.Now(),
 		Value:     value,
+		OriginID:  hash,
 	}
 
-	hash := parse.MessageHash{1, 2, 3, 4, 5}
-	w.registerInvoice(hash, &expected)
+	w.registerInvoice(&expected)
 
 	sessionReqs, err := s.QueryMap(OutboundRequestsTag)
 	if err != nil {
@@ -469,7 +473,15 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	}
 }
 
-func TestPaymentResponseListener_Hear(t *testing.T) {
+type MockMessaging struct{}
+
+func (m *MockMessaging) SendMessage(recipientID user.ID, message string) error {
+	return nil
+}
+
+func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
+
+func TestResponseListener_Hear(t *testing.T) {
 	payer := user.ID(5)
 	payee := user.ID(12)
 
@@ -532,12 +544,15 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 		" casual observer, it is in fact a valid, real, and correct message hash"))
 	pt.Upsert(hash, &transaction)
 
+	op, err := CreateTransactionList(OutboundPaymentsTag, s)
+
 	// Create wallet that has the compound coins in it to do a payment
 	// Unaffected lists are unpopulated
 	w := Wallet{
-		coinStorage:         storage,
-		pendingTransactions: pt,
-		session:             s,
+		coinStorage:               storage,
+		pendingTransactions:       pt,
+		completedOutboundPayments: op,
+		session:                   s,
 	}
 
 	response := parse.PaymentResponse{
@@ -548,7 +563,13 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	// marshal response into a parse message
 	wire, err := proto.Marshal(&response)
 
-	listener := PaymentResponseListener{wallet: &w}
+	listener := ResponseListener{wallet: &w}
+
+	// The payment response listener sends a receipt to the invoice originator.
+	// To prevent actually hitting the network in this test, replace the
+	// messaging with a mock that doesn't send anything
+	io.Messaging = &MockMessaging{}
+
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RESPONSE,
@@ -575,7 +596,13 @@ func TestPaymentResponseListener_Hear(t *testing.T) {
 	if w.coinStorage.Value() != changeAmount {
 		t.Errorf("Wallet didn't have value equal to the value of the change. "+
 			"Got %v, expected %v", w.coinStorage.Value(), changeAmount)
+	}
 
+	// After a successful transaction, we should have the transaction's value
+	// recorded in the outbound payments list for posterity.
+	if w.completedOutboundPayments.Value() != paymentAmount {
+		t.Errorf("Outbound payments didn't have the value expected. Got: %v, "+
+			"expected %v", w.completedOutboundPayments.Value(), paymentAmount)
 	}
 }
 
@@ -658,7 +685,7 @@ func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
 	// marshal response into a parse message
 	wire, err := proto.Marshal(&response)
 
-	listener := PaymentResponseListener{wallet: &w}
+	listener := ResponseListener{wallet: &w}
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RESPONSE,
@@ -890,7 +917,6 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	// TODO verify session contents
 }
 
-
 func setupGetTests() (*Wallet, error) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -912,8 +938,7 @@ const transactionValue = uint64(5280)
 // and proves that changing the transaction you get doesn't change the version
 // in the wallet
 func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
-	Transaction,
-	bool)) error {
+	Transaction, bool)) error {
 	id := parse.MessageHash{}
 	copy(id[:], "testKey")
 
@@ -978,6 +1003,15 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: memo")
 	}
+
+	// Make sure that the transaction list returns false if we get with an
+	// incorrect ID
+	copy(id[:], "notInTheMap")
+	transaction, ok = get(id)
+	if ok {
+		return errors.New("Transaction map returned a transaction with a key" +
+			" that shouldn't have been in the map")
+	}
 	return nil
 }
 
@@ -1015,7 +1049,7 @@ func TestWallet_GetAvailableFunds(t *testing.T) {
 
 	w.coinStorage.Add(sleeve)
 	if w.GetAvailableFunds() != transactionValue {
-		t.Error("The amount of available funds in the wallet wasn't as" +
+		t.Error("The amount of available funds in the wallet wasn't as"+
 			" expected. Got: %v, expected %v", w.GetAvailableFunds(),
 			transactionValue)
 	}
@@ -1029,5 +1063,141 @@ func TestWallet_GetInboundRequest(t *testing.T) {
 	err = testGetTransaction(w.inboundRequests, w.GetInboundRequest)
 	if err != nil {
 		t.Error(err.Error())
+	}
+}
+
+func TestWallet_GetOutboundPayment(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.completedOutboundPayments, w.GetCompletedOutboundPayment)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+func TestWallet_GetInboundPayment(t *testing.T) {
+	w, err := setupGetTests()
+	if err != nil {
+		t.Error(err.Error())
+	}
+	err = testGetTransaction(w.completedInboundPayments, w.GetCompletedInboundPayment)
+	if err != nil {
+		t.Error(err.Error())
+	}
+}
+
+type ReceiptUIListener struct {
+	hasHeard       bool
+	gotTransaction bool
+	w              *Wallet
+}
+
+func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+	rl.hasHeard = true
+	var invoiceID parse.MessageHash
+	copy(invoiceID[:], msg.Body)
+	_, rl.gotTransaction = rl.w.GetCompletedInboundPayment(invoiceID)
+	fmt.Printf("Heard receipt in the UI. Receipt sender: %v, invoice id %q\n",
+		msg.Sender, msg.Body)
+}
+
+// Tests the side effects of getting a receipt for a transaction that you
+// sent out an invoice for
+func TestReceiptListener_Hear(t *testing.T) {
+	payer := user.ID(5)
+	payee := user.ID(12)
+
+	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
+	s := user.NewSession(&user.User{payer, "Darth Icky"}, "",
+		[]user.NodeKeys{})
+
+	walletAmount := uint64(8970)
+	paymentAmount := uint64(1234)
+
+	storage, err := CreateOrderedStorage(CoinStorageTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	walletSleeve, err := coin.NewSleeve(walletAmount)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	storage.add(walletSleeve)
+
+	or, err := CreateTransactionList(OutboundRequestsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	var invoiceID parse.MessageHash
+	copy(invoiceID[:], "you can make haute cuisine with dog biscuits")
+	invoice, err := createInvoice(payer, payee, paymentAmount, "for counting to four")
+	if err != nil {
+		t.Error(err.Error())
+	}
+	or.Upsert(invoiceID, invoice)
+
+	ip, err := CreateTransactionList(InboundPaymentsTag, s)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	w := &Wallet{
+		coinStorage:              storage,
+		outboundRequests:         or,
+		completedInboundPayments: ip,
+		session:                  s,
+	}
+
+	listener := ReceiptListener{
+		wallet: w,
+	}
+
+	// Test the register UI listener as well
+	uiListener := &ReceiptUIListener{
+		w: w,
+	}
+	switchboard.Listeners.Register(0, parse.Type_PAYMENT_RECEIPT_UI, uiListener)
+
+	listener.Hear(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: parse.Type_PAYMENT_RECEIPT,
+			Body: invoiceID[:],
+		},
+		Sender:   invoice.Sender,
+		Receiver: invoice.Recipient,
+		Nonce:    nil,
+	}, false)
+
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// make sure the UI gets informed afterwards
+	if !uiListener.hasHeard {
+		t.Error("UI listener hasn't heard the UI message")
+	}
+
+	// make sure the UI can get the transaction from the correct list
+	if !uiListener.gotTransaction {
+		t.Error("UI listener couldn't get the transaction from the list of" +
+			" completed payments")
+	}
+
+	// Ensure correct state of wallet transaction lists after hearing receipt
+	if w.outboundRequests.Value() != 0 {
+		t.Errorf("Wallet outboundrequests value should be zero. Got: %v",
+			w.outboundRequests.Value())
+	}
+	if w.completedInboundPayments.Value() != paymentAmount {
+		t.Errorf("Wallet inboundpayments value should be the value of the"+
+			" payment. Got %v, expected %v.", w.completedInboundPayments.Value(), paymentAmount)
+	}
+	if w.coinStorage.Value() != paymentAmount+walletAmount {
+		t.Errorf("Expected funds to be added to the wallet upon receipt. "+
+			"Got total value %v, expected %v.", w.coinStorage.Value(),
+			paymentAmount+walletAmount)
 	}
 }

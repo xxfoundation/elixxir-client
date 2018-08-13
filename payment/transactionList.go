@@ -123,20 +123,12 @@ type keyAndTransaction struct {
 	transaction *Transaction
 }
 
-// TODO Expose to API? There are a lot of variants...
 // Golang randomizes map keys' order when you range through a map.
 // To avoid showing transactions to our users in that random order, we have to
 // sort the map's keys by values in the transactions.
 // Useful sorting criteria are timestamp and value (possibly also grouped by the
 // other party to the transaction.)
-func (tl *TransactionList) GetKeysByTimestampDescending() []byte {
-	return tl.getKeyList(func(t1, t2 *Transaction) bool {
-		return t1.Timestamp.After(t2.Timestamp)
-	})
-}
-
-// Sorts the keys in a transaction list by a function comparing two transactions
-func (tl *TransactionList) getKeyList(lessThan func(t1, t2 *Transaction) bool) []byte {
+func (tl *TransactionList) getKeys(order TransactionListOrder) []byte {
 	tl.session.LockStorage()
 	keys := make([]keyAndTransaction, 0, len(*tl.transactionMap))
 	for k, v := range *tl.transactionMap {
@@ -145,10 +137,27 @@ func (tl *TransactionList) getKeyList(lessThan func(t1, t2 *Transaction) bool) [
 			transaction: v,
 		})
 	}
-	// Sort the keys in descending order by timestamp
-	sort.Slice(keys, func(i, j int) bool {
-		return lessThan(keys[i].transaction, keys[j].transaction)
-	})
+	// Sort the keys with the specified order
+	var lessFunc func(i, j int) bool
+	switch order {
+	case TimestampDescending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Timestamp.After(keys[j].transaction.Timestamp)
+		}
+	case TimestampAscending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Timestamp.Before(keys[j].transaction.Timestamp)
+		}
+	case ValueDescending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Value > keys[j].transaction.Value
+		}
+	case ValueAscending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Value < keys[j].transaction.Value
+		}
+	}
+	sort.Slice(keys, lessFunc)
 
 	keyList := make([]byte, 0, uint64(len(*tl.transactionMap))*parse.
 		MessageHashLen)

@@ -284,7 +284,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes()))+uint64(len(
+	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
 		paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
@@ -370,7 +370,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		// be able to keep track of.
 		l.wallet.completedOutboundPayments.Upsert(transaction.OriginID, transaction)
 		receipt := l.formatReceipt(transaction)
-		globals.N.CRITICAL.Printf("Attempting to send receipt to transaction"+
+		globals.N.DEBUG.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)
 		err := io.Messaging.SendMessage(transaction.Recipient,
 			receipt.GetPayload())
@@ -473,5 +473,46 @@ func (w *Wallet) GetCompletedInboundPayment(id parse.MessageHash) (
 		return Transaction{}, ok
 	} else {
 		return *transaction, ok
+	}
+}
+
+// TODO We could also switch on transaction list tags, but that would be slower.
+// It's unclear to me which approach is better between the two.
+type TransactionListID int
+
+const (
+	OutboundRequests          TransactionListID = iota
+	InboundRequests
+	PendingTransactions
+	OutboundCompletedPayments
+	InboundCompletedPayments
+)
+
+type TransactionListOrder int
+
+const (
+	TimestampDescending TransactionListOrder = iota
+	TimestampAscending
+	ValueDescending
+	ValueAscending
+)
+
+// This structure is weird because it makes it easier to write an API that
+// can go over gomobile
+func (w *Wallet) GetTransactionIDs(id TransactionListID,
+	order TransactionListOrder) []byte {
+	switch id {
+	case OutboundRequests:
+		return w.outboundRequests.getKeys(order)
+	case InboundRequests:
+		return w.inboundRequests.getKeys(order)
+	case PendingTransactions:
+		return w.pendingTransactions.getKeys(order)
+	case OutboundCompletedPayments:
+		return w.completedOutboundPayments.getKeys(order)
+	case InboundCompletedPayments:
+		return w.completedInboundPayments.getKeys(order)
+	default:
+		return nil
 	}
 }

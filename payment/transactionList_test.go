@@ -394,7 +394,7 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	}
 
 	// get the transactions sorted by their timestamp, most to least recent
-	keyList := transactions.GetKeysByTimestampDescending()
+	keyList := transactions.getKeys(TimestampDescending)
 
 	// verify that the keys we got correspond to correctly sorted transactions
 	numKeys := uint64(len(keyList)) / parse.MessageHashLen

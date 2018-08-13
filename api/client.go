@@ -311,3 +311,12 @@ func Invoice(payer user.ID, value int64, memo string) (*parse.Message, error) {
 func Pay(ID parse.MessageHash) (*parse.Message, error) {
 	return TheWallet.Pay(ID)
 }
+
+// API users shouldn't need to import payment, so alias these types
+type TransactionListID payment.TransactionListID
+type TransactionListOrder payment.TransactionListOrder
+
+func GetTransactionListKeys(id TransactionListID, order TransactionListOrder) []byte {
+	return TheWallet.GetTransactionIDs(payment.TransactionListID(id),
+		payment.TransactionListOrder(order))
+}

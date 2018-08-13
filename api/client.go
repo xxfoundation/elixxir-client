@@ -136,7 +136,7 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 		return nil, errors.New("Unable to load session")
 	}
 
-	TheWallet, err = payment.CreateWallet(session, false)
+	theWallet, err = payment.CreateWallet(session, false)
 	if err != nil {
 		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
 		globals.N.ERROR.Printf(err.Error())
@@ -294,29 +294,19 @@ func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
 }
 
 // TODO Support more than one wallet per user? Maybe in v2
-var TheWallet *payment.Wallet
+var theWallet *payment.Wallet
 
-// int64 amount for easy binding
-// Implementers need to make a listener that hears invoices and gets their
-// message hash and the relevant data for displaying to the user
-// You still need to send the formatted message to actually invoice someone
-func Invoice(payer user.ID, value int64, memo string) (*parse.Message, error) {
-	if value < 0 {
-		return nil, errors.New("can't request a negative amount of funds")
+func Wallet() *payment.Wallet {
+	if theWallet == nil {
+		// Assume that the correct wallet is already stored in the session
+		// (if necessary, minted during register)
+		// So, if the wallet is nil, registration must have happened for this method to work
+		var err error
+		theWallet, err = payment.CreateWallet(user.TheSession, false)
+		if err != nil {
+			globals.N.ERROR.Println("Wallet(" +
+				"): Got an error creating the wallet.", err.Error())
+		}
 	}
-	return TheWallet.Invoice(payer, uint64(value), memo)
-}
-
-// Pays the identified invoice if there's enough funding
-func Pay(ID parse.MessageHash) (*parse.Message, error) {
-	return TheWallet.Pay(ID)
-}
-
-// API users shouldn't need to import payment, so alias these types
-type TransactionListID payment.TransactionListID
-type TransactionListOrder payment.TransactionListOrder
-
-func GetTransactionListKeys(id TransactionListID, order TransactionListOrder) []byte {
-	return TheWallet.GetTransactionIDs(payment.TransactionListID(id),
-		payment.TransactionListOrder(order))
+	return theWallet
 }

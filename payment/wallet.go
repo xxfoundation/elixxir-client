@@ -476,6 +476,10 @@ func (w *Wallet) GetCompletedInboundPayment(id parse.MessageHash) (
 	}
 }
 
+func (w *Wallet) GetTransaction(list TransactionListID, id parse.MessageHash) {
+
+}
+
 // TODO We could also switch on transaction list tags, but that would be slower.
 // It's unclear to me which approach is better between the two.
 type TransactionListID int

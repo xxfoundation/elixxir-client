@@ -370,7 +370,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		// be able to keep track of.
 		l.wallet.completedOutboundPayments.Upsert(transaction.OriginID, transaction)
 		// FIXME!!! formatReceipt only needs to take the transaction now
-		receipt := l.formatReceipt(transaction.OriginID, transaction)
+		receipt := l.formatReceipt(transaction)
 		globals.N.CRITICAL.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)
 		err := io.Messaging.SendMessage(transaction.Recipient,
@@ -383,12 +383,11 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 	globals.N.DEBUG.Printf("Payment response: %v", response.Response)
 }
 
-func (l *ResponseListener) formatReceipt(invoiceID parse.MessageHash,
-	transaction *Transaction) *parse.Message {
+func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_RECEIPT,
-			Body: invoiceID[:],
+			Body: transaction.OriginID[:],
 		},
 		Sender:   l.wallet.session.GetCurrentUser().UserID,
 		Receiver: transaction.Recipient,

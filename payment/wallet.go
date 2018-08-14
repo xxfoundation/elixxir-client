@@ -44,6 +44,9 @@ type Wallet struct {
 	session user.Session
 }
 
+// If you want the wallet to be able to receive messages you must register its
+// listeners
+// api.Login does this, while api.Register (during minting) does not
 func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
@@ -97,8 +100,6 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 		completedInboundPayments:  ip,
 		completedOutboundPayments: op,
 		session:                   s}
-
-	w.RegisterListeners()
 
 	return w, nil
 }
@@ -164,6 +165,7 @@ type InvoiceListener struct {
 }
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+	globals.N.DEBUG.Println("Heard an invoice from %v!", msg.Sender)
 	var invoice parse.PaymentInvoice
 
 	// Test for incorrect message type, just in case

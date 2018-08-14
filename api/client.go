@@ -142,6 +142,7 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 		globals.N.ERROR.Printf(err.Error())
 		return nil, err
 	}
+	theWallet.RegisterListeners()
 
 	if addr != "" {
 		session.SetGWAddress(addr)
@@ -303,6 +304,7 @@ func Wallet() *payment.Wallet {
 		// So, if the wallet is nil, registration must have happened for this method to work
 		var err error
 		theWallet, err = payment.CreateWallet(user.TheSession, false)
+		theWallet.RegisterListeners()
 		if err != nil {
 			globals.N.ERROR.Println("Wallet(" +
 				"): Got an error creating the wallet.", err.Error())

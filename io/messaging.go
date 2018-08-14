@@ -180,10 +180,6 @@ func (m *messaging) receiveMessageFromGateway(
 			ReceivedMessages = make(map[string]struct{})
 		}
 
-		if len(messages.MessageIDs) >= 1 {
-			lastReceivedMessageID = messages.MessageIDs[len(messages.MessageIDs)-1]
-		}
-
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
 			_, received := ReceivedMessages[messageID]
@@ -210,6 +206,7 @@ func (m *messaging) receiveMessageFromGateway(
 						return nil
 					}
 					ReceivedMessages[messageID] = struct{}{}
+					lastReceivedMessageID = messageID
 
 					// Generate a compound decryption key
 					salt := newMessage.Salt

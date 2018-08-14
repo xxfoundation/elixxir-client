@@ -152,19 +152,22 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 	for {
 		time.Sleep(delay)
 		globals.N.INFO.Printf("Attempting to receive message from gateway")
-		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
-		if decryptedMessage != nil {
-			assembledMessage := GetCollator().AddMessage(decryptedMessage, time.Minute)
-			if assembledMessage != nil {
-				// we got a fully assembled message. let's broadcast it
-				broadcastMessageReception(assembledMessage, switchboard.Listeners)
+		decryptedMessages := m.receiveMessagesFromGateway(&pollingMessage)
+		if decryptedMessages != nil {
+			for i := range decryptedMessages {
+				assembledMessage := GetCollator().AddMessage(
+					decryptedMessages[i], time.Minute)
+				if assembledMessage != nil {
+					// we got a fully assembled message. let's broadcast it
+					broadcastMessageReception(assembledMessage, switchboard.Listeners)
+				}
 			}
 		}
 	}
 }
 
-func (m *messaging) receiveMessageFromGateway(
-	pollingMessage *pb.ClientPollMessage) *format.Message {
+func (m *messaging) receiveMessagesFromGateway(
+	pollingMessage *pb.ClientPollMessage) []*format.Message {
 	receptionMutex.Lock()
 	defer receptionMutex.Unlock()
 	pollingMessage.MessageID = lastReceivedMessageID
@@ -183,6 +186,7 @@ func (m *messaging) receiveMessageFromGateway(
 			ReceivedMessages = make(map[string]struct{})
 		}
 
+		results := make([]*format.Message, 0, len(messages.MessageIDs))
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
 			_, received := ReceivedMessages[messageID]
@@ -206,7 +210,7 @@ func (m *messaging) receiveMessageFromGateway(
 						newMessage.RecipientID == nil &&
 						newMessage.SenderID == 0 {
 						globals.N.INFO.Println("Message fields not populated")
-						return nil
+						continue
 					}
 
 					// Generate a compound decryption key
@@ -230,10 +234,11 @@ func (m *messaging) receiveMessageFromGateway(
 					ReceivedMessages[messageID] = struct{}{}
 					lastReceivedMessageID = messageID
 
-					return decryptedMsg
+					results = append(results, decryptedMsg)
 				}
 			}
 		}
+		return results
 	}
 	return nil
 }

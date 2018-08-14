@@ -12,6 +12,7 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"strconv"
 	"sync"
+	"reflect"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
@@ -132,8 +133,11 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
+		globals.N.DEBUG.Printf("Hearing message of type %v from %v on %v" +
+			" listeners", msg.Type.String(), msg.Sender, len(accumNormals))
 		for _, listener := range accumNormals {
-			globals.N.INFO.Printf("Hearing on listener %v", listener.id)
+			globals.N.INFO.Printf("Hearing on listener %v of type %v",
+				listener.id, reflect.TypeOf(listener.l))
 			// TODO Should this launch a new goroutine for each listener that
 			// hears? Or would that make things too awful?
 			listener.l.Hear(msg, len(accumNormals) > 1)

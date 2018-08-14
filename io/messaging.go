@@ -47,6 +47,7 @@ var TransmitDelay = 1000 * time.Millisecond
 // received during this session
 var ReceivedMessages map[string]struct{}
 var lastReceivedMessageID = ""
+var receptionMutex sync.Mutex
 
 var sendLock sync.Mutex
 
@@ -164,6 +165,8 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 
 func (m *messaging) receiveMessageFromGateway(
 	pollingMessage *pb.ClientPollMessage) *format.Message {
+	receptionMutex.Lock()
+	defer receptionMutex.Unlock()
 	pollingMessage.MessageID = lastReceivedMessageID
 	if user.TheSession != nil {
 		messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
@@ -205,8 +208,6 @@ func (m *messaging) receiveMessageFromGateway(
 						globals.N.INFO.Println("Message fields not populated")
 						return nil
 					}
-					ReceivedMessages[messageID] = struct{}{}
-					lastReceivedMessageID = messageID
 
 					// Generate a compound decryption key
 					salt := newMessage.Salt
@@ -224,6 +225,10 @@ func (m *messaging) receiveMessageFromGateway(
 					if err2 != nil {
 						globals.N.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}
+					globals.N.INFO.Printf(
+						"Adding message ID %v to received message IDs", messageID)
+					ReceivedMessages[messageID] = struct{}{}
+					lastReceivedMessageID = messageID
 
 					return decryptedMsg
 				}

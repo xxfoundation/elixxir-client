@@ -17,7 +17,7 @@ var LocalStorage Storage
 func InitStorage(store Storage, location string) error {
 	if LocalStorage != nil {
 		errStr := "Invalid Local Storage Creation: Local storage already created"
-		N.ERROR.Printf(errStr)
+		Log.ERROR.Printf(errStr)
 		panic(errStr)
 	}
 
@@ -33,7 +33,7 @@ func InitStorage(store Storage, location string) error {
 
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())
-		N.ERROR.Printf(err.Error())
+		Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -70,10 +70,9 @@ func (ds *DefaultStorage) Save(data []byte) error {
 	_, err1 := os.Stat(ds.location)
 
 	if err1 == nil {
-		//N.INFO.Printf("Storage file already exists, deleting.")
 		os.Remove(ds.location)
 	} else if !os.IsNotExist(err1) {
-		N.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
 			" file check: \n  %v",
 			err1.Error())
 		return err1
@@ -85,7 +84,7 @@ func (ds *DefaultStorage) Save(data []byte) error {
 	defer f.Close()
 
 	if err2 != nil {
-		N.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
 			" file creation: \n %v", err2.Error())
 		return err2
 	}
@@ -94,7 +93,7 @@ func (ds *DefaultStorage) Save(data []byte) error {
 	_, err3 := f.Write(data)
 
 	if err3 != nil {
-		N.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
 			" file write: \n %v", err3.Error())
 		return err3
 	}
@@ -107,7 +106,7 @@ func (ds *DefaultStorage) Load() []byte {
 	finfo, err1 := os.Stat(ds.location)
 
 	if err1 != nil {
-		N.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
 			" file check: \n  %v", err1.Error())
 		return nil
 	}
@@ -120,7 +119,7 @@ func (ds *DefaultStorage) Load() []byte {
 	defer f.Close()
 
 	if err2 != nil {
-		N.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
 			" file open: \n  %v", err2.Error())
 		return nil
 	}
@@ -129,7 +128,7 @@ func (ds *DefaultStorage) Load() []byte {
 	_, err3 := f.Read(b)
 
 	if err3 != nil {
-		N.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
 			" file read: \n  %v", err3.Error())
 		return nil
 	}

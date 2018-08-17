@@ -152,12 +152,12 @@ func parseSearch(msg string) (uint64, string) {
 func parseGetKey(msg string) []byte {
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 3 {
-		globals.N.WARN.Printf("Invalid response from GETKEY: %s", msg)
+		globals.Log.WARN.Printf("Invalid response from GETKEY: %s", msg)
 		return nil
 	}
 	keymat, err := base64.StdEncoding.DecodeString(resParts[2])
 	if err != nil || len(keymat) != 256 {
-		globals.N.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
+		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}
 

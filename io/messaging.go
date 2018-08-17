@@ -79,7 +79,7 @@ func (m *messaging) SendMessage(recipientID user.ID,
 			return err
 		}
 		if len(messages) != 1 {
-			globals.N.ERROR.Printf("Expected one message from already-partitioned"+
+			globals.Log.ERROR.Printf("Expected one message from already-partitioned"+
 				" message of length %v. Got %v messages instead.",
 				len(parts[i]), len(messages))
 		}
@@ -129,7 +129,7 @@ func send(senderID user.ID, message *format.Message) error {
 	}
 
 	var err error
-	globals.N.INFO.Println("Sending put message to gateway")
+	globals.Log.INFO.Println("Sending put message to gateway")
 	err = client.SendPutMessage(SendAddress, msgPacket)
 
 	return err
@@ -143,7 +143,7 @@ func send(senderID user.ID, message *format.Message) error {
 func (m *messaging) MessageReceiver(delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if user.TheSession == nil {
-		globals.N.FATAL.Panicf("No user session available")
+		globals.Log.FATAL.Panicf("No user session available")
 	}
 	pollingMessage := pb.ClientPollMessage{
 		UserID: uint64(user.TheSession.GetCurrentUser().UserID),
@@ -151,7 +151,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 
 	for {
 		time.Sleep(delay)
-		globals.N.INFO.Printf("Attempting to receive message from gateway")
+		globals.Log.INFO.Printf("Attempting to receive message from gateway")
 		decryptedMessages := m.receiveMessagesFromGateway(&pollingMessage)
 		if decryptedMessages != nil {
 			for i := range decryptedMessages {
@@ -176,11 +176,11 @@ func (m *messaging) receiveMessagesFromGateway(
 			pollingMessage)
 
 		if err != nil {
-			globals.N.WARN.Printf("CheckMessages error during polling: %v", err.Error())
+			globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
 			return nil
 		}
 
-		globals.N.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
+		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
 
 		if ReceivedMessages == nil {
 			ReceivedMessages = make(map[string]struct{})
@@ -191,7 +191,7 @@ func (m *messaging) receiveMessagesFromGateway(
 			// Get the first unseen message from the list of IDs
 			_, received := ReceivedMessages[messageID]
 			if !received {
-				globals.N.INFO.Printf("Got a message waiting on the gateway: %v",
+				globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 					messageID)
 				// We haven't seen this message before.
 				// So, we should retrieve it from the gateway.
@@ -202,14 +202,14 @@ func (m *messaging) receiveMessagesFromGateway(
 						MessageID: messageID,
 					})
 				if err != nil {
-					globals.N.WARN.Printf(
+					globals.Log.WARN.Printf(
 						"Couldn't receive message with ID %v while"+
 							" polling gateway", messageID)
 				} else {
 					if newMessage.MessagePayload == nil &&
 						newMessage.RecipientID == nil &&
 						newMessage.SenderID == 0 {
-						globals.N.INFO.Println("Message fields not populated")
+						globals.Log.INFO.Println("Message fields not populated")
 						continue
 					}
 
@@ -227,9 +227,9 @@ func (m *messaging) receiveMessagesFromGateway(
 					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
 						newMessage)
 					if err2 != nil {
-						globals.N.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
+						globals.Log.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}
-					globals.N.INFO.Printf(
+					globals.Log.INFO.Printf(
 						"Adding message ID %v to received message IDs", messageID)
 					ReceivedMessages[messageID] = struct{}{}
 					lastReceivedMessageID = messageID

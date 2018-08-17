@@ -62,7 +62,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			typedBody, err := parse.Parse(partition.Body)
 			// Log an error if the message is malformed and return nothing
 			if err != nil {
-				globals.N.ERROR.Printf("Malformed message recieved")
+				globals.Log.ERROR.Printf("Malformed message recieved")
 				return nil
 			}
 
@@ -125,7 +125,7 @@ func (mb *collator) AddMessage(message *format.Message,
 				if err != nil {
 					delete(mb.pendingMessages, key)
 					mb.mux.Unlock()
-					globals.N.ERROR.Printf("Malformed message Recieved")
+					globals.Log.ERROR.Printf("Malformed message Recieved")
 					return nil
 				}
 
@@ -143,9 +143,9 @@ func (mb *collator) AddMessage(message *format.Message,
 			mb.mux.Unlock()
 		}
 	} else {
-		globals.N.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
+		globals.Log.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
 	}
-	globals.N.DEBUG.Printf("Message collator: %v", mb.dump())
+	globals.Log.DEBUG.Printf("Message collator: %v", mb.dump())
 	return nil
 }
 

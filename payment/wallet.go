@@ -165,12 +165,12 @@ type InvoiceListener struct {
 }
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	globals.N.DEBUG.Println("Heard an invoice from %v!", msg.Sender)
+	globals.Log.DEBUG.Println("Heard an invoice from %v!", msg.Sender)
 	var invoice parse.PaymentInvoice
 
 	// Test for incorrect message type, just in case
 	if msg.Type != parse.Type_PAYMENT_INVOICE {
-		globals.N.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
+		globals.Log.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
 			" type: %v",
 			msg.Type.String())
 		return
@@ -178,19 +178,19 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	// Don't humor people who send malformed messages
 	if err := proto.Unmarshal(msg.Body, &invoice); err != nil {
-		globals.N.WARN.Printf("InvoiceListener: Got error unmarshaling inbound"+
+		globals.Log.WARN.Printf("InvoiceListener: Got error unmarshaling inbound"+
 			" invoice: %v", err.Error())
 		return
 	}
 
 	if uint64(len(invoice.CreatedCoin)) != coin.BaseFrameLen {
-		globals.N.WARN.Printf("InvoiceListener: Created coin has incorrect length"+
+		globals.Log.WARN.Printf("InvoiceListener: Created coin has incorrect length"+
 			" %v and is likely invalid", len(invoice.CreatedCoin))
 		return
 	}
 
 	if !coin.IsCompound(invoice.CreatedCoin) {
-		globals.N.WARN.Printf("InvoiceListener: Got an invoice with an incorrect" +
+		globals.Log.WARN.Printf("InvoiceListener: Got an invoice with an incorrect" +
 			" coin type")
 		return
 	}
@@ -317,7 +317,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 	}
 
 	paymentID := msg.Hash()
-	globals.N.INFO.Printf("Prepared payment message. Its ID is %v",
+	globals.Log.INFO.Printf("Prepared payment message. Its ID is %v",
 		base64.StdEncoding.EncodeToString(paymentID[:]))
 	w.pendingTransactions.Upsert(msg.Hash(), &pendingTransaction)
 
@@ -334,17 +334,17 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 	var response parse.PaymentResponse
 	err := proto.Unmarshal(msg.Body, &response)
 	if err != nil {
-		globals.N.WARN.Printf("Heard an invalid response from the payment bot. "+
+		globals.Log.WARN.Printf("Heard an invalid response from the payment bot. "+
 			"Error: %v", err.Error())
 	}
 
 	var paymentID parse.MessageHash
 	copy(paymentID[:], response.ID)
-	globals.N.INFO.Printf("Heard response from payment bot. ID: %v",
+	globals.Log.INFO.Printf("Heard response from payment bot. ID: %v",
 		base64.StdEncoding.EncodeToString(paymentID[:]))
 	transaction, ok := l.wallet.pendingTransactions.Pop(paymentID)
 	if !ok {
-		globals.N.ERROR.Printf("Couldn't find the transaction with that"+
+		globals.Log.ERROR.Printf("Couldn't find the transaction with that"+
 			" payment message ID: %q", paymentID)
 		return
 	}
@@ -372,16 +372,16 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		// be able to keep track of.
 		l.wallet.completedOutboundPayments.Upsert(transaction.OriginID, transaction)
 		receipt := l.formatReceipt(transaction)
-		globals.N.DEBUG.Printf("Attempting to send receipt to transaction"+
+		globals.Log.DEBUG.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)
 		err := io.Messaging.SendMessage(transaction.Recipient,
 			receipt.GetPayload())
 		if err != nil {
-			globals.N.ERROR.Printf("Payment response listener couldn't send"+
+			globals.Log.ERROR.Printf("Payment response listener couldn't send"+
 				" receipt: %v", err.Error())
 		}
 	}
-	globals.N.DEBUG.Printf("Payment response: %v", response.Response)
+	globals.Log.DEBUG.Printf("Payment response: %v", response.Response)
 }
 
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
@@ -405,7 +405,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	copy(invoiceID[:], msg.Body)
 	transaction, ok := rl.wallet.outboundRequests.Pop(invoiceID)
 	if !ok {
-		globals.N.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
+		globals.Log.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
 			": %q", msg.Sender, invoiceID)
 	} else {
 		// Mark the transaction in the log of completed transactions

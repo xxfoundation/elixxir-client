@@ -60,7 +60,7 @@ func CreateOrderedStorage(tag string, session user.Session) (*OrderedCoinStorage
 				return nil, err
 			}
 		default:
-			globals.N.FATAL.Panicf("wong type returned when loading ordered storage")
+			globals.Log.FATAL.Panicf("wong type returned when loading ordered storage")
 		}
 	}
 

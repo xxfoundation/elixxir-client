@@ -85,7 +85,7 @@ type UserMap struct {
 // newRegistry creates a new Registry interface
 func newRegistry() Registry {
 	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
-		globals.N.ERROR.Print("Not enough demo users have been hardcoded.")
+		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
 	uc := make(map[ID]*User)
 	ul := make(map[string]ID)

@@ -10,7 +10,7 @@ package bots
 import (
 	"encoding/base64"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
@@ -153,12 +153,12 @@ func parseSearch(msg string) (uint64, string) {
 func parseGetKey(msg string) []byte {
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 3 {
-		jww.WARN.Printf("Invalid response from GETKEY: %s", msg)
+		globals.Log.WARN.Printf("Invalid response from GETKEY: %s", msg)
 		return nil
 	}
 	keymat, err := base64.StdEncoding.DecodeString(resParts[2])
 	if err != nil || len(keymat) != 256 {
-		jww.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
+		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}
 

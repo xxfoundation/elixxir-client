@@ -112,14 +112,14 @@ func InitClient(storage Storage, loc string) error {
 // 10
 // “Jono”
 // JHJ6L9BACDVC
-func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
-	error) {
+func Register(registrationCode string, gwAddr string, numNodes int,
+	mint bool) ([]byte, error) {
 
 	if numNodes < 1 {
 		return nil, errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes))
+	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
 
 	if err != nil {
 		return nil, err
@@ -131,10 +131,11 @@ func Register(registrationCode string, gwAddr string, numNodes int) ([]byte,
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
+// TODO Pass the session in a proto struct/interface in the bindings or something
 func Login(UID []byte, addr string) (string, error) {
 	userID := user.NewIDFromBytes(UID)
-	nick, err := api.Login(userID, addr)
-	return nick, err
+	session, err := api.Login(userID, addr)
+	return session.GetCurrentUser().Nick, err
 }
 
 //Sends a message structured via the message interface

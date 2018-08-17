@@ -10,6 +10,7 @@ import (
 	"encoding/gob"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
+	"sort"
 )
 
 type TransactionList struct {
@@ -111,4 +112,58 @@ func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 		delete(*tl.transactionMap, mh)
 	}
 	return t, b
+}
+
+// Used for sorting transaction lists by their various fields.
+// For bindings reasons, we can't return sorted slices of transactions, so
+// when sorting the transaction map we need to return the keys that go with
+// the sorted transaction
+type keyAndTransaction struct {
+	key         parse.MessageHash
+	transaction *Transaction
+}
+
+// Golang randomizes map keys' order when you range through a map.
+// To avoid showing transactions to our users in that random order, we have to
+// sort the map's keys by values in the transactions.
+// Useful sorting criteria are timestamp and value (possibly also grouped by the
+// other party to the transaction.)
+func (tl *TransactionList) getKeys(order TransactionListOrder) []byte {
+	tl.session.LockStorage()
+	keys := make([]keyAndTransaction, 0, len(*tl.transactionMap))
+	for k, v := range *tl.transactionMap {
+		keys = append(keys, keyAndTransaction{
+			key:         k,
+			transaction: v,
+		})
+	}
+	// Sort the keys with the specified order
+	var lessFunc func(i, j int) bool
+	switch order {
+	case TimestampDescending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Timestamp.After(keys[j].transaction.Timestamp)
+		}
+	case TimestampAscending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Timestamp.Before(keys[j].transaction.Timestamp)
+		}
+	case ValueDescending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Value > keys[j].transaction.Value
+		}
+	case ValueAscending:
+		lessFunc = func(i, j int) bool {
+			return keys[i].transaction.Value < keys[j].transaction.Value
+		}
+	}
+	sort.Slice(keys, lessFunc)
+
+	keyList := make([]byte, 0, uint64(len(*tl.transactionMap))*parse.
+		MessageHashLen)
+	tl.session.UnlockStorage()
+	for i := range keys {
+		keyList = append(keyList, keys[i].key[:]...)
+	}
+	return keyList
 }

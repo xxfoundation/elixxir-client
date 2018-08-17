@@ -10,8 +10,8 @@
 package io
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/crypto"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
@@ -47,6 +47,7 @@ var TransmitDelay = 1000 * time.Millisecond
 // received during this session
 var ReceivedMessages map[string]struct{}
 var lastReceivedMessageID = ""
+var receptionMutex sync.Mutex
 
 var sendLock sync.Mutex
 
@@ -78,7 +79,7 @@ func (m *messaging) SendMessage(recipientID user.ID,
 			return err
 		}
 		if len(messages) != 1 {
-			jww.ERROR.Printf("Expected one message from already-partitioned"+
+			globals.Log.ERROR.Printf("Expected one message from already-partitioned"+
 				" message of length %v. Got %v messages instead.",
 				len(parts[i]), len(messages))
 		}
@@ -128,7 +129,7 @@ func send(senderID user.ID, message *format.Message) error {
 	}
 
 	var err error
-	jww.INFO.Println("Sending put message to gateway")
+	globals.Log.INFO.Println("Sending put message to gateway")
 	err = client.SendPutMessage(SendAddress, msgPacket)
 
 	return err
@@ -142,7 +143,7 @@ func send(senderID user.ID, message *format.Message) error {
 func (m *messaging) MessageReceiver(delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if user.TheSession == nil {
-		jww.FATAL.Panicf("No user session available")
+		globals.Log.FATAL.Panicf("No user session available")
 	}
 	pollingMessage := pb.ClientPollMessage{
 		UserID: uint64(user.TheSession.GetCurrentUser().UserID),
@@ -150,41 +151,47 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 
 	for {
 		time.Sleep(delay)
-		jww.INFO.Printf("Attempting to receive message from gateway")
-		decryptedMessage := m.receiveMessageFromGateway(&pollingMessage)
-		if decryptedMessage != nil {
-			assembledMessage := GetCollator().AddMessage(decryptedMessage, time.Minute)
-			if assembledMessage != nil {
-				// we got a fully assembled message. let's broadcast it
-				broadcastMessageReception(assembledMessage, switchboard.Listeners)
+		globals.Log.INFO.Printf("Attempting to receive message from gateway")
+		decryptedMessages := m.receiveMessagesFromGateway(&pollingMessage)
+		if decryptedMessages != nil {
+			for i := range decryptedMessages {
+				assembledMessage := GetCollator().AddMessage(
+					decryptedMessages[i], time.Minute)
+				if assembledMessage != nil {
+					// we got a fully assembled message. let's broadcast it
+					broadcastMessageReception(assembledMessage, switchboard.Listeners)
+				}
 			}
 		}
 	}
 }
 
-func (m *messaging) receiveMessageFromGateway(
-	pollingMessage *pb.ClientPollMessage) *format.Message {
+func (m *messaging) receiveMessagesFromGateway(
+	pollingMessage *pb.ClientPollMessage) []*format.Message {
+	receptionMutex.Lock()
+	defer receptionMutex.Unlock()
 	pollingMessage.MessageID = lastReceivedMessageID
 	if user.TheSession != nil {
 		messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
 			pollingMessage)
 
 		if err != nil {
-			jww.WARN.Printf("CheckMessages error during polling: %v", err.Error())
+			globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
 			return nil
 		}
 
-		jww.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
+		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
 
 		if ReceivedMessages == nil {
 			ReceivedMessages = make(map[string]struct{})
 		}
 
+		results := make([]*format.Message, 0, len(messages.MessageIDs))
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
 			_, received := ReceivedMessages[messageID]
 			if !received {
-				jww.INFO.Printf("Got a message waiting on the gateway: %v",
+				globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 					messageID)
 				// We haven't seen this message before.
 				// So, we should retrieve it from the gateway.
@@ -195,15 +202,15 @@ func (m *messaging) receiveMessageFromGateway(
 						MessageID: messageID,
 					})
 				if err != nil {
-					jww.WARN.Printf(
+					globals.Log.WARN.Printf(
 						"Couldn't receive message with ID %v while"+
 							" polling gateway", messageID)
 				} else {
 					if newMessage.MessagePayload == nil &&
 						newMessage.RecipientID == nil &&
 						newMessage.SenderID == 0 {
-						jww.INFO.Println("Message fields not populated")
-						return nil
+						globals.Log.INFO.Println("Message fields not populated")
+						continue
 					}
 
 					// Generate a compound decryption key
@@ -220,15 +227,18 @@ func (m *messaging) receiveMessageFromGateway(
 					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
 						newMessage)
 					if err2 != nil {
-						jww.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
+						globals.Log.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
 					}
+					globals.Log.INFO.Printf(
+						"Adding message ID %v to received message IDs", messageID)
 					ReceivedMessages[messageID] = struct{}{}
 					lastReceivedMessageID = messageID
 
-					return decryptedMsg
+					results = append(results, decryptedMsg)
 				}
 			}
 		}
+		return results
 	}
 	return nil
 }

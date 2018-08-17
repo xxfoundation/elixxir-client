@@ -9,9 +9,10 @@ package user
 import (
 	"crypto/sha256"
 	"encoding/binary"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/hash"
+	"strconv"
 )
 
 // TODO use this type for User IDs consistently throughout
@@ -42,11 +43,18 @@ func NewIDFromBytes(id []byte) ID {
 	return result
 }
 
+// Converts from human-readable string to user ID
+// NOTE This will break when we migrate to the new 128-bit user IDs
+func NewIDFromString(id string, base int) (ID, error) {
+	newID, err := strconv.ParseUint(id, 10, 64)
+	return ID(newID), err
+}
+
 // Globally instantiated Registry
 var Users = newRegistry()
 var NUM_DEMO_USERS = int(40)
 var DEMO_USER_NICKS = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
-	"Mario", "Will", "Allan", "Jono", "", "", "UDB"}
+	"Mario", "Will", "Allan", "Jono", "", "", "UDB", "", "", "", "Payments"}
 var DEMO_CHANNEL_NAMES = []string{"#General", "#Engineering", "#Lunch",
 	"#Random"}
 
@@ -77,7 +85,7 @@ type UserMap struct {
 // newRegistry creates a new Registry interface
 func newRegistry() Registry {
 	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
-		jww.ERROR.Print("Not enough demo users have been hardcoded.")
+		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
 	uc := make(map[ID]*User)
 	ul := make(map[string]ID)

@@ -10,7 +10,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"sync"
@@ -150,7 +150,7 @@ type MultiPartMessage struct {
 
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	err error) {
-	jww.DEBUG.Printf("%v\n", partition)
+	globals.Log.DEBUG.Printf("%v\n", partition)
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0
@@ -158,7 +158,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		if msbMask&partition[i] == 0 {
 			// this is the last byte in the ID. stop the loop
 			indexInformationStart = i + 1
-			jww.DEBUG.Println("Index information start:", indexInformationStart)
+			globals.Log.DEBUG.Println("Index information start:", indexInformationStart)
 			break
 		}
 	}
@@ -185,7 +185,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		Body:     partition[indexInformationStart+2:],
 	}
 
-	jww.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,
+	globals.Log.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,
 		result.Index, result.MaxIndex, string(result.Body))
 	return result, nil
 }

@@ -244,7 +244,7 @@ func (m *messaging) receiveMessagesFromGateway(
 }
 
 func broadcastMessageReception(message *parse.Message,
-	listeners *switchboard.ListenerMap) {
+	listeners *switchboard.Switchboard) {
 
 	listeners.Speak(message)
 }

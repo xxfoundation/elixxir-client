@@ -143,13 +143,15 @@ func (lm *Switchboard) Speak(msg *parse.Message) {
 			listener.l.Hear(msg, len(accumNormals) > 1)
 		}
 	} else {
-		globals.Log.ERROR.Println("Message didn't match any listeners in the map")
+		globals.Log.ERROR.Printf(
+			"Message of type %v from user %v didn't match any listeners in" +
+				" the map", msg.Type.String(), msg.Sender)
 		// dump representation of the map
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {
 				for i, listener := range perType {
 					globals.Log.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
-						i, listener.id, u, messageType)
+						i, listener.id, u, messageType.String())
 				}
 			}
 		}

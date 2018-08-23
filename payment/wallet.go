@@ -42,6 +42,9 @@ type Wallet struct {
 	completedOutboundPayments *TransactionList
 
 	session user.Session
+
+	// Listen to this switchboard to get UI messages from the wallet
+	Switchboard *switchboard.Switchboard
 }
 
 // If you want the wallet to be able to receive messages you must register its
@@ -92,6 +95,8 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 		return nil, err
 	}
 
+	sb := switchboard.NewSwitchboard()
+
 	w := &Wallet{
 		coinStorage:               cs,
 		outboundRequests:          obr,
@@ -99,7 +104,9 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 		pendingTransactions:       pt,
 		completedInboundPayments:  ip,
 		completedOutboundPayments: op,
-		session:                   s}
+		session:                   s,
+		Switchboard:               sb,
+	}
 
 	return w, nil
 }
@@ -165,7 +172,7 @@ type InvoiceListener struct {
 }
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	globals.Log.DEBUG.Println("Heard an invoice from %v!", msg.Sender)
+	globals.Log.DEBUG.Printf("Heard an invoice from %v!", msg.Sender)
 	var invoice parse.PaymentInvoice
 
 	// Test for incorrect message type, just in case
@@ -217,7 +224,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 	// The invoice UI message allows the UI to notify the user that the new
 	// invoice is here and ready to be paid
-	switchboard.Listeners.Speak(&parse.Message{
+	il.wallet.Switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: parse.Type_PAYMENT_INVOICE_UI,
 			Body: invoiceID[:],
@@ -382,6 +389,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		}
 	}
 	globals.Log.DEBUG.Printf("Payment response: %v", response.Response)
+	l.wallet.Switchboard.Speak(msg)
 }
 
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
@@ -413,7 +421,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		// Add the user's new coins to coin storage
 		rl.wallet.coinStorage.Add(transaction.Create)
 		// Let the payment receipt UI listeners know that a payment's come in
-		switchboard.Listeners.Speak(&parse.Message{
+		rl.wallet.Switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
 				Type: parse.Type_PAYMENT_RECEIPT_UI,
 				Body: invoiceID[:],

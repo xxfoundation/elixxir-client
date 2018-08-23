@@ -43,7 +43,9 @@ type Wallet struct {
 
 	session user.Session
 
-	// Listen to this switchboard to get UI messages from the wallet
+	// Listen to this switchboard to get UI messages from the wallet.
+	// This includes the types PAYMENT_INVOICE_UI, PAYMENT_RESPONSE, and
+	// PAYMENT_RECEIPT_UI.
 	Switchboard *switchboard.Switchboard
 }
 

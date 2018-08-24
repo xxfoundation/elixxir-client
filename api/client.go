@@ -10,17 +10,16 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/payment"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/forward"
 	"math"
 	"time"
 )
@@ -59,12 +58,12 @@ func InitClient(s globals.Storage, loc string) error {
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint) (user.ID, error) {
+	numNodes uint, mint bool) (user.ID, error) {
 
 	var err error
 
 	if numNodes < 1 {
-		jww.ERROR.Printf("Register: Invalid number of nodes")
+		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
 		return 0, err
 	}
@@ -74,7 +73,7 @@ func Register(registrationCode string, gwAddr string,
 	defer clearUserID(&UID)
 
 	if !successLook {
-		jww.ERROR.Printf("Register: HUID does not match")
+		globals.Log.ERROR.Printf("Register: HUID does not match")
 		err = errors.New("could not register due to invalid HUID")
 		return 0, err
 	}
@@ -82,7 +81,7 @@ func Register(registrationCode string, gwAddr string,
 	u, successGet := user.Users.GetUser(UID)
 
 	if !successGet {
-		jww.ERROR.Printf("Register: ID lookup failed")
+		globals.Log.ERROR.Printf("Register: ID lookup failed")
 		err = errors.New("could not register due to ID lookup failure")
 		return 0, err
 	}
@@ -91,7 +90,7 @@ func Register(registrationCode string, gwAddr string,
 	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
-		jww.ERROR.Printf("Register: could not find user keys")
+		globals.Log.ERROR.Printf("Register: could not find user keys")
 		err = errors.New("could not register due to missing user keys")
 		return 0, err
 	}
@@ -104,13 +103,20 @@ func Register(registrationCode string, gwAddr string,
 
 	nus := user.NewSession(u, gwAddr, nk)
 
+	_, err = payment.CreateWallet(nus, mint)
+	if err != nil {
+		return 0, err
+	}
+
 	errStore := nus.StoreSession()
 
+	// FIXME If we have an error here, the session that gets created doesn't get immolated.
+	// Immolation should happen in a deferred call instead.
 	if errStore != nil {
 		err = errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.Log.ERROR.Printf(err.Error())
 		return 0, err
 	}
 
@@ -122,19 +128,27 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID user.ID, addr string) (string, error) {
+func Login(UID user.ID, addr string) (user.Session, error) {
 
-	err := user.LoadSession(UID)
+	session, err := user.LoadSession(UID)
 
-	if user.TheSession == nil {
-		return "", errors.New("Unable to load session")
+	if session == nil {
+		return nil, errors.New("Unable to load session")
 	}
+
+	theWallet, err = payment.CreateWallet(session, false)
+	if err != nil {
+		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
+		globals.Log.ERROR.Printf(err.Error())
+		return nil, err
+	}
+	theWallet.RegisterListeners()
 
 	if addr != "" {
-		user.TheSession.SetGWAddress(addr)
+		session.SetGWAddress(addr)
 	}
 
-	addrToUse := user.TheSession.GetGWAddress()
+	addrToUse := session.GetGWAddress()
 
 	// TODO: These can be separate, but we set them to the same thing
 	//       until registration is completed.
@@ -144,9 +158,11 @@ func Login(UID user.ID, addr string) (string, error) {
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))
-		jww.ERROR.Printf(err.Error())
-		return "", err
+		globals.Log.ERROR.Printf(err.Error())
+		return nil, err
 	}
+
+	user.TheSession = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// FIXME listenCh won't exist - how do you tell if the reception thread
@@ -154,10 +170,10 @@ func Login(UID user.ID, addr string) (string, error) {
 	if listenCh == nil {
 		go io.Messaging.MessageReceiver(pollWaitTimeMillis)
 	} else {
-		jww.ERROR.Printf("Message receiver already started!")
+		globals.Log.ERROR.Printf("Message receiver already started!")
 	}
 
-	return user.TheSession.GetCurrentUser().Nick, nil
+	return session, nil
 }
 
 // Send prepares and sends a message to the cMix network
@@ -186,10 +202,11 @@ func SetRateLimiting(limit uint32) {
 var listenCh chan *format.Message
 
 func Listen(user user.ID, messageType parse.Type,
-	newListener switchboard.Listener) {
-	jww.INFO.Printf("Listening now: user %v, message type %v, ",
-		user, messageType)
-	switchboard.Listeners.Register(user, messageType, newListener)
+	newListener switchboard.Listener) string {
+	id := switchboard.Listeners.Register(user, messageType, newListener)
+	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
+		user, messageType, id)
+	return id
 }
 
 type APISender struct{}
@@ -208,7 +225,7 @@ type Sender interface {
 func Logout() error {
 	if user.TheSession == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
-		jww.ERROR.Printf(err.Error())
+		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -222,7 +239,7 @@ func Logout() error {
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
 			errStore.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -231,7 +248,7 @@ func Logout() error {
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
 			errImmolate.Error()))
-		jww.ERROR.Printf(err.Error())
+		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -247,15 +264,11 @@ func clearUserID(u *user.ID) {
 	*u = 0
 }
 
-func DisableRatchet() {
-	forward.SetRatchetStatus(false)
-}
-
 func RegisterForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userExists, err := bots.Search(valueType, emailAddress)
 	if userExists != nil {
-		jww.DEBUG.Printf("Already registered %s", emailAddress)
+		globals.Log.DEBUG.Printf("Already registered %s", emailAddress)
 		return nil
 	}
 	if err != nil {
@@ -269,7 +282,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	for i := range publicKeyBytes {
 		idx := len(fixedPubBytes) - i - 1
 		if idx < 0 {
-			jww.FATAL.Panicf("pubkey exceeds 2048 bit length!")
+			globals.Log.FATAL.Panicf("pubkey exceeds 2048 bit length!")
 		}
 		fixedPubBytes[idx] = publicKeyBytes[idx]
 	}
@@ -279,4 +292,23 @@ func RegisterForUserDiscovery(emailAddress string) error {
 func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
 	valueType := "EMAIL"
 	return bots.Search(valueType, emailAddress)
+}
+
+// TODO Support more than one wallet per user? Maybe in v2
+var theWallet *payment.Wallet
+
+func Wallet() *payment.Wallet {
+	if theWallet == nil {
+		// Assume that the correct wallet is already stored in the session
+		// (if necessary, minted during register)
+		// So, if the wallet is nil, registration must have happened for this method to work
+		var err error
+		theWallet, err = payment.CreateWallet(user.TheSession, false)
+		theWallet.RegisterListeners()
+		if err != nil {
+			globals.Log.ERROR.Println("Wallet(" +
+				"): Got an error creating the wallet.", err.Error())
+		}
+	}
+	return theWallet
 }

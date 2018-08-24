@@ -32,7 +32,7 @@ func (m Message) Hash() MessageHash {
 	h.Write(m.Body)
 	h.Write(m.Sender.Bytes())
 	h.Write(m.Receiver.Bytes())
-	h.Write(m.Nonce)
+	//h.Write(m.Nonce)
 
 	hashed := h.Sum(nil)
 
@@ -45,14 +45,10 @@ func (m Message) GetSender() []byte {
 	return m.Sender.Bytes()
 }
 
-func (m Message) GetRecipient() []byte{
+func (m Message) GetRecipient() []byte {
 	return m.Receiver.Bytes()
 }
 
-func (m Message) GetPayload() string{
+func (m Message) GetPayload() string {
 	return string(Pack(&m.TypedBody))
 }
-
-
-
-

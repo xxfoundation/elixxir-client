@@ -62,13 +62,17 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if LoadSession(UID) != nil {
+	_, err = LoadSession(UID)
+
+	if err != nil {
 		t.Errorf("Error: Unable to login with valid user!")
 	} else {
 		pass++
 	}
 
-	if LoadSession(ID(10002)) == nil {
+	_, err = LoadSession(ID(10002))
+
+	if err == nil {
 		t.Errorf("Error: Able to login with invalid user!")
 	} else {
 		pass++
@@ -183,7 +187,10 @@ func TestUserSession(t *testing.T) {
 	// Test nil LocalStorage
 	temp := globals.LocalStorage
 	globals.LocalStorage = nil
-	if LoadSession(ID(6)) == nil {
+
+	_, err = LoadSession(ID(6))
+
+	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
 	}
 	globals.LocalStorage = temp
@@ -193,7 +200,10 @@ func TestUserSession(t *testing.T) {
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
 	globals.LocalStorage.Save(randBytes)
-	if LoadSession(ID(6)) == nil {
+
+	_, err = LoadSession(ID(6))
+
+	if err == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
 	}
 }

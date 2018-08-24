@@ -16,7 +16,6 @@ import (
 	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"math/rand"
 	"os"
 	"testing"
@@ -27,9 +26,6 @@ var gwAddress = "localhost:8080"
 
 var Session user.SessionObj
 var GatewayData TestInterface
-
-
-
 
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().Unix())
@@ -66,7 +62,7 @@ func TestRegister(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	regRes, err := Register(registrationCode, gwAddress, 1)
+	regRes, err := Register(registrationCode, gwAddress, 1, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -84,7 +80,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "JHJ6L9BACDVC"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, gwAddress, 0)
+	_, err = Register(registrationCode, gwAddress, 0, false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -99,7 +95,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	registrationCode := "JHJ6L9BACDV"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, gwAddress, 1)
+	_, err = Register(registrationCode, gwAddress, 1, false)
 	if err == nil {
 		t.Errorf("Registration worked with bad registration code! %s",
 			err.Error())
@@ -117,7 +113,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	err := InitClient(&d, "hello")
 	tempUser, _ := user.Users.GetUser(10)
 	user.Users.DeleteUser(10)
-	_, err = Register(registrationCode, gwAddress, 1)
+	_, err = Register(registrationCode, gwAddress, 1, false)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -134,7 +130,6 @@ func SetNulKeys() {
 		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
 		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
 	}
-	DisableRatchet()
 }
 
 func TestSend(t *testing.T) {
@@ -145,15 +140,15 @@ func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	userID, err := Register("be50nhqpqjtjj", gwAddress, 1)
-	loginRes, err2 := Login(userID, gwAddress)
+	userID, err := Register("be50nhqpqjtjj", gwAddress, 1, false)
+	session, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
-	if len(loginRes) == 0 {
-		t.Errorf("Invalid login received: %v", loginRes)
+	if len(session.GetCurrentUser().Nick) == 0 {
+		t.Errorf("Invalid login received: %v", session.GetCurrentUser().UserID)
 	}
 
 	// Test send with invalid sender ID
@@ -171,43 +166,6 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error sending message: %v", err)
 	}
-}
-
-// TODO high-level test of receiving with new mechanisms
-func TestReceive(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
-
-	globals.LocalStorage = nil
-
-	// Initialize client and log in
-	registrationCode := "be50nhqpqjtjj"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
-	userID, err := Register(registrationCode, gwAddress, 1)
-	loginRes, err2 := Login(userID, gwAddress)
-	SetNulKeys()
-
-	if err2 != nil {
-		t.Errorf("Login failed: %s", err.Error())
-	}
-	if len(loginRes) == 0 {
-		t.Errorf("Invalid login received: %v", loginRes)
-	}
-	if user.TheSession == nil {
-		t.Errorf("Could not load session!")
-	}
-
-	msg, _ := format.NewMessage(10, 10, "test")
-	Send(&msg[0])
-	time.Sleep(500 * time.Millisecond)
-
-	//if cyclic.NewIntFromBytes(receivedMsg.GetRecipient()).Uint64() != 0 {
-	//	t.Errorf("Recipient of received message is incorrect. "+
-	//		"Expected: 0 Actual %v", cyclic.NewIntFromBytes(receivedMsg.
-	//		GetRecipient()).Uint64())
-	//}
 }
 
 func TestLogout(t *testing.T) {

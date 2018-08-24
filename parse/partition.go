@@ -1,10 +1,16 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package parse
 
 import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"sync"
@@ -47,9 +53,15 @@ func (i *IDCounter) Reset() {
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
 
-// length in bytes of index and max index.
+// length in bytes of index and max index together
 // change this if you change the index type
 const IndexLength = 2
+
+func GetMaxIndex(body []byte, id []byte) uint64 {
+	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
+		id)) - IndexLength)
+	return maxIndex
+}
 
 func Partition(body []byte, id []byte) ([][]byte, error) {
 	// index and quantity of the partitioned message are a fixed length of 8
@@ -61,8 +73,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	// number of partitions if you do them that way and i'm having none of that
 
 	// a zero here means that the message has one partition
-	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
-		id)) - IndexLength)
+	maxIndex := GetMaxIndex(body, id)
 	if maxIndex > math.MaxUint8 {
 		return nil, errors.New(MessageTooLongError)
 	}
@@ -139,7 +150,7 @@ type MultiPartMessage struct {
 
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	err error) {
-	jww.DEBUG.Printf("%v\n", partition)
+	globals.Log.DEBUG.Printf("%v\n", partition)
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0
@@ -147,7 +158,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		if msbMask&partition[i] == 0 {
 			// this is the last byte in the ID. stop the loop
 			indexInformationStart = i + 1
-			jww.DEBUG.Println("Index information start:", indexInformationStart)
+			globals.Log.DEBUG.Println("Index information start:", indexInformationStart)
 			break
 		}
 	}
@@ -174,7 +185,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		Body:     partition[indexInformationStart+2:],
 	}
 
-	jww.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,
+	globals.Log.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,
 		result.Index, result.MaxIndex, string(result.Body))
 	return result, nil
 }

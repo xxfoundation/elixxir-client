@@ -7,11 +7,12 @@
 package switchboard
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"strconv"
 	"sync"
+	"reflect"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
@@ -111,7 +112,7 @@ func (lm *ListenerMap) matchListeners(userID user.ID,
 
 // Broadcast a message to the appropriate listeners
 func (lm *ListenerMap) Speak(msg *parse.Message) {
-	jww.INFO.Printf("Speaking message: %q", msg.Body)
+	globals.Log.INFO.Printf("Speaking message: %q", msg.Body)
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 
@@ -132,17 +133,22 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
+		globals.Log.DEBUG.Printf("Hearing message of type %v from %v on %v" +
+			" listeners", msg.Type.String(), msg.Sender, len(accumNormals))
 		for _, listener := range accumNormals {
-			jww.INFO.Printf("Hearing on listener %v", listener.id)
+			globals.Log.INFO.Printf("Hearing on listener %v of type %v",
+				listener.id, reflect.TypeOf(listener.l))
+			// TODO Should this launch a new goroutine for each listener that
+			// hears? Or would that make things too awful?
 			listener.l.Hear(msg, len(accumNormals) > 1)
 		}
 	} else {
-		jww.ERROR.Println("Message didn't match any listeners in the map")
+		globals.Log.ERROR.Println("Message didn't match any listeners in the map")
 		// dump representation of the map
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {
 				for i, listener := range perType {
-					jww.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
+					globals.Log.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
 						i, listener.id, u, messageType)
 				}
 			}

@@ -15,11 +15,14 @@ import (
 	"github.com/spf13/viper"
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/bindings"
+	"gitlab.com/privategrity/client/bots"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
+	"io/ioutil"
+	"log"
 	"os"
 	"sync/atomic"
 	"time"
@@ -32,29 +35,29 @@ var gwAddr string
 var message string
 var numNodes uint
 var sessionFile string
-var noRatchet bool
 var dummyFrequency float64
 var noBlockingTransmission bool
+var mint bool
 var rateLimiting uint32
 var showVer bool
 
-// CMDMessage are an implementation of the interface in bindings and API
+// CmdMessage are an implementation of the interface in bindings and API
 // easy to use from Go
-type CMDMessage struct {
+type CmdMessage struct {
 	Payload     string
 	SenderID    user.ID
 	RecipientID user.ID
 }
 
-func (m CMDMessage) GetSender() []byte {
+func (m CmdMessage) GetSender() []byte {
 	return m.SenderID.Bytes()
 }
 
-func (m CMDMessage) GetRecipient() []byte {
+func (m CmdMessage) GetRecipient() []byte {
 	return m.RecipientID.Bytes()
 }
 
-func (m CMDMessage) GetPayload() string {
+func (m CmdMessage) GetPayload() string {
 	return m.Payload
 }
 
@@ -70,19 +73,10 @@ func Execute() {
 
 func sessionInitialization() {
 	if noBlockingTransmission {
-		if !noRatchet {
-			fmt.Printf("Cannot disable Blocking Transmission with" +
-				" Ratcheting turned on\n")
-		}
 		api.DisableBlockingTransmission()
 	}
 
 	bindings.SetRateLimiting(int(rateLimiting))
-
-	// Disable ratcheting if the flag is set
-	if noRatchet {
-		bindings.DisableRatchet()
-	}
 
 	var err error
 	register := false
@@ -140,14 +134,14 @@ func sessionInitialization() {
 	if register {
 		_, err := bindings.Register(
 			cyclic.NewIntFromBytes(user.UserHash(user.ID(userId))).
-				TextVerbose(32, 0), gwAddr, int(numNodes))
+				TextVerbose(32, 0), gwAddr, int(numNodes), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
 		}
 	}
 
-	//log the user in
+	// Log the user in
 	_, err = bindings.Login(
 		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
 
@@ -166,7 +160,7 @@ func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 		sender, ok := user.Users.GetUser(message.Sender)
 		var senderNick string
 		if !ok {
-			jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+			globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 		} else {
 			senderNick = sender.Nick
 		}
@@ -181,14 +175,14 @@ type TextListener struct {
 }
 
 func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
-	jww.INFO.Println("Hearing a text message")
+	globals.Log.INFO.Println("Hearing a text message")
 	result := parse.TextMessage{}
 	proto.Unmarshal(message.Body, &result)
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
 	}
@@ -203,14 +197,14 @@ type ChannelListener struct {
 }
 
 func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
-	jww.INFO.Println("Hearing a channel message")
+	globals.Log.INFO.Println("Hearing a channel message")
 	result := parse.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
 	}
@@ -275,17 +269,24 @@ var rootCmd = &cobra.Command{
 			if ok {
 				recipientNick = u.Nick
 			}
-			wireOut := bindings.FormatTextMessage(message)
 
-			fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-				recipientNick, message)
+			// Handle sending to UDB
+			if destinationUserId == uint64(bots.UdbID) {
+				parseUdbMessage(message)
+			} else {
+				// Handle sending to any other destination
+				wireOut := bindings.FormatTextMessage(message)
 
-			//Send the message
-			bindings.Send(CMDMessage{
-				SenderID:    user.ID(userId),
-				Payload:     string(wireOut),
-				RecipientID: user.ID(destinationUserId),
-			})
+				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+					recipientNick, message)
+
+				// Send the message
+				bindings.Send(CmdMessage{
+					SenderID:    user.ID(userId),
+					Payload:     string(wireOut),
+					RecipientID: user.ID(destinationUserId),
+				})
+			}
 		}
 
 		if dummyFrequency != 0 {
@@ -305,7 +306,7 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := CMDMessage{
+				message := CmdMessage{
 					SenderID:    user.ID(userId),
 					Payload:     string(api.FormatTextMessage(message)),
 					RecipientID: user.ID(destinationUserId)}
@@ -351,12 +352,12 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Verbose mode for debugging")
-	rootCmd.PersistentFlags().BoolVarP(&noRatchet, "noratchet", "", false,
-		"Avoid ratcheting the keys for forward secrecy")
 
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
+	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "", false,
+		"Mint some coins for testing")
 
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		1000, "Sets the amount of time, in ms, "+
@@ -397,22 +398,25 @@ func initConfig() {}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {
+	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelWarn, os.Stdout,
+		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
 	// If verbose flag set then log more info for debugging
 	if verbose || viper.GetBool("verbose") {
-		jww.SetLogThreshold(jww.LevelInfo)
-		jww.SetStdoutThreshold(jww.LevelInfo)
+		globals.Log.SetLogThreshold(jww.LevelInfo)
+		globals.Log.SetStdoutThreshold(jww.LevelInfo)
+		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	} else {
-		jww.SetLogThreshold(jww.LevelWarn)
-		jww.SetStdoutThreshold(jww.LevelWarn)
+		globals.Log.SetLogThreshold(jww.LevelWarn)
+		globals.Log.SetStdoutThreshold(jww.LevelWarn)
 	}
 	if viper.Get("logPath") != nil {
 		// Create log file, overwrites if existing
 		logPath := viper.GetString("logPath")
 		logFile, err := os.Create(logPath)
 		if err != nil {
-			jww.WARN.Println("Invalid or missing log path, default path used.")
+			globals.Log.WARN.Println("Invalid or missing log path, default path used.")
 		} else {
-			jww.SetLogOutput(logFile)
+			globals.Log.SetLogOutput(logFile)
 		}
 	}
 }

@@ -8,8 +8,8 @@ package globals
 
 import (
 	"errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"os"
+	"sync"
 )
 
 var LocalStorage Storage
@@ -17,7 +17,7 @@ var LocalStorage Storage
 func InitStorage(store Storage, location string) error {
 	if LocalStorage != nil {
 		errStr := "Invalid Local Storage Creation: Local storage already created"
-		jww.ERROR.Printf(errStr)
+		Log.ERROR.Printf(errStr)
 		panic(errStr)
 	}
 
@@ -33,7 +33,7 @@ func InitStorage(store Storage, location string) error {
 
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())
-		jww.ERROR.Printf(err.Error())
+		Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -47,10 +47,13 @@ type Storage interface {
 	GetLocation() string
 	Save([]byte) error
 	Load() []byte
+	Lock()
+	Unlock()
 }
 
 type DefaultStorage struct {
 	location string
+	mutex    sync.Mutex
 }
 
 func (ds *DefaultStorage) SetLocation(location string) error {
@@ -67,10 +70,9 @@ func (ds *DefaultStorage) Save(data []byte) error {
 	_, err1 := os.Stat(ds.location)
 
 	if err1 == nil {
-		//jww.INFO.Printf("Storage file already exists, deleting.")
 		os.Remove(ds.location)
 	} else if !os.IsNotExist(err1) {
-		jww.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
 			" file check: \n  %v",
 			err1.Error())
 		return err1
@@ -82,7 +84,7 @@ func (ds *DefaultStorage) Save(data []byte) error {
 	defer f.Close()
 
 	if err2 != nil {
-		jww.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
 			" file creation: \n %v", err2.Error())
 		return err2
 	}
@@ -91,7 +93,7 @@ func (ds *DefaultStorage) Save(data []byte) error {
 	_, err3 := f.Write(data)
 
 	if err3 != nil {
-		jww.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
 			" file write: \n %v", err3.Error())
 		return err3
 	}
@@ -104,7 +106,7 @@ func (ds *DefaultStorage) Load() []byte {
 	finfo, err1 := os.Stat(ds.location)
 
 	if err1 != nil {
-		jww.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
 			" file check: \n  %v", err1.Error())
 		return nil
 	}
@@ -117,7 +119,7 @@ func (ds *DefaultStorage) Load() []byte {
 	defer f.Close()
 
 	if err2 != nil {
-		jww.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
 			" file open: \n  %v", err2.Error())
 		return nil
 	}
@@ -126,7 +128,7 @@ func (ds *DefaultStorage) Load() []byte {
 	_, err3 := f.Read(b)
 
 	if err3 != nil {
-		jww.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
 			" file read: \n  %v", err3.Error())
 		return nil
 	}
@@ -135,8 +137,17 @@ func (ds *DefaultStorage) Load() []byte {
 
 }
 
+func (ds *DefaultStorage) Lock() {
+	ds.mutex.Lock()
+}
+
+func (ds *DefaultStorage) Unlock() {
+	ds.mutex.Unlock()
+}
+
 type RamStorage struct {
-	data []byte
+	data  []byte
+	mutex sync.Mutex
 }
 
 func (rs *RamStorage) SetLocation(location string) error {
@@ -158,4 +169,12 @@ func (rs *RamStorage) Load() []byte {
 	copy(b, rs.data)
 
 	return b
+}
+
+func (rs *RamStorage) Lock() {
+	rs.mutex.Lock()
+}
+
+func (rs *RamStorage) Unlock() {
+	rs.mutex.Unlock()
 }

@@ -11,6 +11,10 @@ import:
   version: master
   repo: git@gitlab.com:privategrity/comms
   vcs: git
+- package: github.com/mitchellh/go-homedir
+  version: master
+  repo: https://github.com/mitchellh/go-homedir.git
+  vcs: git
 - package: github.com/spf13/cobra
   version: ^0.0.1
   subpackages:

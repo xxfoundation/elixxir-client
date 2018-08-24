@@ -11,7 +11,6 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/forward"
 	cmix "gitlab.com/privategrity/crypto/messaging"
 	"testing"
 )
@@ -64,8 +63,6 @@ func setup() {
 			nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
 	}
 	user.TheSession = user.NewSession(u, "", nk)
-	// ratcheting will stop the keys from being inverses of each other
-	forward.SetRatchetStatus(false)
 }
 
 func TestEncryptDecrypt(t *testing.T) {

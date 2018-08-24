@@ -8,8 +8,30 @@
 package api
 
 import (
+	"gitlab.com/privategrity/client/user"
 	pb "gitlab.com/privategrity/comms/mixmessages"
+	"sync"
 )
+
+// APIMessage are an implementation of the interface in bindings and API
+// easy to use from Go
+type APIMessage struct {
+	Payload     string
+	SenderID    user.ID
+	RecipientID user.ID
+}
+
+func (m APIMessage) GetSender() []byte {
+	return m.SenderID.Bytes()
+}
+
+func (m APIMessage) GetRecipient() []byte {
+	return m.RecipientID.Bytes()
+}
+
+func (m APIMessage) GetPayload() string {
+	return m.Payload
+}
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
 type TestInterface struct {
@@ -44,6 +66,7 @@ func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
 type DummyStorage struct {
 	Location string
 	LastSave []byte
+	mutex    sync.Mutex
 }
 
 func (d *DummyStorage) SetLocation(l string) error {
@@ -61,6 +84,14 @@ func (d *DummyStorage) Save(b []byte) error {
 		d.LastSave[i] = b[i]
 	}
 	return nil
+}
+
+func (d *DummyStorage) Lock() {
+	d.mutex.Lock()
+}
+
+func (d *DummyStorage) Unlock() {
+	d.mutex.Unlock()
 }
 
 func (d *DummyStorage) Load() []byte {

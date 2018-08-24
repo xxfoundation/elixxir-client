@@ -40,3 +40,15 @@ func (m Message) Hash() MessageHash {
 
 	return mh
 }
+
+func (m Message) GetSender() []byte {
+	return m.Sender.Bytes()
+}
+
+func (m Message) GetRecipient() []byte {
+	return m.Receiver.Bytes()
+}
+
+func (m Message) GetPayload() string {
+	return string(Pack(&m.TypedBody))
+}

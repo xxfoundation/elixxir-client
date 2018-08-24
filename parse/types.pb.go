@@ -10,6 +10,8 @@ It is generated from these files:
 It has these top-level messages:
 	TextMessage
 	ChannelMessage
+	PaymentResponse
+	PaymentInvoice
 */
 package parse
 
@@ -31,36 +33,103 @@ const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 type Type int32
 
 const (
-	Type_NO_TYPE         Type = 0
-	Type_TEXT_MESSAGE    Type = 1
+	// Used as a wildcard for listeners to listen to all existing types.
+	// Think of it as "No type in particular"
+	Type_NO_TYPE Type = 0
+	// See proto buf documentation below
+	Type_TEXT_MESSAGE Type = 1
+	// See proto buf
 	Type_CHANNEL_MESSAGE Type = 2
-	// We currently parse these types without using proto buffers
-	// We use the types, but don't look for proto buffer definitions
-	Type_UDB_PUSH_KEY          Type = 10
+	// Second field is the key data itself. This should be 2048 bits long
+	// (according to the message length that our prime allows) and is
+	// base64-encoded.
+	Type_UDB_PUSH_KEY Type = 10
+	// The push key response message is a string. If the key push was a
+	// success, the UDB should respond with a message that starts with "PUSHKEY
+	// COMPLETE", followed by the fingerprint of the key that was pushed.
+	// If the response doesn't begin with "PUSHKEY COMPLETE", the message is
+	// an error message and should be shown to the user.
 	Type_UDB_PUSH_KEY_RESPONSE Type = 11
-	Type_UDB_GET_KEY           Type = 12
-	Type_UDB_GET_KEY_RESPONSE  Type = 13
-	Type_UDB_REGISTER          Type = 14
+	// The get key message includes a single string field with the key
+	// fingerprint of the key that needs gettin'. This is the same fingerprint
+	// you would have pushed.
+	Type_UDB_GET_KEY Type = 12
+	// The get key response message is a string. The first space-separated
+	// field should always be "GETKEY". The second field is the fingerprint of
+	// the key. The third field is "NOTFOUND" if the UDB didn't find the key,
+	// or the key itself, encoded in base64, otherwise.
+	Type_UDB_GET_KEY_RESPONSE Type = 13
+	// To wit: The first argument in the list of space-separated fields is
+	// the type of the registration. Currently the only allowed type is
+	// "EMAIL". The second argument is the value of the type you're registering
+	// with. In all currently acceptable registration types, this would be an
+	// email address. If you could register with your phone, it would be your
+	// phone number, and so on. Then, the key fingerprint of the user's key is
+	// the third argument. To register successfully, you must have already
+	// pushed the key with that fingerprint.
+	Type_UDB_REGISTER Type = 14
+	// The registration response is just a string. It will be either an error
+	// message to show to the user, or the message "REGISTRATION COMPLETE" if
+	// registration was successful.
 	Type_UDB_REGISTER_RESPONSE Type = 15
-	Type_UDB_SEARCH            Type = 16
-	Type_UDB_SEARCH_RESPONSE   Type = 17
-	// Same with the payment bot types
-	Type_PAYMENT Type = 20
+	// The search message is just another space separated list. The first field
+	// will contain the type of registered user you're searching for, namely
+	// "EMAIL". The second field with contain the value of that type that
+	// you're searching for.
+	Type_UDB_SEARCH Type = 16
+	// The search response is a list of fields. The first is always "SEARCH".
+	// The second is always the value that the user searched for. The third is
+	// "FOUND" or "NOTFOUND" depending on whether the UDB found the user. If
+	// the user was FOUND, the last field will contain their key fingerprint,
+	// which you can use with GET_KEY to get the keys you need to talk with
+	// that user. Otherwise, this fourth field won't exist.
+	Type_UDB_SEARCH_RESPONSE Type = 17
+	// To get a message of this type, call the methods in the wallet.
+	// TODO expose these methods over the API
+	Type_PAYMENT_TRANSACTION Type = 20
+	// See proto buf
+	Type_PAYMENT_RESPONSE Type = 21
+	// See proto buf
+	Type_PAYMENT_INVOICE Type = 22
+	// This message type includes only the message hash of the original
+	// invoice message. Since there are no fields to delimit, it's not a
+	// proto buffer. When the payee gets a receipt back, they know that the
+	// other person probably paid them, and to check the next published
+	// blockchain for the images of their coins to make sure.
+	// The wallet sends this message after receiving a PAYMENT_RESPONSE
+	// indicating success.
+	Type_PAYMENT_RECEIPT Type = 23
+	// This message type is a single fixed-length hash of the invoice
+	// that the client just received. The client can look up this hash in the
+	// inbound transaction list to display the most recently received invoice
+	// in the UI.
+	Type_PAYMENT_INVOICE_UI Type = 9000
+	// This message type is a single fixed-length hash of the original invoice
+	// that this client sent to the paying client. The UI can look up the
+	// corresponding transaction in the list of completed transactions and
+	// display payment success on the UI. The wallet sends this message
+	// locally after receiving a PAYMENT_RECEIPT message.
+	Type_PAYMENT_RECEIPT_UI Type = 9001
 )
 
 var Type_name = map[int32]string{
-	0:  "NO_TYPE",
-	1:  "TEXT_MESSAGE",
-	2:  "CHANNEL_MESSAGE",
-	10: "UDB_PUSH_KEY",
-	11: "UDB_PUSH_KEY_RESPONSE",
-	12: "UDB_GET_KEY",
-	13: "UDB_GET_KEY_RESPONSE",
-	14: "UDB_REGISTER",
-	15: "UDB_REGISTER_RESPONSE",
-	16: "UDB_SEARCH",
-	17: "UDB_SEARCH_RESPONSE",
-	20: "PAYMENT",
+	0:    "NO_TYPE",
+	1:    "TEXT_MESSAGE",
+	2:    "CHANNEL_MESSAGE",
+	10:   "UDB_PUSH_KEY",
+	11:   "UDB_PUSH_KEY_RESPONSE",
+	12:   "UDB_GET_KEY",
+	13:   "UDB_GET_KEY_RESPONSE",
+	14:   "UDB_REGISTER",
+	15:   "UDB_REGISTER_RESPONSE",
+	16:   "UDB_SEARCH",
+	17:   "UDB_SEARCH_RESPONSE",
+	20:   "PAYMENT_TRANSACTION",
+	21:   "PAYMENT_RESPONSE",
+	22:   "PAYMENT_INVOICE",
+	23:   "PAYMENT_RECEIPT",
+	9000: "PAYMENT_INVOICE_UI",
+	9001: "PAYMENT_RECEIPT_UI",
 }
 var Type_value = map[string]int32{
 	"NO_TYPE":               0,
@@ -74,7 +143,12 @@ var Type_value = map[string]int32{
 	"UDB_REGISTER_RESPONSE": 15,
 	"UDB_SEARCH":            16,
 	"UDB_SEARCH_RESPONSE":   17,
-	"PAYMENT":               20,
+	"PAYMENT_TRANSACTION":   20,
+	"PAYMENT_RESPONSE":      21,
+	"PAYMENT_INVOICE":       22,
+	"PAYMENT_RECEIPT":       23,
+	"PAYMENT_INVOICE_UI":    9000,
+	"PAYMENT_RECEIPT_UI":    9001,
 }
 
 func (x Type) String() string {
@@ -82,11 +156,17 @@ func (x Type) String() string {
 }
 func (Type) EnumDescriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
-// Type 1
+// Is Type.TEXT_MESSAGE
+// Used for conveying simple text messages between users
 type TextMessage struct {
-	Color   int32  `protobuf:"zigzag32,2,opt,name=color" json:"color,omitempty"`
+	// Terminal text foreground color. Used by the console UI
+	Color int32 `protobuf:"zigzag32,2,opt,name=color" json:"color,omitempty"`
+	// The message text itself. Varies in length
 	Message string `protobuf:"bytes,3,opt,name=message" json:"message,omitempty"`
-	Time    int64  `protobuf:"varint,4,opt,name=time" json:"time,omitempty"`
+	// Timestamp (Unix time in seconds)
+	// You can use this to display the time when the other user sent the message
+	// TODO Remove this when all messages have timestamps
+	Time int64 `protobuf:"varint,4,opt,name=time" json:"time,omitempty"`
 }
 
 func (m *TextMessage) Reset()                    { *m = TextMessage{} }
@@ -115,10 +195,16 @@ func (m *TextMessage) GetTime() int64 {
 	return 0
 }
 
-// Type 2
+// Is Type.CHANNEL_MESSAGE
+// This is the type of all messages that come from the channelbot.
 type ChannelMessage struct {
+	// This is the original speaker of the channel message, who sent the
+	// message to the channel bot.
 	SpeakerID []byte `protobuf:"bytes,3,opt,name=speakerID,proto3" json:"speakerID,omitempty"`
-	Message   []byte `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
+	// This is a serialized parse message under the hood. When writing a
+	// listener for a channel message on a client, you need to unpack the
+	// serialized parse message and rebroadcast it through the listeners.
+	Message []byte `protobuf:"bytes,4,opt,name=message,proto3" json:"message,omitempty"`
 }
 
 func (m *ChannelMessage) Reset()                    { *m = ChannelMessage{} }
@@ -140,33 +226,126 @@ func (m *ChannelMessage) GetMessage() []byte {
 	return nil
 }
 
+// Is Type.PAYMENT_RESPONSE
+type PaymentResponse struct {
+	// Indicates whether the payment succeeded or failed
+	Success bool `protobuf:"varint,1,opt,name=success" json:"success,omitempty"`
+	// Response message from the payment bot. You should display this to the
+	// user.
+	Response string `protobuf:"bytes,2,opt,name=response" json:"response,omitempty"`
+	// TODO Is it correct to use the whole hash?
+	// This is the hash of the payment message that the payment bot received.
+	// The client uses it to remove the correct pending transaction from the
+	// list of pending transactions.
+	ID string `protobuf:"bytes,3,opt,name=ID" json:"ID,omitempty"`
+}
+
+func (m *PaymentResponse) Reset()                    { *m = PaymentResponse{} }
+func (m *PaymentResponse) String() string            { return proto.CompactTextString(m) }
+func (*PaymentResponse) ProtoMessage()               {}
+func (*PaymentResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+func (m *PaymentResponse) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
+func (m *PaymentResponse) GetResponse() string {
+	if m != nil {
+		return m.Response
+	}
+	return ""
+}
+
+func (m *PaymentResponse) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
+// Is Type.PAYMENT_INVOICE
+type PaymentInvoice struct {
+	// Timestamp (Unix time in seconds)
+	// Not currently used but could be useful for the user to verify the
+	// correctness of an invoice.
+	Time int64 `protobuf:"varint,1,opt,name=time" json:"time,omitempty"`
+	// This is a single compound coin that the invoicer wants to be funded. The
+	// payer should send a message to the payment bot to fund this compound, if
+	// they wish to pay the payee.
+	CreatedCoin []byte `protobuf:"bytes,2,opt,name=createdCoin,proto3" json:"createdCoin,omitempty"`
+	// The payee should fill this out to describe what the payment is for or
+	// about.
+	Memo string `protobuf:"bytes,3,opt,name=memo" json:"memo,omitempty"`
+}
+
+func (m *PaymentInvoice) Reset()                    { *m = PaymentInvoice{} }
+func (m *PaymentInvoice) String() string            { return proto.CompactTextString(m) }
+func (*PaymentInvoice) ProtoMessage()               {}
+func (*PaymentInvoice) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+func (m *PaymentInvoice) GetTime() int64 {
+	if m != nil {
+		return m.Time
+	}
+	return 0
+}
+
+func (m *PaymentInvoice) GetCreatedCoin() []byte {
+	if m != nil {
+		return m.CreatedCoin
+	}
+	return nil
+}
+
+func (m *PaymentInvoice) GetMemo() string {
+	if m != nil {
+		return m.Memo
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*TextMessage)(nil), "parse.TextMessage")
 	proto.RegisterType((*ChannelMessage)(nil), "parse.ChannelMessage")
+	proto.RegisterType((*PaymentResponse)(nil), "parse.PaymentResponse")
+	proto.RegisterType((*PaymentInvoice)(nil), "parse.PaymentInvoice")
 	proto.RegisterEnum("parse.Type", Type_name, Type_value)
 }
 
 func init() { proto.RegisterFile("types.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 302 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x91, 0xc1, 0x4e, 0xf2, 0x40,
-	0x14, 0x85, 0xff, 0x42, 0xf9, 0x09, 0xb7, 0x08, 0xc3, 0x05, 0x63, 0x4d, 0x5c, 0x10, 0x56, 0xc4,
-	0x85, 0x1b, 0x9f, 0xa0, 0xc0, 0x0d, 0x25, 0x4a, 0xa9, 0x33, 0x43, 0x62, 0xdd, 0x34, 0xd5, 0x4c,
-	0xd4, 0x08, 0xb4, 0x69, 0xbb, 0x90, 0x07, 0x77, 0x6f, 0xda, 0x66, 0x6c, 0x77, 0x73, 0xce, 0xf9,
-	0xf2, 0x25, 0x93, 0x0b, 0x56, 0x7e, 0x4e, 0x54, 0x76, 0x97, 0xa4, 0x71, 0x1e, 0x63, 0x27, 0x89,
-	0xd2, 0x4c, 0xcd, 0x9e, 0xc0, 0x92, 0xea, 0x3b, 0xdf, 0xaa, 0x2c, 0x8b, 0xde, 0x15, 0x4e, 0xa0,
-	0xf3, 0x16, 0x1f, 0xe2, 0xd4, 0x6e, 0x4d, 0x8d, 0xf9, 0x88, 0x57, 0x01, 0x6d, 0xe8, 0x1e, 0x2b,
-	0xc0, 0x6e, 0x4f, 0x8d, 0x79, 0x8f, 0xeb, 0x88, 0x08, 0x66, 0xfe, 0x79, 0x54, 0xb6, 0x39, 0x35,
-	0xe6, 0x6d, 0x5e, 0xbe, 0x67, 0x2e, 0x0c, 0x96, 0x1f, 0xd1, 0xe9, 0xa4, 0x0e, 0xda, 0x7a, 0x03,
-	0xbd, 0x2c, 0x51, 0xd1, 0x97, 0x4a, 0x37, 0xab, 0xd2, 0xd0, 0xe7, 0x75, 0xd1, 0xb4, 0x9b, 0xe5,
-	0xa6, 0xe3, 0xed, 0x8f, 0x01, 0xa6, 0x3c, 0x27, 0x0a, 0x2d, 0xe8, 0x7a, 0xbb, 0x50, 0x06, 0x3e,
-	0xb1, 0x7f, 0xc8, 0xa0, 0x2f, 0xe9, 0x59, 0x86, 0x5b, 0x12, 0xc2, 0x59, 0x13, 0x33, 0x70, 0x0c,
-	0xc3, 0xa5, 0xeb, 0x78, 0x1e, 0x3d, 0xfe, 0x95, 0xad, 0x02, 0xdb, 0xaf, 0x16, 0xa1, 0xbf, 0x17,
-	0x6e, 0xf8, 0x40, 0x01, 0x03, 0xbc, 0x86, 0xcb, 0x66, 0x13, 0x72, 0x12, 0xfe, 0xce, 0x13, 0xc4,
-	0x2c, 0x1c, 0x82, 0x55, 0x4c, 0x6b, 0x92, 0x25, 0xdb, 0x47, 0x1b, 0x26, 0x8d, 0xa2, 0x46, 0x2f,
-	0xb4, 0x97, 0xd3, 0x7a, 0x23, 0x24, 0x71, 0x36, 0xd0, 0x5e, 0xdd, 0xd4, 0xf0, 0x10, 0x07, 0x00,
-	0xc5, 0x24, 0xc8, 0xe1, 0x4b, 0x97, 0x31, 0xbc, 0x82, 0x71, 0x9d, 0x6b, 0x70, 0x54, 0xfc, 0xd0,
-	0x77, 0x82, 0x2d, 0x79, 0x92, 0x4d, 0x16, 0xdd, 0x97, 0xea, 0x3a, 0xaf, 0xff, 0xcb, 0x5b, 0xdd,
-	0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0xca, 0xe5, 0x73, 0x6c, 0xba, 0x01, 0x00, 0x00,
+	// 449 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x5c, 0x92, 0xcf, 0x92, 0x93, 0x4c,
+	0x14, 0xc5, 0x3f, 0x98, 0xcc, 0x97, 0xc9, 0x25, 0x92, 0x9e, 0x3b, 0x19, 0x83, 0x96, 0x0b, 0x2a,
+	0xab, 0x94, 0x0b, 0x37, 0x3e, 0x01, 0x43, 0x7a, 0x12, 0x4a, 0x43, 0xb0, 0xe9, 0xa8, 0x99, 0x0d,
+	0x85, 0xd8, 0xa5, 0x29, 0x87, 0x3f, 0x45, 0xa3, 0x65, 0xde, 0x48, 0x9f, 0xcf, 0x17, 0xb0, 0x20,
+	0x74, 0xa0, 0xdc, 0xdd, 0x73, 0xce, 0x8f, 0x43, 0xdf, 0xaa, 0x0b, 0x46, 0x75, 0x2c, 0x84, 0x7c,
+	0x55, 0x94, 0x79, 0x95, 0xe3, 0x65, 0x11, 0x97, 0x52, 0xcc, 0xdf, 0x81, 0xc1, 0xc5, 0xcf, 0x6a,
+	0x23, 0xa4, 0x8c, 0xbf, 0x08, 0x9c, 0xc2, 0x65, 0x92, 0x3f, 0xe6, 0xa5, 0xa5, 0xdb, 0xda, 0xe2,
+	0x9a, 0x9d, 0x04, 0x5a, 0x30, 0x4c, 0x4f, 0x80, 0x75, 0x61, 0x6b, 0x8b, 0x11, 0x53, 0x12, 0x11,
+	0x06, 0xd5, 0x21, 0x15, 0xd6, 0xc0, 0xd6, 0x16, 0x17, 0xac, 0x99, 0xe7, 0x6b, 0x30, 0xdd, 0xaf,
+	0x71, 0x96, 0x89, 0x47, 0xd5, 0xfa, 0x02, 0x46, 0xb2, 0x10, 0xf1, 0x37, 0x51, 0x7a, 0xcb, 0xa6,
+	0x61, 0xcc, 0x3a, 0xa3, 0xdf, 0x3e, 0x68, 0x32, 0x25, 0xe7, 0x1f, 0x60, 0x12, 0xc4, 0xc7, 0x54,
+	0x64, 0x15, 0x13, 0xb2, 0xc8, 0x33, 0x29, 0x6a, 0x58, 0x7e, 0x4f, 0x12, 0x21, 0xa5, 0xa5, 0xd9,
+	0xda, 0xe2, 0x8a, 0x29, 0x89, 0xcf, 0xe1, 0xaa, 0x6c, 0xa9, 0xe6, 0xf5, 0x23, 0x76, 0xd6, 0x68,
+	0x82, 0xde, 0xfe, 0x79, 0xc4, 0x74, 0x6f, 0x39, 0x7f, 0x00, 0xb3, 0x2d, 0xf6, 0xb2, 0x1f, 0xf9,
+	0x21, 0xe9, 0x16, 0xd1, 0xba, 0x45, 0xd0, 0x06, 0x23, 0x29, 0x45, 0x5c, 0x89, 0xcf, 0x6e, 0x7e,
+	0xc8, 0x9a, 0xd2, 0x31, 0xeb, 0x5b, 0xf5, 0x57, 0xa9, 0x48, 0xf3, 0xb6, 0xb9, 0x99, 0x5f, 0xfe,
+	0xd1, 0x61, 0xc0, 0x8f, 0x85, 0x40, 0x03, 0x86, 0xfe, 0x36, 0xe2, 0xfb, 0x80, 0x92, 0xff, 0x90,
+	0xc0, 0x98, 0xd3, 0x8f, 0x3c, 0xda, 0xd0, 0x30, 0x74, 0x56, 0x94, 0x68, 0x78, 0x03, 0x13, 0x77,
+	0xed, 0xf8, 0x3e, 0x7d, 0x7b, 0x36, 0xf5, 0x1a, 0xdb, 0x2d, 0xef, 0xa2, 0x60, 0x17, 0xae, 0xa3,
+	0x37, 0x74, 0x4f, 0x00, 0x9f, 0xc1, 0x6d, 0xdf, 0x89, 0x18, 0x0d, 0x83, 0xad, 0x1f, 0x52, 0x62,
+	0xe0, 0x04, 0x8c, 0x3a, 0x5a, 0x51, 0xde, 0xb0, 0x63, 0xb4, 0x60, 0xda, 0x33, 0x3a, 0xf4, 0x89,
+	0xea, 0x65, 0x74, 0xe5, 0x85, 0x9c, 0x32, 0x62, 0xaa, 0x5e, 0xe5, 0x74, 0xf0, 0x04, 0x4d, 0x80,
+	0x3a, 0x0a, 0xa9, 0xc3, 0xdc, 0x35, 0x21, 0x38, 0x83, 0x9b, 0x4e, 0x77, 0xe0, 0x75, 0x1d, 0x04,
+	0xce, 0x7e, 0x43, 0x7d, 0x1e, 0x71, 0xe6, 0xf8, 0xa1, 0xe3, 0x72, 0x6f, 0xeb, 0x93, 0x29, 0x4e,
+	0x81, 0xa8, 0xe0, 0x8c, 0xdf, 0xd6, 0x1b, 0x2b, 0xd7, 0xf3, 0xdf, 0x6f, 0x3d, 0x97, 0x92, 0xa7,
+	0x7d, 0x93, 0x51, 0x97, 0x7a, 0x01, 0x27, 0x33, 0x9c, 0x01, 0xfe, 0x43, 0x46, 0x3b, 0x8f, 0xfc,
+	0xba, 0xef, 0x07, 0x2d, 0x5d, 0x07, 0xbf, 0xef, 0xef, 0x86, 0x0f, 0xa7, 0x83, 0xfe, 0xf4, 0x7f,
+	0x73, 0xde, 0xaf, 0xff, 0x06, 0x00, 0x00, 0xff, 0xff, 0xe2, 0x8b, 0xfe, 0xe8, 0xed, 0x02, 0x00,
+	0x00,
 }

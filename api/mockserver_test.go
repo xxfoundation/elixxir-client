@@ -29,7 +29,7 @@ var GatewayData TestInterface
 
 func TestMain(m *testing.M) {
 	rand.Seed(time.Now().Unix())
-	gwAddress = fmt.Sprintf("localhost:%d", (rand.Intn(1000) + 5001))
+	gwAddress = fmt.Sprintf("localhost:%d", rand.Intn(1000)+5001)
 	io.SendAddress = gwAddress
 	io.ReceiveAddress = gwAddress
 	GatewayData = TestInterface{

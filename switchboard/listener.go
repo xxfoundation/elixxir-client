@@ -25,7 +25,7 @@ type listenerRecord struct {
 	id string
 }
 
-type ListenerMap struct {
+type Switchboard struct {
 	// Hmmm...
 	listeners map[user.ID]map[parse.Type][]*listenerRecord
 	lastID    int
@@ -33,10 +33,10 @@ type ListenerMap struct {
 	mux sync.RWMutex
 }
 
-var Listeners = NewListenerMap()
+var Listeners = NewSwitchboard()
 
-func NewListenerMap() *ListenerMap {
-	return &ListenerMap{
+func NewSwitchboard() *Switchboard {
+	return &Switchboard{
 		listeners: make(map[user.ID]map[parse.Type][]*listenerRecord),
 		lastID:    0,
 	}
@@ -54,7 +54,7 @@ func NewListenerMap() *ListenerMap {
 // Don't pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *ListenerMap) Register(user user.ID, messageType parse.Type,
+func (lm *Switchboard) Register(user user.ID, messageType parse.Type,
 	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
@@ -78,7 +78,7 @@ func (lm *ListenerMap) Register(user user.ID, messageType parse.Type,
 	return newListenerRecord.id
 }
 
-func (lm *ListenerMap) Unregister(listenerID string) {
+func (lm *Switchboard) Unregister(listenerID string) {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
 
@@ -99,7 +99,7 @@ func (lm *ListenerMap) Unregister(listenerID string) {
 	}
 }
 
-func (lm *ListenerMap) matchListeners(userID user.ID,
+func (lm *Switchboard) matchListeners(userID user.ID,
 	messageType parse.Type) []*listenerRecord {
 
 	normals := make([]*listenerRecord, 0)
@@ -111,7 +111,7 @@ func (lm *ListenerMap) matchListeners(userID user.ID,
 }
 
 // Broadcast a message to the appropriate listeners
-func (lm *ListenerMap) Speak(msg *parse.Message) {
+func (lm *Switchboard) Speak(msg *parse.Message) {
 	globals.Log.INFO.Printf("Speaking message: %q", msg.Body)
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
@@ -143,13 +143,15 @@ func (lm *ListenerMap) Speak(msg *parse.Message) {
 			listener.l.Hear(msg, len(accumNormals) > 1)
 		}
 	} else {
-		globals.Log.ERROR.Println("Message didn't match any listeners in the map")
+		globals.Log.ERROR.Printf(
+			"Message of type %v from user %v didn't match any listeners in" +
+				" the map", msg.Type.String(), msg.Sender)
 		// dump representation of the map
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {
 				for i, listener := range perType {
 					globals.Log.ERROR.Printf("Listener %v: %v, user %v, type %v, ",
-						i, listener.id, u, messageType)
+						i, listener.id, u, messageType.String())
 				}
 			}
 		}

@@ -38,9 +38,9 @@ var specificUserID user.ID = 5
 var specificMessageType parse.Type = 8
 var delay = 10 * time.Millisecond
 
-func OneListenerSetup() (*ListenerMap, *MockListener) {
-	var listeners *ListenerMap
-	listeners = NewListenerMap()
+func OneListenerSetup() (*Switchboard, *MockListener) {
+	var listeners *Switchboard
+	listeners = NewSwitchboard()
 	// add one listener to the map
 	fullyMatchedListener := &MockListener{}
 	// TODO different type for message types?
@@ -145,9 +145,9 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 var zeroUserID user.ID
 var zeroType parse.Type
 
-func WildcardListenerSetup() (*ListenerMap, *MockListener) {
-	var listeners *ListenerMap
-	listeners = NewListenerMap()
+func WildcardListenerSetup() (*Switchboard, *MockListener) {
+	var listeners *Switchboard
+	listeners = NewSwitchboard()
 	// add one listener to the map
 	wildcardListener := &MockListener{}
 	// TODO different type for message types?
@@ -180,7 +180,7 @@ func TestListenerMap_SpeakWildcard(t *testing.T) {
 }
 
 func TestListenerMap_SpeakManyToMany(t *testing.T) {
-	listeners := NewListenerMap()
+	listeners := NewSwitchboard()
 
 	individualListeners := make([]*MockListener, 0)
 
@@ -245,8 +245,8 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 }
 
 func TestListenerMap_SpeakFallback(t *testing.T) {
-	var listeners *ListenerMap
-	listeners = NewListenerMap()
+	var listeners *Switchboard
+	listeners = NewSwitchboard()
 	// add one normal and one fallback listener to the map
 	fallbackListener := &MockListener{}
 	fallbackListener.IsFallback = true
@@ -310,7 +310,7 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 }
 
 func TestListenerMap_Unregister(t *testing.T) {
-	listeners := NewListenerMap()
+	listeners := NewSwitchboard()
 	id := listeners.Register(specificUserID, specificMessageType, &MockListener{})
 	listeners.Unregister(id)
 	if len(listeners.listeners[specificUserID][specificMessageType]) != 0 {

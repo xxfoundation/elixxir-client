@@ -370,6 +370,7 @@ func TestInvoiceListener_Hear(t *testing.T) {
 	w := Wallet{
 		inboundRequests: ir,
 		session:         s,
+		Switchboard:     switchboard.NewSwitchboard(),
 	}
 
 	invoiceListener := InvoiceListener{wallet: &w}
@@ -553,6 +554,7 @@ func TestResponseListener_Hear(t *testing.T) {
 		pendingTransactions:       pt,
 		completedOutboundPayments: op,
 		session:                   s,
+		Switchboard:               switchboard.NewSwitchboard(),
 	}
 
 	response := parse.PaymentResponse{
@@ -606,7 +608,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	}
 }
 
-func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
+func TestResponseListener_Hear_Failure(t *testing.T) {
 	payer := user.ID(5)
 	payee := user.ID(12)
 
@@ -675,6 +677,7 @@ func TestPaymentResponseListener_Hear_Failure(t *testing.T) {
 		coinStorage:         storage,
 		pendingTransactions: pt,
 		session:             s,
+		Switchboard:         switchboard.NewSwitchboard(),
 	}
 
 	response := parse.PaymentResponse{
@@ -1149,6 +1152,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 		outboundRequests:         or,
 		completedInboundPayments: ip,
 		session:                  s,
+		Switchboard:              switchboard.NewSwitchboard(),
 	}
 
 	listener := ReceiptListener{
@@ -1159,7 +1163,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	uiListener := &ReceiptUIListener{
 		w: w,
 	}
-	switchboard.Listeners.Register(0, parse.Type_PAYMENT_RECEIPT_UI, uiListener)
+	w.Switchboard.Register(0, parse.Type_PAYMENT_RECEIPT_UI, uiListener)
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{

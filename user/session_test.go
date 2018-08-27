@@ -17,7 +17,7 @@ import (
 // surrounding the User struct and the Registry interface
 func TestUserSession(t *testing.T) {
 
-	test := 9
+	test := 11
 	pass := 0
 
 	u := new(User)
@@ -45,6 +45,7 @@ func TestUserSession(t *testing.T) {
 	ses := NewSession(u, "abc", keys)
 
 	ses.(*SessionObj).PrivateKey.SetInt64(2)
+	ses.SetLastMessageID("totally unique ID")
 
 	err = ses.StoreSession()
 
@@ -94,6 +95,21 @@ func TestUserSession(t *testing.T) {
 
 	if TheSession.GetGWAddress() != "test" {
 		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
+	} else {
+		pass++
+	}
+
+	if TheSession.GetLastMessageID() != "totally unique ID" {
+		t.Errorf("Error: Last message ID should have been stored and loaded")
+	} else {
+		pass++
+	}
+
+	TheSession.SetLastMessageID("test")
+
+	if TheSession.GetLastMessageID() != "test" {
+		t.Errorf("Error: Last message ID not set correctly with" +
+			" SetLastMessageID!")
 	} else {
 		pass++
 	}

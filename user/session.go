@@ -34,6 +34,8 @@ type Session interface {
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
 	GetPublicKey() *cyclic.Int
+	GetLastMessageID() string
+	SetLastMessageID(id string)
 	StoreSession() error
 	Immolate() error
 	UpsertMap(key string, element interface{}) error
@@ -119,8 +121,19 @@ type SessionObj struct {
 	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
 
+	// Last received message ID. Check messages after this on the gateway.
+	LastMessageID string
+
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
+}
+
+func (s *SessionObj) GetLastMessageID() string {
+	return s.LastMessageID
+}
+
+func (s *SessionObj) SetLastMessageID(id string) {
+	s.LastMessageID = id
 }
 
 func (s *SessionObj) GetKeys() []NodeKeys {

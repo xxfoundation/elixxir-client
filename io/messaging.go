@@ -46,8 +46,6 @@ var TransmitDelay = 1000 * time.Millisecond
 // Map that holds a record of the messages that this client successfully
 // received during this session
 var ReceivedMessages map[string]struct{}
-var lastReceivedMessageID = ""
-var receptionMutex sync.Mutex
 
 var sendLock sync.Mutex
 
@@ -168,10 +166,10 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 
 func (m *messaging) receiveMessagesFromGateway(
 	pollingMessage *pb.ClientPollMessage) []*format.Message {
-	receptionMutex.Lock()
-	defer receptionMutex.Unlock()
-	pollingMessage.MessageID = lastReceivedMessageID
 	if user.TheSession != nil {
+		user.TheSession.LockStorage()
+		defer user.TheSession.UnlockStorage()
+		pollingMessage.MessageID = user.TheSession.GetLastMessageID()
 		messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
 			pollingMessage)
 
@@ -232,7 +230,7 @@ func (m *messaging) receiveMessagesFromGateway(
 					globals.Log.INFO.Printf(
 						"Adding message ID %v to received message IDs", messageID)
 					ReceivedMessages[messageID] = struct{}{}
-					lastReceivedMessageID = messageID
+					user.TheSession.SetLastMessageID(messageID)
 
 					results = append(results, decryptedMsg)
 				}

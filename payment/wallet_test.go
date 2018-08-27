@@ -348,6 +348,14 @@ func (ms *MockSession) LockStorage() {
 func (ms *MockSession) UnlockStorage() {
 	*ms = true
 }
+func (ms *MockSession) GetLastMessageID() string {
+	*ms = true
+	return ""
+}
+
+func (ms *MockSession) SetLastMessageID(id string) {
+	*ms = true
+}
 
 func TestInvoiceListener_Hear(t *testing.T) {
 	payee := user.ID(1)

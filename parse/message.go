@@ -11,7 +11,7 @@ import (
 	"gitlab.com/privategrity/client/user"
 )
 
-const MessageHashLenBits = uint64(256)
+const MessageHashLenBits = 256
 const MessageHashLen = MessageHashLenBits / 8
 
 type MessageHash [MessageHashLen]byte
@@ -28,7 +28,7 @@ func (m Message) Hash() MessageHash {
 
 	h := sha256.New()
 
-	h.Write(m.Type.Bytes())
+	h.Write(TypeAsBytes(int32(m.Type)))
 	h.Write(m.Body)
 	h.Write(m.Sender.Bytes())
 	h.Write(m.Receiver.Bytes())

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -117,15 +118,16 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
+	switchboard.Listeners.Register(user.ID(0), cmixproto.Type_PAYMENT_INVOICE, &InvoiceListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(getPaymentBotID(), parse.Type_PAYMENT_RESPONSE, &ResponseListener{
+	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_RECEIPT, &ReceiptListener{
-		wallet: w,
-	})
+	switchboard.Listeners.Register(user.ID(0), cmixproto.Type_PAYMENT_RECEIPT,
+		&ReceiptListener{
+			wallet: w,
+		})
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of
@@ -156,10 +158,16 @@ func (w *Wallet) registerInvoice(invoice *Transaction) error {
 
 // Creates, formats, and registers an invoice in the outgoing requests
 // Assumes that the payee is the current user in the session
-func (w *Wallet) Invoice(payer user.ID, value uint64,
+func (w *Wallet) Invoice(payer user.ID, value int64,
 	memo string) (*parse.Message, error) {
+
+	if value <= 0 {
+		return nil, errors.New("must request a non-zero, " +
+			"positive amount of money for an invoice")
+	}
+
 	transaction, err := createInvoice(payer, w.session.GetCurrentUser().UserID,
-		value, memo)
+		uint64(value), memo)
 	if err != nil {
 		return nil, err
 	}
@@ -175,10 +183,10 @@ type InvoiceListener struct {
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	globals.Log.DEBUG.Printf("Heard an invoice from %v!", msg.Sender)
-	var invoice parse.PaymentInvoice
+	var invoice cmixproto.PaymentInvoice
 
 	// Test for incorrect message type, just in case
-	if msg.Type != parse.Type_PAYMENT_INVOICE {
+	if msg.Type != cmixproto.Type_PAYMENT_INVOICE {
 		globals.Log.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
 			" type: %v",
 			msg.Type.String())
@@ -228,7 +236,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	// invoice is here and ready to be paid
 	il.wallet.Switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT_INVOICE_UI,
+			Type: cmixproto.Type_PAYMENT_INVOICE_UI,
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
@@ -295,15 +303,15 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
-		paymentMessage)) > format.DATA_LEN {
+	if uint64(len(parse.TypeAsBytes(int32(cmixproto.Type_PAYMENT_TRANSACTION)))) +
+		uint64(len(paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
 	}
 
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT_TRANSACTION,
+			Type: cmixproto.Type_PAYMENT_TRANSACTION,
 			Body: paymentMessage,
 		},
 		Sender:   w.session.GetCurrentUser().UserID,
@@ -340,7 +348,7 @@ type ResponseListener struct {
 
 func (l *ResponseListener) Hear(msg *parse.Message,
 	isHeardElsewhere bool) {
-	var response parse.PaymentResponse
+	var response cmixproto.PaymentResponse
 	err := proto.Unmarshal(msg.Body, &response)
 	if err != nil {
 		globals.Log.WARN.Printf("Heard an invalid response from the payment bot. "+
@@ -397,7 +405,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT_RECEIPT,
+			Type: cmixproto.Type_PAYMENT_RECEIPT,
 			Body: transaction.OriginID[:],
 		},
 		Sender:   l.wallet.session.GetCurrentUser().UserID,
@@ -425,7 +433,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		// Let the payment receipt UI listeners know that a payment's come in
 		rl.wallet.Switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				Type: parse.Type_PAYMENT_RECEIPT_UI,
+				Type: cmixproto.Type_PAYMENT_RECEIPT_UI,
 				Body: invoiceID[:],
 			},
 			Sender:   msg.Sender,

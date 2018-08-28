@@ -22,12 +22,13 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"math"
 	"time"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
-	textMessage := parse.TextMessage{
+	textMessage := cmixproto.TextMessage{
 		Color:   0,
 		Message: message,
 	}
@@ -201,7 +202,7 @@ func SetRateLimiting(limit uint32) {
 // FIXME there can only be one
 var listenCh chan *format.Message
 
-func Listen(user user.ID, messageType parse.Type,
+func Listen(user user.ID, messageType cmixproto.Type,
 	newListener switchboard.Listener) string {
 	id := switchboard.Listeners.Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",

@@ -9,7 +9,7 @@
 syntax = "proto3";
 
 package parse;
-option go_package = "parse";
+option go_package = "cmixproto";
 
 enum Type {
     // Used as a wildcard for listeners to listen to all existing types.

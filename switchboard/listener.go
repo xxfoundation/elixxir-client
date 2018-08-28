@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"sync"
 	"reflect"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
@@ -27,7 +28,7 @@ type listenerRecord struct {
 
 type Switchboard struct {
 	// Hmmm...
-	listeners map[user.ID]map[parse.Type][]*listenerRecord
+	listeners map[user.ID]map[cmixproto.Type][]*listenerRecord
 	lastID    int
 	// TODO right mutex type?
 	mux sync.RWMutex
@@ -37,7 +38,7 @@ var Listeners = NewSwitchboard()
 
 func NewSwitchboard() *Switchboard {
 	return &Switchboard{
-		listeners: make(map[user.ID]map[parse.Type][]*listenerRecord),
+		listeners: make(map[user.ID]map[cmixproto.Type][]*listenerRecord),
 		lastID:    0,
 	}
 }
@@ -54,14 +55,14 @@ func NewSwitchboard() *Switchboard {
 // Don't pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *Switchboard) Register(user user.ID, messageType parse.Type,
+func (lm *Switchboard) Register(user user.ID, messageType cmixproto.Type,
 	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
 
 	lm.lastID++
 	if lm.listeners[user] == nil {
-		lm.listeners[user] = make(map[parse.Type][]*listenerRecord)
+		lm.listeners[user] = make(map[cmixproto.Type][]*listenerRecord)
 	}
 
 	if lm.listeners[user][messageType] == nil {
@@ -100,7 +101,7 @@ func (lm *Switchboard) Unregister(listenerID string) {
 }
 
 func (lm *Switchboard) matchListeners(userID user.ID,
-	messageType parse.Type) []*listenerRecord {
+	messageType cmixproto.Type) []*listenerRecord {
 
 	normals := make([]*listenerRecord, 0)
 

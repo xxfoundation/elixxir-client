@@ -57,10 +57,10 @@ const MessageTooLongError = "Partition(): Message is too long to partition"
 // change this if you change the index type
 const IndexLength = 2
 
-func GetMaxIndex(body []byte, id []byte) uint64 {
+func GetMaxIndex(body []byte, id []byte) int32 {
 	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
 		id)) - IndexLength)
-	return maxIndex
+	return int32(maxIndex)
 }
 
 func Partition(body []byte, id []byte) ([][]byte, error) {

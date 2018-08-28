@@ -18,6 +18,7 @@ import (
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
 	"strings"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
@@ -42,13 +43,13 @@ func init() {
 	registerResponseListener = make(udbResponseListener)
 	searchResponseListener = make(udbResponseListener)
 
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_PUSH_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_PUSH_KEY_RESPONSE,
 		&pushKeyResponseListener)
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_GET_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_GET_KEY_RESPONSE,
 		&getKeyResponseListener)
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_REGISTER_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_REGISTER_RESPONSE,
 		&registerResponseListener)
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_SEARCH_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_SEARCH_RESPONSE,
 		&searchResponseListener)
 }
 
@@ -68,7 +69,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	}
 
 	msgBody := parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_REGISTER,
+		Type: cmixproto.Type_UDB_REGISTER,
 		Body: []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
@@ -90,7 +91,7 @@ func Register(valueType, value string, publicKey []byte) error {
 // returns a map of userid -> public key
 func Search(valueType, value string) (map[uint64][]byte, error) {
 	msgBody := parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_SEARCH,
+		Type: cmixproto.Type_UDB_SEARCH,
 		Body: []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
 	err := sendCommand(UdbID, msgBody)
@@ -110,7 +111,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 
 	// Get the full key and decode it
 	msgBody = parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_GET_KEY,
+		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(keyFP),
 	})
 	err = sendCommand(UdbID, msgBody)
@@ -171,7 +172,7 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_PUSH_KEY,
+		Type: cmixproto.Type_UDB_PUSH_KEY,
 		Body: []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
 	}))
 	response := <-pushKeyResponseListener
@@ -184,7 +185,7 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 // keyExists checks for the existence of a key on the bot
 func keyExists(udbID user.ID, keyFP string) bool {
 	cmd := parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_GET_KEY,
+		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(fmt.Sprintf("%s", keyFP)),
 	})
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)

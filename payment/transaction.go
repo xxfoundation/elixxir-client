@@ -12,6 +12,7 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"time"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 type Transaction struct {
@@ -36,7 +37,7 @@ type Transaction struct {
 // as it's the coin that will be created on the payment bot.
 func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 	compound := t.Create.Compound()
-	invoice := parse.PaymentInvoice{
+	invoice := cmixproto.PaymentInvoice{
 		Time:        t.Timestamp.Unix(),
 		CreatedCoin: compound[:],
 		Memo:        t.Memo,
@@ -49,7 +50,7 @@ func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 	}
 
 	typedBody := parse.TypedBody{
-		Type: parse.Type_PAYMENT_INVOICE,
+		Type: cmixproto.Type_PAYMENT_INVOICE,
 		Body: wireRep,
 	}
 

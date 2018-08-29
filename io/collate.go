@@ -50,7 +50,7 @@ func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
 	payload := []byte(message.GetPayload())
-	sender := user.NewIDFromBytes(message.GetSender())
+	sender := user.ID(message.GetSender())
 	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
 
 	partition, err := parse.ValidatePartition(payload)
@@ -79,7 +79,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			var key PendingMessageKey
 			h := sha256.New()
 			h.Write(partition.ID)
-			h.Write(sender.Bytes())
+			h.Write([]byte(sender))
 			keyHash := h.Sum(nil)
 			copy(key[:], keyHash[:PendingMessageKeyLen])
 

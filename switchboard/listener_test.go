@@ -13,13 +13,14 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 type MockListener struct {
 	NumHeard        int
 	IsFallback      bool
 	LastMessage     []byte
-	LastMessageType parse.Type
+	LastMessageType cmixproto.Type
 	mux             sync.Mutex
 }
 
@@ -34,8 +35,8 @@ func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 }
 
-var specificUserID user.ID = 5
-var specificMessageType parse.Type = 8
+var specificUserID = user.ID("5")
+var specificMessageType cmixproto.Type = 8
 var delay = 10 * time.Millisecond
 
 func OneListenerSetup() (*Switchboard, *MockListener) {
@@ -60,7 +61,7 @@ func TestListenerMap_SpeakOne(t *testing.T) {
 			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
-		Receiver: 0,
+		Receiver: zeroUserID,
 	})
 
 	// determine whether the listener heard the message
@@ -82,8 +83,8 @@ func TestListenerMap_SpeakManyToOneListener(t *testing.T) {
 			Type: specificMessageType,
 			Body: make([]byte, 0),
 		},
-			Sender:   specificUserID,
-			Receiver: 0})
+			Sender: specificUserID,
+			Receiver: zeroUserID})
 	}
 
 	// determine whether the listener heard the message
@@ -100,14 +101,13 @@ func TestListenerMap_SpeakToAnother(t *testing.T) {
 	listeners, fullyMatchedListener := OneListenerSetup()
 
 	// speak
-	otherUserID := specificUserID + 1
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: specificMessageType,
 			Body: make([]byte, 0),
 		},
-		Sender:   otherUserID,
-		Receiver: 0,
+		Sender:   nonzeroUserID,
+		Receiver: zeroUserID,
 	})
 
 	// determine whether the listener heard the message
@@ -130,7 +130,7 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
-		Receiver: 0,
+		Receiver: zeroUserID,
 	})
 
 	// determine whether the listener heard the message
@@ -142,8 +142,9 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 	}
 }
 
-var zeroUserID user.ID
-var zeroType parse.Type
+var zeroUserID = user.ZeroID
+var nonzeroUserID = user.ID("rcs")
+var zeroType cmixproto.Type
 
 func WildcardListenerSetup() (*Switchboard, *MockListener) {
 	var listeners *Switchboard
@@ -167,7 +168,7 @@ func TestListenerMap_SpeakWildcard(t *testing.T) {
 			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
-		Receiver: 2,
+		Receiver: zeroUserID,
 	})
 
 	// determine whether the listener heard the message
@@ -185,7 +186,7 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	individualListeners := make([]*MockListener, 0)
 
 	// one user, many types
-	for messageType := parse.Type(1); messageType <= parse.
+	for messageType := cmixproto.Type(1); messageType <= cmixproto.
 		Type(20); messageType++ {
 		newListener := MockListener{}
 		listeners.Register(specificUserID, messageType,
@@ -200,26 +201,28 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 	listeners.Register(zeroUserID, zeroType, wildcardListener)
 
 	// send to all types for our user
-	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
+	for messageType := cmixproto.Type(1); messageType <= cmixproto.Type(20);
+	messageType++ {
 		go listeners.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
 				Type: messageType,
 				Body: make([]byte, 0),
 			},
 			Sender:   specificUserID,
-			Receiver: 2,
+			Receiver: zeroUserID,
 		})
 	}
 	// send to all types for a different user
-	otherUser := user.ID(specificUserID + 1)
-	for messageType := parse.Type(1); messageType <= parse.Type(20); messageType++ {
+	otherUser := user.ID("98")
+	for messageType := cmixproto.Type(1); messageType <= cmixproto.Type(
+		20); messageType++ {
 		go listeners.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
 				Type: messageType,
 				Body: make([]byte, 0),
 			},
 			Sender:   otherUser,
-			Receiver: 2,
+			Receiver: nonzeroUserID,
 		})
 	}
 
@@ -262,7 +265,7 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
-		Receiver: 2,
+		Receiver: nonzeroUserID,
 	})
 	listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
@@ -270,7 +273,7 @@ func TestListenerMap_SpeakFallback(t *testing.T) {
 			Body: make([]byte, 0),
 		},
 		Sender:   specificUserID,
-		Receiver: 2,
+		Receiver: nonzeroUserID,
 	})
 
 	time.Sleep(delay)
@@ -296,7 +299,7 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 			Body: expected,
 		},
 		Sender:   specificUserID,
-		Receiver: 2,
+		Receiver: nonzeroUserID,
 	})
 	time.Sleep(delay)
 	if !bytes.Equal(listener.LastMessage, expected) {

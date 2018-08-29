@@ -62,7 +62,7 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 	}
 
 	if doMint {
-		mintedCoins := coin.MintUser(uint64(s.GetCurrentUser().UserID))
+		mintedCoins := coin.MintUser(string(s.GetCurrentUser().UserID))
 		for i := range mintedCoins {
 			cs.add(mintedCoins[i])
 		}
@@ -240,13 +240,15 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
-		Receiver: 0,
+		Receiver: user.ZeroID,
 		Nonce:    nil,
 	})
 }
 
 func getPaymentBotID() user.ID {
-	return 17
+	idBytes := make([]byte, user.IDLen)
+	idBytes[len(idBytes)-1] = 17
+	return user.ID(idBytes)
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,
@@ -437,7 +439,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 				Body: invoiceID[:],
 			},
 			Sender:   msg.Sender,
-			Receiver: 0,
+			Receiver: user.ZeroID,
 			Nonce:    nil,
 		})
 	}

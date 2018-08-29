@@ -8,46 +8,33 @@ package user
 
 import (
 	"crypto/sha256"
-	"encoding/binary"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/hash"
-	"strconv"
+	"encoding/base32"
 )
 
-// TODO use this type for User IDs consistently throughout
-// FIXME use string or []byte for this - string works as a key for hash maps
-// and []byte is compatible with more other languages.
-// string probably makes more sense
-type ID uint64
+// Most string types in most languages (with C excepted) support 0 as a
+// character in a string, for Unicode support. So it's possible to use normal
+// strings as an immutable container for bytes in all the languages we care
+// about supporting.
+type ID string
 
-var IDLen = 8
+// Length of IDs in bytes
+// 128 bits
+const IDLen = 16
+// This can't be a const because the golang compiler doesn't support putting
+// constant expressions in a constant
+var ZeroID = ID(make([]byte, IDLen))
+// So smart
 
-// TODO remove this when ID becomes a string
-func (u ID) Bytes() []byte {
-	result := make([]byte, IDLen)
-	binary.BigEndian.PutUint64(result, uint64(u))
-	return result
-}
+// Length of registration code in raw bytes
+// Must be a multiple of 5 bytes to work with base 32
+// 8 character long reg codes when base-32 encoded currently with length of 5
+const RegCodeLen = 5
 
-// TODO clean this up
 func (u ID) RegistrationCode() string {
-	return cyclic.NewIntFromUInt(uint64(NewIDFromBytes(UserHash(u)))).TextVerbose(32, 0)
-}
-
-func NewIDFromBytes(id []byte) ID {
-	// to keep compatibility with old user registration codes, we need to use
-	// the last part of the byte array that we pass in
-	// FIXME break compatibility here during the migration to 128 bit ids
-	result := ID(binary.BigEndian.Uint64(id[len(id)-IDLen:]))
-	return result
-}
-
-// Converts from human-readable string to user ID
-// NOTE This will break when we migrate to the new 128-bit user IDs
-func NewIDFromString(id string, base int) (ID, error) {
-	newID, err := strconv.ParseUint(id, 10, 64)
-	return ID(newID), err
+	return base32.StdEncoding.EncodeToString(UserHash(u))
 }
 
 // Globally instantiated Registry
@@ -72,6 +59,8 @@ type Registry interface {
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
+	// NOTA BENE MOTHERFUCKERS When you index into this map, make sure to use
+	// a proper ID that has IDLen bytes in it
 	userCollection map[ID]*User
 	// Increments sequentially for User.ID values
 	idCounter uint64
@@ -92,12 +81,16 @@ func newRegistry() Registry {
 	nk := make(map[ID]*NodeKeys)
 
 	// Deterministically create NUM_DEMO_USERS users
+	// Start at ID 1
+	firstID := []byte{0x01}
+	firstID = append(make([]byte, IDLen-len(firstID)), firstID...)
+	currentID := ID(firstID)
 	for i := 1; i <= NUM_DEMO_USERS; i++ {
 		t := new(User)
 		k := new(NodeKeys)
 
 		// Generate user parameters
-		t.UserID = ID(i)
+		t.UserID = currentID
 		h := sha256.New()
 		h.Write([]byte(string(20000 + i)))
 		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
@@ -113,23 +106,61 @@ func newRegistry() Registry {
 
 		// Add user to collection and lookup table
 		uc[t.UserID] = t
-		ul[string(UserHash(t.UserID))] = t.UserID
+		// Detect collisions in the registration code
+		if _, ok := ul[t.UserID.RegistrationCode()]; ok {
+			globals.Log.ERROR.Printf(
+				"Collision in demo user list creation at %v. "+
+					"Please fix ASAP (include more bits to the reg code.", i)
+		}
+		ul[t.UserID.RegistrationCode()] = t.UserID
 		nk[t.UserID] = k
+		currentID = currentID.nextID()
 	}
 
-	// Channels have been hardcoded to users 101-200
+	// Channels have been hardcoded to users starting with 31
+	firstID = []byte{1}
+	firstID = append(make([]byte, IDLen-len(firstID)), firstID...)
+	currentID = ID(firstID)
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		uc[ID(i+1)].Nick = DEMO_USER_NICKS[i]
+		uc[currentID].Nick = DEMO_USER_NICKS[i]
+		currentID = currentID.nextID()
 	}
+
+	firstID = []byte{31}
+	firstID = append(make([]byte, IDLen-len(firstID)), firstID...)
+	currentID = ID(firstID)
 	for i := 0; i < len(DEMO_CHANNEL_NAMES); i++ {
-		uc[ID(i+31)].Nick = DEMO_CHANNEL_NAMES[i]
+		uc[currentID].Nick = DEMO_CHANNEL_NAMES[i]
+		currentID = currentID.nextID()
 	}
 
 	// With an underlying UserMap data structure
 	return Registry(&UserMap{userCollection: uc,
-		idCounter:  uint64(NUM_DEMO_USERS),
+		idCounter: uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
+}
+
+// In most situations we only need to compare IDs for equality, so this func
+// isn't exported.
+// Adding a number to an ID, or incrementing an ID,
+// will normally have no meaning.
+func (u ID) nextID() ID {
+	// IDs are fixed length byte strings so it's actually straightforward to
+	// increment them without going out to a big.Int
+	if len(u) != IDLen {
+		panic("nextID(): length of ID was incorrect")
+	}
+	result := make([]byte, IDLen)
+	copy(result, u)
+	// increment byte by byte starting from the end of the array
+	for i := IDLen - 1; i >= 0; i-- {
+		result[i]++
+		if result[i] != 0 {
+			break
+		}
+	}
+	return ID(result)
 }
 
 // Struct representing a User in the system
@@ -155,9 +186,9 @@ func (u *User) DeepCopy() *User {
 // like this?
 func UserHash(uid ID) []byte {
 	h, _ := hash.NewCMixHash()
-	h.Write(uid.Bytes())
+	h.Write([]byte(uid))
 	huid := h.Sum(nil)
-	huid = huid[len(huid)-IDLen:]
+	huid = huid[len(huid)-RegCodeLen:]
 	return huid
 }
 

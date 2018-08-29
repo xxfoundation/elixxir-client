@@ -20,17 +20,20 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
+	firstID := []byte{0x01}
+	firstID = append(make([]byte, IDLen-len(firstID)), firstID...)
+	currentID := ID(firstID)
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		uid := ID(i + 1)
-		reg, _ := Users.LookupUser(string(UserHash(uid)))
+		reg, _ := Users.LookupUser(currentID.RegistrationCode())
 		usr, _ := Users.GetUser(reg)
 		if usr.Nick != DEMO_USER_NICKS[i] {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
 				DEMO_USER_NICKS[i], usr.Nick)
 		}
+		currentID = currentID.nextID()
 	}
 	// Test the NewUser function
-	id := ID(2002)
+	id := ID("2002")
 	usr := Users.NewUser(id, "Will I am")
 
 	if usr.Nick != "Will I am" {
@@ -55,7 +58,9 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test LookupKeys
-	keys, suc := Users.LookupKeys(ID(1))
+	lookupID := []byte{0x01}
+	lookupID = append(make([]byte, IDLen-len(lookupID)), lookupID...)
+	keys, suc := Users.LookupKeys(ID(lookupID))
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}
@@ -92,9 +97,9 @@ func TestUserRegistry(t *testing.T) {
 			keys.ReceptionKeys.Recursive.Text(16))
 	}
 	// Test delete user
-	Users.DeleteUser(2)
+	Users.DeleteUser(ID(2))
 
-	_, ok := Users.GetUser(2)
+	_, ok := Users.GetUser(ID(2))
 	if ok {
 		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
 	}

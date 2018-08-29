@@ -23,6 +23,7 @@ import (
 	"math"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
+	"encoding/base32"
 )
 
 // Populates a text message and returns its wire representation
@@ -66,17 +67,22 @@ func Register(registrationCode string, gwAddr string,
 	if numNodes < 1 {
 		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
-		return 0, err
+		return "", err
 	}
 
-	hashUID := cyclic.NewIntFromString(registrationCode, 32).Bytes()
+	hashUID, err := base32.StdEncoding.DecodeString(registrationCode)
+	if err != nil {
+		globals.Log.ERROR.Printf("Register: Couldn't decode registration code" +
+			": %v", err.Error())
+		return "", err
+	}
 	UID, successLook := user.Users.LookupUser(string(hashUID))
 	defer clearUserID(&UID)
 
 	if !successLook {
 		globals.Log.ERROR.Printf("Register: HUID does not match")
 		err = errors.New("could not register due to invalid HUID")
-		return 0, err
+		return "", err
 	}
 
 	u, successGet := user.Users.GetUser(UID)
@@ -84,7 +90,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successGet {
 		globals.Log.ERROR.Printf("Register: ID lookup failed")
 		err = errors.New("could not register due to ID lookup failure")
-		return 0, err
+		return "", err
 	}
 
 	nodekeys, successKeys := user.Users.LookupKeys(u.UserID)
@@ -93,7 +99,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successKeys {
 		globals.Log.ERROR.Printf("Register: could not find user keys")
 		err = errors.New("could not register due to missing user keys")
-		return 0, err
+		return "", err
 	}
 
 	nk := make([]user.NodeKeys, numNodes)
@@ -106,7 +112,7 @@ func Register(registrationCode string, gwAddr string,
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
-		return 0, err
+		return "", err
 	}
 
 	errStore := nus.StoreSession()
@@ -118,7 +124,7 @@ func Register(registrationCode string, gwAddr string,
 			"Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return 0, err
+		return "", err
 	}
 
 	nus.Immolate()

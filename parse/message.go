@@ -30,8 +30,8 @@ func (m Message) Hash() MessageHash {
 
 	h.Write(TypeAsBytes(int32(m.Type)))
 	h.Write(m.Body)
-	h.Write(m.Sender.Bytes())
-	h.Write(m.Receiver.Bytes())
+	h.Write([]byte(m.Sender))
+	h.Write([]byte(m.Receiver))
 	//h.Write(m.Nonce)
 
 	hashed := h.Sum(nil)
@@ -42,11 +42,11 @@ func (m Message) Hash() MessageHash {
 }
 
 func (m Message) GetSender() []byte {
-	return m.Sender.Bytes()
+	return []byte(m.Sender)
 }
 
 func (m Message) GetRecipient() []byte {
-	return m.Receiver.Bytes()
+	return []byte(m.Receiver)
 }
 
 func (m Message) GetPayload() string {

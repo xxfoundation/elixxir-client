@@ -117,7 +117,6 @@ func (lm *Switchboard) Speak(msg *parse.Message) {
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()
 
-	var zeroUserID user.ID
 	accumNormals := make([]*listenerRecord, 0)
 	// match perfect matches
 	normals := lm.matchListeners(msg.Sender, msg.Type)
@@ -126,10 +125,10 @@ func (lm *Switchboard) Speak(msg *parse.Message) {
 	normals = lm.matchListeners(msg.Sender, 0)
 	accumNormals = append(accumNormals, normals...)
 	// match just the type
-	normals = lm.matchListeners(zeroUserID, msg.Type)
+	normals = lm.matchListeners(user.ZeroID, msg.Type)
 	accumNormals = append(accumNormals, normals...)
 	// match wildcard listeners that hear everything
-	normals = lm.matchListeners(zeroUserID, 0)
+	normals = lm.matchListeners(user.ZeroID, 0)
 	accumNormals = append(accumNormals, normals...)
 
 	if len(accumNormals) > 0 {

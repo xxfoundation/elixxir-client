@@ -14,7 +14,6 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"io"
-	"math"
 	"math/rand"
 	"time"
 )
@@ -216,8 +215,9 @@ func (s *SessionObj) Immolate() error {
 	}
 
 	// clear data stored in session
-	s.CurrentUser.UserID = math.MaxUint64
-	s.CurrentUser.UserID = 0
+	s.CurrentUser.UserID = ID(burntString(len(s.CurrentUser.UserID)))
+	s.CurrentUser.UserID = ID(burntString(len(s.CurrentUser.UserID)))
+	s.CurrentUser.UserID = ""
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""

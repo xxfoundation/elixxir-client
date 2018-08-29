@@ -9,6 +9,7 @@ package parse
 import (
 	"reflect"
 	"testing"
+	"gitlab.com/privategrity/client/user"
 )
 
 //Shows that MessageHash ia an independent function of every field in Message
@@ -16,8 +17,8 @@ func TestMessage_Hash(t *testing.T) {
 	m := Message{}
 	m.Type = 0
 	m.Body = []byte{0, 0}
-	m.Sender = 0
-	m.Receiver = 0
+	m.Sender = user.ID(make([]byte, user.IDLen))
+	m.Receiver = user.ID(make([]byte, user.IDLen))
 	m.Nonce = []byte{0, 0}
 
 	baseHash := m.Hash()
@@ -42,7 +43,9 @@ func TestMessage_Hash(t *testing.T) {
 
 	m.Body = []byte{0, 0}
 
-	m.Sender = 1
+	newID := user.ID(append(make([]byte, user.IDLen - 1), []byte{1}...))
+	oldID := m.Sender
+	m.Sender = newID
 
 	senderHash := m.Hash()
 
@@ -50,9 +53,9 @@ func TestMessage_Hash(t *testing.T) {
 		t.Errorf("Message.Hash: Output did not change with modified sender")
 	}
 
-	m.Sender = 0
+	m.Sender = oldID
 
-	m.Receiver = 1
+	m.Receiver = newID
 
 	receiverHash := m.Hash()
 
@@ -60,7 +63,7 @@ func TestMessage_Hash(t *testing.T) {
 		t.Errorf("Message.Hash: Output did not change with modified receiver")
 	}
 
-	m.Receiver = 0
+	m.Receiver = oldID
 
 	// FIXME Add a "bake" step to the message to partition and nonceify it
 	// before hashing. We need this to be able to identify messages by their

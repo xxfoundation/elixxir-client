@@ -9,14 +9,15 @@ import (
 	"os"
 	"reflect"
 	"testing"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Shows that CreateOrderedStorage creates new storage properly
 func TestCreateOrderedStorage_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	userID := id.UserID("1")
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -60,8 +61,8 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 func TestCreateOrderedStorage_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	userID := id.UserID("1")
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -107,8 +108,8 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	userID := id.UserID("1")
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -130,8 +131,8 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	userID := id.UserID("1")
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	cs, err := coin.NewSleeve(69)
 
@@ -152,8 +153,8 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	userID := id.UserID("1")
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
 
@@ -196,8 +197,8 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	userID := id.UserID("1")
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -234,7 +235,7 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 func TestOrderedCoinStorage_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -273,7 +274,7 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 func TestOrderedCoinStorage_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -312,7 +313,7 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -369,7 +370,7 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -411,7 +412,7 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -454,7 +455,7 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -509,7 +510,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -564,7 +565,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -604,7 +605,7 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
@@ -667,7 +668,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 		t.Error(err.Error())
 	}
 	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
-	id := user.ID("1")
+	id := id.UserID("1")
 	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist

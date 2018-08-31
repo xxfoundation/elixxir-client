@@ -14,15 +14,15 @@ import (
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
-	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
 	"strings"
 	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
-const UdbID = user.ID(13)
+var UdbID = id.NewUserIDFromUint(13, nil)
 
 type udbResponseListener chan string
 
@@ -167,7 +167,7 @@ func parseGetKey(msg string) []byte {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
+func pushKey(udbID id.UserID, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
@@ -183,7 +183,7 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 }
 
 // keyExists checks for the existence of a key on the bot
-func keyExists(udbID user.ID, keyFP string) bool {
+func keyExists(udbID id.UserID, keyFP string) bool {
 	cmd := parse.Pack(&parse.TypedBody{
 		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(fmt.Sprintf("%s", keyFP)),
@@ -211,6 +211,6 @@ func fingerprint(publicKey []byte) string {
 // sendCommand sends a command to the udb. This doesn't block.
 // Callers that need to wait on a response should implement waiting with a
 // listener.
-func sendCommand(botID user.ID, command []byte) error {
+func sendCommand(botID id.UserID, command []byte) error {
 	return io.Messaging.SendMessage(botID, string(command))
 }

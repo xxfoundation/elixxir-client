@@ -16,6 +16,7 @@ import (
 	"io"
 	"math/rand"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Errors
@@ -71,7 +72,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 
 }
 
-func LoadSession(UID ID) (Session, error) {
+func LoadSession(UID id.UserID) (Session, error) {
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return nil, err
@@ -215,8 +216,13 @@ func (s *SessionObj) Immolate() error {
 	}
 
 	// clear data stored in session
-	s.CurrentUser.UserID = ID(burntString(len(s.CurrentUser.UserID)))
-	s.CurrentUser.UserID = ID(burntString(len(s.CurrentUser.UserID)))
+	// FIXME This doesn't work as intended.
+	// To actually be guaranteed to overwrite the memory, you need to use
+	// copy() with the destination equal to the string you want to burn.
+	// You will probably need to use the unsafe library to actually accomplish
+	// this properly.
+	s.CurrentUser.UserID = id.UserID(burntString(len(s.CurrentUser.UserID)))
+	s.CurrentUser.UserID = id.UserID(burntString(len(s.CurrentUser.UserID)))
 	s.CurrentUser.UserID = ""
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))

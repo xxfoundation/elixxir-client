@@ -23,6 +23,7 @@ import (
 	cmix "gitlab.com/privategrity/crypto/messaging"
 	"sync"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 type messaging struct{}
@@ -54,7 +55,7 @@ var sendLock sync.Mutex
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *messaging) SendMessage(recipientID user.ID,
+func (m *messaging) SendMessage(recipientID id.UserID,
 	message string) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -71,7 +72,9 @@ func (m *messaging) SendMessage(recipientID user.ID,
 		return err
 	}
 	for i := range parts {
-		// MARK Crypto change: Unified message type
+		// MARK Need crypto change: Unified message type. Crypto must be able
+		// to use the user ID type ( or the user ID type must be a more normal
+		// type like a regular old string.)
 		messages, err := format.NewMessage(userID,
 			recipientID, string(parts[i]))
 		if err != nil {
@@ -91,7 +94,7 @@ func (m *messaging) SendMessage(recipientID user.ID,
 }
 
 // send actually sends the message to the server
-func send(senderID user.ID, message *format.Message) error {
+func send(senderID id.UserID, message *format.Message) error {
 	// Enable transmission blocking if enabled
 	if BlockTransmissions {
 		sendLock.Lock()
@@ -210,7 +213,8 @@ func (m *messaging) receiveMessagesFromGateway(
 				} else {
 					if newMessage.MessagePayload == nil &&
 						newMessage.RecipientID == nil &&
-						newMessage.SenderID == 0 {
+						// TODO These should have the same type
+						newMessage.SenderID == string(id.ZeroID) {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue
 					}

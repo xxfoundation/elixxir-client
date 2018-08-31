@@ -11,6 +11,7 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -21,7 +22,7 @@ func TestUserSession(t *testing.T) {
 	pass := 0
 
 	u := new(User)
-	UID := ID(1)
+	UID := id.NewUserIDFromUint(1, t)
 
 	u.UserID = UID
 	u.Nick = "Mario"
@@ -71,7 +72,7 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	_, err = LoadSession(ID(10002))
+	_, err = LoadSession(id.NewUserIDFromUint(10002, t))
 
 	if err == nil {
 		t.Errorf("Error: Able to login with invalid user!")
@@ -204,7 +205,7 @@ func TestUserSession(t *testing.T) {
 	temp := globals.LocalStorage
 	globals.LocalStorage = nil
 
-	_, err = LoadSession(ID(6))
+	_, err = LoadSession(id.NewUserIDFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
@@ -217,7 +218,7 @@ func TestUserSession(t *testing.T) {
 	randBytes := h.Sum(nil)
 	globals.LocalStorage.Save(randBytes)
 
-	_, err = LoadSession(ID(6))
+	_, err = LoadSession(id.NewUserIDFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
@@ -226,7 +227,7 @@ func TestUserSession(t *testing.T) {
 
 func TestGetPubKey(t *testing.T) {
 	u := new(User)
-	UID := ID(1)
+	UID := id.NewUserIDFromUint(1, t)
 
 	u.UserID = UID
 	u.Nick = "Mario"

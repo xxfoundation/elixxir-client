@@ -8,14 +8,14 @@
 package io
 
 import (
-	"gitlab.com/privategrity/client/user"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Communication interface implements send/receive functionality with the server
 type Communications interface {
 	// SendMessage to the server
-	SendMessage(recipientID user.ID, message string) error
+	SendMessage(recipientID id.UserID, message string) error
 	// MessageReceiver thread to get new messages
 	MessageReceiver(delay time.Duration)
 }

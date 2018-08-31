@@ -9,7 +9,7 @@ package parse
 import (
 	"reflect"
 	"testing"
-	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 //Shows that MessageHash ia an independent function of every field in Message
@@ -17,8 +17,8 @@ func TestMessage_Hash(t *testing.T) {
 	m := Message{}
 	m.Type = 0
 	m.Body = []byte{0, 0}
-	m.Sender = user.ID(make([]byte, user.IDLen))
-	m.Receiver = user.ID(make([]byte, user.IDLen))
+	m.Sender = id.ZeroID
+	m.Receiver = id.ZeroID
 	m.Nonce = []byte{0, 0}
 
 	baseHash := m.Hash()
@@ -43,7 +43,7 @@ func TestMessage_Hash(t *testing.T) {
 
 	m.Body = []byte{0, 0}
 
-	newID := user.ID(append(make([]byte, user.IDLen - 1), []byte{1}...))
+	newID := id.NewUserIDFromUint(1,t)
 	oldID := m.Sender
 	m.Sender = newID
 

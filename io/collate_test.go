@@ -8,12 +8,13 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 func TestCollator_AddMessage(t *testing.T) {
 
 	user.TheSession = user.NewSession(&user.User{"jon", "test"}, "",
-	[]user.NodeKeys{})
+		[]user.NodeKeys{})
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
@@ -36,7 +37,8 @@ func TestCollator_AddMessage(t *testing.T) {
 		var result *parse.Message
 		for j := range partitions {
 
-			fm, errFNM := format.NewMessage(5, 6, string(partitions[j]))
+			fm, errFNM := format.NewMessage(id.NewUserIDFromUint(5, t),
+				id.NewUserIDFromUint(6, t), string(partitions[j]))
 
 			if errFNM != nil {
 				t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
@@ -57,7 +59,7 @@ func TestCollator_AddMessage(t *testing.T) {
 func TestCollator_AddMessage_Timeout(t *testing.T) {
 
 	user.TheSession = user.NewSession(&user.User{"jon", "test"}, "",
-	[]user.NodeKeys{})
+		[]user.NodeKeys{})
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
@@ -70,7 +72,8 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	}
 	var result *parse.Message
 	for i := range partitions {
-		fm, errFNM := format.NewMessage(5, 6, string(partitions[i]))
+		fm, errFNM := format.NewMessage(id.NewUserIDFromUint(5, t),
+			id.NewUserIDFromUint(6, t), string(partitions[i]))
 
 		if errFNM != nil {
 			t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())

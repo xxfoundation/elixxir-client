@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // TestUserRegistry tests the constructors/getters/setters
@@ -20,9 +21,7 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
-	firstID := []byte{0x01}
-	firstID = append(make([]byte, IDLen-len(firstID)), firstID...)
-	currentID := ID(firstID)
+	currentID := id.NewUserIDFromUint(1, t)
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
 		reg, _ := Users.LookupUser(currentID.RegistrationCode())
 		usr, _ := Users.GetUser(reg)
@@ -30,11 +29,11 @@ func TestUserRegistry(t *testing.T) {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
 				DEMO_USER_NICKS[i], usr.Nick)
 		}
-		currentID = currentID.nextID()
+		currentID = currentID.NextID(t)
 	}
 	// Test the NewUser function
-	id := ID("2002")
-	usr := Users.NewUser(id, "Will I am")
+	newID := id.NewUserIDFromUint(2002, t)
+	usr := Users.NewUser(newID, "Will I am")
 
 	if usr.Nick != "Will I am" {
 		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
@@ -46,7 +45,7 @@ func TestUserRegistry(t *testing.T) {
 	if Users.CountUsers() != userCount+1 {
 		t.Errorf("Upsert did not add a new user. User count is incorrect")
 	}
-	newUsr, suc := Users.GetUser(id)
+	newUsr, suc := Users.GetUser(newID)
 	if !suc {
 		t.Errorf("Upsert did not add the test user correctly. " +
 			"The ID was not found by GetUser.")
@@ -58,9 +57,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test LookupKeys
-	lookupID := []byte{0x01}
-	lookupID = append(make([]byte, IDLen-len(lookupID)), lookupID...)
-	keys, suc := Users.LookupKeys(ID(lookupID))
+	keys, suc := Users.LookupKeys(id.NewUserIDFromUint(1, t))
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}
@@ -97,10 +94,20 @@ func TestUserRegistry(t *testing.T) {
 			keys.ReceptionKeys.Recursive.Text(16))
 	}
 	// Test delete user
-	Users.DeleteUser(ID(2))
+	Users.DeleteUser(id.NewUserIDFromUint(2, t))
 
-	_, ok := Users.GetUser(ID(2))
+	_, ok := Users.GetUser(id.NewUserIDFromUint(2, t))
 	if ok {
 		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
+	}
+}
+
+// Doesn't actually do any testing, but can print the registration codes for
+// the first several users
+func TestPrintRegCodes(t *testing.T) {
+	currentID := id.NewUserIDFromUint(1, t)
+	for i := 1; i <= NUM_DEMO_USERS; i++ {
+		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
+		currentID = currentID.NextID(t)
 	}
 }

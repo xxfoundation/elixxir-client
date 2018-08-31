@@ -8,7 +8,7 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 const MessageHashLenBits = 256
@@ -18,8 +18,8 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
-	Sender   user.ID
-	Receiver user.ID
+	Sender   id.UserID
+	Receiver id.UserID
 	Nonce    []byte
 }
 

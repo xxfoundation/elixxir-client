@@ -17,6 +17,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -24,7 +25,7 @@ func TestRegistrationGob(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	// populate a gob in the store
-	Register("be50nhqpqjtjj", gwAddress, 1, false)
+	Register("UAV6IWD6", gwAddress, 1, false)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -48,8 +49,8 @@ func VerifyRegisterGobAddress(t *testing.T) {
 }
 
 func VerifyRegisterGobUserID(t *testing.T) {
-	if Session.GetCurrentUser().UserID != 5 {
-		t.Errorf("User's ID was %v, expected %v",
+	if Session.GetCurrentUser().UserID != id.NewUserIDFromUint(5, t) {
+		t.Errorf("User's ID was %q, expected %v",
 			Session.GetCurrentUser().UserID, 5)
 	}
 }
@@ -60,7 +61,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			Session.GetKeys()[0].PublicKey.Text(16), "0")
 	}
 	h := sha256.New()
-	h.Write([]byte(string(30000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(30005)))
 	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
 		expectedTransmissionRecursiveKey) != 0 {
@@ -69,7 +70,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			expectedTransmissionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(20000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(20005)))
 	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
 		expectedTransmissionBaseKey) != 0 {
@@ -78,7 +79,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			expectedTransmissionBaseKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(50000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(50005)))
 	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
 		expectedReceptionRecursiveKey) != 0 {
@@ -87,7 +88,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			expectedReceptionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(40000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(40005)))
 	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
 		expectedReceptionBaseKey) != 0 {
@@ -134,7 +135,7 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID user.ID,
+func (d *dummyMessaging) SendMessage(recipientID id.UserID,
 	message string) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
@@ -142,7 +143,7 @@ func (d *dummyMessaging) SendMessage(recipientID user.ID,
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID user.ID) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
 	return d.listener
 }
 
@@ -157,10 +158,10 @@ var keyFingerprint string
 var pubKey []byte
 
 // SendMsg puts a fake udb response message on the channel
-func SendMsg(msg string) {
-	m, _ := format.NewMessage(13, 1, msg)
-	ListenCh <- &m[0]
-}
+//func SendMsg(msg string) {
+//	m, _ := format.NewMessage(13, 1, msg)
+//	ListenCh <- &m[0]
+//}
 
 //func TestRegisterPubKeyByteLen(t *testing.T) {
 //	ListenCh = make(chan *format.Message, 100)

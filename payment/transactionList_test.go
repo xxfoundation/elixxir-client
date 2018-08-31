@@ -10,13 +10,15 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Shows that CreateTransactionList creates new storage properly
 func TestCreateTransactionList_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: user.ID("1"), Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.UserID("1"), Nick: "test"}, "",
+	[]user.NodeKeys{})
 
 	// show that the ordered list does not exist
 	key := "TestTransactionList"

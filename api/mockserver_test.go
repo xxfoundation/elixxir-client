@@ -20,6 +20,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 var gwAddress = "localhost:8080"
@@ -59,14 +60,14 @@ func TestRegister(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "JHJ6L9BACDVC"
+	registrationCode := "OIF3OJ5I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	regRes, err := Register(registrationCode, gwAddress, 1, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
-	if regRes == 0 {
+	if regRes == id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
 	globals.LocalStorage = nil
@@ -77,7 +78,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "JHJ6L9BACDVC"
+	registrationCode := "OIF3OJ5I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	_, err = Register(registrationCode, gwAddress, 0, false)
@@ -92,13 +93,12 @@ func TestRegisterBadHUID(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "JHJ6L9BACDV"
+	registrationCode := "OIF3OJ6I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	_, err = Register(registrationCode, gwAddress, 1, false)
 	if err == nil {
-		t.Errorf("Registration worked with bad registration code! %s",
-			err.Error())
+		t.Error("Registration worked with bad registration code!")
 	}
 	globals.LocalStorage = nil
 }
@@ -108,11 +108,11 @@ func TestRegisterDeletedUser(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "JHJ6L9BACDVC"
+	registrationCode := "OIF3OJ5I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	tempUser, _ := user.Users.GetUser(10)
-	user.Users.DeleteUser(10)
+	tempUser, _ := user.Users.GetUser(id.NewUserIDFromUint(10, t))
+	user.Users.DeleteUser(id.NewUserIDFromUint(10, t))
 	_, err = Register(registrationCode, gwAddress, 1, false)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
@@ -140,7 +140,7 @@ func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	userID, err := Register("be50nhqpqjtjj", gwAddress, 1, false)
+	userID, err := Register("UAV6IWD6", gwAddress, 1, false)
 	session, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
@@ -152,7 +152,8 @@ func TestSend(t *testing.T) {
 	}
 
 	// Test send with invalid sender ID
-	err = Send(APIMessage{SenderID: 12, Payload: "test",
+	err = Send(APIMessage{SenderID: id.NewUserIDFromUint(12, t),
+	Payload: "test",
 		RecipientID: userID})
 	if err != nil {
 		// TODO: would be nice to catch the sender but we

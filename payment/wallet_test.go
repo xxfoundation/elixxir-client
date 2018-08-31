@@ -16,12 +16,13 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
 func TestWallet_registerInvoice(t *testing.T) {
-	payee := user.ID("1")
-	payer := user.ID("2")
+	payee := id.UserID("1")
+	payer := id.UserID("2")
 	memo := "for serious cryptography"
 	value := uint64(85)
 
@@ -80,7 +81,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: user.ID("1"), Nick: "test"}, "",
+	s := user.NewSession(&user.User{UserID: id.UserID("1"), Nick: "test"}, "",
 	[]user.NodeKeys{})
 
 	_, err := CreateWallet(s, false)
@@ -122,8 +123,8 @@ func TestCreateWallet(t *testing.T) {
 // Tests Invoice's message creation, and smoke tests the message's storage in
 // the wallet's session
 func TestWallet_Invoice(t *testing.T) {
-	payee := user.ID("1")
-	payer := user.ID("2")
+	payee := id.UserID("1")
+	payer := id.UserID("2")
 	memo := "please gib"
 	value := int64(50)
 	invoiceTime := time.Now()
@@ -234,8 +235,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 			Type: cmixproto.Type_PAYMENT_INVOICE,
 			Body: []byte("fun fact: clownfish aren't actually very funny"),
 		},
-		Sender:   user.ZeroID,
-		Receiver: user.ZeroID,
+		Sender:   id.ZeroID,
+		Receiver: id.ZeroID,
 		Nonce:    nil,
 	}, false)
 
@@ -360,8 +361,8 @@ func (ms *MockSession) SetLastMessageID(id string) {
 }
 
 func TestInvoiceListener_Hear(t *testing.T) {
-	payee := user.ID("1")
-	payer := user.ID("2")
+	payee := id.UserID("1")
+	payer := id.UserID("2")
 	value := uint64(50)
 	memo := "please gib"
 	// Set up the wallet and its storage
@@ -446,8 +447,8 @@ func TestInvoiceListener_Hear(t *testing.T) {
 }
 
 func TestWallet_Invoice_Error(t *testing.T) {
-	payee := user.ID("1")
-	payer := user.ID("2")
+	payee := id.UserID("1")
+	payer := id.UserID("2")
 	memo := "please gib"
 	// A value of zero should cause an error
 	value := int64(0)
@@ -486,15 +487,15 @@ func TestWallet_Invoice_Error(t *testing.T) {
 
 type MockMessaging struct{}
 
-func (m *MockMessaging) SendMessage(recipientID user.ID, message string) error {
+func (m *MockMessaging) SendMessage(recipientID id.UserID, message string) error {
 	return nil
 }
 
 func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
 
 func TestResponseListener_Hear(t *testing.T) {
-	payer := user.ID("5")
-	payee := user.ID("12")
+	payer := id.UserID("5")
+	payee := id.UserID("12")
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -619,8 +620,8 @@ func TestResponseListener_Hear(t *testing.T) {
 }
 
 func TestResponseListener_Hear_Failure(t *testing.T) {
-	payer := user.ID("5")
-	payee := user.ID("12")
+	payer := id.UserID("5")
+	payee := id.UserID("12")
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -731,8 +732,8 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 }
 
 func TestWallet_Pay_NoChange(t *testing.T) {
-	payer := user.ID(5)
-	payee := user.ID(12)
+	payer := id.UserID(5)
+	payee := id.UserID(12)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -824,8 +825,8 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 }
 
 func TestWallet_Pay_YesChange(t *testing.T) {
-	payer := user.ID(5)
-	payee := user.ID(12)
+	payer := id.UserID(5)
+	payee := id.UserID(12)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -935,7 +936,7 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 func setupGetTests() (*Wallet, error) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: user.ID("5"), Nick: "Darth Icky"}, "",
+	s := user.NewSession(&user.User{UserID: id.UserID("5"), Nick: "Darth Icky"}, "",
 		[]user.NodeKeys{})
 
 	w, err := CreateWallet(s, false)
@@ -954,8 +955,8 @@ const transactionValue = uint64(5280)
 // in the wallet
 func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 	Transaction, bool)) error {
-	id := parse.MessageHash{}
-	copy(id[:], "testKey")
+	msgID := parse.MessageHash{}
+	copy(msgID[:], "testKey")
 
 	numSleeves := 10
 
@@ -971,14 +972,14 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 		Create:    sleeves[0],
 		Destroy:   sleeves[2:],
 		Change:    sleeves[1],
-		Sender:    user.ID("5"),
-		Recipient: user.ID("6"),
+		Sender:    id.UserID("5"),
+		Recipient: id.UserID("6"),
 		Memo:      "dog buns",
 		Timestamp: time.Now(),
 		Value:     transactionValue,
 	}
-	tl.Upsert(id, upsertedTransaction)
-	transaction, ok := get(id)
+	tl.Upsert(msgID, upsertedTransaction)
+	transaction, ok := get(msgID)
 
 	// Test that the ID can get the transaction
 	if !ok {
@@ -994,24 +995,24 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: value")
 	}
-	transaction, ok = get(id)
-	transaction.Sender = user.ID(0)
+	transaction, ok = get(msgID)
+	transaction.Sender = id.UserID(0)
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: sender")
 	}
-	transaction, ok = get(id)
+	transaction, ok = get(msgID)
 	// Individual fields of sleeves aren't assignable out of the coin package,
 	// so we'll just change one of the sleeves in the transaction
 	transaction.Create = sleeves[3]
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: create")
 	}
-	transaction, ok = get(id)
+	transaction, ok = get(msgID)
 	transaction.Timestamp = time.Unix(0, 0)
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: timestamp")
 	}
-	transaction, ok = get(id)
+	transaction, ok = get(msgID)
 	// Individual characters of strings aren't mutable, so we'll just change the
 	// whole string and see if we get any real changes
 	transaction.Memo = "hotburger buns"
@@ -1021,8 +1022,8 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 
 	// Make sure that the transaction list returns false if we get with an
 	// incorrect ID
-	copy(id[:], "notInTheMap")
-	transaction, ok = get(id)
+	copy(msgID[:], "notInTheMap")
+	transaction, ok = get(msgID)
 	if ok {
 		return errors.New("Transaction map returned a transaction with a key" +
 			" that shouldn't have been in the map")
@@ -1121,8 +1122,8 @@ func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 // Tests the side effects of getting a receipt for a transaction that you
 // sent out an invoice for
 func TestReceiptListener_Hear(t *testing.T) {
-	payer := user.ID("5")
-	payee := user.ID("12")
+	payer := id.UserID("5")
+	payee := id.UserID("12")
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -1175,7 +1176,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	uiListener := &ReceiptUIListener{
 		w: w,
 	}
-	w.Switchboard.Register(user.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
+	w.Switchboard.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
 		uiListener)
 
 	listener.Hear(&parse.Message{

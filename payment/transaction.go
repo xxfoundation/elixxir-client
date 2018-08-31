@@ -9,10 +9,10 @@ package payment
 import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 type Transaction struct {
@@ -20,8 +20,8 @@ type Transaction struct {
 	Destroy []coin.Sleeve
 	Change  coin.Sleeve
 
-	Sender    user.ID
-	Recipient user.ID
+	Sender    id.UserID
+	Recipient id.UserID
 
 	Memo string
 

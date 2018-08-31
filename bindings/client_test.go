@@ -15,9 +15,9 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
-	"strings"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 const gwAddress = "localhost:5557"
@@ -33,7 +33,7 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID user.ID,
+func (d *dummyMessaging) SendMessage(recipientID id.UserID,
 	message string) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
@@ -41,7 +41,7 @@ func (d *dummyMessaging) SendMessage(recipientID user.ID,
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID user.ID) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
 	return d.listener
 }
 
@@ -90,61 +90,12 @@ func TestInitClient(t *testing.T) {
 	globals.LocalStorage = nil
 }
 
-func TestGetContactListJSON(t *testing.T) {
-	u, _ := user.Users.GetUser(1)
-	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewSession(u, gwAddress, nk)
-	// This call includes validating the JSON against the schema
-	result, err := GetContactListJSON()
-
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// But, just in case,
-	// let's make sure that we got the error out of validateContactList anyway
-	err = validateContactListJSON(result)
-
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// Finally, make sure that all the names we expect are in the JSON
-	// Ben's name should have changed to Snicklefritz
-	expected := []string{"Ben", "Rick", "Jake", "Mario",
-		"Allan", "David", "Jim", "Spencer", "Will", "Jono"}
-
-	actual := string(result)
-
-	for _, nick := range expected {
-		if !strings.Contains(actual, nick) {
-			t.Errorf("Error: Expected name %v wasn't in JSON %v", nick, actual)
-		}
-	}
-}
-
-func TestValidateContactListJSON(t *testing.T) {
-	err := validateContactListJSON(([]byte)("{invalidJSON:\"hmmm\"}"))
-	if err == nil {
-		t.Errorf("No error from invalid JSON")
-	} else {
-		t.Log(err.Error())
-	}
-
-	err = validateContactListJSON(([]byte)(`{"Nick":"Jono"}`))
-	if err == nil {
-		t.Errorf("No error from JSON that doesn't match the schema")
-	} else {
-		t.Log(err.Error())
-	}
-}
-
 // BytesReceiver receives the last message and puts the data it received into
 // byte slices
 type BytesReceiver struct {
 	receptionBuffer []byte
-	lastSID         []byte
-	lastRID         []byte
+	lastSID         id.UserID
+	lastRID         id.UserID
 }
 
 // This is the method that globals.Receive calls when you set a BytesReceiver
@@ -159,7 +110,7 @@ func TestRegister(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
-	registrationCode := "JHJ6L9BACDVC"
+	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
@@ -167,7 +118,7 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
-	if regRes == nil || len(regRes) == 0 {
+	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
 	globals.LocalStorage = nil
@@ -177,7 +128,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
-	registrationCode := "JHJ6L9BACDVC"
+	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
@@ -192,7 +143,7 @@ func TestLoginLogout(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
-	registrationCode := "JHJ6L9BACDVC"
+	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
@@ -223,7 +174,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 }
 
 func TestSetRateLimiting(t *testing.T) {
-	u, _ := user.Users.GetUser(1)
+	u, _ := user.Users.GetUser(id.NewUserIDFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
 	user.TheSession = user.NewSession(u, gwAddress, nk)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {

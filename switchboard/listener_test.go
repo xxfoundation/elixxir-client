@@ -9,11 +9,11 @@ package switchboard
 import (
 	"bytes"
 	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/user"
 	"sync"
 	"testing"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 type MockListener struct {
@@ -35,7 +35,7 @@ func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 }
 
-var specificUserID = user.ID("5")
+var specificUserID = id.UserID("5")
 var specificMessageType cmixproto.Type = 8
 var delay = 10 * time.Millisecond
 
@@ -142,8 +142,8 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 	}
 }
 
-var zeroUserID = user.ZeroID
-var nonzeroUserID = user.ID("rcs")
+var zeroUserID = id.ZeroID
+var nonzeroUserID = id.UserID("rcs")
 var zeroType cmixproto.Type
 
 func WildcardListenerSetup() (*Switchboard, *MockListener) {
@@ -213,7 +213,7 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 		})
 	}
 	// send to all types for a different user
-	otherUser := user.ID("98")
+	otherUser := id.UserID("98")
 	for messageType := cmixproto.Type(1); messageType <= cmixproto.Type(
 		20); messageType++ {
 		go listeners.Speak(&parse.Message{
@@ -314,8 +314,9 @@ func TestListenerMap_SpeakBody(t *testing.T) {
 
 func TestListenerMap_Unregister(t *testing.T) {
 	listeners := NewSwitchboard()
-	id := listeners.Register(specificUserID, specificMessageType, &MockListener{})
-	listeners.Unregister(id)
+	listenerID := listeners.Register(specificUserID, specificMessageType,
+		&MockListener{})
+	listeners.Unregister(listenerID)
 	if len(listeners.listeners[specificUserID][specificMessageType]) != 0 {
 		t.Error("The listener was still in the map after we stopped" +
 			" listening on it")

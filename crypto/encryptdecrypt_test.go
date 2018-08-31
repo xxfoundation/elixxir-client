@@ -13,6 +13,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	cmix "gitlab.com/privategrity/crypto/messaging"
 	"testing"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -40,13 +41,13 @@ var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 var salt = []byte(
 	"fdecfa52a8ad1688dbfa7d16df74ebf27e535903c469cefc007ebbe1ee895064")
 
-func setup() {
+func setup(t *testing.T) {
 	rng := cyclic.NewRandom(cyclic.NewInt(0), cyclic.NewInt(1000))
 	grp := cyclic.NewGroup(cyclic.NewIntFromString(PRIME, 16),
 		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
 	Grp = &grp
 
-	u, _ := user.Users.GetUser(user.ID(1))
+	u, _ := user.Users.GetUser(id.NewUserIDFromUint(1, t))
 
 	nk := make([]user.NodeKeys, 1)
 
@@ -66,10 +67,10 @@ func setup() {
 }
 
 func TestEncryptDecrypt(t *testing.T) {
-	setup()
+	setup(t)
 
-	sender := uint64(38)
-	recipient := uint64(29)
+	sender := id.NewUserIDFromUint(38, t)
+	recipient := id.NewUserIDFromUint(29, t)
 	msg, err := format.NewMessage(sender, recipient, "help me, i'm stuck in an"+
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
 	if err != nil {
@@ -98,12 +99,12 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Errorf("Couldn't decrypt message: %v", err.Error())
 	}
-	if decrypted.GetSenderIDUint() != sender {
-		t.Errorf("Sender differed from expected: Got %v, expected %v",
-			decrypted.GetSenderIDUint(), sender)
+	if decrypted.GetSender() != sender {
+		t.Errorf("Sender differed from expected: Got %q, expected %q",
+			decrypted.GetRecipient(), sender)
 	}
-	if decrypted.GetRecipientIDUint() != recipient {
-		t.Errorf("Recipient differed from expected: Got %v, expected %v",
-			decrypted.GetSenderIDUint(), sender)
+	if decrypted.GetRecipient() != recipient {
+		t.Errorf("Recipient differed from expected: Got %q, expected %q",
+			decrypted.GetRecipient(), sender)
 	}
 }

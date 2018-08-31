@@ -20,10 +20,9 @@ import (
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
 	"gitlab.com/privategrity/crypto/format"
-	"math"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
-	"encoding/base32"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Populates a text message and returns its wire representation
@@ -60,7 +59,7 @@ func InitClient(s globals.Storage, loc string) error {
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (user.ID, error) {
+	numNodes uint, mint bool) (id.UserID, error) {
 
 	var err error
 
@@ -70,14 +69,9 @@ func Register(registrationCode string, gwAddr string,
 		return "", err
 	}
 
-	hashUID, err := base32.StdEncoding.DecodeString(registrationCode)
-	if err != nil {
-		globals.Log.ERROR.Printf("Register: Couldn't decode registration code" +
-			": %v", err.Error())
-		return "", err
-	}
-	UID, successLook := user.Users.LookupUser(string(hashUID))
-	defer clearUserID(&UID)
+	UID, successLook := user.Users.LookupUser(registrationCode)
+	// FIXME Do we need to reinstate this?
+	//defer clearUserID(&UID)
 
 	if !successLook {
 		globals.Log.ERROR.Printf("Register: HUID does not match")
@@ -135,7 +129,7 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID user.ID, addr string) (user.Session, error) {
+func Login(UID id.UserID, addr string) (user.Session, error) {
 
 	session, err := user.LoadSession(UID)
 
@@ -187,8 +181,7 @@ func Login(UID user.ID, addr string) (user.Session, error) {
 // FIXME: We need to think through the message interface part.
 func Send(message format.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
-	recipientID := user.ID(cyclic.NewIntFromBytes(message.
-		GetRecipient()).Uint64())
+	recipientID := message.GetRecipient()
 	err := io.Messaging.SendMessage(recipientID, message.GetPayload())
 	return err
 }
@@ -208,12 +201,12 @@ func SetRateLimiting(limit uint32) {
 // FIXME there can only be one
 var listenCh chan *format.Message
 
-func Listen(user user.ID, messageType cmixproto.Type,
+func Listen(user id.UserID, messageType cmixproto.Type,
 	newListener switchboard.Listener) string {
-	id := switchboard.Listeners.Register(user, messageType, newListener)
+	listenerId := switchboard.Listeners.Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
-		user, messageType, id)
-	return id
+		user, messageType, listenerId)
+	return listenerId
 }
 
 type APISender struct{}
@@ -262,13 +255,8 @@ func Logout() error {
 	return nil
 }
 
-func GetContactList() ([]user.ID, []string) {
+func GetContactList() ([]id.UserID, []string) {
 	return user.Users.GetContactList()
-}
-
-func clearUserID(u *user.ID) {
-	*u = math.MaxUint64
-	*u = 0
 }
 
 func RegisterForUserDiscovery(emailAddress string) error {

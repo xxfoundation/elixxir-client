@@ -9,6 +9,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"sync"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 type multiPartMessage struct {
@@ -50,7 +51,7 @@ func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
 	payload := []byte(message.GetPayload())
-	sender := user.ID(message.GetSender())
+	sender := id.UserID(message.GetSender())
 	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
 
 	partition, err := parse.ValidatePartition(payload)

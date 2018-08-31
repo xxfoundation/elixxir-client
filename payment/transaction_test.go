@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // TODO are there any error cases for formatting the invoice that we should
@@ -25,8 +25,8 @@ func TestTransaction_FormatInvoice(t *testing.T) {
 		Create:    sleeve,
 		Destroy:   nil,
 		Change:    NilSleeve,
-		Sender:    user.ID("2"),
-		Recipient: user.ID("5"),
+		Sender:    id.UserID("2"),
+		Recipient: id.UserID("5"),
 		Memo:      "Just a test",
 		Timestamp: time.Now(),
 		Value:     value,

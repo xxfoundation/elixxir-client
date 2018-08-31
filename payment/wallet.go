@@ -19,6 +19,7 @@ import (
 	"gitlab.com/privategrity/crypto/format"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -62,7 +63,7 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 	}
 
 	if doMint {
-		mintedCoins := coin.MintUser(string(s.GetCurrentUser().UserID))
+		mintedCoins := coin.MintUser(s.GetCurrentUser().UserID)
 		for i := range mintedCoins {
 			cs.add(mintedCoins[i])
 		}
@@ -118,20 +119,21 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(user.ID(0), cmixproto.Type_PAYMENT_INVOICE, &InvoiceListener{
+	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
+		&InvoiceListener{
 		wallet: w,
 	})
 	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(user.ID(0), cmixproto.Type_PAYMENT_RECEIPT,
+	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
 		&ReceiptListener{
 			wallet: w,
 		})
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of
-func createInvoice(payer user.ID, payee user.ID, value uint64,
+func createInvoice(payer id.UserID, payee id.UserID, value uint64,
 	memo string) (*Transaction, error) {
 	newCoin, err := coin.NewSleeve(value)
 
@@ -158,7 +160,7 @@ func (w *Wallet) registerInvoice(invoice *Transaction) error {
 
 // Creates, formats, and registers an invoice in the outgoing requests
 // Assumes that the payee is the current user in the session
-func (w *Wallet) Invoice(payer user.ID, value int64,
+func (w *Wallet) Invoice(payer id.UserID, value int64,
 	memo string) (*parse.Message, error) {
 
 	if value <= 0 {
@@ -240,15 +242,15 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
-		Receiver: user.ZeroID,
+		Receiver: id.ZeroID,
 		Nonce:    nil,
 	})
 }
 
-func getPaymentBotID() user.ID {
-	idBytes := make([]byte, user.IDLen)
+func getPaymentBotID() id.UserID {
+	idBytes := make([]byte, id.UserIDLen)
 	idBytes[len(idBytes)-1] = 17
-	return user.ID(idBytes)
+	return id.UserID(idBytes)
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,
@@ -439,7 +441,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 				Body: invoiceID[:],
 			},
 			Sender:   msg.Sender,
-			Receiver: user.ZeroID,
+			Receiver: id.ZeroID,
 			Nonce:    nil,
 		})
 	}

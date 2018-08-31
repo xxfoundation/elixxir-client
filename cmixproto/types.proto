@@ -175,7 +175,7 @@ message PaymentResponse {
     // This is the hash of the payment message that the payment bot received.
     // The client uses it to remove the correct pending transaction from the
     // list of pending transactions.
-    string ID = 3;
+    bytes ID = 3;
 }
 
 // Is Type.PAYMENT_INVOICE

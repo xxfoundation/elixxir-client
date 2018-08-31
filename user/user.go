@@ -15,7 +15,7 @@ import (
 
 // Globally instantiated Registry
 var Users = newRegistry()
-var NUM_DEMO_USERS = int(40)
+const NUM_DEMO_USERS = 40
 var DEMO_USER_NICKS = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
 	"Mario", "Will", "Allan", "Jono", "", "", "UDB", "", "", "", "Payments"}
 var DEMO_CHANNEL_NAMES = []string{"#General", "#Engineering", "#Lunch",

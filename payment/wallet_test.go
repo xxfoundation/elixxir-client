@@ -571,7 +571,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	response := cmixproto.PaymentResponse{
 		Success:  true,
 		Response: "200 OK",
-		ID:       string(hash[:]),
+		ID:       hash[:],
 	}
 	// marshal response into a parse message
 	wire, err := proto.Marshal(&response)
@@ -696,7 +696,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 		// The payment bot doesn't actually respond with a 404.
 		// Also, if you've read this far, you have my deepest admiration.
 		Response: "404 Not Found",
-		ID:       string(hash[:]),
+		ID:       hash[:],
 	}
 	// marshal response into a parse message
 	wire, err := proto.Marshal(&response)

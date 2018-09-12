@@ -66,7 +66,7 @@ func Register(registrationCode string, gwAddr string,
 	if numNodes < 1 {
 		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
-		return "", err
+		return id.ZeroID, err
 	}
 
 	UID, successLook := user.Users.LookupUser(registrationCode)
@@ -76,7 +76,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successLook {
 		globals.Log.ERROR.Printf("Register: HUID does not match")
 		err = errors.New("could not register due to invalid HUID")
-		return "", err
+		return id.ZeroID, err
 	}
 
 	u, successGet := user.Users.GetUser(UID)
@@ -84,7 +84,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successGet {
 		globals.Log.ERROR.Printf("Register: ID lookup failed")
 		err = errors.New("could not register due to ID lookup failure")
-		return "", err
+		return id.ZeroID, err
 	}
 
 	nodekeys, successKeys := user.Users.LookupKeys(u.UserID)
@@ -93,7 +93,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successKeys {
 		globals.Log.ERROR.Printf("Register: could not find user keys")
 		err = errors.New("could not register due to missing user keys")
-		return "", err
+		return id.ZeroID, err
 	}
 
 	nk := make([]user.NodeKeys, numNodes)
@@ -106,7 +106,7 @@ func Register(registrationCode string, gwAddr string,
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
-		return "", err
+		return id.ZeroID, err
 	}
 
 	errStore := nus.StoreSession()
@@ -118,7 +118,7 @@ func Register(registrationCode string, gwAddr string,
 			"Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return "", err
+		return id.ZeroID, err
 	}
 
 	nus.Immolate()

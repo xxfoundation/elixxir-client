@@ -79,56 +79,57 @@ func InitClient(storage Storage, loc string) error {
 // Valid codes:
 // 1
 // “David”
-// 2HOAAFKIVKEJ0
+// RUHPS2MI
 // 2
 // “Jim”
-// EPJHMGE1KHTVS
+// AXJ3XIBD
 // 3
 // “Ben”
-// 8L7U3HHEOC04T
+// AW55QN6U
 // 4
 // “Rick”
-// 4DU574DN9R292
+// XYRAUUO6
 // 5
 // “Spencer”
-// BE50NHQPQJTJJ
+// UAV6IWD6
 // 6
 // “Jake”
-// 1JB2L6A6L76KU
+// XEHCZT5U
 // 7
 // “Mario”
-// DEFJS3NIG55P5
+// BW7NEXOZ
 // 8
 // “Will”
-// F2MIJJ1S8DLV6
+// IRZVJ55Y
 // 9
 // “Allan”
-// 3GENI79B65V2A
+// YRZEM7BW
 // 10
 // “Jono”
-// JHJ6L9BACDVC
+// OIF3OJ5I
 func Register(registrationCode string, gwAddr string, numNodes int,
-	mint bool) (string, error) {
+	mint bool) ([]byte, error) {
 
 	if numNodes < 1 {
-		return "", errors.New("invalid number of nodes")
+		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
 	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
 
 	if err != nil {
-		return "", err
+		return id.ZeroID[:], err
 	}
 
-	return string(UID), nil
+	return UID[:], nil
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
-func Login(UID string, addr string) (string, error) {
-	userID := id.UserID(UID)
+func Login(UID []byte, addr string) (string, error) {
+	var userID id.UserID
+	copy(userID[:], UID)
 	session, err := api.Login(userID, addr)
 	return session.GetCurrentUser().Nick, err
 }

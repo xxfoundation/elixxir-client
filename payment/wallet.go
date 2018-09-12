@@ -248,9 +248,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 }
 
 func getPaymentBotID() id.UserID {
-	idBytes := make([]byte, id.UserIDLen)
-	idBytes[len(idBytes)-1] = 17
-	return id.UserID(idBytes)
+	return id.NewUserIDFromUint(17, nil)
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,

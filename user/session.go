@@ -216,14 +216,9 @@ func (s *SessionObj) Immolate() error {
 	}
 
 	// clear data stored in session
-	// FIXME This doesn't work as intended.
-	// To actually be guaranteed to overwrite the memory, you need to use
-	// copy() with the destination equal to the string you want to burn.
-	// You will probably need to use the unsafe library to actually accomplish
-	// this properly.
-	s.CurrentUser.UserID = id.UserID(burntString(len(s.CurrentUser.UserID)))
-	s.CurrentUser.UserID = id.UserID(burntString(len(s.CurrentUser.UserID)))
-	s.CurrentUser.UserID = ""
+	copy(s.CurrentUser.UserID[:], burntString(len(s.CurrentUser.UserID)))
+	copy(s.CurrentUser.UserID[:], burntString(len(s.CurrentUser.UserID)))
+	copy(s.CurrentUser.UserID[:], id.ZeroID[:])
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""
@@ -293,6 +288,7 @@ func clearRatchetKeys(r *RatchetKey) {
 	clearCyclicInt(r.Recursive)
 }
 
+// FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?
 func burntString(length int) string {
 
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

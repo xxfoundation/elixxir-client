@@ -35,7 +35,7 @@ func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 }
 
-var specificUserID = id.UserID("5")
+var specificUserID = id.NewUserIDFromUint(5, &testing.T{})
 var specificMessageType cmixproto.Type = 8
 var delay = 10 * time.Millisecond
 
@@ -143,7 +143,7 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 }
 
 var zeroUserID = id.ZeroID
-var nonzeroUserID = id.UserID("rcs")
+var nonzeroUserID = id.NewUserIDFromUint(786, &testing.T{})
 var zeroType cmixproto.Type
 
 func WildcardListenerSetup() (*Switchboard, *MockListener) {
@@ -213,7 +213,7 @@ func TestListenerMap_SpeakManyToMany(t *testing.T) {
 		})
 	}
 	// send to all types for a different user
-	otherUser := id.UserID("98")
+	otherUser := id.NewUserIDFromUint(98, t)
 	for messageType := cmixproto.Type(1); messageType <= cmixproto.Type(
 		20); messageType++ {
 		go listeners.Speak(&parse.Message{

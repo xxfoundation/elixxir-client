@@ -13,7 +13,8 @@ import (
 
 func TestCollator_AddMessage(t *testing.T) {
 
-	user.TheSession = user.NewSession(&user.User{"jon", "test"}, "",
+	user.TheSession = user.NewSession(&user.User{id.NewUserIDFromUint(8, t),
+	"test"}, "",
 		[]user.NodeKeys{})
 
 	collator := &collator{
@@ -58,7 +59,8 @@ func TestCollator_AddMessage(t *testing.T) {
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
 
-	user.TheSession = user.NewSession(&user.User{"jon", "test"}, "",
+	user.TheSession = user.NewSession(&user.User{id.NewUserIDFromUint(8, t),
+	"test"}, "",
 		[]user.NodeKeys{})
 
 	collator := &collator{

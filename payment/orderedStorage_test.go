@@ -16,7 +16,7 @@ import (
 func TestCreateOrderedStorage_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	userID := id.UserID("1")
+	userID := id.NewUserIDFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
@@ -61,7 +61,7 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 func TestCreateOrderedStorage_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	userID := id.UserID("1")
+	userID := id.NewUserIDFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
@@ -108,7 +108,7 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	userID := id.UserID("1")
+	userID := id.NewUserIDFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	src := rand.NewSource(42)
@@ -131,7 +131,7 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	userID := id.UserID("1")
+	userID := id.NewUserIDFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	cs, err := coin.NewSleeve(69)
@@ -153,7 +153,7 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	userID := id.UserID("1")
+	userID := id.NewUserIDFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
@@ -197,7 +197,7 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	userID := id.UserID("1")
+	userID := id.NewUserIDFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
@@ -235,8 +235,8 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 func TestOrderedCoinStorage_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -274,8 +274,8 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 func TestOrderedCoinStorage_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -313,8 +313,8 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -370,8 +370,8 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -412,8 +412,8 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -455,8 +455,8 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -510,8 +510,8 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -565,8 +565,8 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -605,8 +605,8 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	key := "TestOrderedList"
 
@@ -668,8 +668,8 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 		t.Error(err.Error())
 	}
 	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
-	id := id.UserID("1")
-	s := user.NewSession(&user.User{id, "test"}, "", []user.NodeKeys{})
+	uid := id.NewUserIDFromUint(1, t)
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{})
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -698,7 +698,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 
 	s.StoreSession()
 
-	s2, err := user.LoadSession(id)
+	s2, err := user.LoadSession(uid)
 
 	if err != nil {
 		t.Errorf("session load error: %s", err.Error())
@@ -728,7 +728,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 
 	s2.StoreSession()
 
-	s3, err := user.LoadSession(id)
+	s3, err := user.LoadSession(uid)
 
 	if err != nil {
 		t.Errorf("session load error: %s", err.Error())

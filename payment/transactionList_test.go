@@ -17,7 +17,8 @@ import (
 func TestCreateTransactionList_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.UserID("1"), Nick: "test"}, "",
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	Nick: "test"}, "",
 	[]user.NodeKeys{})
 
 	// show that the ordered list does not exist
@@ -63,7 +64,8 @@ func TestCreateTransactionList_New(t *testing.T) {
 func TestCreateTransactionList_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	// show that the transaction list does not exist
 	key := "TestTransactionList"
@@ -106,7 +108,8 @@ func TestTransactionList_Value(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -127,7 +130,8 @@ func TestTransactionList_Value(t *testing.T) {
 func TestTransactionList_Upsert_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 
@@ -148,7 +152,8 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 func TestTransactionList_Upsert_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
@@ -173,7 +178,8 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 func TestTransactionList_Upsert_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	key := "TestTransactionList"
 
@@ -211,7 +217,8 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 func TestTransactionList_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
@@ -247,7 +254,8 @@ func TestTransactionList_Get(t *testing.T) {
 func TestTransactionList_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
@@ -283,7 +291,8 @@ func TestTransactionList_Pop(t *testing.T) {
 func TestTransactionList_Pop_Invalid(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
@@ -308,7 +317,8 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 func TestTransactionList_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 
 	key := "TestTransactionList"
 
@@ -364,7 +374,8 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	// populate a transaction list with some items
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: "1", Nick: "test"}, "", []user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+		Nick: "test"}, "", []user.NodeKeys{})
 	transactionMap := make(map[parse.MessageHash]*Transaction)
 	transactions := TransactionList{
 		transactionMap: &transactionMap,

@@ -80,7 +80,7 @@ func (mb *collator) AddMessage(message *format.Message,
 			var key PendingMessageKey
 			h := sha256.New()
 			h.Write(partition.ID)
-			h.Write([]byte(sender))
+			h.Write(sender[:])
 			keyHash := h.Sum(nil)
 			copy(key[:], keyHash[:PendingMessageKeyLen])
 

@@ -124,7 +124,7 @@ func send(senderID id.UserID, message *format.Message) error {
 	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	// MARK Comms change: SenderID should be a string in the CmixMessage
 	msgPacket := &pb.CmixMessage{
-		SenderID:       string(senderID),
+		SenderID:       senderID[:],
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
 		Salt:           salt,
@@ -150,7 +150,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 	}
 	// MARK Comms change
 	pollingMessage := pb.ClientPollMessage{
-		UserID: string(user.TheSession.GetCurrentUser().UserID),
+		UserID: user.TheSession.GetCurrentUser().UserID[:],
 	}
 
 	for {
@@ -203,7 +203,7 @@ func (m *messaging) receiveMessagesFromGateway(
 					TheSession.GetGWAddress(),
 					&pb.ClientPollMessage{
 						// MARK Comms change needed
-						UserID:    string(user.TheSession.GetCurrentUser().UserID),
+						UserID:    user.TheSession.GetCurrentUser().UserID[:],
 						MessageID: messageID,
 					})
 				if err != nil {
@@ -213,8 +213,7 @@ func (m *messaging) receiveMessagesFromGateway(
 				} else {
 					if newMessage.MessagePayload == nil &&
 						newMessage.RecipientID == nil &&
-						// TODO These should have the same type
-						newMessage.SenderID == string(id.ZeroID) {
+						newMessage.SenderID == nil {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue
 					}

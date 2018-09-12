@@ -21,8 +21,8 @@ import (
 
 // Tests whether invoice transactions get stored in the session correctly
 func TestWallet_registerInvoice(t *testing.T) {
-	payee := id.UserID("1")
-	payer := id.UserID("2")
+	payee := id.NewUserIDFromUint(1, t)
+	payer := id.NewUserIDFromUint(2, t)
 	memo := "for serious cryptography"
 	value := uint64(85)
 
@@ -81,8 +81,8 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.UserID("1"), Nick: "test"}, "",
-	[]user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	Nick: "test"}, "", []user.NodeKeys{})
 
 	_, err := CreateWallet(s, false)
 
@@ -123,8 +123,8 @@ func TestCreateWallet(t *testing.T) {
 // Tests Invoice's message creation, and smoke tests the message's storage in
 // the wallet's session
 func TestWallet_Invoice(t *testing.T) {
-	payee := id.UserID("1")
-	payer := id.UserID("2")
+	payee := id.NewUserIDFromUint(1, t)
+	payer := id.NewUserIDFromUint(2, t)
 	memo := "please gib"
 	value := int64(50)
 	invoiceTime := time.Now()
@@ -361,8 +361,8 @@ func (ms *MockSession) SetLastMessageID(id string) {
 }
 
 func TestInvoiceListener_Hear(t *testing.T) {
-	payee := id.UserID("1")
-	payer := id.UserID("2")
+	payee := id.NewUserIDFromUint(1, t)
+	payer := id.NewUserIDFromUint(2, t)
 	value := uint64(50)
 	memo := "please gib"
 	// Set up the wallet and its storage
@@ -447,8 +447,8 @@ func TestInvoiceListener_Hear(t *testing.T) {
 }
 
 func TestWallet_Invoice_Error(t *testing.T) {
-	payee := id.UserID("1")
-	payer := id.UserID("2")
+	payee := id.NewUserIDFromUint(1, t)
+	payer := id.NewUserIDFromUint(2, t)
 	memo := "please gib"
 	// A value of zero should cause an error
 	value := int64(0)
@@ -494,8 +494,8 @@ func (m *MockMessaging) SendMessage(recipientID id.UserID, message string) error
 func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
 
 func TestResponseListener_Hear(t *testing.T) {
-	payer := id.UserID("5")
-	payee := id.UserID("12")
+	payer := id.NewUserIDFromUint(5, t)
+	payee := id.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -620,8 +620,8 @@ func TestResponseListener_Hear(t *testing.T) {
 }
 
 func TestResponseListener_Hear_Failure(t *testing.T) {
-	payer := id.UserID("5")
-	payee := id.UserID("12")
+	payer := id.NewUserIDFromUint(5, t)
+	payee := id.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -692,7 +692,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	}
 
 	response := cmixproto.PaymentResponse{
-		Success:  false,
+		Success: false,
 		// The payment bot doesn't actually respond with a 404.
 		// Also, if you've read this far, you have my deepest admiration.
 		Response: "404 Not Found",
@@ -732,8 +732,8 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 }
 
 func TestWallet_Pay_NoChange(t *testing.T) {
-	payer := id.UserID(5)
-	payee := id.UserID(12)
+	payer := id.NewUserIDFromUint(5, t)
+	payee := id.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -825,8 +825,8 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 }
 
 func TestWallet_Pay_YesChange(t *testing.T) {
-	payer := id.UserID(5)
-	payee := id.UserID(12)
+	payer := id.NewUserIDFromUint(5, t)
+	payee := id.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -933,11 +933,11 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	// TODO verify session contents
 }
 
-func setupGetTests() (*Wallet, error) {
+func setupGetTests(t *testing.T) (*Wallet, error) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.UserID("5"), Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{})
+	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(5, t),
+	Nick: "Darth Icky"}, "", []user.NodeKeys{})
 
 	w, err := CreateWallet(s, false)
 	if err != nil {
@@ -954,7 +954,7 @@ const transactionValue = uint64(5280)
 // and proves that changing the transaction you get doesn't change the version
 // in the wallet
 func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
-	Transaction, bool)) error {
+	Transaction, bool), t *testing.T) error {
 	msgID := parse.MessageHash{}
 	copy(msgID[:], "testKey")
 
@@ -972,8 +972,8 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 		Create:    sleeves[0],
 		Destroy:   sleeves[2:],
 		Change:    sleeves[1],
-		Sender:    id.UserID("5"),
-		Recipient: id.UserID("6"),
+		Sender:    id.NewUserIDFromUint(5, t),
+		Recipient: id.NewUserIDFromUint(6, t),
 		Memo:      "dog buns",
 		Timestamp: time.Now(),
 		Value:     transactionValue,
@@ -996,7 +996,7 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 		return errors.New("Transactions tracked the same state: value")
 	}
 	transaction, ok = get(msgID)
-	transaction.Sender = id.UserID(0)
+	transaction.Sender = id.ZeroID
 	if reflect.DeepEqual(*upsertedTransaction, transaction) {
 		return errors.New("Transactions tracked the same state: sender")
 	}
@@ -1032,29 +1032,29 @@ func testGetTransaction(tl *TransactionList, get func(parse.MessageHash) (
 }
 
 func TestWallet_GetOutboundRequest(t *testing.T) {
-	w, err := setupGetTests()
+	w, err := setupGetTests(t)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.outboundRequests, w.GetOutboundRequest)
+	err = testGetTransaction(w.outboundRequests, w.GetOutboundRequest, t)
 	if err != nil {
 		t.Error(err.Error())
 	}
 }
 
 func TestWallet_GetPendingTransaction(t *testing.T) {
-	w, err := setupGetTests()
+	w, err := setupGetTests(t)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.pendingTransactions, w.GetPendingTransaction)
+	err = testGetTransaction(w.pendingTransactions, w.GetPendingTransaction, t)
 	if err != nil {
 		t.Error(err.Error())
 	}
 }
 
 func TestWallet_GetAvailableFunds(t *testing.T) {
-	w, err := setupGetTests()
+	w, err := setupGetTests(t)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1072,33 +1072,35 @@ func TestWallet_GetAvailableFunds(t *testing.T) {
 }
 
 func TestWallet_GetInboundRequest(t *testing.T) {
-	w, err := setupGetTests()
+	w, err := setupGetTests(t)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.inboundRequests, w.GetInboundRequest)
+	err = testGetTransaction(w.inboundRequests, w.GetInboundRequest, t)
 	if err != nil {
 		t.Error(err.Error())
 	}
 }
 
 func TestWallet_GetOutboundPayment(t *testing.T) {
-	w, err := setupGetTests()
+	w, err := setupGetTests(t)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.completedOutboundPayments, w.GetCompletedOutboundPayment)
+	err = testGetTransaction(w.completedOutboundPayments,
+		w.GetCompletedOutboundPayment, t)
 	if err != nil {
 		t.Error(err.Error())
 	}
 }
 
 func TestWallet_GetInboundPayment(t *testing.T) {
-	w, err := setupGetTests()
+	w, err := setupGetTests(t)
 	if err != nil {
 		t.Error(err.Error())
 	}
-	err = testGetTransaction(w.completedInboundPayments, w.GetCompletedInboundPayment)
+	err = testGetTransaction(w.completedInboundPayments,
+		w.GetCompletedInboundPayment, t)
 	if err != nil {
 		t.Error(err.Error())
 	}
@@ -1122,8 +1124,8 @@ func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 // Tests the side effects of getting a receipt for a transaction that you
 // sent out an invoice for
 func TestReceiptListener_Hear(t *testing.T) {
-	payer := id.UserID("5")
-	payee := id.UserID("12")
+	payer := id.NewUserIDFromUint(5, t)
+	payee := id.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")

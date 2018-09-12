@@ -47,16 +47,18 @@ var showVer bool
 // easy to use from Go
 type CmdMessage struct {
 	Payload     string
-	SenderID    id.UserID
-	RecipientID id.UserID
+	// TODO Replace uint64 with a wider type here to be able to test the system
+	// with the wider user IDs
+	SenderID    uint64
+	RecipientID uint64
 }
 
 func (m CmdMessage) GetSender() id.UserID {
-	return m.SenderID
+	return id.NewUserIDFromUint(m.SenderID, nil)
 }
 
 func (m CmdMessage) GetRecipient() id.UserID {
-	return m.RecipientID
+	return id.NewUserIDFromUint(m.RecipientID, nil)
 }
 
 func (m CmdMessage) GetPayload() string {
@@ -147,8 +149,8 @@ func sessionInitialization() {
 	}
 
 	// Log the user in
-	_, err = bindings.Login(
-		string(id.NewUserIDFromUint(userId, nil)), gwAddr)
+	uid := id.NewUserIDFromUint(userId, nil)
+	_, err = bindings.Login(uid[:], gwAddr)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")
@@ -217,9 +219,11 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	fmt.Printf("Message from channel %v, %v: ",
 		message.Sender, senderNick)
 	typedBody, _ := parse.Parse(result.Message)
+	var speakerId id.UserID
+	copy(speakerId[:], result.SpeakerID)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
-		Sender:    id.UserID(result.SpeakerID),
+		Sender:    speakerId,
 		Receiver:  id.ZeroID,
 	})
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -286,9 +290,9 @@ var rootCmd = &cobra.Command{
 
 				// Send the message
 				bindings.Send(CmdMessage{
-					SenderID:    id.UserID(userId),
+					SenderID:    userId,
 					Payload:     string(wireOut),
-					RecipientID: id.UserID(destinationUserId),
+					RecipientID: destinationUserId,
 				})
 			}
 		}
@@ -303,7 +307,8 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				u, ok := user.Users.GetUser(id.UserID(destinationUserId))
+				u, ok := user.Users.GetUser(id.NewUserIDFromUint(
+					destinationUserId, nil))
 				if ok {
 					contact = u.Nick
 				}
@@ -311,9 +316,9 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := CmdMessage{
-					SenderID:    id.UserID(userId),
+					SenderID:    userId,
 					Payload:     string(api.FormatTextMessage(message)),
-					RecipientID: id.UserID(destinationUserId)}
+					RecipientID: destinationUserId}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)

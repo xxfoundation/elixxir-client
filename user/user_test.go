@@ -21,15 +21,24 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
-	currentID := id.NewUserIDFromUint(1, t)
 	for i := 0; i < len(DEMO_USER_NICKS); i++ {
-		reg, _ := Users.LookupUser(currentID.RegistrationCode())
-		usr, _ := Users.GetUser(reg)
+		currentID := id.NewUserIDFromUint(uint64(i+1), t)
+		reg, ok := Users.LookupUser(currentID.RegistrationCode())
+		if !ok {
+			t.Errorf("Couldn't lookup user %q with code %v", *currentID,
+				currentID.RegistrationCode())
+		}
+		usr, ok := Users.GetUser(reg)
+		if !ok {
+			t.Logf("Reg codes of both: %v, %v", reg.RegistrationCode(),
+				currentID.RegistrationCode())
+			t.Errorf("Couldn't get user %q corresponding to user %q",
+				*reg, *currentID)
+		}
 		if usr.Nick != DEMO_USER_NICKS[i] {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
 				DEMO_USER_NICKS[i], usr.Nick)
 		}
-		currentID = currentID.NextID(t)
 	}
 	// Test the NewUser function
 	newID := id.NewUserIDFromUint(2002, t)
@@ -105,9 +114,8 @@ func TestUserRegistry(t *testing.T) {
 // Doesn't actually do any testing, but can print the registration codes for
 // the first several users
 func TestPrintRegCodes(t *testing.T) {
-	currentID := id.NewUserIDFromUint(1, t)
 	for i := 1; i <= NUM_DEMO_USERS; i++ {
+		currentID := id.NewUserIDFromUint(uint64(i), t)
 		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
-		currentID = currentID.NextID(t)
 	}
 }

@@ -31,11 +31,11 @@ type Storage interface {
 //Message used for binding
 type Message interface {
 	// Returns the message's sender ID
-	GetSender() id.UserID
+	GetSender() *id.UserID
 	// Returns the message payload
 	GetPayload() string
 	// Returns the message's recipient ID
-	GetRecipient() id.UserID
+	GetRecipient() *id.UserID
 }
 
 // An object implementing this interface can be called back when the client
@@ -128,8 +128,10 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
 func Login(UID []byte, addr string) (string, error) {
-	var userID id.UserID
-	copy(userID[:], UID)
+	userID, err := new(id.UserID).SetBytes(UID)
+	if err != nil {
+		return "", err
+	}
 	session, err := api.Login(userID, addr)
 	return session.GetCurrentUser().Nick, err
 }

@@ -55,25 +55,25 @@ func NewSwitchboard() *Switchboard {
 // Don't pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *Switchboard) Register(user id.UserID, messageType cmixproto.Type,
+func (lm *Switchboard) Register(user *id.UserID, messageType cmixproto.Type,
 	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
 
 	lm.lastID++
-	if lm.listeners[user] == nil {
-		lm.listeners[user] = make(map[cmixproto.Type][]*listenerRecord)
+	if lm.listeners[*user] == nil {
+		lm.listeners[*user] = make(map[cmixproto.Type][]*listenerRecord)
 	}
 
-	if lm.listeners[user][messageType] == nil {
-		lm.listeners[user][messageType] = make([]*listenerRecord, 0)
+	if lm.listeners[*user][messageType] == nil {
+		lm.listeners[*user][messageType] = make([]*listenerRecord, 0)
 	}
 
 	newListenerRecord := &listenerRecord{
 		l:  newListener,
 		id: strconv.Itoa(lm.lastID),
 	}
-	lm.listeners[user][messageType] = append(lm.listeners[user][messageType],
+	lm.listeners[*user][messageType] = append(lm.listeners[*user][messageType],
 		newListenerRecord)
 
 	return newListenerRecord.id
@@ -100,12 +100,12 @@ func (lm *Switchboard) Unregister(listenerID string) {
 	}
 }
 
-func (lm *Switchboard) matchListeners(userID id.UserID,
+func (lm *Switchboard) matchListeners(userID *id.UserID,
 	messageType cmixproto.Type) []*listenerRecord {
 
 	normals := make([]*listenerRecord, 0)
 
-	for _, listener := range lm.listeners[userID][messageType] {
+	for _, listener := range lm.listeners[*userID][messageType] {
 		normals = append(normals, listener)
 	}
 	return normals
@@ -133,8 +133,8 @@ func (lm *Switchboard) Speak(msg *parse.Message) {
 
 	if len(accumNormals) > 0 {
 		// notify all normal listeners
-		globals.Log.DEBUG.Printf("Hearing message of type %v from %v on %v"+
-			" listeners", msg.Type.String(), msg.Sender, len(accumNormals))
+		globals.Log.DEBUG.Printf("Hearing message of type %v from %q on %v"+
+			" listeners", msg.Type.String(), *msg.Sender, len(accumNormals))
 		for _, listener := range accumNormals {
 			globals.Log.INFO.Printf("Hearing on listener %v of type %v",
 				listener.id, reflect.TypeOf(listener.l))
@@ -144,8 +144,8 @@ func (lm *Switchboard) Speak(msg *parse.Message) {
 		}
 	} else {
 		globals.Log.ERROR.Printf(
-			"Message of type %v from user %v didn't match any listeners in"+
-				" the map", msg.Type.String(), msg.Sender)
+			"Message of type %v from user %q didn't match any listeners in"+
+				" the map", msg.Type.String(), *msg.Sender)
 		// dump representation of the map
 		for u, perUser := range lm.listeners {
 			for messageType, perType := range perUser {

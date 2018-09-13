@@ -133,7 +133,7 @@ func (w *Wallet) RegisterListeners() {
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of
-func createInvoice(payer id.UserID, payee id.UserID, value uint64,
+func createInvoice(payer *id.UserID, payee *id.UserID, value uint64,
 	memo string) (*Transaction, error) {
 	newCoin, err := coin.NewSleeve(value)
 
@@ -160,7 +160,7 @@ func (w *Wallet) registerInvoice(invoice *Transaction) error {
 
 // Creates, formats, and registers an invoice in the outgoing requests
 // Assumes that the payee is the current user in the session
-func (w *Wallet) Invoice(payer id.UserID, value int64,
+func (w *Wallet) Invoice(payer *id.UserID, value int64,
 	memo string) (*parse.Message, error) {
 
 	if value <= 0 {
@@ -247,8 +247,8 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	})
 }
 
-func getPaymentBotID() id.UserID {
-	return id.NewUserIDFromUint(17, nil)
+func getPaymentBotID() *id.UserID {
+	return new(id.UserID).SetUints(&[4]uint64{0,0,0,17})
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,

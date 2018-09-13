@@ -18,8 +18,8 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
-	Sender   id.UserID
-	Receiver id.UserID
+	Sender   *id.UserID
+	Receiver *id.UserID
 	Nonce    []byte
 }
 
@@ -41,11 +41,11 @@ func (m Message) Hash() MessageHash {
 	return mh
 }
 
-func (m Message) GetSender() id.UserID {
+func (m Message) GetSender() *id.UserID {
 	return m.Sender
 }
 
-func (m Message) GetRecipient() id.UserID {
+func (m Message) GetRecipient() *id.UserID {
 	return m.Receiver
 }
 

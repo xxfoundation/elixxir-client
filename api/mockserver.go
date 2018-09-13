@@ -17,15 +17,15 @@ import (
 // easy to use from Go
 type APIMessage struct {
 	Payload     string
-	SenderID    id.UserID
-	RecipientID id.UserID
+	SenderID    *id.UserID
+	RecipientID *id.UserID
 }
 
-func (m APIMessage) GetSender() id.UserID {
+func (m APIMessage) GetSender() *id.UserID {
 	return m.SenderID
 }
 
-func (m APIMessage) GetRecipient() id.UserID {
+func (m APIMessage) GetRecipient() *id.UserID {
 	return m.RecipientID
 }
 

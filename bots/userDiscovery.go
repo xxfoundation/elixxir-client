@@ -22,7 +22,7 @@ import (
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
-var UdbID = id.NewUserIDFromUint(13, nil)
+var UdbID *id.UserID
 
 type udbResponseListener chan string
 
@@ -38,6 +38,8 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 
 // The go runtime calls init() before calling any methods in the package
 func init() {
+	UdbID = new(id.UserID).SetUints(&[4]uint64{0,0,0,13})
+
 	pushKeyResponseListener = make(udbResponseListener)
 	getKeyResponseListener = make(udbResponseListener)
 	registerResponseListener = make(udbResponseListener)
@@ -167,7 +169,7 @@ func parseGetKey(msg string) []byte {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID id.UserID, keyFP string, publicKey []byte) error {
+func pushKey(udbID *id.UserID, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
@@ -183,7 +185,7 @@ func pushKey(udbID id.UserID, keyFP string, publicKey []byte) error {
 }
 
 // keyExists checks for the existence of a key on the bot
-func keyExists(udbID id.UserID, keyFP string) bool {
+func keyExists(udbID *id.UserID, keyFP string) bool {
 	cmd := parse.Pack(&parse.TypedBody{
 		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(fmt.Sprintf("%s", keyFP)),
@@ -211,6 +213,6 @@ func fingerprint(publicKey []byte) string {
 // sendCommand sends a command to the udb. This doesn't block.
 // Callers that need to wait on a response should implement waiting with a
 // listener.
-func sendCommand(botID id.UserID, command []byte) error {
+func sendCommand(botID *id.UserID, command []byte) error {
 	return io.Messaging.SendMessage(botID, string(command))
 }

@@ -49,7 +49,7 @@ func VerifyRegisterGobAddress(t *testing.T) {
 }
 
 func VerifyRegisterGobUserID(t *testing.T) {
-	if Session.GetCurrentUser().UserID != id.NewUserIDFromUint(5, t) {
+	if *Session.GetCurrentUser().UserID != *id.NewUserIDFromUint(5, t) {
 		t.Errorf("User's ID was %q, expected %v",
 			Session.GetCurrentUser().UserID, 5)
 	}

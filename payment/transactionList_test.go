@@ -138,7 +138,11 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 	tl := TransactionList{&tMap, 0, s}
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tl.Upsert(t1Hash, &t1)
 
@@ -156,7 +160,11 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 	tMap[t1Hash] = &t1
@@ -164,7 +172,11 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 	tl := TransactionList{&tMap, 0, s}
 
 	t2 := Transaction{Memo: "2"}
-	t2Hash := parse.Message{TypedBody: parse.TypedBody{2, []byte{2}}}.Hash()
+	t2Hash := parse.Message{
+		TypedBody: parse.TypedBody{2, []byte{2}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tl.Upsert(t2Hash, &t2)
 
@@ -190,7 +202,11 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 	}
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tl.Upsert(t1Hash, &t1)
 
@@ -221,10 +237,18 @@ func TestTransactionList_Get(t *testing.T) {
 		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
-	t2Hash := parse.Message{TypedBody: parse.TypedBody{2, []byte{2}}}.Hash()
+	t2Hash := parse.Message{
+		TypedBody: parse.TypedBody{2, []byte{2}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 	tMap[t1Hash] = &t1
@@ -258,10 +282,18 @@ func TestTransactionList_Pop(t *testing.T) {
 		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
-	t2Hash := parse.Message{TypedBody: parse.TypedBody{2, []byte{2}}}.Hash()
+	t2Hash := parse.Message{
+		TypedBody: parse.TypedBody{2, []byte{2}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 	tMap[t1Hash] = &t1
@@ -295,10 +327,18 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 		Nick: "test"}, "", []user.NodeKeys{})
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
-	t2Hash := parse.Message{TypedBody: parse.TypedBody{2, []byte{2}}}.Hash()
+	t2Hash := parse.Message{
+		TypedBody: parse.TypedBody{2, []byte{2}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 	tMap[t1Hash] = &t1
@@ -329,10 +369,18 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 	}
 
 	t1 := Transaction{Memo: "1"}
-	t1Hash := parse.Message{TypedBody: parse.TypedBody{0, []byte{0}}}.Hash()
+	t1Hash := parse.Message{
+		TypedBody: parse.TypedBody{0, []byte{0}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
-	t2Hash := parse.Message{TypedBody: parse.TypedBody{2, []byte{2}}}.Hash()
+	t2Hash := parse.Message{
+		TypedBody: parse.TypedBody{2, []byte{2}},
+		Sender:    id.ZeroID,
+		Receiver:  id.ZeroID,
+	}.Hash()
 
 	tl.Upsert(t1Hash, &t1)
 	tl.Upsert(t2Hash, &t2)

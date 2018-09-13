@@ -59,7 +59,7 @@ func InitClient(s globals.Storage, loc string) error {
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (id.UserID, error) {
+	numNodes uint, mint bool) (*id.UserID, error) {
 
 	var err error
 
@@ -129,7 +129,7 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID id.UserID, addr string) (user.Session, error) {
+func Login(UID *id.UserID, addr string) (user.Session, error) {
 
 	session, err := user.LoadSession(UID)
 
@@ -201,7 +201,7 @@ func SetRateLimiting(limit uint32) {
 // FIXME there can only be one
 var listenCh chan *format.Message
 
-func Listen(user id.UserID, messageType cmixproto.Type,
+func Listen(user *id.UserID, messageType cmixproto.Type,
 	newListener switchboard.Listener) string {
 	listenerId := switchboard.Listeners.Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
@@ -255,7 +255,7 @@ func Logout() error {
 	return nil
 }
 
-func GetContactList() ([]id.UserID, []string) {
+func GetContactList() ([]*id.UserID, []string) {
 	return user.Users.GetContactList()
 }
 

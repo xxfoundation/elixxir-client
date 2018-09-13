@@ -35,7 +35,7 @@ func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 }
 
-var specificUserID = id.NewUserIDFromUint(5, &testing.T{})
+var specificUserID = new(id.UserID).SetUints(&[4]uint64{0,0,0,5})
 var specificMessageType cmixproto.Type = 8
 var delay = 10 * time.Millisecond
 
@@ -317,7 +317,7 @@ func TestListenerMap_Unregister(t *testing.T) {
 	listenerID := listeners.Register(specificUserID, specificMessageType,
 		&MockListener{})
 	listeners.Unregister(listenerID)
-	if len(listeners.listeners[specificUserID][specificMessageType]) != 0 {
+	if len(listeners.listeners[*specificUserID][specificMessageType]) != 0 {
 		t.Error("The listener was still in the map after we stopped" +
 			" listening on it")
 	}

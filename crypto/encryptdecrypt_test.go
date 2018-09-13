@@ -99,11 +99,11 @@ func TestEncryptDecrypt(t *testing.T) {
 	if err != nil {
 		t.Errorf("Couldn't decrypt message: %v", err.Error())
 	}
-	if decrypted.GetSender() != sender {
+	if *decrypted.GetSender() != *sender {
 		t.Errorf("Sender differed from expected: Got %q, expected %q",
 			decrypted.GetRecipient(), sender)
 	}
-	if decrypted.GetRecipient() != recipient {
+	if *decrypted.GetRecipient() != *recipient {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
 			decrypted.GetRecipient(), sender)
 	}

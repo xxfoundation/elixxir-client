@@ -13,7 +13,6 @@ import (
 	"fmt"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"io"
 	"math/rand"
 	"time"
 	"gitlab.com/privategrity/crypto/id"
@@ -72,7 +71,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 
 }
 
-func LoadSession(UID id.UserID) (Session, error) {
+func LoadSession(UID *id.UserID) (Session, error) {
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return nil, err
@@ -92,16 +91,16 @@ func LoadSession(UID id.UserID) (Session, error) {
 
 	err := dec.Decode(&session)
 
-	if (err != nil && err != io.EOF) || (session.CurrentUser == nil) {
+	if err != nil {
 		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
 		return nil, err
 	}
 
-	if session.CurrentUser.UserID != UID {
+	if *session.CurrentUser.UserID != *UID {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: loaded incorrect "+
-				"user; Expected: %v; Received: %v",
-			session.CurrentUser.UserID, UID))
+				"user; Expected: %q; Received: %q",
+			*session.CurrentUser.UserID, *UID))
 		return nil, err
 	}
 
@@ -216,9 +215,8 @@ func (s *SessionObj) Immolate() error {
 	}
 
 	// clear data stored in session
-	copy(s.CurrentUser.UserID[:], burntString(len(s.CurrentUser.UserID)))
-	copy(s.CurrentUser.UserID[:], burntString(len(s.CurrentUser.UserID)))
-	copy(s.CurrentUser.UserID[:], id.ZeroID[:])
+	// Warning: be careful about immolating the memory backing the user ID
+	// because that may alias a key in the user maps
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""

@@ -53,12 +53,12 @@ type CmdMessage struct {
 	RecipientID uint64
 }
 
-func (m CmdMessage) GetSender() id.UserID {
-	return id.NewUserIDFromUint(m.SenderID, nil)
+func (m CmdMessage) GetSender() *id.UserID {
+	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.SenderID})
 }
 
-func (m CmdMessage) GetRecipient() id.UserID {
-	return id.NewUserIDFromUint(m.RecipientID, nil)
+func (m CmdMessage) GetRecipient() *id.UserID {
+	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.RecipientID})
 }
 
 func (m CmdMessage) GetPayload() string {
@@ -219,8 +219,12 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	fmt.Printf("Message from channel %v, %v: ",
 		message.Sender, senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	var speakerId id.UserID
-	copy(speakerId[:], result.SpeakerID)
+	speakerId, err := new(id.UserID).SetBytes(result.SpeakerID)
+	if err != nil {
+		jww.ERROR.Printf("Couldn't use speaker ID as a user ID: %v",
+			err.Error())
+		return
+	}
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,

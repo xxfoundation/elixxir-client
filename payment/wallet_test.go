@@ -487,7 +487,8 @@ func TestWallet_Invoice_Error(t *testing.T) {
 
 type MockMessaging struct{}
 
-func (m *MockMessaging) SendMessage(recipientID id.UserID, message string) error {
+func (m *MockMessaging) SendMessage(recipientID *id.UserID,
+	message string) error {
 	return nil
 }
 
@@ -1117,8 +1118,8 @@ func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var invoiceID parse.MessageHash
 	copy(invoiceID[:], msg.Body)
 	_, rl.gotTransaction = rl.w.GetCompletedInboundPayment(invoiceID)
-	fmt.Printf("Heard receipt in the UI. Receipt sender: %v, invoice id %q\n",
-		msg.Sender, msg.Body)
+	fmt.Printf("Heard receipt in the UI. Receipt sender: %q, invoice id %q\n",
+		*msg.Sender, msg.Body)
 }
 
 // Tests the side effects of getting a receipt for a transaction that you

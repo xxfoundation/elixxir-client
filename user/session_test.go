@@ -22,9 +22,11 @@ func TestUserSession(t *testing.T) {
 	pass := 0
 
 	u := new(User)
-	UID := id.NewUserIDFromUint(1, t)
+	// This is 65 so you can see the letter A in the gob if you need to make
+	// sure that the gob contains the user ID
+	UID := uint64(65)
 
-	u.UserID = UID
+	u.UserID = id.NewUserIDFromUint(UID, t)
 	u.Nick = "Mario"
 
 	keys := make([]NodeKeys, 1)
@@ -59,15 +61,15 @@ func TestUserSession(t *testing.T) {
 	//TODO: write test which validates the immolation
 
 	if TheSession != nil {
-		t.Errorf("Error: CurrentUser not set correctly!")
+		t.Errorf("Error: The session wasn't nil after immolation!")
 	} else {
 		pass++
 	}
 
-	_, err = LoadSession(UID)
+	_, err = LoadSession(id.NewUserIDFromUint(UID, t))
 
 	if err != nil {
-		t.Errorf("Error: Unable to login with valid user!")
+		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
 	} else {
 		pass++
 	}

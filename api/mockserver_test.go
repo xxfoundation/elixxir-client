@@ -67,8 +67,8 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
-	if regRes == id.ZeroID {
-		t.Errorf("Invalid registration number received: %v", regRes)
+	if *regRes == *id.ZeroID {
+		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
 	globals.LocalStorage = nil
 }

@@ -40,14 +40,14 @@ type TestInterface struct {
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *TestInterface) GetMessage(userId id.UserID,
+func (m *TestInterface) GetMessage(userId *id.UserID,
 	msgId string) (*pb.CmixMessage, bool) {
 	return &pb.CmixMessage{}, true
 }
 
 // Return any MessageIDs in the globals for this UserID
 // TODO Use id.UserID type here?
-func (m *TestInterface) CheckMessages(userId id.UserID,
+func (m *TestInterface) CheckMessages(userId *id.UserID,
 	messageID string) ([]string, bool) {
 	return make([]string, 0), true
 }

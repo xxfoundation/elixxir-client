@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"math/big"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -172,8 +173,8 @@ func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 			senderNick = sender.Nick
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
-		fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
-			message.Type, message.Sender, senderNick, string(message.Body))
+		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
+			message.Type, *message.Sender, senderNick, string(message.Body))
 	}
 }
 
@@ -193,7 +194,7 @@ func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", message.Sender,
+	fmt.Printf("Message from %v, %v Received: %s\n", new(big.Int).SetBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -217,7 +218,7 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	}
 
 	fmt.Printf("Message from channel %v, %v: ",
-		message.Sender, senderNick)
+		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId, err := new(id.UserID).SetBytes(result.SpeakerID)
 	if err != nil {

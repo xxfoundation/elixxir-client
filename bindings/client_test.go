@@ -41,7 +41,7 @@ func (d *dummyMessaging) SendMessage(recipientID *id.UserID,
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID *id.UserID) chan *format.Message {
 	return d.listener
 }
 

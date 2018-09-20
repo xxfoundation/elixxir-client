@@ -274,17 +274,17 @@ var rootCmd = &cobra.Command{
 		sessionInitialization()
 
 		// Only send a message if we have a message to send (except dummy messages)
+		recipientId := new(id.UserID).SetUints(&[4]uint64{0,0,0,destinationUserId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			u, ok := user.Users.GetUser(id.NewUserIDFromUint(
-				destinationUserId, nil))
+			u, ok := user.Users.GetUser(recipientId)
 			if ok {
 				recipientNick = u.Nick
 			}
 
 			// Handle sending to UDB
-			if id.NewUserIDFromUint(destinationUserId, nil) == bots.UdbID {
+			if *recipientId == *bots.UdbID {
 				parseUdbMessage(message)
 			} else {
 				// Handle sending to any other destination
@@ -312,8 +312,7 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				u, ok := user.Users.GetUser(id.NewUserIDFromUint(
-					destinationUserId, nil))
+				u, ok := user.Users.GetUser(recipientId)
 				if ok {
 					contact = u.Nick
 				}

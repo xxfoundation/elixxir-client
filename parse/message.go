@@ -30,8 +30,8 @@ func (m Message) Hash() MessageHash {
 
 	h.Write(TypeAsBytes(int32(m.Type)))
 	h.Write(m.Body)
-	h.Write(m.Sender[:])
-	h.Write(m.Receiver[:])
+	h.Write(m.Sender.Bytes())
+	h.Write(m.Receiver.Bytes())
 	//h.Write(m.Nonce)
 
 	hashed := h.Sum(nil)

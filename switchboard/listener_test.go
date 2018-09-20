@@ -7,13 +7,13 @@
 package switchboard
 
 import (
-	"bytes"
 	"gitlab.com/privategrity/client/parse"
 	"sync"
 	"testing"
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
 	"gitlab.com/privategrity/crypto/id"
+	"bytes"
 )
 
 type MockListener struct {
@@ -35,7 +35,7 @@ func (ml *MockListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 }
 
-var specificUserID = new(id.UserID).SetUints(&[4]uint64{0,0,0,5})
+var specificUserID = new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 5})
 var specificMessageType cmixproto.Type = 8
 var delay = 10 * time.Millisecond
 
@@ -143,7 +143,7 @@ func TestListenerMap_SpeakDifferentType(t *testing.T) {
 }
 
 var zeroUserID = id.ZeroID
-var nonzeroUserID = id.NewUserIDFromUint(786, &testing.T{})
+var nonzeroUserID = new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 786})
 var zeroType cmixproto.Type
 
 func WildcardListenerSetup() (*Switchboard, *MockListener) {

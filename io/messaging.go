@@ -72,9 +72,6 @@ func (m *messaging) SendMessage(recipientID *id.UserID,
 		return err
 	}
 	for i := range parts {
-		// MARK Need crypto change: Unified message type. Crypto must be able
-		// to use the user ID type ( or the user ID type must be a more normal
-		// type like a regular old string.)
 		messages, err := format.NewMessage(userID, recipientID, string(parts[i]))
 		if err != nil {
 			return err
@@ -121,9 +118,8 @@ func send(senderID *id.UserID, message *format.Message) error {
 	// key? Should we even be doing the encryption here?
 	// TODO: Use salt here
 	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
-	// MARK Comms change: SenderID should be a string in the CmixMessage
 	msgPacket := &pb.CmixMessage{
-		SenderID:       senderID[:],
+		SenderID:       senderID.Bytes(),
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
 		Salt:           salt,
@@ -147,9 +143,8 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 	if user.TheSession == nil {
 		globals.Log.FATAL.Panicf("No user session available")
 	}
-	// MARK Comms change
 	pollingMessage := pb.ClientPollMessage{
-		UserID: user.TheSession.GetCurrentUser().UserID[:],
+		UserID: user.TheSession.GetCurrentUser().UserID.Bytes(),
 	}
 
 	for {
@@ -201,8 +196,7 @@ func (m *messaging) receiveMessagesFromGateway(
 				newMessage, err := client.SendGetMessage(user.
 					TheSession.GetGWAddress(),
 					&pb.ClientPollMessage{
-						// MARK Comms change needed
-						UserID:    user.TheSession.GetCurrentUser().UserID[:],
+						UserID:    user.TheSession.GetCurrentUser().UserID.Bytes(),
 						MessageID: messageID,
 					})
 				if err != nil {

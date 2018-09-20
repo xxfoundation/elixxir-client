@@ -54,12 +54,12 @@ type CmdMessage struct {
 	RecipientID uint64
 }
 
-func (m CmdMessage) GetSender() *id.UserID {
-	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.SenderID})
+func (m CmdMessage) GetSender() []byte {
+	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.SenderID})[:]
 }
 
-func (m CmdMessage) GetRecipient() *id.UserID {
-	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.RecipientID})
+func (m CmdMessage) GetRecipient() []byte {
+	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.RecipientID})[:]
 }
 
 func (m CmdMessage) GetPayload() string {

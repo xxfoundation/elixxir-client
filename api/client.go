@@ -69,9 +69,9 @@ func Register(registrationCode string, gwAddr string,
 		return id.ZeroID, err
 	}
 
+	// Because the method returns a pointer to the user ID, don't clear the
+	// user ID as the caller needs to use it
 	UID, successLook := user.Users.LookupUser(registrationCode)
-	// FIXME Do we need to reinstate this?
-	//defer clearUserID(&UID)
 
 	if !successLook {
 		globals.Log.ERROR.Printf("Register: HUID does not match")

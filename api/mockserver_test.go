@@ -153,7 +153,7 @@ func TestSend(t *testing.T) {
 
 	// Test send with invalid sender ID
 	err = Send(APIMessage{SenderID: id.NewUserIDFromUint(12, t),
-	Payload: "test",
+		Payload: "test",
 		RecipientID: userID})
 	if err != nil {
 		// TODO: would be nice to catch the sender but we

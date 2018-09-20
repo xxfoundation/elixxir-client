@@ -31,11 +31,40 @@ type Storage interface {
 //Message used for binding
 type Message interface {
 	// Returns the message's sender ID
-	GetSender() *id.UserID
+	GetSender() []byte
 	// Returns the message payload
 	GetPayload() string
 	// Returns the message's recipient ID
-	GetRecipient() *id.UserID
+	GetRecipient() []byte
+}
+
+// Make the bindings.Message interface compatible with format.MessageInterface
+type messageProxy struct {
+	proxy Message
+}
+
+func (m *messageProxy) GetRecipient() *id.UserID {
+	userId, err := new(id.UserID).SetBytes(m.proxy.GetRecipient())
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"messageProxy GetRecipient: Error converting byte array to" +
+				" recipient: %v", err.Error())
+	}
+	return userId
+}
+
+func (m *messageProxy) GetSender() *id.UserID {
+	userId, err := new(id.UserID).SetBytes(m.proxy.GetSender())
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"messageProxy GetSender: Error converting byte array to" +
+				" sender: %v", err.Error())
+	}
+	return userId
+}
+
+func (m *messageProxy) GetPayload() string {
+	return m.proxy.GetPayload()
 }
 
 // An object implementing this interface can be called back when the client
@@ -138,7 +167,7 @@ func Login(UID []byte, addr string) (string, error) {
 
 //Sends a message structured via the message interface
 func Send(m Message) error {
-	return api.Send(m)
+	return api.Send(&messageProxy{proxy: m})
 }
 
 // Logs the user out, saving the state for the system and clearing all data

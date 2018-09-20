@@ -94,8 +94,8 @@ func TestInitClient(t *testing.T) {
 // byte slices
 type BytesReceiver struct {
 	receptionBuffer []byte
-	lastSID         *id.UserID
-	lastRID         *id.UserID
+	lastSID         []byte
+	lastRID         []byte
 }
 
 // This is the method that globals.Receive calls when you set a BytesReceiver

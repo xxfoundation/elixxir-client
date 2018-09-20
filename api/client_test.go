@@ -10,13 +10,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"testing"
-	"time"
 	"gitlab.com/privategrity/crypto/id"
 )
 
@@ -127,35 +124,36 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 }
 
-var ListenCh chan *format.Message
-var lastmsg string
+// FIXME Reinstate tests for the UDB api
+//var ListenCh chan *format.Message
+//var lastmsg string
 
-type dummyMessaging struct {
-	listener chan *format.Message
-}
+//type dummyMessaging struct {
+//	listener chan *format.Message
+//}
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID id.UserID,
-	message string) error {
-	jww.INFO.Printf("Sending: %s", message)
-	lastmsg = message
-	return nil
-}
+//func (d *dummyMessaging) SendMessage(recipientID id.UserID,
+//	message string) error {
+//	jww.INFO.Printf("Sending: %s", message)
+//	lastmsg = message
+//	return nil
+//}
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
-	return d.listener
-}
+//func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
+//	return d.listener
+//}
 
 // StopListening to a given switchboard (closes and deletes)
-func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
+//func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
 
 // MessageReceiver thread to get new messages
-func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+//func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
 
-var pubKeyBits []string
-var keyFingerprint string
-var pubKey []byte
+//var pubKeyBits []string
+//var keyFingerprint string
+//var pubKey []byte
 
 // SendMsg puts a fake udb response message on the channel
 //func SendMsg(msg string) {

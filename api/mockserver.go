@@ -46,7 +46,6 @@ func (m *TestInterface) GetMessage(userId *id.UserID,
 }
 
 // Return any MessageIDs in the globals for this UserID
-// TODO Use id.UserID type here?
 func (m *TestInterface) CheckMessages(userId *id.UserID,
 	messageID string) ([]string, bool) {
 	return make([]string, 0), true

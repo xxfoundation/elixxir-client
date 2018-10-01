@@ -11,6 +11,8 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // Copy of the storage interface.
@@ -36,9 +38,11 @@ type Message interface {
 	GetPayload() string
 	// Returns the message's recipient ID
 	GetRecipient() []byte
+	// Returns the message's type
+	GetType() int32
 }
 
-// Make the bindings.Message interface compatible with format.MessageInterface
+//  Translate a bindings message to a bindings message
 type messageProxy struct {
 	proxy Message
 }
@@ -47,7 +51,7 @@ func (m *messageProxy) GetRecipient() *id.UserID {
 	userId, err := new(id.UserID).SetBytes(m.proxy.GetRecipient())
 	if err != nil {
 		globals.Log.ERROR.Printf(
-			"messageProxy GetRecipient: Error converting byte array to" +
+			"messageProxy GetRecipient: Error converting byte array to"+
 				" recipient: %v", err.Error())
 	}
 	return userId
@@ -57,7 +61,7 @@ func (m *messageProxy) GetSender() *id.UserID {
 	userId, err := new(id.UserID).SetBytes(m.proxy.GetSender())
 	if err != nil {
 		globals.Log.ERROR.Printf(
-			"messageProxy GetSender: Error converting byte array to" +
+			"messageProxy GetSender: Error converting byte array to"+
 				" sender: %v", err.Error())
 	}
 	return userId
@@ -67,10 +71,69 @@ func (m *messageProxy) GetPayload() string {
 	return m.proxy.GetPayload()
 }
 
+func (m *messageProxy) GetType() cmixproto.Type {
+	return cmixproto.Type(m.proxy.GetType())
+}
+
 // An object implementing this interface can be called back when the client
-// gets a message
-type Receiver interface {
-	Receive(message Message)
+// gets a message of the type that the registerer specified at registration
+// time.
+type Listener interface {
+	Hear(msg Message, isHeardElsewhere bool)
+}
+
+// Translate a bindings listener to a switchboard listener
+type listenerProxy struct {
+	proxy Listener
+}
+
+// Translate a parse message to a bindings message
+type parseMessageProxy struct {
+	proxy *parse.Message
+}
+
+func (p *parseMessageProxy) GetSender() []byte {
+	return p.proxy.GetSender().Bytes()
+}
+
+func (p *parseMessageProxy) GetRecipient() []byte {
+	return p.proxy.GetRecipient().Bytes()
+}
+
+// TODO Should we actually pass this over the boundary as a byte slice?
+// It's essentially a binary blob.
+func (p *parseMessageProxy) GetPayload() string {
+	return p.proxy.GetPayload()
+}
+
+func (p *parseMessageProxy) GetType() int32 {
+	return int32(p.proxy.GetType())
+}
+
+func (lp *listenerProxy) Hear(msg *parse.Message, isHeardElsewhere bool) {
+	msgInterface := &parseMessageProxy{proxy: msg}
+	lp.proxy.Hear(msgInterface, isHeardElsewhere)
+}
+
+// Returns listener handle as a string.
+// You can use it to delete the listener later.
+// Please ensure userId has the correct length (256 bits)
+// User IDs are informally big endian. If you want compatibility with the demo
+// user names, set the last byte and leave all other bytes zero for userId.
+// If you pass the zero user ID (256 bits of zeroes) to Listen() you will hear
+// messages sent from all users.
+// If you pass the zero type (just zero) to Listen() you will hear messages of
+// all types.
+func Listen(userId []byte, messageType int32, newListener Listener) string {
+	typedUserId, err := new(id.UserID).SetBytes(userId)
+	if err != nil {
+		globals.Log.ERROR.Printf("bindings."+
+			"Listen user ID creation error: %v", err.Error())
+	}
+
+	listener := &listenerProxy{proxy: newListener}
+
+	return api.Listen(typedUserId, cmixproto.Type(messageType), listener)
 }
 
 func FormatTextMessage(message string) []byte {
@@ -166,6 +229,7 @@ func Login(UID []byte, addr string) (string, error) {
 }
 
 //Sends a message structured via the message interface
+// FIXME Auto serialize type before sending somewhere
 func Send(m Message) error {
 	return api.Send(&messageProxy{proxy: m})
 }
@@ -192,6 +256,12 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	return api.RegisterForUserDiscovery(emailAddress)
 }
 
+// FIXME This method doesn't get bound because of the exotic type it uses.
+// Map types can't go over the boundary.
+// The correct way to do over the boundary is to define
+// a struct with a user ID and public key in it and return a pointer to that.
+// Search() in bots only returns one user ID anyway. Returning a map would only
+// be useful if a search could return more than one user.
 func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
 	return api.SearchForUser(emailAddress)
 }

@@ -9,6 +9,7 @@ package parse
 import (
 	"crypto/sha256"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 const MessageHashLenBits = 256
@@ -51,4 +52,8 @@ func (m Message) GetRecipient() *id.UserID {
 
 func (m Message) GetPayload() string {
 	return string(Pack(&m.TypedBody))
+}
+
+func (m Message) GetType() cmixproto.Type {
+	return m.Type
 }

@@ -35,46 +35,15 @@ type Message interface {
 	// Returns the message's sender ID
 	GetSender() []byte
 	// Returns the message payload
-	GetPayload() string
+	// Parse this with protobuf/whatever according to the type of the message
+	GetPayload() []byte
 	// Returns the message's recipient ID
 	GetRecipient() []byte
 	// Returns the message's type
 	GetType() int32
 }
 
-//  Translate a bindings message to a bindings message
-type messageProxy struct {
-	proxy Message
-}
-
-func (m *messageProxy) GetRecipient() *id.UserID {
-	userId, err := new(id.UserID).SetBytes(m.proxy.GetRecipient())
-	if err != nil {
-		globals.Log.ERROR.Printf(
-			"messageProxy GetRecipient: Error converting byte array to"+
-				" recipient: %v", err.Error())
-	}
-	return userId
-}
-
-func (m *messageProxy) GetSender() *id.UserID {
-	userId, err := new(id.UserID).SetBytes(m.proxy.GetSender())
-	if err != nil {
-		globals.Log.ERROR.Printf(
-			"messageProxy GetSender: Error converting byte array to"+
-				" sender: %v", err.Error())
-	}
-	return userId
-}
-
-func (m *messageProxy) GetPayload() string {
-	return m.proxy.GetPayload()
-}
-
-func (m *messageProxy) GetType() cmixproto.Type {
-	return cmixproto.Type(m.proxy.GetType())
-}
-
+//  Translate a bindings message to a parse message
 // An object implementing this interface can be called back when the client
 // gets a message of the type that the registerer specified at registration
 // time.
@@ -87,31 +56,8 @@ type listenerProxy struct {
 	proxy Listener
 }
 
-// Translate a parse message to a bindings message
-type parseMessageProxy struct {
-	proxy *parse.Message
-}
-
-func (p *parseMessageProxy) GetSender() []byte {
-	return p.proxy.GetSender().Bytes()
-}
-
-func (p *parseMessageProxy) GetRecipient() []byte {
-	return p.proxy.GetRecipient().Bytes()
-}
-
-// TODO Should we actually pass this over the boundary as a byte slice?
-// It's essentially a binary blob.
-func (p *parseMessageProxy) GetPayload() string {
-	return p.proxy.GetPayload()
-}
-
-func (p *parseMessageProxy) GetType() int32 {
-	return int32(p.proxy.GetType())
-}
-
 func (lp *listenerProxy) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	msgInterface := &parseMessageProxy{proxy: msg}
+	msgInterface := &parse.BindingsMessageProxy{Proxy: msg}
 	lp.proxy.Hear(msgInterface, isHeardElsewhere)
 }
 
@@ -229,9 +175,26 @@ func Login(UID []byte, addr string) (string, error) {
 }
 
 //Sends a message structured via the message interface
-// FIXME Auto serialize type before sending somewhere
+// Automatically serializes the message type before the rest of the payload
+// Returns an error if either sender or recipient are too short
 func Send(m Message) error {
-	return api.Send(&messageProxy{proxy: m})
+	sender, err := new(id.UserID).SetBytes(m.GetSender())
+	if err != nil {
+		return err
+	}
+	recipient, err := new(id.UserID).SetBytes(m.GetRecipient())
+	if err != nil {
+		return err
+	}
+
+	return api.Send(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: cmixproto.Type(m.GetType()),
+			Body: m.GetPayload(),
+		},
+		Sender:   sender,
+		Receiver: recipient,
+	})
 }
 
 // Logs the user out, saving the state for the system and clearing all data

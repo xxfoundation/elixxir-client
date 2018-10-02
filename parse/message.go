@@ -42,18 +42,41 @@ func (m Message) Hash() MessageHash {
 	return mh
 }
 
-func (m Message) GetSender() *id.UserID {
+func (m *Message) GetSender() *id.UserID {
 	return m.Sender
 }
 
-func (m Message) GetRecipient() *id.UserID {
+func (m *Message) GetRecipient() *id.UserID {
 	return m.Receiver
 }
 
-func (m Message) GetPayload() string {
-	return string(Pack(&m.TypedBody))
+func (m *Message) GetPayload() []byte {
+	return Pack(&m.TypedBody)
 }
 
-func (m Message) GetType() cmixproto.Type {
+func (m *Message) GetType() cmixproto.Type {
 	return m.Type
+}
+
+// Implements Message type compatibility with bindings package's limited types
+type BindingsMessageProxy struct {
+	Proxy *Message
+}
+
+func (p *BindingsMessageProxy) GetSender() []byte {
+	return p.Proxy.GetSender().Bytes()
+}
+
+func (p *BindingsMessageProxy) GetRecipient() []byte {
+	return p.Proxy.GetRecipient().Bytes()
+}
+
+// TODO Should we actually pass this over the boundary as a byte slice?
+// It's essentially a binary blob.
+func (p *BindingsMessageProxy) GetPayload() []byte {
+	return p.Proxy.GetPayload()
+}
+
+func (p *BindingsMessageProxy) GetType() int32 {
+	return int32(p.Proxy.GetType())
 }

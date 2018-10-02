@@ -16,7 +16,7 @@ import (
 // APIMessage are an implementation of the interface in bindings and API
 // easy to use from Go
 type APIMessage struct {
-	Payload     string
+	Payload     []byte
 	SenderID    *id.UserID
 	RecipientID *id.UserID
 }
@@ -29,7 +29,7 @@ func (m APIMessage) GetRecipient() *id.UserID {
 	return m.RecipientID
 }
 
-func (m APIMessage) GetPayload() string {
+func (m APIMessage) GetPayload() []byte {
 	return m.Payload
 }
 

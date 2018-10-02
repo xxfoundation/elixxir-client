@@ -488,7 +488,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 type MockMessaging struct{}
 
 func (m *MockMessaging) SendMessage(recipientID *id.UserID,
-	message string) error {
+	message []byte) error {
 	return nil
 }
 

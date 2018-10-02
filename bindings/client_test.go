@@ -26,7 +26,7 @@ var gatewayData api.TestInterface
 
 // NOTE: These need to be set up as io.Messaging is called during Init...
 var ListenCh chan *format.Message
-var lastmsg string
+var lastmsg []byte
 
 type dummyMessaging struct {
 	listener chan *format.Message
@@ -34,7 +34,7 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(recipientID *id.UserID,
-	message string) error {
+	message []byte) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
 	return nil

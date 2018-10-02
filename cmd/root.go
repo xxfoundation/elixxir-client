@@ -43,28 +43,6 @@ var mint bool
 var rateLimiting uint32
 var showVer bool
 
-// CmdMessage are an implementation of the interface in bindings and API
-// easy to use from Go
-type CmdMessage struct {
-	Payload     string
-	// TODO Replace uint64 with a wider type here to be able to test the system
-	// with the wider user IDs
-	SenderID    uint64
-	RecipientID uint64
-}
-
-func (m CmdMessage) GetSender() []byte {
-	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.SenderID})[:]
-}
-
-func (m CmdMessage) GetRecipient() []byte {
-	return new(id.UserID).SetUints(&[4]uint64{0,0,0,m.RecipientID})[:]
-}
-
-func (m CmdMessage) GetPayload() string {
-	return m.Payload
-}
-
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
@@ -139,7 +117,7 @@ func sessionInitialization() {
 		// FIXME Use a different encoding for the user ID command line argument,
 		// to allow testing with IDs that are long enough to exercise more than
 		// 64 bits
-		regCode := new(id.UserID).SetUints(&[4]uint64{0,0,0,userId}).RegistrationCode()
+		regCode := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		_, err := bindings.Register(regCode, gwAddr, int(numNodes), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
@@ -272,7 +250,8 @@ var rootCmd = &cobra.Command{
 		sessionInitialization()
 
 		// Only send a message if we have a message to send (except dummy messages)
-		recipientId := new(id.UserID).SetUints(&[4]uint64{0,0,0,destinationUserId})
+		recipientId := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
+		senderId := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, userId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
@@ -292,11 +271,14 @@ var rootCmd = &cobra.Command{
 					recipientNick, message)
 
 				// Send the message
-				bindings.Send(CmdMessage{
-					SenderID:    userId,
-					Payload:     string(wireOut),
-					RecipientID: destinationUserId,
-				})
+				bindings.Send(&parse.BindingsMessageProxy{&parse.Message{
+					Sender: senderId,
+					TypedBody: parse.TypedBody{
+						Type: cmixproto.Type_TEXT_MESSAGE,
+						Body: wireOut,
+					},
+					Receiver: recipientId,
+				}})
 			}
 		}
 
@@ -317,10 +299,13 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := CmdMessage{
-					SenderID:    userId,
-					Payload:     string(api.FormatTextMessage(message)),
-					RecipientID: destinationUserId}
+				message := &parse.BindingsMessageProxy{&parse.Message{
+					Sender:   senderId,
+					TypedBody:  parse.TypedBody{
+						Type: cmixproto.Type_TEXT_MESSAGE,
+						Body: bindings.FormatTextMessage(message),
+					},
+					Receiver: recipientId}}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)

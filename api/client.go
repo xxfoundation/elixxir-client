@@ -14,7 +14,6 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/payment"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
@@ -33,10 +32,7 @@ func FormatTextMessage(message string) []byte {
 		Message: message,
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)
-	return parse.Pack(&parse.TypedBody{
-		Type: 1,
-		Body: wireRepresentation,
-	})
+	return wireRepresentation
 }
 
 // Initializes the client by registering a storage mechanism.

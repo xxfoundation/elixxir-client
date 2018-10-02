@@ -27,8 +27,8 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(recipientID *id.UserID,
-	message string) error {
-	jww.INFO.Printf("Sending: %s", message)
+	message []byte) error {
+	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
 

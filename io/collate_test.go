@@ -39,7 +39,7 @@ func TestCollator_AddMessage(t *testing.T) {
 		for j := range partitions {
 
 			fm, errFNM := format.NewMessage(id.NewUserIDFromUint(5, t),
-				id.NewUserIDFromUint(6, t), string(partitions[j]))
+				id.NewUserIDFromUint(6, t), partitions[j])
 
 			if errFNM != nil {
 				t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
@@ -75,7 +75,7 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	var result *parse.Message
 	for i := range partitions {
 		fm, errFNM := format.NewMessage(id.NewUserIDFromUint(5, t),
-			id.NewUserIDFromUint(6, t), string(partitions[i]))
+			id.NewUserIDFromUint(6, t), partitions[i])
 
 		if errFNM != nil {
 			t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())

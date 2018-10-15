@@ -161,7 +161,11 @@ type TextListener struct {
 func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	globals.Log.INFO.Println("Hearing a text message")
 	result := cmixproto.TextMessage{}
-	proto.Unmarshal(message.Body, &result)
+	err := proto.Unmarshal(message.Body, &result)
+	if err != nil {
+		globals.Log.ERROR.Printf("Error umarshaling text message: %v\n",
+			err.Error())
+	}
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
@@ -233,13 +237,13 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_TEXT_MESSAGE, &text)
+		api.Listen(id.ZeroID, cmixproto.Type_TEXT_MESSAGE, &text, switchboard.Listeners)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_CHANNEL_MESSAGE, &channel)
+		api.Listen(id.ZeroID, cmixproto.Type_CHANNEL_MESSAGE, &channel, switchboard.Listeners)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_NO_TYPE, &fallback)
+		api.Listen(id.ZeroID, cmixproto.Type_NO_TYPE, &fallback, switchboard.Listeners)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -300,8 +304,8 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := &parse.BindingsMessageProxy{&parse.Message{
-					Sender:   senderId,
-					TypedBody:  parse.TypedBody{
+					Sender: senderId,
+					TypedBody: parse.TypedBody{
 						Type: cmixproto.Type_TEXT_MESSAGE,
 						Body: bindings.FormatTextMessage(message),
 					},

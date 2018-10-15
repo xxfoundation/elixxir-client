@@ -337,9 +337,9 @@ Nulla facilisi. Class aptent taciti sociosqu ad litora torquent per conubia nost
 	}
 
 	for i := range expected {
-		// create partitions
+		//create partitions
 		partitions, _ := Partition([]byte(expected[i]), []byte{0x05})
-		// strip front matter from partitions
+		//strip front matter from partitions
 		for j := range partitions {
 			strippedPartition, err := ValidatePartition(partitions[j])
 			if err != nil {

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"sort"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 type TransactionList struct {
@@ -128,7 +129,7 @@ type keyAndTransaction struct {
 // sort the map's keys by values in the transactions.
 // Useful sorting criteria are timestamp and value (possibly also grouped by the
 // other party to the transaction.)
-func (tl *TransactionList) getKeys(order TransactionListOrder) []byte {
+func (tl *TransactionList) getKeys(order cmixproto.TransactionListOrder) []byte {
 	tl.session.LockStorage()
 	keys := make([]keyAndTransaction, 0, len(*tl.transactionMap))
 	for k, v := range *tl.transactionMap {
@@ -140,19 +141,19 @@ func (tl *TransactionList) getKeys(order TransactionListOrder) []byte {
 	// Sort the keys with the specified order
 	var lessFunc func(i, j int) bool
 	switch order {
-	case TimestampDescending:
+	case cmixproto.TransactionListOrder_TIMESTAMP_DESCENDING:
 		lessFunc = func(i, j int) bool {
 			return keys[i].transaction.Timestamp.After(keys[j].transaction.Timestamp)
 		}
-	case TimestampAscending:
+	case cmixproto.TransactionListOrder_TIMESTAMP_ASCENDING:
 		lessFunc = func(i, j int) bool {
 			return keys[i].transaction.Timestamp.Before(keys[j].transaction.Timestamp)
 		}
-	case ValueDescending:
+	case cmixproto.TransactionListOrder_VALUE_DESCENDING:
 		lessFunc = func(i, j int) bool {
 			return keys[i].transaction.Value > keys[j].transaction.Value
 		}
-	case ValueAscending:
+	case cmixproto.TransactionListOrder_VALUE_ASCENDING:
 		lessFunc = func(i, j int) bool {
 			return keys[i].transaction.Value < keys[j].transaction.Value
 		}

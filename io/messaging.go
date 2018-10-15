@@ -72,7 +72,7 @@ func (m *messaging) SendMessage(recipientID *id.UserID,
 		return err
 	}
 	for i := range parts {
-		messages, err := format.NewMessage(userID, recipientID, string(parts[i]))
+		messages, err := format.NewMessage(userID, recipientID, parts[i])
 		if err != nil {
 			return err
 		}

@@ -10,14 +10,14 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/comms/gateway"
+	"gitlab.com/privategrity/client/user"
 )
 
 const gwAddress = "localhost:5557"

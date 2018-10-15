@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // Shows that CreateTransactionList creates new storage properly
@@ -161,7 +162,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
-		TypedBody: parse.TypedBody{0, []byte{0}},
+		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{0}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
@@ -173,7 +174,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
-		TypedBody: parse.TypedBody{2, []byte{2}},
+		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{2}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
@@ -455,7 +456,7 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	}
 
 	// get the transactions sorted by their timestamp, most to least recent
-	keyList := transactions.getKeys(TimestampDescending)
+	keyList := transactions.getKeys(cmixproto.TransactionListOrder_TIMESTAMP_DESCENDING)
 
 	// verify that the keys we got correspond to correctly sorted transactions
 	numKeys := uint64(len(keyList)) / parse.MessageHashLen

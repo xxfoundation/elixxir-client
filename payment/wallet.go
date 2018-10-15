@@ -121,8 +121,8 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 func (w *Wallet) RegisterListeners() {
 	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
 		&InvoiceListener{
-		wallet: w,
-	})
+			wallet: w,
+		})
 	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
@@ -498,45 +498,20 @@ func (w *Wallet) GetCompletedInboundPayment(id parse.MessageHash) (
 	}
 }
 
-func (w *Wallet) GetTransaction(list TransactionListID, id parse.MessageHash) {
-
-}
-
-// TODO We could also switch on transaction list tags, but that would be slower.
-// It's unclear to me which approach is better between the two.
-type TransactionListID int
-
-const (
-	OutboundRequests          TransactionListID = iota
-	InboundRequests
-	PendingTransactions
-	OutboundCompletedPayments
-	InboundCompletedPayments
-)
-
-type TransactionListOrder int
-
-const (
-	TimestampDescending TransactionListOrder = iota
-	TimestampAscending
-	ValueDescending
-	ValueAscending
-)
-
 // This structure is weird because it makes it easier to write an API that
 // can go over gomobile
-func (w *Wallet) GetTransactionIDs(id TransactionListID,
-	order TransactionListOrder) []byte {
+func (w *Wallet) GetTransactionIDs(id cmixproto.TransactionListTag,
+	order cmixproto.TransactionListOrder) []byte {
 	switch id {
-	case OutboundRequests:
+	case cmixproto.TransactionListTag_OUTBOUND_REQUESTS:
 		return w.outboundRequests.getKeys(order)
-	case InboundRequests:
+	case cmixproto.TransactionListTag_INBOUND_REQUESTS:
 		return w.inboundRequests.getKeys(order)
-	case PendingTransactions:
+	case cmixproto.TransactionListTag_PENDING_TRANSACTIONS:
 		return w.pendingTransactions.getKeys(order)
-	case OutboundCompletedPayments:
+	case cmixproto.TransactionListTag_COMPLETED_OUTBOUND_PAYMENTS:
 		return w.completedOutboundPayments.getKeys(order)
-	case InboundCompletedPayments:
+	case cmixproto.TransactionListTag_COMPLETED_INBOUND_PAYMENTS:
 		return w.completedInboundPayments.getKeys(order)
 	default:
 		return nil

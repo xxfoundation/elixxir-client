@@ -200,12 +200,7 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	fmt.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	speakerId, err := new(id.UserID).SetBytes(result.SpeakerID)
-	if err != nil {
-		jww.ERROR.Printf("Couldn't use speaker ID as a user ID: %v",
-			err.Error())
-		return
-	}
+	speakerId := new(id.UserID).SetBytes(result.SpeakerID)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,

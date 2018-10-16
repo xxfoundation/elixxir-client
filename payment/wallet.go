@@ -63,7 +63,7 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 	}
 
 	if doMint {
-		mintedCoins := coin.MintUser(s.GetCurrentUser().UserID)
+		mintedCoins := coin.MintArbitrarily(s.GetCurrentUser().UserID[:])
 		for i := range mintedCoins {
 			cs.add(mintedCoins[i])
 		}

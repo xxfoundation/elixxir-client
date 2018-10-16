@@ -65,11 +65,7 @@ type Listener interface {
 // If you pass the zero type (just zero) to Listen() you will hear messages of
 // all types.
 func Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId, err := new(id.UserID).SetBytes(userId)
-	if err != nil {
-		globals.Log.ERROR.Printf("bindings."+
-			"Listen user ID creation error: %v", err.Error())
-	}
+	typedUserId := new(id.UserID).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -77,11 +73,7 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 }
 
 func ListenToWallet(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId, err := new(id.UserID).SetBytes(userId)
-	if err != nil {
-		globals.Log.ERROR.Printf("bindings."+
-			"ListenToWallet user ID creation error: %v", err.Error())
-	}
+	typedUserId := new(id.UserID).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -174,10 +166,7 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
 func Login(UID []byte, addr string) (string, error) {
-	userID, err := new(id.UserID).SetBytes(UID)
-	if err != nil {
-		return "", err
-	}
+	userID := new(id.UserID).SetBytes(UID)
 	session, err := api.Login(userID, addr)
 	return session.GetCurrentUser().Nick, err
 }
@@ -186,14 +175,8 @@ func Login(UID []byte, addr string) (string, error) {
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
 func Send(m Message) error {
-	sender, err := new(id.UserID).SetBytes(m.GetSender())
-	if err != nil {
-		return err
-	}
-	recipient, err := new(id.UserID).SetBytes(m.GetRecipient())
-	if err != nil {
-		return err
-	}
+	sender := new(id.UserID).SetBytes(m.GetSender())
+	recipient := new(id.UserID).SetBytes(m.GetRecipient())
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
@@ -220,10 +203,7 @@ func GetAvailableFunds() int64 {
 // Value: must be positive
 // Send the returned message unless you get an error
 func Invoice(payer []byte, value int64, memo string) (Message, error) {
-	userId, err := new(id.UserID).SetBytes(payer)
-	if err != nil {
-		return nil, err
-	}
+	userId := new(id.UserID).SetBytes(payer)
 	msg, err := api.Wallet().Invoice(userId, value, memo)
 	return &parse.BindingsMessageProxy{Proxy: msg}, err
 }

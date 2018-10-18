@@ -11,7 +11,6 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"sort"
-	"gitlab.com/privategrity/client/cmixproto"
 )
 
 type TransactionList struct {
@@ -28,7 +27,7 @@ func init() {
 
 // Checks to see if a transaction list of the given tag is present in session.  If one is, then it returns it.
 // If one isn't, then a new one is created
-func CreateTransactionList(tag string, session user.Session) (*TransactionList, error) {
+func createTransactionList(tag string, session user.Session) (*TransactionList, error) {
 	gob.Register(TransactionList{})
 
 	var tlmPtr *map[parse.MessageHash]*Transaction
@@ -68,9 +67,9 @@ func (tl *TransactionList) Value() uint64 {
 }
 
 // Adds or updates a transaction to the list with a key of the given hash
-func (tl *TransactionList) Upsert(mh parse.MessageHash, t *Transaction) {
+func (tl *TransactionList) upsert(mh parse.MessageHash, t *Transaction) {
 	tl.session.LockStorage()
-	tl.upsert(mh, t)
+	tl.upsertImpl(mh, t)
 	tl.session.UnlockStorage()
 }
 
@@ -83,16 +82,16 @@ func (tl *TransactionList) Get(mh parse.MessageHash) (*Transaction, bool) {
 }
 
 // Pops a transaction from the list with a key of the given hash
-func (tl *TransactionList) Pop(mh parse.MessageHash) (*Transaction, bool) {
+func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 	tl.session.LockStorage()
-	t, b := tl.pop(mh)
+	t, b := tl.popImpl(mh)
 	tl.session.UnlockStorage()
 	return t, b
 }
 
 // INTERNAL FUNCTIONS
 
-func (tl *TransactionList) upsert(mh parse.MessageHash, t *Transaction) {
+func (tl *TransactionList) upsertImpl(mh parse.MessageHash, t *Transaction) {
 	(*tl.transactionMap)[mh] = t
 	// FIXME for an Upsert the recalculation of the value isn't technically
 	// correct. this only matters if you upsert the same hash more than once.
@@ -106,7 +105,7 @@ func (tl *TransactionList) get(mh parse.MessageHash) (*Transaction, bool) {
 	return t, b
 }
 
-func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
+func (tl *TransactionList) popImpl(mh parse.MessageHash) (*Transaction, bool) {
 	t, b := tl.get(mh)
 	if b {
 		tl.value -= t.Value
@@ -115,56 +114,75 @@ func (tl *TransactionList) pop(mh parse.MessageHash) (*Transaction, bool) {
 	return t, b
 }
 
-// Used for sorting transaction lists by their various fields.
-// For bindings reasons, we can't return sorted slices of transactions, so
-// when sorting the transaction map we need to return the keys that go with
-// the sorted transaction
-type keyAndTransaction struct {
-	key         parse.MessageHash
-	transaction *Transaction
+// TODO Is there actually any reason to return the transaction key here?
+// It's useful if you want to pop a transaction from e.g. the invoice list,
+// so I think it may as well stay
+type KeyAndTransaction struct {
+	Key         *parse.MessageHash
+	Transaction *Transaction
 }
 
-// Golang randomizes map keys' order when you range through a map.
-// To avoid showing transactions to our users in that random order, we have to
-// sort the map's keys by values in the transactions.
-// Useful sorting criteria are timestamp and value (possibly also grouped by the
-// other party to the transaction.)
-func (tl *TransactionList) getKeys(order cmixproto.TransactionListOrder) []byte {
-	tl.session.LockStorage()
-	keys := make([]keyAndTransaction, 0, len(*tl.transactionMap))
-	for k, v := range *tl.transactionMap {
-		keys = append(keys, keyAndTransaction{
-			key:         k,
-			transaction: v,
+type By func(t1, t2 *Transaction) bool
+
+var ByValue By = func(t1, t2 *Transaction) bool {
+	return t1.Value < t2.Value
+}
+
+var ByTimestamp By = func (t1, t2 *Transaction) bool {
+	return t1.Timestamp.Before(t2.Timestamp)
+}
+
+// Implement sort.Interface
+type transactionSorter struct {
+	// Can you sort the map directly or do you need to copy pointers to a slice
+	// first?
+	// I guess there's no reason not to make a slice since you'll need one to
+	// return anyway. Unless there's some really complicated algorithm you
+	// can use to sort faster not in-place, which I think I'd have heard of by
+	// now.
+	transactions []KeyAndTransaction
+	by           By
+}
+
+func (s *transactionSorter) Len() int {
+	return len(s.transactions)
+}
+
+func (s *transactionSorter) Swap(i, j int) {
+	s.transactions[i], s.transactions[j] = s.transactions[j], s.transactions[i]
+}
+
+func (s *transactionSorter) Less(i, j int) bool {
+	return s.by(s.transactions[i].Transaction, s.transactions[j].Transaction)
+}
+
+// The created struct will hold all of the information needed to sort the
+// transaction list in a certain way
+func (tl *TransactionList) createTransactionSorter(by By) transactionSorter {
+	transactions := make([]KeyAndTransaction, 0, len(*tl.transactionMap))
+	for k,v := range *tl.transactionMap {
+		transactions = append(transactions, KeyAndTransaction{
+			Key:         &k,
+			Transaction: v,
 		})
 	}
-	// Sort the keys with the specified order
-	var lessFunc func(i, j int) bool
-	switch order {
-	case cmixproto.TransactionListOrder_TIMESTAMP_DESCENDING:
-		lessFunc = func(i, j int) bool {
-			return keys[i].transaction.Timestamp.After(keys[j].transaction.Timestamp)
-		}
-	case cmixproto.TransactionListOrder_TIMESTAMP_ASCENDING:
-		lessFunc = func(i, j int) bool {
-			return keys[i].transaction.Timestamp.Before(keys[j].transaction.Timestamp)
-		}
-	case cmixproto.TransactionListOrder_VALUE_DESCENDING:
-		lessFunc = func(i, j int) bool {
-			return keys[i].transaction.Value > keys[j].transaction.Value
-		}
-	case cmixproto.TransactionListOrder_VALUE_ASCENDING:
-		lessFunc = func(i, j int) bool {
-			return keys[i].transaction.Value < keys[j].transaction.Value
-		}
+	result := transactionSorter{
+		transactions: transactions,
+		by:           by,
 	}
-	sort.Slice(keys, lessFunc)
+	return result
+}
 
-	keyList := make([]byte, 0, uint64(len(*tl.transactionMap))*parse.
-		MessageHashLen)
-	tl.session.UnlockStorage()
-	for i := range keys {
-		keyList = append(keyList, keys[i].key[:]...)
+// Returns a snapshot of a transaction list at a certain point in time.
+// Getting this could be expensive if there are enough transactions in the list!
+func (tl *TransactionList) GetTransactionView(by By, reverse bool) []KeyAndTransaction {
+	tl.session.LockStorage()
+	sorter := tl.createTransactionSorter(by)
+	if reverse {
+		sort.Sort(sort.Reverse(&sorter))
+	} else {
+		sort.Sort(&sorter)
 	}
-	return keyList
+	tl.session.UnlockStorage()
+	return sorter.transactions
 }

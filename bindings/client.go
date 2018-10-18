@@ -14,9 +14,7 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/cmixproto"
 	"gitlab.com/privategrity/client/switchboard"
-	"fmt"
 	"sync"
-	"gitlab.com/privategrity/client/payment"
 )
 
 // Copy of the storage interface.
@@ -70,15 +68,6 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 	listener := &listenerProxy{proxy: newListener}
 
 	return api.Listen(typedUserId, cmixproto.Type(messageType), listener, switchboard.Listeners)
-}
-
-func ListenToWallet(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := new(id.UserID).SetBytes(userId)
-
-	listener := &listenerProxy{proxy: newListener}
-
-	return api.Listen(typedUserId, cmixproto.Type(messageType), listener,
-		api.Wallet().Switchboard)
 }
 
 func FormatTextMessage(message string) []byte {
@@ -194,123 +183,6 @@ func Logout() error {
 	return api.Logout()
 }
 
-// Returns the currently available balance in the wallet
-func GetAvailableFunds() int64 {
-	return int64(api.Wallet().GetAvailableFunds())
-}
-
-// Payer: user ID, 256 bits
-// Value: must be positive
-// Send the returned message unless you get an error
-func Invoice(payer []byte, value int64, memo string) (Message, error) {
-	userId := new(id.UserID).SetBytes(payer)
-	msg, err := api.Wallet().Invoice(userId, value, memo)
-	return &parse.BindingsMessageProxy{Proxy: msg}, err
-}
-
-// Get an invoice handle by listening to the wallet's PAYMENT_INVOICE_UI
-// messages
-// Returns a payment message that the bindings user can send at any time
-// they wish
-func Pay(invoiceHandle []byte) (Message, error) {
-	var typedInvoiceId parse.MessageHash
-	copiedLen := copy(typedInvoiceId[:], invoiceHandle)
-	if copiedLen != parse.MessageHashLen {
-		return nil, errors.New(fmt.Sprintf("Invoice ID wasn't long enough. " +
-			"Got %v bytes, needed %v bytes.", copiedLen, parse.MessageHashLen))
-	}
-
-	msg, err := api.Wallet().Pay(typedInvoiceId)
-	if err != nil {
-		return nil, err
-	}
-	proxyMsg := parse.BindingsMessageProxy{Proxy: msg}
-	return &proxyMsg, nil
-	// After receiving a response from the payment bot,
-	// the wallet will automatically send a receipt to the original sender of
-	// the invoice. Make sure to listen for PAYMENT_RECEIPT_UI messages to
-	// be able to handle the receipt.
-}
-
-// Gets a transaction from a specific transaction list in the wallet
-// The UI should use this to display transaction details
-// Use the proto buf enum to pass the transaction list to look up the handle in
-// Use TransactionListTag in the protobuf to populate ListTag
-// Transaction ID is used to look up the transaction in the list,
-// and it must be 256 bits long.
-// Will add a function to get all the transaction IDs in a transaction list
-// later.
-func GetTransaction(listTag int32, transactionID []byte) (*Transaction, error) {
-	var transaction payment.Transaction
-	var ok bool
-	var messageId parse.MessageHash
-	copiedLen := copy(messageId[:], transactionID)
-	if copiedLen != parse.MessageHashLen {
-		return nil, errors.New("The input transaction ID wasn't long enough")
-	}
-	transactionListTag := cmixproto.TransactionListTag(listTag)
-	switch transactionListTag {
-	case cmixproto.TransactionListTag_INBOUND_REQUESTS:
-		transaction, ok = api.Wallet().GetInboundRequest(messageId)
-	case cmixproto.TransactionListTag_OUTBOUND_REQUESTS:
-		transaction, ok = api.Wallet().GetOutboundRequest(messageId)
-	case cmixproto.TransactionListTag_PENDING_TRANSACTIONS:
-		transaction, ok = api.Wallet().GetPendingTransaction(messageId)
-	case cmixproto.TransactionListTag_COMPLETED_INBOUND_PAYMENTS:
-		transaction, ok = api.Wallet().GetCompletedInboundPayment(messageId)
-	case cmixproto.TransactionListTag_COMPLETED_OUTBOUND_PAYMENTS:
-		transaction, ok = api.Wallet().GetCompletedOutboundPayment(messageId)
-	}
-	if !ok {
-		return nil, fmt.Errorf("Couldn't find the transaction with id %q" +
-			" in the list %v", transactionID, transactionListTag.String())
-	} else {
-		bindingsTransaction := Transaction{
-			Memo:       transaction.Memo,
-			Timestamp:  transaction.Timestamp.Unix(),
-			Value:      int64(transaction.Value),
-			InvoiceID:  transaction.OriginID[:],
-			SenderID:   transaction.Sender[:],
-			ReceiverID: transaction.Recipient[:],
-		}
-		return &bindingsTransaction, nil
-	}
-}
-
-// Use TransactionListTag in the proto file to populate listTag
-// Use TransactionListOrder in the proto file to get the transactions in the
-// order you want
-// The returned byte slice should really be a [][]byte instead. Each consecutive
-// 256 bits or 32 bytes in the slice represents a different transaction ID that
-// was in the list when this method was called.
-func GetTransactionListIDs(listTag int32, order int32) []byte {
-	transactionListTag := cmixproto.TransactionListTag(listTag)
-	transactionListOrder := cmixproto.TransactionListOrder(order)
-	return api.Wallet().GetTransactionIDs(transactionListTag, transactionListOrder)
-}
-
-// Meant to be read-only in the current version of the API
-type Transaction struct {
-	// What the transaction is for
-	// e.g. "hardware", "coffee getting"
-	Memo string
-	// Time the transaction originated (UTC seconds since Unix epoch)
-	Timestamp int64
-	// Number of tokens transferred
-	Value int64
-	// ID of the invoice that initiated this transaction
-	// TODO It would be nice to be able to look up these transactions just by
-	// the ID of their originating invoice without having to do a linear search
-	// or a sort
-	// 256 bits long
-	InvoiceID []byte
-	// ID of the user who sends the tokens in the transaction
-	// 256 bits long
-	SenderID []byte
-	// ID of the user who receives the tokens in the transaction
-	// 256 bits long
-	ReceiverID []byte
-}
 
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously

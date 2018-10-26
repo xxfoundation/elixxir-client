@@ -157,7 +157,11 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 func Login(UID []byte, addr string) (string, error) {
 	userID := new(id.UserID).SetBytes(UID)
 	session, err := api.Login(userID, addr)
-	return session.GetCurrentUser().Nick, err
+	if err != nil || session == nil {
+		return "", err
+	} else {
+		return session.GetCurrentUser().Nick, err
+	}
 }
 
 //Sends a message structured via the message interface

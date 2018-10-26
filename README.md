@@ -5,40 +5,40 @@
 
 This repo contains the Privategrity command-line client (used for integration
 testing) and related libraries that facilitate making more full-featured
-clientst for all platforms.
+clients for all platforms.
 
 Running the Command Line Client
 ==
 
-In project directory, run `go run main.go`
+In project directory, run `go run main.go`.
 
-Required Args:
+Required args:
 
-`-n <INT>`    : Number of nodes in the cMix network being connected to
+|Long flag|Short flag|Effect|Example|
+|---|---|---|---|
+|--numnodes|-n|Number of nodes in each team in the network|-n 3|
+|--userid|-i|ID of the user of this client|-i 5|
 
-`-i <INT>`    : User ID to log in as
+Optional args:
 
-Optional Args:
-
-`-g <STRING>` : Address of the gateway to connect to (Required if not specified
-in the config file)
-
-`-d <INT>`    : ID of the user to send messages to
-
-`-m <STRING>` : Message to be sent
-
-`-v`          : Enables verbose logging
-
-`-V`          : Show version information
-
-`-f`          : String containing path of file to store the session into.
-If not included it will use Ram Storage
-
-`--noBlockingTransmission` : Disables transmission frequency limiting when 
-specified
+|Long flag|Short flag|Effect|Example|
+|---|---|---|---|
+|--gwaddr|-g|Address of the gateway to connect to (Overrides config file)|-g localhost:8443|
+|--destid|-d|ID of the user to send messages to|-d 6|
+|--message|-m|Text message to send|-m "let's both have a good day"|
+|--verbose|-v|Prints more logging messages for debugging|-v|
+|--version|-V|Show the generated version information. Run `$ go generate cmd/version.go` if the information is out of date.|--version|
+|--sessionfile|-f|File path for storing the session. If not specified, the session will be stored in RAM and won't persist.|-f mySuperCoolSessionFile|
+|--noBlockingTransmission| |Disables transmission rate limiting (useful for dummy client)|--noBlockingTransmission|
+|--mint| |Creates some coins for this user for testing and demos|--mint|
+|--help|-h|Prints a help message with all of these flags|-h|
+|--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 
 Example Configuration File
 ==
+
+Note: don't use tabs in your yaml. Doing this will cause the file to fail 
+parsing.
 
 ```yaml
 logPath: "client.log"

@@ -7,10 +7,18 @@ This repo contains the Privategrity command-line client (used for integration
 testing) and related libraries that facilitate making more full-featured
 clients for all platforms.
 
-Running the Command Line Client
-==
+##Running the Command Line Client
 
-In project directory, run `go run main.go`.
+First, make sure dependencies are installed into the vendor folder by running
+`glide up`. Then, in the project directory, run `go run main.go`.
+
+If what you're working on requires you to change other repos, you can remove
+the other repo from the vendor folder and Go's build tools will look for those
+packages in your Go path instead. Knowing which dependencies to remove can be
+really helpful if you're changing a lot of repos at once.
+
+If glide isn't working and you don't know why, try removing glide.lock and
+~/.glide to brutally cleanse the cache.
 
 Required args:
 
@@ -34,8 +42,7 @@ Optional args:
 |--help|-h|Prints a help message with all of these flags|-h|
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 
-Example Configuration File
-==
+##Example Configuration File
 
 Note: don't use tabs in your yaml. Doing this will cause the file to fail 
 parsing.

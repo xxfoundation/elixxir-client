@@ -3,40 +3,49 @@
 [![pipeline status](https://gitlab.com/privategrity/client/badges/master/pipeline.svg)](https://gitlab.com/privategrity/client/commits/master)
 [![coverage report](https://gitlab.com/privategrity/client/badges/master/coverage.svg)](https://gitlab.com/privategrity/client/commits/master)
 
-This repo will contain Privategrity clients for all platforms.
+This repo contains the Privategrity command-line client (used for integration
+testing) and related libraries that facilitate making more full-featured
+clients for all platforms.
 
-Running the Command Line Client
-==
+##Running the Command Line Client
 
-In project directory, run `go run main.go`
+First, make sure dependencies are installed into the vendor folder by running
+`glide up`. Then, in the project directory, run `go run main.go`.
 
-Required Args:
+If what you're working on requires you to change other repos, you can remove
+the other repo from the vendor folder and Go's build tools will look for those
+packages in your Go path instead. Knowing which dependencies to remove can be
+really helpful if you're changing a lot of repos at once.
 
-`-n <INT>`    : Number of nodes in the cMix network being connected to
+If glide isn't working and you don't know why, try removing glide.lock and
+~/.glide to brutally cleanse the cache.
 
-`-i <INT>`    : User ID to log in as
+Required args:
 
-Optional Args:
+|Long flag|Short flag|Effect|Example|
+|---|---|---|---|
+|--numnodes|-n|Number of nodes in each team in the network|-n 3|
+|--userid|-i|ID of the user of this client|-i 5|
 
-`-g <STRING>` : Address of the gateway to connect to (Reqiured if not specified
-in the config file)
+Optional args:
 
-`-d <INT>`    : User ID of the user to send messages to
+|Long flag|Short flag|Effect|Example|
+|---|---|---|---|
+|--gwaddr|-g|Address of the gateway to connect to (Overrides config file)|-g localhost:8443|
+|--destid|-d|ID of the user to send messages to|-d 6|
+|--message|-m|Text message to send|-m "let's both have a good day"|
+|--verbose|-v|Prints more logging messages for debugging|-v|
+|--version|-V|Show the generated version information. Run `$ go generate cmd/version.go` if the information is out of date.|--version|
+|--sessionfile|-f|File path for storing the session. If not specified, the session will be stored in RAM and won't persist.|-f mySuperCoolSessionFile|
+|--noBlockingTransmission| |Disables transmission rate limiting (useful for dummy client)|--noBlockingTransmission|
+|--mint| |Creates some coins for this user for testing and demos|--mint|
+|--help|-h|Prints a help message with all of these flags|-h|
+|--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 
-`-m <STRING>` : Message to be sent
+##Example Configuration File
 
-`-v`          : Enables verbose logging when specified
-
-`-V`          : Show version information
-
-`-f`          : String containing path of file to store the session into.
-If not included it will use Ram Storage
-
-`--noBlockingTransmission` : Disables transmission frequency limiting when 
-specified
-
-Example Configuration File
-==
+Note: don't use tabs in your yaml. Doing this will cause the file to fail 
+parsing.
 
 ```yaml
 logPath: "client.log"
@@ -49,104 +58,89 @@ gateways:
     - "gateway-2.prod.cmix.rip:11420"
 ```
 
-Preparation to Build
-==
+##Project Structure
 
-To build this client, you will need to get the Android SDK and NDK, and get and
-initialize gomobile. I recommend getting the Android SDK and NDK using Android
-Studio. Download it from https://developer.android.com/studio/index.html and
-follow the instructions to install it. I recommend choosing the Standard setup
-option.
+`api` package contains functions that clients written in Go should call to do
+all of the main interactions with the client library.
 
-After running setup, at the Android Studio splash screen, click
-`Configure-\>Settings` towards the bottom. Navigate to `Appearance &
-Behavior-\>System Settings-\>Android SDK`, then `SDK Tools`, then check NDK. Click
-OK, follow the instructions, and before long you'll have an Android NDK
-installation.
+`bindings` package exists for compatibility with Gomobile. All functions and
+structs in the `bindings` package must be able to be bound with `$ gomobile bind`
+or they will be unceremoniously removed. There are many requirements for 
+this, and if you're writing bindings, you should check the `gomobile` 
+documentation listed below.
 
-Export `ANDROID\_HOME` in your `.profile` or `.bash\_profile`, pointing to the
-location of your Android SDK installation. Then, after confirming that the
-environment variable change has taken effect:
+In general, clients written in Go should use the `api` package and clients 
+written in other languages should use the `bindings` package.
 
-` $ go get golang.org/x/mobile/cmd/gomobile`
- 
-For Android support:
-` $ gomobile init -ndk=/path/to/your/ndk/installation`
+`bots` contains code for interacting with bots. If the amount of code required
+to easily interact with a bot is reasonably small, it should go in this package.
 
-On Linux, the NDK is in `~/Android/Sdk/ndk-bundle` by default.
+`cmd` contains the command line client itself, including the dummy messaging
+prototype that sends messages at a constant rate.
 
-For iOS support: TODO.
+`crypto` contains code for encrypting and decrypting individual messages with
+the client's part of the cipher. 
 
-In either case you will need to run `$ gomobile init`.
+`globals` contains a few global variables. Avoid putting more things in here
+without seriously considering the alternatives. Most important is the Log 
+variable:
 
-After these steps are complete, run `$ glide up` to get all the other Go
-dependencies.
+```go
+globals.Log.ERROR.Println("this is an error")
+```
 
-Building
-==
+Using this global Log variable allows external users of jww logging, like the 
+console UI, to see and print log messages from the client library if they need
+to, so please use globals.Log for all logging messages to make this behavior
+work consistently.
 
-To build the `.aar` for the client, cd to `privategrity/client/android/client` and
-run this command:
+If you think you can come up with a better design to deal with this problem, 
+please go ahead and implement it. Anything that moves towards the globals 
+package no longer existing is probably a win.
 
-`$ gomobile bind -target=android gitlab.com/privategrity/client/bindings`
+`io` contains functions for communicating between the client and the gateways.
+It's also currently responsible for putting fragmented messages back together.
 
-Adding the `.aar` to the Android Studio project
-==
+`parse` contains functions for serializing and deserializing various specialized
+information into messages. This includes message types and fragmenting messages
+that are too long.
 
-In case you need to add another `.aar` to the Android Studio project, follow
-these steps:
+`payment` deals with the wallet and payments, and keeping track of all related
+data in non-volatile storage.
 
-1. Go to `File-\>New-\>New Module`.
-2. Scroll to and click on `Import .JAR/.AAR Package`.
-3. Pick the `.aar` in the file chooser.
-4. Click through the rest of the wizard.
+`switchboard` includes a structure that you can use to listen to incoming 
+messages and dispatch them to the correct handlers.
 
-In any case, this isn't a recommended course of action because there might be
-some weirdness about gomobile generating more than one `.aar`, and the `.aar`
-that building generates has already been added to the project.
+`user` includes objects that deal with the user's identity and the session 
+and session storage.
 
-Project Structure
-==
+##Gomobile
 
-The top-level Go package is called `client`. This package contains all of the
-APIs that the mobile apps will be able to access. If the mobile apps shouldn't
-be able to access some functions directly, put those functions in a different
-package!
+We bind all exported symbols from the bindings package for use on mobile 
+platforms. To set up Gomobile for Android, install the NDK and 
+pass the -ndk flag to ` $ gomobile init`. Other repositories that use Gomobile
+for binding should include a shell script that creates the bindings.
 
-The package `crypto` will contain client cryptops, and the package `comms` will
-contain client communications. When working tickets related to crypto or
-communications, ask yourself whether the code you're writing would belong
-better in the `crypto` or `comms` repositories instead.
+###Recommended Reading for Gomobile
 
-Gomobile Usage and Caveats
-==
+https://godoc.org/golang.org/x/mobile/cmd/gomobile (setup and available 
+subcommands)
 
-Every exported symbol from the "client" package should be exported by the
-gomobile bindings. Only the following data types are allowed to be exported:
+https://godoc.org/golang.org/x/mobile/cmd/gobind (reference cycles, type 
+restrictions)
 
-- Signed integer and floating point types.
+Currently we aren't using reverse bindings, i.e. calling mobile from Go.
 
-- String and boolean types.
+###Testing Bindings via Gomobile
 
-- Byte slice types. Note that byte slices are passed by reference,
-  and support mutation.
+The separate `bindings-integration` repository exists to make it easier to 
+automatically test bindings. Writing instrumented tests from Android allows 
+you to create black-box tests that also prove that all the methods you think 
+are getting bound are indeed bound, rather than silently getting skipped.
 
-- Any function type all of whose parameters and results have
-  supported types. Functions must return either no results,
-  one result, or two results where the type of the second is
-  the built-in 'error' type.
+You can also verify that all symbols got bound by unzipping `bindings-sources.jar`
+and inspecting the resulting source files.
 
-- Any interface type, all of whose exported methods have
-  supported function types.
-
-- Any struct type, all of whose exported methods have
-  supported function types and all of whose exported fields
-  have supported types.
-
-So, exporting a cyclic Int _shouldn't_ work, and you should get an error if you
-try to. But it's totally OK to have a cyclic Int in the "client" package, as
-long as it's not exported, and it's totally OK to have a cyclic Int exported
-from a package that "client" depends on.
-
-See https://godoc.org/golang.org/x/mobile/cmd/gobind for other important usage
-notes (avoiding reference cycles, calling Java or Objective-C from Go.)
+Every time you make a change to the client or bindings, you must rebuild the 
+client bindings into a .aar to propagate those changes to the app. There's a 
+script that runs gomobile for you in the `bindings-integration` repository.

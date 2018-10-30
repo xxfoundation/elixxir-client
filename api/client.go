@@ -14,7 +14,6 @@ import (
 	"gitlab.com/privategrity/client/crypto"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/payment"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
@@ -23,6 +22,7 @@ import (
 	"time"
 	"gitlab.com/privategrity/client/cmixproto"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/parse"
 )
 
 // Populates a text message and returns its wire representation
@@ -33,10 +33,7 @@ func FormatTextMessage(message string) []byte {
 		Message: message,
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)
-	return parse.Pack(&parse.TypedBody{
-		Type: 1,
-		Body: wireRepresentation,
-	})
+	return wireRepresentation
 }
 
 // Initializes the client by registering a storage mechanism.
@@ -179,10 +176,10 @@ func Login(UID *id.UserID, addr string) (user.Session, error) {
 
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
-func Send(message format.MessageInterface) error {
+func Send(message parse.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
-	err := io.Messaging.SendMessage(recipientID, message.GetPayload())
+	err := io.Messaging.SendMessage(recipientID, message.Pack())
 	return err
 }
 
@@ -202,8 +199,9 @@ func SetRateLimiting(limit uint32) {
 var listenCh chan *format.Message
 
 func Listen(user *id.UserID, messageType cmixproto.Type,
-	newListener switchboard.Listener) string {
-	listenerId := switchboard.Listeners.Register(user, messageType, newListener)
+	newListener switchboard.Listener, callbacks *switchboard.
+	Switchboard) string {
+	listenerId := callbacks.Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
 	return listenerId
@@ -211,12 +209,12 @@ func Listen(user *id.UserID, messageType cmixproto.Type,
 
 type APISender struct{}
 
-func (s APISender) Send(messageInterface format.MessageInterface) {
+func (s APISender) Send(messageInterface parse.MessageInterface) {
 	Send(messageInterface)
 }
 
 type Sender interface {
-	Send(messageInterface format.MessageInterface)
+	Send(messageInterface parse.MessageInterface)
 }
 
 // Logout closes the connection to the server at this time and does

@@ -71,8 +71,9 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	sender := id.NewUserIDFromUint(38, t)
 	recipient := id.NewUserIDFromUint(29, t)
-	msg, err := format.NewMessage(sender, recipient, "help me, i'm stuck in an"+
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+	msg, err := format.NewMessage(sender, recipient, []byte("help me, " +
+		"i'm stuck in an"+
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory"))
 	if err != nil {
 		t.Errorf("Error: %s", err.Error())
 	}

@@ -15,7 +15,7 @@ import (
 // Communication interface implements send/receive functionality with the server
 type Communications interface {
 	// SendMessage to the server
-	SendMessage(recipientID *id.UserID, message string) error
+	SendMessage(recipientID *id.UserID, message []byte) error
 	// MessageReceiver thread to get new messages
 	MessageReceiver(delay time.Duration)
 }

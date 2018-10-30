@@ -56,7 +56,7 @@ var sendLock sync.Mutex
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
 func (m *messaging) SendMessage(recipientID *id.UserID,
-	message string) error {
+	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
 	// the cMix network. This NewMessage does way too many things: break the
@@ -72,7 +72,7 @@ func (m *messaging) SendMessage(recipientID *id.UserID,
 		return err
 	}
 	for i := range parts {
-		messages, err := format.NewMessage(userID, recipientID, string(parts[i]))
+		messages, err := format.NewMessage(userID, recipientID, parts[i])
 		if err != nil {
 			return err
 		}

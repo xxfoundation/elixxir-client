@@ -5,12 +5,13 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/coin"
-	"math"
-	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/cmixproto"
+	"math/rand"
+	"math"
 )
 
 // Shows that CreateTransactionList creates new storage properly
@@ -18,8 +19,8 @@ func TestCreateTransactionList_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-	Nick: "test"}, "",
-	[]user.NodeKeys{})
+		Nick: "test"}, "",
+		[]user.NodeKeys{})
 
 	// show that the ordered list does not exist
 	key := "TestTransactionList"
@@ -35,7 +36,7 @@ func TestCreateTransactionList_New(t *testing.T) {
 	}
 
 	// create the ordered storage
-	tl, err := CreateTransactionList(key, s)
+	tl, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("CreateTransactionList: error returned on valid ordered storage creation: %s", err.Error())
@@ -70,7 +71,7 @@ func TestCreateTransactionList_Load(t *testing.T) {
 	// show that the transaction list does not exist
 	key := "TestTransactionList"
 
-	tl, err := CreateTransactionList(key, s)
+	tl, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("CreateTransactionList: error returned on valid ordered storage creation: %s", err.Error())
@@ -90,7 +91,7 @@ func TestCreateTransactionList_Load(t *testing.T) {
 
 	s.StoreSession()
 
-	tl2, err := CreateTransactionList(key, s)
+	tl2, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("CreateTransactionList: error returned on valid transaction list creation: %s", err.Error())
@@ -144,7 +145,7 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 		Receiver:  id.ZeroID,
 	}.Hash()
 
-	tl.Upsert(t1Hash, &t1)
+	tl.upsert(t1Hash, &t1)
 
 	if !reflect.DeepEqual(t1, *(*tl.transactionMap)[t1Hash]) {
 		t.Errorf("TransactionList.Upsert: transaction not added to list properly; "+
@@ -161,7 +162,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
-		TypedBody: parse.TypedBody{0, []byte{0}},
+		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{0}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
@@ -173,12 +174,12 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
-		TypedBody: parse.TypedBody{2, []byte{2}},
+		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{2}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
 
-	tl.Upsert(t2Hash, &t2)
+	tl.upsert(t2Hash, &t2)
 
 	if !reflect.DeepEqual(t2, *(*tl.transactionMap)[t2Hash]) {
 		t.Errorf("TransactionList.Upsert: transaction not added to list properly; "+
@@ -195,7 +196,7 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 
 	key := "TestTransactionList"
 
-	tl, err := CreateTransactionList(key, s)
+	tl, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("TransactionList.Upsert: valid Transaction List not created properly: %s", err.Error())
@@ -208,7 +209,7 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 		Receiver:  id.ZeroID,
 	}.Hash()
 
-	tl.Upsert(t1Hash, &t1)
+	tl.upsert(t1Hash, &t1)
 
 	if !reflect.DeepEqual(t1, *(*tl.transactionMap)[t1Hash]) {
 		t.Errorf("TransactionList.Upsert: transaction not added to list properly; "+
@@ -217,7 +218,7 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 
 	s.StoreSession()
 
-	tl2, err := CreateTransactionList(key, s)
+	tl2, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("TransactionList.Upsert: valid Transaction List not loaded properly: %s", err.Error())
@@ -301,7 +302,7 @@ func TestTransactionList_Pop(t *testing.T) {
 
 	tl := TransactionList{&tMap, 0, s}
 
-	t1Pop, b := tl.Pop(t1Hash)
+	t1Pop, b := tl.pop(t1Hash)
 
 	if !b {
 		t.Errorf("TransactionList.Pop: valid transaction not returned; ")
@@ -346,7 +347,7 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 
 	tl := TransactionList{&tMap, 0, s}
 
-	_, b := tl.Pop(parse.MessageHash{})
+	_, b := tl.pop(parse.MessageHash{})
 
 	if b {
 		t.Errorf("TransactionList.Pop: error not recieved on invalid transaction; ")
@@ -362,7 +363,7 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 
 	key := "TestTransactionList"
 
-	tl, err := CreateTransactionList(key, s)
+	tl, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("TransactionList.Pop: valid Transaction List not created properly: %s", err.Error())
@@ -382,10 +383,10 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 		Receiver:  id.ZeroID,
 	}.Hash()
 
-	tl.Upsert(t1Hash, &t1)
-	tl.Upsert(t2Hash, &t2)
+	tl.upsert(t1Hash, &t1)
+	tl.upsert(t2Hash, &t2)
 
-	t1Pop, b := tl.Pop(t1Hash)
+	t1Pop, b := tl.pop(t1Hash)
 
 	if !b {
 		t.Errorf("TransactionList.Pop: valid transaction not returned; ")
@@ -404,7 +405,7 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 
 	s.StoreSession()
 
-	tl2, err := CreateTransactionList(key, s)
+	tl2, err := createTransactionList(key, s)
 
 	if err != nil {
 		t.Errorf("TransactionList.pOP: valid Transaction List not loaded properly: %s", err.Error())
@@ -449,34 +450,25 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	ids := make([]parse.MessageHash, len(keys))
 	for i := range ids {
 		copy(ids[i][:], keys[i])
-		transactions.Upsert(ids[i], &Transaction{
+		transactions.upsert(ids[i], &Transaction{
 			Timestamp: times[i],
 		})
 	}
 
 	// get the transactions sorted by their timestamp, most to least recent
-	keyList := transactions.getKeys(TimestampDescending)
+	view := transactions.GetTransactionView(ByTimestamp, true)
 
-	// verify that the keys we got correspond to correctly sorted transactions
-	numKeys := uint64(len(keyList)) / parse.MessageHashLen
-	var thisKey parse.MessageHash
-	// Maxint Unix time is divided by two because golang's after function gets
-	// weird with dates that are too far in the future
+	// Maxint Unix time is divided by two because golang's after function
+	// doesn't take overflow into account
 	lastTransactionTime := time.Unix(math.MaxInt64/2, 0)
-	for i := uint64(0); i < numKeys; i++ {
-		copy(thisKey[:], keyList[i*parse.MessageHashLen:])
-		thisTransaction, ok := transactions.Get(thisKey)
-		if !ok {
-			t.Errorf("Couldn't get a transaction with the key %q", thisKey)
-		} else {
-			thisTransactionTime := thisTransaction.Timestamp
-			// We should have the most recent transaction first
-			if thisTransactionTime.After(lastTransactionTime) {
-				t.Errorf("Transaction %v at time %v was after time %v", i,
-					thisTransactionTime.Format(time.UnixDate),
-					lastTransactionTime.Format(time.UnixDate))
-			}
-			lastTransactionTime = thisTransactionTime
+	for i := 0; i < len(view); i++ {
+		thisTransactionTime := view[i].Transaction.Timestamp
+		// We should have the most recent transaction first
+		if thisTransactionTime.After(lastTransactionTime) {
+			t.Errorf("Transaction %v at time %v was after time %v", i,
+				thisTransactionTime.Format(time.UnixDate),
+				lastTransactionTime.Format(time.UnixDate))
 		}
+		lastTransactionTime = thisTransactionTime
 	}
 }

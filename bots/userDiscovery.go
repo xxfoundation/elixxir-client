@@ -214,5 +214,5 @@ func fingerprint(publicKey []byte) string {
 // Callers that need to wait on a response should implement waiting with a
 // listener.
 func sendCommand(botID *id.UserID, command []byte) error {
-	return io.Messaging.SendMessage(botID, string(command))
+	return io.Messaging.SendMessage(botID, command)
 }

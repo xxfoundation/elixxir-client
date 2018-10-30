@@ -11,12 +11,13 @@ import (
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"sync"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
 // easy to use from Go
 type APIMessage struct {
-	Payload     string
+	Payload     []byte
 	SenderID    *id.UserID
 	RecipientID *id.UserID
 }
@@ -29,7 +30,19 @@ func (m APIMessage) GetRecipient() *id.UserID {
 	return m.RecipientID
 }
 
-func (m APIMessage) GetPayload() string {
+func (m APIMessage) GetPayload() []byte {
+	return m.Payload
+}
+
+func (m APIMessage) GetType() cmixproto.Type {
+	return cmixproto.Type_NO_TYPE
+}
+
+func (m APIMessage) Pack() []byte {
+	// assuming that the type is independently populated.
+	// that's probably a bad idea
+	// there's no good reason to have the same method body for each of these
+	// two methods!
 	return m.Payload
 }
 

@@ -7,14 +7,14 @@
 package api
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/gob"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"testing"
+	"gitlab.com/privategrity/client/globals"
+	"bytes"
+	"encoding/gob"
+	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"crypto/sha256"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -122,6 +122,20 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			"update gob test to ensure that it's serialized to storage, " +
 			"if needed")
 	}
+}
+
+// This test doesn't actually test anything useful and you should feel free
+// to remove it if you need to.
+// It dumps the binary representation of the formatted text message.
+// This is unlikely to start failing out of the blue, but it could happen
+// if the text message proto buffer format changes or if there's a breaking
+// update to protobuf.
+func TestFormatTextMessage(t *testing.T) {
+	msg := FormatTextMessage("hello")
+	if !bytes.Equal(msg, []byte("\x1a\x05hello")) {
+		t.Error("Text message wasn't formatted as expected")
+	}
+	t.Logf("message: %q", msg)
 }
 
 // FIXME Reinstate tests for the UDB api

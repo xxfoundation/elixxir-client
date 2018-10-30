@@ -10,14 +10,14 @@ import (
 	"gitlab.com/privategrity/client/api"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/comms/gateway"
+	"gitlab.com/privategrity/client/user"
 )
 
 const gwAddress = "localhost:5557"
@@ -26,7 +26,7 @@ var gatewayData api.TestInterface
 
 // NOTE: These need to be set up as io.Messaging is called during Init...
 var ListenCh chan *format.Message
-var lastmsg string
+var lastmsg []byte
 
 type dummyMessaging struct {
 	listener chan *format.Message
@@ -34,7 +34,7 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(recipientID *id.UserID,
-	message string) error {
+	message []byte) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
 	return nil

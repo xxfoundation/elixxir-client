@@ -13,14 +13,14 @@ import (
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/comms/gateway"
 	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/comms/gateway"
 	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/crypto/cyclic"
 )
 
 var gwAddress = "localhost:8080"
@@ -60,7 +60,7 @@ func TestRegister(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "OIF3OJ5I"
+	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	regRes, err := Register(registrationCode, gwAddress, 1, false)
@@ -78,7 +78,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "OIF3OJ5I"
+	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	_, err = Register(registrationCode, gwAddress, 0, false)
@@ -108,11 +108,11 @@ func TestRegisterDeletedUser(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	registrationCode := "OIF3OJ5I"
+	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	tempUser, _ := user.Users.GetUser(id.NewUserIDFromUint(10, t))
-	user.Users.DeleteUser(id.NewUserIDFromUint(10, t))
+	tempUser, _ := user.Users.GetUser(id.NewUserIDFromUint(5, t))
+	user.Users.DeleteUser(id.NewUserIDFromUint(5, t))
 	_, err = Register(registrationCode, gwAddress, 1, false)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
@@ -140,7 +140,8 @@ func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	userID, err := Register("UAV6IWD6", gwAddress, 1, false)
+	registrationCode := "UAV6IWD6"
+	userID, err := Register(registrationCode, gwAddress, 1, false)
 	session, err2 := Login(userID, gwAddress)
 	SetNulKeys()
 
@@ -153,7 +154,7 @@ func TestSend(t *testing.T) {
 
 	// Test send with invalid sender ID
 	err = Send(APIMessage{SenderID: id.NewUserIDFromUint(12, t),
-		Payload: "test",
+		Payload: []byte("test"),
 		RecipientID: userID})
 	if err != nil {
 		// TODO: would be nice to catch the sender but we
@@ -162,7 +163,7 @@ func TestSend(t *testing.T) {
 	}
 
 	// Test send with valid inputs
-	err = Send(APIMessage{SenderID: userID, Payload: "test",
+	err = Send(APIMessage{SenderID: userID, Payload: []byte("test"),
 		RecipientID: userID})
 	if err != nil {
 		t.Errorf("Error sending message: %v", err)

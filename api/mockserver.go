@@ -8,28 +8,41 @@
 package api
 
 import (
-	"gitlab.com/privategrity/client/user"
 	pb "gitlab.com/privategrity/comms/mixmessages"
 	"sync"
+	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
 // easy to use from Go
 type APIMessage struct {
-	Payload     string
-	SenderID    user.ID
-	RecipientID user.ID
+	Payload     []byte
+	SenderID    *id.UserID
+	RecipientID *id.UserID
 }
 
-func (m APIMessage) GetSender() []byte {
-	return m.SenderID.Bytes()
+func (m APIMessage) GetSender() *id.UserID {
+	return m.SenderID
 }
 
-func (m APIMessage) GetRecipient() []byte {
-	return m.RecipientID.Bytes()
+func (m APIMessage) GetRecipient() *id.UserID {
+	return m.RecipientID
 }
 
-func (m APIMessage) GetPayload() string {
+func (m APIMessage) GetPayload() []byte {
+	return m.Payload
+}
+
+func (m APIMessage) GetType() cmixproto.Type {
+	return cmixproto.Type_NO_TYPE
+}
+
+func (m APIMessage) Pack() []byte {
+	// assuming that the type is independently populated.
+	// that's probably a bad idea
+	// there's no good reason to have the same method body for each of these
+	// two methods!
 	return m.Payload
 }
 
@@ -40,13 +53,13 @@ type TestInterface struct {
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *TestInterface) GetMessage(userId uint64, msgId string) (*pb.CmixMessage,
-	bool) {
+func (m *TestInterface) GetMessage(userId *id.UserID,
+	msgId string) (*pb.CmixMessage, bool) {
 	return &pb.CmixMessage{}, true
 }
 
 // Return any MessageIDs in the globals for this UserID
-func (m *TestInterface) CheckMessages(userId uint64,
+func (m *TestInterface) CheckMessages(userId *id.UserID,
 	messageID string) ([]string, bool) {
 	return make([]string, 0), true
 }

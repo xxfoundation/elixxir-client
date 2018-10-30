@@ -4,11 +4,11 @@ import:
   version: master
   vcs: git
 - package: gitlab.com/privategrity/crypto
-  version: master
+  version: userid-migration
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
 - package: gitlab.com/privategrity/comms
-  version: master
+  version: userid-string-migration
   repo: git@gitlab.com:privategrity/comms
   vcs: git
 - package: github.com/mitchellh/go-homedir

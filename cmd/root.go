@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"math/big"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -20,12 +21,13 @@ import (
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
 	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/cyclic"
 	"io/ioutil"
 	"log"
 	"os"
 	"sync/atomic"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/client/cmixproto"
 )
 
 var verbose bool
@@ -40,26 +42,6 @@ var noBlockingTransmission bool
 var mint bool
 var rateLimiting uint32
 var showVer bool
-
-// CmdMessage are an implementation of the interface in bindings and API
-// easy to use from Go
-type CmdMessage struct {
-	Payload     string
-	SenderID    user.ID
-	RecipientID user.ID
-}
-
-func (m CmdMessage) GetSender() []byte {
-	return m.SenderID.Bytes()
-}
-
-func (m CmdMessage) GetRecipient() []byte {
-	return m.RecipientID.Bytes()
-}
-
-func (m CmdMessage) GetPayload() string {
-	return m.Payload
-}
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -132,9 +114,11 @@ func sessionInitialization() {
 
 	//Register a new user if requested
 	if register {
-		_, err := bindings.Register(
-			cyclic.NewIntFromBytes(user.UserHash(user.ID(userId))).
-				TextVerbose(32, 0), gwAddr, int(numNodes), mint)
+		// FIXME Use a different encoding for the user ID command line argument,
+		// to allow testing with IDs that are long enough to exercise more than
+		// 64 bits
+		regCode := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
+		_, err := bindings.Register(regCode, gwAddr, int(numNodes), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -142,8 +126,8 @@ func sessionInitialization() {
 	}
 
 	// Log the user in
-	_, err = bindings.Login(
-		cyclic.NewIntFromUInt(userId).LeftpadBytes(8), gwAddr)
+	uid := id.NewUserIDFromUint(userId, nil)
+	_, err = bindings.Login(uid[:], gwAddr)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")
@@ -165,8 +149,8 @@ func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 			senderNick = sender.Nick
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
-		fmt.Printf("Message of type %v from %v, %v received with fallback: %s\n",
-			message.Type, message.Sender, senderNick, string(message.Body))
+		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
+			message.Type, *message.Sender, senderNick, string(message.Body))
 	}
 }
 
@@ -176,8 +160,12 @@ type TextListener struct {
 
 func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	globals.Log.INFO.Println("Hearing a text message")
-	result := parse.TextMessage{}
-	proto.Unmarshal(message.Body, &result)
+	result := cmixproto.TextMessage{}
+	err := proto.Unmarshal(message.Body, &result)
+	if err != nil {
+		globals.Log.ERROR.Printf("Error umarshaling text message: %v\n",
+			err.Error())
+	}
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
@@ -186,7 +174,7 @@ func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", message.Sender,
+	fmt.Printf("Message from %v, %v Received: %s\n", new(big.Int).SetBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -198,7 +186,7 @@ type ChannelListener struct {
 
 func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	globals.Log.INFO.Println("Hearing a channel message")
-	result := parse.ChannelMessage{}
+	result := cmixproto.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
 
 	sender, ok := user.Users.GetUser(message.Sender)
@@ -209,15 +197,14 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 		senderNick = sender.Nick
 	}
 
-	speakerID := user.NewIDFromBytes(result.SpeakerID)
-
 	fmt.Printf("Message from channel %v, %v: ",
-		message.Sender, senderNick)
+		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
+	speakerId := new(id.UserID).SetBytes(result.SpeakerID)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
-		Sender:    speakerID,
-		Receiver:  0,
+		Sender:    speakerId,
+		Receiver:  id.ZeroID,
 	})
 	atomic.AddInt64(&l.messagesReceived, 1)
 }
@@ -245,13 +232,13 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(user.ID(0), parse.Type_TEXT_MESSAGE, &text)
+		api.Listen(id.ZeroID, cmixproto.Type_TEXT_MESSAGE, &text, switchboard.Listeners)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(user.ID(0), parse.Type_CHANNEL_MESSAGE, &channel)
+		api.Listen(id.ZeroID, cmixproto.Type_CHANNEL_MESSAGE, &channel, switchboard.Listeners)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(user.ID(0), parse.Type_NO_TYPE, &fallback)
+		api.Listen(id.ZeroID, cmixproto.Type_NO_TYPE, &fallback, switchboard.Listeners)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -262,16 +249,18 @@ var rootCmd = &cobra.Command{
 		sessionInitialization()
 
 		// Only send a message if we have a message to send (except dummy messages)
+		recipientId := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
+		senderId := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, userId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			u, ok := user.Users.GetUser(user.ID(destinationUserId))
+			u, ok := user.Users.GetUser(recipientId)
 			if ok {
 				recipientNick = u.Nick
 			}
 
 			// Handle sending to UDB
-			if destinationUserId == uint64(bots.UdbID) {
+			if *recipientId == *bots.UdbID {
 				parseUdbMessage(message)
 			} else {
 				// Handle sending to any other destination
@@ -281,11 +270,14 @@ var rootCmd = &cobra.Command{
 					recipientNick, message)
 
 				// Send the message
-				bindings.Send(CmdMessage{
-					SenderID:    user.ID(userId),
-					Payload:     string(wireOut),
-					RecipientID: user.ID(destinationUserId),
-				})
+				bindings.Send(&parse.BindingsMessageProxy{&parse.Message{
+					Sender: senderId,
+					TypedBody: parse.TypedBody{
+						Type: cmixproto.Type_TEXT_MESSAGE,
+						Body: wireOut,
+					},
+					Receiver: recipientId,
+				}})
 			}
 		}
 
@@ -299,17 +291,20 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				u, ok := user.Users.GetUser(user.ID(destinationUserId))
+				u, ok := user.Users.GetUser(recipientId)
 				if ok {
 					contact = u.Nick
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := CmdMessage{
-					SenderID:    user.ID(userId),
-					Payload:     string(api.FormatTextMessage(message)),
-					RecipientID: user.ID(destinationUserId)}
+				message := &parse.BindingsMessageProxy{&parse.Message{
+					Sender: senderId,
+					TypedBody: parse.TypedBody{
+						Type: cmixproto.Type_TEXT_MESSAGE,
+						Body: bindings.FormatTextMessage(message),
+					},
+					Receiver: recipientId}}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)

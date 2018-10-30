@@ -13,10 +13,9 @@ import (
 	"fmt"
 	"gitlab.com/privategrity/client/globals"
 	"gitlab.com/privategrity/crypto/cyclic"
-	"io"
-	"math"
 	"math/rand"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // Errors
@@ -72,7 +71,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 
 }
 
-func LoadSession(UID ID) (Session, error) {
+func LoadSession(UID *id.UserID) (Session, error) {
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return nil, err
@@ -92,16 +91,16 @@ func LoadSession(UID ID) (Session, error) {
 
 	err := dec.Decode(&session)
 
-	if (err != nil && err != io.EOF) || (session.CurrentUser == nil) {
+	if err != nil {
 		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
 		return nil, err
 	}
 
-	if session.CurrentUser.UserID != UID {
+	if *session.CurrentUser.UserID != *UID {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: loaded incorrect "+
-				"user; Expected: %v; Received: %v",
-			session.CurrentUser.UserID, UID))
+				"user; Expected: %q; Received: %q",
+			*session.CurrentUser.UserID, *UID))
 		return nil, err
 	}
 
@@ -216,8 +215,8 @@ func (s *SessionObj) Immolate() error {
 	}
 
 	// clear data stored in session
-	s.CurrentUser.UserID = math.MaxUint64
-	s.CurrentUser.UserID = 0
+	// Warning: be careful about immolating the memory backing the user ID
+	// because that may alias a key in the user maps
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""
@@ -287,6 +286,7 @@ func clearRatchetKeys(r *RatchetKey) {
 	clearCyclicInt(r.Recursive)
 }
 
+// FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?
 func burntString(length int) string {
 
 	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")

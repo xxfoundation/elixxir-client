@@ -50,7 +50,7 @@ func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
 	payload := []byte(message.GetPayload())
-	sender := user.NewIDFromBytes(message.GetSender())
+	sender := message.GetSender()
 	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
 
 	partition, err := parse.ValidatePartition(payload)

@@ -14,14 +14,15 @@ import (
 	"gitlab.com/privategrity/client/io"
 	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/client/switchboard"
-	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/hash"
 	"strconv"
 	"strings"
+	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13
-const UdbID = user.ID(13)
+var UdbID *id.UserID
 
 type udbResponseListener chan string
 
@@ -37,18 +38,20 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 
 // The go runtime calls init() before calling any methods in the package
 func init() {
+	UdbID = new(id.UserID).SetUints(&[4]uint64{0,0,0,13})
+
 	pushKeyResponseListener = make(udbResponseListener)
 	getKeyResponseListener = make(udbResponseListener)
 	registerResponseListener = make(udbResponseListener)
 	searchResponseListener = make(udbResponseListener)
 
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_PUSH_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_PUSH_KEY_RESPONSE,
 		&pushKeyResponseListener)
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_GET_KEY_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_GET_KEY_RESPONSE,
 		&getKeyResponseListener)
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_REGISTER_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_REGISTER_RESPONSE,
 		&registerResponseListener)
-	switchboard.Listeners.Register(UdbID, parse.Type_UDB_SEARCH_RESPONSE,
+	switchboard.Listeners.Register(UdbID, cmixproto.Type_UDB_SEARCH_RESPONSE,
 		&searchResponseListener)
 }
 
@@ -68,7 +71,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	}
 
 	msgBody := parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_REGISTER,
+		Type: cmixproto.Type_UDB_REGISTER,
 		Body: []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
@@ -90,7 +93,7 @@ func Register(valueType, value string, publicKey []byte) error {
 // returns a map of userid -> public key
 func Search(valueType, value string) (map[uint64][]byte, error) {
 	msgBody := parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_SEARCH,
+		Type: cmixproto.Type_UDB_SEARCH,
 		Body: []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
 	err := sendCommand(UdbID, msgBody)
@@ -110,7 +113,7 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 
 	// Get the full key and decode it
 	msgBody = parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_GET_KEY,
+		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(keyFP),
 	})
 	err = sendCommand(UdbID, msgBody)
@@ -166,12 +169,12 @@ func parseGetKey(msg string) []byte {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
+func pushKey(udbID *id.UserID, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_PUSH_KEY,
+		Type: cmixproto.Type_UDB_PUSH_KEY,
 		Body: []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
 	}))
 	response := <-pushKeyResponseListener
@@ -182,9 +185,9 @@ func pushKey(udbID user.ID, keyFP string, publicKey []byte) error {
 }
 
 // keyExists checks for the existence of a key on the bot
-func keyExists(udbID user.ID, keyFP string) bool {
+func keyExists(udbID *id.UserID, keyFP string) bool {
 	cmd := parse.Pack(&parse.TypedBody{
-		Type: parse.Type_UDB_GET_KEY,
+		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(fmt.Sprintf("%s", keyFP)),
 	})
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
@@ -210,6 +213,6 @@ func fingerprint(publicKey []byte) string {
 // sendCommand sends a command to the udb. This doesn't block.
 // Callers that need to wait on a response should implement waiting with a
 // listener.
-func sendCommand(botID user.ID, command []byte) error {
-	return io.Messaging.SendMessage(botID, string(command))
+func sendCommand(botID *id.UserID, command []byte) error {
+	return io.Messaging.SendMessage(botID, command)
 }

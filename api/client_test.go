@@ -7,16 +7,14 @@
 package api
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/gob"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
 	"testing"
-	"time"
+	"gitlab.com/privategrity/client/globals"
+	"bytes"
+	"encoding/gob"
+	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/privategrity/crypto/cyclic"
+	"crypto/sha256"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -24,7 +22,7 @@ func TestRegistrationGob(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	// populate a gob in the store
-	Register("be50nhqpqjtjj", gwAddress, 1, false)
+	Register("UAV6IWD6", gwAddress, 1, false)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -48,8 +46,8 @@ func VerifyRegisterGobAddress(t *testing.T) {
 }
 
 func VerifyRegisterGobUserID(t *testing.T) {
-	if Session.GetCurrentUser().UserID != 5 {
-		t.Errorf("User's ID was %v, expected %v",
+	if *Session.GetCurrentUser().UserID != *id.NewUserIDFromUint(5, t) {
+		t.Errorf("User's ID was %q, expected %v",
 			Session.GetCurrentUser().UserID, 5)
 	}
 }
@@ -60,7 +58,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			Session.GetKeys()[0].PublicKey.Text(16), "0")
 	}
 	h := sha256.New()
-	h.Write([]byte(string(30000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(30005)))
 	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
 		expectedTransmissionRecursiveKey) != 0 {
@@ -69,7 +67,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			expectedTransmissionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(20000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(20005)))
 	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
 		expectedTransmissionBaseKey) != 0 {
@@ -78,7 +76,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			expectedTransmissionBaseKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(50000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(50005)))
 	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
 		expectedReceptionRecursiveKey) != 0 {
@@ -87,7 +85,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 			expectedReceptionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
-	h.Write([]byte(string(40000 + Session.GetCurrentUser().UserID)))
+	h.Write([]byte(string(40005)))
 	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
 		expectedReceptionBaseKey) != 0 {
@@ -126,41 +124,56 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 }
 
-var ListenCh chan *format.Message
-var lastmsg string
-
-type dummyMessaging struct {
-	listener chan *format.Message
+// This test doesn't actually test anything useful and you should feel free
+// to remove it if you need to.
+// It dumps the binary representation of the formatted text message.
+// This is unlikely to start failing out of the blue, but it could happen
+// if the text message proto buffer format changes or if there's a breaking
+// update to protobuf.
+func TestFormatTextMessage(t *testing.T) {
+	msg := FormatTextMessage("hello")
+	if !bytes.Equal(msg, []byte("\x1a\x05hello")) {
+		t.Error("Text message wasn't formatted as expected")
+	}
+	t.Logf("message: %q", msg)
 }
+
+// FIXME Reinstate tests for the UDB api
+//var ListenCh chan *format.Message
+//var lastmsg string
+
+//type dummyMessaging struct {
+//	listener chan *format.Message
+//}
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID user.ID,
-	message string) error {
-	jww.INFO.Printf("Sending: %s", message)
-	lastmsg = message
-	return nil
-}
+//func (d *dummyMessaging) SendMessage(recipientID id.UserID,
+//	message string) error {
+//	jww.INFO.Printf("Sending: %s", message)
+//	lastmsg = message
+//	return nil
+//}
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID user.ID) chan *format.Message {
-	return d.listener
-}
+//func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
+//	return d.listener
+//}
 
 // StopListening to a given switchboard (closes and deletes)
-func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
+//func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
 
 // MessageReceiver thread to get new messages
-func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+//func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
 
-var pubKeyBits []string
-var keyFingerprint string
-var pubKey []byte
+//var pubKeyBits []string
+//var keyFingerprint string
+//var pubKey []byte
 
 // SendMsg puts a fake udb response message on the channel
-func SendMsg(msg string) {
-	m, _ := format.NewMessage(13, 1, msg)
-	ListenCh <- &m[0]
-}
+//func SendMsg(msg string) {
+//	m, _ := format.NewMessage(13, 1, msg)
+//	ListenCh <- &m[0]
+//}
 
 //func TestRegisterPubKeyByteLen(t *testing.T) {
 //	ListenCh = make(chan *format.Message, 100)

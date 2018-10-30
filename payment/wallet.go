@@ -18,6 +18,8 @@ import (
 	"gitlab.com/privategrity/crypto/coin"
 	"gitlab.com/privategrity/crypto/format"
 	"time"
+	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -46,7 +48,34 @@ type Wallet struct {
 	// Listen to this switchboard to get UI messages from the wallet.
 	// This includes the types PAYMENT_INVOICE_UI, PAYMENT_RESPONSE, and
 	// PAYMENT_RECEIPT_UI.
-	Switchboard *switchboard.Switchboard
+	switchboard *switchboard.Switchboard
+}
+
+// Transaction lists are meant to be read-only when exported, so we return a
+// copy of these pointers and only export non-mutating methods from the
+// transaction list
+func (w *Wallet) GetOutboundRequests() *TransactionList {
+	return w.outboundRequests
+}
+
+func (w *Wallet) GetInboundRequests() *TransactionList {
+	return w.inboundRequests
+}
+
+func (w *Wallet) GetPendingTransactions() *TransactionList {
+	return w.pendingTransactions
+}
+
+func (w *Wallet) GetCompletedInboundPayments() *TransactionList {
+	return w.completedInboundPayments
+}
+
+func (w *Wallet) GetCompletedOutboundPayments() *TransactionList {
+	return w.completedOutboundPayments
+}
+
+func (w *Wallet) GetSwitchboard() *switchboard.Switchboard {
+	return w.switchboard
 }
 
 // If you want the wallet to be able to receive messages you must register its
@@ -61,37 +90,37 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 	}
 
 	if doMint {
-		mintedCoins := coin.MintUser(uint64(s.GetCurrentUser().UserID))
+		mintedCoins := coin.MintArbitrarily(s.GetCurrentUser().UserID[:])
 		for i := range mintedCoins {
 			cs.add(mintedCoins[i])
 		}
 	}
 
-	obr, err := CreateTransactionList(OutboundRequestsTag, s)
+	obr, err := createTransactionList(OutboundRequestsTag, s)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ibr, err := CreateTransactionList(InboundRequestsTag, s)
+	ibr, err := createTransactionList(InboundRequestsTag, s)
 
 	if err != nil {
 		return nil, err
 	}
 
-	pt, err := CreateTransactionList(PendingTransactionsTag, s)
+	pt, err := createTransactionList(PendingTransactionsTag, s)
 
 	if err != nil {
 		return nil, err
 	}
 
-	ip, err := CreateTransactionList(InboundPaymentsTag, s)
+	ip, err := createTransactionList(InboundPaymentsTag, s)
 
 	if err != nil {
 		return nil, err
 	}
 
-	op, err := CreateTransactionList(OutboundPaymentsTag, s)
+	op, err := createTransactionList(OutboundPaymentsTag, s)
 
 	if err != nil {
 		return nil, err
@@ -107,7 +136,7 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 		completedInboundPayments:  ip,
 		completedOutboundPayments: op,
 		session:                   s,
-		Switchboard:               sb,
+		switchboard:               sb,
 	}
 
 	return w, nil
@@ -117,19 +146,21 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_INVOICE, &InvoiceListener{
+	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
+		&InvoiceListener{
+			wallet: w,
+		})
+	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(getPaymentBotID(), parse.Type_PAYMENT_RESPONSE, &ResponseListener{
-		wallet: w,
-	})
-	switchboard.Listeners.Register(user.ID(0), parse.Type_PAYMENT_RECEIPT, &ReceiptListener{
-		wallet: w,
-	})
+	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
+		&ReceiptListener{
+			wallet: w,
+		})
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of
-func createInvoice(payer user.ID, payee user.ID, value uint64,
+func createInvoice(payer *id.UserID, payee *id.UserID, value uint64,
 	memo string) (*Transaction, error) {
 	newCoin, err := coin.NewSleeve(value)
 
@@ -150,16 +181,22 @@ func createInvoice(payer user.ID, payee user.ID, value uint64,
 
 // Registers an invoice with the session and wallet
 func (w *Wallet) registerInvoice(invoice *Transaction) error {
-	w.outboundRequests.Upsert(invoice.OriginID, invoice)
+	w.outboundRequests.upsert(invoice.OriginID, invoice)
 	return w.session.StoreSession()
 }
 
 // Creates, formats, and registers an invoice in the outgoing requests
 // Assumes that the payee is the current user in the session
-func (w *Wallet) Invoice(payer user.ID, value uint64,
+func (w *Wallet) Invoice(payer *id.UserID, value int64,
 	memo string) (*parse.Message, error) {
+
+	if value <= 0 {
+		return nil, errors.New("must request a non-zero, " +
+			"positive amount of money for an invoice")
+	}
+
 	transaction, err := createInvoice(payer, w.session.GetCurrentUser().UserID,
-		value, memo)
+		uint64(value), memo)
 	if err != nil {
 		return nil, err
 	}
@@ -175,10 +212,10 @@ type InvoiceListener struct {
 
 func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	globals.Log.DEBUG.Printf("Heard an invoice from %v!", msg.Sender)
-	var invoice parse.PaymentInvoice
+	var invoice cmixproto.PaymentInvoice
 
 	// Test for incorrect message type, just in case
-	if msg.Type != parse.Type_PAYMENT_INVOICE {
+	if msg.Type != cmixproto.Type_PAYMENT_INVOICE {
 		globals.Log.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
 			" type: %v",
 			msg.Type.String())
@@ -220,25 +257,25 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	}
 
 	// Actually add the request to the list of inbound requests
-	il.wallet.inboundRequests.Upsert(invoiceID, transaction)
+	il.wallet.inboundRequests.upsert(invoiceID, transaction)
 	// and save it
 	il.wallet.session.StoreSession()
 
 	// The invoice UI message allows the UI to notify the user that the new
 	// invoice is here and ready to be paid
-	il.wallet.Switchboard.Speak(&parse.Message{
+	il.wallet.switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT_INVOICE_UI,
+			Type: cmixproto.Type_PAYMENT_INVOICE_UI,
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
-		Receiver: 0,
+		Receiver: id.ZeroID,
 		Nonce:    nil,
 	})
 }
 
-func getPaymentBotID() user.ID {
-	return 17
+func getPaymentBotID() *id.UserID {
+	return new(id.UserID).SetUints(&[4]uint64{0,0,0,17})
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,
@@ -261,7 +298,7 @@ func buildPaymentPayload(request, change coin.Sleeve,
 }
 
 func (w *Wallet) Pay(requestID parse.MessageHash) (*parse.Message, error) {
-	transaction, ok := w.inboundRequests.Pop(requestID)
+	transaction, ok := w.inboundRequests.pop(requestID)
 	if !ok {
 		return nil, errors.New("that request wasn't in the list of inbound" +
 			" requests")
@@ -269,13 +306,13 @@ func (w *Wallet) Pay(requestID parse.MessageHash) (*parse.Message, error) {
 	msg, err := w.pay(transaction)
 	if err != nil {
 		// Roll back the popping
-		w.inboundRequests.Upsert(requestID, transaction)
+		w.inboundRequests.upsert(requestID, transaction)
 		return nil, err
 	}
 	errStore := w.session.StoreSession()
 	if errStore != nil {
 		// Roll back the popping
-		w.inboundRequests.Upsert(requestID, transaction)
+		w.inboundRequests.upsert(requestID, transaction)
 		return nil, err
 	}
 	return msg, nil
@@ -295,15 +332,15 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.Type_PAYMENT_TRANSACTION.Bytes())) + uint64(len(
-		paymentMessage)) > format.DATA_LEN {
+	if uint64(len(parse.TypeAsBytes(int32(cmixproto.Type_PAYMENT_TRANSACTION)))) +
+		uint64(len(paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
 	}
 
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT_TRANSACTION,
+			Type: cmixproto.Type_PAYMENT_TRANSACTION,
 			Body: paymentMessage,
 		},
 		Sender:   w.session.GetCurrentUser().UserID,
@@ -328,7 +365,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 	paymentID := msg.Hash()
 	globals.Log.INFO.Printf("Prepared payment message. Its ID is %v",
 		base64.StdEncoding.EncodeToString(paymentID[:]))
-	w.pendingTransactions.Upsert(msg.Hash(), &pendingTransaction)
+	w.pendingTransactions.upsert(msg.Hash(), &pendingTransaction)
 
 	// Return the result.
 	return &msg, nil
@@ -340,7 +377,7 @@ type ResponseListener struct {
 
 func (l *ResponseListener) Hear(msg *parse.Message,
 	isHeardElsewhere bool) {
-	var response parse.PaymentResponse
+	var response cmixproto.PaymentResponse
 	err := proto.Unmarshal(msg.Body, &response)
 	if err != nil {
 		globals.Log.WARN.Printf("Heard an invalid response from the payment bot. "+
@@ -351,7 +388,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 	copy(paymentID[:], response.ID)
 	globals.Log.INFO.Printf("Heard response from payment bot. ID: %v",
 		base64.StdEncoding.EncodeToString(paymentID[:]))
-	transaction, ok := l.wallet.pendingTransactions.Pop(paymentID)
+	transaction, ok := l.wallet.pendingTransactions.pop(paymentID)
 	if !ok {
 		globals.Log.ERROR.Printf("Couldn't find the transaction with that"+
 			" payment message ID: %q", paymentID)
@@ -379,7 +416,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		// Send receipt: Need ID of original invoice corresponding to this
 		// transaction. That's something that the invoicing client should
 		// be able to keep track of.
-		l.wallet.completedOutboundPayments.Upsert(transaction.OriginID, transaction)
+		l.wallet.completedOutboundPayments.upsert(transaction.OriginID, transaction)
 		receipt := l.formatReceipt(transaction)
 		globals.Log.DEBUG.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)
@@ -391,13 +428,13 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		}
 	}
 	globals.Log.DEBUG.Printf("Payment response: %v", response.Response)
-	l.wallet.Switchboard.Speak(msg)
+	l.wallet.switchboard.Speak(msg)
 }
 
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: parse.Type_PAYMENT_RECEIPT,
+			Type: cmixproto.Type_PAYMENT_RECEIPT,
 			Body: transaction.OriginID[:],
 		},
 		Sender:   l.wallet.session.GetCurrentUser().UserID,
@@ -413,23 +450,23 @@ type ReceiptListener struct {
 func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var invoiceID parse.MessageHash
 	copy(invoiceID[:], msg.Body)
-	transaction, ok := rl.wallet.outboundRequests.Pop(invoiceID)
+	transaction, ok := rl.wallet.outboundRequests.pop(invoiceID)
 	if !ok {
 		globals.Log.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
 			": %q", msg.Sender, invoiceID)
 	} else {
 		// Mark the transaction in the log of completed transactions
-		rl.wallet.completedInboundPayments.Upsert(invoiceID, transaction)
+		rl.wallet.completedInboundPayments.upsert(invoiceID, transaction)
 		// Add the user's new coins to coin storage
 		rl.wallet.coinStorage.Add(transaction.Create)
 		// Let the payment receipt UI listeners know that a payment's come in
-		rl.wallet.Switchboard.Speak(&parse.Message{
+		rl.wallet.switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				Type: parse.Type_PAYMENT_RECEIPT_UI,
+				Type: cmixproto.Type_PAYMENT_RECEIPT_UI,
 				Body: invoiceID[:],
 			},
 			Sender:   msg.Sender,
-			Receiver: 0,
+			Receiver: id.ZeroID,
 			Nonce:    nil,
 		})
 	}
@@ -437,98 +474,4 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 
 func (w *Wallet) GetAvailableFunds() uint64 {
 	return w.coinStorage.Value()
-}
-
-// Returns a copy of the transaction to keep UIs from changing transaction
-func (w *Wallet) GetInboundRequest(id parse.MessageHash) (Transaction, bool) {
-	transaction, ok := w.inboundRequests.Get(id)
-	// Need to check ok to avoid dereferencing nil transaction
-	if !ok {
-		return Transaction{}, ok
-	} else {
-		return *transaction, ok
-	}
-}
-
-func (w *Wallet) GetOutboundRequest(id parse.MessageHash) (Transaction, bool) {
-	transaction, ok := w.outboundRequests.Get(id)
-	if !ok {
-		return Transaction{}, ok
-	} else {
-		return *transaction, ok
-	}
-}
-
-func (w *Wallet) GetPendingTransaction(id parse.MessageHash) (Transaction, bool) {
-	transaction, ok := w.pendingTransactions.Get(id)
-	if !ok {
-		return Transaction{}, ok
-	} else {
-		return *transaction, ok
-	}
-}
-
-func (w *Wallet) GetCompletedOutboundPayment(id parse.MessageHash) (
-	Transaction, bool) {
-	transaction, ok := w.completedOutboundPayments.Get(id)
-	if !ok {
-		return Transaction{}, ok
-	} else {
-		return *transaction, ok
-	}
-}
-
-func (w *Wallet) GetCompletedInboundPayment(id parse.MessageHash) (
-	Transaction, bool) {
-	transaction, ok := w.completedInboundPayments.Get(id)
-	if !ok {
-		return Transaction{}, ok
-	} else {
-		return *transaction, ok
-	}
-}
-
-func (w *Wallet) GetTransaction(list TransactionListID, id parse.MessageHash) {
-
-}
-
-// TODO We could also switch on transaction list tags, but that would be slower.
-// It's unclear to me which approach is better between the two.
-type TransactionListID int
-
-const (
-	OutboundRequests          TransactionListID = iota
-	InboundRequests
-	PendingTransactions
-	OutboundCompletedPayments
-	InboundCompletedPayments
-)
-
-type TransactionListOrder int
-
-const (
-	TimestampDescending TransactionListOrder = iota
-	TimestampAscending
-	ValueDescending
-	ValueAscending
-)
-
-// This structure is weird because it makes it easier to write an API that
-// can go over gomobile
-func (w *Wallet) GetTransactionIDs(id TransactionListID,
-	order TransactionListOrder) []byte {
-	switch id {
-	case OutboundRequests:
-		return w.outboundRequests.getKeys(order)
-	case InboundRequests:
-		return w.inboundRequests.getKeys(order)
-	case PendingTransactions:
-		return w.pendingTransactions.getKeys(order)
-	case OutboundCompletedPayments:
-		return w.completedOutboundPayments.getKeys(order)
-	case InboundCompletedPayments:
-		return w.completedInboundPayments.getKeys(order)
-	default:
-		return nil
-	}
 }

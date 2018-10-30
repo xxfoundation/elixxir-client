@@ -23,6 +23,7 @@ import (
 	cmix "gitlab.com/privategrity/crypto/messaging"
 	"sync"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 type messaging struct{}
@@ -54,8 +55,8 @@ var sendLock sync.Mutex
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *messaging) SendMessage(recipientID user.ID,
-	message string) error {
+func (m *messaging) SendMessage(recipientID *id.UserID,
+	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
 	// the cMix network. This NewMessage does way too many things: break the
@@ -71,8 +72,7 @@ func (m *messaging) SendMessage(recipientID user.ID,
 		return err
 	}
 	for i := range parts {
-		messages, err := format.NewMessage(uint64(userID),
-			uint64(recipientID), string(parts[i]))
+		messages, err := format.NewMessage(userID, recipientID, parts[i])
 		if err != nil {
 			return err
 		}
@@ -90,7 +90,7 @@ func (m *messaging) SendMessage(recipientID user.ID,
 }
 
 // send actually sends the message to the server
-func send(senderID user.ID, message *format.Message) error {
+func send(senderID *id.UserID, message *format.Message) error {
 	// Enable transmission blocking if enabled
 	if BlockTransmissions {
 		sendLock.Lock()
@@ -119,7 +119,7 @@ func send(senderID user.ID, message *format.Message) error {
 	// TODO: Use salt here
 	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
-		SenderID:       uint64(senderID),
+		SenderID:       senderID.Bytes(),
 		MessagePayload: encryptedMessage.Payload.Bytes(),
 		RecipientID:    encryptedMessage.Recipient.Bytes(),
 		Salt:           salt,
@@ -144,7 +144,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		globals.Log.FATAL.Panicf("No user session available")
 	}
 	pollingMessage := pb.ClientPollMessage{
-		UserID: uint64(user.TheSession.GetCurrentUser().UserID),
+		UserID: user.TheSession.GetCurrentUser().UserID.Bytes(),
 	}
 
 	for {
@@ -196,7 +196,7 @@ func (m *messaging) receiveMessagesFromGateway(
 				newMessage, err := client.SendGetMessage(user.
 					TheSession.GetGWAddress(),
 					&pb.ClientPollMessage{
-						UserID:    uint64(user.TheSession.GetCurrentUser().UserID),
+						UserID:    user.TheSession.GetCurrentUser().UserID.Bytes(),
 						MessageID: messageID,
 					})
 				if err != nil {
@@ -206,7 +206,7 @@ func (m *messaging) receiveMessagesFromGateway(
 				} else {
 					if newMessage.MessagePayload == nil &&
 						newMessage.RecipientID == nil &&
-						newMessage.SenderID == 0 {
+						newMessage.SenderID == nil {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue
 					}

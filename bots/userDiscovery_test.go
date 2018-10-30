@@ -12,11 +12,11 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/user"
 	"gitlab.com/privategrity/crypto/format"
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 var ListenCh chan *format.Message
@@ -26,9 +26,9 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID user.ID,
-	message string) error {
-	jww.INFO.Printf("Sending: %s", message)
+func (d *dummyMessaging) SendMessage(recipientID *id.UserID,
+	message []byte) error {
+	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
 

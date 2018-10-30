@@ -2,10 +2,11 @@ package payment
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/privategrity/client/parse"
 	"gitlab.com/privategrity/crypto/coin"
 	"testing"
 	"time"
+	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/crypto/id"
 )
 
 // TODO are there any error cases for formatting the invoice that we should
@@ -24,8 +25,8 @@ func TestTransaction_FormatInvoice(t *testing.T) {
 		Create:    sleeve,
 		Destroy:   nil,
 		Change:    NilSleeve,
-		Sender:    2,
-		Recipient: 5,
+		Sender:    id.NewUserIDFromUint(2, t),
+		Recipient: id.NewUserIDFromUint(5, t),
 		Memo:      "Just a test",
 		Timestamp: time.Now(),
 		Value:     value,
@@ -37,7 +38,7 @@ func TestTransaction_FormatInvoice(t *testing.T) {
 	}
 
 	// Unpack the serialized invoice message and verify all fields
-	var invoice parse.PaymentInvoice
+	var invoice cmixproto.PaymentInvoice
 	err = proto.Unmarshal(formattedInvoice.Body, &invoice)
 	if err != nil {
 		t.Error(err.Error())

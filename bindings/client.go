@@ -70,6 +70,12 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 	return api.Listen(typedUserId, cmixproto.Type(messageType), listener, switchboard.Listeners)
 }
 
+// Pass the listener handle that Listen() returned to delete the listener
+func StopListening(listenerHandle string) {
+	api.StopListening(listenerHandle, switchboard.Listeners)
+}
+
+
 func FormatTextMessage(message string) []byte {
 	return api.FormatTextMessage(message)
 }
@@ -258,3 +264,4 @@ func (s *storageProxy) Lock() {
 func (s *storageProxy) Unlock() {
 	s.lock.Unlock()
 }
+

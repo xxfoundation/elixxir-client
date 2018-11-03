@@ -207,6 +207,10 @@ func Listen(user *id.UserID, messageType cmixproto.Type,
 	return listenerId
 }
 
+func StopListening(listenerHandle string, callbacks *switchboard.Switchboard) {
+	callbacks.Unregister(listenerHandle)
+}
+
 type APISender struct{}
 
 func (s APISender) Send(messageInterface parse.MessageInterface) {

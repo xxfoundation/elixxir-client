@@ -25,6 +25,10 @@ func (w *Wallet) Listen(userId []byte, messageType int32, newListener Listener) 
 		w.wallet.GetSwitchboard())
 }
 
+func (w *Wallet) StopListening(listenerHandle string) {
+	api.StopListening(listenerHandle, w.wallet.GetSwitchboard())
+}
+
 // Returns the currently available balance in the wallet
 func (w *Wallet) GetAvailableFunds() int64 {
 	return int64(api.Wallet().GetAvailableFunds())

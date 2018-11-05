@@ -18,6 +18,9 @@ import (
 	"gitlab.com/privategrity/crypto/id"
 	"gitlab.com/privategrity/comms/gateway"
 	"gitlab.com/privategrity/client/user"
+	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/privategrity/client/switchboard"
+	"gitlab.com/privategrity/client/parse"
 )
 
 const gwAddress = "localhost:5557"
@@ -183,5 +186,45 @@ func TestSetRateLimiting(t *testing.T) {
 	SetRateLimiting(10)
 	if io.TransmitDelay != time.Duration(10)*time.Millisecond {
 		t.Errorf("SetRateLimiting not updated properly")
+	}
+}
+
+type MockListener bool
+
+func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
+	*m = true
+}
+
+// Proves that a message can be received by a listener added with the bindings
+func TestListen(t *testing.T) {
+	listener := MockListener(false)
+	Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	switchboard.Listeners.Speak(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: 0,
+			Body: []byte("stuff"),
+		},
+		Sender:   id.ZeroID,
+		Receiver: id.ZeroID,
+	})
+	if !listener {
+		t.Error("Message not received")
+	}
+}
+
+func TestStopListening(t *testing.T) {
+	listener := MockListener(false)
+	handle := Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	StopListening(handle)
+	switchboard.Listeners.Speak(&parse.Message{
+		TypedBody: parse.TypedBody{
+			Type: 0,
+			Body: []byte("stuff"),
+		},
+		Sender:   id.ZeroID,
+		Receiver: id.ZeroID,
+	})
+	if listener {
+		t.Error("Message was received after we stopped listening for it")
 	}
 }

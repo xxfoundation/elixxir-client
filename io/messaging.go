@@ -222,17 +222,20 @@ func (m *messaging) receiveMessagesFromGateway(
 						//TODO: Add KMAC verification here
 					}
 
-					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
-						newMessage)
-					if err2 != nil {
-						globals.Log.WARN.Printf("Message did not decrypt properly: %v", err2.Error())
-					}
 					globals.Log.INFO.Printf(
 						"Adding message ID %v to received message IDs", messageID)
 					ReceivedMessages[messageID] = struct{}{}
 					user.TheSession.SetLastMessageID(messageID)
 
-					results = append(results, decryptedMsg)
+					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
+						newMessage)
+					if err2 != nil {
+						globals.Log.WARN.Printf(
+							"Message did not decrypt properly, " +
+								"not adding to results array: %v", err2.Error())
+					} else {
+						results = append(results, decryptedMsg)
+					}
 				}
 			}
 		}

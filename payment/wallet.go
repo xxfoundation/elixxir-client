@@ -421,7 +421,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 		globals.Log.DEBUG.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)
 		err := io.Messaging.SendMessage(transaction.Recipient,
-			receipt.GetPayload())
+			receipt.Pack())
 		if err != nil {
 			globals.Log.ERROR.Printf("Payment response listener couldn't send"+
 				" receipt: %v", err.Error())

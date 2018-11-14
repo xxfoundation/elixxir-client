@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package payment
 
 import (
@@ -661,7 +667,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 func TestOrderedStorage_FileLoading(t *testing.T) {
 	globals.LocalStorage = nil
 
-	storagePath, err := homedir.Expand("~/.privategrity")
+	storagePath, err := homedir.Expand("~/.elixxir")
 	filename := "/orderedstoragetest.session"
 	os.MkdirAll(storagePath, 0775)
 	if err != nil {

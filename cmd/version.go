@@ -19,14 +19,14 @@ func init() {
 }
 
 func printVersion() {
-	fmt.Printf("Privategrity Client v%s -- %s\n\n", SEMVER, GITVERSION)
+	fmt.Printf("Elixxir Client v%s -- %s\n\n", SEMVER, GITVERSION)
 	fmt.Printf("Dependencies:\n\n%s\n", GLIDEDEPS)
 }
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version number of Privategrity Client",
-	Long: `Print the version number of Privategrity Client. This also prints
+	Short: "Print the version number of Elixxir Client",
+	Long: `Print the version number of Elixxir Client. This also prints
 the glide cache versions of all of its dependencies.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		printVersion()

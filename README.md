@@ -1,9 +1,9 @@
-# privategrity/client
+# elixxir/client
 
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-This repo contains the Privategrity command-line client (used for integration
+This repo contains the Elixxir command-line client (used for integration
 testing) and related libraries that facilitate making more full-featured
 clients for all platforms.
 

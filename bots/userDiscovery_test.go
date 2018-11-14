@@ -67,7 +67,7 @@ func TestRegister(t *testing.T) {
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
 
-	err := Register("EMAIL", "rick@privategrity.com", pubKey)
+	err := Register("EMAIL", "rick@elixxir.io", pubKey)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
@@ -78,11 +78,11 @@ func TestSearch(t *testing.T) {
 
 	// Send response messages from fake UDB in advance
 	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %d %s",
-		"blah@privategrity.com", 26, keyFingerprint)
+		"blah@elixxir.io", 26, keyFingerprint)
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		pubKeyBits)
 
-	contacts, err := Search("EMAIL", "blah@privategrity.com")
+	contacts, err := Search("EMAIL", "blah@elixxir.io")
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}

@@ -9,7 +9,7 @@ package parse
 import (
 	"reflect"
 	"testing"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 //Shows that MessageHash ia an independent function of every field in Message

@@ -8,9 +8,9 @@ package user
 
 import (
 	"crypto/sha256"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // Globally instantiated Registry

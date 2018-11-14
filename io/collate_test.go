@@ -1,14 +1,14 @@
 package io
 
 import (
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/format"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 func TestCollator_AddMessage(t *testing.T) {

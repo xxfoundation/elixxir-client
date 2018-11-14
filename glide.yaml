@@ -1,13 +1,13 @@
-package: gitlab.com/privategrity/client
+package: gitlab.com/elixxir/client
 import:
 - package: github.com/xeipuuv/gojsonschema
   version: master
   vcs: git
-- package: gitlab.com/privategrity/crypto
+- package: gitlab.com/elixxir/crypto
   version: master
   repo: git@gitlab.com:privategrity/crypto
   vcs: git
-- package: gitlab.com/privategrity/comms
+- package: gitlab.com/elixxir/comms
   version: master
   repo: git@gitlab.com:privategrity/comms
   vcs: git

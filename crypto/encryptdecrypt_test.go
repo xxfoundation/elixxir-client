@@ -7,13 +7,13 @@
 package crypto
 
 import (
-	"gitlab.com/privategrity/client/user"
-	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
-	cmix "gitlab.com/privategrity/crypto/messaging"
+	"gitlab.com/elixxir/client/user"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/format"
+	cmix "gitlab.com/elixxir/crypto/messaging"
 	"testing"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +

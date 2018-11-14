@@ -8,10 +8,10 @@
 package api
 
 import (
-	pb "gitlab.com/privategrity/comms/mixmessages"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"sync"
-	"gitlab.com/privategrity/crypto/id"
-	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
 )
 
 // APIMessage are an implementation of the interface in bindings and API

@@ -10,8 +10,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/format"
 	"math"
 	"sync"
 )

@@ -7,12 +7,12 @@
 package switchboard
 
 import (
-	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/elixxir/client/parse"
 	"sync"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
 	"bytes"
 )
 

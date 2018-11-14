@@ -7,7 +7,7 @@
 package crypto
 
 import (
-	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/cyclic"
 )
 
 var vectGen *cyclic.Random

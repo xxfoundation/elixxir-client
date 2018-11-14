@@ -10,20 +10,20 @@
 package io
 
 import (
-	"gitlab.com/privategrity/client/crypto"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/switchboard"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/comms/client"
-	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/csprng"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
-	cmix "gitlab.com/privategrity/crypto/messaging"
+	"gitlab.com/elixxir/client/crypto"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/client"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/format"
+	cmix "gitlab.com/elixxir/crypto/messaging"
 	"sync"
 	"time"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 type messaging struct{}

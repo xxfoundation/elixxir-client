@@ -6,7 +6,7 @@
 
 package main
 
-import "gitlab.com/privategrity/client/cmd"
+import "gitlab.com/elixxir/client/cmd"
 
 // main needs no introduction.
 func main() {

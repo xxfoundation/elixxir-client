@@ -8,8 +8,8 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/privategrity/crypto/id"
-	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
 )
 
 const MessageHashLenBits = 256

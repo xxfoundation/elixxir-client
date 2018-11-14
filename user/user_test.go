@@ -8,9 +8,9 @@ package user
 
 import (
 	"crypto/sha256"
-	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"testing"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // TestUserRegistry tests the constructors/getters/setters

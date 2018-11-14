@@ -8,10 +8,10 @@ package crypto
 
 import (
 	"errors"
-	pb "gitlab.com/privategrity/comms/mixmessages"
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/verification"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/crypto/verification"
 )
 
 // Decrypt decrypts messages

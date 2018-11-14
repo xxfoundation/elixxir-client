@@ -1,13 +1,13 @@
 package bindings
 
 import (
-	"gitlab.com/privategrity/client/api"
-	"gitlab.com/privategrity/crypto/id"
-	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/client/parse"
 	"errors"
 	"fmt"
-	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/client/payment"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/payment"
 )
 
 // Currently there's only one wallet that you can get

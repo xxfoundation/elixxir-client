@@ -2,7 +2,7 @@ package parse
 
 import (
 	"bytes"
-	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/elixxir/crypto/format"
 	"math/rand"
 	"testing"
 )

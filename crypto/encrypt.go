@@ -7,9 +7,9 @@
 package crypto
 
 import (
-	"gitlab.com/privategrity/crypto/cyclic"
-	"gitlab.com/privategrity/crypto/format"
-	"gitlab.com/privategrity/crypto/verification"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/crypto/verification"
 )
 
 // Encrypt uses the encryption key to encrypt a message

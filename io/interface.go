@@ -9,7 +9,7 @@ package io
 
 import (
 	"time"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // Communication interface implements send/receive functionality with the server

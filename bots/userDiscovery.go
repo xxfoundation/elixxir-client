@@ -10,15 +10,15 @@ package bots
 import (
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/switchboard"
-	"gitlab.com/privategrity/crypto/hash"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/crypto/hash"
 	"strconv"
 	"strings"
-	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13

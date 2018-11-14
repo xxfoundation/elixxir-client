@@ -9,7 +9,7 @@ package parse
 import (
 	"encoding/binary"
 	"errors"
-	"gitlab.com/privategrity/client/cmixproto"
+	"gitlab.com/elixxir/client/cmixproto"
 )
 
 // To allow mobile to bind this module if necessary, we'll return the two parts

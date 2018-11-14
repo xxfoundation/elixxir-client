@@ -11,11 +11,11 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"math/rand"
 	"time"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // Errors

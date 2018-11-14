@@ -5,7 +5,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package crypto
 
-import "gitlab.com/privategrity/crypto/cyclic"
+import "gitlab.com/elixxir/crypto/cyclic"
 
 // Grp is the global cyclic group used by cMix
 var Grp *cyclic.Group

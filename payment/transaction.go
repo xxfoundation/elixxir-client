@@ -8,11 +8,11 @@ package payment
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/crypto/coin"
 	"time"
-	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 type Transaction struct {

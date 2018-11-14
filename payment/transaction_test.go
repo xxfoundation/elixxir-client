@@ -2,11 +2,11 @@ package payment
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/elixxir/crypto/coin"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // TODO are there any error cases for formatting the invoice that we should

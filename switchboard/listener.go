@@ -7,13 +7,13 @@
 package switchboard
 
 import (
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/parse"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/parse"
 	"strconv"
 	"sync"
 	"reflect"
-	"gitlab.com/privategrity/client/cmixproto"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary

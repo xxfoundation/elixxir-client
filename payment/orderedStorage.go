@@ -8,9 +8,9 @@ package payment
 
 import (
 	"errors"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/coin"
 )
 
 type OrderedCoinStorage struct {

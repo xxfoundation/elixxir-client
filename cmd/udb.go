@@ -8,7 +8,7 @@ package cmd
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/bindings"
+	"gitlab.com/elixxir/client/bindings"
 	"strings"
 )
 

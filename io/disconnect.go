@@ -7,7 +7,7 @@
 package io
 
 import (
-	"gitlab.com/privategrity/comms/connect"
+	"gitlab.com/elixxir/comms/connect"
 )
 
 // Disconnect from the server

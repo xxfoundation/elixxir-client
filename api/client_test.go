@@ -8,12 +8,12 @@ package api
 
 import (
 	"testing"
-	"gitlab.com/privategrity/client/globals"
+	"gitlab.com/elixxir/client/globals"
 	"bytes"
 	"encoding/gob"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/id"
-	"gitlab.com/privategrity/crypto/cyclic"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"crypto/sha256"
 )
 

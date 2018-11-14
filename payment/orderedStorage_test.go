@@ -2,14 +2,14 @@ package payment
 
 import (
 	"github.com/mitchellh/go-homedir"
-	"gitlab.com/privategrity/client/globals"
-	"gitlab.com/privategrity/client/user"
-	"gitlab.com/privategrity/crypto/coin"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/coin"
 	"math/rand"
 	"os"
 	"reflect"
 	"testing"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 // Shows that CreateOrderedStorage creates new storage properly

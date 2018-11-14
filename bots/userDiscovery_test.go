@@ -11,12 +11,12 @@ import (
 	"encoding/base64"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/privategrity/client/io"
-	"gitlab.com/privategrity/crypto/format"
+	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/crypto/format"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/privategrity/crypto/id"
+	"gitlab.com/elixxir/crypto/id"
 )
 
 var ListenCh chan *format.Message

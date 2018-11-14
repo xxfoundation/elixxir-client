@@ -8,8 +8,8 @@ package payment
 
 import (
 	"encoding/gob"
-	"gitlab.com/privategrity/client/parse"
-	"gitlab.com/privategrity/client/user"
+	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
 	"sort"
 )
 

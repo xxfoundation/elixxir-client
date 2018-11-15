@@ -18,9 +18,9 @@ var Users = newRegistry()
 
 const NUM_DEMO_USERS = 40
 
-var DEMO_USER_NICKS = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
+var DemoUserNicks = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
 	"Mario", "Will", "Allan", "Jono", "", "", "UDB", "", "", "", "Payments"}
-var DEMO_CHANNEL_NAMES = []string{"#General", "#Engineering", "#Lunch",
+var DemoChannelNames = []string{"#General", "#Engineering", "#Lunch",
 	"#Random"}
 
 // Interface for User Registry operations
@@ -32,8 +32,6 @@ type Registry interface {
 	CountUsers() int
 	LookupUser(hid string) (uid *id.UserID, ok bool)
 	LookupKeys(uid *id.UserID) (*NodeKeys, bool)
-	// FIXME Please remove this
-	GetContactList() ([]*id.UserID, []string)
 }
 
 type UserMap struct {
@@ -50,7 +48,7 @@ type UserMap struct {
 
 // newRegistry creates a new Registry interface
 func newRegistry() Registry {
-	if len(DEMO_CHANNEL_NAMES) > 10 || len(DEMO_USER_NICKS) > 30 {
+	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
 	uc := make(map[id.UserID]*User)
@@ -94,14 +92,14 @@ func newRegistry() Registry {
 	}
 
 	// Channels have been hardcoded to users starting with 31
-	for i := 0; i < len(DEMO_USER_NICKS); i++ {
+	for i := 0; i < len(DemoUserNicks); i++ {
 		currentID := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
-		uc[*currentID].Nick = DEMO_USER_NICKS[i]
+		uc[*currentID].Nick = DemoUserNicks[i]
 	}
 
-	for i := 0; i < len(DEMO_CHANNEL_NAMES); i++ {
+	for i := 0; i < len(DemoChannelNames); i++ {
 		currentID := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
-		uc[*currentID].Nick = DEMO_CHANNEL_NAMES[i]
+		uc[*currentID].Nick = DemoChannelNames[i]
 	}
 
 	// With an underlying UserMap data structure
@@ -168,17 +166,4 @@ func (m *UserMap) LookupUser(hid string) (*id.UserID, bool) {
 func (m *UserMap) LookupKeys(uid *id.UserID) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[*uid]
 	return nk, t
-}
-
-func (m *UserMap) GetContactList() (ids []*id.UserID, nicks []string) {
-	ids = make([]*id.UserID, len(m.userCollection))
-	nicks = make([]string, len(m.userCollection))
-
-	index := uint64(0)
-	for _, user := range m.userCollection {
-		ids[index] = user.UserID
-		nicks[index] = user.Nick
-		index++
-	}
-	return ids, nicks
 }

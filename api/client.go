@@ -257,10 +257,6 @@ func Logout() error {
 	return nil
 }
 
-func GetContactList() ([]*id.UserID, []string) {
-	return user.Users.GetContactList()
-}
-
 func RegisterForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userExists, err := bots.Search(valueType, emailAddress)

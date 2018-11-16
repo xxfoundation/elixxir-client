@@ -15,13 +15,14 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/crypto/cyclic"
 )
 
 func TestCollator_AddMessage(t *testing.T) {
 
 	user.TheSession = user.NewSession(&user.User{id.NewUserIDFromUint(8, t),
 	"test"}, "",
-		[]user.NodeKeys{})
+		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
@@ -67,7 +68,7 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 
 	user.TheSession = user.NewSession(&user.User{id.NewUserIDFromUint(8, t),
 	"test"}, "",
-		[]user.NodeKeys{})
+		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),

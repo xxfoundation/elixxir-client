@@ -31,7 +31,6 @@ func TestUserSession(t *testing.T) {
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		PublicKey:        cyclic.NewInt(2),
 		TransmissionKeys: RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 		ReceptionKeys:    RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 		ReceiptKeys:      RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
@@ -45,7 +44,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewSession(u, "abc", keys)
+	ses := NewSession(u, "abc", keys, cyclic.NewInt(2))
 
 	ses.(*SessionObj).PrivateKey.SetInt64(2)
 	ses.SetLastMessageID("totally unique ID")
@@ -125,7 +124,7 @@ func TestUserSession(t *testing.T) {
 
 		for i := 0; i < len(TheSession.GetKeys()); i++ {
 
-			if TheSession.GetKeys()[i].PublicKey.Cmp(cyclic.NewInt(2)) != 0 {
+			if TheSession.GetPublicKey().Cmp(cyclic.NewInt(2)) != 0 {
 				t.Errorf("Error: Public key not set correctly!")
 			} else if TheSession.GetKeys()[i].ReceiptKeys.Base.Cmp(cyclic.
 				NewInt(2)) != 0 {
@@ -236,16 +235,15 @@ func TestGetPubKey(t *testing.T) {
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		PublicKey:        cyclic.NewInt(2),
 		TransmissionKeys: RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 		ReceptionKeys:    RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 		ReceiptKeys:      RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
 	}
 
-	ses := NewSession(u, "abc", keys)
+	ses := NewSession(u, "abc", keys, cyclic.NewInt(2))
 	pubKey := ses.GetPublicKey()
-	if pubKey.Cmp(cyclic.NewMaxInt()) != 0 {
-		t.Errorf("Public key is not set to max int!")
+	if pubKey.Cmp(cyclic.NewInt(2)) != 0 {
+		t.Errorf("Public key is not set correctly!")
 	}
 }

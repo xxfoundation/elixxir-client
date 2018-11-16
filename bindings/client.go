@@ -75,7 +75,6 @@ func StopListening(listenerHandle string) {
 	api.StopListening(listenerHandle, switchboard.Listeners)
 }
 
-
 func FormatTextMessage(message string) []byte {
 	return api.FormatTextMessage(message)
 }
@@ -193,7 +192,6 @@ func Logout() error {
 	return api.Logout()
 }
 
-
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
 func DisableBlockingTransmission() {
@@ -210,15 +208,18 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	return api.RegisterForUserDiscovery(emailAddress)
 }
 
-// FIXME This method doesn't get bound because of the exotic type it uses.
-// Map types can't go over the boundary.
-// The correct way to do over the boundary is to define
-// a struct with a user ID and public key in it and return a
-// pointer to that.
-// Search() in bots only returns one user ID anyway. Returning a map would only
-// be useful if a search could return more than one user.
-func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
-	return api.SearchForUser(emailAddress)
+type SearchResult struct {
+	ResultID  []byte // Underlying type: *id.UserID
+	PublicKey []byte
+}
+
+func SearchForUser(emailAddress string) (*SearchResult, error) {
+	searchedUserID, key, err := api.SearchForUser(emailAddress)
+	if err != nil {
+		return nil, err
+	} else {
+		return &SearchResult{ResultID: searchedUserID.Bytes(), PublicKey: key}, nil
+	}
 }
 
 // Translate a bindings listener to a switchboard listener
@@ -237,7 +238,7 @@ func (lp *listenerProxy) Hear(msg *parse.Message, isHeardElsewhere bool) {
 // Not quite sure whether this will work as intended or not. Will have to test.
 type storageProxy struct {
 	boundStorage Storage
-	lock sync.Mutex
+	lock         sync.Mutex
 }
 
 // TODO Should these methods take the mutex? Probably
@@ -264,4 +265,3 @@ func (s *storageProxy) Lock() {
 func (s *storageProxy) Unlock() {
 	s.lock.Unlock()
 }
-

@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/hash"
-	"strconv"
 	"strings"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/crypto/id"
@@ -60,6 +59,8 @@ func init() {
 // If any of the commands fail, it returns an error.
 // valueType: Currently only "EMAIL"
 func Register(valueType, value string, publicKey []byte) error {
+	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
+		value, publicKey)
 	keyFP := fingerprint(publicKey)
 
 	// check if key already exists and push one if it doesn't
@@ -91,24 +92,25 @@ func Register(valueType, value string, publicKey []byte) error {
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string) (map[uint64][]byte, error) {
+func Search(valueType, value string) (*id.UserID, []byte, error) {
+	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 	msgBody := parse.Pack(&parse.TypedBody{
 		Type: cmixproto.Type_UDB_SEARCH,
 		Body: []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
 	err := sendCommand(UdbID, msgBody)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	response := <-searchResponseListener
 	empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
 	if response == empty {
-		return nil, nil
+		return nil, nil, nil
 	}
 	// While search returns more than 1 result, we only process the first
 	cMixUID, keyFP := parseSearch(response)
-	if cMixUID == 0 {
-		return nil, fmt.Errorf("%s", keyFP)
+	if *cMixUID == *id.ZeroID {
+		return nil, nil, fmt.Errorf("%s", keyFP)
 	}
 
 	// Get the full key and decode it
@@ -118,35 +120,35 @@ func Search(valueType, value string) (map[uint64][]byte, error) {
 	})
 	err = sendCommand(UdbID, msgBody)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	response = <-getKeyResponseListener
 	publicKey := parseGetKey(response)
 
 	actualFP := fingerprint(publicKey)
 	if keyFP != actualFP {
-		return nil, fmt.Errorf("Fingerprint for %s did not match %s!", keyFP,
+		return nil, nil, fmt.Errorf("Fingerprint for %s did not match %s!",
+			keyFP,
 			actualFP)
 	}
 
-	retval := make(map[uint64][]byte)
-	retval[cMixUID] = publicKey
-
-	return retval, nil
+	return cMixUID, publicKey, nil
 }
 
 // parseSearch parses the responses from SEARCH. It returns the user's id and
 // the user's public key fingerprint
-func parseSearch(msg string) (uint64, string) {
+func parseSearch(msg string) (*id.UserID, string) {
+	globals.Log.DEBUG.Printf("Parsing search response: %v", msg)
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 5 {
-		return 0, fmt.Sprintf("Invalid response from search: %s", msg)
+		return id.ZeroID, fmt.Sprintf("Invalid response from search: %s", msg)
 	}
 
-	cMixUID, err := strconv.ParseUint(resParts[3], 10, 64)
+	cMixUIDBytes, err := base64.StdEncoding.DecodeString(resParts[3])
 	if err != nil {
-		return 0, fmt.Sprintf("Couldn't parse search cMix UID: %s", msg)
+		return id.ZeroID, fmt.Sprintf("Couldn't parse search cMix UID: %s", msg)
 	}
+	cMixUID := new(id.UserID).SetBytes(cMixUIDBytes)
 
 	return cMixUID, resParts[4]
 }
@@ -171,6 +173,8 @@ func parseGetKey(msg string) []byte {
 // pushKey uploads the users' public key
 func pushKey(udbID *id.UserID, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
+	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
+		publicKeyString)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
@@ -186,6 +190,7 @@ func pushKey(udbID *id.UserID, keyFP string, publicKey []byte) error {
 
 // keyExists checks for the existence of a key on the bot
 func keyExists(udbID *id.UserID, keyFP string) bool {
+	globals.Log.DEBUG.Printf("Running keyexists for %q, %v", *udbID, keyFP)
 	cmd := parse.Pack(&parse.TypedBody{
 		Type: cmixproto.Type_UDB_GET_KEY,
 		Body: []byte(fmt.Sprintf("%s", keyFP)),

@@ -53,9 +53,11 @@ func VerifyRegisterGobUserID(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-	if Session.GetKeys()[0].PublicKey.Cmp(cyclic.NewInt(0)) != 0 {
+	if Session.GetPublicKey().Cmp(cyclic.NewIntFromBytes([]byte(
+		"this is not a real public key"))) != 0 {
 		t.Errorf("Public key was %v, expected %v",
-			Session.GetKeys()[0].PublicKey.Text(16), "0")
+			string(Session.GetPublicKey().Bytes()),
+			"this is not a real public key")
 	}
 	h := sha256.New()
 	h.Write([]byte(string(30005)))

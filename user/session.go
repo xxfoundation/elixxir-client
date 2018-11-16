@@ -45,7 +45,6 @@ type Session interface {
 }
 
 type NodeKeys struct {
-	PublicKey        *cyclic.Int
 	TransmissionKeys RatchetKey
 	ReceptionKeys    RatchetKey
 	ReceiptKeys      RatchetKey
@@ -58,7 +57,7 @@ type RatchetKey struct {
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.Int) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
@@ -66,6 +65,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys) Session {
 		GWAddress:    GatewayAddr, // FIXME: don't store this here
 		Keys:         nk,
 		PrivateKey:   cyclic.NewMaxInt(),
+		PublicKey:    publicKey,
 		InterfaceMap: make(map[string]interface{}),
 	})
 
@@ -119,6 +119,7 @@ type SessionObj struct {
 
 	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
+	PublicKey  *cyclic.Int
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -144,7 +145,7 @@ func (s *SessionObj) GetPrivateKey() *cyclic.Int {
 }
 
 func (s *SessionObj) GetPublicKey() *cyclic.Int {
-	return cyclic.NewMaxInt()
+	return s.PublicKey
 }
 
 // Return a copy of the current user
@@ -226,9 +227,9 @@ func (s *SessionObj) Immolate() error {
 	s.GWAddress = ""
 
 	clearCyclicInt(s.PrivateKey)
+	clearCyclicInt(s.PublicKey)
 
 	for i := 0; i < len(s.Keys); i++ {
-		clearCyclicInt(s.Keys[i].PublicKey)
 		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
 		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
 	}

@@ -65,6 +65,7 @@ func (m *messaging) SendMessage(recipientID *id.UserID,
 
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
+	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	userID := user.TheSession.GetCurrentUser().UserID
 	parts, err := parse.Partition([]byte(message),
 		parse.CurrentCounter.NextID())

@@ -63,7 +63,7 @@ func setup(t *testing.T) {
 		nk[i].ReceptionKeys.Recursive = grp.Inverse(
 			nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
 	}
-	user.TheSession = user.NewSession(u, "", nk)
+	user.TheSession = user.NewSession(u, "", nk, nil)
 }
 
 func TestEncryptDecrypt(t *testing.T) {

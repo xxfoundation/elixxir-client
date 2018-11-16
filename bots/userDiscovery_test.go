@@ -77,17 +77,18 @@ func TestRegister(t *testing.T) {
 func TestSearch(t *testing.T) {
 
 	// Send response messages from fake UDB in advance
-	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %d %s",
-		"blah@elixxir.io", 26, keyFingerprint)
+	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %s %s",
+		"blah@elixxir.io",
+		base64.StdEncoding.EncodeToString(id.NewUserIDFromUint(26, t)[:]),
+		keyFingerprint)
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		pubKeyBits)
 
-	contacts, err := Search("EMAIL", "blah@elixxir.io")
+	searchedUserID, _, err := Search("EMAIL", "blah@elixxir.io")
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}
-	_, ok := contacts[26]
-	if !ok {
+	if *searchedUserID != *id.NewUserIDFromUint(26, t) {
 		t.Errorf("Search did not return user ID 26!")
 	}
 }

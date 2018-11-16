@@ -261,7 +261,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				parseUdbMessage(message)
+				fmt.Println(parseUdbMessage(message))
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)
@@ -397,8 +397,8 @@ func initLog() {
 		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
 	// If verbose flag set then log more info for debugging
 	if verbose || viper.GetBool("verbose") {
-		globals.Log.SetLogThreshold(jww.LevelInfo)
-		globals.Log.SetStdoutThreshold(jww.LevelInfo)
+		globals.Log.SetLogThreshold(jww.LevelDebug)
+		globals.Log.SetStdoutThreshold(jww.LevelDebug)
 		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	} else {
 		globals.Log.SetLogThreshold(jww.LevelWarn)

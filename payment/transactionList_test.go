@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"math/rand"
 	"math"
+	"gitlab.com/elixxir/crypto/cyclic"
 )
 
 // Shows that CreateTransactionList creates new storage properly
@@ -26,7 +27,7 @@ func TestCreateTransactionList_New(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{})
+		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	// show that the ordered list does not exist
 	key := "TestTransactionList"
@@ -72,7 +73,7 @@ func TestCreateTransactionList_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	// show that the transaction list does not exist
 	key := "TestTransactionList"
@@ -116,7 +117,7 @@ func TestTransactionList_Value(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -138,7 +139,7 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 
@@ -164,7 +165,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -198,7 +199,7 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	key := "TestTransactionList"
 
@@ -241,7 +242,7 @@ func TestTransactionList_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -286,7 +287,7 @@ func TestTransactionList_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -331,7 +332,7 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -365,7 +366,7 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	key := "TestTransactionList"
 
@@ -430,7 +431,7 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{})
+		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 	transactionMap := make(map[parse.MessageHash]*Transaction)
 	transactions := TransactionList{
 		transactionMap: &transactionMap,

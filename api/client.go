@@ -85,7 +85,6 @@ func Register(registrationCode string, gwAddr string,
 	}
 
 	nodekeys, successKeys := user.Users.LookupKeys(u.UserID)
-	nodekeys.PublicKey = cyclic.NewInt(0)
 
 	if !successKeys {
 		globals.Log.ERROR.Printf("Register: could not find user keys")
@@ -99,7 +98,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewSession(u, gwAddr, nk)
+	nus := user.NewSession(u, gwAddr, nk, cyclic.NewIntFromBytes([]byte("this is not a real public key")))
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
@@ -163,13 +162,9 @@ func Login(UID *id.UserID, addr string) (user.Session, error) {
 	user.TheSession = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
-	// FIXME listenCh won't exist - how do you tell if the reception thread
-	// is running?
-	if listenCh == nil {
-		go io.Messaging.MessageReceiver(pollWaitTimeMillis)
-	} else {
-		globals.Log.ERROR.Printf("Message receiver already started!")
-	}
+	// TODO Don't start the message receiver if it's already started.
+	// Should be a pretty rare occurrence except perhaps for mobile.
+	go io.Messaging.MessageReceiver(pollWaitTimeMillis)
 
 	return session, nil
 }
@@ -263,8 +258,8 @@ func GetContactList() ([]*id.UserID, []string) {
 
 func RegisterForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
-	userExists, err := bots.Search(valueType, emailAddress)
-	if userExists != nil {
+	userId, _, err := bots.Search(valueType, emailAddress)
+	if userId != nil {
 		globals.Log.DEBUG.Printf("Already registered %s", emailAddress)
 		return nil
 	}
@@ -273,20 +268,11 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	}
 
 	publicKey := user.TheSession.GetPublicKey()
-	// Does cyclic do auto-pad? probably not...
-	publicKeyBytes := publicKey.Bytes()
-	fixedPubBytes := make([]byte, 256)
-	for i := range publicKeyBytes {
-		idx := len(fixedPubBytes) - i - 1
-		if idx < 0 {
-			globals.Log.FATAL.Panicf("pubkey exceeds 2048 bit length!")
-		}
-		fixedPubBytes[idx] = publicKeyBytes[idx]
-	}
-	return bots.Register(valueType, emailAddress, fixedPubBytes)
+	publicKeyBytes := publicKey.LeftpadBytes(256)
+	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
-func SearchForUser(emailAddress string) (map[uint64][]byte, error) {
+func SearchForUser(emailAddress string) (*id.UserID, []byte, error) {
 	valueType := "EMAIL"
 	return bots.Search(valueType, emailAddress)
 }

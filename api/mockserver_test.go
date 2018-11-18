@@ -13,14 +13,14 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/id"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/comms/gateway"
-	"gitlab.com/elixxir/crypto/id"
-	"gitlab.com/elixxir/crypto/cyclic"
 )
 
 var gwAddress = "localhost:8080"
@@ -56,7 +56,8 @@ func TestInitClient(t *testing.T) {
 }
 
 func TestRegister(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
@@ -74,7 +75,8 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisterBadNumNodes(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
@@ -89,7 +91,8 @@ func TestRegisterBadNumNodes(t *testing.T) {
 }
 
 func TestRegisterBadHUID(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
@@ -104,7 +107,8 @@ func TestRegisterBadHUID(t *testing.T) {
 }
 
 func TestRegisterDeletedUser(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
@@ -133,7 +137,7 @@ func SetNulKeys() {
 }
 
 func TestSend(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, &GatewayData)
+	gwShutDown := gateway.StartGateway(gwAddress, &GatewayData, "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
@@ -154,7 +158,7 @@ func TestSend(t *testing.T) {
 
 	// Test send with invalid sender ID
 	err = Send(APIMessage{SenderID: id.NewUserIDFromUint(12, t),
-		Payload: []byte("test"),
+		Payload:     []byte("test"),
 		RecipientID: userID})
 	if err != nil {
 		// TODO: would be nice to catch the sender but we
@@ -171,7 +175,8 @@ func TestSend(t *testing.T) {
 }
 
 func TestLogout(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 

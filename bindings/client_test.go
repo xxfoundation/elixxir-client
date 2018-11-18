@@ -9,19 +9,19 @@ package bindings
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/crypto/id"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
-	"gitlab.com/elixxir/comms/gateway"
-	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/client/parse"
 )
 
 const gwAddress = "localhost:5557"
@@ -111,7 +111,8 @@ func (br *BytesReceiver) Receive(message Message) {
 }
 
 func TestRegister(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
@@ -129,7 +130,8 @@ func TestRegister(t *testing.T) {
 }
 
 func TestRegisterBadNumNodes(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
@@ -144,7 +146,8 @@ func TestRegisterBadNumNodes(t *testing.T) {
 }
 
 func TestLoginLogout(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, gateway.NewImplementation())
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"

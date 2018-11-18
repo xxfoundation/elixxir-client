@@ -8,26 +8,29 @@
 package cmd
 
 import (
-	"math/big"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/mitchellh/go-homedir"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/bindings"
 	"gitlab.com/elixxir/client/bots"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/id"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
-	"gitlab.com/elixxir/client/cmixproto"
 )
 
 var verbose bool
@@ -228,6 +231,9 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
+		// Set the GatewayCertPath explicitly to avoid data races
+		connect.GatewayCertPath = getFullPath(viper.GetString("certPath"))
+
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -386,6 +392,22 @@ func init() {
 	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
+}
+
+// Given a path, replace a "~" character
+// with the home directory to return a full file path
+func getFullPath(path string) string {
+	if len(path) > 0 && path[0] == '~' {
+		// Find home directory.
+		home, err := homedir.Dir()
+		if err != nil {
+			jww.ERROR.Println(err)
+			os.Exit(1)
+		}
+		// Append the home directory to the path
+		return home + strings.TrimLeft(path, "~")
+	}
+	return path
 }
 
 // initConfig reads in config file and ENV variables if set.

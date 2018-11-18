@@ -52,6 +52,8 @@ logPath: "client.log"
 numnodes : 3
 sessionstore: "session.data"
 textcolor: -1
+# File path to the gateway cert for TLS
+certPath: ""
 gateways:
     - "gateway-0.prod.cmix.rip:11420"
     - "gateway-1.prod.cmix.rip:11420"

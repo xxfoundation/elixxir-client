@@ -43,6 +43,7 @@ var noBlockingTransmission bool
 var mint bool
 var rateLimiting uint32
 var showVer bool
+var certPath string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -230,8 +231,7 @@ var rootCmd = &cobra.Command{
 		var timer *time.Timer
 
 		// Set the GatewayCertPath explicitly to avoid data races
-		// TODO: Broken due to client creating multiple comms instances
-		connect.GatewayCertPath = viper.GetString("certPath")
+		connect.GatewayCertPath = certPath
 
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
@@ -369,6 +369,8 @@ func init() {
 		"ID to sign in as")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
+	rootCmd.PersistentFlags().StringVarP(&certPath, "certpath", "c", "",
+		"Path to the certificate file for connecting to gateway using TLS")
 	// TODO: support this negotiating separate keys with different servers
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+

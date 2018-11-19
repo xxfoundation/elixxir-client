@@ -8,7 +8,6 @@
 package cmd
 
 import (
-	"math/big"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -17,17 +16,19 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/bindings"
 	"gitlab.com/elixxir/client/bots"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/id"
 	"io/ioutil"
 	"log"
+	"math/big"
 	"os"
 	"sync/atomic"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
-	"gitlab.com/elixxir/client/cmixproto"
 )
 
 var verbose bool
@@ -42,6 +43,7 @@ var noBlockingTransmission bool
 var mint bool
 var rateLimiting uint32
 var showVer bool
+var certPath string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -228,6 +230,9 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
+		// Set the GatewayCertPath explicitly to avoid data races
+		connect.GatewayCertPath = certPath
+
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -364,6 +369,8 @@ func init() {
 		"ID to sign in as")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
+	rootCmd.PersistentFlags().StringVarP(&certPath, "certpath", "c", "",
+		"Path to the certificate file for connecting to gateway using TLS")
 	// TODO: support this negotiating separate keys with different servers
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+

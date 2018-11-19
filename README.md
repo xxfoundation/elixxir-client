@@ -42,22 +42,6 @@ Optional args:
 |--help|-h|Prints a help message with all of these flags|-h|
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 
-##Example Configuration File
-
-Note: don't use tabs in your yaml. Doing this will cause the file to fail 
-parsing.
-
-```yaml
-logPath: "client.log"
-numnodes : 3
-sessionstore: "session.data"
-textcolor: -1
-gateways:
-    - "gateway-0.prod.cmix.rip:11420"
-    - "gateway-1.prod.cmix.rip:11420"
-    - "gateway-2.prod.cmix.rip:11420"
-```
-
 ##Project Structure
 
 `api` package contains functions that clients written in Go should call to do

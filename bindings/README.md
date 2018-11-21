@@ -39,6 +39,10 @@ In short, if you're implementing a client, your client must be able to do the fo
 
 How to do each of these things with the current payments API follows. Assume that `w` is a reference or pointer to the active wallet. Assume that `CmixProto` is an imported package with proto buffer code generated in Java. The code is written in Java-like pseudocode. Of course, you should structure your own code in the best way for your own application.
 
+#### 0. Actually having tokens to spend
+
+To actually have tokens to spend, you must mint the same tokens as are on the payment bot. Currently, the tokens are hard-coded. To do this, pass `true` to the last parameter of `Bindings.Register()`. Then, there will be tokens that are stored in the wallet that happen to be the same as the tokens that are stored on the payment bot (when the payment bot is run with `--mint`), and the client will be able to spend them.
+
 #### 1. Send an invoice to another user on the payee's client
 
 First, generate the invoice, then send it.

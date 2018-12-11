@@ -40,7 +40,7 @@ Optional args:
 |--noBlockingTransmission| |Disables transmission rate limiting (useful for dummy client)|--noBlockingTransmission|
 |--mint| |Creates some coins for this user for testing and demos|--mint|
 |--help|-h|Prints a help message with all of these flags|-h|
-|--certpath|-c|Enables TLS by passing in path to the gateway certificate file|-c|
+|--certpath|-c|Enables TLS by passing in path to the gateway certificate file|-c "~/Documents/gateway.cert"|
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 
 ##Project Structure

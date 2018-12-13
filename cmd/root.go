@@ -231,7 +231,7 @@ var rootCmd = &cobra.Command{
 		var timer *time.Timer
 
 		// Set the GatewayCertPath explicitly to avoid data races
-		connect.GatewayCertPath = certPath
+		SetCertPath(certPath)
 
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
@@ -393,6 +393,11 @@ func init() {
 	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
+}
+
+// Sets the cert path in comms
+func SetCertPath(path string) {
+	connect.GatewayCertPath = path
 }
 
 // initConfig reads in config file and ENV variables if set.

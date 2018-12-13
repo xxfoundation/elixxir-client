@@ -325,7 +325,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 	// Fund from ordered coin storage
 	// TODO calculate max coins programmatically? depends on wallet state
 	// because change may or may not be present
-	funds, change, err := w.coinStorage.Fund(inboundRequest.Value, 4)
+	funds, change, err := w.coinStorage.Fund(inboundRequest.Value, 3)
 	if err != nil {
 		return nil, err
 	}

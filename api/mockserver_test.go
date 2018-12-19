@@ -146,7 +146,7 @@ func TestSend(t *testing.T) {
 	err := InitClient(&d, "hello")
 	registrationCode := "UAV6IWD6"
 	userID, err := Register(registrationCode, gwAddress, 1, false)
-	session, err2 := Login(userID, gwAddress)
+	session, err2 := Login(userID, gwAddress, nil)
 	SetNulKeys()
 
 	if err2 != nil {

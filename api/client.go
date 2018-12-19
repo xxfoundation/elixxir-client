@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/comms/connect"
 )
 
 // Populates a text message and returns its wire representation
@@ -125,12 +126,15 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID *id.UserID, addr string) (user.Session, error) {
+func Login(UID *id.UserID, addr string, tlsCert []byte) (user.Session, error) {
+
+	connect.GatewayCertBytes = tlsCert
 
 	session, err := user.LoadSession(UID)
 
 	if session == nil {
-		return nil, errors.New("Unable to load session")
+		return nil, errors.New("Unable to load session: " + err.Error() +
+			fmt.Sprintf("Passed parameters: %q, %s, %q", *UID, addr, tlsCert))
 	}
 
 	theWallet, err = payment.CreateWallet(session, false)

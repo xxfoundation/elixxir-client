@@ -159,9 +159,9 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
-func Login(UID []byte, addr string) (string, error) {
+func Login(UID []byte, addr string, tlsCert []byte) (string, error) {
 	userID := new(id.UserID).SetBytes(UID)
-	session, err := api.Login(userID, addr)
+	session, err := api.Login(userID, addr, tlsCert)
 	if err != nil || session == nil {
 		return "", err
 	} else {

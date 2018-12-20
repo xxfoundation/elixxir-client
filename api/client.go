@@ -126,7 +126,7 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID *id.UserID, addr string, tlsCert []byte) (user.Session, error) {
+func Login(UID *id.UserID, addr string, tlsCert string) (user.Session, error) {
 
 	connect.GatewayCertBytes = tlsCert
 

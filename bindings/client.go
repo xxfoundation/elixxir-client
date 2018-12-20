@@ -159,6 +159,10 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
+// tlsCert must be a string rather than a []byte because strings get automatically
+// re-encoded to be Go compatible by Gomobile
+// tlsCert should be a pem formatted TLS certificate, with a --- BEGIN CERTIFICATE---
+// line, several lines of base64 data, and an --- END CERTIFICATE --- line.
 func Login(UID []byte, addr string, tlsCert string) (string, error) {
 	userID := new(id.UserID).SetBytes(UID)
 	session, err := api.Login(userID, addr, tlsCert)

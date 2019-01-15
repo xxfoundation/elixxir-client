@@ -128,7 +128,7 @@ func Register(registrationCode string, gwAddr string,
 // returns an empty sting if login fails.
 func Login(UID *id.UserID, addr string, tlsCert string) (user.Session, error) {
 
-	connect.GatewayCertBytes = tlsCert
+	connect.GatewayCertString = tlsCert
 
 	session, err := user.LoadSession(UID)
 

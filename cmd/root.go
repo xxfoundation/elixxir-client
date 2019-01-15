@@ -129,7 +129,7 @@ func sessionInitialization() {
 
 	// Log the user in
 	uid := id.NewUserIDFromUint(userId, nil)
-	_, err = bindings.Login(uid[:], gwAddr, nil)
+	_, err = bindings.Login(uid[:], gwAddr, "")
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")

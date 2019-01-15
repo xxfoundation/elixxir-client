@@ -15,6 +15,8 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/switchboard"
 	"sync"
+	"gitlab.com/elixxir/crypto/certs"
+	"gitlab.com/elixxir/client/user"
 )
 
 // Copy of the storage interface.
@@ -159,9 +161,19 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
-func Login(UID []byte, addr string) (string, error) {
+// Currently there's only one possibility that makes sense for the TLS
+// certificate and it's in the crypto repository. So, if you leave the TLS
+// certificate string empty, the bindings will use that certificate. We probably
+// need to rethink this. In other words, tlsCert is optional.
+func Login(UID []byte, addr string, tlsCert string) (string, error) {
 	userID := new(id.UserID).SetBytes(UID)
-	session, err := api.Login(userID, addr)
+	var err error
+	var session user.Session
+	if tlsCert == "" {
+		session, err = api.Login(userID, addr, certs.GatewayTLS)
+	} else {
+		session, err = api.Login(userID, addr, tlsCert)
+	}
 	if err != nil || session == nil {
 		return "", err
 	} else {

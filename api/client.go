@@ -30,7 +30,7 @@ import (
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
 	textMessage := cmixproto.TextMessage{
-		Color:   0,
+		Color:   -1,
 		Message: message,
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)

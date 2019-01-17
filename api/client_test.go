@@ -15,6 +15,9 @@ import (
 	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"crypto/sha256"
+	"gitlab.com/elixxir/client/cmixproto"
+	"github.com/golang/protobuf/proto"
+	"time"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -126,16 +129,27 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 }
 
-// This test doesn't actually test anything useful and you should feel free
-// to remove it if you need to.
-// It dumps the binary representation of the formatted text message.
-// This is unlikely to start failing out of the blue, but it could happen
-// if the text message proto buffer format changes or if there's a breaking
-// update to protobuf.
+// Make sure that a formatted text message can deserialize to the text
+// message we would expect
 func TestFormatTextMessage(t *testing.T) {
-	msg := FormatTextMessage("hello")
-	if !bytes.Equal(msg, []byte("\x1a\x05hello")) {
-		t.Error("Text message wasn't formatted as expected")
+	msgText := "Hello"
+	msg := FormatTextMessage(msgText)
+	parsed := cmixproto.TextMessage{}
+	err := proto.Unmarshal(msg, &parsed)
+	// Make sure it parsed correctly
+	if err != nil {
+		t.Errorf("Got error parsing text message: %v", err.Error())
+	}
+	// Check the field that we explicitly set by calling the method
+	if parsed.Message != msgText {
+		t.Errorf("Got wrong text from parsing message. Got %v, expected %v",
+			parsed.Message, msgText)
+	}
+	// Make sure that timestamp is reasonable
+	timeDifference := time.Now().Unix() - parsed.Time
+	if timeDifference > 2 || timeDifference < -2 {
+		t.Errorf("Message timestamp was off by more than one second. " +
+			"Original time: %x, parsed time: %x", time.Now().Unix(), parsed.Time)
 	}
 	t.Logf("message: %q", msg)
 }

@@ -30,8 +30,9 @@ import (
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
 	textMessage := cmixproto.TextMessage{
-		Color:   0,
+		Color:   -1,
 		Message: message,
+		Time:    time.Now().Unix(),
 	}
 	wireRepresentation, _ := proto.Marshal(&textMessage)
 	return wireRepresentation
@@ -289,7 +290,7 @@ func Wallet() *payment.Wallet {
 		theWallet, err = payment.CreateWallet(user.TheSession, false)
 		theWallet.RegisterListeners()
 		if err != nil {
-			globals.Log.ERROR.Println("Wallet(" +
+			globals.Log.ERROR.Println("Wallet("+
 				"): Got an error creating the wallet.", err.Error())
 		}
 	}

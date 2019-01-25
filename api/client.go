@@ -7,6 +7,7 @@
 package api
 
 import (
+	goio "io"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -295,4 +296,9 @@ func Wallet() *payment.Wallet {
 		}
 	}
 	return theWallet
+}
+
+// Set the output of the
+func SetLogOutput(w goio.Writer) {
+	globals.Log.SetLogOutput(w)
 }

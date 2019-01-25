@@ -17,6 +17,7 @@ import (
 	"sync"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/client/user"
+	"io"
 )
 
 // Copy of the storage interface.
@@ -47,7 +48,7 @@ type Message interface {
 	GetType() int32
 }
 
-//  Translate a bindings message to a parse message
+// Translate a bindings message to a parse message
 // An object implementing this interface can be called back when the client
 // gets a message of the type that the registerer specified at registration
 // time.
@@ -276,4 +277,10 @@ func (s *storageProxy) Lock() {
 
 func (s *storageProxy) Unlock() {
 	s.lock.Unlock()
+}
+
+type Writer interface { io.Writer }
+
+func SetLogOutput(w Writer) {
+	api.SetLogOutput(w)
 }

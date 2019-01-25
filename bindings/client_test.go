@@ -22,6 +22,7 @@ import (
 	"os"
 	"testing"
 	"time"
+	"bytes"
 )
 
 const gwAddress = "localhost:5557"
@@ -230,5 +231,24 @@ func TestStopListening(t *testing.T) {
 	})
 	if listener {
 		t.Error("Message was received after we stopped listening for it")
+	}
+}
+
+type MockWriter struct {
+	lastMessage []byte
+}
+
+func (mw *MockWriter) Write(msg []byte) (int, error) {
+	mw.lastMessage = msg
+	return len(msg), nil
+}
+
+func TestSetLogOutput(t *testing.T) {
+	mw := &MockWriter{}
+	SetLogOutput(mw)
+	msg := "Test logging message"
+	globals.Log.CRITICAL.Print(msg)
+	if !bytes.Contains(mw.lastMessage, []byte(msg)) {
+		t.Errorf("Mock writer didn't get the logging message")
 	}
 }

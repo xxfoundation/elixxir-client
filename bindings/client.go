@@ -10,7 +10,6 @@ import (
 	"errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/switchboard"
@@ -18,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/client/user"
 	"io"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Copy of the storage interface.

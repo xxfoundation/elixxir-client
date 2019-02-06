@@ -10,10 +10,10 @@ import (
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"testing"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +

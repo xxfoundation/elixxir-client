@@ -10,8 +10,8 @@ package api
 import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"sync"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // APIMessage are an implementation of the interface in bindings and API

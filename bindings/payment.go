@@ -8,12 +8,12 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/parse"
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/payment"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Currently there's only one wallet that you can get

@@ -8,7 +8,7 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 	"gitlab.com/elixxir/client/cmixproto"
 )
 

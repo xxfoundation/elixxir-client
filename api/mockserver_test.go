@@ -16,11 +16,11 @@ import (
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/id"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 var gwAddress = "localhost:8080"

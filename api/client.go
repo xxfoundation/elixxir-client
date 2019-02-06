@@ -19,10 +19,10 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/connect"
 )

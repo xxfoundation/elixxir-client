@@ -15,8 +15,8 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Shows that CreateOrderedStorage creates new storage properly

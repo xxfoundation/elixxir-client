@@ -15,7 +15,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"math/rand"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Errors

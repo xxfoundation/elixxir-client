@@ -17,12 +17,12 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/format"
-	"gitlab.com/elixxir/crypto/id"
 	"os"
 	"testing"
 	"time"
 	"bytes"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 const gwAddress = "localhost:5557"

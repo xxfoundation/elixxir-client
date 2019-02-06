@@ -9,13 +9,13 @@ package io
 import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/format"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 func TestCollator_AddMessage(t *testing.T) {

@@ -19,11 +19,11 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"sync"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 type messaging struct{}

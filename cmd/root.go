@@ -22,13 +22,13 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
-	"gitlab.com/elixxir/crypto/id"
 	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
 	"sync/atomic"
 	"time"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 var verbose bool

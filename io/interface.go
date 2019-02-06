@@ -9,7 +9,7 @@ package io
 
 import (
 	"time"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Communication interface implements send/receive functionality with the server

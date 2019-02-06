@@ -17,7 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"strings"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // UdbID is the ID of the user discovery bot, which is always 13

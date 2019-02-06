@@ -12,11 +12,11 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/crypto/format"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 var ListenCh chan *format.Message

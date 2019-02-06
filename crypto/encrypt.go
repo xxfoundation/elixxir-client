@@ -8,7 +8,7 @@ package crypto
 
 import (
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/crypto/verification"
 )
 

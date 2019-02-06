@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Tests whether invoice transactions get stored in the session correctly

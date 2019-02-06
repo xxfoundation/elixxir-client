@@ -11,7 +11,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"testing"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // TestUserRegistry tests the constructors/getters/setters

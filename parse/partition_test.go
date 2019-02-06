@@ -8,9 +8,9 @@ package parse
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/crypto/format"
 	"math/rand"
 	"testing"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 func randomString(seed int64, length int) []byte {

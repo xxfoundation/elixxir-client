@@ -14,11 +14,11 @@ import (
 	"reflect"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/cmixproto"
 	"math/rand"
 	"math"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Shows that CreateTransactionList creates new storage properly

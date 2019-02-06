@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/crypto/coin"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 type Transaction struct {

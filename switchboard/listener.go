@@ -13,7 +13,7 @@ import (
 	"sync"
 	"reflect"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary

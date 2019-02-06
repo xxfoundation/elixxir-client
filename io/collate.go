@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	"sync"
 	"time"
 )

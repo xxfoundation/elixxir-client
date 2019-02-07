@@ -23,7 +23,7 @@ func GetActiveWallet() *Wallet {
 }
 
 func (w *Wallet) Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := new(id.UserID).SetBytes(userId)
+	typedUserId := new(userid.UserID).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -44,7 +44,7 @@ func (w *Wallet) GetAvailableFunds() int64 {
 // Value: must be positive
 // Send the returned message unless you get an error
 func (w *Wallet) Invoice(payer []byte, value int64, memo string) (Message, error) {
-	userId := new(id.UserID).SetBytes(payer)
+	userId := new(userid.UserID).SetBytes(payer)
 	msg, err := w.wallet.Invoice(userId, value, memo)
 	return &parse.BindingsMessageProxy{Proxy: msg}, err
 }

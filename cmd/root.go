@@ -119,7 +119,7 @@ func sessionInitialization() {
 		// FIXME Use a different encoding for the user ID command line argument,
 		// to allow testing with IDs that are long enough to exercise more than
 		// 64 bits
-		regCode := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
+		regCode := new(userid.UserID).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		_, err := bindings.Register(regCode, gwAddr, int(numNodes), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
@@ -128,7 +128,7 @@ func sessionInitialization() {
 	}
 
 	// Log the user in
-	uid := id.NewUserIDFromUint(userId, nil)
+	uid := userid.NewUserIDFromUint(userId, nil)
 	_, err = bindings.Login(uid[:], gwAddr, "")
 
 	if err != nil {
@@ -202,11 +202,11 @@ func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	fmt.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	speakerId := new(id.UserID).SetBytes(result.SpeakerID)
+	speakerId := new(userid.UserID).SetBytes(result.SpeakerID)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,
-		Receiver:  id.ZeroID,
+		Receiver:  userid.ZeroID,
 	})
 	atomic.AddInt64(&l.messagesReceived, 1)
 }
@@ -237,13 +237,13 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_TEXT_MESSAGE, &text, switchboard.Listeners)
+		api.Listen(userid.ZeroID, cmixproto.Type_TEXT_MESSAGE, &text, switchboard.Listeners)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_CHANNEL_MESSAGE, &channel, switchboard.Listeners)
+		api.Listen(userid.ZeroID, cmixproto.Type_CHANNEL_MESSAGE, &channel, switchboard.Listeners)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_NO_TYPE, &fallback, switchboard.Listeners)
+		api.Listen(userid.ZeroID, cmixproto.Type_NO_TYPE, &fallback, switchboard.Listeners)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -254,8 +254,8 @@ var rootCmd = &cobra.Command{
 		sessionInitialization()
 
 		// Only send a message if we have a message to send (except dummy messages)
-		recipientId := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
-		senderId := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, userId})
+		recipientId := new(userid.UserID).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
+		senderId := new(userid.UserID).SetUints(&[4]uint64{0, 0, 0, userId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""

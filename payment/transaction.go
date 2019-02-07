@@ -20,8 +20,8 @@ type Transaction struct {
 	Destroy []coin.Sleeve
 	Change  coin.Sleeve
 
-	Sender    *id.UserID
-	Recipient *id.UserID
+	Sender    *userid.UserID
+	Recipient *userid.UserID
 
 	Memo string
 

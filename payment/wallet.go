@@ -146,21 +146,21 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
+	switchboard.Listeners.Register(userid.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
 		&InvoiceListener{
 			wallet: w,
 		})
 	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
+	switchboard.Listeners.Register(userid.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
 		&ReceiptListener{
 			wallet: w,
 		})
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of
-func createInvoice(payer *id.UserID, payee *id.UserID, value uint64,
+func createInvoice(payer *userid.UserID, payee *userid.UserID, value uint64,
 	memo string) (*Transaction, error) {
 	newCoin, err := coin.NewSleeve(value)
 
@@ -187,7 +187,7 @@ func (w *Wallet) registerInvoice(invoice *Transaction) error {
 
 // Creates, formats, and registers an invoice in the outgoing requests
 // Assumes that the payee is the current user in the session
-func (w *Wallet) Invoice(payer *id.UserID, value int64,
+func (w *Wallet) Invoice(payer *userid.UserID, value int64,
 	memo string) (*parse.Message, error) {
 
 	if value <= 0 {
@@ -269,13 +269,13 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
-		Receiver: id.ZeroID,
+		Receiver: userid.ZeroID,
 		Nonce:    nil,
 	})
 }
 
-func getPaymentBotID() *id.UserID {
-	return new(id.UserID).SetUints(&[4]uint64{0,0,0,17})
+func getPaymentBotID() *userid.UserID {
+	return new(userid.UserID).SetUints(&[4]uint64{0,0,0,17})
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,
@@ -466,7 +466,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 				Body: invoiceID[:],
 			},
 			Sender:   msg.Sender,
-			Receiver: id.ZeroID,
+			Receiver: userid.ZeroID,
 			Nonce:    nil,
 		})
 	}

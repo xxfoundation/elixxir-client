@@ -25,25 +25,25 @@ var DemoChannelNames = []string{"#General", "#Engineering", "#Lunch",
 
 // Interface for User Registry operations
 type Registry interface {
-	NewUser(id *id.UserID, nickname string) *User
-	DeleteUser(id *id.UserID)
-	GetUser(id *id.UserID) (user *User, ok bool)
+	NewUser(id *userid.UserID, nickname string) *User
+	DeleteUser(id *userid.UserID)
+	GetUser(id *userid.UserID) (user *User, ok bool)
 	UpsertUser(user *User)
 	CountUsers() int
-	LookupUser(hid string) (uid *id.UserID, ok bool)
-	LookupKeys(uid *id.UserID) (*NodeKeys, bool)
+	LookupUser(hid string) (uid *userid.UserID, ok bool)
+	LookupKeys(uid *userid.UserID) (*NodeKeys, bool)
 }
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
-	userCollection map[id.UserID]*User
+	userCollection map[userid.UserID]*User
 	// Increments sequentially for User.ID values
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	// Key type is string because keys must implement == and []byte doesn't
-	userLookup map[string]*id.UserID
+	userLookup map[string]*userid.UserID
 	//Temporary placed to store the keys for each user
-	keysLookup map[id.UserID]*NodeKeys
+	keysLookup map[userid.UserID]*NodeKeys
 }
 
 // newRegistry creates a new Registry interface
@@ -51,14 +51,14 @@ func newRegistry() Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
-	uc := make(map[id.UserID]*User)
-	ul := make(map[string]*id.UserID)
-	nk := make(map[id.UserID]*NodeKeys)
+	uc := make(map[userid.UserID]*User)
+	ul := make(map[string]*userid.UserID)
+	nk := make(map[userid.UserID]*NodeKeys)
 
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery
 	for i := uint64(1); i <= NUM_DEMO_USERS; i++ {
-		currentID := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, i})
+		currentID := new(userid.UserID).SetUints(&[4]uint64{0, 0, 0, i})
 		t := new(User)
 		k := new(NodeKeys)
 
@@ -93,12 +93,12 @@ func newRegistry() Registry {
 
 	// Channels have been hardcoded to users starting with 31
 	for i := 0; i < len(DemoUserNicks); i++ {
-		currentID := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
+		currentID := new(userid.UserID).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
 		uc[*currentID].Nick = DemoUserNicks[i]
 	}
 
 	for i := 0; i < len(DemoChannelNames); i++ {
-		currentID := new(id.UserID).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
+		currentID := new(userid.UserID).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
 		uc[*currentID].Nick = DemoChannelNames[i]
 	}
 
@@ -111,7 +111,7 @@ func newRegistry() Registry {
 
 // Struct representing a User in the system
 type User struct {
-	UserID *id.UserID
+	UserID *userid.UserID
 	Nick   string
 }
 
@@ -127,20 +127,20 @@ func (u *User) DeepCopy() *User {
 }
 
 // NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id *id.UserID, nickname string) *User {
+func (m *UserMap) NewUser(id *userid.UserID, nickname string) *User {
 	return &User{UserID: id, Nick: nickname}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id *id.UserID) (user *User, ok bool) {
+func (m *UserMap) GetUser(id *userid.UserID) (user *User, ok bool) {
 	user, ok = m.userCollection[*id]
 	user = user.DeepCopy()
 	return
 }
 
 // DeleteUser deletes a user with the given ID from userCollection.
-func (m *UserMap) DeleteUser(id *id.UserID) {
+func (m *UserMap) DeleteUser(id *userid.UserID) {
 	// If key does not exist, do nothing
 	delete(m.userCollection, *id)
 }
@@ -157,13 +157,13 @@ func (m *UserMap) CountUsers() int {
 }
 
 // LookupUser returns the user id corresponding to the demo registration code
-func (m *UserMap) LookupUser(hid string) (*id.UserID, bool) {
+func (m *UserMap) LookupUser(hid string) (*userid.UserID, bool) {
 	uid, ok := m.userLookup[hid]
 	return uid, ok
 }
 
 // LookupKeys returns the keys for the given user from the temporary key map
-func (m *UserMap) LookupKeys(uid *id.UserID) (*NodeKeys, bool) {
+func (m *UserMap) LookupKeys(uid *userid.UserID) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[*uid]
 	return nk, t
 }

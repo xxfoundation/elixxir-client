@@ -47,7 +47,7 @@ func setup(t *testing.T) {
 		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
 	Grp = &grp
 
-	u, _ := user.Users.GetUser(id.NewUserIDFromUint(1, t))
+	u, _ := user.Users.GetUser(userid.NewUserIDFromUint(1, t))
 
 	nk := make([]user.NodeKeys, 1)
 
@@ -69,8 +69,8 @@ func setup(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	setup(t)
 
-	sender := id.NewUserIDFromUint(38, t)
-	recipient := id.NewUserIDFromUint(29, t)
+	sender := userid.NewUserIDFromUint(38, t)
+	recipient := userid.NewUserIDFromUint(29, t)
 	msg, err := format.NewMessage(sender, recipient, []byte("help me, " +
 		"i'm stuck in an"+
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory"))

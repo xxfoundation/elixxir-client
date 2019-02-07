@@ -25,7 +25,7 @@ import (
 func TestCreateTransactionList_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
@@ -72,7 +72,7 @@ func TestCreateTransactionList_New(t *testing.T) {
 func TestCreateTransactionList_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	// show that the transaction list does not exist
@@ -116,7 +116,7 @@ func TestTransactionList_Value(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	src := rand.NewSource(42)
@@ -138,7 +138,7 @@ func TestTransactionList_Value(t *testing.T) {
 func TestTransactionList_Upsert_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	tMap := make(map[parse.MessageHash]*Transaction)
@@ -148,8 +148,8 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{0, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tl.upsert(t1Hash, &t1)
@@ -164,14 +164,14 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 func TestTransactionList_Upsert_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
@@ -182,8 +182,8 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
 		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{2}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tl.upsert(t2Hash, &t2)
@@ -198,7 +198,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 func TestTransactionList_Upsert_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	key := "TestTransactionList"
@@ -212,8 +212,8 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{0, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tl.upsert(t1Hash, &t1)
@@ -241,21 +241,21 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 func TestTransactionList_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{0, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
 		TypedBody: parse.TypedBody{2, []byte{2}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
@@ -286,21 +286,21 @@ func TestTransactionList_Get(t *testing.T) {
 func TestTransactionList_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{0, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
 		TypedBody: parse.TypedBody{2, []byte{2}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
@@ -331,21 +331,21 @@ func TestTransactionList_Pop(t *testing.T) {
 func TestTransactionList_Pop_Invalid(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{0, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
 		TypedBody: parse.TypedBody{2, []byte{2}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tMap := make(map[parse.MessageHash]*Transaction)
@@ -365,7 +365,7 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 func TestTransactionList_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	key := "TestTransactionList"
@@ -379,15 +379,15 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
 		TypedBody: parse.TypedBody{0, []byte{0}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
 		TypedBody: parse.TypedBody{2, []byte{2}},
-		Sender:    id.ZeroID,
-		Receiver:  id.ZeroID,
+		Sender:    userid.ZeroID,
+		Receiver:  userid.ZeroID,
 	}.Hash()
 
 	tl.upsert(t1Hash, &t1)
@@ -430,7 +430,7 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	// populate a transaction list with some items
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 	transactionMap := make(map[parse.MessageHash]*Transaction)
 	transactions := TransactionList{

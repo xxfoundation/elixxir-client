@@ -26,7 +26,7 @@ func TestUserSession(t *testing.T) {
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	u.UserID = id.NewUserIDFromUint(UID, t)
+	u.UserID = userid.NewUserIDFromUint(UID, t)
 	u.Nick = "Mario"
 
 	keys := make([]NodeKeys, 1)
@@ -65,7 +65,7 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	_, err = LoadSession(id.NewUserIDFromUint(UID, t))
+	_, err = LoadSession(userid.NewUserIDFromUint(UID, t))
 
 	if err != nil {
 		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
@@ -73,7 +73,7 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	_, err = LoadSession(id.NewUserIDFromUint(10002, t))
+	_, err = LoadSession(userid.NewUserIDFromUint(10002, t))
 
 	if err == nil {
 		t.Errorf("Error: Able to login with invalid user!")
@@ -206,7 +206,7 @@ func TestUserSession(t *testing.T) {
 	temp := globals.LocalStorage
 	globals.LocalStorage = nil
 
-	_, err = LoadSession(id.NewUserIDFromUint(6, t))
+	_, err = LoadSession(userid.NewUserIDFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
@@ -219,7 +219,7 @@ func TestUserSession(t *testing.T) {
 	randBytes := h.Sum(nil)
 	globals.LocalStorage.Save(randBytes)
 
-	_, err = LoadSession(id.NewUserIDFromUint(6, t))
+	_, err = LoadSession(userid.NewUserIDFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
@@ -228,7 +228,7 @@ func TestUserSession(t *testing.T) {
 
 func TestGetPubKey(t *testing.T) {
 	u := new(User)
-	UID := id.NewUserIDFromUint(1, t)
+	UID := userid.NewUserIDFromUint(1, t)
 
 	u.UserID = UID
 	u.Nick = "Mario"

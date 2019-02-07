@@ -22,7 +22,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
 	for i := 0; i < len(DemoUserNicks); i++ {
-		currentID := id.NewUserIDFromUint(uint64(i+1), t)
+		currentID := userid.NewUserIDFromUint(uint64(i+1), t)
 		reg, ok := Users.LookupUser(currentID.RegistrationCode())
 		if !ok {
 			t.Errorf("Couldn't lookup user %q with code %v", *currentID,
@@ -41,7 +41,7 @@ func TestUserRegistry(t *testing.T) {
 		}
 	}
 	// Test the NewUser function
-	newID := id.NewUserIDFromUint(2002, t)
+	newID := userid.NewUserIDFromUint(2002, t)
 	usr := Users.NewUser(newID, "Will I am")
 
 	if usr.Nick != "Will I am" {
@@ -66,7 +66,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test LookupKeys
-	keys, suc := Users.LookupKeys(id.NewUserIDFromUint(1, t))
+	keys, suc := Users.LookupKeys(userid.NewUserIDFromUint(1, t))
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}
@@ -103,9 +103,9 @@ func TestUserRegistry(t *testing.T) {
 			keys.ReceptionKeys.Recursive.Text(16))
 	}
 	// Test delete user
-	Users.DeleteUser(id.NewUserIDFromUint(2, t))
+	Users.DeleteUser(userid.NewUserIDFromUint(2, t))
 
-	_, ok := Users.GetUser(id.NewUserIDFromUint(2, t))
+	_, ok := Users.GetUser(userid.NewUserIDFromUint(2, t))
 	if ok {
 		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
 	}
@@ -115,7 +115,7 @@ func TestUserRegistry(t *testing.T) {
 // the first several users
 func TestPrintRegCodes(t *testing.T) {
 	for i := 1; i <= NUM_DEMO_USERS; i++ {
-		currentID := id.NewUserIDFromUint(uint64(i), t)
+		currentID := userid.NewUserIDFromUint(uint64(i), t)
 		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
 	}
 }

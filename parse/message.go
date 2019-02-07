@@ -19,8 +19,8 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
-	Sender   *id.UserID
-	Receiver *id.UserID
+	Sender   *userid.UserID
+	Receiver *userid.UserID
 	Nonce    []byte
 }
 
@@ -28,12 +28,12 @@ type Message struct {
 type MessageInterface interface {
 	// Returns the message's sender ID
 	// (uint64) BigEndian serialized into a byte slice
-	GetSender() *id.UserID
+	GetSender() *userid.UserID
 	// Returns the message payload, without packed type
 	GetPayload() []byte
 	// Returns the message's recipient ID
 	// (uint64) BigEndian serialized into a byte slice
-	GetRecipient() *id.UserID
+	GetRecipient() *userid.UserID
 	// Return the message's type
 	GetType() cmixproto.Type
 	// Return the message fully serialized including the type prefix
@@ -59,11 +59,11 @@ func (m Message) Hash() MessageHash {
 	return mh
 }
 
-func (m *Message) GetSender() *id.UserID {
+func (m *Message) GetSender() *userid.UserID {
 	return m.Sender
 }
 
-func (m *Message) GetRecipient() *id.UserID {
+func (m *Message) GetRecipient() *userid.UserID {
 	return m.Receiver
 }
 

@@ -20,7 +20,7 @@ import (
 
 func TestCollator_AddMessage(t *testing.T) {
 
-	user.TheSession = user.NewSession(&user.User{id.NewUserIDFromUint(8, t),
+	user.TheSession = user.NewSession(&user.User{userid.NewUserIDFromUint(8, t),
 	"test"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
@@ -45,8 +45,8 @@ func TestCollator_AddMessage(t *testing.T) {
 		var result *parse.Message
 		for j := range partitions {
 
-			fm, errFNM := format.NewMessage(id.NewUserIDFromUint(5, t),
-				id.NewUserIDFromUint(6, t), partitions[j])
+			fm, errFNM := format.NewMessage(userid.NewUserIDFromUint(5, t),
+				userid.NewUserIDFromUint(6, t), partitions[j])
 
 			if errFNM != nil {
 				t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
@@ -66,7 +66,7 @@ func TestCollator_AddMessage(t *testing.T) {
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
 
-	user.TheSession = user.NewSession(&user.User{id.NewUserIDFromUint(8, t),
+	user.TheSession = user.NewSession(&user.User{userid.NewUserIDFromUint(8, t),
 	"test"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
@@ -81,8 +81,8 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	}
 	var result *parse.Message
 	for i := range partitions {
-		fm, errFNM := format.NewMessage(id.NewUserIDFromUint(5, t),
-			id.NewUserIDFromUint(6, t), partitions[i])
+		fm, errFNM := format.NewMessage(userid.NewUserIDFromUint(5, t),
+			userid.NewUserIDFromUint(6, t), partitions[i])
 
 		if errFNM != nil {
 			t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())

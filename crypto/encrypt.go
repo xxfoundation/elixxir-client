@@ -8,8 +8,8 @@ package crypto
 
 import (
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/crypto/verification"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Encrypt uses the encryption key to encrypt a message
@@ -21,27 +21,28 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group, message *format.Message) *format.
 	MakeInitVect(message.GetRecipientInitVect())
 
 	payloadMicList :=
-		[][]byte{message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),
-			message.GetSenderID().LeftpadBytes(format.SID_LEN),
-			message.GetData().LeftpadBytes(format.DATA_LEN),
+		[][]byte{message.GetPayloadInitVect(),
+			message.GetSenderID(),
+			message.GetData(),
 		}
 
-	message.GetPayloadMIC().SetBytes(verification.GenerateMIC(payloadMicList,
-		format.PMIC_LEN))
+	payloadMic := verification.GenerateMIC(payloadMicList, format.PMIC_LEN)
+	copy(message.GetPayloadMIC(), payloadMic)
 
 	recipientMicList :=
-		[][]byte{message.GetRecipientInitVect().LeftpadBytes(format.RIV_LEN),
-			message.GetRecipientID().LeftpadBytes(format.RID_LEN),
+		[][]byte{message.GetRecipientInitVect(),
+			message.GetRecipientID(),
 		}
 
-	message.GetRecipientMIC().SetBytes(verification.GenerateMIC(recipientMicList,
-		format.RMIC_LEN))
+	copy(message.GetRecipientMIC(), verification.GenerateMIC(recipientMicList, format.RMIC_LEN))
 
 	result := message.SerializeMessage()
 
 	// perform the encryption
-	g.Mul(result.Payload, key, result.Payload)
-	g.Mul(result.Recipient, key, result.Recipient)
+	resultPayload := cyclic.NewIntFromBytes(result.Payload)
+	resultRecipient := cyclic.NewIntFromBytes(result.Recipient)
+	g.Mul(resultPayload, key, resultPayload)
+	g.Mul(resultRecipient, key, resultRecipient)
 
 	return &result
 }

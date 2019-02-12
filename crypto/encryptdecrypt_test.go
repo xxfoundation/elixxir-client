@@ -90,10 +90,10 @@ func TestEncryptDecrypt(t *testing.T) {
 	Grp.Inverse(encryptionKey, decryptionKey)
 
 	// do the encryption and the decryption
-	encrypted := Encrypt(encryptionKey, Grp, &msg[0])
+	encrypted := Encrypt(encryptionKey, Grp, msg)
 	encryptedNet := &pb.CmixMessage{
-		MessagePayload: encrypted.Payload.Bytes(),
-		RecipientID:    encrypted.Recipient.Bytes(),
+		MessagePayload: encrypted.Payload,
+		RecipientID:    encrypted.Recipient,
 	}
 	decrypted, err := Decrypt(decryptionKey, Grp, encryptedNet)
 

@@ -73,16 +73,13 @@ func (m *messaging) SendMessage(recipientID *userid.UserID,
 		return err
 	}
 	for i := range parts {
-		messages, err := format.NewMessage(userID, recipientID, parts[i])
+		message, err := format.NewMessage(userID, recipientID, parts[i])
 		if err != nil {
+			// the message was too long to fit in one part, which should
+			// never happen due to the partitioning
 			return err
 		}
-		if len(messages) != 1 {
-			globals.Log.ERROR.Printf("Expected one message from already-partitioned"+
-				" message of length %v. Got %v messages instead.",
-				len(parts[i]), len(messages))
-		}
-		err = send(userID, &messages[0])
+		err = send(userID, message)
 		if err != nil {
 			return err
 		}
@@ -121,8 +118,8 @@ func send(senderID *userid.UserID, message *format.Message) error {
 	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       senderID.Bytes(),
-		MessagePayload: encryptedMessage.Payload.Bytes(),
-		RecipientID:    encryptedMessage.Recipient.Bytes(),
+		MessagePayload: encryptedMessage.Payload,
+		RecipientID:    encryptedMessage.Recipient,
 		Salt:           salt,
 		KMACs:          macs,
 	}

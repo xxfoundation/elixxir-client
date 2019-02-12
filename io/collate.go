@@ -55,9 +55,9 @@ func GetCollator() *collator {
 func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
-	payload := []byte(message.GetPayload())
+	payload := message.GetPayload()
 	sender := message.GetSender()
-	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
+	nonce := message.GetPayloadInitVect()
 
 	partition, err := parse.ValidatePartition(payload)
 

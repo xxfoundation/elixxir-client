@@ -10,17 +10,17 @@ package bots
 import (
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/hash"
-	"strings"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/crypto/id"
+	"strings"
 )
 
-// UdbID is the ID of the user discovery bot, which is always 13
+// UdbID is the ID of the user discovery bot, which is always 3
 var UdbID *id.UserID
 
 type udbResponseListener chan string
@@ -37,7 +37,7 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 
 // The go runtime calls init() before calling any methods in the package
 func init() {
-	UdbID = new(id.UserID).SetUints(&[4]uint64{0,0,0,13})
+	UdbID = new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(udbResponseListener)
 	getKeyResponseListener = make(udbResponseListener)

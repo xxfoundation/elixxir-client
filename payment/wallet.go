@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -17,9 +18,8 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/format"
-	"time"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/crypto/id"
+	"time"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -275,7 +275,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 }
 
 func getPaymentBotID() *id.UserID {
-	return new(id.UserID).SetUints(&[4]uint64{0,0,0,17})
+	return new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 2})
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,
@@ -332,7 +332,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.TypeAsBytes(int32(cmixproto.Type_PAYMENT_TRANSACTION)))) +
+	if uint64(len(parse.TypeAsBytes(int32(cmixproto.Type_PAYMENT_TRANSACTION))))+
 		uint64(len(paymentMessage)) > format.DATA_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")

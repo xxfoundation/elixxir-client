@@ -18,8 +18,10 @@ var Users = newRegistry()
 
 const NUM_DEMO_USERS = 40
 
-var DemoUserNicks = []string{"David", "Jim", "Ben", "Rick", "Spencer", "Jake",
-	"Mario", "Will", "Allan", "Jono", "", "", "UDB", "", "", "", "Payments"}
+var DemoUserNicks = []string{"David", "Payments", "UDB", "Jim", "Ben", "Steph",
+	"Rick", "Jake", "Spencer", "Stephanie", "Mario", "Jono", "Amanda",
+	"Margaux", "Kevin", "Bruno", "Konstantino", "Bernardo", "Tigran",
+	"Kate", "Will", "Katie", "Bryan"}
 var DemoChannelNames = []string{"#General", "#Engineering", "#Lunch",
 	"#Random"}
 
@@ -104,7 +106,7 @@ func newRegistry() Registry {
 
 	// With an underlying UserMap data structure
 	return Registry(&UserMap{userCollection: uc,
-		idCounter: uint64(NUM_DEMO_USERS),
+		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
 }

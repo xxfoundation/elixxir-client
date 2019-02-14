@@ -10,6 +10,7 @@ package bots
 import (
 	"encoding/base64"
 	"fmt"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -37,7 +38,11 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 
 // The go runtime calls init() before calling any methods in the package
 func init() {
+<<<<<<< HEAD
 	UdbID = new(userid.UserID).SetUints(&[4]uint64{0,0,0,13})
+=======
+	UdbID = new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 3})
+>>>>>>> master
 
 	pushKeyResponseListener = make(udbResponseListener)
 	getKeyResponseListener = make(udbResponseListener)

@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/hash"
 	"strings"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/primitives/userid"
 )
 
@@ -38,11 +37,7 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 
 // The go runtime calls init() before calling any methods in the package
 func init() {
-<<<<<<< HEAD
-	UdbID = new(userid.UserID).SetUints(&[4]uint64{0,0,0,13})
-=======
-	UdbID = new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 3})
->>>>>>> master
+	UdbID = new(userid.UserID).SetUints(&[4]uint64{0,0,0,3})
 
 	pushKeyResponseListener = make(udbResponseListener)
 	getKeyResponseListener = make(udbResponseListener)

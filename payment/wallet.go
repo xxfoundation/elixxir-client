@@ -19,7 +19,6 @@ import (
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/primitives/format"
 	"time"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/primitives/userid"
 )
 
@@ -275,13 +274,8 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	})
 }
 
-<<<<<<< HEAD
 func getPaymentBotID() *userid.UserID {
-	return new(userid.UserID).SetUints(&[4]uint64{0,0,0,17})
-=======
-func getPaymentBotID() *id.UserID {
-	return new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 2})
->>>>>>> master
+	return new(userid.UserID).SetUints(&[4]uint64{0,0,0,2})
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,

@@ -16,6 +16,7 @@ import (
 	"math/rand"
 	"time"
 	"gitlab.com/elixxir/crypto/id"
+	"sync"
 )
 
 // Errors
@@ -126,30 +127,45 @@ type SessionObj struct {
 
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
+
+	lock sync.Mutex
 }
 
 func (s *SessionObj) GetLastMessageID() string {
+	s.LockStorage()
+	defer s.UnlockStorage()
 	return s.LastMessageID
 }
 
 func (s *SessionObj) SetLastMessageID(id string) {
+	s.LockStorage()
 	s.LastMessageID = id
+	s.UnlockStorage()
 }
 
 func (s *SessionObj) GetKeys() []NodeKeys {
+	s.LockStorage()
+	defer s.UnlockStorage()
 	return s.Keys
 }
 
 func (s *SessionObj) GetPrivateKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
 	return s.PrivateKey
 }
 
 func (s *SessionObj) GetPublicKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
 	return s.PublicKey
 }
 
 // Return a copy of the current user
 func (s *SessionObj) GetCurrentUser() (currentUser *User) {
+	// This is where it deadlocks
+	s.LockStorage()
+	defer s.UnlockStorage()
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
@@ -161,11 +177,15 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 }
 
 func (s *SessionObj) GetGWAddress() string {
+	s.LockStorage()
+	defer s.UnlockStorage()
 	return s.GWAddress
 }
 
 func (s *SessionObj) SetGWAddress(addr string) {
+	s.LockStorage()
 	s.GWAddress = addr
+	s.UnlockStorage()
 }
 
 func (s *SessionObj) storeSession() error {
@@ -201,15 +221,16 @@ func (s *SessionObj) storeSession() error {
 }
 
 func (s *SessionObj) StoreSession() error {
-	globals.LocalStorage.Lock()
+	s.LockStorage()
 	err := s.storeSession()
-	globals.LocalStorage.Unlock()
+	s.UnlockStorage()
 	return err
 }
 
 // Immolate scrubs all cryptographic data from ram and logs out
 // the ram overwriting can be improved
 func (s *SessionObj) Immolate() error {
+	s.LockStorage()
 	if s == nil {
 		err := errors.New("immolate: Cannot immolate that which has no life")
 		return err
@@ -236,45 +257,49 @@ func (s *SessionObj) Immolate() error {
 
 	TheSession = nil
 
+	s.UnlockStorage()
+
 	return nil
 }
 
 //Upserts an element into the interface map and saves the session object
 func (s *SessionObj) UpsertMap(key string, element interface{}) error {
-	globals.LocalStorage.Lock()
+	s.LockStorage()
 	s.InterfaceMap[key] = element
 	err := s.storeSession()
-	globals.LocalStorage.Unlock()
+	s.UnlockStorage()
 	return err
 }
 
 //Pulls an element from the interface in the map
 func (s *SessionObj) QueryMap(key string) (interface{}, error) {
 	var err error
-	globals.LocalStorage.Lock()
+	s.LockStorage()
 	element, ok := s.InterfaceMap[key]
 	if !ok {
 		err = ErrQuery
 		element = nil
 	}
-	globals.LocalStorage.Unlock()
+	s.UnlockStorage()
 	return element, err
 }
 
 func (s *SessionObj) DeleteMap(key string) error {
-	globals.LocalStorage.Lock()
+	s.LockStorage()
 	delete(s.InterfaceMap, key)
 	err := s.storeSession()
-	globals.LocalStorage.Unlock()
+	s.UnlockStorage()
 	return err
 }
 
+// Locking a mutex that belongs to the session object makes the locking
+// independent of the implementation of the storage, which is probably good.
 func (s *SessionObj) LockStorage() {
-	globals.LocalStorage.Lock()
+	s.lock.Lock()
 }
 
 func (s *SessionObj) UnlockStorage() {
-	globals.LocalStorage.Unlock()
+	s.lock.Unlock()
 }
 
 func clearCyclicInt(c *cyclic.Int) {

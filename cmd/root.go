@@ -165,7 +165,7 @@ func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 	result := cmixproto.TextMessage{}
 	err := proto.Unmarshal(message.Body, &result)
 	if err != nil {
-		globals.Log.ERROR.Printf("Error umarshaling text message: %v\n",
+		globals.Log.ERROR.Printf("Error unmarshaling text message: %v\n",
 			err.Error())
 	}
 

@@ -178,11 +178,24 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	} else if indexInformationStart == 0 {
 		return nil, errors.New("Couldn't find end of ID")
 	}
+
+	// Remove null padding from the message if this is the last part
+	// FIXME Migrate to OAEP padding instead, or at least something
+	bodyEnd := len(partition)
+	if partition[indexInformationStart] == partition[indexInformationStart+1] {
+		// Find the last nonzero byte
+		for i := len(partition) - 1; i >= 0; i-- {
+			if partition[i] != 0 {
+				bodyEnd = i+1
+				break
+			}
+		}
+	}
 	result := &MultiPartMessage{
 		ID:       partition[:indexInformationStart],
 		Index:    partition[indexInformationStart],
 		MaxIndex: partition[indexInformationStart+1],
-		Body:     partition[indexInformationStart+2:],
+		Body:     partition[indexInformationStart+2:bodyEnd],
 	}
 
 	globals.Log.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,

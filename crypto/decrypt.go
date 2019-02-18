@@ -40,28 +40,16 @@ func Decrypt(key *cyclic.Int, g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 			decryptedMessage.GetData(),
 		}
 
+	// Note: Don't check the recipient MIC here. The recipient MIC is currently
+	// only for the server to know who to send the message to. If the message
+	// has ended up here, it's probably because it's for you. So don't worry
+	// about it!
 	// FIXME: This should not be done here. Do it as part of the receive/display.
 	success := verification.CheckMic(payloadMicList,
 		decryptedMessage.GetPayloadMIC())
 
 	if !success {
 		err = errors.New("Payload MIC did not match")
-	}
-
-	recipientMicList :=
-		[][]byte{decryptedMessage.GetRecipientInitVect(),
-			decryptedMessage.GetRecipientID(),
-		}
-
-	success = verification.CheckMic(recipientMicList,
-		decryptedMessage.GetRecipientMIC())
-
-	if !success {
-		if err == nil {
-			err = errors.New("Recipient MIC did not match")
-		} else {
-			err = errors.New("Payload and recipient MIC did not match")
-		}
 	}
 
 	return &decryptedMessage, err

@@ -44,5 +44,9 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group, message *format.Message) *format.
 	g.Mul(resultPayload, key, resultPayload)
 	g.Mul(resultRecipient, key, resultRecipient)
 
+	// write back encrypted message into result
+	copy(result.Payload, resultPayload.LeftpadBytes(format.TOTAL_LEN))
+	copy(result.Recipient, resultRecipient.LeftpadBytes(format.TOTAL_LEN))
+
 	return &result
 }

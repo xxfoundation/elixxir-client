@@ -295,6 +295,11 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 // the mock session is lava and if you touch it it's instant death
 type MockSession bool
 
+func (ms *MockSession) GetSessionData() ([]byte, error) {
+	*ms = true
+	return nil, nil
+}
+
 func (ms *MockSession) GetCurrentUser() (currentUser *user.User) {
 	*ms = true
 	return nil

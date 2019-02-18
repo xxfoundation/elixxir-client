@@ -43,6 +43,7 @@ type Session interface {
 	DeleteMap(key string) error
 	LockStorage()
 	UnlockStorage()
+	GetSessionData() ([]byte, error)
 }
 
 type NodeKeys struct {
@@ -195,22 +196,13 @@ func (s *SessionObj) storeSession() error {
 		return err
 	}
 
-	var session bytes.Buffer
-
-	enc := gob.NewEncoder(&session)
-
-	err := enc.Encode(s)
-
+	sessionData, err := s.getSessionData()
+	err = globals.LocalStorage.Save(sessionData)
 	if err != nil {
-		err = errors.New(fmt.Sprintf("StoreSession: Could not encode user"+
-			" session: %s", err.Error()))
 		return err
 	}
 
-	err = globals.LocalStorage.Save(session.Bytes())
-
 	if err != nil {
-
 		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
 			" session: %s", err.Error()))
 		return err
@@ -290,6 +282,27 @@ func (s *SessionObj) DeleteMap(key string) error {
 	err := s.storeSession()
 	s.UnlockStorage()
 	return err
+}
+
+func (s *SessionObj) GetSessionData() ([]byte, error) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.getSessionData()
+}
+
+func (s *SessionObj) getSessionData() ([]byte, error) {
+	var session bytes.Buffer
+
+	enc := gob.NewEncoder(&session)
+
+	err := enc.Encode(s)
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("StoreSession: Could not encode user"+
+			" session: %s", err.Error()))
+		return nil, err
+	}
+	return session.Bytes(), nil
 }
 
 // Locking a mutex that belongs to the session object makes the locking

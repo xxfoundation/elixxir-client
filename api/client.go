@@ -279,6 +279,45 @@ func SearchForUser(emailAddress string) (*id.User, []byte, error) {
 	return bots.Search(valueType, emailAddress)
 }
 
+//Message struct adherent to interface in bindings for data return from ParseMessage
+type ParsedMessage struct{
+	typed int32
+	payload []byte
+}
+
+func (p ParsedMessage) GetSender()[]byte{
+	return []byte{}
+}
+
+func (p ParsedMessage) GetPayload()[]byte{
+	return p.payload
+}
+
+func (p ParsedMessage) GetRecipient()[]byte{
+	return []byte{}
+}
+
+func (p ParsedMessage) GetType()int32{
+	return p.typed
+}
+
+// Parses a passed message.  Allows a message to be aprsed using the interal parser
+// across the API
+func ParseMessage(message []byte)(ParsedMessage,error){
+	tb, err := parse.Parse(message)
+
+	pm := ParsedMessage{}
+
+	if err!=nil{
+		return pm,err
+	}
+
+	pm.payload = tb.Body
+	pm.typed = int32(tb.Type)
+
+	return pm, nil
+}
+
 // TODO Support more than one wallet per user? Maybe in v2
 var theWallet *payment.Wallet
 

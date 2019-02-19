@@ -72,6 +72,9 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 	return api.Listen(typedUserId, cmixproto.Type(messageType), listener, switchboard.Listeners)
 }
 
+// Returns a parsed message
+
+
 // Pass the listener handle that Listen() returned to delete the listener
 func StopListening(listenerHandle string) {
 	api.StopListening(listenerHandle, switchboard.Listeners)
@@ -232,6 +235,12 @@ func SearchForUser(emailAddress string) (*SearchResult, error) {
 	} else {
 		return &SearchResult{ResultID: searchedUser.Bytes(), PublicKey: key}, nil
 	}
+}
+
+// Parses a passed message.  Allows a message to be aprsed using the interal parser
+// across the Bindings
+func ParseMessage(message []byte)(Message, error){
+	return api.ParseMessage(message)
 }
 
 // Translate a bindings listener to a switchboard listener

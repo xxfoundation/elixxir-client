@@ -23,6 +23,8 @@ import (
 	"os"
 	"testing"
 	"time"
+	"reflect"
+
 )
 
 const gwAddress = "localhost:5557"
@@ -251,4 +253,30 @@ func TestSetLogOutput(t *testing.T) {
 	if !bytes.Contains(mw.lastMessage, []byte(msg)) {
 		t.Errorf("Mock writer didn't get the logging message")
 	}
+}
+
+
+func TestParse(t *testing.T){
+	ms := parse.Message{}
+	ms.Body = []byte{0,1,2}
+	ms.Type = cmixproto.Type_NO_TYPE
+	ms.Receiver = id.ZeroID
+	ms.Sender = id.ZeroID
+
+	messagePacked := ms.Pack()
+
+	msOut, err := ParseMessage(messagePacked)
+
+	if err!=nil{
+		t.Errorf("Message failed to parse: %s", err.Error())
+	}
+
+	if msOut.GetType()!=int32(ms.Type){
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
+	}
+
+	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){
+		t.Errorf("Bodies do not match after message parse: %v vs %v", msOut.GetPayload(), ms.Body)
+	}
+
 }

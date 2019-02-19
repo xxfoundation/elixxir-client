@@ -7,17 +7,17 @@
 package api
 
 import (
-	"testing"
-	"gitlab.com/elixxir/client/globals"
 	"bytes"
+	"crypto/sha256"
 	"encoding/gob"
+	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"crypto/sha256"
-	"gitlab.com/elixxir/client/cmixproto"
-	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/primitives/id"
+	"testing"
 	"time"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -37,7 +37,7 @@ func TestRegistrationGob(t *testing.T) {
 
 	VerifyRegisterGobAddress(t)
 	VerifyRegisterGobKeys(t)
-	VerifyRegisterGobUserID(t)
+	VerifyRegisterGobUser(t)
 }
 
 func VerifyRegisterGobAddress(t *testing.T) {
@@ -48,10 +48,10 @@ func VerifyRegisterGobAddress(t *testing.T) {
 	}
 }
 
-func VerifyRegisterGobUserID(t *testing.T) {
-	if *Session.GetCurrentUser().UserID != *userid.NewUserIDFromUint(5, t) {
+func VerifyRegisterGobUser(t *testing.T) {
+	if *Session.GetCurrentUser().User != *id.NewUserFromUint(5, t) {
 		t.Errorf("User's ID was %q, expected %v",
-			Session.GetCurrentUser().UserID, 5)
+			Session.GetCurrentUser().User, 5)
 	}
 }
 
@@ -148,7 +148,7 @@ func TestFormatTextMessage(t *testing.T) {
 	// Make sure that timestamp is reasonable
 	timeDifference := time.Now().Unix() - parsed.Time
 	if timeDifference > 2 || timeDifference < -2 {
-		t.Errorf("Message timestamp was off by more than one second. " +
+		t.Errorf("Message timestamp was off by more than one second. "+
 			"Original time: %x, parsed time: %x", time.Now().Unix(), parsed.Time)
 	}
 	t.Logf("message: %q", msg)
@@ -163,7 +163,7 @@ func TestFormatTextMessage(t *testing.T) {
 //}
 
 // SendMessage to the server
-//func (d *dummyMessaging) SendMessage(recipientID id.UserID,
+//func (d *dummyMessaging) SendMessage(recipientID id.User,
 //	message string) error {
 //	jww.INFO.Printf("Sending: %s", message)
 //	lastmsg = message
@@ -171,7 +171,7 @@ func TestFormatTextMessage(t *testing.T) {
 //}
 
 // Listen for messages from a given sender
-//func (d *dummyMessaging) Listen(senderID id.UserID) chan *format.Message {
+//func (d *dummyMessaging) Listen(senderID id.User) chan *format.Message {
 //	return d.listener
 //}
 

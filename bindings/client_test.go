@@ -7,6 +7,7 @@
 package bindings
 
 import (
+	"bytes"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
@@ -17,12 +18,11 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 	"os"
 	"testing"
 	"time"
-	"bytes"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 const gwAddress = "localhost:5557"
@@ -38,7 +38,7 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID *userid.UserID,
+func (d *dummyMessaging) SendMessage(recipientID *id.User,
 	message []byte) error {
 	jww.INFO.Printf("Sending: %s", message)
 	lastmsg = message
@@ -46,7 +46,7 @@ func (d *dummyMessaging) SendMessage(recipientID *userid.UserID,
 }
 
 // Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID *userid.UserID) chan *format.Message {
+func (d *dummyMessaging) Listen(senderID *id.User) chan *format.Message {
 	return d.listener
 }
 
@@ -182,7 +182,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 }
 
 func TestSetRateLimiting(t *testing.T) {
-	u, _ := user.Users.GetUser(userid.NewUserIDFromUint(1, t))
+	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
 	user.TheSession = user.NewSession(u, gwAddress, nk, nil)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
@@ -203,14 +203,14 @@ func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
 // Proves that a message can be received by a listener added with the bindings
 func TestListen(t *testing.T) {
 	listener := MockListener(false)
-	Listen(userid.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: 0,
 			Body: []byte("stuff"),
 		},
-		Sender:   userid.ZeroID,
-		Receiver: userid.ZeroID,
+		Sender:   id.ZeroID,
+		Receiver: id.ZeroID,
 	})
 	if !listener {
 		t.Error("Message not received")
@@ -219,15 +219,15 @@ func TestListen(t *testing.T) {
 
 func TestStopListening(t *testing.T) {
 	listener := MockListener(false)
-	handle := Listen(userid.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	handle := Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	StopListening(handle)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			Type: 0,
 			Body: []byte("stuff"),
 		},
-		Sender:   userid.ZeroID,
-		Receiver: userid.ZeroID,
+		Sender:   id.ZeroID,
+		Receiver: id.ZeroID,
 	})
 	if listener {
 		t.Error("Message was received after we stopped listening for it")

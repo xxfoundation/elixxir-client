@@ -13,7 +13,7 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/userid"
+	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"sync"
 	"time"
@@ -73,7 +73,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.In
 
 }
 
-func LoadSession(UID *userid.UserID) (Session, error) {
+func LoadSession(UID *id.User) (Session, error) {
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return nil, err
@@ -98,11 +98,11 @@ func LoadSession(UID *userid.UserID) (Session, error) {
 		return nil, err
 	}
 
-	if *session.CurrentUser.UserID != *UID {
+	if *session.CurrentUser.User != *UID {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: loaded incorrect "+
 				"user; Expected: %q; Received: %q",
-			*session.CurrentUser.UserID, *UID))
+			*session.CurrentUser.User, *UID))
 		return nil, err
 	}
 
@@ -170,8 +170,8 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			UserID: s.CurrentUser.UserID,
-			Nick:   s.CurrentUser.Nick,
+			User: s.CurrentUser.User,
+			Nick: s.CurrentUser.Nick,
 		}
 	}
 	return

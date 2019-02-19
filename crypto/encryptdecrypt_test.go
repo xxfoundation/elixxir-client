@@ -11,9 +11,9 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	cmix "gitlab.com/elixxir/crypto/messaging"
-	"testing"
-	"gitlab.com/elixxir/primitives/userid"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
+	"testing"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -47,7 +47,7 @@ func setup(t *testing.T) {
 		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
 	Grp = &grp
 
-	u, _ := user.Users.GetUser(userid.NewUserIDFromUint(1, t))
+	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 
 	nk := make([]user.NodeKeys, 1)
 
@@ -69,9 +69,9 @@ func setup(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	setup(t)
 
-	sender := userid.NewUserIDFromUint(38, t)
-	recipient := userid.NewUserIDFromUint(29, t)
-	msg, err := format.NewMessage(sender, recipient, []byte("help me, " +
+	sender := id.NewUserFromUint(38, t)
+	recipient := id.NewUserFromUint(29, t)
+	msg, err := format.NewMessage(sender, recipient, []byte("help me, "+
 		"i'm stuck in an"+
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory"))
 	if err != nil {

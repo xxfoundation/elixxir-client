@@ -8,11 +8,11 @@ package payment
 
 import (
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/coin"
+	"gitlab.com/elixxir/primitives/id"
 	"time"
-	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 type Transaction struct {
@@ -20,8 +20,8 @@ type Transaction struct {
 	Destroy []coin.Sleeve
 	Change  coin.Sleeve
 
-	Sender    *userid.UserID
-	Recipient *userid.UserID
+	Sender    *id.User
+	Recipient *id.User
 
 	Memo string
 

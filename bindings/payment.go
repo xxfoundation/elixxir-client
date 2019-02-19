@@ -7,13 +7,13 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/parse"
 	"errors"
 	"fmt"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
-	"gitlab.com/elixxir/primitives/userid"
+	"gitlab.com/elixxir/primitives/id"
 )
 
 // Currently there's only one wallet that you can get
@@ -23,7 +23,7 @@ func GetActiveWallet() *Wallet {
 }
 
 func (w *Wallet) Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := new(userid.UserID).SetBytes(userId)
+	typedUserId := new(id.User).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -44,7 +44,7 @@ func (w *Wallet) GetAvailableFunds() int64 {
 // Value: must be positive
 // Send the returned message unless you get an error
 func (w *Wallet) Invoice(payer []byte, value int64, memo string) (Message, error) {
-	userId := new(userid.UserID).SetBytes(payer)
+	userId := new(id.User).SetBytes(payer)
 	msg, err := w.wallet.Invoice(userId, value, memo)
 	return &parse.BindingsMessageProxy{Proxy: msg}, err
 }

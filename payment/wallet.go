@@ -18,8 +18,8 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 	"time"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 const CoinStorageTag = "CoinStorage"
@@ -90,7 +90,7 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 	}
 
 	if doMint {
-		mintedCoins := coin.MintArbitrarily(s.GetCurrentUser().UserID[:])
+		mintedCoins := coin.MintArbitrarily(s.GetCurrentUser().User[:])
 		for i := range mintedCoins {
 			cs.add(mintedCoins[i])
 		}
@@ -146,21 +146,21 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(userid.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
+	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
 		&InvoiceListener{
 			wallet: w,
 		})
 	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
 		wallet: w,
 	})
-	switchboard.Listeners.Register(userid.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
+	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
 		&ReceiptListener{
 			wallet: w,
 		})
 }
 
 // Creates an invoice, which you can add to the wallet and create a message of
-func createInvoice(payer *userid.UserID, payee *userid.UserID, value uint64,
+func createInvoice(payer *id.User, payee *id.User, value uint64,
 	memo string) (*Transaction, error) {
 	newCoin, err := coin.NewSleeve(value)
 
@@ -187,7 +187,7 @@ func (w *Wallet) registerInvoice(invoice *Transaction) error {
 
 // Creates, formats, and registers an invoice in the outgoing requests
 // Assumes that the payee is the current user in the session
-func (w *Wallet) Invoice(payer *userid.UserID, value int64,
+func (w *Wallet) Invoice(payer *id.User, value int64,
 	memo string) (*parse.Message, error) {
 
 	if value <= 0 {
@@ -195,7 +195,7 @@ func (w *Wallet) Invoice(payer *userid.UserID, value int64,
 			"positive amount of money for an invoice")
 	}
 
-	transaction, err := createInvoice(payer, w.session.GetCurrentUser().UserID,
+	transaction, err := createInvoice(payer, w.session.GetCurrentUser().User,
 		uint64(value), memo)
 	if err != nil {
 		return nil, err
@@ -269,13 +269,13 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
-		Receiver: userid.ZeroID,
+		Receiver: id.ZeroID,
 		Nonce:    nil,
 	})
 }
 
-func getPaymentBotID() *userid.UserID {
-	return new(userid.UserID).SetUints(&[4]uint64{0,0,0,2})
+func getPaymentBotID() *id.User {
+	return new(id.User).SetUints(&[4]uint64{0, 0, 0, 2})
 }
 
 func buildPaymentPayload(request, change coin.Sleeve,
@@ -343,7 +343,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 			Type: cmixproto.Type_PAYMENT_TRANSACTION,
 			Body: paymentMessage,
 		},
-		Sender:   w.session.GetCurrentUser().UserID,
+		Sender:   w.session.GetCurrentUser().User,
 		Receiver: getPaymentBotID(),
 		// TODO panic on blank nonce
 		Nonce: nil,
@@ -437,7 +437,7 @@ func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Messag
 			Type: cmixproto.Type_PAYMENT_RECEIPT,
 			Body: transaction.OriginID[:],
 		},
-		Sender:   l.wallet.session.GetCurrentUser().UserID,
+		Sender:   l.wallet.session.GetCurrentUser().User,
 		Receiver: transaction.Recipient,
 		Nonce:    nil,
 	}
@@ -466,7 +466,7 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 				Body: invoiceID[:],
 			},
 			Sender:   msg.Sender,
-			Receiver: userid.ZeroID,
+			Receiver: id.ZeroID,
 			Nonce:    nil,
 		})
 	}

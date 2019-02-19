@@ -8,14 +8,14 @@
 package io
 
 import (
+	"gitlab.com/elixxir/primitives/id"
 	"time"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Communication interface implements send/receive functionality with the server
 type Communications interface {
 	// SendMessage to the server
-	SendMessage(recipientID *userid.UserID, message []byte) error
+	SendMessage(recipientID *id.User, message []byte) error
 	// MessageReceiver thread to get new messages
 	MessageReceiver(delay time.Duration)
 }

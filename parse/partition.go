@@ -186,7 +186,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		// Find the last nonzero byte
 		for i := len(partition) - 1; i >= 0; i-- {
 			if partition[i] != 0 {
-				bodyEnd = i+1
+				bodyEnd = i + 1
 				break
 			}
 		}
@@ -195,7 +195,7 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		ID:       partition[:indexInformationStart],
 		Index:    partition[indexInformationStart],
 		MaxIndex: partition[indexInformationStart+1],
-		Body:     partition[indexInformationStart+2:bodyEnd],
+		Body:     partition[indexInformationStart+2 : bodyEnd],
 	}
 
 	globals.Log.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,

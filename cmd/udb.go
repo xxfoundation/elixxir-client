@@ -7,11 +7,11 @@
 package cmd
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/bindings"
-	"strings"
-	"fmt"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"strings"
 )
 
 // Determines what UDB send function to call based on the text in the message

@@ -8,8 +8,8 @@ package crypto
 
 import (
 	"gitlab.com/elixxir/crypto/cyclic"
-	"testing"
 	"gitlab.com/elixxir/primitives/format"
+	"testing"
 )
 
 // Smoke test for MakeInitVect

@@ -128,7 +128,7 @@ var ByValue By = func(t1, t2 *Transaction) bool {
 	return t1.Value < t2.Value
 }
 
-var ByTimestamp By = func (t1, t2 *Transaction) bool {
+var ByTimestamp By = func(t1, t2 *Transaction) bool {
 	return t1.Timestamp.Before(t2.Timestamp)
 }
 
@@ -160,7 +160,7 @@ func (s *transactionSorter) Less(i, j int) bool {
 // transaction list in a certain way
 func (tl *TransactionList) createTransactionSorter(by By) transactionSorter {
 	transactions := make([]KeyAndTransaction, 0, len(*tl.transactionMap))
-	for k,v := range *tl.transactionMap {
+	for k, v := range *tl.transactionMap {
 		transactions = append(transactions, KeyAndTransaction{
 			Key:         &k,
 			Transaction: v,

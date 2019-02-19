@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -17,23 +18,22 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
 func TestWallet_registerInvoice(t *testing.T) {
-	payee := userid.NewUserIDFromUint(1, t)
-	payer := userid.NewUserIDFromUint(2, t)
+	payee := id.NewUserFromUint(1, t)
+	payer := id.NewUserFromUint(2, t)
 	memo := "for serious cryptography"
 	value := uint64(85)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payee, Nick: "Taxman McGee"}, "",
+	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
@@ -86,7 +86,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	_, err := CreateWallet(s, false)
@@ -128,8 +128,8 @@ func TestCreateWallet(t *testing.T) {
 // Tests Invoice's message creation, and smoke tests the message's storage in
 // the wallet's session
 func TestWallet_Invoice(t *testing.T) {
-	payee := userid.NewUserIDFromUint(1, t)
-	payer := userid.NewUserIDFromUint(2, t)
+	payee := id.NewUserFromUint(1, t)
+	payer := id.NewUserFromUint(2, t)
 	memo := "please gib"
 	value := int64(50)
 	invoiceTime := time.Now()
@@ -137,7 +137,7 @@ func TestWallet_Invoice(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payee, Nick: "Taxman McGee"}, "",
+	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
@@ -240,8 +240,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 			Type: cmixproto.Type_PAYMENT_INVOICE,
 			Body: []byte("fun fact: clownfish aren't actually very funny"),
 		},
-		Sender:   userid.ZeroID,
-		Receiver: userid.ZeroID,
+		Sender:   id.ZeroID,
+		Receiver: id.ZeroID,
 		Nonce:    nil,
 	}, false)
 
@@ -371,14 +371,14 @@ func (ms *MockSession) SetLastMessageID(id string) {
 }
 
 func TestInvoiceListener_Hear(t *testing.T) {
-	payee := userid.NewUserIDFromUint(1, t)
-	payer := userid.NewUserIDFromUint(2, t)
+	payee := id.NewUserFromUint(1, t)
+	payer := id.NewUserFromUint(2, t)
 	value := uint64(50)
 	memo := "please gib"
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payer, Nick: "CEO MF DOOM"}, "",
+	s := user.NewSession(&user.User{User: payer, Nick: "CEO MF DOOM"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	ir, err := createTransactionList(InboundRequestsTag, s)
@@ -457,8 +457,8 @@ func TestInvoiceListener_Hear(t *testing.T) {
 }
 
 func TestWallet_Invoice_Error(t *testing.T) {
-	payee := userid.NewUserIDFromUint(1, t)
-	payer := userid.NewUserIDFromUint(2, t)
+	payee := id.NewUserFromUint(1, t)
+	payer := id.NewUserFromUint(2, t)
 	memo := "please gib"
 	// A value of zero should cause an error
 	value := int64(0)
@@ -466,7 +466,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payee, Nick: "Taxman McGee"}, "",
+	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
@@ -497,7 +497,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 
 type MockMessaging struct{}
 
-func (m *MockMessaging) SendMessage(recipientID *userid.UserID,
+func (m *MockMessaging) SendMessage(recipientID *id.User,
 	message []byte) error {
 	return nil
 }
@@ -505,12 +505,12 @@ func (m *MockMessaging) SendMessage(recipientID *userid.UserID,
 func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
 
 func TestResponseListener_Hear(t *testing.T) {
-	payer := userid.NewUserIDFromUint(5, t)
-	payee := userid.NewUserIDFromUint(12, t)
+	payer := id.NewUserFromUint(5, t)
+	payee := id.NewUserFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payer, Nick: "Darth Icky"}, "",
+	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	walletAmount := uint64(8970)
@@ -631,12 +631,12 @@ func TestResponseListener_Hear(t *testing.T) {
 }
 
 func TestResponseListener_Hear_Failure(t *testing.T) {
-	payer := userid.NewUserIDFromUint(5, t)
-	payee := userid.NewUserIDFromUint(12, t)
+	payer := id.NewUserFromUint(5, t)
+	payee := id.NewUserFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payer, Nick: "Darth Icky"}, "",
+	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	walletAmount := uint64(8970)
@@ -743,12 +743,12 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 }
 
 func TestWallet_Pay_NoChange(t *testing.T) {
-	payer := userid.NewUserIDFromUint(5, t)
-	payee := userid.NewUserIDFromUint(12, t)
+	payer := id.NewUserFromUint(5, t)
+	payee := id.NewUserFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payer, Nick: "Darth Icky"}, "",
+	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	paymentAmount := uint64(5008)
@@ -836,12 +836,12 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 }
 
 func TestWallet_Pay_YesChange(t *testing.T) {
-	payer := userid.NewUserIDFromUint(5, t)
-	payee := userid.NewUserIDFromUint(12, t)
+	payer := id.NewUserFromUint(5, t)
+	payee := id.NewUserFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payer, Nick: "Darth Icky"}, "",
+	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	paymentAmount := uint64(2611)
@@ -962,12 +962,12 @@ func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 // Tests the side effects of getting a receipt for a transaction that you
 // sent out an invoice for
 func TestReceiptListener_Hear(t *testing.T) {
-	payer := userid.NewUserIDFromUint(5, t)
-	payee := userid.NewUserIDFromUint(12, t)
+	payer := id.NewUserFromUint(5, t)
+	payee := id.NewUserFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: payer, Nick: "Darth Icky"}, "",
+	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	walletAmount := uint64(8970)
@@ -1016,7 +1016,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	uiListener := &ReceiptUIListener{
 		w: w,
 	}
-	w.switchboard.Register(userid.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
+	w.switchboard.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
 		uiListener)
 
 	listener.Hear(&parse.Message{

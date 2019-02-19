@@ -8,8 +8,8 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/primitives/userid"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/primitives/id"
 )
 
 const MessageHashLenBits = 256
@@ -19,8 +19,8 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
-	Sender   *userid.UserID
-	Receiver *userid.UserID
+	Sender   *id.User
+	Receiver *id.User
 	Nonce    []byte
 }
 
@@ -28,12 +28,12 @@ type Message struct {
 type MessageInterface interface {
 	// Returns the message's sender ID
 	// (uint64) BigEndian serialized into a byte slice
-	GetSender() *userid.UserID
+	GetSender() *id.User
 	// Returns the message payload, without packed type
 	GetPayload() []byte
 	// Returns the message's recipient ID
 	// (uint64) BigEndian serialized into a byte slice
-	GetRecipient() *userid.UserID
+	GetRecipient() *id.User
 	// Return the message's type
 	GetType() cmixproto.Type
 	// Return the message fully serialized including the type prefix
@@ -59,11 +59,11 @@ func (m Message) Hash() MessageHash {
 	return mh
 }
 
-func (m *Message) GetSender() *userid.UserID {
+func (m *Message) GetSender() *id.User {
 	return m.Sender
 }
 
-func (m *Message) GetRecipient() *userid.UserID {
+func (m *Message) GetRecipient() *id.User {
 	return m.Receiver
 }
 

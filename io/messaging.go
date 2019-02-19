@@ -19,11 +19,11 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
 	cmix "gitlab.com/elixxir/crypto/messaging"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 	"sync"
 	"time"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 type messaging struct{}
@@ -55,7 +55,7 @@ var sendLock sync.Mutex
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *messaging) SendMessage(recipientID *userid.UserID,
+func (m *messaging) SendMessage(recipientID *id.User,
 	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -66,7 +66,7 @@ func (m *messaging) SendMessage(recipientID *userid.UserID,
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
-	userID := user.TheSession.GetCurrentUser().UserID
+	userID := user.TheSession.GetCurrentUser().User
 	parts, err := parse.Partition([]byte(message),
 		parse.CurrentCounter.NextID())
 	if err != nil {
@@ -88,7 +88,7 @@ func (m *messaging) SendMessage(recipientID *userid.UserID,
 }
 
 // send actually sends the message to the server
-func send(senderID *userid.UserID, message *format.Message) error {
+func send(senderID *id.User, message *format.Message) error {
 	// Enable transmission blocking if enabled
 	if BlockTransmissions {
 		sendLock.Lock()
@@ -142,7 +142,7 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 		globals.Log.FATAL.Panicf("No user session available")
 	}
 	pollingMessage := pb.ClientPollMessage{
-		UserID: user.TheSession.GetCurrentUser().UserID.Bytes(),
+		UserID: user.TheSession.GetCurrentUser().User.Bytes(),
 	}
 
 	for {
@@ -192,7 +192,8 @@ func (m *messaging) receiveMessagesFromGateway(
 				newMessage, err := client.SendGetMessage(user.
 					TheSession.GetGWAddress(),
 					&pb.ClientPollMessage{
-						UserID:    user.TheSession.GetCurrentUser().UserID.Bytes(),
+						UserID: user.TheSession.GetCurrentUser().User.
+							Bytes(),
 						MessageID: messageID,
 					})
 				if err != nil {
@@ -228,7 +229,7 @@ func (m *messaging) receiveMessagesFromGateway(
 						newMessage)
 					if err2 != nil {
 						globals.Log.WARN.Printf(
-							"Message did not decrypt properly, " +
+							"Message did not decrypt properly, "+
 								"not adding to results array: %v", err2.Error())
 					} else {
 						results = append(results, decryptedMsg)

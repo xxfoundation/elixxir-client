@@ -136,7 +136,7 @@ func (ds *DefaultStorage) Load() []byte {
 }
 
 type RamStorage struct {
-	data  []byte
+	data []byte
 }
 
 func (rs *RamStorage) SetLocation(location string) error {

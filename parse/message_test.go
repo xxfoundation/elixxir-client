@@ -7,9 +7,9 @@
 package parse
 
 import (
+	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 //Shows that MessageHash ia an independent function of every field in Message
@@ -17,8 +17,8 @@ func TestMessage_Hash(t *testing.T) {
 	m := Message{}
 	m.Type = 0
 	m.Body = []byte{0, 0}
-	m.Sender = userid.ZeroID
-	m.Receiver = userid.ZeroID
+	m.Sender = id.ZeroID
+	m.Receiver = id.ZeroID
 	m.Nonce = []byte{0, 0}
 
 	baseHash := m.Hash()
@@ -43,7 +43,7 @@ func TestMessage_Hash(t *testing.T) {
 
 	m.Body = []byte{0, 0}
 
-	newID := userid.NewUserIDFromUint(1,t)
+	newID := id.NewUserFromUint(1, t)
 	oldID := m.Sender
 	m.Sender = newID
 

@@ -9,14 +9,14 @@ package bindings
 import (
 	"errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/certs"
+	"gitlab.com/elixxir/primitives/id"
 	"io"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Copy of the storage interface.
@@ -65,7 +65,7 @@ type Listener interface {
 // If you pass the zero type (just zero) to Listen() you will hear messages of
 // all types.
 func Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := new(userid.UserID).SetBytes(userId)
+	typedUserId := new(id.User).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -145,13 +145,13 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 	mint bool) ([]byte, error) {
 
 	if numNodes < 1 {
-		return userid.ZeroID[:], errors.New("invalid number of nodes")
+		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
 	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
 
 	if err != nil {
-		return userid.ZeroID[:], err
+		return id.ZeroID[:], err
 	}
 
 	return UID[:], nil
@@ -166,7 +166,7 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // certificate string empty, the bindings will use that certificate. We probably
 // need to rethink this. In other words, tlsCert is optional.
 func Login(UID []byte, addr string, tlsCert string) (string, error) {
-	userID := new(userid.UserID).SetBytes(UID)
+	userID := new(id.User).SetBytes(UID)
 	var err error
 	var session user.Session
 	if tlsCert == "" {
@@ -185,8 +185,8 @@ func Login(UID []byte, addr string, tlsCert string) (string, error) {
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
 func Send(m Message) error {
-	sender := new(userid.UserID).SetBytes(m.GetSender())
-	recipient := new(userid.UserID).SetBytes(m.GetRecipient())
+	sender := new(id.User).SetBytes(m.GetSender())
+	recipient := new(id.User).SetBytes(m.GetRecipient())
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
@@ -221,16 +221,16 @@ func RegisterForUserDiscovery(emailAddress string) error {
 }
 
 type SearchResult struct {
-	ResultID  []byte // Underlying type: *id.UserID
+	ResultID  []byte // Underlying type: *id.User
 	PublicKey []byte
 }
 
 func SearchForUser(emailAddress string) (*SearchResult, error) {
-	searchedUserID, key, err := api.SearchForUser(emailAddress)
+	searchedUser, key, err := api.SearchForUser(emailAddress)
 	if err != nil {
 		return nil, err
 	} else {
-		return &SearchResult{ResultID: searchedUserID.Bytes(), PublicKey: key}, nil
+		return &SearchResult{ResultID: searchedUser.Bytes(), PublicKey: key}, nil
 	}
 }
 
@@ -267,7 +267,7 @@ func (s *storageProxy) Load() []byte {
 	return s.boundStorage.Load()
 }
 
-type Writer interface { io.Writer }
+type Writer interface{ io.Writer }
 
 func SetLogOutput(w Writer) {
 	api.SetLogOutput(w)

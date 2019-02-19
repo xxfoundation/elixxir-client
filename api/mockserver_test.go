@@ -16,11 +16,11 @@ import (
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 var gwAddress = "localhost:8080"
@@ -68,7 +68,7 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
-	if *regRes == *userid.ZeroID {
+	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
 	globals.LocalStorage = nil
@@ -115,8 +115,8 @@ func TestRegisterDeletedUser(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	tempUser, _ := user.Users.GetUser(userid.NewUserIDFromUint(5, t))
-	user.Users.DeleteUser(userid.NewUserIDFromUint(5, t))
+	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
+	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 	_, err = Register(registrationCode, gwAddress, 1, false)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
@@ -156,11 +156,11 @@ func TestSend(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 	if len(session.GetCurrentUser().Nick) == 0 {
-		t.Errorf("Invalid login received: %v", session.GetCurrentUser().UserID)
+		t.Errorf("Invalid login received: %v", session.GetCurrentUser().User)
 	}
 
 	// Test send with invalid sender ID
-	err = Send(APIMessage{SenderID: userid.NewUserIDFromUint(12, t),
+	err = Send(APIMessage{SenderID: id.NewUserFromUint(12, t),
 		Payload:     []byte("test"),
 		RecipientID: userID})
 	if err != nil {

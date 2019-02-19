@@ -7,13 +7,13 @@
 package switchboard
 
 import (
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/primitives/id"
+	"reflect"
 	"strconv"
 	"sync"
-	"reflect"
-	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
@@ -28,7 +28,7 @@ type listenerRecord struct {
 
 type Switchboard struct {
 	// Hmmm...
-	listeners map[userid.UserID]map[cmixproto.Type][]*listenerRecord
+	listeners map[id.User]map[cmixproto.Type][]*listenerRecord
 	lastID    int
 	// TODO right mutex type?
 	mux sync.RWMutex
@@ -38,7 +38,7 @@ var Listeners = NewSwitchboard()
 
 func NewSwitchboard() *Switchboard {
 	return &Switchboard{
-		listeners: make(map[userid.UserID]map[cmixproto.Type][]*listenerRecord),
+		listeners: make(map[id.User]map[cmixproto.Type][]*listenerRecord),
 		lastID:    0,
 	}
 }
@@ -55,7 +55,7 @@ func NewSwitchboard() *Switchboard {
 // Don't pass nil to this.
 //
 // If a message matches multiple listeners, all of them will hear the message.
-func (lm *Switchboard) Register(user *userid.UserID, messageType cmixproto.Type,
+func (lm *Switchboard) Register(user *id.User, messageType cmixproto.Type,
 	newListener Listener) string {
 	lm.mux.Lock()
 	defer lm.mux.Unlock()
@@ -100,7 +100,7 @@ func (lm *Switchboard) Unregister(listenerID string) {
 	}
 }
 
-func (lm *Switchboard) matchListeners(userID *userid.UserID,
+func (lm *Switchboard) matchListeners(userID *id.User,
 	messageType cmixproto.Type) []*listenerRecord {
 
 	normals := make([]*listenerRecord, 0)
@@ -125,10 +125,10 @@ func (lm *Switchboard) Speak(msg *parse.Message) {
 	normals = lm.matchListeners(msg.Sender, 0)
 	accumNormals = append(accumNormals, normals...)
 	// match just the type
-	normals = lm.matchListeners(userid.ZeroID, msg.Type)
+	normals = lm.matchListeners(id.ZeroID, msg.Type)
 	accumNormals = append(accumNormals, normals...)
 	// match wildcard listeners that hear everything
-	normals = lm.matchListeners(userid.ZeroID, 0)
+	normals = lm.matchListeners(id.ZeroID, 0)
 	accumNormals = append(accumNormals, normals...)
 
 	if len(accumNormals) > 0 {

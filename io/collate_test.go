@@ -7,22 +7,22 @@
 package io
 
 import (
+	"bytes"
+	"encoding/hex"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/userid"
-	"encoding/hex"
-	"bytes"
 )
 
 func TestCollator_AddMessage(t *testing.T) {
 
-	user.TheSession = user.NewSession(&user.User{userid.NewUserIDFromUint(8, t),
-	"test"}, "",
+	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
+		"test"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	collator := &collator{
@@ -46,8 +46,8 @@ func TestCollator_AddMessage(t *testing.T) {
 		var result *parse.Message
 		for j := range partitions {
 
-			fm, errFNM := format.NewMessage(userid.NewUserIDFromUint(5, t),
-				userid.NewUserIDFromUint(6, t), partitions[j])
+			fm, errFNM := format.NewMessage(id.NewUserFromUint(5, t),
+				id.NewUserFromUint(6, t), partitions[j])
 
 			if errFNM != nil {
 				t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
@@ -72,8 +72,8 @@ func TestCollator_AddMessage(t *testing.T) {
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
 
-	user.TheSession = user.NewSession(&user.User{userid.NewUserIDFromUint(8, t),
-	"test"}, "",
+	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
+		"test"}, "",
 		[]user.NodeKeys{}, cyclic.NewInt(0))
 
 	collator := &collator{
@@ -87,8 +87,8 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	}
 	var result *parse.Message
 	for i := range partitions {
-		fm, errFNM := format.NewMessage(userid.NewUserIDFromUint(5, t),
-			userid.NewUserIDFromUint(6, t), partitions[i])
+		fm, errFNM := format.NewMessage(id.NewUserFromUint(5, t),
+			id.NewUserFromUint(6, t), partitions[i])
 
 		if errFNM != nil {
 			t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())

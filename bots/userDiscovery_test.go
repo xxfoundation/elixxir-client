@@ -12,11 +12,11 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 	"os"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/userid"
 )
 
 var ListenCh chan *format.Message
@@ -26,7 +26,7 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID *userid.UserID,
+func (d *dummyMessaging) SendMessage(recipientID *id.User,
 	message []byte) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
@@ -79,16 +79,16 @@ func TestSearch(t *testing.T) {
 	// Send response messages from fake UDB in advance
 	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %s %s",
 		"blah@elixxir.io",
-		base64.StdEncoding.EncodeToString(userid.NewUserIDFromUint(26, t)[:]),
+		base64.StdEncoding.EncodeToString(id.NewUserFromUint(26, t)[:]),
 		keyFingerprint)
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		pubKeyBits)
 
-	searchedUserID, _, err := Search("EMAIL", "blah@elixxir.io")
+	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io")
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}
-	if *searchedUserID != *userid.NewUserIDFromUint(26, t) {
+	if *searchedUser != *id.NewUserFromUint(26, t) {
 		t.Errorf("Search did not return user ID 26!")
 	}
 }

@@ -76,7 +76,7 @@ func (mb *collator) AddMessage(message *format.Message,
 				TypedBody: *typedBody,
 				Nonce:     nonce,
 				Sender:    sender,
-				Receiver:  user.TheSession.GetCurrentUser().UserID,
+				Receiver:  user.TheSession.GetCurrentUser().User,
 			}
 
 			return &msg
@@ -139,7 +139,7 @@ func (mb *collator) AddMessage(message *format.Message,
 					TypedBody: *typedBody,
 					Nonce:     parse.Assemble(message.nonces),
 					Sender:    sender,
-					Receiver:  user.TheSession.GetCurrentUser().UserID,
+					Receiver:  user.TheSession.GetCurrentUser().User,
 				}
 
 				delete(mb.pendingMessages, key)

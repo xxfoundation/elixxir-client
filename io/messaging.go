@@ -118,8 +118,8 @@ func send(senderID *userid.UserID, message *format.Message) error {
 	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       senderID.Bytes(),
-		MessagePayload: encryptedMessage.Payload,
-		RecipientID:    encryptedMessage.Recipient,
+		MessagePayload: encryptedMessage.MessagePayload,
+		RecipientID:    encryptedMessage.RecipientPayload,
 		Salt:           salt,
 		KMACs:          macs,
 	}

@@ -30,12 +30,12 @@ func Decrypt(key *cyclic.Int, g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 
 	// unpack the message from a MessageBytes
 	decryptedMessage := format.DeserializeMessage(format.MessageSerial{
-		Payload:   messagePayload.LeftpadBytes(format.TOTAL_LEN),
-		Recipient: messageRecipient.LeftpadBytes(format.TOTAL_LEN),
+		MessagePayload:   messagePayload.LeftpadBytes(format.TOTAL_LEN),
+		RecipientPayload: messageRecipient.LeftpadBytes(format.TOTAL_LEN),
 	})
 
 	payloadMicList :=
-		[][]byte{decryptedMessage.GetPayloadInitVect(),
+		[][]byte{decryptedMessage.GetMessageInitVect(),
 			decryptedMessage.GetSenderID(),
 			decryptedMessage.GetData(),
 		}

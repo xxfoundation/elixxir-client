@@ -57,7 +57,7 @@ func (mb *collator) AddMessage(message *format.Message,
 
 	payload := message.GetPayload()
 	sender := message.GetSender()
-	nonce := message.GetPayloadInitVect()
+	nonce := message.GetMessageInitVect()
 
 	partition, err := parse.ValidatePartition(payload)
 

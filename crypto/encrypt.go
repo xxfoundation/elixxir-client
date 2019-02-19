@@ -17,16 +17,16 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group, message *format.Message) *format.
 
 	// TODO: This is all MIC code and should be moved outside the encrypt
 	//       function.
-	MakeInitVect(message.GetPayloadInitVect())
+	MakeInitVect(message.GetMessageInitVect())
 	MakeInitVect(message.GetRecipientInitVect())
 
 	payloadMicList :=
-		[][]byte{message.GetPayloadInitVect(),
+		[][]byte{message.GetMessageInitVect(),
 			message.GetSenderID(),
 			message.GetData(),
 		}
 
-	payloadMic := verification.GenerateMIC(payloadMicList, format.PMIC_LEN)
+	payloadMic := verification.GenerateMIC(payloadMicList, format.MMIC_LEN)
 	copy(message.GetPayloadMIC(), payloadMic)
 
 	recipientMicList :=
@@ -39,14 +39,14 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group, message *format.Message) *format.
 	result := message.SerializeMessage()
 
 	// perform the encryption
-	resultPayload := cyclic.NewIntFromBytes(result.Payload)
-	resultRecipient := cyclic.NewIntFromBytes(result.Recipient)
+	resultPayload := cyclic.NewIntFromBytes(result.MessagePayload)
+	resultRecipient := cyclic.NewIntFromBytes(result.RecipientPayload)
 	g.Mul(resultPayload, key, resultPayload)
 	g.Mul(resultRecipient, key, resultRecipient)
 
 	// write back encrypted message into result
-	copy(result.Payload, resultPayload.LeftpadBytes(format.TOTAL_LEN))
-	copy(result.Recipient, resultRecipient.LeftpadBytes(format.TOTAL_LEN))
+	copy(result.MessagePayload, resultPayload.LeftpadBytes(format.TOTAL_LEN))
+	copy(result.RecipientPayload, resultRecipient.LeftpadBytes(format.TOTAL_LEN))
 
 	return &result
 }

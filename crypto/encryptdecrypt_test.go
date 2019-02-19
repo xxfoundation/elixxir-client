@@ -92,8 +92,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	// do the encryption and the decryption
 	encrypted := Encrypt(encryptionKey, Grp, msg)
 	encryptedNet := &pb.CmixMessage{
-		MessagePayload: encrypted.Payload,
-		RecipientID:    encrypted.Recipient,
+		MessagePayload: encrypted.MessagePayload,
+		RecipientID:    encrypted.RecipientPayload,
 	}
 	decrypted, err := Decrypt(decryptionKey, Grp, encryptedNet)
 

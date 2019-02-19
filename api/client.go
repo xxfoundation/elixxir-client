@@ -302,3 +302,7 @@ func Wallet() *payment.Wallet {
 func SetLogOutput(w goio.Writer) {
 	globals.Log.SetLogOutput(w)
 }
+
+func GetSessionData() ([]byte, error) {
+	return user.TheSession.GetSessionData()
+}

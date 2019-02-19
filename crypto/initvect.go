@@ -14,7 +14,7 @@ var vectGen *cyclic.Random
 
 // MakeInitVect creates a random string for the initialization vector with lazy
 // creation of the underlying random number generator
-func MakeInitVect(v *cyclic.Int) *cyclic.Int {
+func MakeInitVect(v []byte) []byte {
 	if vectGen == nil {
 		min := cyclic.NewInt(2)
 		max := cyclic.NewInt(0).Exp(cyclic.NewInt(2), cyclic.NewInt(71),
@@ -25,6 +25,8 @@ func MakeInitVect(v *cyclic.Int) *cyclic.Int {
 
 		vectGen = &v
 	}
+	initVect := vectGen.Rand(cyclic.NewInt(0))
+	copy(v, initVect.LeftpadBytes(uint64(len(v))))
 
-	return vectGen.Rand(v)
+	return v
 }

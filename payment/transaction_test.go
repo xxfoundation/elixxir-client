@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // TODO are there any error cases for formatting the invoice that we should
@@ -31,8 +31,8 @@ func TestTransaction_FormatInvoice(t *testing.T) {
 		Create:    sleeve,
 		Destroy:   nil,
 		Change:    NilSleeve,
-		Sender:    id.NewUserIDFromUint(2, t),
-		Recipient: id.NewUserIDFromUint(5, t),
+		Sender:    userid.NewUserIDFromUint(2, t),
+		Recipient: userid.NewUserIDFromUint(5, t),
 		Memo:      "Just a test",
 		Timestamp: time.Now(),
 		Value:     value,

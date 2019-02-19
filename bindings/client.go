@@ -10,13 +10,13 @@ import (
 	"errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/client/user"
 	"io"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Copy of the storage interface.
@@ -65,7 +65,7 @@ type Listener interface {
 // If you pass the zero type (just zero) to Listen() you will hear messages of
 // all types.
 func Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := new(id.UserID).SetBytes(userId)
+	typedUserId := new(userid.UserID).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -145,13 +145,13 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 	mint bool) ([]byte, error) {
 
 	if numNodes < 1 {
-		return id.ZeroID[:], errors.New("invalid number of nodes")
+		return userid.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
 	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
 
 	if err != nil {
-		return id.ZeroID[:], err
+		return userid.ZeroID[:], err
 	}
 
 	return UID[:], nil
@@ -166,7 +166,7 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // certificate string empty, the bindings will use that certificate. We probably
 // need to rethink this. In other words, tlsCert is optional.
 func Login(UID []byte, addr string, tlsCert string) (string, error) {
-	userID := new(id.UserID).SetBytes(UID)
+	userID := new(userid.UserID).SetBytes(UID)
 	var err error
 	var session user.Session
 	if tlsCert == "" {
@@ -185,8 +185,8 @@ func Login(UID []byte, addr string, tlsCert string) (string, error) {
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
 func Send(m Message) error {
-	sender := new(id.UserID).SetBytes(m.GetSender())
-	recipient := new(id.UserID).SetBytes(m.GetRecipient())
+	sender := new(userid.UserID).SetBytes(m.GetSender())
+	recipient := new(userid.UserID).SetBytes(m.GetRecipient())
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{

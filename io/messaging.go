@@ -19,11 +19,11 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"sync"
 	"time"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 type messaging struct{}
@@ -55,7 +55,7 @@ var sendLock sync.Mutex
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *messaging) SendMessage(recipientID *id.UserID,
+func (m *messaging) SendMessage(recipientID *userid.UserID,
 	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -73,16 +73,13 @@ func (m *messaging) SendMessage(recipientID *id.UserID,
 		return err
 	}
 	for i := range parts {
-		messages, err := format.NewMessage(userID, recipientID, parts[i])
+		message, err := format.NewMessage(userID, recipientID, parts[i])
 		if err != nil {
+			// the message was too long to fit in one part, which should
+			// never happen due to the partitioning
 			return err
 		}
-		if len(messages) != 1 {
-			globals.Log.ERROR.Printf("Expected one message from already-partitioned"+
-				" message of length %v. Got %v messages instead.",
-				len(parts[i]), len(messages))
-		}
-		err = send(userID, &messages[0])
+		err = send(userID, message)
 		if err != nil {
 			return err
 		}
@@ -91,7 +88,7 @@ func (m *messaging) SendMessage(recipientID *id.UserID,
 }
 
 // send actually sends the message to the server
-func send(senderID *id.UserID, message *format.Message) error {
+func send(senderID *userid.UserID, message *format.Message) error {
 	// Enable transmission blocking if enabled
 	if BlockTransmissions {
 		sendLock.Lock()
@@ -121,8 +118,8 @@ func send(senderID *id.UserID, message *format.Message) error {
 	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       senderID.Bytes(),
-		MessagePayload: encryptedMessage.Payload.Bytes(),
-		RecipientID:    encryptedMessage.Recipient.Bytes(),
+		MessagePayload: encryptedMessage.MessagePayload,
+		RecipientID:    encryptedMessage.RecipientPayload,
 		Salt:           salt,
 		KMACs:          macs,
 	}

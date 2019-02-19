@@ -10,23 +10,23 @@ package api
 import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"sync"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
 // easy to use from Go
 type APIMessage struct {
 	Payload     []byte
-	SenderID    *id.UserID
-	RecipientID *id.UserID
+	SenderID    *userid.UserID
+	RecipientID *userid.UserID
 }
 
-func (m APIMessage) GetSender() *id.UserID {
+func (m APIMessage) GetSender() *userid.UserID {
 	return m.SenderID
 }
 
-func (m APIMessage) GetRecipient() *id.UserID {
+func (m APIMessage) GetRecipient() *userid.UserID {
 	return m.RecipientID
 }
 
@@ -53,13 +53,13 @@ type TestInterface struct {
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *TestInterface) GetMessage(userId *id.UserID,
+func (m *TestInterface) GetMessage(userId *userid.UserID,
 	msgId string) (*pb.CmixMessage, bool) {
 	return &pb.CmixMessage{}, true
 }
 
 // Return any MessageIDs in the globals for this UserID
-func (m *TestInterface) CheckMessages(userId *id.UserID,
+func (m *TestInterface) CheckMessages(userId *userid.UserID,
 	messageID string) ([]string, bool) {
 	return make([]string, 0), true
 }

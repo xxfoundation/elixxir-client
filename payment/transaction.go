@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/crypto/coin"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 type Transaction struct {
@@ -20,8 +20,8 @@ type Transaction struct {
 	Destroy []coin.Sleeve
 	Change  coin.Sleeve
 
-	Sender    *id.UserID
-	Recipient *id.UserID
+	Sender    *userid.UserID
+	Recipient *userid.UserID
 
 	Memo string
 

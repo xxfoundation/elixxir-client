@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	"sync"
 	"time"
 )
@@ -55,9 +55,9 @@ func GetCollator() *collator {
 func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
-	payload := []byte(message.GetPayload())
+	payload := message.GetPayload()
 	sender := message.GetSender()
-	nonce := message.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN)
+	nonce := message.GetMessageInitVect()
 
 	partition, err := parse.ValidatePartition(payload)
 

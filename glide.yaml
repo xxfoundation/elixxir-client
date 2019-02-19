@@ -11,6 +11,10 @@ import:
   version: master
   repo: git@gitlab.com:elixxir/comms
   vcs: git
+- package: gitlab.com/elixxir/primitives
+  version: master
+  repo: git@gitlab.com:elixxir/primitives
+  vcs: git
 - package: github.com/mitchellh/go-homedir
   version: master
   repo: https://github.com/mitchellh/go-homedir.git

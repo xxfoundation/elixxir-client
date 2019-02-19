@@ -12,12 +12,12 @@ import (
 	"bytes"
 	"encoding/gob"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/id"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/cmixproto"
 	"github.com/golang/protobuf/proto"
 	"time"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -49,7 +49,7 @@ func VerifyRegisterGobAddress(t *testing.T) {
 }
 
 func VerifyRegisterGobUserID(t *testing.T) {
-	if *Session.GetCurrentUser().UserID != *id.NewUserIDFromUint(5, t) {
+	if *Session.GetCurrentUser().UserID != *userid.NewUserIDFromUint(5, t) {
 		t.Errorf("User's ID was %q, expected %v",
 			Session.GetCurrentUser().UserID, 5)
 	}

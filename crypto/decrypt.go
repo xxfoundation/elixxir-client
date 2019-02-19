@@ -10,8 +10,8 @@ import (
 	"errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
 	"gitlab.com/elixxir/crypto/verification"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Decrypt decrypts messages
@@ -21,30 +21,35 @@ func Decrypt(key *cyclic.Int, g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 	var err error
 
 	// Receive and decrypt a message
-	message := &format.MessageSerial{
-		Payload:   cyclic.NewIntFromBytes(cmixMsg.MessagePayload),
-		Recipient: cyclic.NewIntFromBytes(cmixMsg.RecipientID),
-	}
+	messagePayload := cyclic.NewIntFromBytes(cmixMsg.MessagePayload)
+	messageRecipient := cyclic.NewIntFromBytes(cmixMsg.RecipientID)
 
 	// perform the decryption
-	g.Mul(message.Payload, key, message.Payload)
-	g.Mul(message.Recipient, key, message.Recipient)
+	g.Mul(messagePayload, key, messagePayload)
+	g.Mul(messageRecipient, key, messageRecipient)
 
 	// unpack the message from a MessageBytes
-	decryptedMessage := format.DeserializeMessage(*message)
+	decryptedMessage := format.DeserializeMessage(format.MessageSerial{
+		MessagePayload:   messagePayload.LeftpadBytes(format.TOTAL_LEN),
+		RecipientPayload: messageRecipient.LeftpadBytes(format.TOTAL_LEN),
+	})
 
 	payloadMicList :=
-		[][]byte{decryptedMessage.GetPayloadInitVect().LeftpadBytes(format.PIV_LEN),
-			decryptedMessage.GetSenderID().LeftpadBytes(format.SID_LEN),
-			decryptedMessage.GetData().LeftpadBytes(format.DATA_LEN),
+		[][]byte{decryptedMessage.GetMessageInitVect(),
+			decryptedMessage.GetSenderID(),
+			decryptedMessage.GetData(),
 		}
 
+	// Note: Don't check the recipient MIC here. The recipient MIC is currently
+	// only for the server to know who to send the message to. If the message
+	// has ended up here, it's probably because it's for you. So don't worry
+	// about it!
 	// FIXME: This should not be done here. Do it as part of the receive/display.
 	success := verification.CheckMic(payloadMicList,
-		decryptedMessage.GetPayloadMIC().LeftpadBytes(format.PMIC_LEN))
+		decryptedMessage.GetPayloadMIC())
 
 	if !success {
-		err = errors.New("MIC did not match")
+		err = errors.New("Payload MIC did not match")
 	}
 
 	return &decryptedMessage, err

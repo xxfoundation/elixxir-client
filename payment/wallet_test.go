@@ -21,13 +21,13 @@ import (
 	"testing"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
 func TestWallet_registerInvoice(t *testing.T) {
-	payee := id.NewUserIDFromUint(1, t)
-	payer := id.NewUserIDFromUint(2, t)
+	payee := userid.NewUserIDFromUint(1, t)
+	payer := userid.NewUserIDFromUint(2, t)
 	memo := "for serious cryptography"
 	value := uint64(85)
 
@@ -86,7 +86,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{UserID: id.NewUserIDFromUint(1, t),
+	s := user.NewSession(&user.User{UserID: userid.NewUserIDFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
 
 	_, err := CreateWallet(s, false)
@@ -128,8 +128,8 @@ func TestCreateWallet(t *testing.T) {
 // Tests Invoice's message creation, and smoke tests the message's storage in
 // the wallet's session
 func TestWallet_Invoice(t *testing.T) {
-	payee := id.NewUserIDFromUint(1, t)
-	payer := id.NewUserIDFromUint(2, t)
+	payee := userid.NewUserIDFromUint(1, t)
+	payer := userid.NewUserIDFromUint(2, t)
 	memo := "please gib"
 	value := int64(50)
 	invoiceTime := time.Now()
@@ -240,8 +240,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 			Type: cmixproto.Type_PAYMENT_INVOICE,
 			Body: []byte("fun fact: clownfish aren't actually very funny"),
 		},
-		Sender:   id.ZeroID,
-		Receiver: id.ZeroID,
+		Sender:   userid.ZeroID,
+		Receiver: userid.ZeroID,
 		Nonce:    nil,
 	}, false)
 
@@ -371,8 +371,8 @@ func (ms *MockSession) SetLastMessageID(id string) {
 }
 
 func TestInvoiceListener_Hear(t *testing.T) {
-	payee := id.NewUserIDFromUint(1, t)
-	payer := id.NewUserIDFromUint(2, t)
+	payee := userid.NewUserIDFromUint(1, t)
+	payer := userid.NewUserIDFromUint(2, t)
 	value := uint64(50)
 	memo := "please gib"
 	// Set up the wallet and its storage
@@ -457,8 +457,8 @@ func TestInvoiceListener_Hear(t *testing.T) {
 }
 
 func TestWallet_Invoice_Error(t *testing.T) {
-	payee := id.NewUserIDFromUint(1, t)
-	payer := id.NewUserIDFromUint(2, t)
+	payee := userid.NewUserIDFromUint(1, t)
+	payer := userid.NewUserIDFromUint(2, t)
 	memo := "please gib"
 	// A value of zero should cause an error
 	value := int64(0)
@@ -497,7 +497,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 
 type MockMessaging struct{}
 
-func (m *MockMessaging) SendMessage(recipientID *id.UserID,
+func (m *MockMessaging) SendMessage(recipientID *userid.UserID,
 	message []byte) error {
 	return nil
 }
@@ -505,8 +505,8 @@ func (m *MockMessaging) SendMessage(recipientID *id.UserID,
 func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
 
 func TestResponseListener_Hear(t *testing.T) {
-	payer := id.NewUserIDFromUint(5, t)
-	payee := id.NewUserIDFromUint(12, t)
+	payer := userid.NewUserIDFromUint(5, t)
+	payee := userid.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -631,8 +631,8 @@ func TestResponseListener_Hear(t *testing.T) {
 }
 
 func TestResponseListener_Hear_Failure(t *testing.T) {
-	payer := id.NewUserIDFromUint(5, t)
-	payee := id.NewUserIDFromUint(12, t)
+	payer := userid.NewUserIDFromUint(5, t)
+	payee := userid.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -743,8 +743,8 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 }
 
 func TestWallet_Pay_NoChange(t *testing.T) {
-	payer := id.NewUserIDFromUint(5, t)
-	payee := id.NewUserIDFromUint(12, t)
+	payer := userid.NewUserIDFromUint(5, t)
+	payee := userid.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -836,8 +836,8 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 }
 
 func TestWallet_Pay_YesChange(t *testing.T) {
-	payer := id.NewUserIDFromUint(5, t)
-	payee := id.NewUserIDFromUint(12, t)
+	payer := userid.NewUserIDFromUint(5, t)
+	payee := userid.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -962,8 +962,8 @@ func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 // Tests the side effects of getting a receipt for a transaction that you
 // sent out an invoice for
 func TestReceiptListener_Hear(t *testing.T) {
-	payer := id.NewUserIDFromUint(5, t)
-	payee := id.NewUserIDFromUint(12, t)
+	payer := userid.NewUserIDFromUint(5, t)
+	payee := userid.NewUserIDFromUint(12, t)
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
@@ -1016,7 +1016,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	uiListener := &ReceiptUIListener{
 		w: w,
 	}
-	w.switchboard.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
+	w.switchboard.Register(userid.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
 		uiListener)
 
 	listener.Hear(&parse.Message{

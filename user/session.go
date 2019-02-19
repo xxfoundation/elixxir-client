@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/userid"
 	"math/rand"
-	"time"
-	"gitlab.com/elixxir/crypto/id"
 	"sync"
+	"time"
 )
 
 // Errors
@@ -73,7 +73,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.In
 
 }
 
-func LoadSession(UID *id.UserID) (Session, error) {
+func LoadSession(UID *userid.UserID) (Session, error) {
 	if globals.LocalStorage == nil {
 		err := errors.New("StoreSession: Local Storage not avalible")
 		return nil, err

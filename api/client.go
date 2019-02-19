@@ -19,10 +19,10 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
+	"gitlab.com/elixxir/primitives/format"
 	"time"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/connect"
 )
@@ -59,14 +59,14 @@ func InitClient(s globals.Storage, loc string) error {
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (*id.UserID, error) {
+	numNodes uint, mint bool) (*userid.UserID, error) {
 
 	var err error
 
 	if numNodes < 1 {
 		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
-		return id.ZeroID, err
+		return userid.ZeroID, err
 	}
 
 	// Because the method returns a pointer to the user ID, don't clear the
@@ -76,7 +76,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successLook {
 		globals.Log.ERROR.Printf("Register: HUID does not match")
 		err = errors.New("could not register due to invalid HUID")
-		return id.ZeroID, err
+		return userid.ZeroID, err
 	}
 
 	u, successGet := user.Users.GetUser(UID)
@@ -84,7 +84,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successGet {
 		globals.Log.ERROR.Printf("Register: ID lookup failed")
 		err = errors.New("could not register due to ID lookup failure")
-		return id.ZeroID, err
+		return userid.ZeroID, err
 	}
 
 	nodekeys, successKeys := user.Users.LookupKeys(u.UserID)
@@ -92,7 +92,7 @@ func Register(registrationCode string, gwAddr string,
 	if !successKeys {
 		globals.Log.ERROR.Printf("Register: could not find user keys")
 		err = errors.New("could not register due to missing user keys")
-		return id.ZeroID, err
+		return userid.ZeroID, err
 	}
 
 	nk := make([]user.NodeKeys, numNodes)
@@ -105,7 +105,7 @@ func Register(registrationCode string, gwAddr string,
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
-		return id.ZeroID, err
+		return userid.ZeroID, err
 	}
 
 	errStore := nus.StoreSession()
@@ -117,7 +117,7 @@ func Register(registrationCode string, gwAddr string,
 			"Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return id.ZeroID, err
+		return userid.ZeroID, err
 	}
 
 	nus.Immolate()
@@ -128,7 +128,7 @@ func Register(registrationCode string, gwAddr string,
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID *id.UserID, addr string, tlsCert string) (user.Session, error) {
+func Login(UID *userid.UserID, addr string, tlsCert string) (user.Session, error) {
 
 	connect.GatewayCertString = tlsCert
 
@@ -199,7 +199,7 @@ func SetRateLimiting(limit uint32) {
 // FIXME there can only be one
 var listenCh chan *format.Message
 
-func Listen(user *id.UserID, messageType cmixproto.Type,
+func Listen(user *userid.UserID, messageType cmixproto.Type,
 	newListener switchboard.Listener, callbacks *switchboard.
 	Switchboard) string {
 	listenerId := callbacks.Register(user, messageType, newListener)
@@ -274,7 +274,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
-func SearchForUser(emailAddress string) (*id.UserID, []byte, error) {
+func SearchForUser(emailAddress string) (*userid.UserID, []byte, error) {
 	valueType := "EMAIL"
 	return bots.Search(valueType, emailAddress)
 }

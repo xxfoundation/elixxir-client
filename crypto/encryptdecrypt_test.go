@@ -10,10 +10,10 @@ import (
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/format"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"testing"
-	"gitlab.com/elixxir/crypto/id"
+	"gitlab.com/elixxir/primitives/userid"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -47,7 +47,7 @@ func setup(t *testing.T) {
 		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
 	Grp = &grp
 
-	u, _ := user.Users.GetUser(id.NewUserIDFromUint(1, t))
+	u, _ := user.Users.GetUser(userid.NewUserIDFromUint(1, t))
 
 	nk := make([]user.NodeKeys, 1)
 
@@ -69,8 +69,8 @@ func setup(t *testing.T) {
 func TestEncryptDecrypt(t *testing.T) {
 	setup(t)
 
-	sender := id.NewUserIDFromUint(38, t)
-	recipient := id.NewUserIDFromUint(29, t)
+	sender := userid.NewUserIDFromUint(38, t)
+	recipient := userid.NewUserIDFromUint(29, t)
 	msg, err := format.NewMessage(sender, recipient, []byte("help me, " +
 		"i'm stuck in an"+
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory"))
@@ -90,10 +90,10 @@ func TestEncryptDecrypt(t *testing.T) {
 	Grp.Inverse(encryptionKey, decryptionKey)
 
 	// do the encryption and the decryption
-	encrypted := Encrypt(encryptionKey, Grp, &msg[0])
+	encrypted := Encrypt(encryptionKey, Grp, msg)
 	encryptedNet := &pb.CmixMessage{
-		MessagePayload: encrypted.Payload.Bytes(),
-		RecipientID:    encrypted.Recipient.Bytes(),
+		MessagePayload: encrypted.MessagePayload,
+		RecipientID:    encrypted.RecipientPayload,
 	}
 	decrypted, err := Decrypt(decryptionKey, Grp, encryptedNet)
 

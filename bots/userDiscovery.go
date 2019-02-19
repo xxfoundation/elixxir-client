@@ -16,12 +16,12 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/crypto/id"
 	"strings"
+	"gitlab.com/elixxir/primitives/userid"
 )
 
-// UdbID is the ID of the user discovery bot, which is always 3
-var UdbID *id.UserID
+// UdbID is the ID of the user discovery bot, which is always 13
+var UdbID *userid.UserID
 
 type udbResponseListener chan string
 
@@ -37,7 +37,7 @@ func (l *udbResponseListener) Hear(msg *parse.Message,
 
 // The go runtime calls init() before calling any methods in the package
 func init() {
-	UdbID = new(id.UserID).SetUints(&[4]uint64{0, 0, 0, 3})
+	UdbID = new(userid.UserID).SetUints(&[4]uint64{0,0,0,3})
 
 	pushKeyResponseListener = make(udbResponseListener)
 	getKeyResponseListener = make(udbResponseListener)
@@ -92,7 +92,7 @@ func Register(valueType, value string, publicKey []byte) error {
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string) (*id.UserID, []byte, error) {
+func Search(valueType, value string) (*userid.UserID, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 	msgBody := parse.Pack(&parse.TypedBody{
 		Type: cmixproto.Type_UDB_SEARCH,
@@ -109,7 +109,7 @@ func Search(valueType, value string) (*id.UserID, []byte, error) {
 	}
 	// While search returns more than 1 result, we only process the first
 	cMixUID, keyFP := parseSearch(response)
-	if *cMixUID == *id.ZeroID {
+	if *cMixUID == *userid.ZeroID {
 		return nil, nil, fmt.Errorf("%s", keyFP)
 	}
 
@@ -137,18 +137,18 @@ func Search(valueType, value string) (*id.UserID, []byte, error) {
 
 // parseSearch parses the responses from SEARCH. It returns the user's id and
 // the user's public key fingerprint
-func parseSearch(msg string) (*id.UserID, string) {
+func parseSearch(msg string) (*userid.UserID, string) {
 	globals.Log.DEBUG.Printf("Parsing search response: %v", msg)
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 5 {
-		return id.ZeroID, fmt.Sprintf("Invalid response from search: %s", msg)
+		return userid.ZeroID, fmt.Sprintf("Invalid response from search: %s", msg)
 	}
 
 	cMixUIDBytes, err := base64.StdEncoding.DecodeString(resParts[3])
 	if err != nil {
-		return id.ZeroID, fmt.Sprintf("Couldn't parse search cMix UID: %s", msg)
+		return userid.ZeroID, fmt.Sprintf("Couldn't parse search cMix UID: %s", msg)
 	}
-	cMixUID := new(id.UserID).SetBytes(cMixUIDBytes)
+	cMixUID := new(userid.UserID).SetBytes(cMixUIDBytes)
 
 	return cMixUID, resParts[4]
 }
@@ -171,7 +171,7 @@ func parseGetKey(msg string) []byte {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID *id.UserID, keyFP string, publicKey []byte) error {
+func pushKey(udbID *userid.UserID, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
 		publicKeyString)
@@ -189,7 +189,7 @@ func pushKey(udbID *id.UserID, keyFP string, publicKey []byte) error {
 }
 
 // keyExists checks for the existence of a key on the bot
-func keyExists(udbID *id.UserID, keyFP string) bool {
+func keyExists(udbID *userid.UserID, keyFP string) bool {
 	globals.Log.DEBUG.Printf("Running keyexists for %q, %v", *udbID, keyFP)
 	cmd := parse.Pack(&parse.TypedBody{
 		Type: cmixproto.Type_UDB_GET_KEY,
@@ -218,6 +218,6 @@ func fingerprint(publicKey []byte) string {
 // sendCommand sends a command to the udb. This doesn't block.
 // Callers that need to wait on a response should implement waiting with a
 // listener.
-func sendCommand(botID *id.UserID, command []byte) error {
+func sendCommand(botID *userid.UserID, command []byte) error {
 	return io.Messaging.SendMessage(botID, command)
 }

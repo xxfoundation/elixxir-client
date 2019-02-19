@@ -18,6 +18,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"time"
 	"gitlab.com/elixxir/primitives/userid"
+	"gitlab.com/elixxir/client/parse"
+	"reflect"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -152,6 +154,72 @@ func TestFormatTextMessage(t *testing.T) {
 			"Original time: %x, parsed time: %x", time.Now().Unix(), parsed.Time)
 	}
 	t.Logf("message: %q", msg)
+}
+
+func TestParsedMessage_GetSender(t *testing.T) {
+	pm := ParsedMessage{}
+	sndr := pm.GetSender()
+
+	if !reflect.DeepEqual(sndr,[]byte{}){
+		t.Errorf("Sender not empty from typed message")
+	}
+}
+
+func TestParsedMessage_GetPayload(t *testing.T) {
+	pm := ParsedMessage{}
+	payload := []byte{0,1,2,3}
+	pm.payload = payload
+	pld := pm.GetPayload()
+
+	if !reflect.DeepEqual(pld,payload){
+		t.Errorf("Output payload does not match input payload: %v %v", payload, pld)
+	}
+}
+
+func TestParsedMessage_GetRecipient(t *testing.T) {
+	pm := ParsedMessage{}
+	rcpt := pm.GetRecipient()
+
+	if !reflect.DeepEqual(rcpt,[]byte{}){
+		t.Errorf("Recipient not empty from typed message")
+	}
+}
+
+func TestParsedMessage_GetType(t *testing.T) {
+	pm := ParsedMessage{}
+	var typeTest int32
+	typeTest = 6
+	pm.typed = typeTest
+	typ := pm.GetType()
+
+	if typ!=typeTest{
+		t.Errorf("Returned type does not match")
+	}
+}
+
+func TestParse(t *testing.T){
+	ms := parse.Message{}
+	ms.Body = []byte{0,1,2}
+	ms.Type = cmixproto.Type_NO_TYPE
+	ms.Receiver = userid.ZeroID
+	ms.Sender = userid.ZeroID
+
+	messagePacked := ms.Pack()
+
+	msOut, err := ParseMessage(messagePacked)
+
+	if err!=nil{
+		t.Errorf("Message failed to parse: %s", err.Error())
+	}
+
+	if msOut.GetType()!=int32(ms.Type){
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
+	}
+
+	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){
+		t.Errorf("Bodies do not match after message parse: %v vs %v", msOut.GetPayload(), ms.Body)
+	}
+
 }
 
 // FIXME Reinstate tests for the UDB api

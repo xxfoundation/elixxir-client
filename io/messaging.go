@@ -165,8 +165,6 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 func (m *messaging) receiveMessagesFromGateway(
 	pollingMessage *pb.ClientPollMessage) []*format.Message {
 	if user.TheSession != nil {
-		user.TheSession.LockStorage()
-		defer user.TheSession.UnlockStorage()
 		pollingMessage.MessageID = user.TheSession.GetLastMessageID()
 		messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
 			pollingMessage)
@@ -224,6 +222,7 @@ func (m *messaging) receiveMessagesFromGateway(
 						"Adding message ID %v to received message IDs", messageID)
 					ReceivedMessages[messageID] = struct{}{}
 					user.TheSession.SetLastMessageID(messageID)
+					user.TheSession.StoreSession()
 
 					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
 						newMessage)

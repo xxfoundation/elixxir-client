@@ -149,6 +149,9 @@ func TestSend(t *testing.T) {
 	session, err2 := Login(userID, gwAddress, "")
 	SetNulKeys()
 
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}

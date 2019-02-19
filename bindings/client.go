@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/switchboard"
-	"sync"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/client/user"
 	"io"
@@ -247,14 +246,11 @@ func (lp *listenerProxy) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	lp.proxy.Hear(msgInterface, isHeardElsewhere)
 }
 
-// Unexported: Used to implement Lock and Unlock with the storage interface.
-// Not quite sure whether this will work as intended or not. Will have to test.
+// Translate a bindings storage to a client storage
 type storageProxy struct {
 	boundStorage Storage
-	lock         sync.Mutex
 }
 
-// TODO Should these methods take the mutex? Probably
 func (s *storageProxy) SetLocation(location string) error {
 	return s.boundStorage.SetLocation(location)
 }
@@ -271,16 +267,13 @@ func (s *storageProxy) Load() []byte {
 	return s.boundStorage.Load()
 }
 
-func (s *storageProxy) Lock() {
-	s.lock.Lock()
-}
-
-func (s *storageProxy) Unlock() {
-	s.lock.Unlock()
-}
-
 type Writer interface { io.Writer }
 
 func SetLogOutput(w Writer) {
 	api.SetLogOutput(w)
+}
+
+// Call this to get the session data without getting Save called from the Go side
+func GetSessionData() ([]byte, error) {
+	return api.GetSessionData()
 }

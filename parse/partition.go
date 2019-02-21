@@ -43,9 +43,9 @@ const MessageTooLongError = "Partition(): Message is too long to partition"
 // change this if you change the index type
 const IndexLength = 2
 
-// This function may be incorrect because DATA_LEN is the difference between
-// start and end, and end is the upper slice boundary rather than the last
-// index in the slice.
+// The max index is 0 for one partition, 1 for two partitions, 2 for three
+// partitions, and so on. This assumes that each partition can be completely
+// filled.
 func GetMaxIndex(body []byte, id []byte) int32 {
 	bodyLen := len(body)
 	if bodyLen > 0 {

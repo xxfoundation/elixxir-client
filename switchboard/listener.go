@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"strconv"
 	"sync"
+	"bytes"
 )
 
 // This is an interface so you can receive callbacks through the Gomobile boundary
@@ -113,6 +114,9 @@ func (lm *Switchboard) matchListeners(userID *id.User,
 
 // Broadcast a message to the appropriate listeners
 func (lm *Switchboard) Speak(msg *parse.Message) {
+	// Remove null padding from the right of the body
+	// TODO There's probably a better place to put this
+	msg.Body = bytes.TrimRight(msg.Body, "\x00")
 	globals.Log.INFO.Printf("Speaking message: %q", msg.Body)
 	lm.mux.RLock()
 	defer lm.mux.RUnlock()

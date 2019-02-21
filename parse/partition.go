@@ -17,38 +17,24 @@ import (
 )
 
 // TODO is there a better way to generate unique message IDs locally?
-// also, dummy message sender needs to have some way to get around this
-type IDCounter struct {
+func IDCounter() func() []byte {
 	// 32 bits to put a smaller upper bound on the varint size on the wire
-	currentID uint32
-	mux       sync.Mutex
-}
-
-// TODO rename or make it a param instead of a receiver
-var CurrentCounter IDCounter
-
-func (i *IDCounter) NextID() []byte {
-	// this will use up to 5 bytes for the message ID
-	result := make([]byte, binary.MaxVarintLen32)
-	i.mux.Lock()
-	n := binary.PutUvarint(result, uint64(i.currentID))
-	// TODO remove this hack by moving multi-part message fields and parsing to
-	// crypto/format. we need the first byte non-zero to keep cyclic from taking
-	// bytes off the front
-	if result[0] == 0 {
-		result[0] = 1
-		i.currentID++
+	// It should be possible to go back down to just a byte for the message ID
+	// field once the message format includes a timestamp, since you won't send
+	// more than 256 individual messages to one other user in a second. If we
+	// can use that timestamp information to help identify different multi-part
+	// messages, the currentID becomes a lot more superfluous.
+	currentID := uint32(0)
+	var mux sync.Mutex
+	return func() []byte {
+		// this will use up to 5 bytes for the message ID
+		result := make([]byte, binary.MaxVarintLen32)
+		mux.Lock()
+		n := binary.PutUvarint(result, uint64(currentID))
+		currentID++
+		mux.Unlock()
+		return result[:n]
 	}
-	// end hack
-	i.currentID++
-	i.mux.Unlock()
-	return result[:n]
-}
-
-func (i *IDCounter) Reset() {
-	i.mux.Lock()
-	i.currentID = 0
-	i.mux.Unlock()
 }
 
 const MessageTooLongError = "Partition(): Message is too long to partition"
@@ -57,9 +43,15 @@ const MessageTooLongError = "Partition(): Message is too long to partition"
 // change this if you change the index type
 const IndexLength = 2
 
+// This function may be incorrect because DATA_LEN is the difference between
+// start and end, and end is the upper slice boundary rather than the last
+// index in the slice.
 func GetMaxIndex(body []byte, id []byte) int32 {
-	maxIndex := uint64(len(body)) / (format.DATA_LEN - uint64(len(
-		id)) - IndexLength)
+	bodyLen := len(body)
+	if bodyLen > 0 {
+		bodyLen--
+	}
+	maxIndex := uint64(bodyLen) / (format.DATA_LEN - uint64(len(id)) - IndexLength)
 	return int32(maxIndex)
 }
 
@@ -179,23 +171,11 @@ func ValidatePartition(partition []byte) (message *MultiPartMessage,
 		return nil, errors.New("Couldn't find end of ID")
 	}
 
-	// Remove null padding from the message if this is the last part
-	// FIXME Migrate to OAEP padding instead, or at least something
-	bodyEnd := len(partition)
-	if partition[indexInformationStart] == partition[indexInformationStart+1] {
-		// Find the last nonzero byte
-		for i := len(partition) - 1; i >= 0; i-- {
-			if partition[i] != 0 {
-				bodyEnd = i + 1
-				break
-			}
-		}
-	}
 	result := &MultiPartMessage{
 		ID:       partition[:indexInformationStart],
 		Index:    partition[indexInformationStart],
 		MaxIndex: partition[indexInformationStart+1],
-		Body:     partition[indexInformationStart+2 : bodyEnd],
+		Body:     partition[indexInformationStart+2:],
 	}
 
 	globals.Log.DEBUG.Printf("Result of partition validation: %v, %v, %v, %v\n", result.ID,

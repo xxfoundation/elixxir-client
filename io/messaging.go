@@ -26,10 +26,12 @@ import (
 	"time"
 )
 
-type messaging struct{}
+type messaging struct{
+	nextId func() []byte
+}
 
 // Messaging implements the Communications interface
-var Messaging Communications = &messaging{}
+var Messaging Communications = &messaging{ nextId: parse.IDCounter() }
 
 // SendAddress is the address of the server to send messages
 var SendAddress string
@@ -68,7 +70,7 @@ func (m *messaging) SendMessage(recipientID *id.User,
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	userID := user.TheSession.GetCurrentUser().User
 	parts, err := parse.Partition([]byte(message),
-		parse.CurrentCounter.NextID())
+		m.nextId())
 	if err != nil {
 		return err
 	}
@@ -231,6 +233,8 @@ func (m *messaging) receiveMessagesFromGateway(
 						globals.Log.WARN.Printf(
 							"Message did not decrypt properly, "+
 								"not adding to results array: %v", err2.Error())
+						globals.Log.WARN.Printf("Decrypted message payload: %q",
+							decryptedMsg.MessagePayload)
 					} else {
 						results = append(results, decryptedMsg)
 					}

@@ -168,7 +168,7 @@ func TestParsedMessage_GetSender(t *testing.T) {
 func TestParsedMessage_GetPayload(t *testing.T) {
 	pm := ParsedMessage{}
 	payload := []byte{0,1,2,3}
-	pm.payload = payload
+	pm.Payload = payload
 	pld := pm.GetPayload()
 
 	if !reflect.DeepEqual(pld,payload){
@@ -189,7 +189,7 @@ func TestParsedMessage_GetType(t *testing.T) {
 	pm := ParsedMessage{}
 	var typeTest int32
 	typeTest = 6
-	pm.typed = typeTest
+	pm.Typed = typeTest
 	typ := pm.GetType()
 
 	if typ!=typeTest{

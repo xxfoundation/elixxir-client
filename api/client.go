@@ -281,8 +281,8 @@ func SearchForUser(emailAddress string) (*id.User, []byte, error) {
 
 //Message struct adherent to interface in bindings for data return from ParseMessage
 type ParsedMessage struct{
-	typed int32
-	payload []byte
+	Typed int32
+	Payload []byte
 }
 
 func (p ParsedMessage) GetSender()[]byte{
@@ -290,7 +290,7 @@ func (p ParsedMessage) GetSender()[]byte{
 }
 
 func (p ParsedMessage) GetPayload()[]byte{
-	return p.payload
+	return p.Payload
 }
 
 func (p ParsedMessage) GetRecipient()[]byte{
@@ -298,7 +298,7 @@ func (p ParsedMessage) GetRecipient()[]byte{
 }
 
 func (p ParsedMessage) GetType()int32{
-	return p.typed
+	return p.Typed
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
@@ -312,8 +312,8 @@ func ParseMessage(message []byte)(ParsedMessage,error){
 		return pm,err
 	}
 
-	pm.payload = tb.Body
-	pm.typed = int32(tb.Type)
+	pm.Payload = tb.Body
+	pm.Typed = int32(tb.Type)
 
 	return pm, nil
 }

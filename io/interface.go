@@ -17,5 +17,5 @@ type Communications interface {
 	// SendMessage to the server
 	SendMessage(recipientID *id.User, message []byte) error
 	// MessageReceiver thread to get new messages
-	MessageReceiver(delay time.Duration)
+	MessageReceiver(delay time.Duration, quit chan bool)
 }

@@ -21,10 +21,9 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
+	"reflect"
 	"testing"
 	"time"
-	"reflect"
-
 )
 
 const gwAddress = "localhost:5557"
@@ -56,7 +55,16 @@ func (d *dummyMessaging) Listen(senderID *id.User) chan *format.Message {
 func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
 
 // MessageReceiver thread to get new messages
-func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+func (d *dummyMessaging) MessageReceiver(delay time.Duration, quit chan bool) {
+	for {
+		select {
+		case <-quit:
+			return
+		default:
+			time.Sleep(16 * time.Millisecond)
+		}
+	}
+}
 
 func TestMain(m *testing.M) {
 	io.SendAddress = gwAddress
@@ -255,10 +263,9 @@ func TestSetLogOutput(t *testing.T) {
 	}
 }
 
-
-func TestParse(t *testing.T){
+func TestParse(t *testing.T) {
 	ms := parse.Message{}
-	ms.Body = []byte{0,1,2}
+	ms.Body = []byte{0, 1, 2}
 	ms.Type = cmixproto.Type_NO_TYPE
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
@@ -267,15 +274,15 @@ func TestParse(t *testing.T){
 
 	msOut, err := ParseMessage(messagePacked)
 
-	if err!=nil{
+	if err != nil {
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType()!=int32(ms.Type){
+	if msOut.GetType() != int32(ms.Type) {
 		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
 	}
 
-	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){
+	if !reflect.DeepEqual(ms.Body, msOut.GetPayload()) {
 		t.Errorf("Bodies do not match after message parse: %v vs %v", msOut.GetPayload(), ms.Body)
 	}
 

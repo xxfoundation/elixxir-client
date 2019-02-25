@@ -126,6 +126,8 @@ func Register(registrationCode string, gwAddr string,
 	return UID, err
 }
 
+var quitReceptionRunner chan bool
+
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
 func Login(UID *id.User, addr string, tlsCert string) (user.Session, error) {
@@ -168,9 +170,10 @@ func Login(UID *id.User, addr string, tlsCert string) (user.Session, error) {
 	user.TheSession = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
+	quitReceptionRunner = make(chan bool)
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go io.Messaging.MessageReceiver(pollWaitTimeMillis)
+	go io.Messaging.MessageReceiver(pollWaitTimeMillis, quitReceptionRunner)
 
 	return session, nil
 }
@@ -232,6 +235,10 @@ func Logout() error {
 		return err
 	}
 
+	// Stop reception runner goroutine
+	quitReceptionRunner <- true
+
+	// Disconnect from the gateway
 	io.Disconnect(io.SendAddress)
 	if io.SendAddress != io.ReceiveAddress {
 		io.Disconnect(io.ReceiveAddress)
@@ -260,6 +267,9 @@ func Logout() error {
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
+
+	// Reset listener structure
+	switchboard.Listeners = switchboard.NewSwitchboard()
 
 	return nil
 }

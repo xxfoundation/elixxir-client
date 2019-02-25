@@ -138,7 +138,7 @@ func send(senderID *id.User, message *format.Message) error {
 // list for the listeners?
 // Accessing all of these global variables is extremely problematic for this
 // kind of thread.
-func (m *messaging) MessageReceiver(delay time.Duration) {
+func (m *messaging) MessageReceiver(delay time.Duration, quit chan bool) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if user.TheSession == nil {
 		globals.Log.FATAL.Panicf("No user session available")
@@ -148,16 +148,21 @@ func (m *messaging) MessageReceiver(delay time.Duration) {
 	}
 
 	for {
-		time.Sleep(delay)
-		globals.Log.INFO.Printf("Attempting to receive message from gateway")
-		decryptedMessages := m.receiveMessagesFromGateway(&pollingMessage)
-		if decryptedMessages != nil {
-			for i := range decryptedMessages {
-				assembledMessage := GetCollator().AddMessage(
-					decryptedMessages[i], time.Minute)
-				if assembledMessage != nil {
-					// we got a fully assembled message. let's broadcast it
-					broadcastMessageReception(assembledMessage, switchboard.Listeners)
+		select {
+		case <- quit:
+			return
+		default:
+			time.Sleep(delay)
+			globals.Log.INFO.Printf("Attempting to receive message from gateway")
+			decryptedMessages := m.receiveMessagesFromGateway(&pollingMessage)
+			if decryptedMessages != nil {
+				for i := range decryptedMessages {
+					assembledMessage := GetCollator().AddMessage(
+						decryptedMessages[i], time.Minute)
+					if assembledMessage != nil {
+						// we got a fully assembled message. let's broadcast it
+						broadcastMessageReception(assembledMessage, switchboard.Listeners)
+					}
 				}
 			}
 		}

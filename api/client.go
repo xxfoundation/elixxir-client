@@ -238,6 +238,12 @@ func Logout() error {
 	}
 
 	errStore := user.TheSession.StoreSession()
+	// If a client is logging in again, the storage may need to go into a
+	// different location
+	// Currently, none of the storage abstractions need to do anything to
+	// clean up in the long term. For example, DefaultStorage closes the
+	// file every time it's written.
+	globals.LocalStorage = nil
 
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +

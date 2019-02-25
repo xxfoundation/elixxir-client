@@ -17,6 +17,7 @@ import (
 	"math/rand"
 	"sync"
 	"time"
+	"runtime/debug"
 )
 
 // Errors
@@ -98,6 +99,21 @@ func LoadSession(UID *id.User) (Session, error) {
 		return nil, err
 	}
 
+	// FIXME We got a nil pointer dereference on the next lines but I haven't
+	// been able to reproduce it. We should investigate why either of these
+	// could be nil at this point. If you manage to reproduce the dereference
+	// and you have the time, please try to figure out why.
+	// I suspect the client was loading some sort of malformed session gob,
+	// and we need to fail faster in the case that a malformed gob got loaded.
+	if session.CurrentUser.User == nil {
+		return nil, errors.New("Dereferencing nil session.CurrentUser." +
+			"User: " + string(debug.Stack()))
+	}
+	if UID == nil {
+		return nil, errors.New("Dereferencing nil param UID: " + string(debug.Stack()))
+	}
+	
+	// Line of the actual crash
 	if *session.CurrentUser.User != *UID {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: loaded incorrect "+

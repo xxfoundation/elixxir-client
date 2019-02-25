@@ -121,7 +121,7 @@ func send(senderID *id.User, message *format.Message) error {
 	msgPacket := &pb.CmixMessage{
 		SenderID:       senderID.Bytes(),
 		MessagePayload: encryptedMessage.MessagePayload,
-		RecipientID:    encryptedMessage.RecipientPayload,
+		AssociatedData:    encryptedMessage.RecipientPayload,
 		Salt:           salt,
 		KMACs:          macs,
 	}
@@ -204,7 +204,7 @@ func (m *messaging) receiveMessagesFromGateway(
 							" polling gateway", messageID)
 				} else {
 					if newMessage.MessagePayload == nil &&
-						newMessage.RecipientID == nil &&
+						newMessage.AssociatedData == nil &&
 						newMessage.SenderID == nil {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue

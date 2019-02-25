@@ -22,7 +22,7 @@ func Decrypt(key *cyclic.Int, g *cyclic.Group, cmixMsg *pb.CmixMessage) (
 
 	// Receive and decrypt a message
 	messagePayload := cyclic.NewIntFromBytes(cmixMsg.MessagePayload)
-	messageRecipient := cyclic.NewIntFromBytes(cmixMsg.RecipientID)
+	messageRecipient := cyclic.NewIntFromBytes(cmixMsg.AssociatedData)
 
 	// perform the decryption
 	g.Mul(messagePayload, key, messagePayload)

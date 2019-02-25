@@ -150,6 +150,7 @@ func (m *messaging) MessageReceiver(delay time.Duration, quit chan bool) {
 	for {
 		select {
 		case <- quit:
+			close(quit)
 			return
 		default:
 			time.Sleep(delay)

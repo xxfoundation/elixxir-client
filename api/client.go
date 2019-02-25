@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
@@ -198,9 +197,6 @@ func DisableBlockingTransmission() {
 func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
-
-// FIXME there can only be one
-var listenCh chan *format.Message
 
 func Listen(user *id.User, messageType cmixproto.Type,
 	newListener switchboard.Listener, callbacks *switchboard.

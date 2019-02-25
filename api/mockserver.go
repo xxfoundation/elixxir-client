@@ -19,7 +19,7 @@ import (
 type APIMessage struct {
 	Payload     []byte
 	SenderID    *id.User
-	AssociatedData *id.User
+	RecipientID *id.User
 }
 
 func (m APIMessage) GetSender() *id.User {
@@ -27,7 +27,7 @@ func (m APIMessage) GetSender() *id.User {
 }
 
 func (m APIMessage) GetRecipient() *id.User {
-	return m.AssociatedData
+	return m.RecipientID
 }
 
 func (m APIMessage) GetPayload() []byte {

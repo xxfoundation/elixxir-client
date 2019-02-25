@@ -162,7 +162,7 @@ func TestSend(t *testing.T) {
 	// Test send with invalid sender ID
 	err = Send(APIMessage{SenderID: id.NewUserFromUint(12, t),
 		Payload:     []byte("test"),
-		AssociatedData: userID})
+		RecipientID: userID})
 	if err != nil {
 		// TODO: would be nice to catch the sender but we
 		// don't have the interface/mocking for that.
@@ -171,7 +171,7 @@ func TestSend(t *testing.T) {
 
 	// Test send with valid inputs
 	err = Send(APIMessage{SenderID: userID, Payload: []byte("test"),
-		AssociatedData: userID})
+		RecipientID: userID})
 	if err != nil {
 		t.Errorf("Error sending message: %v", err)
 	}

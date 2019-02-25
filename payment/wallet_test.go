@@ -502,7 +502,7 @@ func (m *MockMessaging) SendMessage(recipientID *id.User,
 	return nil
 }
 
-func (m *MockMessaging) MessageReceiver(delay time.Duration) {}
+func (m *MockMessaging) MessageReceiver(delay time.Duration, quit chan bool) {}
 
 func TestResponseListener_Hear(t *testing.T) {
 	payer := id.NewUserFromUint(5, t)

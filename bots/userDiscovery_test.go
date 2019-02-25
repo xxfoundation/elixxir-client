@@ -33,7 +33,7 @@ func (d *dummyMessaging) SendMessage(recipientID *id.User,
 }
 
 // MessageReceiver thread to get new messages
-func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+func (d *dummyMessaging) MessageReceiver(delay time.Duration, quit chan bool) {}
 
 var pubKeyBits string
 var keyFingerprint string

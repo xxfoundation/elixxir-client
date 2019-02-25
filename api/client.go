@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
@@ -126,6 +125,8 @@ func Register(registrationCode string, gwAddr string,
 	return UID, err
 }
 
+var quitReceptionRunner chan bool
+
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
 func Login(UID *id.User, addr string, tlsCert string) (user.Session, error) {
@@ -168,9 +169,10 @@ func Login(UID *id.User, addr string, tlsCert string) (user.Session, error) {
 	user.TheSession = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
+	quitReceptionRunner = make(chan bool)
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go io.Messaging.MessageReceiver(pollWaitTimeMillis)
+	go io.Messaging.MessageReceiver(pollWaitTimeMillis, quitReceptionRunner)
 
 	return session, nil
 }
@@ -195,9 +197,6 @@ func DisableBlockingTransmission() {
 func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
-
-// FIXME there can only be one
-var listenCh chan *format.Message
 
 func Listen(user *id.User, messageType cmixproto.Type,
 	newListener switchboard.Listener, callbacks *switchboard.
@@ -232,12 +231,22 @@ func Logout() error {
 		return err
 	}
 
+	// Stop reception runner goroutine
+	quitReceptionRunner <- true
+
+	// Disconnect from the gateway
 	io.Disconnect(io.SendAddress)
 	if io.SendAddress != io.ReceiveAddress {
 		io.Disconnect(io.ReceiveAddress)
 	}
 
 	errStore := user.TheSession.StoreSession()
+	// If a client is logging in again, the storage may need to go into a
+	// different location
+	// Currently, none of the storage abstractions need to do anything to
+	// clean up in the long term. For example, DefaultStorage closes the
+	// file every time it's written.
+	globals.LocalStorage = nil
 
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
@@ -254,6 +263,9 @@ func Logout() error {
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
+
+	// Reset listener structure
+	switchboard.Listeners = switchboard.NewSwitchboard()
 
 	return nil
 }

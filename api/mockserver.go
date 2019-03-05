@@ -75,6 +75,16 @@ func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
 	return true
 }
 
+func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.
+RegistrationConfirmation, error) {
+	return &pb.RegistrationConfirmation{}, nil
+}
+
+// Pass-through for Registration Nonce Communication
+func (m *TestInterface) RequestNonce(message *pb.RequestNonceMessage) (*pb.NonceMessage, error) {
+	return &pb.NonceMessage{}, nil
+}
+
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
 	Location string

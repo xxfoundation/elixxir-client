@@ -10,6 +10,7 @@
 package io
 
 import (
+	"fmt"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -19,6 +20,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -26,12 +28,12 @@ import (
 	"time"
 )
 
-type messaging struct{
+type messaging struct {
 	nextId func() []byte
 }
 
 // Messaging implements the Communications interface
-var Messaging Communications = &messaging{ nextId: parse.IDCounter() }
+var Messaging Communications = &messaging{nextId: parse.IDCounter()}
 
 // SendAddress is the address of the server to send messages
 var SendAddress string
@@ -69,21 +71,36 @@ func (m *messaging) SendMessage(recipientID *id.User,
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	userID := user.TheSession.GetCurrentUser().User
+	// Padding happens in here
 	parts, err := parse.Partition([]byte(message),
 		m.nextId())
 	if err != nil {
-		return err
+		return fmt.Errorf("SendMessage Partition() error: %v", err.Error())
+	}
+	// Every part should have the same timestamp
+	now := time.Now()
+	// TODO Is it better to use Golang's binary timestamp format, or
+	// use the 2 int64 technique with Unix seconds+nanoseconds?
+	// 2 int64s is 128 bits, which is as much as can fit in the timestamp field,
+	// but the binary serialization is 14 bytes, which is slightly smaller but
+	// not smaller enough to make a difference.
+	// The binary serialized timestamp also includes zone data, which could be
+	// a feature, but might compromise a little bit of anonymity.
+	// Using binary timestamp format for now.
+	nowBytes, err := now.MarshalBinary()
+	if err != nil {
+		return fmt.Errorf("SendMessage MarshalBinary() error: %v", err.Error())
 	}
 	for i := range parts {
-		message, err := format.NewMessage(userID, recipientID, parts[i])
-		if err != nil {
-			// the message was too long to fit in one part, which should
-			// never happen due to the partitioning
-			return err
-		}
+		message := format.NewMessage()
+		message.SetSender(userID)
+		message.SetRecipient(recipientID)
+		// The timestamp will be encrypted later
+		message.SetTimestamp(nowBytes)
+		message.SetPayload(parts[i])
 		err = send(userID, message)
 		if err != nil {
-			return err
+			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
 	}
 	return nil
@@ -117,11 +134,14 @@ func send(senderID *id.User, message *format.Message) error {
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?
 	// TODO: Use salt here
-	encryptedMessage := crypto.Encrypt(encryptionKey, crypto.Grp, message)
+	// SB TODO: Is the salt that's generated in this method also suitable for
+	// use as the e2e key fingerprint for the outgoing message?
+	e2eKey := e2e.Keygen(crypto.Grp, nil, nil)
+	payload, associatedData := crypto.Encrypt(encryptionKey, crypto.Grp,
+		message, e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN)))
 	msgPacket := &pb.CmixMessage{
-		SenderID:       senderID.Bytes(),
-		MessagePayload: encryptedMessage.MessagePayload,
-		AssociatedData:    encryptedMessage.RecipientPayload,
+		Payload:        payload,
+		AssociatedData: associatedData,
 		Salt:           salt,
 		KMACs:          macs,
 	}
@@ -149,7 +169,7 @@ func (m *messaging) MessageReceiver(delay time.Duration, quit chan bool) {
 
 	for {
 		select {
-		case <- quit:
+		case <-quit:
 			close(quit)
 			return
 		default:
@@ -209,9 +229,8 @@ func (m *messaging) receiveMessagesFromGateway(
 						"Couldn't receive message with ID %v while"+
 							" polling gateway", messageID)
 				} else {
-					if newMessage.MessagePayload == nil &&
-						newMessage.AssociatedData == nil &&
-						newMessage.SenderID == nil {
+					if newMessage.Payload == nil &&
+						newMessage.AssociatedData == nil {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue
 					}
@@ -240,7 +259,7 @@ func (m *messaging) receiveMessagesFromGateway(
 							"Message did not decrypt properly, "+
 								"not adding to results array: %v", err2.Error())
 						globals.Log.WARN.Printf("Decrypted message payload: %q",
-							decryptedMsg.MessagePayload)
+							decryptedMsg.Payload)
 					} else {
 						results = append(results, decryptedMsg)
 					}

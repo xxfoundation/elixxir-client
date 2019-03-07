@@ -14,6 +14,8 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
+	"gitlab.com/elixxir/crypto/e2e"
+	"bytes"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -71,12 +73,17 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	sender := id.NewUserFromUint(38, t)
 	recipient := id.NewUserFromUint(29, t)
-	msg, err := format.NewMessage(sender, recipient, []byte("help me, "+
-		"i'm stuck in an"+
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory"))
+	msg := format.NewMessage()
+	msg.SetSender(sender)
+	msg.SetRecipient(recipient)
+	msgPayload := []byte("help me, i'm stuck in an" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+	msgPayloadPadded, err := e2e.Pad(msgPayload, format.MP_PAYLOAD_LEN)
 	if err != nil {
-		t.Errorf("Error: %s", err.Error())
+		t.Error(err.Error())
 	}
+	msg.SetPayload(msgPayloadPadded)
+
 	// Generate a compound encryption key
 	encryptionKey := cyclic.NewInt(1)
 	for _, key := range user.TheSession.GetKeys() {
@@ -90,15 +97,17 @@ func TestEncryptDecrypt(t *testing.T) {
 	Grp.Inverse(encryptionKey, decryptionKey)
 
 	// do the encryption and the decryption
-	encrypted := Encrypt(encryptionKey, Grp, msg)
+	e2eKey := e2e.Keygen(Grp, nil, nil)
+	assocData, payload := Encrypt(encryptionKey, Grp, msg,
+		e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN)))
 	encryptedNet := &pb.CmixMessage{
-		MessagePayload: encrypted.MessagePayload,
-		AssociatedData:    encrypted.RecipientPayload,
+		Payload:        payload,
+		AssociatedData: assocData,
 	}
 	decrypted, err := Decrypt(decryptionKey, Grp, encryptedNet)
 
 	if err != nil {
-		t.Errorf("Couldn't decrypt message: %v", err.Error())
+		t.Fatalf("Couldn't decrypt message: %v", err.Error())
 	}
 	if *decrypted.GetSender() != *sender {
 		t.Errorf("Sender differed from expected: Got %q, expected %q",
@@ -107,5 +116,13 @@ func TestEncryptDecrypt(t *testing.T) {
 	if *decrypted.GetRecipient() != *recipient {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
 			decrypted.GetRecipient(), sender)
+	}
+	decryptedPayload, err := e2e.Unpad(decrypted.GetPayload())
+	if err != nil {
+		t.Fatalf(err.Error())
+	}
+	if !bytes.Equal(decryptedPayload, msgPayload) {
+		t.Errorf("Decrypted payload differed from expected: Got %q, " +
+			"expected %q", decryptedPayload, msgPayload)
 	}
 }

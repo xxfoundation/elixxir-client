@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"math"
 	"sync"
+	"gitlab.com/elixxir/crypto/e2e"
 )
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -51,7 +52,7 @@ func GetMaxIndex(body []byte, id []byte) int32 {
 	if bodyLen > 0 {
 		bodyLen--
 	}
-	maxIndex := uint64(bodyLen) / (format.DATA_LEN - uint64(len(id)) - IndexLength)
+	maxIndex := bodyLen / (format.MP_PAYLOAD_LEN - e2e.MinPaddingLen - len(id) - IndexLength)
 	return int32(maxIndex)
 }
 
@@ -74,8 +75,14 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	var lastPartitionLength int
 	partitionReadIdx := 0
 	for i := range partitions {
-		partitions[i], lastPartitionLength = makePartition(format.DATA_LEN,
+		maxPartitionLength := format.MP_PAYLOAD_LEN-e2e.MinPaddingLen
+		partitions[i], lastPartitionLength = makePartition(maxPartitionLength,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
+		var err error
+		partitions[i], err = e2e.Pad(partitions[i], format.MP_PAYLOAD_LEN)
+		if err != nil {
+			return nil, err
+		}
 		partitionReadIdx += lastPartitionLength
 	}
 
@@ -89,7 +96,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 
 // can you believe that golang doesn't provide a min function in the std lib?
 // neither can i
-func min(a uint64, b uint64) uint64 {
+func min(a int, b int) int {
 	if a < b {
 		return a
 	}
@@ -100,7 +107,7 @@ func min(a uint64, b uint64) uint64 {
 // id, index, and length that are needed to rebuild it on the receiving client.
 // It returns the new partition and the length of the body that it consumed
 // when making the new partition.
-func makePartition(maxLength uint64, body []byte, id []byte, i byte,
+func makePartition(maxLength int, body []byte, id []byte, i byte,
 	maxIndex byte) ([]byte, int) {
 
 	partition := make([]byte, 0, maxLength)
@@ -111,7 +118,7 @@ func makePartition(maxLength uint64, body []byte, id []byte, i byte,
 	lengthBeforeBodyAppend := len(partition)
 
 	// Find the biggest part of the body that can fit into the message length
-	bodyWriteLength := min(maxLength-uint64(len(partition)), uint64(len(body)))
+	bodyWriteLength := min(maxLength-len(partition), len(body))
 
 	// Append body
 	partition = append(partition, body[:bodyWriteLength]...)
@@ -121,16 +128,17 @@ func makePartition(maxLength uint64, body []byte, id []byte, i byte,
 }
 
 // Assemble assumes that messages are correctly ordered by their index
-// It also assumes that messages have had all of their front matter stripped.
-func Assemble(partitions [][]byte) []byte {
+// It also assumes that messages have had all of their front matter and
+// padding stripped.
+func Assemble(partitions [][]byte) ([]byte, error) {
 	// this will allocate a bit more capacity than needed but not so much that
 	// it breaks the bank
-	result := make([]byte, 0, int(format.DATA_LEN)*len(partitions))
+	result := make([]byte, 0, int(format.MP_PAYLOAD_LEN)*len(partitions))
 
 	for i := range partitions {
 		result = append(result, partitions[i]...)
 	}
-	return result
+	return result, nil
 }
 
 type MultiPartMessage struct {
@@ -143,6 +151,11 @@ type MultiPartMessage struct {
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	err error) {
 	globals.Log.DEBUG.Printf("%v\n", partition)
+	// First step: remove padding
+	partition, err = e2e.Unpad(partition)
+	if err != nil {
+		return nil, err
+	}
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0

@@ -29,7 +29,7 @@ func TestCollator_AddMessage(t *testing.T) {
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
 	var bodies [][]byte
-	for length := uint64(5); length < 20*format.DATA_LEN; length += 20 {
+	for length := 5; length < 20*format.MP_PAYLOAD_LEN; length += 20 {
 		newBody := make([]byte, length)
 		_, err := rand.Read(newBody)
 		if err != nil {
@@ -46,12 +46,10 @@ func TestCollator_AddMessage(t *testing.T) {
 		var result *parse.Message
 		for j := range partitions {
 
-			fm, errFNM := format.NewMessage(id.NewUserFromUint(5, t),
-				id.NewUserFromUint(6, t), partitions[j])
-
-			if errFNM != nil {
-				t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
-			}
+			fm := format.NewMessage()
+			fm.SetSender(id.NewUserFromUint(5,t))
+			fm.SetRecipient(id.NewUserFromUint(6,t))
+			fm.SetPayload(partitions[j])
 
 			result = collator.AddMessage(fm, time.Minute)
 		}
@@ -79,20 +77,18 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
-	//enough for four partitions
-	body := make([]byte, 3*format.DATA_LEN)
+	//enough for four partitions, probably
+	body := make([]byte, 3*format.MP_PAYLOAD_LEN)
 	partitions, err := parse.Partition(body, []byte{88})
 	if err != nil {
 		t.Errorf("Error partitioning messages: %v", err.Error())
 	}
 	var result *parse.Message
 	for i := range partitions {
-		fm, errFNM := format.NewMessage(id.NewUserFromUint(5, t),
-			id.NewUserFromUint(6, t), partitions[i])
-
-		if errFNM != nil {
-			t.Errorf("Collator.AddMessage: Failed to format valid message: %s", errFNM.Error())
-		}
+		fm := format.NewMessage()
+		fm.SetSender(id.NewUserFromUint(5, t))
+		fm.SetRecipient(id.NewUserFromUint(6, t))
+		fm.SetPayload(partitions[i])
 
 		result = collator.AddMessage(fm, 80*time.Millisecond)
 		if result != nil {

@@ -8,6 +8,7 @@ package parse
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
 	"testing"
@@ -30,7 +31,8 @@ func TestPartitionEmptyMessage(t *testing.T) {
 	}
 	expected := [][]byte{{0x05, 0x0, 0x0}}
 	for i := range actual {
-		if !bytes.Equal(actual[i], expected[i]) {
+		// Can't use bytes.Equal here because of the padding
+		if !bytes.Contains(actual[i], expected[i]) {
 			t.Errorf("Partition empty message: expected partition %v differed"+
 				" from actual partition %v", expected[i], actual[i])
 		}
@@ -49,7 +51,8 @@ func TestPartitionShort(t *testing.T) {
 	expected := [][]byte{{0x03, 0x0, 0x0}}
 	expected[0] = append(expected[0], randomBytes...)
 	for i := range actual {
-		if !bytes.Equal(actual[i], expected[i]) {
+		// Can't use bytes.Equal here because of the padding
+		if !bytes.Contains(actual[i], expected[i]) {
 			t.Errorf("Partition short message: expected partition %v differed"+
 				" from actual partition %v", expected[i], actual[i])
 		}
@@ -73,17 +76,20 @@ func TestPartitionLong(t *testing.T) {
 	// index
 	expected[0] = append(expected[0], 0, 1)
 	// part of random string
-	expected[0] = append(expected[0], randomBytes[:format.DATA_LEN-4]...)
+	expected[0] = append(expected[0],
+		randomBytes[:format.MP_PAYLOAD_LEN-4-e2e.MinPaddingLen]...)
 
 	// id
 	expected[1] = append(expected[1], id...)
 	// index
 	expected[1] = append(expected[1], 1, 1)
 	// other part of random string
-	expected[1] = append(expected[1], randomBytes[format.DATA_LEN-4:]...)
+	expected[1] = append(expected[1],
+		randomBytes[format.MP_PAYLOAD_LEN-4-e2e.MinPaddingLen:]...)
 
 	for i := range actual {
-		if !bytes.Equal(actual[i], expected[i]) {
+		// Can't use bytes.Equal because of the padding
+		if !bytes.Contains(actual[i], expected[i]) {
 			t.Errorf("Partition long message: expected partition %v differed"+
 				" from actual partition %v", expected[i], actual[i])
 		}
@@ -97,25 +103,30 @@ func TestPartitionLongest(t *testing.T) {
 	// I'm assuming that 5 bytes will be the longest possible ID because that
 	// is the max length of a uvarint with 32 bits
 	id := []byte{0x1f, 0x2f, 0x3f, 0x4f, 0x5f}
-	actual, err := Partition(randomString(0, 51199), id)
+	actual, err := Partition(randomString(0, 52480), id)
 
 	if err != nil {
-		t.Error(err.Error())
+		t.Fatalf(err.Error())
 	}
 
 	expectedNumberOfPartitions := 256
 
 	if len(actual) != expectedNumberOfPartitions {
-		t.Errorf("Expected a 51199-byte message to split into %v partitions",
+		t.Errorf("Expected a 52480-byte message to split into %v partitions",
 			expectedNumberOfPartitions)
 	}
 
 	// check the index and max index of the last partition
+	lastIndex := len(actual)-1
 	expectedIdx := byte(255)
 	idxLocation := len(id)
 	maxIdxLocation := len(id) + 1
-	actualIdx := actual[len(actual)-1][idxLocation]
-	actualMaxIdx := actual[len(actual)-1][maxIdxLocation]
+	lastPartition, err := e2e.Unpad(actual[lastIndex])
+	if err != nil {
+		t.Error(err)
+	}
+	actualIdx := lastPartition[idxLocation]
+	actualMaxIdx := lastPartition[maxIdxLocation]
 	if actualIdx != expectedIdx {
 		t.Errorf("Expected index of %v on the last partition, got %v",
 			expectedIdx, actualIdx)
@@ -150,12 +161,17 @@ func TestOnlyAssemble(t *testing.T) {
 
 	partitions := make([][]byte, len(messageChunks))
 	for i := range partitions {
+		e2e.Pad([]byte(messageChunks[i]), format.MP_PAYLOAD_LEN)
 		partitions[i] = append(partitions[i], messageChunks[i]...)
 	}
 
-	if completeMessage != string(Assemble(partitions)) {
+	assembled, err := Assemble(partitions)
+	if err != nil {
+		t.Error(err.Error())
+	}
+	if completeMessage != string(assembled) {
 		t.Errorf("TestOnlyAssemble: got \"%v\"; expected \"%v\".",
-			string(Assemble(partitions)), completeMessage)
+			string(assembled), completeMessage)
 	}
 }
 
@@ -344,17 +360,28 @@ In placerat augue elit, gravida luctus odio luctus vel. Duis eget aliquet tellus
 
 	for i := range expected {
 		//create partitions
-		partitions, _ := Partition([]byte(expected[i]), []byte{0x05})
+		partitions, err := Partition([]byte(expected[i]), []byte{0x05})
+		if err != nil {
+			t.Error(err)
+		}
+		t.Logf("Number of partitions for index %v: %v", i, len(partitions))
+		t.Logf("First partition: %q, %v", partitions[0], len(partitions[0]))
 		//strip front matter from partitions
 		for j := range partitions {
 			strippedPartition, err := ValidatePartition(partitions[j])
 			if err != nil {
-				t.Errorf("Didn't validate a valid partition: %v, %v", j, err.Error())
+				t.Fatalf("Didn't validate a valid partition: %v, %v, %v,"+
+					" %v", j,
+					err.Error(), partitions[j], len(partitions[j]))
 			}
 			partitions[j] = strippedPartition.Body
 		}
-		// assemble stripped partitionsj
-		actual := Assemble(partitions)
+		// assemble stripped partitions
+		actual, err := Assemble(partitions)
+		if err != nil {
+			t.Error(err)
+		}
+		t.Log(string(actual))
 
 		if string(actual) != expected[i] {
 			t.Errorf("Actual (length %v): %v", len(string(actual)), string(actual))
@@ -401,6 +428,13 @@ func TestValidatePartition(t *testing.T) {
 		{0, 0, 0, 1, 10, 8, 8, 216, 153, 249, 217, 5, 24, 1, 18, 0, 26, 8,
 			72, 101, 108, 108, 111, 44, 32, 50},
 	}
+
+	// This payload will be rejected because it doesn't have padding
+	unpaddedPayload := []byte{
+		0, 0, 0, 1, 10, 8, 8, 216, 153, 249, 217, 5, 24, 1, 18, 0, 26, 8,
+			72, 101, 108, 108, 111, 44, 32, 50,
+	}
+
 	expectedIDs := [][]byte{{0x00}, {0x00}, {'t'}, {0}}
 	expectedIndexes := []byte{0x01, 0x00, 'e', 0}
 	expectedMaxIndexes := []byte{0x01, 0x00, 'l', 0}
@@ -415,6 +449,23 @@ func TestValidatePartition(t *testing.T) {
 	// make first two payloads valid by adding a payload to them
 	for i := 0; i < 2; i++ {
 		validPayloads[i] = append(validPayloads[i], []byte("apples and grapes")...)
+	}
+
+	// Pad all of the payloads but one to a certain length,
+	// because ValidatePartition now expects a payload to have valid padding
+	for i := range invalidPayloads {
+		var err error
+		invalidPayloads[i], err = e2e.Pad(invalidPayloads[i], 100)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+	for i := range validPayloads {
+		var err error
+		validPayloads[i], err = e2e.Pad(validPayloads[i], 100)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 
 	for i := range invalidPayloads {
@@ -445,5 +496,12 @@ func TestValidatePartition(t *testing.T) {
 			t.Errorf("Payload %v's body was parsed incorrectly. Got %v, "+
 				"expected %v", i, result.Body, expectedBodies[i])
 		}
+	}
+
+	// Validation should fail for the unpadded payload
+	_, err := ValidatePartition(unpaddedPayload)
+	if err == nil {
+		t.Error("Unpadded payload didn't result in an error from partition" +
+			" validation")
 	}
 }

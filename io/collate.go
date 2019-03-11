@@ -54,7 +54,7 @@ func GetCollator() *collator {
 func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
-	payload := message.GetPayload()
+	payload := message.GetPayloadData()
 	sender := message.GetSender()
 	recipient := message.GetRecipient()
 

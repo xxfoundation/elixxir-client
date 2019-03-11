@@ -7,15 +7,15 @@
 package crypto
 
 import (
+	"bytes"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
-	"gitlab.com/elixxir/crypto/e2e"
-	"bytes"
 )
 
 var PRIME = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
@@ -78,11 +78,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msgPayloadPadded, err := e2e.Pad(msgPayload, format.MP_PAYLOAD_LEN)
-	if err != nil {
-		t.Error(err.Error())
-	}
-	msg.SetPayload(msgPayloadPadded)
+	msg.SetPayloadData(msgPayload)
 
 	// Generate a compound encryption key
 	encryptionKey := cyclic.NewInt(1)
@@ -98,10 +94,10 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	// do the encryption and the decryption
 	e2eKey := e2e.Keygen(Grp, nil, nil)
-	assocData, payload := Encrypt(encryptionKey, Grp, msg,
-		e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN)))
+	assocData, payload := Encrypt(encryptionKey, Grp, msg, e2eKey)
 	encryptedNet := &pb.CmixMessage{
-		Payload:        payload,
+		SenderID:       sender.Bytes(),
+		MessagePayload: payload,
 		AssociatedData: assocData,
 	}
 	decrypted, err := Decrypt(decryptionKey, Grp, encryptedNet)
@@ -117,12 +113,8 @@ func TestEncryptDecrypt(t *testing.T) {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
 			decrypted.GetRecipient(), sender)
 	}
-	decryptedPayload, err := e2e.Unpad(decrypted.GetPayload())
-	if err != nil {
-		t.Fatalf(err.Error())
-	}
-	if !bytes.Equal(decryptedPayload, msgPayload) {
-		t.Errorf("Decrypted payload differed from expected: Got %q, " +
-			"expected %q", decryptedPayload, msgPayload)
+	if !bytes.Equal(decrypted.GetPayloadData(), msgPayload) {
+		t.Errorf("Decrypted payload differed from expected: Got %q, "+
+			"expected %q", decrypted.GetPayloadData(), msgPayload)
 	}
 }

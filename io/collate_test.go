@@ -49,7 +49,7 @@ func TestCollator_AddMessage(t *testing.T) {
 			fm := format.NewMessage()
 			fm.SetSender(id.NewUserFromUint(5,t))
 			fm.SetRecipient(id.NewUserFromUint(6,t))
-			fm.SetPayload(partitions[j])
+			fm.SetPayloadData(partitions[j])
 
 			result = collator.AddMessage(fm, time.Minute)
 		}

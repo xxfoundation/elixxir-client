@@ -71,7 +71,6 @@ func (m *messaging) SendMessage(recipientID *id.User,
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	userID := user.TheSession.GetCurrentUser().User
-	// Padding happens in here
 	parts, err := parse.Partition([]byte(message),
 		m.nextId())
 	if err != nil {
@@ -82,11 +81,14 @@ func (m *messaging) SendMessage(recipientID *id.User,
 	// TODO Is it better to use Golang's binary timestamp format, or
 	// use the 2 int64 technique with Unix seconds+nanoseconds?
 	// 2 int64s is 128 bits, which is as much as can fit in the timestamp field,
-	// but the binary serialization is 14 bytes, which is slightly smaller but
+	// but the binary serialization is 15 bytes, which is slightly smaller but
 	// not smaller enough to make a difference.
 	// The binary serialized timestamp also includes zone data, which could be
 	// a feature, but might compromise a little bit of anonymity.
 	// Using binary timestamp format for now.
+	// TODO BC: It is actually better to use the 15 byte version since this will
+	// allow the encrypted timestamp to fit in 16 bytes instead of 32, by using
+	// the key fingerprint as the IV for AES encryption
 	nowBytes, err := now.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("SendMessage MarshalBinary() error: %v", err.Error())
@@ -97,7 +99,7 @@ func (m *messaging) SendMessage(recipientID *id.User,
 		message.SetRecipient(recipientID)
 		// The timestamp will be encrypted later
 		message.SetTimestamp(nowBytes)
-		message.SetPayload(parts[i])
+		message.SetPayloadData(parts[i])
 		err = send(userID, message)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
@@ -133,14 +135,13 @@ func send(senderID *id.User, message *format.Message) error {
 
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?
-	// TODO: Use salt here
-	// SB TODO: Is the salt that's generated in this method also suitable for
-	// use as the e2e key fingerprint for the outgoing message?
+	// TODO: Use salt here / generate n key map
 	e2eKey := e2e.Keygen(crypto.Grp, nil, nil)
-	payload, associatedData := crypto.Encrypt(encryptionKey, crypto.Grp,
-		message, e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN)))
+	associatedData, payload := crypto.Encrypt(encryptionKey, crypto.Grp,
+		message, e2eKey)
 	msgPacket := &pb.CmixMessage{
-		Payload:        payload,
+		SenderID:       senderID.Bytes(),
+		MessagePayload: payload,
 		AssociatedData: associatedData,
 		Salt:           salt,
 		KMACs:          macs,
@@ -229,7 +230,7 @@ func (m *messaging) receiveMessagesFromGateway(
 						"Couldn't receive message with ID %v while"+
 							" polling gateway", messageID)
 				} else {
-					if newMessage.Payload == nil &&
+					if newMessage.MessagePayload == nil ||
 						newMessage.AssociatedData == nil {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue
@@ -258,8 +259,6 @@ func (m *messaging) receiveMessagesFromGateway(
 						globals.Log.WARN.Printf(
 							"Message did not decrypt properly, "+
 								"not adding to results array: %v", err2.Error())
-						globals.Log.WARN.Printf("Decrypted message payload: %q",
-							decryptedMsg.Payload)
 					} else {
 						results = append(results, decryptedMsg)
 					}

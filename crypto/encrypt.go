@@ -7,46 +7,62 @@
 package crypto
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/verification"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/crypto/messaging"
-	"gitlab.com/elixxir/crypto/csprng"
-	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/crypto/e2e"
-	jww "github.com/spf13/jwalterweatherman"
+	"time"
 )
 
 // Encrypt uses the encryption key to encrypt the passed message and populate
 // the associated data
 // You must also encrypt the message for the nodes
 func Encrypt(key *cyclic.Int, g *cyclic.Group,
-	message *format.Message, e2eKey []byte) (encryptedAssociatedData []byte,
-		encryptedPayload []byte) {
+	message *format.Message, e2eKey *cyclic.Int) (encryptedAssociatedData []byte,
+	encryptedPayload []byte) {
+	e2eKeyBytes := e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN))
+	// Key fingerprint is 256 bits given by H(e2ekey)
+	// For now use Blake2B
+	h, _ := hash.NewCMixHash()
+	h.Write(e2eKeyBytes)
+	keyFp := h.Sum(nil)
+	message.SetKeyFingerprint(keyFp)
 
-	// Key fingerprint is full 256 bits
-	keyFp := messaging.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
-	message.AssociatedData.SetKeyFingerprint(keyFp)
-
-	// Encrypt the timestamp
-	// FIXME This needs to be hooked in to the new keying system
-	// Currently it is trivial to decrypt this on the other side,
-	// or in the middle, because the full AES key is right there in the AD of
-	// the plaintext. This is for ease of implementation.
-	encryptedTimestamp, err := e2e.EncryptAES256(cyclic.NewIntFromBytes(keyFp),
-		message.GetTimestamp())
-	if err != nil {
+	// Encrypt the timestamp using the e2ekey
+	// TODO BC: this will produce a 32 byte ciphertext, where the first 16 bytes
+	// is the IV internally generated AES. This is fine right now since there are 32 bytes
+	// of space in Associated Data for the timestamp.
+	// If we want to decrease that to 16 bytes, we need to use the key fingerprint
+	// as the IV for AES encryption
+	// TODO: timestamp like this is kinda hacky, maybe it should be set right here
+	// However, this would lead to parts of same message having potentially different timestamps
+	// Get relevant bytes from timestamp by unmarshalling and then marshalling again
+	timestamp := time.Time{}
+	timestamp.UnmarshalBinary(message.GetTimestamp())
+	timeBytes, _ := timestamp.MarshalBinary()
+	var iv [e2e.AESBlockSize]byte
+	copy(iv[:], keyFp[:e2e.AESBlockSize])
+	encryptedTimestamp, err := e2e.EncryptAES256WithIV(e2eKeyBytes, iv, timeBytes)
+	// Make sure the encrypted timestamp fits
+	if len(encryptedTimestamp) != format.AD_TIMESTAMP_LEN || err != nil {
 		jww.ERROR.Panicf(err.Error())
 	}
 	message.SetTimestamp(encryptedTimestamp)
 
-	// MAC is HMAC(key, plaintext)
+	// E2E encrypt the message
+	encPayload, err := e2e.Encrypt(*g, e2eKey, message.GetPayload())
+	if len(encPayload) != format.TOTAL_LEN || err != nil {
+		jww.ERROR.Panicf(err.Error())
+	}
+	message.SetPayload(encPayload)
+
+	// MAC is HMAC(key, ciphertext)
 	// Currently, the MAC doesn't include any of the associated data
-	MAC := hash.CreateHMAC(message.SerializePayload(), e2eKey)
+	MAC := hash.CreateHMAC(encPayload, e2eKeyBytes)
 	message.SetMAC(MAC)
 
-	// TODO Make sure all of these fields are properly populated before
-	// generating the MIC!
 	recipientMicList := [][]byte{
 		message.AssociatedData.GetRecipientID(),
 		message.AssociatedData.GetKeyFingerprint(),
@@ -54,9 +70,9 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group,
 		message.AssociatedData.GetMAC(),
 	}
 	mic := verification.GenerateMIC(recipientMicList, uint64(format.AD_RMIC_LEN))
-	copy(message.GetRecipientMIC(), mic)
+	message.SetRecipientMIC(mic)
 
-	// perform the encryption
+	// perform the CMIX encryption
 	resultPayload := cyclic.NewIntFromBytes(message.SerializePayload())
 	resultAssociatedData := cyclic.NewIntFromBytes(message.SerializeAssociatedData())
 	g.Mul(resultPayload, key, resultPayload)

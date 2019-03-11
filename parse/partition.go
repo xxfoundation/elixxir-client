@@ -78,11 +78,6 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 		maxPartitionLength := format.MP_PAYLOAD_LEN-e2e.MinPaddingLen
 		partitions[i], lastPartitionLength = makePartition(maxPartitionLength,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
-		var err error
-		partitions[i], err = e2e.Pad(partitions[i], format.MP_PAYLOAD_LEN)
-		if err != nil {
-			return nil, err
-		}
 		partitionReadIdx += lastPartitionLength
 	}
 
@@ -151,11 +146,6 @@ type MultiPartMessage struct {
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	err error) {
 	globals.Log.DEBUG.Printf("%v\n", partition)
-	// First step: remove padding
-	partition, err = e2e.Unpad(partition)
-	if err != nil {
-		return nil, err
-	}
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0

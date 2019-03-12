@@ -8,49 +8,71 @@ package crypto
 
 import (
 	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/verification"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 )
 
 // Decrypt decrypts messages
-func Decrypt(key *cyclic.Int, g *cyclic.Group, cmixMsg *pb.CmixMessage) (
+func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
+	cmixMsg *pb.CmixMessage) (
 	*format.Message, error) {
 
-	var err error
-
 	// Receive and decrypt a message
-	messagePayload := cyclic.NewIntFromBytes(cmixMsg.MessagePayload)
-	messageRecipient := cyclic.NewIntFromBytes(cmixMsg.AssociatedData)
+	payload := cyclic.NewIntFromBytes(cmixMsg.MessagePayload)
 
-	// perform the decryption
-	g.Mul(messagePayload, key, messagePayload)
-	g.Mul(messageRecipient, key, messageRecipient)
+	// perform the CMIX decryption
+	g.Mul(payload, nodeKey, payload)
 
 	// unpack the message from a MessageBytes
-	decryptedMessage := format.DeserializeMessage(format.MessageSerial{
-		MessagePayload:   messagePayload.LeftpadBytes(format.TOTAL_LEN),
-		RecipientPayload: messageRecipient.LeftpadBytes(format.TOTAL_LEN),
-	})
+	var message format.Message
+	payloadSerial := payload.LeftpadBytes(uint64(format.TOTAL_LEN))
+	message.AssociatedData = format.DeserializeAssociatedData(cmixMsg.AssociatedData)
+	message.Payload = format.DeserializePayload(payloadSerial)
 
-	payloadMicList :=
-		[][]byte{decryptedMessage.GetMessageInitVect(),
-			decryptedMessage.GetSenderID(),
-			decryptedMessage.GetData(),
+	// TODO Should salt be []byte instead of cyclic.Int?
+	// TODO Should the method return []byte instead of cyclic.Int?
+	// That might give better results in the case that the key happens to be
+	// not the correct length in bytes. Unlikely, but possible.
+	clientKey := e2e.Keygen(g, nil, nil)
+	// Assuming that result of e2e.Keygen() will be nil for non-e2e messages
+	// TODO BC: why is this assumption valid ?
+	if clientKey != nil {
+		clientKeyBytes := clientKey.LeftpadBytes(uint64(format.TOTAL_LEN))
+		// First thing to do is check MAC
+		if !hash.VerifyHMAC(payloadSerial, message.GetMAC(), clientKeyBytes) {
+			return nil, errors.New("HMAC failed for end-to-end message")
 		}
-
-	// Note: Don't check the recipient MIC here. The recipient MIC is currently
-	// only for the server to know who to send the message to. If the message
-	// has ended up here, it's probably because it's for you. So don't worry
-	// about it!
-	// FIXME: This should not be done here. Do it as part of the receive/display.
-	success := verification.CheckMic(payloadMicList,
-		decryptedMessage.GetPayloadMIC())
-
-	if !success {
-		err = errors.New("Payload MIC did not match")
+		var iv [e2e.AESBlockSize]byte
+		copy(iv[:], message.GetKeyFingerprint()[:e2e.AESBlockSize])
+		// decrypt the timestamp in the associated data
+		decryptedTimestamp, err := e2e.DecryptAES256WithIV(clientKeyBytes, iv, message.GetTimestamp())
+		if err != nil {
+			jww.ERROR.Panicf(err.Error())
+		}
+		// TODO deserialize this somewhere along the line and provide methods
+		// to mobile developers on the bindings to interact with the timestamps
+		message.SetTimestamp(decryptedTimestamp)
+		// Decrypt e2e
+		decryptedPayload, err := e2e.Decrypt(*g, clientKey, payloadSerial)
+		if err != nil {
+			return nil, errors.New(err.Error() +
+				"Failed to decrypt e2e message despite non" +
+				"-nil client key result")
+		}
+		if message.SetSplitPayload(decryptedPayload) != len(decryptedPayload) {
+			jww.ERROR.Panicf("Error setting decrypted payload")
+		}
+		return &message, nil
+	} else {
+		// Check MAC for non-e2e
+		if hash.VerifyHMAC(payloadSerial, message.GetMAC(), message.GetKeyFingerprint()) {
+			return &message, nil
+		} else {
+			return nil, errors.New("HMAC failed for plaintext message")
+		}
 	}
-
-	return &decryptedMessage, err
 }

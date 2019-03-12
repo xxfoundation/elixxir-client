@@ -19,7 +19,6 @@ import (
 
 type multiPartMessage struct {
 	parts            [][]byte
-	nonces           [][]byte
 	numPartsReceived uint8
 }
 
@@ -55,9 +54,9 @@ func GetCollator() *collator {
 func (mb *collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
-	payload := message.GetPayload()
+	payload := message.GetPayloadData()
 	sender := message.GetSender()
-	nonce := message.GetMessageInitVect()
+	recipient := message.GetRecipient()
 
 	partition, err := parse.ValidatePartition(payload)
 
@@ -74,7 +73,6 @@ func (mb *collator) AddMessage(message *format.Message,
 
 			msg := parse.Message{
 				TypedBody: *typedBody,
-				Nonce:     nonce,
 				Sender:    sender,
 				Receiver:  user.TheSession.GetCurrentUser().User,
 			}
@@ -97,12 +95,8 @@ func (mb *collator) AddMessage(message *format.Message,
 				newMessage := make([][]byte, partition.MaxIndex+1)
 				newMessage[partition.Index] = partition.Body
 
-				newNonce := make([][]byte, partition.MaxIndex+1)
-				newNonce[partition.Index] = nonce
-
 				message = &multiPartMessage{
 					parts:            newMessage,
-					nonces:           newNonce,
 					numPartsReceived: 1,
 				}
 
@@ -122,24 +116,29 @@ func (mb *collator) AddMessage(message *format.Message,
 				// append to array for this key
 				message.numPartsReceived++
 				message.parts[partition.Index] = partition.Body
-				message.nonces[partition.Index] = nonce
 			}
 			if message.numPartsReceived > partition.MaxIndex {
 				// Construct message
-				typedBody, err := parse.Parse(parse.Assemble(message.parts))
+				fullMsg, err := parse.Assemble(message.parts)
+				if err != nil {
+					delete(mb.pendingMessages, key)
+					mb.mux.Unlock()
+					globals.Log.ERROR.Printf("Malformed message: Padding error, %v", err.Error())
+					return nil
+				}
+				typedBody, err := parse.Parse(fullMsg)
 				// Log an error if the message is malformed and return nothing
 				if err != nil {
 					delete(mb.pendingMessages, key)
 					mb.mux.Unlock()
-					globals.Log.ERROR.Printf("Malformed message Recieved")
+					globals.Log.ERROR.Printf("Malformed message Received")
 					return nil
 				}
 
 				msg := parse.Message{
 					TypedBody: *typedBody,
-					Nonce:     parse.Assemble(message.nonces),
 					Sender:    sender,
-					Receiver:  user.TheSession.GetCurrentUser().User,
+					Receiver:  recipient,
 				}
 
 				delete(mb.pendingMessages, key)

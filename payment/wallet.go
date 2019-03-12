@@ -282,7 +282,7 @@ func buildPaymentPayload(request, change coin.Sleeve,
 	funds []coin.Sleeve) []byte {
 	// The order of these doesn't matter because the coin's header determines
 	// whether you are funding or destroying the coin on the payment bot.
-	payload := make([]byte, 0, format.DATA_LEN)
+	payload := make([]byte, 0, format.MP_PAYLOAD_LEN)
 	// So, I'll just use an arbitrary order. The invoiced coin can go first.
 	payload = append(payload, request.Compound()[:]...)
 	// Then, the change, if there is any
@@ -332,8 +332,9 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	paymentMessage := buildPaymentPayload(inboundRequest.Create, change, funds)
 
-	if uint64(len(parse.TypeAsBytes(int32(cmixproto.Type_PAYMENT_TRANSACTION))))+
-		uint64(len(paymentMessage)) > format.DATA_LEN {
+	// FIXME This is only approximately correct, thanks to the padding
+	if len(parse.TypeAsBytes(int32(cmixproto.Type_PAYMENT_TRANSACTION)))+
+		len(paymentMessage) > format.MP_PAYLOAD_LEN {
 		// The message is too long to fit in a single payment message
 		panic("Payment message doesn't fit in a single message")
 	}

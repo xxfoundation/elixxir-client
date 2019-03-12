@@ -7,46 +7,77 @@
 package crypto
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/verification"
 	"gitlab.com/elixxir/primitives/format"
+	"time"
 )
 
-// Encrypt uses the encryption key to encrypt a message
-func Encrypt(key *cyclic.Int, g *cyclic.Group, message *format.Message) *format.MessageSerial {
+// Encrypt uses the encryption key to encrypt the passed message and populate
+// the associated data
+// You must also encrypt the message for the nodes
+func Encrypt(key *cyclic.Int, g *cyclic.Group,
+	message *format.Message, e2eKey *cyclic.Int) (encryptedAssociatedData []byte,
+	encryptedPayload []byte) {
+	e2eKeyBytes := e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN))
+	// Key fingerprint is 256 bits given by H(e2ekey)
+	// For now use Blake2B
+	h, _ := hash.NewCMixHash()
+	h.Write(e2eKeyBytes)
+	keyFp := h.Sum(nil)
+	message.SetKeyFingerprint(keyFp)
 
-	// TODO: This is all MIC code and should be moved outside the encrypt
-	//       function.
-	MakeInitVect(message.GetMessageInitVect())
-	MakeInitVect(message.GetRecipientInitVect())
+	// Encrypt the timestamp using the e2ekey
+	// TODO BC: this will produce a 32 byte ciphertext, where the first 16 bytes
+	// is the IV internally generated AES. This is fine right now since there are 32 bytes
+	// of space in Associated Data for the timestamp.
+	// If we want to decrease that to 16 bytes, we need to use the key fingerprint
+	// as the IV for AES encryption
+	// TODO: timestamp like this is kinda hacky, maybe it should be set right here
+	// However, this would lead to parts of same message having potentially different timestamps
+	// Get relevant bytes from timestamp by unmarshalling and then marshalling again
+	timestamp := time.Time{}
+	timestamp.UnmarshalBinary(message.GetTimestamp())
+	timeBytes, _ := timestamp.MarshalBinary()
+	var iv [e2e.AESBlockSize]byte
+	copy(iv[:], keyFp[:e2e.AESBlockSize])
+	encryptedTimestamp, err := e2e.EncryptAES256WithIV(e2eKeyBytes, iv, timeBytes)
+	// Make sure the encrypted timestamp fits
+	if len(encryptedTimestamp) != format.AD_TIMESTAMP_LEN || err != nil {
+		jww.ERROR.Panicf(err.Error())
+	}
+	message.SetTimestamp(encryptedTimestamp)
 
-	payloadMicList :=
-		[][]byte{message.GetMessageInitVect(),
-			message.GetSenderID(),
-			message.GetData(),
-		}
+	// E2E encrypt the message
+	encPayload, err := e2e.Encrypt(*g, e2eKey, message.GetPayload())
+	if len(encPayload) != format.TOTAL_LEN || err != nil {
+		jww.ERROR.Panicf(err.Error())
+	}
+	message.SetPayload(encPayload)
 
-	payloadMic := verification.GenerateMIC(payloadMicList, format.MMIC_LEN)
-	copy(message.GetPayloadMIC(), payloadMic)
+	// MAC is HMAC(key, ciphertext)
+	// Currently, the MAC doesn't include any of the associated data
+	MAC := hash.CreateHMAC(encPayload, e2eKeyBytes)
+	message.SetMAC(MAC)
 
-	recipientMicList :=
-		[][]byte{message.GetRecipientInitVect(),
-			message.GetRecipientID(),
-		}
+	recipientMicList := [][]byte{
+		message.AssociatedData.GetRecipientID(),
+		message.AssociatedData.GetKeyFingerprint(),
+		message.AssociatedData.GetTimestamp(),
+		message.AssociatedData.GetMAC(),
+	}
+	mic := verification.GenerateMIC(recipientMicList, uint64(format.AD_RMIC_LEN))
+	message.SetRecipientMIC(mic)
 
-	copy(message.GetRecipientMIC(), verification.GenerateMIC(recipientMicList, format.RMIC_LEN))
-
-	result := message.SerializeMessage()
-
-	// perform the encryption
-	resultPayload := cyclic.NewIntFromBytes(result.MessagePayload)
-	resultRecipient := cyclic.NewIntFromBytes(result.RecipientPayload)
+	// perform the CMIX encryption
+	resultPayload := cyclic.NewIntFromBytes(message.SerializePayload())
+	resultAssociatedData := cyclic.NewIntFromBytes(message.SerializeAssociatedData())
 	g.Mul(resultPayload, key, resultPayload)
-	g.Mul(resultRecipient, key, resultRecipient)
+	g.Mul(resultAssociatedData, key, resultAssociatedData)
 
-	// write back encrypted message into result
-	copy(result.MessagePayload, resultPayload.LeftpadBytes(format.TOTAL_LEN))
-	copy(result.RecipientPayload, resultRecipient.LeftpadBytes(format.TOTAL_LEN))
-
-	return &result
+	return resultAssociatedData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+		resultPayload.LeftpadBytes(uint64(format.TOTAL_LEN))
 }

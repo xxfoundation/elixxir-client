@@ -47,7 +47,8 @@ func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
 			return nil, errors.New("HMAC failed for end-to-end message")
 		}
 		var iv [e2e.AESBlockSize]byte
-		copy(iv[:], message.GetKeyFingerprint()[:e2e.AESBlockSize])
+		fp := message.GetKeyFingerprint()
+		copy(iv[:], fp[:])
 		// decrypt the timestamp in the associated data
 		decryptedTimestamp, err := e2e.DecryptAES256WithIV(clientKeyBytes, iv, message.GetTimestamp())
 		if err != nil {
@@ -69,7 +70,8 @@ func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
 		return &message, nil
 	} else {
 		// Check MAC for non-e2e
-		if hash.VerifyHMAC(payloadSerial, message.GetMAC(), message.GetKeyFingerprint()) {
+		fp := message.GetKeyFingerprint()
+		if hash.VerifyHMAC(payloadSerial, message.GetMAC(), fp[:]) {
 			return &message, nil
 		} else {
 			return nil, errors.New("HMAC failed for plaintext message")

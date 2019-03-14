@@ -48,7 +48,7 @@ func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
 		}
 		var iv [e2e.AESBlockSize]byte
 		fp := message.GetKeyFingerprint()
-		copy(iv[:], fp[:])
+		copy(iv[:], fp[:e2e.AESBlockSize])
 		// decrypt the timestamp in the associated data
 		decryptedTimestamp, err := e2e.DecryptAES256WithIV(clientKeyBytes, iv, message.GetTimestamp())
 		if err != nil {

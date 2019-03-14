@@ -27,8 +27,8 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group,
 	// For now use Blake2B
 	h, _ := hash.NewCMixHash()
 	h.Write(e2eKeyBytes)
-	keyFp := h.Sum(nil)
-	message.SetKeyFingerprint(keyFp)
+	keyFp := format.NewFingerprint(h.Sum(nil))
+	message.SetKeyFingerprint(*keyFp)
 
 	// Encrypt the timestamp using the e2ekey
 	// TODO BC: this will produce a 32 byte ciphertext, where the first 16 bytes
@@ -65,7 +65,7 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group,
 
 	recipientMicList := [][]byte{
 		message.AssociatedData.GetRecipientID(),
-		message.AssociatedData.GetKeyFingerprint(),
+		keyFp[:],
 		message.AssociatedData.GetTimestamp(),
 		message.AssociatedData.GetMAC(),
 	}

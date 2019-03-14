@@ -50,7 +50,7 @@ func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 	}
 
 	typedBody := parse.TypedBody{
-		Type: cmixproto.Type_PAYMENT_INVOICE,
+		Type: int32(cmixproto.Type_PAYMENT_INVOICE),
 		Body: wireRep,
 	}
 

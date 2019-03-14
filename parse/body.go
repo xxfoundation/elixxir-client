@@ -9,13 +9,12 @@ package parse
 import (
 	"encoding/binary"
 	"errors"
-	"gitlab.com/elixxir/client/cmixproto"
 )
 
 // To allow mobile to bind this module if necessary, we'll return the two parts
 // of a body in a struct
 type TypedBody struct {
-	Type cmixproto.Type
+	Type int32
 	Body []byte
 }
 
@@ -28,7 +27,7 @@ func Parse(body []byte) (*TypedBody, error) {
 			"Set a byte's most significant bit to 0 within the first 8 bytes.")
 	}
 	result := &TypedBody{}
-	result.Type = cmixproto.Type(messageType)
+	result.Type = int32(messageType)
 	result.Body = body[numBytesRead:]
 	return result, nil
 }

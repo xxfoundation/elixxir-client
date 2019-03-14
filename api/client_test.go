@@ -200,7 +200,7 @@ func TestParsedMessage_GetType(t *testing.T) {
 func TestParse(t *testing.T){
 	ms := parse.Message{}
 	ms.Body = []byte{0,1,2}
-	ms.Type = cmixproto.Type_NO_TYPE
+	ms.Type = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
 

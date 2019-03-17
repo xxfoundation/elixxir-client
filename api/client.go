@@ -7,6 +7,7 @@
 package api
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -19,8 +20,12 @@ import (
 	"gitlab.com/elixxir/client/payment"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
-	"gitlab.com/elixxir/crypto/cyclic"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/registration"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
@@ -70,58 +75,132 @@ func Register(registrationCode string, gwAddresses []string,
 
 	// Because the method returns a pointer to the user ID, don't clear the
 	// user ID as the caller needs to use it
-	UID, successLook := user.Users.LookupUser(registrationCode)
+	//UID, successLook := user.Users.LookupUser(registrationCode)
+	//
+	//if !successLook {
+	//	globals.Log.ERROR.Printf("Register: HUID does not match")
+	//	err = errors.New("could not register due to invalid HUID")
+	//	return id.ZeroID, err
+	//}
+	//
+	//u, successGet := user.Users.GetUser(UID)
+	//
+	//if !successGet {
+	//	globals.Log.ERROR.Printf("Register: ID lookup failed")
+	//	err = errors.New("could not register due to ID lookup failure")
+	//	return id.ZeroID, err
+	//}
+	//
+	//nodekeys, successKeys := user.Users.LookupKeys(u.User)
+	//
+	//if !successKeys {
+	//	globals.Log.ERROR.Printf("Register: could not find user keys")
+	//	err = errors.New("could not register due to missing user keys")
+	//	return id.ZeroID, err
+	//}
+	//
+	//nk := make([]user.NodeKeys, numNodes)
+	//
+	//for i := uint(0); i < numNodes; i++ {
+	//	nk[i] = *nodekeys
+	//}
 
-	if !successLook {
-		globals.Log.ERROR.Printf("Register: HUID does not match")
-		err = errors.New("could not register due to invalid HUID")
-		return id.ZeroID, err
-	}
-
-	u, successGet := user.Users.GetUser(UID)
-
-	if !successGet {
-		globals.Log.ERROR.Printf("Register: ID lookup failed")
-		err = errors.New("could not register due to ID lookup failure")
-		return id.ZeroID, err
-	}
-
-	nodekeys, successKeys := user.Users.LookupKeys(u.User)
-
-	if !successKeys {
-		globals.Log.ERROR.Printf("Register: could not find user keys")
-		err = errors.New("could not register due to missing user keys")
-		return id.ZeroID, err
-	}
-
-	nk := make([]user.NodeKeys, numNodes)
-
-	for i := uint(0); i < numNodes; i++ {
-		nk[i] = *nodekeys
-	}
-
-	nus := user.NewSession(u, gwAddresses[0], nk, cyclic.NewIntFromBytes([]byte(
-		"this is not a real public key")))
-
-	_, err = payment.CreateWallet(nus, mint)
+	// Generate salt for UserID
+	salt := make([]byte, 256)
+	_, err = csprng.NewSystemRNG().Read(salt)
 	if err != nil {
-		return id.ZeroID, err
+
 	}
 
-	errStore := nus.StoreSession()
+	// Generate DSA keypair
+	params := signature.NewDSAParams(rand.Reader, signature.L2048N256)
+	privateKey := params.PrivateKeyGen(rand.Reader)
 
-	// FIXME If we have an error here, the session that gets created doesn't get immolated.
-	// Immolation should happen in a deferred call instead.
-	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
-			"Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
-		return id.ZeroID, err
+	// Generate UserID by hashing salt and public key
+	UID := registration.GenUserID(privateKey.PublicKeyGen(), salt)
+
+	// Send registration code and public key to RegistrationServer
+	p, q, g := privateKey.GetParams()
+	response, err := client.SendRegistrationMessage("registration-url-here",
+		&pb.RegisterUserMessage{
+			Y: privateKey.GetPublicKey().Bytes(),
+			P: p.Bytes(),
+			Q: q.Bytes(),
+			G: g.Bytes(),
+		})
+	if err != nil {
+
+	}
+	if response.Error != "" {
+
 	}
 
-	nus.Immolate()
-	nus = nil
+	// Loop over all Servers
+	regHash, regR, regS := response.Hash, response.R, response.S
+	for _, gwAddr := range gwAddresses {
+
+		//  Send signed public key and salt for UserID to Server
+		nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
+			&pb.RequestNonceMessage{
+				Salt: salt,
+				Y:    privateKey.GetPublicKey().Bytes(),
+				P:    p.Bytes(),
+				Q:    q.Bytes(),
+				G:    g.Bytes(),
+				Hash: regHash,
+				R:    regR,
+				S:    regS,
+			})
+		if err != nil {
+
+		}
+		if response.Error != "" {
+
+		}
+
+		//  Use Client keypair to sign Server nonce
+		nonce := nonceResponse.Nonce
+		sig, err := privateKey.Sign(nonce, rand.Reader)
+
+		//  Send signed nonce to Server
+		// TODO: This returns a receipt that can be used to speed up registration
+		_, err = client.SendConfirmNonceMessage(gwAddr,
+			&pb.ConfirmNonceMessage{
+				Hash: nonce,
+				R:    sig.R.Bytes(),
+				S:    sig.S.Bytes(),
+			})
+		if err != nil {
+
+		}
+		if response.Error != "" {
+
+		}
+
+	}
+
+	//nus := user.NewSession(u, gwAddresses[0], nk, cyclic.NewIntFromBytes([]byte(
+	//	"this is not a real public key")))
+
+	//_, err = payment.CreateWallet(nus, mint)
+	//if err != nil {
+	//	return id.ZeroID, err
+	//}
+	//
+	//errStore := nus.StoreSession()
+	//
+	//// FIXME If we have an error here, the session that gets created doesn't get immolated.
+	//// Immolation should happen in a deferred call instead.
+	//if errStore != nil {
+	//	err = errors.New(fmt.Sprintf(
+	//		"Register: could not register due to failed session save"+
+	//			": %s", errStore.Error()))
+	//	globals.Log.ERROR.Printf(err.Error())
+	//	return id.ZeroID, err
+	//}
+	//
+	//nus.Immolate()
+	//nus = nil
 
 	return UID, err
 }

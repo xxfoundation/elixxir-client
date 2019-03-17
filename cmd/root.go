@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -43,7 +43,8 @@ var noBlockingTransmission bool
 var mint bool
 var rateLimiting uint32
 var showVer bool
-var certPath string
+var gwCertPath string
+var registrationCertPath string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -230,8 +231,8 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
-		// Set the GatewayCertPath explicitly to avoid data races
-		SetCertPath(certPath)
+		// Set the cert paths explicitly to avoid data races
+		SetCertPaths(gwCertPath, registrationCertPath)
 
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
@@ -369,8 +370,12 @@ func init() {
 		"ID to sign in as")
 	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
 		"Gateway address to send messages to")
-	rootCmd.PersistentFlags().StringVarP(&certPath, "certpath", "c", "",
+	rootCmd.PersistentFlags().StringVarP(&gwCertPath, "gwcertpath", "c", "",
 		"Path to the certificate file for connecting to gateway using TLS")
+	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
+		"",
+		"Path to the certificate file for connecting to registration server"+
+			" using TLS")
 	// TODO: support this negotiating separate keys with different servers
 	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
 		"The number of servers in the network that the client is"+
@@ -395,9 +400,10 @@ func init() {
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
 }
 
-// Sets the cert path in comms
-func SetCertPath(path string) {
-	connect.GatewayCertPath = path
+// Sets the cert paths in comms
+func SetCertPaths(gwCertPath, registrationCertPath string) {
+	connect.GatewayCertPath = gwCertPath
+	connect.RegistrationCertPath = registrationCertPath
 }
 
 // initConfig reads in config file and ENV variables if set.

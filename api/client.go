@@ -62,12 +62,12 @@ func InitClient(s globals.Storage, loc string) error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode string, gwAddresses []string,
-	numNodes uint, mint bool) (*id.User, error) {
+func Register(registrationCode, registrationAddr string, gwAddresses []string,
+	mint bool) (*id.User, error) {
 
 	var err error
 
-	if numNodes < 1 {
+	if len(gwAddresses) < 1 {
 		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
 		return id.ZeroID, err

@@ -24,7 +24,6 @@ Required args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--numnodes|-n|Number of nodes in each team in the network|-n 3|
 |--userid|-i|ID of the user of this client|-i 5|
 
 Optional args:

@@ -108,17 +108,19 @@ func InitClient(storage Storage, loc string) error {
 }
 
 // Registers user and returns the User ID.  Returns null if registration fails.
-// registrationCode is a one time use string.
+// registrationCode is a one time use string
+// registrationAddr is the address of the registration server
 // gwAddresses is a list of gateway addresses
 // numNodes is the number of nodes in the system
-func Register(registrationCode string, gwAddresses []string, numNodes int,
+func Register(registrationCode, registrationAddr string, gwAddresses []string,
 	mint bool) ([]byte, error) {
 
-	if numNodes < 1 {
+	if len(gwAddresses) < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(registrationCode, gwAddresses, uint(numNodes), mint)
+	UID, err := api.Register(registrationCode, registrationAddr,
+		gwAddresses, mint)
 
 	if err != nil {
 		return id.ZeroID[:], err

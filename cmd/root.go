@@ -36,7 +36,6 @@ var userId uint64
 var destinationUserId uint64
 var gwAddresses []string
 var message string
-var numNodes uint
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
@@ -120,7 +119,7 @@ func sessionInitialization() {
 		// to allow testing with IDs that are long enough to exercise more than
 		// 64 bits
 		regCode := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
-		_, err := bindings.Register(regCode, gwAddresses, int(numNodes), mint)
+		_, err := bindings.Register(regCode, "", gwAddresses, mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -224,7 +223,6 @@ var rootCmd = &cobra.Command{
 			return
 		} else {
 			cmd.MarkPersistentFlagRequired("userid")
-			cmd.MarkPersistentFlagRequired("numnodes")
 		}
 
 		var dummyPeriod time.Duration
@@ -375,10 +373,6 @@ func init() {
 		"",
 		"Path to the certificate file for connecting to registration server"+
 			" using TLS")
-	// TODO: support this negotiating separate keys with different servers
-	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
-		"The number of servers in the network that the client is"+
-			" connecting to")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

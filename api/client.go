@@ -109,7 +109,8 @@ func Register(registrationCode string, gwAddresses []string,
 	salt := make([]byte, 256)
 	_, err = csprng.NewSystemRNG().Read(salt)
 	if err != nil {
-
+		globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
+		return id.ZeroID, err
 	}
 
 	// Generate DSA keypair
@@ -129,7 +130,9 @@ func Register(registrationCode string, gwAddresses []string,
 			G: g.Bytes(),
 		})
 	if err != nil {
-
+		globals.Log.ERROR.Printf(
+			"Register: Unable to contact Registration Server! %s", err)
+		return id.ZeroID, err
 	}
 	if response.Error != "" {
 
@@ -139,7 +142,7 @@ func Register(registrationCode string, gwAddresses []string,
 	regHash, regR, regS := response.Hash, response.R, response.S
 	for _, gwAddr := range gwAddresses {
 
-		//  Send signed public key and salt for UserID to Server
+		// Send signed public key and salt for UserID to Server
 		nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
 			&pb.RequestNonceMessage{
 				Salt: salt,
@@ -152,17 +155,23 @@ func Register(registrationCode string, gwAddresses []string,
 				S:    regS,
 			})
 		if err != nil {
-
+			globals.Log.ERROR.Printf("Register: Unable to request nonce! %s",
+				err)
+			return id.ZeroID, err
 		}
 		if response.Error != "" {
 
 		}
 
-		//  Use Client keypair to sign Server nonce
+		// Use Client keypair to sign Server nonce
 		nonce := nonceResponse.Nonce
 		sig, err := privateKey.Sign(nonce, rand.Reader)
+		if err != nil {
+			globals.Log.ERROR.Printf("Register: Unable to sign nonce! %s", err)
+			return id.ZeroID, err
+		}
 
-		//  Send signed nonce to Server
+		// Send signed nonce to Server
 		// TODO: This returns a receipt that can be used to speed up registration
 		_, err = client.SendConfirmNonceMessage(gwAddr,
 			&pb.ConfirmNonceMessage{
@@ -171,7 +180,9 @@ func Register(registrationCode string, gwAddresses []string,
 				S:    sig.S.Bytes(),
 			})
 		if err != nil {
-
+			globals.Log.ERROR.Printf(
+				"Register: Unable to send signed nonce! %s", err)
+			return id.ZeroID, err
 		}
 		if response.Error != "" {
 

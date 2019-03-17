@@ -31,7 +31,7 @@ Optional args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--gwaddr|-g|Address of the gateway to connect to (Overrides config file)|-g localhost:8443|
+|--gwaddresses|-g|Addresses of the gateway to connect to, separated by commas (Overrides config file)|-g localhost:8443,localhost:8444|
 |--destid|-d|ID of the user to send messages to|-d 6|
 |--message|-m|Text message to send|-m "let's both have a good day"|
 |--verbose|-v|Prints more logging messages for debugging|-v|
@@ -40,7 +40,8 @@ Optional args:
 |--noBlockingTransmission| |Disables transmission rate limiting (useful for dummy client)|--noBlockingTransmission|
 |--mint| |Creates some coins for this user for testing and demos|--mint|
 |--help|-h|Prints a help message with all of these flags|-h|
-|--certpath|-c|Enables TLS by passing in path to the gateway certificate file|-c "~/Documents/gateway.cert"|
+|--gwcertpath|-c|Enables TLS by passing in path to the gateway certificate file|-c "~/Documents/gateway.cert"|
+|--registrationcertpath|-r|Enables TLS by passing in path to the registration server certificate file|-r "~/Documents/registration.cert"|
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 
 ##Project Structure

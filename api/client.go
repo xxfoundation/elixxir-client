@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -57,7 +57,7 @@ func InitClient(s globals.Storage, loc string) error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode string, gwAddr string,
+func Register(registrationCode string, gwAddresses []string,
 	numNodes uint, mint bool) (*id.User, error) {
 
 	var err error
@@ -100,7 +100,8 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewSession(u, gwAddr, nk, cyclic.NewIntFromBytes([]byte("this is not a real public key")))
+	nus := user.NewSession(u, gwAddresses[0], nk, cyclic.NewIntFromBytes([]byte(
+		"this is not a real public key")))
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
@@ -292,36 +293,36 @@ func SearchForUser(emailAddress string) (*id.User, []byte, error) {
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage
-type ParsedMessage struct{
-	Typed int32
+type ParsedMessage struct {
+	Typed   int32
 	Payload []byte
 }
 
-func (p ParsedMessage) GetSender()[]byte{
+func (p ParsedMessage) GetSender() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetPayload()[]byte{
+func (p ParsedMessage) GetPayload() []byte {
 	return p.Payload
 }
 
-func (p ParsedMessage) GetRecipient()[]byte{
+func (p ParsedMessage) GetRecipient() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetType()int32{
+func (p ParsedMessage) GetType() int32 {
 	return p.Typed
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the API
-func ParseMessage(message []byte)(ParsedMessage,error){
+func ParseMessage(message []byte) (ParsedMessage, error) {
 	tb, err := parse.Parse(message)
 
 	pm := ParsedMessage{}
 
-	if err!=nil{
-		return pm,err
+	if err != nil {
+		return pm, err
 	}
 
 	pm.Payload = tb.Body

@@ -165,6 +165,7 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 				"Register: %s", confirmResponse.Error)
 			return id.ZeroID, errors.New(confirmResponse.Error)
 		}
+
 		// Append Server public key
 		serverPublicKeys = append(serverPublicKeys,
 			signature.ReconstructPublicKey(signature.

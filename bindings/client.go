@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -34,7 +34,7 @@ type Storage interface {
 	Load() []byte
 }
 
-//Message used for binding
+// Message used for binding
 type Message interface {
 	// Returns the message's sender ID
 	GetSender() []byte
@@ -74,7 +74,6 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 
 // Returns a parsed message
 
-
 // Pass the listener handle that Listen() returned to delete the listener
 func StopListening(listenerHandle string) {
 	api.StopListening(listenerHandle, switchboard.Listeners)
@@ -109,49 +108,19 @@ func InitClient(storage Storage, loc string) error {
 }
 
 // Registers user and returns the User ID.  Returns null if registration fails.
-// registrationCode is a one time use string.
-// nick is a nickname which must be 32 characters or less.
-// nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000
+// registrationCode is a one time use string
+// registrationAddr is the address of the registration server
+// gwAddresses is a list of gateway addresses
 // numNodes is the number of nodes in the system
-// Valid codes:
-// 1
-// “David”
-// RUHPS2MI
-// 2
-// “Jim”
-// AXJ3XIBD
-// 3
-// “Ben”
-// AW55QN6U
-// 4
-// “Rick”
-// XYRAUUO6
-// 5
-// “Spencer”
-// UAV6IWD6
-// 6
-// “Jake”
-// XEHCZT5U
-// 7
-// “Mario”
-// BW7NEXOZ
-// 8
-// “Will”
-// IRZVJ55Y
-// 9
-// “Allan”
-// YRZEM7BW
-// 10
-// “Jono”
-// OIF3OJ5I
-func Register(registrationCode string, gwAddr string, numNodes int,
+func Register(registrationCode, registrationAddr string, gwAddresses []string,
 	mint bool) ([]byte, error) {
 
-	if numNodes < 1 {
+	if len(gwAddresses) < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
+	UID, err := api.Register(registrationCode, registrationAddr,
+		gwAddresses, mint)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -184,7 +153,7 @@ func Login(UID []byte, addr string, tlsCert string) (string, error) {
 	}
 }
 
-//Sends a message structured via the message interface
+// Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
 func Send(m Message) error {
@@ -239,7 +208,7 @@ func SearchForUser(emailAddress string) (*SearchResult, error) {
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the Bindings
-func ParseMessage(message []byte)(Message, error){
+func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
 }
 

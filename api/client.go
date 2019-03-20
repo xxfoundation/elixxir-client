@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -7,6 +7,7 @@
 package api
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -19,8 +20,13 @@ import (
 	"gitlab.com/elixxir/client/payment"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/registration"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
@@ -57,70 +63,143 @@ func InitClient(s globals.Storage, loc string) error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (*id.User, error) {
+func Register(registrationCode, registrationAddr string, gwAddresses []string,
+	mint bool) (*id.User, error) {
 
 	var err error
 
-	if numNodes < 1 {
+	if len(gwAddresses) < 1 {
 		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
 		return id.ZeroID, err
 	}
 
-	// Because the method returns a pointer to the user ID, don't clear the
-	// user ID as the caller needs to use it
-	UID, successLook := user.Users.LookupUser(registrationCode)
-
-	if !successLook {
-		globals.Log.ERROR.Printf("Register: HUID does not match")
-		err = errors.New("could not register due to invalid HUID")
-		return id.ZeroID, err
-	}
-
-	u, successGet := user.Users.GetUser(UID)
-
-	if !successGet {
-		globals.Log.ERROR.Printf("Register: ID lookup failed")
-		err = errors.New("could not register due to ID lookup failure")
-		return id.ZeroID, err
-	}
-
-	nodekeys, successKeys := user.Users.LookupKeys(u.User)
-
-	if !successKeys {
-		globals.Log.ERROR.Printf("Register: could not find user keys")
-		err = errors.New("could not register due to missing user keys")
-		return id.ZeroID, err
-	}
-
-	nk := make([]user.NodeKeys, numNodes)
-
-	for i := uint(0); i < numNodes; i++ {
-		nk[i] = *nodekeys
-	}
-
-	nus := user.NewSession(u, gwAddr, nk, cyclic.NewIntFromBytes([]byte("this is not a real public key")))
-
-	_, err = payment.CreateWallet(nus, mint)
+	// Generate salt for UserID
+	salt := make([]byte, 256)
+	_, err = csprng.NewSystemRNG().Read(salt)
 	if err != nil {
+		globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
 		return id.ZeroID, err
 	}
 
-	errStore := nus.StoreSession()
+	// Generate DSA keypair
+	params := signature.NewDSAParams(rand.Reader, signature.L2048N256)
+	privateKey := params.PrivateKeyGen(rand.Reader)
 
-	// FIXME If we have an error here, the session that gets created doesn't get immolated.
-	// Immolation should happen in a deferred call instead.
-	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
-			"Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
+	// Generate UserID by hashing salt and public key
+	UID := registration.GenUserID(privateKey.PublicKeyGen(), salt)
+
+	// Send registration code and public key to RegistrationServer
+	p, q, g := privateKey.GetParams()
+	response, err := client.SendRegistrationMessage(registrationAddr,
+		&pb.RegisterUserMessage{
+			Y: privateKey.GetPublicKey().Bytes(),
+			P: p.Bytes(),
+			Q: q.Bytes(),
+			G: g.Bytes(),
+		})
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"Register: Unable to contact Registration Server! %s", err)
 		return id.ZeroID, err
 	}
+	if response.Error != "" {
+		globals.Log.ERROR.Printf("Register: %s", response.Error)
+		return id.ZeroID, errors.New(response.Error)
+	}
 
-	nus.Immolate()
-	nus = nil
+	// Keep track of Server public keys provided at end of registration
+	serverPublicKeys := make([]*signature.DSAPublicKey, len(gwAddresses))
+	regHash, regR, regS := response.Hash, response.R, response.S
+
+	// Loop over all Servers
+	for _, gwAddr := range gwAddresses {
+
+		// Send signed public key and salt for UserID to Server
+		nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
+			&pb.RequestNonceMessage{
+				Salt: salt,
+				Y:    privateKey.GetPublicKey().Bytes(),
+				P:    p.Bytes(),
+				Q:    q.Bytes(),
+				G:    g.Bytes(),
+				Hash: regHash,
+				R:    regR,
+				S:    regS,
+			})
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Register: Unable to request nonce! %s",
+				err)
+			return id.ZeroID, err
+		}
+		if nonceResponse.Error != "" {
+			globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
+			return id.ZeroID, errors.New(nonceResponse.Error)
+		}
+
+		// Use Client keypair to sign Server nonce
+		nonce := nonceResponse.Nonce
+		sig, err := privateKey.Sign(nonce, rand.Reader)
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Register: Unable to sign nonce! %s", err)
+			return id.ZeroID, err
+		}
+
+		// Send signed nonce to Server
+		// TODO: This returns a receipt that can be used to speed up registration
+		confirmResponse, err := client.SendConfirmNonceMessage(gwAddr,
+			&pb.ConfirmNonceMessage{
+				Hash: nonce,
+				R:    sig.R.Bytes(),
+				S:    sig.S.Bytes(),
+			})
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Register: Unable to send signed nonce! %s", err)
+			return id.ZeroID, err
+		}
+		if confirmResponse.Error != "" {
+			globals.Log.ERROR.Printf(
+				"Register: %s", confirmResponse.Error)
+			return id.ZeroID, errors.New(confirmResponse.Error)
+		}
+
+		// Append Server public key
+		serverPublicKeys = append(serverPublicKeys,
+			signature.ReconstructPublicKey(signature.
+				CustomDSAParams(
+					cyclic.NewIntFromBytes(confirmResponse.GetP()),
+					cyclic.NewIntFromBytes(confirmResponse.GetQ()),
+					cyclic.NewIntFromBytes(confirmResponse.GetG())),
+				cyclic.NewIntFromBytes(confirmResponse.GetY())))
+
+	}
+
+	// FIXME: Add private key to session storage
+	//nus := user.NewSession(u, gwAddresses[0], nk, cyclic.NewIntFromBytes([]byte(
+	//	"this is not a real public key")))
+	//
+	//_, err = payment.CreateWallet(nus, mint)
+	//if err != nil {
+	//	return id.ZeroID, err
+	//}
+	//
+	//errStore := nus.StoreSession()
+	//
+	//// FIXME If we have an error here, the session that gets created doesn't get immolated.
+	//// Immolation should happen in a deferred call instead.
+	//if errStore != nil {
+	//	err = errors.New(fmt.Sprintf(
+	//		"Register: could not register due to failed session save"+
+	//			": %s", errStore.Error()))
+	//	globals.Log.ERROR.Printf(err.Error())
+	//	return id.ZeroID, err
+	//}
+	//
+	//nus.Immolate()
+	//nus = nil
 
 	return UID, err
 }
@@ -292,36 +371,36 @@ func SearchForUser(emailAddress string) (*id.User, []byte, error) {
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage
-type ParsedMessage struct{
-	Typed int32
+type ParsedMessage struct {
+	Typed   int32
 	Payload []byte
 }
 
-func (p ParsedMessage) GetSender()[]byte{
+func (p ParsedMessage) GetSender() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetPayload()[]byte{
+func (p ParsedMessage) GetPayload() []byte {
 	return p.Payload
 }
 
-func (p ParsedMessage) GetRecipient()[]byte{
+func (p ParsedMessage) GetRecipient() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetType()int32{
+func (p ParsedMessage) GetType() int32 {
 	return p.Typed
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the API
-func ParseMessage(message []byte)(ParsedMessage,error){
+func ParseMessage(message []byte) (ParsedMessage, error) {
 	tb, err := parse.Parse(message)
 
 	pm := ParsedMessage{}
 
-	if err!=nil{
-		return pm,err
+	if err != nil {
+		return pm, err
 	}
 
 	pm.Payload = tb.Body

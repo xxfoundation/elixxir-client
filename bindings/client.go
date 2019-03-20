@@ -194,7 +194,7 @@ func Send(m Message) error {
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: m.GetType(),
+			InnerType: m.GetType(),
 			Body: m.GetPayload(),
 		},
 		Sender:   sender,

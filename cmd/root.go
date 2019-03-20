@@ -154,7 +154,8 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
 		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
-			message.Type, *message.Sender, senderNick, string(message.Body))
+			message.InnerType, *message.Sender, senderNick,
+			string(message.Body))
 	}
 }
 
@@ -286,7 +287,7 @@ var rootCmd = &cobra.Command{
 				bindings.Send(&parse.BindingsMessageProxy{&parse.Message{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
-						Type: int32(cmixproto.Type_TEXT_MESSAGE),
+						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body: wireOut,
 					},
 					Receiver: recipientId,
@@ -314,7 +315,7 @@ var rootCmd = &cobra.Command{
 				message := &parse.BindingsMessageProxy{&parse.Message{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
-						Type: int32(cmixproto.Type_TEXT_MESSAGE),
+						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body: bindings.FormatTextMessage(message),
 					},
 					Receiver: recipientId}}

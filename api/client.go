@@ -326,7 +326,7 @@ func ParseMessage(message []byte)(ParsedMessage,error){
 	}
 
 	pm.Payload = tb.Body
-	pm.Typed = int32(tb.Type)
+	pm.Typed = int32(tb.InnerType)
 
 	return pm, nil
 }

@@ -216,7 +216,7 @@ func TestListen(t *testing.T) {
 	Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: 0,
+			InnerType: 0,
 			Body: []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
@@ -233,7 +233,7 @@ func TestStopListening(t *testing.T) {
 	StopListening(handle)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: 0,
+			InnerType: 0,
 			Body: []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
@@ -266,7 +266,7 @@ func TestSetLogOutput(t *testing.T) {
 func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
-	ms.Type = int32(cmixproto.Type_NO_TYPE)
+	ms.InnerType = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
 
@@ -278,8 +278,8 @@ func TestParse(t *testing.T) {
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType() != int32(ms.Type) {
-		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
+	if msOut.GetType() != int32(ms.InnerType) {
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.InnerType)
 	}
 
 	if !reflect.DeepEqual(ms.Body, msOut.GetPayload()) {

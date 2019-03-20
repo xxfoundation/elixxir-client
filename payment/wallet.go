@@ -270,7 +270,7 @@ func (il *InvoiceListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	// invoice is here and ready to be paid
 	il.wallet.switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: int32(cmixproto.Type_PAYMENT_INVOICE_UI),
+			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE_UI),
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
@@ -346,7 +346,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: int32(cmixproto.Type_PAYMENT_TRANSACTION),
+			InnerType: int32(cmixproto.Type_PAYMENT_TRANSACTION),
 			Body: paymentMessage,
 		},
 		Sender:   w.session.GetCurrentUser().User,
@@ -440,7 +440,7 @@ func (l *ResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: int32(cmixproto.Type_PAYMENT_RECEIPT),
+			InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT),
 			Body: transaction.OriginID[:],
 		},
 		Sender:   l.wallet.session.GetCurrentUser().User,
@@ -469,7 +469,7 @@ func (rl *ReceiptListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 		// Let the payment receipt UI listeners know that a payment's come in
 		rl.wallet.switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				Type: int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
+				InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
 				Body: invoiceID[:],
 			},
 			Sender:   m.Sender,

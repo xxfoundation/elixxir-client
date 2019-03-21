@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
+	"sync/atomic"
 )
 
 const (
@@ -39,40 +40,45 @@ type KeyLifecycle struct {
 	// 1 = keying
 	// 2 = ready
 	// 3 = used
-	state uint32
-
-	// List of Keys used for sending. When a key is used it is deleted.
-	sendKeys LIFO
-
-	// List of ReKey Keys that can be sent. When a key is used it is deleted.
-	sendReKeys LIFO
+	state *uint32
 
 	sync.Mutex
+}
+
+type SendKeyset struct {
+	// List of Keys used for sending. When a key is used it is deleted.
+	sendKeys *LIFO
+
+	// List of ReKey Keys that can be sent. When a key is used it is deleted.
+	sendReKeys *LIFO
+
+	// pointer to controling lifecycle
+	lifecycle *KeyLifecycle
 }
 
 // Sets up a KeyLifecycle in KEYING mode to enable the process of a key
 // negotiation.
 func GenerateKeyLifecycle(privateKey *cyclic.Int, partner *id.User) *KeyLifecycle {
+	state := new(uint32)
+	*state = KEYING
 	kl := KeyLifecycle{
 		privateKey: privateKey,
 		partner:    partner,
 		count:      0,
-		state:      KEYING,
-		sendKeys:   *NewLIFO(),
-		sendReKeys: *NewLIFO(),
+		state:      state,
 	}
 
 	return &kl
 }
 
 // Post a key negotiation, initialises a key set to be used.
-func (kl *KeyLifecycle) Initialise(ttl uint16, sendKeys, sendReKeys []E2EKey) error {
+func (kl *KeyLifecycle) Initialise(ttl uint16, sendKeys, sendReKeys []E2EKey) (*SendKeyset, error) {
 	kl.Lock()
 
 	// Ensure that initialise has not been called previously
-	if kl.state != KEYING {
+	if atomic.LoadUint32(kl.state) != KEYING {
 		kl.Unlock()
-		return IncorrectState
+		return nil, IncorrectState
 	}
 
 	// Clear private key that is no longer needed
@@ -81,45 +87,36 @@ func (kl *KeyLifecycle) Initialise(ttl uint16, sendKeys, sendReKeys []E2EKey) er
 	// Set time to live (number of uses before rekey)
 	kl.ttl = ttl
 
+	sks := SendKeyset{
+		NewLIFO(),
+		NewLIFO(),
+		kl,
+	}
+
 	// Load sendKeys slice into the sendKeys stack
 	for i := 0; i < len(sendKeys); i++ {
-		kl.sendKeys.Push(&sendKeys[i])
+		sks.sendKeys.Push(&sendKeys[i])
 	}
 
 	// Load sendReKeys slice into the sendReKeys stack
 	for i := 0; i < len(sendReKeys); i++ {
-		kl.sendReKeys.Push(&sendReKeys[i])
+		sks.sendReKeys.Push(&sendReKeys[i])
 	}
 
 	// Once initialisation is complete, set the state to READY
-	kl.state = READY
+	success := atomic.CompareAndSwapUint32(kl.state, KEYING, READY)
 
 	kl.Unlock()
 
-	return nil
+	if !success {
+		panic("unsafe access to key lifecycle occurred")
+	}
+
+	return &sks, nil
 }
 
-// Returns the first key on the stack. Returns true if it is time to rekey.
-func (kl *KeyLifecycle) PopSendKey() (*E2EKey, bool, error) {
-	// Check that the KeyLifecycle is in the READY state
-	if kl.state != READY {
-		return nil, false, IncorrectState
-	}
-
-	kl.Lock()
-	var err error
-	var key *E2EKey
+func (kl *KeyLifecycle) incrementCount() bool {
 	rekey := false
-
-	// Get the key
-	keyFace := kl.sendKeys.Pop()
-
-	// Check if the key exists
-	if keyFace == nil {
-		err = NoKeys
-	} else {
-		key = keyFace.(*E2EKey)
-	}
 
 	// Increase key usage counter
 	kl.count++
@@ -127,28 +124,29 @@ func (kl *KeyLifecycle) PopSendKey() (*E2EKey, bool, error) {
 	// If the count reaches the ttl limit, then trigger a rekey
 	if kl.count == uint32(kl.ttl) {
 		rekey = true
-		kl.state = USED
+		success := atomic.CompareAndSwapUint32(kl.state, READY, USED)
+		if !success {
+			panic("unsafe access to key lifecycle occurred")
+		}
 	}
-
-	kl.Unlock()
-
-	return key, rekey, err
+	return rekey
 }
 
-// Returns the first key for rekeying on the stack.
-func (kl *KeyLifecycle) PopSendReKey() (*E2EKey, error) {
-	// Check that the KeyLifecycle is in the READY state
-	if kl.state != READY {
-		return nil, IncorrectState
-	}
+// Returns the first key on the stack. Returns true if it is time to rekey.
+func (sks *SendKeyset) PopSendKey() (*E2EKey, bool, error) {
+	sks.lifecycle.Lock()
 
-	kl.Lock()
+	// Check that the KeyLifecycle is in the READY state
+	if atomic.LoadUint32(sks.lifecycle.state) != READY {
+		sks.lifecycle.Unlock()
+		return nil, false, IncorrectState
+	}
 
 	var err error
 	var key *E2EKey
 
 	// Get the key
-	keyFace := kl.sendReKeys.Pop()
+	keyFace := sks.sendKeys.Pop()
 
 	// Check if the key exists
 	if keyFace == nil {
@@ -157,10 +155,39 @@ func (kl *KeyLifecycle) PopSendReKey() (*E2EKey, error) {
 		key = keyFace.(*E2EKey)
 	}
 
-	// Increase key usage counter
-	kl.count++
+	rekey := sks.lifecycle.incrementCount()
 
-	kl.Unlock()
+	sks.lifecycle.Unlock()
+
+	return key, rekey, err
+}
+
+// Returns the first key for rekeying on the stack.
+// if it returns a NoKeys error then it is time to delete the lifecycle
+func (sks *SendKeyset) PopSendReKey() (*E2EKey, error) {
+	sks.lifecycle.Lock()
+	state := atomic.LoadUint32(sks.lifecycle.state)
+	//FIXME: this was only checking ready before, the test need to validate this
+	// Check that the KeyLifecycle is in the READY state or the USED state
+	if state != READY && state != USED {
+		sks.lifecycle.Unlock()
+		return nil, IncorrectState
+	}
+
+	var err error
+	var key *E2EKey
+
+	// Get the key
+	keyFace := sks.sendReKeys.Pop()
+
+	// Check if the key exists
+	if keyFace == nil {
+		err = NoKeys
+	} else {
+		key = keyFace.(*E2EKey)
+	}
+
+	sks.lifecycle.Unlock()
 
 	return key, err
 }
@@ -177,7 +204,7 @@ func (kl *KeyLifecycle) GetCount() uint32 {
 
 // Returns the state of the KeyLifecycle.
 func (kl *KeyLifecycle) GetState() uint32 {
-	return kl.state
+	return *kl.state
 }
 
 // Increments the counter by 1.

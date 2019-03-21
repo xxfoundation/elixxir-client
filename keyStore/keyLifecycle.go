@@ -51,7 +51,7 @@ type KeyLifecycle struct {
 	sync.Mutex
 }
 
-// Sets up a KeyLifecycle in KEYING mode to enable the process of a key
+// Creates a new KeyLifecycle in KEYING mode to enable the process of a key
 // negotiation.
 func GenerateKeyLifecycle(privateKey *cyclic.Int, partner *id.User) *KeyLifecycle {
 	state := new(uint32)

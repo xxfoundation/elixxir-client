@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"math"
 	"math/rand"
@@ -25,9 +25,15 @@ import (
 func TestCreateTransactionList_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	// show that the ordered list does not exist
 	key := "TestTransactionList"
@@ -72,8 +78,15 @@ func TestCreateTransactionList_New(t *testing.T) {
 func TestCreateTransactionList_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	// show that the transaction list does not exist
 	key := "TestTransactionList"
@@ -116,8 +129,15 @@ func TestTransactionList_Value(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng1 := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng1, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng1)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -138,8 +158,15 @@ func TestTransactionList_Value(t *testing.T) {
 func TestTransactionList_Upsert_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 
@@ -164,8 +191,15 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 func TestTransactionList_Upsert_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -198,8 +232,15 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 func TestTransactionList_Upsert_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestTransactionList"
 
@@ -241,8 +282,15 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 func TestTransactionList_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -286,8 +334,15 @@ func TestTransactionList_Get(t *testing.T) {
 func TestTransactionList_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -331,8 +386,15 @@ func TestTransactionList_Pop(t *testing.T) {
 func TestTransactionList_Pop_Invalid(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -365,8 +427,15 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 func TestTransactionList_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestTransactionList"
 
@@ -430,8 +499,16 @@ func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	// populate a transaction list with some items
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "",
+		[]user.NodeKeys{}, publicKey, privateKey)
+
 	transactionMap := make(map[parse.MessageHash]*Transaction)
 	transactions := TransactionList{
 		transactionMap: &transactionMap,

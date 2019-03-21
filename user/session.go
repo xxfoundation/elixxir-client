@@ -11,13 +11,14 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"sync"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Errors
@@ -33,8 +34,8 @@ type Session interface {
 	GetGWAddress() string
 	SetGWAddress(addr string)
 	GetKeys() []NodeKeys
-	GetPrivateKey() *cyclic.Int
-	GetPublicKey() *cyclic.Int
+	GetPrivateKey() *signature.DSAPrivateKey
+	GetPublicKey() *signature.DSAPublicKey
 	GetLastMessageID() string
 	SetLastMessageID(id string)
 	StoreSession() error
@@ -48,26 +49,19 @@ type Session interface {
 }
 
 type NodeKeys struct {
-	TransmissionKeys RatchetKey
-	ReceptionKeys    RatchetKey
-	ReceiptKeys      RatchetKey
-	ReturnKeys       RatchetKey
-}
-
-type RatchetKey struct {
-	Base      *cyclic.Int
-	Recursive *cyclic.Int
+	TransmissionKey *cyclic.Int
+	ReceptionKey    *cyclic.Int
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.Int) Session {
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *signature.DSAPublicKey, privateKey *signature.DSAPrivateKey) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:  u,
 		GWAddress:    GatewayAddr, // FIXME: don't store this here
 		Keys:         nk,
-		PrivateKey:   cyclic.NewMaxInt(),
+		PrivateKey:   privateKey,
 		PublicKey:    publicKey,
 		InterfaceMap: make(map[string]interface{}),
 	})
@@ -112,7 +106,7 @@ func LoadSession(UID *id.User) (Session, error) {
 	} else if UID == nil {
 		jww.ERROR.Panic("Dereferencing nil param UID")
 	}
-	
+
 	// Line of the actual crash
 	if *session.CurrentUser.User != *UID {
 		err = errors.New(fmt.Sprintf(
@@ -136,8 +130,8 @@ type SessionObj struct {
 	GWAddress string
 
 	Keys       []NodeKeys
-	PrivateKey *cyclic.Int
-	PublicKey  *cyclic.Int
+	PrivateKey *signature.DSAPrivateKey
+	PublicKey  *signature.DSAPublicKey
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -166,13 +160,13 @@ func (s *SessionObj) GetKeys() []NodeKeys {
 	return s.Keys
 }
 
-func (s *SessionObj) GetPrivateKey() *cyclic.Int {
+func (s *SessionObj) GetPrivateKey() *signature.DSAPrivateKey {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.PrivateKey
 }
 
-func (s *SessionObj) GetPublicKey() *cyclic.Int {
+func (s *SessionObj) GetPublicKey() *signature.DSAPublicKey {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.PublicKey
@@ -255,14 +249,6 @@ func (s *SessionObj) Immolate() error {
 	s.GWAddress = burntString(len(s.GWAddress))
 	s.GWAddress = ""
 
-	clearCyclicInt(s.PrivateKey)
-	clearCyclicInt(s.PublicKey)
-
-	for i := 0; i < len(s.Keys); i++ {
-		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
-		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
-	}
-
 	TheSession = nil
 
 	s.UnlockStorage()
@@ -334,11 +320,6 @@ func (s *SessionObj) UnlockStorage() {
 func clearCyclicInt(c *cyclic.Int) {
 	c.Set(cyclic.NewMaxInt())
 	c.SetInt64(0)
-}
-
-func clearRatchetKeys(r *RatchetKey) {
-	clearCyclicInt(r.Base)
-	clearCyclicInt(r.Recursive)
 }
 
 // FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?

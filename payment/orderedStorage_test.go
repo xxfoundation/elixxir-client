@@ -11,7 +11,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"os"
@@ -24,8 +24,14 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+		publicKey, privateKey)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -70,8 +76,13 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -118,8 +129,13 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng1 := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng1, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng1)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -142,8 +158,13 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	cs, err := coin.NewSleeve(69)
 
@@ -165,9 +186,13 @@ func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
 
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
 
 	unorderdValues := []uint64{100, 13, 44}
@@ -210,8 +235,13 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -249,8 +279,13 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -289,7 +324,13 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -328,8 +369,13 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -386,8 +432,13 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -429,8 +480,13 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -473,8 +529,13 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -529,8 +590,13 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -585,8 +651,13 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -626,8 +697,13 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	key := "TestOrderedList"
 
@@ -690,8 +766,13 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	}
 	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		cyclic.NewInt(0))
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
+	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"

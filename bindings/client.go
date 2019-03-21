@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"strings"
 )
 
 // Copy of the storage interface.
@@ -110,17 +111,19 @@ func InitClient(storage Storage, loc string) error {
 // Registers user and returns the User ID.  Returns null if registration fails.
 // registrationCode is a one time use string
 // registrationAddr is the address of the registration server
-// gwAddresses is a list of gateway addresses
+// gwAddresses is CSV of gateway addresses
 // numNodes is the number of nodes in the system
-func Register(registrationCode, registrationAddr string, gwAddresses []string,
+func Register(registrationCode, registrationAddr string, gwAddressesList string,
 	mint bool) ([]byte, error) {
 
-	if len(gwAddresses) < 1 {
+	gwList := strings.Split(gwAddressesList, ",")
+
+	if len(gwList) < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
 	UID, err := api.Register(registrationCode, registrationAddr,
-		gwAddresses, mint)
+		gwList, mint)
 
 	if err != nil {
 		return id.ZeroID[:], err

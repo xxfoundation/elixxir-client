@@ -2,7 +2,9 @@ package keyStore
 
 import (
 	"errors"
+	"github.com/golang-collections/collections/stack"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
 	"sync/atomic"
@@ -66,7 +68,7 @@ func GenerateKeyLifecycle(privateKey *cyclic.Int, partner *id.User) *KeyLifecycl
 }
 
 // Post a key negotiation, initialises a key set to be used.
-func (kl *KeyLifecycle) Initialise(ttl uint16, sendKeys, sendReKeys []E2EKey) (*SendKeyset, error) {
+func (kl *KeyLifecycle) Initialise(ttl uint16, sendKeys, sendReKeys []*cyclic.Int) (*SendKeyset, error) {
 	kl.Lock()
 
 	// Ensure that initialise has not been called previously
@@ -82,19 +84,31 @@ func (kl *KeyLifecycle) Initialise(ttl uint16, sendKeys, sendReKeys []E2EKey) (*
 	kl.ttl = ttl
 
 	sks := SendKeyset{
-		NewLIFO(),
-		NewLIFO(),
+		stack.New(),
+		stack.New(),
 		kl,
 	}
 
 	// Load sendKeys slice into the sendKeys stack
 	for i := 0; i < len(sendKeys); i++ {
-		sks.sendKeys.Push(&sendKeys[i])
+		e2ekey := E2EKey{
+			kl,
+			cyclic.NewIntFromBytes(sendKeys[i].Bytes()),
+			format.E2E,
+		}
+
+		sks.sendKeys.Push(&e2ekey)
 	}
 
 	// Load sendReKeys slice into the sendReKeys stack
 	for i := 0; i < len(sendReKeys); i++ {
-		sks.sendReKeys.Push(&sendReKeys[i])
+		e2ekey := E2EKey{
+			kl,
+			cyclic.NewIntFromBytes(sendReKeys[i].Bytes()),
+			format.Rekey,
+		}
+
+		sks.sendKeys.Push(&e2ekey)
 	}
 
 	// Once initialisation is complete, set the state to READY

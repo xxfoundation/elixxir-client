@@ -4,7 +4,7 @@ import:
   version: master
   vcs: git
 - package: gitlab.com/elixxir/crypto
-  version: ModInverseFailureHandeling
+  version: master
   repo: git@gitlab.com:elixxir/crypto
   vcs: git
 - package: gitlab.com/elixxir/comms
@@ -23,3 +23,7 @@ import:
   version: ^0.0.1
   subpackages:
   - cobra
+- package: github.com/golang-collections/collections
+  version: master
+  repo: https://github.com/golang-collections/collections.git
+  vcs: git

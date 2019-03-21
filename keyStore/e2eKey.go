@@ -7,11 +7,23 @@ import (
 
 type E2EKey struct {
 	// Link to source key
-	Source *KeyLifecycle
+	source *KeyLifecycle
 
 	// Key to be used
-	Key *cyclic.Int
+	key *cyclic.Int
 
 	// Designation of outer type
-	Outer format.OuterType
+	outer format.OuterType
+}
+
+func (e2ekey *E2EKey) GetSource() *KeyLifecycle {
+	return e2ekey.source
+}
+
+func (E2EKey *E2EKey) GetKey() *cyclic.Int {
+	return cyclic.NewIntFromBytes(E2EKey.key.Bytes())
+}
+
+func (E2EKey *E2EKey) GetOuterType() *format.OuterType {
+	return E2EKey.outer
 }

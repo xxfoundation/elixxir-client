@@ -18,6 +18,10 @@ const (
 var IncorrectState = errors.New("operation could not occur on KeyLifecycle due to incorrect state")
 var NoKeys = errors.New("no keys available")
 
+// The keylifecycle is part of a larger system which keeps track of e2e keys.  Within e2e a negotiation occurs which
+// creates a set of keys for sending and receiving which are held in separate storage maps, the first keyed on userID
+// and the second based upon a key fingerprint. All usages will connect back to this structure to ensure thread safety
+// and denote usage.
 type KeyLifecycle struct {
 	// Underlying key
 	privateKey *cyclic.Int
@@ -43,17 +47,6 @@ type KeyLifecycle struct {
 	state *uint32
 
 	sync.Mutex
-}
-
-type SendKeyset struct {
-	// List of Keys used for sending. When a key is used it is deleted.
-	sendKeys *LIFO
-
-	// List of ReKey Keys that can be sent. When a key is used it is deleted.
-	sendReKeys *LIFO
-
-	// pointer to controling lifecycle
-	lifecycle *KeyLifecycle
 }
 
 // Sets up a KeyLifecycle in KEYING mode to enable the process of a key

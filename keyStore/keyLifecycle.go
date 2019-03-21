@@ -54,8 +54,10 @@ type KeyLifecycle struct {
 func GenerateKeyLifecycle(privateKey *cyclic.Int, partner *id.User) *KeyLifecycle {
 	state := new(uint32)
 	*state = KEYING
+	pkCopy := cyclic.NewIntFromBytes(privateKey.Bytes())
+
 	kl := KeyLifecycle{
-		privateKey: privateKey,
+		privateKey: pkCopy,
 		partner:    partner,
 		count:      0,
 		state:      state,

@@ -24,10 +24,16 @@ import (
 
 func TestRegistrationGob(t *testing.T) {
 	// Put some user data into a gob
-	globals.InitStorage(&globals.RamStorage{}, "")
+	err := globals.InitStorage(&globals.RamStorage{}, "")
+	if err != nil {
+		t.Error(err)
+	}
 
 	// populate a gob in the store
-	Register("UAV6IWD6", gwAddress, 1, false)
+	_, err = Register("UAV6IWD6", gwAddress, 1, false)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -35,7 +41,10 @@ func TestRegistrationGob(t *testing.T) {
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
 	Session = user.SessionObj{}
-	dec.Decode(&Session)
+	err = dec.Decode(&Session)
+	if err != nil {
+		t.Error(err)
+	}
 
 	VerifyRegisterGobAddress(t)
 	VerifyRegisterGobKeys(t)
@@ -200,7 +209,7 @@ func TestParsedMessage_GetType(t *testing.T) {
 func TestParse(t *testing.T){
 	ms := parse.Message{}
 	ms.Body = []byte{0,1,2}
-	ms.Type = cmixproto.Type_NO_TYPE
+	ms.InnerType = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
 
@@ -212,8 +221,8 @@ func TestParse(t *testing.T){
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType()!=int32(ms.Type){
-		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
+	if msOut.GetType()!=int32(ms.InnerType){
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.InnerType)
 	}
 
 	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){

@@ -9,14 +9,14 @@ package bindings
 import (
 	"errors"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Copy of the storage interface.
@@ -69,7 +69,8 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return api.Listen(typedUserId, cmixproto.Type(messageType), listener, switchboard.Listeners)
+	return api.Listen(typedUserId, format.None, messageType,
+		listener, switchboard.Listeners)
 }
 
 // Returns a parsed message
@@ -193,7 +194,7 @@ func Send(m Message) error {
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type(m.GetType()),
+			InnerType: m.GetType(),
 			Body: m.GetPayload(),
 		},
 		Sender:   sender,
@@ -250,8 +251,8 @@ type listenerProxy struct {
 	proxy Listener
 }
 
-func (lp *listenerProxy) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	msgInterface := &parse.BindingsMessageProxy{Proxy: msg}
+func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
 	lp.proxy.Hear(msgInterface, isHeardElsewhere)
 }
 

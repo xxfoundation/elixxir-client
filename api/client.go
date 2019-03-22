@@ -17,13 +17,14 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Populates a text message and returns its wire representation
@@ -198,10 +199,10 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-func Listen(user *id.User, messageType cmixproto.Type,
-	newListener switchboard.Listener, callbacks *switchboard.
+func Listen(user *id.User, outerType format.OuterType,
+	messageType int32, newListener switchboard.Listener, callbacks *switchboard.
 		Switchboard) string {
-	listenerId := callbacks.Register(user, messageType, newListener)
+	listenerId := callbacks.Register(user, outerType, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
 	return listenerId
@@ -325,7 +326,7 @@ func ParseMessage(message []byte)(ParsedMessage,error){
 	}
 
 	pm.Payload = tb.Body
-	pm.Typed = int32(tb.Type)
+	pm.Typed = int32(tb.InnerType)
 
 	return pm, nil
 }

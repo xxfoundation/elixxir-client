@@ -14,11 +14,11 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"time"
 )
 
@@ -146,14 +146,18 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
 func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_INVOICE,
+	switchboard.Listeners.Register(id.ZeroID,
+		format.None, int32(cmixproto.Type_PAYMENT_INVOICE),
 		&InvoiceListener{
 			wallet: w,
 		})
-	switchboard.Listeners.Register(getPaymentBotID(), cmixproto.Type_PAYMENT_RESPONSE, &ResponseListener{
-		wallet: w,
-	})
-	switchboard.Listeners.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT,
+	switchboard.Listeners.Register(getPaymentBotID(),
+		format.None, int32(cmixproto.Type_PAYMENT_RESPONSE),
+		&ResponseListener{
+			wallet: w,
+		})
+	switchboard.Listeners.Register(id.ZeroID,
+		format.None, int32(cmixproto.Type_PAYMENT_RECEIPT),
 		&ReceiptListener{
 			wallet: w,
 		})
@@ -210,20 +214,21 @@ type InvoiceListener struct {
 	wallet *Wallet
 }
 
-func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	globals.Log.DEBUG.Printf("Heard an invoice from %v!", msg.Sender)
+func (il *InvoiceListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	globals.Log.DEBUG.Printf("Heard an invoice from %v!", msg.GetSender())
 	var invoice cmixproto.PaymentInvoice
 
 	// Test for incorrect message type, just in case
-	if msg.Type != cmixproto.Type_PAYMENT_INVOICE {
+	if msg.GetInnerType() != int32(cmixproto.Type_PAYMENT_INVOICE) {
 		globals.Log.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
-			" type: %v",
-			msg.Type.String())
+			" type: %v", cmixproto.Type(msg.GetInnerType()).String())
 		return
 	}
 
+	m := msg.(*parse.Message)
+
 	// Don't humor people who send malformed messages
-	if err := proto.Unmarshal(msg.Body, &invoice); err != nil {
+	if err := proto.Unmarshal(m.Body, &invoice); err != nil {
 		globals.Log.WARN.Printf("InvoiceListener: Got error unmarshaling inbound"+
 			" invoice: %v", err.Error())
 		return
@@ -245,11 +250,11 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	var compound coin.Compound
 	copy(compound[:], invoice.CreatedCoin)
 
-	invoiceID := msg.Hash()
+	invoiceID := m.Hash()
 	transaction := &Transaction{
 		Create:    coin.ConstructSleeve(nil, &compound),
-		Sender:    msg.Receiver,
-		Recipient: msg.Sender,
+		Sender:    m.Receiver,
+		Recipient: m.Sender,
 		Memo:      invoice.Memo,
 		Timestamp: time.Unix(invoice.Time, 0),
 		Value:     compound.Value(),
@@ -265,7 +270,7 @@ func (il *InvoiceListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 	// invoice is here and ready to be paid
 	il.wallet.switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE_UI,
+			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE_UI),
 			Body: invoiceID[:],
 		},
 		Sender:   getPaymentBotID(),
@@ -341,7 +346,7 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_TRANSACTION,
+			InnerType: int32(cmixproto.Type_PAYMENT_TRANSACTION),
 			Body: paymentMessage,
 		},
 		Sender:   w.session.GetCurrentUser().User,
@@ -376,10 +381,10 @@ type ResponseListener struct {
 	wallet *Wallet
 }
 
-func (l *ResponseListener) Hear(msg *parse.Message,
-	isHeardElsewhere bool) {
+func (l *ResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	m := msg.(*parse.Message)
 	var response cmixproto.PaymentResponse
-	err := proto.Unmarshal(msg.Body, &response)
+	err := proto.Unmarshal(m.Body, &response)
 	if err != nil {
 		globals.Log.WARN.Printf("Heard an invalid response from the payment bot. "+
 			"Error: %v", err.Error())
@@ -435,7 +440,7 @@ func (l *ResponseListener) Hear(msg *parse.Message,
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RECEIPT,
+			InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT),
 			Body: transaction.OriginID[:],
 		},
 		Sender:   l.wallet.session.GetCurrentUser().User,
@@ -448,13 +453,14 @@ type ReceiptListener struct {
 	wallet *Wallet
 }
 
-func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+func (rl *ReceiptListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	m := msg.(*parse.Message)
 	var invoiceID parse.MessageHash
-	copy(invoiceID[:], msg.Body)
+	copy(invoiceID[:], m.Body)
 	transaction, ok := rl.wallet.outboundRequests.pop(invoiceID)
 	if !ok {
 		globals.Log.WARN.Printf("ReceiptListener: Heard an invalid receipt from %v"+
-			": %q", msg.Sender, invoiceID)
+			": %q", m.Sender, invoiceID)
 	} else {
 		// Mark the transaction in the log of completed transactions
 		rl.wallet.completedInboundPayments.upsert(invoiceID, transaction)
@@ -463,10 +469,10 @@ func (rl *ReceiptListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
 		// Let the payment receipt UI listeners know that a payment's come in
 		rl.wallet.switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				Type: cmixproto.Type_PAYMENT_RECEIPT_UI,
+				InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
 				Body: invoiceID[:],
 			},
-			Sender:   msg.Sender,
+			Sender:   m.Sender,
 			Receiver: id.ZeroID,
 			Nonce:    nil,
 		})

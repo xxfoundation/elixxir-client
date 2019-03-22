@@ -14,7 +14,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -22,6 +22,7 @@ import (
 	"reflect"
 	"testing"
 	"time"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Tests whether invoice transactions get stored in the session correctly
@@ -166,9 +167,10 @@ func TestWallet_Invoice(t *testing.T) {
 		t.Errorf("Invoice receiver didn't match. Got: %v, expected %v",
 			msg.Receiver, payer)
 	}
-	if msg.Type != cmixproto.Type_PAYMENT_INVOICE {
+	if msg.InnerType != int32(cmixproto.Type_PAYMENT_INVOICE) {
 		t.Errorf("Invoice type didn't match. Got: %v, expected %v",
-			msg.Type.String(), cmixproto.Type_PAYMENT_INVOICE.String())
+			cmixproto.Type(msg.InnerType).String(),
+			cmixproto.Type_PAYMENT_INVOICE.String())
 	}
 	// Parse the body and make sure the fields are correct
 	invoiceMsg := cmixproto.PaymentInvoice{}
@@ -226,7 +228,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	// Test 1: incorrect message type
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_NO_TYPE,
+			InnerType: int32(cmixproto.Type_NO_TYPE),
 			Body: nil,
 		}}, false)
 
@@ -237,7 +239,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	// Test 2: malformed proto buffer
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE,
+			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
 			Body: []byte("fun fact: clownfish aren't actually very funny"),
 		},
 		Sender:   id.ZeroID,
@@ -263,7 +265,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE,
+			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
 			Body: wireRep,
 		},
 	}, false)
@@ -282,7 +284,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE,
+			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
 			Body: wireRep,
 		},
 	}, false)
@@ -596,7 +598,7 @@ func TestResponseListener_Hear(t *testing.T) {
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RESPONSE,
+			InnerType: int32(cmixproto.Type_PAYMENT_RESPONSE),
 			Body: wire,
 		},
 		Sender:   payer,
@@ -715,7 +717,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	listener := ResponseListener{wallet: &w}
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RESPONSE,
+			InnerType: int32(cmixproto.Type_PAYMENT_RESPONSE),
 			Body: wire,
 		},
 		Sender:   payer,
@@ -950,13 +952,14 @@ type ReceiptUIListener struct {
 	w              *Wallet
 }
 
-func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+func (rl *ReceiptUIListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	m := msg.(*parse.Message)
 	rl.hasHeard = true
 	var invoiceID parse.MessageHash
-	copy(invoiceID[:], msg.Body)
+	copy(invoiceID[:], m.Body)
 	_, rl.gotTransaction = rl.w.GetCompletedInboundPayments().Get(invoiceID)
 	fmt.Printf("Heard receipt in the UI. Receipt sender: %q, invoice id %q\n",
-		*msg.Sender, msg.Body)
+		*m.Sender, m.Body)
 }
 
 // Tests the side effects of getting a receipt for a transaction that you
@@ -1016,12 +1019,13 @@ func TestReceiptListener_Hear(t *testing.T) {
 	uiListener := &ReceiptUIListener{
 		w: w,
 	}
-	w.switchboard.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
+	w.switchboard.Register(id.ZeroID, format.None,
+		int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
 		uiListener)
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RECEIPT,
+			InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT),
 			Body: invoiceID[:],
 		},
 		Sender:   invoice.Sender,

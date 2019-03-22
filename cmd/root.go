@@ -44,6 +44,7 @@ var rateLimiting uint32
 var showVer bool
 var gwCertPath string
 var registrationCertPath string
+var registrationAddr string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -119,7 +120,7 @@ func sessionInitialization() {
 		// to allow testing with IDs that are long enough to exercise more than
 		// 64 bits
 		regCode := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
-		_, err := bindings.Register(regCode, "", gwAddresses, mint)
+		_, err := bindings.Register(regCode, registrationAddr, gwAddresses, mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
@@ -366,12 +367,18 @@ func init() {
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"ID to sign in as")
 	rootCmd.PersistentFlags().StringSliceVarP(&gwAddresses, "gwaddresses",
-		"g", make([]string, 0), "Gateway addresses for message sending, comma-separated")
+		"g", make([]string, 0), "Gateway addresses:port for message sending, "+
+			"comma-separated")
 	rootCmd.PersistentFlags().StringVarP(&gwCertPath, "gwcertpath", "c", "",
 		"Path to the certificate file for connecting to gateway using TLS")
 	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
 		"",
 		"Path to the certificate file for connecting to registration server"+
+			" using TLS")
+	rootCmd.PersistentFlags().StringVarP(&registrationAddr,
+		"registrationaddr", "a",
+		"",
+		"Address:Port for connecting to registration server"+
 			" using TLS")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",

@@ -92,7 +92,7 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 	// Generate UserID by hashing salt and public key
 	UID := registration.GenUserID(publicKey, salt)
 	// Keep track of Server public keys provided at end of registration
-	serverPublicKeys := make([]*signature.DSAPublicKey, len(gwAddresses))
+	var serverPublicKeys []*signature.DSAPublicKey
 	// Initialized response from Registration Server
 	regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
 
@@ -200,6 +200,7 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 
 	// Loop through all the server public keys
 	for itr, publicKey := range serverPublicKeys {
+
 		// Generate the base keys
 		nk[itr].TransmissionKey = registration.GenerateBaseKey(
 			&grp, publicKey, privateKey, transmissionHash,

@@ -116,11 +116,11 @@ func InitClient(storage Storage, loc string) error {
 func Register(registrationCode, registrationAddr string, gwAddressesList string,
 	mint bool) ([]byte, error) {
 
-	gwList := strings.Split(gwAddressesList, ",")
-
-	if len(gwList) < 1 {
+	if gwAddressesList == "" {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
+
+	gwList := strings.Split(gwAddressesList, ",")
 
 	UID, err := api.Register(registrationCode, registrationAddr,
 		gwList, mint)

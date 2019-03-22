@@ -19,7 +19,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/primitives/id"
@@ -30,6 +30,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 var verbose bool
@@ -143,8 +144,9 @@ type FallbackListener struct {
 	messagesReceived int64
 }
 
-func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
+func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	if !isHeardElsewhere {
+		message := item.(*parse.Message)
 		sender, ok := user.Users.GetUser(message.Sender)
 		var senderNick string
 		if !ok {
@@ -154,7 +156,8 @@ func (l *FallbackListener) Hear(message *parse.Message, isHeardElsewhere bool) {
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
 		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
-			message.Type, *message.Sender, senderNick, string(message.Body))
+			message.InnerType, *message.Sender, senderNick,
+			string(message.Body))
 	}
 }
 
@@ -162,7 +165,8 @@ type TextListener struct {
 	messagesReceived int64
 }
 
-func (l *TextListener) Hear(message *parse.Message, isHeardElsewhere bool) {
+func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
+	message := item.(*parse.Message)
 	globals.Log.INFO.Println("Hearing a text message")
 	result := cmixproto.TextMessage{}
 	err := proto.Unmarshal(message.Body, &result)
@@ -188,7 +192,8 @@ type ChannelListener struct {
 	messagesReceived int64
 }
 
-func (l *ChannelListener) Hear(message *parse.Message, isHeardElsewhere bool) {
+func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
+	message := item.(*parse.Message)
 	globals.Log.INFO.Println("Hearing a channel message")
 	result := cmixproto.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
@@ -238,13 +243,17 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_TEXT_MESSAGE, &text, switchboard.Listeners)
+		api.Listen(id.ZeroID, format.None, int32(cmixproto.Type_TEXT_MESSAGE),
+			&text, switchboard.Listeners)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_CHANNEL_MESSAGE, &channel, switchboard.Listeners)
+		api.Listen(id.ZeroID, format.None,
+			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel,
+			switchboard.Listeners)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(id.ZeroID, cmixproto.Type_NO_TYPE, &fallback, switchboard.Listeners)
+		api.Listen(id.ZeroID, format.None, int32(cmixproto.Type_NO_TYPE),
+			&fallback, switchboard.Listeners)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -279,7 +288,7 @@ var rootCmd = &cobra.Command{
 				bindings.Send(&parse.BindingsMessageProxy{&parse.Message{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
-						Type: cmixproto.Type_TEXT_MESSAGE,
+						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body: wireOut,
 					},
 					Receiver: recipientId,
@@ -307,7 +316,7 @@ var rootCmd = &cobra.Command{
 				message := &parse.BindingsMessageProxy{&parse.Message{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
-						Type: cmixproto.Type_TEXT_MESSAGE,
+						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body: bindings.FormatTextMessage(message),
 					},
 					Receiver: recipientId}}

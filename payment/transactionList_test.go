@@ -203,7 +203,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
-		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{0}},
+		TypedBody: parse.TypedBody{int32(cmixproto.Type_NO_TYPE), []byte{0}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
@@ -215,7 +215,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
-		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{2}},
+		TypedBody: parse.TypedBody{int32(cmixproto.Type_NO_TYPE), []byte{2}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()

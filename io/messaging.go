@@ -14,7 +14,7 @@ import (
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"

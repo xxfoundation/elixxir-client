@@ -166,12 +166,9 @@ func TestLoginLogout(t *testing.T) {
 	err := InitClient(&d, "hello")
 
 	regRes, err := Register(registrationCode, "", gwAddress, false)
-	loginRes, err2 := Login(regRes, gwAddress, "")
+	_, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
-	}
-	if len(loginRes) == 0 {
-		t.Errorf("Invalid login received: %v", loginRes)
 	}
 	time.Sleep(2000 * time.Millisecond)
 	err3 := Logout()

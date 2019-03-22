@@ -149,7 +149,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	_, err = Register(registrationCode, "", gwAddress, false)
+	_, err = Register(registrationCode, "", "", false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}

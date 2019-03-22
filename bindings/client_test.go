@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -130,7 +130,7 @@ func TestRegister(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	regRes, err := Register(registrationCode, gwAddress, "1,2,3", false)
+	regRes, err := Register(registrationCode, "", gwAddress, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -149,7 +149,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	_, err = Register(registrationCode, gwAddress, "1,2,3", false)
+	_, err = Register(registrationCode, "", gwAddress, false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -165,7 +165,7 @@ func TestLoginLogout(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	regRes, err := Register(registrationCode, gwAddress, "1,2,3", false)
+	regRes, err := Register(registrationCode, "", gwAddress, false)
 	loginRes, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())

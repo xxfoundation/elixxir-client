@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -27,7 +27,7 @@ func TestRegistrationGob(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	// populate a gob in the store
-	Register("UAV6IWD6", gwAddress, []string{"1"}, false)
+	Register("UAV6IWD6", "", []string{gwAddress}, false)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -45,7 +45,7 @@ func TestRegistrationGob(t *testing.T) {
 func VerifyRegisterGobAddress(t *testing.T) {
 
 	if Session.GetGWAddress() != gwAddress {
-		t.Errorf("GetNodeAddress() returned %v, expected %v",
+		t.Errorf("GetGWAddress() returned %v, expected %v",
 			Session.GetGWAddress(), gwAddress)
 	}
 }

@@ -91,28 +91,32 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 
 	// Generate UserID by hashing salt and public key
 	UID := registration.GenUserID(publicKey, salt)
-
-	// Send registration code and public key to RegistrationServer
-	response, err := client.SendRegistrationMessage(registrationAddr,
-		&pb.RegisterUserMessage{
-			Y: publicKey.GetKey().Bytes(),
-			P: params.GetP().Bytes(),
-			Q: params.GetQ().Bytes(),
-			G: params.GetG().Bytes(),
-		})
-	if err != nil {
-		globals.Log.ERROR.Printf(
-			"Register: Unable to contact Registration Server! %s", err)
-		return id.ZeroID, err
-	}
-	if response.Error != "" {
-		globals.Log.ERROR.Printf("Register: %s", response.Error)
-		return id.ZeroID, errors.New(response.Error)
-	}
-
 	// Keep track of Server public keys provided at end of registration
 	serverPublicKeys := make([]*signature.DSAPublicKey, len(gwAddresses))
-	regHash, regR, regS := response.Hash, response.R, response.S
+	// Initialized response from Registration Server
+	regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
+
+	// If Registration Server is specified, contact it
+	if registrationAddr != "" {
+		// Send registration code and public key to RegistrationServer
+		response, err := client.SendRegistrationMessage(registrationAddr,
+			&pb.RegisterUserMessage{
+				Y: publicKey.GetKey().Bytes(),
+				P: params.GetP().Bytes(),
+				Q: params.GetQ().Bytes(),
+				G: params.GetG().Bytes(),
+			})
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Register: Unable to contact Registration Server! %s", err)
+			return id.ZeroID, err
+		}
+		if response.Error != "" {
+			globals.Log.ERROR.Printf("Register: %s", response.Error)
+			return id.ZeroID, errors.New(response.Error)
+		}
+		regHash, regR, regS = response.Hash, response.R, response.S
+	}
 
 	// Loop over all Servers
 	for _, gwAddr := range gwAddresses {
@@ -206,19 +210,21 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 		)
 	}
 
-	u := user.User{UID, ""}
-
+	// Create the user session
+	u := user.User{User: UID}
 	nus := user.NewSession(&u, gwAddresses[0], nk, privateKey.PublicKeyGen(), privateKey)
 
+	// Create the wallet
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
 		return id.ZeroID, err
 	}
-	//
+
+	// Store the user session
 	errStore := nus.StoreSession()
-	//
-	//// FIXME If we have an error here, the session that gets created doesn't get immolated.
-	//// Immolation should happen in a deferred call instead.
+
+	// FIXME If we have an error here, the session that gets created doesn't get immolated.
+	// Immolation should happen in a deferred call instead.
 	if errStore != nil {
 		err = errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+

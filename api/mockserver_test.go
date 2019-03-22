@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -64,7 +64,7 @@ func TestRegister(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	regRes, err := Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
+	regRes, err := Register(registrationCode, "", []string{gwAddress}, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -83,7 +83,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
+	_, err = Register(registrationCode, "", []string{}, false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -145,8 +145,8 @@ func TestSend(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	registrationCode := "UAV6IWD6"
-	userID, err := Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
-	session, err2 := Login(userID, gwAddress, "")
+	userID, err := Register(registrationCode, "", []string{gwAddress}, false)
+	_, err2 := Login(userID, gwAddress, "")
 	SetNulKeys()
 
 	if err != nil {
@@ -154,9 +154,6 @@ func TestSend(t *testing.T) {
 	}
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
-	}
-	if len(session.GetCurrentUser().Nick) == 0 {
-		t.Errorf("Invalid login received: %v", session.GetCurrentUser().User)
 	}
 
 	// Test send with invalid sender ID

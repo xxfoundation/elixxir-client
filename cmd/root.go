@@ -27,6 +27,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -120,7 +121,8 @@ func sessionInitialization() {
 		// to allow testing with IDs that are long enough to exercise more than
 		// 64 bits
 		regCode := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
-		_, err := bindings.Register(regCode, registrationAddr, gwAddresses, mint)
+		_, err := bindings.Register(regCode, registrationAddr,
+			strings.Join(gwAddresses, ","), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return

@@ -8,6 +8,7 @@ package api
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -25,6 +26,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
@@ -85,18 +87,18 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 	// Generate DSA keypair
 	params := signature.NewDSAParams(rand.Reader, signature.L2048N256)
 	privateKey := params.PrivateKeyGen(rand.Reader)
+	publicKey := privateKey.PublicKeyGen()
 
 	// Generate UserID by hashing salt and public key
-	UID := registration.GenUserID(privateKey.PublicKeyGen(), salt)
+	UID := registration.GenUserID(publicKey, salt)
 
 	// Send registration code and public key to RegistrationServer
-	p, q, g := privateKey.GetParams()
 	response, err := client.SendRegistrationMessage(registrationAddr,
 		&pb.RegisterUserMessage{
-			Y: privateKey.GetPublicKey().Bytes(),
-			P: p.Bytes(),
-			Q: q.Bytes(),
-			G: g.Bytes(),
+			Y: publicKey.GetKey().Bytes(),
+			P: params.GetP().Bytes(),
+			Q: params.GetQ().Bytes(),
+			G: params.GetG().Bytes(),
 		})
 	if err != nil {
 		globals.Log.ERROR.Printf(
@@ -119,10 +121,10 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 		nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
 			&pb.RequestNonceMessage{
 				Salt: salt,
-				Y:    privateKey.GetPublicKey().Bytes(),
-				P:    p.Bytes(),
-				Q:    q.Bytes(),
-				G:    g.Bytes(),
+				Y:    publicKey.GetKey().Bytes(),
+				P:    params.GetP().Bytes(),
+				Q:    params.GetQ().Bytes(),
+				G:    params.GetG().Bytes(),
 				Hash: regHash,
 				R:    regR,
 				S:    regS,
@@ -177,29 +179,56 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 
 	}
 
-	// FIXME: Add private key to session storage
-	//nus := user.NewSession(u, gwAddresses[0], nk, cyclic.NewIntFromBytes([]byte(
-	//	"this is not a real public key")))
+	// Generate cyclic group for key generation
+	grp := cyclic.NewGroup(
+		params.GetP(),
+		cyclic.NewInt(2),
+		cyclic.NewInt(2),
+		cyclic.NewRandom(cyclic.NewInt(3), cyclic.NewInt(7)),
+	)
+
+	nk := make([]user.NodeKeys, len(gwAddresses))
+
+	// Initialise blake2b hash for transmission keys and sha256 for reception
+	// keys
+	transmissionHash, _ := hash.NewCMixHash()
+	receptionHash := sha256.New()
+
+	// Loop through all the server public keys
+	for itr, publicKey := range serverPublicKeys {
+		// Generate the base keys
+		nk[itr].TransmissionKey = registration.GenerateBaseKey(
+			&grp, publicKey, privateKey, transmissionHash,
+		)
+
+		nk[itr].ReceptionKey = registration.GenerateBaseKey(
+			&grp, publicKey, privateKey, receptionHash,
+		)
+	}
+
+	u := user.User{UID, ""}
+
+	nus := user.NewSession(&u, gwAddresses[0], nk, privateKey.PublicKeyGen(), privateKey)
+
+	_, err = payment.CreateWallet(nus, mint)
+	if err != nil {
+		return id.ZeroID, err
+	}
 	//
-	//_, err = payment.CreateWallet(nus, mint)
-	//if err != nil {
-	//	return id.ZeroID, err
-	//}
-	//
-	//errStore := nus.StoreSession()
+	errStore := nus.StoreSession()
 	//
 	//// FIXME If we have an error here, the session that gets created doesn't get immolated.
 	//// Immolation should happen in a deferred call instead.
-	//if errStore != nil {
-	//	err = errors.New(fmt.Sprintf(
-	//		"Register: could not register due to failed session save"+
-	//			": %s", errStore.Error()))
-	//	globals.Log.ERROR.Printf(err.Error())
-	//	return id.ZeroID, err
-	//}
-	//
-	//nus.Immolate()
-	//nus = nil
+	if errStore != nil {
+		err = errors.New(fmt.Sprintf(
+			"Register: could not register due to failed session save"+
+				": %s", errStore.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return id.ZeroID, err
+	}
+
+	nus.Immolate()
+	nus = nil
 
 	return UID, err
 }
@@ -361,7 +390,7 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	}
 
 	publicKey := user.TheSession.GetPublicKey()
-	publicKeyBytes := publicKey.LeftpadBytes(256)
+	publicKeyBytes := publicKey.GetKey().LeftpadBytes(256)
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 

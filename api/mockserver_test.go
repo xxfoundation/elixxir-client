@@ -64,7 +64,7 @@ func TestRegister(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -83,7 +83,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, gwAddress, 0, false)
+	_, err = Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -99,7 +99,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	registrationCode := "OIF3OJ6I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, gwAddress, 1, false)
+	_, err = Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
 	if err == nil {
 		t.Error("Registration worked with bad registration code!")
 	}
@@ -117,7 +117,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	err := InitClient(&d, "hello")
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-	_, err = Register(registrationCode, gwAddress, 1, false)
+	_, err = Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -131,8 +131,8 @@ func SetNulKeys() {
 	// FIXME: Why doesn't crypto panic when these keys are empty?
 	keys := user.TheSession.GetKeys()
 	for i := range keys {
-		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
-		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
+		keys[i].TransmissionKey = cyclic.NewInt(1)
+		keys[i].TransmissionKey = cyclic.NewInt(1)
 	}
 }
 
@@ -145,7 +145,7 @@ func TestSend(t *testing.T) {
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 	registrationCode := "UAV6IWD6"
-	userID, err := Register(registrationCode, gwAddress, 1, false)
+	userID, err := Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
 	session, err2 := Login(userID, gwAddress, "")
 	SetNulKeys()
 

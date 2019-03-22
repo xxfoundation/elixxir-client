@@ -130,7 +130,7 @@ func TestRegister(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, "1,2,3", false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -149,7 +149,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	_, err = Register(registrationCode, gwAddress, 0, false)
+	_, err = Register(registrationCode, gwAddress, "1,2,3", false)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -165,7 +165,7 @@ func TestLoginLogout(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, "1,2,3", false)
 	loginRes, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -194,7 +194,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil)
+	user.TheSession = user.NewSession(u, gwAddress, nk, nil, nil)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

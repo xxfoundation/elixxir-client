@@ -17,8 +17,9 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
+	"math/rand"
 	"reflect"
 	"testing"
 	"time"
@@ -32,9 +33,15 @@ func TestWallet_registerInvoice(t *testing.T) {
 	value := uint64(85)
 
 	globals.LocalStorage = nil
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -86,8 +93,14 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "", []user.NodeKeys{}, publicKey, privateKey)
 
 	_, err := CreateWallet(s, false)
 
@@ -137,8 +150,14 @@ func TestWallet_Invoice(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L3072N256)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, publicKey, privateKey)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -319,12 +338,12 @@ func (ms *MockSession) GetKeys() []user.NodeKeys {
 	return nil
 }
 
-func (ms *MockSession) GetPrivateKey() *cyclic.Int {
+func (ms *MockSession) GetPrivateKey() *signature.DSAPrivateKey {
 	*ms = true
 	return nil
 }
 
-func (ms *MockSession) GetPublicKey() *cyclic.Int {
+func (ms *MockSession) GetPublicKey() *signature.DSAPublicKey {
 	*ms = true
 	return nil
 }
@@ -379,7 +398,7 @@ func TestInvoiceListener_Hear(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payer, Nick: "CEO MF DOOM"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	ir, err := createTransactionList(InboundRequestsTag, s)
 	if err != nil {
@@ -467,7 +486,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -511,7 +530,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -637,7 +656,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -749,7 +768,7 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	paymentAmount := uint64(5008)
 	walletAmount := uint64(5008)
@@ -842,7 +861,7 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	paymentAmount := uint64(2611)
 	walletAmount := uint64(5008)
@@ -968,7 +987,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, nil, nil)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(1234)

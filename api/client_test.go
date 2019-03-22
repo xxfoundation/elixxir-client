@@ -13,13 +13,13 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
+	"reflect"
 	"testing"
 	"time"
-	"reflect"
-	"gitlab.com/elixxir/client/parse"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -27,7 +27,7 @@ func TestRegistrationGob(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	// populate a gob in the store
-	Register("UAV6IWD6", gwAddress, 1, false)
+	Register("UAV6IWD6", gwAddress, []string{"1"}, false)
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -58,76 +58,24 @@ func VerifyRegisterGobUser(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-	if Session.GetPublicKey().Cmp(cyclic.NewIntFromBytes([]byte(
-		"this is not a real public key"))) != 0 {
-		t.Errorf("Public key was %v, expected %v",
-			string(Session.GetPublicKey().Bytes()),
-			"this is not a real public key")
-	}
+
 	h := sha256.New()
-	h.Write([]byte(string(30005)))
-	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
-		expectedTransmissionRecursiveKey) != 0 {
-		t.Errorf("Transmission recursive key was %v, expected %v",
-			Session.GetKeys()[0].TransmissionKeys.Recursive.Text(16),
-			expectedTransmissionRecursiveKey.Text(16))
-	}
-	h = sha256.New()
 	h.Write([]byte(string(20005)))
 	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
+	if Session.GetKeys()[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
-			Session.GetKeys()[0].TransmissionKeys.Base.Text(16),
+			Session.GetKeys()[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
-	}
-	h = sha256.New()
-	h.Write([]byte(string(50005)))
-	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
-		expectedReceptionRecursiveKey) != 0 {
-		t.Errorf("Reception recursive key was %v, expected %v",
-			Session.GetKeys()[0].ReceptionKeys.Recursive.Text(16),
-			expectedReceptionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40005)))
 	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
+	if Session.GetKeys()[0].ReceptionKey.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",
-			Session.GetKeys()[0].ReceptionKeys.Base.Text(16),
+			Session.GetKeys()[0].ReceptionKey.Text(16),
 			expectedReceptionBaseKey.Text(16))
-	}
-
-	if Session.GetKeys()[0].ReturnKeys.Recursive == nil {
-		t.Logf("warning: return recursive key is nil")
-	} else {
-		t.Logf("return recursive key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
-	}
-	if Session.GetKeys()[0].ReturnKeys.Base == nil {
-		t.Logf("warning: return base key is nil")
-	} else {
-		t.Logf("return base key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
-	}
-	if Session.GetKeys()[0].ReceiptKeys.Recursive == nil {
-		t.Logf("warning: receipt recursive key is nil")
-	} else {
-		t.Logf("receipt recursive key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
-	}
-	if Session.GetKeys()[0].ReceiptKeys.Base == nil {
-		t.Logf("warning: receipt recursive key is nil")
-	} else {
-		t.Logf("receipt base key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
 	}
 }
 
@@ -160,18 +108,18 @@ func TestParsedMessage_GetSender(t *testing.T) {
 	pm := ParsedMessage{}
 	sndr := pm.GetSender()
 
-	if !reflect.DeepEqual(sndr,[]byte{}){
+	if !reflect.DeepEqual(sndr, []byte{}) {
 		t.Errorf("Sender not empty from typed message")
 	}
 }
 
 func TestParsedMessage_GetPayload(t *testing.T) {
 	pm := ParsedMessage{}
-	payload := []byte{0,1,2,3}
+	payload := []byte{0, 1, 2, 3}
 	pm.Payload = payload
 	pld := pm.GetPayload()
 
-	if !reflect.DeepEqual(pld,payload){
+	if !reflect.DeepEqual(pld, payload) {
 		t.Errorf("Output payload does not match input payload: %v %v", payload, pld)
 	}
 }
@@ -180,7 +128,7 @@ func TestParsedMessage_GetRecipient(t *testing.T) {
 	pm := ParsedMessage{}
 	rcpt := pm.GetRecipient()
 
-	if !reflect.DeepEqual(rcpt,[]byte{}){
+	if !reflect.DeepEqual(rcpt, []byte{}) {
 		t.Errorf("Recipient not empty from typed message")
 	}
 }
@@ -192,14 +140,14 @@ func TestParsedMessage_GetType(t *testing.T) {
 	pm.Typed = typeTest
 	typ := pm.GetType()
 
-	if typ!=typeTest{
+	if typ != typeTest {
 		t.Errorf("Returned type does not match")
 	}
 }
 
-func TestParse(t *testing.T){
+func TestParse(t *testing.T) {
 	ms := parse.Message{}
-	ms.Body = []byte{0,1,2}
+	ms.Body = []byte{0, 1, 2}
 	ms.Type = cmixproto.Type_NO_TYPE
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
@@ -208,15 +156,15 @@ func TestParse(t *testing.T){
 
 	msOut, err := ParseMessage(messagePacked)
 
-	if err!=nil{
+	if err != nil {
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType()!=int32(ms.Type){
+	if msOut.GetType() != int32(ms.Type) {
 		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
 	}
 
-	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){
+	if !reflect.DeepEqual(ms.Body, msOut.GetPayload()) {
 		t.Errorf("Bodies do not match after message parse: %v vs %v", msOut.GetPayload(), ms.Body)
 	}
 

@@ -127,7 +127,7 @@ func send(senderID *id.User, message *format.Message) error {
 	// Generate a compound encryption key
 	encryptionKey := cyclic.NewInt(1)
 	for _, key := range user.TheSession.GetKeys() {
-		baseKey := key.TransmissionKeys.Base
+		baseKey := key.TransmissionKey
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, crypto.Grp)
 		crypto.Grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
 		//TODO: Add KMAC generation here
@@ -240,7 +240,7 @@ func (m *messaging) receiveMessagesFromGateway(
 					salt := newMessage.Salt
 					decryptionKey := cyclic.NewInt(1)
 					for _, key := range user.TheSession.GetKeys() {
-						baseKey := key.ReceptionKeys.Base
+						baseKey := key.ReceptionKey
 						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
 							crypto.Grp)
 						crypto.Grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)

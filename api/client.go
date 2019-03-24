@@ -19,7 +19,6 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
@@ -29,10 +28,11 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 // Populates a text message and returns its wire representation
@@ -102,10 +102,11 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 		// Send registration code and public key to RegistrationServer
 		response, err := client.SendRegistrationMessage(registrationAddr,
 			&pb.RegisterUserMessage{
-				Y: publicKey.GetKey().Bytes(),
-				P: params.GetP().Bytes(),
-				Q: params.GetQ().Bytes(),
-				G: params.GetG().Bytes(),
+				RegistrationCode: registrationCode,
+				Y:                publicKey.GetKey().Bytes(),
+				P:                params.GetP().Bytes(),
+				Q:                params.GetQ().Bytes(),
+				G:                params.GetG().Bytes(),
 			})
 		if err != nil {
 			globals.Log.ERROR.Printf(

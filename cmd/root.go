@@ -19,10 +19,11 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
 	"log"
 	"math/big"
@@ -30,7 +31,6 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 var verbose bool
@@ -116,26 +116,30 @@ func sessionInitialization() {
 		}
 	}
 
+	// Holds the User ID
+	var uid []byte
+
 	// Register a new user if requested
 	if register {
-		// FIXME Use a different encoding for the user ID command line argument,
-		// to allow testing with IDs that are long enough to exercise more than
-		// 64 bits
-		regCode := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
-		_, err := bindings.Register(regCode, registrationAddr,
+		regCode := "AAAA" // FIXME: Need to pass in registration code
+		fmt.Printf("Attempting to register with code %s...\n", regCode)
+		uid, err = bindings.Register(regCode, registrationAddr,
 			strings.Join(gwAddresses, ","), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
 		}
+		fmt.Printf("Successfully registered user %v!\n", uid)
 	}
 
 	// Log the user in, for now using the first gateway specified
-	uid := id.NewUserFromUint(userId, nil)
+	if !register {
+		uid = id.NewUserFromUint(userId, nil).Bytes()
+	}
 	_, err = bindings.Login(uid[:], gwAddresses[0], "")
 
 	if err != nil {
-		fmt.Printf("Could Not Log In\n")
+		fmt.Printf("Could Not Log In: %s\n", err)
 		return
 	}
 }
@@ -289,7 +293,7 @@ var rootCmd = &cobra.Command{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body: wireOut,
+						Body:      wireOut,
 					},
 					Receiver: recipientId,
 				}})
@@ -317,7 +321,7 @@ var rootCmd = &cobra.Command{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body: bindings.FormatTextMessage(message),
+						Body:      bindings.FormatTextMessage(message),
 					},
 					Receiver: recipientId}}
 				bindings.Send(message)

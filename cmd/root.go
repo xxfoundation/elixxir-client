@@ -121,23 +121,27 @@ func sessionInitialization() {
 
 	// Register a new user if requested
 	if register {
+
 		regCode := "AAAA" // FIXME: Need to pass in registration code
 		fmt.Printf("Attempting to register with code %s...\n", regCode)
+
 		uid, err = bindings.Register(regCode, registrationAddr,
 			strings.Join(gwAddresses, ","), mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return
 		}
+
 		fmt.Printf("Successfully registered user %v!\n", uid)
+
+	} else {
+
+		uid = id.NewUserFromUint(userId, nil).Bytes()
+
 	}
 
 	// Log the user in, for now using the first gateway specified
-	if !register {
-		uid = id.NewUserFromUint(userId, nil).Bytes()
-	}
 	_, err = bindings.Login(uid[:], gwAddresses[0], "")
-
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
 		return

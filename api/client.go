@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -49,8 +48,6 @@ func InitClient(s globals.Storage, loc string) error {
 			"could not init client storage: " + storageErr.Error())
 		return storageErr
 	}
-
-	crypto.InitCrypto()
 
 	return nil
 }
@@ -100,7 +97,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	grp := crypto.InitCrypto()
+	grp := user.InitCrypto()
 
 	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 

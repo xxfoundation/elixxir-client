@@ -8,14 +8,12 @@ package user
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 )
 
 // Globally instantiated Registry
-var Users = newRegistry(crypto.InitCrypto())
+var Users = newRegistry()
 
 const NUM_DEMO_USERS = 40
 
@@ -50,7 +48,8 @@ type UserMap struct {
 }
 
 // newRegistry creates a new Registry interface
-func newRegistry(grp *cyclic.Group) Registry {
+func newRegistry() Registry {
+	grp := InitCrypto()
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}

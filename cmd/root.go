@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -21,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -188,11 +190,14 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.Log.INFO.Printf("First message from sender %v", message.Sender)
+		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
+		user.Users.UpsertUser(u)
+		senderNick = u.Nick
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", new(big.Int).SetBytes(message.Sender[:]).Text(10),
+	fmt.Printf("Message from %v, %v Received: %s\n", cyclic.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)

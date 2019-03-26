@@ -246,9 +246,13 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 				&grp, publicKey, privateKey, transmissionHash,
 			)
 
+			transmissionHash.Reset()
+
 			nk[itr].ReceptionKey = registration.GenerateBaseKey(
 				&grp, publicKey, privateKey, receptionHash,
 			)
+
+			receptionHash.Reset()
 		}
 
 		u = user.Users.NewUser(UID, base64.StdEncoding.EncodeToString(UID[:]))

@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"os"
@@ -130,9 +129,10 @@ func SetNulKeys() {
 	// Set the transmit keys to be 1, so send/receive can work
 	// FIXME: Why doesn't crypto panic when these keys are empty?
 	keys := user.TheSession.GetKeys()
+	grp := user.TheSession.GetGroup()
 	for i := range keys {
-		keys[i].TransmissionKeys.Base = cyclic.NewInt(1)
-		keys[i].TransmissionKeys.Recursive = cyclic.NewInt(1)
+		keys[i].TransmissionKeys.Base = grp.NewInt(1)
+		keys[i].TransmissionKeys.Recursive = grp.NewInt(1)
 	}
 }
 

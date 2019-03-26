@@ -8,13 +8,14 @@ package user
 
 import (
 	"crypto/sha256"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 )
 
 // Globally instantiated Registry
-var Users = newRegistry()
+var Users = newRegistry(crypto.InitCrypto())
 
 const NUM_DEMO_USERS = 40
 
@@ -49,7 +50,7 @@ type UserMap struct {
 }
 
 // newRegistry creates a new Registry interface
-func newRegistry() Registry {
+func newRegistry(grp *cyclic.Group) Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
@@ -70,16 +71,16 @@ func newRegistry() Registry {
 		// TODO We need a better way to generate base/recursive keys
 		h := sha256.New()
 		h.Write([]byte(string(20000 + i)))
-		k.TransmissionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Base = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
 		h.Write([]byte(string(30000 + i)))
-		k.TransmissionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKeys.Recursive = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
 		h.Write([]byte(string(40000 + i)))
-		k.ReceptionKeys.Base = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Base = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
 		h.Write([]byte(string(50000 + i)))
-		k.ReceptionKeys.Recursive = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKeys.Recursive = grp.NewIntFromBytes(h.Sum(nil))
 
 		// Add user to collection and lookup table
 		uc[*t.User] = t

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	cmix "gitlab.com/elixxir/crypto/messaging"
 	"gitlab.com/elixxir/primitives/format"
@@ -44,10 +43,8 @@ var salt = []byte(
 	"fdecfa52a8ad1688dbfa7d16df74ebf27e535903c469cefc007ebbe1ee895064")
 
 func setup(t *testing.T) {
-	rng := cyclic.NewRandom(cyclic.NewInt(0), cyclic.NewInt(1000))
-	grp := cyclic.NewGroup(cyclic.NewIntFromString(PRIME, 16),
-		cyclic.NewInt(123456789), cyclic.NewInt(8), rng)
-	Grp = &grp
+	// Init Grp var
+	InitCrypto()
 
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 
@@ -58,12 +55,12 @@ func setup(t *testing.T) {
 		// this makes it possible for the reception key to decrypt the
 		// transmission key without spinning up a whole server to decouple them
 
-		nk[i].TransmissionKeys.Base = cyclic.NewInt(1)
-		nk[i].TransmissionKeys.Recursive = cyclic.NewIntFromString(
+		nk[i].TransmissionKeys.Base = Grp.NewInt(1)
+		nk[i].TransmissionKeys.Recursive = Grp.NewIntFromString(
 			"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)
-		nk[i].ReceptionKeys.Base = cyclic.NewInt(1)
-		nk[i].ReceptionKeys.Recursive = grp.Inverse(
-			nk[i].TransmissionKeys.Recursive, cyclic.NewInt(1))
+		nk[i].ReceptionKeys.Base = Grp.NewInt(1)
+		nk[i].ReceptionKeys.Recursive = Grp.Inverse(
+			nk[i].TransmissionKeys.Recursive, Grp.NewInt(1))
 	}
 	user.TheSession = user.NewSession(u, "", nk, nil)
 }
@@ -81,7 +78,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	msg.SetPayloadData(msgPayload)
 
 	// Generate a compound encryption key
-	encryptionKey := cyclic.NewInt(1)
+	encryptionKey := Grp.NewInt(1)
 	for _, key := range user.TheSession.GetKeys() {
 		baseKey := key.TransmissionKeys.Base
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, Grp)
@@ -89,7 +86,7 @@ func TestEncryptDecrypt(t *testing.T) {
 		//TODO: Add KMAC generation here
 	}
 
-	decryptionKey := cyclic.NewMaxInt()
+	decryptionKey := Grp.NewMaxInt()
 	Grp.Inverse(encryptionKey, decryptionKey)
 
 	// do the encryption and the decryption

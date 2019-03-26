@@ -73,8 +73,8 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group,
 	message.SetRecipientMIC(mic)
 
 	// perform the CMIX encryption
-	resultPayload := cyclic.NewIntFromBytes(message.SerializePayload())
-	resultAssociatedData := cyclic.NewIntFromBytes(message.SerializeAssociatedData())
+	resultPayload := g.NewIntFromBytes(message.SerializePayload())
+	resultAssociatedData := g.NewIntFromBytes(message.SerializeAssociatedData())
 	g.Mul(resultPayload, key, resultPayload)
 	g.Mul(resultAssociatedData, key, resultAssociatedData)
 

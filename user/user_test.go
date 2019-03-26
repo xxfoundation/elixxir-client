@@ -8,7 +8,7 @@ package user
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
 )
@@ -65,6 +65,9 @@ func TestUserRegistry(t *testing.T) {
 			"Actual: %v", newUsr.Nick)
 	}
 
+	// Initialize group
+	grp := crypto.InitCrypto()
+
 	// Test LookupKeys
 	keys, suc := Users.LookupKeys(id.NewUserFromUint(1, t))
 	if !suc {
@@ -72,7 +75,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	h := sha256.New()
 	h.Write([]byte(string(20001)))
-	key := cyclic.NewIntFromBytes(h.Sum(nil))
+	key := grp.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKeys.Base.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
@@ -80,7 +83,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(30001)))
-	key = cyclic.NewIntFromBytes(h.Sum(nil))
+	key = grp.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKeys.Recursive.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
@@ -88,7 +91,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40001)))
-	key = cyclic.NewIntFromBytes(h.Sum(nil))
+	key = grp.NewIntFromBytes(h.Sum(nil))
 	if keys.ReceptionKeys.Base.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
@@ -96,7 +99,7 @@ func TestUserRegistry(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(50001)))
-	key = cyclic.NewIntFromBytes(h.Sum(nil))
+	key = grp.NewIntFromBytes(h.Sum(nil))
 	if keys.ReceptionKeys.Recursive.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),

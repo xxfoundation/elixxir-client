@@ -265,6 +265,7 @@ var rootCmd = &cobra.Command{
 		// Only send a message if we have a message to send (except dummy messages)
 		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
 		senderId := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
+		grp := user.TheSession.GetGroup()
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
@@ -275,7 +276,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				fmt.Println(parseUdbMessage(message))
+				fmt.Println(parseUdbMessage(message, grp))
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)

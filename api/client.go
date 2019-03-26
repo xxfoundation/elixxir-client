@@ -9,6 +9,7 @@ package api
 import (
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -66,8 +67,8 @@ func InitClient(s globals.Storage, loc string) error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(registrationCode, registrationAddr string, gwAddresses []string,
-	mint bool) (*id.User, error) {
+func Register(preCan bool, registrationCode, registrationAddr string,
+	gwAddresses []string, mint bool) (*id.User, error) {
 
 	var err error
 
@@ -77,145 +78,185 @@ func Register(registrationCode, registrationAddr string, gwAddresses []string,
 		return id.ZeroID, err
 	}
 
-	// Generate salt for UserID
-	salt := make([]byte, 256)
-	_, err = csprng.NewSystemRNG().Read(salt)
-	if err != nil {
-		globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
-		return id.ZeroID, err
-	}
+	var u *user.User
+	var UID *id.User
+	// Make CMIX keys array
+	nk := make([]user.NodeKeys, len(gwAddresses))
 
-	// Generate DSA keypair
-	params := signature.NewDSAParams(rand.Reader, signature.L2048N256)
+	// Generate DSA keypair even for precanned users as it will probably
+	// be needed for the new UDB flow
+	params := signature.GetDefaultDSAParams()
 	privateKey := params.PrivateKeyGen(rand.Reader)
 	publicKey := privateKey.PublicKeyGen()
 
-	// Generate UserID by hashing salt and public key
-	UID := registration.GenUserID(publicKey, salt)
-	// Keep track of Server public keys provided at end of registration
-	var serverPublicKeys []*signature.DSAPublicKey
-	// Initialized response from Registration Server
-	regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
+	// Handle precanned registration
+	if preCan {
+		var successLook bool
+		globals.Log.DEBUG.Printf("Registering precanned user")
+		UID, successLook = user.Users.LookupUser(registrationCode)
 
-	// If Registration Server is specified, contact it
-	if registrationAddr != "" {
-		// Send registration code and public key to RegistrationServer
-		response, err := client.SendRegistrationMessage(registrationAddr,
-			&pb.RegisterUserMessage{
-				RegistrationCode: registrationCode,
-				Y:                publicKey.GetKey().Bytes(),
-				P:                params.GetP().Bytes(),
-				Q:                params.GetQ().Bytes(),
-				G:                params.GetG().Bytes(),
-			})
-		if err != nil {
-			globals.Log.ERROR.Printf(
-				"Register: Unable to contact Registration Server! %s", err)
-			return id.ZeroID, err
-		}
-		if response.Error != "" {
-			globals.Log.ERROR.Printf("Register: %s", response.Error)
-			return id.ZeroID, errors.New(response.Error)
-		}
-		regHash, regR, regS = response.Hash, response.R, response.S
-	}
-
-	// Loop over all Servers
-	for _, gwAddr := range gwAddresses {
-
-		// Send signed public key and salt for UserID to Server
-		nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
-			&pb.RequestNonceMessage{
-				Salt: salt,
-				Y:    publicKey.GetKey().Bytes(),
-				P:    params.GetP().Bytes(),
-				Q:    params.GetQ().Bytes(),
-				G:    params.GetG().Bytes(),
-				Hash: regHash,
-				R:    regR,
-				S:    regS,
-			})
-		if err != nil {
-			globals.Log.ERROR.Printf(
-				"Register: Unable to request nonce! %s",
-				err)
-			return id.ZeroID, err
-		}
-		if nonceResponse.Error != "" {
-			globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
-			return id.ZeroID, errors.New(nonceResponse.Error)
-		}
-
-		// Use Client keypair to sign Server nonce
-		nonce := nonceResponse.Nonce
-		sig, err := privateKey.Sign(nonce, rand.Reader)
-		if err != nil {
-			globals.Log.ERROR.Printf(
-				"Register: Unable to sign nonce! %s", err)
+		if !successLook {
+			globals.Log.ERROR.Printf("Register: HUID does not match")
+			err = errors.New("could not register due to invalid HUID")
 			return id.ZeroID, err
 		}
 
-		// Send signed nonce to Server
-		// TODO: This returns a receipt that can be used to speed up registration
-		confirmResponse, err := client.SendConfirmNonceMessage(gwAddr,
-			&pb.ConfirmNonceMessage{
-				Hash: nonce,
-				R:    sig.R.Bytes(),
-				S:    sig.S.Bytes(),
-			})
-		if err != nil {
-			globals.Log.ERROR.Printf(
-				"Register: Unable to send signed nonce! %s", err)
+		var successGet bool
+		u, successGet = user.Users.GetUser(UID)
+
+		if !successGet {
+			globals.Log.ERROR.Printf("Register: ID lookup failed")
+			err = errors.New("could not register due to ID lookup failure")
 			return id.ZeroID, err
 		}
-		if confirmResponse.Error != "" {
-			globals.Log.ERROR.Printf(
-				"Register: %s", confirmResponse.Error)
-			return id.ZeroID, errors.New(confirmResponse.Error)
+
+		nodekeys, successKeys := user.Users.LookupKeys(u.User)
+
+		if !successKeys {
+			globals.Log.ERROR.Printf("Register: could not find user keys")
+			err = errors.New("could not register due to missing user keys")
+			return id.ZeroID, err
 		}
 
-		// Append Server public key
-		serverPublicKeys = append(serverPublicKeys,
-			signature.ReconstructPublicKey(signature.
-				CustomDSAParams(
-					cyclic.NewIntFromBytes(confirmResponse.GetP()),
-					cyclic.NewIntFromBytes(confirmResponse.GetQ()),
-					cyclic.NewIntFromBytes(confirmResponse.GetG())),
-				cyclic.NewIntFromBytes(confirmResponse.GetY())))
+		for i := 0; i < len(gwAddresses); i++ {
+			nk[i] = *nodekeys
+		}
+	} else {
+		// Generate salt for UserID
+		salt := make([]byte, 256)
+		_, err = csprng.NewSystemRNG().Read(salt)
+		if err != nil {
+			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
+			return id.ZeroID, err
+		}
 
-	}
+		// Generate UserID by hashing salt and public key
+		UID = registration.GenUserID(publicKey, salt)
+		// Keep track of Server public keys provided at end of registration
+		var serverPublicKeys []*signature.DSAPublicKey
+		// Initialized response from Registration Server
+		regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
 
-	// Generate cyclic group for key generation
-	grp := cyclic.NewGroup(
-		params.GetP(),
-		cyclic.NewInt(2),
-		cyclic.NewInt(2),
-		cyclic.NewRandom(cyclic.NewInt(3), cyclic.NewInt(7)),
-	)
+		// If Registration Server is specified, contact it
+		if registrationAddr != "" {
+			// Send registration code and public key to RegistrationServer
+			response, err := client.SendRegistrationMessage(registrationAddr,
+				&pb.RegisterUserMessage{
+					RegistrationCode: registrationCode,
+					Y:                publicKey.GetKey().Bytes(),
+					P:                params.GetP().Bytes(),
+					Q:                params.GetQ().Bytes(),
+					G:                params.GetG().Bytes(),
+				})
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to contact Registration Server! %s", err)
+				return id.ZeroID, err
+			}
+			if response.Error != "" {
+				globals.Log.ERROR.Printf("Register: %s", response.Error)
+				return id.ZeroID, errors.New(response.Error)
+			}
+			regHash, regR, regS = response.Hash, response.R, response.S
+		}
 
-	nk := make([]user.NodeKeys, len(gwAddresses))
+		// Loop over all Servers
+		for _, gwAddr := range gwAddresses {
 
-	// Initialise blake2b hash for transmission keys and sha256 for reception
-	// keys
-	transmissionHash, _ := hash.NewCMixHash()
-	receptionHash := sha256.New()
+			// Send signed public key and salt for UserID to Server
+			nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
+				&pb.RequestNonceMessage{
+					Salt: salt,
+					Y:    publicKey.GetKey().Bytes(),
+					P:    params.GetP().Bytes(),
+					Q:    params.GetQ().Bytes(),
+					G:    params.GetG().Bytes(),
+					Hash: regHash,
+					R:    regR,
+					S:    regS,
+				})
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to request nonce! %s",
+					err)
+				return id.ZeroID, err
+			}
+			if nonceResponse.Error != "" {
+				globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
+				return id.ZeroID, errors.New(nonceResponse.Error)
+			}
 
-	// Loop through all the server public keys
-	for itr, publicKey := range serverPublicKeys {
+			// Use Client keypair to sign Server nonce
+			nonce := nonceResponse.Nonce
+			sig, err := privateKey.Sign(nonce, rand.Reader)
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to sign nonce! %s", err)
+				return id.ZeroID, err
+			}
 
-		// Generate the base keys
-		nk[itr].TransmissionKey = registration.GenerateBaseKey(
-			&grp, publicKey, privateKey, transmissionHash,
+			// Send signed nonce to Server
+			// TODO: This returns a receipt that can be used to speed up registration
+			confirmResponse, err := client.SendConfirmNonceMessage(gwAddr,
+				&pb.ConfirmNonceMessage{
+					Hash: nonce,
+					R:    sig.R.Bytes(),
+					S:    sig.S.Bytes(),
+				})
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to send signed nonce! %s", err)
+				return id.ZeroID, err
+			}
+			if confirmResponse.Error != "" {
+				globals.Log.ERROR.Printf(
+					"Register: %s", confirmResponse.Error)
+				return id.ZeroID, errors.New(confirmResponse.Error)
+			}
+
+			// Append Server public key
+			serverPublicKeys = append(serverPublicKeys,
+				signature.ReconstructPublicKey(signature.
+					CustomDSAParams(
+						cyclic.NewIntFromBytes(confirmResponse.GetP()),
+						cyclic.NewIntFromBytes(confirmResponse.GetQ()),
+						cyclic.NewIntFromBytes(confirmResponse.GetG())),
+					cyclic.NewIntFromBytes(confirmResponse.GetY())))
+
+		}
+
+		// Generate cyclic group for key generation
+		grp := cyclic.NewGroup(
+			params.GetP(),
+			cyclic.NewInt(2),
+			cyclic.NewInt(2),
+			cyclic.NewRandom(cyclic.NewInt(3), cyclic.NewInt(7)),
 		)
 
-		nk[itr].ReceptionKey = registration.GenerateBaseKey(
-			&grp, publicKey, privateKey, receptionHash,
-		)
+		// Initialise blake2b hash for transmission keys and sha256 for reception
+		// keys
+		transmissionHash, _ := hash.NewCMixHash()
+		receptionHash := sha256.New()
+
+		// Loop through all the server public keys
+		for itr, publicKey := range serverPublicKeys {
+
+			// Generate the base keys
+			nk[itr].TransmissionKey = registration.GenerateBaseKey(
+				&grp, publicKey, privateKey, transmissionHash,
+			)
+
+			nk[itr].ReceptionKey = registration.GenerateBaseKey(
+				&grp, publicKey, privateKey, receptionHash,
+			)
+		}
+
+		u = user.Users.NewUser(UID, base64.StdEncoding.EncodeToString(UID[:]))
+		user.Users.UpsertUser(u)
 	}
 
 	// Create the user session
-	u := user.User{User: UID}
-	nus := user.NewSession(&u, gwAddresses[0], nk, privateKey.PublicKeyGen(), privateKey)
+	nus := user.NewSession(u, gwAddresses[0], nk, publicKey, privateKey)
 
 	// Create the wallet
 	_, err = payment.CreateWallet(nus, mint)

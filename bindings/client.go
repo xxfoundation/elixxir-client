@@ -11,13 +11,12 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
-	"gitlab.com/elixxir/primitives/id"
-	"io"
 	"gitlab.com/elixxir/primitives/format"
-	"strings"
+	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
+	"io"
 )
 
 // Copy of the storage interface.
@@ -108,27 +107,26 @@ func InitClient(storage Storage, loc string) error {
 }
 
 // Registers user and returns the User ID.  Returns null if registration fails.
+// If preCan set to true, registration is attempted assuming a pre canned user
 // registrationCode is a one time use string
 // registrationAddr is the address of the registration server
 // gwAddresses is CSV of gateway addresses
 // numNodes is the number of nodes in the system
-func Register(registrationCode, registrationAddr string, gwAddressesList string,
-	mint bool) ([]byte, error) {
+func Register(preCan bool, registrationCode, registrationAddr string,
+	gwAddressesList []string, mint bool) (*id.User, error) {
 
-	if gwAddressesList == "" {
-		return id.ZeroID[:], errors.New("invalid number of nodes")
+	if len(gwAddressesList) < 1 {
+		return id.ZeroID, errors.New("invalid number of nodes")
 	}
 
-	gwList := strings.Split(gwAddressesList, ",")
-
-	UID, err := api.Register(registrationCode, registrationAddr,
-		gwList, mint)
+	UID, err := api.Register(preCan, registrationCode, registrationAddr,
+		gwAddressesList, mint)
 
 	if err != nil {
-		return id.ZeroID[:], err
+		return id.ZeroID, err
 	}
 
-	return UID[:], nil
+	return UID, nil
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.

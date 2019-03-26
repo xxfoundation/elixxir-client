@@ -28,7 +28,6 @@ import (
 	"log"
 	"math/big"
 	"os"
-	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -47,6 +46,7 @@ var showVer bool
 var gwCertPath string
 var registrationCertPath string
 var registrationAddr string
+var registrationCode string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -58,7 +58,7 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() {
+func sessionInitialization() *id.User {
 	if noBlockingTransmission {
 		api.DisableBlockingTransmission()
 	}
@@ -74,7 +74,7 @@ func sessionInitialization() {
 		if err != nil {
 			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return
+			return id.ZeroID
 		}
 		register = true
 	} else {
@@ -97,7 +97,7 @@ func sessionInitialization() {
 
 		if err != nil {
 			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return
+			return id.ZeroID
 		}
 	}
 
@@ -109,7 +109,7 @@ func sessionInitialization() {
 			// No gateways in config file or passed via command line
 			fmt.Printf("Error: No gateway specified! Add to" +
 				" configuration file or pass via command line using -g!")
-			return
+			return id.ZeroID
 		} else {
 			// List of gateways found in config file
 			gwAddresses = gateways
@@ -117,26 +117,26 @@ func sessionInitialization() {
 	}
 
 	// Holds the User ID
-	var uid []byte
+	var uid *id.User
 
 	// Register a new user if requested
 	if register {
 
-		regCode := "AAAA" // FIXME: Need to pass in registration code
+		regCode := registrationCode
+		// If precanned user, use generated code instead
+		if userId != 0 {
+			regCode = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
+		}
+
 		fmt.Printf("Attempting to register with code %s...\n", regCode)
 
-		uid, err = bindings.Register(regCode, registrationAddr,
-			strings.Join(gwAddresses, ","), mint)
+		uid, err = bindings.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
-			return
+			return id.ZeroID
 		}
 
 		fmt.Printf("Successfully registered user %v!\n", uid)
-
-	} else {
-
-		uid = id.NewUserFromUint(userId, nil).Bytes()
 
 	}
 
@@ -144,8 +144,10 @@ func sessionInitialization() {
 	_, err = bindings.Login(uid[:], gwAddresses[0], "")
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
-		return
+		return id.ZeroID
 	}
+
+	return uid
 }
 
 type FallbackListener struct {
@@ -237,8 +239,6 @@ var rootCmd = &cobra.Command{
 		if showVer {
 			printVersion()
 			return
-		} else {
-			cmd.MarkPersistentFlagRequired("userid")
 		}
 
 		var dummyPeriod time.Duration
@@ -269,11 +269,10 @@ var rootCmd = &cobra.Command{
 				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
 		}
 
-		sessionInitialization()
+		userID := sessionInitialization()
 
 		// Only send a message if we have a message to send (except dummy messages)
 		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
-		senderId := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
@@ -294,7 +293,7 @@ var rootCmd = &cobra.Command{
 
 				// Send the message
 				bindings.Send(&parse.BindingsMessageProxy{&parse.Message{
-					Sender: senderId,
+					Sender: userID,
 					TypedBody: parse.TypedBody{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      wireOut,
@@ -322,7 +321,7 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := &parse.BindingsMessageProxy{&parse.Message{
-					Sender: senderId,
+					Sender: userID,
 					TypedBody: parse.TypedBody{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      bindings.FormatTextMessage(message),
@@ -399,6 +398,11 @@ func init() {
 		"",
 		"Address:Port for connecting to registration server"+
 			" using TLS")
+
+	rootCmd.PersistentFlags().StringVarP(&registrationCode,
+		"regcode", "e",
+		"",
+		"Registration Code")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

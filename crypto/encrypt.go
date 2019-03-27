@@ -19,7 +19,7 @@ import (
 // Encrypt uses the encryption key to encrypt the passed message and populate
 // the associated data
 // You must also encrypt the message for the nodes
-func Encrypt(key *cyclic.Int, g *cyclic.Group,
+func Encrypt(key *cyclic.Int, grp *cyclic.Group,
 	message *format.Message, e2eKey *cyclic.Int) (encryptedAssociatedData []byte,
 	encryptedPayload []byte) {
 	e2eKeyBytes := e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN))
@@ -52,7 +52,7 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group,
 	message.SetTimestamp(encryptedTimestamp)
 
 	// E2E encrypt the message
-	encPayload, err := e2e.Encrypt(*g, e2eKey, message.GetPayload())
+	encPayload, err := e2e.Encrypt(*grp, e2eKey, message.GetPayload())
 	if len(encPayload) != format.TOTAL_LEN || err != nil {
 		jww.ERROR.Panicf(err.Error())
 	}
@@ -73,10 +73,10 @@ func Encrypt(key *cyclic.Int, g *cyclic.Group,
 	message.SetRecipientMIC(mic)
 
 	// perform the CMIX encryption
-	resultPayload := g.NewIntFromBytes(message.SerializePayload())
-	resultAssociatedData := g.NewIntFromBytes(message.SerializeAssociatedData())
-	g.Mul(resultPayload, key, resultPayload)
-	g.Mul(resultAssociatedData, key, resultAssociatedData)
+	resultPayload := grp.NewIntFromBytes(message.SerializePayload())
+	resultAssociatedData := grp.NewIntFromBytes(message.SerializeAssociatedData())
+	grp.Mul(resultPayload, key, resultPayload)
+	grp.Mul(resultAssociatedData, key, resultAssociatedData)
 
 	return resultAssociatedData.LeftpadBytes(uint64(format.TOTAL_LEN)),
 		resultPayload.LeftpadBytes(uint64(format.TOTAL_LEN))

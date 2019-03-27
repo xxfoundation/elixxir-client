@@ -49,13 +49,15 @@ type UserMap struct {
 
 // newRegistry creates a new Registry interface
 func newRegistry() Registry {
-	grp := InitCrypto()
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
 	uc := make(map[id.User]*User)
 	ul := make(map[string]*id.User)
 	nk := make(map[id.User]*NodeKeys)
+
+	// Initialize group object
+	grp := globals.InitCrypto()
 
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery

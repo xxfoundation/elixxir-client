@@ -8,8 +8,9 @@ package user
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
 )
@@ -29,7 +30,7 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
-	grp := crypto.InitCrypto()
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
@@ -46,7 +47,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp)
+	ses := NewSession(u, "abc", keys, grp.NewInt(2), &grp)
 
 	ses.(*SessionObj).PrivateKey = grp.NewInt(2)
 	ses.SetLastMessageID("totally unique ID")
@@ -235,7 +236,7 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := crypto.InitCrypto()
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
@@ -245,7 +246,7 @@ func TestGetPubKey(t *testing.T) {
 		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
 	}
 
-	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp)
+	ses := NewSession(u, "abc", keys, grp.NewInt(2), &grp)
 	pubKey := ses.GetPublicKey()
 	if pubKey.Cmp(grp.NewInt(2)) != 0 {
 		t.Errorf("Public key is not set correctly!")

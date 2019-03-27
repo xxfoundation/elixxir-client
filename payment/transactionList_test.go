@@ -8,11 +8,12 @@ package payment
 
 import (
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"math"
 	"math/rand"
@@ -24,10 +25,10 @@ import (
 func MockNewSession(t *testing.T) user.Session {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := crypto.InitCrypto()
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 	return user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, grp.NewInt(0), grp)
+		[]user.NodeKeys{}, grp.NewInt(0), &grp)
 }
 
 // Shows that CreateTransactionList creates new storage properly

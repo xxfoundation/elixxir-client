@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -27,6 +26,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
+
 // Tests whether invoice transactions get stored in the session correctly
 func TestWallet_registerInvoice(t *testing.T) {
 	payee := id.NewUserFromUint(1, t)
@@ -36,9 +36,9 @@ func TestWallet_registerInvoice(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := crypto.InitCrypto()
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, grp.NewInt(0), grp)
+		[]user.NodeKeys{}, grp.NewInt(0), &grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -90,9 +90,9 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := crypto.InitCrypto()
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, grp.NewInt(0), grp)
+		Nick: "test"}, "", []user.NodeKeys{}, grp.NewInt(0), &grp)
 
 	_, err := CreateWallet(s, false)
 
@@ -142,9 +142,9 @@ func TestWallet_Invoice(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := crypto.InitCrypto()
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, grp.NewInt(0), grp)
+		[]user.NodeKeys{}, grp.NewInt(0), &grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {

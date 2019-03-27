@@ -97,7 +97,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	grp := user.InitCrypto()
+	grp := globals.InitCrypto()
 
 	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 

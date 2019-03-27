@@ -4,10 +4,11 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package crypto
+package crypto_test
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -97,13 +98,13 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	// do the encryption and the decryption
 	e2eKey := e2e.Keygen(grp, nil, nil)
-	assocData, payload := Encrypt(encryptionKey, grp, msg, e2eKey)
+	assocData, payload := crypto.Encrypt(encryptionKey, grp, msg, e2eKey)
 	encryptedNet := &pb.CmixMessage{
 		SenderID:       sender.Bytes(),
 		MessagePayload: payload,
 		AssociatedData: assocData,
 	}
-	decrypted, err := Decrypt(decryptionKey, grp, encryptedNet)
+	decrypted, err := crypto.Decrypt(decryptionKey, grp, encryptedNet)
 
 	if err != nil {
 		t.Fatalf("Couldn't decrypt message: %v", err.Error())

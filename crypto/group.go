@@ -3,7 +3,7 @@
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
-package globals
+package crypto
 
 import (
 	"gitlab.com/elixxir/crypto/cyclic"

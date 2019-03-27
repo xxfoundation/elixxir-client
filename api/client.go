@@ -12,6 +12,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -97,7 +98,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	grp := globals.InitCrypto()
+	grp := crypto.InitCrypto()
 
 	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 

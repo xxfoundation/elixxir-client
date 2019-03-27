@@ -18,6 +18,8 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
@@ -194,7 +196,8 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil, nil)
+	grp := cyclic.NewGroup(large.NewInt(17),large.NewInt(5),large.NewInt(23))
+	user.TheSession = user.NewSession(u, gwAddress, nk, nil, &grp)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

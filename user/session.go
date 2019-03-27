@@ -140,7 +140,7 @@ type SessionObj struct {
 	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
 	PublicKey  *cyclic.Int
-	Grp *cyclic.Group
+	Grp        *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string

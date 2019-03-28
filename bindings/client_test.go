@@ -131,8 +131,12 @@ func TestRegister(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(1))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, &grp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -150,8 +154,12 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(1))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 
-	_, err = Register(registrationCode, gwAddress, 0, false)
+	_, err = Register(registrationCode, gwAddress, 0, false, &grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -166,8 +174,12 @@ func TestLoginLogout(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(1))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, &grp)
 	loginRes, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())

@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -20,6 +19,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
@@ -56,7 +56,7 @@ func InitClient(s globals.Storage, loc string) error {
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (*id.User, error) {
+	numNodes uint, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
 
@@ -97,8 +97,6 @@ func Register(registrationCode string, gwAddr string,
 	for i := uint(0); i < numNodes; i++ {
 		nk[i] = *nodekeys
 	}
-
-	grp := crypto.InitCrypto()
 
 	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 

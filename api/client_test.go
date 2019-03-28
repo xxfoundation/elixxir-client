@@ -12,6 +12,7 @@ import (
 	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
@@ -29,7 +30,8 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = Register("UAV6IWD6", gwAddress, 1, false)
+	grp := crypto.InitCrypto()
+	_, err = Register("UAV6IWD6", gwAddress, 1, false, grp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -66,7 +68,7 @@ func VerifyRegisterGobUser(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-	grp := Session.Grp
+	grp := Session.GetGroup()
 	if Session.GetPublicKey().Cmp(grp.NewIntFromBytes([]byte(
 		"this is not a real public key"))) != 0 {
 		t.Errorf("Public key was %v, expected %v",

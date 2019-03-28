@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"io/ioutil"
 	"log"
@@ -120,8 +121,17 @@ func sessionInitialization() {
 		// FIXME Use a different encoding for the user ID command line argument,
 		// to allow testing with IDs that are long enough to exercise more than
 		// 64 bits
+		grp := cyclic.Group{}
+		grpBuff := []byte(viper.GetString("group"))
+
+		err := grp.GobDecode(grpBuff)
+		if err != nil {
+			fmt.Printf("Could Not Decode group: %s\n", err.Error())
+			return
+		}
+
 		regCode := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
-		_, err := bindings.Register(regCode, gwAddr, int(numNodes), mint)
+		_, err = bindings.Register(regCode, gwAddr, int(numNodes), mint, &grp)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
 	"gitlab.com/elixxir/primitives/format"
@@ -146,13 +147,13 @@ func InitClient(storage Storage, loc string) error {
 // “Jono”
 // OIF3OJ5I
 func Register(registrationCode string, gwAddr string, numNodes int,
-	mint bool) ([]byte, error) {
+	mint bool, grp *cyclic.Group) ([]byte, error) {
 
 	if numNodes < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
+	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, grp)
 
 	if err != nil {
 		return id.ZeroID[:], err

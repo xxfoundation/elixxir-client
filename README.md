@@ -20,17 +20,28 @@ really helpful if you're changing a lot of repos at once.
 If glide isn't working and you don't know why, try removing glide.lock and
 ~/.glide to brutally cleanse the cache.
 
-Required args:
+
+Mutually exclusive (almost) required args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--userid|-i|ID of the user of this client|-i 5|
+|--userid|-i|ID of precanned user to use|-i 5|
+|--regcode|-e|Registration code to use for logging in a new user|-e AAAA|
+
+The above args are mutually exclusive and are not fully required.
+
+For example, to login as canned user 18, use `-i 18` and any registration code specified with `-e` will be ignored.
+To login as a new user, `-i` MUST not be specified, and `-e` will be the registration code to be used.
+
+NOTE: There is a third way of starting the client, which ONLY works without specifying any of the above args.
+This will internally ignore the registration address, if specified, and will do registration directly on the Nodes
+only.
 
 Optional args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--gwaddresses|-g|Addresses:port of the gateway to connect to, separated by commas (Overrides config file)|-g localhost:8443,localhost:8444|
+|--gwaddresses|-g|Addresses:port of the gateways to connect to, separated by commas (Overrides config file)|-g localhost:8443,localhost:8444|
 |--destid|-d|ID of the user to send messages to|-d 6|
 |--message|-m|Text message to send|-m "let's both have a good day"|
 |--verbose|-v|Prints more logging messages for debugging|-v|

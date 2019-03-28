@@ -138,7 +138,8 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 		regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
 
 		// If Registration Server is specified, contact it
-		if registrationAddr != "" {
+		// Only if registrationCode is set
+		if registrationAddr != "" && registrationCode != "" {
 			// Send registration code and public key to RegistrationServer
 			response, err := client.SendRegistrationMessage(registrationAddr,
 				&pb.RegisterUserMessage{

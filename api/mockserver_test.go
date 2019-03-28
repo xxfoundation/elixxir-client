@@ -196,20 +196,20 @@ func TestSend(t *testing.T) {
 		t.Errorf("Error sending message: %v", err)
 	}
 }
-//
-//func TestLogout(t *testing.T) {
-//	gwShutDown := gateway.StartGateway(gwAddress,
-//		gateway.NewImplementation(), "", "")
-//	time.Sleep(100 * time.Millisecond)
-//	defer gwShutDown()
-//
-//	err := Logout()
-//	if err != nil {
-//		t.Errorf("Logout failed: %v", err)
-//	}
-//	err = Logout()
-//	if err == nil {
-//		t.Errorf("Logout did not throw an error when called on a client that" +
-//			" is not currently logged in.")
-//	}
-//}
+
+func TestLogout(t *testing.T) {
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown()
+
+	err := Logout()
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+	err = Logout()
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
+}

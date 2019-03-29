@@ -199,7 +199,7 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 			Nick: s.CurrentUser.Nick,
 		}
 	}
-	return
+	return currentUser
 }
 
 func (s *SessionObj) GetGWAddress() string {

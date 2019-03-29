@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/bindings"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -123,10 +124,9 @@ func sessionInitialization() {
 		// 64 bits
 		grp := cyclic.Group{}
 		grpBuff := []byte(viper.GetString("group"))
-
-		err := grp.GobDecode(grpBuff)
+		err := grp.UnmarshalJSON(grpBuff)
 		if err != nil {
-			fmt.Printf("Could Not Decode group: %s\n", err.Error())
+			fmt.Printf("Could Not Decode group from JSON: %s\n", err.Error())
 			return
 		}
 
@@ -275,7 +275,6 @@ var rootCmd = &cobra.Command{
 		// Only send a message if we have a message to send (except dummy messages)
 		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
 		senderId := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
-		grp := user.TheSession.GetGroup()
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
@@ -286,6 +285,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
+				grp := user.TheSession.GetGroup()
 				fmt.Println(parseUdbMessage(message, grp))
 			} else {
 				// Handle sending to any other destination
@@ -421,7 +421,14 @@ func SetCertPath(path string) {
 }
 
 // initConfig reads in config file and ENV variables if set.
-func initConfig() {}
+func initConfig() {
+	// Temporarily need to get group as JSON data into viper
+	json, err := crypto.InitCrypto().MarshalJSON()
+	if err != nil {
+		// panic
+	}
+	viper.Set("group", string(json))
+}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {

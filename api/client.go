@@ -230,7 +230,7 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 		grp := cyclic.NewGroup(
 			params.GetP(),
 			cyclic.NewInt(2),
-			cyclic.NewInt(2),
+			params.GetG(),
 			cyclic.NewRandom(cyclic.NewInt(3), cyclic.NewInt(7)),
 		)
 

@@ -344,7 +344,7 @@ var rootCmd = &cobra.Command{
 			if destinationUserId == 31 {
 				timer = time.NewTimer(20 * time.Second)
 			} else {
-				timer = time.NewTimer(5 * time.Second)
+				timer = time.NewTimer(10 * time.Second)
 			}
 			<-timer.C
 		}

@@ -20,18 +20,18 @@ import (
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
 	"log"
 	"math/big"
 	"os"
 	"sync/atomic"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 var verbose bool
@@ -299,8 +299,9 @@ var rootCmd = &cobra.Command{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body: wireOut,
+						Body:      wireOut,
 					},
+					OuterType: format.Unencrypted,
 					Receiver: recipientId,
 				}})
 			}
@@ -327,9 +328,10 @@ var rootCmd = &cobra.Command{
 					Sender: senderId,
 					TypedBody: parse.TypedBody{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body: bindings.FormatTextMessage(message),
+						Body:      bindings.FormatTextMessage(message),
 					},
-					Receiver: recipientId}}
+					OuterType: format.Unencrypted,
+					Receiver:  recipientId}}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)

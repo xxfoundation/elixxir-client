@@ -271,11 +271,12 @@ func (il *InvoiceListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	il.wallet.switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE_UI),
-			Body: invoiceID[:],
+			Body:      invoiceID[:],
 		},
-		Sender:   getPaymentBotID(),
-		Receiver: id.ZeroID,
-		Nonce:    nil,
+		OuterType: format.Unencrypted,
+		Sender:    getPaymentBotID(),
+		Receiver:  id.ZeroID,
+		Nonce:     nil,
 	})
 }
 
@@ -347,10 +348,11 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
 			InnerType: int32(cmixproto.Type_PAYMENT_TRANSACTION),
-			Body: paymentMessage,
+			Body:      paymentMessage,
 		},
-		Sender:   w.session.GetCurrentUser().User,
-		Receiver: getPaymentBotID(),
+		OuterType: format.Unencrypted,
+		Sender:    w.session.GetCurrentUser().User,
+		Receiver:  getPaymentBotID(),
 		// TODO panic on blank nonce
 		Nonce: nil,
 	}
@@ -441,11 +443,12 @@ func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Messag
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
 			InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT),
-			Body: transaction.OriginID[:],
+			Body:      transaction.OriginID[:],
 		},
-		Sender:   l.wallet.session.GetCurrentUser().User,
-		Receiver: transaction.Recipient,
-		Nonce:    nil,
+		OuterType: format.Unencrypted,
+		Sender:    l.wallet.session.GetCurrentUser().User,
+		Receiver:  transaction.Recipient,
+		Nonce:     nil,
 	}
 }
 
@@ -470,11 +473,12 @@ func (rl *ReceiptListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 		rl.wallet.switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
 				InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
-				Body: invoiceID[:],
+				Body:      invoiceID[:],
 			},
-			Sender:   m.Sender,
-			Receiver: id.ZeroID,
-			Nonce:    nil,
+			OuterType: format.Unencrypted,
+			Sender:    m.Sender,
+			Receiver:  id.ZeroID,
+			Nonce:     nil,
 		})
 	}
 }

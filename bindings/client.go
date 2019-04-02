@@ -11,13 +11,13 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/id"
-	"io"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
+	"io"
 )
 
 // Copy of the storage interface.
@@ -75,7 +75,6 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 }
 
 // Returns a parsed message
-
 
 // Pass the listener handle that Listen() returned to delete the listener
 func StopListening(listenerHandle string) {
@@ -196,10 +195,11 @@ func Send(m Message) error {
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
 			InnerType: m.GetType(),
-			Body: m.GetPayload(),
+			Body:      m.GetPayload(),
 		},
-		Sender:   sender,
-		Receiver: recipient,
+		OuterType: format.Unencrypted,
+		Sender:    sender,
+		Receiver:  recipient,
 	})
 }
 
@@ -241,7 +241,7 @@ func SearchForUser(emailAddress string) (*SearchResult, error) {
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the Bindings
-func ParseMessage(message []byte)(Message, error){
+func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
 }
 

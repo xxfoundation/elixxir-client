@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"math"
@@ -21,8 +22,7 @@ import (
 	"time"
 )
 
-// Shows that CreateTransactionList creates new storage properly
-func TestCreateTransactionList_New(t *testing.T) {
+func MockNewSession(t *testing.T) user.Session {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 
@@ -30,10 +30,15 @@ func TestCreateTransactionList_New(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
+	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
+	return user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+		[]user.NodeKeys{}, publicKey, privateKey, &grp)
+}
+
+// Shows that CreateTransactionList creates new storage properly
+func TestCreateTransactionList_New(t *testing.T) {
+	s := MockNewSession(t)
 
 	// show that the ordered list does not exist
 	key := "TestTransactionList"
@@ -76,17 +81,7 @@ func TestCreateTransactionList_New(t *testing.T) {
 
 // Shows that CreateTransactionList loads old transaction List properly
 func TestCreateTransactionList_Load(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	// show that the transaction list does not exist
 	key := "TestTransactionList"
@@ -126,18 +121,7 @@ func TestCreateTransactionList_Load(t *testing.T) {
 
 // Shows that TransactionList.Value returns the value of the storage correctly
 func TestTransactionList_Value(t *testing.T) {
-
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng1 := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng1, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng1)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -156,17 +140,7 @@ func TestTransactionList_Value(t *testing.T) {
 
 // Shows that TransactionList.Upsert works when the list is empty
 func TestTransactionList_Upsert_Empty(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 
@@ -189,17 +163,7 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 
 // Shows that TransactionList.Upsert works when the list is not empty
 func TestTransactionList_Upsert_Multi(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -230,17 +194,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 // Shows that TransactionList.Upsert's results are properly saved
 func TestTransactionList_Upsert_Save(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	key := "TestTransactionList"
 
@@ -280,17 +234,7 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 
 // Shows that TransactionList.Get works when the list has multiple members
 func TestTransactionList_Get(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -332,17 +276,7 @@ func TestTransactionList_Get(t *testing.T) {
 
 // Shows that TransactionList.Pop works when the list is not empty
 func TestTransactionList_Pop(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -384,17 +318,7 @@ func TestTransactionList_Pop(t *testing.T) {
 
 // Shows that TransactionList.Pop errors properly when the element doesn't exist
 func TestTransactionList_Pop_Invalid(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -425,17 +349,7 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 
 // Shows that TransactionList.Upsert works when the list is not empty
 func TestTransactionList_Pop_Save(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	key := "TestTransactionList"
 
@@ -497,17 +411,7 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 
 func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	// populate a transaction list with some items
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey)
+	s := MockNewSession(t)
 
 	transactionMap := make(map[parse.MessageHash]*Transaction)
 	transactions := TransactionList{

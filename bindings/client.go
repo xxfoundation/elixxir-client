@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -112,15 +113,16 @@ func InitClient(storage Storage, loc string) error {
 // registrationAddr is the address of the registration server
 // gwAddresses is CSV of gateway addresses
 // numNodes is the number of nodes in the system
+// grp is the CMIX group needed for keys generation
 func Register(preCan bool, registrationCode, registrationAddr string,
-	gwAddressesList []string, mint bool) (*id.User, error) {
+	gwAddressesList []string, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	if len(gwAddressesList) < 1 {
 		return id.ZeroID, errors.New("invalid number of nodes")
 	}
 
 	UID, err := api.Register(preCan, registrationCode, registrationAddr,
-		gwAddressesList, mint)
+		gwAddressesList, mint, grp)
 
 	if err != nil {
 		return id.ZeroID, err
@@ -163,10 +165,11 @@ func Send(m Message) error {
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
 			InnerType: m.GetType(),
-			Body: m.GetPayload(),
+			Body:      m.GetPayload(),
 		},
-		Sender:   sender,
-		Receiver: recipient,
+		OuterType: format.Unencrypted,
+		Sender:    sender,
+		Receiver:  recipient,
 	})
 }
 

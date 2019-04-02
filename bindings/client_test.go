@@ -18,6 +18,8 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
@@ -129,8 +131,12 @@ func TestRegister(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
+	regRes, err := Register(true, registrationCode, "", []string{gwAddress}, false, &grp)
 
-	regRes, err := Register(registrationCode, "", gwAddress, false)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -148,8 +154,12 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 
-	_, err = Register(registrationCode, "", "", false)
+	_, err = Register(true, registrationCode, "", []string{}, false, &grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -164,9 +174,13 @@ func TestLoginLogout(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, "", gwAddress, false)
-	_, err2 := Login(regRes, gwAddress, "")
+	regRes, err := Register(true, registrationCode, "", []string{gwAddress}, false, &grp)
+	_, err2 := Login(regRes[:], gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -191,7 +205,8 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil, nil)
+	grp := cyclic.NewGroup(large.NewInt(17),large.NewInt(5),large.NewInt(23))
+	user.TheSession = user.NewSession(u, gwAddress, nk, nil, nil, &grp)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

@@ -18,11 +18,13 @@ import (
 	"gitlab.com/elixxir/client/bindings"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -123,6 +125,13 @@ func sessionInitialization() *id.User {
 
 	// Register a new user if requested
 	if register {
+		grp := cyclic.Group{}
+		grpBuff := []byte(viper.GetString("group"))
+		err := grp.UnmarshalJSON(grpBuff)
+		if err != nil {
+			fmt.Printf("Could Not Decode group from JSON: %s\n", err.Error())
+			return id.ZeroID
+		}
 
 		regCode := registrationCode
 		// If precanned user, use generated code instead
@@ -132,7 +141,7 @@ func sessionInitialization() *id.User {
 
 		fmt.Printf("Attempting to register with code %s...\n", regCode)
 
-		uid, err = bindings.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint)
+		uid, err = bindings.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint, &grp)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
@@ -197,7 +206,7 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", cyclic.NewIntFromBytes(message.Sender[:]).Text(10),
+	fmt.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -288,7 +297,8 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				fmt.Println(parseUdbMessage(message))
+				grp := user.TheSession.GetGroup()
+				fmt.Println(parseUdbMessage(message, grp))
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)
@@ -303,6 +313,7 @@ var rootCmd = &cobra.Command{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      wireOut,
 					},
+					OuterType: format.Unencrypted,
 					Receiver: recipientId,
 				}})
 			}
@@ -331,7 +342,8 @@ var rootCmd = &cobra.Command{
 						InnerType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      bindings.FormatTextMessage(message),
 					},
-					Receiver: recipientId}}
+					OuterType: format.Unencrypted,
+					Receiver:  recipientId}}
 				bindings.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
@@ -435,7 +447,14 @@ func SetCertPaths(gwCertPath, registrationCertPath string) {
 }
 
 // initConfig reads in config file and ENV variables if set.
-func initConfig() {}
+func initConfig() {
+	// Temporarily need to get group as JSON data into viper
+	json, err := crypto.InitCrypto().MarshalJSON()
+	if err != nil {
+		// panic
+	}
+	viper.Set("group", string(json))
+}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {

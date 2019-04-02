@@ -21,7 +21,7 @@ import (
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
-	cmix "gitlab.com/elixxir/crypto/messaging"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
@@ -71,6 +71,7 @@ func (m *messaging) SendMessage(recipientID *id.User,
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	userID := user.TheSession.GetCurrentUser().User
+	grp := user.TheSession.GetGroup()
 	parts, err := parse.Partition([]byte(message),
 		m.nextId())
 	if err != nil {
@@ -100,7 +101,7 @@ func (m *messaging) SendMessage(recipientID *id.User,
 		// The timestamp will be encrypted later
 		message.SetTimestamp(nowBytes)
 		message.SetPayloadData(parts[i])
-		err = send(userID, message)
+		err = send(userID, message, grp)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
@@ -109,7 +110,7 @@ func (m *messaging) SendMessage(recipientID *id.User,
 }
 
 // send actually sends the message to the server
-func send(senderID *id.User, message *format.Message) error {
+func send(senderID *id.User, message *format.Message, grp *cyclic.Group) error {
 	// Enable transmission blocking if enabled
 	if BlockTransmissions {
 		sendLock.Lock()
@@ -125,19 +126,19 @@ func send(senderID *id.User, message *format.Message) error {
 	macs := make([][]byte, 0)
 
 	// Generate a compound encryption key
-	encryptionKey := cyclic.NewInt(1)
+	encryptionKey := grp.NewInt(1)
 	for _, key := range user.TheSession.GetKeys() {
 		baseKey := key.TransmissionKey
-		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, crypto.Grp)
-		crypto.Grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
+		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
+		grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
 		//TODO: Add KMAC generation here
 	}
 
 	// TBD: Is there a really good reason we have to specify the Grp and not a
 	// key? Should we even be doing the encryption here?
 	// TODO: Use salt here / generate n key map
-	e2eKey := e2e.Keygen(crypto.Grp, nil, nil)
-	associatedData, payload := crypto.Encrypt(encryptionKey, crypto.Grp,
+	e2eKey := e2e.Keygen(grp, nil, nil)
+	associatedData, payload := crypto.Encrypt(encryptionKey, grp,
 		message, e2eKey)
 	msgPacket := &pb.CmixMessage{
 		SenderID:       senderID.Bytes(),
@@ -210,6 +211,7 @@ func (m *messaging) receiveMessagesFromGateway(
 		}
 
 		results := make([]*format.Message, 0, len(messages.MessageIDs))
+		grp := user.TheSession.GetGroup()
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
 			_, received := ReceivedMessages[messageID]
@@ -238,12 +240,12 @@ func (m *messaging) receiveMessagesFromGateway(
 
 					// Generate a compound decryption key
 					salt := newMessage.Salt
-					decryptionKey := cyclic.NewInt(1)
+					decryptionKey := grp.NewInt(1)
 					for _, key := range user.TheSession.GetKeys() {
 						baseKey := key.ReceptionKey
 						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
-							crypto.Grp)
-						crypto.Grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)
+							grp)
+						grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)
 						//TODO: Add KMAC verification here
 					}
 
@@ -253,7 +255,7 @@ func (m *messaging) receiveMessagesFromGateway(
 					user.TheSession.SetLastMessageID(messageID)
 					user.TheSession.StoreSession()
 
-					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, crypto.Grp,
+					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, grp,
 						newMessage)
 					if err2 != nil {
 						globals.Log.WARN.Printf(

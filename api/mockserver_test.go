@@ -10,12 +10,14 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"os"
@@ -64,7 +66,11 @@ func TestRegister(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	regRes, err := Register(registrationCode, "", []string{gwAddress}, false)
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
+	regRes, err := Register(true, registrationCode, "", []string{gwAddress}, false, &grp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -83,7 +89,11 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, "", []string{}, false)
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
+	_, err = Register(true, registrationCode, "", []string{}, false, &grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -99,7 +109,11 @@ func TestRegisterBadHUID(t *testing.T) {
 	registrationCode := "OIF3OJ6I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
-	_, err = Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
+	_, err = Register(true, registrationCode, gwAddress, []string{"1", "2", "3"}, false, &grp)
 	if err == nil {
 		t.Error("Registration worked with bad registration code!")
 	}
@@ -115,9 +129,13 @@ func TestRegisterDeletedUser(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(107))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-	_, err = Register(registrationCode, gwAddress, []string{"1", "2", "3"}, false)
+	_, err = Register(true, registrationCode, gwAddress, []string{"1", "2", "3"}, false, &grp)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -130,9 +148,10 @@ func SetNulKeys() {
 	// Set the transmit keys to be 1, so send/receive can work
 	// FIXME: Why doesn't crypto panic when these keys are empty?
 	keys := user.TheSession.GetKeys()
+	grp := user.TheSession.GetGroup()
 	for i := range keys {
-		keys[i].TransmissionKey = cyclic.NewInt(1)
-		keys[i].TransmissionKey = cyclic.NewInt(1)
+		keys[i].TransmissionKey = grp.NewInt(1)
+		keys[i].TransmissionKey = grp.NewInt(1)
 	}
 }
 
@@ -144,8 +163,9 @@ func TestSend(t *testing.T) {
 	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	grp := crypto.InitCrypto()
 	registrationCode := "UAV6IWD6"
-	userID, err := Register(registrationCode, "", []string{gwAddress}, false)
+	userID, err := Register(true, registrationCode, "", []string{gwAddress}, false, grp)
 	_, err2 := Login(userID, gwAddress, "")
 	SetNulKeys()
 

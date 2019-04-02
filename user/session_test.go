@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"reflect"
@@ -32,10 +33,12 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKey: cyclic.NewInt(2),
-		ReceptionKey:    cyclic.NewInt(2),
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
 	}
 
 	err := globals.InitStorage(&globals.RamStorage{}, "")
@@ -48,7 +51,7 @@ func TestUserSession(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey)
+	ses := NewSession(u, "abc", keys, publicKey, privateKey, &grp)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -131,10 +134,10 @@ func TestUserSession(t *testing.T) {
 				t.Errorf("Error: Public key not set correctly!")
 			} else if !reflect.DeepEqual(*TheSession.GetPrivateKey(), *privateKey) {
 				t.Errorf("Error: Private key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceptionKey.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Reception key not set correctly!")
-			} else if TheSession.GetKeys()[i].TransmissionKey.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].TransmissionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Transmission key not set correctly!")
 			}
@@ -220,17 +223,19 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKey: cyclic.NewInt(2),
-		ReceptionKey:    cyclic.NewInt(2),
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
 	}
 
 	rng := rand.New(rand.NewSource(42))
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey)
+	ses := NewSession(u, "abc", keys, publicKey, privateKey, &grp)
 
 	pubKey := ses.GetPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -245,17 +250,19 @@ func TestGetPrivKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKey: cyclic.NewInt(2),
-		ReceptionKey:    cyclic.NewInt(2),
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
 	}
 
 	rng := rand.New(rand.NewSource(42))
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey)
+	ses := NewSession(u, "abc", keys, publicKey, privateKey, &grp)
 
 	privKey := ses.GetPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

@@ -8,8 +8,8 @@ package user
 
 import (
 	"crypto/sha256"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 )
 
@@ -57,6 +57,9 @@ func newRegistry() Registry {
 	ul := make(map[string]*id.User)
 	nk := make(map[id.User]*NodeKeys)
 
+	// Initialize group object
+	grp := crypto.InitCrypto()
+
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery
 	for i := uint64(1); i <= NUM_DEMO_USERS; i++ {
@@ -70,10 +73,10 @@ func newRegistry() Registry {
 		// TODO We need a better way to generate base/recursive keys
 		h := sha256.New()
 		h.Write([]byte(string(20000 + i)))
-		k.TransmissionKey = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKey = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
 		h.Write([]byte(string(40000 + i)))
-		k.ReceptionKey = cyclic.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKey = grp.NewIntFromBytes(h.Sum(nil))
 
 		// Add user to collection and lookup table
 		uc[*t.User] = t

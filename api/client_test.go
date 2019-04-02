@@ -11,7 +11,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
@@ -27,7 +26,8 @@ import (
 	}
 
 	// populate a gob in the store
-	_, err = Register("UAV6IWD6", "", []string{gwAddress}, false)
+	grp := crypto.InitCrypto()
+	_, err = Register(true, "UAV6IWD6", "", []string{gwAddress}, false, grp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -64,10 +64,10 @@ func VerifyRegisterGobUser(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-
+	grp := Session.GetGroup()
 	h := sha256.New()
 	h.Write([]byte(string(20005)))
-	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
@@ -76,7 +76,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40005)))
-	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKey.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",

@@ -36,6 +36,7 @@ type Session interface {
 	GetKeys() []NodeKeys
 	GetPrivateKey() *signature.DSAPrivateKey
 	GetPublicKey() *signature.DSAPublicKey
+	GetGroup() *cyclic.Group
 	GetLastMessageID() string
 	SetLastMessageID(id string)
 	StoreSession() error
@@ -54,7 +55,8 @@ type NodeKeys struct {
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *signature.DSAPublicKey, privateKey *signature.DSAPrivateKey) Session {
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *signature.DSAPublicKey,
+	privateKey *signature.DSAPrivateKey, grp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
@@ -63,6 +65,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *signature
 		Keys:         nk,
 		PrivateKey:   privateKey,
 		PublicKey:    publicKey,
+		Grp:          grp,
 		InterfaceMap: make(map[string]interface{}),
 	})
 
@@ -132,6 +135,7 @@ type SessionObj struct {
 	Keys       []NodeKeys
 	PrivateKey *signature.DSAPrivateKey
 	PublicKey  *signature.DSAPublicKey
+	Grp        *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -172,6 +176,12 @@ func (s *SessionObj) GetPublicKey() *signature.DSAPublicKey {
 	return s.PublicKey
 }
 
+func (s *SessionObj) GetGroup() *cyclic.Group {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.Grp
+}
+
 // Return a copy of the current user
 func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	// This is where it deadlocks
@@ -184,7 +194,7 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 			Nick: s.CurrentUser.Nick,
 		}
 	}
-	return
+	return currentUser
 }
 
 func (s *SessionObj) GetGWAddress() string {
@@ -318,8 +328,9 @@ func (s *SessionObj) UnlockStorage() {
 }
 
 func clearCyclicInt(c *cyclic.Int) {
-	c.Set(cyclic.NewMaxInt())
-	c.SetInt64(0)
+	c.Reset()
+	//c.Set(cyclic.NewMaxInt())
+	//c.SetInt64(0)
 }
 
 // FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?

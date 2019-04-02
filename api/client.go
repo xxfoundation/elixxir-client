@@ -15,7 +15,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -27,6 +26,7 @@ import (
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/format"
@@ -60,15 +60,13 @@ func InitClient(s globals.Storage, loc string) error {
 		return storageErr
 	}
 
-	crypto.InitCrypto()
-
 	return nil
 }
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(preCan bool, registrationCode, registrationAddr string,
-	gwAddresses []string, mint bool) (*id.User, error) {
+	gwAddresses []string, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
 
@@ -219,20 +217,12 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 			serverPublicKeys = append(serverPublicKeys,
 				signature.ReconstructPublicKey(signature.
 					CustomDSAParams(
-						cyclic.NewIntFromBytes(confirmResponse.GetP()),
-						cyclic.NewIntFromBytes(confirmResponse.GetQ()),
-						cyclic.NewIntFromBytes(confirmResponse.GetG())),
-					cyclic.NewIntFromBytes(confirmResponse.GetY())))
+						large.NewIntFromBytes(confirmResponse.GetP()),
+					large.NewIntFromBytes(confirmResponse.GetQ()),
+					large.NewIntFromBytes(confirmResponse.GetG())),
+					large.NewIntFromBytes(confirmResponse.GetY())))
 
 		}
-
-		// Generate cyclic group for key generation
-		grp := cyclic.NewGroup(
-			params.GetP(),
-			cyclic.NewInt(2),
-			params.GetG(),
-			cyclic.NewRandom(cyclic.NewInt(3), cyclic.NewInt(7)),
-		)
 
 		// Initialise blake2b hash for transmission keys and sha256 for reception
 		// keys
@@ -244,13 +234,13 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 
 			// Generate the base keys
 			nk[itr].TransmissionKey = registration.GenerateBaseKey(
-				&grp, publicKey, privateKey, transmissionHash,
+				grp, publicKey, privateKey, transmissionHash,
 			)
 
 			transmissionHash.Reset()
 
 			nk[itr].ReceptionKey = registration.GenerateBaseKey(
-				&grp, publicKey, privateKey, receptionHash,
+				grp, publicKey, privateKey, receptionHash,
 			)
 
 			receptionHash.Reset()
@@ -261,7 +251,7 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 	}
 
 	// Create the user session
-	nus := user.NewSession(u, gwAddresses[0], nk, publicKey, privateKey)
+	nus := user.NewSession(u, gwAddresses[0], nk, publicKey, privateKey, grp)
 
 	// Create the wallet
 	_, err = payment.CreateWallet(nus, mint)

@@ -51,7 +51,7 @@ func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 	}
 
 	typedBody := parse.TypedBody{
-		InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
+		MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
 		Body:      wireRep,
 	}
 
@@ -61,7 +61,7 @@ func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 		// money
 		Sender:    t.Recipient,
 		Receiver:  t.Sender,
-		OuterType: format.Unencrypted,
+		CryptoType: format.Unencrypted,
 		// TODO populate nonce and panic if any outgoing message has none
 		Nonce: nil,
 	}

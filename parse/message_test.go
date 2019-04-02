@@ -15,7 +15,7 @@ import (
 //Shows that MessageHash ia an independent function of every field in Message
 func TestMessage_Hash(t *testing.T) {
 	m := Message{}
-	m.InnerType = 0
+	m.MessageType = 0
 	m.Body = []byte{0, 0}
 	m.Sender = id.ZeroID
 	m.Receiver = id.ZeroID
@@ -23,7 +23,7 @@ func TestMessage_Hash(t *testing.T) {
 
 	baseHash := m.Hash()
 
-	m.InnerType = 1
+	m.MessageType = 1
 
 	typeHash := m.Hash()
 
@@ -31,7 +31,7 @@ func TestMessage_Hash(t *testing.T) {
 		t.Errorf("Message.Hash: Output did not change with modified type")
 	}
 
-	m.InnerType = 0
+	m.MessageType = 0
 
 	m.Body = []byte{1, 1}
 

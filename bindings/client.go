@@ -45,7 +45,7 @@ type Message interface {
 	// Returns the message's recipient ID
 	GetRecipient() []byte
 	// Returns the message's type
-	GetType() int32
+	GetMessageType() int32
 }
 
 // Translate a bindings message to a parse message
@@ -194,10 +194,10 @@ func Send(m Message) error {
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: m.GetType(),
+			MessageType: m.GetMessageType(),
 			Body:      m.GetPayload(),
 		},
-		OuterType: format.Unencrypted,
+		CryptoType: format.Unencrypted,
 		Sender:    sender,
 		Receiver:  recipient,
 	})

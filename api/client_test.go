@@ -196,12 +196,12 @@ func TestParsedMessage_GetRecipient(t *testing.T) {
 	}
 }
 
-func TestParsedMessage_GetType(t *testing.T) {
+func TestParsedMessage_GetMessageType(t *testing.T) {
 	pm := ParsedMessage{}
 	var typeTest int32
 	typeTest = 6
 	pm.Typed = typeTest
-	typ := pm.GetType()
+	typ := pm.GetMessageType()
 
 	if typ!=typeTest{
 		t.Errorf("Returned type does not match")
@@ -211,7 +211,7 @@ func TestParsedMessage_GetType(t *testing.T) {
 func TestParse(t *testing.T){
 	ms := parse.Message{}
 	ms.Body = []byte{0,1,2}
-	ms.InnerType = int32(cmixproto.Type_NO_TYPE)
+	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
 
@@ -223,8 +223,8 @@ func TestParse(t *testing.T){
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType()!=int32(ms.InnerType){
-		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.InnerType)
+	if msOut.GetMessageType()!=int32(ms.MessageType){
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetMessageType(), ms.MessageType)
 	}
 
 	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){

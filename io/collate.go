@@ -73,7 +73,7 @@ func (mb *collator) AddMessage(message *format.Message,
 
 			msg := parse.Message{
 				TypedBody: *typedBody,
-				OuterType: format.Unencrypted,
+				CryptoType: format.Unencrypted,
 				Sender:    sender,
 				Receiver:  user.TheSession.GetCurrentUser().User,
 			}
@@ -138,7 +138,7 @@ func (mb *collator) AddMessage(message *format.Message,
 
 				msg := parse.Message{
 					TypedBody: *typedBody,
-					OuterType: format.Unencrypted,
+					CryptoType: format.Unencrypted,
 					Sender:    sender,
 					Receiver:  recipient,
 				}

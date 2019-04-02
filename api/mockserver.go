@@ -35,11 +35,11 @@ func (m APIMessage) GetPayload() []byte {
 	return m.Payload
 }
 
-func (m APIMessage) GetInnerType() int32 {
+func (m APIMessage) GetMessageType() int32 {
 	return int32(cmixproto.Type_NO_TYPE)
 }
 
-func (m APIMessage) GetOuterType() format.OuterType {
+func (m APIMessage) GetCryptoType() format.CryptoType {
 	return format.None
 }
 

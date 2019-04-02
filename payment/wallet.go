@@ -219,9 +219,9 @@ func (il *InvoiceListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	var invoice cmixproto.PaymentInvoice
 
 	// Test for incorrect message type, just in case
-	if msg.GetInnerType() != int32(cmixproto.Type_PAYMENT_INVOICE) {
+	if msg.GetMessageType() != int32(cmixproto.Type_PAYMENT_INVOICE) {
 		globals.Log.WARN.Printf("InvoiceListener: Got an invoice with the incorrect"+
-			" type: %v", cmixproto.Type(msg.GetInnerType()).String())
+			" type: %v", cmixproto.Type(msg.GetMessageType()).String())
 		return
 	}
 
@@ -270,10 +270,10 @@ func (il *InvoiceListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	// invoice is here and ready to be paid
 	il.wallet.switchboard.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE_UI),
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE_UI),
 			Body:      invoiceID[:],
 		},
-		OuterType: format.Unencrypted,
+		CryptoType: format.Unencrypted,
 		Sender:    getPaymentBotID(),
 		Receiver:  id.ZeroID,
 		Nonce:     nil,
@@ -347,10 +347,10 @@ func (w *Wallet) pay(inboundRequest *Transaction) (*parse.Message, error) {
 
 	msg := parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_TRANSACTION),
+			MessageType: int32(cmixproto.Type_PAYMENT_TRANSACTION),
 			Body:      paymentMessage,
 		},
-		OuterType: format.Unencrypted,
+		CryptoType: format.Unencrypted,
 		Sender:    w.session.GetCurrentUser().User,
 		Receiver:  getPaymentBotID(),
 		// TODO panic on blank nonce
@@ -442,10 +442,10 @@ func (l *ResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 func (l *ResponseListener) formatReceipt(transaction *Transaction) *parse.Message {
 	return &parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT),
+			MessageType: int32(cmixproto.Type_PAYMENT_RECEIPT),
 			Body:      transaction.OriginID[:],
 		},
-		OuterType: format.Unencrypted,
+		CryptoType: format.Unencrypted,
 		Sender:    l.wallet.session.GetCurrentUser().User,
 		Receiver:  transaction.Recipient,
 		Nonce:     nil,
@@ -472,10 +472,10 @@ func (rl *ReceiptListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 		// Let the payment receipt UI listeners know that a payment's come in
 		rl.wallet.switchboard.Speak(&parse.Message{
 			TypedBody: parse.TypedBody{
-				InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
+				MessageType: int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
 				Body:      invoiceID[:],
 			},
-			OuterType: format.Unencrypted,
+			CryptoType: format.Unencrypted,
 			Sender:    m.Sender,
 			Receiver:  id.ZeroID,
 			Nonce:     nil,

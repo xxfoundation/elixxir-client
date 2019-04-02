@@ -19,7 +19,7 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
-	OuterType format.OuterType
+	CryptoType format.CryptoType
 	Sender   *id.User
 	Receiver *id.User
 	Nonce    []byte
@@ -36,9 +36,9 @@ type MessageInterface interface {
 	// (uint64) BigEndian serialized into a byte slice
 	GetRecipient() *id.User
 	// Return the message's inner type
-	GetInnerType() int32
+	GetMessageType() int32
 	// Returns the message's outer type
-	GetOuterType() format.OuterType
+	GetCryptoType() format.CryptoType
 	// Return the message fully serialized including the type prefix
 	// Does this really belong in the interface?
 	Pack() []byte
@@ -49,7 +49,7 @@ func (m Message) Hash() MessageHash {
 
 	h := sha256.New()
 
-	h.Write(TypeAsBytes(int32(m.InnerType)))
+	h.Write(TypeAsBytes(int32(m.MessageType)))
 	h.Write(m.Body)
 	h.Write(m.Sender.Bytes())
 	h.Write(m.Receiver.Bytes())
@@ -74,12 +74,12 @@ func (m *Message) GetPayload() []byte {
 	return m.Body
 }
 
-func (m *Message) GetInnerType() int32 {
-	return m.InnerType
+func (m *Message) GetMessageType() int32 {
+	return m.MessageType
 }
 
-func (m *Message) GetOuterType() format.OuterType {
-	return m.OuterType
+func (m *Message) GetCryptoType() format.CryptoType {
+	return m.CryptoType
 }
 
 func (m *Message) Pack() []byte {
@@ -105,14 +105,14 @@ func (p *BindingsMessageProxy) GetPayload() []byte {
 	return p.Proxy.GetPayload()
 }
 
-func (p *BindingsMessageProxy) GetType() int32 {
-	return int32(p.Proxy.GetInnerType())
+func (p *BindingsMessageProxy) GetMessageType() int32 {
+	return int32(p.Proxy.GetMessageType())
 }
 
 // Includes the type. Not sure if this is the right way to approach this.
 func (p *BindingsMessageProxy) Pack() []byte {
 	return Pack(&TypedBody{
-		InnerType: p.Proxy.GetInnerType(),
+		MessageType: p.Proxy.GetMessageType(),
 		Body: p.Proxy.GetPayload(),
 	})
 }

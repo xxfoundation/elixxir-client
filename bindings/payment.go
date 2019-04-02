@@ -23,7 +23,7 @@ func GetActiveWallet() *Wallet {
 	return &Wallet{wallet: api.Wallet()}
 }
 
-func (w *Wallet) Listen(userId []byte, outerType format.OuterType,
+func (w *Wallet) Listen(userId []byte, outerType format.CryptoType,
 	innerType int32, newListener Listener) string {
 	typedUserId := new(id.User).SetBytes(userId)
 

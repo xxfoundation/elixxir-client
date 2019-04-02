@@ -196,7 +196,7 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-func Listen(user *id.User, outerType format.OuterType,
+func Listen(user *id.User, outerType format.CryptoType,
 	messageType int32, newListener switchboard.Listener, callbacks *switchboard.
 		Switchboard) string {
 	listenerId := callbacks.Register(user, outerType, messageType, newListener)
@@ -307,7 +307,7 @@ func (p ParsedMessage) GetRecipient()[]byte{
 	return []byte{}
 }
 
-func (p ParsedMessage) GetType()int32{
+func (p ParsedMessage) GetMessageType()int32{
 	return p.Typed
 }
 
@@ -323,7 +323,7 @@ func ParseMessage(message []byte)(ParsedMessage,error){
 	}
 
 	pm.Payload = tb.Body
-	pm.Typed = int32(tb.InnerType)
+	pm.Typed = int32(tb.MessageType)
 
 	return pm, nil
 }

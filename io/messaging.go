@@ -21,7 +21,7 @@ import (
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
-	cmix "gitlab.com/elixxir/crypto/messaging"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"

@@ -15,7 +15,7 @@ import (
 )
 
 // Determines what UDB send function to call based on the text in the message
-func parseUdbMessage(msg string) string {
+func parseUdbMessage(msg string, grp *cyclic.Group) string {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
@@ -31,7 +31,7 @@ func parseUdbMessage(msg string) string {
 		if err != nil {
 			return fmt.Sprintf("UDB search failed: %v", err.Error())
 		} else {
-			userIdText := cyclic.NewIntFromBytes(result.ResultID).Text(10)
+			userIdText := grp.NewIntFromBytes(result.ResultID).Text(10)
 			return fmt.Sprintf("UDB search successful. Returned user %v, "+
 				"public key %q", userIdText, result.PublicKey)
 		}

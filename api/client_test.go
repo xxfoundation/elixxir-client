@@ -12,14 +12,14 @@ import (
 	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
+	"reflect"
 	"testing"
 	"time"
-	"reflect"
-	"gitlab.com/elixxir/client/parse"
 )
 
 func TestRegistrationGob(t *testing.T) {
@@ -30,7 +30,8 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = Register("UAV6IWD6", gwAddress, 1, false)
+	grp := crypto.InitCrypto()
+	_, err = Register("UAV6IWD6", gwAddress, 1, false, grp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -67,7 +68,8 @@ func VerifyRegisterGobUser(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-	if Session.GetPublicKey().Cmp(cyclic.NewIntFromBytes([]byte(
+	grp := Session.GetGroup()
+	if Session.GetPublicKey().Cmp(grp.NewIntFromBytes([]byte(
 		"this is not a real public key"))) != 0 {
 		t.Errorf("Public key was %v, expected %v",
 			string(Session.GetPublicKey().Bytes()),
@@ -75,7 +77,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h := sha256.New()
 	h.Write([]byte(string(30005)))
-	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedTransmissionRecursiveKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
 		expectedTransmissionRecursiveKey) != 0 {
 		t.Errorf("Transmission recursive key was %v, expected %v",
@@ -84,7 +86,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(20005)))
-	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
@@ -93,7 +95,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(50005)))
-	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedReceptionRecursiveKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
 		expectedReceptionRecursiveKey) != 0 {
 		t.Errorf("Reception recursive key was %v, expected %v",
@@ -102,7 +104,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40005)))
-	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",

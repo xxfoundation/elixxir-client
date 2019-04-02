@@ -12,7 +12,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
@@ -51,15 +50,13 @@ func InitClient(s globals.Storage, loc string) error {
 		return storageErr
 	}
 
-	crypto.InitCrypto()
-
 	return nil
 }
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (*id.User, error) {
+	numNodes uint, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
 
@@ -101,7 +98,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewSession(u, gwAddr, nk, cyclic.NewIntFromBytes([]byte("this is not a real public key")))
+	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {

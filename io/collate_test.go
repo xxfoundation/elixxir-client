@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
@@ -19,11 +20,12 @@ import (
 	"time"
 )
 
-func TestCollator_AddMessage(t *testing.T) {
 
+func TestCollator_AddMessage(t *testing.T) {
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
 		"test"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(0), &grp)
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
@@ -69,10 +71,10 @@ func TestCollator_AddMessage(t *testing.T) {
 }
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
-
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
 	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
 		"test"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(0), &grp)
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),

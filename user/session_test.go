@@ -10,6 +10,7 @@ import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
 )
@@ -29,12 +30,14 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKeys: RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReceptionKeys:    RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReceiptKeys:      RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		TransmissionKeys: RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		ReceptionKeys:    RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		ReceiptKeys:      RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
 	}
 
 	err := globals.InitStorage(&globals.RamStorage{}, "")
@@ -44,9 +47,9 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewSession(u, "abc", keys, cyclic.NewInt(2))
+	ses := NewSession(u, "abc", keys, grp.NewInt(2), &grp)
 
-	ses.(*SessionObj).PrivateKey.SetInt64(2)
+	ses.(*SessionObj).PrivateKey = grp.NewInt(2)
 	ses.SetLastMessageID("totally unique ID")
 
 	err = ses.StoreSession()
@@ -124,31 +127,31 @@ func TestUserSession(t *testing.T) {
 
 		for i := 0; i < len(TheSession.GetKeys()); i++ {
 
-			if TheSession.GetPublicKey().Cmp(cyclic.NewInt(2)) != 0 {
+			if TheSession.GetPublicKey().Cmp(grp.NewInt(2)) != 0 {
 				t.Errorf("Error: Public key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceiptKeys.Base.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].ReceiptKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceiptKeys.Recursive.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].ReceiptKeys.Recursive.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceptionKeys.Base.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].ReceptionKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			} else if TheSession.GetKeys()[i].ReceptionKeys.Recursive.Cmp(
-				cyclic.NewInt(2)) != 0 {
+				grp.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReturnKeys.Base.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].ReturnKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReturnKeys.Recursive.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].ReturnKeys.Recursive.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].TransmissionKeys.Base.Cmp(cyclic.
+			} else if TheSession.GetKeys()[i].TransmissionKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			} else if TheSession.GetKeys()[i].TransmissionKeys.Recursive.Cmp(
-				cyclic.NewInt(2)) != 0 {
+				grp.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			}
 
@@ -233,17 +236,19 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
+	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKeys: RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReceptionKeys:    RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReceiptKeys:      RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
-		ReturnKeys:       RatchetKey{cyclic.NewInt(2), cyclic.NewInt(2)},
+		TransmissionKeys: RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		ReceptionKeys:    RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		ReceiptKeys:      RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
 	}
 
-	ses := NewSession(u, "abc", keys, cyclic.NewInt(2))
+	ses := NewSession(u, "abc", keys, grp.NewInt(2), &grp)
 	pubKey := ses.GetPublicKey()
-	if pubKey.Cmp(cyclic.NewInt(2)) != 0 {
+	if pubKey.Cmp(grp.NewInt(2)) != 0 {
 		t.Errorf("Public key is not set correctly!")
 	}
 }

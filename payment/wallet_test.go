@@ -190,9 +190,9 @@ func TestWallet_Invoice(t *testing.T) {
 		t.Errorf("Invoice receiver didn't match. Got: %v, expected %v",
 			msg.Receiver, payer)
 	}
-	if msg.InnerType != int32(cmixproto.Type_PAYMENT_INVOICE) {
+	if msg.MessageType != int32(cmixproto.Type_PAYMENT_INVOICE) {
 		t.Errorf("Invoice type didn't match. Got: %v, expected %v",
-			cmixproto.Type(msg.InnerType).String(),
+			cmixproto.Type(msg.MessageType).String(),
 			cmixproto.Type_PAYMENT_INVOICE.String())
 	}
 	// Parse the body and make sure the fields are correct
@@ -251,7 +251,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	// Test 1: incorrect message type
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_NO_TYPE),
+			MessageType: int32(cmixproto.Type_NO_TYPE),
 			Body: nil,
 		}}, false)
 
@@ -262,7 +262,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	// Test 2: malformed proto buffer
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
 			Body: []byte("fun fact: clownfish aren't actually very funny"),
 		},
 		Sender:   id.ZeroID,
@@ -288,7 +288,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
 			Body: wireRep,
 		},
 	}, false)
@@ -307,7 +307,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_INVOICE),
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
 			Body: wireRep,
 		},
 	}, false)
@@ -629,7 +629,7 @@ func TestResponseListener_Hear(t *testing.T) {
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_RESPONSE),
+			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
 			Body: wire,
 		},
 		Sender:   payer,
@@ -749,7 +749,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	listener := ResponseListener{wallet: &w}
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_RESPONSE),
+			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
 			Body: wire,
 		},
 		Sender:   payer,
@@ -1060,7 +1060,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			InnerType: int32(cmixproto.Type_PAYMENT_RECEIPT),
+			MessageType: int32(cmixproto.Type_PAYMENT_RECEIPT),
 			Body: invoiceID[:],
 		},
 		Sender:   invoice.Sender,

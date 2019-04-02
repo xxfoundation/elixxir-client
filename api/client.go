@@ -218,8 +218,8 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 				signature.ReconstructPublicKey(signature.
 					CustomDSAParams(
 						large.NewIntFromBytes(confirmResponse.GetP()),
-					large.NewIntFromBytes(confirmResponse.GetQ()),
-					large.NewIntFromBytes(confirmResponse.GetG())),
+						large.NewIntFromBytes(confirmResponse.GetQ()),
+						large.NewIntFromBytes(confirmResponse.GetG())),
 					large.NewIntFromBytes(confirmResponse.GetY())))
 
 		}
@@ -351,9 +351,9 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-func Listen(user *id.User, outerType format.OuterType,
+func Listen(user *id.User, outerType format.CryptoType,
 	messageType int32, newListener switchboard.Listener, callbacks *switchboard.
-		Switchboard) string {
+	Switchboard) string {
 	listenerId := callbacks.Register(user, outerType, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
@@ -462,7 +462,7 @@ func (p ParsedMessage) GetRecipient() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetType() int32 {
+func (p ParsedMessage) GetMessageType() int32 {
 	return p.Typed
 }
 
@@ -478,7 +478,7 @@ func ParseMessage(message []byte) (ParsedMessage, error) {
 	}
 
 	pm.Payload = tb.Body
-	pm.Typed = int32(tb.InnerType)
+	pm.Typed = int32(tb.MessageType)
 
 	return pm, nil
 }

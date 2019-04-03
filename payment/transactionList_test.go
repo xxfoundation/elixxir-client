@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -33,7 +33,7 @@ func MockNewSession(t *testing.T) user.Session {
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	return user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, &grp)
+		[]user.NodeKeys{}, publicKey, privateKey, grp)
 }
 
 // Shows that CreateTransactionList creates new storage properly

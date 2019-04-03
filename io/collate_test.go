@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,7 +28,7 @@ func TestCollator_AddMessage(t *testing.T) {
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
 		"test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, &grp)
+		[]user.NodeKeys{}, publicKey, privateKey, grp)
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
@@ -81,7 +81,7 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
 		"test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, &grp)
+		[]user.NodeKeys{}, publicKey, privateKey, grp)
 
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,7 +32,7 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -84,7 +84,7 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -138,7 +138,7 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -168,7 +168,7 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	cs, err := coin.NewSleeve(69)
 
@@ -197,7 +197,7 @@ func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
 
 	unorderdValues := []uint64{100, 13, 44}
@@ -247,7 +247,7 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -292,7 +292,7 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -338,7 +338,7 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -384,7 +384,7 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -448,7 +448,7 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -497,7 +497,7 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -547,7 +547,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -609,7 +609,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -671,7 +671,7 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -718,7 +718,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	key := "TestOrderedList"
 
@@ -788,7 +788,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		publicKey, privateKey, &grp)
+		publicKey, privateKey, grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"

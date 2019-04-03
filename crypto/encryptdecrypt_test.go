@@ -64,7 +64,7 @@ func setup(t *testing.T) {
 		nk[i].TransmissionKey = grp.NewInt(1)
 		nk[i].ReceptionKey = grp.NewInt(1)
 	}
-	user.TheSession = user.NewSession(u, "", nk, nil, nil, &grp)
+	user.TheSession = user.NewSession(u, "", nk, nil, nil, grp)
 }
 
 func TestEncryptDecrypt(t *testing.T) {

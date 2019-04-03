@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -46,7 +46,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, &grp)
+		[]user.NodeKeys{}, publicKey, privateKey, grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -105,7 +105,7 @@ func TestCreateWallet(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, publicKey, privateKey, &grp)
+		Nick: "test"}, "", []user.NodeKeys{}, publicKey, privateKey, grp)
 
 	_, err := CreateWallet(s, false)
 
@@ -162,7 +162,7 @@ func TestWallet_Invoice(t *testing.T) {
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, &grp)
+		[]user.NodeKeys{}, publicKey, privateKey, grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -252,7 +252,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NO_TYPE),
-			Body: nil,
+			Body:        nil,
 		}}, false)
 
 	if s {
@@ -263,7 +263,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
-			Body: []byte("fun fact: clownfish aren't actually very funny"),
+			Body:        []byte("fun fact: clownfish aren't actually very funny"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,
@@ -289,7 +289,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
-			Body: wireRep,
+			Body:        wireRep,
 		},
 	}, false)
 
@@ -308,7 +308,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
-			Body: wireRep,
+			Body:        wireRep,
 		},
 	}, false)
 
@@ -410,7 +410,7 @@ func TestInvoiceListener_Hear(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payer, Nick: "CEO MF DOOM"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	ir, err := createTransactionList(InboundRequestsTag, s)
 	if err != nil {
@@ -499,7 +499,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -544,7 +544,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -630,7 +630,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
-			Body: wire,
+			Body:        wire,
 		},
 		Sender:   payer,
 		Receiver: payee,
@@ -671,7 +671,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -750,7 +750,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
-			Body: wire,
+			Body:        wire,
 		},
 		Sender:   payer,
 		Receiver: payee,
@@ -784,7 +784,7 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	paymentAmount := uint64(5008)
 	walletAmount := uint64(5008)
@@ -878,7 +878,7 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	paymentAmount := uint64(2611)
 	walletAmount := uint64(5008)
@@ -1006,7 +1006,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, nil, nil, &grp)
+		[]user.NodeKeys{}, nil, nil, grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(1234)
@@ -1061,7 +1061,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_RECEIPT),
-			Body: invoiceID[:],
+			Body:        invoiceID[:],
 		},
 		Sender:   invoice.Sender,
 		Receiver: invoice.Recipient,

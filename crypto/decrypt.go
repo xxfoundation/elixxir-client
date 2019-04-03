@@ -58,7 +58,7 @@ func Decrypt(nodeKey *cyclic.Int, grp *cyclic.Group,
 		// to mobile developers on the bindings to interact with the timestamps
 		message.SetTimestamp(decryptedTimestamp)
 		// Decrypt e2e
-		decryptedPayload, err := e2e.Decrypt(*grp, clientKey, payloadSerial)
+		decryptedPayload, err := e2e.Decrypt(grp, clientKey, payloadSerial)
 		if err != nil {
 			return nil, errors.New(err.Error() +
 				"Failed to decrypt e2e message despite non" +

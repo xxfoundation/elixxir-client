@@ -30,7 +30,7 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(1000), large.NewInt(0), large.NewInt(0))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
@@ -236,7 +236,7 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(1000), large.NewInt(0), large.NewInt(0))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{

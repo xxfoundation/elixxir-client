@@ -25,9 +25,9 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(100000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -72,9 +72,24 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -120,10 +135,25 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -145,10 +175,25 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	cs, err := coin.NewSleeve(69)
 
@@ -169,10 +214,25 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
 
@@ -215,10 +275,25 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -255,10 +330,25 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 func TestOrderedCoinStorage_Get(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -296,10 +386,25 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 func TestOrderedCoinStorage_Pop(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -337,10 +442,25 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -396,10 +516,25 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -440,10 +575,25 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -485,10 +635,25 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -542,10 +707,25 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -599,10 +779,25 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -641,10 +836,25 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	key := "TestOrderedList"
 
@@ -706,10 +916,25 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 		t.Error(err.Error())
 	}
 	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(0), &grp)
+		grp.NewInt(1), &grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"

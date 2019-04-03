@@ -25,10 +25,10 @@ import (
 func MockNewSession(t *testing.T) user.Session {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	grp := cyclic.NewGroup(large.NewInt(0), large.NewInt(0), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(100000), large.NewInt(0), large.NewInt(0))
 	return user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, grp.NewInt(0), &grp)
+		[]user.NodeKeys{}, grp.NewInt(1), &grp)
 }
 
 // Shows that CreateTransactionList creates new storage properly

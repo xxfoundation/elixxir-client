@@ -82,7 +82,7 @@ func TestRegister(t *testing.T) {
 	g := large.NewInt(2)
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
-	regRes, err := Register(registrationCode, gwAddress, 1, false, &grp)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -105,7 +105,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
-	_, err = Register(registrationCode, gwAddress, 0, false, &grp)
+	_, err = Register(registrationCode, gwAddress, 0, false, grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -125,7 +125,7 @@ func TestRegisterBadHUID(t *testing.T) {
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
-	_, err = Register(registrationCode, gwAddress, 1, false, &grp)
+	_, err = Register(registrationCode, gwAddress, 1, false, grp)
 	if err == nil {
 		t.Error("Registration worked with bad registration code!")
 	}
@@ -147,7 +147,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-	_, err = Register(registrationCode, gwAddress, 1, false, &grp)
+	_, err = Register(registrationCode, gwAddress, 1, false, grp)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())

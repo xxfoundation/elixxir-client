@@ -148,7 +148,7 @@ func TestRegister(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false, &grp)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -171,7 +171,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
 
-	_, err = Register(registrationCode, gwAddress, 0, false, &grp)
+	_, err = Register(registrationCode, gwAddress, 0, false, grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -203,7 +203,7 @@ func TestLoginLogout(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false, &grp)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
 	loginRes, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -233,7 +233,7 @@ func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
 	grp := cyclic.NewGroup(large.NewInt(17), large.NewInt(5), large.NewInt(23))
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil, &grp)
+	user.TheSession = user.NewSession(u, gwAddress, nk, nil, grp)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

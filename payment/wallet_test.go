@@ -14,18 +14,18 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 

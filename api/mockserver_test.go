@@ -137,8 +137,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 	_, err = Register(true, registrationCode, gwAddress, []string{"1", "2", "3"}, false, &grp)
 	if err == nil {
-		t.Errorf("Registration worked with a deleted user: %s",
-			err.Error())
+		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
 	user.Users.UpsertUser(tempUser)
 	globals.LocalStorage = nil

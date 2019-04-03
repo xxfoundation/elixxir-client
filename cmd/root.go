@@ -139,7 +139,7 @@ func sessionInitialization() *id.User {
 			regCode = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		}
 
-		fmt.Printf("Attempting to register with code %s...\n", regCode)
+		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
 		uid, err = bindings.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint, &grp)
 		if err != nil {
@@ -147,8 +147,12 @@ func sessionInitialization() *id.User {
 			return id.ZeroID
 		}
 
-		fmt.Printf("Successfully registered user %v!\n", uid)
+		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
 
+	} else {
+		// hack for session persisting with cmd line
+		// doesn't support non pre canned users
+		uid = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
 	}
 
 	// Log the user in, for now using the first gateway specified
@@ -348,15 +352,9 @@ var rootCmd = &cobra.Command{
 				timer = time.NewTimer(dummyPeriod)
 			}
 		} else {
-			// wait 5 seconds to get all the messages off the gateway,
-			// unless you're sending to the channelbot, in which case you need
-			// to wait longer because channelbot is slow and dumb
+			// wait 45 seconds since UDB commands are now non-blocking
 			// TODO figure out the right way to do this
-			if destinationUserId == 31 {
-				timer = time.NewTimer(20 * time.Second)
-			} else {
-				timer = time.NewTimer(5 * time.Second)
-			}
+			timer = time.NewTimer(45 * time.Second)
 			<-timer.C
 		}
 

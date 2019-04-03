@@ -191,8 +191,11 @@ func SetRateLimiting(limit int) {
 	api.SetRateLimiting(uint32(limit))
 }
 
-func RegisterForUserDiscovery(emailAddress string) error {
-	return api.RegisterForUserDiscovery(emailAddress)
+func RegisterForUserDiscovery(emailAddress string, callback func(error)) {
+	go func() {
+		err := api.RegisterForUserDiscovery(emailAddress)
+		callback(err)
+	}()
 }
 
 type SearchResult struct {
@@ -200,13 +203,14 @@ type SearchResult struct {
 	PublicKey []byte
 }
 
-func SearchForUser(emailAddress string) (*SearchResult, error) {
-	searchedUser, key, err := api.SearchForUser(emailAddress)
-	if err != nil {
-		return nil, err
-	} else {
-		return &SearchResult{ResultID: searchedUser.Bytes(), PublicKey: key}, nil
-	}
+func SearchForUser(emailAddress string, callback func(SearchResult, error)) {
+	go func() {
+		searchedUser, key, err := api.SearchForUser(emailAddress)
+		callback(SearchResult{
+			ResultID: searchedUser.Bytes(),
+			PublicKey: key},
+			err)
+	}()
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

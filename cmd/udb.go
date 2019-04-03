@@ -10,12 +10,30 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/bindings"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"strings"
 )
 
+func handleSearchResults(result bindings.SearchResult, err error) {
+	if err != nil {
+		fmt.Printf("UDB search failed: %v\n", err.Error())
+	} else {
+		userIdText := large.NewIntFromBytes(result.ResultID).Text(10)
+		fmt.Printf("UDB search successful. Returned user %v, "+
+			"public key %q\n", userIdText, result.PublicKey)
+	}
+}
+
+func handleRegisterResult(err error) {
+	if err != nil {
+		fmt.Printf("UDB registration failed: %v\n", err.Error())
+	} else {
+		fmt.Printf("UDB registration successful.\n")
+	}
+}
+
 // Determines what UDB send function to call based on the text in the message
-func parseUdbMessage(msg string, grp *cyclic.Group) string {
+func parseUdbMessage(msg string) {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
@@ -27,23 +45,10 @@ func parseUdbMessage(msg string, grp *cyclic.Group) string {
 	keyword := args[0]
 	// Case-insensitive match the keyword to a command
 	if strings.EqualFold(keyword, "SEARCH") {
-		result, err := bindings.SearchForUser(args[2])
-		if err != nil {
-			return fmt.Sprintf("UDB search failed: %v", err.Error())
-		} else {
-			userIdText := grp.NewIntFromBytes(result.ResultID).Text(10)
-			return fmt.Sprintf("UDB search successful. Returned user %v, "+
-				"public key %q", userIdText, result.PublicKey)
-		}
+		bindings.SearchForUser(args[2], handleSearchResults)
 	} else if strings.EqualFold(keyword, "REGISTER") {
-		err := bindings.RegisterForUserDiscovery(args[2])
-		if err != nil {
-			return fmt.Sprintf("UDB registration failed: %v", err.Error())
-		} else {
-			return "UDB registration successful."
-		}
+		bindings.RegisterForUserDiscovery(args[2], handleRegisterResult)
 	} else {
 		jww.ERROR.Printf("UDB command not recognized!")
 	}
-	return ""
 }

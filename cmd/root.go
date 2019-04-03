@@ -297,8 +297,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				grp := user.TheSession.GetGroup()
-				fmt.Println(parseUdbMessage(message, grp))
+				parseUdbMessage(message)
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)

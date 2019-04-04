@@ -32,7 +32,8 @@ func TestRegistrationGob(t *testing.T) {
 
 	// populate a gob in the store
 	grp := crypto.InitCrypto()
-	_, err = Register(true, "UAV6IWD6", "", []string{gwAddress}, false, grp)
+	_, err = Register(true, "UAV6IWD6",
+		"", "", []string{gwAddress}, false, grp)
 	if err != nil {
 		t.Error(err)
 	}

@@ -39,7 +39,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 	globals.LocalStorage = nil
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 
@@ -100,7 +100,7 @@ func TestCreateWallet(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -157,7 +157,7 @@ func TestWallet_Invoice(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())

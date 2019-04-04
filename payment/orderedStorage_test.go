@@ -27,7 +27,7 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -79,7 +79,7 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -133,7 +133,7 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 
 	rng1 := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng1, signature.L3072N256)
+	params := signature.NewDSAParams(rng1, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng1)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -163,7 +163,7 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -192,7 +192,7 @@ func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -242,7 +242,7 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -287,7 +287,7 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -333,7 +333,7 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -379,7 +379,7 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -443,7 +443,7 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -492,7 +492,7 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -542,7 +542,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -604,7 +604,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -666,7 +666,7 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -713,7 +713,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
@@ -783,7 +783,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())

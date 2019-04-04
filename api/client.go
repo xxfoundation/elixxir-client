@@ -65,7 +65,7 @@ func InitClient(s globals.Storage, loc string) error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(preCan bool, registrationCode, registrationAddr string,
+func Register(preCan bool, registrationCode, nick, registrationAddr string,
 	gwAddresses []string, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
@@ -106,6 +106,10 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 			globals.Log.ERROR.Printf("Register: ID lookup failed")
 			err = errors.New("could not register due to ID lookup failure")
 			return id.ZeroID, err
+		}
+
+		if nick != "" {
+			u.Nick = nick;
 		}
 
 		nodekeys, successKeys := user.Users.LookupKeys(u.User)
@@ -246,7 +250,13 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 			receptionHash.Reset()
 		}
 
-		u = user.Users.NewUser(UID, base64.StdEncoding.EncodeToString(UID[:]))
+		var actualNick string
+		if nick != "" {
+			actualNick = nick
+		} else {
+			actualNick = base64.StdEncoding.EncodeToString(UID[:])
+		}
+		u = user.Users.NewUser(UID, actualNick)
 		user.Users.UpsertUser(u)
 	}
 
@@ -275,14 +285,14 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 	nus.Immolate()
 	nus = nil
 
-	return UID, err
+	return UID, nil
 }
 
 var quitReceptionRunner chan bool
 
 // Logs in user and returns their nickname.
 // returns an empty sting if login fails.
-func Login(UID *id.User, addr string, tlsCert string) (user.Session, error) {
+func Login(UID *id.User, email, addr string, tlsCert string) (user.Session, error) {
 
 	connect.GatewayCertString = tlsCert
 
@@ -326,6 +336,15 @@ func Login(UID *id.User, addr string, tlsCert string) (user.Session, error) {
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	go io.Messaging.MessageReceiver(pollWaitTimeMillis, quitReceptionRunner)
+
+	if email != "" {
+		err = registerForUserDiscovery(email)
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Unable to register with UDB: %s", err)
+			return nil, err
+		}
+	}
 
 	return session, nil
 }
@@ -423,7 +442,8 @@ func Logout() error {
 	return nil
 }
 
-func RegisterForUserDiscovery(emailAddress string) error {
+// Internal API for user discovery
+func registerForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userId, _, err := bots.Search(valueType, emailAddress)
 	if userId != nil {
@@ -439,9 +459,14 @@ func RegisterForUserDiscovery(emailAddress string) error {
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
-func SearchForUser(emailAddress string) (*id.User, []byte, error) {
+func SearchForUser(emailAddress string, callback func(*id.User, []byte, error)) {
 	valueType := "EMAIL"
-	return bots.Search(valueType, emailAddress)
+	go func() {
+		uid, pubKey, err := bots.Search(valueType, emailAddress)
+		// TODO Register user with E2E
+		// e2e.RegisterUser(uid, pubKey)
+		callback(uid, pubKey, err)
+	}()
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage

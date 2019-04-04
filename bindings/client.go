@@ -114,14 +114,14 @@ func InitClient(storage Storage, loc string) error {
 // gwAddresses is CSV of gateway addresses
 // numNodes is the number of nodes in the system
 // grp is the CMIX group needed for keys generation
-func Register(preCan bool, registrationCode, registrationAddr string,
+func Register(preCan bool, registrationCode, nick, registrationAddr string,
 	gwAddressesList []string, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	if len(gwAddressesList) < 1 {
 		return id.ZeroID, errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(preCan, registrationCode, registrationAddr,
+	UID, err := api.Register(preCan, registrationCode, nick, registrationAddr,
 		gwAddressesList, mint, grp)
 
 	if err != nil {
@@ -139,14 +139,14 @@ func Register(preCan bool, registrationCode, registrationAddr string,
 // certificate and it's in the crypto repository. So, if you leave the TLS
 // certificate string empty, the bindings will use that certificate. We probably
 // need to rethink this. In other words, tlsCert is optional.
-func Login(UID []byte, addr string, tlsCert string) (string, error) {
+func Login(UID []byte, email, addr string, tlsCert string) (string, error) {
 	userID := new(id.User).SetBytes(UID)
 	var err error
 	var session user.Session
 	if tlsCert == "" {
-		session, err = api.Login(userID, addr, certs.GatewayTLS)
+		session, err = api.Login(userID, email, addr, certs.GatewayTLS)
 	} else {
-		session, err = api.Login(userID, addr, tlsCert)
+		session, err = api.Login(userID, email, addr, tlsCert)
 	}
 	if err != nil || session == nil {
 		return "", err
@@ -191,26 +191,20 @@ func SetRateLimiting(limit int) {
 	api.SetRateLimiting(uint32(limit))
 }
 
-func RegisterForUserDiscovery(emailAddress string, callback func(error)) {
-	go func() {
-		err := api.RegisterForUserDiscovery(emailAddress)
-		callback(err)
-	}()
-}
-
 type SearchResult struct {
 	ResultID  []byte // Underlying type: *id.User
 	PublicKey []byte
 }
 
 func SearchForUser(emailAddress string, callback func(SearchResult, error)) {
-	go func() {
-		searchedUser, key, err := api.SearchForUser(emailAddress)
-		callback(SearchResult{
-			ResultID: searchedUser.Bytes(),
-			PublicKey: key},
-			err)
-	}()
+	api.SearchForUser(emailAddress,
+		// Anonymous callback func to convert data and call actual callback
+		func(user *id.User, pubKey []byte, err error) {
+			callback(SearchResult{
+				ResultID: user.Bytes(),
+				PublicKey: pubKey},
+				err)
+		})
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

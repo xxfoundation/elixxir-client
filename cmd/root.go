@@ -51,6 +51,7 @@ var gwCertPath string
 var registrationCertPath string
 var registrationAddr string
 var registrationCode string
+var userEmail string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -141,7 +142,8 @@ func sessionInitialization() *id.User {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = bindings.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint, &grp)
+		uid, err = bindings.Register(userId != 0, regCode, "",
+			registrationAddr, gwAddresses, mint, &grp)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
@@ -153,10 +155,13 @@ func sessionInitialization() *id.User {
 		// hack for session persisting with cmd line
 		// doesn't support non pre canned users
 		uid = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
+		// clear userEmail if it was defined, since login was previously done
+		userEmail = ""
 	}
 
 	// Log the user in, for now using the first gateway specified
-	_, err = bindings.Login(uid[:], gwAddresses[0], "")
+	// This will also register the user email with UDB
+	_, err = bindings.Login(uid[:], userEmail, gwAddresses[0], "")
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
@@ -417,6 +422,11 @@ func init() {
 		"regcode", "e",
 		"",
 		"Registration Code")
+
+	rootCmd.PersistentFlags().StringVarP(&userEmail,
+			"email", "E",
+			"",
+			"Email to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

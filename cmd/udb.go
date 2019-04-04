@@ -24,14 +24,6 @@ func handleSearchResults(result bindings.SearchResult, err error) {
 	}
 }
 
-func handleRegisterResult(err error) {
-	if err != nil {
-		fmt.Printf("UDB registration failed: %v\n", err.Error())
-	} else {
-		fmt.Printf("UDB registration successful.\n")
-	}
-}
-
 // Determines what UDB send function to call based on the text in the message
 func parseUdbMessage(msg string) {
 	// Split the message on spaces
@@ -47,7 +39,7 @@ func parseUdbMessage(msg string) {
 	if strings.EqualFold(keyword, "SEARCH") {
 		bindings.SearchForUser(args[2], handleSearchResults)
 	} else if strings.EqualFold(keyword, "REGISTER") {
-		bindings.RegisterForUserDiscovery(args[2], handleRegisterResult)
+		jww.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
 	} else {
 		jww.ERROR.Printf("UDB command not recognized!")
 	}

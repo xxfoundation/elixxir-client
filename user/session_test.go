@@ -48,7 +48,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
@@ -232,7 +232,7 @@ func TestGetPubKey(t *testing.T) {
 	}
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
@@ -259,7 +259,7 @@ func TestGetPrivKey(t *testing.T) {
 	}
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
+	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)

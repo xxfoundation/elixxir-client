@@ -52,7 +52,7 @@ func Encrypt(key *cyclic.Int, grp *cyclic.Group,
 	message.SetTimestamp(encryptedTimestamp)
 
 	// E2E encrypt the message
-	encPayload, err := e2e.Encrypt(*grp, e2eKey, message.GetPayload())
+	encPayload, err := e2e.Encrypt(grp, e2eKey, message.GetPayload())
 	if len(encPayload) != format.TOTAL_LEN || err != nil {
 		jww.ERROR.Panicf(err.Error())
 	}

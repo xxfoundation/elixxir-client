@@ -51,7 +51,7 @@ func TestUserSession(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey, &grp)
+	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -235,7 +235,7 @@ func TestGetPubKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey, &grp)
+	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
 
 	pubKey := ses.GetPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -262,7 +262,7 @@ func TestGetPrivKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L3072N256)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey, &grp)
+	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
 
 	privKey := ses.GetPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

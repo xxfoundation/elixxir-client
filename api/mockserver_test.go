@@ -70,7 +70,8 @@ func TestRegister(t *testing.T) {
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
-	regRes, err := Register(true, registrationCode, "", []string{gwAddress}, false, &grp)
+	regRes, err := Register(true, registrationCode,
+		"", "", []string{gwAddress}, false, grp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -93,7 +94,8 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
-	_, err = Register(true, registrationCode, "", []string{}, false, &grp)
+	_, err = Register(true, registrationCode,
+		"", "", []string{}, false, grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -113,7 +115,8 @@ func TestRegisterBadHUID(t *testing.T) {
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
-	_, err = Register(true, registrationCode, gwAddress, []string{"1", "2", "3"}, false, &grp)
+	_, err = Register(true, registrationCode,
+		"", "", []string{gwAddress}, false, grp)
 	if err == nil {
 		t.Error("Registration worked with bad registration code!")
 	}
@@ -135,7 +138,8 @@ func TestRegisterDeletedUser(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-	_, err = Register(true, registrationCode, gwAddress, []string{"1", "2", "3"}, false, &grp)
+	_, err = Register(true, registrationCode,
+		"", "", []string{gwAddress}, false, grp)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s",
 			err.Error())
@@ -165,8 +169,9 @@ func TestSend(t *testing.T) {
 	err := InitClient(&d, "hello")
 	grp := crypto.InitCrypto()
 	registrationCode := "UAV6IWD6"
-	userID, err := Register(true, registrationCode, "", []string{gwAddress}, false, grp)
-	_, err2 := Login(userID, gwAddress, "")
+	userID, err := Register(true, registrationCode,
+		"","", []string{gwAddress}, false, grp)
+	_, err2 := Login(userID, "", gwAddress, "")
 	SetNulKeys()
 
 	if err != nil {

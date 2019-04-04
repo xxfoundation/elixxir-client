@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -22,6 +21,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"os"
 	"reflect"
 	"testing"
@@ -183,9 +183,12 @@ func TestLoginLogout(t *testing.T) {
 
 	regRes, err := Register(true, registrationCode,
 		"", "", []string{gwAddress}, false, grp)
-	_, err2 := Login(regRes[:], "", gwAddress, "")
+	loginRes, err2 := Login(regRes[:], "", gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
+	}
+	if len(loginRes) == 0 {
+		t.Errorf("Invalid login received: %v", loginRes)
 	}
 	time.Sleep(2000 * time.Millisecond)
 	err3 := Logout()
@@ -208,7 +211,7 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
-	grp := cyclic.NewGroup(large.NewInt(17),large.NewInt(5),large.NewInt(23))
+	grp := cyclic.NewGroup(large.NewInt(17), large.NewInt(5), large.NewInt(23))
 	user.TheSession = user.NewSession(u, gwAddress, nk, nil, nil, grp)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
@@ -232,7 +235,7 @@ func TestListen(t *testing.T) {
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
-			Body: []byte("stuff"),
+			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,
@@ -249,7 +252,7 @@ func TestStopListening(t *testing.T) {
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
-			Body: []byte("stuff"),
+			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,

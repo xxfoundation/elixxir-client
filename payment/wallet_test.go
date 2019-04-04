@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -14,18 +14,18 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 
@@ -252,7 +252,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NO_TYPE),
-			Body: nil,
+			Body:        nil,
 		}}, false)
 
 	if s {
@@ -263,7 +263,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
-			Body: []byte("fun fact: clownfish aren't actually very funny"),
+			Body:        []byte("fun fact: clownfish aren't actually very funny"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,
@@ -289,7 +289,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
-			Body: wireRep,
+			Body:        wireRep,
 		},
 	}, false)
 
@@ -308,7 +308,7 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
-			Body: wireRep,
+			Body:        wireRep,
 		},
 	}, false)
 
@@ -630,7 +630,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
-			Body: wire,
+			Body:        wire,
 		},
 		Sender:   payer,
 		Receiver: payee,
@@ -750,7 +750,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
-			Body: wire,
+			Body:        wire,
 		},
 		Sender:   payer,
 		Receiver: payee,
@@ -1061,7 +1061,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_PAYMENT_RECEIPT),
-			Body: invoiceID[:],
+			Body:        invoiceID[:],
 		},
 		Sender:   invoice.Sender,
 		Receiver: invoice.Recipient,

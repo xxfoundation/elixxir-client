@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -538,6 +538,7 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 // Tests that a multiple coins equal to the correct value returns properly
 func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	globals.LocalStorage = nil
+	globals.InitStorage(&globals.RamStorage{}, "")
 	uid := id.NewUserFromUint(1, t)
 
 	rng := rand.New(rand.NewSource(42))

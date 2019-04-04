@@ -7,10 +7,15 @@
 package api
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
@@ -18,7 +23,7 @@ import (
 )
 
 //FIXME: write mock registration and gateway structures so test can succeed
-/*func TestRegistrationGob(t *testing.T) {
+func TestRegistrationGob(t *testing.T) {
 	// Put some user data into a gob
 	err := globals.InitStorage(&globals.RamStorage{}, "")
 	if err != nil {
@@ -46,7 +51,7 @@ import (
 	VerifyRegisterGobAddress(t)
 	VerifyRegisterGobKeys(t)
 	VerifyRegisterGobUser(t)
-}*/
+}
 
 func VerifyRegisterGobAddress(t *testing.T) {
 

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/coin"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"time"
 )
@@ -50,16 +51,17 @@ func (t *Transaction) FormatPaymentInvoice() *parse.Message {
 	}
 
 	typedBody := parse.TypedBody{
-		Type: cmixproto.Type_PAYMENT_INVOICE,
-		Body: wireRep,
+		MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
+		Body:      wireRep,
 	}
 
 	return &parse.Message{
 		TypedBody: typedBody,
 		// The person who sends the invoice is the one who will receive the
 		// money
-		Sender:   t.Recipient,
-		Receiver: t.Sender,
+		Sender:    t.Recipient,
+		Receiver:  t.Sender,
+		CryptoType: format.Unencrypted,
 		// TODO populate nonce and panic if any outgoing message has none
 		Nonce: nil,
 	}

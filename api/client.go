@@ -12,18 +12,18 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
-	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	goio "io"
 	"time"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Populates a text message and returns its wire representation
@@ -50,15 +50,13 @@ func InitClient(s globals.Storage, loc string) error {
 		return storageErr
 	}
 
-	crypto.InitCrypto()
-
 	return nil
 }
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool) (*id.User, error) {
+	numNodes uint, mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
 
@@ -100,7 +98,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewSession(u, gwAddr, nk, cyclic.NewIntFromBytes([]byte("this is not a real public key")))
+	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {
@@ -198,10 +196,10 @@ func SetRateLimiting(limit uint32) {
 	io.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-func Listen(user *id.User, messageType cmixproto.Type,
-	newListener switchboard.Listener, callbacks *switchboard.
+func Listen(user *id.User, outerType format.CryptoType,
+	messageType int32, newListener switchboard.Listener, callbacks *switchboard.
 		Switchboard) string {
-	listenerId := callbacks.Register(user, messageType, newListener)
+	listenerId := callbacks.Register(user, outerType, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
 	return listenerId
@@ -309,7 +307,7 @@ func (p ParsedMessage) GetRecipient()[]byte{
 	return []byte{}
 }
 
-func (p ParsedMessage) GetType()int32{
+func (p ParsedMessage) GetMessageType()int32{
 	return p.Typed
 }
 
@@ -325,7 +323,7 @@ func ParseMessage(message []byte)(ParsedMessage,error){
 	}
 
 	pm.Payload = tb.Body
-	pm.Typed = int32(tb.Type)
+	pm.Typed = int32(tb.MessageType)
 
 	return pm, nil
 }

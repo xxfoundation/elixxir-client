@@ -12,6 +12,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
@@ -34,8 +35,12 @@ func (m APIMessage) GetPayload() []byte {
 	return m.Payload
 }
 
-func (m APIMessage) GetType() cmixproto.Type {
-	return cmixproto.Type_NO_TYPE
+func (m APIMessage) GetMessageType() int32 {
+	return int32(cmixproto.Type_NO_TYPE)
+}
+
+func (m APIMessage) GetCryptoType() format.CryptoType {
+	return format.None
 }
 
 func (m APIMessage) Pack() []byte {

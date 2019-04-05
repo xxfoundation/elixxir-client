@@ -11,13 +11,13 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"sync"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Errors
@@ -35,6 +35,7 @@ type Session interface {
 	GetKeys() []NodeKeys
 	GetPrivateKey() *cyclic.Int
 	GetPublicKey() *cyclic.Int
+	GetGroup() *cyclic.Group
 	GetLastMessageID() string
 	SetLastMessageID(id string)
 	StoreSession() error
@@ -60,15 +61,16 @@ type RatchetKey struct {
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.Int) Session {
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.Int, grp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:  u,
 		GWAddress:    GatewayAddr, // FIXME: don't store this here
 		Keys:         nk,
-		PrivateKey:   cyclic.NewMaxInt(),
+		PrivateKey:   grp.NewMaxInt(),
 		PublicKey:    publicKey,
+		Grp:		  grp,
 		InterfaceMap: make(map[string]interface{}),
 	})
 
@@ -138,6 +140,7 @@ type SessionObj struct {
 	Keys       []NodeKeys
 	PrivateKey *cyclic.Int
 	PublicKey  *cyclic.Int
+	Grp        *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -178,6 +181,12 @@ func (s *SessionObj) GetPublicKey() *cyclic.Int {
 	return s.PublicKey
 }
 
+func (s *SessionObj) GetGroup() *cyclic.Group {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.Grp
+}
+
 // Return a copy of the current user
 func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	// This is where it deadlocks
@@ -190,7 +199,7 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 			Nick: s.CurrentUser.Nick,
 		}
 	}
-	return
+	return currentUser
 }
 
 func (s *SessionObj) GetGWAddress() string {
@@ -332,8 +341,9 @@ func (s *SessionObj) UnlockStorage() {
 }
 
 func clearCyclicInt(c *cyclic.Int) {
-	c.Set(cyclic.NewMaxInt())
-	c.SetInt64(0)
+	c.Reset()
+	//c.Set(cyclic.NewMaxInt())
+	//c.SetInt64(0)
 }
 
 func clearRatchetKeys(r *RatchetKey) {

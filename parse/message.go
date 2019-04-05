@@ -8,8 +8,8 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 const MessageHashLenBits = 256
@@ -19,6 +19,7 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
+	CryptoType format.CryptoType
 	Sender   *id.User
 	Receiver *id.User
 	Nonce    []byte
@@ -34,8 +35,10 @@ type MessageInterface interface {
 	// Returns the message's recipient ID
 	// (uint64) BigEndian serialized into a byte slice
 	GetRecipient() *id.User
-	// Return the message's type
-	GetType() cmixproto.Type
+	// Return the message's inner type
+	GetMessageType() int32
+	// Returns the message's outer type
+	GetCryptoType() format.CryptoType
 	// Return the message fully serialized including the type prefix
 	// Does this really belong in the interface?
 	Pack() []byte
@@ -46,7 +49,7 @@ func (m Message) Hash() MessageHash {
 
 	h := sha256.New()
 
-	h.Write(TypeAsBytes(int32(m.Type)))
+	h.Write(TypeAsBytes(int32(m.MessageType)))
 	h.Write(m.Body)
 	h.Write(m.Sender.Bytes())
 	h.Write(m.Receiver.Bytes())
@@ -71,8 +74,12 @@ func (m *Message) GetPayload() []byte {
 	return m.Body
 }
 
-func (m *Message) GetType() cmixproto.Type {
-	return m.Type
+func (m *Message) GetMessageType() int32 {
+	return m.MessageType
+}
+
+func (m *Message) GetCryptoType() format.CryptoType {
+	return m.CryptoType
 }
 
 func (m *Message) Pack() []byte {
@@ -98,14 +105,14 @@ func (p *BindingsMessageProxy) GetPayload() []byte {
 	return p.Proxy.GetPayload()
 }
 
-func (p *BindingsMessageProxy) GetType() int32 {
-	return int32(p.Proxy.GetType())
+func (p *BindingsMessageProxy) GetMessageType() int32 {
+	return int32(p.Proxy.GetMessageType())
 }
 
 // Includes the type. Not sure if this is the right way to approach this.
 func (p *BindingsMessageProxy) Pack() []byte {
 	return Pack(&TypedBody{
-		Type: p.Proxy.GetType(),
+		MessageType: p.Proxy.GetMessageType(),
 		Body: p.Proxy.GetPayload(),
 	})
 }

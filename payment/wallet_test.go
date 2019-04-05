@@ -14,11 +14,13 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"reflect"
 	"testing"
 	"time"
@@ -33,8 +35,9 @@ func TestWallet_registerInvoice(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(10000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -86,8 +89,9 @@ func TestWallet_registerInvoice(t *testing.T) {
 func TestCreateWallet(t *testing.T) {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+		Nick: "test"}, "", []user.NodeKeys{}, grp.NewInt(1), grp)
 
 	_, err := CreateWallet(s, false)
 
@@ -137,8 +141,24 @@ func TestWallet_Invoice(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -166,9 +186,10 @@ func TestWallet_Invoice(t *testing.T) {
 		t.Errorf("Invoice receiver didn't match. Got: %v, expected %v",
 			msg.Receiver, payer)
 	}
-	if msg.Type != cmixproto.Type_PAYMENT_INVOICE {
+	if msg.MessageType != int32(cmixproto.Type_PAYMENT_INVOICE) {
 		t.Errorf("Invoice type didn't match. Got: %v, expected %v",
-			msg.Type.String(), cmixproto.Type_PAYMENT_INVOICE.String())
+			cmixproto.Type(msg.MessageType).String(),
+			cmixproto.Type_PAYMENT_INVOICE.String())
 	}
 	// Parse the body and make sure the fields are correct
 	invoiceMsg := cmixproto.PaymentInvoice{}
@@ -226,8 +247,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	// Test 1: incorrect message type
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_NO_TYPE,
-			Body: nil,
+			MessageType: int32(cmixproto.Type_NO_TYPE),
+			Body:        nil,
 		}}, false)
 
 	if s {
@@ -237,8 +258,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 	// Test 2: malformed proto buffer
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE,
-			Body: []byte("fun fact: clownfish aren't actually very funny"),
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
+			Body:        []byte("fun fact: clownfish aren't actually very funny"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,
@@ -263,8 +284,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE,
-			Body: wireRep,
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
+			Body:        wireRep,
 		},
 	}, false)
 
@@ -282,8 +303,8 @@ func TestInvoiceListener_Hear_Errors(t *testing.T) {
 
 	invoiceListener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_INVOICE,
-			Body: wireRep,
+			MessageType: int32(cmixproto.Type_PAYMENT_INVOICE),
+			Body:        wireRep,
 		},
 	}, false)
 
@@ -325,6 +346,11 @@ func (ms *MockSession) GetPrivateKey() *cyclic.Int {
 }
 
 func (ms *MockSession) GetPublicKey() *cyclic.Int {
+	*ms = true
+	return nil
+}
+
+func (ms *MockSession) GetGroup() *cyclic.Group {
 	*ms = true
 	return nil
 }
@@ -378,8 +404,24 @@ func TestInvoiceListener_Hear(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{User: payer, Nick: "CEO MF DOOM"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	ir, err := createTransactionList(InboundRequestsTag, s)
 	if err != nil {
@@ -466,8 +508,24 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	// Set up the wallet and its storage
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -510,8 +568,9 @@ func TestResponseListener_Hear(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -596,8 +655,8 @@ func TestResponseListener_Hear(t *testing.T) {
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RESPONSE,
-			Body: wire,
+			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
+			Body:        wire,
 		},
 		Sender:   payer,
 		Receiver: payee,
@@ -636,8 +695,9 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -715,8 +775,8 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	listener := ResponseListener{wallet: &w}
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RESPONSE,
-			Body: wire,
+			MessageType: int32(cmixproto.Type_PAYMENT_RESPONSE),
+			Body:        wire,
 		},
 		Sender:   payer,
 		Receiver: payee,
@@ -748,8 +808,9 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(190000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	paymentAmount := uint64(5008)
 	walletAmount := uint64(5008)
@@ -841,8 +902,9 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(1000000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	paymentAmount := uint64(2611)
 	walletAmount := uint64(5008)
@@ -950,13 +1012,14 @@ type ReceiptUIListener struct {
 	w              *Wallet
 }
 
-func (rl *ReceiptUIListener) Hear(msg *parse.Message, isHeardElsewhere bool) {
+func (rl *ReceiptUIListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	m := msg.(*parse.Message)
 	rl.hasHeard = true
 	var invoiceID parse.MessageHash
-	copy(invoiceID[:], msg.Body)
+	copy(invoiceID[:], m.Body)
 	_, rl.gotTransaction = rl.w.GetCompletedInboundPayments().Get(invoiceID)
 	fmt.Printf("Heard receipt in the UI. Receipt sender: %q, invoice id %q\n",
-		*msg.Sender, msg.Body)
+		*m.Sender, m.Body)
 }
 
 // Tests the side effects of getting a receipt for a transaction that you
@@ -967,8 +1030,9 @@ func TestReceiptListener_Hear(t *testing.T) {
 
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
+	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(1234)
@@ -1016,13 +1080,14 @@ func TestReceiptListener_Hear(t *testing.T) {
 	uiListener := &ReceiptUIListener{
 		w: w,
 	}
-	w.switchboard.Register(id.ZeroID, cmixproto.Type_PAYMENT_RECEIPT_UI,
+	w.switchboard.Register(id.ZeroID, format.None,
+		int32(cmixproto.Type_PAYMENT_RECEIPT_UI),
 		uiListener)
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type_PAYMENT_RECEIPT,
-			Body: invoiceID[:],
+			MessageType: int32(cmixproto.Type_PAYMENT_RECEIPT),
+			Body:        invoiceID[:],
 		},
 		Sender:   invoice.Sender,
 		Receiver: invoice.Recipient,

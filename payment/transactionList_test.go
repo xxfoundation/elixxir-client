@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"math"
 	"math/rand"
@@ -21,13 +22,18 @@ import (
 	"time"
 )
 
-// Shows that CreateTransactionList creates new storage properly
-func TestCreateTransactionList_New(t *testing.T) {
+func MockNewSession(t *testing.T) user.Session {
 	globals.LocalStorage = nil
 	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
+	grp := cyclic.NewGroup(large.NewInt(100000), large.NewInt(0), large.NewInt(0))
+	return user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, cyclic.NewInt(0))
+		[]user.NodeKeys{}, grp.NewInt(1), grp)
+}
+
+// Shows that CreateTransactionList creates new storage properly
+func TestCreateTransactionList_New(t *testing.T) {
+	s := MockNewSession(t)
 
 	// show that the ordered list does not exist
 	key := "TestTransactionList"
@@ -70,10 +76,7 @@ func TestCreateTransactionList_New(t *testing.T) {
 
 // Shows that CreateTransactionList loads old transaction List properly
 func TestCreateTransactionList_Load(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	// show that the transaction list does not exist
 	key := "TestTransactionList"
@@ -114,10 +117,7 @@ func TestCreateTransactionList_Load(t *testing.T) {
 // Shows that TransactionList.Value returns the value of the storage correctly
 func TestTransactionList_Value(t *testing.T) {
 
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -136,10 +136,7 @@ func TestTransactionList_Value(t *testing.T) {
 
 // Shows that TransactionList.Upsert works when the list is empty
 func TestTransactionList_Upsert_Empty(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	tMap := make(map[parse.MessageHash]*Transaction)
 
@@ -162,14 +159,11 @@ func TestTransactionList_Upsert_Empty(t *testing.T) {
 
 // Shows that TransactionList.Upsert works when the list is not empty
 func TestTransactionList_Upsert_Multi(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
-		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{0}},
+		TypedBody: parse.TypedBody{int32(cmixproto.Type_NO_TYPE), []byte{0}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
@@ -181,7 +175,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 	t2 := Transaction{Memo: "2"}
 	t2Hash := parse.Message{
-		TypedBody: parse.TypedBody{cmixproto.Type_NO_TYPE, []byte{2}},
+		TypedBody: parse.TypedBody{int32(cmixproto.Type_NO_TYPE), []byte{2}},
 		Sender:    id.ZeroID,
 		Receiver:  id.ZeroID,
 	}.Hash()
@@ -196,10 +190,7 @@ func TestTransactionList_Upsert_Multi(t *testing.T) {
 
 // Shows that TransactionList.Upsert's results are properly saved
 func TestTransactionList_Upsert_Save(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	key := "TestTransactionList"
 
@@ -239,10 +230,7 @@ func TestTransactionList_Upsert_Save(t *testing.T) {
 
 // Shows that TransactionList.Get works when the list has multiple members
 func TestTransactionList_Get(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -284,10 +272,7 @@ func TestTransactionList_Get(t *testing.T) {
 
 // Shows that TransactionList.Pop works when the list is not empty
 func TestTransactionList_Pop(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -329,10 +314,7 @@ func TestTransactionList_Pop(t *testing.T) {
 
 // Shows that TransactionList.Pop errors properly when the element doesn't exist
 func TestTransactionList_Pop_Invalid(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	t1 := Transaction{Memo: "1"}
 	t1Hash := parse.Message{
@@ -363,10 +345,7 @@ func TestTransactionList_Pop_Invalid(t *testing.T) {
 
 // Shows that TransactionList.Upsert works when the list is not empty
 func TestTransactionList_Pop_Save(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 
 	key := "TestTransactionList"
 
@@ -428,10 +407,7 @@ func TestTransactionList_Pop_Save(t *testing.T) {
 
 func TestTransactionList_GetKeysByTimestampDescending(t *testing.T) {
 	// populate a transaction list with some items
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
-	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, cyclic.NewInt(0))
+	s := MockNewSession(t)
 	transactionMap := make(map[parse.MessageHash]*Transaction)
 	transactions := TransactionList{
 		transactionMap: &transactionMap,

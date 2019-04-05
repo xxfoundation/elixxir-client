@@ -9,13 +9,14 @@ package bindings
 import (
 	"errors"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 )
 
@@ -44,7 +45,7 @@ type Message interface {
 	// Returns the message's recipient ID
 	GetRecipient() []byte
 	// Returns the message's type
-	GetType() int32
+	GetMessageType() int32
 }
 
 // Translate a bindings message to a parse message
@@ -69,11 +70,11 @@ func Listen(userId []byte, messageType int32, newListener Listener) string {
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return api.Listen(typedUserId, cmixproto.Type(messageType), listener, switchboard.Listeners)
+	return api.Listen(typedUserId, format.None, messageType,
+		listener, switchboard.Listeners)
 }
 
 // Returns a parsed message
-
 
 // Pass the listener handle that Listen() returned to delete the listener
 func StopListening(listenerHandle string) {
@@ -145,13 +146,13 @@ func InitClient(storage Storage, loc string) error {
 // “Jono”
 // OIF3OJ5I
 func Register(registrationCode string, gwAddr string, numNodes int,
-	mint bool) ([]byte, error) {
+	mint bool, grp *cyclic.Group) ([]byte, error) {
 
 	if numNodes < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint)
+	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, grp)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -193,11 +194,12 @@ func Send(m Message) error {
 
 	return api.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: cmixproto.Type(m.GetType()),
-			Body: m.GetPayload(),
+			MessageType: m.GetMessageType(),
+			Body:      m.GetPayload(),
 		},
-		Sender:   sender,
-		Receiver: recipient,
+		CryptoType: format.Unencrypted,
+		Sender:    sender,
+		Receiver:  recipient,
 	})
 }
 
@@ -239,7 +241,7 @@ func SearchForUser(emailAddress string) (*SearchResult, error) {
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the Bindings
-func ParseMessage(message []byte)(Message, error){
+func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
 }
 
@@ -250,8 +252,8 @@ type listenerProxy struct {
 	proxy Listener
 }
 
-func (lp *listenerProxy) Hear(msg *parse.Message, isHeardElsewhere bool) {
-	msgInterface := &parse.BindingsMessageProxy{Proxy: msg}
+func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
 	lp.proxy.Hear(msgInterface, isHeardElsewhere)
 }
 

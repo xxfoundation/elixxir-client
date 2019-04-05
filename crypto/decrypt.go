@@ -17,15 +17,15 @@ import (
 )
 
 // Decrypt decrypts messages
-func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
+func Decrypt(nodeKey *cyclic.Int, grp *cyclic.Group,
 	cmixMsg *pb.CmixMessage) (
 	*format.Message, error) {
 
 	// Receive and decrypt a message
-	payload := cyclic.NewIntFromBytes(cmixMsg.MessagePayload)
+	payload := grp.NewIntFromBytes(cmixMsg.MessagePayload)
 
 	// perform the CMIX decryption
-	g.Mul(payload, nodeKey, payload)
+	grp.Mul(payload, nodeKey, payload)
 
 	// unpack the message from a MessageBytes
 	var message format.Message
@@ -37,7 +37,7 @@ func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
 	// TODO Should the method return []byte instead of cyclic.Int?
 	// That might give better results in the case that the key happens to be
 	// not the correct length in bytes. Unlikely, but possible.
-	clientKey := e2e.Keygen(g, nil, nil)
+	clientKey := e2e.Keygen(grp, nil, nil)
 	// Assuming that result of e2e.Keygen() will be nil for non-e2e messages
 	// TODO BC: why is this assumption valid ?
 	if clientKey != nil {
@@ -58,7 +58,7 @@ func Decrypt(nodeKey *cyclic.Int, g *cyclic.Group,
 		// to mobile developers on the bindings to interact with the timestamps
 		message.SetTimestamp(decryptedTimestamp)
 		// Decrypt e2e
-		decryptedPayload, err := e2e.Decrypt(*g, clientKey, payloadSerial)
+		decryptedPayload, err := e2e.Decrypt(grp, clientKey, payloadSerial)
 		if err != nil {
 			return nil, errors.New(err.Error() +
 				"Failed to decrypt e2e message despite non" +

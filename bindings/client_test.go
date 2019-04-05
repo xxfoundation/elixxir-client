@@ -14,12 +14,14 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"os"
 	"reflect"
 	"testing"
@@ -129,8 +131,24 @@ func TestRegister(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -148,8 +166,12 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	p := large.NewInt(int64(1))
+	g := large.NewInt(int64(2))
+	q := large.NewInt(int64(3))
+	grp := cyclic.NewGroup(p, g, q)
 
-	_, err = Register(registrationCode, gwAddress, 0, false)
+	_, err = Register(registrationCode, gwAddress, 0, false, grp)
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -164,8 +186,24 @@ func TestLoginLogout(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	err := InitClient(&d, "hello")
+	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	p := large.NewInt(1)
+	p.SetString(primeString, 16)
+	g := large.NewInt(2)
+	q := large.NewInt(3)
+	grp := cyclic.NewGroup(p, g, q)
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
 	loginRes, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -194,7 +232,8 @@ func TestDisableBlockingTransmission(t *testing.T) {
 func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil)
+	grp := cyclic.NewGroup(large.NewInt(17), large.NewInt(5), large.NewInt(23))
+	user.TheSession = user.NewSession(u, gwAddress, nk, nil, grp)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}
@@ -216,8 +255,8 @@ func TestListen(t *testing.T) {
 	Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: 0,
-			Body: []byte("stuff"),
+			MessageType: 0,
+			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,
@@ -233,8 +272,8 @@ func TestStopListening(t *testing.T) {
 	StopListening(handle)
 	switchboard.Listeners.Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
-			Type: 0,
-			Body: []byte("stuff"),
+			MessageType: 0,
+			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
 		Receiver: id.ZeroID,
@@ -266,7 +305,7 @@ func TestSetLogOutput(t *testing.T) {
 func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
-	ms.Type = cmixproto.Type_NO_TYPE
+	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
 
@@ -278,8 +317,8 @@ func TestParse(t *testing.T) {
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType() != int32(ms.Type) {
-		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
+	if msOut.GetMessageType() != int32(ms.MessageType) {
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetMessageType(), ms.MessageType)
 	}
 
 	if !reflect.DeepEqual(ms.Body, msOut.GetPayload()) {

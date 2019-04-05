@@ -12,22 +12,29 @@ import (
 	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
+	"reflect"
 	"testing"
 	"time"
-	"reflect"
-	"gitlab.com/elixxir/client/parse"
 )
 
 func TestRegistrationGob(t *testing.T) {
 	// Put some user data into a gob
-	globals.InitStorage(&globals.RamStorage{}, "")
+	err := globals.InitStorage(&globals.RamStorage{}, "")
+	if err != nil {
+		t.Error(err)
+	}
 
 	// populate a gob in the store
-	Register("UAV6IWD6", gwAddress, 1, false)
+	grp := crypto.InitCrypto()
+	_, err = Register("UAV6IWD6", gwAddress, 1, false, grp)
+	if err != nil {
+		t.Error(err)
+	}
 
 	// get the gob out of there again
 	sessionGob := globals.LocalStorage.Load()
@@ -35,7 +42,10 @@ func TestRegistrationGob(t *testing.T) {
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
 	Session = user.SessionObj{}
-	dec.Decode(&Session)
+	err = dec.Decode(&Session)
+	if err != nil {
+		t.Error(err)
+	}
 
 	VerifyRegisterGobAddress(t)
 	VerifyRegisterGobKeys(t)
@@ -58,7 +68,8 @@ func VerifyRegisterGobUser(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-	if Session.GetPublicKey().Cmp(cyclic.NewIntFromBytes([]byte(
+	grp := Session.GetGroup()
+	if Session.GetPublicKey().Cmp(grp.NewIntFromBytes([]byte(
 		"this is not a real public key"))) != 0 {
 		t.Errorf("Public key was %v, expected %v",
 			string(Session.GetPublicKey().Bytes()),
@@ -66,7 +77,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h := sha256.New()
 	h.Write([]byte(string(30005)))
-	expectedTransmissionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedTransmissionRecursiveKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
 		expectedTransmissionRecursiveKey) != 0 {
 		t.Errorf("Transmission recursive key was %v, expected %v",
@@ -75,7 +86,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(20005)))
-	expectedTransmissionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
@@ -84,7 +95,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(50005)))
-	expectedReceptionRecursiveKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedReceptionRecursiveKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
 		expectedReceptionRecursiveKey) != 0 {
 		t.Errorf("Reception recursive key was %v, expected %v",
@@ -93,7 +104,7 @@ func VerifyRegisterGobKeys(t *testing.T) {
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40005)))
-	expectedReceptionBaseKey := cyclic.NewIntFromBytes(h.Sum(nil))
+	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
 	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",
@@ -185,12 +196,12 @@ func TestParsedMessage_GetRecipient(t *testing.T) {
 	}
 }
 
-func TestParsedMessage_GetType(t *testing.T) {
+func TestParsedMessage_GetMessageType(t *testing.T) {
 	pm := ParsedMessage{}
 	var typeTest int32
 	typeTest = 6
 	pm.Typed = typeTest
-	typ := pm.GetType()
+	typ := pm.GetMessageType()
 
 	if typ!=typeTest{
 		t.Errorf("Returned type does not match")
@@ -200,7 +211,7 @@ func TestParsedMessage_GetType(t *testing.T) {
 func TestParse(t *testing.T){
 	ms := parse.Message{}
 	ms.Body = []byte{0,1,2}
-	ms.Type = cmixproto.Type_NO_TYPE
+	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
 
@@ -212,8 +223,8 @@ func TestParse(t *testing.T){
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetType()!=int32(ms.Type){
-		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetType(), ms.Type)
+	if msOut.GetMessageType()!=int32(ms.MessageType){
+		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetMessageType(), ms.MessageType)
 	}
 
 	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){

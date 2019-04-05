@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/format"
 )
 
 // Currently there's only one wallet that you can get
@@ -22,13 +23,14 @@ func GetActiveWallet() *Wallet {
 	return &Wallet{wallet: api.Wallet()}
 }
 
-func (w *Wallet) Listen(userId []byte, messageType int32, newListener Listener) string {
+func (w *Wallet) Listen(userId []byte, outerType format.CryptoType,
+	innerType int32, newListener Listener) string {
 	typedUserId := new(id.User).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return api.Listen(typedUserId, cmixproto.Type(messageType), listener,
-		w.wallet.GetSwitchboard())
+	return api.Listen(typedUserId, outerType, innerType,
+		listener, w.wallet.GetSwitchboard())
 }
 
 func (w *Wallet) StopListening(listenerHandle string) {

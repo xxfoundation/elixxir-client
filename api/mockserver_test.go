@@ -56,34 +56,6 @@ func TestMain(m *testing.M) {
 	os.Exit(testMainWrapper(m))
 }
 
-// Handles initialization of mock registration server,
-// gateways used for registration and gateway used for session
-func testMainWrapper(m *testing.M) int {
-
-	// Start mock gateways used by registration and defer their shutdown (may not be needed)
-	for i, handler := range RegGWHandlers {
-		RegGWAddresses[i] = fmtAddress(RegGWsStartPort+i)
-		gw := gateway.StartGateway(
-			RegGWAddresses[i], handler, "", "",
-		)
-		defer gw()
-	}
-
-	// Start mock registration server and defer its shutdown
-	defer registration.StartRegistrationServer(RegAddress, &RegHandler, "", "")()
-
-	// Start session gateway and defer its shutdown
-	defer gateway.StartGateway(
-		SessionGWAddress, &SessionGWHandler, "", "",
-	)()
-
-	// Set gateway address for io messaging
-	io.SendAddress = SessionGWAddress
-	io.ReceiveAddress = SessionGWAddress
-
-	return m.Run()
-}
-
 // Make sure InitClient registers storage.
 func TestInitClient(t *testing.T) {
 	globals.LocalStorage = nil
@@ -112,6 +84,31 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 
 	// Register precanned user with all gateways
 	regRes, err := Register(true, ValidRegCode, "", RegGWAddresses[:], false, getGroup())
+
+	// Verify registration succeeds with valid precanned registration code
+	if err != nil {
+		t.Errorf("Registration failed: %s", err.Error())
+	}
+
+	if *regRes == *id.ZeroID {
+		t.Errorf("Invalid registration number received: %v", *regRes)
+	}
+
+	globals.LocalStorage = nil
+}
+
+// Verify that a valid precanned user can register
+func TestRegister_ValidRegParams___(t *testing.T) {
+
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// Register precanned user with all gateways
+	regRes, err := Register(false, ValidRegCode, RegAddress, RegGWAddresses[:], false, getGroup())
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -190,20 +187,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 
 	globals.LocalStorage = nil
 }
-//
-//func SetNulKeys() {
-//	// Set the transmit keys to be 1, so send/receive can work
-//	// FIXME: Why doesn't crypto panic when these keys are empty?
-//	keys := user.TheSession.GetKeys()
-//	grp := user.TheSession.GetGroup()
-//	for i := range keys {
-//		keys[i].TransmissionKey = grp.NewInt(1)
-//	}
-//}
-//
-func TestSend(t *testing.T) {
 
-	//globals.LocalStorage = nil
+func TestSend(t *testing.T) {
 
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -226,8 +211,6 @@ func TestSend(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	// SetNulKeys()
-
 	// Test send with invalid sender ID
 	err = Send(
 		APIMessage{
@@ -237,41 +220,106 @@ func TestSend(t *testing.T) {
 		},
 	)
 
-	//
-	//if err != nil {
-	//	// TODO: would be nice to catch the sender but we
-	//	// don't have the interface/mocking for that.
-	//	t.Errorf("error on first message send: %v", err)
-	//}
+	if err != nil {
+		// TODO: would be nice to catch the sender but we
+		// don't have the interface/mocking for that.
+		t.Errorf("error on first message send: %v", err)
+	}
 
-	//// Test send with valid inputs
-	//err = Send( APIMessage{SenderID: userID, Payload: []byte("test"), RecipientID: userID} )
-	//
-	//if err != nil {
-	//	t.Errorf("Error sending message: %v", err)
-	//}
+	// Test send with valid inputs
+	err = Send( APIMessage{SenderID: userID, Payload: []byte("test"), RecipientID: userID} )
+
+	if err != nil {
+		t.Errorf("Error sending message: %v", err)
+	}
+
+	err = Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+
+	globals.LocalStorage = nil
 }
-//
 
-//func TestLogout(t *testing.T) {
-//
-//	err := Logout()
-//
-//	if err != nil {
-//		t.Errorf("Logout failed: %v", err)
-//	}
-//
-//	err = Logout()
-//
-//	if err == nil {
-//		t.Errorf("Logout did not throw an error when called on a client that" +
-//			" is not currently logged in.")
-//	}
-//}
+func TestLogout(t *testing.T) {
+
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	err := InitClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// Logout before logging in should return an error
+	err = Logout()
+
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
+
+	// Register with a valid registration code
+	userID, err := Register(true, ValidRegCode, RegAddress, RegGWAddresses[:], false, getGroup())
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	// Login to gateway
+	_, err = Login(userID, SessionGWAddress, "")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+
+	// Logout after logout has been called should return an error
+	err = Logout()
+
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
+
+	globals.LocalStorage = nil
+}
+
+// Handles initialization of mock registration server,
+// gateways used for registration and gateway used for session
+func testMainWrapper(m *testing.M) int {
+
+	// Start mock gateways used by registration and defer their shutdown (may not be needed)
+	for i, handler := range RegGWHandlers {
+		RegGWAddresses[i] = fmtAddress(RegGWsStartPort+i)
+		gw := gateway.StartGateway(
+			RegGWAddresses[i], handler, "", "",
+		)
+		defer gw()
+	}
+
+	// Start mock registration server and defer its shutdown
+	defer registration.StartRegistrationServer(RegAddress, &RegHandler, "", "")()
+
+	// Start session gateway and defer its shutdown
+	defer gateway.StartGateway(
+		SessionGWAddress, &SessionGWHandler, "", "",
+	)()
+
+	// Set gateway address for io messaging
+	io.SendAddress = SessionGWAddress
+	io.ReceiveAddress = SessionGWAddress
+
+	return m.Run()
+}
 
 func getGroup() *cyclic.Group {
 	return crypto.InitCrypto()
 }
-
 
 func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port)}

@@ -7,82 +7,87 @@
 package api
 
 import (
+	"bytes"
+	"crypto/sha256"
+	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/crypto"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
 	"time"
 )
 
-//FIXME: write mock registration and gateway structures so test can succeed
-//func TestRegistrationGob(t *testing.T) {
-//	// Put some user data into a gob
-//	err := globals.InitStorage(&globals.RamStorage{}, "")
-//	if err != nil {
-//		t.Error(err)
-//	}
-//
-//	// populate a gob in the store
-//	grp := crypto.InitCrypto()
-//	_, err = Register(true, "UAV6IWD6", "", RegGatewayAddresses[:], false, grp)
-//	if err != nil {
-//		t.Error(err)
-//	}
-//
-//	// get the gob out of there again
-//	sessionGob := globals.LocalStorage.Load()
-//	var sessionBytes bytes.Buffer
-//	sessionBytes.Write(sessionGob)
-//	dec := gob.NewDecoder(&sessionBytes)
-//	Session = user.SessionObj{}
-//	err = dec.Decode(&Session)
-//	if err != nil {
-//		t.Error(err)
-//	}
-//
-//	VerifyRegisterGobAddress(t)
-//	VerifyRegisterGobKeys(t)
-//	VerifyRegisterGobUser(t)
-//}
-//
-//func VerifyRegisterGobAddress(t *testing.T) {
-//
-//	if Session.GetGWAddress() != RegGatewayAddresses {
-//		t.Errorf("GetGWAddress() returned %v, expected %v",
-//			Session.GetGWAddress(), RegGatewayAddresses)
-//	}
-//}
-//
-//func VerifyRegisterGobUser(t *testing.T) {
-//	if *Session.GetCurrentUser().User != *id.NewUserFromUint(5, t) {
-//		t.Errorf("User's ID was %q, expected %v",
-//			Session.GetCurrentUser().User, 5)
-//	}
-//}
-//
-//func VerifyRegisterGobKeys(t *testing.T) {
-//	grp := Session.getGroup()
-//	h := sha256.New()
-//	h.Write([]byte(string(20005)))
-//	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
-//	if Session.GetKeys()[0].TransmissionKey.Cmp(
-//		expectedTransmissionBaseKey) != 0 {
-//		t.Errorf("Transmission base key was %v, expected %v",
-//			Session.GetKeys()[0].TransmissionKey.Text(16),
-//			expectedTransmissionBaseKey.Text(16))
-//	}
-//	h = sha256.New()
-//	h.Write([]byte(string(40005)))
-//	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
-//	if Session.GetKeys()[0].ReceptionKey.Cmp(
-//		expectedReceptionBaseKey) != 0 {
-//		t.Errorf("Reception base key was %v, expected %v",
-//			Session.GetKeys()[0].ReceptionKey.Text(16),
-//			expectedReceptionBaseKey.Text(16))
-//	}
-//}
+func TestRegistration_Gob(t *testing.T) {
+	// Put some user data into a gob
+	err := globals.InitStorage(&globals.RamStorage{}, "")
+	if err != nil {
+		t.Error(err)
+	}
+
+	// populate a gob in the store
+	grp := crypto.InitCrypto()
+	_, err = Register(true, "UAV6IWD6", "", RegGWAddresses[:], false, grp)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// get the gob out of there again
+	sessionGob := globals.LocalStorage.Load()
+	var sessionBytes bytes.Buffer
+	sessionBytes.Write(sessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+	Session = user.SessionObj{}
+	err = dec.Decode(&Session)
+	if err != nil {
+		t.Error(err)
+	}
+
+	VerifyRegisterGobAddress(t)
+	VerifyRegisterGobKeys(t)
+	VerifyRegisterGobUser(t)
+}
+
+func VerifyRegisterGobAddress(t *testing.T) {
+
+	if Session.GetGWAddress() != RegGWAddresses[0] {
+		t.Errorf("GetGWAddress() returned %v, expected %v",
+			Session.GetGWAddress(), RegGWAddresses[0])
+	}
+}
+
+func VerifyRegisterGobUser(t *testing.T) {
+	if *Session.GetCurrentUser().User != *id.NewUserFromUint(5, t) {
+		t.Errorf("User's ID was %q, expected %v",
+			Session.GetCurrentUser().User, 5)
+	}
+}
+
+func VerifyRegisterGobKeys(t *testing.T) {
+	grp := getGroup()
+	h := sha256.New()
+	h.Write([]byte(string(20005)))
+	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
+	if Session.GetKeys()[0].TransmissionKey.Cmp(
+		expectedTransmissionBaseKey) != 0 {
+		t.Errorf("Transmission base key was %v, expected %v",
+			Session.GetKeys()[0].TransmissionKey.Text(16),
+			expectedTransmissionBaseKey.Text(16))
+	}
+	h = sha256.New()
+	h.Write([]byte(string(40005)))
+	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
+	if Session.GetKeys()[0].ReceptionKey.Cmp(
+		expectedReceptionBaseKey) != 0 {
+		t.Errorf("Reception base key was %v, expected %v",
+			Session.GetKeys()[0].ReceptionKey.Text(16),
+			expectedReceptionBaseKey.Text(16))
+	}
+}
 
 // Make sure that a formatted text message can deserialize to the text
 // message we would expect

@@ -10,6 +10,7 @@ package api
 import (
 	"gitlab.com/elixxir/client/cmixproto"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
@@ -80,9 +81,15 @@ func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
 	return true
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.
-RegistrationConfirmation, error) {
-	return &pb.RegistrationConfirmation{}, nil
+func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.RegistrationConfirmation, error) {
+	regConfifmration := &pb.RegistrationConfirmation{}
+
+	regConfifmration.P = large.NewInt(1).Bytes()
+	regConfifmration.Q = large.NewInt(1).Bytes()
+	regConfifmration.G = large.NewInt(1).Bytes()
+	regConfifmration.Y = large.NewInt(1).Bytes()
+
+	return regConfifmration, nil
 }
 
 // Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)

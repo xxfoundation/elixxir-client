@@ -28,7 +28,7 @@ func MockNewSession(t *testing.T) user.Session {
 	grp := cyclic.NewGroup(large.NewInt(100000), large.NewInt(0), large.NewInt(0))
 	return user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 }
 
 // Shows that CreateTransactionList creates new storage properly

@@ -15,13 +15,19 @@ type KeyStack struct {
 	sync.Mutex
 }
 
+func NewKeyStack() *KeyStack {
+	ks := new(KeyStack)
+	ks.keys = stack.New()
+	return ks
+}
+
 func (ks *KeyStack) Push(key *E2EKey) {
 	ks.keys.Push(key)
 }
 
 // Returns the first key on the stack, and the key action from the Key Manager
 // NOTE: Caller is responsible for locking the stack
-func (ks *KeyStack) Pop() (*E2EKey) {
+func (ks *KeyStack) Pop() *E2EKey {
 	var key *E2EKey
 
 	// Get the key
@@ -29,7 +35,7 @@ func (ks *KeyStack) Pop() (*E2EKey) {
 
 	// Check if the key exists and panic otherwise
 	if keyFace == nil {
-		globals.Log.FATAL.Panicf("E2E sendKey stack is empty!")
+		globals.Log.FATAL.Panicf("E2E key stack is empty!")
 	} else {
 		key = keyFace.(*E2EKey)
 	}
@@ -42,7 +48,8 @@ func (ks *KeyStack) Pop() (*E2EKey) {
 func (ks *KeyStack) Delete() {
 	ks.Lock()
 	defer ks.Unlock()
-	for i := 0; i < ks.keys.Len(); i++ {
+	size := ks.keys.Len()
+	for i := 0; i < size; i++ {
 		ks.keys.Pop()
 	}
 }

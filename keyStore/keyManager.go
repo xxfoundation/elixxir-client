@@ -61,12 +61,12 @@ type KeyManager struct {
 // the TTL value which triggers a rekey
 // The numReKey will be used to generate reKeys that can be used to send reKey messages
 func NewKeyManager(baseKey *cyclic.Int, partner *id.User,
-	numKeys uint32, numReKeys uint16) *KeyManager {
+	numKeys uint32, ttl uint16, numReKeys uint16) *KeyManager {
 
 	return &KeyManager{
 		baseKey: baseKey,
 		partner: partner,
-		ttl: numReKeys,
+		ttl: ttl,
 		numKeys: numKeys,
 		numReKeys: numReKeys,
 	}
@@ -92,11 +92,11 @@ func stateKeyCmp(state uint64, ttl uint16) bool {
 	return false
 }
 
-// Check if state ReKey Counter >= ttl
+// Check if state ReKey Counter >= NumReKeys
 // Return true if so, which should trigger a purge
-func stateReKeyCmp(state uint64, ttl uint16) bool {
+func stateReKeyCmp(state uint64, nKeys uint16) bool {
 	reKeyCounter := uint16((state & stateReKeyMask) >> stateReKeyShift)
-	if reKeyCounter >= ttl {
+	if reKeyCounter >= nKeys {
 		return true
 	}
 	return false

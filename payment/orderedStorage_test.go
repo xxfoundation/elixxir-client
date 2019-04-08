@@ -27,7 +27,7 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 	userID := id.NewUserFromUint(1, t)
 	grp := cyclic.NewGroup(large.NewInt(100000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -89,7 +89,7 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -153,7 +153,7 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	src := rand.NewSource(42)
 	rng := rand.New(src)
@@ -193,7 +193,7 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	cs, err := coin.NewSleeve(69)
 
@@ -232,7 +232,7 @@ func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
 
@@ -293,7 +293,7 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"
@@ -348,7 +348,7 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -404,7 +404,7 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -460,7 +460,7 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -534,7 +534,7 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -593,7 +593,7 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -653,7 +653,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -725,7 +725,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -797,7 +797,7 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -854,7 +854,7 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
 
@@ -934,7 +934,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
 	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
-		grp.NewInt(1), grp)
+		grp.NewInt(2), grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
 	key := "TestOrderedList"

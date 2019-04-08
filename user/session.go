@@ -61,14 +61,16 @@ type RatchetKey struct {
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.Int, grp *cyclic.Group) Session {
+func NewSession(u *User, GatewayAddr string, nk []NodeKeys,
+	privateKey *cyclic.Int,
+	publicKey *cyclic.Int, grp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:  u,
 		GWAddress:    GatewayAddr, // FIXME: don't store this here
 		Keys:         nk,
-		PrivateKey:   grp.NewMaxInt(),
+		PrivateKey:   privateKey,
 		PublicKey:    publicKey,
 		Grp:		  grp,
 		InterfaceMap: make(map[string]interface{}),

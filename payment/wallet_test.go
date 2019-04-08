@@ -37,7 +37,7 @@ func TestWallet_registerInvoice(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(10000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -91,7 +91,7 @@ func TestCreateWallet(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
-		Nick: "test"}, "", []user.NodeKeys{}, grp.NewInt(1), grp)
+		Nick: "test"}, "", []user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	_, err := CreateWallet(s, false)
 
@@ -158,7 +158,7 @@ func TestWallet_Invoice(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -421,7 +421,7 @@ func TestInvoiceListener_Hear(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{User: payer, Nick: "CEO MF DOOM"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	ir, err := createTransactionList(InboundRequestsTag, s)
 	if err != nil {
@@ -525,7 +525,7 @@ func TestWallet_Invoice_Error(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	s := user.NewSession(&user.User{User: payee, Nick: "Taxman McGee"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	or, err := createTransactionList(OutboundRequestsTag, s)
 	if err != nil {
@@ -570,7 +570,7 @@ func TestResponseListener_Hear(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -697,7 +697,7 @@ func TestResponseListener_Hear_Failure(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(962)
@@ -810,7 +810,7 @@ func TestWallet_Pay_NoChange(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(190000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	paymentAmount := uint64(5008)
 	walletAmount := uint64(5008)
@@ -904,7 +904,7 @@ func TestWallet_Pay_YesChange(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(1000000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	paymentAmount := uint64(2611)
 	walletAmount := uint64(5008)
@@ -1032,7 +1032,7 @@ func TestReceiptListener_Hear(t *testing.T) {
 	globals.InitStorage(&globals.RamStorage{}, "")
 	grp := cyclic.NewGroup(large.NewInt(1000000), large.NewInt(0), large.NewInt(0))
 	s := user.NewSession(&user.User{User: payer, Nick: "Darth Icky"}, "",
-		[]user.NodeKeys{}, grp.NewInt(1), grp)
+		[]user.NodeKeys{}, grp.NewInt(2), grp.NewInt(1), grp)
 
 	walletAmount := uint64(8970)
 	paymentAmount := uint64(1234)

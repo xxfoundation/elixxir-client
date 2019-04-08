@@ -29,18 +29,6 @@ func (m *outKeyMap) Store(user *id.User, keys *KeyStack) {
 	(*sync.Map)(m).Store(user, keys)
 }
 
-// Returns KeyStack entry for given user
-// Nil if not found
-func (m *outKeyMap) Load(user *id.User) *KeyStack {
-	val, ok := (*sync.Map)(m).Load(user)
-
-	if ok {
-		return val.(*KeyStack)
-	} else {
-		return nil
-	}
-}
-
 // Atomically Pops first key from KeyStack for given user
 // Updates Key Manager state
 // Returns E2EKey and KeyAction
@@ -106,9 +94,10 @@ const (
 	maxKeys uint16 = 2000
 	ttlScalar float64 = 1.2 // generate 20% extra keys
 	threshold uint16 = 1500 // min 1500 keys
+	numReKeys uint16 = 100 // 100 ReKeys
 )
 
-func RegisterPartner(partner *id.User, pubKey signature.DSAPublicKey) {
+func RegisterPartner(partner *id.User, pubKey *signature.DSAPublicKey) {
 	// Get needed variables from session
 	grp := user2.TheSession.GetGroup()
 	user := user2.TheSession.GetCurrentUser().User
@@ -127,14 +116,14 @@ func RegisterPartner(partner *id.User, pubKey signature.DSAPublicKey) {
 	// Generate numKeys send keys
 	sendKeys := e2e.DeriveKeys(grp, baseKey, user, uint(numKeys))
 	// Generate keysTTL send reKeys
-	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, user, uint(keysTTL))
+	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, user, uint(numReKeys))
 	// Generate numKeys recv keys
 	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(numKeys))
 	// Generate keysTTL recv reKeys
-	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partner, uint(keysTTL))
+	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partner, uint(numReKeys))
 
 	// Create KeyManager
-	keyMan := NewKeyManager(baseKey, partner, numKeys, keysTTL)
+	keyMan := NewKeyManager(baseKey, partner, numKeys, keysTTL, numReKeys)
 	// Lock key manager here for safety
 	keyMan.Lock()
 	// Unlock only when done
@@ -142,7 +131,7 @@ func RegisterPartner(partner *id.User, pubKey signature.DSAPublicKey) {
 
 	// Create Send Keys Stack and set it on keyManager and
 	// TransmissionKeys map
-	sendKeysStack := new(KeyStack)
+	sendKeysStack := NewKeyStack()
 	keyMan.sendKeys = sendKeysStack
 	TransmissionKeys.Store(partner, sendKeysStack)
 
@@ -157,7 +146,7 @@ func RegisterPartner(partner *id.User, pubKey signature.DSAPublicKey) {
 
 	// Create Send ReKeys Stack and set it on keyManager and
 	// TransmissionReKeys map
-	sendReKeysStack := new(KeyStack)
+	sendReKeysStack := NewKeyStack()
 	keyMan.sendReKeys = sendReKeysStack
 	TransmissionReKeys.Store(partner, sendReKeysStack)
 
@@ -178,7 +167,6 @@ func RegisterPartner(partner *id.User, pubKey signature.DSAPublicKey) {
 		e2ekey.key = key
 		e2ekey.manager = keyMan
 		e2ekey.outer = format.E2E
-		sendKeysStack.Push(e2ekey)
 		fingerprintList[i] = e2ekey.KeyFingerprint()
 		ReceptionKeys.Store(fingerprintList[i], e2ekey)
 	}
@@ -194,7 +182,6 @@ func RegisterPartner(partner *id.User, pubKey signature.DSAPublicKey) {
 		e2ekey.key = key
 		e2ekey.manager = keyMan
 		e2ekey.outer = format.Rekey
-		sendKeysStack.Push(e2ekey)
 		fingerprintListRe[i] = e2ekey.KeyFingerprint()
 		ReceptionKeys.Store(fingerprintListRe[i], e2ekey)
 	}

@@ -1,7 +1,7 @@
 package keyStore
 
 import (
-	user2 "gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/signature"
@@ -13,7 +13,7 @@ import (
 // Local types in order to implement functions that return real types
 // instead of interfaces
 type outKeyMap sync.Map
-type inKeyMap  sync.Map
+type inKeyMap sync.Map
 
 // Transmission Keys map
 var TransmissionKeys = new(outKeyMap)
@@ -90,18 +90,18 @@ func (m *inKeyMap) DeleteList(fingerprints []format.Fingerprint) {
 
 // For now, generate a lot of keys
 const (
-	minKeys uint16 = 1000
-	maxKeys uint16 = 2000
-	ttlScalar float64 = 1.2 // generate 20% extra keys
-	threshold uint16 = 1500 // min 1500 keys
-	numReKeys uint16 = 100 // 100 ReKeys
+	minKeys   uint16  = 1000
+	maxKeys   uint16  = 2000
+	ttlScalar float64 = 1.2  // generate 20% extra keys
+	threshold uint16  = 1500 // min 1500 keys
+	numReKeys uint16  = 100  // 100 ReKeys
 )
 
-func RegisterPartner(partner *id.User, pubKey *signature.DSAPublicKey) {
+func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
 	// Get needed variables from session
-	grp := user2.TheSession.GetGroup()
-	user := user2.TheSession.GetCurrentUser().User
-	privKey := user2.TheSession.GetPrivateKey()
+	grp := user.TheSession.GetGroup()
+	userID := user.TheSession.GetCurrentUser().User
+	privKey := user.TheSession.GetPrivateKey()
 
 	// Generate baseKey
 	pubKeyVal := grp.NewIntFromLargeInt(pubKey.GetKey())
@@ -114,16 +114,16 @@ func RegisterPartner(partner *id.User, pubKey *signature.DSAPublicKey) {
 
 	// Generate all keys
 	// Generate numKeys send keys
-	sendKeys := e2e.DeriveKeys(grp, baseKey, user, uint(numKeys))
+	sendKeys := e2e.DeriveKeys(grp, baseKey, userID, uint(numKeys))
 	// Generate keysTTL send reKeys
-	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, user, uint(numReKeys))
+	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, userID, uint(numReKeys))
 	// Generate numKeys recv keys
-	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(numKeys))
+	recvKeys := e2e.DeriveKeys(grp, baseKey, partnerID, uint(numKeys))
 	// Generate keysTTL recv reKeys
-	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partner, uint(numReKeys))
+	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partnerID, uint(numReKeys))
 
 	// Create KeyManager
-	keyMan := NewKeyManager(baseKey, partner, numKeys, keysTTL, numReKeys)
+	keyMan := NewKeyManager(baseKey, partnerID, numKeys, keysTTL, numReKeys)
 	// Lock key manager here for safety
 	keyMan.Lock()
 	// Unlock only when done
@@ -133,7 +133,7 @@ func RegisterPartner(partner *id.User, pubKey *signature.DSAPublicKey) {
 	// TransmissionKeys map
 	sendKeysStack := NewKeyStack()
 	keyMan.sendKeys = sendKeysStack
-	TransmissionKeys.Store(partner, sendKeysStack)
+	TransmissionKeys.Store(partnerID, sendKeysStack)
 
 	// Create send E2E Keys and add to stack
 	for _, key := range sendKeys {
@@ -148,7 +148,7 @@ func RegisterPartner(partner *id.User, pubKey *signature.DSAPublicKey) {
 	// TransmissionReKeys map
 	sendReKeysStack := NewKeyStack()
 	keyMan.sendReKeys = sendReKeysStack
-	TransmissionReKeys.Store(partner, sendReKeysStack)
+	TransmissionReKeys.Store(partnerID, sendReKeysStack)
 
 	// Create send E2E ReKeys and add to stack
 	for _, key := range sendReKeys {

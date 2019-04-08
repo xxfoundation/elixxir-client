@@ -38,7 +38,7 @@ type KeyManager struct {
 	ttl uint16
 
 	// Total number of keys
-	numKeys   uint32
+	numKeys uint32
 	// Total number of rekey keys
 	numReKeys uint16
 
@@ -46,7 +46,7 @@ type KeyManager struct {
 	sync.Mutex
 
 	// SendKeys Stack
-	sendKeys   *KeyStack
+	sendKeys *KeyStack
 	// SendReKeys Stack
 	sendReKeys *KeyStack
 	// Receive keys list
@@ -64,10 +64,10 @@ func NewKeyManager(baseKey *cyclic.Int, partner *id.User,
 	numKeys uint32, ttl uint16, numReKeys uint16) *KeyManager {
 
 	return &KeyManager{
-		baseKey: baseKey,
-		partner: partner,
-		ttl: ttl,
-		numKeys: numKeys,
+		baseKey:   baseKey,
+		partner:   partner,
+		ttl:       ttl,
+		numKeys:   numKeys,
 		numReKeys: numReKeys,
 	}
 }
@@ -108,7 +108,7 @@ func (km *KeyManager) UpdateState(rekey bool) KeyAction {
 	km.Lock()
 	defer km.Unlock()
 
-	if km.state & stateDeleteMask != 0 {
+	if km.state&stateDeleteMask != 0 {
 		return Deleted
 	}
 

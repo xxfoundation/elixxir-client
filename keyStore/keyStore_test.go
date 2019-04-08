@@ -179,7 +179,7 @@ func TestRegisterPartner_CheckAllKeys(t *testing.T) {
 				cryptoTypePrint(key.GetOuterType()))
 		}
 
-		if i < int(keyTTL - 1) {
+		if i < int(keyTTL-1) {
 			if action != None {
 				t.Errorf("Expected 'None' action, got %s instead",
 					actionPrint(action))
@@ -207,7 +207,7 @@ func TestRegisterPartner_CheckAllKeys(t *testing.T) {
 				cryptoTypePrint(key.GetOuterType()))
 		}
 
-		if i < int(numReKeys - 1) {
+		if i < int(numReKeys-1) {
 			if action != None {
 				t.Errorf("Expected 'None' action, got %s instead",
 					actionPrint(action))

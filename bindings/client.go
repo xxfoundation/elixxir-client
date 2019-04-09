@@ -146,13 +146,20 @@ func InitClient(storage Storage, loc string) error {
 // “Jono”
 // OIF3OJ5I
 func Register(registrationCode string, gwAddr string, numNodes int,
-	mint bool, grp *cyclic.Group) ([]byte, error) {
+	mint bool, grpJSON string) ([]byte, error) {
 
 	if numNodes < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, grp)
+	// Unmarshal group JSON
+	var grp cyclic.Group
+	err := grp.UnmarshalJSON([]byte(grpJSON))
+	if err != nil {
+		return id.ZeroID[:], err
+	}
+
+	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err

@@ -147,8 +147,12 @@ func TestRegister(t *testing.T) {
 	g := large.NewInt(2)
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
+	grpJSON, err := grp.MarshalJSON()
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, string(grpJSON))
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -170,8 +174,12 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
+	grpJSON, err := grp.MarshalJSON()
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
 
-	_, err = Register(registrationCode, gwAddress, 0, false, grp)
+	_, err = Register(registrationCode, gwAddress, 0, false, string(grpJSON))
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -202,8 +210,12 @@ func TestLoginLogout(t *testing.T) {
 	g := large.NewInt(2)
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
+	grpJSON, err := grp.MarshalJSON()
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false, grp)
+	regRes, err := Register(registrationCode, gwAddress, 1, false, string(grpJSON))
 	loginRes, err2 := Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -216,6 +228,7 @@ func TestLoginLogout(t *testing.T) {
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err.Error())
 	}
+
 	globals.LocalStorage = nil
 }
 

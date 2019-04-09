@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -154,13 +153,13 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 	}
 
 	// Unmarshal group JSON
-	grp := cyclic.NewGroup(large.NewMaxInt(), large.NewMaxInt(), large.NewMaxInt())
+	var grp cyclic.Group
 	err := grp.UnmarshalJSON([]byte(grpJSON))
 	if err != nil {
 		return id.ZeroID[:], err
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, grp)
+	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err

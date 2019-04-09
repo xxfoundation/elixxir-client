@@ -97,6 +97,28 @@ func TestKeyManager_Purge(t *testing.T) {
 	}
 }
 
+// Test receive state update
+func TestKeyManager_UpdateRecvState(t *testing.T) {
+	grp := cyclic.NewGroup(large.NewInt(107),
+		large.NewInt(2),
+		large.NewInt(5))
+	baseKey := grp.NewInt(57)
+	partner := id.NewUserFromUint(14, t)
+
+	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+
+	expectedVal := uint64(0x0010000001000008)
+	// Mark some keys as used and confirm expected value
+	km.UpdateRecvState(3)
+	km.UpdateRecvState(24)
+	km.UpdateRecvState(52)
+
+	if *km.recvState[0] != expectedVal {
+		t.Errorf("UpdateRecvState failed, expected" +
+			" %d, got %d", expectedVal, *km.recvState[0])
+	}
+}
+
 // Test KeyManager destroy
 func TestKeyManager_Destroy(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107),

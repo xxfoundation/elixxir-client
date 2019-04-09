@@ -26,12 +26,13 @@ func (ks *KeyStack) Push(key *E2EKey) {
 }
 
 // Returns the first key on the stack, and the key action from the Key Manager
-// NOTE: Caller is responsible for locking the stack
 func (ks *KeyStack) Pop() *E2EKey {
 	var key *E2EKey
 
 	// Get the key
+	ks.Lock()
 	keyFace := ks.keys.Pop()
+	ks.Unlock()
 
 	// Check if the key exists and panic otherwise
 	if keyFace == nil {
@@ -44,7 +45,6 @@ func (ks *KeyStack) Pop() *E2EKey {
 }
 
 // Deletes all keys from stack, i.e., pops all
-// Internally holds lock
 func (ks *KeyStack) Delete() {
 	ks.Lock()
 	defer ks.Unlock()

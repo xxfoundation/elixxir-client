@@ -4,7 +4,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
-	"sync"
+	"sync/atomic"
 )
 
 type KeyAction uint8
@@ -14,6 +14,23 @@ const (
 	Rekey
 	Purge
 	Deleted
+)
+
+// Hardcoded limits for keys
+// With 16 receiving states we can hold
+// 16*64=1024 dirty bits for receiving keys
+// This includes keys+rekeys
+// With that limit, setting maxKeys to 800
+// and ttlScalar to 1.2, we can generate
+// a maximum amount of 960 receiving keys
+// This leaves space for 1024-960 = 64 rekeys
+const (
+	maxStates uint16  = 16
+	minKeys   uint16  = 500
+	maxKeys   uint16  = 800
+	ttlScalar float64 = 1.1 // generate 10% extra keys
+	threshold uint16  = 160
+	numReKeys uint16  = 64
 )
 
 // The keylifecycle is part of a larger system which keeps track of e2e keys.  Within e2e a negotiation occurs which
@@ -32,7 +49,7 @@ type KeyManager struct {
 	// |    63   | 62 - 56 |   55 - 40   | 39 - 32 |  31 - 0   |
 	// | deleted |  empty  | rekey count |  empty  | key count |
 	// |  1 bit  |  7 bits |   16 bits   |  8 bits |   32 bits |
-	state uint64
+	state *uint64
 
 	// Value of the counter at which a rekey is triggered
 	ttl uint16
@@ -42,8 +59,8 @@ type KeyManager struct {
 	// Total number of rekey keys
 	numReKeys uint16
 
-	// Deletion Lock
-	sync.Mutex
+	// Received keys dirty bits
+	recvState [maxStates]*uint64
 
 	// SendKeys Stack
 	sendKeys *KeyStack
@@ -63,13 +80,17 @@ type KeyManager struct {
 func NewKeyManager(baseKey *cyclic.Int, partner *id.User,
 	numKeys uint32, ttl uint16, numReKeys uint16) *KeyManager {
 
-	return &KeyManager{
-		baseKey:   baseKey,
-		partner:   partner,
-		ttl:       ttl,
-		numKeys:   numKeys,
-		numReKeys: numReKeys,
+	km := new(KeyManager)
+	km.baseKey = baseKey
+	km.partner = partner
+	km.state = new(uint64)
+	km.ttl = ttl
+	km.numKeys = numKeys
+	km.numReKeys = numReKeys
+	for i, _ := range km.recvState {
+		km.recvState[i] = new(uint64)
 	}
+	return km
 }
 
 const (
@@ -102,36 +123,43 @@ func stateReKeyCmp(state uint64, nKeys uint16) bool {
 	return false
 }
 
-// The UpdateState function will hold the lock for entire
-// duration, instead of having an atomic state
+// The UpdateState atomically updates internal state
+// of key manager
 func (km *KeyManager) UpdateState(rekey bool) KeyAction {
-	km.Lock()
-	defer km.Unlock()
+	var stateIncr uint64
+	if rekey {
+		stateIncr = stateReKeyIncr
+	} else {
+		stateIncr = stateKeyIncr
+	}
 
-	if km.state&stateDeleteMask != 0 {
+	result := atomic.AddUint64(km.state, stateIncr)
+
+	if result&stateDeleteMask != 0 {
 		return Deleted
 	}
 
-	if rekey {
-		km.state += stateReKeyIncr
-		if stateReKeyCmp(km.state, km.numReKeys) {
-			// set delete bit
-			km.state += stateDeleteIncr
-			return Purge
-		}
-	} else {
-		km.state += stateKeyIncr
-		if stateKeyCmp(km.state, km.ttl) {
-			return Rekey
-		}
+	if rekey && stateReKeyCmp(result, km.numReKeys) {
+		// set delete bit
+		atomic.AddUint64(km.state, stateDeleteIncr)
+		return Purge
+	} else if !rekey && stateKeyCmp(result, km.ttl) {
+		return Rekey
 	}
 	return None
 }
 
+// The UpdateRecvState atomically updates internal
+// receiving state of key manager
+func (km *KeyManager) UpdateRecvState(keyID uint32) {
+	stateIdx := keyID / 64
+	stateBit := uint64(1 << (keyID % 64))
+
+	atomic.AddUint64(km.recvState[stateIdx], stateBit)
+}
+
 // The destroy function will hold the lock
 func (km *KeyManager) Destroy() {
-	km.Lock()
-	defer km.Unlock()
 	// Eliminate receiving keys
 	ReceptionKeys.DeleteList(km.receiveKeysFP)
 	ReceptionKeys.DeleteList(km.receiveReKeysFP)

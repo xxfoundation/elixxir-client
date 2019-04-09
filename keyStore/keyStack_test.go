@@ -112,12 +112,6 @@ func TestKeyStack_Delete(t *testing.T) {
 	ks.Pop()
 }
 
-func syncPop(ks *KeyStack) *E2EKey {
-	ks.Lock()
-	defer ks.Unlock()
-	return ks.Pop()
-}
-
 // Test concurrent access
 func TestKeyStack_Concurrent(t *testing.T) {
 	ks := NewKeyStack()
@@ -137,7 +131,7 @@ func TestKeyStack_Concurrent(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		go func() {
-			syncPop(ks)
+			ks.Pop()
 		}()
 	}
 

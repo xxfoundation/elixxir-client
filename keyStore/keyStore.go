@@ -41,14 +41,10 @@ func (m *outKeyMap) Pop(user *id.User) (*E2EKey, KeyAction) {
 
 	keyStack := val.(*KeyStack)
 
-	// Lock stack
-	keyStack.Lock()
 	// Pop key
 	e2eKey := keyStack.Pop()
 	// Update Key Manager State
 	action := e2eKey.GetManager().UpdateState(e2eKey.GetOuterType() == format.Rekey)
-	// Unlock stack
-	keyStack.Unlock()
 	return e2eKey, action
 }
 
@@ -68,12 +64,17 @@ func (m *inKeyMap) Store(fingerprint format.Fingerprint, key *E2EKey) {
 func (m *inKeyMap) Pop(fingerprint format.Fingerprint) *E2EKey {
 	val, ok := (*sync.Map)(m).Load(fingerprint)
 
+	var key *E2EKey
 	if !ok {
 		return nil
+	} else {
+		key = val.(*E2EKey)
 	}
 	// Delete key from map
 	m.Delete(fingerprint)
-	return val.(*E2EKey)
+	// Update Key Manager Receiving State
+	key.GetManager().UpdateRecvState(key.GetKeyID())
+	return key
 }
 
 // Deletes a key for given fingerprint
@@ -87,15 +88,6 @@ func (m *inKeyMap) DeleteList(fingerprints []format.Fingerprint) {
 		(*sync.Map)(m).Delete(fp)
 	}
 }
-
-// For now, generate a lot of keys
-const (
-	minKeys   uint16  = 1000
-	maxKeys   uint16  = 2000
-	ttlScalar float64 = 1.2  // generate 20% extra keys
-	threshold uint16  = 1500 // min 1500 keys
-	numReKeys uint16  = 100  // 100 ReKeys
-)
 
 func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
 	// Get needed variables from session
@@ -124,10 +116,6 @@ func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
 
 	// Create KeyManager
 	keyMan := NewKeyManager(baseKey, partnerID, numKeys, keysTTL, numReKeys)
-	// Lock key manager here for safety
-	keyMan.Lock()
-	// Unlock only when done
-	defer keyMan.Unlock()
 
 	// Create Send Keys Stack and set it on keyManager and
 	// TransmissionKeys map
@@ -167,6 +155,7 @@ func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
 		e2ekey.key = key
 		e2ekey.manager = keyMan
 		e2ekey.outer = format.E2E
+		e2ekey.keyID = uint32(i)
 		fingerprintList[i] = e2ekey.KeyFingerprint()
 		ReceptionKeys.Store(fingerprintList[i], e2ekey)
 	}
@@ -176,12 +165,13 @@ func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
 
 	// Create Receive E2E Keys and add them to ReceptionKeys map
 	// while keeping a list of the fingerprints
-	fingerprintListRe := make([]format.Fingerprint, numKeys)
+	fingerprintListRe := make([]format.Fingerprint, numReKeys)
 	for i, key := range recvReKeys {
 		e2ekey := new(E2EKey)
 		e2ekey.key = key
 		e2ekey.manager = keyMan
 		e2ekey.outer = format.Rekey
+		e2ekey.keyID = numKeys + uint32(i)
 		fingerprintListRe[i] = e2ekey.KeyFingerprint()
 		ReceptionKeys.Store(fingerprintListRe[i], e2ekey)
 	}

@@ -15,6 +15,9 @@ type E2EKey struct {
 
 	// Designation of crypto type
 	outer format.CryptoType
+
+	// KeyID needed by KeyManager
+	keyID uint32
 }
 
 func (e2ekey *E2EKey) GetManager() *KeyManager {
@@ -27,6 +30,10 @@ func (e2ekey *E2EKey) GetKey() *cyclic.Int {
 
 func (e2ekey *E2EKey) GetOuterType() format.CryptoType {
 	return e2ekey.outer
+}
+
+func (e2ekey *E2EKey) GetKeyID() uint32 {
+	return e2ekey.keyID
 }
 
 func (e2ekey *E2EKey) KeyFingerprint() format.Fingerprint {

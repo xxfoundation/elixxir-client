@@ -293,12 +293,11 @@ func TestRegisterUserE2E(t *testing.T) {
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
-	session := user.NewSession(myUser, "", []user.NodeKeys{},
-		myPrivKeyCyclic, myPubKeyCyclic, grp)
+	session := user.NewSession(myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
 
 	user.TheSession = session
 
-	registerUserE2E(partner, partnerPubKey)
+	registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
 
 	// Confirm we can get all types of keys
 	key, action := keyStore.TransmissionKeys.Pop(partner)
@@ -374,12 +373,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
-	session := user.NewSession(myUser, "", []user.NodeKeys{},
-		myPrivKeyCyclic, myPubKeyCyclic, grp)
+	session := user.NewSession(myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
 
 	user.TheSession = session
 
-	registerUserE2E(partner, partnerPubKey)
+	registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
 
 	// Generate all keys and confirm they all match
 	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)

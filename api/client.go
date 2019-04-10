@@ -17,17 +17,16 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/signature"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
 	"time"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 // Populates a text message and returns its wire representation
@@ -293,15 +292,18 @@ func SearchForUser(emailAddress string) (*id.User, []byte, error) {
 	return bots.Search(valueType, emailAddress)
 }
 
-func registerUserE2E(partnerID *id.User, pubKey *signature.DSAPublicKey) {
+func registerUserE2E(partnerID *id.User,
+	ownPrivKey *cyclic.Int,
+	partnerPubKey *cyclic.Int) {
 	// Get needed variables from session
 	grp := user.TheSession.GetGroup()
 	userID := user.TheSession.GetCurrentUser().User
-	privKey := user.TheSession.GetPrivateKey()
 
 	// Generate baseKey
-	pubKeyVal := grp.NewIntFromLargeInt(pubKey.GetKey())
-	baseKey, _ := diffieHellman.CreateDHSessionKey(pubKeyVal, privKey, grp)
+	baseKey, _ := diffieHellman.CreateDHSessionKey(
+		partnerPubKey,
+		ownPrivKey,
+		grp)
 
 	// Generate key TTL and number of keys
 	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),

@@ -1,7 +1,11 @@
 package keyStore
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/gob"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync/atomic"
@@ -158,6 +162,98 @@ func (km *KeyManager) UpdateRecvState(keyID uint32) {
 	atomic.AddUint64(km.recvState[stateIdx], stateBit)
 }
 
+// Return true if bit specified by keyID is set, meaning
+// that particular key has been used
+func (km *KeyManager) checkRecvStateBit(keyID uint32) bool {
+	stateIdx := keyID / 64
+	stateBit := uint64(1 << (keyID % 64))
+	if (*km.recvState[stateIdx] & stateBit) != 0 {
+		return true
+	}
+	return false
+}
+
+func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
+	// Calculate how many unused send keys are needed
+	usedSendKeys := uint32(*km.state & stateKeyMask)
+	numGenSendKeys := uint(km.numKeys - usedSendKeys)
+	usedSendReKeys := uint16((*km.state & stateReKeyMask) >> stateReKeyShift)
+	numGenSendReKeys := uint(km.numReKeys - usedSendReKeys)
+
+	// Generate numGenSendKeys send keys
+	sendKeys := e2e.DeriveKeys(grp, km.baseKey, userID, numGenSendKeys)
+	// Generate numGenSendReKeys send reKeys
+	sendReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, userID, numGenSendReKeys)
+
+	// For receiving keys, generate all, and then only add to the map
+	// the unused ones based on recvStates
+	// Generate numKeys recv keys
+	recvKeys := e2e.DeriveKeys(grp, km.baseKey, km.partner, uint(km.numKeys))
+	// Generate numReKeys recv reKeys
+	recvReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, km.partner, uint(km.numReKeys))
+
+	// Create Send Keys Stack on keyManager and
+	// set on TransmissionKeys map
+	km.sendKeys = NewKeyStack()
+	TransmissionKeys.Store(km.partner, km.sendKeys)
+
+	// Create send E2E Keys and add to stack
+	for _, key := range sendKeys {
+		e2ekey := new(E2EKey)
+		e2ekey.key = key
+		e2ekey.manager = km
+		e2ekey.outer = format.E2E
+		km.sendKeys.Push(e2ekey)
+	}
+
+	// Create Send ReKeys Stack on keyManager and
+	// set on TransmissionReKeys map
+	km.sendReKeys = NewKeyStack()
+	TransmissionReKeys.Store(km.partner, km.sendReKeys)
+
+	// Create send E2E ReKeys and add to stack
+	for _, key := range sendReKeys {
+		e2ekey := new(E2EKey)
+		e2ekey.key = key
+		e2ekey.manager = km
+		e2ekey.outer = format.Rekey
+		km.sendReKeys.Push(e2ekey)
+	}
+
+	// Create Receive E2E Keys and add them to ReceptionKeys map
+	// while keeping a list of the fingerprints
+	// Skip keys that were already used as per recvStates
+	km.receiveKeysFP = make([]format.Fingerprint, 0)
+	for i, key := range recvKeys {
+		if !km.checkRecvStateBit(uint32(i)) {
+			e2ekey := new(E2EKey)
+			e2ekey.key = key
+			e2ekey.manager = km
+			e2ekey.outer = format.E2E
+			e2ekey.keyID = uint32(i)
+			keyFP := e2ekey.KeyFingerprint()
+			km.receiveKeysFP = append(km.receiveKeysFP, keyFP)
+			ReceptionKeys.Store(keyFP, e2ekey)
+		}
+	}
+
+	// Create Receive E2E Keys and add them to ReceptionKeys map
+	// while keeping a list of the fingerprints
+	km.receiveReKeysFP = make([]format.Fingerprint, 0)
+	for i, key := range recvReKeys {
+		if !km.checkRecvStateBit(km.numKeys + uint32(i)) {
+			e2ekey := new(E2EKey)
+			e2ekey.key = key
+			e2ekey.manager = km
+			e2ekey.outer = format.Rekey
+			e2ekey.keyID = km.numKeys + uint32(i)
+			keyFP := e2ekey.KeyFingerprint()
+			km.receiveReKeysFP = append(km.receiveReKeysFP, keyFP)
+			ReceptionKeys.Store(keyFP, e2ekey)
+		}
+	}
+}
+
 // The destroy function will hold the lock
 func (km *KeyManager) Destroy() {
 	// Eliminate receiving keys
@@ -174,4 +270,115 @@ func (km *KeyManager) Destroy() {
 	// Hopefully when the function returns there
 	// will be no keys referencing this Manager left,
 	// so it will be garbage collected
+}
+
+func (km *KeyManager) GobEncode() ([]byte, error) {
+	// Anonymous structure that flattens nested structures
+	s := struct {
+		Partner   []byte
+		State     []byte
+		TTL       []byte
+		NumKeys   []byte
+		NumReKeys []byte
+		RecvState []byte
+		BaseKey   []byte
+	}{
+		km.partner.Bytes(),
+		make([]byte, 8),
+		make([]byte, 2),
+		make([]byte, 4),
+		make([]byte, 2),
+		make([]byte, 8*maxStates),
+		make([]byte, 0),
+	}
+
+	// Convert all internal uints to bytes
+	binary.BigEndian.PutUint64(s.State, *km.state)
+	binary.BigEndian.PutUint16(s.TTL, km.ttl)
+	binary.BigEndian.PutUint32(s.NumKeys, km.numKeys)
+	binary.BigEndian.PutUint16(s.NumReKeys, km.numReKeys)
+	for i := 0; i < int(maxStates); i++ {
+		binary.BigEndian.PutUint64(s.RecvState[i*8:(i+1)*8], *km.recvState[i])
+	}
+
+	// GobEncode baseKey
+	baseKeyBytes, err := km.baseKey.GobEncode()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Add baseKey to struct
+	s.BaseKey = append(s.BaseKey, baseKeyBytes...)
+
+	var buf bytes.Buffer
+
+	// Create new encoder that will transmit the buffer
+	enc := gob.NewEncoder(&buf)
+
+	// Transmit the data
+	err = enc.Encode(s)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+func (km *KeyManager) GobDecode(in []byte) error {
+	// Anonymous structure that flattens nested structures
+	s := struct {
+		Partner   []byte
+		State     []byte
+		TTL       []byte
+		NumKeys   []byte
+		NumReKeys []byte
+		RecvState []byte
+		BaseKey   []byte
+	}{
+		make([]byte, 32),
+		make([]byte, 8),
+		make([]byte, 2),
+		make([]byte, 4),
+		make([]byte, 2),
+		make([]byte, 8*maxStates),
+		[]byte{},
+	}
+
+	var buf bytes.Buffer
+
+	// Write bytes to the buffer
+	buf.Write(in)
+
+	// Create new decoder that reads from the buffer
+	dec := gob.NewDecoder(&buf)
+
+	// Receive and decode data
+	err := dec.Decode(&s)
+
+	if err != nil {
+		return err
+	}
+
+	// Convert decoded bytes and put into key manager structure
+	km.baseKey = new(cyclic.Int)
+	err = km.baseKey.GobDecode(s.BaseKey)
+
+	if err != nil {
+		return err
+	}
+
+	km.partner = new(id.User).SetBytes(s.Partner)
+	km.state = new(uint64)
+	*km.state = binary.BigEndian.Uint64(s.State)
+	km.ttl = binary.BigEndian.Uint16(s.TTL)
+	km.numKeys = binary.BigEndian.Uint32(s.NumKeys)
+	km.numReKeys = binary.BigEndian.Uint16(s.NumReKeys)
+	for i := 0; i < int(maxStates); i++ {
+		km.recvState[i] = new(uint64)
+		*km.recvState[i] = binary.BigEndian.Uint64(s.RecvState[i*8:(i+1)*8])
+	}
+
+	return nil
 }

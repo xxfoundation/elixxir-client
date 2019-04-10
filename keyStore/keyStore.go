@@ -26,14 +26,14 @@ var ReceptionKeys = new(inKeyMap)
 
 // Stores a KeyStack entry for given user
 func (m *outKeyMap) Store(user *id.User, keys *KeyStack) {
-	(*sync.Map)(m).Store(user, keys)
+	(*sync.Map)(m).Store(*user, keys)
 }
 
 // Atomically Pops first key from KeyStack for given user
 // Updates Key Manager state
 // Returns E2EKey and KeyAction
 func (m *outKeyMap) Pop(user *id.User) (*E2EKey, KeyAction) {
-	val, ok := (*sync.Map)(m).Load(user)
+	val, ok := (*sync.Map)(m).Load(*user)
 
 	if !ok {
 		return nil, None
@@ -50,7 +50,7 @@ func (m *outKeyMap) Pop(user *id.User) (*E2EKey, KeyAction) {
 
 // Deletes a KeyStack entry for given user
 func (m *outKeyMap) Delete(user *id.User) {
-	(*sync.Map)(m).Delete(user)
+	(*sync.Map)(m).Delete(*user)
 }
 
 // Stores a key for given fingerprint
@@ -104,78 +104,9 @@ func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
 		minKeys, maxKeys,
 		e2e.TTLParams{ttlScalar, threshold})
 
-	// Generate all keys
-	// Generate numKeys send keys
-	sendKeys := e2e.DeriveKeys(grp, baseKey, userID, uint(numKeys))
-	// Generate keysTTL send reKeys
-	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, userID, uint(numReKeys))
-	// Generate numKeys recv keys
-	recvKeys := e2e.DeriveKeys(grp, baseKey, partnerID, uint(numKeys))
-	// Generate keysTTL recv reKeys
-	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partnerID, uint(numReKeys))
-
 	// Create KeyManager
 	keyMan := NewKeyManager(baseKey, partnerID, numKeys, keysTTL, numReKeys)
 
-	// Create Send Keys Stack and set it on keyManager and
-	// TransmissionKeys map
-	sendKeysStack := NewKeyStack()
-	keyMan.sendKeys = sendKeysStack
-	TransmissionKeys.Store(partnerID, sendKeysStack)
-
-	// Create send E2E Keys and add to stack
-	for _, key := range sendKeys {
-		e2ekey := new(E2EKey)
-		e2ekey.key = key
-		e2ekey.manager = keyMan
-		e2ekey.outer = format.E2E
-		sendKeysStack.Push(e2ekey)
-	}
-
-	// Create Send ReKeys Stack and set it on keyManager and
-	// TransmissionReKeys map
-	sendReKeysStack := NewKeyStack()
-	keyMan.sendReKeys = sendReKeysStack
-	TransmissionReKeys.Store(partnerID, sendReKeysStack)
-
-	// Create send E2E ReKeys and add to stack
-	for _, key := range sendReKeys {
-		e2ekey := new(E2EKey)
-		e2ekey.key = key
-		e2ekey.manager = keyMan
-		e2ekey.outer = format.Rekey
-		sendReKeysStack.Push(e2ekey)
-	}
-
-	// Create Receive E2E Keys and add them to ReceptionKeys map
-	// while keeping a list of the fingerprints
-	fingerprintList := make([]format.Fingerprint, numKeys)
-	for i, key := range recvKeys {
-		e2ekey := new(E2EKey)
-		e2ekey.key = key
-		e2ekey.manager = keyMan
-		e2ekey.outer = format.E2E
-		e2ekey.keyID = uint32(i)
-		fingerprintList[i] = e2ekey.KeyFingerprint()
-		ReceptionKeys.Store(fingerprintList[i], e2ekey)
-	}
-
-	// Set fingerprintList on KeyManager
-	keyMan.receiveKeysFP = fingerprintList
-
-	// Create Receive E2E Keys and add them to ReceptionKeys map
-	// while keeping a list of the fingerprints
-	fingerprintListRe := make([]format.Fingerprint, numReKeys)
-	for i, key := range recvReKeys {
-		e2ekey := new(E2EKey)
-		e2ekey.key = key
-		e2ekey.manager = keyMan
-		e2ekey.outer = format.Rekey
-		e2ekey.keyID = numKeys + uint32(i)
-		fingerprintListRe[i] = e2ekey.KeyFingerprint()
-		ReceptionKeys.Store(fingerprintListRe[i], e2ekey)
-	}
-
-	// Set fingerprintList on KeyManager
-	keyMan.receiveReKeysFP = fingerprintListRe
+	// Generate Keys
+	keyMan.GenerateKeys(grp, userID)
 }

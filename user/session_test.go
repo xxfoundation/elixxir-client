@@ -47,7 +47,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp.NewInt(2), grp)
+	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp)
 
 	ses.(*SessionObj).PrivateKey = grp.NewInt(2)
 	ses.SetLastMessageID("totally unique ID")
@@ -246,7 +246,7 @@ func TestGetPubKey(t *testing.T) {
 		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
 	}
 
-	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp.NewInt(2), grp)
+	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp)
 	pubKey := ses.GetPublicKey()
 	if pubKey.Cmp(grp.NewInt(2)) != 0 {
 		t.Errorf("Public key is not set correctly!")

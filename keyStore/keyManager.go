@@ -130,7 +130,7 @@ func stateKeyCmp(state uint64, ttl uint16) bool {
 	return keyCounter >= uint32(ttl)
 }
 
-// Check if state ReKey Counter >= NumReKeys
+// Check if state ReKey Counter >= nKeys
 // Return true if so, which should trigger a purge
 func stateReKeyCmp(state uint64, nKeys uint16) bool {
 	reKeyCounter := uint16((state & stateReKeyMask) >> stateReKeyShift)

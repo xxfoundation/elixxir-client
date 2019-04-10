@@ -55,8 +55,8 @@ func (ks *KeyStack) Pop() *E2EKey {
 func (ks *KeyStack) Delete() {
 	ks.Lock()
 	defer ks.Unlock()
-	size := ks.keys.Len()
-	for i := 0; i < size; i++ {
+	length := ks.keys.Len()
+	for i := 0; i < length; i++ {
 		ks.keys.Pop()
 	}
 }

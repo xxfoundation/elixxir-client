@@ -102,9 +102,7 @@ func Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewSession(u, gwAddr, nk,
-		grp.NewInt(42),
-		grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
+	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 
 	_, err = payment.CreateWallet(nus, mint)
 	if err != nil {

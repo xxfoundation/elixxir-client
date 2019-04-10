@@ -233,7 +233,7 @@ func TestSetRateLimiting(t *testing.T) {
 	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
 	nk := make([]user.NodeKeys, 1)
 	grp := cyclic.NewGroup(large.NewInt(17), large.NewInt(5), large.NewInt(23))
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil, nil, grp)
+	user.TheSession = user.NewSession(u, gwAddress, nk, nil, grp)
 	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
 		t.Errorf("SetRateLimiting not intilized properly")
 	}

@@ -312,7 +312,7 @@ func registerUserE2E(partnerID *id.User,
 			keyStore.Threshold})
 
 	// Create KeyManager
-	km := keyStore.NewKeyManager(baseKey, partnerID,
+	km := keyStore.NewManager(baseKey, partnerID,
 		numKeys, keysTTL, keyStore.NumReKeys)
 
 	// Generate Keys

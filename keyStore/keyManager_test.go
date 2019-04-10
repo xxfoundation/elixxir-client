@@ -13,21 +13,6 @@ import (
 	"testing"
 )
 
-func actionPrint(act KeyAction) string {
-	var ret string
-	switch act {
-	case None:
-		ret = "None"
-	case Rekey:
-		ret = "Rekey"
-	case Purge:
-		ret = "Purge"
-	case Deleted:
-		ret = "Deleted"
-	}
-	return ret
-}
-
 // initGroup sets up the cryptographic constants for cMix
 func initGroup() *cyclic.Group {
 
@@ -70,10 +55,10 @@ func TestKeyManager_New(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
 	if km == nil {
-		t.Errorf("NewKeyManager returned nil")
+		t.Errorf("NewManager returned nil")
 	}
 }
 
@@ -85,21 +70,21 @@ func TestKeyManager_Rekey(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
-	var action KeyAction
+	var action Action
 	for i := 0; i < 9; i++ {
 		action = km.updateState(false)
 		if action != None {
 			t.Errorf("Expected 'None' action, got %s instead",
-				actionPrint(action))
+				action)
 		}
 	}
 
 	action = km.updateState(false)
 	if action != Rekey {
 		t.Errorf("Expected 'Rekey' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 }
 
@@ -111,28 +96,28 @@ func TestKeyManager_Purge(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
-	var action KeyAction
+	var action Action
 	for i := 0; i < 9; i++ {
 		action = km.updateState(true)
 		if action != None {
 			t.Errorf("Expected 'None' action, got %s instead",
-				actionPrint(action))
+				action)
 		}
 	}
 
 	action = km.updateState(true)
 	if action != Purge {
 		t.Errorf("Expected 'Purge' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	// Confirm that state is now deleted
 	action = km.updateState(false)
 	if action != Deleted {
 		t.Errorf("Expected 'Deleted' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 }
 
@@ -144,7 +129,7 @@ func TestKeyManager_UpdateRecvState(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
 	expectedVal := uint64(0x0010000001000008)
 	// Mark some keys as used and confirm expected value
@@ -176,7 +161,7 @@ func TestKeyManager_GenerateKeys(t *testing.T) {
 	partner := id.NewUserFromUint(14, t)
 	userID := id.NewUserFromUint(18, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
 	// Generate Keys
 	km.GenerateKeys(grp, userID)
@@ -188,7 +173,7 @@ func TestKeyManager_GenerateKeys(t *testing.T) {
 		t.Errorf("TransmissionKeys Map returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	actual, action = TransmissionReKeys.Pop(partner)
@@ -197,16 +182,16 @@ func TestKeyManager_GenerateKeys(t *testing.T) {
 		t.Errorf("TransmissionReKeys Map returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
-	actual = ReceptionKeys.Pop(km.receiveKeysFP[4])
+	actual = ReceptionKeys.Pop(km.recvKeysFingerprint[4])
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for Key")
 	}
 
-	actual = ReceptionKeys.Pop(km.receiveReKeysFP[8])
+	actual = ReceptionKeys.Pop(km.recvReKeysFingerprint[8])
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for ReKey")
@@ -220,7 +205,7 @@ func TestKeyManager_Destroy(t *testing.T) {
 	partner := id.NewUserFromUint(14, t)
 	userID := id.NewUserFromUint(18, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
 	// Generate Keys
 	km.GenerateKeys(grp, userID)
@@ -232,7 +217,7 @@ func TestKeyManager_Destroy(t *testing.T) {
 		t.Errorf("TransmissionKeys Map returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	actual, action = TransmissionReKeys.Pop(partner)
@@ -241,16 +226,16 @@ func TestKeyManager_Destroy(t *testing.T) {
 		t.Errorf("TransmissionReKeys Map returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
-	actual = ReceptionKeys.Pop(km.receiveKeysFP[4])
+	actual = ReceptionKeys.Pop(km.recvKeysFingerprint[4])
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for Key")
 	}
 
-	actual = ReceptionKeys.Pop(km.receiveReKeysFP[8])
+	actual = ReceptionKeys.Pop(km.recvReKeysFingerprint[8])
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for ReKey")
@@ -265,7 +250,7 @@ func TestKeyManager_Destroy(t *testing.T) {
 		t.Errorf("TransmissionKeys Map should have returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	actual, action = TransmissionReKeys.Pop(partner)
@@ -274,18 +259,18 @@ func TestKeyManager_Destroy(t *testing.T) {
 		t.Errorf("TransmissionReKeys Map should have returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	for i := 0; i < 12; i++ {
-		actual = ReceptionKeys.Pop(km.receiveKeysFP[i])
+		actual = ReceptionKeys.Pop(km.recvKeysFingerprint[i])
 		if actual != nil {
 			t.Errorf("ReceptionKeys Map should have returned nil for Key")
 		}
 	}
 
 	for i := 0; i < 10; i++ {
-		actual = ReceptionKeys.Pop(km.receiveReKeysFP[i])
+		actual = ReceptionKeys.Pop(km.recvReKeysFingerprint[i])
 		if actual != nil {
 			t.Errorf("ReceptionKeys Map should have returned nil for ReKey")
 		}
@@ -304,7 +289,7 @@ func TestKeyManager_GobSimple(t *testing.T) {
 	enc := gob.NewEncoder(&byteBuf)
 	dec := gob.NewDecoder(&byteBuf)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
 	err := enc.Encode(km)
 
@@ -334,11 +319,11 @@ func TestKeyManager_GobSimple(t *testing.T) {
 			*outKm.partner)
 	}
 
-	if *km.state != *outKm.state {
+	if *km.sendState != *outKm.sendState {
 		t.Errorf("GobEncoder/GobDecoder failed on State, "+
 			"Expected: %v; Recieved: %v ",
-			*km.state,
-			*outKm.state)
+			*km.sendState,
+			*outKm.sendState)
 	}
 
 	if km.ttl != outKm.ttl {
@@ -362,7 +347,7 @@ func TestKeyManager_GobSimple(t *testing.T) {
 			outKm.numReKeys)
 	}
 
-	for i := 0; i < int(keyStates); i++ {
+	for i := 0; i < int(numStates); i++ {
 		if *km.recvKeysState[i] != *outKm.recvKeysState[i] {
 			t.Errorf("GobEncoder/GobDecoder failed on RecvKeysState[%d], "+
 				"Expected: %v; Recieved: %v ",
@@ -372,7 +357,7 @@ func TestKeyManager_GobSimple(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < int(reKeyStates); i++ {
+	for i := 0; i < int(numReStates); i++ {
 		if *km.recvReKeysState[i] != *outKm.recvReKeysState[i] {
 			t.Errorf("GobEncoder/GobDecoder failed on RecvReKeysState[%d], "+
 				"Expected: %v; Recieved: %v ",
@@ -403,7 +388,7 @@ func TestKeyManager_Gob(t *testing.T) {
 	partner := id.NewUserFromUint(14, t)
 	userID := id.NewUserFromUint(18, t)
 
-	km := NewKeyManager(baseKey, partner, 12, 10, 10)
+	km := NewManager(baseKey, partner, 12, 10, 10)
 
 	// Generate Keys
 	km.GenerateKeys(grp, userID)
@@ -448,17 +433,17 @@ func TestKeyManager_Gob(t *testing.T) {
 	usedSendReKeys := 2
 
 	// Use some receive keys and mark on expected map as used
-	key = ReceptionKeys.Pop(km.receiveKeysFP[3])
+	key = ReceptionKeys.Pop(km.recvKeysFingerprint[3])
 	expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] = false
-	key = ReceptionKeys.Pop(km.receiveKeysFP[8])
+	key = ReceptionKeys.Pop(km.recvKeysFingerprint[8])
 	expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] = false
-	key = ReceptionKeys.Pop(km.receiveKeysFP[6])
+	key = ReceptionKeys.Pop(km.recvKeysFingerprint[6])
 	expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] = false
-	key = ReceptionKeys.Pop(km.receiveKeysFP[1])
+	key = ReceptionKeys.Pop(km.recvKeysFingerprint[1])
 	expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] = false
 	usedRecvKeys := 4
 
-	key = ReceptionKeys.Pop(km.receiveReKeysFP[4])
+	key = ReceptionKeys.Pop(km.recvReKeysFingerprint[4])
 	expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] = false
 	usedRecvReKeys := 1
 
@@ -483,7 +468,7 @@ func TestKeyManager_Gob(t *testing.T) {
 		t.Errorf("TransmissionKeys Map should have returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	actual, action = TransmissionReKeys.Pop(partner)
@@ -492,18 +477,18 @@ func TestKeyManager_Gob(t *testing.T) {
 		t.Errorf("TransmissionReKeys Map should have returned nil")
 	} else if action != None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	for i := 0; i < 12; i++ {
-		actual = ReceptionKeys.Pop(km.receiveKeysFP[i])
+		actual = ReceptionKeys.Pop(km.recvKeysFingerprint[i])
 		if actual != nil {
 			t.Errorf("ReceptionKeys Map should have returned nil for Key")
 		}
 	}
 
 	for i := 0; i < 10; i++ {
-		actual = ReceptionKeys.Pop(km.receiveReKeysFP[i])
+		actual = ReceptionKeys.Pop(km.recvReKeysFingerprint[i])
 		if actual != nil {
 			t.Errorf("ReceptionKeys Map should have returned nil for ReKey")
 		}
@@ -555,23 +540,23 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Check that len of fingerprint lists matches expected
-	if len(outKm.receiveKeysFP) != int(outKm.numKeys)-usedRecvKeys {
+	if len(outKm.recvKeysFingerprint) != int(outKm.numKeys)-usedRecvKeys {
 		t.Errorf("ReceiveKeys list contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
 			int(outKm.numKeys)-usedRecvKeys,
-			len(outKm.receiveKeysFP))
+			len(outKm.recvKeysFingerprint))
 	}
 
-	if len(outKm.receiveReKeysFP) != int(outKm.numReKeys)-usedRecvReKeys {
+	if len(outKm.recvReKeysFingerprint) != int(outKm.numReKeys)-usedRecvReKeys {
 		t.Errorf("ReceiveReKeys list contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
 			int(outKm.numReKeys)-usedRecvReKeys,
-			len(outKm.receiveReKeysFP))
+			len(outKm.recvReKeysFingerprint))
 	}
 
 	// Now confirm that all receiving keys are in the expected map
 	for i := 0; i < int(outKm.numKeys)-usedRecvKeys; i++ {
-		key := ReceptionKeys.Pop(outKm.receiveKeysFP[i])
+		key := ReceptionKeys.Pop(outKm.recvKeysFingerprint[i])
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("ReceiveKey %v was used or didn't exist before",
 				key.KeyFingerprint())
@@ -579,7 +564,7 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	for i := 0; i < int(outKm.numReKeys)-usedRecvReKeys; i++ {
-		key := ReceptionKeys.Pop(outKm.receiveReKeysFP[i])
+		key := ReceptionKeys.Pop(outKm.recvReKeysFingerprint[i])
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("ReceiveReKey %v was used or didn't exist before",
 				key.KeyFingerprint())

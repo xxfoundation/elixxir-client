@@ -31,7 +31,7 @@ func (m *outKeyMap) Store(user *id.User, keys *KeyStack) {
 // Pops first key from KeyStack for given user
 // Atomically updates Key Manager Sending state
 // Returns *E2EKey and KeyAction
-func (m *outKeyMap) Pop(user *id.User) (*E2EKey, KeyAction) {
+func (m *outKeyMap) Pop(user *id.User) (*E2EKey, Action) {
 	val, ok := (*sync.Map)(m).Load(*user)
 
 	if !ok {

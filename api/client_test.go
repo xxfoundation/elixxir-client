@@ -240,40 +240,6 @@ func TestParse(t *testing.T){
 
 }
 
-func cryptoTypePrint(typ format.CryptoType) string {
-	var ret string
-	switch typ {
-	case format.None:
-		ret = "None"
-	case format.Unencrypted:
-		ret = "Unencrypted"
-	case format.E2E:
-		ret = "E2E"
-	case format.Garbled:
-		ret = "Garbled"
-	case format.Error:
-		ret = "Error"
-	case format.Rekey:
-		ret = "Rekey"
-	}
-	return ret
-}
-
-func actionPrint(act keyStore.KeyAction) string {
-	var ret string
-	switch act {
-	case keyStore.None:
-		ret = "None"
-	case keyStore.Rekey:
-		ret = "Rekey"
-	case keyStore.Purge:
-		ret = "Purge"
-	case keyStore.Deleted:
-		ret = "Deleted"
-	}
-	return ret
-}
-
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
 	grp := Session.GetGroup()
@@ -305,10 +271,10 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("TransmissionKeys map returned nil")
 	} else if key.GetOuterType() != format.E2E {
 		t.Errorf("Key type expected 'E2E', got %s",
-			cryptoTypePrint(key.GetOuterType()))
+			key.GetOuterType())
 	} else if action != keyStore.None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	key, action = keyStore.TransmissionReKeys.Pop(partner)
@@ -316,10 +282,10 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("TransmissionReKeys map returned nil")
 	} else if key.GetOuterType() != format.Rekey {
 		t.Errorf("Key type expected 'Rekey', got %s",
-			cryptoTypePrint(key.GetOuterType()))
+			key.GetOuterType())
 	} else if action != keyStore.None {
 		t.Errorf("Expected 'None' action, got %s instead",
-			actionPrint(action))
+			action)
 	}
 
 	// Generate one reception key of each type to test
@@ -338,7 +304,7 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("ReceptionKeys map returned nil for Key")
 	} else if key.GetOuterType() != format.E2E {
 		t.Errorf("Key type expected 'E2E', got %s",
-			cryptoTypePrint(key.GetOuterType()))
+			key.GetOuterType())
 	}
 
 	h.Reset()
@@ -350,7 +316,7 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("ReceptionKeys map returned nil for ReKey")
 	} else if key.GetOuterType() != format.Rekey {
 		t.Errorf("Key type expected 'Rekey', got %s",
-			cryptoTypePrint(key.GetOuterType()))
+			key.GetOuterType())
 	}
 }
 
@@ -401,18 +367,18 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 			t.Errorf("TransmissionKeys map returned nil")
 		} else if key.GetOuterType() != format.E2E {
 			t.Errorf("Key type expected 'E2E', got %s",
-				cryptoTypePrint(key.GetOuterType()))
+				key.GetOuterType())
 		}
 
 		if i < int(keyTTL-1) {
 			if action != keyStore.None {
 				t.Errorf("Expected 'None' action, got %s instead",
-					actionPrint(action))
+					action)
 			}
 		} else {
 			if action != keyStore.Rekey {
 				t.Errorf("Expected 'Rekey' action, got %s instead",
-					actionPrint(action))
+					action)
 			}
 		}
 
@@ -429,18 +395,18 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 			t.Errorf("TransmissionReKeys map returned nil")
 		} else if key.GetOuterType() != format.Rekey {
 			t.Errorf("Key type expected 'Rekey', got %s",
-				cryptoTypePrint(key.GetOuterType()))
+				key.GetOuterType())
 		}
 
 		if i < int(keyStore.NumReKeys-1) {
 			if action != keyStore.None {
 				t.Errorf("Expected 'None' action, got %s instead",
-					actionPrint(action))
+					action)
 			}
 		} else {
 			if action != keyStore.Purge {
 				t.Errorf("Expected 'Purge' action, got %s instead",
-					actionPrint(action))
+					action)
 			}
 		}
 
@@ -463,7 +429,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 			t.Errorf("ReceptionKeys map returned nil for Key")
 		} else if key.GetOuterType() != format.E2E {
 			t.Errorf("Key type expected 'E2E', got %s",
-				cryptoTypePrint(key.GetOuterType()))
+				key.GetOuterType())
 		}
 
 		if key.GetKey().Cmp(recvKeys[i]) != 0 {
@@ -482,7 +448,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 			t.Errorf("ReceptionKeys map returned nil for Rekey")
 		} else if key.GetOuterType() != format.Rekey {
 			t.Errorf("Key type expected 'Rekey', got %s",
-				cryptoTypePrint(key.GetOuterType()))
+				key.GetOuterType())
 		}
 
 		if key.GetKey().Cmp(recvReKeys[i]) != 0 {

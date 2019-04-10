@@ -11,15 +11,6 @@ import (
 	"sync/atomic"
 )
 
-type KeyAction uint8
-
-const (
-	None KeyAction = iota
-	Rekey
-	Purge
-	Deleted
-)
-
 // Hardcoded limits for keys
 // With 16 receiving states we can hold
 // 16*64=1024 dirty bits for receiving keys
@@ -30,8 +21,8 @@ const (
 // With 2 receiving states for ReKeys we can hold
 // 128 Rekeys
 const (
-	keyStates   uint16  = 16
-	reKeyStates uint16  = 2
+	numStates   uint16  = 16
+	numReStates uint16  = 2
 	MinKeys     uint16  = 500
 	MaxKeys     uint16  = 800
 	TTLScalar   float64 = 1.2 // generate 20% extra keys
@@ -41,7 +32,7 @@ const (
 
 // The KeyManager keeps track of all keys used in a single E2E
 // relationship between the user and a partner
-// It tracks usage of send Keys and ReKeys in an atomic state
+// It tracks usage of send Keys and ReKeys in an atomic sendState
 // It tracks usage of receiving Keys and ReKeys in lists of
 // atomic "dirty bit" states
 // It also owns the send Keys and ReKeys stacks of keys,
@@ -57,47 +48,49 @@ type KeyManager struct {
 	// Designates end-to-end partner
 	partner *id.User
 
-	// State and usage counter, formatted as follows:
+	// State of Sending Keys and Rekeys, formatted as follows:
 	//                      Bits
 	// |    63   | 62 - 56 |   55 - 40   | 39 - 32 |  31 - 0   |
 	// | deleted |  empty  | rekey count |  empty  | key count |
 	// |  1 bit  |  7 bits |   16 bits   |  8 bits |   32 bits |
-	state *uint64
+	sendState *uint64
 
 	// Value of the counter at which a rekey is triggered
 	ttl uint16
 
-	// Total number of keys
+	// Total number of Keys
 	numKeys uint32
-	// Total number of rekey keys
+	// Total number of Rekey keys
 	numReKeys uint16
 
 	// Received Keys dirty bits
-	recvKeysState [keyStates]*uint64
+	// Each bit represents a single Receiving Key
+	recvKeysState [numStates]*uint64
 	// Received ReKeys dirty bits
-	recvReKeysState [reKeyStates]*uint64
+	// Each bit represents a single Receiving ReKey
+	recvReKeysState [numReStates]*uint64
 
-	// SendKeys Stack
+	// Send Keys Stack
 	sendKeys *KeyStack
-	// SendReKeys Stack
+	// Send ReKeys Stack
 	sendReKeys *KeyStack
-	// Receive keys list
-	receiveKeysFP []format.Fingerprint
-	// Receive reKeys list
-	receiveReKeysFP []format.Fingerprint
+	// Receive Keys fingerprint list
+	recvKeysFingerprint []format.Fingerprint
+	// Receive ReKeys fingerprint list
+	recvReKeysFingerprint []format.Fingerprint
 }
 
 // Creates a new KeyManager to manage E2E Keys between user and partner
 // Receives the baseKey, partner userID, numKeys, ttl and numReKeys
 // All internal states are forced to 0 for safety purposes
-func NewKeyManager(baseKey *cyclic.Int, partner *id.User,
+func NewManager(baseKey *cyclic.Int, partner *id.User,
 	numKeys uint32, ttl uint16, numReKeys uint16) *KeyManager {
 
 	km := new(KeyManager)
 	km.baseKey = baseKey
 	km.partner = partner
-	km.state = new(uint64)
-	*km.state = 0
+	km.sendState = new(uint64)
+	*km.sendState = 0
 	km.ttl = ttl
 	km.numKeys = numKeys
 	km.numReKeys = numReKeys
@@ -112,52 +105,81 @@ func NewKeyManager(baseKey *cyclic.Int, partner *id.User,
 	return km
 }
 
-// Constants needed for access to send Keys state
+// Constants needed for access to sendState
+//                      Bits
+// |    63   | 62 - 56 |   55 - 40   | 39 - 32 |  31 - 0   |
+// | deleted |  empty  | rekey count |  empty  | key count |
+// |  1 bit  |  7 bits |   16 bits   |  8 bits |   32 bits |
 const (
+	// Delete is most significant bit
 	stateDeleteMask uint64 = 0x8000000000000000
+	// Key Counter is lowest 32 bits
 	stateKeyMask    uint64 = 0x00000000FFFFFFFF
+	// ReKey Counter is bits 55 to 40 (0 indexed)
 	stateReKeyMask  uint64 = 0x00FFFF0000000000
+	// ReKey Counter shift value is 40
 	stateReKeyShift uint64 = 40
+	// Delete Increment is 1 shifted by 63 bits
 	stateDeleteIncr uint64 = 1 << 63
+	// Key Counter increment is 1
 	stateKeyIncr    uint64 = 1
+	// ReKey Counter increment is 1 << 40
 	stateReKeyIncr  uint64 = 1 << stateReKeyShift
 )
 
-// Check if state Key Counter >= ttl
-// Return true if so, which should trigger a rekey
-func stateKeyCmp(state uint64, ttl uint16) bool {
+// Check if a Rekey should be triggered
+// Extract the Key counter from state and then
+// compare to passed val
+func checkRekey(state uint64, val uint16) bool {
 	keyCounter := uint32(state & stateKeyMask)
-	return keyCounter >= uint32(ttl)
+	return keyCounter >= uint32(val)
 }
 
-// Check if state ReKey Counter >= nKeys
-// Return true if so, which should trigger a purge
-func stateReKeyCmp(state uint64, nKeys uint16) bool {
+// Check if a Purge should be triggered
+// Extract the ReKey counter from state and then
+// compare to passed val
+func checkPurge(state uint64, val uint16) bool {
 	reKeyCounter := uint16((state & stateReKeyMask) >> stateReKeyShift)
-	return reKeyCounter >= nKeys
+	return reKeyCounter >= val
 }
 
 // UpdateState atomically updates internal state
 // of key manager for send Keys or ReKeys
-func (km *KeyManager) updateState(rekey bool) KeyAction {
+// Once the number of used keys reaches the TTL value
+// a Rekey Action is returned
+// Once the number of used ReKeys reaches the the NumReKeys
+// value, a Purge Action is returned, and the Key Manager
+// can be destroyed
+// When a Purge is returned, the state topmost bit is set,
+// indicating that the KeyManager is now Deleted
+// This means that if the caller doesn't destroy it
+// right away, any further send Keys obtained from the
+// global key map will have the action set to Deleted
+// which can be used to trigger an error
+func (km *KeyManager) updateState(rekey bool) Action {
 	var stateIncr uint64
+	// Choose the correct increment according to key type
 	if rekey {
 		stateIncr = stateReKeyIncr
 	} else {
 		stateIncr = stateKeyIncr
 	}
 
-	result := atomic.AddUint64(km.state, stateIncr)
+	// Atomically increment the state and save result
+	result := atomic.AddUint64(km.sendState, stateIncr)
 
+	// Check if KeyManager is in Deleted state
 	if result&stateDeleteMask != 0 {
 		return Deleted
 	}
 
-	if rekey && stateReKeyCmp(result, km.numReKeys) {
+	// Check if result should trigger a Purge
+	if rekey && checkPurge(result, km.numReKeys) {
 		// set delete bit
-		atomic.AddUint64(km.state, stateDeleteIncr)
+		atomic.AddUint64(km.sendState, stateDeleteIncr)
 		return Purge
-	} else if !rekey && stateKeyCmp(result, km.ttl) {
+	// Check if result should trigger a Rekey
+	} else if !rekey && checkRekey(result, km.ttl) {
 		return Rekey
 	}
 	return None
@@ -167,6 +189,13 @@ func (km *KeyManager) updateState(rekey bool) KeyAction {
 // receiving state of key manager
 // It sets the correct bit of state index based on keyNum
 // and rekey
+// The keyNum is used to select the correct state from the array
+// Since each state is an uint64, keyNum / 64 determines the index
+// and keyNum % 64 determines the bit that needs to be set
+// Rekey is used to select which state array to update:
+// recvReKeysState or recvKeysState
+// The state is atomically updated by adding a value of 1 shifted
+// to the determined bit
 func (km *KeyManager) updateRecvState(rekey bool, keyNum uint32) {
 	stateIdx := keyNum / 64
 	stateBit := uint64(1 << (keyNum % 64))
@@ -180,6 +209,13 @@ func (km *KeyManager) updateRecvState(rekey bool, keyNum uint32) {
 
 // Return true if bit specified by keyNum is set, meaning
 // that a particular key or reKey has been used
+// The keyNum is used to select the correct state from the array
+// Since each state is an uint64, keyNum / 64 determines the index
+// and keyNum % 64 determines the bit that needs to be read
+// Rekey is used to select which state array to update:
+// recvReKeysState or recvKeysState
+// The state is atomically loaded and then the bit mask is applied
+// to check if the value is 0 or different
 func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 	stateIdx := keyNum / 64
 	stateBit := uint64(1 << (keyNum % 64))
@@ -212,9 +248,9 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // unused keys based on KeyManager state, when reloading an user session
 func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 	// Calculate how many unused send keys are needed
-	usedSendKeys := uint32(*km.state & stateKeyMask)
+	usedSendKeys := uint32(*km.sendState & stateKeyMask)
 	numGenSendKeys := uint(km.numKeys - usedSendKeys)
-	usedSendReKeys := uint16((*km.state & stateReKeyMask) >> stateReKeyShift)
+	usedSendReKeys := uint16((*km.sendState & stateReKeyMask) >> stateReKeyShift)
 	numGenSendReKeys := uint(km.numReKeys - usedSendReKeys)
 
 	// Generate numGenSendKeys send keys
@@ -260,7 +296,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 	// Create Receive E2E Keys and add them to ReceptionKeys map
 	// while keeping a list of the fingerprints
 	// Skip keys that were already used as per recvStates
-	km.receiveKeysFP = make([]format.Fingerprint, 0)
+	km.recvKeysFingerprint = make([]format.Fingerprint, 0)
 	for i, key := range recvKeys {
 		if !km.checkRecvStateBit(false, uint32(i)) {
 			e2ekey := new(E2EKey)
@@ -269,14 +305,14 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 			e2ekey.outer = format.E2E
 			e2ekey.keyNum = uint32(i)
 			keyFP := e2ekey.KeyFingerprint()
-			km.receiveKeysFP = append(km.receiveKeysFP, keyFP)
+			km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
 			ReceptionKeys.Store(keyFP, e2ekey)
 		}
 	}
 
 	// Create Receive E2E Keys and add them to ReceptionKeys map
 	// while keeping a list of the fingerprints
-	km.receiveReKeysFP = make([]format.Fingerprint, 0)
+	km.recvReKeysFingerprint = make([]format.Fingerprint, 0)
 	for i, key := range recvReKeys {
 		if !km.checkRecvStateBit(true, uint32(i)) {
 			e2ekey := new(E2EKey)
@@ -285,7 +321,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 			e2ekey.outer = format.Rekey
 			e2ekey.keyNum = uint32(i)
 			keyFP := e2ekey.KeyFingerprint()
-			km.receiveReKeysFP = append(km.receiveReKeysFP, keyFP)
+			km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)
 			ReceptionKeys.Store(keyFP, e2ekey)
 		}
 	}
@@ -296,8 +332,8 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 // keys stacks
 func (km *KeyManager) Destroy() {
 	// Eliminate receiving keys
-	ReceptionKeys.DeleteList(km.receiveKeysFP)
-	ReceptionKeys.DeleteList(km.receiveReKeysFP)
+	ReceptionKeys.DeleteList(km.recvKeysFingerprint)
+	ReceptionKeys.DeleteList(km.recvReKeysFingerprint)
 
 	// Empty send keys and reKeys stacks
 	// and remove them from maps
@@ -330,22 +366,22 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 		make([]byte, 2),
 		make([]byte, 4),
 		make([]byte, 2),
-		make([]byte, 8*keyStates),
-		make([]byte, 8*reKeyStates),
+		make([]byte, 8*numStates),
+		make([]byte, 8*numReStates),
 		make([]byte, 0),
 	}
 
 	// Convert all internal uints to bytes
-	binary.BigEndian.PutUint64(s.State, *km.state)
+	binary.BigEndian.PutUint64(s.State, *km.sendState)
 	binary.BigEndian.PutUint16(s.TTL, km.ttl)
 	binary.BigEndian.PutUint32(s.NumKeys, km.numKeys)
 	binary.BigEndian.PutUint16(s.NumReKeys, km.numReKeys)
-	for i := 0; i < int(keyStates); i++ {
+	for i := 0; i < int(numStates); i++ {
 		binary.BigEndian.PutUint64(
 			s.RecvKeyState[i*8:(i+1)*8],
 			*km.recvKeysState[i])
 	}
-	for i := 0; i < int(reKeyStates); i++ {
+	for i := 0; i < int(numReStates); i++ {
 		binary.BigEndian.PutUint64(
 			s.RecvReKeyState[i*8:(i+1)*8],
 			*km.recvReKeysState[i])
@@ -398,8 +434,8 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		make([]byte, 2),
 		make([]byte, 4),
 		make([]byte, 2),
-		make([]byte, 8*keyStates),
-		make([]byte, 8*reKeyStates),
+		make([]byte, 8*numStates),
+		make([]byte, 8*numReStates),
 		[]byte{},
 	}
 
@@ -427,17 +463,17 @@ func (km *KeyManager) GobDecode(in []byte) error {
 	}
 
 	km.partner = new(id.User).SetBytes(s.Partner)
-	km.state = new(uint64)
-	*km.state = binary.BigEndian.Uint64(s.State)
+	km.sendState = new(uint64)
+	*km.sendState = binary.BigEndian.Uint64(s.State)
 	km.ttl = binary.BigEndian.Uint16(s.TTL)
 	km.numKeys = binary.BigEndian.Uint32(s.NumKeys)
 	km.numReKeys = binary.BigEndian.Uint16(s.NumReKeys)
-	for i := 0; i < int(keyStates); i++ {
+	for i := 0; i < int(numStates); i++ {
 		km.recvKeysState[i] = new(uint64)
 		*km.recvKeysState[i] = binary.BigEndian.Uint64(
 			s.RecvKeyState[i*8 : (i+1)*8])
 	}
-	for i := 0; i < int(reKeyStates); i++ {
+	for i := 0; i < int(numReStates); i++ {
 		km.recvReKeysState[i] = new(uint64)
 		*km.recvReKeysState[i] = binary.BigEndian.Uint64(
 			s.RecvReKeyState[i*8 : (i+1)*8])

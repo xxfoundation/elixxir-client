@@ -13,6 +13,7 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
@@ -43,6 +44,7 @@ type Session interface {
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
+	AddKeyManager(km *keyStore.KeyManager)
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
@@ -74,6 +76,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys,
 		PublicKey:    publicKey,
 		Grp:		  grp,
 		InterfaceMap: make(map[string]interface{}),
+		KeyManagers:  make([]*keyStore.KeyManager, 0),
 	})
 
 }
@@ -126,6 +129,11 @@ func LoadSession(UID *id.User) (Session, error) {
 		return nil, err
 	}
 
+	// Rebuild E2E Key Maps from Key Managers
+	for _, km := range session.KeyManagers {
+		km.GenerateKeys(session.Grp, UID)
+	}
+
 	TheSession = &session
 
 	return &session, nil
@@ -149,6 +157,9 @@ type SessionObj struct {
 
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
+
+	// E2E Key Managers list
+	KeyManagers []*keyStore.KeyManager
 
 	lock sync.Mutex
 }
@@ -309,6 +320,10 @@ func (s *SessionObj) DeleteMap(key string) error {
 	err := s.storeSession()
 	s.UnlockStorage()
 	return err
+}
+
+func (s *SessionObj) AddKeyManager(km *keyStore.KeyManager) {
+	s.KeyManagers = append(s.KeyManagers, km)
 }
 
 func (s *SessionObj) GetSessionData() ([]byte, error) {

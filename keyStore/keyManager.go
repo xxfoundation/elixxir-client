@@ -30,11 +30,11 @@ const (
 // This leaves space for 1024-960 = 64 rekeys
 const (
 	maxStates uint16  = 16
-	minKeys   uint16  = 500
-	maxKeys   uint16  = 800
-	ttlScalar float64 = 1.1 // generate 10% extra keys
-	threshold uint16  = 160
-	numReKeys uint16  = 64
+	MinKeys   uint16  = 500
+	MaxKeys   uint16  = 800
+	TTLScalar float64 = 1.1 // generate 10% extra keys
+	Threshold uint16  = 160
+	NumReKeys uint16  = 64
 )
 
 // The keylifecycle is part of a larger system which keeps track of e2e keys.  Within e2e a negotiation occurs which

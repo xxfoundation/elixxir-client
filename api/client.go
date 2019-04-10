@@ -14,8 +14,12 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
@@ -289,6 +293,33 @@ func RegisterForUserDiscovery(emailAddress string) error {
 func SearchForUser(emailAddress string) (*id.User, []byte, error) {
 	valueType := "EMAIL"
 	return bots.Search(valueType, emailAddress)
+}
+
+func registerUserE2E(partnerID *id.User, pubKey *signature.DSAPublicKey) {
+	// Get needed variables from session
+	grp := user.TheSession.GetGroup()
+	userID := user.TheSession.GetCurrentUser().User
+	privKey := user.TheSession.GetPrivateKey()
+
+	// Generate baseKey
+	pubKeyVal := grp.NewIntFromLargeInt(pubKey.GetKey())
+	baseKey, _ := diffieHellman.CreateDHSessionKey(pubKeyVal, privKey, grp)
+
+	// Generate key TTL and number of keys
+	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
+		keyStore.MinKeys, keyStore.MaxKeys,
+		e2e.TTLParams{keyStore.TTLScalar,
+			keyStore.Threshold})
+
+	// Create KeyManager
+	km := keyStore.NewKeyManager(baseKey, partnerID,
+		numKeys, keysTTL, keyStore.NumReKeys)
+
+	// Generate Keys
+	km.GenerateKeys(grp, userID)
+
+	// Add Key Manager to session
+	user.TheSession.AddKeyManager(km)
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage

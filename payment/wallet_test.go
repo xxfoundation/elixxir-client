@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/coin"
@@ -378,6 +379,10 @@ func (ms *MockSession) QueryMap(key string) (interface{}, error) {
 func (ms *MockSession) DeleteMap(key string) error {
 	*ms = true
 	return nil
+}
+
+func (ms *MockSession) AddKeyManager(km *keyStore.KeyManager) {
+	*ms = true
 }
 
 func (ms *MockSession) LockStorage() {

@@ -1,10 +1,6 @@
 package keyStore
 
 import (
-	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
@@ -87,26 +83,4 @@ func (m *inKeyMap) DeleteList(fingerprints []format.Fingerprint) {
 	for _, fp := range fingerprints {
 		(*sync.Map)(m).Delete(fp)
 	}
-}
-
-func RegisterPartner(partnerID *id.User, pubKey *signature.DSAPublicKey) {
-	// Get needed variables from session
-	grp := user.TheSession.GetGroup()
-	userID := user.TheSession.GetCurrentUser().User
-	privKey := user.TheSession.GetPrivateKey()
-
-	// Generate baseKey
-	pubKeyVal := grp.NewIntFromLargeInt(pubKey.GetKey())
-	baseKey, _ := diffieHellman.CreateDHSessionKey(pubKeyVal, privKey, grp)
-
-	// Generate key TTL and number of keys
-	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
-		minKeys, maxKeys,
-		e2e.TTLParams{ttlScalar, threshold})
-
-	// Create KeyManager
-	keyMan := NewKeyManager(baseKey, partnerID, numKeys, keysTTL, numReKeys)
-
-	// Generate Keys
-	keyMan.GenerateKeys(grp, userID)
 }

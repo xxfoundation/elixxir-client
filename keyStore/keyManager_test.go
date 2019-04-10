@@ -89,14 +89,14 @@ func TestKeyManager_Rekey(t *testing.T) {
 
 	var action KeyAction
 	for i := 0; i < 9; i++ {
-		action = km.UpdateState(false)
+		action = km.updateState(false)
 		if action != None {
 			t.Errorf("Expected 'None' action, got %s instead",
 				actionPrint(action))
 		}
 	}
 
-	action = km.UpdateState(false)
+	action = km.updateState(false)
 	if action != Rekey {
 		t.Errorf("Expected 'Rekey' action, got %s instead",
 			actionPrint(action))
@@ -115,21 +115,21 @@ func TestKeyManager_Purge(t *testing.T) {
 
 	var action KeyAction
 	for i := 0; i < 9; i++ {
-		action = km.UpdateState(true)
+		action = km.updateState(true)
 		if action != None {
 			t.Errorf("Expected 'None' action, got %s instead",
 				actionPrint(action))
 		}
 	}
 
-	action = km.UpdateState(true)
+	action = km.updateState(true)
 	if action != Purge {
 		t.Errorf("Expected 'Purge' action, got %s instead",
 			actionPrint(action))
 	}
 
 	// Confirm that state is now deleted
-	action = km.UpdateState(false)
+	action = km.updateState(false)
 	if action != Deleted {
 		t.Errorf("Expected 'Deleted' action, got %s instead",
 			actionPrint(action))
@@ -148,13 +148,24 @@ func TestKeyManager_UpdateRecvState(t *testing.T) {
 
 	expectedVal := uint64(0x0010000001000008)
 	// Mark some keys as used and confirm expected value
-	km.UpdateRecvState(3)
-	km.UpdateRecvState(24)
-	km.UpdateRecvState(52)
+	km.updateRecvState(false, 3)
+	km.updateRecvState(false, 24)
+	km.updateRecvState(false, 52)
 
-	if *km.recvState[0] != expectedVal {
-		t.Errorf("UpdateRecvState failed, expected"+
-			" %d, got %d", expectedVal, *km.recvState[0])
+	if *km.recvKeysState[0] != expectedVal {
+		t.Errorf("UpdateRecvState failed for Key, expected"+
+			" %d, got %d", expectedVal, *km.recvKeysState[0])
+	}
+
+	expectedVal = uint64(0x0000080000040020)
+	// Mark some Rekeys as used and confirm expected value
+	km.updateRecvState(true, 5)
+	km.updateRecvState(true, 18)
+	km.updateRecvState(true, 43)
+
+	if *km.recvReKeysState[0] != expectedVal {
+		t.Errorf("UpdateRecvState failed for ReKey, expected"+
+			" %d, got %d", expectedVal, *km.recvReKeysState[0])
 	}
 }
 
@@ -282,6 +293,7 @@ func TestKeyManager_Destroy(t *testing.T) {
 }
 
 // Test GOB Encode/Decode of KeyManager
+// and do a simple comparison after
 func TestKeyManager_GobSimple(t *testing.T) {
 	grp := initGroup()
 	baseKey := grp.NewInt(57)
@@ -350,13 +362,23 @@ func TestKeyManager_GobSimple(t *testing.T) {
 			outKm.numReKeys)
 	}
 
-	for i := 0; i < int(maxStates); i++ {
-		if *km.recvState[i] != *outKm.recvState[i] {
-			t.Errorf("GobEncoder/GobDecoder failed on RecvState[%d], "+
+	for i := 0; i < int(keyStates); i++ {
+		if *km.recvKeysState[i] != *outKm.recvKeysState[i] {
+			t.Errorf("GobEncoder/GobDecoder failed on RecvKeysState[%d], "+
 				"Expected: %v; Recieved: %v ",
 				i,
-				*km.recvState[i],
-				*outKm.recvState[i])
+				*km.recvKeysState[i],
+				*outKm.recvKeysState[i])
+		}
+	}
+
+	for i := 0; i < int(reKeyStates); i++ {
+		if *km.recvReKeysState[i] != *outKm.recvReKeysState[i] {
+			t.Errorf("GobEncoder/GobDecoder failed on RecvReKeysState[%d], "+
+				"Expected: %v; Recieved: %v ",
+				i,
+				*km.recvReKeysState[i],
+				*outKm.recvReKeysState[i])
 		}
 	}
 }
@@ -395,19 +417,19 @@ func TestKeyManager_Gob(t *testing.T) {
 	var expectedKeyMap = make(map[string]bool)
 
 	for _, key := range sendKeys {
-		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())]=true
+		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())] = true
 	}
 
 	for _, key := range sendReKeys {
-		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())]=true
+		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())] = true
 	}
 
 	for _, key := range recvKeys {
-		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())]=true
+		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())] = true
 	}
 
 	for _, key := range recvReKeys {
-		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())]=true
+		expectedKeyMap[base64.StdEncoding.EncodeToString(key.Bytes())] = true
 	}
 
 	// Use some send keys and mark on expected map as used
@@ -501,22 +523,22 @@ func TestKeyManager_Gob(t *testing.T) {
 	// Confirm maps are the same as before delete
 
 	// First, check that len of send Stacks matches expected
-	if outKm.sendKeys.keys.Len() != int(outKm.numKeys) - usedSendKeys {
-		t.Errorf("SendKeys Stack contains more keys than expected after decode." +
+	if outKm.sendKeys.keys.Len() != int(outKm.numKeys)-usedSendKeys {
+		t.Errorf("SendKeys Stack contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
-			int(outKm.numKeys) - usedSendKeys,
+			int(outKm.numKeys)-usedSendKeys,
 			outKm.sendKeys.keys.Len())
 	}
 
-	if outKm.sendReKeys.keys.Len() != int(outKm.numReKeys) - usedSendReKeys {
-		t.Errorf("SendReKeys Stack contains more keys than expected after decode." +
+	if outKm.sendReKeys.keys.Len() != int(outKm.numReKeys)-usedSendReKeys {
+		t.Errorf("SendReKeys Stack contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
-			int(outKm.numReKeys) - usedSendReKeys,
+			int(outKm.numReKeys)-usedSendReKeys,
 			outKm.sendReKeys.keys.Len())
 	}
 
 	// Now confirm that all send keys are in the expected map
-	for i := 0; i < int(outKm.numKeys) - usedSendKeys; i++ {
+	for i := 0; i < int(outKm.numKeys)-usedSendKeys; i++ {
 		key, _ := TransmissionKeys.Pop(partner)
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("SendKey %v was used or didn't exist before",
@@ -524,7 +546,7 @@ func TestKeyManager_Gob(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < int(outKm.numReKeys) - usedSendReKeys; i++ {
+	for i := 0; i < int(outKm.numReKeys)-usedSendReKeys; i++ {
 		key, _ := TransmissionReKeys.Pop(partner)
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("SendReKey %v was used or didn't exist before",
@@ -533,22 +555,22 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Check that len of fingerprint lists matches expected
-	if len(outKm.receiveKeysFP) != int(outKm.numKeys) - usedRecvKeys {
-		t.Errorf("ReceiveKeys list contains more keys than expected after decode." +
+	if len(outKm.receiveKeysFP) != int(outKm.numKeys)-usedRecvKeys {
+		t.Errorf("ReceiveKeys list contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
-			int(outKm.numKeys) - usedRecvKeys,
+			int(outKm.numKeys)-usedRecvKeys,
 			len(outKm.receiveKeysFP))
 	}
 
-	if len(outKm.receiveReKeysFP) != int(outKm.numReKeys) - usedRecvReKeys {
-		t.Errorf("ReceiveReKeys list contains more keys than expected after decode." +
+	if len(outKm.receiveReKeysFP) != int(outKm.numReKeys)-usedRecvReKeys {
+		t.Errorf("ReceiveReKeys list contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
-			int(outKm.numReKeys) - usedRecvReKeys,
+			int(outKm.numReKeys)-usedRecvReKeys,
 			len(outKm.receiveReKeysFP))
 	}
 
 	// Now confirm that all receiving keys are in the expected map
-	for i := 0; i < int(outKm.numKeys) - usedRecvKeys; i++ {
+	for i := 0; i < int(outKm.numKeys)-usedRecvKeys; i++ {
 		key := ReceptionKeys.Pop(outKm.receiveKeysFP[i])
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("ReceiveKey %v was used or didn't exist before",
@@ -556,7 +578,7 @@ func TestKeyManager_Gob(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < int(outKm.numReKeys) - usedRecvReKeys; i++ {
+	for i := 0; i < int(outKm.numReKeys)-usedRecvReKeys; i++ {
 		key := ReceptionKeys.Pop(outKm.receiveReKeysFP[i])
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("ReceiveReKey %v was used or didn't exist before",

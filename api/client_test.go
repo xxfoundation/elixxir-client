@@ -274,8 +274,8 @@ func actionPrint(act keyStore.KeyAction) string {
 	return ret
 }
 
-// Test RegisterPartner correctly creates keys and adds them to maps
-func TestRegisterPartner(t *testing.T) {
+// Test that registerUserE2E correctly creates keys and adds them to maps
+func TestRegisterUserE2E(t *testing.T) {
 	grp := Session.GetGroup()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
@@ -355,8 +355,8 @@ func TestRegisterPartner(t *testing.T) {
 	}
 }
 
-// Test all keys created with RegisterPartner match what is expected
-func TestRegisterPartner_CheckAllKeys(t *testing.T) {
+// Test all keys created with registerUserE2E match what is expected
+func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	grp := Session.GetGroup()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)

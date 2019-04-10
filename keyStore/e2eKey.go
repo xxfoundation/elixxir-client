@@ -16,26 +16,30 @@ type E2EKey struct {
 	// Designation of crypto type
 	outer format.CryptoType
 
-	// KeyID needed by KeyManager
-	keyID uint32
+	// keyNum is needed by Key Manager
+	// to keep track of which receiving keys
+	// have been used
+	keyNum uint32
 }
 
+// Get key manager
 func (e2ekey *E2EKey) GetManager() *KeyManager {
 	return e2ekey.manager
 }
 
+// Get key value (cyclic.Int)
 func (e2ekey *E2EKey) GetKey() *cyclic.Int {
 	return e2ekey.key
 }
 
+// Get key type, E2E or Rekey
 func (e2ekey *E2EKey) GetOuterType() format.CryptoType {
 	return e2ekey.outer
 }
 
-func (e2ekey *E2EKey) GetKeyID() uint32 {
-	return e2ekey.keyID
-}
-
+// Generate key fingerprint
+// NOTE: This function is not a getter,
+// it returns a new byte array on each call
 func (e2ekey *E2EKey) KeyFingerprint() format.Fingerprint {
 	h, _ := hash.NewCMixHash()
 	h.Write(e2ekey.key.Bytes())

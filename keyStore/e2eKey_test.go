@@ -17,7 +17,7 @@ func TestE2EKey_KeyFingerprint(t *testing.T) {
 			"9acc559017a00b2b9ee12498e73ef2b5")
 
 	if !bytes.Equal(keyFP[:], expectedFP) {
-		t.Errorf("Key Fingerprint value is wrong. Expected %x" +
+		t.Errorf("Key Fingerprint value is wrong. Expected %x"+
 			", got %x", expectedFP, keyFP[:])
 	}
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// Helper function to compare E2E Keys
 func E2EKeyCmp(a, b *E2EKey) bool {
 	if a.GetManager() != b.GetManager() {
 		return false

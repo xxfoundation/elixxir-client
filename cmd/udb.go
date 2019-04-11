@@ -9,13 +9,12 @@ package cmd
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/bindings"
-	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/client/api"
 	"strings"
 )
 
 // Determines what UDB send function to call based on the text in the message
-func parseUdbMessage(msg string, grp *cyclic.Group) string {
+func parseUdbMessage(msg string, client *api.Client) string {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
@@ -27,16 +26,15 @@ func parseUdbMessage(msg string, grp *cyclic.Group) string {
 	keyword := args[0]
 	// Case-insensitive match the keyword to a command
 	if strings.EqualFold(keyword, "SEARCH") {
-		result, err := bindings.SearchForUser(args[2])
+		userID, pubKey, err := client.SearchForUser(args[2])
 		if err != nil {
 			return fmt.Sprintf("UDB search failed: %v", err.Error())
 		} else {
-			userIdText := grp.NewIntFromBytes(result.ResultID).Text(10)
 			return fmt.Sprintf("UDB search successful. Returned user %v, "+
-				"public key %q", userIdText, result.PublicKey)
+				"public key %q", *userID, pubKey)
 		}
 	} else if strings.EqualFold(keyword, "REGISTER") {
-		err := bindings.RegisterForUserDiscovery(args[2])
+		err := client.RegisterForUserDiscovery(args[2])
 		if err != nil {
 			return fmt.Sprintf("UDB registration failed: %v", err.Error())
 		} else {

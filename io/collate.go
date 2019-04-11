@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/format"
 	"sync"
 	"time"
@@ -75,7 +74,7 @@ func (mb *collator) AddMessage(message *format.Message,
 				TypedBody: *typedBody,
 				CryptoType: format.Unencrypted,
 				Sender:    sender,
-				Receiver:  user.TheSession.GetCurrentUser().User,
+				Receiver:  recipient,
 			}
 
 			return &msg

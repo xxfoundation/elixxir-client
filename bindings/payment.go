@@ -9,18 +9,17 @@ package bindings
 import (
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/payment"
-	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 )
 
 // Currently there's only one wallet that you can get
 // There may be many in the future
-func GetActiveWallet() *Wallet {
-	return &Wallet{wallet: api.Wallet()}
+func (cl *Client) GetActiveWallet() *Wallet {
+	return &Wallet{wallet: cl.client.Wallet()}
 }
 
 func (w *Wallet) Listen(userId []byte, outerType format.CryptoType,
@@ -29,17 +28,17 @@ func (w *Wallet) Listen(userId []byte, outerType format.CryptoType,
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return api.Listen(typedUserId, outerType, innerType,
-		listener, w.wallet.GetSwitchboard())
+	return w.wallet.GetSwitchboard().
+		Register(typedUserId, outerType, innerType, listener)
 }
 
 func (w *Wallet) StopListening(listenerHandle string) {
-	api.StopListening(listenerHandle, w.wallet.GetSwitchboard())
+	w.wallet.GetSwitchboard().Unregister(listenerHandle)
 }
 
 // Returns the currently available balance in the wallet
 func (w *Wallet) GetAvailableFunds() int64 {
-	return int64(api.Wallet().GetAvailableFunds())
+	return int64(w.wallet.GetAvailableFunds())
 }
 
 // Payer: user ID, 256 bits

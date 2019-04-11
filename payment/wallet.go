@@ -44,6 +44,7 @@ type Wallet struct {
 	completedOutboundPayments *TransactionList
 
 	session user.Session
+	comm io.Communications
 
 	// Listen to this switchboard to get UI messages from the wallet.
 	// This includes the types PAYMENT_INVOICE_UI, PAYMENT_RESPONSE, and
@@ -81,7 +82,9 @@ func (w *Wallet) GetSwitchboard() *switchboard.Switchboard {
 // If you want the wallet to be able to receive messages you must register its
 // listeners
 // api.Login does this, while api.Register (during minting) does not
-func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
+func CreateWallet(s user.Session,
+	comm io.Communications,
+	doMint bool) (*Wallet, error) {
 
 	cs, err := CreateOrderedStorage(CoinStorageTag, s)
 
@@ -136,6 +139,7 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 		completedInboundPayments:  ip,
 		completedOutboundPayments: op,
 		session:                   s,
+		comm:                      comm,
 		switchboard:               sb,
 	}
 
@@ -145,18 +149,19 @@ func CreateWallet(s user.Session, doMint bool) (*Wallet, error) {
 // You need to call this method after creating the wallet to have the wallet
 // behave correctly when receiving messages
 // TODO: Should this take the listeners as parameters?
-func (w *Wallet) RegisterListeners() {
-	switchboard.Listeners.Register(id.ZeroID,
+func (w *Wallet) RegisterListeners(
+	listeners *switchboard.Switchboard) {
+	listeners.Register(id.ZeroID,
 		format.None, int32(cmixproto.Type_PAYMENT_INVOICE),
 		&InvoiceListener{
 			wallet: w,
 		})
-	switchboard.Listeners.Register(getPaymentBotID(),
+	listeners.Register(getPaymentBotID(),
 		format.None, int32(cmixproto.Type_PAYMENT_RESPONSE),
 		&ResponseListener{
 			wallet: w,
 		})
-	switchboard.Listeners.Register(id.ZeroID,
+	listeners.Register(id.ZeroID,
 		format.None, int32(cmixproto.Type_PAYMENT_RECEIPT),
 		&ReceiptListener{
 			wallet: w,
@@ -428,7 +433,8 @@ func (l *ResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 		receipt := l.formatReceipt(transaction)
 		globals.Log.DEBUG.Printf("Attempting to send receipt to transaction"+
 			" recipient: %v!", transaction.Recipient)
-		err := io.Messaging.SendMessage(transaction.Recipient,
+		err := l.wallet.comm.SendMessage(l.wallet.session,
+			transaction.Recipient,
 			receipt.Pack())
 		if err != nil {
 			globals.Log.ERROR.Printf("Payment response listener couldn't send"+

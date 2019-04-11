@@ -8,14 +8,17 @@
 package io
 
 import (
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"time"
 )
 
 // Communication interface implements send/receive functionality with the server
 type Communications interface {
 	// SendMessage to the server
-	SendMessage(recipientID *id.User, message []byte) error
+	SendMessage(session user.Session, recipientID *id.User, message []byte) error
 	// MessageReceiver thread to get new messages
-	MessageReceiver(delay time.Duration, quit chan bool)
+	MessageReceiver(session user.Session, sw *switchboard.Switchboard,
+		delay time.Duration, quit chan bool)
 }

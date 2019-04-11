@@ -94,7 +94,7 @@ func TestCreateWallet(t *testing.T) {
 	s := user.NewSession(&user.User{User: id.NewUserFromUint(1, t),
 		Nick: "test"}, "", []user.NodeKeys{}, grp.NewInt(1), grp)
 
-	_, err := CreateWallet(s, false)
+	_, err := CreateWallet(s, io.NewMessenger(), false)
 
 	if err != nil {
 		t.Errorf("CreateWallet: error returned on valid wallet creation: %s", err.Error())

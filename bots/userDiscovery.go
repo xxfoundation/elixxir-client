@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/id"
@@ -21,10 +22,13 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 )
 
-// UdbID is the ID of the user discovery bot, which is always 13
+// UdbID is the ID of the user discovery bot, which is always 3
 var UdbID *id.User
 
 type udbResponseListener chan string
+
+var session user.Session
+var messaging io.Communications
 
 var pushKeyResponseListener udbResponseListener
 var getKeyResponseListener udbResponseListener
@@ -36,8 +40,8 @@ func (l *udbResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) 
 	*l <- string(m.Body)
 }
 
-// The go runtime calls init() before calling any methods in the package
-func init() {
+// InitUDB is called internally by the InitClient API
+func InitUDB(s user.Session,m io.Communications, l *switchboard.Switchboard) {
 	UdbID = new(id.User).SetUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(udbResponseListener)
@@ -45,16 +49,19 @@ func init() {
 	registerResponseListener = make(udbResponseListener)
 	searchResponseListener = make(udbResponseListener)
 
-	switchboard.Listeners.Register(UdbID,
+	session = s
+	messaging = m
+
+	l.Register(UdbID,
 		format.None, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
 		&pushKeyResponseListener)
-	switchboard.Listeners.Register(UdbID,
+	l.Register(UdbID,
 		format.None, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
 		&getKeyResponseListener)
-	switchboard.Listeners.Register(UdbID,
+	l.Register(UdbID,
 		format.None, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
 		&registerResponseListener)
-	switchboard.Listeners.Register(UdbID,
+	l.Register(UdbID,
 		format.None, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
 		&searchResponseListener)
 }
@@ -224,5 +231,5 @@ func fingerprint(publicKey []byte) string {
 // Callers that need to wait on a response should implement waiting with a
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
-	return io.Messaging.SendMessage(botID, command)
+	return messaging.SendMessage(session, botID, command)
 }

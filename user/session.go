@@ -24,10 +24,6 @@ import (
 // Errors
 var ErrQuery = errors.New("element not in map")
 
-// Globally instantiated Session
-// FIXME remove this sick filth
-var TheSession Session
-
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
@@ -131,8 +127,6 @@ func LoadSession(UID *id.User) (Session, error) {
 	for _, km := range session.KeyManagers {
 		km.GenerateKeys(session.Grp, UID)
 	}
-
-	TheSession = &session
 
 	return &session, nil
 }
@@ -282,8 +276,6 @@ func (s *SessionObj) Immolate() error {
 		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
 		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
 	}
-
-	TheSession = nil
 
 	s.UnlockStorage()
 

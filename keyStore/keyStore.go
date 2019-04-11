@@ -12,15 +12,17 @@ type outKeyMap sync.Map
 type inKeyMap sync.Map
 
 // KeyStore contains the E2E key maps
-// Transmission Keys map
-// Maps id.User to *KeyStack
-// Transmission ReKeys map
-// Maps id.User to *KeyStack
-// Receiption Keys map
-// Maps format.Fingerprint to *E2EKey
 type KeyStore struct {
+	// Transmission Keys map
+	// Maps id.User to *KeyStack
 	TransmissionKeys *outKeyMap
+
+	// Transmission ReKeys map
+	// Maps id.User to *KeyStack
 	TransmissionReKeys *outKeyMap
+
+	// Reception Keys map
+	// Maps format.Fingerprint to *E2EKey
 	ReceptionKeys *inKeyMap
 }
 

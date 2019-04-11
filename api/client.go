@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/payment"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -33,8 +32,6 @@ type Client struct {
 	storage globals.Storage
 	sess user.Session
 	comm io.Communications
-	// TODO Support more than one wallet per user? Maybe in v2
-	wallet *payment.Wallet
 }
 
 // Populates a text message and returns its wire representation
@@ -125,11 +122,6 @@ func (cl *Client) Register(registrationCode string, gwAddr string,
 	nus := user.NewSession(cl.storage, u, gwAddr, nk,
 		grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 
-	_, err = payment.CreateWallet(nus, io.NewMessenger(), mint)
-	if err != nil {
-		return id.ZeroID, err
-	}
-
 	errStore := nus.StoreSession()
 
 	// FIXME If we have an error here, the session that gets created doesn't get immolated.
@@ -160,14 +152,6 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 		return "", errors.New("Unable to load session: " + err.Error() +
 			fmt.Sprintf("Passed parameters: %q, %s, %q", *UID, addr, tlsCert))
 	}
-
-	cl.wallet, err = payment.CreateWallet(session, cl.comm,false)
-	if err != nil {
-		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
-		globals.Log.ERROR.Printf(err.Error())
-		return "", err
-	}
-	cl.wallet.RegisterListeners(session.GetSwitchboard())
 
 	if addr != "" {
 		session.SetGWAddress(addr)
@@ -236,16 +220,6 @@ func (cl *Client) StopListening(listenerHandle string) {
 
 func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
 	return cl.sess.GetSwitchboard()
-}
-
-type APISender struct{}
-
-func (s APISender) Send(messageInterface parse.MessageInterface) {
-	//Send(messageInterface)
-}
-
-type Sender interface {
-	Send(messageInterface parse.MessageInterface)
 }
 
 // Logout closes the connection to the server at this time and does
@@ -380,22 +354,6 @@ func ParseMessage(message []byte)(ParsedMessage,error){
 	pm.Typed = int32(tb.MessageType)
 
 	return pm, nil
-}
-
-func (cl *Client) Wallet() *payment.Wallet {
-	if cl.wallet == nil {
-		// Assume that the correct wallet is already stored in the session
-		// (if necessary, minted during register)
-		// So, if the wallet is nil, registration must have happened for this method to work
-		var err error
-		cl.wallet, err = payment.CreateWallet(cl.sess, cl.comm, false)
-		cl.wallet.RegisterListeners(cl.sess.GetSwitchboard())
-		if err != nil {
-			globals.Log.ERROR.Println("Wallet("+
-				"): Got an error creating the wallet.", err.Error())
-		}
-	}
-	return cl.wallet
 }
 
 func (cl *Client) GetSessionData() ([]byte, error) {

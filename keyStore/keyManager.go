@@ -246,7 +246,8 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // This way, this function can be used to generate all keys when a new
 // E2E relationship is established, and also to generate all previously
 // unused keys based on KeyManager state, when reloading an user session
-func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
+func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
+	ks *KeyStore) {
 	// Calculate how many unused send keys are needed
 	usedSendKeys := uint32(*km.sendState & stateKeyMask)
 	numGenSendKeys := uint(km.numKeys - usedSendKeys)
@@ -268,7 +269,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 	// Create Send Keys Stack on keyManager and
 	// set on TransmissionKeys map
 	km.sendKeys = NewKeyStack()
-	TransmissionKeys.Store(km.partner, km.sendKeys)
+	ks.TransmissionKeys.Store(km.partner, km.sendKeys)
 
 	// Create send E2E Keys and add to stack
 	for _, key := range sendKeys {
@@ -282,7 +283,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 	// Create Send ReKeys Stack on keyManager and
 	// set on TransmissionReKeys map
 	km.sendReKeys = NewKeyStack()
-	TransmissionReKeys.Store(km.partner, km.sendReKeys)
+	ks.TransmissionReKeys.Store(km.partner, km.sendReKeys)
 
 	// Create send E2E ReKeys and add to stack
 	for _, key := range sendReKeys {
@@ -306,7 +307,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 			e2ekey.keyNum = uint32(i)
 			keyFP := e2ekey.KeyFingerprint()
 			km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
-			ReceptionKeys.Store(keyFP, e2ekey)
+			ks.ReceptionKeys.Store(keyFP, e2ekey)
 		}
 	}
 
@@ -322,7 +323,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 			e2ekey.keyNum = uint32(i)
 			keyFP := e2ekey.KeyFingerprint()
 			km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)
-			ReceptionKeys.Store(keyFP, e2ekey)
+			ks.ReceptionKeys.Store(keyFP, e2ekey)
 		}
 	}
 }
@@ -330,15 +331,15 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) {
 // Destroy will remove all keys managed by the KeyManager
 // from the key maps, and then it will delete the sending
 // keys stacks
-func (km *KeyManager) Destroy() {
+func (km *KeyManager) Destroy(ks *KeyStore) {
 	// Eliminate receiving keys
-	ReceptionKeys.DeleteList(km.recvKeysFingerprint)
-	ReceptionKeys.DeleteList(km.recvReKeysFingerprint)
+	ks.ReceptionKeys.DeleteList(km.recvKeysFingerprint)
+	ks.ReceptionKeys.DeleteList(km.recvReKeysFingerprint)
 
 	// Empty send keys and reKeys stacks
 	// and remove them from maps
-	TransmissionKeys.Delete(km.partner)
-	TransmissionReKeys.Delete(km.partner)
+	ks.TransmissionKeys.Delete(km.partner)
+	ks.TransmissionReKeys.Delete(km.partner)
 	km.sendKeys.Delete()
 	km.sendReKeys.Delete()
 

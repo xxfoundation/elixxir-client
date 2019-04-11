@@ -11,17 +11,26 @@ import (
 type outKeyMap sync.Map
 type inKeyMap sync.Map
 
+// KeyStore contains the E2E key maps
 // Transmission Keys map
 // Maps id.User to *KeyStack
-var TransmissionKeys = new(outKeyMap)
-
 // Transmission ReKeys map
 // Maps id.User to *KeyStack
-var TransmissionReKeys = new(outKeyMap)
-
 // Receiption Keys map
 // Maps format.Fingerprint to *E2EKey
-var ReceptionKeys = new(inKeyMap)
+type KeyStore struct {
+	TransmissionKeys *outKeyMap
+	TransmissionReKeys *outKeyMap
+	ReceptionKeys *inKeyMap
+}
+
+func NewStore() *KeyStore {
+	ks := new(KeyStore)
+	ks.TransmissionKeys = new(outKeyMap)
+	ks.TransmissionReKeys = new(outKeyMap)
+	ks.ReceptionKeys = new(inKeyMap)
+	return ks
+}
 
 // Stores a KeyStack entry for given user
 func (m *outKeyMap) Store(user *id.User, keys *KeyStack) {

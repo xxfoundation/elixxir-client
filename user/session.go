@@ -41,6 +41,7 @@ type Session interface {
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
 	AddKeyManager(km *keyStore.KeyManager)
+	GetKeyStore() *keyStore.KeyStore
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
@@ -71,6 +72,7 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.In
 		Grp:		  grp,
 		InterfaceMap: make(map[string]interface{}),
 		KeyManagers:  make([]*keyStore.KeyManager, 0),
+		keyMaps:      keyStore.NewStore(),
 	})
 
 }
@@ -123,9 +125,11 @@ func LoadSession(UID *id.User) (Session, error) {
 		return nil, err
 	}
 
+	// Create keyStore
+	session.keyMaps = keyStore.NewStore()
 	// Rebuild E2E Key Maps from Key Managers
 	for _, km := range session.KeyManagers {
-		km.GenerateKeys(session.Grp, UID)
+		km.GenerateKeys(session.Grp, UID, session.keyMaps)
 	}
 
 	return &session, nil
@@ -152,6 +156,8 @@ type SessionObj struct {
 
 	// E2E Key Managers list
 	KeyManagers []*keyStore.KeyManager
+	// E2E KeyStore (not GOB encoded/decoded)
+	keyMaps *keyStore.KeyStore
 
 	lock sync.Mutex
 }
@@ -320,6 +326,10 @@ func (s *SessionObj) GetSessionData() ([]byte, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.getSessionData()
+}
+
+func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
+	return s.keyMaps
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {

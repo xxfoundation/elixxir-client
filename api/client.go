@@ -334,7 +334,7 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		numKeys, keysTTL, keyStore.NumReKeys)
 
 	// Generate Keys
-	km.GenerateKeys(grp, userID)
+	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
 
 	// Add Key Manager to session
 	cl.sess.AddKeyManager(km)

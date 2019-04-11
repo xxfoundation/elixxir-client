@@ -269,7 +269,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
 
 	// Confirm we can get all types of keys
-	key, action := keyStore.TransmissionKeys.Pop(partner)
+	key, action := session.GetKeyStore().TransmissionKeys.Pop(partner)
 	if key == nil {
 		t.Errorf("TransmissionKeys map returned nil")
 	} else if key.GetOuterType() != format.E2E {
@@ -280,7 +280,7 @@ func TestRegisterUserE2E(t *testing.T) {
 			action)
 	}
 
-	key, action = keyStore.TransmissionReKeys.Pop(partner)
+	key, action = session.GetKeyStore().TransmissionReKeys.Pop(partner)
 	if key == nil {
 		t.Errorf("TransmissionReKeys map returned nil")
 	} else if key.GetOuterType() != format.Rekey {
@@ -302,7 +302,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	fp := format.Fingerprint{}
 	copy(fp[:], h.Sum(nil))
 
-	key = keyStore.ReceptionKeys.Pop(fp)
+	key = session.GetKeyStore().ReceptionKeys.Pop(fp)
 	if key == nil {
 		t.Errorf("ReceptionKeys map returned nil for Key")
 	} else if key.GetOuterType() != format.E2E {
@@ -314,7 +314,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	h.Write(recvReKeys[0].Bytes())
 	copy(fp[:], h.Sum(nil))
 
-	key = keyStore.ReceptionKeys.Pop(fp)
+	key = session.GetKeyStore().ReceptionKeys.Pop(fp)
 	if key == nil {
 		t.Errorf("ReceptionKeys map returned nil for ReKey")
 	} else if key.GetOuterType() != format.Rekey {
@@ -365,7 +365,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	// Confirm all keys
 	for i := 0; i < int(numKeys); i++ {
-		key, action := keyStore.TransmissionKeys.Pop(partner)
+		key, action := session.GetKeyStore().TransmissionKeys.Pop(partner)
 		if key == nil {
 			t.Errorf("TransmissionKeys map returned nil")
 		} else if key.GetOuterType() != format.E2E {
@@ -393,7 +393,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	}
 
 	for i := 0; i < int(keyStore.NumReKeys); i++ {
-		key, action := keyStore.TransmissionReKeys.Pop(partner)
+		key, action := session.GetKeyStore().TransmissionReKeys.Pop(partner)
 		if key == nil {
 			t.Errorf("TransmissionReKeys map returned nil")
 		} else if key.GetOuterType() != format.Rekey {
@@ -427,7 +427,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		h.Reset()
 		h.Write(recvKeys[i].Bytes())
 		copy(fp[:], h.Sum(nil))
-		key := keyStore.ReceptionKeys.Pop(fp)
+		key := session.GetKeyStore().ReceptionKeys.Pop(fp)
 		if key == nil {
 			t.Errorf("ReceptionKeys map returned nil for Key")
 		} else if key.GetOuterType() != format.E2E {
@@ -446,7 +446,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		h.Reset()
 		h.Write(recvReKeys[i].Bytes())
 		copy(fp[:], h.Sum(nil))
-		key := keyStore.ReceptionKeys.Pop(fp)
+		key := session.GetKeyStore().ReceptionKeys.Pop(fp)
 		if key == nil {
 			t.Errorf("ReceptionKeys map returned nil for Rekey")
 		} else if key.GetOuterType() != format.Rekey {

@@ -385,6 +385,11 @@ func (ms *MockSession) AddKeyManager(km *keyStore.KeyManager) {
 	*ms = true
 }
 
+func (ms *MockSession) GetKeyStore() *keyStore.KeyStore {
+	*ms = true
+	return nil
+}
+
 func (ms *MockSession) LockStorage() {
 	*ms = true
 }

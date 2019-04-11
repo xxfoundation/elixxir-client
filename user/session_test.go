@@ -40,19 +40,17 @@ func TestUserSession(t *testing.T) {
 		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
 	}
 
-	err := globals.InitStorage(&globals.RamStorage{}, "")
-
-	if err != nil {
-		t.Errorf("User Session: Local storage could not be created: %s", err.Error())
-	}
+	// Storage
+	storage := &globals.RamStorage{}
 
 	//Ask Ben if there should be a Node Address here!
-	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp)
+	ses := NewSession(storage,
+	u, "abc", keys, grp.NewInt(2), grp)
 
 	ses.(*SessionObj).PrivateKey = grp.NewInt(2)
 	ses.SetLastMessageID("totally unique ID")
 
-	err = ses.StoreSession()
+	err := ses.StoreSession()
 
 	if err != nil {
 		t.Errorf("Error: Session not stored correctly: %s", err.Error())
@@ -62,7 +60,7 @@ func TestUserSession(t *testing.T) {
 
 	//TODO: write test which validates the immolation
 
-	ses, err = LoadSession(id.NewUserFromUint(UID, t))
+	ses, err = LoadSession(storage, id.NewUserFromUint(UID, t))
 
 	if err != nil {
 		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
@@ -70,7 +68,8 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 	
-	_, err = LoadSession(id.NewUserFromUint(10002, t))
+	_, err = LoadSession(storage,
+		id.NewUserFromUint(10002, t))
 
 	if err == nil {
 		t.Errorf("Error: Able to login with invalid user!")
@@ -194,23 +193,20 @@ func TestUserSession(t *testing.T) {
 	// Error tests
 
 	// Test nil LocalStorage
-	temp := globals.LocalStorage
-	globals.LocalStorage = nil
 
-	_, err = LoadSession(id.NewUserFromUint(6, t))
+	_, err = LoadSession(nil, id.NewUserFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
 	}
-	globals.LocalStorage = temp
 
 	// Test invalid / corrupted LocalStorage
 	h := sha256.New()
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
-	globals.LocalStorage.Save(randBytes)
+	storage.Save(randBytes)
 
-	_, err = LoadSession(id.NewUserFromUint(6, t))
+	_, err = LoadSession(storage, id.NewUserFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
@@ -234,7 +230,7 @@ func TestGetPubKey(t *testing.T) {
 		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
 	}
 
-	ses := NewSession(u, "abc", keys, grp.NewInt(2), grp)
+	ses := NewSession(nil, u, "abc", keys, grp.NewInt(2), grp)
 	pubKey := ses.GetPublicKey()
 	if pubKey.Cmp(grp.NewInt(2)) != 0 {
 		t.Errorf("Public key is not set correctly!")

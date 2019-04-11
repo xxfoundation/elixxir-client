@@ -30,6 +30,7 @@ import (
 )
 
 type Client struct {
+	storage globals.Storage
 	sess user.Session
 	comm io.Communications
 	quitReceptionRunner chan bool
@@ -50,19 +51,30 @@ func FormatTextMessage(message string) []byte {
 	return wireRepresentation
 }
 
-// Initializes the client by registering a storage mechanism.
-// If none is provided, the system defaults to using OS file access
+// Creates a new Client using the storage mechanism provided.
+// If none is provided, a default storage using OS file access
+// is created
 // returns a new Client object, and an error if it fails
-func InitClient(s globals.Storage, loc string) (*Client, error) {
-	storageErr := globals.InitStorage(s, loc)
+func NewClient(s globals.Storage, loc string) (*Client, error) {
+	var store globals.Storage
+	if s == nil {
+		globals.Log.WARN.Printf("No storage provided," +
+			" initializing Client with default storage")
+		store = &globals.DefaultStorage{}
+	} else {
+		store = s
+	}
 
-	if storageErr != nil {
-		storageErr = errors.New(
-			"could not init client storage: " + storageErr.Error())
-		return nil, storageErr
+	err := store.SetLocation(loc)
+
+	if err != nil {
+		err = errors.New("Invalid Local Storage Location: " + err.Error())
+		globals.Log.ERROR.Printf(err.Error())
+		return nil, err
 	}
 
 	cl := new(Client)
+	cl.storage = store
 	cl.comm = io.NewMessenger()
 	cl.listeners = switchboard.NewSwitchboard()
 	return cl, nil
@@ -113,7 +125,8 @@ func (cl *Client) Register(registrationCode string, gwAddr string,
 		nk[i] = *nodekeys
 	}
 
-	nus := user.NewSession(u, gwAddr, nk, grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
+	nus := user.NewSession(cl.storage, u, gwAddr, nk,
+		grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
 
 	_, err = payment.CreateWallet(nus, io.NewMessenger(), mint)
 	if err != nil {
@@ -144,7 +157,7 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 
 	connect.GatewayCertString = tlsCert
 
-	session, err := user.LoadSession(UID)
+	session, err := user.LoadSession(cl.storage, UID)
 
 	if session == nil {
 		return "", errors.New("Unable to load session: " + err.Error() +
@@ -262,12 +275,6 @@ func (cl *Client) Logout() error {
 	}
 
 	errStore := cl.sess.StoreSession()
-	// If a client is logging in again, the storage may need to go into a
-	// different location
-	// Currently, none of the storage abstractions need to do anything to
-	// clean up in the long term. For example, DefaultStorage closes the
-	// file every time it's written.
-	globals.LocalStorage = nil
 
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +

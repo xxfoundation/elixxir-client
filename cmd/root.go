@@ -65,7 +65,7 @@ func sessionInitialization() {
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
-		client, err = api.InitClient(&globals.RamStorage{}, "")
+		client, err = api.NewClient(&globals.RamStorage{}, "")
 		if err != nil {
 			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -88,7 +88,7 @@ func sessionInitialization() {
 		}
 
 		//Initialize client with OS Storage
-		client, err = api.InitClient(&globals.DefaultStorage{}, sessionFile)
+		client, err = api.NewClient(nil, sessionFile)
 
 		if err != nil {
 			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())

@@ -60,7 +60,9 @@ type RatchetKey struct {
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.Int, grp *cyclic.Group) Session {
+func NewSession(store globals.Storage,
+	u *User, GatewayAddr string, nk []NodeKeys,
+	publicKey *cyclic.Int, grp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
@@ -73,19 +75,21 @@ func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *cyclic.In
 		InterfaceMap: make(map[string]interface{}),
 		KeyManagers:  make([]*keyStore.KeyManager, 0),
 		keyMaps:      keyStore.NewStore(),
+		store:        store,
 	})
 
 }
 
-func LoadSession(UID *id.User) (Session, error) {
-	if globals.LocalStorage == nil {
-		err := errors.New("StoreSession: Local Storage not avalible")
+func LoadSession(store globals.Storage,
+	UID *id.User) (Session, error) {
+	if store == nil {
+		err := errors.New("LoadSession: Local Storage not avalible")
 		return nil, err
 	}
 
 	rand.Seed(time.Now().UnixNano())
 
-	sessionGob := globals.LocalStorage.Load()
+	sessionGob := store.Load()
 
 	var sessionBytes bytes.Buffer
 
@@ -132,6 +136,8 @@ func LoadSession(UID *id.User) (Session, error) {
 		km.GenerateKeys(session.Grp, UID, session.keyMaps)
 	}
 
+	// Set storage pointer
+	session.store = store
 	return &session, nil
 }
 
@@ -158,6 +164,9 @@ type SessionObj struct {
 	KeyManagers []*keyStore.KeyManager
 	// E2E KeyStore (not GOB encoded/decoded)
 	keyMaps *keyStore.KeyStore
+
+	// Keep a local pointer to storage of this session
+	store globals.Storage
 
 	lock sync.Mutex
 }
@@ -227,13 +236,13 @@ func (s *SessionObj) SetGWAddress(addr string) {
 
 func (s *SessionObj) storeSession() error {
 
-	if globals.LocalStorage == nil {
+	if s.store == nil {
 		err := errors.New("StoreSession: Local Storage not available")
 		return err
 	}
 
 	sessionData, err := s.getSessionData()
-	err = globals.LocalStorage.Save(sessionData)
+	err = s.store.Save(sessionData)
 	if err != nil {
 		return err
 	}

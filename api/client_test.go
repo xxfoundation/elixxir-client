@@ -34,7 +34,7 @@ var client *Client
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
 	var err error
-	client, err = InitClient(&globals.RamStorage{}, "")
+	client, err = NewClient(&globals.RamStorage{}, "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -47,7 +47,7 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// get the gob out of there again
-	sessionGob := globals.LocalStorage.Load()
+	sessionGob := client.storage.Load()
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
@@ -262,7 +262,8 @@ func TestRegisterUserE2E(t *testing.T) {
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
-	session := user.NewSession(myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
+	session := user.NewSession(client.storage,
+		myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
 
 	client.sess = session
 
@@ -342,7 +343,8 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
-	session := user.NewSession(myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
+	session := user.NewSession(client.storage,
+		myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
 
 	client.sess = session
 

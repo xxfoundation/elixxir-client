@@ -100,13 +100,13 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func InitClient(storage Storage, loc string) (*Client, error) {
+func NewClient(storage Storage, loc string) (*Client, error) {
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
 	}
 
 	proxy := &storageProxy{boundStorage: storage}
-	cl, err := api.InitClient(globals.Storage(proxy), loc)
+	cl, err := api.NewClient(globals.Storage(proxy), loc)
 
 	return &Client{client: cl}, err
 }

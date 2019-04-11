@@ -11,7 +11,6 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/crypto"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -41,19 +40,6 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// Make sure InitClient registers storage.
-func TestInitClient(t *testing.T) {
-	globals.LocalStorage = nil
-	_, err := InitClient(nil, "")
-	if err != nil {
-		t.Errorf("InitClient failed on valid input: %v", err)
-	}
-	if globals.LocalStorage == nil {
-		t.Errorf("InitClient did not register storage.")
-	}
-	globals.LocalStorage = nil
-}
-
 func TestRegister(t *testing.T) {
 	gwShutDown := gateway.StartGateway(gwAddress,
 		gateway.NewImplementation(), "", "")
@@ -62,7 +48,7 @@ func TestRegister(t *testing.T) {
 
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -86,7 +72,6 @@ func TestRegister(t *testing.T) {
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
-	globals.LocalStorage = nil
 }
 
 func TestRegisterBadNumNodes(t *testing.T) {
@@ -97,7 +82,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	p := large.NewInt(int64(1))
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
@@ -106,7 +91,6 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
-	globals.LocalStorage = nil
 }
 
 func TestRegisterBadHUID(t *testing.T) {
@@ -117,7 +101,7 @@ func TestRegisterBadHUID(t *testing.T) {
 
 	registrationCode := "OIF3OJ6I"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	p := large.NewInt(int64(1))
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
@@ -126,7 +110,6 @@ func TestRegisterBadHUID(t *testing.T) {
 	if err == nil {
 		t.Error("Registration worked with bad registration code!")
 	}
-	globals.LocalStorage = nil
 }
 
 func TestRegisterDeletedUser(t *testing.T) {
@@ -137,7 +120,7 @@ func TestRegisterDeletedUser(t *testing.T) {
 
 	registrationCode := "UAV6IWD6"
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	p := large.NewInt(int64(1))
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
@@ -150,7 +133,6 @@ func TestRegisterDeletedUser(t *testing.T) {
 			err.Error())
 	}
 	user.Users.UpsertUser(tempUser)
-	globals.LocalStorage = nil
 }
 
 func SetNulKeys(s user.Session) {
@@ -169,9 +151,8 @@ func TestSend(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	grp := crypto.InitCrypto()
 	registrationCode := "UAV6IWD6"
 	userID, err := client.Register(registrationCode, gwAddress, 1, false, grp)
@@ -212,9 +193,8 @@ func TestLogout(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 	defer gwShutDown()
 
-	globals.LocalStorage = nil
 	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	grp := crypto.InitCrypto()
 	registrationCode := "UAV6IWD6"
 	userID, err := client.Register(registrationCode, gwAddress, 1, false, grp)

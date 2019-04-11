@@ -28,30 +28,27 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-// Make sure InitClient returns an error when called incorrectly.
-func TestInitClientNil(t *testing.T) {
-	_, err := InitClient(nil, "")
+// Make sure NewClient returns an error when called incorrectly.
+func TestNewClientNil(t *testing.T) {
+	_, err := NewClient(nil, "")
 	if err == nil {
-		t.Errorf("InitClient returned nil on invalid (nil, nil) input!")
+		t.Errorf("NewClient returned nil on invalid (nil, nil) input!")
 	}
-	globals.LocalStorage = nil
 
-	_, err = InitClient(nil, "hello")
+	_, err = NewClient(nil, "hello")
 	if err == nil {
-		t.Errorf("InitClient returned nil on invalid (nil, 'hello') input!")
+		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
 	}
-	globals.LocalStorage = nil
 }
 
-func TestInitClient(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	if err != nil {
-		t.Errorf("InitClient returned error: %v", err)
+		t.Errorf("NewClient returned error: %v", err)
 	} else if client == nil {
-		t.Errorf("InitClient returned nil Client object")
+		t.Errorf("NewClient returned nil Client object")
 	}
-	globals.LocalStorage = nil
 }
 
 // BytesReceiver receives the last message and puts the data it received into
@@ -77,7 +74,7 @@ func TestRegister(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -106,7 +103,6 @@ func TestRegister(t *testing.T) {
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
-	globals.LocalStorage = nil
 }
 
 func TestRegisterBadNumNodes(t *testing.T) {
@@ -116,7 +112,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	p := large.NewInt(int64(1))
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
@@ -130,7 +126,6 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
-	globals.LocalStorage = nil
 }
 
 func TestLoginLogout(t *testing.T) {
@@ -140,7 +135,7 @@ func TestLoginLogout(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := InitClient(&d, "hello")
+	client, err := NewClient(&d, "hello")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -175,8 +170,6 @@ func TestLoginLogout(t *testing.T) {
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err.Error())
 	}
-
-	globals.LocalStorage = nil
 }
 
 type MockListener bool
@@ -188,7 +181,7 @@ func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
 // Proves that a message can be received by a listener added with the bindings
 func TestListen(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, _ := InitClient(&d, "hello")
+	client, _ := NewClient(&d, "hello")
 	listener := MockListener(false)
 	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.client.GetSwitchboard().Speak(&parse.Message{
@@ -202,12 +195,11 @@ func TestListen(t *testing.T) {
 	if !listener {
 		t.Error("Message not received")
 	}
-	globals.LocalStorage = nil
 }
 
 func TestStopListening(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, _ := InitClient(&d, "hello")
+	client, _ := NewClient(&d, "hello")
 	listener := MockListener(false)
 	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.StopListening(handle)
@@ -222,7 +214,6 @@ func TestStopListening(t *testing.T) {
 	if listener {
 		t.Error("Message was received after we stopped listening for it")
 	}
-	globals.LocalStorage = nil
 }
 
 type MockWriter struct {

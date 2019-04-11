@@ -22,11 +22,10 @@ import (
 
 // Shows that CreateOrderedStorage creates new storage properly
 func TestCreateOrderedStorage_New(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
 	grp := cyclic.NewGroup(large.NewInt(100000000), large.NewInt(0), large.NewInt(0))
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{userID, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
@@ -69,8 +68,6 @@ func TestCreateOrderedStorage_New(t *testing.T) {
 
 // Shows that CreateOrderedStorage loads old storage properly
 func TestCreateOrderedStorage_Load(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	userID := id.NewUserFromUint(1, t)
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
@@ -88,7 +85,8 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 	g := large.NewInt(2)
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{userID, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
@@ -133,8 +131,6 @@ func TestCreateOrderedStorage_Load(t *testing.T) {
 // Shows that OrderedCoinStorage.Value returns the value of the storage correctly
 func TestOrderedCoinStorage_Value(t *testing.T) {
 
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -152,7 +148,8 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{userID, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	src := rand.NewSource(42)
@@ -173,8 +170,6 @@ func TestOrderedCoinStorage_Value(t *testing.T) {
 
 // Shows that OrderedCoinStorage.Add works when the list is empty
 func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -192,7 +187,8 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{userID, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	cs, err := coin.NewSleeve(69)
@@ -212,8 +208,6 @@ func TestOrderedCoinStorage_Add_Empty(t *testing.T) {
 
 // Shows that OrderedCoinStorage.Add works when the list isn't empty and properly orders the list
 func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -231,7 +225,8 @@ func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{userID, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	ocs := OrderedCoinStorage{&[]coin.Sleeve{}, 0, s}
@@ -273,8 +268,6 @@ func TestOrderedCoinStorage_Add_Multi(t *testing.T) {
 // Shows that added sleeves can be loaded after a save
 func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -292,7 +285,8 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	userID := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{userID, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{userID, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
@@ -328,8 +322,6 @@ func TestOrderedCoinStorage_Add_Save(t *testing.T) {
 
 // Shows that a single sleeve can be gotten from ordered coin storage
 func TestOrderedCoinStorage_Get(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -347,7 +339,8 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -384,8 +377,6 @@ func TestOrderedCoinStorage_Get(t *testing.T) {
 
 // Shows that a single sleeve can be popped from ordered coin storage
 func TestOrderedCoinStorage_Pop(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -403,7 +394,8 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -440,8 +432,6 @@ func TestOrderedCoinStorage_Pop(t *testing.T) {
 
 // Shows that when a sleeve is popped from ordered coin storage the result can be saved properly
 func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -459,7 +449,8 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -514,8 +505,6 @@ func TestOrderedCoinStorage_Pop_Save(t *testing.T) {
 
 // Test that fund responds correct with insufficient funds
 func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -533,7 +522,8 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -573,8 +563,6 @@ func TestOrderedCoinStorage_Fund_Insufficient(t *testing.T) {
 
 // Tests that a single coin equal to the correct value returns properly
 func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -592,7 +580,8 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -633,8 +622,6 @@ func TestOrderedCoinStorage_Fund_Single_Exact(t *testing.T) {
 
 // Tests that a multiple coins equal to the correct value returns properly
 func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -652,7 +639,8 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -705,8 +693,6 @@ func TestOrderedCoinStorage_Fund_Multi_Exact(t *testing.T) {
 
 // Tests that a multiple coins equal to the correct value returns properly when there are other coins
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -724,7 +710,8 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -777,8 +764,6 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split(t *testing.T) {
 
 // Tests that fund returns an error when the value cannot be created in the given number of coins
 func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -796,7 +781,8 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -834,8 +820,6 @@ func TestOrderedCoinStorage_Fund_Organization(t *testing.T) {
 
 // Tests that a multiple coins equal greater than the expected value returns properly when there are other coins
 func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
-	globals.LocalStorage = nil
-	globals.InitStorage(&globals.RamStorage{}, "")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -853,7 +837,8 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	s := user.NewSession(&globals.RamStorage{},
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	key := "TestOrderedList"
@@ -907,7 +892,6 @@ func TestOrderedCoinStorage_Fund_Multi_Exact_Split_Change(t *testing.T) {
 
 // Shows that Ordered Storage reloads from a stored map properly
 func TestOrderedStorage_FileLoading(t *testing.T) {
-	globals.LocalStorage = nil
 
 	storagePath, err := homedir.Expand("~/.elixxir")
 	filename := "/orderedstoragetest.session"
@@ -915,7 +899,6 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	if err != nil {
 		t.Error(err.Error())
 	}
-	globals.InitStorage(&globals.DefaultStorage{}, storagePath+filename)
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -933,7 +916,9 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 	q := large.NewInt(3)
 	grp := cyclic.NewGroup(p, g, q)
 	uid := id.NewUserFromUint(1, t)
-	s := user.NewSession(&user.User{uid, "test"}, "", []user.NodeKeys{},
+	storage := &globals.RamStorage{}
+	s := user.NewSession(storage,
+		&user.User{uid, "test"}, "", []user.NodeKeys{},
 		grp.NewInt(1), grp)
 
 	// show that the ordered list does not exist
@@ -963,7 +948,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 
 	s.StoreSession()
 
-	s2, err := user.LoadSession(uid)
+	s2, err := user.LoadSession(storage, uid)
 
 	if err != nil {
 		t.Errorf("session load error: %s", err.Error())
@@ -993,7 +978,7 @@ func TestOrderedStorage_FileLoading(t *testing.T) {
 
 	s2.StoreSession()
 
-	s3, err := user.LoadSession(uid)
+	s3, err := user.LoadSession(storage, uid)
 
 	if err != nil {
 		t.Errorf("session load error: %s", err.Error())

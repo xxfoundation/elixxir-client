@@ -7,40 +7,9 @@
 package globals
 
 import (
-	"errors"
 	"os"
 	"sync"
 )
-
-var LocalStorage Storage
-
-func InitStorage(store Storage, location string) error {
-	if LocalStorage != nil {
-		errStr := "Invalid Local Storage Creation: Local storage already created"
-		Log.ERROR.Printf(errStr)
-		panic(errStr)
-	}
-
-	var intermediateStorage Storage
-
-	if store == nil {
-		intermediateStorage = &DefaultStorage{}
-	} else {
-		intermediateStorage = store
-	}
-
-	err := intermediateStorage.SetLocation(location)
-
-	if err != nil {
-		err = errors.New("Invalid Local Storage Location: " + err.Error())
-		Log.ERROR.Printf(err.Error())
-		return err
-	}
-
-	LocalStorage = intermediateStorage
-
-	return nil
-}
 
 type Storage interface {
 	SetLocation(string) error

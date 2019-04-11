@@ -560,12 +560,15 @@ func TestWallet_Invoice_Error(t *testing.T) {
 
 type MockMessaging struct{}
 
-func (m *MockMessaging) SendMessage(recipientID *id.User,
+func (m *MockMessaging) SendMessage(session user.Session,
+	recipientID *id.User,
 	message []byte) error {
 	return nil
 }
 
-func (m *MockMessaging) MessageReceiver(delay time.Duration, quit chan bool) {}
+func (m *MockMessaging) MessageReceiver(session user.Session,
+	sw *switchboard.Switchboard,
+	delay time.Duration, quit chan bool) {}
 
 func TestResponseListener_Hear(t *testing.T) {
 	payer := id.NewUserFromUint(5, t)
@@ -640,6 +643,7 @@ func TestResponseListener_Hear(t *testing.T) {
 		pendingTransactions:       pt,
 		completedOutboundPayments: op,
 		session:                   s,
+		comm:                      &MockMessaging{},
 		switchboard:               switchboard.NewSwitchboard(),
 	}
 
@@ -653,10 +657,6 @@ func TestResponseListener_Hear(t *testing.T) {
 
 	listener := ResponseListener{wallet: &w}
 
-	// The payment response listener sends a receipt to the invoice originator.
-	// To prevent actually hitting the network in this test, replace the
-	// messaging with a mock that doesn't send anything
-	io.Messaging = &MockMessaging{}
 
 	listener.Hear(&parse.Message{
 		TypedBody: parse.TypedBody{

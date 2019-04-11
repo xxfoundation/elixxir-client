@@ -8,20 +8,14 @@ package bindings
 
 import (
 	"bytes"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"os"
 	"reflect"
 	"testing"
@@ -30,68 +24,19 @@ import (
 
 const gwAddress = "localhost:5557"
 
-var gatewayData api.TestInterface
-
-// NOTE: These need to be set up as io.Messaging is called during Init...
-var ListenCh chan *format.Message
-var lastmsg []byte
-
-type dummyMessaging struct {
-	listener chan *format.Message
-}
-
-// SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID *id.User,
-	message []byte) error {
-	jww.INFO.Printf("Sending: %s", message)
-	lastmsg = message
-	return nil
-}
-
-// Listen for messages from a given sender
-func (d *dummyMessaging) Listen(senderID *id.User) chan *format.Message {
-	return d.listener
-}
-
-// StopListening to a given switchboard (closes and deletes)
-func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
-
-// MessageReceiver thread to get new messages
-func (d *dummyMessaging) MessageReceiver(delay time.Duration, quit chan bool) {
-	for {
-		select {
-		case <-quit:
-			return
-		default:
-			time.Sleep(16 * time.Millisecond)
-		}
-	}
-}
-
 func TestMain(m *testing.M) {
-	io.SendAddress = gwAddress
-	io.ReceiveAddress = gwAddress
-	ListenCh = make(chan *format.Message, 100)
-	io.Messaging = &dummyMessaging{
-		listener: ListenCh,
-	}
-
-	gatewayData = api.TestInterface{
-		LastReceivedMessage: pb.CmixMessage{},
-	}
-
 	os.Exit(m.Run())
 }
 
 // Make sure InitClient returns an error when called incorrectly.
 func TestInitClientNil(t *testing.T) {
-	err := InitClient(nil, "")
+	_, err := InitClient(nil, "")
 	if err == nil {
 		t.Errorf("InitClient returned nil on invalid (nil, nil) input!")
 	}
 	globals.LocalStorage = nil
 
-	err = InitClient(nil, "hello")
+	_, err = InitClient(nil, "hello")
 	if err == nil {
 		t.Errorf("InitClient returned nil on invalid (nil, 'hello') input!")
 	}
@@ -100,9 +45,11 @@ func TestInitClientNil(t *testing.T) {
 
 func TestInitClient(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
+	client, err := InitClient(&d, "hello")
 	if err != nil {
 		t.Errorf("InitClient returned error: %v", err)
+	} else if client == nil {
+		t.Errorf("InitClient returned nil Client object")
 	}
 	globals.LocalStorage = nil
 }
@@ -130,7 +77,7 @@ func TestRegister(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
+	client, err := InitClient(&d, "hello")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -152,7 +99,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false, string(grpJSON))
+	regRes, err := client.Register(registrationCode, gwAddress, 1, false, string(grpJSON))
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -169,7 +116,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
+	client, err := InitClient(&d, "hello")
 	p := large.NewInt(int64(1))
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
@@ -179,7 +126,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	_, err = Register(registrationCode, gwAddress, 0, false, string(grpJSON))
+	_, err = client.Register(registrationCode, gwAddress, 0, false, string(grpJSON))
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -193,7 +140,7 @@ func TestLoginLogout(t *testing.T) {
 	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
+	client, err := InitClient(&d, "hello")
 	primeString := "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
 		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
 		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
@@ -215,8 +162,8 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := Register(registrationCode, gwAddress, 1, false, string(grpJSON))
-	loginRes, err2 := Login(regRes, gwAddress, "")
+	regRes, err := client.Register(registrationCode, gwAddress, 1, false, string(grpJSON))
+	loginRes, err2 := client.Login(regRes, gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -224,36 +171,12 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
 	time.Sleep(2000 * time.Millisecond)
-	err3 := Logout()
+	err3 := client.Logout()
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err.Error())
 	}
 
 	globals.LocalStorage = nil
-}
-
-func TestDisableBlockingTransmission(t *testing.T) {
-	if !io.BlockTransmissions {
-		t.Errorf("BlockingTransmission not intilized properly")
-	}
-	DisableBlockingTransmission()
-	if io.BlockTransmissions {
-		t.Errorf("BlockingTransmission not disabled properly")
-	}
-}
-
-func TestSetRateLimiting(t *testing.T) {
-	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
-	nk := make([]user.NodeKeys, 1)
-	grp := cyclic.NewGroup(large.NewInt(17), large.NewInt(5), large.NewInt(23))
-	user.TheSession = user.NewSession(u, gwAddress, nk, nil, grp)
-	if io.TransmitDelay != time.Duration(1000)*time.Millisecond {
-		t.Errorf("SetRateLimiting not intilized properly")
-	}
-	SetRateLimiting(10)
-	if io.TransmitDelay != time.Duration(10)*time.Millisecond {
-		t.Errorf("SetRateLimiting not updated properly")
-	}
 }
 
 type MockListener bool
@@ -264,9 +187,11 @@ func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
 
 // Proves that a message can be received by a listener added with the bindings
 func TestListen(t *testing.T) {
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, _ := InitClient(&d, "hello")
 	listener := MockListener(false)
-	Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
-	switchboard.Listeners.Speak(&parse.Message{
+	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
@@ -277,13 +202,16 @@ func TestListen(t *testing.T) {
 	if !listener {
 		t.Error("Message not received")
 	}
+	globals.LocalStorage = nil
 }
 
 func TestStopListening(t *testing.T) {
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, _ := InitClient(&d, "hello")
 	listener := MockListener(false)
-	handle := Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
-	StopListening(handle)
-	switchboard.Listeners.Speak(&parse.Message{
+	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	client.StopListening(handle)
+	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
@@ -294,6 +222,7 @@ func TestStopListening(t *testing.T) {
 	if listener {
 		t.Error("Message was received after we stopped listening for it")
 	}
+	globals.LocalStorage = nil
 }
 
 type MockWriter struct {

@@ -65,8 +65,6 @@ func InitClient(s globals.Storage, loc string) (*Client, error) {
 	cl := new(Client)
 	cl.comm = io.NewMessenger()
 	cl.listeners = switchboard.NewSwitchboard()
-	// Initialize UDB stuff here
-	bots.InitUDB(cl.sess, cl.comm, cl.listeners)
 	return cl, nil
 }
 
@@ -188,6 +186,9 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 	go cl.comm.MessageReceiver(session, cl.listeners,
 		pollWaitTimeMillis, cl.quitReceptionRunner)
 
+	// Initialize UDB stuff here
+	bots.InitUDB(cl.sess, cl.comm, cl.listeners)
+
 	return session.GetCurrentUser().Nick, nil
 }
 
@@ -276,6 +277,7 @@ func (cl *Client) Logout() error {
 	}
 
 	errImmolate := cl.sess.Immolate()
+	cl.sess = nil
 
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +

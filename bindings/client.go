@@ -175,14 +175,15 @@ func (cl *Client) Register(registrationCode string, gwAddr string, numNodes int,
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
 // Currently there's only one possibility that makes sense for the TLS
-// certificate and it's in the crypto repository. So, if you leave the TLS
-// certificate string empty, the bindings will use that certificate. We probably
-// need to rethink this. In other words, tlsCert is optional.
+// certificate and it's in the crypto repository. So, if you set the TLS
+// certificate string to "default", the bindings will use that certificate.
+// If you leave it empty, the Client will try to connect to the GW without TLS
+// This should only ever be used for testing purposes
 func (cl *Client) Login(UID []byte, addr string, tlsCert string) (string, error) {
 	userID := new(id.User).SetBytes(UID)
 	var err error
 	var nick string
-	if tlsCert == "" {
+	if tlsCert == "default" {
 		nick, err = cl.client.Login(userID, addr, certs.GatewayTLS)
 	} else {
 		nick, err = cl.client.Login(userID, addr, tlsCert)

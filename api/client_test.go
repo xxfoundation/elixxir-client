@@ -29,16 +29,19 @@ import (
 	"time"
 )
 
+var client *Client
+
 func TestRegistrationGob(t *testing.T) {
-	// Put some user data into a gob
-	err := globals.InitStorage(&globals.RamStorage{}, "")
+	// Get a Client
+	var err error
+	client, err = InitClient(&globals.RamStorage{}, "")
 	if err != nil {
 		t.Error(err)
 	}
 
 	// populate a gob in the store
 	grp := crypto.InitCrypto()
-	_, err = Register("UAV6IWD6", gwAddress, 1, false, grp)
+	_, err = client.Register("UAV6IWD6", gwAddress, 1, false, grp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -242,7 +245,7 @@ func TestParse(t *testing.T){
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	grp := Session.GetGroup()
+	grp := crypto.InitCrypto()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 	params := signature.CustomDSAParams(
@@ -261,9 +264,9 @@ func TestRegisterUserE2E(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
 
-	user.TheSession = session
+	client.sess = session
 
-	registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
 
 	// Confirm we can get all types of keys
 	key, action := keyStore.TransmissionKeys.Pop(partner)
@@ -322,7 +325,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	grp := Session.GetGroup()
+	grp := crypto.InitCrypto()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 	params := signature.CustomDSAParams(
@@ -341,9 +344,9 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
 
-	user.TheSession = session
+	client.sess = session
 
-	registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
 
 	// Generate all keys and confirm they all match
 	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)

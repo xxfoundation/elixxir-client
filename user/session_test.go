@@ -30,7 +30,7 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(1000), large.NewInt(0), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(1000), large.NewInt(2), large.NewInt(5))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
@@ -62,20 +62,14 @@ func TestUserSession(t *testing.T) {
 
 	//TODO: write test which validates the immolation
 
-	if TheSession != nil {
-		t.Errorf("Error: The session wasn't nil after immolation!")
-	} else {
-		pass++
-	}
-
-	_, err = LoadSession(id.NewUserFromUint(UID, t))
+	ses, err = LoadSession(id.NewUserFromUint(UID, t))
 
 	if err != nil {
 		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
 	} else {
 		pass++
 	}
-
+	
 	_, err = LoadSession(id.NewUserFromUint(10002, t))
 
 	if err == nil {
@@ -84,73 +78,73 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if TheSession == nil {
+	if ses == nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	} else {
 		pass++
 	}
 
-	if TheSession.GetGWAddress() == "" {
+	if ses.GetGWAddress() == "" {
 		t.Errorf("Error: Node Address not set correctly with Regestration!")
 	} else {
 		pass++
 	}
 
-	TheSession.SetGWAddress("test")
+	ses.SetGWAddress("test")
 
-	if TheSession.GetGWAddress() != "test" {
+	if ses.GetGWAddress() != "test" {
 		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
 	} else {
 		pass++
 	}
 
-	if TheSession.GetLastMessageID() != "totally unique ID" {
+	if ses.GetLastMessageID() != "totally unique ID" {
 		t.Errorf("Error: Last message ID should have been stored and loaded")
 	} else {
 		pass++
 	}
 
-	TheSession.SetLastMessageID("test")
+	ses.SetLastMessageID("test")
 
-	if TheSession.GetLastMessageID() != "test" {
+	if ses.GetLastMessageID() != "test" {
 		t.Errorf("Error: Last message ID not set correctly with" +
 			" SetLastMessageID!")
 	} else {
 		pass++
 	}
 
-	if TheSession.GetKeys() == nil {
+	if ses.GetKeys() == nil {
 		t.Errorf("Error: Keys not set correctly!")
 	} else {
 
-		test += len(TheSession.GetKeys())
+		test += len(ses.GetKeys())
 
-		for i := 0; i < len(TheSession.GetKeys()); i++ {
+		for i := 0; i < len(ses.GetKeys()); i++ {
 
-			if TheSession.GetPublicKey().Cmp(grp.NewInt(2)) != 0 {
+			if ses.GetPublicKey().Cmp(grp.NewInt(2)) != 0 {
 				t.Errorf("Error: Public key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceiptKeys.Base.Cmp(grp.
+			} else if ses.GetKeys()[i].ReceiptKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceiptKeys.Recursive.Cmp(grp.
+			} else if ses.GetKeys()[i].ReceiptKeys.Recursive.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceptionKeys.Base.Cmp(grp.
+			} else if ses.GetKeys()[i].ReceptionKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceptionKeys.Recursive.Cmp(
+			} else if ses.GetKeys()[i].ReceptionKeys.Recursive.Cmp(
 				grp.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReturnKeys.Base.Cmp(grp.
+			} else if ses.GetKeys()[i].ReturnKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReturnKeys.Recursive.Cmp(grp.
+			} else if ses.GetKeys()[i].ReturnKeys.Recursive.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].TransmissionKeys.Base.Cmp(grp.
+			} else if ses.GetKeys()[i].TransmissionKeys.Base.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if TheSession.GetKeys()[i].TransmissionKeys.Recursive.Cmp(
+			} else if ses.GetKeys()[i].TransmissionKeys.Recursive.Cmp(
 				grp.NewInt(2)) != 0 {
 				t.Errorf("Error: Receipt base key not set correctly!")
 			}
@@ -160,20 +154,20 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//TODO: FIX THIS?
-	if TheSession.GetPrivateKey() == nil {
+	if ses.GetPrivateKey() == nil {
 		t.Errorf("Error: Private Keys not set correctly!")
 	} else {
 		pass++
 	}
 
-	err = TheSession.UpsertMap("test", 5)
+	err = ses.UpsertMap("test", 5)
 
 	if err != nil {
 		t.Errorf("Error: Could not store in session map interface: %s",
 			err.Error())
 	}
 
-	element, err := TheSession.QueryMap("test")
+	element, err := ses.QueryMap("test")
 
 	if err != nil {
 		t.Errorf("Error: Could not read element in session map "+
@@ -185,9 +179,9 @@ func TestUserSession(t *testing.T) {
 			"interface: Expected: 5, Recieved: %v", element)
 	}
 
-	TheSession.DeleteMap("test")
+	ses.DeleteMap("test")
 
-	_, err = TheSession.QueryMap("test")
+	_, err = ses.QueryMap("test")
 
 	if err == nil {
 		t.Errorf("Error: Could not delete element in session map " +
@@ -195,13 +189,7 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Logout
-	TheSession.Immolate()
-
-	if TheSession != nil {
-		t.Errorf("Error: Logout / Immolate did not work!")
-	} else {
-		pass++
-	}
+	ses.Immolate()
 
 	// Error tests
 

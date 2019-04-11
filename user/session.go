@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"math/rand"
 	"sync"
 	"time"
@@ -42,6 +43,8 @@ type Session interface {
 	DeleteMap(key string) error
 	AddKeyManager(km *keyStore.KeyManager)
 	GetKeyStore() *keyStore.KeyStore
+	GetSwitchboard() *switchboard.Switchboard
+	GetQuitChan() chan bool
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
@@ -66,16 +69,18 @@ func NewSession(store globals.Storage,
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		CurrentUser:  u,
-		GWAddress:    GatewayAddr, // FIXME: don't store this here
-		Keys:         nk,
-		PrivateKey:   grp.NewMaxInt(),
-		PublicKey:    publicKey,
-		Grp:		  grp,
-		InterfaceMap: make(map[string]interface{}),
-		KeyManagers:  make([]*keyStore.KeyManager, 0),
-		keyMaps:      keyStore.NewStore(),
-		store:        store,
+		CurrentUser:         u,
+		GWAddress:           GatewayAddr, // FIXME: don't store this here
+		Keys:                nk,
+		PrivateKey:          grp.NewMaxInt(),
+		PublicKey:           publicKey,
+		Grp:                 grp,
+		InterfaceMap:        make(map[string]interface{}),
+		KeyManagers:         make([]*keyStore.KeyManager, 0),
+		keyMaps:             keyStore.NewStore(),
+		store:               store,
+		listeners:           switchboard.NewSwitchboard(),
+		quitReceptionRunner: make(chan bool),
 	})
 
 }
@@ -119,7 +124,7 @@ func LoadSession(store globals.Storage,
 	} else if UID == nil {
 		jww.ERROR.Panic("Dereferencing nil param UID")
 	}
-	
+
 	// Line of the actual crash
 	if *session.CurrentUser.User != *UID {
 		err = errors.New(fmt.Sprintf(
@@ -131,6 +136,10 @@ func LoadSession(store globals.Storage,
 
 	// Create keyStore
 	session.keyMaps = keyStore.NewStore()
+	// Create switchboard
+	session.listeners = switchboard.NewSwitchboard()
+	// Create quit channel for reception runner
+	session.quitReceptionRunner = make(chan bool)
 	// Rebuild E2E Key Maps from Key Managers
 	for _, km := range session.KeyManagers {
 		km.GenerateKeys(session.Grp, UID, session.keyMaps)
@@ -162,11 +171,19 @@ type SessionObj struct {
 
 	// E2E Key Managers list
 	KeyManagers []*keyStore.KeyManager
-	// E2E KeyStore (not GOB encoded/decoded)
+
+	// Non exported fields (not GOB encoded/decoded)
+	// E2E KeyStore
 	keyMaps *keyStore.KeyStore
 
-	// Keep a local pointer to storage of this session
+	// Local pointer to storage of this session
 	store globals.Storage
+
+	// Switchboard
+	listeners *switchboard.Switchboard
+
+	// Quit channel for message reception runner
+	quitReceptionRunner chan bool
 
 	lock sync.Mutex
 }
@@ -339,6 +356,14 @@ func (s *SessionObj) GetSessionData() ([]byte, error) {
 
 func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
 	return s.keyMaps
+}
+
+func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
+	return s.listeners
+}
+
+func (s *SessionObj) GetQuitChan() chan bool {
+	return s.quitReceptionRunner
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {

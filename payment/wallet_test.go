@@ -386,6 +386,17 @@ func (ms *MockSession) GetKeyStore() *keyStore.KeyStore {
 	return nil
 }
 
+func (ms *MockSession) GetSwitchboard() *switchboard.Switchboard {
+	*ms = true
+	return nil
+}
+
+func (ms *MockSession) GetQuitChan() chan bool {
+	*ms = true
+	return nil
+}
+
+
 func (ms *MockSession) LockStorage() {
 	*ms = true
 }
@@ -566,8 +577,7 @@ func (m *MockMessaging) SendMessage(session user.Session,
 }
 
 func (m *MockMessaging) MessageReceiver(session user.Session,
-	sw *switchboard.Switchboard,
-	delay time.Duration, quit chan bool) {}
+	delay time.Duration) {}
 
 func TestResponseListener_Hear(t *testing.T) {
 	payer := id.NewUserFromUint(5, t)

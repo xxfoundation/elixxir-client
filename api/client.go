@@ -33,8 +33,6 @@ type Client struct {
 	storage globals.Storage
 	sess user.Session
 	comm io.Communications
-	quitReceptionRunner chan bool
-	listeners *switchboard.Switchboard
 	// TODO Support more than one wallet per user? Maybe in v2
 	wallet *payment.Wallet
 }
@@ -76,7 +74,6 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 	cl := new(Client)
 	cl.storage = store
 	cl.comm = io.NewMessenger()
-	cl.listeners = switchboard.NewSwitchboard()
 	return cl, nil
 }
 
@@ -170,7 +167,7 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 		globals.Log.ERROR.Printf(err.Error())
 		return "", err
 	}
-	cl.wallet.RegisterListeners(cl.listeners)
+	cl.wallet.RegisterListeners(session.GetSwitchboard())
 
 	if addr != "" {
 		session.SetGWAddress(addr)
@@ -193,14 +190,12 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 	cl.sess = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
-	cl.quitReceptionRunner = make(chan bool)
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.comm.MessageReceiver(session, cl.listeners,
-		pollWaitTimeMillis, cl.quitReceptionRunner)
+	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
 
 	// Initialize UDB stuff here
-	bots.InitUDB(cl.sess, cl.comm, cl.listeners)
+	bots.InitUDB(cl.sess, cl.comm, cl.sess.GetSwitchboard())
 
 	return session.GetCurrentUser().Nick, nil
 }
@@ -228,18 +223,19 @@ func (cl *Client) SetRateLimiting(limit uint32) {
 
 func (cl *Client) Listen(user *id.User, outerType format.CryptoType,
 	messageType int32, newListener switchboard.Listener) string {
-	listenerId := cl.listeners.Register(user, outerType, messageType, newListener)
+	listenerId := cl.sess.GetSwitchboard().
+		Register(user, outerType, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
 	return listenerId
 }
 
 func (cl *Client) StopListening(listenerHandle string) {
-	cl.listeners.Unregister(listenerHandle)
+	cl.sess.GetSwitchboard().Unregister(listenerHandle)
 }
 
 func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
-	return cl.listeners
+	return cl.sess.GetSwitchboard()
 }
 
 type APISender struct{}
@@ -263,7 +259,7 @@ func (cl *Client) Logout() error {
 	}
 
 	// Stop reception runner goroutine
-	cl.quitReceptionRunner <- true
+	cl.sess.GetQuitChan() <- true
 
 	// Disconnect from the gateway
 	io.Disconnect(
@@ -393,7 +389,7 @@ func (cl *Client) Wallet() *payment.Wallet {
 		// So, if the wallet is nil, registration must have happened for this method to work
 		var err error
 		cl.wallet, err = payment.CreateWallet(cl.sess, cl.comm, false)
-		cl.wallet.RegisterListeners(cl.listeners)
+		cl.wallet.RegisterListeners(cl.sess.GetSwitchboard())
 		if err != nil {
 			globals.Log.ERROR.Println("Wallet("+
 				"): Got an error creating the wallet.", err.Error())

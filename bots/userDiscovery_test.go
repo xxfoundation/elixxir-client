@@ -36,8 +36,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	sw *switchboard.Switchboard,
-	delay time.Duration, quit chan bool) {}
+	delay time.Duration) {}
 
 var pubKeyBits string
 var keyFingerprint string

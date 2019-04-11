@@ -163,9 +163,7 @@ func (m *Messaging) send(session user.Session,
 // list for the listeners?
 // Accessing all of these global variables is extremely problematic for this
 // kind of thread.
-func (m *Messaging) MessageReceiver(session user.Session,
-	sw *switchboard.Switchboard,
-	delay time.Duration, quit chan bool) {
+func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
@@ -176,8 +174,8 @@ func (m *Messaging) MessageReceiver(session user.Session,
 
 	for {
 		select {
-		case <-quit:
-			close(quit)
+		case <-session.GetQuitChan():
+			close(session.GetQuitChan())
 			return
 		default:
 			time.Sleep(delay)
@@ -189,7 +187,7 @@ func (m *Messaging) MessageReceiver(session user.Session,
 						decryptedMessages[i], time.Minute)
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
-						broadcastMessageReception(assembledMessage, sw)
+						broadcastMessageReception(assembledMessage, session.GetSwitchboard())
 					}
 				}
 			}

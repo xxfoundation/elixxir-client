@@ -41,21 +41,19 @@ func TestUserSession(t *testing.T) {
 		ReceptionKey:    grp.NewInt(2),
 	}
 
-	err := globals.InitStorage(&globals.RamStorage{}, "")
-
-	if err != nil {
-		t.Errorf("User Session: Local storage could not be created: %s", err.Error())
-	}
+	// Storage
+	storage := &globals.RamStorage{}
 
 	rng := rand.New(rand.NewSource(42))
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(storage,
+		u, "abc", keys, publicKey, privateKey, grp)
 
 	ses.SetLastMessageID("totally unique ID")
 
-	err = ses.StoreSession()
+	err := ses.StoreSession()
 
 	if err != nil {
 		t.Errorf("Error: Session not stored correctly: %s", err.Error())
@@ -65,21 +63,16 @@ func TestUserSession(t *testing.T) {
 
 	//TODO: write test which validates the immolation
 
-	if TheSession != nil {
-		t.Errorf("Error: The session wasn't nil after immolation!")
-	} else {
-		pass++
-	}
-
-	_, err = LoadSession(id.NewUserFromUint(UID, t))
+	ses, err = LoadSession(storage, id.NewUserFromUint(UID, t))
 
 	if err != nil {
 		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
 	} else {
 		pass++
 	}
-
-	_, err = LoadSession(id.NewUserFromUint(10002, t))
+	
+	_, err = LoadSession(storage,
+		id.NewUserFromUint(10002, t))
 
 	if err == nil {
 		t.Errorf("Error: Able to login with invalid user!")
@@ -87,57 +80,57 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if TheSession == nil {
+	if ses == nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
 	} else {
 		pass++
 	}
 
-	if TheSession.GetGWAddress() == "" {
+	if ses.GetGWAddress() == "" {
 		t.Errorf("Error: Node Address not set correctly with Regestration!")
 	} else {
 		pass++
 	}
 
-	TheSession.SetGWAddress("test")
+	ses.SetGWAddress("test")
 
-	if TheSession.GetGWAddress() != "test" {
+	if ses.GetGWAddress() != "test" {
 		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
 	} else {
 		pass++
 	}
 
-	if TheSession.GetLastMessageID() != "totally unique ID" {
+	if ses.GetLastMessageID() != "totally unique ID" {
 		t.Errorf("Error: Last message ID should have been stored and loaded")
 	} else {
 		pass++
 	}
 
-	TheSession.SetLastMessageID("test")
+	ses.SetLastMessageID("test")
 
-	if TheSession.GetLastMessageID() != "test" {
+	if ses.GetLastMessageID() != "test" {
 		t.Errorf("Error: Last message ID not set correctly with" +
 			" SetLastMessageID!")
 	} else {
 		pass++
 	}
 
-	if TheSession.GetKeys() == nil {
+	if ses.GetKeys() == nil {
 		t.Errorf("Error: Keys not set correctly!")
 	} else {
 
-		test += len(TheSession.GetKeys())
+		test += len(ses.GetKeys())
 
-		for i := 0; i < len(TheSession.GetKeys()); i++ {
+		for i := 0; i < len(ses.GetKeys()); i++ {
 
-			if !reflect.DeepEqual(*TheSession.GetPublicKey(), *publicKey) {
+			if !reflect.DeepEqual(*ses.GetPublicKey(), *publicKey) {
 				t.Errorf("Error: Public key not set correctly!")
-			} else if !reflect.DeepEqual(*TheSession.GetPrivateKey(), *privateKey) {
+			} else if !reflect.DeepEqual(*ses.GetPrivateKey(), *privateKey) {
 				t.Errorf("Error: Private key not set correctly!")
-			} else if TheSession.GetKeys()[i].ReceptionKey.Cmp(grp.
+			} else if ses.GetKeys()[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Reception key not set correctly!")
-			} else if TheSession.GetKeys()[i].TransmissionKey.Cmp(grp.
+			} else if ses.GetKeys()[i].TransmissionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Transmission key not set correctly!")
 			}
@@ -147,20 +140,20 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//TODO: FIX THIS?
-	if TheSession.GetPrivateKey() == nil {
+	if ses.GetPrivateKey() == nil {
 		t.Errorf("Error: Private Keys not set correctly!")
 	} else {
 		pass++
 	}
 
-	err = TheSession.UpsertMap("test", 5)
+	err = ses.UpsertMap("test", 5)
 
 	if err != nil {
 		t.Errorf("Error: Could not store in session map interface: %s",
 			err.Error())
 	}
 
-	element, err := TheSession.QueryMap("test")
+	element, err := ses.QueryMap("test")
 
 	if err != nil {
 		t.Errorf("Error: Could not read element in session map "+
@@ -172,9 +165,9 @@ func TestUserSession(t *testing.T) {
 			"interface: Expected: 5, Recieved: %v", element)
 	}
 
-	TheSession.DeleteMap("test")
+	ses.DeleteMap("test")
 
-	_, err = TheSession.QueryMap("test")
+	_, err = ses.QueryMap("test")
 
 	if err == nil {
 		t.Errorf("Error: Could not delete element in session map " +
@@ -182,34 +175,25 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//Logout
-	TheSession.Immolate()
-
-	if TheSession != nil {
-		t.Errorf("Error: Logout / Immolate did not work!")
-	} else {
-		pass++
-	}
+	ses.Immolate()
 
 	// Error tests
 
 	// Test nil LocalStorage
-	temp := globals.LocalStorage
-	globals.LocalStorage = nil
 
-	_, err = LoadSession(id.NewUserFromUint(6, t))
+	_, err = LoadSession(nil, id.NewUserFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
 	}
-	globals.LocalStorage = temp
 
 	// Test invalid / corrupted LocalStorage
 	h := sha256.New()
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
-	globals.LocalStorage.Save(randBytes)
+	storage.Save(randBytes)
 
-	_, err = LoadSession(id.NewUserFromUint(6, t))
+	_, err = LoadSession(storage, id.NewUserFromUint(6, t))
 
 	if err == nil {
 		t.Errorf("Error did not catch a corrupt LocalStorage")
@@ -235,7 +219,7 @@ func TestGetPubKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
 
 	pubKey := ses.GetPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -262,7 +246,7 @@ func TestGetPrivKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
 
 	privKey := ses.GetPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

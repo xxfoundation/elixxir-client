@@ -17,8 +17,8 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/payment"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
@@ -29,12 +29,20 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
 	"time"
 )
+
+type Client struct {
+	storage globals.Storage
+	sess user.Session
+	comm io.Communications
+}
 
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
@@ -48,25 +56,39 @@ func FormatTextMessage(message string) []byte {
 	return wireRepresentation
 }
 
-// Initializes the client by registering a storage mechanism.
-// If none is provided, the system defaults to using OS file access
-// returns in error if it fails
-func InitClient(s globals.Storage, loc string) error {
-	storageErr := globals.InitStorage(s, loc)
-
-	if storageErr != nil {
-		storageErr = errors.New(
-			"could not init client storage: " + storageErr.Error())
-		return storageErr
+// Creates a new Client using the storage mechanism provided.
+// If none is provided, a default storage using OS file access
+// is created
+// returns a new Client object, and an error if it fails
+func NewClient(s globals.Storage, loc string) (*Client, error) {
+	var store globals.Storage
+	if s == nil {
+		globals.Log.INFO.Printf("No storage provided," +
+			" initializing Client with default storage")
+		store = &globals.DefaultStorage{}
+	} else {
+		store = s
 	}
 
-	return nil
+	err := store.SetLocation(loc)
+
+	if err != nil {
+		err = errors.New("Invalid Local Storage Location: " + err.Error())
+		globals.Log.ERROR.Printf(err.Error())
+		return nil, err
+	}
+
+	cl := new(Client)
+	cl.storage = store
+	cl.comm = io.NewMessenger()
+	return cl, nil
 }
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func Register(preCan bool, registrationCode, nick, registrationAddr string,
-	gwAddresses []string, mint bool, grp *cyclic.Group) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick,
+	registrationAddr string, gwAddresses []string,
+	mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
 
@@ -261,13 +283,8 @@ func Register(preCan bool, registrationCode, nick, registrationAddr string,
 	}
 
 	// Create the user session
-	nus := user.NewSession(u, gwAddresses[0], nk, publicKey, privateKey, grp)
-
-	// Create the wallet
-	_, err = payment.CreateWallet(nus, mint)
-	if err != nil {
-		return id.ZeroID, err
-	}
+	nus := user.NewSession(cl.storage, u, gwAddresses[0], nk,
+		publicKey, privateKey, grp)
 
 	// Store the user session
 	errStore := nus.StoreSession()
@@ -288,28 +305,18 @@ func Register(preCan bool, registrationCode, nick, registrationAddr string,
 	return UID, nil
 }
 
-var quitReceptionRunner chan bool
-
-// Logs in user and returns their nickname.
-// returns an empty sting if login fails.
-func Login(UID *id.User, email, addr string, tlsCert string) (user.Session, error) {
+// Logs in user and sets session on client object
+// returns the nickname or error if login fails
+func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (string, error) {
 
 	connect.GatewayCertString = tlsCert
 
-	session, err := user.LoadSession(UID)
+	session, err := user.LoadSession(cl.storage, UID)
 
 	if session == nil {
-		return nil, errors.New("Unable to load session: " + err.Error() +
+		return "", errors.New("Unable to load session: " + err.Error() +
 			fmt.Sprintf("Passed parameters: %q, %s, %q", *UID, addr, tlsCert))
 	}
-
-	theWallet, err = payment.CreateWallet(session, false)
-	if err != nil {
-		err = fmt.Errorf("Login: Couldn't create wallet: %s", err.Error())
-		globals.Log.ERROR.Printf(err.Error())
-		return nil, err
-	}
-	theWallet.RegisterListeners()
 
 	if addr != "" {
 		session.SetGWAddress(addr)
@@ -319,106 +326,103 @@ func Login(UID *id.User, email, addr string, tlsCert string) (user.Session, erro
 
 	// TODO: These can be separate, but we set them to the same thing
 	//       until registration is completed.
-	io.SendAddress = addrToUse
-	io.ReceiveAddress = addrToUse
+	(cl.comm).(*io.Messaging).SendAddress = addrToUse
+	(cl.comm).(*io.Messaging).ReceiveAddress = addrToUse
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return nil, err
+		return "", err
 	}
 
-	user.TheSession = session
+	cl.sess = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
-	quitReceptionRunner = make(chan bool)
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go io.Messaging.MessageReceiver(pollWaitTimeMillis, quitReceptionRunner)
+	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
+
+	// Initialize UDB stuff here
+	bots.InitUDB(cl.sess, cl.comm, cl.sess.GetSwitchboard())
 
 	if email != "" {
-		err = registerForUserDiscovery(email)
+		err = cl.registerForUserDiscovery(email)
 		if err != nil {
 			globals.Log.ERROR.Printf(
 				"Unable to register with UDB: %s", err)
-			return nil, err
+			return "", err
 		}
 	}
 
-	return session, nil
+	return session.GetCurrentUser().Nick, nil
 }
 
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
-func Send(message parse.MessageInterface) error {
+func (cl *Client) Send(message parse.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
-	err := io.Messaging.SendMessage(recipientID, message.Pack())
+	err := cl.comm.SendMessage(cl.sess, recipientID, message.Pack())
 	return err
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for
 // use with the channel bot and dummy bot
-func DisableBlockingTransmission() {
-	io.BlockTransmissions = false
+func (cl *Client) DisableBlockingTransmission() {
+	(cl.comm).(*io.Messaging).BlockTransmissions = false
 }
 
 // SetRateLimiting sets the minimum amount of time between message
 // transmissions just for testing, probably to be removed in production
-func SetRateLimiting(limit uint32) {
-	io.TransmitDelay = time.Duration(limit) * time.Millisecond
+func (cl *Client) SetRateLimiting(limit uint32) {
+	(cl.comm).(*io.Messaging).TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-func Listen(user *id.User, outerType format.CryptoType,
-	messageType int32, newListener switchboard.Listener, callbacks *switchboard.
-	Switchboard) string {
-	listenerId := callbacks.Register(user, outerType, messageType, newListener)
+func (cl *Client) Listen(user *id.User, outerType format.CryptoType,
+	messageType int32, newListener switchboard.Listener) string {
+	listenerId := cl.sess.GetSwitchboard().
+		Register(user, outerType, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
 	return listenerId
 }
 
-func StopListening(listenerHandle string, callbacks *switchboard.Switchboard) {
-	callbacks.Unregister(listenerHandle)
+func (cl *Client) StopListening(listenerHandle string) {
+	cl.sess.GetSwitchboard().Unregister(listenerHandle)
 }
 
-type APISender struct{}
-
-func (s APISender) Send(messageInterface parse.MessageInterface) {
-	Send(messageInterface)
+func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
+	return cl.sess.GetSwitchboard()
 }
 
-type Sender interface {
-	Send(messageInterface parse.MessageInterface)
+func (cl *Client) GetCurrentUser() *id.User {
+	return cl.sess.GetCurrentUser().User
 }
 
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
-func Logout() error {
-	if user.TheSession == nil {
+func (cl *Client) Logout() error {
+	if cl.sess == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
 	// Stop reception runner goroutine
-	quitReceptionRunner <- true
+	cl.sess.GetQuitChan() <- true
 
 	// Disconnect from the gateway
-	io.Disconnect(io.SendAddress)
-	if io.SendAddress != io.ReceiveAddress {
-		io.Disconnect(io.ReceiveAddress)
+	io.Disconnect(
+		(cl.comm).(*io.Messaging).SendAddress)
+	if (cl.comm).(*io.Messaging).SendAddress !=
+		(cl.comm).(*io.Messaging).ReceiveAddress {
+		io.Disconnect(
+			(cl.comm).(*io.Messaging).ReceiveAddress)
 	}
 
-	errStore := user.TheSession.StoreSession()
-	// If a client is logging in again, the storage may need to go into a
-	// different location
-	// Currently, none of the storage abstractions need to do anything to
-	// clean up in the long term. For example, DefaultStorage closes the
-	// file every time it's written.
-	globals.LocalStorage = nil
+	errStore := cl.sess.StoreSession()
 
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
@@ -427,7 +431,8 @@ func Logout() error {
 		return err
 	}
 
-	errImmolate := user.TheSession.Immolate()
+	errImmolate := cl.sess.Immolate()
+	cl.sess = nil
 
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
@@ -436,14 +441,11 @@ func Logout() error {
 		return err
 	}
 
-	// Reset listener structure
-	switchboard.Listeners = switchboard.NewSwitchboard()
-
 	return nil
 }
 
 // Internal API for user discovery
-func registerForUserDiscovery(emailAddress string) error {
+func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userId, _, err := bots.Search(valueType, emailAddress)
 	if userId != nil {
@@ -454,19 +456,60 @@ func registerForUserDiscovery(emailAddress string) error {
 		return err
 	}
 
-	publicKey := user.TheSession.GetPublicKey()
+	publicKey := cl.sess.GetPublicKey()
 	publicKeyBytes := publicKey.GetKey().LeftpadBytes(256)
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
-func SearchForUser(emailAddress string, callback func(*id.User, []byte, error)) {
+// UDB Search API
+// Pass a callback function to extract results
+func (cl *Client) SearchForUser(emailAddress string,
+	callback func(*id.User, []byte, error)) {
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
-		// TODO Register user with E2E
-		// e2e.RegisterUser(uid, pubKey)
+		if err == nil {
+			cl.registerUserE2E(uid, pubKey)
+		} else {
+			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
+		}
 		callback(uid, pubKey, err)
 	}()
+}
+
+func (cl *Client) registerUserE2E(partnerID *id.User,
+	partnerPubKey []byte) {
+	// Get needed variables from session
+	grp := cl.sess.GetGroup()
+	userID := cl.sess.GetCurrentUser().User
+
+	// Create user private key and partner public key
+	// in the group
+	privKey := cl.sess.GetPrivateKey()
+	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetKey())
+	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
+
+	// Generate baseKey
+	baseKey, _ := diffieHellman.CreateDHSessionKey(
+		partnerPubKeyCyclic,
+		privKeyCyclic,
+		grp)
+
+	// Generate key TTL and number of keys
+	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
+		keyStore.MinKeys, keyStore.MaxKeys,
+		e2e.TTLParams{keyStore.TTLScalar,
+			keyStore.Threshold})
+
+	// Create KeyManager
+	km := keyStore.NewManager(baseKey, partnerID,
+		numKeys, keysTTL, keyStore.NumReKeys)
+
+	// Generate Keys
+	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
+
+	// Add Key Manager to session
+	cl.sess.AddKeyManager(km)
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage
@@ -508,30 +551,11 @@ func ParseMessage(message []byte) (ParsedMessage, error) {
 	return pm, nil
 }
 
-// TODO Support more than one wallet per user? Maybe in v2
-var theWallet *payment.Wallet
-
-func Wallet() *payment.Wallet {
-	if theWallet == nil {
-		// Assume that the correct wallet is already stored in the session
-		// (if necessary, minted during register)
-		// So, if the wallet is nil, registration must have happened for this method to work
-		var err error
-		theWallet, err = payment.CreateWallet(user.TheSession, false)
-		theWallet.RegisterListeners()
-		if err != nil {
-			globals.Log.ERROR.Println("Wallet("+
-				"): Got an error creating the wallet.", err.Error())
-		}
-	}
-	return theWallet
+func (cl *Client) GetSessionData() ([]byte, error) {
+	return cl.sess.GetSessionData()
 }
 
 // Set the output of the
 func SetLogOutput(w goio.Writer) {
 	globals.Log.SetLogOutput(w)
-}
-
-func GetSessionData() ([]byte, error) {
-	return user.TheSession.GetSessionData()
 }

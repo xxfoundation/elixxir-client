@@ -11,179 +11,187 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/crypto"
-	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
-	"math/rand"
 	"os"
 	"testing"
-	"time"
 )
 
-var gwAddress = "localhost:8080"
+const NumGWs = 3
+const RegPort = 5000
+const RegGWsStartPort = 10000
+const SessionGWPort = 15000
 
+var RegAddress = fmtAddress(RegPort)
+var RegGWAddresses [NumGWs]string
+var SessionGWAddress = fmtAddress(SessionGWPort)
+
+const ValidRegCode = "UAV6IWD6"
+const InvalidRegCode = "INVALID_REG_CODE"
+
+var RegGWHandlers = [NumGWs]*TestInterface{
+	{LastReceivedMessage: pb.CmixMessage{}},
+	{LastReceivedMessage: pb.CmixMessage{}},
+	{LastReceivedMessage: pb.CmixMessage{}},
+}
+
+var RegHandler = MockRegistration{}
+
+var SessionGWHandler = TestInterface{LastReceivedMessage: pb.CmixMessage{}}
 var Session user.SessionObj
-var GatewayData TestInterface
 
+// Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
-	rand.Seed(time.Now().Unix())
-	gwAddress = fmt.Sprintf("localhost:%d", rand.Intn(1000)+5001)
-	io.SendAddress = gwAddress
-	io.ReceiveAddress = gwAddress
-	GatewayData = TestInterface{
-		LastReceivedMessage: pb.CmixMessage{},
-	}
+
+	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
 
-	os.Exit(m.Run())
+	os.Exit(testMainWrapper(m))
 }
 
-// Make sure InitClient registers storage.
-func TestInitClient(t *testing.T) {
-	globals.LocalStorage = nil
-	err := InitClient(nil, "")
+// Verify that a valid precanned user can register
+func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
+
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
 	if err != nil {
-		t.Errorf("InitClient failed on valid input: %v", err)
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	if globals.LocalStorage == nil {
-		t.Errorf("InitClient did not register storage.")
-	}
-	globals.LocalStorage = nil
-}
 
-func TestRegister(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
+	// Register precanned user with all gateways
+	regRes, err := client.Register(true, ValidRegCode,
+		"", "", RegGWAddresses[:], false, getGroup())
 
-	registrationCode := "UAV6IWD6"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
-	p := large.NewInt(int64(107))
-	g := large.NewInt(int64(2))
-	q := large.NewInt(int64(3))
-	grp := cyclic.NewGroup(p, g, q)
-	regRes, err := Register(true, registrationCode,
-		"", "", []string{gwAddress}, false, grp)
+	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
+
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
-	globals.LocalStorage = nil
 }
 
-func TestRegisterBadNumNodes(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
+// Verify that a valid precanned user can register
+func TestRegister_ValidRegParams___(t *testing.T) {
 
-	registrationCode := "UAV6IWD6"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
-	p := large.NewInt(int64(107))
-	g := large.NewInt(int64(2))
-	q := large.NewInt(int64(3))
-	grp := cyclic.NewGroup(p, g, q)
-	_, err = Register(true, registrationCode,
-		"", "", []string{}, false, grp)
-	if err == nil {
-		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	globals.LocalStorage = nil
-}
 
-func TestRegisterBadHUID(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
-
-	registrationCode := "OIF3OJ6I"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
-	p := large.NewInt(int64(107))
-	g := large.NewInt(int64(2))
-	q := large.NewInt(int64(3))
-	grp := cyclic.NewGroup(p, g, q)
-	_, err = Register(true, registrationCode,
-		"", "", []string{gwAddress}, false, grp)
-	if err == nil {
-		t.Error("Registration worked with bad registration code!")
+	// Register precanned user with all gateways
+	regRes, err := client.Register(false, ValidRegCode, "",
+		RegAddress, RegGWAddresses[:], false, getGroup())
+	if err != nil {
+		t.Errorf("Registration failed: %s", err.Error())
 	}
-	globals.LocalStorage = nil
+
+	if *regRes == *id.ZeroID {
+		t.Errorf("Invalid registration number received: %v", *regRes)
+	}
 }
 
-func TestRegisterDeletedUser(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
+// Verify that registering with an invalid number of gateways will fail
+func TestRegister_InvalidNumGatewaysReturnsError(t *testing.T) {
 
-	registrationCode := "UAV6IWD6"
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
-	p := large.NewInt(int64(107))
-	g := large.NewInt(int64(2))
-	q := large.NewInt(int64(3))
-	grp := cyclic.NewGroup(p, g, q)
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// Register with no gateways
+	_, err = client.Register(true, ValidRegCode, "",
+		"", []string{}, false, getGroup())
+	if err == nil {
+		t.Errorf("Registration worked with invalid number of gateways!")
+	}
+}
+
+// Verify that registering with an invalid registration code will fail
+func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
+
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// Register with invalid reg code
+	_, err = client.Register(true, InvalidRegCode, "",
+		RegAddress, RegGWAddresses[:], false, getGroup())
+	if err == nil {
+		t.Error("Registration worked with invalid registration code!")
+	}
+}
+
+func TestRegister_DeletedUserReturnsErr(t *testing.T) {
+
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// ...
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-	_, err = Register(true, registrationCode,
-		"", "", []string{gwAddress}, false, grp)
+
+	// Register
+	_, err = client.Register(true, ValidRegCode, "",
+		RegAddress, RegGWAddresses[:], false, getGroup())
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
-	user.Users.UpsertUser(tempUser)
-	globals.LocalStorage = nil
-}
 
-func SetNulKeys() {
-	// Set the transmit keys to be 1, so send/receive can work
-	// FIXME: Why doesn't crypto panic when these keys are empty?
-	keys := user.TheSession.GetKeys()
-	grp := user.TheSession.GetGroup()
-	for i := range keys {
-		keys[i].TransmissionKey = grp.NewInt(1)
-		keys[i].TransmissionKey = grp.NewInt(1)
-	}
+	// ...
+	user.Users.UpsertUser(tempUser)
 }
 
 func TestSend(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress, &GatewayData, "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
 
-	globals.LocalStorage = nil
-	d := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	err := InitClient(&d, "hello")
-	grp := crypto.InitCrypto()
-	registrationCode := "UAV6IWD6"
-	userID, err := Register(true, registrationCode,
-		"","", []string{gwAddress}, false, grp)
-	_, err2 := Login(userID, "", gwAddress, "")
-	SetNulKeys()
+	// Register with a valid registration code
+	userID, err := client.Register(true, ValidRegCode, "",
+		RegAddress, RegGWAddresses[:], false, getGroup())
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
-	if err2 != nil {
+
+	// Login to gateway
+	_, err = client.Login(userID, "", SessionGWAddress, "")
+
+	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
 	// Test send with invalid sender ID
-	err = Send(APIMessage{SenderID: id.NewUserFromUint(12, t),
-		Payload:     []byte("test"),
-		RecipientID: userID})
+	err = client.Send(
+		APIMessage{
+			SenderID:    id.NewUserFromUint(12, t),
+			Payload:     []byte("test"),
+			RecipientID: userID,
+		},
+	)
+
 	if err != nil {
 		// TODO: would be nice to catch the sender but we
 		// don't have the interface/mocking for that.
@@ -191,26 +199,93 @@ func TestSend(t *testing.T) {
 	}
 
 	// Test send with valid inputs
-	err = Send(APIMessage{SenderID: userID, Payload: []byte("test"),
-		RecipientID: userID})
+	err = client.Send(APIMessage{SenderID: userID, Payload: []byte("test"),
+		RecipientID: client.GetCurrentUser()})
+
 	if err != nil {
 		t.Errorf("Error sending message: %v", err)
+	}
+
+	err = client.Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
 	}
 }
 
 func TestLogout(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
 
-	err := Logout()
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello")
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// Logout before logging in should return an error
+	err = client.Logout()
+
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
+
+	// Register with a valid registration code
+	userID, err := client.Register(true, ValidRegCode, "",
+		RegAddress, RegGWAddresses[:], false, getGroup())
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	// Login to gateway
+	_, err = client.Login(userID, "", SessionGWAddress, "")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = client.Logout()
+
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
 	}
-	err = Logout()
+
+	// Logout after logout has been called should return an error
+	err = client.Logout()
+
 	if err == nil {
 		t.Errorf("Logout did not throw an error when called on a client that" +
 			" is not currently logged in.")
 	}
 }
+
+// Handles initialization of mock registration server,
+// gateways used for registration and gateway used for session
+func testMainWrapper(m *testing.M) int {
+
+	// Start mock gateways used by registration and defer their shutdown (may not be needed)
+	for i, handler := range RegGWHandlers {
+		RegGWAddresses[i] = fmtAddress(RegGWsStartPort+i)
+		gw := gateway.StartGateway(
+			RegGWAddresses[i], handler, "", "",
+		)
+		defer gw()
+	}
+
+	// Start mock registration server and defer its shutdown
+	defer registration.StartRegistrationServer(RegAddress, &RegHandler, "", "")()
+
+	// Start session gateway and defer its shutdown
+	defer gateway.StartGateway(
+		SessionGWAddress, &SessionGWHandler, "", "",
+	)()
+
+	return m.Run()
+}
+
+func getGroup() *cyclic.Group {
+	return crypto.InitCrypto()
+}
+
+func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port)}

@@ -10,9 +10,10 @@ package api
 import (
 	"gitlab.com/elixxir/client/cmixproto"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
@@ -80,10 +81,28 @@ func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
 	return true
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.
-RegistrationConfirmation, error) {
-	return &pb.RegistrationConfirmation{}, nil
+func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.RegistrationConfirmation, error) {
+	regConfifmration := &pb.RegistrationConfirmation{}
+
+	regConfifmration.P = large.NewInt(1).Bytes()
+	regConfifmration.Q = large.NewInt(1).Bytes()
+	regConfifmration.G = large.NewInt(1).Bytes()
+	regConfifmration.Y = large.NewInt(1).Bytes()
+
+	return regConfifmration, nil
 }
+
+// Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
+type MockRegistration struct {
+	//LastReceivedMessage pb.CmixMessage
+}
+
+// Registers a user and returns a signed public key
+func (s *MockRegistration) RegisterUser(registrationCode string,
+	Y, P, Q, G []byte) (hash, R, S []byte, err error) {
+	return nil, nil, nil, nil
+}
+
 
 // Pass-through for Registration Nonce Communication
 func (m *TestInterface) RequestNonce(message *pb.RequestNonceMessage) (*pb.NonceMessage, error) {

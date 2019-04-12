@@ -26,22 +26,17 @@ const PendingMessageKeyLen = PendingMessageKeyLenBits / 8
 
 type PendingMessageKey [PendingMessageKeyLen]byte
 
-type collator struct {
+type Collator struct {
 	pendingMessages map[PendingMessageKey]*multiPartMessage
 	// TODO do we need a lock here? or can we assume that requests will come
 	// from only one thread?
 	mux sync.Mutex
 }
 
-var theCollator *collator
-
-func GetCollator() *collator {
-	if theCollator == nil {
-		theCollator = &collator{
-			pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
-		}
+func NewCollator() *Collator {
+	return &Collator{
+		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
-	return theCollator
 }
 
 // AddMessage validates its input and silently does nothing on failure
@@ -50,7 +45,7 @@ func GetCollator() *collator {
 // TODO this takes too many types. i should split it up.
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
-func (mb *collator) AddMessage(message *format.Message,
+func (mb *Collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
 	payload := message.GetPayloadData()
@@ -156,7 +151,7 @@ func (mb *collator) AddMessage(message *format.Message,
 }
 
 // Debug: dump all messages that are currently in the map
-func (mb *collator) dump() string {
+func (mb *Collator) dump() string {
 	dump := ""
 	mb.mux.Lock()
 	for key := range mb.pendingMessages {

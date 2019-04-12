@@ -53,7 +53,7 @@ func FormatTextMessage(message string) []byte {
 func NewClient(s globals.Storage, loc string) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
-		globals.Log.WARN.Printf("No storage provided," +
+		globals.Log.INFO.Printf("No storage provided," +
 			" initializing Client with default storage")
 		store = &globals.DefaultStorage{}
 	} else {

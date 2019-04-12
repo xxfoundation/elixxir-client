@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -142,7 +143,7 @@ func sessionInitialization() {
 
 	// Log the user in
 	uid := id.NewUserFromUint(userId, nil)
-	_, err = client.Login(uid, gwAddr, "")
+	_, err = client.Login(uid, gwAddr, certs.GatewayTLS)
 
 	if err != nil {
 		fmt.Printf("Could Not Log In\n")

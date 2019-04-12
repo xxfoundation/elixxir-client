@@ -274,7 +274,7 @@ var rootCmd = &cobra.Command{
 		// Set the cert paths explicitly to avoid data races
 		SetCertPaths(gwCertPath, registrationCertPath)
 
-		sessionInitialization()
+		userID := sessionInitialization()
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -295,8 +295,6 @@ var rootCmd = &cobra.Command{
 			dummyPeriod = time.Nanosecond *
 				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
 		}
-
-		userID := sessionInitialization()
 
 		// Only send a message if we have a message to send (except dummy messages)
 		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})

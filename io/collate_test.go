@@ -18,7 +18,7 @@ import (
 )
 
 func TestCollator_AddMessage(t *testing.T) {
-	collator := &collator{
+	collator := &Collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
 	var bodies [][]byte
@@ -62,7 +62,7 @@ func TestCollator_AddMessage(t *testing.T) {
 }
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
-	collator := &collator{
+	collator := &Collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
 	//enough for four partitions, probably

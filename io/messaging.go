@@ -31,6 +31,7 @@ import (
 // Messaging implements the Communications interface
 type Messaging struct {
 	nextId func() []byte
+	collator *Collator
 	// SendAddress is the address of the server to send messages
 	SendAddress string
 	// ReceiveAddress is the address of the server to receive messages from
@@ -49,6 +50,7 @@ type Messaging struct {
 func NewMessenger() *Messaging {
 	return &Messaging{
 		nextId: parse.IDCounter(),
+		collator: NewCollator(),
 		BlockTransmissions: true,
 		TransmitDelay: 1000 * time.Millisecond,
 		ReceivedMessages: make(map[string]struct{}),
@@ -183,7 +185,7 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 			decryptedMessages := m.receiveMessagesFromGateway(session, &pollingMessage)
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
-					assembledMessage := GetCollator().AddMessage(
+					assembledMessage := m.collator.AddMessage(
 						decryptedMessages[i], time.Minute)
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it

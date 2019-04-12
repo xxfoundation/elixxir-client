@@ -13,9 +13,11 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"math/rand"
 	"sync"
 	"time"
@@ -23,10 +25,6 @@ import (
 
 // Errors
 var ErrQuery = errors.New("element not in map")
-
-// Globally instantiated Session
-// FIXME remove this sick filth
-var TheSession Session
 
 // Interface for User Session operations
 type Session interface {
@@ -44,6 +42,10 @@ type Session interface {
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
+	AddKeyManager(km *keyStore.KeyManager)
+	GetKeyStore() *keyStore.KeyStore
+	GetSwitchboard() *switchboard.Switchboard
+	GetQuitChan() chan bool
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
@@ -55,31 +57,39 @@ type NodeKeys struct {
 }
 
 // Creates a new Session interface for registration
-func NewSession(u *User, GatewayAddr string, nk []NodeKeys, publicKey *signature.DSAPublicKey,
-	privateKey *signature.DSAPrivateKey, grp *cyclic.Group) Session {
+func NewSession(store globals.Storage,
+	u *User, GatewayAddr string, nk []NodeKeys,
+	publicKey *signature.DSAPublicKey,
+	privateKey *signature.DSAPrivateKey,
+	grp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		CurrentUser:  u,
-		GWAddress:    GatewayAddr, // FIXME: don't store this here
-		Keys:         nk,
-		PrivateKey:   privateKey,
-		PublicKey:    publicKey,
-		Grp:          grp,
-		InterfaceMap: make(map[string]interface{}),
+		CurrentUser:         u,
+		GWAddress:           GatewayAddr, // FIXME: don't store this here
+		Keys:                nk,
+		PrivateKey:          privateKey,
+		PublicKey:           publicKey,
+		Grp:                 grp,
+		InterfaceMap:        make(map[string]interface{}),
+		KeyManagers:         make([]*keyStore.KeyManager, 0),
+		keyMaps:             keyStore.NewStore(),
+		store:               store,
+		listeners:           switchboard.NewSwitchboard(),
+		quitReceptionRunner: make(chan bool),
 	})
-
 }
 
-func LoadSession(UID *id.User) (Session, error) {
-	if globals.LocalStorage == nil {
-		err := errors.New("StoreSession: Local Storage not avalible")
+func LoadSession(store globals.Storage,
+	UID *id.User) (Session, error) {
+	if store == nil {
+		err := errors.New("LoadSession: Local Storage not avalible")
 		return nil, err
 	}
 
 	rand.Seed(time.Now().UnixNano())
 
-	sessionGob := globals.LocalStorage.Load()
+	sessionGob := store.Load()
 
 	var sessionBytes bytes.Buffer
 
@@ -119,8 +129,19 @@ func LoadSession(UID *id.User) (Session, error) {
 		return nil, err
 	}
 
-	TheSession = &session
+	// Create keyStore
+	session.keyMaps = keyStore.NewStore()
+	// Create switchboard
+	session.listeners = switchboard.NewSwitchboard()
+	// Create quit channel for reception runner
+	session.quitReceptionRunner = make(chan bool)
+	// Rebuild E2E Key Maps from Key Managers
+	for _, km := range session.KeyManagers {
+		km.GenerateKeys(session.Grp, UID, session.keyMaps)
+	}
 
+	// Set storage pointer
+	session.store = store
 	return &session, nil
 }
 
@@ -142,6 +163,22 @@ type SessionObj struct {
 
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
+
+	// E2E Key Managers list
+	KeyManagers []*keyStore.KeyManager
+
+	// Non exported fields (not GOB encoded/decoded)
+	// E2E KeyStore
+	keyMaps *keyStore.KeyStore
+
+	// Local pointer to storage of this session
+	store globals.Storage
+
+	// Switchboard
+	listeners *switchboard.Switchboard
+
+	// Quit channel for message reception runner
+	quitReceptionRunner chan bool
 
 	lock sync.Mutex
 }
@@ -211,13 +248,13 @@ func (s *SessionObj) SetGWAddress(addr string) {
 
 func (s *SessionObj) storeSession() error {
 
-	if globals.LocalStorage == nil {
+	if s.store == nil {
 		err := errors.New("StoreSession: Local Storage not available")
 		return err
 	}
 
 	sessionData, err := s.getSessionData()
-	err = globals.LocalStorage.Save(sessionData)
+	err = s.store.Save(sessionData)
 	if err != nil {
 		return err
 	}
@@ -259,7 +296,6 @@ func (s *SessionObj) Immolate() error {
 	s.GWAddress = burntString(len(s.GWAddress))
 	s.GWAddress = ""
 
-	TheSession = nil
 
 	s.UnlockStorage()
 
@@ -296,10 +332,26 @@ func (s *SessionObj) DeleteMap(key string) error {
 	return err
 }
 
+func (s *SessionObj) AddKeyManager(km *keyStore.KeyManager) {
+	s.KeyManagers = append(s.KeyManagers, km)
+}
+
 func (s *SessionObj) GetSessionData() ([]byte, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.getSessionData()
+}
+
+func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
+	return s.keyMaps
+}
+
+func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
+	return s.listeners
+}
+
+func (s *SessionObj) GetQuitChan() chan bool {
+	return s.quitReceptionRunner
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {

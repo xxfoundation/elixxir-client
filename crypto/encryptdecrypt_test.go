@@ -23,6 +23,8 @@ import (
 var salt = []byte(
 	"fdecfa52a8ad1688dbfa7d16df74ebf27e535903c469cefc007ebbe1ee895064")
 
+var session user.Session
+
 func setup(t *testing.T) {
 	base := 16
 
@@ -64,13 +66,14 @@ func setup(t *testing.T) {
 		nk[i].TransmissionKey = grp.NewInt(1)
 		nk[i].ReceptionKey = grp.NewInt(1)
 	}
-	user.TheSession = user.NewSession(u, "", nk, nil, nil, grp)
+	session = user.NewSession(nil, u, "", nk,
+		nil, nil, grp)
 }
 
 func TestEncryptDecrypt(t *testing.T) {
 	setup(t)
 
-	grp := user.TheSession.GetGroup()
+	grp := session.GetGroup()
 	sender := id.NewUserFromUint(38, t)
 	recipient := id.NewUserFromUint(29, t)
 	msg := format.NewMessage()
@@ -82,7 +85,7 @@ func TestEncryptDecrypt(t *testing.T) {
 
 	// Generate a compound encryption key
 	encryptionKey := grp.NewInt(1)
-	for _, key := range user.TheSession.GetKeys() {
+	for _, key := range session.GetKeys() {
 		baseKey := key.TransmissionKey
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
 		grp.Mul(encryptionKey, encryptionKey, partialEncryptionKey)

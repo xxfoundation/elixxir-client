@@ -23,3 +23,7 @@ import:
   version: ^0.0.1
   subpackages:
   - cobra
+- package: github.com/golang-collections/collections
+  version: master
+  repo: https://github.com/golang-collections/collections.git
+  vcs: git

@@ -10,9 +10,6 @@ import (
 	"bytes"
 	"encoding/hex"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
@@ -21,15 +18,6 @@ import (
 )
 
 func TestCollator_AddMessage(t *testing.T) {
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
-	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
-		"test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, grp)
-
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
@@ -74,15 +62,6 @@ func TestCollator_AddMessage(t *testing.T) {
 }
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
-	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L3072N256)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
-	grp := cyclic.NewGroup(params.GetP(), params.GetG(), params.GetQ())
-	user.TheSession = user.NewSession(&user.User{id.NewUserFromUint(8, t),
-		"test"}, "",
-		[]user.NodeKeys{}, publicKey, privateKey, grp)
-
 	collator := &collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}

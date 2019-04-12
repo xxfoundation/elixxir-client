@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
+	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
@@ -51,6 +52,7 @@ var gwCertPath string
 var registrationCertPath string
 var registrationAddr string
 var registrationCode string
+var client *api.Client
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -63,18 +65,12 @@ func Execute() {
 }
 
 func sessionInitialization() *id.User {
-	if noBlockingTransmission {
-		api.DisableBlockingTransmission()
-	}
-
-	bindings.SetRateLimiting(int(rateLimiting))
-
 	var err error
 	register := false
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
-		err = bindings.InitClient(&globals.RamStorage{}, "")
+		client, err = api.NewClient(&globals.RamStorage{}, "")
 		if err != nil {
 			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -97,13 +93,19 @@ func sessionInitialization() *id.User {
 		}
 
 		//Initialize client with OS Storage
-		err = bindings.InitClient(&globals.DefaultStorage{}, sessionFile)
+		client, err = api.NewClient(nil, sessionFile)
 
 		if err != nil {
 			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID
 		}
 	}
+
+	if noBlockingTransmission {
+		client.DisableBlockingTransmission()
+	}
+
+	client.SetRateLimiting(rateLimiting)
 
 	// Handle parsing gateway addresses from the config file
 	gateways := viper.GetStringSlice("gateways")
@@ -125,11 +127,12 @@ func sessionInitialization() *id.User {
 
 	// Register a new user if requested
 	if register {
-		grp := cyclic.Group{}
-		grpBuff := []byte(viper.GetString("group"))
-		err := grp.UnmarshalJSON(grpBuff)
+		grpJSON := viper.GetString("group")
+
+		// Unmarshal group JSON
+		var grp cyclic.Group
+		err := grp.UnmarshalJSON([]byte(grpJSON))
 		if err != nil {
-			fmt.Printf("Could Not Decode group from JSON: %s\n", err.Error())
 			return id.ZeroID
 		}
 
@@ -141,18 +144,18 @@ func sessionInitialization() *id.User {
 
 		fmt.Printf("Attempting to register with code %s...\n", regCode)
 
-		uid, err = bindings.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint, &grp)
+		uid, err = client.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint, &grp)
+
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
 		}
-
 		fmt.Printf("Successfully registered user %v!\n", uid)
 
 	}
 
 	// Log the user in, for now using the first gateway specified
-	_, err = bindings.Login(uid[:], gwAddresses[0], "")
+	_, err = client.Login(uid, gwAddresses[0], certs.GatewayTLS)
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
@@ -234,7 +237,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := new(id.User).SetBytes(result.SpeakerID)
-	switchboard.Listeners.Speak(&parse.Message{
+	client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,
 		Receiver:  id.ZeroID,
@@ -261,21 +264,21 @@ var rootCmd = &cobra.Command{
 		// Set the cert paths explicitly to avoid data races
 		SetCertPaths(gwCertPath, registrationCertPath)
 
+		sessionInitialization()
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		api.Listen(id.ZeroID, format.None, int32(cmixproto.Type_TEXT_MESSAGE),
-			&text, switchboard.Listeners)
+		client.Listen(id.ZeroID, format.None, int32(cmixproto.Type_TEXT_MESSAGE),
+			&text)
 		// Channel messages
 		channel := ChannelListener{}
-		api.Listen(id.ZeroID, format.None,
-			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel,
-			switchboard.Listeners)
+		client.Listen(id.ZeroID, format.None,
+			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel)
 		// All other messages
 		fallback := FallbackListener{}
-		api.Listen(id.ZeroID, format.None, int32(cmixproto.Type_NO_TYPE),
-			&fallback, switchboard.Listeners)
+		client.Listen(id.ZeroID, format.None, int32(cmixproto.Type_NO_TYPE),
+			&fallback)
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -297,8 +300,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				grp := user.TheSession.GetGroup()
-				fmt.Println(parseUdbMessage(message, grp))
+				fmt.Println(parseUdbMessage(message, client))
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)
@@ -307,7 +309,7 @@ var rootCmd = &cobra.Command{
 					recipientNick, message)
 
 				// Send the message
-				bindings.Send(&parse.BindingsMessageProxy{&parse.Message{
+				client.Send(&parse.Message{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
@@ -315,7 +317,7 @@ var rootCmd = &cobra.Command{
 					},
 					CryptoType: format.Unencrypted,
 					Receiver: recipientId,
-				}})
+				})
 			}
 		}
 
@@ -336,15 +338,15 @@ var rootCmd = &cobra.Command{
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
-				message := &parse.BindingsMessageProxy{&parse.Message{
+				message := &parse.Message{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      bindings.FormatTextMessage(message),
 					},
 					CryptoType: format.Unencrypted,
-					Receiver:  recipientId}}
-				bindings.Send(message)
+					Receiver:  recipientId}
+				client.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
 			}
@@ -362,7 +364,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		//Logout
-		err := bindings.Logout()
+		err := client.Logout()
 
 		if err != nil {
 			fmt.Printf("Could not logout: %s\n", err.Error())

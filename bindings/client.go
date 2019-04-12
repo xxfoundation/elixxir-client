@@ -124,8 +124,9 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 // registrationAddr is the address of the registration server
 // gwAddresses is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, registrationAddr string,
-	gwAddressesList []string, mint bool, grpJSON string) ([]byte, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick,
+	registrationAddr string, gwAddressesList []string,
+	mint bool, grpJSON string) ([]byte, error) {
 
 	if len(gwAddressesList) < 1 {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
@@ -138,8 +139,8 @@ func (cl *Client) Register(preCan bool, registrationCode, registrationAddr strin
 		return id.ZeroID[:], err
 	}
 
-	UID, err := cl.client.Register(preCan, registrationCode, registrationAddr,
-		gwAddressesList, mint, &grp)
+	UID, err := cl.client.Register(preCan, registrationCode, nick,
+		registrationAddr, gwAddressesList, mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -157,14 +158,15 @@ func (cl *Client) Register(preCan bool, registrationCode, registrationAddr strin
 // certificate string to "default", the bindings will use that certificate.
 // If you leave it empty, the Client will try to connect to the GW without TLS
 // This should only ever be used for testing purposes
-func (cl *Client) Login(UID []byte, addr string, tlsCert string) (string, error) {
+func (cl *Client) Login(UID []byte, email, addr string,
+	tlsCert string) (string, error) {
 	userID := new(id.User).SetBytes(UID)
 	var err error
 	var nick string
 	if tlsCert == "default" {
-		nick, err = cl.client.Login(userID, addr, certs.GatewayTLS)
+		nick, err = cl.client.Login(userID, email, addr, certs.GatewayTLS)
 	} else {
-		nick, err = cl.client.Login(userID, addr, tlsCert)
+		nick, err = cl.client.Login(userID, email, addr, tlsCert)
 	}
 	return nick, err
 }
@@ -205,22 +207,21 @@ func (cl *Client) SetRateLimiting(limit int) {
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
-func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
-	return cl.client.RegisterForUserDiscovery(emailAddress)
-}
-
 type SearchResult struct {
 	ResultID  []byte // Underlying type: *id.User
 	PublicKey []byte
 }
 
-func (cl *Client) SearchForUser(emailAddress string) (*SearchResult, error) {
-	searchedUser, key, err := cl.client.SearchForUser(emailAddress)
-	if err != nil {
-		return nil, err
-	} else {
-		return &SearchResult{ResultID: searchedUser.Bytes(), PublicKey: key}, nil
-	}
+func (cl *Client) SearchForUser(emailAddress string,
+	callback func(SearchResult, error)) {
+	cl.client.SearchForUser(emailAddress,
+		// Anonymous callback func to convert data and call actual callback
+		func(user *id.User, pubKey []byte, err error) {
+			callback(SearchResult{
+				ResultID: user.Bytes(),
+				PublicKey: pubKey},
+				err)
+		})
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

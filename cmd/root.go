@@ -52,6 +52,7 @@ var gwCertPath string
 var registrationCertPath string
 var registrationAddr string
 var registrationCode string
+var userEmail string
 var client *api.Client
 
 // Execute adds all child commands to the root command and sets flags
@@ -142,20 +143,29 @@ func sessionInitialization() *id.User {
 			regCode = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		}
 
-		fmt.Printf("Attempting to register with code %s...\n", regCode)
+		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, registrationAddr, gwAddresses, mint, &grp)
-
+		uid, err = client.Register(userId != 0, regCode, "",
+			registrationAddr, gwAddresses, mint, &grp)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
 		}
-		fmt.Printf("Successfully registered user %v!\n", uid)
 
+		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
+
+	} else {
+		// hack for session persisting with cmd line
+		// doesn't support non pre canned users
+		uid = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
+		// clear userEmail if it was defined, since login was previously done
+		userEmail = ""
 	}
 
 	// Log the user in, for now using the first gateway specified
-	_, err = client.Login(uid, gwAddresses[0], certs.GatewayTLS)
+	// This will also register the user email with UDB
+	_, err = client.Login(uid, userEmail,
+		gwAddresses[0], certs.GatewayTLS)
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
@@ -300,7 +310,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				fmt.Println(parseUdbMessage(message, client))
+				parseUdbMessage(message, client)
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)
@@ -351,15 +361,9 @@ var rootCmd = &cobra.Command{
 				timer = time.NewTimer(dummyPeriod)
 			}
 		} else {
-			// wait 5 seconds to get all the messages off the gateway,
-			// unless you're sending to the channelbot, in which case you need
-			// to wait longer because channelbot is slow and dumb
+			// wait 45 seconds since UDB commands are now non-blocking
 			// TODO figure out the right way to do this
-			if destinationUserId == 31 {
-				timer = time.NewTimer(20 * time.Second)
-			} else {
-				timer = time.NewTimer(10 * time.Second)
-			}
+			timer = time.NewTimer(45 * time.Second)
 			<-timer.C
 		}
 
@@ -422,6 +426,11 @@ func init() {
 		"regcode", "e",
 		"",
 		"Registration Code")
+
+	rootCmd.PersistentFlags().StringVarP(&userEmail,
+			"email", "E",
+			"",
+			"Email to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

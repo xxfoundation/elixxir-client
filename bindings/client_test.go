@@ -96,7 +96,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := client.Register(true, registrationCode,
+	regRes, err := client.Register(true, registrationCode, "",
 		"", []string{gwAddress}, false, string(grpJSON))
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
@@ -123,7 +123,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	_, err = client.Register(true, registrationCode,
+	_, err = client.Register(true, registrationCode, "",
 		"", []string{}, false, string(grpJSON))
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
@@ -159,9 +159,9 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := client.Register(true, registrationCode,
+	regRes, err := client.Register(true, registrationCode, "",
 		"", []string{gwAddress}, false, string(grpJSON))
-	loginRes, err2 := client.Login(regRes, gwAddress, "")
+	loginRes, err2 := client.Login(regRes, "", gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -211,9 +211,9 @@ func TestListen(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, _ := client.Register(true, registrationCode,
+	regRes, _ := client.Register(true, registrationCode, "",
 		"", []string{gwAddress},false, string(grpJSON))
-	client.Login(regRes, gwAddress, "")
+	client.Login(regRes, "", gwAddress, "")
 	listener := MockListener(false)
 	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.GetSwitchboard().Speak(&parse.Message{
@@ -258,9 +258,9 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, _ := client.Register(true, registrationCode,
+	regRes, _ := client.Register(true, registrationCode, "",
 		"", []string{gwAddress},false, string(grpJSON))
-	client.Login(regRes, gwAddress, "")
+	client.Login(regRes, "", gwAddress, "")
 	listener := MockListener(false)
 	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.StopListening(handle)

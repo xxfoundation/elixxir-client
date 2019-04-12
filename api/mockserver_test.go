@@ -66,7 +66,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 
 	// Register precanned user with all gateways
 	regRes, err := client.Register(true, ValidRegCode,
-		"", RegGWAddresses[:], false, getGroup())
+		"", "", RegGWAddresses[:], false, getGroup())
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -89,9 +89,8 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.Register(false, ValidRegCode,
+	regRes, err := client.Register(false, ValidRegCode, "",
 		RegAddress, RegGWAddresses[:], false, getGroup())
-
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -112,7 +111,7 @@ func TestRegister_InvalidNumGatewaysReturnsError(t *testing.T) {
 	}
 
 	// Register with no gateways
-	_, err = client.Register(true, ValidRegCode,
+	_, err = client.Register(true, ValidRegCode, "",
 		"", []string{}, false, getGroup())
 	if err == nil {
 		t.Errorf("Registration worked with invalid number of gateways!")
@@ -130,9 +129,8 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	// Register with invalid reg code
-	_, err = client.Register(true, InvalidRegCode,
+	_, err = client.Register(true, InvalidRegCode, "",
 		RegAddress, RegGWAddresses[:], false, getGroup())
-
 	if err == nil {
 		t.Error("Registration worked with invalid registration code!")
 	}
@@ -152,9 +150,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.Register(true, ValidRegCode,
+	_, err = client.Register(true, ValidRegCode, "",
 		RegAddress, RegGWAddresses[:], false, getGroup())
-
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -164,7 +161,6 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 }
 
 func TestSend(t *testing.T) {
-
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello")
@@ -173,7 +169,7 @@ func TestSend(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode,
+	userID, err := client.Register(true, ValidRegCode, "",
 		RegAddress, RegGWAddresses[:], false, getGroup())
 
 	if err != nil {
@@ -181,7 +177,7 @@ func TestSend(t *testing.T) {
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID, SessionGWAddress, "")
+	_, err = client.Login(userID, "", SessionGWAddress, "")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -235,7 +231,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode,
+	userID, err := client.Register(true, ValidRegCode, "",
 		RegAddress, RegGWAddresses[:], false, getGroup())
 
 	if err != nil {
@@ -243,7 +239,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID, SessionGWAddress, "")
+	_, err = client.Login(userID, "", SessionGWAddress, "")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())

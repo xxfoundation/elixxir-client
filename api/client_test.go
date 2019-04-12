@@ -40,7 +40,8 @@ func TestRegistrationGob(t *testing.T) {
 
 	// populate a gob in the store
 	grp := getGroup()
-	_, err = testClient.Register(true, "UAV6IWD6", "", RegGWAddresses[:], false, grp)
+	_, err = testClient.Register(true, "UAV6IWD6",
+		"", "", RegGWAddresses[:], false, grp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -212,7 +213,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	testClient.sess = session
 
-	testClient.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Confirm we can get all types of keys
 	key, action := session.GetKeyStore().TransmissionKeys.Pop(partner)
@@ -293,7 +294,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	testClient.sess = session
 
-	testClient.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Generate all keys and confirm they all match
 	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)

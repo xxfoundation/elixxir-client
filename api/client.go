@@ -86,7 +86,7 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode string,
+func (cl *Client) Register(preCan bool, registrationCode, nick,
 	registrationAddr string, gwAddresses []string,
 	mint bool, grp *cyclic.Group) (*id.User, error) {
 
@@ -128,6 +128,10 @@ func (cl *Client) Register(preCan bool, registrationCode string,
 			globals.Log.ERROR.Printf("Register: ID lookup failed")
 			err = errors.New("could not register due to ID lookup failure")
 			return id.ZeroID, err
+		}
+
+		if nick != "" {
+			u.Nick = nick;
 		}
 
 		nodekeys, successKeys := user.Users.LookupKeys(u.User)
@@ -268,7 +272,13 @@ func (cl *Client) Register(preCan bool, registrationCode string,
 			receptionHash.Reset()
 		}
 
-		u = user.Users.NewUser(UID, base64.StdEncoding.EncodeToString(UID[:]))
+		var actualNick string
+		if nick != "" {
+			actualNick = nick
+		} else {
+			actualNick = base64.StdEncoding.EncodeToString(UID[:])
+		}
+		u = user.Users.NewUser(UID, actualNick)
 		user.Users.UpsertUser(u)
 	}
 
@@ -292,12 +302,12 @@ func (cl *Client) Register(preCan bool, registrationCode string,
 	nus.Immolate()
 	nus = nil
 
-	return UID, err
+	return UID, nil
 }
 
 // Logs in user and sets session on client object
-// returns an error if login fails
-func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, error) {
+// returns the nickname or error if login fails
+func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (string, error) {
 
 	connect.GatewayCertString = tlsCert
 
@@ -335,6 +345,15 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 
 	// Initialize UDB stuff here
 	bots.InitUDB(cl.sess, cl.comm, cl.sess.GetSwitchboard())
+
+	if email != "" {
+		err = cl.registerForUserDiscovery(email)
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Unable to register with UDB: %s", err)
+			return "", err
+		}
+	}
 
 	return session.GetCurrentUser().Nick, nil
 }
@@ -425,7 +444,8 @@ func (cl *Client) Logout() error {
 	return nil
 }
 
-func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
+// Internal API for user discovery
+func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userId, _, err := bots.Search(valueType, emailAddress)
 	if userId != nil {
@@ -441,22 +461,38 @@ func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
-func (cl *Client) SearchForUser(emailAddress string) (*id.User, []byte, error) {
+// UDB Search API
+// Pass a callback function to extract results
+func (cl *Client) SearchForUser(emailAddress string,
+	callback func(*id.User, []byte, error)) {
 	valueType := "EMAIL"
-	return bots.Search(valueType, emailAddress)
+	go func() {
+		uid, pubKey, err := bots.Search(valueType, emailAddress)
+		if err == nil {
+			cl.registerUserE2E(uid, pubKey)
+		} else {
+			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
+		}
+		callback(uid, pubKey, err)
+	}()
 }
 
 func (cl *Client) registerUserE2E(partnerID *id.User,
-	ownPrivKey *cyclic.Int,
-	partnerPubKey *cyclic.Int) {
+	partnerPubKey []byte) {
 	// Get needed variables from session
 	grp := cl.sess.GetGroup()
 	userID := cl.sess.GetCurrentUser().User
 
+	// Create user private key and partner public key
+	// in the group
+	privKey := cl.sess.GetPrivateKey()
+	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetKey())
+	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
+
 	// Generate baseKey
 	baseKey, _ := diffieHellman.CreateDHSessionKey(
-		partnerPubKey,
-		ownPrivKey,
+		partnerPubKeyCyclic,
+		privKeyCyclic,
 		grp)
 
 	// Generate key TTL and number of keys

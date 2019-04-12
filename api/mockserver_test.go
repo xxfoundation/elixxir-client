@@ -181,7 +181,7 @@ func TestSend(t *testing.T) {
 
 	// Test send with valid inputs
 	err = client.Send(APIMessage{SenderID: userID, Payload: []byte("test"),
-		RecipientID: userID})
+		RecipientID: client.GetCurrentUser()})
 	if err != nil {
 		t.Errorf("Error sending message: %v", err)
 	}

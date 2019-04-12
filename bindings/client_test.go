@@ -212,13 +212,13 @@ func TestListen(t *testing.T) {
 	client.Login(regRes, gwAddress, "")
 	listener := MockListener(false)
 	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
-	client.client.GetSwitchboard().Speak(&parse.Message{
+	client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
-		Receiver: id.ZeroID,
+		Receiver: client.GetCurrentUser(),
 	})
 	if !listener {
 		t.Error("Message not received")
@@ -259,7 +259,7 @@ func TestStopListening(t *testing.T) {
 	listener := MockListener(false)
 	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.StopListening(handle)
-	client.client.GetSwitchboard().Speak(&parse.Message{
+	client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),

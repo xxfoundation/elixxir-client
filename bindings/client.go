@@ -83,6 +83,14 @@ func (cl *Client) StopListening(listenerHandle string) {
 	cl.client.StopListening(listenerHandle)
 }
 
+func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
+	return cl.client.GetSwitchboard()
+}
+
+func (cl *Client) GetCurrentUser() *id.User {
+	return cl.client.GetCurrentUser()
+}
+
 func FormatTextMessage(message string) []byte {
 	return api.FormatTextMessage(message)
 }

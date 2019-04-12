@@ -11,9 +11,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"os"
 	"testing"
 	"time"
@@ -26,31 +27,35 @@ type dummyMessaging struct {
 }
 
 // SendMessage to the server
-func (d *dummyMessaging) SendMessage(recipientID *id.User,
+func (d *dummyMessaging) SendMessage(sess user.Session,
+	recipientID *id.User,
 	message []byte) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
 
 // MessageReceiver thread to get new messages
-func (d *dummyMessaging) MessageReceiver(delay time.Duration, quit chan bool) {}
+func (d *dummyMessaging) MessageReceiver(session user.Session,
+	delay time.Duration) {}
 
 var pubKeyBits string
 var keyFingerprint string
 var pubKey []byte
 
 func TestMain(m *testing.M) {
+	fakeSession := user.Session(&user.SessionObj{})
+	fakeSW := switchboard.NewSwitchboard()
+	fakeComm := &dummyMessaging{
+		listener: ListenCh,
+	}
+	InitUDB(fakeSession, fakeComm, fakeSW)
+
 	// Make the reception channels buffered for this test
+	// which overwrites the channels registered in InitUDB
 	pushKeyResponseListener = make(udbResponseListener, 100)
 	getKeyResponseListener = make(udbResponseListener, 100)
 	registerResponseListener = make(udbResponseListener, 100)
 	searchResponseListener = make(udbResponseListener, 100)
-
-	io.Messaging = &dummyMessaging{}
-
-	io.Messaging = &dummyMessaging{
-		listener: ListenCh,
-	}
 
 	pubKeyBits = "S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNzLU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClpq4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY7wuD96h4oaA+WV5Nh87cnIZ+fAG0uLve2LSHZ0FBZb3glOpNAOv7PFWkvN2BO37ztOQCXTJe72Y5ReoYn7nWVNxGUh0ilal+BRuJt1GZ7whOGDRE0IXfURIoK2yjyAnyZJWWMhfGsL5S6iL4aXUs03mc8BHKRq3HRjvTE10l3YFA=="
 	pubKey, _ = base64.StdEncoding.DecodeString(pubKeyBits)

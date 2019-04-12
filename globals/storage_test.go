@@ -15,30 +15,20 @@ import (
 func TestInitStorage(t *testing.T) {
 	TestData := []byte{12, 14, 54}
 	TestSaveLoc := "testStorage.data"
-	// Test with existing storage
-	LocalStorage = new(RamStorage)
-	// err := InitStorage(nil, "")
-	// if err == nil {
-	// 	t.Errorf("InitStorage failed to fail with existing storage")
-	// }
-	// LocalStorage = nil
 
 	// Test DefaultStorage initialization without existing storage
-	LocalStorage = nil
-	err := InitStorage(nil, TestSaveLoc)
-	if LocalStorage == nil {
-		t.Errorf("InitStorage failed to create a default storage")
-	}
+	storage := &DefaultStorage{}
+	storage.SetLocation(TestSaveLoc)
 
 	// Check that DS file location is correct
 	//jww.ERROR.Printf("Default Storage file location: %v",
 	//	LocalStorage.GetLocation())
 
 	// Test DS save
-	err = LocalStorage.Save(TestData)
+	err := storage.Save(TestData)
 	if err != nil {
 		t.Errorf("ds.Save failed to create a save file at: %v",
-			LocalStorage.GetLocation())
+			storage.GetLocation())
 	}
 	// Check that save file was made
 	if !exists(TestSaveLoc) {
@@ -46,31 +36,22 @@ func TestInitStorage(t *testing.T) {
 			TestSaveLoc)
 	}
 	// Test DS load
-	actualData := LocalStorage.Load()
+	actualData := storage.Load()
 	if reflect.DeepEqual(actualData, TestData) != true {
 		t.Errorf("ds.Load failed to load expected data. Expected:%v Actual:%v",
 			TestData, actualData)
 	}
-	LocalStorage = nil
 
 	// Test RamStorage
-	LocalStorage = nil
 	store := RamStorage{}
-	err = InitStorage(&store, "")
-	if err != nil {
-		t.Errorf("InitStorage failed to initialize a RamStorage: %s", err.Error())
-	}
 	actualData = nil
-	LocalStorage.Save(TestData)
-	actualData = LocalStorage.Load()
+	store.Save(TestData)
+	actualData = store.Load()
 	if reflect.DeepEqual(actualData, TestData) != true {
 		t.Errorf("rs.Load failed to load expected data. Expected:%v Actual:%v",
 			TestData, actualData)
 	}
 	os.Remove(TestSaveLoc)
-
-	LocalStorage = nil
-
 }
 
 // exists returns whether the given file or directory exists or not

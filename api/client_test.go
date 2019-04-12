@@ -14,30 +14,40 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
 	"time"
 )
 
+var client *Client
+
 func TestRegistrationGob(t *testing.T) {
-	// Put some user data into a gob
-	err := globals.InitStorage(&globals.RamStorage{}, "")
+	// Get a Client
+	var err error
+	client, err = NewClient(&globals.RamStorage{}, "")
 	if err != nil {
 		t.Error(err)
 	}
 
 	// populate a gob in the store
 	grp := crypto.InitCrypto()
-	_, err = Register("UAV6IWD6", gwAddress, 1, false, grp)
+	_, err = client.Register("UAV6IWD6", gwAddress, 1, false, grp)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// get the gob out of there again
-	sessionGob := globals.LocalStorage.Load()
+	sessionGob := client.storage.Load()
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
@@ -231,6 +241,227 @@ func TestParse(t *testing.T){
 		t.Errorf("Bodies do not match after message parse: %v vs %v", msOut.GetPayload(), ms.Body)
 	}
 
+}
+
+// Test that registerUserE2E correctly creates keys and adds them to maps
+func TestRegisterUserE2E(t *testing.T) {
+	grp := crypto.InitCrypto()
+	userID := id.NewUserFromUint(18, t)
+	partner := id.NewUserFromUint(14, t)
+	params := signature.CustomDSAParams(
+		grp.GetP(),
+		grp.GetG(),
+		grp.GetQ())
+	rng := csprng.NewSystemRNG()
+	myPrivKey := params.PrivateKeyGen(rng)
+	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
+	myPubKey := myPrivKey.PublicKeyGen()
+	myPubKeyCyclic := grp.NewIntFromLargeInt(myPubKey.GetKey())
+	partnerPrivKey := params.PrivateKeyGen(rng)
+	partnerPubKey := partnerPrivKey.PublicKeyGen()
+	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
+
+	myUser := &user.User{User: userID, Nick: "test"}
+	session := user.NewSession(client.storage,
+		myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
+
+	client.sess = session
+
+	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+
+	// Confirm we can get all types of keys
+	key, action := session.GetKeyStore().TransmissionKeys.Pop(partner)
+	if key == nil {
+		t.Errorf("TransmissionKeys map returned nil")
+	} else if key.GetOuterType() != format.E2E {
+		t.Errorf("Key type expected 'E2E', got %s",
+			key.GetOuterType())
+	} else if action != keyStore.None {
+		t.Errorf("Expected 'None' action, got %s instead",
+			action)
+	}
+
+	key, action = session.GetKeyStore().TransmissionReKeys.Pop(partner)
+	if key == nil {
+		t.Errorf("TransmissionReKeys map returned nil")
+	} else if key.GetOuterType() != format.Rekey {
+		t.Errorf("Key type expected 'Rekey', got %s",
+			key.GetOuterType())
+	} else if action != keyStore.None {
+		t.Errorf("Expected 'None' action, got %s instead",
+			action)
+	}
+
+	// Generate one reception key of each type to test
+	// fingerprint map
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)
+	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(1))
+	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partner, uint(1))
+
+	h, _ := hash.NewCMixHash()
+	h.Write(recvKeys[0].Bytes())
+	fp := format.Fingerprint{}
+	copy(fp[:], h.Sum(nil))
+
+	key = session.GetKeyStore().ReceptionKeys.Pop(fp)
+	if key == nil {
+		t.Errorf("ReceptionKeys map returned nil for Key")
+	} else if key.GetOuterType() != format.E2E {
+		t.Errorf("Key type expected 'E2E', got %s",
+			key.GetOuterType())
+	}
+
+	h.Reset()
+	h.Write(recvReKeys[0].Bytes())
+	copy(fp[:], h.Sum(nil))
+
+	key = session.GetKeyStore().ReceptionKeys.Pop(fp)
+	if key == nil {
+		t.Errorf("ReceptionKeys map returned nil for ReKey")
+	} else if key.GetOuterType() != format.Rekey {
+		t.Errorf("Key type expected 'Rekey', got %s",
+			key.GetOuterType())
+	}
+}
+
+// Test all keys created with registerUserE2E match what is expected
+func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
+	grp := crypto.InitCrypto()
+	userID := id.NewUserFromUint(18, t)
+	partner := id.NewUserFromUint(14, t)
+	params := signature.CustomDSAParams(
+		grp.GetP(),
+		grp.GetG(),
+		grp.GetQ())
+	rng := csprng.NewSystemRNG()
+	myPrivKey := params.PrivateKeyGen(rng)
+	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
+	myPubKey := myPrivKey.PublicKeyGen()
+	myPubKeyCyclic := grp.NewIntFromLargeInt(myPubKey.GetKey())
+	partnerPrivKey := params.PrivateKeyGen(rng)
+	partnerPubKey := partnerPrivKey.PublicKeyGen()
+	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
+
+	myUser := &user.User{User: userID, Nick: "test"}
+	session := user.NewSession(client.storage,
+		myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
+
+	client.sess = session
+
+	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+
+	// Generate all keys and confirm they all match
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)
+	keyTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
+		keyStore.MinKeys, keyStore.MaxKeys,
+		e2e.TTLParams{
+			TTLScalar:keyStore.TTLScalar,
+			MinNumKeys: keyStore.Threshold})
+
+	sendKeys := e2e.DeriveKeys(grp, baseKey, userID, uint(numKeys))
+	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey,
+		userID, uint(keyStore.NumReKeys))
+	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(numKeys))
+	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey,
+		partner, uint(keyStore.NumReKeys))
+
+	// Confirm all keys
+	for i := 0; i < int(numKeys); i++ {
+		key, action := session.GetKeyStore().TransmissionKeys.Pop(partner)
+		if key == nil {
+			t.Errorf("TransmissionKeys map returned nil")
+		} else if key.GetOuterType() != format.E2E {
+			t.Errorf("Key type expected 'E2E', got %s",
+				key.GetOuterType())
+		}
+
+		if i < int(keyTTL-1) {
+			if action != keyStore.None {
+				t.Errorf("Expected 'None' action, got %s instead",
+					action)
+			}
+		} else {
+			if action != keyStore.Rekey {
+				t.Errorf("Expected 'Rekey' action, got %s instead",
+					action)
+			}
+		}
+
+		if key.GetKey().Cmp(sendKeys[int(numKeys)-1-i]) != 0 {
+			t.Errorf("Key value expected %s, got %s",
+				sendKeys[int(numKeys)-1-i].Text(10),
+				key.GetKey().Text(10))
+		}
+	}
+
+	for i := 0; i < int(keyStore.NumReKeys); i++ {
+		key, action := session.GetKeyStore().TransmissionReKeys.Pop(partner)
+		if key == nil {
+			t.Errorf("TransmissionReKeys map returned nil")
+		} else if key.GetOuterType() != format.Rekey {
+			t.Errorf("Key type expected 'Rekey', got %s",
+				key.GetOuterType())
+		}
+
+		if i < int(keyStore.NumReKeys-1) {
+			if action != keyStore.None {
+				t.Errorf("Expected 'None' action, got %s instead",
+					action)
+			}
+		} else {
+			if action != keyStore.Purge {
+				t.Errorf("Expected 'Purge' action, got %s instead",
+					action)
+			}
+		}
+
+		if key.GetKey().Cmp(sendReKeys[int(keyStore.NumReKeys)-1-i]) != 0 {
+			t.Errorf("Key value expected %s, got %s",
+				sendReKeys[int(keyStore.NumReKeys)-1-i].Text(10),
+				key.GetKey().Text(10))
+		}
+	}
+
+	h, _ := hash.NewCMixHash()
+	fp := format.Fingerprint{}
+
+	for i := 0; i < int(numKeys); i++ {
+		h.Reset()
+		h.Write(recvKeys[i].Bytes())
+		copy(fp[:], h.Sum(nil))
+		key := session.GetKeyStore().ReceptionKeys.Pop(fp)
+		if key == nil {
+			t.Errorf("ReceptionKeys map returned nil for Key")
+		} else if key.GetOuterType() != format.E2E {
+			t.Errorf("Key type expected 'E2E', got %s",
+				key.GetOuterType())
+		}
+
+		if key.GetKey().Cmp(recvKeys[i]) != 0 {
+			t.Errorf("Key value expected %s, got %s",
+				recvKeys[i].Text(10),
+				key.GetKey().Text(10))
+		}
+	}
+
+	for i := 0; i < int(keyStore.NumReKeys); i++ {
+		h.Reset()
+		h.Write(recvReKeys[i].Bytes())
+		copy(fp[:], h.Sum(nil))
+		key := session.GetKeyStore().ReceptionKeys.Pop(fp)
+		if key == nil {
+			t.Errorf("ReceptionKeys map returned nil for Rekey")
+		} else if key.GetOuterType() != format.Rekey {
+			t.Errorf("Key type expected 'Rekey', got %s",
+				key.GetOuterType())
+		}
+
+		if key.GetKey().Cmp(recvReKeys[i]) != 0 {
+			t.Errorf("Key value expected %s, got %s",
+				recvReKeys[i].Text(10),
+				key.GetKey().Text(10))
+		}
+	}
 }
 
 // FIXME Reinstate tests for the UDB api

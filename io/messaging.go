@@ -28,38 +28,40 @@ import (
 	"time"
 )
 
-type messaging struct {
+// Messaging implements the Communications interface
+type Messaging struct {
 	nextId func() []byte
+	// SendAddress is the address of the server to send messages
+	SendAddress string
+	// ReceiveAddress is the address of the server to receive messages from
+	ReceiveAddress string
+	// BlockTransmissions will use a mutex to prevent multiple threads from sending
+	// messages at the same time.
+	BlockTransmissions bool
+	// TransmitDelay is the minimum delay between transmissions.
+	TransmitDelay time.Duration
+	// Map that holds a record of the messages that this client successfully
+	// received during this session
+	ReceivedMessages map[string]struct{}
+	sendLock sync.Mutex
 }
 
-// Messaging implements the Communications interface
-var Messaging Communications = &messaging{nextId: parse.IDCounter()}
-
-// SendAddress is the address of the server to send messages
-var SendAddress string
-
-// ReceiveAddress is the address of the server to receive messages from
-var ReceiveAddress string
-
-// BlockTransmissions will use a mutex to prevent multiple threads from sending
-// messages at the same time.
-var BlockTransmissions = true
-
-// TransmitDelay is the minimum delay between transmissions.
-var TransmitDelay = 1000 * time.Millisecond
-
-// Map that holds a record of the messages that this client successfully
-// received during this session
-var ReceivedMessages map[string]struct{}
-
-var sendLock sync.Mutex
+func NewMessenger() *Messaging {
+	return &Messaging{
+		nextId: parse.IDCounter(),
+		BlockTransmissions: true,
+		TransmitDelay: 1000 * time.Millisecond,
+		ReceivedMessages: make(map[string]struct{}),
+	}
+}
 
 // SendMessage to the provided Recipient
 // TODO: It's not clear why we wouldn't hand off a sender object (with
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *messaging) SendMessage(recipientID *id.User,
+func (m *Messaging) SendMessage(session user.Session,
+	recipientID *id.User,
 	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -70,8 +72,8 @@ func (m *messaging) SendMessage(recipientID *id.User,
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
-	userID := user.TheSession.GetCurrentUser().User
-	grp := user.TheSession.GetGroup()
+	userID := session.GetCurrentUser().User
+	grp := session.GetGroup()
 	parts, err := parse.Partition([]byte(message),
 		m.nextId())
 	if err != nil {
@@ -101,7 +103,7 @@ func (m *messaging) SendMessage(recipientID *id.User,
 		// The timestamp will be encrypted later
 		message.SetTimestamp(nowBytes)
 		message.SetPayloadData(parts[i])
-		err = send(userID, message, grp)
+		err = m.send(session, userID, message, grp)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
@@ -110,13 +112,14 @@ func (m *messaging) SendMessage(recipientID *id.User,
 }
 
 // send actually sends the message to the server
-func send(senderID *id.User, message *format.Message, grp *cyclic.Group) error {
+func (m *Messaging) send(session user.Session,
+	senderID *id.User, message *format.Message, grp *cyclic.Group) error {
 	// Enable transmission blocking if enabled
-	if BlockTransmissions {
-		sendLock.Lock()
+	if m.BlockTransmissions {
+		m.sendLock.Lock()
 		defer func() {
-			time.Sleep(TransmitDelay)
-			sendLock.Unlock()
+			time.Sleep(m.TransmitDelay)
+			m.sendLock.Unlock()
 		}()
 	}
 
@@ -127,7 +130,7 @@ func send(senderID *id.User, message *format.Message, grp *cyclic.Group) error {
 
 	// Generate a compound encryption key
 	encryptionKey := grp.NewInt(1)
-	for _, key := range user.TheSession.GetKeys() {
+	for _, key := range session.GetKeys() {
 		baseKey := key.TransmissionKeys.Base
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
 		grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
@@ -150,7 +153,7 @@ func send(senderID *id.User, message *format.Message, grp *cyclic.Group) error {
 
 	var err error
 	globals.Log.INFO.Println("Sending put message to gateway")
-	err = client.SendPutMessage(SendAddress, msgPacket)
+	err = client.SendPutMessage(m.SendAddress, msgPacket)
 
 	return err
 }
@@ -160,31 +163,31 @@ func send(senderID *id.User, message *format.Message, grp *cyclic.Group) error {
 // list for the listeners?
 // Accessing all of these global variables is extremely problematic for this
 // kind of thread.
-func (m *messaging) MessageReceiver(delay time.Duration, quit chan bool) {
+func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
-	if user.TheSession == nil {
+	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
 	}
 	pollingMessage := pb.ClientPollMessage{
-		UserID: user.TheSession.GetCurrentUser().User.Bytes(),
+		UserID: session.GetCurrentUser().User.Bytes(),
 	}
 
 	for {
 		select {
-		case <-quit:
-			close(quit)
+		case <-session.GetQuitChan():
+			close(session.GetQuitChan())
 			return
 		default:
 			time.Sleep(delay)
 			globals.Log.INFO.Printf("Attempting to receive message from gateway")
-			decryptedMessages := m.receiveMessagesFromGateway(&pollingMessage)
+			decryptedMessages := m.receiveMessagesFromGateway(session, &pollingMessage)
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					assembledMessage := GetCollator().AddMessage(
 						decryptedMessages[i], time.Minute)
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
-						broadcastMessageReception(assembledMessage, switchboard.Listeners)
+						broadcastMessageReception(assembledMessage, session.GetSwitchboard())
 					}
 				}
 			}
@@ -192,11 +195,11 @@ func (m *messaging) MessageReceiver(delay time.Duration, quit chan bool) {
 	}
 }
 
-func (m *messaging) receiveMessagesFromGateway(
+func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 	pollingMessage *pb.ClientPollMessage) []*format.Message {
-	if user.TheSession != nil {
-		pollingMessage.MessageID = user.TheSession.GetLastMessageID()
-		messages, err := client.SendCheckMessages(user.TheSession.GetGWAddress(),
+	if session != nil {
+		pollingMessage.MessageID = session.GetLastMessageID()
+		messages, err := client.SendCheckMessages(session.GetGWAddress(),
 			pollingMessage)
 
 		if err != nil {
@@ -206,24 +209,20 @@ func (m *messaging) receiveMessagesFromGateway(
 
 		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
 
-		if ReceivedMessages == nil {
-			ReceivedMessages = make(map[string]struct{})
-		}
-
 		results := make([]*format.Message, 0, len(messages.MessageIDs))
-		grp := user.TheSession.GetGroup()
+		grp := session.GetGroup()
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
-			_, received := ReceivedMessages[messageID]
+			_, received := m.ReceivedMessages[messageID]
 			if !received {
 				globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 					messageID)
 				// We haven't seen this message before.
 				// So, we should retrieve it from the gateway.
-				newMessage, err := client.SendGetMessage(user.
-					TheSession.GetGWAddress(),
+				newMessage, err := client.SendGetMessage(
+					session.GetGWAddress(),
 					&pb.ClientPollMessage{
-						UserID: user.TheSession.GetCurrentUser().User.
+						UserID: session.GetCurrentUser().User.
 							Bytes(),
 						MessageID: messageID,
 					})
@@ -241,7 +240,7 @@ func (m *messaging) receiveMessagesFromGateway(
 					// Generate a compound decryption key
 					salt := newMessage.Salt
 					decryptionKey := grp.NewInt(1)
-					for _, key := range user.TheSession.GetKeys() {
+					for _, key := range session.GetKeys() {
 						baseKey := key.ReceptionKeys.Base
 						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
 							grp)
@@ -251,9 +250,9 @@ func (m *messaging) receiveMessagesFromGateway(
 
 					globals.Log.INFO.Printf(
 						"Adding message ID %v to received message IDs", messageID)
-					ReceivedMessages[messageID] = struct{}{}
-					user.TheSession.SetLastMessageID(messageID)
-					user.TheSession.StoreSession()
+					m.ReceivedMessages[messageID] = struct{}{}
+					session.SetLastMessageID(messageID)
+					session.StoreSession()
 
 					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, grp,
 						newMessage)

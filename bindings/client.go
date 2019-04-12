@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -19,6 +18,10 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 )
+
+type Client struct {
+	client *api.Client
+}
 
 // Copy of the storage interface.
 // It is identical to the interface used in Globals,
@@ -65,20 +68,27 @@ type Listener interface {
 // messages sent from all users.
 // If you pass the zero type (just zero) to Listen() you will hear messages of
 // all types.
-func Listen(userId []byte, messageType int32, newListener Listener) string {
+func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener) string {
 	typedUserId := new(id.User).SetBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return api.Listen(typedUserId, format.None, messageType,
-		listener, switchboard.Listeners)
+	return cl.client.Listen(typedUserId, format.None, messageType, listener)
 }
 
 // Returns a parsed message
 
 // Pass the listener handle that Listen() returned to delete the listener
-func StopListening(listenerHandle string) {
-	api.StopListening(listenerHandle, switchboard.Listeners)
+func (cl *Client) StopListening(listenerHandle string) {
+	cl.client.StopListening(listenerHandle)
+}
+
+func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
+	return cl.client.GetSwitchboard()
+}
+
+func (cl *Client) GetCurrentUser() *id.User {
+	return cl.client.GetCurrentUser()
 }
 
 func FormatTextMessage(message string) []byte {
@@ -98,15 +108,15 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func InitClient(storage Storage, loc string) error {
+func NewClient(storage Storage, loc string) (*Client, error) {
 	if storage == nil {
-		return errors.New("could not init client: Storage was nil")
+		return nil, errors.New("could not init client: Storage was nil")
 	}
 
 	proxy := &storageProxy{boundStorage: storage}
-	err := api.InitClient(globals.Storage(proxy), loc)
+	cl, err := api.NewClient(globals.Storage(proxy), loc)
 
-	return err
+	return &Client{client: cl}, err
 }
 
 // Registers user and returns the User ID.  Returns null if registration fails.
@@ -145,7 +155,7 @@ func InitClient(storage Storage, loc string) error {
 // 10
 // “Jono”
 // OIF3OJ5I
-func Register(registrationCode string, gwAddr string, numNodes int,
+func (cl *Client) Register(registrationCode string, gwAddr string, numNodes int,
 	mint bool, grpJSON string) ([]byte, error) {
 
 	if numNodes < 1 {
@@ -159,7 +169,7 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 		return id.ZeroID[:], err
 	}
 
-	UID, err := api.Register(registrationCode, gwAddr, uint(numNodes), mint, &grp)
+	UID, err := cl.client.Register(registrationCode, gwAddr, uint(numNodes), mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -173,33 +183,30 @@ func Register(registrationCode string, gwAddr string, numNodes int,
 // UID is a uint64 BigEndian serialized into a byte slice
 // TODO Pass the session in a proto struct/interface in the bindings or something
 // Currently there's only one possibility that makes sense for the TLS
-// certificate and it's in the crypto repository. So, if you leave the TLS
-// certificate string empty, the bindings will use that certificate. We probably
-// need to rethink this. In other words, tlsCert is optional.
-func Login(UID []byte, addr string, tlsCert string) (string, error) {
+// certificate and it's in the crypto repository. So, if you set the TLS
+// certificate string to "default", the bindings will use that certificate.
+// If you leave it empty, the Client will try to connect to the GW without TLS
+// This should only ever be used for testing purposes
+func (cl *Client) Login(UID []byte, addr string, tlsCert string) (string, error) {
 	userID := new(id.User).SetBytes(UID)
 	var err error
-	var session user.Session
-	if tlsCert == "" {
-		session, err = api.Login(userID, addr, certs.GatewayTLS)
+	var nick string
+	if tlsCert == "default" {
+		nick, err = cl.client.Login(userID, addr, certs.GatewayTLS)
 	} else {
-		session, err = api.Login(userID, addr, tlsCert)
+		nick, err = cl.client.Login(userID, addr, tlsCert)
 	}
-	if err != nil || session == nil {
-		return "", err
-	} else {
-		return session.GetCurrentUser().Nick, err
-	}
+	return nick, err
 }
 
 //Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
-func Send(m Message) error {
+func (cl *Client) Send(m Message) error {
 	sender := new(id.User).SetBytes(m.GetSender())
 	recipient := new(id.User).SetBytes(m.GetRecipient())
 
-	return api.Send(&parse.Message{
+	return cl.client.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: m.GetMessageType(),
 			Body:      m.GetPayload(),
@@ -212,24 +219,24 @@ func Send(m Message) error {
 
 // Logs the user out, saving the state for the system and clearing all data
 // from RAM
-func Logout() error {
-	return api.Logout()
+func (cl *Client) Logout() error {
+	return cl.client.Logout()
 }
 
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
-func DisableBlockingTransmission() {
-	api.DisableBlockingTransmission()
+func (cl *Client) DisableBlockingTransmission() {
+	cl.client.DisableBlockingTransmission()
 }
 
 // Sets the minimum amount of time, in ms, between message transmissions
 // Just for testing, probably to be removed in production
-func SetRateLimiting(limit int) {
-	api.SetRateLimiting(uint32(limit))
+func (cl *Client) SetRateLimiting(limit int) {
+	cl.client.SetRateLimiting(uint32(limit))
 }
 
-func RegisterForUserDiscovery(emailAddress string) error {
-	return api.RegisterForUserDiscovery(emailAddress)
+func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
+	return cl.client.RegisterForUserDiscovery(emailAddress)
 }
 
 type SearchResult struct {
@@ -237,8 +244,8 @@ type SearchResult struct {
 	PublicKey []byte
 }
 
-func SearchForUser(emailAddress string) (*SearchResult, error) {
-	searchedUser, key, err := api.SearchForUser(emailAddress)
+func (cl *Client) SearchForUser(emailAddress string) (*SearchResult, error) {
+	searchedUser, key, err := cl.client.SearchForUser(emailAddress)
 	if err != nil {
 		return nil, err
 	} else {
@@ -292,6 +299,6 @@ func SetLogOutput(w Writer) {
 }
 
 // Call this to get the session data without getting Save called from the Go side
-func GetSessionData() ([]byte, error) {
-	return api.GetSessionData()
+func (cl *Client) GetSessionData() ([]byte, error) {
+	return cl.client.GetSessionData()
 }

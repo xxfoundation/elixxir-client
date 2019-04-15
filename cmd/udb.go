@@ -17,9 +17,10 @@ import (
 func handleSearchResults(user *id.User, pubKey []byte, err error) {
 	if err != nil {
 		fmt.Printf("UDB search failed: %v\n", err.Error())
+	} else if len(pubKey) == 0 {
+		fmt.Printf("Public Key returned is empty\n")
 	} else {
-		fmt.Printf("UDB search successful. Returned user %v, "+
-			"public key %q\n", *user, pubKey)
+		fmt.Printf("UDB search successful. Returned user %v\n", *user)
 	}
 }
 

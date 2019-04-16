@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
+	"strings"
 )
 
 type Client struct {
@@ -81,14 +82,6 @@ func (cl *Client) StopListening(listenerHandle string) {
 	cl.client.StopListening(listenerHandle)
 }
 
-func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
-	return cl.client.GetSwitchboard()
-}
-
-func (cl *Client) GetCurrentUser() *id.User {
-	return cl.client.GetCurrentUser()
-}
-
 func FormatTextMessage(message string) []byte {
 	return api.FormatTextMessage(message)
 }
@@ -122,13 +115,13 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 // If preCan set to true, registration is attempted assuming a pre canned user
 // registrationCode is a one time use string
 // registrationAddr is the address of the registration server
-// gwAddresses is CSV of gateway addresses
+// gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
 func (cl *Client) Register(preCan bool, registrationCode, nick,
-	registrationAddr string, gwAddressesList []string,
+	registrationAddr string, gwAddressesList string,
 	mint bool, grpJSON string) ([]byte, error) {
 
-	if len(gwAddressesList) < 1 {
+	if gwAddressesList == "" {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
@@ -139,8 +132,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 		return id.ZeroID[:], err
 	}
 
+	gwList := strings.Split(gwAddressesList, ",")
+
 	UID, err := cl.client.Register(preCan, registrationCode, nick,
-		registrationAddr, gwAddressesList, mint, &grp)
+		registrationAddr, gwList, mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -207,21 +202,22 @@ func (cl *Client) SetRateLimiting(limit int) {
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
-type SearchResult struct {
-	ResultID  []byte // Underlying type: *id.User
-	PublicKey []byte
+type SearchCallback interface {
+	Callback(userID, pubKey []byte, err error)
+}
+
+type searchCallbackProxy struct {
+	proxy SearchCallback
+}
+
+func (scp searchCallbackProxy) Callback(userID, pubKey []byte, err error) {
+	scp.proxy.Callback(userID, pubKey, err)
 }
 
 func (cl *Client) SearchForUser(emailAddress string,
-	callback func(SearchResult, error)) {
-	cl.client.SearchForUser(emailAddress,
-		// Anonymous callback func to convert data and call actual callback
-		func(user *id.User, pubKey []byte, err error) {
-			callback(SearchResult{
-				ResultID: user.Bytes(),
-				PublicKey: pubKey},
-				err)
-		})
+	cb SearchCallback) {
+	proxy := &searchCallbackProxy{cb}
+	cl.client.SearchForUser(emailAddress, proxy)
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

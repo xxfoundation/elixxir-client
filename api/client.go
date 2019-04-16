@@ -461,10 +461,14 @@ func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
+type SearchCallback interface {
+	Callback(userID, pubKey []byte, err error)
+}
+
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
-	callback func(*id.User, []byte, error)) {
+	cb SearchCallback) {
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
@@ -473,7 +477,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 		} else {
 			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
 		}
-		callback(uid, pubKey, err)
+		cb.Callback(uid[:], pubKey, err)
 	}()
 }
 

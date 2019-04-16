@@ -14,15 +14,20 @@ import (
 	"strings"
 )
 
-func handleSearchResults(user *id.User, pubKey []byte, err error) {
+type callbackSearch struct {}
+
+func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
 	if err != nil {
 		fmt.Printf("UDB search failed: %v\n", err.Error())
 	} else if len(pubKey) == 0 {
 		fmt.Printf("Public Key returned is empty\n")
 	} else {
-		fmt.Printf("UDB search successful. Returned user %v\n", *user)
+		fmt.Printf("UDB search successful. Returned user %v\n",
+			*new(id.User).SetBytes(userID))
 	}
 }
+
+var searchCallback = callbackSearch{}
 
 // Determines what UDB send function to call based on the text in the message
 func parseUdbMessage(msg string, client *api.Client) {
@@ -37,7 +42,7 @@ func parseUdbMessage(msg string, client *api.Client) {
 	keyword := args[0]
 	// Case-insensitive match the keyword to a command
 	if strings.EqualFold(keyword, "SEARCH") {
-		client.SearchForUser(args[2], handleSearchResults)
+		client.SearchForUser(args[2], searchCallback)
 	} else if strings.EqualFold(keyword, "REGISTER") {
 		jww.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
 	} else {

@@ -343,8 +343,8 @@ func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (strin
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
 
-	// Initialize UDB stuff here
-	bots.InitUDB(cl.sess, cl.comm, cl.sess.GetSwitchboard())
+	// Initialize UDB and nickname "bot" stuff here
+	bots.InitBots(cl.sess, cl.comm)
 
 	if email != "" {
 		err = cl.registerForUserDiscovery(email)
@@ -478,6 +478,21 @@ func (cl *Client) SearchForUser(emailAddress string,
 			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
 		}
 		cb.Callback(uid[:], pubKey, err)
+	}()
+}
+
+type NickLookupCallback interface {
+	Callback(nick string, err error)
+}
+
+// Nickname lookup API
+// Non-blocking, once the API call completes, the callback function
+// passed as argument is called
+func (cl *Client) LookupNick(user *id.User,
+	cb NickLookupCallback) {
+	go func() {
+		nick, err := bots.LookupNick(user)
+		cb.Callback(nick, err)
 	}()
 }
 

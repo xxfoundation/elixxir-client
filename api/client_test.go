@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -12,7 +12,6 @@ import (
 	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
@@ -29,25 +28,26 @@ import (
 	"time"
 )
 
-var client *Client
+var testClient *Client
 
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
 	var err error
-	client, err = NewClient(&globals.RamStorage{}, "")
+	testClient, err = NewClient(&globals.RamStorage{}, "")
 	if err != nil {
 		t.Error(err)
 	}
 
 	// populate a gob in the store
-	grp := crypto.InitCrypto()
-	_, err = client.Register("UAV6IWD6", gwAddress, 1, false, grp)
+	grp := getGroup()
+	_, err = testClient.Register(true, "UAV6IWD6",
+		"", "", RegGWAddresses[:], false, grp)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// get the gob out of there again
-	sessionGob := client.storage.Load()
+	sessionGob := testClient.storage.Load()
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
@@ -64,9 +64,9 @@ func TestRegistrationGob(t *testing.T) {
 
 func VerifyRegisterGobAddress(t *testing.T) {
 
-	if Session.GetGWAddress() != gwAddress {
-		t.Errorf("GetNodeAddress() returned %v, expected %v",
-			Session.GetGWAddress(), gwAddress)
+	if Session.GetGWAddress() != RegGWAddresses[0] {
+		t.Errorf("GetGWAddress() returned %v, expected %v",
+			Session.GetGWAddress(), RegGWAddresses[0])
 	}
 }
 
@@ -78,77 +78,24 @@ func VerifyRegisterGobUser(t *testing.T) {
 }
 
 func VerifyRegisterGobKeys(t *testing.T) {
-	grp := Session.GetGroup()
-	if Session.GetPublicKey().Cmp(grp.NewIntFromBytes([]byte(
-		"this is not a real public key"))) != 0 {
-		t.Errorf("Public key was %v, expected %v",
-			string(Session.GetPublicKey().Bytes()),
-			"this is not a real public key")
-	}
+	grp := getGroup()
 	h := sha256.New()
-	h.Write([]byte(string(30005)))
-	expectedTransmissionRecursiveKey := grp.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].TransmissionKeys.Recursive.Cmp(
-		expectedTransmissionRecursiveKey) != 0 {
-		t.Errorf("Transmission recursive key was %v, expected %v",
-			Session.GetKeys()[0].TransmissionKeys.Recursive.Text(16),
-			expectedTransmissionRecursiveKey.Text(16))
-	}
-	h = sha256.New()
 	h.Write([]byte(string(20005)))
 	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].TransmissionKeys.Base.Cmp(
+	if Session.GetKeys()[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
-			Session.GetKeys()[0].TransmissionKeys.Base.Text(16),
+			Session.GetKeys()[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
-	}
-	h = sha256.New()
-	h.Write([]byte(string(50005)))
-	expectedReceptionRecursiveKey := grp.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].ReceptionKeys.Recursive.Cmp(
-		expectedReceptionRecursiveKey) != 0 {
-		t.Errorf("Reception recursive key was %v, expected %v",
-			Session.GetKeys()[0].ReceptionKeys.Recursive.Text(16),
-			expectedReceptionRecursiveKey.Text(16))
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40005)))
 	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].ReceptionKeys.Base.Cmp(
+	if Session.GetKeys()[0].ReceptionKey.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",
-			Session.GetKeys()[0].ReceptionKeys.Base.Text(16),
+			Session.GetKeys()[0].ReceptionKey.Text(16),
 			expectedReceptionBaseKey.Text(16))
-	}
-
-	if Session.GetKeys()[0].ReturnKeys.Recursive == nil {
-		t.Logf("warning: return recursive key is nil")
-	} else {
-		t.Logf("return recursive key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
-	}
-	if Session.GetKeys()[0].ReturnKeys.Base == nil {
-		t.Logf("warning: return base key is nil")
-	} else {
-		t.Logf("return base key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
-	}
-	if Session.GetKeys()[0].ReceiptKeys.Recursive == nil {
-		t.Logf("warning: receipt recursive key is nil")
-	} else {
-		t.Logf("receipt recursive key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
-	}
-	if Session.GetKeys()[0].ReceiptKeys.Base == nil {
-		t.Logf("warning: receipt recursive key is nil")
-	} else {
-		t.Logf("receipt base key is not nil. " +
-			"update gob test to ensure that it's serialized to storage, " +
-			"if needed")
 	}
 }
 
@@ -181,18 +128,18 @@ func TestParsedMessage_GetSender(t *testing.T) {
 	pm := ParsedMessage{}
 	sndr := pm.GetSender()
 
-	if !reflect.DeepEqual(sndr,[]byte{}){
+	if !reflect.DeepEqual(sndr, []byte{}) {
 		t.Errorf("Sender not empty from typed message")
 	}
 }
 
 func TestParsedMessage_GetPayload(t *testing.T) {
 	pm := ParsedMessage{}
-	payload := []byte{0,1,2,3}
+	payload := []byte{0, 1, 2, 3}
 	pm.Payload = payload
 	pld := pm.GetPayload()
 
-	if !reflect.DeepEqual(pld,payload){
+	if !reflect.DeepEqual(pld, payload) {
 		t.Errorf("Output payload does not match input payload: %v %v", payload, pld)
 	}
 }
@@ -201,7 +148,7 @@ func TestParsedMessage_GetRecipient(t *testing.T) {
 	pm := ParsedMessage{}
 	rcpt := pm.GetRecipient()
 
-	if !reflect.DeepEqual(rcpt,[]byte{}){
+	if !reflect.DeepEqual(rcpt, []byte{}) {
 		t.Errorf("Recipient not empty from typed message")
 	}
 }
@@ -213,14 +160,14 @@ func TestParsedMessage_GetMessageType(t *testing.T) {
 	pm.Typed = typeTest
 	typ := pm.GetMessageType()
 
-	if typ!=typeTest{
+	if typ != typeTest {
 		t.Errorf("Returned type does not match")
 	}
 }
 
-func TestParse(t *testing.T){
+func TestParse(t *testing.T) {
 	ms := parse.Message{}
-	ms.Body = []byte{0,1,2}
+	ms.Body = []byte{0, 1, 2}
 	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
 	ms.Receiver = id.ZeroID
 	ms.Sender = id.ZeroID
@@ -229,15 +176,15 @@ func TestParse(t *testing.T){
 
 	msOut, err := ParseMessage(messagePacked)
 
-	if err!=nil{
+	if err != nil {
 		t.Errorf("Message failed to parse: %s", err.Error())
 	}
 
-	if msOut.GetMessageType()!=int32(ms.MessageType){
+	if msOut.GetMessageType() != int32(ms.MessageType) {
 		t.Errorf("Types do not match after message parse: %v vs %v", msOut.GetMessageType(), ms.MessageType)
 	}
 
-	if !reflect.DeepEqual(ms.Body,msOut.GetPayload()){
+	if !reflect.DeepEqual(ms.Body, msOut.GetPayload()) {
 		t.Errorf("Bodies do not match after message parse: %v vs %v", msOut.GetPayload(), ms.Body)
 	}
 
@@ -245,7 +192,7 @@ func TestParse(t *testing.T){
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	grp := crypto.InitCrypto()
+	grp := getGroup()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 	params := signature.CustomDSAParams(
@@ -256,18 +203,17 @@ func TestRegisterUserE2E(t *testing.T) {
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
 	myPubKey := myPrivKey.PublicKeyGen()
-	myPubKeyCyclic := grp.NewIntFromLargeInt(myPubKey.GetKey())
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
-	session := user.NewSession(client.storage,
-		myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
+	session := user.NewSession(testClient.storage,
+		myUser, "", []user.NodeKeys{}, myPubKey, myPrivKey, grp)
 
-	client.sess = session
+	testClient.sess = session
 
-	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Confirm we can get all types of keys
 	key, action := session.GetKeyStore().TransmissionKeys.Pop(partner)
@@ -326,7 +272,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	grp := crypto.InitCrypto()
+	grp := getGroup()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 	params := signature.CustomDSAParams(
@@ -337,18 +283,18 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
 	myPubKey := myPrivKey.PublicKeyGen()
-	myPubKeyCyclic := grp.NewIntFromLargeInt(myPubKey.GetKey())
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
-	session := user.NewSession(client.storage,
-		myUser, "", []user.NodeKeys{}, myPubKeyCyclic, grp)
+	session := user.NewSession(testClient.storage,
+		myUser, "", []user.NodeKeys{}, myPubKey,
+		myPrivKey, grp)
 
-	client.sess = session
+	testClient.sess = session
 
-	client.registerUserE2E(partner, myPrivKeyCyclic, partnerPubKeyCyclic)
+	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Generate all keys and confirm they all match
 	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)

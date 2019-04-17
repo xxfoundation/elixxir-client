@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"math/rand"
@@ -31,8 +32,8 @@ type Session interface {
 	GetGWAddress() string
 	SetGWAddress(addr string)
 	GetKeys() []NodeKeys
-	GetPrivateKey() *cyclic.Int
-	GetPublicKey() *cyclic.Int
+	GetPrivateKey() *signature.DSAPrivateKey
+	GetPublicKey() *signature.DSAPublicKey
 	GetGroup() *cyclic.Group
 	GetLastMessageID() string
 	SetLastMessageID(id string)
@@ -51,28 +52,23 @@ type Session interface {
 }
 
 type NodeKeys struct {
-	TransmissionKeys RatchetKey
-	ReceptionKeys    RatchetKey
-	ReceiptKeys      RatchetKey
-	ReturnKeys       RatchetKey
-}
-
-type RatchetKey struct {
-	Base      *cyclic.Int
-	Recursive *cyclic.Int
+	TransmissionKey *cyclic.Int
+	ReceptionKey    *cyclic.Int
 }
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
 	u *User, GatewayAddr string, nk []NodeKeys,
-	publicKey *cyclic.Int, grp *cyclic.Group) Session {
+	publicKey *signature.DSAPublicKey,
+	privateKey *signature.DSAPrivateKey,
+	grp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:         u,
 		GWAddress:           GatewayAddr, // FIXME: don't store this here
 		Keys:                nk,
-		PrivateKey:          grp.NewMaxInt(),
+		PrivateKey:          privateKey,
 		PublicKey:           publicKey,
 		Grp:                 grp,
 		InterfaceMap:        make(map[string]interface{}),
@@ -82,7 +78,6 @@ func NewSession(store globals.Storage,
 		listeners:           switchboard.NewSwitchboard(),
 		quitReceptionRunner: make(chan bool),
 	})
-
 }
 
 func LoadSession(store globals.Storage,
@@ -159,8 +154,8 @@ type SessionObj struct {
 	GWAddress string
 
 	Keys       []NodeKeys
-	PrivateKey *cyclic.Int
-	PublicKey  *cyclic.Int
+	PrivateKey *signature.DSAPrivateKey
+	PublicKey  *signature.DSAPublicKey
 	Grp        *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
@@ -206,13 +201,13 @@ func (s *SessionObj) GetKeys() []NodeKeys {
 	return s.Keys
 }
 
-func (s *SessionObj) GetPrivateKey() *cyclic.Int {
+func (s *SessionObj) GetPrivateKey() *signature.DSAPrivateKey {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.PrivateKey
 }
 
-func (s *SessionObj) GetPublicKey() *cyclic.Int {
+func (s *SessionObj) GetPublicKey() *signature.DSAPublicKey {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.PublicKey
@@ -301,13 +296,6 @@ func (s *SessionObj) Immolate() error {
 	s.GWAddress = burntString(len(s.GWAddress))
 	s.GWAddress = ""
 
-	clearCyclicInt(s.PrivateKey)
-	clearCyclicInt(s.PublicKey)
-
-	for i := 0; i < len(s.Keys); i++ {
-		clearRatchetKeys(&s.Keys[i].TransmissionKeys)
-		clearRatchetKeys(&s.Keys[i].ReceptionKeys)
-	}
 
 	s.UnlockStorage()
 
@@ -395,11 +383,6 @@ func clearCyclicInt(c *cyclic.Int) {
 	c.Reset()
 	//c.Set(cyclic.NewMaxInt())
 	//c.SetInt64(0)
-}
-
-func clearRatchetKeys(r *RatchetKey) {
-	clearCyclicInt(r.Base)
-	clearCyclicInt(r.Recursive)
 }
 
 // FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?

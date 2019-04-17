@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -96,7 +96,8 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := client.Register(registrationCode, gwAddress, 1, false, string(grpJSON))
+	regRes, err := client.Register(true, registrationCode, "",
+		"", gwAddress, false, string(grpJSON))
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -113,7 +114,7 @@ func TestRegisterBadNumNodes(t *testing.T) {
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello")
-	p := large.NewInt(int64(1))
+	p := large.NewInt(int64(107))
 	g := large.NewInt(int64(2))
 	q := large.NewInt(int64(3))
 	grp := cyclic.NewGroup(p, g, q)
@@ -122,7 +123,8 @@ func TestRegisterBadNumNodes(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	_, err = client.Register(registrationCode, gwAddress, 0, false, string(grpJSON))
+	_, err = client.Register(true, registrationCode, "",
+		"", "", false, string(grpJSON))
 	if err == nil {
 		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
 	}
@@ -157,8 +159,9 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := client.Register(registrationCode, gwAddress, 1, false, string(grpJSON))
-	loginRes, err2 := client.Login(regRes, gwAddress, "")
+	regRes, err := client.Register(true, registrationCode, "",
+		"", gwAddress, false, string(grpJSON))
+	loginRes, err2 := client.Login(regRes, "", gwAddress, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -208,17 +211,18 @@ func TestListen(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, _ := client.Register(registrationCode, gwAddress, 1, false, string(grpJSON))
-	client.Login(regRes, gwAddress, "")
+	regRes, _ := client.Register(true, registrationCode, "",
+		"", gwAddress,false, string(grpJSON))
+	client.Login(regRes, "", gwAddress, "")
 	listener := MockListener(false)
 	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
-	client.GetSwitchboard().Speak(&parse.Message{
+	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
-		Receiver: client.GetCurrentUser(),
+		Receiver: client.client.GetCurrentUser(),
 	})
 	if !listener {
 		t.Error("Message not received")
@@ -254,12 +258,13 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, _ := client.Register(registrationCode, gwAddress, 1, false, string(grpJSON))
-	client.Login(regRes, gwAddress, "")
+	regRes, _ := client.Register(true, registrationCode, "",
+		"", gwAddress,false, string(grpJSON))
+	client.Login(regRes, "", gwAddress, "")
 	listener := MockListener(false)
 	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.StopListening(handle)
-	client.GetSwitchboard().Speak(&parse.Message{
+	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),

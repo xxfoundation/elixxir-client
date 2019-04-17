@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -24,6 +25,7 @@ import (
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -38,16 +40,19 @@ import (
 var verbose bool
 var userId uint64
 var destinationUserId uint64
-var gwAddr string
+var gwAddresses []string
 var message string
-var numNodes uint
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
 var mint bool
 var rateLimiting uint32
 var showVer bool
-var certPath string
+var gwCertPath string
+var registrationCertPath string
+var registrationAddr string
+var registrationCode string
+var userEmail string
 var client *api.Client
 
 // Execute adds all child commands to the root command and sets flags
@@ -60,7 +65,7 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() {
+func sessionInitialization() *id.User {
 	var err error
 	register := false
 
@@ -70,7 +75,7 @@ func sessionInitialization() {
 		if err != nil {
 			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return
+			return id.ZeroID
 		}
 		register = true
 	} else {
@@ -93,7 +98,7 @@ func sessionInitialization() {
 
 		if err != nil {
 			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return
+			return id.ZeroID
 		}
 	}
 
@@ -105,50 +110,68 @@ func sessionInitialization() {
 
 	// Handle parsing gateway addresses from the config file
 	gateways := viper.GetStringSlice("gateways")
-	if gwAddr == "" {
+	if len(gwAddresses) < 1 {
 		// If gwAddr was not passed via command line, check config file
 		if len(gateways) < 1 {
 			// No gateways in config file or passed via command line
 			fmt.Printf("Error: No gateway specified! Add to" +
 				" configuration file or pass via command line using -g!")
-			return
+			return id.ZeroID
 		} else {
-			// List of gateways found in config file, select one to use
-			// TODO: For now, just use the first one?
-			gwAddr = gateways[0]
+			// List of gateways found in config file
+			gwAddresses = gateways
 		}
 	}
 
-	//Register a new user if requested
+	// Holds the User ID
+	var uid *id.User
+
+	// Register a new user if requested
 	if register {
-		// FIXME Use a different encoding for the user ID command line argument,
-		// to allow testing with IDs that are long enough to exercise more than
-		// 64 bits
 		grpJSON := viper.GetString("group")
 
 		// Unmarshal group JSON
 		var grp cyclic.Group
 		err := grp.UnmarshalJSON([]byte(grpJSON))
 		if err != nil {
-			return
+			return id.ZeroID
 		}
 
-		regCode := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
-		_, err = client.Register(regCode, gwAddr, numNodes, mint, &grp)
+		regCode := registrationCode
+		// If precanned user, use generated code instead
+		if userId != 0 {
+			regCode = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
+		}
+
+		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
+
+		uid, err = client.Register(userId != 0, regCode, "",
+			registrationAddr, gwAddresses, mint, &grp)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
-			return
+			return id.ZeroID
 		}
+
+		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
+
+	} else {
+		// hack for session persisting with cmd line
+		// doesn't support non pre canned users
+		uid = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
+		// clear userEmail if it was defined, since login was previously done
+		userEmail = ""
 	}
 
-	// Log the user in
-	uid := id.NewUserFromUint(userId, nil)
-	_, err = client.Login(uid, gwAddr, certs.GatewayTLS)
-
+	// Log the user in, for now using the first gateway specified
+	// This will also register the user email with UDB
+	_, err = client.Login(uid, userEmail,
+		gwAddresses[0], certs.GatewayTLS)
 	if err != nil {
-		fmt.Printf("Could Not Log In\n")
-		return
+		fmt.Printf("Could Not Log In: %s\n", err)
+		return id.ZeroID
 	}
+
+	return uid
 }
 
 type FallbackListener struct {
@@ -189,11 +212,14 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.Log.INFO.Printf("First message from sender %v", message.Sender)
+		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
+		user.Users.UpsertUser(u)
+		senderNick = u.Nick
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", new(big.Int).SetBytes(message.Sender[:]).Text(10),
+	fmt.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -240,18 +266,15 @@ var rootCmd = &cobra.Command{
 		if showVer {
 			printVersion()
 			return
-		} else {
-			cmd.MarkPersistentFlagRequired("userid")
-			cmd.MarkPersistentFlagRequired("numnodes")
 		}
 
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
-		// Set the GatewayCertPath explicitly to avoid data races
-		SetCertPath(certPath)
+		// Set the cert paths explicitly to avoid data races
+		SetCertPaths(gwCertPath, registrationCertPath)
 
-		sessionInitialization()
+		userID := sessionInitialization()
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -275,7 +298,6 @@ var rootCmd = &cobra.Command{
 
 		// Only send a message if we have a message to send (except dummy messages)
 		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
-		senderId := new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
@@ -286,7 +308,7 @@ var rootCmd = &cobra.Command{
 
 			// Handle sending to UDB
 			if *recipientId == *bots.UdbID {
-				fmt.Println(parseUdbMessage(message, client))
+				parseUdbMessage(message, client)
 			} else {
 				// Handle sending to any other destination
 				wireOut := bindings.FormatTextMessage(message)
@@ -296,7 +318,7 @@ var rootCmd = &cobra.Command{
 
 				// Send the message
 				client.Send(&parse.Message{
-					Sender: senderId,
+					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      wireOut,
@@ -325,7 +347,7 @@ var rootCmd = &cobra.Command{
 					contact, message)
 
 				message := &parse.Message{
-					Sender: senderId,
+					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:      bindings.FormatTextMessage(message),
@@ -337,15 +359,9 @@ var rootCmd = &cobra.Command{
 				timer = time.NewTimer(dummyPeriod)
 			}
 		} else {
-			// wait 5 seconds to get all the messages off the gateway,
-			// unless you're sending to the channelbot, in which case you need
-			// to wait longer because channelbot is slow and dumb
+			// wait 45 seconds since UDB commands are now non-blocking
 			// TODO figure out the right way to do this
-			if destinationUserId == 31 {
-				timer = time.NewTimer(20 * time.Second)
-			} else {
-				timer = time.NewTimer(10 * time.Second)
-			}
+			timer = time.NewTimer(45 * time.Second)
 			<-timer.C
 		}
 
@@ -389,14 +405,30 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"ID to sign in as")
-	rootCmd.PersistentFlags().StringVarP(&gwAddr, "gwaddr", "g", "",
-		"Gateway address to send messages to")
-	rootCmd.PersistentFlags().StringVarP(&certPath, "certpath", "c", "",
+	rootCmd.PersistentFlags().StringSliceVarP(&gwAddresses, "gwaddresses",
+		"g", make([]string, 0), "Gateway addresses:port for message sending, "+
+			"comma-separated")
+	rootCmd.PersistentFlags().StringVarP(&gwCertPath, "gwcertpath", "c", "",
 		"Path to the certificate file for connecting to gateway using TLS")
-	// TODO: support this negotiating separate keys with different servers
-	rootCmd.PersistentFlags().UintVarP(&numNodes, "numnodes", "n", 1,
-		"The number of servers in the network that the client is"+
-			" connecting to")
+	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
+		"",
+		"Path to the certificate file for connecting to registration server"+
+			" using TLS")
+	rootCmd.PersistentFlags().StringVarP(&registrationAddr,
+		"registrationaddr", "a",
+		"",
+		"Address:Port for connecting to registration server"+
+			" using TLS")
+
+	rootCmd.PersistentFlags().StringVarP(&registrationCode,
+		"regcode", "e",
+		"",
+		"Registration Code")
+
+	rootCmd.PersistentFlags().StringVarP(&userEmail,
+			"email", "E",
+			"",
+			"Email to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+
@@ -417,9 +449,10 @@ func init() {
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
 }
 
-// Sets the cert path in comms
-func SetCertPath(path string) {
-	connect.GatewayCertPath = path
+// Sets the cert paths in comms
+func SetCertPaths(gwCertPath, registrationCertPath string) {
+	connect.GatewayCertPath = gwCertPath
+	connect.RegistrationCertPath = registrationCertPath
 }
 
 // initConfig reads in config file and ENV variables if set.

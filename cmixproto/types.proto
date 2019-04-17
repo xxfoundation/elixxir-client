@@ -23,6 +23,10 @@ enum Type {
     CHANNEL_MESSAGE = 2;
 
 
+    // Nickname request and response messages
+    NICKNAME_REQUEST = 6;
+    NICKNAME_RESPONSE = 7;
+
     // None of the UDB message types are proto bufs because I haven't had time
     // to migrate UDB fully to the new systems yet.
 

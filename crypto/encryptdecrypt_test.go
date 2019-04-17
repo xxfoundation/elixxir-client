@@ -63,14 +63,11 @@ func setup(t *testing.T) {
 		// this makes it possible for the reception key to decrypt the
 		// transmission key without spinning up a whole server to decouple them
 
-		nk[i].TransmissionKeys.Base = grp.NewInt(1)
-		nk[i].TransmissionKeys.Recursive = grp.NewIntFromString(
-			"ad333f4ccea0ccf2afcab6c1b9aa2384e561aee970046e39b7f2a78c3942a251", 16)
-		nk[i].ReceptionKeys.Base = grp.NewInt(1)
-		nk[i].ReceptionKeys.Recursive = grp.Inverse(
-			nk[i].TransmissionKeys.Recursive, grp.NewInt(1))
+		nk[i].TransmissionKey = grp.NewInt(1)
+		nk[i].ReceptionKey = grp.NewInt(1)
 	}
-	session = user.NewSession(nil, u, "", nk, nil, grp)
+	session = user.NewSession(nil, u, "", nk,
+		nil, nil, grp)
 }
 
 func TestEncryptDecrypt(t *testing.T) {
@@ -89,7 +86,7 @@ func TestEncryptDecrypt(t *testing.T) {
 	// Generate a compound encryption key
 	encryptionKey := grp.NewInt(1)
 	for _, key := range session.GetKeys() {
-		baseKey := key.TransmissionKeys.Base
+		baseKey := key.TransmissionKey
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
 		grp.Mul(encryptionKey, encryptionKey, partialEncryptionKey)
 		//TODO: Add KMAC generation here

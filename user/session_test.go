@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -10,8 +10,11 @@ import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
+	"math/rand"
+	"reflect"
 	"testing"
 )
 
@@ -30,24 +33,24 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(1000), large.NewInt(2), large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKeys: RatchetKey{grp.NewInt(2), grp.NewInt(2)},
-		ReceptionKeys:    RatchetKey{grp.NewInt(2), grp.NewInt(2)},
-		ReceiptKeys:      RatchetKey{grp.NewInt(2), grp.NewInt(2)},
-		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
 	}
 
 	// Storage
 	storage := &globals.RamStorage{}
 
-	//Ask Ben if there should be a Node Address here!
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L1024N160)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
 	ses := NewSession(storage,
-	u, "abc", keys, grp.NewInt(2), grp)
+		u, "abc", keys, publicKey, privateKey, grp)
 
-	ses.(*SessionObj).PrivateKey = grp.NewInt(2)
 	ses.SetLastMessageID("totally unique ID")
 
 	err := ses.StoreSession()
@@ -120,32 +123,16 @@ func TestUserSession(t *testing.T) {
 
 		for i := 0; i < len(ses.GetKeys()); i++ {
 
-			if ses.GetPublicKey().Cmp(grp.NewInt(2)) != 0 {
+			if !reflect.DeepEqual(*ses.GetPublicKey(), *publicKey) {
 				t.Errorf("Error: Public key not set correctly!")
-			} else if ses.GetKeys()[i].ReceiptKeys.Base.Cmp(grp.
+			} else if !reflect.DeepEqual(*ses.GetPrivateKey(), *privateKey) {
+				t.Errorf("Error: Private key not set correctly!")
+			} else if ses.GetKeys()[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].ReceiptKeys.Recursive.Cmp(grp.
+				t.Errorf("Error: Reception key not set correctly!")
+			} else if ses.GetKeys()[i].TransmissionKey.Cmp(grp.
 				NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].ReceptionKeys.Base.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].ReceptionKeys.Recursive.Cmp(
-				grp.NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].ReturnKeys.Base.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].ReturnKeys.Recursive.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].TransmissionKeys.Base.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
-			} else if ses.GetKeys()[i].TransmissionKeys.Recursive.Cmp(
-				grp.NewInt(2)) != 0 {
-				t.Errorf("Error: Receipt base key not set correctly!")
+				t.Errorf("Error: Transmission key not set correctly!")
 			}
 
 			pass++
@@ -220,19 +207,49 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(1000), large.NewInt(0), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
-		TransmissionKeys: RatchetKey{grp.NewInt(2), grp.NewInt(2)},
-		ReceptionKeys:    RatchetKey{grp.NewInt(2), grp.NewInt(2)},
-		ReceiptKeys:      RatchetKey{grp.NewInt(2), grp.NewInt(2)},
-		ReturnKeys:       RatchetKey{grp.NewInt(2), grp.NewInt(2)},
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
 	}
 
-	ses := NewSession(nil, u, "abc", keys, grp.NewInt(2), grp)
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L1024N160)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
+
 	pubKey := ses.GetPublicKey()
-	if pubKey.Cmp(grp.NewInt(2)) != 0 {
-		t.Errorf("Public key is not set correctly!")
+	if !reflect.DeepEqual(pubKey, publicKey) {
+		t.Errorf("Public key not returned correctly!")
+	}
+}
+
+func TestGetPrivKey(t *testing.T) {
+	u := new(User)
+	UID := id.NewUserFromUint(1, t)
+
+	u.User = UID
+	u.Nick = "Mario"
+
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
+	keys := make([]NodeKeys, 1)
+	keys[0] = NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	}
+
+	rng := rand.New(rand.NewSource(42))
+	params := signature.NewDSAParams(rng, signature.L1024N160)
+	privateKey := params.PrivateKeyGen(rng)
+	publicKey := privateKey.PublicKeyGen()
+	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
+
+	privKey := ses.GetPrivateKey()
+	if !reflect.DeepEqual(*privKey, *privateKey) {
+		t.Errorf("Private key is not returned correctly!")
 	}
 }

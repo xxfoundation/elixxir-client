@@ -111,35 +111,21 @@ func TestUserRegistry(t *testing.T) {
 	h := sha256.New()
 	h.Write([]byte(string(20001)))
 	key := grp.NewIntFromBytes(h.Sum(nil))
-	if keys.TransmissionKeys.Base.Text(16) != key.Text(16) {
+	if keys.TransmissionKey.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
-			keys.TransmissionKeys.Base.Text(16))
+			keys.TransmissionKey.Text(16))
 	}
-	h = sha256.New()
-	h.Write([]byte(string(30001)))
-	key = grp.NewIntFromBytes(h.Sum(nil))
-	if keys.TransmissionKeys.Recursive.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. "+
-			"Expected:%v \nActual%v", key.Text(16),
-			keys.TransmissionKeys.Recursive.Text(16))
-	}
+
 	h = sha256.New()
 	h.Write([]byte(string(40001)))
 	key = grp.NewIntFromBytes(h.Sum(nil))
-	if keys.ReceptionKeys.Base.Text(16) != key.Text(16) {
+	if keys.ReceptionKey.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
-			keys.ReceptionKeys.Base.Text(16))
+			keys.ReceptionKey.Text(16))
 	}
-	h = sha256.New()
-	h.Write([]byte(string(50001)))
-	key = grp.NewIntFromBytes(h.Sum(nil))
-	if keys.ReceptionKeys.Recursive.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. "+
-			"Expected:%v \nActual%v", key.Text(16),
-			keys.ReceptionKeys.Recursive.Text(16))
-	}
+
 	// Test delete user
 	Users.DeleteUser(id.NewUserFromUint(2, t))
 

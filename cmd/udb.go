@@ -10,11 +10,27 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/primitives/id"
 	"strings"
 )
 
+type callbackSearch struct {}
+
+func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
+	if err != nil {
+		fmt.Printf("UDB search failed: %v\n", err.Error())
+	} else if len(pubKey) == 0 {
+		fmt.Printf("Public Key returned is empty\n")
+	} else {
+		fmt.Printf("UDB search successful. Returned user %v\n",
+			*new(id.User).SetBytes(userID))
+	}
+}
+
+var searchCallback = callbackSearch{}
+
 // Determines what UDB send function to call based on the text in the message
-func parseUdbMessage(msg string, client *api.Client) string {
+func parseUdbMessage(msg string, client *api.Client) {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
@@ -26,22 +42,10 @@ func parseUdbMessage(msg string, client *api.Client) string {
 	keyword := args[0]
 	// Case-insensitive match the keyword to a command
 	if strings.EqualFold(keyword, "SEARCH") {
-		userID, pubKey, err := client.SearchForUser(args[2])
-		if err != nil {
-			return fmt.Sprintf("UDB search failed: %v", err.Error())
-		} else {
-			return fmt.Sprintf("UDB search successful. Returned user %v, "+
-				"public key %q", *userID, pubKey)
-		}
+		client.SearchForUser(args[2], searchCallback)
 	} else if strings.EqualFold(keyword, "REGISTER") {
-		err := client.RegisterForUserDiscovery(args[2])
-		if err != nil {
-			return fmt.Sprintf("UDB registration failed: %v", err.Error())
-		} else {
-			return "UDB registration successful."
-		}
+		jww.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
 	} else {
 		jww.ERROR.Printf("UDB command not recognized!")
 	}
-	return ""
 }

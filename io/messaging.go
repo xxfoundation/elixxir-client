@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -14,16 +14,16 @@ import (
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"sync"
 	"time"
 )
@@ -133,7 +133,7 @@ func (m *Messaging) send(session user.Session,
 	// Generate a compound encryption key
 	encryptionKey := grp.NewInt(1)
 	for _, key := range session.GetKeys() {
-		baseKey := key.TransmissionKeys.Base
+		baseKey := key.TransmissionKey
 		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
 		grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
 		//TODO: Add KMAC generation here
@@ -243,7 +243,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					salt := newMessage.Salt
 					decryptionKey := grp.NewInt(1)
 					for _, key := range session.GetKeys() {
-						baseKey := key.ReceptionKeys.Base
+						baseKey := key.ReceptionKey
 						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
 							grp)
 						grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)

@@ -73,16 +73,10 @@ func newRegistry() Registry {
 		// TODO We need a better way to generate base/recursive keys
 		h := sha256.New()
 		h.Write([]byte(string(20000 + i)))
-		k.TransmissionKeys.Base = grp.NewIntFromBytes(h.Sum(nil))
-		h = sha256.New()
-		h.Write([]byte(string(30000 + i)))
-		k.TransmissionKeys.Recursive = grp.NewIntFromBytes(h.Sum(nil))
+		k.TransmissionKey = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
 		h.Write([]byte(string(40000 + i)))
-		k.ReceptionKeys.Base = grp.NewIntFromBytes(h.Sum(nil))
-		h = sha256.New()
-		h.Write([]byte(string(50000 + i)))
-		k.ReceptionKeys.Recursive = grp.NewIntFromBytes(h.Sum(nil))
+		k.ReceptionKey = grp.NewIntFromBytes(h.Sum(nil))
 
 		// Add user to collection and lookup table
 		uc[*t.User] = t

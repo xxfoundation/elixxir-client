@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
+	"strings"
 )
 
 type Client struct {
@@ -38,7 +39,7 @@ type Storage interface {
 	Load() []byte
 }
 
-//Message used for binding
+// Message used for binding
 type Message interface {
 	// Returns the message's sender ID
 	GetSender() []byte
@@ -76,19 +77,9 @@ func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener)
 	return cl.client.Listen(typedUserId, format.None, messageType, listener)
 }
 
-// Returns a parsed message
-
 // Pass the listener handle that Listen() returned to delete the listener
 func (cl *Client) StopListening(listenerHandle string) {
 	cl.client.StopListening(listenerHandle)
-}
-
-func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
-	return cl.client.GetSwitchboard()
-}
-
-func (cl *Client) GetCurrentUser() *id.User {
-	return cl.client.GetCurrentUser()
 }
 
 func FormatTextMessage(message string) []byte {
@@ -119,46 +110,18 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 	return &Client{client: cl}, err
 }
 
-// Registers user and returns the User ID.  Returns null if registration fails.
-// registrationCode is a one time use string.
-// nick is a nickname which must be 32 characters or less.
-// nodeAddr is the ip address and port of the last node in the form: 192.168.1.1:50000
-// numNodes is the number of nodes in the system
-// Valid codes:
-// 1
-// “David”
-// RUHPS2MI
-// 2
-// “Jim”
-// AXJ3XIBD
-// 3
-// “Ben”
-// AW55QN6U
-// 4
-// “Rick”
-// XYRAUUO6
-// 5
-// “Spencer”
-// UAV6IWD6
-// 6
-// “Jake”
-// XEHCZT5U
-// 7
-// “Mario”
-// BW7NEXOZ
-// 8
-// “Will”
-// IRZVJ55Y
-// 9
-// “Allan”
-// YRZEM7BW
-// 10
-// “Jono”
-// OIF3OJ5I
-func (cl *Client) Register(registrationCode string, gwAddr string, numNodes int,
+// Registers user and returns the User ID bytes.
+// Returns null if registration fails and error
+// If preCan set to true, registration is attempted assuming a pre canned user
+// registrationCode is a one time use string
+// registrationAddr is the address of the registration server
+// gwAddressesList is CSV of gateway addresses
+// grp is the CMIX group needed for keys generation in JSON string format
+func (cl *Client) Register(preCan bool, registrationCode, nick,
+	registrationAddr string, gwAddressesList string,
 	mint bool, grpJSON string) ([]byte, error) {
 
-	if numNodes < 1 {
+	if gwAddressesList == "" {
 		return id.ZeroID[:], errors.New("invalid number of nodes")
 	}
 
@@ -169,7 +132,10 @@ func (cl *Client) Register(registrationCode string, gwAddr string, numNodes int,
 		return id.ZeroID[:], err
 	}
 
-	UID, err := cl.client.Register(registrationCode, gwAddr, uint(numNodes), mint, &grp)
+	gwList := strings.Split(gwAddressesList, ",")
+
+	UID, err := cl.client.Register(preCan, registrationCode, nick,
+		registrationAddr, gwList, mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -187,19 +153,20 @@ func (cl *Client) Register(registrationCode string, gwAddr string, numNodes int,
 // certificate string to "default", the bindings will use that certificate.
 // If you leave it empty, the Client will try to connect to the GW without TLS
 // This should only ever be used for testing purposes
-func (cl *Client) Login(UID []byte, addr string, tlsCert string) (string, error) {
+func (cl *Client) Login(UID []byte, email, addr string,
+	tlsCert string) (string, error) {
 	userID := new(id.User).SetBytes(UID)
 	var err error
 	var nick string
 	if tlsCert == "default" {
-		nick, err = cl.client.Login(userID, addr, certs.GatewayTLS)
+		nick, err = cl.client.Login(userID, email, addr, certs.GatewayTLS)
 	} else {
-		nick, err = cl.client.Login(userID, addr, tlsCert)
+		nick, err = cl.client.Login(userID, email, addr, tlsCert)
 	}
 	return nick, err
 }
 
-//Sends a message structured via the message interface
+// Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
 func (cl *Client) Send(m Message) error {
@@ -235,22 +202,44 @@ func (cl *Client) SetRateLimiting(limit int) {
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
-func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
-	return cl.client.RegisterForUserDiscovery(emailAddress)
+type SearchCallback interface {
+	Callback(userID, pubKey []byte, err error)
 }
 
-type SearchResult struct {
-	ResultID  []byte // Underlying type: *id.User
-	PublicKey []byte
+type searchCallbackProxy struct {
+	proxy SearchCallback
 }
 
-func (cl *Client) SearchForUser(emailAddress string) (*SearchResult, error) {
-	searchedUser, key, err := cl.client.SearchForUser(emailAddress)
-	if err != nil {
-		return nil, err
-	} else {
-		return &SearchResult{ResultID: searchedUser.Bytes(), PublicKey: key}, nil
-	}
+func (scp *searchCallbackProxy) Callback(userID, pubKey []byte, err error) {
+	scp.proxy.Callback(userID, pubKey, err)
+}
+
+func (cl *Client) SearchForUser(emailAddress string,
+	cb SearchCallback) {
+	proxy := &searchCallbackProxy{cb}
+	cl.client.SearchForUser(emailAddress, proxy)
+}
+
+type NickLookupCallback interface {
+	Callback(nick string, err error)
+}
+
+type nickCallbackProxy struct {
+	proxy NickLookupCallback
+}
+
+func (ncp *nickCallbackProxy) Callback(nick string, err error) {
+	ncp.proxy.Callback(nick, err)
+}
+
+// Nickname lookup API
+// Non-blocking, once the API call completes, the callback function
+// passed as argument is called
+func (cl *Client) LookupNick(user []byte,
+	cb NickLookupCallback) {
+	proxy := &nickCallbackProxy{cb}
+	userID := new(id.User).SetBytes(user)
+	cl.client.LookupNick(userID, proxy)
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -7,6 +7,9 @@
 package api
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
@@ -17,8 +20,15 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/crypto/registration"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -76,52 +86,207 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(registrationCode string, gwAddr string,
-	numNodes uint, mint bool, grp *cyclic.Group) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick,
+	registrationAddr string, gwAddresses []string,
+	mint bool, grp *cyclic.Group) (*id.User, error) {
 
 	var err error
 
-	if numNodes < 1 {
+	if len(gwAddresses) < 1 {
 		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
 		err = errors.New("could not register due to invalid number of nodes")
 		return id.ZeroID, err
 	}
 
-	// Because the method returns a pointer to the user ID, don't clear the
-	// user ID as the caller needs to use it
-	UID, successLook := user.Users.LookupUser(registrationCode)
+	var u *user.User
+	var UID *id.User
+	// Make CMIX keys array
+	nk := make([]user.NodeKeys, len(gwAddresses))
 
-	if !successLook {
-		globals.Log.ERROR.Printf("Register: HUID does not match")
-		err = errors.New("could not register due to invalid HUID")
-		return id.ZeroID, err
+	// Generate DSA keypair even for precanned users as it will probably
+	// be needed for the new UDB flow
+	params := signature.GetDefaultDSAParams()
+	privateKey := params.PrivateKeyGen(rand.Reader)
+	publicKey := privateKey.PublicKeyGen()
+
+	// Handle precanned registration
+	if preCan {
+		var successLook bool
+		globals.Log.DEBUG.Printf("Registering precanned user")
+		UID, successLook = user.Users.LookupUser(registrationCode)
+
+		if !successLook {
+			globals.Log.ERROR.Printf("Register: HUID does not match")
+			err = errors.New("could not register due to invalid HUID")
+			return id.ZeroID, err
+		}
+
+		var successGet bool
+		u, successGet = user.Users.GetUser(UID)
+
+		if !successGet {
+			globals.Log.ERROR.Printf("Register: ID lookup failed")
+			err = errors.New("could not register due to ID lookup failure")
+			return id.ZeroID, err
+		}
+
+		if nick != "" {
+			u.Nick = nick;
+		}
+
+		nodekeys, successKeys := user.Users.LookupKeys(u.User)
+
+		if !successKeys {
+			globals.Log.ERROR.Printf("Register: could not find user keys")
+			err = errors.New("could not register due to missing user keys")
+			return id.ZeroID, err
+		}
+
+		for i := 0; i < len(gwAddresses); i++ {
+			nk[i] = *nodekeys
+		}
+	} else {
+		// Generate salt for UserID
+		salt := make([]byte, 256)
+		_, err = csprng.NewSystemRNG().Read(salt)
+		if err != nil {
+			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
+			return id.ZeroID, err
+		}
+
+		// Generate UserID by hashing salt and public key
+		UID = registration.GenUserID(publicKey, salt)
+		// Keep track of Server public keys provided at end of registration
+		var serverPublicKeys []*signature.DSAPublicKey
+		// Initialized response from Registration Server
+		regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
+
+		// If Registration Server is specified, contact it
+		// Only if registrationCode is set
+		if registrationAddr != "" && registrationCode != "" {
+			// Send registration code and public key to RegistrationServer
+			response, err := client.SendRegistrationMessage(registrationAddr,
+				&pb.RegisterUserMessage{
+					RegistrationCode: registrationCode,
+					Y:                publicKey.GetKey().Bytes(),
+					P:                params.GetP().Bytes(),
+					Q:                params.GetQ().Bytes(),
+					G:                params.GetG().Bytes(),
+				})
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to contact Registration Server! %s", err)
+				return id.ZeroID, err
+			}
+			if response.Error != "" {
+				globals.Log.ERROR.Printf("Register: %s", response.Error)
+				return id.ZeroID, errors.New(response.Error)
+			}
+			regHash, regR, regS = response.Hash, response.R, response.S
+		}
+
+		// Loop over all Servers
+		for _, gwAddr := range gwAddresses {
+
+			// Send signed public key and salt for UserID to Server
+			nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
+				&pb.RequestNonceMessage{
+					Salt: salt,
+					Y:    publicKey.GetKey().Bytes(),
+					P:    params.GetP().Bytes(),
+					Q:    params.GetQ().Bytes(),
+					G:    params.GetG().Bytes(),
+					Hash: regHash,
+					R:    regR,
+					S:    regS,
+				})
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to request nonce! %s",
+					err)
+				return id.ZeroID, err
+			}
+			if nonceResponse.Error != "" {
+				globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
+				return id.ZeroID, errors.New(nonceResponse.Error)
+			}
+
+			// Use Client keypair to sign Server nonce
+			nonce := nonceResponse.Nonce
+			sig, err := privateKey.Sign(nonce, rand.Reader)
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to sign nonce! %s", err)
+				return id.ZeroID, err
+			}
+
+			// Send signed nonce to Server
+			// TODO: This returns a receipt that can be used to speed up registration
+			confirmResponse, err := client.SendConfirmNonceMessage(gwAddr,
+				&pb.ConfirmNonceMessage{
+					Hash: nonce,
+					R:    sig.R.Bytes(),
+					S:    sig.S.Bytes(),
+				})
+			if err != nil {
+				globals.Log.ERROR.Printf(
+					"Register: Unable to send signed nonce! %s", err)
+				return id.ZeroID, err
+			}
+			if confirmResponse.Error != "" {
+				globals.Log.ERROR.Printf(
+					"Register: %s", confirmResponse.Error)
+				return id.ZeroID, errors.New(confirmResponse.Error)
+			}
+
+			// Append Server public key
+			serverPublicKeys = append(serverPublicKeys,
+				signature.ReconstructPublicKey(signature.
+					CustomDSAParams(
+						large.NewIntFromBytes(confirmResponse.GetP()),
+						large.NewIntFromBytes(confirmResponse.GetQ()),
+						large.NewIntFromBytes(confirmResponse.GetG())),
+					large.NewIntFromBytes(confirmResponse.GetY())))
+
+		}
+
+		// Initialise blake2b hash for transmission keys and sha256 for reception
+		// keys
+		transmissionHash, _ := hash.NewCMixHash()
+		receptionHash := sha256.New()
+
+		// Loop through all the server public keys
+		for itr, publicKey := range serverPublicKeys {
+
+			// Generate the base keys
+			nk[itr].TransmissionKey = registration.GenerateBaseKey(
+				grp, publicKey, privateKey, transmissionHash,
+			)
+
+			transmissionHash.Reset()
+
+			nk[itr].ReceptionKey = registration.GenerateBaseKey(
+				grp, publicKey, privateKey, receptionHash,
+			)
+
+			receptionHash.Reset()
+		}
+
+		var actualNick string
+		if nick != "" {
+			actualNick = nick
+		} else {
+			actualNick = base64.StdEncoding.EncodeToString(UID[:])
+		}
+		u = user.Users.NewUser(UID, actualNick)
+		user.Users.UpsertUser(u)
 	}
 
-	u, successGet := user.Users.GetUser(UID)
+	// Create the user session
+	nus := user.NewSession(cl.storage, u, gwAddresses[0], nk,
+		publicKey, privateKey, grp)
 
-	if !successGet {
-		globals.Log.ERROR.Printf("Register: ID lookup failed")
-		err = errors.New("could not register due to ID lookup failure")
-		return id.ZeroID, err
-	}
-
-	nodekeys, successKeys := user.Users.LookupKeys(u.User)
-
-	if !successKeys {
-		globals.Log.ERROR.Printf("Register: could not find user keys")
-		err = errors.New("could not register due to missing user keys")
-		return id.ZeroID, err
-	}
-
-	nk := make([]user.NodeKeys, numNodes)
-
-	for i := uint(0); i < numNodes; i++ {
-		nk[i] = *nodekeys
-	}
-
-	nus := user.NewSession(cl.storage, u, gwAddr, nk,
-		grp.NewIntFromBytes([]byte("this is not a real public key")), grp)
-
+	// Store the user session
 	errStore := nus.StoreSession()
 
 	// FIXME If we have an error here, the session that gets created doesn't get immolated.
@@ -137,12 +302,12 @@ func (cl *Client) Register(registrationCode string, gwAddr string,
 	nus.Immolate()
 	nus = nil
 
-	return UID, err
+	return UID, nil
 }
 
 // Logs in user and sets session on client object
-// returns an error if login fails
-func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, error) {
+// returns the nickname or error if login fails
+func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (string, error) {
 
 	connect.GatewayCertString = tlsCert
 
@@ -178,8 +343,17 @@ func (cl *Client) Login(UID *id.User, addr string, tlsCert string) (string, erro
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
 
-	// Initialize UDB stuff here
-	bots.InitUDB(cl.sess, cl.comm, cl.sess.GetSwitchboard())
+	// Initialize UDB and nickname "bot" stuff here
+	bots.InitBots(cl.sess, cl.comm)
+
+	if email != "" {
+		err = cl.registerForUserDiscovery(email)
+		if err != nil {
+			globals.Log.ERROR.Printf(
+				"Unable to register with UDB: %s", err)
+			return "", err
+		}
+	}
 
 	return session.GetCurrentUser().Nick, nil
 }
@@ -270,7 +444,8 @@ func (cl *Client) Logout() error {
 	return nil
 }
 
-func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
+// Internal API for user discovery
+func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 	valueType := "EMAIL"
 	userId, _, err := bots.Search(valueType, emailAddress)
 	if userId != nil {
@@ -282,26 +457,61 @@ func (cl *Client) RegisterForUserDiscovery(emailAddress string) error {
 	}
 
 	publicKey := cl.sess.GetPublicKey()
-	publicKeyBytes := publicKey.LeftpadBytes(256)
+	publicKeyBytes := publicKey.GetKey().LeftpadBytes(256)
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
-func (cl *Client) SearchForUser(emailAddress string) (*id.User, []byte, error) {
+type SearchCallback interface {
+	Callback(userID, pubKey []byte, err error)
+}
+
+// UDB Search API
+// Pass a callback function to extract results
+func (cl *Client) SearchForUser(emailAddress string,
+	cb SearchCallback) {
 	valueType := "EMAIL"
-	return bots.Search(valueType, emailAddress)
+	go func() {
+		uid, pubKey, err := bots.Search(valueType, emailAddress)
+		if err == nil {
+			cl.registerUserE2E(uid, pubKey)
+		} else {
+			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
+		}
+		cb.Callback(uid[:], pubKey, err)
+	}()
+}
+
+type NickLookupCallback interface {
+	Callback(nick string, err error)
+}
+
+// Nickname lookup API
+// Non-blocking, once the API call completes, the callback function
+// passed as argument is called
+func (cl *Client) LookupNick(user *id.User,
+	cb NickLookupCallback) {
+	go func() {
+		nick, err := bots.LookupNick(user)
+		cb.Callback(nick, err)
+	}()
 }
 
 func (cl *Client) registerUserE2E(partnerID *id.User,
-	ownPrivKey *cyclic.Int,
-	partnerPubKey *cyclic.Int) {
+	partnerPubKey []byte) {
 	// Get needed variables from session
 	grp := cl.sess.GetGroup()
 	userID := cl.sess.GetCurrentUser().User
 
+	// Create user private key and partner public key
+	// in the group
+	privKey := cl.sess.GetPrivateKey()
+	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetKey())
+	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
+
 	// Generate baseKey
 	baseKey, _ := diffieHellman.CreateDHSessionKey(
-		partnerPubKey,
-		ownPrivKey,
+		partnerPubKeyCyclic,
+		privKeyCyclic,
 		grp)
 
 	// Generate key TTL and number of keys
@@ -322,36 +532,36 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage
-type ParsedMessage struct{
-	Typed int32
+type ParsedMessage struct {
+	Typed   int32
 	Payload []byte
 }
 
-func (p ParsedMessage) GetSender()[]byte{
+func (p ParsedMessage) GetSender() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetPayload()[]byte{
+func (p ParsedMessage) GetPayload() []byte {
 	return p.Payload
 }
 
-func (p ParsedMessage) GetRecipient()[]byte{
+func (p ParsedMessage) GetRecipient() []byte {
 	return []byte{}
 }
 
-func (p ParsedMessage) GetMessageType()int32{
+func (p ParsedMessage) GetMessageType() int32 {
 	return p.Typed
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the API
-func ParseMessage(message []byte)(ParsedMessage,error){
+func ParseMessage(message []byte) (ParsedMessage, error) {
 	tb, err := parse.Parse(message)
 
 	pm := ParsedMessage{}
 
-	if err!=nil{
-		return pm,err
+	if err != nil {
+		return pm, err
 	}
 
 	pm.Payload = tb.Body

@@ -12,59 +12,11 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/id"
 	"strings"
-	"gitlab.com/elixxir/primitives/format"
 )
-
-// UdbID is the ID of the user discovery bot, which is always 3
-var UdbID *id.User
-
-type udbResponseListener chan string
-
-var session user.Session
-var messaging io.Communications
-
-var pushKeyResponseListener udbResponseListener
-var getKeyResponseListener udbResponseListener
-var registerResponseListener udbResponseListener
-var searchResponseListener udbResponseListener
-
-func (l *udbResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
-	m := msg.(*parse.Message)
-	*l <- string(m.Body)
-}
-
-// InitUDB is called internally by the InitClient API
-func InitUDB(s user.Session,m io.Communications, l *switchboard.Switchboard) {
-	UdbID = new(id.User).SetUints(&[4]uint64{0, 0, 0, 3})
-
-	pushKeyResponseListener = make(udbResponseListener)
-	getKeyResponseListener = make(udbResponseListener)
-	registerResponseListener = make(udbResponseListener)
-	searchResponseListener = make(udbResponseListener)
-
-	session = s
-	messaging = m
-
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
-		&pushKeyResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
-		&getKeyResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
-		&registerResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
-		&searchResponseListener)
-}
 
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
@@ -225,11 +177,4 @@ func fingerprint(publicKey []byte) string {
 	h, _ := hash.NewCMixHash() // why does this return an err and not panic?
 	h.Write(publicKey)
 	return base64.StdEncoding.EncodeToString(h.Sum(nil))
-}
-
-// sendCommand sends a command to the udb. This doesn't block.
-// Callers that need to wait on a response should implement waiting with a
-// listener.
-func sendCommand(botID *id.User, command []byte) error {
-	return messaging.SendMessage(session, botID, command)
 }

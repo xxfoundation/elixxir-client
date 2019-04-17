@@ -9,12 +9,15 @@ package bots
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"os"
 	"testing"
 	"time"
@@ -43,19 +46,23 @@ var keyFingerprint string
 var pubKey []byte
 
 func TestMain(m *testing.M) {
-	fakeSession := user.Session(&user.SessionObj{})
-	fakeSW := switchboard.NewSwitchboard()
+	u := &user.User{
+		User: new(id.User).SetUints(&[4]uint64{0, 0, 0, 18}),
+		Nick: "Bernie",
+	}
+	fakeSession := user.NewSession(&globals.RamStorage{},
+		u, "", nil, nil, nil, nil)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
-	InitUDB(fakeSession, fakeComm, fakeSW)
+	InitBots(fakeSession, fakeComm)
 
 	// Make the reception channels buffered for this test
-	// which overwrites the channels registered in InitUDB
-	pushKeyResponseListener = make(udbResponseListener, 100)
-	getKeyResponseListener = make(udbResponseListener, 100)
-	registerResponseListener = make(udbResponseListener, 100)
-	searchResponseListener = make(udbResponseListener, 100)
+	// which overwrites the channels registered in InitBots
+	pushKeyResponseListener = make(channelResponseListener, 100)
+	getKeyResponseListener = make(channelResponseListener, 100)
+	registerResponseListener = make(channelResponseListener, 100)
+	searchResponseListener = make(channelResponseListener, 100)
 
 	pubKeyBits = "S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNzLU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClpq4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY7wuD96h4oaA+WV5Nh87cnIZ+fAG0uLve2LSHZ0FBZb3glOpNAOv7PFWkvN2BO37ztOQCXTJe72Y5ReoYn7nWVNxGUh0ilal+BRuJt1GZ7whOGDRE0IXfURIoK2yjyAnyZJWWMhfGsL5S6iL4aXUs03mc8BHKRq3HRjvTE10l3YFA=="
 	pubKey, _ = base64.StdEncoding.DecodeString(pubKeyBits)
@@ -95,5 +102,71 @@ func TestSearch(t *testing.T) {
 	}
 	if *searchedUser != *id.NewUserFromUint(26, t) {
 		t.Errorf("Search did not return user ID 26!")
+	}
+}
+
+// Test NICKNAME_REQUEST and NICKNAME_RESPONSE
+// messages using switchboard
+// Test LookupNick function
+func TestNicknameFunctions(t *testing.T) {
+	// Test receiving a nickname request
+	msg := &parse.Message{
+		Sender: session.GetCurrentUser().User,
+		TypedBody: parse.TypedBody{
+			MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
+			Body:      []byte{},
+		},
+		CryptoType: format.Unencrypted,
+		Receiver: session.GetCurrentUser().User,
+	}
+	session.GetSwitchboard().Speak(msg)
+
+	// Test nickname lookup
+
+	// Spawn lookup on goroutine
+	go func() {
+		nick, err := LookupNick(session.GetCurrentUser().User)
+		if err != nil {
+			t.Errorf("Error on LookupNick: %s", err.Error())
+		}
+		if nick != session.GetCurrentUser().Nick {
+			t.Errorf("LookupNick returned wrong value. Expected %s," +
+				" Got %s", session.GetCurrentUser().Nick, nick)
+		}
+	}()
+
+	// send response to switchboard
+	msg = &parse.Message{
+		Sender: session.GetCurrentUser().User,
+		TypedBody: parse.TypedBody{
+			MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
+			Body:      []byte(session.GetCurrentUser().Nick),
+		},
+		CryptoType: format.Unencrypted,
+		Receiver: session.GetCurrentUser().User,
+	}
+	session.GetSwitchboard().Speak(msg)
+}
+
+type errorMessaging struct {}
+
+// SendMessage that just errors out
+func (e *errorMessaging) SendMessage(sess user.Session,
+	recipientID *id.User,
+	message []byte) error {
+	return errors.New("This is an error")
+}
+
+// MessageReceiver thread to get new messages
+func (e *errorMessaging) MessageReceiver(session user.Session,
+	delay time.Duration) {}
+
+// Test LookupNick returns error on sending problem
+func TestLookupNick_error(t *testing.T) {
+	// Replace comms with errorMessaging
+	messaging = &errorMessaging{}
+	_, err := LookupNick(session.GetCurrentUser().User)
+	if err == nil {
+		t.Errorf("LookupNick should have returned an error")
 	}
 }

@@ -210,7 +210,7 @@ type searchCallbackProxy struct {
 	proxy SearchCallback
 }
 
-func (scp searchCallbackProxy) Callback(userID, pubKey []byte, err error) {
+func (scp *searchCallbackProxy) Callback(userID, pubKey []byte, err error) {
 	scp.proxy.Callback(userID, pubKey, err)
 }
 
@@ -218,6 +218,28 @@ func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback) {
 	proxy := &searchCallbackProxy{cb}
 	cl.client.SearchForUser(emailAddress, proxy)
+}
+
+type NickLookupCallback interface {
+	Callback(nick string, err error)
+}
+
+type nickCallbackProxy struct {
+	proxy NickLookupCallback
+}
+
+func (ncp *nickCallbackProxy) Callback(nick string, err error) {
+	ncp.proxy.Callback(nick, err)
+}
+
+// Nickname lookup API
+// Non-blocking, once the API call completes, the callback function
+// passed as argument is called
+func (cl *Client) LookupNick(user []byte,
+	cb NickLookupCallback) {
+	proxy := &nickCallbackProxy{cb}
+	userID := new(id.User).SetBytes(user)
+	cl.client.LookupNick(userID, proxy)
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

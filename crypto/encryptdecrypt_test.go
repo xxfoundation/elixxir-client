@@ -7,15 +7,9 @@
 package crypto_test
 
 import (
-	"bytes"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/user"
-	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
 )
@@ -68,56 +62,4 @@ func setup(t *testing.T) {
 	}
 	session = user.NewSession(nil, u, "", nk,
 		nil, nil, grp)
-}
-
-func TestEncryptDecrypt(t *testing.T) {
-	setup(t)
-
-	grp := session.GetGroup()
-	sender := id.NewUserFromUint(38, t)
-	recipient := id.NewUserFromUint(29, t)
-	msg := format.NewMessage()
-	msg.SetSender(sender)
-	msg.SetRecipient(recipient)
-	msgPayload := []byte("help me, i'm stuck in an" +
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msg.SetPayloadData(msgPayload)
-
-	// Generate a compound encryption key
-	encryptionKey := grp.NewInt(1)
-	for _, key := range session.GetKeys() {
-		baseKey := key.TransmissionKey
-		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
-		grp.Mul(encryptionKey, encryptionKey, partialEncryptionKey)
-		//TODO: Add KMAC generation here
-	}
-
-	decryptionKey := grp.NewMaxInt()
-	grp.Inverse(encryptionKey, decryptionKey)
-
-	// do the encryption and the decryption
-	e2eKey := e2e.Keygen(grp, nil, nil)
-	assocData, payload := crypto.Encrypt(encryptionKey, grp, msg, e2eKey)
-	encryptedNet := &pb.CmixMessage{
-		SenderID:       sender.Bytes(),
-		MessagePayload: payload,
-		AssociatedData: assocData,
-	}
-	decrypted, err := crypto.Decrypt(decryptionKey, grp, encryptedNet)
-
-	if err != nil {
-		t.Fatalf("Couldn't decrypt message: %v", err.Error())
-	}
-	if *decrypted.GetSender() != *sender {
-		t.Errorf("Sender differed from expected: Got %q, expected %q",
-			decrypted.GetRecipient(), sender)
-	}
-	if *decrypted.GetRecipient() != *recipient {
-		t.Errorf("Recipient differed from expected: Got %q, expected %q",
-			decrypted.GetRecipient(), sender)
-	}
-	if !bytes.Equal(decrypted.GetPayloadData(), msgPayload) {
-		t.Errorf("Decrypted payload differed from expected: Got %q, "+
-			"expected %q", decrypted.GetPayloadData(), msgPayload)
-	}
 }

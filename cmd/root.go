@@ -15,10 +15,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/bindings"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
@@ -311,7 +309,7 @@ var rootCmd = &cobra.Command{
 				parseUdbMessage(message, client)
 			} else {
 				// Handle sending to any other destination
-				wireOut := bindings.FormatTextMessage(message)
+				wireOut := api.FormatTextMessage(message)
 
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					recipientNick, message)
@@ -350,7 +348,7 @@ var rootCmd = &cobra.Command{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:      bindings.FormatTextMessage(message),
+						Body:      api.FormatTextMessage(message),
 					},
 					CryptoType: format.Unencrypted,
 					Receiver:  recipientId}
@@ -458,7 +456,7 @@ func SetCertPaths(gwCertPath, registrationCertPath string) {
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {
 	// Temporarily need to get group as JSON data into viper
-	json, err := crypto.InitCrypto().MarshalJSON()
+	json, err := globals.InitCrypto().MarshalJSON()
 	if err != nil {
 		// panic
 	}

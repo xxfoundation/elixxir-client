@@ -8,7 +8,6 @@ package user
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/primitives/id"
 )
@@ -58,7 +57,7 @@ func newRegistry() Registry {
 	nk := make(map[id.User]*NodeKeys)
 
 	// Initialize group object
-	grp := crypto.InitCrypto()
+	grp := globals.InitCrypto()
 
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery

@@ -10,7 +10,7 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/crypto"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -285,7 +285,7 @@ func testMainWrapper(m *testing.M) int {
 }
 
 func getGroup() *cyclic.Group {
-	return crypto.InitCrypto()
+	return globals.InitCrypto()
 }
 
 func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port)}

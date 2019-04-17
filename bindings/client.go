@@ -169,18 +169,25 @@ func (cl *Client) Login(UID []byte, email, addr string,
 // Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
-func (cl *Client) Send(m Message) error {
+func (cl *Client) Send(m Message, encrypt bool) error {
 	sender := new(id.User).SetBytes(m.GetSender())
 	recipient := new(id.User).SetBytes(m.GetRecipient())
+
+	var cryptoType format.CryptoType
+	if encrypt {
+		cryptoType = format.E2E
+	} else {
+		cryptoType = format.Unencrypted
+	}
 
 	return cl.client.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: m.GetMessageType(),
-			Body:      m.GetPayload(),
+			Body:        m.GetPayload(),
 		},
-		CryptoType: format.Unencrypted,
-		Sender:    sender,
-		Receiver:  recipient,
+		CryptoType: cryptoType,
+		Sender:     sender,
+		Receiver:   recipient,
 	})
 }
 

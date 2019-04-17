@@ -363,8 +363,8 @@ func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (strin
 func (cl *Client) Send(message parse.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
-	err := cl.comm.SendMessage(cl.sess, recipientID, message.Pack())
-	return err
+	cryptoType := message.GetCryptoType()
+	return cl.comm.SendMessage(cl.sess, recipientID, cryptoType, message.Pack())
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for

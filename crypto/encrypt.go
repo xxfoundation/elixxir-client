@@ -7,77 +7,77 @@
 package crypto
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/keyStore"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/verification"
 	"gitlab.com/elixxir/primitives/format"
-	"time"
 )
 
-// Encrypt uses the encryption key to encrypt the passed message and populate
-// the associated data
-// You must also encrypt the message for the nodes
-func Encrypt(key *cyclic.Int, grp *cyclic.Group,
-	message *format.Message, e2eKey *cyclic.Int) (encryptedAssociatedData []byte,
-	encryptedPayload []byte) {
-	e2eKeyBytes := e2eKey.LeftpadBytes(uint64(format.TOTAL_LEN))
-	// Key fingerprint is 256 bits given by H(e2ekey)
-	// For now use Blake2B
-	h, _ := hash.NewCMixHash()
-	h.Write(e2eKeyBytes)
-	keyFp := format.NewFingerprint(h.Sum(nil))
-	message.SetKeyFingerprint(*keyFp)
+// CMIX Encrypt performs the encryption
+// of the msg to a team of nodes
+// It returns a new msg
+func CMIX_Encrypt(session user.Session,
+	salt []byte,
+	msg *format.Message) *format.Message {
+	// Generate the encryption key
+	nodeKeys := session.GetKeys()
+	baseKeys := make([]*cyclic.Int, len(nodeKeys))
+	for i, key := range nodeKeys {
+		baseKeys[i] = key.TransmissionKey
+		//TODO: Add KMAC generation here
+	}
 
-	// Encrypt the timestamp using the e2ekey
-	// TODO BC: this will produce a 32 byte ciphertext, where the first 16 bytes
-	// is the IV internally generated AES. This is fine right now since there are 32 bytes
-	// of space in Associated Data for the timestamp.
-	// If we want to decrease that to 16 bytes, we need to use the key fingerprint
-	// as the IV for AES encryption
-	// TODO: timestamp like this is kinda hacky, maybe it should be set right here
-	// However, this would lead to parts of same message having potentially different timestamps
-	// Get relevant bytes from timestamp by unmarshalling and then marshalling again
-	timestamp := time.Time{}
-	timestamp.UnmarshalBinary(message.GetTimestamp())
-	timeBytes, _ := timestamp.MarshalBinary()
+	fp := msg.GetKeyFingerprint()
+	// Calculate MIC
+	recipientMicList := [][]byte{
+		msg.GetRecipientID(),
+		fp[:],
+		msg.GetTimestamp(),
+		msg.GetMAC(),
+	}
+	mic := verification.GenerateMIC(recipientMicList, uint64(format.AD_RMIC_LEN))
+	msg.SetRecipientMIC(mic)
+	return cmix.ClientEncryptDecrypt(true, session.GetGroup(), msg, salt, baseKeys)
+}
+
+// E2E_Encrypt uses the E2E key to encrypt msg
+// to its intended recipient
+// It also properly populates the associated data
+// It modifies the passed msg instead of returning a new one
+func E2E_Encrypt(key *keyStore.E2EKey, grp *cyclic.Group,
+	msg *format.Message) {
+	keyFP := key.KeyFingerprint()
+	msg.SetKeyFingerprint(keyFP)
+
+	// Encrypt the timestamp using key
+	// Timestamp bytes were previously stored
+	// and GO only uses 15 bytes, so use those
 	var iv [e2e.AESBlockSize]byte
-	copy(iv[:], keyFp[:e2e.AESBlockSize])
-	encryptedTimestamp, err := e2e.EncryptAES256WithIV(e2eKeyBytes, iv, timeBytes)
+	copy(iv[:], keyFP[:e2e.AESBlockSize])
+	encryptedTimestamp, err :=
+		e2e.EncryptAES256WithIV(key.GetKey().Bytes(), iv,
+			msg.GetTimestamp()[:15])
+
 	// Make sure the encrypted timestamp fits
 	if len(encryptedTimestamp) != format.AD_TIMESTAMP_LEN || err != nil {
-		jww.ERROR.Panicf(err.Error())
+		globals.Log.ERROR.Panicf(err.Error())
 	}
-	message.SetTimestamp(encryptedTimestamp)
+	msg.SetTimestamp(encryptedTimestamp)
 
-	// E2E encrypt the message
-	encPayload, err := e2e.Encrypt(grp, e2eKey, message.GetPayload())
+	// E2E encrypt the msg
+	encPayload, err := e2e.Encrypt(grp, key.GetKey(), msg.GetPayload())
 	if len(encPayload) != format.TOTAL_LEN || err != nil {
-		jww.ERROR.Panicf(err.Error())
+		globals.Log.ERROR.Panicf(err.Error())
 	}
-	message.SetPayload(encPayload)
+	msg.SetPayload(encPayload)
 
 	// MAC is HMAC(key, ciphertext)
 	// Currently, the MAC doesn't include any of the associated data
-	MAC := hash.CreateHMAC(encPayload, e2eKeyBytes)
-	message.SetMAC(MAC)
-
-	recipientMicList := [][]byte{
-		message.AssociatedData.GetRecipientID(),
-		keyFp[:],
-		message.AssociatedData.GetTimestamp(),
-		message.AssociatedData.GetMAC(),
-	}
-	mic := verification.GenerateMIC(recipientMicList, uint64(format.AD_RMIC_LEN))
-	message.SetRecipientMIC(mic)
-
-	// perform the CMIX encryption
-	resultPayload := grp.NewIntFromBytes(message.SerializePayload())
-	resultAssociatedData := grp.NewIntFromBytes(message.SerializeAssociatedData())
-	grp.Mul(resultPayload, key, resultPayload)
-	grp.Mul(resultAssociatedData, key, resultAssociatedData)
-
-	return resultAssociatedData.LeftpadBytes(uint64(format.TOTAL_LEN)),
-		resultPayload.LeftpadBytes(uint64(format.TOTAL_LEN))
+	MAC := hash.CreateHMAC(encPayload, key.GetKey().Bytes())
+	msg.SetMAC(MAC)
 }

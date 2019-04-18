@@ -51,6 +51,7 @@ var registrationCertPath string
 var registrationAddr string
 var registrationCode string
 var userEmail string
+var end2end bool
 var client *api.Client
 
 // Execute adds all child commands to the root command and sets flags
@@ -294,6 +295,11 @@ var rootCmd = &cobra.Command{
 				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
 		}
 
+		cryptoType := format.Unencrypted
+		if end2end {
+			cryptoType = format.E2E
+		}
+
 		// Only send a message if we have a message to send (except dummy messages)
 		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
 		if message != "" {
@@ -319,10 +325,10 @@ var rootCmd = &cobra.Command{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:      wireOut,
+						Body:        wireOut,
 					},
-					CryptoType: format.Unencrypted,
-					Receiver: recipientId,
+					CryptoType: cryptoType,
+					Receiver:   recipientId,
 				})
 			}
 		}
@@ -348,10 +354,10 @@ var rootCmd = &cobra.Command{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:      api.FormatTextMessage(message),
+						Body:        api.FormatTextMessage(message),
 					},
-					CryptoType: format.Unencrypted,
-					Receiver:  recipientId}
+					CryptoType: cryptoType,
+					Receiver:   recipientId}
 				client.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
@@ -424,9 +430,9 @@ func init() {
 		"Registration Code")
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
-			"email", "E",
-			"",
-			"Email to register for User Discovery")
+		"email", "E",
+		"",
+		"Email to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+
@@ -445,6 +451,9 @@ func init() {
 	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
 		"Frequency of dummy messages in Hz.  If no message is passed, "+
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
+
+	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
+		"Send messages with E2E encryption to destination user")
 }
 
 // Sets the cert paths in comms

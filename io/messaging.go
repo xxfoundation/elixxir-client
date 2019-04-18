@@ -207,6 +207,7 @@ func handleE2ESending(session user.Session,
 		// TODO handle Send Rekey message to SW
 	}
 
+	globals.Log.DEBUG.Printf("E2E encrypting message")
 	crypto.E2E_Encrypt(sendKey, session.GetGroup(), message)
 }
 
@@ -263,6 +264,7 @@ func handleE2EReceiving(session user.Session,
 		// TODO Handle Receiving Keys Rekey (partner rekey)
 	}
 
+	globals.Log.DEBUG.Printf("E2E decrypting message")
 	err := crypto.E2E_Decrypt(recpKey, session.GetGroup(), message)
 	if err != nil {
 		// TODO handle Garbled message to SW

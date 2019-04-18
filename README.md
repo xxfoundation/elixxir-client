@@ -54,6 +54,7 @@ Optional args:
 |--registrationcertpath|-r|Enables TLS by passing in path to the registration server certificate file|-r "~/Documents/registration.cert"|
 |--registrationaddr|-a|Address:Port for connecting to the registration server|-a "localhost:11420"|
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
+|--end2end| |Send messages with E2E encryption to destination user|--end2end|
 
 ##Project Structure
 

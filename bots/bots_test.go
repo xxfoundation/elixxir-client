@@ -154,6 +154,7 @@ type errorMessaging struct {}
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
 	recipientID *id.User,
+	cryptoType format.CryptoType,
 	message []byte) error {
 	return errors.New("This is an error")
 }

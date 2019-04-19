@@ -30,7 +30,7 @@ import (
 
 // Messaging implements the Communications interface
 type Messaging struct {
-	nextId func() []byte
+	nextId   func() []byte
 	collator *Collator
 	// SendAddress is the address of the server to send messages
 	SendAddress string
@@ -44,16 +44,16 @@ type Messaging struct {
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
 	ReceivedMessages map[string]struct{}
-	sendLock sync.Mutex
+	sendLock         sync.Mutex
 }
 
 func NewMessenger() *Messaging {
 	return &Messaging{
-		nextId: parse.IDCounter(),
-		collator: NewCollator(),
+		nextId:             parse.IDCounter(),
+		collator:           NewCollator(),
 		BlockTransmissions: true,
-		TransmitDelay: 1000 * time.Millisecond,
-		ReceivedMessages: make(map[string]struct{}),
+		TransmitDelay:      1000 * time.Millisecond,
+		ReceivedMessages:   make(map[string]struct{}),
 	}
 }
 
@@ -174,7 +174,7 @@ func (m *Messaging) send(session user.Session,
 
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
-	encMsg := crypto.CMIX_Encrypt(session, salt, message)
+	encMsg := crypto.CMIXEncrypt(session, salt, message)
 
 	msgPacket := &pb.CmixMessage{
 		SenderID:       session.GetCurrentUser().User.Bytes(),
@@ -197,7 +197,7 @@ func handleE2ESending(session user.Session,
 		TransmissionKeys.Pop(recipientID)
 
 	if sendKey == nil {
-		globals.Log.FATAL.Panicf("Couldn't get key to E2E encrypt message to" +
+		globals.Log.FATAL.Panicf("Couldn't get key to E2E encrypt message to"+
 			" user %v", *recipientID)
 	} else if action == keyStore.Deleted {
 		globals.Log.FATAL.Panicf("Key Manager is deleted when trying to get E2E Send Key")
@@ -208,7 +208,9 @@ func handleE2ESending(session user.Session,
 	}
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
-	crypto.E2E_Encrypt(sendKey, session.GetGroup(), message)
+	crypto.E2EEncrypt(sendKey.GetKey(),
+		sendKey.KeyFingerprint(),
+		session.GetGroup(), message)
 }
 
 // MessageReceiver is a polling thread for receiving messages -- again.. we
@@ -265,7 +267,7 @@ func handleE2EReceiving(session user.Session,
 	}
 
 	globals.Log.DEBUG.Printf("E2E decrypting message")
-	err := crypto.E2E_Decrypt(recpKey, session.GetGroup(), message)
+	err := crypto.E2EDecrypt(recpKey.GetKey(), session.GetGroup(), message)
 	if err != nil {
 		// TODO handle Garbled message to SW
 	}
@@ -314,7 +316,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					}
 
 					// CMIX Decryption
-					decMsg := crypto.CMIX_Decrypt(session, newMessage)
+					decMsg := crypto.CMIXDecrypt(session, newMessage)
 
 					var err error = nil
 					var unpadded []byte

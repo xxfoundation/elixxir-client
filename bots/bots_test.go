@@ -32,6 +32,7 @@ type dummyMessaging struct {
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
 	recipientID *id.User,
+	cryptoType format.CryptoType,
 	message []byte) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
@@ -153,6 +154,7 @@ type errorMessaging struct {}
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
 	recipientID *id.User,
+	cryptoType format.CryptoType,
 	message []byte) error {
 	return errors.New("This is an error")
 }

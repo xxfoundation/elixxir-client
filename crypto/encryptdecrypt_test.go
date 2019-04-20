@@ -4,28 +4,31 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package crypto_test
+package crypto
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"os"
 	"testing"
+	"time"
 )
 
 var salt = []byte(
 	"fdecfa52a8ad1688dbfa7d16df74ebf27e535903c469cefc007ebbe1ee895064")
 
 var session user.Session
+var serverTransmissionKey *cyclic.Int
+var serverReceptionKey *cyclic.Int
 
-func setup(t *testing.T) {
+func setup() {
 	base := 16
 
 	pString := "9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48" +
@@ -54,25 +57,34 @@ func setup(t *testing.T) {
 
 	grp := cyclic.NewGroup(p, g, q)
 
-	u, _ := user.Users.GetUser(id.NewUserFromUint(1, t))
+	UID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 18})
+	u, _ := user.Users.GetUser(UID)
 
-	nk := make([]user.NodeKeys, 1)
+	nk := make([]user.NodeKeys, 5)
+
+	baseKey := grp.NewInt(1)
+	serverTransmissionKey = grp.NewInt(1)
+	serverReceptionKey = grp.NewInt(1)
 
 	for i := range nk {
-		// transmission and reception keys need to be inverses of each other.
-		// this makes it possible for the reception key to decrypt the
-		// transmission key without spinning up a whole server to decouple them
 
-		nk[i].TransmissionKey = grp.NewInt(1)
-		nk[i].ReceptionKey = grp.NewInt(1)
+		nk[i].TransmissionKey = grp.NewInt(int64(2 + i))
+		cmix.NodeKeyGen(grp, salt, nk[i].TransmissionKey, baseKey)
+		grp.Mul(serverTransmissionKey, baseKey, serverTransmissionKey)
+		nk[i].ReceptionKey = grp.NewInt(int64(1000 + i))
+		cmix.NodeKeyGen(grp, salt, nk[i].ReceptionKey, baseKey)
+		grp.Mul(serverReceptionKey, baseKey, serverReceptionKey)
 	}
 	session = user.NewSession(nil, u, "", nk,
 		nil, nil, grp)
 }
 
-func TestEncryptDecrypt(t *testing.T) {
-	setup(t)
+func TestMain(m *testing.M) {
+	setup()
+	os.Exit(m.Run())
+}
 
+func TestFullEncryptDecrypt(t *testing.T) {
 	grp := session.GetGroup()
 	sender := id.NewUserFromUint(38, t)
 	recipient := id.NewUserFromUint(29, t)
@@ -82,42 +94,167 @@ func TestEncryptDecrypt(t *testing.T) {
 	msgPayload := []byte("help me, i'm stuck in an" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
 	msg.SetPayloadData(msgPayload)
+	now := time.Now()
+	nowBytes, _ := now.MarshalBinary()
+	msg.SetTimestamp(nowBytes)
 
-	// Generate a compound encryption key
-	encryptionKey := grp.NewInt(1)
-	for _, key := range session.GetKeys() {
-		baseKey := key.TransmissionKey
-		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
-		grp.Mul(encryptionKey, encryptionKey, partialEncryptionKey)
-		//TODO: Add KMAC generation here
-	}
+	key := grp.NewInt(42)
+	h, _ := hash.NewCMixHash()
+	h.Write(key.Bytes())
+	fp := format.Fingerprint{}
+	copy(fp[:], h.Sum(nil))
 
-	decryptionKey := grp.NewMaxInt()
-	grp.Inverse(encryptionKey, decryptionKey)
+	// E2E Encryption
+	E2EEncrypt(key, fp, grp, msg)
 
-	// do the encryption and the decryption
-	e2eKey := e2e.Keygen(grp, nil, nil)
-	assocData, payload := crypto.Encrypt(encryptionKey, grp, msg, e2eKey)
+	// CMIX Encryption
+	encMsg := CMIXEncrypt(session, salt, msg)
+
+	// Server will decrypt and re-encrypt payload
+	payload := grp.NewIntFromBytes(encMsg.SerializePayload())
+	assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
+	// Multiply payload by transmission and reception keys
+	grp.Mul(payload, serverTransmissionKey, payload)
+	grp.Mul(payload, serverReceptionKey, payload)
+	// Multiply associated data only by transmission key
+	grp.Mul(assocData, serverTransmissionKey, assocData)
 	encryptedNet := &pb.CmixMessage{
 		SenderID:       sender.Bytes(),
-		MessagePayload: payload,
-		AssociatedData: assocData,
+		Salt:           salt,
+		MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
+		AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
 	}
-	decrypted, err := crypto.Decrypt(decryptionKey, grp, encryptedNet)
+
+	// CMIX Decryption
+	decMsg := CMIXDecrypt(session, encryptedNet)
+
+	// E2E Decryption
+	err := E2EDecrypt(key, grp, decMsg)
 
 	if err != nil {
-		t.Fatalf("Couldn't decrypt message: %v", err.Error())
+		t.Errorf("E2EDecrypt returned error: %v", err.Error())
 	}
-	if *decrypted.GetSender() != *sender {
+
+	if *decMsg.GetSender() != *sender {
 		t.Errorf("Sender differed from expected: Got %q, expected %q",
-			decrypted.GetRecipient(), sender)
+			decMsg.GetRecipient(), sender)
 	}
-	if *decrypted.GetRecipient() != *recipient {
+	if *decMsg.GetRecipient() != *recipient {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
-			decrypted.GetRecipient(), sender)
+			decMsg.GetRecipient(), sender)
 	}
-	if !bytes.Equal(decrypted.GetPayloadData(), msgPayload) {
+	if !bytes.Equal(decMsg.GetPayloadData(), msgPayload) {
 		t.Errorf("Decrypted payload differed from expected: Got %q, "+
-			"expected %q", decrypted.GetPayloadData(), msgPayload)
+			"expected %q", decMsg.GetPayloadData(), msgPayload)
+	}
+}
+
+// Test that E2EEncrypt panics if the payload is too big (can't be padded)
+func TestE2EEncrypt_Panic(t *testing.T) {
+	grp := session.GetGroup()
+	sender := id.NewUserFromUint(38, t)
+	recipient := id.NewUserFromUint(29, t)
+	msg := format.NewMessage()
+	msg.SetSender(sender)
+	msg.SetRecipient(recipient)
+	msgPayload := []byte("help me, i'm stuck in an" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+	msg.SetPayloadData(msgPayload)
+	now := time.Now()
+	nowBytes, _ := now.MarshalBinary()
+	msg.SetTimestamp(nowBytes)
+
+	key := grp.NewInt(42)
+	h, _ := hash.NewCMixHash()
+	h.Write(key.Bytes())
+	fp := format.Fingerprint{}
+	copy(fp[:], h.Sum(nil))
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("E2EEncrypt should panic on payload too large")
+		}
+	}()
+
+	// E2E Encryption Panics
+	E2EEncrypt(key, fp, grp, msg)
+}
+
+// Test that E2EDecrypt handles errors correctly
+func TestE2EDecrypt_Errors(t *testing.T) {
+	grp := session.GetGroup()
+	sender := id.NewUserFromUint(38, t)
+	recipient := id.NewUserFromUint(29, t)
+	msg := format.NewMessage()
+	msg.SetSender(sender)
+	msg.SetRecipient(recipient)
+	msgPayload := []byte("help me, i'm stuck in an" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+	msg.SetPayloadData(msgPayload)
+	now := time.Now()
+	nowBytes, _ := now.MarshalBinary()
+	msg.SetTimestamp(nowBytes)
+
+	key := grp.NewInt(42)
+	h, _ := hash.NewCMixHash()
+	h.Write(key.Bytes())
+	fp := format.Fingerprint{}
+	copy(fp[:], h.Sum(nil))
+
+	// E2E Encryption
+	E2EEncrypt(key, fp, grp, msg)
+
+	// Copy message
+	badMsg := format.NewMessage()
+	badMsg.Payload = format.DeserializePayload(msg.SerializePayload())
+	badMsg.AssociatedData = format.DeserializeAssociatedData(msg.SerializeAssociatedData())
+
+	// Corrupt MAC to make decryption fail
+	badMsg.SetMAC([]byte("sakfaskfajskasfkkaskfanjjnaf"))
+
+	// E2E Decryption returns error
+	err := E2EDecrypt(key, grp, badMsg)
+
+	if err == nil {
+		t.Errorf("E2EDecrypt should have returned error")
+	} else {
+		t.Logf("E2EDecrypt error: %v", err.Error())
+	}
+
+	// Set correct MAC again
+	badMsg.SetMAC(msg.GetMAC())
+
+	// Corrupt timestamp to make decryption fail
+	badMsg.SetTimestamp([]byte("ABCDEF1234567890"))
+
+	// E2E Decryption returns error
+	err = E2EDecrypt(key, grp, badMsg)
+
+	if err == nil {
+		t.Errorf("E2EDecrypt should have returned error")
+	} else {
+		t.Logf("E2EDecrypt error: %v", err.Error())
+	}
+
+	// Set correct Timestamp again
+	badMsg.SetTimestamp(msg.GetTimestamp())
+
+	// Corrupt payload to make decryption fail
+	badMsg.SetPayload([]byte("sakomnsfjeiknheuijhgfyaistuajhfaiuojfkhufijsahufiaij"))
+
+	// Calculate new MAC to avoid failing on that verification again
+	newMAC := hash.CreateHMAC(badMsg.SerializePayload(), key.Bytes())
+	badMsg.SetMAC(newMAC)
+
+	// E2E Decryption returns error
+	err = E2EDecrypt(key, grp, badMsg)
+
+	if err == nil {
+		t.Errorf("E2EDecrypt should have returned error")
+	} else {
+		t.Logf("E2EDecrypt error: %v", err.Error())
 	}
 }

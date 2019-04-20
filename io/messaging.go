@@ -13,13 +13,13 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -30,7 +30,7 @@ import (
 
 // Messaging implements the Communications interface
 type Messaging struct {
-	nextId func() []byte
+	nextId   func() []byte
 	collator *Collator
 	// SendAddress is the address of the server to send messages
 	SendAddress string
@@ -44,16 +44,16 @@ type Messaging struct {
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
 	ReceivedMessages map[string]struct{}
-	sendLock sync.Mutex
+	sendLock         sync.Mutex
 }
 
 func NewMessenger() *Messaging {
 	return &Messaging{
-		nextId: parse.IDCounter(),
-		collator: NewCollator(),
+		nextId:             parse.IDCounter(),
+		collator:           NewCollator(),
 		BlockTransmissions: true,
-		TransmitDelay: 1000 * time.Millisecond,
-		ReceivedMessages: make(map[string]struct{}),
+		TransmitDelay:      1000 * time.Millisecond,
+		ReceivedMessages:   make(map[string]struct{}),
 	}
 }
 
@@ -64,6 +64,7 @@ func NewMessenger() *Messaging {
 // w.r.t. generating message IDs for multi-part messages.)
 func (m *Messaging) SendMessage(session user.Session,
 	recipientID *id.User,
+	cryptoType format.CryptoType,
 	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -75,7 +76,6 @@ func (m *Messaging) SendMessage(session user.Session,
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	userID := session.GetCurrentUser().User
-	grp := session.GetGroup()
 	parts, err := parse.Partition([]byte(message),
 		m.nextId())
 	if err != nil {
@@ -83,17 +83,9 @@ func (m *Messaging) SendMessage(session user.Session,
 	}
 	// Every part should have the same timestamp
 	now := time.Now()
-	// TODO Is it better to use Golang's binary timestamp format, or
-	// use the 2 int64 technique with Unix seconds+nanoseconds?
-	// 2 int64s is 128 bits, which is as much as can fit in the timestamp field,
-	// but the binary serialization is 15 bytes, which is slightly smaller but
-	// not smaller enough to make a difference.
-	// The binary serialized timestamp also includes zone data, which could be
-	// a feature, but might compromise a little bit of anonymity.
-	// Using binary timestamp format for now.
-	// TODO BC: It is actually better to use the 15 byte version since this will
-	// allow the encrypted timestamp to fit in 16 bytes instead of 32, by using
-	// the key fingerprint as the IV for AES encryption
+	// GO Timestamp binary serialization is 15 bytes, which
+	// allows the encrypted timestamp to fit in 16 bytes
+	// using AES encryption
 	nowBytes, err := now.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("SendMessage MarshalBinary() error: %v", err.Error())
@@ -103,9 +95,10 @@ func (m *Messaging) SendMessage(session user.Session,
 		message.SetSender(userID)
 		message.SetRecipient(recipientID)
 		// The timestamp will be encrypted later
+		// NOTE: This sets 15 bytes, not 16
 		message.SetTimestamp(nowBytes)
 		message.SetPayloadData(parts[i])
-		err = m.send(session, userID, message, grp)
+		err = m.send(session, cryptoType, message)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
@@ -113,9 +106,51 @@ func (m *Messaging) SendMessage(session user.Session,
 	return nil
 }
 
+// Send Message without doing partitions
+// This function will be needed for example to send a Rekey
+// message, where a new public key will take up all the message
+func (m *Messaging) SendMessageNoPartition(session user.Session,
+	recipientID *id.User,
+	cryptoType format.CryptoType,
+	message []byte) error {
+	size := len(message)
+	if size > format.TOTAL_LEN {
+		return fmt.Errorf("SendMessageNoPartition() error: message to be sent is too big")
+	}
+	userID := session.GetCurrentUser().User
+	now := time.Now()
+	// GO Timestamp binary serialization is 15 bytes, which
+	// allows the encrypted timestamp to fit in 16 bytes
+	// using AES encryption
+	nowBytes, err := now.MarshalBinary()
+	if err != nil {
+		return fmt.Errorf("SendMessageNoPartition MarshalBinary() error: %v", err.Error())
+	}
+	msg := format.NewMessage()
+	msg.SetRecipient(recipientID)
+	// The timestamp will be encrypted later
+	// NOTE: This sets 15 bytes, not 16
+	msg.SetTimestamp(nowBytes)
+	// If message is bigger than payload size
+	// use SenderID space to send it
+	if size > format.MP_PAYLOAD_LEN {
+		msg.SetSenderID(message[:format.MP_SID_END])
+		msg.SetPayloadData(message[format.MP_SID_END:])
+	} else {
+		msg.SetSender(userID)
+		msg.SetPayloadData(message)
+	}
+	err = m.send(session, cryptoType, msg)
+	if err != nil {
+		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())
+	}
+	return nil
+}
+
 // send actually sends the message to the server
 func (m *Messaging) send(session user.Session,
-	senderID *id.User, message *format.Message, grp *cyclic.Group) error {
+	cryptoType format.CryptoType,
+	message *format.Message) error {
 	// Enable transmission blocking if enabled
 	if m.BlockTransmissions {
 		m.sendLock.Lock()
@@ -125,39 +160,57 @@ func (m *Messaging) send(session user.Session,
 		}()
 	}
 
+	// Check message type
+	if cryptoType == format.E2E {
+		handleE2ESending(session, message)
+	} else {
+		padded, err := e2e.Pad(message.GetPayload(), format.TOTAL_LEN)
+		if err != nil {
+			return err
+		}
+		message.SetPayload(padded)
+		e2e.SetUnencrypted(message)
+	}
+
+	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
+	encMsg := crypto.CMIXEncrypt(session, salt, message)
 
-	// TBD: Add key macs to this message
-	macs := make([][]byte, 0)
-
-	// Generate a compound encryption key
-	encryptionKey := grp.NewInt(1)
-	for _, key := range session.GetKeys() {
-		baseKey := key.TransmissionKey
-		partialEncryptionKey := cmix.NewEncryptionKey(salt, baseKey, grp)
-		grp.Mul(encryptionKey, partialEncryptionKey, encryptionKey)
-		//TODO: Add KMAC generation here
-	}
-
-	// TBD: Is there a really good reason we have to specify the Grp and not a
-	// key? Should we even be doing the encryption here?
-	// TODO: Use salt here / generate n key map
-	e2eKey := e2e.Keygen(grp, nil, nil)
-	associatedData, payload := crypto.Encrypt(encryptionKey, grp,
-		message, e2eKey)
 	msgPacket := &pb.CmixMessage{
-		SenderID:       senderID.Bytes(),
-		MessagePayload: payload,
-		AssociatedData: associatedData,
+		SenderID:       session.GetCurrentUser().User.Bytes(),
+		MessagePayload: encMsg.SerializePayload(),
+		AssociatedData: encMsg.SerializeAssociatedData(),
 		Salt:           salt,
-		KMACs:          macs,
+		KMACs:          make([][]byte, 0),
 	}
 
-	var err error
 	globals.Log.INFO.Println("Sending put message to gateway")
-	err = client.SendPutMessage(m.SendAddress, msgPacket)
+	return client.SendPutMessage(m.SendAddress, msgPacket)
+}
 
-	return err
+func handleE2ESending(session user.Session,
+	message *format.Message) {
+	recipientID := message.GetRecipient()
+
+	// Get send key
+	sendKey, action := session.GetKeyStore().
+		TransmissionKeys.Pop(recipientID)
+
+	if sendKey == nil {
+		globals.Log.FATAL.Panicf("Couldn't get key to E2E encrypt message to"+
+			" user %v", *recipientID)
+	} else if action == keyStore.Deleted {
+		globals.Log.FATAL.Panicf("Key Manager is deleted when trying to get E2E Send Key")
+	}
+
+	if action == keyStore.Rekey {
+		// TODO handle Send Rekey message to SW
+	}
+
+	globals.Log.DEBUG.Printf("E2E encrypting message")
+	crypto.E2EEncrypt(sendKey.GetKey(),
+		sendKey.KeyFingerprint(),
+		session.GetGroup(), message)
 }
 
 // MessageReceiver is a polling thread for receiving messages -- again.. we
@@ -185,6 +238,7 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 			decryptedMessages := m.receiveMessagesFromGateway(session, &pollingMessage)
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
+					// TODO Handle messages that do not need partitioning
 					assembledMessage := m.collator.AddMessage(
 						decryptedMessages[i], time.Minute)
 					if assembledMessage != nil {
@@ -195,6 +249,29 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 			}
 		}
 	}
+}
+
+func handleE2EReceiving(session user.Session,
+	message *format.Message) error {
+	keyFingerprint := message.GetKeyFingerprint()
+
+	// Lookup reception key
+	recpKey := session.GetKeyStore().
+		ReceptionKeys.Pop(keyFingerprint)
+
+	if recpKey == nil {
+		// TODO Handle sending error message to SW
+		return fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
+	} else if recpKey.GetOuterType() == format.Rekey {
+		// TODO Handle Receiving Keys Rekey (partner rekey)
+	}
+
+	globals.Log.DEBUG.Printf("E2E decrypting message")
+	err := crypto.E2EDecrypt(recpKey.GetKey(), session.GetGroup(), message)
+	if err != nil {
+		// TODO handle Garbled message to SW
+	}
+	return err
 }
 
 func (m *Messaging) receiveMessagesFromGateway(session user.Session,
@@ -212,7 +289,6 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
 
 		results := make([]*format.Message, 0, len(messages.MessageIDs))
-		grp := session.GetGroup()
 		for _, messageID := range messages.MessageIDs {
 			// Get the first unseen message from the list of IDs
 			_, received := m.ReceivedMessages[messageID]
@@ -239,15 +315,28 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						continue
 					}
 
-					// Generate a compound decryption key
-					salt := newMessage.Salt
-					decryptionKey := grp.NewInt(1)
-					for _, key := range session.GetKeys() {
-						baseKey := key.ReceptionKey
-						partialDecryptionKey := cmix.NewDecryptionKey(salt, baseKey,
-							grp)
-						grp.Mul(decryptionKey, partialDecryptionKey, decryptionKey)
-						//TODO: Add KMAC verification here
+					// CMIX Decryption
+					decMsg := crypto.CMIXDecrypt(session, newMessage)
+
+					var err error = nil
+					var unpadded []byte
+					// If message is E2E, handle decryption
+					if !e2e.IsUnencrypted(decMsg) {
+						err = handleE2EReceiving(session, decMsg)
+					} else {
+						// If message is non E2E, need to unpad payload
+						unpadded, err = e2e.Unpad(decMsg.SerializePayload())
+						if err == nil {
+							decMsg.SetSplitPayload(unpadded)
+						}
+					}
+
+					if err != nil {
+						globals.Log.WARN.Printf(
+							"Message did not decrypt properly, "+
+								"not adding to results array: %v", err.Error())
+					} else {
+						results = append(results, decMsg)
 					}
 
 					globals.Log.INFO.Printf(
@@ -255,16 +344,6 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					m.ReceivedMessages[messageID] = struct{}{}
 					session.SetLastMessageID(messageID)
 					session.StoreSession()
-
-					decryptedMsg, err2 := crypto.Decrypt(decryptionKey, grp,
-						newMessage)
-					if err2 != nil {
-						globals.Log.WARN.Printf(
-							"Message did not decrypt properly, "+
-								"not adding to results array: %v", err2.Error())
-					} else {
-						results = append(results, decryptedMsg)
-					}
 				}
 			}
 		}

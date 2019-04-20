@@ -86,7 +86,8 @@ func InitBots(s user.Session,m io.Communications) {
 // Callers that need to wait on a response should implement waiting with a
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
-	return messaging.SendMessage(session, botID, command)
+	return messaging.SendMessage(session, botID,
+		format.Unencrypted, command)
 }
 
 // Nickname Lookup function

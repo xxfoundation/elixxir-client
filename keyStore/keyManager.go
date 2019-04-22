@@ -31,12 +31,13 @@ const (
 )
 
 // The KeyManager keeps track of all keys used in a single E2E
-// relationship between the user and a partner
+// uni-directional relationship between the user and a partner
 // It tracks usage of send Keys and ReKeys in an atomic sendState
+// OR
 // It tracks usage of receiving Keys and ReKeys in lists of
 // atomic "dirty bit" states
-// It also owns the send Keys and ReKeys stacks of keys,
-// and lists of receiving Keys and ReKeys fingerprints
+// It also owns the send Keys and ReKeys stacks of keys
+// OR lists of receiving Keys and ReKeys fingerprints
 // All Key Managers can be stored in the session object, and
 // can be GOB encoded/decoded, preserving the state
 // When the GOB Decode is successful, GenerateKeys can be called
@@ -44,9 +45,16 @@ const (
 type KeyManager struct {
 	// Underlying key
 	baseKey *cyclic.Int
+	// Own Private Key
+	privKey *cyclic.Int
+	// Partner Public Key
+	pubKey  *cyclic.Int
 
 	// Designates end-to-end partner
 	partner *id.User
+
+	// True if key manager tracks send keys, false if receive keys
+	sendOrRecv bool
 
 	// State of Sending Keys and Rekeys, formatted as follows:
 	//                      Bits
@@ -81,14 +89,19 @@ type KeyManager struct {
 }
 
 // Creates a new KeyManager to manage E2E Keys between user and partner
-// Receives the baseKey, partner userID, numKeys, ttl and numReKeys
+// Receives the baseKey, privKey, pubKey, partner userID, numKeys, ttl and numReKeys
 // All internal states are forced to 0 for safety purposes
-func NewManager(baseKey *cyclic.Int, partner *id.User,
+func NewManager(baseKey *cyclic.Int,
+	privKey *cyclic.Int, pubKey *cyclic.Int,
+	partner *id.User, sendOrRecv bool,
 	numKeys uint32, ttl uint16, numReKeys uint16) *KeyManager {
 
 	km := new(KeyManager)
 	km.baseKey = baseKey
+	km.privKey = privKey
+	km.pubKey = pubKey
 	km.partner = partner
+	km.sendOrRecv = sendOrRecv
 	km.sendState = new(uint64)
 	*km.sendState = 0
 	km.ttl = ttl
@@ -103,6 +116,21 @@ func NewManager(baseKey *cyclic.Int, partner *id.User,
 		*km.recvReKeysState[i] = 0
 	}
 	return km
+}
+
+// Get the private key from the Key Manager
+func (km *KeyManager) GetPrivKey() *cyclic.Int {
+	return km.privKey
+}
+
+// Get the public key from the Key Manager
+func (km *KeyManager) GetPubKey() *cyclic.Int {
+	return km.pubKey
+}
+
+// Get the partner ID from the Key Manager
+func (km *KeyManager) GetPartner() *id.User {
+	return km.partner
 }
 
 // Constants needed for access to sendState
@@ -248,100 +276,103 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // unused keys based on KeyManager state, when reloading an user session
 func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 	ks *KeyStore) {
-	// Calculate how many unused send keys are needed
-	usedSendKeys := uint32(*km.sendState & stateKeyMask)
-	numGenSendKeys := uint(km.numKeys - usedSendKeys)
-	usedSendReKeys := uint16((*km.sendState & stateReKeyMask) >> stateReKeyShift)
-	numGenSendReKeys := uint(km.numReKeys - usedSendReKeys)
+	if km.sendOrRecv {
+		// Calculate how many unused send keys are needed
+		usedSendKeys := uint32(*km.sendState & stateKeyMask)
+		numGenSendKeys := uint(km.numKeys - usedSendKeys)
+		usedSendReKeys := uint16((*km.sendState & stateReKeyMask) >> stateReKeyShift)
+		numGenSendReKeys := uint(km.numReKeys - usedSendReKeys)
 
-	// Generate numGenSendKeys send keys
-	sendKeys := e2e.DeriveKeys(grp, km.baseKey, userID, numGenSendKeys)
-	// Generate numGenSendReKeys send reKeys
-	sendReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, userID, numGenSendReKeys)
+		// Generate numGenSendKeys send keys
+		sendKeys := e2e.DeriveKeys(grp, km.baseKey, userID, numGenSendKeys)
+		// Generate numGenSendReKeys send reKeys
+		sendReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, userID, numGenSendReKeys)
 
-	// For receiving keys, generate all, and then only add to the map
-	// the unused ones based on recvStates
-	// Generate numKeys recv keys
-	recvKeys := e2e.DeriveKeys(grp, km.baseKey, km.partner, uint(km.numKeys))
-	// Generate numReKeys recv reKeys
-	recvReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, km.partner, uint(km.numReKeys))
+		// Create Send Keys Stack on keyManager and
+		// set on TransmissionKeys map
+		km.sendKeys = NewKeyStack()
+		ks.TransmissionKeys.Store(km.partner, km.sendKeys)
 
-	// Create Send Keys Stack on keyManager and
-	// set on TransmissionKeys map
-	km.sendKeys = NewKeyStack()
-	ks.TransmissionKeys.Store(km.partner, km.sendKeys)
-
-	// Create send E2E Keys and add to stack
-	for _, key := range sendKeys {
-		e2ekey := new(E2EKey)
-		e2ekey.key = key
-		e2ekey.manager = km
-		e2ekey.outer = format.E2E
-		km.sendKeys.Push(e2ekey)
-	}
-
-	// Create Send ReKeys Stack on keyManager and
-	// set on TransmissionReKeys map
-	km.sendReKeys = NewKeyStack()
-	ks.TransmissionReKeys.Store(km.partner, km.sendReKeys)
-
-	// Create send E2E ReKeys and add to stack
-	for _, key := range sendReKeys {
-		e2ekey := new(E2EKey)
-		e2ekey.key = key
-		e2ekey.manager = km
-		e2ekey.outer = format.Rekey
-		km.sendReKeys.Push(e2ekey)
-	}
-
-	// Create Receive E2E Keys and add them to ReceptionKeys map
-	// while keeping a list of the fingerprints
-	// Skip keys that were already used as per recvStates
-	km.recvKeysFingerprint = make([]format.Fingerprint, 0)
-	for i, key := range recvKeys {
-		if !km.checkRecvStateBit(false, uint32(i)) {
+		// Create send E2E Keys and add to stack
+		for _, key := range sendKeys {
 			e2ekey := new(E2EKey)
 			e2ekey.key = key
 			e2ekey.manager = km
 			e2ekey.outer = format.E2E
-			e2ekey.keyNum = uint32(i)
-			keyFP := e2ekey.KeyFingerprint()
-			km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
-			ks.ReceptionKeys.Store(keyFP, e2ekey)
+			km.sendKeys.Push(e2ekey)
 		}
-	}
 
-	// Create Receive E2E Keys and add them to ReceptionKeys map
-	// while keeping a list of the fingerprints
-	km.recvReKeysFingerprint = make([]format.Fingerprint, 0)
-	for i, key := range recvReKeys {
-		if !km.checkRecvStateBit(true, uint32(i)) {
+		// Create Send ReKeys Stack on keyManager and
+		// set on TransmissionReKeys map
+		km.sendReKeys = NewKeyStack()
+		ks.TransmissionReKeys.Store(km.partner, km.sendReKeys)
+
+		// Create send E2E ReKeys and add to stack
+		for _, key := range sendReKeys {
 			e2ekey := new(E2EKey)
 			e2ekey.key = key
 			e2ekey.manager = km
 			e2ekey.outer = format.Rekey
-			e2ekey.keyNum = uint32(i)
-			keyFP := e2ekey.KeyFingerprint()
-			km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)
-			ks.ReceptionKeys.Store(keyFP, e2ekey)
+			km.sendReKeys.Push(e2ekey)
+		}
+	} else {
+		// For receiving keys, generate all, and then only add to the map
+		// the unused ones based on recvStates
+		// Generate numKeys recv keys
+		recvKeys := e2e.DeriveKeys(grp, km.baseKey, km.partner, uint(km.numKeys))
+		// Generate numReKeys recv reKeys
+		recvReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, km.partner, uint(km.numReKeys))
+
+		// Create Receive E2E Keys and add them to ReceptionKeys map
+		// while keeping a list of the fingerprints
+		// Skip keys that were already used as per recvStates
+		km.recvKeysFingerprint = make([]format.Fingerprint, 0)
+		for i, key := range recvKeys {
+			if !km.checkRecvStateBit(false, uint32(i)) {
+				e2ekey := new(E2EKey)
+				e2ekey.key = key
+				e2ekey.manager = km
+				e2ekey.outer = format.E2E
+				e2ekey.keyNum = uint32(i)
+				keyFP := e2ekey.KeyFingerprint()
+				km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
+				ks.ReceptionKeys.Store(keyFP, e2ekey)
+			}
+		}
+
+		// Create Receive E2E Keys and add them to ReceptionKeys map
+		// while keeping a list of the fingerprints
+		km.recvReKeysFingerprint = make([]format.Fingerprint, 0)
+		for i, key := range recvReKeys {
+			if !km.checkRecvStateBit(true, uint32(i)) {
+				e2ekey := new(E2EKey)
+				e2ekey.key = key
+				e2ekey.manager = km
+				e2ekey.outer = format.Rekey
+				e2ekey.keyNum = uint32(i)
+				keyFP := e2ekey.KeyFingerprint()
+				km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)
+				ks.ReceptionKeys.Store(keyFP, e2ekey)
+			}
 		}
 	}
 }
 
 // Destroy will remove all keys managed by the KeyManager
-// from the key maps, and then it will delete the sending
-// keys stacks
+// from the key maps
 func (km *KeyManager) Destroy(ks *KeyStore) {
-	// Eliminate receiving keys
-	ks.ReceptionKeys.DeleteList(km.recvKeysFingerprint)
-	ks.ReceptionKeys.DeleteList(km.recvReKeysFingerprint)
-
-	// Empty send keys and reKeys stacks
-	// and remove them from maps
-	ks.TransmissionKeys.Delete(km.partner)
-	ks.TransmissionReKeys.Delete(km.partner)
-	km.sendKeys.Delete()
-	km.sendReKeys.Delete()
+	if km.sendOrRecv {
+		// Empty send keys and reKeys stacks
+		// and remove them from maps
+		ks.TransmissionKeys.Delete(km.partner)
+		ks.TransmissionReKeys.Delete(km.partner)
+		km.sendKeys.Delete()
+		km.sendReKeys.Delete()
+	} else {
+		// Eliminate receiving keys
+		ks.ReceptionKeys.DeleteList(km.recvKeysFingerprint)
+		ks.ReceptionKeys.DeleteList(km.recvReKeysFingerprint)
+	}
 
 	// Hopefully when the function returns there
 	// will be no keys referencing this Manager left,
@@ -354,6 +385,7 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 	// Anonymous structure that flattens nested structures
 	s := struct {
 		Partner        []byte
+		SendOrRecv     []byte
 		State          []byte
 		TTL            []byte
 		NumKeys        []byte
@@ -361,8 +393,11 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 		RecvKeyState   []byte
 		RecvReKeyState []byte
 		BaseKey        []byte
+		PrivKey        []byte
+		PubKey         []byte
 	}{
 		km.partner.Bytes(),
+		make([]byte, 1),
 		make([]byte, 8),
 		make([]byte, 2),
 		make([]byte, 4),
@@ -370,6 +405,15 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 		make([]byte, 8*numStates),
 		make([]byte, 8*numReStates),
 		make([]byte, 0),
+		make([]byte, 0),
+		make([]byte, 0),
+	}
+
+	// Set send or receive
+	if km.sendOrRecv {
+		s.SendOrRecv[0] = 0xFF
+	} else {
+		s.SendOrRecv[0] = 0x00
 	}
 
 	// Convert all internal uints to bytes
@@ -389,14 +433,34 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 	}
 
 	// GobEncode baseKey
-	baseKeyBytes, err := km.baseKey.GobEncode()
+	keyBytes, err := km.baseKey.GobEncode()
 
 	if err != nil {
 		return nil, err
 	}
 
 	// Add baseKey to struct
-	s.BaseKey = append(s.BaseKey, baseKeyBytes...)
+	s.BaseKey = append(s.BaseKey, keyBytes...)
+
+	// GobEncode privKey
+	keyBytes, err = km.privKey.GobEncode()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Add privKey to struct
+	s.PrivKey = append(s.BaseKey, keyBytes...)
+
+	// GobEncode pubKey
+	keyBytes, err = km.pubKey.GobEncode()
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Add pubKey to struct
+	s.PubKey = append(s.BaseKey, keyBytes...)
 
 	var buf bytes.Buffer
 
@@ -422,6 +486,7 @@ func (km *KeyManager) GobDecode(in []byte) error {
 	// Anonymous structure that flattens nested structures
 	s := struct {
 		Partner        []byte
+		SendOrRecv     []byte
 		State          []byte
 		TTL            []byte
 		NumKeys        []byte
@@ -429,14 +494,19 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		RecvKeyState   []byte
 		RecvReKeyState []byte
 		BaseKey        []byte
+		PrivKey        []byte
+		PubKey         []byte
 	}{
 		make([]byte, 32),
+		make([]byte, 1),
 		make([]byte, 8),
 		make([]byte, 2),
 		make([]byte, 4),
 		make([]byte, 2),
 		make([]byte, 8*numStates),
 		make([]byte, 8*numReStates),
+		[]byte{},
+		[]byte{},
 		[]byte{},
 	}
 
@@ -461,6 +531,26 @@ func (km *KeyManager) GobDecode(in []byte) error {
 
 	if err != nil {
 		return err
+	}
+
+	km.privKey = new(cyclic.Int)
+	err = km.privKey.GobDecode(s.PrivKey)
+
+	if err != nil {
+		return err
+	}
+
+	km.pubKey = new(cyclic.Int)
+	err = km.pubKey.GobDecode(s.PubKey)
+
+	if err != nil {
+		return err
+	}
+
+	if s.SendOrRecv[0] == 0xFF {
+		km.sendOrRecv = true
+	} else {
+		km.sendOrRecv = false
 	}
 
 	km.partner = new(id.User).SetBytes(s.Partner)

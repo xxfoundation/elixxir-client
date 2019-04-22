@@ -520,11 +520,23 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		e2e.TTLParams{keyStore.TTLScalar,
 			keyStore.Threshold})
 
-	// Create KeyManager
-	km := keyStore.NewManager(baseKey, partnerID,
+	// Create Send KeyManager
+	km := keyStore.NewManager(baseKey, privKeyCyclic,
+		partnerPubKeyCyclic, partnerID, true,
 		numKeys, keysTTL, keyStore.NumReKeys)
 
-	// Generate Keys
+	// Generate Send Keys
+	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
+
+	// Add Key Manager to session
+	cl.sess.AddKeyManager(km)
+
+	// Create Receive KeyManager
+	km = keyStore.NewManager(baseKey, privKeyCyclic,
+		partnerPubKeyCyclic, partnerID, false,
+		numKeys, keysTTL, keyStore.NumReKeys)
+
+	// Generate Receive Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
 
 	// Add Key Manager to session

@@ -42,7 +42,12 @@ type Session interface {
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
-	AddKeyManager(km *keyStore.KeyManager)
+	AddSendKeyManager(km *keyStore.KeyManager)
+	GetSendKeyManager(partner *id.User) *keyStore.KeyManager
+	DeleteSendKeyManager(partner *id.User)
+	AddRecvKeyManager(km *keyStore.KeyManager)
+	GetRecvKeyManager(partner *id.User) *keyStore.KeyManager
+	DeleteRecvKeyManager(partner *id.User)
 	GetKeyStore() *keyStore.KeyStore
 	GetSwitchboard() *switchboard.Switchboard
 	GetQuitChan() chan bool
@@ -72,7 +77,8 @@ func NewSession(store globals.Storage,
 		PublicKey:           publicKey,
 		Grp:                 grp,
 		InterfaceMap:        make(map[string]interface{}),
-		KeyManagers:         make([]*keyStore.KeyManager, 0),
+		SendKeyManagers:     make(map[id.User]*keyStore.KeyManager),
+		RecvKeyManagers:     make(map[id.User]*keyStore.KeyManager),
 		keyMaps:             keyStore.NewStore(),
 		store:               store,
 		listeners:           switchboard.NewSwitchboard(),
@@ -135,8 +141,11 @@ func LoadSession(store globals.Storage,
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
 	session.quitReceptionRunner = make(chan bool)
-	// Rebuild E2E Key Maps from Key Managers
-	for _, km := range session.KeyManagers {
+	// Rebuild E2E Key Maps from Key Managers maps
+	for _, km := range session.SendKeyManagers {
+		km.GenerateKeys(session.Grp, UID, session.keyMaps)
+	}
+	for _, km := range session.RecvKeyManagers {
 		km.GenerateKeys(session.Grp, UID, session.keyMaps)
 	}
 
@@ -164,8 +173,9 @@ type SessionObj struct {
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
 
-	// E2E Key Managers list
-	KeyManagers []*keyStore.KeyManager
+	// E2E Key Manager maps
+	SendKeyManagers map[id.User]*keyStore.KeyManager
+	RecvKeyManagers map[id.User]*keyStore.KeyManager
 
 	// Non exported fields (not GOB encoded/decoded)
 	// E2E KeyStore
@@ -296,7 +306,6 @@ func (s *SessionObj) Immolate() error {
 	s.GWAddress = burntString(len(s.GWAddress))
 	s.GWAddress = ""
 
-
 	s.UnlockStorage()
 
 	return nil
@@ -332,8 +341,42 @@ func (s *SessionObj) DeleteMap(key string) error {
 	return err
 }
 
-func (s *SessionObj) AddKeyManager(km *keyStore.KeyManager) {
-	s.KeyManagers = append(s.KeyManagers, km)
+func (s *SessionObj) AddSendKeyManager(km *keyStore.KeyManager) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	partner := km.GetPartner()
+	s.SendKeyManagers[*partner] = km
+}
+
+func (s *SessionObj) GetSendKeyManager(partner *id.User) *keyStore.KeyManager {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.SendKeyManagers[*partner]
+}
+
+func (s *SessionObj) DeleteSendKeyManager(partner *id.User) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	delete(s.SendKeyManagers, *partner)
+}
+
+func (s *SessionObj) AddRecvKeyManager(km *keyStore.KeyManager) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	partner := km.GetPartner()
+	s.RecvKeyManagers[*partner] = km
+}
+
+func (s *SessionObj) GetRecvKeyManager(partner *id.User) *keyStore.KeyManager {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.RecvKeyManagers[*partner]
+}
+
+func (s *SessionObj) DeleteRecvKeyManager(partner *id.User) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	delete(s.RecvKeyManagers, *partner)
 }
 
 func (s *SessionObj) GetSessionData() ([]byte, error) {

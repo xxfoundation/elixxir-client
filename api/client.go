@@ -528,8 +528,8 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	// Generate Send Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
 
-	// Add Key Manager to session
-	cl.sess.AddKeyManager(km)
+	// Add Send Key Manager to session
+	cl.sess.AddSendKeyManager(km)
 
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, privKeyCyclic,
@@ -539,8 +539,8 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	// Generate Receive Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
 
-	// Add Key Manager to session
-	cl.sess.AddKeyManager(km)
+	// Add Receive Key Manager to session
+	cl.sess.AddRecvKeyManager(km)
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage

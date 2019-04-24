@@ -27,7 +27,9 @@ var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
 var rekeyConfirmList rekeyConfirmListener
 
-type rekeyTriggerListener struct{}
+type rekeyTriggerListener struct{
+	err error
+}
 
 func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
@@ -37,10 +39,15 @@ func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 		nil, partnerPubKey, nil)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
+		l.err = err
+	} else {
+		l.err = nil
 	}
 }
 
-type rekeyListener struct{}
+type rekeyListener struct{
+	err error
+}
 
 func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
@@ -52,10 +59,15 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 		privKey, partnerPubKey, nil)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
+		l.err = err
+	} else {
+		l.err = nil
 	}
 }
 
-type rekeyConfirmListener struct{}
+type rekeyConfirmListener struct{
+	err error
+}
 
 func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
@@ -65,6 +77,9 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 		nil, nil, baseKeyHash)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
+		l.err = err
+	} else {
+		l.err = nil
 	}
 }
 
@@ -149,8 +164,8 @@ func rekeyProcess(rt rekeyType,
 		pubKeyCyclic = grp.NewIntFromBytes(partnerPubKey)
 		// Generate baseKey
 		baseKey, _ = diffieHellman.CreateDHSessionKey(
-			privKeyCyclic,
 			pubKeyCyclic,
+			privKeyCyclic,
 			grp)
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,
@@ -185,6 +200,8 @@ func rekeyProcess(rt rekeyType,
 		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
 		// Add Receive Key Manager to session
 		session.AddRecvKeyManager(km)
+		// Remove RekeyContext
+		rkm.DeleteInCtx(partner)
 	case RekeyConfirm:
 		// Check baseKey Hash matches expected
 		h, _ := hash.NewCMixHash()
@@ -203,6 +220,8 @@ func rekeyProcess(rt rekeyType,
 			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Add Send Key Manager to session
 			session.AddSendKeyManager(km)
+			// Remove RekeyContext
+			rkm.DeleteOutCtx(partner)
 		} else {
 			return fmt.Errorf("rekey-confirm from user %v failed,"+
 				" baseKey hash doesn't match expected", *partner)

@@ -48,6 +48,7 @@ type Session interface {
 	AddRecvKeyManager(km *keyStore.KeyManager)
 	GetRecvKeyManager(partner *id.User) *keyStore.KeyManager
 	DeleteRecvKeyManager(partner *id.User)
+	GetRekeyManager() *keyStore.RekeyManager
 	GetKeyStore() *keyStore.KeyStore
 	GetSwitchboard() *switchboard.Switchboard
 	GetQuitChan() chan bool
@@ -79,6 +80,7 @@ func NewSession(store globals.Storage,
 		InterfaceMap:        make(map[string]interface{}),
 		SendKeyManagers:     make(map[id.User]*keyStore.KeyManager),
 		RecvKeyManagers:     make(map[id.User]*keyStore.KeyManager),
+		RekeyManager:        keyStore.NewRekeyManager(),
 		keyMaps:             keyStore.NewStore(),
 		store:               store,
 		listeners:           switchboard.NewSwitchboard(),
@@ -176,6 +178,9 @@ type SessionObj struct {
 	// E2E Key Manager maps
 	SendKeyManagers map[id.User]*keyStore.KeyManager
 	RecvKeyManagers map[id.User]*keyStore.KeyManager
+
+	// Rekey Manager
+	RekeyManager *keyStore.RekeyManager
 
 	// Non exported fields (not GOB encoded/decoded)
 	// E2E KeyStore
@@ -383,6 +388,10 @@ func (s *SessionObj) GetSessionData() ([]byte, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.getSessionData()
+}
+
+func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
+	return s.RekeyManager
 }
 
 func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {

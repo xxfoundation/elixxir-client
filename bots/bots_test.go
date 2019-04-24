@@ -38,6 +38,15 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 	return nil
 }
 
+// SendMessage without partitions to the server
+func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
+	recipientID *id.User,
+	cryptoType format.CryptoType,
+	message []byte) error {
+	jww.INFO.Printf("Sending: %s", string(message))
+	return nil
+}
+
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
 	delay time.Duration) {}
@@ -153,6 +162,14 @@ type errorMessaging struct {}
 
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
+	recipientID *id.User,
+	cryptoType format.CryptoType,
+	message []byte) error {
+	return errors.New("This is an error")
+}
+
+// SendMessage no partition that just errors out
+func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 	recipientID *id.User,
 	cryptoType format.CryptoType,
 	message []byte) error {

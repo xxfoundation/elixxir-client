@@ -323,7 +323,7 @@ func handleE2EReceiving(session user.Session,
 	if rekey {
 		partner := recpKey.GetManager().GetPartner()
 		km := session.GetSendKeyManager(partner)
-		ownPrivKey := km.GetPrivKey().Bytes()
+		ownPrivKey := km.GetPrivKey().LeftpadBytes(uint64(format.TOTAL_LEN))
 		partnerPubKey := message.SerializePayload()
 		body := append(ownPrivKey, partnerPubKey...)
 		rekeyMsg := &parse.Message{

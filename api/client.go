@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
@@ -345,6 +346,8 @@ func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (strin
 
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.sess, cl.comm)
+	// Initialize Rekey listeners
+	rekey.InitRekey(cl.sess, cl.comm)
 
 	if email != "" {
 		err = cl.registerForUserDiscovery(email)

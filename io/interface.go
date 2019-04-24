@@ -19,6 +19,10 @@ type Communications interface {
 	// SendMessage to the server
 	SendMessage(session user.Session, recipientID *id.User,
 		cryptoType format.CryptoType, message []byte) error
+	// SendMessage without partitions to the server
+	// This is used to send rekey messages
+	SendMessageNoPartition(session user.Session, recipientID *id.User,
+		cryptoType format.CryptoType, message []byte) error
 	// MessageReceiver thread to get new messages
 	MessageReceiver(session user.Session, delay time.Duration)
 }

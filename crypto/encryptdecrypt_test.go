@@ -105,7 +105,7 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	copy(fp[:], h.Sum(nil))
 
 	// E2E Encryption
-	E2EEncrypt(key, fp, grp, msg)
+	E2EEncrypt(grp, key, fp, msg)
 
 	// CMIX Encryption
 	encMsg := CMIXEncrypt(session, salt, msg)
@@ -129,7 +129,7 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	decMsg := CMIXDecrypt(session, encryptedNet)
 
 	// E2E Decryption
-	err := E2EDecrypt(key, grp, decMsg)
+	err := E2EDecrypt(grp, key, decMsg)
 
 	if err != nil {
 		t.Errorf("E2EDecrypt returned error: %v", err.Error())
@@ -180,7 +180,7 @@ func TestE2EEncrypt_Panic(t *testing.T) {
 	}()
 
 	// E2E Encryption Panics
-	E2EEncrypt(key, fp, grp, msg)
+	E2EEncrypt(grp, key, fp, msg)
 }
 
 // Test that E2EDecrypt handles errors correctly
@@ -205,7 +205,7 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	copy(fp[:], h.Sum(nil))
 
 	// E2E Encryption
-	E2EEncrypt(key, fp, grp, msg)
+	E2EEncrypt(grp, key, fp, msg)
 
 	// Copy message
 	badMsg := format.NewMessage()
@@ -216,7 +216,7 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	badMsg.SetMAC([]byte("sakfaskfajskasfkkaskfanjjnaf"))
 
 	// E2E Decryption returns error
-	err := E2EDecrypt(key, grp, badMsg)
+	err := E2EDecrypt(grp, key, badMsg)
 
 	if err == nil {
 		t.Errorf("E2EDecrypt should have returned error")
@@ -231,7 +231,7 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	badMsg.SetTimestamp([]byte("ABCDEF1234567890"))
 
 	// E2E Decryption returns error
-	err = E2EDecrypt(key, grp, badMsg)
+	err = E2EDecrypt(grp, key, badMsg)
 
 	if err == nil {
 		t.Errorf("E2EDecrypt should have returned error")
@@ -250,7 +250,7 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	badMsg.SetMAC(newMAC)
 
 	// E2E Decryption returns error
-	err = E2EDecrypt(key, grp, badMsg)
+	err = E2EDecrypt(grp, key, badMsg)
 
 	if err == nil {
 		t.Errorf("E2EDecrypt should have returned error")

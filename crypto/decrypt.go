@@ -43,7 +43,7 @@ func CMIXDecrypt(session user.Session,
 // It returns an error in case of HMAC verification failure
 // or in case of a decryption error (related to padding)
 // If it succeeds, it modifies the passed message
-func E2EDecrypt(key *cyclic.Int, grp *cyclic.Group,
+func E2EDecrypt(grp *cyclic.Group, key *cyclic.Int,
 	msg *format.Message) error {
 	// First thing to do is check MAC
 	if !hash.VerifyHMAC(msg.SerializePayload(),
@@ -75,7 +75,7 @@ func E2EDecrypt(key *cyclic.Int, grp *cyclic.Group,
 // It returns an error in case of HMAC verification failure
 // It doesn't expect the payload to be padded
 // If it succeeds, it modifies the passed message
-func E2EDecryptUnsafe(key *cyclic.Int, grp *cyclic.Group,
+func E2EDecryptUnsafe(grp *cyclic.Group, key *cyclic.Int,
 	msg *format.Message) error {
 	// First thing to do is check MAC
 	if !hash.VerifyHMAC(msg.SerializePayload(),

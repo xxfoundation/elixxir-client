@@ -48,8 +48,8 @@ func CMIXEncrypt(session user.Session,
 // to its intended recipient
 // It also properly populates the associated data
 // It modifies the passed msg instead of returning a new one
-func E2EEncrypt(key *cyclic.Int, keyFP format.Fingerprint,
-	grp *cyclic.Group,
+func E2EEncrypt(grp *cyclic.Group,
+	key *cyclic.Int, keyFP format.Fingerprint,
 	msg *format.Message) {
 	msg.SetKeyFingerprint(keyFP)
 
@@ -82,8 +82,8 @@ func E2EEncrypt(key *cyclic.Int, keyFP format.Fingerprint,
 // if the payload is small
 // It also properly populates the associated data
 // It modifies the passed msg instead of returning a new one
-func E2EEncryptUnsafe(key *cyclic.Int, keyFP format.Fingerprint,
-	grp *cyclic.Group,
+func E2EEncryptUnsafe(grp *cyclic.Group,
+	key *cyclic.Int, keyFP format.Fingerprint,
 	msg *format.Message) {
 	msg.SetKeyFingerprint(keyFP)
 

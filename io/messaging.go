@@ -239,13 +239,15 @@ func handleE2ESending(session user.Session,
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
 	if rekey {
-		crypto.E2EEncryptUnsafe(key.GetKey(),
+		crypto.E2EEncryptUnsafe(session.GetGroup(),
+			key.GetKey(),
 			key.KeyFingerprint(),
-			session.GetGroup(), message)
+			message)
 	} else {
-		crypto.E2EEncrypt(key.GetKey(),
+		crypto.E2EEncrypt(session.GetGroup(),
+			key.GetKey(),
 			key.KeyFingerprint(),
-			session.GetGroup(), message)
+			message)
 	}
 }
 
@@ -307,9 +309,9 @@ func handleE2EReceiving(session user.Session,
 	globals.Log.DEBUG.Printf("E2E decrypting message")
 	var err error
 	if rekey {
-		err = crypto.E2EDecryptUnsafe(recpKey.GetKey(), session.GetGroup(), message)
+		err = crypto.E2EDecryptUnsafe(session.GetGroup(), recpKey.GetKey(), message)
 	} else {
-		err = crypto.E2EDecrypt(recpKey.GetKey(), session.GetGroup(), message)
+		err = crypto.E2EDecrypt(session.GetGroup(), recpKey.GetKey(), message)
 	}
 
 	if err != nil {

@@ -118,6 +118,11 @@ func NewManager(baseKey *cyclic.Int,
 	return km
 }
 
+// Get the base key from the Key Manager
+func (km *KeyManager) GetBaseKey() *cyclic.Int {
+	return km.baseKey
+}
+
 // Get the private key from the Key Manager
 func (km *KeyManager) GetPrivKey() *cyclic.Int {
 	return km.privKey
@@ -274,6 +279,7 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // This way, this function can be used to generate all keys when a new
 // E2E relationship is established, and also to generate all previously
 // unused keys based on KeyManager state, when reloading an user session
+// The function also adds the Key Manager to the respective map of KeyStore
 func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 	ks *KeyStore) {
 	if km.sendOrRecv {
@@ -288,10 +294,8 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 		// Generate numGenSendReKeys send reKeys
 		sendReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, userID, numGenSendReKeys)
 
-		// Create Send Keys Stack on keyManager and
-		// set on TransmissionKeys map
+		// Create Send Keys Stack on keyManager
 		km.sendKeys = NewKeyStack()
-		ks.TransmissionKeys.Store(km.partner, km.sendKeys)
 
 		// Create send E2E Keys and add to stack
 		for _, key := range sendKeys {
@@ -302,10 +306,8 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			km.sendKeys.Push(e2ekey)
 		}
 
-		// Create Send ReKeys Stack on keyManager and
-		// set on TransmissionReKeys map
+		// Create Send ReKeys Stack on keyManager
 		km.sendReKeys = NewKeyStack()
-		ks.TransmissionReKeys.Store(km.partner, km.sendReKeys)
 
 		// Create send E2E ReKeys and add to stack
 		for _, key := range sendReKeys {
@@ -315,6 +317,8 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			e2ekey.outer = format.Rekey
 			km.sendReKeys.Push(e2ekey)
 		}
+		// Add KeyManager to KeyStore map
+		ks.AddSendManager(km)
 	} else {
 		// For receiving keys, generate all, and then only add to the map
 		// the unused ones based on recvStates
@@ -336,7 +340,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey.keyNum = uint32(i)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
-				ks.ReceptionKeys.Store(keyFP, e2ekey)
+				ks.AddRecvKey(keyFP, e2ekey)
 			}
 		}
 
@@ -352,26 +356,54 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey.keyNum = uint32(i)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)
-				ks.ReceptionKeys.Store(keyFP, e2ekey)
+				ks.AddRecvKey(keyFP, e2ekey)
 			}
 		}
+		// Add KeyManager to KeyStore map
+		ks.AddRecvManager(km)
 	}
 }
 
-// Destroy will remove all keys managed by the KeyManager
-// from the key maps
+// Pops first key from Send KeyStack of KeyManager
+// Atomically updates Key Manager Sending state
+// Returns *E2EKey and KeyAction
+func (km *KeyManager) PopKey() (*E2EKey, Action) {
+	// Pop key
+	e2eKey := km.sendKeys.Pop()
+	// Update Key Manager State
+	action := km.updateState(false)
+	return e2eKey, action
+}
+
+// Pops first rekey from Send ReKeyStack of KeyManager
+// Atomically updates Key Manager Sending state
+// Returns *E2EKey and KeyAction
+func (km *KeyManager) PopRekey() (*E2EKey, Action) {
+	// Pop key
+	e2eKey := km.sendReKeys.Pop()
+	// Update Key Manager State
+	action := km.updateState(true)
+	return e2eKey, action
+}
+
+// If the KeyManager is a sending one, destroy
+// will remove it from KeyStore map and then destroy it's key stacks
+// If it is a receiving one, destroy will remove it
+// from KeyStore map and then remove all keys from receiving key
+// map
 func (km *KeyManager) Destroy(ks *KeyStore) {
 	if km.sendOrRecv {
-		// Empty send keys and reKeys stacks
-		// and remove them from maps
-		ks.TransmissionKeys.Delete(km.partner)
-		ks.TransmissionReKeys.Delete(km.partner)
+		// Remove KeyManager from KeyStore
+		ks.DeleteSendManager(km.partner)
+		// Delete KeyStacks
 		km.sendKeys.Delete()
 		km.sendReKeys.Delete()
 	} else {
-		// Eliminate receiving keys
-		ks.ReceptionKeys.DeleteList(km.recvKeysFingerprint)
-		ks.ReceptionKeys.DeleteList(km.recvReKeysFingerprint)
+		// Remove KeyManager from KeyStore
+		ks.DeleteRecvManager(km.partner)
+		// Delete receiving keys
+		ks.DeleteRecvKeyList(km.recvKeysFingerprint)
+		ks.DeleteRecvKeyList(km.recvReKeysFingerprint)
 	}
 
 	// Hopefully when the function returns there

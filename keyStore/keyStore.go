@@ -8,58 +8,26 @@ import (
 
 // Local types in order to implement functions that
 // return real types instead of interfaces
-type outKeyMap sync.Map
+type keyManMap sync.Map
 type inKeyMap sync.Map
 
-// KeyStore contains the E2E key maps
-type KeyStore struct {
-	// Transmission Keys map
-	// Maps id.User to *KeyStack
-	TransmissionKeys *outKeyMap
-
-	// Transmission ReKeys map
-	// Maps id.User to *KeyStack
-	TransmissionReKeys *outKeyMap
-
-	// Reception Keys map
-	// Maps format.Fingerprint to *E2EKey
-	ReceptionKeys *inKeyMap
+// Stores a KeyManager entry for given user
+func (m *keyManMap) Store(user *id.User, km *KeyManager) {
+	(*sync.Map)(m).Store(*user, km)
 }
 
-func NewStore() *KeyStore {
-	ks := new(KeyStore)
-	ks.TransmissionKeys = new(outKeyMap)
-	ks.TransmissionReKeys = new(outKeyMap)
-	ks.ReceptionKeys = new(inKeyMap)
-	return ks
-}
-
-// Stores a KeyStack entry for given user
-func (m *outKeyMap) Store(user *id.User, keys *KeyStack) {
-	(*sync.Map)(m).Store(*user, keys)
-}
-
-// Pops first key from KeyStack for given user
-// Atomically updates Key Manager Sending state
-// Returns *E2EKey and KeyAction
-func (m *outKeyMap) Pop(user *id.User) (*E2EKey, Action) {
+// Loads a KeyManager entry for given user
+func (m *keyManMap) Load(user *id.User) *KeyManager {
 	val, ok := (*sync.Map)(m).Load(*user)
-
 	if !ok {
-		return nil, None
+		return nil
+	} else {
+		return val.(*KeyManager)
 	}
-
-	keyStack := val.(*KeyStack)
-
-	// Pop key
-	e2eKey := keyStack.Pop()
-	// Update Key Manager State
-	action := e2eKey.GetManager().updateState(e2eKey.GetOuterType() == format.Rekey)
-	return e2eKey, action
 }
 
-// Deletes a KeyStack entry for given user
-func (m *outKeyMap) Delete(user *id.User) {
+// Deletes a KeyManager entry for given user
+func (m *keyManMap) Delete(user *id.User) {
 	(*sync.Map)(m).Delete(*user)
 }
 
@@ -100,4 +68,86 @@ func (m *inKeyMap) DeleteList(fingerprints []format.Fingerprint) {
 	for _, fp := range fingerprints {
 		m.Delete(fp)
 	}
+}
+
+// KeyStore contains the E2E key
+// and Key Managers maps
+// Send keys are obtained directly from the Key Manager
+// which is looked up in the sendKeyManagers map
+// Receiving keys are lookup up by fingerprint on
+// receptionKeys map
+// RecvKeyManagers map is needed in order to maintain
+// active Key Managers when the session is stored/loaded
+// It is not a sync.map since it won't ever be accessed
+// other than for storage purposes, i.e., there is no
+// Get function for this map
+type KeyStore struct {
+	// Transmission Keys map
+	// Maps id.User to *KeyManager
+	sendKeyManagers *keyManMap
+
+	// Reception Keys map
+	// Maps format.Fingerprint to *E2EKey
+	receptionKeys *inKeyMap
+
+	// Reception Key Managers map
+	recvKeyManagers map[id.User]*KeyManager
+}
+
+func NewStore() *KeyStore {
+	ks := new(KeyStore)
+	ks.sendKeyManagers = new(keyManMap)
+	ks.receptionKeys = new(inKeyMap)
+	ks.recvKeyManagers = make(map[id.User]*KeyManager)
+	return ks
+}
+
+// Add a Send KeyManager to respective map in KeyStore
+func (ks *KeyStore) AddSendManager(km *KeyManager) {
+	ks.sendKeyManagers.Store(km.GetPartner(), km)
+}
+
+// Get a Send KeyManager from respective map in KeyStore
+// based on partner ID
+func (ks *KeyStore) GetSendManager(partner *id.User) *KeyManager {
+	return ks.sendKeyManagers.Load(partner)
+}
+
+// Delete a Send KeyManager from respective map in KeyStore
+// based on partner ID
+func (ks *KeyStore) DeleteSendManager(partner *id.User) {
+	ks.sendKeyManagers.Delete(partner)
+}
+
+// Add a Receiving E2EKey to the correct KeyStore map
+// based on its fingerprint
+func (ks *KeyStore) AddRecvKey(fingerprint format.Fingerprint,
+	key *E2EKey) {
+	ks.receptionKeys.Store(fingerprint, key)
+}
+
+// Get the Receiving Key stored in correct KeyStore map
+// based on the given fingerprint
+func (ks *KeyStore) GetRecvKey(fingerprint format.Fingerprint) *E2EKey {
+	return ks.receptionKeys.Pop(fingerprint)
+}
+
+// Delete multiple Receiving E2EKeys from the correct KeyStore map
+// based on a list of fingerprints
+func (ks *KeyStore) DeleteRecvKeyList(fingerprints []format.Fingerprint) {
+	ks.receptionKeys.DeleteList(fingerprints)
+}
+
+// Add a Receive KeyManager to respective map in KeyStore
+// NOTE: This function operates on a normal map
+// be sure to not cause multi threading issues when calling
+func (ks *KeyStore) AddRecvManager(km *KeyManager) {
+	ks.recvKeyManagers[*km.GetPartner()] = km
+}
+
+// Delete a Receive KeyManager based on partner ID from respective map in KeyStore
+// NOTE: This function operates on a normal map
+// be sure to not cause multi threading issues when calling
+func (ks *KeyStore) DeleteRecvManager(partner *id.User) {
+	delete(ks.recvKeyManagers, *partner)
 }

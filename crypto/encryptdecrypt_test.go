@@ -149,6 +149,73 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	}
 }
 
+// E2E unsafe functions should only be used when the payload
+// to be sent occupies the whole payload structure, i.e. 256 bytes
+func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
+	grp := session.GetGroup()
+	sender := id.NewUserFromUint(38, t)
+	recipient := id.NewUserFromUint(29, t)
+	msg := format.NewMessage()
+	msg.SetRecipient(recipient)
+	msgPayload := []byte(
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+	// Need to take up space of SenderID
+	msg.SetSenderID(msgPayload[:format.MP_SID_LEN])
+	msg.SetPayloadData(msgPayload[format.MP_SID_LEN:])
+	now := time.Now()
+	nowBytes, _ := now.MarshalBinary()
+	msg.SetTimestamp(nowBytes)
+
+	key := grp.NewInt(42)
+	h, _ := hash.NewCMixHash()
+	h.Write(key.Bytes())
+	fp := format.Fingerprint{}
+	copy(fp[:], h.Sum(nil))
+
+	// E2E Encryption without padding
+	E2EEncryptUnsafe(grp, key, fp, msg)
+
+	// CMIX Encryption
+	encMsg := CMIXEncrypt(session, salt, msg)
+
+	// Server will decrypt and re-encrypt payload
+	payload := grp.NewIntFromBytes(encMsg.SerializePayload())
+	assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
+	// Multiply payload by transmission and reception keys
+	grp.Mul(payload, serverTransmissionKey, payload)
+	grp.Mul(payload, serverReceptionKey, payload)
+	// Multiply associated data only by transmission key
+	grp.Mul(assocData, serverTransmissionKey, assocData)
+	encryptedNet := &pb.CmixMessage{
+		SenderID:       sender.Bytes(),
+		Salt:           salt,
+		MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
+		AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+	}
+
+	// CMIX Decryption
+	decMsg := CMIXDecrypt(session, encryptedNet)
+
+	// E2E Decryption
+	err := E2EDecryptUnsafe(grp, key, decMsg)
+
+	if err != nil {
+		t.Errorf("E2EDecryptUnsafe returned error: %v", err.Error())
+	}
+
+	if *decMsg.GetRecipient() != *recipient {
+		t.Errorf("Recipient differed from expected: Got %q, expected %q",
+			decMsg.GetRecipient(), sender)
+	}
+	if !bytes.Equal(decMsg.GetPayload(), msgPayload) {
+		t.Errorf("Decrypted payload differed from expected: Got %q, "+
+			"expected %q", decMsg.GetPayload(), msgPayload)
+	}
+}
+
 // Test that E2EEncrypt panics if the payload is too big (can't be padded)
 func TestE2EEncrypt_Panic(t *testing.T) {
 	grp := session.GetGroup()
@@ -183,7 +250,7 @@ func TestE2EEncrypt_Panic(t *testing.T) {
 	E2EEncrypt(grp, key, fp, msg)
 }
 
-// Test that E2EDecrypt handles errors correctly
+// Test that E2EDecrypt and E2EDecryptUnsafe handle errors correctly
 func TestE2EDecrypt_Errors(t *testing.T) {
 	grp := session.GetGroup()
 	sender := id.NewUserFromUint(38, t)
@@ -224,6 +291,15 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 		t.Logf("E2EDecrypt error: %v", err.Error())
 	}
 
+	// Unsafe E2E Decryption returns error
+	err = E2EDecryptUnsafe(grp, key, badMsg)
+
+	if err == nil {
+		t.Errorf("E2EDecryptUnsafe should have returned error")
+	} else {
+		t.Logf("E2EDecryptUnsafe error: %v", err.Error())
+	}
+
 	// Set correct MAC again
 	badMsg.SetMAC(msg.GetMAC())
 
@@ -237,6 +313,15 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 		t.Errorf("E2EDecrypt should have returned error")
 	} else {
 		t.Logf("E2EDecrypt error: %v", err.Error())
+	}
+
+	// Unsafe E2E Decryption returns error
+	err = E2EDecryptUnsafe(grp, key, badMsg)
+
+	if err == nil {
+		t.Errorf("E2EDecryptUnsafe should have returned error")
+	} else {
+		t.Logf("E2EDecryptUnsafe error: %v", err.Error())
 	}
 
 	// Set correct Timestamp again

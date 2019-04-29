@@ -1,6 +1,9 @@
 package keyStore
 
 import (
+	"bytes"
+	"encoding/gob"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
@@ -29,6 +32,17 @@ func (m *keyManMap) Load(user *id.User) *KeyManager {
 // Deletes a KeyManager entry for given user
 func (m *keyManMap) Delete(user *id.User) {
 	(*sync.Map)(m).Delete(*user)
+}
+
+// Internal helper function to get a list of all values
+// contained in a KeyManMap
+func (m *keyManMap) values() []*KeyManager {
+	valueList := make([]*KeyManager, 0)
+	(*sync.Map)(m).Range(func(key, value interface{}) bool {
+		valueList = append(valueList, value.(*KeyManager))
+		return true
+	})
+	return valueList
 }
 
 // Stores an *E2EKey for given fingerprint
@@ -78,9 +92,9 @@ func (m *inKeyMap) DeleteList(fingerprints []format.Fingerprint) {
 // receptionKeys map
 // RecvKeyManagers map is needed in order to maintain
 // active Key Managers when the session is stored/loaded
-// It is not a sync.map since it won't ever be accessed
-// other than for storage purposes, i.e., there is no
-// Get function for this map
+// It is not a sync.map since it won't be accessed
+// very often
+// It still contains a lock for multithreaded access
 type KeyStore struct {
 	// Transmission Keys map
 	// Maps id.User to *KeyManager
@@ -92,6 +106,7 @@ type KeyStore struct {
 
 	// Reception Key Managers map
 	recvKeyManagers map[id.User]*KeyManager
+	lock sync.Mutex
 }
 
 func NewStore() *KeyStore {
@@ -139,15 +154,97 @@ func (ks *KeyStore) DeleteRecvKeyList(fingerprints []format.Fingerprint) {
 }
 
 // Add a Receive KeyManager to respective map in KeyStore
-// NOTE: This function operates on a normal map
-// be sure to not cause multi threading issues when calling
 func (ks *KeyStore) AddRecvManager(km *KeyManager) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	ks.recvKeyManagers[*km.GetPartner()] = km
 }
 
+// Get a Receive KeyManager from respective map in KeyStore
+// based on partner ID
+func (ks *KeyStore) GetRecvManager(partner *id.User) *KeyManager {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
+	return ks.recvKeyManagers[*partner]
+}
+
 // Delete a Receive KeyManager based on partner ID from respective map in KeyStore
-// NOTE: This function operates on a normal map
-// be sure to not cause multi threading issues when calling
 func (ks *KeyStore) DeleteRecvManager(partner *id.User) {
+	ks.lock.Lock()
+	defer ks.lock.Unlock()
 	delete(ks.recvKeyManagers, *partner)
+}
+
+// GobEncode the KeyStore
+func (ks *KeyStore) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+
+	// Create new encoder that will transmit the buffer
+	enc := gob.NewEncoder(&buf)
+
+	// Transmit the Send Key Managers
+	kmList := ks.sendKeyManagers.values()
+	err := enc.Encode(kmList)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Transmit the Receive Key Managers
+	err = enc.Encode(ks.recvKeyManagers)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return buf.Bytes(), nil
+}
+
+// GobDecode the KeyStore from bytes
+// NOTE: ReconstructKeys must be called after GobDecoding a KeyStore
+func (ks *KeyStore) GobDecode(in []byte) error {
+	var buf bytes.Buffer
+
+	// Write bytes to the buffer
+	buf.Write(in)
+
+	// Create new decoder that reads from the buffer
+	dec := gob.NewDecoder(&buf)
+
+	// Decode Key Managers List
+	var kmList []*KeyManager
+	err := dec.Decode(&kmList)
+
+	if err != nil {
+		return err
+	}
+
+	// Decode Recv Key Managers map
+	err = dec.Decode(&ks.recvKeyManagers)
+
+	if err != nil {
+		return err
+	}
+
+	// Reconstruct Send Key Manager map
+	ks.sendKeyManagers = new(keyManMap)
+	ks.receptionKeys = new(inKeyMap)
+	for _, km := range kmList {
+		ks.AddSendManager(km)
+	}
+
+	return nil
+}
+
+// ReconstructKeys loops through all key managers and
+// calls GenerateKeys on each of them, in order to rebuild
+// the key maps
+func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.User) {
+	kmList := ks.sendKeyManagers.values()
+	for _, km := range kmList {
+		km.GenerateKeys(grp, userID, ks)
+	}
+	for _, km := range ks.recvKeyManagers {
+		km.GenerateKeys(grp, userID, ks)
+	}
 }

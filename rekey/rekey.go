@@ -34,9 +34,8 @@ type rekeyTriggerListener struct{
 func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetRecipient()
-	partnerPubKey := m.GetPayload()
-	err := rekeyProcess(RekeyTrigger, partner,
-		nil, partnerPubKey, nil)
+	pubKey := m.GetPayload()
+	err := rekeyProcess(RekeyTrigger, partner, pubKey)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
 		l.err = err
@@ -53,10 +52,7 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	keys := m.GetPayload()
-	privKey := keys[:format.TOTAL_LEN]
-	partnerPubKey := keys[format.TOTAL_LEN:]
-	err := rekeyProcess(Rekey, partner,
-		privKey, partnerPubKey, nil)
+	err := rekeyProcess(Rekey, partner, keys)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
 		l.err = err
@@ -73,8 +69,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	baseKeyHash := m.GetPayload()
-	err := rekeyProcess(RekeyConfirm, partner,
-		nil, nil, baseKeyHash)
+	err := rekeyProcess(RekeyConfirm, partner, baseKeyHash)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
 		l.err = err
@@ -114,29 +109,29 @@ const (
 	RekeyConfirm
 )
 
-func rekeyProcess(rt rekeyType,
-	partner *id.User, privKey,
-	partnerPubKey, baseKeyHash []byte) error {
+func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
 	grp := session.GetGroup()
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
+	var privKey []byte
+	var partnerPubKey []byte
 	switch rt {
 	case RekeyTrigger:
-		ctx = rkm.GetOutCtx(partner)
+		ctx = rkm.GetCtx(partner)
 		if ctx != nil {
 			return fmt.Errorf("rekey already in progress with user %v,"+
 				" ignoring repetition", *partner)
 		}
+		// Get partner PublicKey from data
+		partnerPubKey = data
 	case Rekey:
-		ctx = rkm.GetInCtx(partner)
-		if ctx != nil {
-			return fmt.Errorf("rekey from user %v already in progress,"+
-				" ignoring repetition", *partner)
-		}
+		// Get private Key and public Key from data
+		privKey = data[:format.TOTAL_LEN]
+		partnerPubKey = data[format.TOTAL_LEN:]
 	case RekeyConfirm:
-		ctx = rkm.GetOutCtx(partner)
+		ctx = rkm.GetCtx(partner)
 		if ctx == nil {
 			return fmt.Errorf("rekey not in progress with user %v,"+
 				" ignoring confirmation", *partner)
@@ -144,9 +139,9 @@ func rekeyProcess(rt rekeyType,
 	}
 
 	// Create Rekey Context if not existing
-	// Use set privKey and pubKey for Rekey
+	// Use set privKey and partner pubKey for Rekey
 	// For RekeyTrigger, generate new privKey / pubKey pair
-	// Add context to correct Rekey Manager Map
+	// Add context to RekeyManager in case of RekeyTrigger
 	var privKeyCyclic *cyclic.Int
 	var pubKeyCyclic *cyclic.Int
 	var baseKey *cyclic.Int
@@ -172,11 +167,9 @@ func rekeyProcess(rt rekeyType,
 			PrivKey: privKeyCyclic,
 			PubKey:  pubKeyCyclic,
 		}
-		switch rt {
-		case RekeyTrigger:
-			rkm.AddOutCtx(partner, ctx)
-		case Rekey:
-			rkm.AddInCtx(partner, ctx)
+
+		if rt == RekeyTrigger {
+			rkm.AddCtx(partner, ctx)
 		}
 	}
 
@@ -189,39 +182,33 @@ func rekeyProcess(rt rekeyType,
 	switch rt {
 	case Rekey:
 		// Delete current receive KeyManager
-		oldKm := session.GetRecvKeyManager(partner)
+		oldKm := session.GetKeyStore().GetRecvManager(partner)
 		oldKm.Destroy(session.GetKeyStore())
-		session.DeleteRecvKeyManager(partner)
 		// Create Receive KeyManager
 		km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 			partner, false,
 			numKeys, keysTTL, keyStore.NumReKeys)
 		// Generate Receive Keys
 		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
-		// Add Receive Key Manager to session
-		session.AddRecvKeyManager(km)
 		// Remove RekeyContext
-		rkm.DeleteInCtx(partner)
+		rkm.DeleteCtx(partner)
 	case RekeyConfirm:
 		// Check baseKey Hash matches expected
 		h, _ := hash.NewCMixHash()
 		h.Write(ctx.BaseKey.Bytes())
 		expected := h.Sum(nil)
-		if bytes.Equal(expected, baseKeyHash) {
+		if bytes.Equal(expected, data) {
 			// Delete current send KeyManager
-			oldKm := session.GetSendKeyManager(partner)
+			oldKm := session.GetKeyStore().GetSendManager(partner)
 			oldKm.Destroy(session.GetKeyStore())
-			session.DeleteSendKeyManager(partner)
 			// Create Send KeyManager
 			km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 				partner, true,
 				numKeys, keysTTL, keyStore.NumReKeys)
 			// Generate Send Keys
 			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
-			// Add Send Key Manager to session
-			session.AddSendKeyManager(km)
 			// Remove RekeyContext
-			rkm.DeleteOutCtx(partner)
+			rkm.DeleteCtx(partner)
 		} else {
 			return fmt.Errorf("rekey-confirm from user %v failed,"+
 				" baseKey hash doesn't match expected", *partner)

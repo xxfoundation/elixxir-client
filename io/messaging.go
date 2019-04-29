@@ -197,14 +197,19 @@ func handleE2ESending(session user.Session,
 
 	var key *keyStore.E2EKey
 	var action keyStore.Action
+	// Get KeyManager for this partner
+	km := session.GetKeyStore().GetSendManager(recipientID)
+	if km == nil {
+		globals.Log.FATAL.Panicf("Couldn't get KeyManager to E2E encrypt message to"+
+			" user %v", *recipientID)
+	}
+
 	if rekey {
 		// Get send Rekey
-		key, action = session.GetKeyStore().
-			TransmissionReKeys.Pop(recipientID)
+		key, action = km.PopRekey()
 	} else {
 		// Get send key
-		key, action = session.GetKeyStore().
-			TransmissionKeys.Pop(recipientID)
+		key, action = km.PopKey()
 	}
 
 	if key == nil {
@@ -220,16 +225,14 @@ func handleE2ESending(session user.Session,
 	}
 
 	if action == keyStore.Rekey {
-		// Send RekeyTrigger message to switchboard containing partner public key
-		// The most recent partner public key will be the one on the
-		// Receiving Key Manager for this partner
-		km := session.GetRecvKeyManager(recipientID)
-		partnerPubKey := km.GetPubKey()
+		// Send RekeyTrigger message to switchboard
+		// Get Partner PublicKey from KeyManager pointed to by the key being used
+		pubKey := key.GetManager().GetPubKey()
 		rekeyMsg := &parse.Message{
 			Sender: session.GetCurrentUser().User,
 			TypedBody: parse.TypedBody{
 				MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
-				Body:        partnerPubKey.Bytes(),
+				Body:        pubKey.Bytes(),
 			},
 			CryptoType: format.None,
 			Receiver:   recipientID,
@@ -295,7 +298,7 @@ func handleE2EReceiving(session user.Session,
 
 	// Lookup reception key
 	recpKey := session.GetKeyStore().
-		ReceptionKeys.Pop(keyFingerprint)
+		GetRecvKey(keyFingerprint)
 
 	rekey := false
 	if recpKey == nil {
@@ -318,16 +321,18 @@ func handleE2EReceiving(session user.Session,
 		// TODO handle Garbled message to SW
 	}
 
+	// Get partner from Key Manager of receiving key
+	// since there is no space in message for senderID
+	// Get private key from Key Manager of receiving key
+	// This will ensure the correct one is used, even if
+	// we did a rekey of sending keys in the meantime
 	// Get decrypted partner public key from message
-	// The most recent own private key will be the one on the
-	// Sending Key Manager for this partner
 	// Send rekey message to switchboard
 	if rekey {
 		partner := recpKey.GetManager().GetPartner()
-		km := session.GetSendKeyManager(partner)
-		ownPrivKey := km.GetPrivKey().LeftpadBytes(uint64(format.TOTAL_LEN))
 		partnerPubKey := message.SerializePayload()
-		body := append(ownPrivKey, partnerPubKey...)
+		privKey := recpKey.GetManager().GetPrivKey()
+		body := append(privKey.LeftpadBytes(uint64(format.TOTAL_LEN)), partnerPubKey...)
 		rekeyMsg := &parse.Message{
 			Sender: partner,
 			TypedBody: parse.TypedBody{

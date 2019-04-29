@@ -95,9 +95,6 @@ func TestMain(m *testing.M) {
 	// Generate Send Keys
 	km.GenerateKeys(grp, u.User, session.GetKeyStore())
 
-	// Add Send Key Manager to session
-	session.AddSendKeyManager(km)
-
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, myPrivKeyCyclic,
 		partnerPubKeyCyclic, partnerID, false,
@@ -106,16 +103,13 @@ func TestMain(m *testing.M) {
 	// Generate Receive Keys
 	km.GenerateKeys(grp, u.User, session.GetKeyStore())
 
-	// Add Receive Key Manager to session
-	session.AddRecvKeyManager(km)
-
 	os.Exit(m.Run())
 }
 
 // Test RekeyTrigger
 func TestRekeyTrigger (t *testing.T) {
 	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
-	km := session.GetRecvKeyManager(partnerID)
+	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
 	// Test receiving a RekeyTrigger message
 	msg := &parse.Message{
@@ -138,7 +132,7 @@ func TestRekeyTrigger (t *testing.T) {
 	value := <- ListenCh
 	grp := session.GetGroup()
 	actualPubKey := grp.NewIntFromBytes(value)
-	privKey := session.GetRekeyManager().GetOutCtx(partnerID).PrivKey
+	privKey := session.GetRekeyManager().GetCtx(partnerID).PrivKey
 	expectedPubKey := grp.NewInt(1)
 	grp.ExpG(privKey, expectedPubKey)
 
@@ -169,7 +163,7 @@ func TestRekeyTrigger (t *testing.T) {
 // Test RekeyConfirm
 func TestRekeyConfirm (t *testing.T) {
 	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
-	rekeyCtx := session.GetRekeyManager().GetOutCtx(partnerID)
+	rekeyCtx := session.GetRekeyManager().GetCtx(partnerID)
 	baseKey := rekeyCtx.BaseKey
 	// Test receiving a RekeyConfirm message with wrong H(baseKey)
 	msg := &parse.Message{
@@ -210,7 +204,8 @@ func TestRekeyConfirm (t *testing.T) {
 	// Confirm that user Private key in Send Key Manager
 	// differs from the one stored in session
 	if session.GetPrivateKey().GetKey().Cmp(
-		session.GetSendKeyManager(partnerID).GetPrivKey().GetLargeInt()) == 0 {
+		session.GetKeyStore().GetSendManager(partnerID).
+			GetPrivKey().GetLargeInt()) == 0 {
 		t.Errorf("PrivateKey remained unchanged after Outgoing Rekey!")
 	}
 
@@ -236,7 +231,7 @@ func TestRekeyConfirm (t *testing.T) {
 // Test Rekey
 func TestRekey(t *testing.T) {
 	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
-	km := session.GetSendKeyManager(partnerID)
+	km := session.GetKeyStore().GetSendManager(partnerID)
 	privKey := km.GetPrivKey()
 	// Generate new partner public key
 	grp := globals.InitCrypto()
@@ -269,7 +264,7 @@ func TestRekey(t *testing.T) {
 	value := <- ListenCh
 	// Get hash as last 32 bytes of message bytes
 	actual := value[len(value)-32:]
-	km = session.GetRecvKeyManager(partnerID)
+	km = session.GetKeyStore().GetRecvManager(partnerID)
 	baseKey := grp.NewInt(1)
 	grp.Exp(km.GetPubKey(), km.GetPrivKey(), baseKey)
 	h, _ := hash.NewCMixHash()
@@ -283,14 +278,14 @@ func TestRekey(t *testing.T) {
 
 	// Confirm that rekeys "compounded", i.e., send and receive have same
 	// priv key, but different partner public keys
-	if session.GetSendKeyManager(partnerID).GetPrivKey().Cmp(
-		session.GetRecvKeyManager(partnerID).GetPrivKey()) != 0 {
+	if session.GetKeyStore().GetSendManager(partnerID).GetPrivKey().Cmp(
+		session.GetKeyStore().GetRecvManager(partnerID).GetPrivKey()) != 0 {
 		t.Errorf("PrivateKey should be the same after " +
 			"both Incoming and Outgoing Rekeys!")
 	}
 
-	if session.GetSendKeyManager(partnerID).GetPubKey().Cmp(
-		session.GetRecvKeyManager(partnerID).GetPubKey()) == 0 {
+	if session.GetKeyStore().GetSendManager(partnerID).GetPubKey().Cmp(
+		session.GetKeyStore().GetRecvManager(partnerID).GetPubKey()) == 0 {
 		t.Errorf("Partner PublicKey should be different " +
 			"in send and receive keys, after Incoming Rekey!")
 	}

@@ -42,14 +42,8 @@ type Session interface {
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
-	AddSendKeyManager(km *keyStore.KeyManager)
-	GetSendKeyManager(partner *id.User) *keyStore.KeyManager
-	DeleteSendKeyManager(partner *id.User)
-	AddRecvKeyManager(km *keyStore.KeyManager)
-	GetRecvKeyManager(partner *id.User) *keyStore.KeyManager
-	DeleteRecvKeyManager(partner *id.User)
-	GetRekeyManager() *keyStore.RekeyManager
 	GetKeyStore() *keyStore.KeyStore
+	GetRekeyManager() *keyStore.RekeyManager
 	GetSwitchboard() *switchboard.Switchboard
 	GetQuitChan() chan bool
 	LockStorage()
@@ -78,10 +72,8 @@ func NewSession(store globals.Storage,
 		PublicKey:           publicKey,
 		Grp:                 grp,
 		InterfaceMap:        make(map[string]interface{}),
-		SendKeyManagers:     make(map[id.User]*keyStore.KeyManager),
-		RecvKeyManagers:     make(map[id.User]*keyStore.KeyManager),
+		KeyMaps:             keyStore.NewStore(),
 		RekeyManager:        keyStore.NewRekeyManager(),
-		keyMaps:             keyStore.NewStore(),
 		store:               store,
 		listeners:           switchboard.NewSwitchboard(),
 		quitReceptionRunner: make(chan bool),
@@ -137,19 +129,13 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	// Create keyStore
-	session.keyMaps = keyStore.NewStore()
+	// Reconstruct Key maps
+	session.KeyMaps.ReconstructKeys(session.Grp, UID)
+
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
 	session.quitReceptionRunner = make(chan bool)
-	// Rebuild E2E Key Maps from Key Managers maps
-	for _, km := range session.SendKeyManagers {
-		km.GenerateKeys(session.Grp, UID, session.keyMaps)
-	}
-	for _, km := range session.RecvKeyManagers {
-		km.GenerateKeys(session.Grp, UID, session.keyMaps)
-	}
 
 	// Set storage pointer
 	session.store = store
@@ -175,17 +161,13 @@ type SessionObj struct {
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
 
-	// E2E Key Manager maps
-	SendKeyManagers map[id.User]*keyStore.KeyManager
-	RecvKeyManagers map[id.User]*keyStore.KeyManager
+	// E2E KeyStore
+	KeyMaps *keyStore.KeyStore
 
 	// Rekey Manager
 	RekeyManager *keyStore.RekeyManager
 
 	// Non exported fields (not GOB encoded/decoded)
-	// E2E KeyStore
-	keyMaps *keyStore.KeyStore
-
 	// Local pointer to storage of this session
 	store globals.Storage
 
@@ -346,56 +328,18 @@ func (s *SessionObj) DeleteMap(key string) error {
 	return err
 }
 
-func (s *SessionObj) AddSendKeyManager(km *keyStore.KeyManager) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	partner := km.GetPartner()
-	s.SendKeyManagers[*partner] = km
-}
-
-func (s *SessionObj) GetSendKeyManager(partner *id.User) *keyStore.KeyManager {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.SendKeyManagers[*partner]
-}
-
-func (s *SessionObj) DeleteSendKeyManager(partner *id.User) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	delete(s.SendKeyManagers, *partner)
-}
-
-func (s *SessionObj) AddRecvKeyManager(km *keyStore.KeyManager) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	partner := km.GetPartner()
-	s.RecvKeyManagers[*partner] = km
-}
-
-func (s *SessionObj) GetRecvKeyManager(partner *id.User) *keyStore.KeyManager {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.RecvKeyManagers[*partner]
-}
-
-func (s *SessionObj) DeleteRecvKeyManager(partner *id.User) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	delete(s.RecvKeyManagers, *partner)
-}
-
 func (s *SessionObj) GetSessionData() ([]byte, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.getSessionData()
 }
 
-func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
-	return s.RekeyManager
+func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
+	return s.KeyMaps
 }
 
-func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
-	return s.keyMaps
+func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
+	return s.RekeyManager
 }
 
 func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {

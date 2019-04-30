@@ -103,11 +103,18 @@ func TestMain(m *testing.M) {
 	// Generate Receive Keys
 	km.GenerateKeys(grp, u.User, session.GetKeyStore())
 
+	keys := &keyStore.RekeyKeys{
+		CurrPrivKey: myPrivKeyCyclic,
+		CurrPubKey:  partnerPubKeyCyclic,
+	}
+
+	session.GetRekeyManager().AddKeys(partnerID, keys)
+
 	os.Exit(m.Run())
 }
 
 // Test RekeyTrigger
-func TestRekeyTrigger (t *testing.T) {
+func TestRekeyTrigger(t *testing.T) {
 	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
@@ -161,7 +168,7 @@ func TestRekeyTrigger (t *testing.T) {
 }
 
 // Test RekeyConfirm
-func TestRekeyConfirm (t *testing.T) {
+func TestRekeyConfirm(t *testing.T) {
 	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
 	rekeyCtx := session.GetRekeyManager().GetCtx(partnerID)
 	baseKey := rekeyCtx.BaseKey
@@ -232,7 +239,6 @@ func TestRekeyConfirm (t *testing.T) {
 func TestRekey(t *testing.T) {
 	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetSendManager(partnerID)
-	privKey := km.GetPrivKey()
 	// Generate new partner public key
 	grp := globals.InitCrypto()
 	params := signature.CustomDSAParams(
@@ -242,14 +248,12 @@ func TestRekey(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	body := append(privKey.LeftpadBytes(uint64(format.TOTAL_LEN)),
-		partnerPubKey.GetKey().Bytes()...)
-	// Test receiving a RekeyTrigger message
+	// Test receiving a Rekey message
 	msg := &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NO_TYPE),
-			Body:        body,
+			Body:        partnerPubKey.GetKey().Bytes(),
 		},
 		CryptoType: format.Rekey,
 		Receiver:   session.GetCurrentUser().User,
@@ -276,17 +280,59 @@ func TestRekey(t *testing.T) {
 			" got %x", expected, actual)
 	}
 
-	// Confirm that rekeys "compounded", i.e., send and receive have same
-	// priv key, but different partner public keys
-	if session.GetKeyStore().GetSendManager(partnerID).GetPrivKey().Cmp(
-		session.GetKeyStore().GetRecvManager(partnerID).GetPrivKey()) != 0 {
-		t.Errorf("PrivateKey should be the same after " +
-			"both Incoming and Outgoing Rekeys!")
+	// Confirm that keys rotated properly in RekeyManager
+	rkm := session.GetRekeyManager()
+	keys := rkm.GetKeys(partnerID)
+
+	if keys.CurrPrivKey.GetLargeInt().
+		Cmp(session.GetPrivateKey().GetKey()) == 0 {
+		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
 	}
 
-	if session.GetKeyStore().GetSendManager(partnerID).GetPubKey().Cmp(
-		session.GetKeyStore().GetRecvManager(partnerID).GetPubKey()) == 0 {
-		t.Errorf("Partner PublicKey should be different " +
-			"in send and receive keys, after Incoming Rekey!")
+	if keys.CurrPubKey.GetLargeInt().
+		Cmp(partnerPubKey.GetKey()) != 0 {
+		t.Errorf("Partner PublicKey didn't update properly after both parties rekeys")
+	}
+}
+
+// Test Rekey errors
+func TestRekey_Errors(t *testing.T) {
+	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
+	km := session.GetKeyStore().GetRecvManager(partnerID)
+	partnerPubKey := km.GetPubKey()
+	// Delete RekeyKeys so that RekeyTrigger and rekey error out
+	session.GetRekeyManager().DeleteKeys(partnerID)
+	// Test receiving a RekeyTrigger message
+	msg := &parse.Message{
+		Sender: session.GetCurrentUser().User,
+		TypedBody: parse.TypedBody{
+			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
+			Body:        partnerPubKey.Bytes(),
+		},
+		CryptoType: format.None,
+		Receiver:   partnerID,
+	}
+	session.GetSwitchboard().Speak(msg)
+
+	// Check error occurred on RekeyTrigger
+	if rekeyTriggerList.err == nil {
+		t.Errorf("RekeyTrigger should have returned error")
+	}
+
+	// Test receiving a Rekey message
+	msg = &parse.Message{
+		Sender: partnerID,
+		TypedBody: parse.TypedBody{
+			MessageType: int32(cmixproto.Type_NO_TYPE),
+			Body:        []byte{},
+		},
+		CryptoType: format.Rekey,
+		Receiver:   session.GetCurrentUser().User,
+	}
+	session.GetSwitchboard().Speak(msg)
+
+	// Check error occurred on Rekey
+	if rekeyList.err == nil {
+		t.Errorf("Rekey should have returned error")
 	}
 }

@@ -34,8 +34,7 @@ type rekeyTriggerListener struct{
 func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetRecipient()
-	pubKey := m.GetPayload()
-	err := rekeyProcess(RekeyTrigger, partner, pubKey)
+	err := rekeyProcess(RekeyTrigger, partner, nil)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
 		l.err = err
@@ -51,8 +50,8 @@ type rekeyListener struct{
 func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
-	keys := m.GetPayload()
-	err := rekeyProcess(Rekey, partner, keys)
+	partnerPubKey := m.GetPayload()
+	err := rekeyProcess(Rekey, partner, partnerPubKey)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
 		l.err = err
@@ -115,8 +114,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
-	var privKey []byte
-	var partnerPubKey []byte
+	var keys *keyStore.RekeyKeys
 	switch rt {
 	case RekeyTrigger:
 		ctx = rkm.GetCtx(partner)
@@ -124,12 +122,15 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			return fmt.Errorf("rekey already in progress with user %v,"+
 				" ignoring repetition", *partner)
 		}
-		// Get partner PublicKey from data
-		partnerPubKey = data
+		keys = rkm.GetKeys(partner)
+		if keys == nil {
+			return fmt.Errorf("couldn't get RekeyKeys object for user: %v", *partner)
+		}
 	case Rekey:
-		// Get private Key and public Key from data
-		privKey = data[:format.TOTAL_LEN]
-		partnerPubKey = data[format.TOTAL_LEN:]
+		keys = rkm.GetKeys(partner)
+		if keys == nil {
+			return fmt.Errorf("couldn't get RekeyKeys object for user: %v", *partner)
+		}
 	case RekeyConfirm:
 		ctx = rkm.GetCtx(partner)
 		if ctx == nil {
@@ -147,16 +148,24 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	var baseKey *cyclic.Int
 	var pubKey *signature.DSAPublicKey
 	if ctx == nil {
-		if privKey == nil {
+		if rt == RekeyTrigger {
 			params := signature.GetDefaultDSAParams()
 			privateKey := params.PrivateKeyGen(rand.Reader)
 			pubKey = privateKey.PublicKeyGen()
 			privKeyCyclic = grp.NewIntFromLargeInt(privateKey.GetKey())
+			// Get Current Partner Public Key from RekeyKeys
+			pubKeyCyclic = keys.CurrPubKey
+			// Set new Own Private Key
+			keys.NewPrivKey = privKeyCyclic
 		} else {
-			privKeyCyclic = grp.NewIntFromBytes(privKey)
+			// Get Current Own Private Key from RekeyKeys
+			privKeyCyclic = keys.CurrPrivKey
+			// Get Partner New Public Key from data
+			pubKeyCyclic = grp.NewIntFromBytes(data)
+			// Set new Partner Public Key
+			keys.NewPubKey = pubKeyCyclic
 		}
 
-		pubKeyCyclic = grp.NewIntFromBytes(partnerPubKey)
 		// Generate baseKey
 		baseKey, _ = diffieHellman.CreateDHSessionKey(
 			pubKeyCyclic,
@@ -171,6 +180,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		if rt == RekeyTrigger {
 			rkm.AddCtx(partner, ctx)
 		}
+		// Rotate Keys if ready
+		keys.RotateKeysIfReady()
 	}
 
 	// Generate key TTL and number of keys

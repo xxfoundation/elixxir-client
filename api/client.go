@@ -538,6 +538,16 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 
 	// Generate Receive Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
+
+	// Create RekeyKeys and add to RekeyManager
+	rkm := cl.sess.GetRekeyManager()
+
+	keys := &keyStore.RekeyKeys{
+		CurrPrivKey: privKeyCyclic,
+		CurrPubKey:  partnerPubKeyCyclic,
+	}
+
+	rkm.AddKeys(partnerID, keys)
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage

@@ -226,13 +226,11 @@ func handleE2ESending(session user.Session,
 
 	if action == keyStore.Rekey {
 		// Send RekeyTrigger message to switchboard
-		// Get Partner PublicKey from KeyManager pointed to by the key being used
-		pubKey := key.GetManager().GetPubKey()
 		rekeyMsg := &parse.Message{
 			Sender: session.GetCurrentUser().User,
 			TypedBody: parse.TypedBody{
 				MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
-				Body:        pubKey.Bytes(),
+				Body:        []byte{},
 			},
 			CryptoType: format.None,
 			Receiver:   recipientID,
@@ -323,21 +321,16 @@ func handleE2EReceiving(session user.Session,
 
 	// Get partner from Key Manager of receiving key
 	// since there is no space in message for senderID
-	// Get private key from Key Manager of receiving key
-	// This will ensure the correct one is used, even if
-	// we did a rekey of sending keys in the meantime
 	// Get decrypted partner public key from message
 	// Send rekey message to switchboard
 	if rekey {
 		partner := recpKey.GetManager().GetPartner()
 		partnerPubKey := message.SerializePayload()
-		privKey := recpKey.GetManager().GetPrivKey()
-		body := append(privKey.LeftpadBytes(uint64(format.TOTAL_LEN)), partnerPubKey...)
 		rekeyMsg := &parse.Message{
 			Sender: partner,
 			TypedBody: parse.TypedBody{
 				MessageType: int32(cmixproto.Type_NO_TYPE),
-				Body:        body,
+				Body:        partnerPubKey,
 			},
 			CryptoType: format.Rekey,
 			Receiver:   session.GetCurrentUser().User,

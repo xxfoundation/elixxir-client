@@ -82,15 +82,14 @@ func TestMain(m *testing.M) {
 		grp)
 
 	// Generate key TTL and number of keys
+	keyParams := session.GetKeyStore().GetKeyParams()
 	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
-		keyStore.MinKeys, keyStore.MaxKeys,
-		e2e.TTLParams{keyStore.TTLScalar,
-			keyStore.Threshold})
+		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
 	// Create Send KeyManager
 	km := keyStore.NewManager(baseKey, myPrivKeyCyclic,
 		partnerPubKeyCyclic, partnerID, true,
-		numKeys, keysTTL, keyStore.NumReKeys)
+		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Send Keys
 	km.GenerateKeys(grp, u.User, session.GetKeyStore())
@@ -98,7 +97,7 @@ func TestMain(m *testing.M) {
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, myPrivKeyCyclic,
 		partnerPubKeyCyclic, partnerID, false,
-		numKeys, keysTTL, keyStore.NumReKeys)
+		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Receive Keys
 	km.GenerateKeys(grp, u.User, session.GetKeyStore())

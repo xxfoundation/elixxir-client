@@ -11,25 +11,6 @@ import (
 	"sync/atomic"
 )
 
-// Hardcoded limits for keys
-// With 16 receiving states we can hold
-// 16*64=1024 dirty bits for receiving keys
-// With that limit, and setting maxKeys to 800,
-// we need a Threshold of 224, and a scalar
-// smaller than 1.28 to ensure we never generate
-// more than 1024 keys
-// With 2 receiving states for ReKeys we can hold
-// 128 Rekeys
-const (
-	numStates   uint16  = 16
-	numReStates uint16  = 2
-	MinKeys     uint16  = 500
-	MaxKeys     uint16  = 800
-	TTLScalar   float64 = 1.2 // generate 20% extra keys
-	Threshold   uint16  = 224
-	NumReKeys   uint16  = 128
-)
-
 // The KeyManager keeps track of all keys used in a single E2E
 // uni-directional relationship between the user and a partner
 // It tracks usage of send Keys and ReKeys in an atomic sendState

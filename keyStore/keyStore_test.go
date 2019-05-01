@@ -9,6 +9,30 @@ import (
 	"testing"
 )
 
+// Test GetKeyParams and confirm default params are correct
+func TestKeyStore_GetKeyParams(t *testing.T) {
+	ks := NewStore()
+
+	params := ks.GetKeyParams()
+
+	if params.MinKeys != minKeys {
+		t.Errorf("KeyParams: MinKeys mismatch, expected %d, " +
+			"got %d", minKeys, params.MinKeys)
+	} else if params.MaxKeys != maxKeys {
+		t.Errorf("KeyParams: MaxKeys mismatch, expected %d, " +
+			"got %d", maxKeys, params.MaxKeys)
+	} else if params.NumRekeys != numReKeys {
+		t.Errorf("KeyParams: NumRekeys mismatch, expected %d, " +
+			"got %d", numReKeys, params.NumRekeys)
+	} else if params.TTLScalar != ttlScalar {
+		t.Errorf("KeyParams: TTLScalar mismatch, expected %f, " +
+			"got %f", ttlScalar, params.TTLScalar)
+	} else if params.MinNumKeys != threshold {
+		t.Errorf("KeyParams: MinNumKeys mismatch, expected %d, " +
+			"got %d", threshold, params.MinNumKeys)
+	}
+}
+
 // Test GOB Encode/Decode of KeyStore
 // and compare if all keys match originals
 func TestKeyStore_Gob(t *testing.T) {

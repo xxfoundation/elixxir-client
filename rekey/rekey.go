@@ -185,10 +185,9 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	}
 
 	// Generate key TTL and number of keys
+	params := session.GetKeyStore().GetKeyParams()
 	keysTTL, numKeys := e2e.GenerateKeyTTL(ctx.BaseKey.GetLargeInt(),
-		keyStore.MinKeys, keyStore.MaxKeys,
-		e2e.TTLParams{keyStore.TTLScalar,
-			keyStore.Threshold})
+		params.MinKeys, params.MaxKeys, params.TTLParams)
 	// Create Key Manager if needed
 	switch rt {
 	case Rekey:
@@ -198,7 +197,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Create Receive KeyManager
 		km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 			partner, false,
-			numKeys, keysTTL, keyStore.NumReKeys)
+			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
 		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
 		// Remove RekeyContext
@@ -215,7 +214,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			// Create Send KeyManager
 			km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 				partner, true,
-				numKeys, keysTTL, keyStore.NumReKeys)
+				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
 			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Remove RekeyContext

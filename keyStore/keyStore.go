@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
@@ -96,6 +97,9 @@ func (m *inKeyMap) DeleteList(fingerprints []format.Fingerprint) {
 // very often
 // It still contains a lock for multithreaded access
 type KeyStore struct {
+	// Key generation parameters
+	params *KeyParams
+
 	// Transmission Keys map
 	// Maps id.User to *KeyManager
 	sendKeyManagers *keyManMap
@@ -111,10 +115,24 @@ type KeyStore struct {
 
 func NewStore() *KeyStore {
 	ks := new(KeyStore)
+	ks.params = &KeyParams{
+		MinKeys: minKeys,
+		MaxKeys: maxKeys,
+		NumRekeys: numReKeys,
+		TTLParams: e2e.TTLParams{
+			TTLScalar: ttlScalar,
+			MinNumKeys: threshold,
+		},
+	}
 	ks.sendKeyManagers = new(keyManMap)
 	ks.receptionKeys = new(inKeyMap)
 	ks.recvKeyManagers = make(map[id.User]*KeyManager)
 	return ks
+}
+
+// Get Key generation parameters from KeyStore
+func (ks *KeyStore) GetKeyParams() *KeyParams {
+	return ks.params
 }
 
 // Add a Send KeyManager to respective map in KeyStore
@@ -182,9 +200,16 @@ func (ks *KeyStore) GobEncode() ([]byte, error) {
 	// Create new encoder that will transmit the buffer
 	enc := gob.NewEncoder(&buf)
 
+	// Transmit the Key Parameters
+	err := enc.Encode(ks.params)
+
+	if err != nil {
+		return nil, err
+	}
+
 	// Transmit the Send Key Managers
 	kmList := ks.sendKeyManagers.values()
-	err := enc.Encode(kmList)
+	err = enc.Encode(kmList)
 
 	if err != nil {
 		return nil, err
@@ -211,9 +236,16 @@ func (ks *KeyStore) GobDecode(in []byte) error {
 	// Create new decoder that reads from the buffer
 	dec := gob.NewDecoder(&buf)
 
+	// Decode Key Parameters
+	err := dec.Decode(&ks.params)
+
+	if err != nil {
+		return err
+	}
+
 	// Decode Key Managers List
 	var kmList []*KeyManager
-	err := dec.Decode(&kmList)
+	err = dec.Decode(&kmList)
 
 	if err != nil {
 		return err

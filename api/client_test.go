@@ -301,19 +301,17 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Generate all keys and confirm they all match
+	keyParams := session.GetKeyStore().GetKeyParams()
 	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)
 	keyTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
-		keyStore.MinKeys, keyStore.MaxKeys,
-		e2e.TTLParams{
-			TTLScalar:keyStore.TTLScalar,
-			MinNumKeys: keyStore.Threshold})
+		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
 	sendKeys := e2e.DeriveKeys(grp, baseKey, userID, uint(numKeys))
 	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey,
-		userID, uint(keyStore.NumReKeys))
+		userID, uint(keyParams.NumRekeys))
 	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(numKeys))
 	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey,
-		partner, uint(keyStore.NumReKeys))
+		partner, uint(keyParams.NumRekeys))
 
 	// Confirm all keys
 	km := session.GetKeyStore().GetSendManager(partner)
@@ -348,7 +346,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < int(keyStore.NumReKeys); i++ {
+	for i := 0; i < int(keyParams.NumRekeys); i++ {
 		key, action := km.PopRekey()
 		if key == nil {
 			t.Errorf("TransmissionReKeys map returned nil")
@@ -357,7 +355,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetOuterType())
 		}
 
-		if i < int(keyStore.NumReKeys-1) {
+		if i < int(keyParams.NumRekeys-1) {
 			if action != keyStore.None {
 				t.Errorf("Expected 'None' action, got %s instead",
 					action)
@@ -369,9 +367,9 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 			}
 		}
 
-		if key.GetKey().Cmp(sendReKeys[int(keyStore.NumReKeys)-1-i]) != 0 {
+		if key.GetKey().Cmp(sendReKeys[int(keyParams.NumRekeys)-1-i]) != 0 {
 			t.Errorf("Key value expected %s, got %s",
-				sendReKeys[int(keyStore.NumReKeys)-1-i].Text(10),
+				sendReKeys[int(keyParams.NumRekeys)-1-i].Text(10),
 				key.GetKey().Text(10))
 		}
 	}
@@ -398,7 +396,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < int(keyStore.NumReKeys); i++ {
+	for i := 0; i < int(keyParams.NumRekeys); i++ {
 		h.Reset()
 		h.Write(recvReKeys[i].Bytes())
 		copy(fp[:], h.Sum(nil))

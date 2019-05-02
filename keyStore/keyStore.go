@@ -110,17 +110,17 @@ type KeyStore struct {
 
 	// Reception Key Managers map
 	recvKeyManagers map[id.User]*KeyManager
-	lock sync.Mutex
+	lock            sync.Mutex
 }
 
 func NewStore() *KeyStore {
 	ks := new(KeyStore)
 	ks.params = &KeyParams{
-		MinKeys: minKeys,
-		MaxKeys: maxKeys,
+		MinKeys:   minKeys,
+		MaxKeys:   maxKeys,
 		NumRekeys: numReKeys,
 		TTLParams: e2e.TTLParams{
-			TTLScalar: ttlScalar,
+			TTLScalar:  ttlScalar,
 			MinNumKeys: threshold,
 		},
 	}

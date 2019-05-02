@@ -301,7 +301,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Generate all keys and confirm they all match
-	keyParams := session.GetKeyStore().GetKeyParams()
+	keyParams := testClient.GetKeyParams()
 	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)
 	keyTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
 		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)

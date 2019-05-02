@@ -403,6 +403,10 @@ func (cl *Client) GetCurrentUser() *id.User {
 	return cl.sess.GetCurrentUser().User
 }
 
+func (cl *Client) GetKeyParams() *keyStore.KeyParams {
+	return cl.sess.GetKeyStore().GetKeyParams()
+}
+
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.

@@ -176,6 +176,7 @@ func sessionInitialization() *id.User {
 }
 
 func setKeyParams() {
+	globals.Log.DEBUG.Printf("Trying to parse key parameters...")
 	minKeys, err := strconv.Atoi(keyParams[0])
 	if err != nil {
 		return
@@ -200,6 +201,9 @@ func setKeyParams() {
 	if err != nil {
 		return
 	}
+
+	globals.Log.DEBUG.Printf("Setting key generation parameters: %d, %d, %d, %f, %d",
+		minKeys, maxKeys, numRekeys, ttlScalar, minNumKeys)
 
 	params := client.GetKeyParams()
 	params.MinKeys = uint16(minKeys)
@@ -495,7 +499,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user")
 
-	rootCmd.PersistentFlags().StringArrayVarP(&keyParams, "keyParams", "",
+	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 }

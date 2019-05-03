@@ -34,6 +34,7 @@ type rekeyTriggerListener struct{
 func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetRecipient()
+	globals.Log.DEBUG.Printf("Received RekeyTrigger message for user %v", *partner)
 	err := rekeyProcess(RekeyTrigger, partner, nil)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
@@ -51,6 +52,7 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	partnerPubKey := m.GetPayload()
+	globals.Log.DEBUG.Printf("Received Rekey message from user %v", *partner)
 	err := rekeyProcess(Rekey, partner, partnerPubKey)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
@@ -68,6 +70,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	baseKeyHash := m.GetPayload()
+	globals.Log.DEBUG.Printf("Received RekeyConfirm message from user %v", *partner)
 	err := rekeyProcess(RekeyConfirm, partner, baseKeyHash)
 	if err != nil {
 		globals.Log.WARN.Printf("Error on rekeyProcess: %s", err.Error())
@@ -200,8 +203,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
 		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
-		// Remove RekeyContext
-		rkm.DeleteCtx(partner)
+		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E" +
+			" relationship with user %v", *partner)
 	case RekeyConfirm:
 		// Check baseKey Hash matches expected
 		h, _ := hash.NewCMixHash()
@@ -219,6 +222,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
+			globals.Log.DEBUG.Printf("Generated new send keys for E2E" +
+				" relationship with user %v", *partner)
 		} else {
 			return fmt.Errorf("rekey-confirm from user %v failed,"+
 				" baseKey hash doesn't match expected", *partner)

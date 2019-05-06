@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
@@ -345,6 +346,8 @@ func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (strin
 
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.sess, cl.comm)
+	// Initialize Rekey listeners
+	rekey.InitRekey(cl.sess, cl.comm)
 
 	if email != "" {
 		err = cl.registerForUserDiscovery(email)
@@ -398,6 +401,10 @@ func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
 
 func (cl *Client) GetCurrentUser() *id.User {
 	return cl.sess.GetCurrentUser().User
+}
+
+func (cl *Client) GetKeyParams() *keyStore.KeyParams {
+	return cl.sess.GetKeyStore().GetKeyParams()
 }
 
 // Logout closes the connection to the server at this time and does
@@ -468,7 +475,8 @@ type SearchCallback interface {
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
-	cb SearchCallback) {
+	cb SearchCallback,
+	) {
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
@@ -515,20 +523,35 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		grp)
 
 	// Generate key TTL and number of keys
+	params := cl.sess.GetKeyStore().GetKeyParams()
 	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
-		keyStore.MinKeys, keyStore.MaxKeys,
-		e2e.TTLParams{keyStore.TTLScalar,
-			keyStore.Threshold})
+		params.MinKeys, params.MaxKeys, params.TTLParams)
 
-	// Create KeyManager
-	km := keyStore.NewManager(baseKey, partnerID,
-		numKeys, keysTTL, keyStore.NumReKeys)
+	// Create Send KeyManager
+	km := keyStore.NewManager(baseKey, privKeyCyclic,
+		partnerPubKeyCyclic, partnerID, true,
+		numKeys, keysTTL, params.NumRekeys)
 
-	// Generate Keys
+	// Generate Send Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
 
-	// Add Key Manager to session
-	cl.sess.AddKeyManager(km)
+	// Create Receive KeyManager
+	km = keyStore.NewManager(baseKey, privKeyCyclic,
+		partnerPubKeyCyclic, partnerID, false,
+		numKeys, keysTTL, params.NumRekeys)
+
+	// Generate Receive Keys
+	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
+
+	// Create RekeyKeys and add to RekeyManager
+	rkm := cl.sess.GetRekeyManager()
+
+	keys := &keyStore.RekeyKeys{
+		CurrPrivKey: privKeyCyclic,
+		CurrPubKey:  partnerPubKeyCyclic,
+	}
+
+	rkm.AddKeys(partnerID, keys)
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage

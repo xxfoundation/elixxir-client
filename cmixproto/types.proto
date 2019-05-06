@@ -122,6 +122,12 @@ enum Type {
     // indicating success.
     PAYMENT_RECEIPT = 23;
 
+    // End to End Rekey message types
+    // Trigger a rekey, this message is used locally in client only
+    REKEY_TRIGGER = 30;
+    // Rekey confirmation message. Sent by partner to confirm completion of a rekey
+    REKEY_CONFIRM = 31;
+
     // These are specialized messages that convey the information that
     // the UI needs to know once the wallet's finished updating. They shouldn't
     // go over the network. Types 9000-9999 are reserved for messages like this.

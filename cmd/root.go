@@ -31,6 +31,7 @@ import (
 	"log"
 	"math/big"
 	"os"
+	"strconv"
 	"sync/atomic"
 	"time"
 )
@@ -52,6 +53,7 @@ var registrationAddr string
 var registrationCode string
 var userEmail string
 var end2end bool
+var keyParams []string
 var client *api.Client
 
 // Execute adds all child commands to the root command and sets flags
@@ -173,6 +175,44 @@ func sessionInitialization() *id.User {
 	return uid
 }
 
+func setKeyParams() {
+	globals.Log.DEBUG.Printf("Trying to parse key parameters...")
+	minKeys, err := strconv.Atoi(keyParams[0])
+	if err != nil {
+		return
+	}
+
+	maxKeys, err := strconv.Atoi(keyParams[1])
+	if err != nil {
+		return
+	}
+
+	numRekeys, err := strconv.Atoi(keyParams[2])
+	if err != nil {
+		return
+	}
+
+	ttlScalar, err := strconv.ParseFloat(keyParams[3], 64)
+	if err != nil {
+		return
+	}
+
+	minNumKeys, err := strconv.Atoi(keyParams[4])
+	if err != nil {
+		return
+	}
+
+	globals.Log.DEBUG.Printf("Setting key generation parameters: %d, %d, %d, %f, %d",
+		minKeys, maxKeys, numRekeys, ttlScalar, minNumKeys)
+
+	params := client.GetKeyParams()
+	params.MinKeys = uint16(minKeys)
+	params.MaxKeys = uint16(maxKeys)
+	params.NumRekeys = uint16(numRekeys)
+	params.TTLScalar = ttlScalar
+	params.MinNumKeys = uint16(minNumKeys)
+}
+
 type FallbackListener struct {
 	messagesReceived int64
 }
@@ -274,6 +314,10 @@ var rootCmd = &cobra.Command{
 		SetCertPaths(gwCertPath, registrationCertPath)
 
 		userID := sessionInitialization()
+		// Set Key parameters if defined
+		if len(keyParams) == 5 {
+			setKeyParams()
+		}
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -454,6 +498,10 @@ func init() {
 
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user")
+
+	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
+		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
+			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 }
 
 // Sets the cert paths in comms

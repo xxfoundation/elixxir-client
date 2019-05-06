@@ -42,8 +42,8 @@ type Session interface {
 	UpsertMap(key string, element interface{}) error
 	QueryMap(key string) (interface{}, error)
 	DeleteMap(key string) error
-	AddKeyManager(km *keyStore.KeyManager)
 	GetKeyStore() *keyStore.KeyStore
+	GetRekeyManager() *keyStore.RekeyManager
 	GetSwitchboard() *switchboard.Switchboard
 	GetQuitChan() chan bool
 	LockStorage()
@@ -72,8 +72,8 @@ func NewSession(store globals.Storage,
 		PublicKey:           publicKey,
 		Grp:                 grp,
 		InterfaceMap:        make(map[string]interface{}),
-		KeyManagers:         make([]*keyStore.KeyManager, 0),
-		keyMaps:             keyStore.NewStore(),
+		KeyMaps:             keyStore.NewStore(),
+		RekeyManager:        keyStore.NewRekeyManager(),
 		store:               store,
 		listeners:           switchboard.NewSwitchboard(),
 		quitReceptionRunner: make(chan bool),
@@ -129,16 +129,13 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	// Create keyStore
-	session.keyMaps = keyStore.NewStore()
+	// Reconstruct Key maps
+	session.KeyMaps.ReconstructKeys(session.Grp, UID)
+
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
 	session.quitReceptionRunner = make(chan bool)
-	// Rebuild E2E Key Maps from Key Managers
-	for _, km := range session.KeyManagers {
-		km.GenerateKeys(session.Grp, UID, session.keyMaps)
-	}
 
 	// Set storage pointer
 	session.store = store
@@ -164,13 +161,13 @@ type SessionObj struct {
 	//Interface map for random data storage
 	InterfaceMap map[string]interface{}
 
-	// E2E Key Managers list
-	KeyManagers []*keyStore.KeyManager
+	// E2E KeyStore
+	KeyMaps *keyStore.KeyStore
+
+	// Rekey Manager
+	RekeyManager *keyStore.RekeyManager
 
 	// Non exported fields (not GOB encoded/decoded)
-	// E2E KeyStore
-	keyMaps *keyStore.KeyStore
-
 	// Local pointer to storage of this session
 	store globals.Storage
 
@@ -296,7 +293,6 @@ func (s *SessionObj) Immolate() error {
 	s.GWAddress = burntString(len(s.GWAddress))
 	s.GWAddress = ""
 
-
 	s.UnlockStorage()
 
 	return nil
@@ -332,10 +328,6 @@ func (s *SessionObj) DeleteMap(key string) error {
 	return err
 }
 
-func (s *SessionObj) AddKeyManager(km *keyStore.KeyManager) {
-	s.KeyManagers = append(s.KeyManagers, km)
-}
-
 func (s *SessionObj) GetSessionData() ([]byte, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
@@ -343,7 +335,11 @@ func (s *SessionObj) GetSessionData() ([]byte, error) {
 }
 
 func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
-	return s.keyMaps
+	return s.KeyMaps
+}
+
+func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
+	return s.RekeyManager
 }
 
 func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {

@@ -403,6 +403,10 @@ func (cl *Client) GetCurrentUser() *id.User {
 	return cl.sess.GetCurrentUser().User
 }
 
+func (cl *Client) GetKeyParams() *keyStore.KeyParams {
+	return cl.sess.GetKeyStore().GetKeyParams()
+}
+
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
@@ -471,7 +475,8 @@ type SearchCallback interface {
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
-	cb SearchCallback) {
+	cb SearchCallback,
+	) {
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
@@ -518,15 +523,14 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		grp)
 
 	// Generate key TTL and number of keys
+	params := cl.sess.GetKeyStore().GetKeyParams()
 	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
-		keyStore.MinKeys, keyStore.MaxKeys,
-		e2e.TTLParams{keyStore.TTLScalar,
-			keyStore.Threshold})
+		params.MinKeys, params.MaxKeys, params.TTLParams)
 
 	// Create Send KeyManager
 	km := keyStore.NewManager(baseKey, privKeyCyclic,
 		partnerPubKeyCyclic, partnerID, true,
-		numKeys, keysTTL, keyStore.NumReKeys)
+		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Send Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
@@ -534,7 +538,7 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, privKeyCyclic,
 		partnerPubKeyCyclic, partnerID, false,
-		numKeys, keysTTL, keyStore.NumReKeys)
+		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Receive Keys
 	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())

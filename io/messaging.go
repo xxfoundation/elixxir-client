@@ -141,6 +141,7 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 		msg.SetSender(userID)
 		msg.SetPayloadData(message)
 	}
+	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)
 	err = m.send(session, cryptoType, msg, true)
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())
@@ -235,7 +236,7 @@ func handleE2ESending(session user.Session,
 			CryptoType: format.None,
 			Receiver:   recipientID,
 		}
-		session.GetSwitchboard().Speak(rekeyMsg)
+		go session.GetSwitchboard().Speak(rekeyMsg)
 	}
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
@@ -335,7 +336,7 @@ func handleE2EReceiving(session user.Session,
 			CryptoType: format.Rekey,
 			Receiver:   session.GetCurrentUser().User,
 		}
-		session.GetSwitchboard().Speak(rekeyMsg)
+		go session.GetSwitchboard().Speak(rekeyMsg)
 	}
 	return rekey, err
 }

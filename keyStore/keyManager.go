@@ -566,7 +566,7 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		km.sendOrRecv = false
 	}
 
-	km.partner = new(id.User).SetBytes(s.Partner)
+	km.partner = id.NewUserFromBytes(s.Partner)
 	km.sendState = new(uint64)
 	*km.sendState = binary.BigEndian.Uint64(s.State)
 	km.ttl = binary.BigEndian.Uint16(s.TTL)

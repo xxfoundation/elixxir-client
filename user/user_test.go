@@ -15,7 +15,7 @@ import (
 )
 
 // InitGroup sets up the cryptographic constants for cMix
-func InitGroup() *cyclic.Group{
+func InitGroup() *cyclic.Group {
 
 	base := 16
 

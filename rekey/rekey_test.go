@@ -55,13 +55,13 @@ func TestMain(m *testing.M) {
 		grp.GetQ())
 	rng := csprng.NewSystemRNG()
 	u := &user.User{
-		User: new(id.User).SetUints(&[4]uint64{0, 0, 0, 18}),
+		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
 		Nick: "Bernie",
 	}
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
 	myPubKey := myPrivKey.PublicKeyGen()
-	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
@@ -114,7 +114,7 @@ func TestMain(m *testing.M) {
 
 // Test RekeyTrigger
 func TestRekeyTrigger(t *testing.T) {
-	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
 	// Test receiving a RekeyTrigger message
@@ -168,7 +168,7 @@ func TestRekeyTrigger(t *testing.T) {
 
 // Test RekeyConfirm
 func TestRekeyConfirm(t *testing.T) {
-	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	rekeyCtx := session.GetRekeyManager().GetCtx(partnerID)
 	baseKey := rekeyCtx.BaseKey
 	// Test receiving a RekeyConfirm message with wrong H(baseKey)
@@ -236,7 +236,7 @@ func TestRekeyConfirm(t *testing.T) {
 
 // Test Rekey
 func TestRekey(t *testing.T) {
-	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetSendManager(partnerID)
 	// Generate new partner public key
 	grp := globals.InitCrypto()
@@ -296,7 +296,7 @@ func TestRekey(t *testing.T) {
 
 // Test Rekey errors
 func TestRekey_Errors(t *testing.T) {
-	partnerID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
 	// Delete RekeyKeys so that RekeyTrigger and rekey error out

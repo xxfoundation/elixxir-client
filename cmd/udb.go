@@ -23,7 +23,7 @@ func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
 		fmt.Printf("Public Key returned is empty\n")
 	} else {
 		fmt.Printf("UDB search successful. Returned user %v\n",
-			*new(id.User).SetBytes(userID))
+			*id.NewUserFromBytes(userID))
 	}
 }
 

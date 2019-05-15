@@ -57,7 +57,7 @@ var pubKey []byte
 
 func TestMain(m *testing.M) {
 	u := &user.User{
-		User: new(id.User).SetUints(&[4]uint64{0, 0, 0, 18}),
+		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
 		Nick: "Bernie",
 	}
 	fakeSession := user.NewSession(&globals.RamStorage{},

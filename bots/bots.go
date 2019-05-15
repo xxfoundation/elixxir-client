@@ -49,7 +49,7 @@ var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
 func InitBots(s user.Session,m io.Communications) {
-	UdbID = new(id.User).SetUints(&[4]uint64{0, 0, 0, 3})
+	UdbID = id.NewUserFromUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(channelResponseListener)
 	getKeyResponseListener = make(channelResponseListener)

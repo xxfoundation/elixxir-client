@@ -112,7 +112,7 @@ func parseSearch(msg string) (*id.User, string) {
 	if err != nil {
 		return id.ZeroID, fmt.Sprintf("Couldn't parse search cMix UID: %s", msg)
 	}
-	cMixUID := new(id.User).SetBytes(cMixUIDBytes)
+	cMixUID := id.NewUserFromBytes(cMixUIDBytes)
 
 	return cMixUID, resParts[4]
 }

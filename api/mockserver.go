@@ -70,10 +70,6 @@ func (m *TestInterface) CheckMessages(userId *id.User,
 	return make([]string, 0), true
 }
 
-// Receives batch from server and stores it in the local MessageBuffer
-func (m *TestInterface) ReceiveBatch(msg *pb.Batch) {
-}
-
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
 func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
@@ -82,7 +78,9 @@ func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
 }
 
 func (m *TestInterface) ConfirmNonce(message *pb.DSASignature) (*pb.RegistrationConfirmation, error) {
-	regConfirmation := &pb.RegistrationConfirmation{}
+	regConfirmation := &pb.RegistrationConfirmation{
+		Server: &pb.DSAPublicKey{},
+	}
 
 	regConfirmation.Server.P = large.NewInt(1).Bytes()
 	regConfirmation.Server.Q = large.NewInt(1).Bytes()

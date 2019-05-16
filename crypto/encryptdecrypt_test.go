@@ -75,7 +75,7 @@ func setup() {
 		cmix.NodeKeyGen(grp, salt, nk[i].ReceptionKey, baseKey)
 		grp.Mul(serverReceptionKey, baseKey, serverReceptionKey)
 	}
-	session = user.NewSession(nil, u, "", nk,
+	session = user.NewSession(nil, u, nk,
 		nil, nil, grp)
 }
 
@@ -118,7 +118,7 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	grp.Mul(payload, serverReceptionKey, payload)
 	// Multiply associated data only by transmission key
 	grp.Mul(assocData, serverTransmissionKey, assocData)
-	encryptedNet := &pb.CmixMessage{
+	encryptedNet := &pb.Slot{
 		SenderID:       sender.Bytes(),
 		Salt:           salt,
 		MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
@@ -189,7 +189,7 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	grp.Mul(payload, serverReceptionKey, payload)
 	// Multiply associated data only by transmission key
 	grp.Mul(assocData, serverTransmissionKey, assocData)
-	encryptedNet := &pb.CmixMessage{
+	encryptedNet := &pb.Slot{
 		SenderID:       sender.Bytes(),
 		Salt:           salt,
 		MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),

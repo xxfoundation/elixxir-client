@@ -49,7 +49,7 @@ func TestUserSession(t *testing.T) {
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
 	ses := NewSession(storage,
-		u, "abc", keys, publicKey, privateKey, grp)
+		u, keys, publicKey, privateKey, grp)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -82,20 +82,6 @@ func TestUserSession(t *testing.T) {
 
 	if ses == nil {
 		t.Errorf("Error: CurrentUser not set correctly!")
-	} else {
-		pass++
-	}
-
-	if ses.GetGWAddress() == "" {
-		t.Errorf("Error: Node Address not set correctly with Regestration!")
-	} else {
-		pass++
-	}
-
-	ses.SetGWAddress("test")
-
-	if ses.GetGWAddress() != "test" {
-		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
 	} else {
 		pass++
 	}
@@ -219,7 +205,7 @@ func TestGetPubKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(nil, u, keys, publicKey, privateKey, grp)
 
 	pubKey := ses.GetPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -246,7 +232,7 @@ func TestGetPrivKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(nil, u, keys, publicKey, privateKey, grp)
 
 	privKey := ses.GetPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

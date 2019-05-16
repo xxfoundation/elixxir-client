@@ -38,10 +38,11 @@ func TestRegistrationGob(t *testing.T) {
 		t.Error(err)
 	}
 
+	testClient.Connect(RegGWAddresses[:], "", "", "")
+
 	// populate a gob in the store
 	grp := getGroup()
-	_, err = testClient.Register(true, "UAV6IWD6",
-		"", "", RegGWAddresses[:], false, grp)
+	_, err = testClient.Register(true, "UAV6IWD6", "", false, grp)
 	if err != nil {
 		t.Error(err)
 	}
@@ -57,17 +58,8 @@ func TestRegistrationGob(t *testing.T) {
 		t.Error(err)
 	}
 
-	VerifyRegisterGobAddress(t)
 	VerifyRegisterGobKeys(t)
 	VerifyRegisterGobUser(t)
-}
-
-func VerifyRegisterGobAddress(t *testing.T) {
-
-	if Session.GetGWAddress() != RegGWAddresses[0] {
-		t.Errorf("GetGWAddress() returned %v, expected %v",
-			Session.GetGWAddress(), RegGWAddresses[0])
-	}
 }
 
 func VerifyRegisterGobUser(t *testing.T) {
@@ -209,7 +201,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, "", []user.NodeKeys{}, myPubKey, myPrivKey, grp)
+		myUser, []user.NodeKeys{}, myPubKey, myPrivKey, grp)
 
 	testClient.sess = session
 
@@ -293,7 +285,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, "", []user.NodeKeys{}, myPubKey,
+		myUser, []user.NodeKeys{}, myPubKey,
 		myPrivKey, grp)
 
 	testClient.sess = session

@@ -92,10 +92,10 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect(gwAddresses []string, gwCertPath,
-    regAddr, regCertPath string) {
+    regAddr, regCertPath string) error {
 	if len(gwAddresses) < 1 {
 		globals.Log.ERROR.Printf("Connect: Invalid number of nodes")
-		return
+		return errors.New("could not connect due to invalid number of nodes")
 	}
 
 	var gwCreds credentials.TransportCredentials = nil
@@ -126,6 +126,7 @@ func (cl *Client) Connect(gwAddresses []string, gwCertPath,
 		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, info)
 		cl.regAddress = addr
 	}
+	return nil
 }
 
 // Registers user and returns the User ID.

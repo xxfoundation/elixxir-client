@@ -25,6 +25,10 @@ import (
 const gwAddress = "localhost:5557"
 
 func TestMain(m *testing.M) {
+	gwShutDown := gateway.StartGateway(gwAddress,
+		gateway.NewImplementation(), "", "")
+	time.Sleep(100 * time.Millisecond)
+	defer gwShutDown.Shutdown()
 	os.Exit(m.Run())
 }
 
@@ -68,10 +72,6 @@ func (br *BytesReceiver) Receive(message Message) {
 }
 
 func TestRegister(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello")
@@ -96,8 +96,11 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := client.Register(true, registrationCode, "",
-		"", gwAddress, false, string(grpJSON))
+	// Connect to gateway
+	client.Connect(gwAddress, "", "", "")
+
+	regRes, err := client.Register(true, registrationCode,
+		"", false, string(grpJSON))
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -106,35 +109,19 @@ func TestRegister(t *testing.T) {
 	}
 }
 
-func TestRegisterBadNumNodes(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
-	registrationCode := "UAV6IWD6"
+func TestConnectBadNumNodes(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello")
-	p := large.NewInt(int64(107))
-	g := large.NewInt(int64(2))
-	q := large.NewInt(int64(3))
-	grp := cyclic.NewGroup(p, g, q)
-	grpJSON, err := grp.MarshalJSON()
-	if err != nil {
-		t.Errorf("Failed to marshal group JSON: %s", err)
-	}
 
-	_, err = client.Register(true, registrationCode, "",
-		"", "", false, string(grpJSON))
+	// Connect to empty gw
+	err = client.Connect("", "", "", "")
+
 	if err == nil {
-		t.Errorf("Registration worked with bad numnodes! %s", err.Error())
+		t.Errorf("Connect should have returned an error when")
 	}
 }
 
 func TestLoginLogout(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello")
@@ -159,9 +146,12 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, err := client.Register(true, registrationCode, "",
-		"", gwAddress, false, string(grpJSON))
-	loginRes, err2 := client.Login(regRes, "", gwAddress, "")
+	// Connect to gateway
+	client.Connect(gwAddress, "", "", "")
+
+	regRes, err := client.Register(true, registrationCode,
+		"", false, string(grpJSON))
+	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
@@ -183,10 +173,6 @@ func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
 
 // Proves that a message can be received by a listener added with the bindings
 func TestListen(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello")
@@ -211,9 +197,12 @@ func TestListen(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, _ := client.Register(true, registrationCode, "",
-		"", gwAddress,false, string(grpJSON))
-	client.Login(regRes, "", gwAddress, "")
+	// Connect to gateway
+	client.Connect(gwAddress, "", "", "")
+
+	regRes, _ := client.Register(true, registrationCode,
+		"", false, string(grpJSON))
+	client.Login(regRes, "")
 	listener := MockListener(false)
 	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.client.GetSwitchboard().Speak(&parse.Message{
@@ -230,10 +219,6 @@ func TestListen(t *testing.T) {
 }
 
 func TestStopListening(t *testing.T) {
-	gwShutDown := gateway.StartGateway(gwAddress,
-		gateway.NewImplementation(), "", "")
-	time.Sleep(100 * time.Millisecond)
-	defer gwShutDown()
 	registrationCode := "UAV6IWD6"
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello")
@@ -258,9 +243,12 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	regRes, _ := client.Register(true, registrationCode, "",
-		"", gwAddress,false, string(grpJSON))
-	client.Login(regRes, "", gwAddress, "")
+	// Connect to gateway
+	client.Connect(gwAddress, "", "", "")
+
+	regRes, _ := client.Register(true, registrationCode,
+		"", false, string(grpJSON))
+	client.Login(regRes, "")
 	listener := MockListener(false)
 	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.StopListening(handle)

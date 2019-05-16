@@ -29,19 +29,22 @@ const SessionGWPort = 15000
 var RegAddress = fmtAddress(RegPort)
 var RegGWAddresses [NumGWs]string
 var SessionGWAddress = fmtAddress(SessionGWPort)
+var RegGWComms [NumGWs]*gateway.GatewayComms
+var RegComms *registration.RegistrationComms
+var SessionGWComms *gateway.GatewayComms
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE"
 
 var RegGWHandlers = [NumGWs]*TestInterface{
-	{LastReceivedMessage: pb.CmixMessage{}},
-	{LastReceivedMessage: pb.CmixMessage{}},
-	{LastReceivedMessage: pb.CmixMessage{}},
+	{LastReceivedMessage: pb.Slot{}},
+	{LastReceivedMessage: pb.Slot{}},
+	{LastReceivedMessage: pb.Slot{}},
 }
 
 var RegHandler = MockRegistration{}
 
-var SessionGWHandler = TestInterface{LastReceivedMessage: pb.CmixMessage{}}
+var SessionGWHandler = TestInterface{LastReceivedMessage: pb.Slot{}}
 var Session user.SessionObj
 
 // Setups general testing params and calls test wrapper
@@ -64,9 +67,12 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(RegGWAddresses[:], "", "", "")
+
 	// Register precanned user with all gateways
 	regRes, err := client.Register(true, ValidRegCode,
-		"", "", RegGWAddresses[:], false, getGroup())
+		"", false, getGroup())
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -88,33 +94,18 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(RegGWAddresses[:], "", RegAddress, "")
+
 	// Register precanned user with all gateways
-	regRes, err := client.Register(false, ValidRegCode, "",
-		RegAddress, RegGWAddresses[:], false, getGroup())
+	regRes, err := client.Register(false, ValidRegCode,
+		"", false, getGroup())
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
 
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
-	}
-}
-
-// Verify that registering with an invalid number of gateways will fail
-func TestRegister_InvalidNumGatewaysReturnsError(t *testing.T) {
-
-	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello")
-	if err != nil {
-		t.Errorf("Failed to initialize dummy client: %s", err.Error())
-	}
-
-	// Register with no gateways
-	_, err = client.Register(true, ValidRegCode, "",
-		"", []string{}, false, getGroup())
-	if err == nil {
-		t.Errorf("Registration worked with invalid number of gateways!")
 	}
 }
 
@@ -128,9 +119,12 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(RegGWAddresses[:], "", "", "")
+
 	// Register with invalid reg code
-	_, err = client.Register(true, InvalidRegCode, "",
-		RegAddress, RegGWAddresses[:], false, getGroup())
+	_, err = client.Register(true, InvalidRegCode,
+		"", false, getGroup())
 	if err == nil {
 		t.Error("Registration worked with invalid registration code!")
 	}
@@ -145,13 +139,16 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(RegGWAddresses[:], "", "", "")
+
 	// ...
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.Register(true, ValidRegCode, "",
-		RegAddress, RegGWAddresses[:], false, getGroup())
+	_, err = client.Register(true, ValidRegCode,
+		"", false, getGroup())
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -168,16 +165,19 @@ func TestSend(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(RegGWAddresses[:], "", "", "")
+
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "",
-		RegAddress, RegGWAddresses[:], false, getGroup())
+	userID, err := client.Register(true, ValidRegCode,
+		"", false, getGroup())
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID, "", SessionGWAddress, "")
+	_, err = client.Login(userID, "")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -222,6 +222,9 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(RegGWAddresses[:], "", "", "")
+
 	// Logout before logging in should return an error
 	err = client.Logout()
 
@@ -231,15 +234,15 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "",
-		RegAddress, RegGWAddresses[:], false, getGroup())
+	userID, err := client.Register(true, ValidRegCode,
+		"", false, getGroup())
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID, "", SessionGWAddress, "")
+	_, err = client.Login(userID, "")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -267,21 +270,29 @@ func testMainWrapper(m *testing.M) int {
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i, handler := range RegGWHandlers {
 		RegGWAddresses[i] = fmtAddress(RegGWsStartPort+i)
-		gw := gateway.StartGateway(
-			RegGWAddresses[i], handler, "", "",
-		)
-		defer gw()
+		gw := gateway.StartGateway(RegGWAddresses[i],
+			handler, "", "")
+		RegGWComms[i] = gw
 	}
 
 	// Start mock registration server and defer its shutdown
-	defer registration.StartRegistrationServer(RegAddress, &RegHandler, "", "")()
+	RegComms = registration.StartRegistrationServer(RegAddress,
+		&RegHandler, "", "")
 
 	// Start session gateway and defer its shutdown
-	defer gateway.StartGateway(
-		SessionGWAddress, &SessionGWHandler, "", "",
-	)()
+	SessionGWComms = gateway.StartGateway(SessionGWAddress,
+		&SessionGWHandler, "", "")
 
+	defer testWrapperShutdown()
 	return m.Run()
+}
+
+func testWrapperShutdown() {
+	for _, gw := range RegGWComms {
+		gw.Shutdown()
+	}
+	RegComms.Shutdown()
+	SessionGWComms.Shutdown()
 }
 
 func getGroup() *cyclic.Group {

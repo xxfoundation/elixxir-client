@@ -114,10 +114,14 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect(gwAddressesList, gwCertPath,
-	regAddr, regCertPath string) {
+	regAddr, regCertPath string) error {
+
+	if gwAddressesList == "" {
+		return errors.New("invalid number of nodes")
+	}
 
 	gwList := strings.Split(gwAddressesList, ",")
-	cl.client.Connect(gwList, gwCertPath, regAddr, regCertPath)
+	return cl.client.Connect(gwList, gwCertPath, regAddr, regCertPath)
 }
 
 // Registers user and returns the User ID bytes.

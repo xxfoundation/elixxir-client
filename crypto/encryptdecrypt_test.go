@@ -57,7 +57,7 @@ func setup() {
 
 	grp := cyclic.NewGroup(p, g, q)
 
-	UID := new(id.User).SetUints(&[4]uint64{0, 0, 0, 18})
+	UID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 18})
 	u, _ := user.Users.GetUser(UID)
 
 	nk := make([]user.NodeKeys, 5)

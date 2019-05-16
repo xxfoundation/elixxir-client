@@ -62,7 +62,7 @@ func newRegistry() Registry {
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery
 	for i := uint64(1); i <= NUM_DEMO_USERS; i++ {
-		currentID := new(id.User).SetUints(&[4]uint64{0, 0, 0, i})
+		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, i})
 		t := new(User)
 		k := new(NodeKeys)
 
@@ -91,12 +91,12 @@ func newRegistry() Registry {
 
 	// Channels have been hardcoded to users starting with 31
 	for i := 0; i < len(DemoUserNicks); i++ {
-		currentID := new(id.User).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
+		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
 		uc[*currentID].Nick = DemoUserNicks[i]
 	}
 
 	for i := 0; i < len(DemoChannelNames); i++ {
-		currentID := new(id.User).SetUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
+		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
 		uc[*currentID].Nick = DemoChannelNames[i]
 	}
 

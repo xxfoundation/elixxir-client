@@ -70,7 +70,7 @@ type Listener interface {
 // If you pass the zero type (just zero) to Listen() you will hear messages of
 // all types.
 func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := new(id.User).SetBytes(userId)
+	typedUserId := id.NewUserFromBytes(userId)
 
 	listener := &listenerProxy{proxy: newListener}
 
@@ -155,7 +155,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 // This should only ever be used for testing purposes
 func (cl *Client) Login(UID []byte, email, addr string,
 	tlsCert string) (string, error) {
-	userID := new(id.User).SetBytes(UID)
+	userID := id.NewUserFromBytes(UID)
 	var err error
 	var nick string
 	if tlsCert == "default" {
@@ -170,8 +170,8 @@ func (cl *Client) Login(UID []byte, email, addr string,
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
 func (cl *Client) Send(m Message, encrypt bool) error {
-	sender := new(id.User).SetBytes(m.GetSender())
-	recipient := new(id.User).SetBytes(m.GetRecipient())
+	sender := id.NewUserFromBytes(m.GetSender())
+	recipient := id.NewUserFromBytes(m.GetRecipient())
 
 	var cryptoType format.CryptoType
 	if encrypt {
@@ -245,7 +245,7 @@ func (ncp *nickCallbackProxy) Callback(nick string, err error) {
 func (cl *Client) LookupNick(user []byte,
 	cb NickLookupCallback) {
 	proxy := &nickCallbackProxy{cb}
-	userID := new(id.User).SetBytes(user)
+	userID := id.NewUserFromBytes(user)
 	cl.client.LookupNick(userID, proxy)
 }
 

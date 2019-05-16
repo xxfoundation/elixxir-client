@@ -141,7 +141,7 @@ func sessionInitialization() *id.User {
 		regCode := registrationCode
 		// If precanned user, use generated code instead
 		if userId != 0 {
-			regCode = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
+			regCode = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		}
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
@@ -158,7 +158,7 @@ func sessionInitialization() *id.User {
 	} else {
 		// hack for session persisting with cmd line
 		// doesn't support non pre canned users
-		uid = new(id.User).SetUints(&[4]uint64{0, 0, 0, userId})
+		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
 		// clear userEmail if it was defined, since login was previously done
 		userEmail = ""
 	}
@@ -285,7 +285,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	fmt.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
-	speakerId := new(id.User).SetBytes(result.SpeakerID)
+	speakerId := id.NewUserFromBytes(result.SpeakerID)
 	client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,
@@ -345,7 +345,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Only send a message if we have a message to send (except dummy messages)
-		recipientId := new(id.User).SetUints(&[4]uint64{0, 0, 0, destinationUserId})
+		recipientId := id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""

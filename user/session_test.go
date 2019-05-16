@@ -10,8 +10,8 @@ import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"reflect"
@@ -70,7 +70,7 @@ func TestUserSession(t *testing.T) {
 	} else {
 		pass++
 	}
-	
+
 	_, err = LoadSession(storage,
 		id.NewUserFromUint(10002, t))
 

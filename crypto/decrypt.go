@@ -21,7 +21,7 @@ import (
 // of a message from a team of nodes
 // It returns a new message
 func CMIXDecrypt(session user.Session,
-	msg *pb.CmixMessage) *format.Message {
+	msg *pb.Slot) *format.Message {
 	salt := msg.Salt
 	nodeKeys := session.GetKeys()
 	baseKeys := make([]*cyclic.Int, len(nodeKeys))

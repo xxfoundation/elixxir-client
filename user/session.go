@@ -29,8 +29,6 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetGWAddress() string
-	SetGWAddress(addr string)
 	GetKeys() []NodeKeys
 	GetPrivateKey() *signature.DSAPrivateKey
 	GetPublicKey() *signature.DSAPublicKey
@@ -58,7 +56,7 @@ type NodeKeys struct {
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
-	u *User, GatewayAddr string, nk []NodeKeys,
+	u *User, nk []NodeKeys,
 	publicKey *signature.DSAPublicKey,
 	privateKey *signature.DSAPrivateKey,
 	grp *cyclic.Group) Session {
@@ -66,7 +64,6 @@ func NewSession(store globals.Storage,
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:         u,
-		GWAddress:           GatewayAddr, // FIXME: don't store this here
 		Keys:                nk,
 		PrivateKey:          privateKey,
 		PublicKey:           publicKey,
@@ -146,9 +143,6 @@ func LoadSession(store globals.Storage,
 type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
-
-	// Gateway address to the cMix network
-	GWAddress string
 
 	Keys       []NodeKeys
 	PrivateKey *signature.DSAPrivateKey
@@ -231,18 +225,6 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	return currentUser
 }
 
-func (s *SessionObj) GetGWAddress() string {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.GWAddress
-}
-
-func (s *SessionObj) SetGWAddress(addr string) {
-	s.LockStorage()
-	s.GWAddress = addr
-	s.UnlockStorage()
-}
-
 func (s *SessionObj) storeSession() error {
 
 	if s.store == nil {
@@ -288,10 +270,6 @@ func (s *SessionObj) Immolate() error {
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""
-
-	s.GWAddress = burntString(len(s.GWAddress))
-	s.GWAddress = burntString(len(s.GWAddress))
-	s.GWAddress = ""
 
 	s.UnlockStorage()
 

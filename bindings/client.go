@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -110,6 +109,17 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 	return &Client{client: cl}, err
 }
 
+
+// Connects to gateways and registration server (if needed)
+// using TLS filepaths to create credential information
+// for connection establishment
+func (cl *Client) Connect(gwAddressesList, gwCertPath,
+	regAddr, regCertPath string) {
+
+	gwList := strings.Split(gwAddressesList, ",")
+	cl.client.Connect(gwList, gwCertPath, regAddr, regCertPath)
+}
+
 // Registers user and returns the User ID bytes.
 // Returns null if registration fails and error
 // If preCan set to true, registration is attempted assuming a pre canned user
@@ -117,13 +127,8 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, nick,
-	registrationAddr string, gwAddressesList string,
+func (cl *Client) Register(preCan bool, registrationCode, nick string,
 	mint bool, grpJSON string) ([]byte, error) {
-
-	if gwAddressesList == "" {
-		return id.ZeroID[:], errors.New("invalid number of nodes")
-	}
 
 	// Unmarshal group JSON
 	var grp cyclic.Group
@@ -132,10 +137,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 		return id.ZeroID[:], err
 	}
 
-	gwList := strings.Split(gwAddressesList, ",")
-
-	UID, err := cl.client.Register(preCan, registrationCode, nick,
-		registrationAddr, gwList, mint, &grp)
+	UID, err := cl.client.Register(preCan, registrationCode, nick, mint, &grp)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -153,17 +155,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 // certificate string to "default", the bindings will use that certificate.
 // If you leave it empty, the Client will try to connect to the GW without TLS
 // This should only ever be used for testing purposes
-func (cl *Client) Login(UID []byte, email, addr string,
-	tlsCert string) (string, error) {
+func (cl *Client) Login(UID []byte, email string) (string, error) {
 	userID := id.NewUserFromBytes(UID)
-	var err error
-	var nick string
-	if tlsCert == "default" {
-		nick, err = cl.client.Login(userID, email, addr, certs.GatewayTLS)
-	} else {
-		nick, err = cl.client.Login(userID, email, addr, tlsCert)
-	}
-	return nick, err
+	return cl.client.Login(userID, email)
 }
 
 // Sends a message structured via the message interface

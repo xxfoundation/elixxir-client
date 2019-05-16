@@ -54,14 +54,14 @@ func (m APIMessage) Pack() []byte {
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
 type TestInterface struct {
-	LastReceivedMessage pb.CmixMessage
+	LastReceivedMessage pb.Slot
 }
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
 func (m *TestInterface) GetMessage(userId *id.User,
-	msgId string) (*pb.CmixMessage, bool) {
-	return &pb.CmixMessage{}, true
+	msgId string) (*pb.Slot, bool) {
+	return &pb.Slot{}, true
 }
 
 // Return any MessageIDs in the globals for this User
@@ -71,25 +71,25 @@ func (m *TestInterface) CheckMessages(userId *id.User,
 }
 
 // Receives batch from server and stores it in the local MessageBuffer
-func (m *TestInterface) ReceiveBatch(msg *pb.OutputMessages) {
+func (m *TestInterface) ReceiveBatch(msg *pb.Batch) {
 }
 
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
-func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
+func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
 	m.LastReceivedMessage = *msg
 	return true
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.RegistrationConfirmation, error) {
-	regConfifmration := &pb.RegistrationConfirmation{}
+func (m *TestInterface) ConfirmNonce(message *pb.DSASignature) (*pb.RegistrationConfirmation, error) {
+	regConfirmation := &pb.RegistrationConfirmation{}
 
-	regConfifmration.P = large.NewInt(1).Bytes()
-	regConfifmration.Q = large.NewInt(1).Bytes()
-	regConfifmration.G = large.NewInt(1).Bytes()
-	regConfifmration.Y = large.NewInt(1).Bytes()
+	regConfirmation.Server.P = large.NewInt(1).Bytes()
+	regConfirmation.Server.Q = large.NewInt(1).Bytes()
+	regConfirmation.Server.G = large.NewInt(1).Bytes()
+	regConfirmation.Server.Y = large.NewInt(1).Bytes()
 
-	return regConfifmration, nil
+	return regConfirmation, nil
 }
 
 // Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
@@ -105,8 +105,8 @@ func (s *MockRegistration) RegisterUser(registrationCode string,
 
 
 // Pass-through for Registration Nonce Communication
-func (m *TestInterface) RequestNonce(message *pb.RequestNonceMessage) (*pb.NonceMessage, error) {
-	return &pb.NonceMessage{}, nil
+func (m *TestInterface) RequestNonce(message *pb.NonceRequest) (*pb.Nonce, error) {
+	return &pb.Nonce{}, nil
 }
 
 // Mock dummy storage interface for testing.

@@ -29,14 +29,20 @@ import (
 	"time"
 )
 
+type ConnAddr string
+
+func (a ConnAddr) String() string {
+	return string(a)
+}
+
 // Messaging implements the Communications interface
 type Messaging struct {
 	nextId   func() []byte
 	collator *Collator
 	// SendAddress is the address of the server to send messages
-	SendAddress string
+	SendAddress ConnAddr
 	// ReceiveAddress is the address of the server to receive messages from
-	ReceiveAddress string
+	ReceiveAddress ConnAddr
 	// BlockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
 	BlockTransmissions bool
@@ -45,6 +51,8 @@ type Messaging struct {
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
 	ReceivedMessages map[string]struct{}
+	// Comms pointer to send/recv messages
+	Comms            *client.ClientComms
 	sendLock         sync.Mutex
 }
 
@@ -55,6 +63,7 @@ func NewMessenger() *Messaging {
 		BlockTransmissions: true,
 		TransmitDelay:      1000 * time.Millisecond,
 		ReceivedMessages:   make(map[string]struct{}),
+		Comms:              &client.ClientComms{},
 	}
 }
 
@@ -179,7 +188,7 @@ func (m *Messaging) send(session user.Session,
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
 	encMsg := crypto.CMIXEncrypt(session, salt, message)
 
-	msgPacket := &pb.CmixMessage{
+	msgPacket := &pb.Slot{
 		SenderID:       session.GetCurrentUser().User.Bytes(),
 		MessagePayload: encMsg.SerializePayload(),
 		AssociatedData: encMsg.SerializeAssociatedData(),
@@ -188,7 +197,7 @@ func (m *Messaging) send(session user.Session,
 	}
 
 	globals.Log.INFO.Println("Sending put message to gateway")
-	return client.SendPutMessage(m.SendAddress, msgPacket)
+	return m.Comms.SendPutMessage(m.SendAddress, msgPacket)
 }
 
 func handleE2ESending(session user.Session,
@@ -263,7 +272,7 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
 	}
-	pollingMessage := pb.ClientPollMessage{
+	pollingMessage := pb.ClientRequest{
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
 
@@ -342,10 +351,10 @@ func handleE2EReceiving(session user.Session,
 }
 
 func (m *Messaging) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientPollMessage) []*format.Message {
+	pollingMessage *pb.ClientRequest) []*format.Message {
 	if session != nil {
-		pollingMessage.MessageID = session.GetLastMessageID()
-		messages, err := client.SendCheckMessages(session.GetGWAddress(),
+		pollingMessage.LastMessageID = session.GetLastMessageID()
+		messages, err := m.Comms.SendCheckMessages(m.ReceiveAddress,
 			pollingMessage)
 
 		if err != nil {
@@ -353,10 +362,10 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 			return nil
 		}
 
-		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.MessageIDs))
+		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.IDs))
 
-		results := make([]*format.Message, 0, len(messages.MessageIDs))
-		for _, messageID := range messages.MessageIDs {
+		results := make([]*format.Message, 0, len(messages.IDs))
+		for _, messageID := range messages.IDs {
 			// Get the first unseen message from the list of IDs
 			_, received := m.ReceivedMessages[messageID]
 			if !received {
@@ -364,12 +373,12 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					messageID)
 				// We haven't seen this message before.
 				// So, we should retrieve it from the gateway.
-				newMessage, err := client.SendGetMessage(
-					session.GetGWAddress(),
-					&pb.ClientPollMessage{
+				newMessage, err := m.Comms.SendGetMessage(
+					m.ReceiveAddress,
+					&pb.ClientRequest{
 						UserID: session.GetCurrentUser().User.
 							Bytes(),
-						MessageID: messageID,
+						LastMessageID: messageID,
 					})
 				if err != nil {
 					globals.Log.WARN.Printf(

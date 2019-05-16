@@ -20,8 +20,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
-	"gitlab.com/elixxir/crypto/certs"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
@@ -124,6 +122,10 @@ func sessionInitialization() *id.User {
 		}
 	}
 
+	// Connect to gateways and reg server
+	client.Connect(gateways, gwCertPath,
+		registrationAddr, registrationCertPath)
+
 	// Holds the User ID
 	var uid *id.User
 
@@ -146,8 +148,7 @@ func sessionInitialization() *id.User {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, "",
-			registrationAddr, gwAddresses, mint, &grp)
+		uid, err = client.Register(userId != 0, regCode, "", mint, &grp)
 		if err != nil {
 			fmt.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
@@ -165,8 +166,7 @@ func sessionInitialization() *id.User {
 
 	// Log the user in, for now using the first gateway specified
 	// This will also register the user email with UDB
-	_, err = client.Login(uid, userEmail,
-		gwAddresses[0], certs.GatewayTLS)
+	_, err = client.Login(uid, userEmail)
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
@@ -309,9 +309,6 @@ var rootCmd = &cobra.Command{
 
 		var dummyPeriod time.Duration
 		var timer *time.Timer
-
-		// Set the cert paths explicitly to avoid data races
-		SetCertPaths(gwCertPath, registrationCertPath)
 
 		userID := sessionInitialization()
 		// Set Key parameters if defined
@@ -502,12 +499,6 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
-}
-
-// Sets the cert paths in comms
-func SetCertPaths(gwCertPath, registrationCertPath string) {
-	connect.GatewayCertPath = gwCertPath
-	connect.RegistrationCertPath = registrationCertPath
 }
 
 // initConfig reads in config file and ENV variables if set.

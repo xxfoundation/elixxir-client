@@ -21,28 +21,30 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
-	"gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"google.golang.org/grpc/credentials"
 	goio "io"
 	"time"
 )
 
 type Client struct {
-	storage globals.Storage
-	sess user.Session
-	comm io.Communications
+	storage       globals.Storage
+	sess          user.Session
+	comm          io.Communications
+	gwAddresses   []io.ConnAddr
+	regAddress    io.ConnAddr
 }
 
 // Populates a text message and returns its wire representation
@@ -82,27 +84,59 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 	cl := new(Client)
 	cl.storage = store
 	cl.comm = io.NewMessenger()
+	cl.gwAddresses = make([]io.ConnAddr, 0)
 	return cl, nil
+}
+
+// Connects to gateways and registration server (if needed)
+// using TLS filepaths to create credential information
+// for connection establishment
+func (cl *Client) Connect(gwAddresses []string, gwCertPath,
+    regAddr, regCertPath string) {
+	if len(gwAddresses) < 1 {
+		globals.Log.ERROR.Printf("Connect: Invalid number of nodes")
+		return
+	}
+
+	var gwCreds credentials.TransportCredentials = nil
+	if gwCertPath != "" {
+		gwCreds = connect.NewCredentialsFromFile(gwCertPath, "")
+	}
+
+	for _, gw := range gwAddresses {
+		info := &connect.ConnectionInfo{
+			Address: gw,
+			Creds:   gwCreds,
+		}
+		addr := io.ConnAddr(gw)
+		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(addr, info)
+		cl.gwAddresses = append(cl.gwAddresses, addr)
+	}
+
+	if regAddr != "" {
+		var regCreds credentials.TransportCredentials = nil
+		if regCertPath != "" {
+			regCreds = connect.NewCredentialsFromFile(regCertPath, "")
+		}
+		info := &connect.ConnectionInfo{
+			Address: regAddr,
+			Creds:   regCreds,
+		}
+		addr := io.ConnAddr(regAddr)
+		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, info)
+		cl.regAddress = addr
+	}
 }
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick,
-	registrationAddr string, gwAddresses []string,
+func (cl *Client) Register(preCan bool, registrationCode, nick string,
 	mint bool, grp *cyclic.Group) (*id.User, error) {
-
 	var err error
-
-	if len(gwAddresses) < 1 {
-		globals.Log.ERROR.Printf("Register: Invalid number of nodes")
-		err = errors.New("could not register due to invalid number of nodes")
-		return id.ZeroID, err
-	}
-
 	var u *user.User
 	var UID *id.User
 	// Make CMIX keys array
-	nk := make([]user.NodeKeys, len(gwAddresses))
+	nk := make([]user.NodeKeys, len(cl.gwAddresses))
 
 	// Generate DSA keypair even for precanned users as it will probably
 	// be needed for the new UDB flow
@@ -143,7 +177,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 			return id.ZeroID, err
 		}
 
-		for i := 0; i < len(gwAddresses); i++ {
+		for i := 0; i < len(cl.gwAddresses); i++ {
 			nk[i] = *nodekeys
 		}
 	} else {
@@ -164,15 +198,18 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
-		if registrationAddr != "" && registrationCode != "" {
+		if cl.regAddress != "" && registrationCode != "" {
 			// Send registration code and public key to RegistrationServer
-			response, err := client.SendRegistrationMessage(registrationAddr,
-				&pb.RegisterUserMessage{
+			response, err := (cl.comm).(*io.Messaging).Comms.
+				SendRegistrationMessage(cl.regAddress,
+				&pb.UserRegistration{
 					RegistrationCode: registrationCode,
-					Y:                publicKey.GetKey().Bytes(),
-					P:                params.GetP().Bytes(),
-					Q:                params.GetQ().Bytes(),
-					G:                params.GetG().Bytes(),
+					Client: &pb.DSAPublicKey{
+						Y: publicKey.GetKey().Bytes(),
+						P: params.GetP().Bytes(),
+						Q: params.GetQ().Bytes(),
+						G: params.GetG().Bytes(),
+					},
 				})
 			if err != nil {
 				globals.Log.ERROR.Printf(
@@ -183,23 +220,33 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 				globals.Log.ERROR.Printf("Register: %s", response.Error)
 				return id.ZeroID, errors.New(response.Error)
 			}
-			regHash, regR, regS = response.Hash, response.R, response.S
+			regHash = response.ClientSignedByServer.Hash
+			regR = response.ClientSignedByServer.R
+			regS = response.ClientSignedByServer.S
+			// Disconnect from regServer here since it will not be needed
+			(cl.comm).(*io.Messaging).Comms.Disconnect(cl.regAddress.String())
+			cl.regAddress = ""
 		}
 
 		// Loop over all Servers
-		for _, gwAddr := range gwAddresses {
+		for _, gwAddr := range cl.gwAddresses {
 
 			// Send signed public key and salt for UserID to Server
-			nonceResponse, err := client.SendRequestNonceMessage(gwAddr,
-				&pb.RequestNonceMessage{
+			nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
+				SendRequestNonceMessage(gwAddr,
+				&pb.NonceRequest{
 					Salt: salt,
-					Y:    publicKey.GetKey().Bytes(),
-					P:    params.GetP().Bytes(),
-					Q:    params.GetQ().Bytes(),
-					G:    params.GetG().Bytes(),
-					Hash: regHash,
-					R:    regR,
-					S:    regS,
+					Client: &pb.DSAPublicKey{
+						Y: publicKey.GetKey().Bytes(),
+						P: params.GetP().Bytes(),
+						Q: params.GetQ().Bytes(),
+						G: params.GetG().Bytes(),
+					},
+					ClientSignedByServer: &pb.DSASignature{
+						Hash: regHash,
+						R:    regR,
+						S:    regS,
+					},
 				})
 			if err != nil {
 				globals.Log.ERROR.Printf(
@@ -223,8 +270,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 
 			// Send signed nonce to Server
 			// TODO: This returns a receipt that can be used to speed up registration
-			confirmResponse, err := client.SendConfirmNonceMessage(gwAddr,
-				&pb.ConfirmNonceMessage{
+			confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
+				SendConfirmNonceMessage(gwAddr,
+				&pb.DSASignature{
 					Hash: nonce,
 					R:    sig.R.Bytes(),
 					S:    sig.S.Bytes(),
@@ -244,10 +292,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 			serverPublicKeys = append(serverPublicKeys,
 				signature.ReconstructPublicKey(signature.
 					CustomDSAParams(
-						large.NewIntFromBytes(confirmResponse.GetP()),
-						large.NewIntFromBytes(confirmResponse.GetQ()),
-						large.NewIntFromBytes(confirmResponse.GetG())),
-					large.NewIntFromBytes(confirmResponse.GetY())))
+						large.NewIntFromBytes(confirmResponse.Server.GetP()),
+						large.NewIntFromBytes(confirmResponse.Server.GetQ()),
+						large.NewIntFromBytes(confirmResponse.Server.GetG())),
+					large.NewIntFromBytes(confirmResponse.Server.GetY())))
 
 		}
 
@@ -284,8 +332,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 	}
 
 	// Create the user session
-	nus := user.NewSession(cl.storage, u, gwAddresses[0], nk,
-		publicKey, privateKey, grp)
+	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey, grp)
 
 	// Store the user session
 	errStore := nus.StoreSession()
@@ -308,27 +355,16 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) Login(UID *id.User, email, addr string, tlsCert string) (string, error) {
-
-	connect.GatewayCertString = tlsCert
-
+func (cl *Client) Login(UID *id.User, email string) (string, error) {
 	session, err := user.LoadSession(cl.storage, UID)
 
 	if session == nil {
-		return "", errors.New("Unable to load session: " + err.Error() +
-			fmt.Sprintf("Passed parameters: %q, %s, %q", *UID, addr, tlsCert))
+		return "", errors.New("Unable to load session: " + err.Error())
 	}
 
-	if addr != "" {
-		session.SetGWAddress(addr)
-	}
-
-	addrToUse := session.GetGWAddress()
-
-	// TODO: These can be separate, but we set them to the same thing
-	//       until registration is completed.
-	(cl.comm).(*io.Messaging).SendAddress = addrToUse
-	(cl.comm).(*io.Messaging).ReceiveAddress = addrToUse
+	(cl.comm).(*io.Messaging).SendAddress = cl.gwAddresses[0]
+	(cl.comm).(*io.Messaging).ReceiveAddress =
+		cl.gwAddresses[len(cl.gwAddresses)-1]
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
@@ -420,13 +456,9 @@ func (cl *Client) Logout() error {
 	// Stop reception runner goroutine
 	cl.sess.GetQuitChan() <- true
 
-	// Disconnect from the gateway
-	io.Disconnect(
-		(cl.comm).(*io.Messaging).SendAddress)
-	if (cl.comm).(*io.Messaging).SendAddress !=
-		(cl.comm).(*io.Messaging).ReceiveAddress {
-		io.Disconnect(
-			(cl.comm).(*io.Messaging).ReceiveAddress)
+	// Disconnect from the gateways
+	for _, gw := range cl.gwAddresses {
+		(cl.comm).(*io.Messaging).Comms.Disconnect(gw.String())
 	}
 
 	errStore := cl.sess.StoreSession()
@@ -475,8 +507,7 @@ type SearchCallback interface {
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
-	cb SearchCallback,
-	) {
+	cb SearchCallback) {
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)

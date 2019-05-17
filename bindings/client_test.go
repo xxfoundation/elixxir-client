@@ -117,7 +117,7 @@ func TestConnectBadNumNodes(t *testing.T) {
 	err = client.Connect("", "", "", "")
 
 	if err == nil {
-		t.Errorf("Connect should have returned an error when")
+		t.Errorf("Connect should have returned an error when no gateway is passed")
 	}
 }
 

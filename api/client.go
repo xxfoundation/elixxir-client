@@ -104,12 +104,8 @@ func (cl *Client) Connect(gwAddresses []string, gwCertPath,
 	}
 
 	for _, gw := range gwAddresses {
-		info := &connect.ConnectionInfo{
-			Address: gw,
-			Creds:   gwCreds,
-		}
 		addr := io.ConnAddr(gw)
-		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(addr, info)
+		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(addr, gw, gwCreds)
 		cl.gwAddresses = append(cl.gwAddresses, addr)
 	}
 
@@ -118,12 +114,8 @@ func (cl *Client) Connect(gwAddresses []string, gwCertPath,
 		if regCertPath != "" {
 			regCreds = connect.NewCredentialsFromFile(regCertPath, "")
 		}
-		info := &connect.ConnectionInfo{
-			Address: regAddr,
-			Creds:   regCreds,
-		}
 		addr := io.ConnAddr(regAddr)
-		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, info)
+		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, regAddr, regCreds)
 		cl.regAddress = addr
 	}
 	return nil

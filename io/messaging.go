@@ -391,20 +391,23 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						continue
 					}
 
-					// CMIX Decryption
-					decMsg := crypto.CMIXDecrypt(session, newMessage)
+					msg := format.NewMessage()
+					msg.AssociatedData = format.DeserializeAssociatedData(
+						newMessage.AssociatedData)
+					msg.Payload = format.DeserializePayload(newMessage.
+						MessagePayload)
 
 					var err error = nil
 					var rekey bool
 					var unpadded []byte
 					// If message is E2E, handle decryption
-					if !e2e.IsUnencrypted(decMsg) {
-						rekey, err = handleE2EReceiving(session, decMsg)
+					if !e2e.IsUnencrypted(msg) {
+						rekey, err = handleE2EReceiving(session, msg)
 					} else {
 						// If message is non E2E, need to unpad payload
-						unpadded, err = e2e.Unpad(decMsg.SerializePayload())
+						unpadded, err = e2e.Unpad(msg.SerializePayload())
 						if err == nil {
-							decMsg.SetSplitPayload(unpadded)
+							msg.SetSplitPayload(unpadded)
 						}
 					}
 
@@ -416,7 +419,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						globals.Log.INFO.Printf("Correctly processed rekey message," +
 							" not adding to results array")
 					} else {
-						results = append(results, decMsg)
+						results = append(results, msg)
 					}
 
 					globals.Log.INFO.Printf(

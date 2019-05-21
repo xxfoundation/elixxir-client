@@ -8,36 +8,11 @@ package crypto
 
 import (
 	"errors"
-	"gitlab.com/elixxir/client/user"
-	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 )
-
-// CMIX Decrypt performs the decryption
-// of a message from a team of nodes
-// It returns a new message
-func CMIXDecrypt(session user.Session,
-	msg *pb.Slot) *format.Message {
-	salt := msg.Salt
-	nodeKeys := session.GetKeys()
-	baseKeys := make([]*cyclic.Int, len(nodeKeys))
-	for i, key := range nodeKeys {
-		baseKeys[i] = key.ReceptionKey
-		//TODO: Add KMAC verification here
-	}
-
-	newMsg := format.NewMessage()
-	newMsg.Payload = format.DeserializePayload(
-		msg.MessagePayload)
-	newMsg.AssociatedData = format.DeserializeAssociatedData(
-		msg.AssociatedData)
-
-	return cmix.ClientEncryptDecrypt(false, session.GetGroup(), newMsg, salt, baseKeys)
-}
 
 // E2EDecrypt uses the E2E key to decrypt the message
 // It returns an error in case of HMAC verification failure

@@ -128,7 +128,6 @@ func TestFullEncryptDecrypt(t *testing.T) {
 		}
 	}
 
-	// CMIX Decryption
 	decMsg := format.NewMessage()
 	decMsg.Payload = format.DeserializePayload(encryptedNet.MessagePayload)
 	decMsg.AssociatedData = format.DeserializeAssociatedData(encryptedNet.AssociatedData)
@@ -204,7 +203,6 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		}
 	}
 
-	// CMIX Decryption
 	decMsg := format.NewMessage()
 	decMsg.AssociatedData = format.DeserializeAssociatedData(encryptedNet.AssociatedData)
 	decMsg.Payload = format.DeserializePayload(encryptedNet.MessagePayload)

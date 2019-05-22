@@ -110,23 +110,27 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	// CMIX Encryption
 	encMsg := CMIXEncrypt(session, salt, msg)
 
-	// Server will decrypt and re-encrypt payload
-	payload := grp.NewIntFromBytes(encMsg.SerializePayload())
-	assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
-	// Multiply payload by transmission and reception keys
-	grp.Mul(payload, serverTransmissionKey, payload)
-	grp.Mul(payload, serverReceptionKey, payload)
-	// Multiply associated data only by transmission key
-	grp.Mul(assocData, serverTransmissionKey, assocData)
-	encryptedNet := &pb.Slot{
-		SenderID:       sender.Bytes(),
-		Salt:           salt,
-		MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
-		AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+	// Server will decrypt payload (which is OK because the payload is now e2e)
+	// This block imitates what the server does during the realtime
+	var encryptedNet *pb.Slot
+	{
+		payload := grp.NewIntFromBytes(encMsg.SerializePayload())
+		assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
+		// Multiply payload and associated data by transmission key only
+		grp.Mul(payload, serverTransmissionKey, payload)
+		// Multiply associated data only by transmission key
+		grp.Mul(assocData, serverTransmissionKey, assocData)
+		encryptedNet = &pb.Slot{
+			SenderID:       sender.Bytes(),
+			Salt:           salt,
+			MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
+			AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+		}
 	}
 
-	// CMIX Decryption
-	decMsg := CMIXDecrypt(session, encryptedNet)
+	decMsg := format.NewMessage()
+	decMsg.Payload = format.DeserializePayload(encryptedNet.MessagePayload)
+	decMsg.AssociatedData = format.DeserializeAssociatedData(encryptedNet.AssociatedData)
 
 	// E2E Decryption
 	err := E2EDecrypt(grp, key, decMsg)
@@ -159,9 +163,9 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	msg.SetRecipient(recipient)
 	msgPayload := []byte(
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
 	// Need to take up space of SenderID
 	msg.SetSenderID(msgPayload[:format.MP_SID_LEN])
 	msg.SetPayloadData(msgPayload[format.MP_SID_LEN:])
@@ -181,23 +185,27 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	// CMIX Encryption
 	encMsg := CMIXEncrypt(session, salt, msg)
 
-	// Server will decrypt and re-encrypt payload
-	payload := grp.NewIntFromBytes(encMsg.SerializePayload())
-	assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
-	// Multiply payload by transmission and reception keys
-	grp.Mul(payload, serverTransmissionKey, payload)
-	grp.Mul(payload, serverReceptionKey, payload)
-	// Multiply associated data only by transmission key
-	grp.Mul(assocData, serverTransmissionKey, assocData)
-	encryptedNet := &pb.Slot{
-		SenderID:       sender.Bytes(),
-		Salt:           salt,
-		MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
-		AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+	// Server will decrypt payload (which is OK because the payload is now e2e)
+	// This block imitates what the server does during the realtime
+	var encryptedNet *pb.Slot
+	{
+		payload := grp.NewIntFromBytes(encMsg.SerializePayload())
+		assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
+		// Multiply payload and associated data by transmission key only
+		grp.Mul(payload, serverTransmissionKey, payload)
+		// Multiply associated data only by transmission key
+		grp.Mul(assocData, serverTransmissionKey, assocData)
+		encryptedNet = &pb.Slot{
+			SenderID:       sender.Bytes(),
+			Salt:           salt,
+			MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
+			AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+		}
 	}
 
-	// CMIX Decryption
-	decMsg := CMIXDecrypt(session, encryptedNet)
+	decMsg := format.NewMessage()
+	decMsg.AssociatedData = format.DeserializeAssociatedData(encryptedNet.AssociatedData)
+	decMsg.Payload = format.DeserializePayload(encryptedNet.MessagePayload)
 
 	// E2E Decryption
 	err := E2EDecryptUnsafe(grp, key, decMsg)

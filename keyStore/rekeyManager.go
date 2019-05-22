@@ -7,9 +7,9 @@ import (
 )
 
 type RekeyContext struct {
-	BaseKey  *cyclic.Int
-	PrivKey  *cyclic.Int
-	PubKey   *cyclic.Int
+	BaseKey *cyclic.Int
+	PrivKey *cyclic.Int
+	PubKey  *cyclic.Int
 }
 
 type RekeyKeys struct {

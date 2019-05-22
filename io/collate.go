@@ -66,10 +66,10 @@ func (mb *Collator) AddMessage(message *format.Message,
 			}
 
 			msg := parse.Message{
-				TypedBody: *typedBody,
+				TypedBody:  *typedBody,
 				CryptoType: format.Unencrypted,
-				Sender:    sender,
-				Receiver:  recipient,
+				Sender:     sender,
+				Receiver:   recipient,
 			}
 
 			return &msg
@@ -131,10 +131,10 @@ func (mb *Collator) AddMessage(message *format.Message,
 				}
 
 				msg := parse.Message{
-					TypedBody: *typedBody,
+					TypedBody:  *typedBody,
 					CryptoType: format.Unencrypted,
-					Sender:    sender,
-					Receiver:  recipient,
+					Sender:     sender,
+					Receiver:   recipient,
 				}
 
 				delete(mb.pendingMessages, key)

@@ -115,7 +115,7 @@ func TestPartitionLongest(t *testing.T) {
 	}
 
 	// check the index and max index of the last partition
-	lastIndex := len(actual)-1
+	lastIndex := len(actual) - 1
 	expectedIdx := byte(255)
 	idxLocation := len(id)
 	maxIdxLocation := len(id) + 1

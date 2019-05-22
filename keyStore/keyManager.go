@@ -29,7 +29,7 @@ type KeyManager struct {
 	// Own Private Key
 	privKey *cyclic.Int
 	// Partner Public Key
-	pubKey  *cyclic.Int
+	pubKey *cyclic.Int
 
 	// Designates end-to-end partner
 	partner *id.User
@@ -128,17 +128,17 @@ const (
 	// Delete is most significant bit
 	stateDeleteMask uint64 = 0x8000000000000000
 	// Key Counter is lowest 32 bits
-	stateKeyMask    uint64 = 0x00000000FFFFFFFF
+	stateKeyMask uint64 = 0x00000000FFFFFFFF
 	// ReKey Counter is bits 55 to 40 (0 indexed)
-	stateReKeyMask  uint64 = 0x00FFFF0000000000
+	stateReKeyMask uint64 = 0x00FFFF0000000000
 	// ReKey Counter shift value is 40
 	stateReKeyShift uint64 = 40
 	// Delete Increment is 1 shifted by 63 bits
 	stateDeleteIncr uint64 = 1 << 63
 	// Key Counter increment is 1
-	stateKeyIncr    uint64 = 1
+	stateKeyIncr uint64 = 1
 	// ReKey Counter increment is 1 << 40
-	stateReKeyIncr  uint64 = 1 << stateReKeyShift
+	stateReKeyIncr uint64 = 1 << stateReKeyShift
 )
 
 // Check if a Rekey should be triggered
@@ -192,7 +192,7 @@ func (km *KeyManager) updateState(rekey bool) Action {
 		// set delete bit
 		atomic.AddUint64(km.sendState, stateDeleteIncr)
 		return Purge
-	// Check if result should trigger a Rekey
+		// Check if result should trigger a Rekey
 	} else if !rekey && checkRekey(result, km.ttl) {
 		return Rekey
 	}

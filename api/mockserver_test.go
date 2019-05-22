@@ -269,7 +269,7 @@ func testMainWrapper(m *testing.M) int {
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i, handler := range RegGWHandlers {
-		RegGWAddresses[i] = fmtAddress(RegGWsStartPort+i)
+		RegGWAddresses[i] = fmtAddress(RegGWsStartPort + i)
 		gw := gateway.StartGateway(RegGWAddresses[i],
 			handler, "", "")
 		RegGWComms[i] = gw
@@ -299,4 +299,4 @@ func getGroup() *cyclic.Group {
 	return globals.InitCrypto()
 }
 
-func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port)}
+func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port) }

@@ -11,10 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"math"
 	"sync"
-	"gitlab.com/elixxir/crypto/e2e"
 )
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -75,7 +75,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	var lastPartitionLength int
 	partitionReadIdx := 0
 	for i := range partitions {
-		maxPartitionLength := format.MP_PAYLOAD_LEN-e2e.MinPaddingLen
+		maxPartitionLength := format.MP_PAYLOAD_LEN - e2e.MinPaddingLen
 		partitions[i], lastPartitionLength = makePartition(maxPartitionLength,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
 		partitionReadIdx += lastPartitionLength

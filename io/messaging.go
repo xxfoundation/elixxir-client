@@ -52,8 +52,8 @@ type Messaging struct {
 	// received during this session
 	ReceivedMessages map[string]struct{}
 	// Comms pointer to send/recv messages
-	Comms            *client.ClientComms
-	sendLock         sync.Mutex
+	Comms    *client.ClientComms
+	sendLock sync.Mutex
 }
 
 func NewMessenger() *Messaging {

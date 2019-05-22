@@ -109,7 +109,6 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 	return &Client{client: cl}, err
 }
 
-
 // Connects to gateways and registration server (if needed)
 // using TLS filepaths to create credential information
 // for connection establishment

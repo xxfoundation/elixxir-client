@@ -49,7 +49,8 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {}
+	delay time.Duration) {
+}
 
 var pubKeyBits string
 var keyFingerprint string
@@ -124,10 +125,10 @@ func TestNicknameFunctions(t *testing.T) {
 		Sender: session.GetCurrentUser().User,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
-			Body:      []byte{},
+			Body:        []byte{},
 		},
 		CryptoType: format.Unencrypted,
-		Receiver: session.GetCurrentUser().User,
+		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
 
@@ -140,7 +141,7 @@ func TestNicknameFunctions(t *testing.T) {
 			t.Errorf("Error on LookupNick: %s", err.Error())
 		}
 		if nick != session.GetCurrentUser().Nick {
-			t.Errorf("LookupNick returned wrong value. Expected %s," +
+			t.Errorf("LookupNick returned wrong value. Expected %s,"+
 				" Got %s", session.GetCurrentUser().Nick, nick)
 		}
 	}()
@@ -150,15 +151,15 @@ func TestNicknameFunctions(t *testing.T) {
 		Sender: session.GetCurrentUser().User,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
-			Body:      []byte(session.GetCurrentUser().Nick),
+			Body:        []byte(session.GetCurrentUser().Nick),
 		},
 		CryptoType: format.Unencrypted,
-		Receiver: session.GetCurrentUser().User,
+		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
 }
 
-type errorMessaging struct {}
+type errorMessaging struct{}
 
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
@@ -178,7 +179,8 @@ func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (e *errorMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {}
+	delay time.Duration) {
+}
 
 // Test LookupNick returns error on sending problem
 func TestLookupNick_error(t *testing.T) {

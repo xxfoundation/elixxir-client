@@ -101,7 +101,6 @@ func (s *MockRegistration) RegisterUser(registrationCode string,
 	return nil, nil, nil, nil
 }
 
-
 // Pass-through for Registration Nonce Communication
 func (m *TestInterface) RequestNonce(message *pb.NonceRequest) (*pb.Nonce, error) {
 	return &pb.Nonce{}, nil

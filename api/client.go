@@ -40,11 +40,11 @@ import (
 )
 
 type Client struct {
-	storage       globals.Storage
-	sess          user.Session
-	comm          io.Communications
-	gwAddresses   []io.ConnAddr
-	regAddress    io.ConnAddr
+	storage     globals.Storage
+	sess        user.Session
+	comm        io.Communications
+	gwAddresses []io.ConnAddr
+	regAddress  io.ConnAddr
 }
 
 // Populates a text message and returns its wire representation
@@ -92,7 +92,7 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect(gwAddresses []string, gwCertPath,
-    regAddr, regCertPath string) error {
+	regAddr, regCertPath string) error {
 	if len(gwAddresses) < 1 {
 		globals.Log.ERROR.Printf("Connect: Invalid number of nodes")
 		return errors.New("could not connect due to invalid number of nodes")
@@ -159,7 +159,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 		}
 
 		if nick != "" {
-			u.Nick = nick;
+			u.Nick = nick
 		}
 
 		nodekeys, successKeys := user.Users.LookupKeys(u.User)
@@ -195,15 +195,15 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 			// Send registration code and public key to RegistrationServer
 			response, err := (cl.comm).(*io.Messaging).Comms.
 				SendRegistrationMessage(cl.regAddress,
-				&pb.UserRegistration{
-					RegistrationCode: registrationCode,
-					Client: &pb.DSAPublicKey{
-						Y: publicKey.GetKey().Bytes(),
-						P: params.GetP().Bytes(),
-						Q: params.GetQ().Bytes(),
-						G: params.GetG().Bytes(),
-					},
-				})
+					&pb.UserRegistration{
+						RegistrationCode: registrationCode,
+						Client: &pb.DSAPublicKey{
+							Y: publicKey.GetKey().Bytes(),
+							P: params.GetP().Bytes(),
+							Q: params.GetQ().Bytes(),
+							G: params.GetG().Bytes(),
+						},
+					})
 			if err != nil {
 				globals.Log.ERROR.Printf(
 					"Register: Unable to contact Registration Server! %s", err)
@@ -227,20 +227,20 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 			// Send signed public key and salt for UserID to Server
 			nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
 				SendRequestNonceMessage(gwAddr,
-				&pb.NonceRequest{
-					Salt: salt,
-					Client: &pb.DSAPublicKey{
-						Y: publicKey.GetKey().Bytes(),
-						P: params.GetP().Bytes(),
-						Q: params.GetQ().Bytes(),
-						G: params.GetG().Bytes(),
-					},
-					ClientSignedByServer: &pb.DSASignature{
-						Hash: regHash,
-						R:    regR,
-						S:    regS,
-					},
-				})
+					&pb.NonceRequest{
+						Salt: salt,
+						Client: &pb.DSAPublicKey{
+							Y: publicKey.GetKey().Bytes(),
+							P: params.GetP().Bytes(),
+							Q: params.GetQ().Bytes(),
+							G: params.GetG().Bytes(),
+						},
+						ClientSignedByServer: &pb.DSASignature{
+							Hash: regHash,
+							R:    regR,
+							S:    regS,
+						},
+					})
 			if err != nil {
 				globals.Log.ERROR.Printf(
 					"Register: Unable to request nonce! %s",
@@ -265,11 +265,11 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 			// TODO: This returns a receipt that can be used to speed up registration
 			confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
 				SendConfirmNonceMessage(gwAddr,
-				&pb.DSASignature{
-					Hash: nonce,
-					R:    sig.R.Bytes(),
-					S:    sig.S.Bytes(),
-				})
+					&pb.DSASignature{
+						Hash: nonce,
+						R:    sig.R.Bytes(),
+						S:    sig.S.Bytes(),
+					})
 			if err != nil {
 				globals.Log.ERROR.Printf(
 					"Register: Unable to send signed nonce! %s", err)

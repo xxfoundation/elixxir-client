@@ -31,7 +31,7 @@ var searchResponseListener channelResponseListener
 var nicknameResponseListener channelResponseListener
 
 // Nickname request listener
-type nickReqListener struct {}
+type nickReqListener struct{}
 
 // Nickname listener simply replies with message containing user's nick
 func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
@@ -39,7 +39,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	nick := session.GetCurrentUser().Nick
 	resp := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
-		Body: []byte(nick),
+		Body:        []byte(nick),
 	})
 	globals.Log.DEBUG.Printf("Sending nickname response to user %v", *m.Sender)
 	sendCommand(m.Sender, resp)
@@ -48,7 +48,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session,m io.Communications) {
+func InitBots(s user.Session, m io.Communications) {
 	UdbID = id.NewUserFromUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(channelResponseListener)
@@ -96,7 +96,7 @@ func LookupNick(user *id.User) (string, error) {
 	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *user)
 	msg := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
-		Body: []byte{},
+		Body:        []byte{},
 	})
 
 	err := sendCommand(user, msg)

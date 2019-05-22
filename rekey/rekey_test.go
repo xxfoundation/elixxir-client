@@ -45,7 +45,8 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {}
+	delay time.Duration) {
+}
 
 func TestMain(m *testing.M) {
 	grp := globals.InitCrypto()
@@ -135,7 +136,7 @@ func TestRekeyTrigger(t *testing.T) {
 	}
 	// Get new PubKey from Rekey message and confirm value matches
 	// with PubKey created from privKey in Rekey Context
-	value := <- ListenCh
+	value := <-ListenCh
 	grp := session.GetGroup()
 	actualPubKey := grp.NewIntFromBytes(value)
 	privKey := session.GetRekeyManager().GetCtx(partnerID).PrivKey
@@ -143,7 +144,7 @@ func TestRekeyTrigger(t *testing.T) {
 	grp.ExpG(privKey, expectedPubKey)
 
 	if expectedPubKey.Cmp(actualPubKey) != 0 {
-		t.Errorf("RekeyTrigger publicKey mismatch, expected %s," +
+		t.Errorf("RekeyTrigger publicKey mismatch, expected %s,"+
 			" got %s", expectedPubKey.Text(10),
 			actualPubKey.Text(10))
 	}
@@ -264,7 +265,7 @@ func TestRekey(t *testing.T) {
 		t.Errorf("Rekey returned error: %v", rekeyList.err.Error())
 	}
 	// Confirm hash of baseKey matches expected
-	value := <- ListenCh
+	value := <-ListenCh
 	// Get hash as last 32 bytes of message bytes
 	actual := value[len(value)-32:]
 	km = session.GetKeyStore().GetRecvManager(partnerID)
@@ -275,7 +276,7 @@ func TestRekey(t *testing.T) {
 	expected := h.Sum(nil)
 
 	if !bytes.Equal(expected, actual) {
-		t.Errorf("Rekey hash(baseKey) mismatch, expected %x," +
+		t.Errorf("Rekey hash(baseKey) mismatch, expected %x,"+
 			" got %x", expected, actual)
 	}
 

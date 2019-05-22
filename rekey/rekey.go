@@ -27,7 +27,7 @@ var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
 var rekeyConfirmList rekeyConfirmListener
 
-type rekeyTriggerListener struct{
+type rekeyTriggerListener struct {
 	err error
 }
 
@@ -44,7 +44,7 @@ func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 	}
 }
 
-type rekeyListener struct{
+type rekeyListener struct {
 	err error
 }
 
@@ -62,7 +62,7 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	}
 }
 
-type rekeyConfirmListener struct{
+type rekeyConfirmListener struct {
 	err error
 }
 
@@ -203,7 +203,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
 		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
-		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E" +
+		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E"+
 			" relationship with user %v", *partner)
 	case RekeyConfirm:
 		// Check baseKey Hash matches expected
@@ -222,7 +222,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
-			globals.Log.DEBUG.Printf("Generated new send keys for E2E" +
+			globals.Log.DEBUG.Printf("Generated new send keys for E2E"+
 				" relationship with user %v", *partner)
 		} else {
 			return fmt.Errorf("rekey-confirm from user %v failed,"+
@@ -244,7 +244,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		h.Write(ctx.BaseKey.Bytes())
 		msg := parse.Pack(&parse.TypedBody{
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
-			Body: h.Sum(nil),
+			Body:        h.Sum(nil),
 		})
 		return messaging.SendMessage(session, partner, format.None, msg)
 	}

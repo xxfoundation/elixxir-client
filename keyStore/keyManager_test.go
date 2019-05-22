@@ -79,7 +79,7 @@ func TestKeyManager_GetBaseKey(t *testing.T) {
 	result := km.GetBaseKey()
 
 	if result.Cmp(baseKey) != 0 {
-		t.Errorf("GetBaseKey returned wrong value, " +
+		t.Errorf("GetBaseKey returned wrong value, "+
 			"expected: %s, got: %s",
 			privKey.Text(10), result.Text(10))
 	}
@@ -101,7 +101,7 @@ func TestKeyManager_GetPrivKey(t *testing.T) {
 	result := km.GetPrivKey()
 
 	if result.Cmp(privKey) != 0 {
-		t.Errorf("GetPrivKey returned wrong value, " +
+		t.Errorf("GetPrivKey returned wrong value, "+
 			"expected: %s, got: %s",
 			privKey.Text(10), result.Text(10))
 	}
@@ -123,7 +123,7 @@ func TestKeyManager_GetPubKey(t *testing.T) {
 	result := km.GetPubKey()
 
 	if result.Cmp(pubKey) != 0 {
-		t.Errorf("GetPubKey returned wrong value, " +
+		t.Errorf("GetPubKey returned wrong value, "+
 			"expected: %s, got: %s",
 			pubKey.Text(10), result.Text(10))
 	}
@@ -145,7 +145,7 @@ func TestKeyManager_GetPartner(t *testing.T) {
 	result := km.GetPartner()
 
 	if *result != *partner {
-		t.Errorf("GetPartner returned wrong value, " +
+		t.Errorf("GetPartner returned wrong value, "+
 			"expected: %s, got: %s",
 			*partner, *result)
 	}

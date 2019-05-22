@@ -8,8 +8,8 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 )
 
 const MessageHashLenBits = 256
@@ -20,9 +20,9 @@ type MessageHash [MessageHashLen]byte
 type Message struct {
 	TypedBody
 	CryptoType format.CryptoType
-	Sender   *id.User
-	Receiver *id.User
-	Nonce    []byte
+	Sender     *id.User
+	Receiver   *id.User
+	Nonce      []byte
 }
 
 // Interface used to standardize message definitions
@@ -113,6 +113,6 @@ func (p *BindingsMessageProxy) GetMessageType() int32 {
 func (p *BindingsMessageProxy) Pack() []byte {
 	return Pack(&TypedBody{
 		MessageType: p.Proxy.GetMessageType(),
-		Body: p.Proxy.GetPayload(),
+		Body:        p.Proxy.GetPayload(),
 	})
 }

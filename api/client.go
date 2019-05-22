@@ -403,6 +403,10 @@ func (cl *Client) GetCurrentUser() *id.User {
 	return cl.sess.GetCurrentUser().User
 }
 
+func (cl *Client) GetCurrentNick() string {
+	return cl.sess.GetCurrentUser().Nick
+}
+
 func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 	return cl.sess.GetKeyStore().GetKeyParams()
 }
@@ -480,12 +484,13 @@ func (cl *Client) SearchForUser(emailAddress string,
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
-		if err == nil {
+		if uid != nil {
 			cl.registerUserE2E(uid, pubKey)
+			cb.Callback(uid[:], pubKey, err)
 		} else {
 			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
+			cb.Callback(nil, nil, err)
 		}
-		cb.Callback(uid[:], pubKey, err)
 	}()
 }
 

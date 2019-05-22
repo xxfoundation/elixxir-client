@@ -92,18 +92,24 @@ func sendCommand(botID *id.User, command []byte) error {
 
 // Nickname Lookup function
 
-func LookupNick(user *id.User) (string, error) {
-	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *user)
+func LookupNick(uid *id.User) (string, error) {
+	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *uid)
 	msg := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
 		Body: []byte{},
 	})
 
-	err := sendCommand(user, msg)
+	err := sendCommand(uid, msg)
 	if err != nil {
 		return "", err
 	}
 
 	nickResponse := <-nicknameResponseListener
+	u, ok := user.Users.GetUser(uid)
+	if ok {
+		u.Nick = nickResponse
+		user.Users.UpsertUser(u)
+	}
+
 	return nickResponse, nil
 }

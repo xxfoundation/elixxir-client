@@ -9,14 +9,14 @@ package user
 import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
 )
+
+var grp = globals.InitCrypto()
 
 // TestUserRegistry tests the constructors/getters/setters
 // surrounding the User struct and the Registry interface
@@ -25,15 +25,12 @@ func TestUserSession(t *testing.T) {
 	test := 11
 	pass := 0
 
-	u := new(User)
 	// This is 65 so you can see the letter A in the gob if you need to make
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	u.User = id.NewUserFromUint(UID, t)
-	u.Nick = "Mario"
-
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+	userID := id.NewUserFromUint(UID, t)
+	u := NewUser(userID, "Mario")
 
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
@@ -48,8 +45,8 @@ func TestUserSession(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(storage,
-		u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(storage, u, NewRegistry(grp),
+		"abc", keys, publicKey, privateKey, grp)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -207,8 +204,6 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
-
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
 		TransmissionKey: grp.NewInt(2),
@@ -219,7 +214,8 @@ func TestGetPubKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(nil, u, NewRegistry(grp),
+		"abc", keys, publicKey, privateKey, grp)
 
 	pubKey := ses.GetPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -234,8 +230,6 @@ func TestGetPrivKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
-
 	keys := make([]NodeKeys, 1)
 	keys[0] = NodeKeys{
 		TransmissionKey: grp.NewInt(2),
@@ -246,7 +240,8 @@ func TestGetPrivKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(nil, u, "abc", keys, publicKey, privateKey, grp)
+	ses := NewSession(nil, u, NewRegistry(grp),
+		"abc", keys, publicKey, privateKey, grp)
 
 	privKey := ses.GetPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

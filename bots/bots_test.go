@@ -61,7 +61,8 @@ func TestMain(m *testing.M) {
 		Nick: "Bernie",
 	}
 	fakeSession := user.NewSession(&globals.RamStorage{},
-		u, "", nil, nil, nil, nil)
+		u, user.NewRegistry(globals.InitCrypto()),
+		"", nil, nil, nil, nil)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}

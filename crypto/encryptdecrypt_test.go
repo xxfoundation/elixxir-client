@@ -57,8 +57,9 @@ func setup() {
 
 	grp := cyclic.NewGroup(p, g, q)
 
+	userReg := user.NewRegistry(grp)
 	UID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 18})
-	u, _ := user.Users.GetUser(UID)
+	u, _ := userReg.GetUser(UID)
 
 	nk := make([]user.NodeKeys, 5)
 
@@ -75,7 +76,7 @@ func setup() {
 		cmix.NodeKeyGen(grp, salt, nk[i].ReceptionKey, baseKey)
 		grp.Mul(serverReceptionKey, baseKey, serverReceptionKey)
 	}
-	session = user.NewSession(nil, u, "", nk,
+	session = user.NewSession(nil, u, userReg,"", nk,
 		nil, nil, grp)
 }
 

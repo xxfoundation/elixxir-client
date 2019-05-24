@@ -136,30 +136,6 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 }
 
-func TestRegister_DeletedUserReturnsErr(t *testing.T) {
-
-	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello")
-	if err != nil {
-		t.Errorf("Failed to initialize dummy client: %s", err.Error())
-	}
-
-	// ...
-	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
-	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-
-	// Register
-	_, err = client.Register(true, ValidRegCode, "",
-		RegAddress, RegGWAddresses[:], false, getGroup())
-	if err == nil {
-		t.Errorf("Registration worked with a deleted user: %s", err.Error())
-	}
-
-	// ...
-	user.Users.UpsertUser(tempUser)
-}
-
 func TestSend(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}

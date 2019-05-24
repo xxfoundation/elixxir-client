@@ -7,13 +7,13 @@
 package user
 
 import (
+	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 )
-
-// Globally instantiated Registry
-var Users = newRegistry()
 
 const NUM_DEMO_USERS = 40
 
@@ -24,22 +24,43 @@ var DemoUserNicks = []string{"David", "Payments", "UDB", "Jim", "Ben", "Steph",
 var DemoChannelNames = []string{"#General", "#Engineering", "#Lunch",
 	"#Random"}
 
+// Struct representing a User in the system
+type User struct {
+	User *id.User
+	Nick string
+}
+
+// DeepCopy performs a deep copy of a user and returns a pointer to the new copy
+func (u *User) DeepCopy() *User {
+	if u == nil {
+		return nil
+	}
+	nu := new(User)
+	nu.User = u.User
+	nu.Nick = u.Nick
+	return nu
+}
+
+// NewUser creates a new User object with default fields and given address.
+func NewUser(id *id.User, nickname string) *User {
+	return &User{User: id, Nick: nickname}
+}
+
 // Interface for User Registry operations
 type Registry interface {
-	NewUser(id *id.User, nickname string) *User
+	UpsertUser(user *User)
 	DeleteUser(id *id.User)
 	GetUser(id *id.User) (user *User, ok bool)
-	UpsertUser(user *User)
-	CountUsers() int
+	GetUserList() []*User
 	LookupUser(hid string) (uid *id.User, ok bool)
 	LookupKeys(uid *id.User) (*NodeKeys, bool)
+	GobEncode() ([]byte, error)
+	GobDecode(in []byte) error
 }
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
 	userCollection map[id.User]*User
-	// Increments sequentially for User.ID values
-	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	// Key type is string because keys must implement == and []byte doesn't
 	userLookup map[string]*id.User
@@ -47,17 +68,14 @@ type UserMap struct {
 	keysLookup map[id.User]*NodeKeys
 }
 
-// newRegistry creates a new Registry interface
-func newRegistry() Registry {
+// NewRegistry creates a new Registry interface
+func NewRegistry(grp *cyclic.Group) Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
 	uc := make(map[id.User]*User)
 	ul := make(map[string]*id.User)
 	nk := make(map[id.User]*NodeKeys)
-
-	// Initialize group object
-	grp := globals.InitCrypto()
 
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery
@@ -102,31 +120,8 @@ func newRegistry() Registry {
 
 	// With an underlying UserMap data structure
 	return Registry(&UserMap{userCollection: uc,
-		idCounter:  uint64(NUM_DEMO_USERS),
 		userLookup: ul,
 		keysLookup: nk})
-}
-
-// Struct representing a User in the system
-type User struct {
-	User *id.User
-	Nick string
-}
-
-// DeepCopy performs a deep copy of a user and returns a pointer to the new copy
-func (u *User) DeepCopy() *User {
-	if u == nil {
-		return nil
-	}
-	nu := new(User)
-	nu.User = u.User
-	nu.Nick = u.Nick
-	return nu
-}
-
-// NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id *id.User, nickname string) *User {
-	return &User{User: id, Nick: nickname}
 }
 
 // GetUser returns a user with the given ID from userCollection
@@ -149,11 +144,6 @@ func (m *UserMap) UpsertUser(user *User) {
 	m.userCollection[*user.User] = user
 }
 
-// CountUsers returns a count of the users in userCollection
-func (m *UserMap) CountUsers() int {
-	return len(m.userCollection)
-}
-
 // LookupUser returns the user id corresponding to the demo registration code
 func (m *UserMap) LookupUser(hid string) (*id.User, bool) {
 	uid, ok := m.userLookup[hid]
@@ -164,4 +154,67 @@ func (m *UserMap) LookupUser(hid string) (*id.User, bool) {
 func (m *UserMap) LookupKeys(uid *id.User) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[*uid]
 	return nk, t
+}
+
+// Get a slice of all Users in UserMap
+func (m *UserMap) GetUserList() []*User {
+	list := make([]*User, 0, len(m.userCollection))
+	for _, u := range m.userCollection {
+		list = append(list, u)
+	}
+	return list
+}
+
+// GobEncode the UserMap to bytes
+func (m *UserMap) GobEncode() ([]byte, error) {
+	var buf bytes.Buffer
+
+	// Create new encoder that will transmit the buffer
+	enc := gob.NewEncoder(&buf)
+
+	// Transmit the user collection map
+	err := enc.Encode(m.userCollection)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Transmit the user lookup map
+	err = enc.Encode(m.userLookup)
+
+	if err != nil {
+		return nil, err
+	}
+
+	// Transmit the keys map
+	err = enc.Encode(m.keysLookup)
+	return buf.Bytes(), err
+}
+
+// GobDecode the UserMap from bytes
+func (m *UserMap) GobDecode(in []byte) error {
+	var buf bytes.Buffer
+
+	// Write bytes to the buffer
+	buf.Write(in)
+
+	// Create new decoder that reads from the buffer
+	dec := gob.NewDecoder(&buf)
+
+	// Decode user collection map
+	err := dec.Decode(&m.userCollection)
+
+	if err != nil {
+		return err
+	}
+
+	// Decode user lookup map
+	err = dec.Decode(&m.userLookup)
+
+	if err != nil {
+		return err
+	}
+
+	// Decode keys map
+	return dec.Decode(&m.keysLookup)
 }

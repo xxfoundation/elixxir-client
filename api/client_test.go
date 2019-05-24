@@ -51,7 +51,7 @@ func TestRegistrationGob(t *testing.T) {
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
-	Session = user.SessionObj{}
+	Session = user.SessionObj{UserRegistry: user.Registry(&user.UserMap{})}
 	err = dec.Decode(&Session)
 	if err != nil {
 		t.Error(err)
@@ -209,7 +209,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, "", []user.NodeKeys{}, myPubKey, myPrivKey, grp)
+		myUser, user.NewRegistry(grp), "", []user.NodeKeys{}, myPubKey, myPrivKey, grp)
 
 	testClient.sess = session
 
@@ -293,7 +293,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, "", []user.NodeKeys{}, myPubKey,
+		myUser, user.NewRegistry(grp), "", []user.NodeKeys{}, myPubKey,
 		myPrivKey, grp)
 
 	testClient.sess = session

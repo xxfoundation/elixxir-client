@@ -29,6 +29,7 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
+	GetRegistry() Registry
 	GetGWAddress() string
 	SetGWAddress(addr string)
 	GetKeys() []NodeKeys
@@ -58,7 +59,7 @@ type NodeKeys struct {
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
-	u *User, GatewayAddr string, nk []NodeKeys,
+	u *User, reg Registry, GatewayAddr string, nk []NodeKeys,
 	publicKey *signature.DSAPublicKey,
 	privateKey *signature.DSAPrivateKey,
 	grp *cyclic.Group) Session {
@@ -66,6 +67,7 @@ func NewSession(store globals.Storage,
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:         u,
+		UserRegistry:        reg,
 		GWAddress:           GatewayAddr, // FIXME: don't store this here
 		Keys:                nk,
 		PrivateKey:          privateKey,
@@ -97,7 +99,9 @@ func LoadSession(store globals.Storage,
 
 	dec := gob.NewDecoder(&sessionBytes)
 
-	session := SessionObj{}
+	// Need to use empty object of the type that implements
+	// interface, so that GobDecoder knows what function to call
+	session := SessionObj{UserRegistry: Registry(&UserMap{})}
 
 	err := dec.Decode(&session)
 
@@ -146,6 +150,9 @@ func LoadSession(store globals.Storage,
 type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
+
+	// User Registry
+	UserRegistry Registry
 
 	// Gateway address to the cMix network
 	GWAddress string
@@ -229,6 +236,10 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 		}
 	}
 	return currentUser
+}
+
+func (s *SessionObj) GetRegistry() Registry {
+	return s.UserRegistry
 }
 
 func (s *SessionObj) GetGWAddress() string {

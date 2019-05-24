@@ -15,14 +15,10 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 )
 
-const NUM_DEMO_USERS = 40
-
 var DemoUserNicks = []string{"David", "Payments", "UDB", "Jim", "Ben", "Steph",
 	"Rick", "Jake", "Spencer", "Stephanie", "Mario", "Jono", "Amanda",
 	"Margaux", "Kevin", "Bruno", "Konstantino", "Bernardo", "Tigran",
 	"Kate", "Will", "Katie", "Bryan"}
-var DemoChannelNames = []string{"#General", "#Engineering", "#Lunch",
-	"#Random"}
 
 // Struct representing a User in the system
 type User struct {
@@ -70,16 +66,13 @@ type UserMap struct {
 
 // NewRegistry creates a new Registry interface
 func NewRegistry(grp *cyclic.Group) Registry {
-	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
-		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
-	}
 	uc := make(map[id.User]*User)
 	ul := make(map[string]*id.User)
 	nk := make(map[id.User]*NodeKeys)
 
 	// Deterministically create NUM_DEMO_USERS users
 	// TODO Replace this with real user registration/discovery
-	for i := uint64(1); i <= NUM_DEMO_USERS; i++ {
+	for i := uint64(1); i <= uint64(len(DemoUserNicks)); i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, i})
 		t := new(User)
 		k := new(NodeKeys)
@@ -111,11 +104,6 @@ func NewRegistry(grp *cyclic.Group) Registry {
 	for i := 0; i < len(DemoUserNicks); i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
 		uc[*currentID].Nick = DemoUserNicks[i]
-	}
-
-	for i := 0; i < len(DemoChannelNames); i++ {
-		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
-		uc[*currentID].Nick = DemoChannelNames[i]
 	}
 
 	// With an underlying UserMap data structure

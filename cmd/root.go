@@ -220,9 +220,9 @@ type FallbackListener struct {
 func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	if !isHeardElsewhere {
 		message := item.(*parse.Message)
-		sender, ok := user.Users.GetUser(message.Sender)
+		sender := client.GetUser(message.Sender)
 		var senderNick string
-		if !ok {
+		if sender == nil {
 			globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 		} else {
 			senderNick = sender.Nick
@@ -248,12 +248,12 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 			err.Error())
 	}
 
-	sender, ok := user.Users.GetUser(message.Sender)
+	sender := client.GetUser(message.Sender)
 	var senderNick string
-	if !ok {
+	if sender == nil {
 		globals.Log.INFO.Printf("First message from sender %v", message.Sender)
-		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
-		user.Users.UpsertUser(u)
+		u := user.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
+		client.UpsertUser(u)
 		senderNick = u.Nick
 	} else {
 		senderNick = sender.Nick
@@ -274,9 +274,9 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	result := cmixproto.ChannelMessage{}
 	proto.Unmarshal(message.Body, &result)
 
-	sender, ok := user.Users.GetUser(message.Sender)
+	sender := client.GetUser(message.Sender)
 	var senderNick string
-	if !ok {
+	if sender == nil {
 		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
@@ -349,8 +349,8 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			u, ok := user.Users.GetUser(recipientId)
-			if ok {
+			u := client.GetUser(recipientId)
+			if u != nil {
 				recipientNick = u.Nick
 			}
 
@@ -387,8 +387,8 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				u, ok := user.Users.GetUser(recipientId)
-				if ok {
+				u := client.GetUser(recipientId)
+				if u != nil {
 					contact = u.Nick
 				}
 				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,

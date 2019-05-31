@@ -110,11 +110,14 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 	privateKey := params.PrivateKeyGen(rand.Reader)
 	publicKey := privateKey.PublicKeyGen()
 
+	// Create User Registry
+	userReg := user.NewRegistry(grp)
+
 	// Handle precanned registration
 	if preCan {
 		var successLook bool
 		globals.Log.DEBUG.Printf("Registering precanned user")
-		UID, successLook = user.Users.LookupUser(registrationCode)
+		UID, successLook = userReg.LookupUser(registrationCode)
 
 		if !successLook {
 			globals.Log.ERROR.Printf("Register: HUID does not match")
@@ -123,7 +126,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 		}
 
 		var successGet bool
-		u, successGet = user.Users.GetUser(UID)
+		u, successGet = userReg.GetUser(UID)
 
 		if !successGet {
 			globals.Log.ERROR.Printf("Register: ID lookup failed")
@@ -135,7 +138,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 			u.Nick = nick;
 		}
 
-		nodekeys, successKeys := user.Users.LookupKeys(u.User)
+		nodekeys, successKeys := userReg.LookupKeys(u.User)
 
 		if !successKeys {
 			globals.Log.ERROR.Printf("Register: could not find user keys")
@@ -279,12 +282,12 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 		} else {
 			actualNick = base64.StdEncoding.EncodeToString(UID[:])
 		}
-		u = user.Users.NewUser(UID, actualNick)
-		user.Users.UpsertUser(u)
+		u = user.NewUser(UID, actualNick)
+		userReg.UpsertUser(u)
 	}
 
 	// Create the user session
-	nus := user.NewSession(cl.storage, u, gwAddresses[0], nk,
+	nus := user.NewSession(cl.storage, u, userReg, gwAddresses[0], nk,
 		publicKey, privateKey, grp)
 
 	// Store the user session
@@ -403,8 +406,23 @@ func (cl *Client) GetCurrentUser() *id.User {
 	return cl.sess.GetCurrentUser().User
 }
 
-func (cl *Client) GetCurrentNick() string {
-	return cl.sess.GetCurrentUser().Nick
+// Gets a list of all users in registry
+func (cl *Client) GetUserList() []*user.User {
+	return cl.sess.GetRegistry().GetUserList()
+}
+
+// Lookup User in registry by id
+func (cl *Client) GetUser(id *id.User) *user.User {
+	u, ok := cl.sess.GetRegistry().GetUser(id)
+	if !ok {
+		return nil
+	}
+	return u
+}
+
+// Upsert user in registry
+func (cl *Client) UpsertUser(u *user.User) {
+	cl.sess.GetRegistry().UpsertUser(u)
 }
 
 func (cl *Client) GetKeyParams() *keyStore.KeyParams {

@@ -105,10 +105,10 @@ func LookupNick(uid *id.User) (string, error) {
 	}
 
 	nickResponse := <-nicknameResponseListener
-	u, ok := user.Users.GetUser(uid)
+	u, ok := session.GetRegistry().GetUser(uid)
 	if ok {
 		u.Nick = nickResponse
-		user.Users.UpsertUser(u)
+		session.GetRegistry().UpsertUser(u)
 	}
 
 	return nickResponse, nil

@@ -503,6 +503,8 @@ func (cl *Client) SearchForUser(emailAddress string,
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
 		if uid != nil {
+			u := user.NewUser(uid, "")
+			cl.sess.GetRegistry().UpsertUser(u)
 			cl.registerUserE2E(uid, pubKey)
 			cb.Callback(uid[:], pubKey, err)
 		} else {

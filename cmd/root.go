@@ -166,7 +166,7 @@ func sessionInitialization() *id.User {
 	// Log the user in, for now using the first gateway specified
 	// This will also register the user email with UDB
 	_, err = client.Login(uid, userEmail,
-		gwAddresses[0], certs.GatewayTLS)
+		gwAddresses[len(gwAddresses)-1], certs.GatewayTLS)
 	if err != nil {
 		fmt.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID

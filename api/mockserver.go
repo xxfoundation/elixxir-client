@@ -95,6 +95,11 @@ type MockRegistration struct {
 	//LastReceivedMessage pb.CmixMessage
 }
 
+func (s *MockRegistration) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode string) error {
+	return nil
+}
+
 // Registers a user and returns a signed public key
 func (s *MockRegistration) RegisterUser(registrationCode string,
 	Y, P, Q, G []byte) (hash, R, S []byte, err error) {

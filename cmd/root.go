@@ -9,7 +9,6 @@ package cmd
 
 import (
 	"encoding/base64"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -72,7 +71,7 @@ func sessionInitialization() *id.User {
 	if sessionFile == "" {
 		client, err = api.NewClient(&globals.RamStorage{}, "")
 		if err != nil {
-			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
+			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
 			return id.ZeroID
 		}
@@ -88,7 +87,8 @@ func sessionInitialization() *id.User {
 				register = true
 			} else {
 				//Fail if any other error is received
-				fmt.Printf("Error with file path: %s\n", err1.Error())
+				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
+				return id.ZeroID
 			}
 		}
 
@@ -96,7 +96,7 @@ func sessionInitialization() *id.User {
 		client, err = api.NewClient(nil, sessionFile)
 
 		if err != nil {
-			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID
 		}
 	}
@@ -113,7 +113,7 @@ func sessionInitialization() *id.User {
 		// If gwAddr was not passed via command line, check config file
 		if len(gateways) < 1 {
 			// No gateways in config file or passed via command line
-			fmt.Printf("Error: No gateway specified! Add to" +
+			globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 				" configuration file or pass via command line using -g!\n")
 			return id.ZeroID
 		} else {
@@ -150,7 +150,7 @@ func sessionInitialization() *id.User {
 
 		uid, err = client.Register(userId != 0, regCode, "", mint, &grp)
 		if err != nil {
-			fmt.Printf("Could Not Register User: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
 		}
 
@@ -168,7 +168,7 @@ func sessionInitialization() *id.User {
 	// This will also register the user email with UDB
 	_, err = client.Login(uid, userEmail)
 	if err != nil {
-		fmt.Printf("Could Not Log In: %s\n", err)
+		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
 	}
 
@@ -228,7 +228,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 			senderNick = sender.Nick
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
-		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
+		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
 			message.MessageType, *message.Sender, senderNick,
 			string(message.Body))
 	}
@@ -258,7 +258,7 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
+	globals.Log.INFO.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -282,7 +282,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		senderNick = sender.Nick
 	}
 
-	fmt.Printf("Message from channel %v, %v: ",
+	globals.Log.INFO.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := id.NewUserFromBytes(result.SpeakerID)
@@ -358,7 +358,7 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					recipientNick, message)
 
 				// Send the message
@@ -388,7 +388,7 @@ var rootCmd = &cobra.Command{
 				if ok {
 					contact = u.Nick
 				}
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
 				message := &parse.Message{
@@ -414,7 +414,7 @@ var rootCmd = &cobra.Command{
 		err := client.Logout()
 
 		if err != nil {
-			fmt.Printf("Could not logout: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 

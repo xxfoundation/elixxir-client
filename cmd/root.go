@@ -114,7 +114,7 @@ func sessionInitialization() *id.User {
 		if len(gateways) < 1 {
 			// No gateways in config file or passed via command line
 			fmt.Printf("Error: No gateway specified! Add to" +
-				" configuration file or pass via command line using -g!")
+				" configuration file or pass via command line using -g!\n")
 			return id.ZeroID
 		} else {
 			// List of gateways found in config file

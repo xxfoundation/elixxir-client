@@ -6,7 +6,6 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
@@ -62,24 +61,18 @@ func InitBots(s user.Session, m io.Communications) {
 	messaging = m
 	l := session.GetSwitchboard()
 
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
 		&pushKeyResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
 		&getKeyResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
 		&registerResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
 		&searchResponseListener)
 	l.Register(id.ZeroID,
-		format.None, int32(cmixproto.Type_NICKNAME_REQUEST),
-		&nicknameRequestListener)
+		int32(cmixproto.Type_NICKNAME_REQUEST), &nicknameRequestListener)
 	l.Register(id.ZeroID,
-		format.None, int32(cmixproto.Type_NICKNAME_RESPONSE),
-		&nicknameResponseListener)
+		int32(cmixproto.Type_NICKNAME_RESPONSE), &nicknameResponseListener)
 }
 
 // sendCommand sends a command to the udb. This doesn't block.
@@ -87,7 +80,7 @@ func InitBots(s user.Session, m io.Communications) {
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
 	return messaging.SendMessage(session, botID,
-		format.Unencrypted, command)
+		parse.Unencrypted, command)
 }
 
 // Nickname Lookup function

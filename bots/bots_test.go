@@ -32,7 +32,7 @@ type dummyMessaging struct {
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
@@ -41,7 +41,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
@@ -127,8 +127,8 @@ func TestNicknameFunctions(t *testing.T) {
 			MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
 			Body:        []byte{},
 		},
-		CryptoType: format.Unencrypted,
-		Receiver:   session.GetCurrentUser().User,
+		InferredType: parse.Unencrypted,
+		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
 
@@ -153,8 +153,8 @@ func TestNicknameFunctions(t *testing.T) {
 			MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
 			Body:        []byte(session.GetCurrentUser().Nick),
 		},
-		CryptoType: format.Unencrypted,
-		Receiver:   session.GetCurrentUser().User,
+		InferredType: parse.Unencrypted,
+		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
 }
@@ -164,7 +164,7 @@ type errorMessaging struct{}
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	return errors.New("This is an error")
 }
@@ -172,7 +172,7 @@ func (e *errorMessaging) SendMessage(sess user.Session,
 // SendMessage no partition that just errors out
 func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	return errors.New("This is an error")
 }

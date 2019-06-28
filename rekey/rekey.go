@@ -92,13 +92,18 @@ func InitRekey(s user.Session, m io.Communications) {
 	l := session.GetSwitchboard()
 
 	l.Register(s.GetCurrentUser().User,
-		format.None, int32(cmixproto.Type_REKEY_TRIGGER),
+		int32(cmixproto.Type_REKEY_TRIGGER),
 		&rekeyTriggerList)
+	// TODO(nen) Wouldn't it be possible to register these listeners based
+	//  solely on the inner type? maybe the switchboard can rebroadcast
+	//  messages that have a type that includes the outer type if that's not
+	//  possible
+	// in short, switchboard should be the package that includes outer
 	l.Register(id.ZeroID,
-		format.Rekey, int32(cmixproto.Type_NO_TYPE),
+		int32(cmixproto.Type_NO_TYPE),
 		&rekeyList)
 	l.Register(id.ZeroID,
-		format.None, int32(cmixproto.Type_REKEY_CONFIRM),
+		int32(cmixproto.Type_REKEY_CONFIRM),
 		&rekeyConfirmList)
 }
 
@@ -236,8 +241,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Directly send raw publicKey bytes, without any message type
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
-		return messaging.SendMessageNoPartition(session, partner, format.E2E,
-			pubKey.GetKey().LeftpadBytes(uint64(format.TOTAL_LEN)))
+		return messaging.SendMessageNoPartition(session, partner, parse.E2E,
+			pubKey.GetKey().LeftpadBytes(uint64(format.TotalLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()
@@ -246,7 +251,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        h.Sum(nil),
 		})
-		return messaging.SendMessage(session, partner, format.None, msg)
+		return messaging.SendMessage(session, partner, parse.None, msg)
 	}
 	return nil
 }

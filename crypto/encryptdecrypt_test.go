@@ -89,13 +89,17 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	sender := id.NewUserFromUint(38, t)
 	recipient := id.NewUserFromUint(29, t)
 	msg := format.NewMessage()
-	msg.SetSender(sender)
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msg.SetPayloadData(msgPayload)
+	// Normally, msgPayload would be the right length due to padding
+	msgPayload = append(msgPayload, make([]byte,
+		format.ContentsLen-len(msgPayload))...)
+	msg.Contents.Set(msgPayload)
 	now := time.Now()
 	nowBytes, _ := now.MarshalBinary()
+	// Normally, nowBytes would be the right length due to AES encryption
+	nowBytes = append(nowBytes, make([]byte, format.TimestampLen - len(nowBytes))...)
 	msg.SetTimestamp(nowBytes)
 
 	key := grp.NewInt(42)
@@ -114,8 +118,9 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	// This block imitates what the server does during the realtime
 	var encryptedNet *pb.Slot
 	{
-		payload := grp.NewIntFromBytes(encMsg.SerializePayload())
-		assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
+		// FIXME(nen) This is almost certainly wrong now...
+		payload := grp.NewIntFromBytes(encMsg.GetPayloadA())
+		assocData := grp.NewIntFromBytes(encMsg.GetPayloadB())
 		// Multiply payload and associated data by transmission key only
 		grp.Mul(payload, serverTransmissionKey, payload)
 		// Multiply associated data only by transmission key
@@ -123,14 +128,14 @@ func TestFullEncryptDecrypt(t *testing.T) {
 		encryptedNet = &pb.Slot{
 			SenderID:       sender.Bytes(),
 			Salt:           salt,
-			MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
-			AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+			MessagePayload: payload.LeftpadBytes(uint64(format.TotalLen)),
+			AssociatedData: assocData.LeftpadBytes(uint64(format.TotalLen)),
 		}
 	}
 
 	decMsg := format.NewMessage()
-	decMsg.Payload = format.DeserializePayload(encryptedNet.MessagePayload)
-	decMsg.AssociatedData = format.DeserializeAssociatedData(encryptedNet.AssociatedData)
+	decMsg.SetPayloadA(encryptedNet.MessagePayload)
+	decMsg.SetPayloadB(encryptedNet.AssociatedData)
 
 	// E2E Decryption
 	err := E2EDecrypt(grp, key, decMsg)
@@ -139,17 +144,13 @@ func TestFullEncryptDecrypt(t *testing.T) {
 		t.Errorf("E2EDecrypt returned error: %v", err.Error())
 	}
 
-	if *decMsg.GetSender() != *sender {
-		t.Errorf("Sender differed from expected: Got %q, expected %q",
-			decMsg.GetRecipient(), sender)
-	}
 	if *decMsg.GetRecipient() != *recipient {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
 			decMsg.GetRecipient(), sender)
 	}
-	if !bytes.Equal(decMsg.GetPayloadData(), msgPayload) {
+	if !bytes.Equal(decMsg.Contents.Get(), msgPayload) {
 		t.Errorf("Decrypted payload differed from expected: Got %q, "+
-			"expected %q", decMsg.GetPayloadData(), msgPayload)
+			"expected %q", decMsg.Contents.Get(), msgPayload)
 	}
 }
 
@@ -166,9 +167,7 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	// Need to take up space of SenderID
-	msg.SetSenderID(msgPayload[:format.MP_SID_LEN])
-	msg.SetPayloadData(msgPayload[format.MP_SID_LEN:])
+	msg.Contents.Set(msgPayload[format.ContentsLen:])
 	now := time.Now()
 	nowBytes, _ := now.MarshalBinary()
 	msg.SetTimestamp(nowBytes)
@@ -189,8 +188,8 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	// This block imitates what the server does during the realtime
 	var encryptedNet *pb.Slot
 	{
-		payload := grp.NewIntFromBytes(encMsg.SerializePayload())
-		assocData := grp.NewIntFromBytes(encMsg.SerializeAssociatedData())
+		payload := grp.NewIntFromBytes(encMsg.GetPayloadA())
+		assocData := grp.NewIntFromBytes(encMsg.GetPayloadB())
 		// Multiply payload and associated data by transmission key only
 		grp.Mul(payload, serverTransmissionKey, payload)
 		// Multiply associated data only by transmission key
@@ -198,14 +197,14 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		encryptedNet = &pb.Slot{
 			SenderID:       sender.Bytes(),
 			Salt:           salt,
-			MessagePayload: payload.LeftpadBytes(uint64(format.TOTAL_LEN)),
-			AssociatedData: assocData.LeftpadBytes(uint64(format.TOTAL_LEN)),
+			MessagePayload: payload.LeftpadBytes(uint64(format.TotalLen)),
+			AssociatedData: assocData.LeftpadBytes(uint64(format.TotalLen)),
 		}
 	}
 
 	decMsg := format.NewMessage()
-	decMsg.AssociatedData = format.DeserializeAssociatedData(encryptedNet.AssociatedData)
-	decMsg.Payload = format.DeserializePayload(encryptedNet.MessagePayload)
+	decMsg.SetPayloadA(encryptedNet.MessagePayload)
+	decMsg.SetPayloadB(encryptedNet.AssociatedData)
 
 	// E2E Decryption
 	err := E2EDecryptUnsafe(grp, key, decMsg)
@@ -218,26 +217,26 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
 			decMsg.GetRecipient(), sender)
 	}
-	if !bytes.Equal(decMsg.GetPayload(), msgPayload) {
+	if !bytes.Equal(decMsg.Contents.Get(), msgPayload) {
 		t.Errorf("Decrypted payload differed from expected: Got %q, "+
-			"expected %q", decMsg.GetPayload(), msgPayload)
+			"expected %q", decMsg.Contents.Get(), msgPayload)
 	}
 }
 
 // Test that E2EEncrypt panics if the payload is too big (can't be padded)
 func TestE2EEncrypt_Panic(t *testing.T) {
 	grp := session.GetGroup()
-	sender := id.NewUserFromUint(38, t)
 	recipient := id.NewUserFromUint(29, t)
 	msg := format.NewMessage()
-	msg.SetSender(sender)
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msg.SetPayloadData(msgPayload)
+	msg.Contents.Set(msgPayload)
 	now := time.Now()
 	nowBytes, _ := now.MarshalBinary()
 	msg.SetTimestamp(nowBytes)
@@ -261,14 +260,12 @@ func TestE2EEncrypt_Panic(t *testing.T) {
 // Test that E2EDecrypt and E2EDecryptUnsafe handle errors correctly
 func TestE2EDecrypt_Errors(t *testing.T) {
 	grp := session.GetGroup()
-	sender := id.NewUserFromUint(38, t)
 	recipient := id.NewUserFromUint(29, t)
 	msg := format.NewMessage()
-	msg.SetSender(sender)
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msg.SetPayloadData(msgPayload)
+	msg.Contents.Set(msgPayload)
 	now := time.Now()
 	nowBytes, _ := now.MarshalBinary()
 	msg.SetTimestamp(nowBytes)
@@ -284,8 +281,8 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 
 	// Copy message
 	badMsg := format.NewMessage()
-	badMsg.Payload = format.DeserializePayload(msg.SerializePayload())
-	badMsg.AssociatedData = format.DeserializeAssociatedData(msg.SerializeAssociatedData())
+	badMsg.SetPayloadA(msg.GetPayloadA())
+	badMsg.SetPayloadB(msg.GetPayloadB())
 
 	// Corrupt MAC to make decryption fail
 	badMsg.SetMAC([]byte("sakfaskfajskasfkkaskfanjjnaf"))
@@ -336,10 +333,11 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	badMsg.SetTimestamp(msg.GetTimestamp())
 
 	// Corrupt payload to make decryption fail
-	badMsg.SetPayload([]byte("sakomnsfjeiknheuijhgfyaistuajhfaiuojfkhufijsahufiaij"))
+	badMsg.Contents.Set([]byte(
+		"sakomnsfjeiknheuijhgfyaistuajhfaiuojfkhufijsahufiaij"))
 
 	// Calculate new MAC to avoid failing on that verification again
-	newMAC := hash.CreateHMAC(badMsg.SerializePayload(), key.Bytes())
+	newMAC := hash.CreateHMAC(badMsg.Contents.Get(), key.Bytes())
 	badMsg.SetMAC(newMAC)
 
 	// E2E Decryption returns error

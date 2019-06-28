@@ -17,6 +17,14 @@ import (
 	"sync"
 )
 
+// TODO(nen) How the fuck is this supposed to work,
+//  now that there are two types of padding?
+//  This might be incorrect, and over-partition the message,
+//  so I need to come back here and verify this is correct
+func getMaxMessageLength() int {
+	return format.ContentsLen - format.PadMinLen - e2e.MinPaddingLen
+}
+
 // TODO is there a better way to generate unique message IDs locally?
 func IDCounter() func() []byte {
 	// 32 bits to put a smaller upper bound on the varint size on the wire
@@ -52,7 +60,7 @@ func GetMaxIndex(body []byte, id []byte) int32 {
 	if bodyLen > 0 {
 		bodyLen--
 	}
-	maxIndex := bodyLen / (format.MP_PAYLOAD_LEN - e2e.MinPaddingLen - len(id) - IndexLength)
+	maxIndex := bodyLen / (getMaxMessageLength() - len(id) - IndexLength)
 	return int32(maxIndex)
 }
 
@@ -75,7 +83,7 @@ func Partition(body []byte, id []byte) ([][]byte, error) {
 	var lastPartitionLength int
 	partitionReadIdx := 0
 	for i := range partitions {
-		maxPartitionLength := format.MP_PAYLOAD_LEN - e2e.MinPaddingLen
+		maxPartitionLength := getMaxMessageLength()
 		partitions[i], lastPartitionLength = makePartition(maxPartitionLength,
 			body[partitionReadIdx:], id, byte(i), byte(maxIndex))
 		partitionReadIdx += lastPartitionLength
@@ -128,7 +136,8 @@ func makePartition(maxLength int, body []byte, id []byte, i byte,
 func Assemble(partitions [][]byte) ([]byte, error) {
 	// this will allocate a bit more capacity than needed but not so much that
 	// it breaks the bank
-	result := make([]byte, 0, int(format.MP_PAYLOAD_LEN)*len(partitions))
+	result := make([]byte, 0, int(format.ContentsLen-format.PadMinLen)*
+		len(partitions))
 
 	for i := range partitions {
 		result = append(result, partitions[i]...)

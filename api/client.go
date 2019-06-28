@@ -31,7 +31,6 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"google.golang.org/grpc/credentials"
@@ -411,10 +410,9 @@ func (cl *Client) SetRateLimiting(limit uint32) {
 	(cl.comm).(*io.Messaging).TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
-func (cl *Client) Listen(user *id.User, outerType format.CryptoType,
-	messageType int32, newListener switchboard.Listener) string {
+func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
 	listenerId := cl.sess.GetSwitchboard().
-		Register(user, outerType, messageType, newListener)
+		Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
 	return listenerId

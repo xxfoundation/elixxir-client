@@ -9,9 +9,9 @@ package api
 
 import (
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
 )
@@ -40,8 +40,8 @@ func (m APIMessage) GetMessageType() int32 {
 	return int32(cmixproto.Type_NO_TYPE)
 }
 
-func (m APIMessage) GetCryptoType() format.CryptoType {
-	return format.None
+func (m APIMessage) GetCryptoType() parse.CryptoType {
+	return parse.None
 }
 
 func (m APIMessage) Pack() []byte {

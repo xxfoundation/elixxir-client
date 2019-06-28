@@ -22,7 +22,7 @@ func TestCollator_AddMessage(t *testing.T) {
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
 	var bodies [][]byte
-	for length := 5; length < 20*format.MP_PAYLOAD_LEN; length += 20 {
+	for length := 5; length < 20*format.TotalLen; length += 20 {
 		newBody := make([]byte, length)
 		_, err := rand.Read(newBody)
 		if err != nil {
@@ -40,9 +40,8 @@ func TestCollator_AddMessage(t *testing.T) {
 		for j := range partitions {
 
 			fm := format.NewMessage()
-			fm.SetSender(id.NewUserFromUint(5, t))
 			fm.SetRecipient(id.NewUserFromUint(6, t))
-			fm.SetPayloadData(partitions[j])
+			fm.Contents.Set(partitions[j])
 
 			result = collator.AddMessage(fm, time.Minute)
 		}
@@ -66,7 +65,7 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
 	//enough for four partitions, probably
-	body := make([]byte, 3*format.MP_PAYLOAD_LEN)
+	body := make([]byte, 3*format.ContentsLen)
 	partitions, err := parse.Partition(body, []byte{88})
 	if err != nil {
 		t.Errorf("Error partitioning messages: %v", err.Error())
@@ -74,9 +73,8 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	var result *parse.Message
 	for i := range partitions {
 		fm := format.NewMessage()
-		fm.SetSender(id.NewUserFromUint(5, t))
 		fm.SetRecipient(id.NewUserFromUint(6, t))
-		fm.SetPayload(partitions[i])
+		fm.Contents.Set(partitions[i])
 
 		result = collator.AddMessage(fm, 80*time.Millisecond)
 		if result != nil {

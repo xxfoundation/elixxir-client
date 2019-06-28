@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/crypto/verification"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -31,17 +30,7 @@ func CMIXEncrypt(session user.Session,
 		//TODO: Add KMAC generation here
 	}
 
-	fp := msg.GetKeyFingerprint()
-	// Calculate MIC
-	recipientMicList := [][]byte{
-		msg.GetRecipientID(),
-		fp[:],
-		msg.GetTimestamp(),
-		msg.GetMAC(),
-	}
-	mic := verification.GenerateMIC(recipientMicList, uint64(format.AD_RMIC_LEN))
-	msg.SetRecipientMIC(mic)
-	return cmix.ClientEncryptDecrypt(true, session.GetGroup(), msg, salt, baseKeys)
+	return cmix.ClientEncrypt(session.GetGroup(), msg, salt, baseKeys)
 }
 
 // E2EEncrypt uses the E2E key to encrypt msg
@@ -51,24 +40,27 @@ func CMIXEncrypt(session user.Session,
 func E2EEncrypt(grp *cyclic.Group,
 	key *cyclic.Int, keyFP format.Fingerprint,
 	msg *format.Message) {
-	msg.SetKeyFingerprint(keyFP)
+	msg.SetKeyFP(keyFP)
 
 	// Encrypt the timestamp using key
 	// Timestamp bytes were previously stored
 	// and GO only uses 15 bytes, so use those
 	var iv [e2e.AESBlockSize]byte
 	copy(iv[:], keyFP[:e2e.AESBlockSize])
-	encryptedTimestamp, _ :=
+	encryptedTimestamp, err :=
 		e2e.EncryptAES256WithIV(key.Bytes(), iv,
-			msg.GetTimestamp()[:15])
+			msg.GetTimestamp())
+	if err != nil {
+		panic(err)
+	}
 	msg.SetTimestamp(encryptedTimestamp)
 
 	// E2E encrypt the msg
-	encPayload, err := e2e.Encrypt(grp, key, msg.GetPayload())
+	encPayload, err := e2e.Encrypt(grp, key, msg.Contents.Get())
 	if err != nil {
 		globals.Log.ERROR.Panicf(err.Error())
 	}
-	msg.SetPayload(encPayload)
+	msg.Contents.Set(encPayload)
 
 	// MAC is HMAC(key, ciphertext)
 	// Currently, the MAC doesn't include any of the associated data
@@ -85,7 +77,7 @@ func E2EEncrypt(grp *cyclic.Group,
 func E2EEncryptUnsafe(grp *cyclic.Group,
 	key *cyclic.Int, keyFP format.Fingerprint,
 	msg *format.Message) {
-	msg.SetKeyFingerprint(keyFP)
+	msg.SetKeyFP(keyFP)
 
 	// Encrypt the timestamp using key
 	// Timestamp bytes were previously stored
@@ -94,12 +86,12 @@ func E2EEncryptUnsafe(grp *cyclic.Group,
 	copy(iv[:], keyFP[:e2e.AESBlockSize])
 	encryptedTimestamp, _ :=
 		e2e.EncryptAES256WithIV(key.Bytes(), iv,
-			msg.GetTimestamp()[:15])
+			msg.GetTimestamp())
 	msg.SetTimestamp(encryptedTimestamp)
 
 	// E2E encrypt the msg
-	encPayload := e2e.EncryptUnsafe(grp, key, msg.GetPayload())
-	msg.SetPayload(encPayload)
+	encPayload := e2e.EncryptUnsafe(grp, key, msg.Contents.Get())
+	msg.Contents.Set(encPayload)
 
 	// MAC is HMAC(key, ciphertext)
 	// Currently, the MAC doesn't include any of the associated data

@@ -12,7 +12,6 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/signature"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
 	"testing"
@@ -28,7 +27,7 @@ type dummyMessaging struct {
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	d.listener <- message
 	return nil
@@ -37,7 +36,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	d.listener <- message
 	return nil
@@ -125,7 +124,7 @@ func TestRekeyTrigger(t *testing.T) {
 			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
 		},
-		CryptoType: format.None,
+		InferredType: parse.None,
 		Receiver:   partnerID,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -156,7 +155,7 @@ func TestRekeyTrigger(t *testing.T) {
 			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
 		},
-		CryptoType: format.None,
+		InferredType: parse.None,
 		Receiver:   partnerID,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -179,7 +178,7 @@ func TestRekeyConfirm(t *testing.T) {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        baseKey.Bytes(),
 		},
-		CryptoType: format.None,
+		InferredType: parse.None,
 		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -198,7 +197,7 @@ func TestRekeyConfirm(t *testing.T) {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        h.Sum(nil),
 		},
-		CryptoType: format.None,
+		InferredType: parse.None,
 		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -224,7 +223,7 @@ func TestRekeyConfirm(t *testing.T) {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        h.Sum(nil),
 		},
-		CryptoType: format.None,
+		InferredType: parse.None,
 		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -255,7 +254,7 @@ func TestRekey(t *testing.T) {
 			MessageType: int32(cmixproto.Type_NO_TYPE),
 			Body:        partnerPubKey.GetKey().Bytes(),
 		},
-		CryptoType: format.Rekey,
+		InferredType: parse.Rekey,
 		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -309,7 +308,7 @@ func TestRekey_Errors(t *testing.T) {
 			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
 		},
-		CryptoType: format.None,
+		InferredType: parse.None,
 		Receiver:   partnerID,
 	}
 	session.GetSwitchboard().Speak(msg)
@@ -326,7 +325,7 @@ func TestRekey_Errors(t *testing.T) {
 			MessageType: int32(cmixproto.Type_NO_TYPE),
 			Body:        []byte{},
 		},
-		CryptoType: format.Rekey,
+		InferredType: parse.Rekey,
 		Receiver:   session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)

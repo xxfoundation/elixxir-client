@@ -38,7 +38,10 @@ func TestRegistrationGob(t *testing.T) {
 		t.Error(err)
 	}
 
-	testClient.Connect(RegGWAddresses[:], "", "", "")
+	err = testClient.Connect(RegGWAddresses[:], "", "", "")
+	if err != nil {
+		t.Error(err)
+	}
 
 	// populate a gob in the store
 	grp := getGroup()
@@ -215,7 +218,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	key, action := km.PopKey()
 	if key == nil {
 		t.Errorf("TransmissionKeys map returned nil")
-	} else if key.GetOuterType() != format.E2E {
+	} else if key.GetOuterType() != parse.E2E {
 		t.Errorf("Key type expected 'E2E', got %s",
 			key.GetOuterType())
 	} else if action != keyStore.None {
@@ -226,7 +229,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	key, action = km.PopRekey()
 	if key == nil {
 		t.Errorf("TransmissionReKeys map returned nil")
-	} else if key.GetOuterType() != format.Rekey {
+	} else if key.GetOuterType() != parse.Rekey {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	} else if action != keyStore.None {
@@ -248,7 +251,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	key = session.GetKeyStore().GetRecvKey(fp)
 	if key == nil {
 		t.Errorf("ReceptionKeys map returned nil for Key")
-	} else if key.GetOuterType() != format.E2E {
+	} else if key.GetOuterType() != parse.E2E {
 		t.Errorf("Key type expected 'E2E', got %s",
 			key.GetOuterType())
 	}
@@ -260,7 +263,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	key = session.GetKeyStore().GetRecvKey(fp)
 	if key == nil {
 		t.Errorf("ReceptionKeys map returned nil for ReKey")
-	} else if key.GetOuterType() != format.Rekey {
+	} else if key.GetOuterType() != parse.Rekey {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	}
@@ -314,7 +317,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		key, action := km.PopKey()
 		if key == nil {
 			t.Errorf("TransmissionKeys map returned nil")
-		} else if key.GetOuterType() != format.E2E {
+		} else if key.GetOuterType() != parse.E2E {
 			t.Errorf("Key type expected 'E2E', got %s",
 				key.GetOuterType())
 		}
@@ -342,7 +345,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		key, action := km.PopRekey()
 		if key == nil {
 			t.Errorf("TransmissionReKeys map returned nil")
-		} else if key.GetOuterType() != format.Rekey {
+		} else if key.GetOuterType() != parse.Rekey {
 			t.Errorf("Key type expected 'Rekey', got %s",
 				key.GetOuterType())
 		}
@@ -376,7 +379,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		key := session.GetKeyStore().GetRecvKey(fp)
 		if key == nil {
 			t.Errorf("ReceptionKeys map returned nil for Key")
-		} else if key.GetOuterType() != format.E2E {
+		} else if key.GetOuterType() != parse.E2E {
 			t.Errorf("Key type expected 'E2E', got %s",
 				key.GetOuterType())
 		}
@@ -395,7 +398,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 		key := session.GetKeyStore().GetRecvKey(fp)
 		if key == nil {
 			t.Errorf("ReceptionKeys map returned nil for Rekey")
-		} else if key.GetOuterType() != format.Rekey {
+		} else if key.GetOuterType() != parse.Rekey {
 			t.Errorf("Key type expected 'Rekey', got %s",
 				key.GetOuterType())
 		}

@@ -1,6 +1,7 @@
 package keyStore
 
 import (
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
@@ -14,7 +15,7 @@ type E2EKey struct {
 	key *cyclic.Int
 
 	// Designation of crypto type
-	outer format.CryptoType
+	outer parse.CryptoType
 
 	// keyNum is needed by Key Manager
 	// to keep track of which receiving keys
@@ -33,7 +34,7 @@ func (e2ekey *E2EKey) GetKey() *cyclic.Int {
 }
 
 // Get key type, E2E or Rekey
-func (e2ekey *E2EKey) GetOuterType() format.CryptoType {
+func (e2ekey *E2EKey) GetOuterType() parse.CryptoType {
 	return e2ekey.outer
 }
 

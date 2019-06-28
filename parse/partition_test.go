@@ -61,7 +61,9 @@ func TestPartitionShort(t *testing.T) {
 // in sum, contains the whole message.
 func TestPartitionLong(t *testing.T) {
 	id := []byte{0xa2, 0x54}
-	randomBytes := randomString(0, 300)
+	// This should be about the right length
+	// With the other length, the test panicked with out of bounds
+	randomBytes := randomString(0, getMaxMessageLength()*2-12)
 	actual, err := Partition(randomBytes, id)
 
 	if err != nil {
@@ -75,7 +77,7 @@ func TestPartitionLong(t *testing.T) {
 	expected[0] = append(expected[0], 0, 1)
 	// part of random string
 	expected[0] = append(expected[0],
-		randomBytes[:format.MP_PAYLOAD_LEN-4-e2e.MinPaddingLen]...)
+		randomBytes[:getMaxMessageLength()-4]...)
 
 	// id
 	expected[1] = append(expected[1], id...)
@@ -83,7 +85,7 @@ func TestPartitionLong(t *testing.T) {
 	expected[1] = append(expected[1], 1, 1)
 	// other part of random string
 	expected[1] = append(expected[1],
-		randomBytes[format.MP_PAYLOAD_LEN-4-e2e.MinPaddingLen:]...)
+		randomBytes[getMaxMessageLength()-4:]...)
 
 	for i := range actual {
 		if !bytes.Equal(actual[i], expected[i]) {
@@ -155,8 +157,12 @@ func TestOnlyAssemble(t *testing.T) {
 
 	partitions := make([][]byte, len(messageChunks))
 	for i := range partitions {
-		e2e.Pad([]byte(messageChunks[i]), format.MP_PAYLOAD_LEN)
-		partitions[i] = append(partitions[i], messageChunks[i]...)
+		paddedChunk, err := e2e.Pad([]byte(messageChunks[i]),
+			format.ContentsLen)
+		if err != nil {
+			t.Error(err)
+		}
+		partitions[i] = append(partitions[i], paddedChunk...)
 	}
 
 	assembled, err := Assemble(partitions)
@@ -449,7 +455,8 @@ func TestValidatePartition(t *testing.T) {
 	for i := range validPayloads {
 		result, err := ValidatePartition(validPayloads[i])
 		if err != nil {
-			t.Errorf("Payload %v was incorrectly invalidated: %v", i, err.Error())
+			t.Fatalf("Payload %v was incorrectly invalidated: %v", i,
+				err.Error())
 		}
 		if !bytes.Equal(result.ID, expectedIDs[i]) {
 			t.Errorf("Payload %v's ID was parsed incorrectly. Got %v, "+

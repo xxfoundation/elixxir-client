@@ -22,7 +22,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
@@ -319,15 +318,15 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		client.Listen(id.ZeroID, format.None, int32(cmixproto.Type_TEXT_MESSAGE),
+		client.Listen(id.ZeroID, int32(cmixproto.Type_TEXT_MESSAGE),
 			&text)
 		// Channel messages
 		channel := ChannelListener{}
-		client.Listen(id.ZeroID, format.None,
+		client.Listen(id.ZeroID,
 			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel)
 		// All other messages
 		fallback := FallbackListener{}
-		client.Listen(id.ZeroID, format.None, int32(cmixproto.Type_NO_TYPE),
+		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
 			&fallback)
 
 		// Do calculation for dummy messages if the flag is set
@@ -336,9 +335,9 @@ var rootCmd = &cobra.Command{
 				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
 		}
 
-		cryptoType := format.Unencrypted
+		cryptoType := parse.Unencrypted
 		if end2end {
-			cryptoType = format.E2E
+			cryptoType = parse.E2E
 		}
 
 		// Only send a message if we have a message to send (except dummy messages)
@@ -368,7 +367,7 @@ var rootCmd = &cobra.Command{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:        wireOut,
 					},
-					CryptoType: cryptoType,
+					InferredType: cryptoType,
 					Receiver:   recipientId,
 				})
 			}
@@ -397,7 +396,7 @@ var rootCmd = &cobra.Command{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:        api.FormatTextMessage(message),
 					},
-					CryptoType: cryptoType,
+					InferredType: cryptoType,
 					Receiver:   recipientId}
 				client.Send(message)
 

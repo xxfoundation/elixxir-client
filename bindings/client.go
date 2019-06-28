@@ -12,7 +12,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
@@ -73,7 +72,7 @@ func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener)
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return cl.client.Listen(typedUserId, format.None, messageType, listener)
+	return cl.client.Listen(typedUserId, messageType, listener)
 }
 
 // Pass the listener handle that Listen() returned to delete the listener
@@ -170,11 +169,11 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 	sender := id.NewUserFromBytes(m.GetSender())
 	recipient := id.NewUserFromBytes(m.GetRecipient())
 
-	var cryptoType format.CryptoType
+	var cryptoType parse.CryptoType
 	if encrypt {
-		cryptoType = format.E2E
+		cryptoType = parse.E2E
 	} else {
-		cryptoType = format.Unencrypted
+		cryptoType = parse.Unencrypted
 	}
 
 	return cl.client.Send(&parse.Message{
@@ -182,7 +181,7 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 			MessageType: m.GetMessageType(),
 			Body:        m.GetPayload(),
 		},
-		CryptoType: cryptoType,
+		InferredType: cryptoType,
 		Sender:     sender,
 		Receiver:   recipient,
 	})

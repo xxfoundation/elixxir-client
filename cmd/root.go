@@ -227,7 +227,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 			senderNick = sender.Nick
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
-		globals.Log.INFO.Println("Message of type %v from %q, %v received with fallback: %s\n",
+		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
 			message.MessageType, *message.Sender, senderNick,
 			string(message.Body))
 	}
@@ -257,7 +257,7 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	globals.Log.INFO.Println("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
+	globals.Log.INFO.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -281,7 +281,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		senderNick = sender.Nick
 	}
 
-	globals.Log.INFO.Println("Message from channel %v, %v: ",
+	globals.Log.INFO.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := id.NewUserFromBytes(result.SpeakerID)
@@ -357,7 +357,7 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				globals.Log.INFO.Println("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					recipientNick, message)
 
 				// Send the message
@@ -387,7 +387,7 @@ var rootCmd = &cobra.Command{
 				if ok {
 					contact = u.Nick
 				}
-				globals.Log.INFO.Println("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
 				message := &parse.Message{

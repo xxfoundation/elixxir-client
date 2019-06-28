@@ -88,7 +88,6 @@ func sessionInitialization() *id.User {
 			} else {
 				//Fail if any other error is received
 				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
-				return id.ZeroID
 			}
 		}
 

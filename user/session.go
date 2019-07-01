@@ -361,12 +361,10 @@ func clearCyclicInt(c *cyclic.Int) {
 
 // FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?
 func burntString(length int) string {
+	b := make([]byte, length)
 
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-	b := make([]rune, length)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
+	for i, value := range rand.Perm(length) {
+		b[i] = byte(value)
 	}
 
 	return string(b)

@@ -363,9 +363,7 @@ func clearCyclicInt(c *cyclic.Int) {
 func burntString(length int) string {
 	b := make([]byte, length)
 
-	for i, value := range rand.Perm(length) {
-		b[i] = byte(value)
-	}
+	rand.Read(b)
 
 	return string(b)
 }

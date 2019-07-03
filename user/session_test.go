@@ -239,3 +239,24 @@ func TestGetPrivKey(t *testing.T) {
 		t.Errorf("Private key is not returned correctly!")
 	}
 }
+
+func TestBruntString(t *testing.T) {
+	// Generate a new user and record the pointer to the nick
+	u := new(User)
+	u.Nick = "Mario"
+	preBurnPointer := &u.Nick
+
+	// Burn the string and record the pointer to the nick
+	u.Nick = burntString(len(u.Nick))
+	postBurnPointer := &u.Nick
+
+	// Check the nick is not the same as before
+	if u.Nick == "Mario" {
+		t.Errorf("String was not burnt")
+	}
+
+	// Check the pointer is the same (otherwise it wasn't overwritten)
+	if preBurnPointer != postBurnPointer {
+		t.Errorf("Pointer values are not the same")
+	}
+}

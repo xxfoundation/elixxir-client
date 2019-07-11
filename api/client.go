@@ -31,8 +31,10 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"google.golang.org/grpc/credentials"
 	goio "io"
@@ -40,11 +42,10 @@ import (
 )
 
 type Client struct {
-	storage     globals.Storage
-	sess        user.Session
-	comm        io.Communications
-	gwAddresses []io.ConnAddr
-	regAddress  io.ConnAddr
+	storage globals.Storage
+	sess    user.Session
+	comm    io.Communications
+	ndf     *ndf.NetworkDefinition
 }
 
 // Populates a text message and returns its wire representation
@@ -59,11 +60,38 @@ func FormatTextMessage(message string) []byte {
 	return wireRepresentation
 }
 
+// VerifyNDF verifies the signature of the network definition file (NDF) and
+// returns the structure.
+func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
+	// Decode NDF string to a NetworkDefinition and its signature
+	ndfJSON, ndfSignature, err := ndf.DecodeNDF(ndfString)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not decode NDF: %+v", err)
+	}
+
+	// Get public key
+	pubKey, err := rsa.LoadPublicKeyFromPem([]byte(ndfPub))
+
+	// Hash NDF JSON
+	opts := rsa.NewDefaultOptions()
+	rsaHash := opts.Hash.New()
+	rsaHash.Write(ndfJSON.Serialize())
+
+	// Verify signature
+	err = rsa.Verify(pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
+
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not verify NDF: %+v", err)
+	}
+
+	return ndfJSON
+}
+
 // Creates a new Client using the storage mechanism provided.
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-func NewClient(s globals.Storage, loc string) (*Client, error) {
+func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -84,21 +112,21 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 	cl := new(Client)
 	cl.storage = store
 	cl.comm = io.NewMessenger()
-	cl.gwAddresses = make([]io.ConnAddr, 0)
+	cl.ndf = ndfJSON
+
 	return cl, nil
 }
 
 // Connects to gateways and registration server (if needed)
 // using TLS filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect(gwAddresses []string, gwCertPath,
-	regAddr, regCertPath string) error {
-	if len(gwAddresses) < 1 {
+func (cl *Client) Connect() error {
+	if len(cl.ndf.Gateways) < 1 {
 		globals.Log.ERROR.Printf("Connect: Invalid number of nodes")
 		return errors.New("could not connect due to invalid number of nodes")
 	}
 
-	var gwCreds credentials.TransportCredentials = nil
+	var gwCreds credentials.TransportCredentials
 	if gwCertPath != "" {
 		gwCreds = connect.NewCredentialsFromFile(gwCertPath, "")
 	}
@@ -110,7 +138,7 @@ func (cl *Client) Connect(gwAddresses []string, gwCertPath,
 	}
 
 	if regAddr != "" {
-		var regCreds credentials.TransportCredentials = nil
+		var regCreds credentials.TransportCredentials
 		if regCertPath != "" {
 			regCreds = connect.NewCredentialsFromFile(regCertPath, "")
 		}

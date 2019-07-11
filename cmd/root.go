@@ -52,6 +52,20 @@ var userEmail string
 var end2end bool
 var keyParams []string
 var client *api.Client
+var ndfPubKey = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA1dn7rREgAU1PDHqczJAe
+kQX1eJhrREnOAlKGu+bgpIxHOyzECtnFFnbX+XfZZATjPLuBKHPzlkxQvE6j8aAr
+fOh7DZl56i492zDY/I+JmrSxpNw2NkB7KdRlWIeUNSdFrc/U3A3ot4FmPxIgy7Hi
+5uW9L3RsY7vmTliD9hwGDWXrOCOWp+LhJjuT5hJwxMHj95vo12o2VPHXk6G3lomF
+g0hy+3YN9vzaKFUV+38iGk/ytpDiYa0JD5TfWV/vFyLdNtajd/8llcTUnSIpCROG
+NO9lUX4OViW7+9mylT6XQjOwb58qVaLGPXuEQBqj/m8t6c08X6apbgeRP1D5CL2o
+dMgqB68SmxOFgmSroMGZBpb9F7XniwJc0+rgrzc31nu+l2dCTcU84QENFg96yRen
+1CD+kJ8jtcazQQ79f72R32TDbXvgB2sQD8aBzOfGVlTHFh6IUkD8X9vOxbNRh48H
+YF58Qhjc7TC3d9FLaDi3KhM/1NrCOtNVM9n+W8DTLN0ptmc442dKLMFEQ8Uw2pkM
+VDWW3zrZeD6+Vsn1D9v57+0v+X01gqjUPgZBeeRUAsomeiL2Dn7/GA+/xuweX45m
+NrzFlgTDOrJ0TLWPPstFBhyX4+6tY6/FGP/5Gwjt29Kr1EN72HcUuDCecSn6MUsS
+/EiMyA55AI68m/Wx+kHnJN0CAwEAAQ==
+-----END PUBLIC KEY-----`
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to

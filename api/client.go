@@ -31,7 +31,10 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"google.golang.org/grpc/credentials"
 	goio "io"
@@ -39,11 +42,11 @@ import (
 )
 
 type Client struct {
-	storage     globals.Storage
-	sess        user.Session
-	comm        io.Communications
-	gwAddresses []io.ConnAddr
-	regAddress  io.ConnAddr
+	storage  globals.Storage
+	sess     user.Session
+	comm     io.Communications
+	ndf      *ndf.NetworkDefinition
+	topology *circuit.Circuit
 }
 
 // Populates a text message and returns its wire representation
@@ -58,11 +61,38 @@ func FormatTextMessage(message string) []byte {
 	return wireRepresentation
 }
 
+// VerifyNDF verifies the signature of the network definition file (NDF) and
+// returns the structure.
+func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
+	// Decode NDF string to a NetworkDefinition and its signature
+	ndfJSON, ndfSignature, err := ndf.DecodeNDF(ndfString)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not decode NDF: %+v", err)
+	}
+
+	// Get public key
+	pubKey, err := rsa.LoadPublicKeyFromPem([]byte(ndfPub))
+
+	// Hash NDF JSON
+	opts := rsa.NewDefaultOptions()
+	rsaHash := opts.Hash.New()
+	rsaHash.Write(ndfJSON.Serialize())
+
+	// Verify signature
+	err = rsa.Verify(pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
+
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not verify NDF: %+v", err)
+	}
+
+	return ndfJSON
+}
+
 // Creates a new Client using the storage mechanism provided.
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-func NewClient(s globals.Storage, loc string) (*Client, error) {
+func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -83,52 +113,71 @@ func NewClient(s globals.Storage, loc string) (*Client, error) {
 	cl := new(Client)
 	cl.storage = store
 	cl.comm = io.NewMessenger()
-	cl.gwAddresses = make([]io.ConnAddr, 0)
+	cl.ndf = ndfJSON
+
+	//build the topology
+	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
+	for i, node := range cl.ndf.Nodes {
+		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
+	}
+
+	cl.topology = circuit.New(nodeIDs)
+
 	return cl, nil
 }
 
 // Connects to gateways and registration server (if needed)
 // using TLS filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect(gwAddresses []string, gwCertPath,
-	regAddr, regCertPath string) error {
-	if len(gwAddresses) < 1 {
+func (cl *Client) Connect() error {
+	if len(cl.ndf.Gateways) < 1 {
 		globals.Log.ERROR.Printf("Connect: Invalid number of nodes")
 		return errors.New("could not connect due to invalid number of nodes")
 	}
 
-	var gwCreds credentials.TransportCredentials = nil
-	if gwCertPath != "" {
-		gwCreds = connect.NewCredentialsFromFile(gwCertPath, "")
-	}
-
-	for _, gw := range gwAddresses {
-		addr := io.ConnAddr(gw)
-		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(addr, gw, gwCreds)
-		cl.gwAddresses = append(cl.gwAddresses, addr)
-	}
-
-	if regAddr != "" {
-		var regCreds credentials.TransportCredentials = nil
-		if regCertPath != "" {
-			regCreds = connect.NewCredentialsFromFile(regCertPath, "")
+	//connect to all gateways
+	for _, gateway := range cl.ndf.Gateways {
+		var gwCreds credentials.TransportCredentials
+		if gateway.TlsCertificate != "" {
+			gwCreds = connect.NewCredentialsFromPEM(gateway.TlsCertificate, "")
 		}
-		addr := io.ConnAddr(regAddr)
-		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, regAddr, regCreds)
-		cl.regAddress = addr
+		addr := io.ConnAddr(gateway.Address)
+		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(addr, gateway.Address, gwCreds)
+	}
+
+	//connect to the registration server
+	if cl.ndf.Registration.Address != "" {
+		var regCreds credentials.TransportCredentials
+		if cl.ndf.Registration.TlsCertificate != "" {
+			regCreds = connect.NewCredentialsFromPEM(cl.ndf.Registration.TlsCertificate, "")
+		}
+		addr := io.ConnAddr(cl.ndf.Registration.Address)
+		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCreds)
+	} else {
+		globals.Log.WARN.Printf("No registration server found to connect to")
 	}
 	return nil
 }
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick string,
-	mint bool, grp *cyclic.Group) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick string) (*id.User, error) {
 	var err error
 	var u *user.User
 	var UID *id.User
+
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, 16),
+		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, 16))
+
+	e2eGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.E2E.Prime, 16),
+		large.NewIntFromString(cl.ndf.E2E.Generator, 16),
+		large.NewIntFromString(cl.ndf.E2E.SmallPrime, 16))
+
 	// Make CMIX keys array
-	nk := make([]user.NodeKeys, len(cl.gwAddresses))
+	nk := make(map[id.Node]user.NodeKeys)
 
 	// Generate DSA keypair even for precanned users as it will probably
 	// be needed for the new UDB flow
@@ -169,8 +218,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 			return id.ZeroID, err
 		}
 
-		for i := 0; i < len(cl.gwAddresses); i++ {
-			nk[i] = *nodekeys
+		for i := 0; i < len(cl.ndf.Gateways); i++ {
+			nk[*cl.topology.GetNodeAtIndex(i)] = *nodekeys
 		}
 	} else {
 		// Generate salt for UserID
@@ -190,10 +239,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
-		if cl.regAddress != "" && registrationCode != "" {
+		if cl.ndf.Registration.Address != "" && registrationCode != "" {
 			// Send registration code and public key to RegistrationServer
 			response, err := (cl.comm).(*io.Messaging).Comms.
-				SendRegistrationMessage(cl.regAddress,
+				SendRegistrationMessage(io.ConnAddr(cl.ndf.Registration.Address),
 					&pb.UserRegistration{
 						RegistrationCode: registrationCode,
 						Client: &pb.DSAPublicKey{
@@ -216,12 +265,13 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 			regR = response.ClientSignedByServer.R
 			regS = response.ClientSignedByServer.S
 			// Disconnect from regServer here since it will not be needed
-			(cl.comm).(*io.Messaging).Comms.Disconnect(cl.regAddress.String())
-			cl.regAddress = ""
+			(cl.comm).(*io.Messaging).Comms.Disconnect(cl.ndf.Registration.Address)
 		}
 
 		// Loop over all Servers
-		for _, gwAddr := range cl.gwAddresses {
+		for _, gateway := range cl.ndf.Gateways {
+
+			gwAddr := io.ConnAddr(gateway.Address)
 
 			// Send signed public key and salt for UserID to Server
 			nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
@@ -299,18 +349,17 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 		// Loop through all the server public keys
 		for itr, publicKey := range serverPublicKeys {
 
-			// Generate the base keys
-			nk[itr].TransmissionKey = registration.GenerateBaseKey(
-				grp, publicKey, privateKey, transmissionHash,
-			)
+			nodeID := *cl.topology.GetNodeAtIndex(itr)
 
-			transmissionHash.Reset()
-
-			nk[itr].ReceptionKey = registration.GenerateBaseKey(
-				grp, publicKey, privateKey, receptionHash,
-			)
+			nk[nodeID] = user.NodeKeys{
+				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
+					publicKey, privateKey, transmissionHash),
+				ReceptionKey: registration.GenerateBaseKey(cmixGrp, publicKey,
+					privateKey, receptionHash),
+			}
 
 			receptionHash.Reset()
+			transmissionHash.Reset()
 		}
 
 		var actualNick string
@@ -324,7 +373,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string,
 	}
 
 	// Create the user session
-	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey, grp)
+	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey, cmixGrp, e2eGrp)
 
 	// Store the user session
 	errStore := nus.StoreSession()
@@ -354,9 +403,9 @@ func (cl *Client) Login(UID *id.User, email string) (string, error) {
 		return "", errors.New("Unable to load session: " + err.Error())
 	}
 
-	(cl.comm).(*io.Messaging).SendAddress = cl.gwAddresses[0]
+	(cl.comm).(*io.Messaging).SendAddress = io.ConnAddr(cl.ndf.Gateways[0].Address)
 	(cl.comm).(*io.Messaging).ReceiveAddress =
-		cl.gwAddresses[len(cl.gwAddresses)-1]
+		io.ConnAddr(cl.ndf.Gateways[len(cl.ndf.Gateways)-1].Address)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
@@ -448,8 +497,8 @@ func (cl *Client) Logout() error {
 	cl.sess.GetQuitChan() <- true
 
 	// Disconnect from the gateways
-	for _, gw := range cl.gwAddresses {
-		(cl.comm).(*io.Messaging).Comms.Disconnect(gw.String())
+	for _, gateway := range cl.ndf.Gateways {
+		(cl.comm).(*io.Messaging).Comms.Disconnect(gateway.Address)
 	}
 
 	errStore := cl.sess.StoreSession()
@@ -529,7 +578,7 @@ func (cl *Client) LookupNick(user *id.User,
 func (cl *Client) registerUserE2E(partnerID *id.User,
 	partnerPubKey []byte) {
 	// Get needed variables from session
-	grp := cl.sess.GetGroup()
+	grp := cl.sess.GetE2EGroup()
 	userID := cl.sess.GetCurrentUser().User
 
 	// Create user private key and partner public key

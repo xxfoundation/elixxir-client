@@ -99,13 +99,14 @@ func (m *Messaging) SendMessage(session user.Session,
 	if err != nil {
 		return fmt.Errorf("SendMessage MarshalBinary() error: %v", err.Error())
 	}
+	extendedNowBytes := append(nowBytes, 0)
 	for i := range parts {
 		message := format.NewMessage()
 		message.SetRecipient(recipientID)
 		// The timestamp will be encrypted later
 		// NOTE: This sets 15 bytes, not 16
-		message.SetTimestamp(nowBytes)
-		message.Contents.Set(parts[i])
+		message.SetTimestamp(extendedNowBytes)
+		message.Contents.SetRightAligned(parts[i])
 		err = m.send(session, cryptoType, message, false)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
@@ -165,7 +166,7 @@ func (m *Messaging) send(session user.Session,
 	if cryptoType == parse.E2E {
 		handleE2ESending(session, message, rekey)
 	} else {
-		padded, err := e2e.Pad(message.Contents.Get(), format.ContentsLen)
+		padded, err := e2e.Pad(message.Contents.GetRightAligned(), format.ContentsLen)
 		if err != nil {
 			return err
 		}

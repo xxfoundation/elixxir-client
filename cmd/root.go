@@ -9,7 +9,6 @@ package cmd
 
 import (
 	"encoding/base64"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -52,6 +51,20 @@ var userEmail string
 var end2end bool
 var keyParams []string
 var client *api.Client
+var ndfPubKey = `-----BEGIN PUBLIC KEY-----
+MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA1dn7rREgAU1PDHqczJAe
+kQX1eJhrREnOAlKGu+bgpIxHOyzECtnFFnbX+XfZZATjPLuBKHPzlkxQvE6j8aAr
+fOh7DZl56i492zDY/I+JmrSxpNw2NkB7KdRlWIeUNSdFrc/U3A3ot4FmPxIgy7Hi
+5uW9L3RsY7vmTliD9hwGDWXrOCOWp+LhJjuT5hJwxMHj95vo12o2VPHXk6G3lomF
+g0hy+3YN9vzaKFUV+38iGk/ytpDiYa0JD5TfWV/vFyLdNtajd/8llcTUnSIpCROG
+NO9lUX4OViW7+9mylT6XQjOwb58qVaLGPXuEQBqj/m8t6c08X6apbgeRP1D5CL2o
+dMgqB68SmxOFgmSroMGZBpb9F7XniwJc0+rgrzc31nu+l2dCTcU84QENFg96yRen
+1CD+kJ8jtcazQQ79f72R32TDbXvgB2sQD8aBzOfGVlTHFh6IUkD8X9vOxbNRh48H
+YF58Qhjc7TC3d9FLaDi3KhM/1NrCOtNVM9n+W8DTLN0ptmc442dKLMFEQ8Uw2pkM
+VDWW3zrZeD6+Vsn1D9v57+0v+X01gqjUPgZBeeRUAsomeiL2Dn7/GA+/xuweX45m
+NrzFlgTDOrJ0TLWPPstFBhyX4+6tY6/FGP/5Gwjt29Kr1EN72HcUuDCecSn6MUsS
+/EiMyA55AI68m/Wx+kHnJN0CAwEAAQ==
+-----END PUBLIC KEY-----`
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -71,7 +84,7 @@ func sessionInitialization() *id.User {
 	if sessionFile == "" {
 		client, err = api.NewClient(&globals.RamStorage{}, "")
 		if err != nil {
-			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
+			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
 			return id.ZeroID
 		}
@@ -87,7 +100,8 @@ func sessionInitialization() *id.User {
 				register = true
 			} else {
 				//Fail if any other error is received
-				fmt.Printf("Error with file path: %s\n", err1.Error())
+				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
+				return id.ZeroID
 			}
 		}
 
@@ -95,7 +109,7 @@ func sessionInitialization() *id.User {
 		client, err = api.NewClient(nil, sessionFile)
 
 		if err != nil {
-			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID
 		}
 	}
@@ -112,8 +126,8 @@ func sessionInitialization() *id.User {
 		// If gwAddr was not passed via command line, check config file
 		if len(gateways) < 1 {
 			// No gateways in config file or passed via command line
-			fmt.Printf("Error: No gateway specified! Add to" +
-				" configuration file or pass via command line using -g!")
+			globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
+				" configuration file or pass via command line using -g!\n")
 			return id.ZeroID
 		} else {
 			// List of gateways found in config file
@@ -149,7 +163,7 @@ func sessionInitialization() *id.User {
 
 		uid, err = client.Register(userId != 0, regCode, "", mint, &grp)
 		if err != nil {
-			fmt.Printf("Could Not Register User: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
 		}
 
@@ -167,7 +181,7 @@ func sessionInitialization() *id.User {
 	// This will also register the user email with UDB
 	_, err = client.Login(uid, userEmail)
 	if err != nil {
-		fmt.Printf("Could Not Log In: %s\n", err)
+		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
 	}
 
@@ -227,7 +241,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 			senderNick = sender.Nick
 		}
 		atomic.AddInt64(&l.messagesReceived, 1)
-		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
+		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
 			message.MessageType, *message.Sender, senderNick,
 			string(message.Body))
 	}
@@ -257,7 +271,7 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
+	globals.Log.INFO.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.messagesReceived, 1)
@@ -281,7 +295,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		senderNick = sender.Nick
 	}
 
-	fmt.Printf("Message from channel %v, %v: ",
+	globals.Log.INFO.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := id.NewUserFromBytes(result.SpeakerID)
@@ -357,7 +371,7 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					recipientNick, message)
 
 				// Send the message
@@ -368,7 +382,7 @@ var rootCmd = &cobra.Command{
 						Body:        wireOut,
 					},
 					InferredType: cryptoType,
-					Receiver:   recipientId,
+					Receiver:     recipientId,
 				})
 			}
 		}
@@ -387,7 +401,7 @@ var rootCmd = &cobra.Command{
 				if ok {
 					contact = u.Nick
 				}
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
 				message := &parse.Message{
@@ -397,7 +411,7 @@ var rootCmd = &cobra.Command{
 						Body:        api.FormatTextMessage(message),
 					},
 					InferredType: cryptoType,
-					Receiver:   recipientId}
+					Receiver:     recipientId}
 				client.Send(message)
 
 				timer = time.NewTimer(dummyPeriod)
@@ -413,7 +427,7 @@ var rootCmd = &cobra.Command{
 		err := client.Logout()
 
 		if err != nil {
-			fmt.Printf("Could not logout: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 

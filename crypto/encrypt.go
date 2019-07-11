@@ -49,14 +49,14 @@ func E2EEncrypt(grp *cyclic.Group,
 	copy(iv[:], keyFP[:e2e.AESBlockSize])
 	encryptedTimestamp, err :=
 		e2e.EncryptAES256WithIV(key.Bytes(), iv,
-			msg.GetTimestamp())
+			msg.GetTimestamp()[:15])
 	if err != nil {
 		panic(err)
 	}
 	msg.SetTimestamp(encryptedTimestamp)
 
 	// E2E encrypt the msg
-	encPayload, err := e2e.Encrypt(grp, key, msg.Contents.Get())
+	encPayload, err := e2e.Encrypt(grp, key, msg.Contents.GetRightAligned())
 	if err != nil {
 		globals.Log.ERROR.Panicf(err.Error())
 	}

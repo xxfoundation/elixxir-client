@@ -11,18 +11,13 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"math"
 	"sync"
 )
 
-// TODO(nen) How the fuck is this supposed to work,
-//  now that there are two types of padding?
-//  This might be incorrect, and over-partition the message,
-//  so I need to come back here and verify this is correct
 func getMaxMessageLength() int {
-	return format.ContentsLen - format.PadMinLen - e2e.MinPaddingLen
+	return format.ContentsLen - format.PadMinLen
 }
 
 // TODO is there a better way to generate unique message IDs locally?

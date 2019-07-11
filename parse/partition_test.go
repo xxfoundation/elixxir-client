@@ -108,7 +108,7 @@ func TestPartitionLongest(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	expectedNumberOfPartitions := 256
+	expectedNumberOfPartitions := 143
 
 	if len(actual) != expectedNumberOfPartitions {
 		t.Errorf("Expected a 52480-byte message to split into %v partitions, got %v instead",
@@ -118,7 +118,7 @@ func TestPartitionLongest(t *testing.T) {
 
 	// check the index and max index of the last partition
 	lastIndex := len(actual) - 1
-	expectedIdx := byte(255)
+	expectedIdx := byte(142)
 	idxLocation := len(id)
 	maxIdxLocation := len(id) + 1
 	actualIdx := actual[lastIndex][idxLocation]

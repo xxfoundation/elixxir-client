@@ -147,7 +147,7 @@ func TestLoginLogout(t *testing.T) {
 	}
 
 	// Connect to gateway
-	client.Connect(gwAddress, "", "", "")
+	client.Connect()
 
 	regRes, err := client.Register(true, registrationCode,
 		"", false, string(grpJSON))

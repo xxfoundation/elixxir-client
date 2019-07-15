@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"reflect"
 	"testing"
 	"time"
@@ -33,19 +34,18 @@ var testClient *Client
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
 	var err error
-	testClient, err = NewClient(&globals.RamStorage{}, "")
+	testClient, err = NewClient(&globals.RamStorage{}, "", def)
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = testClient.Connect(RegGWAddresses[:], "", "", "")
+	err = testClient.Connect()
 	if err != nil {
 		t.Error(err)
 	}
 
 	// populate a gob in the store
-	grp := getGroup()
-	_, err = testClient.Register(true, "UAV6IWD6", "", false, grp)
+	_, err = testClient.Register(true, "UAV6IWD6", "")
 	if err != nil {
 		t.Error(err)
 	}

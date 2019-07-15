@@ -11,11 +11,9 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
-	"strings"
 )
 
 type Client struct {
@@ -97,13 +95,15 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, loc string) (*Client, error) {
+func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, error) {
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
 	}
 
+	ndf := api.VerifyNDF(ndfStr, ndfPubKey)
+
 	proxy := &storageProxy{boundStorage: storage}
-	cl, err := api.NewClient(globals.Storage(proxy), loc)
+	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf)
 
 	return &Client{client: cl}, err
 }
@@ -111,15 +111,8 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 // Connects to gateways and registration server (if needed)
 // using TLS filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect(gwAddressesList, gwCertPath,
-	regAddr, regCertPath string) error {
-
-	if gwAddressesList == "" {
-		return errors.New("invalid number of nodes")
-	}
-
-	gwList := strings.Split(gwAddressesList, ",")
-	return cl.client.Connect(gwList, gwCertPath, regAddr, regCertPath)
+func (cl *Client) Connect() error {
+	return cl.client.Connect()
 }
 
 // Registers user and returns the User ID bytes.
@@ -129,17 +122,9 @@ func (cl *Client) Connect(gwAddressesList, gwCertPath,
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, nick string,
-	mint bool, grpJSON string) ([]byte, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick string) ([]byte, error) {
 
-	// Unmarshal group JSON
-	var grp cyclic.Group
-	err := grp.UnmarshalJSON([]byte(grpJSON))
-	if err != nil {
-		return id.ZeroID[:], err
-	}
-
-	UID, err := cl.client.Register(preCan, registrationCode, nick, mint, &grp)
+	UID, err := cl.client.Register(preCan, registrationCode, nick)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -182,8 +167,8 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 			Body:        m.GetPayload(),
 		},
 		InferredType: cryptoType,
-		Sender:     sender,
-		Receiver:   recipient,
+		Sender:       sender,
+		Receiver:     recipient,
 	})
 }
 

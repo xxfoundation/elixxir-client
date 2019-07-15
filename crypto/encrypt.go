@@ -13,24 +13,24 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 )
 
 // CMIX Encrypt performs the encryption
 // of the msg to a team of nodes
 // It returns a new msg
-func CMIXEncrypt(session user.Session,
-	salt []byte,
-	msg *format.Message) *format.Message {
+func CMIXEncrypt(session user.Session, salt []byte, msg *format.Message,
+	topology *circuit.Circuit) *format.Message {
 	// Generate the encryption key
-	nodeKeys := session.GetKeys()
+	nodeKeys := session.GetKeys(topology)
 	baseKeys := make([]*cyclic.Int, len(nodeKeys))
 	for i, key := range nodeKeys {
 		baseKeys[i] = key.TransmissionKey
 		//TODO: Add KMAC generation here
 	}
 
-	return cmix.ClientEncrypt(session.GetGroup(), msg, salt, baseKeys)
+	return cmix.ClientEncrypt(session.GetCmixGroup(), msg, salt, baseKeys)
 }
 
 // E2EEncrypt uses the E2E key to encrypt msg

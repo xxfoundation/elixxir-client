@@ -43,7 +43,7 @@ import (
 
 type Client struct {
 	storage  globals.Storage
-	sess     user.Session
+	session  user.Session
 	comm     io.Communications
 	ndf      *ndf.NetworkDefinition
 	topology *circuit.Circuit
@@ -57,12 +57,15 @@ func FormatTextMessage(message string) []byte {
 		Message: message,
 		Time:    time.Now().Unix(),
 	}
+
 	wireRepresentation, _ := proto.Marshal(&textMessage)
 	return wireRepresentation
 }
 
 // VerifyNDF verifies the signature of the network definition file (NDF) and
-// returns the structure.
+// returns the structure. Panics when the NDF string cannot be decoded and when
+// the signature cannot be verified. If the NDF public key is empty, then
+// signature verification is skipped and warning is printed.
 func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	// Decode NDF string to a NetworkDefinition and its signature
 	ndfJSON, ndfSignature, err := ndf.DecodeNDF(ndfString)
@@ -70,19 +73,23 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 		globals.Log.FATAL.Panicf("Could not decode NDF: %+v", err)
 	}
 
-	// Get public key
-	pubKey, err := rsa.LoadPublicKeyFromPem([]byte(ndfPub))
+	if ndfPub == "" {
+		globals.Log.WARN.Println("Running without signed network definition file")
+	} else {
+		// Get public key
+		pubKey, err := rsa.LoadPublicKeyFromPem([]byte(ndfPub))
 
-	// Hash NDF JSON
-	opts := rsa.NewDefaultOptions()
-	rsaHash := opts.Hash.New()
-	rsaHash.Write(ndfJSON.Serialize())
+		// Hash NDF JSON
+		opts := rsa.NewDefaultOptions()
+		rsaHash := opts.Hash.New()
+		rsaHash.Write(ndfJSON.Serialize())
 
-	// Verify signature
-	err = rsa.Verify(pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
+		// Verify signature
+		err = rsa.Verify(pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
 
-	if err != nil {
-		globals.Log.FATAL.Panicf("Could not verify NDF: %+v", err)
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not verify NDF: %+v", err)
+		}
 	}
 
 	return ndfJSON
@@ -161,7 +168,7 @@ func (cl *Client) Connect() error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick string) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*id.User, error) {
 	var err error
 	var u *user.User
 	var UID *id.User
@@ -208,6 +215,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string) (*id.User
 
 		if nick != "" {
 			u.Nick = nick
+		}
+
+		if email != "" {
+			u.Email = email
 		}
 
 		nodekeys, successKeys := user.Users.LookupKeys(u.User)
@@ -396,7 +407,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick string) (*id.User
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) Login(UID *id.User, email string) (string, error) {
+func (cl *Client) Login(UID *id.User) (string, error) {
 	session, err := user.LoadSession(cl.storage, UID)
 
 	if session == nil {
@@ -414,7 +425,7 @@ func (cl *Client) Login(UID *id.User, email string) (string, error) {
 		return "", err
 	}
 
-	cl.sess = session
+	cl.session = session
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
@@ -422,9 +433,11 @@ func (cl *Client) Login(UID *id.User, email string) (string, error) {
 	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.sess, cl.comm)
+	bots.InitBots(cl.session, cl.comm)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.sess, cl.comm)
+	rekey.InitRekey(cl.session, cl.comm)
+
+	email := session.GetCurrentUser().Email
 
 	if email != "" {
 		err = cl.registerForUserDiscovery(email)
@@ -444,7 +457,7 @@ func (cl *Client) Send(message parse.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
-	return cl.comm.SendMessage(cl.sess, recipientID, cryptoType, message.Pack())
+	return cl.comm.SendMessage(cl.session, recipientID, cryptoType, message.Pack())
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for
@@ -460,7 +473,7 @@ func (cl *Client) SetRateLimiting(limit uint32) {
 }
 
 func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
-	listenerId := cl.sess.GetSwitchboard().
+	listenerId := cl.session.GetSwitchboard().
 		Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
@@ -468,40 +481,40 @@ func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboa
 }
 
 func (cl *Client) StopListening(listenerHandle string) {
-	cl.sess.GetSwitchboard().Unregister(listenerHandle)
+	cl.session.GetSwitchboard().Unregister(listenerHandle)
 }
 
 func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
-	return cl.sess.GetSwitchboard()
+	return cl.session.GetSwitchboard()
 }
 
 func (cl *Client) GetCurrentUser() *id.User {
-	return cl.sess.GetCurrentUser().User
+	return cl.session.GetCurrentUser().User
 }
 
 func (cl *Client) GetKeyParams() *keyStore.KeyParams {
-	return cl.sess.GetKeyStore().GetKeyParams()
+	return cl.session.GetKeyStore().GetKeyParams()
 }
 
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
 func (cl *Client) Logout() error {
-	if cl.sess == nil {
+	if cl.session == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
 	// Stop reception runner goroutine
-	cl.sess.GetQuitChan() <- true
+	cl.session.GetQuitChan() <- true
 
 	// Disconnect from the gateways
 	for _, gateway := range cl.ndf.Gateways {
 		(cl.comm).(*io.Messaging).Comms.Disconnect(gateway.Address)
 	}
 
-	errStore := cl.sess.StoreSession()
+	errStore := cl.session.StoreSession()
 
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
@@ -510,8 +523,8 @@ func (cl *Client) Logout() error {
 		return err
 	}
 
-	errImmolate := cl.sess.Immolate()
-	cl.sess = nil
+	errImmolate := cl.session.Immolate()
+	cl.session = nil
 
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
@@ -535,7 +548,7 @@ func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 		return err
 	}
 
-	publicKey := cl.sess.GetPublicKey()
+	publicKey := cl.session.GetPublicKey()
 	publicKeyBytes := publicKey.GetKey().LeftpadBytes(256)
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
@@ -578,12 +591,12 @@ func (cl *Client) LookupNick(user *id.User,
 func (cl *Client) registerUserE2E(partnerID *id.User,
 	partnerPubKey []byte) {
 	// Get needed variables from session
-	grp := cl.sess.GetE2EGroup()
-	userID := cl.sess.GetCurrentUser().User
+	grp := cl.session.GetE2EGroup()
+	userID := cl.session.GetCurrentUser().User
 
 	// Create user private key and partner public key
 	// in the group
-	privKey := cl.sess.GetPrivateKey()
+	privKey := cl.session.GetPrivateKey()
 	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetKey())
 	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
 
@@ -594,7 +607,7 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		grp)
 
 	// Generate key TTL and number of keys
-	params := cl.sess.GetKeyStore().GetKeyParams()
+	params := cl.session.GetKeyStore().GetKeyParams()
 	keysTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
 		params.MinKeys, params.MaxKeys, params.TTLParams)
 
@@ -604,7 +617,7 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Send Keys
-	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
+	km.GenerateKeys(grp, userID, cl.session.GetKeyStore())
 
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, privKeyCyclic,
@@ -612,10 +625,10 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Receive Keys
-	km.GenerateKeys(grp, userID, cl.sess.GetKeyStore())
+	km.GenerateKeys(grp, userID, cl.session.GetKeyStore())
 
 	// Create RekeyKeys and add to RekeyManager
-	rkm := cl.sess.GetRekeyManager()
+	rkm := cl.session.GetRekeyManager()
 
 	keys := &keyStore.RekeyKeys{
 		CurrPrivKey: privKeyCyclic,
@@ -665,7 +678,7 @@ func ParseMessage(message []byte) (ParsedMessage, error) {
 }
 
 func (cl *Client) GetSessionData() ([]byte, error) {
-	return cl.sess.GetSessionData()
+	return cl.session.GetSessionData()
 }
 
 // Set the output of the

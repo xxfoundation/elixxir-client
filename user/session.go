@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
@@ -36,7 +35,6 @@ type Session interface {
 	GetPublicKey() *signature.DSAPublicKey
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
-	GetRegGroup() *cyclic.Group
 	GetLastMessageID() string
 	SetLastMessageID(id string)
 	StoreSession() error
@@ -65,11 +63,6 @@ func NewSession(store globals.Storage,
 	privateKey *signature.DSAPrivateKey,
 	cmixGrp, e2eGrp *cyclic.Group) Session {
 
-	regGrp := cyclic.NewGroup(
-		large.NewIntFromString(pString, 16),
-		large.NewIntFromString(gString, 16),
-		large.NewIntFromString(qString, 16))
-
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:         u,
@@ -78,7 +71,6 @@ func NewSession(store globals.Storage,
 		PublicKey:           publicKey,
 		CmixGrp:             cmixGrp,
 		E2EGrp:              e2eGrp,
-		RegGrp:              regGrp,
 		InterfaceMap:        make(map[string]interface{}),
 		KeyMaps:             keyStore.NewStore(),
 		RekeyManager:        keyStore.NewRekeyManager(),
@@ -160,7 +152,6 @@ type SessionObj struct {
 	PublicKey  *signature.DSAPublicKey
 	CmixGrp    *cyclic.Group
 	E2EGrp     *cyclic.Group
-	RegGrp     *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -234,12 +225,6 @@ func (s *SessionObj) GetE2EGroup() *cyclic.Group {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.E2EGrp
-}
-
-func (s *SessionObj) GetRegGroup() *cyclic.Group {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.RegGrp
 }
 
 // Return a copy of the current user

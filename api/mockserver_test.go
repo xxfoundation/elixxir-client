@@ -10,12 +10,10 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"os"
@@ -24,7 +22,7 @@ import (
 
 const NumGWs = 3
 const RegPort = 5000
-const RegGWsStartPort = 10000
+const GWsStartPort = 10000
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
@@ -39,7 +37,6 @@ var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 }
 var GWComms [NumGWs]*gateway.GatewayComms
 
-var Session user.SessionObj
 var def *ndf.NetworkDefinition
 
 // Setups general testing params and calls test wrapper
@@ -71,7 +68,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 
 	// Register precanned user with all gateways
 	regRes, err := client.Register(true, ValidRegCode,
-		"")
+		"", "")
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -101,7 +98,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.Register(false, ValidRegCode, "")
+	regRes, err := client.Register(false, ValidRegCode, "", "")
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -129,7 +126,7 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	// Register with invalid reg code
-	_, err = client.Register(true, InvalidRegCode, "")
+	_, err = client.Register(true, InvalidRegCode, "", "")
 	if err != nil {
 		t.Error("Registration worked with invalid registration code!")
 	}
@@ -156,7 +153,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.Register(true, ValidRegCode, "")
+	_, err = client.Register(true, ValidRegCode, "", "")
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -181,14 +178,14 @@ func TestSend(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "")
+	userID, err := client.Register(true, ValidRegCode, "", "")
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID, "")
+	_, err = client.Login(userID)
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -249,14 +246,14 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "")
+	userID, err := client.Register(true, ValidRegCode, "", "")
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID, "")
+	_, err = client.Login(userID)
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -287,7 +284,7 @@ func testMainWrapper(m *testing.M) int {
 	for i, handler := range RegGWHandlers {
 
 		gw := ndf.Gateway{
-			Address: fmtAddress(RegGWsStartPort + i),
+			Address: fmtAddress(GWsStartPort + i),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
@@ -312,10 +309,6 @@ func testWrapperShutdown() {
 		gw.Shutdown()
 	}
 	RegComms.Shutdown()
-}
-
-func getGroup() *cyclic.Group {
-	return globals.InitCrypto()
 }
 
 func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port) }

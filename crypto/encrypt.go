@@ -20,8 +20,8 @@ import (
 // CMIX Encrypt performs the encryption
 // of the msg to a team of nodes
 // It returns a new msg
-func CMIXEncrypt(session user.Session, salt []byte, msg *format.Message,
-	topology *circuit.Circuit) *format.Message {
+func CMIXEncrypt(session user.Session, topology *circuit.Circuit, salt []byte,
+	msg *format.Message) *format.Message {
 	// Generate the encryption key
 	nodeKeys := session.GetKeys(topology)
 	baseKeys := make([]*cyclic.Int, len(nodeKeys))

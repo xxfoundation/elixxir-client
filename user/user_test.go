@@ -52,7 +52,7 @@ func InitGroup() *cyclic.Group {
 // surrounding the User struct and the Registry interface
 func TestUserRegistry(t *testing.T) {
 	// Test if CountUsers correctly counts the hard-coded demo users
-	if Users.CountUsers() != NUM_DEMO_USERS {
+	if Users.CountUsers() != NumDemoUsers {
 		t.Errorf("CountUsers: Start size of userRegistry not zero!")
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
@@ -138,7 +138,7 @@ func TestUserRegistry(t *testing.T) {
 // Doesn't actually do any testing, but can print the registration codes for
 // the first several users
 func TestPrintRegCodes(t *testing.T) {
-	for i := 1; i <= NUM_DEMO_USERS; i++ {
+	for i := 1; i <= NumDemoUsers; i++ {
 		currentID := id.NewUserFromUint(uint64(i), t)
 		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
 	}

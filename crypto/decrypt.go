@@ -35,13 +35,15 @@ func E2EDecrypt(grp *cyclic.Group, key *cyclic.Int,
 	}
 	// TODO deserialize this somewhere along the line and provide methods
 	// to mobile developers on the bindings to interact with the timestamps
+	decryptedTimestamp = append(decryptedTimestamp, 0)
 	msg.SetTimestamp(decryptedTimestamp)
 	// Decrypt e2e
 	decryptedPayload, err := e2e.Decrypt(grp, key, msg.Contents.Get())
+
 	if err != nil {
 		return errors.New("Failed to decrypt E2E message: " + err.Error())
 	}
-	msg.Contents.Set(decryptedPayload)
+	msg.Contents.SetRightAligned(decryptedPayload)
 	return nil
 }
 

@@ -15,7 +15,7 @@ import (
 // Globally instantiated Registry
 var Users = newRegistry()
 
-const NUM_DEMO_USERS = 40
+const NumDemoUsers = 40
 
 var DemoUserNicks = []string{"David", "Payments", "UDB", "Jim", "Ben", "Steph",
 	"Rick", "Jake", "Spencer", "Stephanie", "Mario", "Jono", "Amanda",
@@ -59,9 +59,9 @@ func newRegistry() Registry {
 	// Initialize group object
 	grp := globals.InitCrypto()
 
-	// Deterministically create NUM_DEMO_USERS users
+	// Deterministically create NumDemoUsers users
 	// TODO Replace this with real user registration/discovery
-	for i := uint64(1); i <= NUM_DEMO_USERS; i++ {
+	for i := uint64(1); i <= NumDemoUsers; i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, i})
 		t := new(User)
 		k := new(NodeKeys)
@@ -102,15 +102,16 @@ func newRegistry() Registry {
 
 	// With an underlying UserMap data structure
 	return Registry(&UserMap{userCollection: uc,
-		idCounter:  uint64(NUM_DEMO_USERS),
+		idCounter:  uint64(NumDemoUsers),
 		userLookup: ul,
 		keysLookup: nk})
 }
 
 // Struct representing a User in the system
 type User struct {
-	User *id.User
-	Nick string
+	User  *id.User
+	Nick  string
+	Email string
 }
 
 // DeepCopy performs a deep copy of a user and returns a pointer to the new copy

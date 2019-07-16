@@ -17,24 +17,22 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"reflect"
 	"testing"
 	"time"
 )
 
-var testClient *Client
-
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
-	var err error
-	testClient, err = NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -45,7 +43,7 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "")
+	_, err = testClient.Register(true, "UAV6IWD6", "", "")
 	if err != nil {
 		t.Error(err)
 	}
@@ -55,41 +53,47 @@ func TestRegistrationGob(t *testing.T) {
 	var sessionBytes bytes.Buffer
 	sessionBytes.Write(sessionGob)
 	dec := gob.NewDecoder(&sessionBytes)
-	Session = user.SessionObj{}
+	Session := user.SessionObj{}
 	err = dec.Decode(&Session)
 	if err != nil {
 		t.Error(err)
 	}
 
-	VerifyRegisterGobKeys(t)
-	VerifyRegisterGobUser(t)
+	VerifyRegisterGobUser(testClient, t)
+	VerifyRegisterGobKeys(testClient, t)
 }
 
-func VerifyRegisterGobUser(t *testing.T) {
-	if *Session.GetCurrentUser().User != *id.NewUserFromUint(5, t) {
+func VerifyRegisterGobUser(testClient *Client, t *testing.T) {
+
+	session := testClient.session
+
+	if session.GetCurrentUser().User != id.NewUserFromUint(5, t) {
 		t.Errorf("User's ID was %q, expected %v",
-			Session.GetCurrentUser().User, 5)
+			session.GetCurrentUser().User, 5)
 	}
 }
 
-func VerifyRegisterGobKeys(t *testing.T) {
-	grp := getGroup()
+func VerifyRegisterGobKeys(testClient *Client, t *testing.T) {
+	cmixGrp, _ := getGroups()
 	h := sha256.New()
 	h.Write([]byte(string(20005)))
-	expectedTransmissionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].TransmissionKey.Cmp(
+	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
+
+	session := testClient.session
+
+	if session.GetKeys(testClient.topology)[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
-			Session.GetKeys()[0].TransmissionKey.Text(16),
+			session.GetKeys(testClient.topology)[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
 	h = sha256.New()
 	h.Write([]byte(string(40005)))
-	expectedReceptionBaseKey := grp.NewIntFromBytes(h.Sum(nil))
-	if Session.GetKeys()[0].ReceptionKey.Cmp(
+	expectedReceptionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
+	if session.GetKeys(testClient.topology)[0].ReceptionKey.Cmp(
 		expectedReceptionBaseKey) != 0 {
 		t.Errorf("Reception base key was %v, expected %v",
-			Session.GetKeys()[0].ReceptionKey.Text(16),
+			session.GetKeys(testClient.topology)[0].ReceptionKey.Text(16),
 			expectedReceptionBaseKey.Text(16))
 	}
 }
@@ -187,26 +191,31 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	grp := getGroup()
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cmixGrp, e2eGrp := getGroups()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 	params := signature.CustomDSAParams(
-		grp.GetP(),
-		grp.GetG(),
-		grp.GetQ())
+		cmixGrp.GetP(),
+		cmixGrp.GetG(),
+		cmixGrp.GetQ())
 	rng := csprng.NewSystemRNG()
 	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
+	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
 	myPubKey := myPrivKey.PublicKeyGen()
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
+	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, []user.NodeKeys{}, myPubKey, myPrivKey, grp)
+		myUser, make(map[id.Node]user.NodeKeys), myPubKey, myPrivKey, cmixGrp, e2eGrp)
 
-	testClient.sess = session
+	testClient.session = session
 
 	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
@@ -239,9 +248,9 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	// Generate one reception key of each type to test
 	// fingerprint map
-	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)
-	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(1))
-	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, partner, uint(1))
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, e2eGrp)
+	recvKeys := e2e.DeriveKeys(e2eGrp, baseKey, partner, uint(1))
+	recvReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey, partner, uint(1))
 
 	h, _ := hash.NewCMixHash()
 	h.Write(recvKeys[0].Bytes())
@@ -271,41 +280,46 @@ func TestRegisterUserE2E(t *testing.T) {
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	grp := getGroup()
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	cmixGrp, e2eGrp := getGroups()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 	params := signature.CustomDSAParams(
-		grp.GetP(),
-		grp.GetG(),
-		grp.GetQ())
+		cmixGrp.GetP(),
+		cmixGrp.GetG(),
+		cmixGrp.GetQ())
 	rng := csprng.NewSystemRNG()
 	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
+	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
 	myPubKey := myPrivKey.PublicKeyGen()
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
+	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, []user.NodeKeys{}, myPubKey,
-		myPrivKey, grp)
+		myUser, make(map[id.Node]user.NodeKeys), myPubKey,
+		myPrivKey, cmixGrp, e2eGrp)
 
-	testClient.sess = session
+	testClient.session = session
 
 	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
 
 	// Generate all keys and confirm they all match
 	keyParams := testClient.GetKeyParams()
-	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, grp)
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, e2eGrp)
 	keyTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
 		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
-	sendKeys := e2e.DeriveKeys(grp, baseKey, userID, uint(numKeys))
-	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey,
+	sendKeys := e2e.DeriveKeys(e2eGrp, baseKey, userID, uint(numKeys))
+	sendReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey,
 		userID, uint(keyParams.NumRekeys))
-	recvKeys := e2e.DeriveKeys(grp, baseKey, partner, uint(numKeys))
-	recvReKeys := e2e.DeriveEmergencyKeys(grp, baseKey,
+	recvKeys := e2e.DeriveKeys(e2eGrp, baseKey, partner, uint(numKeys))
+	recvReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey,
 		partner, uint(keyParams.NumRekeys))
 
 	// Confirm all keys
@@ -485,3 +499,41 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 //		t.Errorf("Message wrong length: %d v. expected 81", len(lastmsg))
 //	}
 //}
+
+func getGroups() (*cyclic.Group, *cyclic.Group) {
+
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"+
+			"29024E088A67CC74020BBEA63B139B22514A08798E3404DD"+
+			"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"+
+			"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED"+
+			"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"+
+			"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F"+
+			"83655D23DCA3AD961C62F356208552BB9ED529077096966D"+
+			"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B"+
+			"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"+
+			"DE2BCBF6955817183995497CEA956AE515D2261898FA0510"+
+			"15728E5A8AACAA68FFFFFFFFFFFFFFFF", 16),
+		large.NewIntFromString("2", 16),
+		large.NewIntFromString("2", 16))
+
+	e2eGrp := cyclic.NewGroup(
+		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
+			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+
+			"DF6C01C94764DAB937935AA83BE36E67760713AB44A6337C20E7861575E745D31F"+
+			"8B9E9AD8412118C62A3E2E29DF46B0864D0C951C394A5CBBDC6ADC718DD2A3E041"+
+			"023DBB5AB23EBB4742DE9C1687B5B34FA48C3521632C4A530E8FFB1BC51DADDF45"+
+			"3B0B2717C2BC6669ED76B4BDD5C9FF558E88F26E5785302BEDBCA23EAC5ACE9209"+
+			"6EE8A60642FB61E8F3D24990B8CB12EE448EEF78E184C7242DD161C7738F32BF29"+
+			"A841698978825B4111B4BC3E1E198455095958333D776D8B2BEEED3A1A1A221A6E"+
+			"37E664A64B83981C46FFDDC1A45E3D5211AAF8BFBC072768C4F50D7D7803D2D4F2"+
+			"78DE8014A47323631D7E064DE81C0C6BFA43EF0E6998860F1390B5D3FEACAF1696"+
+			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
+			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
+			"847AEF49F66E43873", 16),
+		large.NewIntFromString("2", 16),
+		large.NewIntFromString("2", 16))
+
+	return cmixGrp, e2eGrp
+
+}

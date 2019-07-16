@@ -96,7 +96,7 @@ type MockRegistration struct {
 }
 
 func (s *MockRegistration) RegisterNode(ID []byte,
-	NodeTLSCert, GatewayTLSCert, RegistrationCode string) error {
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr string) error {
 	return nil
 }
 

@@ -64,20 +64,25 @@ func FormatTextMessage(message string) []byte {
 
 // VerifyNDF verifies the signature of the network definition file (NDF) and
 // returns the structure. Panics when the NDF string cannot be decoded and when
-// the signature cannot be verified. If the NDF public key is empty, then
+// the signature cannot be verified. If the NDF public key is empty, then the
 // signature verification is skipped and warning is printed.
 func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	// Decode NDF string to a NetworkDefinition and its signature
 	ndfJSON, ndfSignature, err := ndf.DecodeNDF(ndfString)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Could not decode NDF: %+v", err)
+		globals.Log.FATAL.Panicf("Could not decode NDF: %v", err)
 	}
 
+	// If there is no public key, then skip verification and print warning
 	if ndfPub == "" {
-		globals.Log.WARN.Println("Running without signed network definition file")
+		globals.Log.WARN.Printf("Running without signed network " +
+			"definition file")
 	} else {
 		// Get public key
 		pubKey, err := rsa.LoadPublicKeyFromPem([]byte(ndfPub))
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not load public key: %v", err)
+		}
 
 		// Hash NDF JSON
 		opts := rsa.NewDefaultOptions()
@@ -85,10 +90,11 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 		rsaHash.Write(ndfJSON.Serialize())
 
 		// Verify signature
-		err = rsa.Verify(pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
+		err = rsa.Verify(
+			pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
 
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could not verify NDF: %+v", err)
+			globals.Log.FATAL.Panicf("Could not verify NDF: %v", err)
 		}
 	}
 

@@ -6,11 +6,13 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
+var topology *circuit.Circuit
 var messaging io.Communications
 
 // UdbID is the ID of the user discovery bot, which is always 3
@@ -47,7 +49,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications) {
+func InitBots(s user.Session, m io.Communications, top *circuit.Circuit) {
 	UdbID = id.NewUserFromUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(channelResponseListener)
@@ -58,6 +60,7 @@ func InitBots(s user.Session, m io.Communications) {
 	nicknameResponseListener = make(channelResponseListener)
 
 	session = s
+	topology = top
 	messaging = m
 	l := session.GetSwitchboard()
 
@@ -79,12 +82,11 @@ func InitBots(s user.Session, m io.Communications) {
 // Callers that need to wait on a response should implement waiting with a
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
-	return messaging.SendMessage(session, botID,
+	return messaging.SendMessage(session, topology, botID,
 		parse.Unencrypted, command)
 }
 
 // Nickname Lookup function
-
 func LookupNick(user *id.User) (string, error) {
 	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *user)
 	msg := parse.Pack(&parse.TypedBody{

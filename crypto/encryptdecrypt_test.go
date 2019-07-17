@@ -8,7 +8,6 @@ package crypto
 
 import (
 	"bytes"
-	"fmt"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
@@ -121,26 +120,16 @@ func TestFullEncryptDecrypt(t *testing.T) {
 
 	// Server will decrypt payload (which is OK because the payload is now e2e)
 	// This block imitates what the server does during the realtime
-	var encryptedNet *pb.Slot
-	{
-		payload := cmixGrp.NewIntFromBytes(encMsg.GetPayloadA())
-		assocData := cmixGrp.NewIntFromBytes(encMsg.GetPayloadB())
-		// Multiply payload and associated data by transmission key only
-		cmixGrp.Mul(payload, serverPayloadAKey, payload)
-		// Multiply associated data only by transmission key
-		cmixGrp.Mul(assocData, serverPayloadBKey, assocData)
-		fmt.Println(payload.Bytes())
-		encryptedNet = &pb.Slot{
-			SenderID:       sender.Bytes(),
-			Salt:           salt,
-			MessagePayload: payload.LeftpadBytes(uint64(format.PayloadLen)),
-			AssociatedData: assocData.LeftpadBytes(uint64(format.PayloadLen)),
-		}
-	}
+	payloadA := cmixGrp.NewIntFromBytes(encMsg.GetPayloadA())
+	payloadB := cmixGrp.NewIntFromBytes(encMsg.GetPayloadB())
+	// Multiply payloadA and associated data by serverPayloadBkey
+	cmixGrp.Mul(payloadA, serverPayloadAKey, payloadA)
+	// Multiply payloadB data only by serverPayloadAkey
+	cmixGrp.Mul(payloadB, serverPayloadBKey, payloadB)
 
 	decMsg := format.NewMessage()
-	decMsg.SetPayloadA(encryptedNet.MessagePayload)
-	decMsg.SetPayloadB(encryptedNet.AssociatedData)
+	decMsg.SetPayloadA(payloadA.LeftpadBytes(uint64(format.PayloadLen)))
+	decMsg.SetDecryptedPayloadB(payloadB.LeftpadBytes(uint64(format.PayloadLen)))
 
 	// E2E Decryption
 	err := E2EDecrypt(e2eGrp, key, decMsg)
@@ -171,11 +160,13 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
+			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 			" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msg.Contents.Set(msgPayload[format.ContentsLen:])
-	now := time.Now()
-	nowBytes, _ := now.MarshalBinary()
-	msg.SetTimestamp(nowBytes)
+	msg.Contents.Set(msgPayload[:format.ContentsLen])
+
+	msg.SetTimestamp(make([]byte, 16))
 
 	key := e2eGrp.NewInt(42)
 	h, _ := hash.NewCMixHash()
@@ -209,7 +200,7 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 
 	decMsg := format.NewMessage()
 	decMsg.SetPayloadA(encryptedNet.MessagePayload)
-	decMsg.SetPayloadB(encryptedNet.AssociatedData)
+	decMsg.SetDecryptedPayloadB(encryptedNet.AssociatedData)
 
 	// E2E Decryption
 	err := E2EDecryptUnsafe(e2eGrp, key, decMsg)
@@ -222,9 +213,9 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
 			decMsg.GetRecipient(), sender)
 	}
-	if !bytes.Equal(decMsg.Contents.Get(), msgPayload) {
+	if !bytes.Equal(decMsg.Contents.Get(), msgPayload[:format.ContentsLen]) {
 		t.Errorf("Decrypted payload differed from expected: Got %q, "+
-			"expected %q", decMsg.Contents.Get(), msgPayload)
+			"expected %q", decMsg.Contents.Get(), msgPayload[:format.ContentsLen])
 	}
 }
 
@@ -241,10 +232,9 @@ func TestE2EEncrypt_Panic(t *testing.T) {
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory" +
 		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
+	msgPayload = msgPayload[:format.ContentsLen]
 	msg.Contents.Set(msgPayload)
-	now := time.Now()
-	nowBytes, _ := now.MarshalBinary()
-	msg.SetTimestamp(nowBytes)
+	msg.SetTimestamp(make([]byte, 16))
 
 	key := e2eGrp.NewInt(42)
 	h, _ := hash.NewCMixHash()
@@ -268,12 +258,9 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	recipient := id.NewUserFromUint(29, t)
 	msg := format.NewMessage()
 	msg.SetRecipient(recipient)
-	msgPayload := []byte("help me, i'm stuck in an" +
-		" EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory")
-	msg.Contents.Set(msgPayload)
-	now := time.Now()
-	nowBytes, _ := now.MarshalBinary()
-	msg.SetTimestamp(nowBytes)
+	msgPayload := []byte("help me, i'm stuck in an EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory ")
+	msg.Contents.SetRightAligned(msgPayload)
+	msg.SetTimestamp(make([]byte, 16))
 
 	key := e2eGrp.NewInt(42)
 	h, _ := hash.NewCMixHash()
@@ -290,7 +277,7 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	badMsg.SetPayloadB(msg.GetPayloadB())
 
 	// Corrupt MAC to make decryption fail
-	badMsg.SetMAC([]byte("sakfaskfajskasfkkaskfanjjnaf"))
+	badMsg.SetMAC([]byte("sakfaskfajskasfkkaskfanjffffjnaf"))
 
 	// E2E Decryption returns error
 	err := E2EDecrypt(e2eGrp, key, badMsg)
@@ -338,7 +325,7 @@ func TestE2EDecrypt_Errors(t *testing.T) {
 	badMsg.SetTimestamp(msg.GetTimestamp())
 
 	// Corrupt payload to make decryption fail
-	badMsg.Contents.Set([]byte(
+	badMsg.Contents.SetRightAligned([]byte(
 		"sakomnsfjeiknheuijhgfyaistuajhfaiuojfkhufijsahufiaij"))
 
 	// Calculate new MAC to avoid failing on that verification again

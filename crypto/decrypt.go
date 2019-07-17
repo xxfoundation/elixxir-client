@@ -68,6 +68,7 @@ func E2EDecryptUnsafe(grp *cyclic.Group, key *cyclic.Int,
 	}
 	// TODO deserialize this somewhere along the line and provide methods
 	// to mobile developers on the bindings to interact with the timestamps
+	decryptedTimestamp = append(decryptedTimestamp, 0)
 	msg.SetTimestamp(decryptedTimestamp)
 	// Decrypt e2e
 	decryptedPayload := e2e.DecryptUnsafe(grp, key, msg.Contents.Get())

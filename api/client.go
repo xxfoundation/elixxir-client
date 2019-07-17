@@ -117,6 +117,13 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*
 		return nil, err
 	}
 
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(ndfJSON.CMIX.Prime, 16),
+		large.NewIntFromString(ndfJSON.CMIX.Generator, 16),
+		large.NewIntFromString(ndfJSON.CMIX.SmallPrime, 16))
+
+	user.InitUserRegistry(cmixGrp)
+
 	cl := new(Client)
 	cl.storage = store
 	cl.comm = io.NewMessenger()
@@ -433,7 +440,7 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.comm)
+	bots.InitBots(cl.session, cl.comm, cl.topology)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.comm)
 
@@ -457,7 +464,7 @@ func (cl *Client) Send(message parse.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
-	return cl.comm.SendMessage(cl.session, recipientID, cryptoType, message.Pack())
+	return cl.comm.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for

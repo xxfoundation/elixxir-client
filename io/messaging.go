@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -72,7 +73,7 @@ func NewMessenger() *Messaging {
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *Messaging) SendMessage(session user.Session,
+func (m *Messaging) SendMessage(session user.Session, topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte) error {
@@ -107,7 +108,7 @@ func (m *Messaging) SendMessage(session user.Session,
 		// NOTE: This sets 15 bytes, not 16
 		message.SetTimestamp(extendedNowBytes)
 		message.Contents.SetRightAligned(parts[i])
-		err = m.send(session, cryptoType, message, false)
+		err = m.send(session, topology, cryptoType, message, false)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
@@ -119,8 +120,7 @@ func (m *Messaging) SendMessage(session user.Session,
 // This function will be needed for example to send a Rekey
 // message, where a new public key will take up the whole message
 func (m *Messaging) SendMessageNoPartition(session user.Session,
-	recipientID *id.User,
-	cryptoType parse.CryptoType,
+	topology *circuit.Circuit, recipientID *id.User, cryptoType parse.CryptoType,
 	message []byte) error {
 	size := len(message)
 	if size > format.TotalLen {
@@ -141,7 +141,7 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 	msg.SetTimestamp(nowBytes)
 	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)
-	err = m.send(session, cryptoType, msg, true)
+	err = m.send(session, topology, cryptoType, msg, true)
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())
 	}
@@ -149,7 +149,7 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 }
 
 // send actually sends the message to the server
-func (m *Messaging) send(session user.Session,
+func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 	cryptoType parse.CryptoType,
 	message *format.Message,
 	rekey bool) error {
@@ -176,7 +176,7 @@ func (m *Messaging) send(session user.Session,
 
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
-	encMsg := crypto.CMIXEncrypt(session, salt, message)
+	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
 		SenderID:       session.GetCurrentUser().User.Bytes(),
@@ -240,12 +240,12 @@ func handleE2ESending(session user.Session,
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
 	if rekey {
-		crypto.E2EEncryptUnsafe(session.GetGroup(),
+		crypto.E2EEncryptUnsafe(session.GetE2EGroup(),
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)
 	} else {
-		crypto.E2EEncrypt(session.GetGroup(),
+		crypto.E2EEncrypt(session.GetE2EGroup(),
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)
@@ -310,9 +310,9 @@ func handleE2EReceiving(session user.Session,
 	globals.Log.DEBUG.Printf("E2E decrypting message")
 	var err error
 	if rekey {
-		err = crypto.E2EDecryptUnsafe(session.GetGroup(), recpKey.GetKey(), message)
+		err = crypto.E2EDecryptUnsafe(session.GetE2EGroup(), recpKey.GetKey(), message)
 	} else {
-		err = crypto.E2EDecrypt(session.GetGroup(), recpKey.GetKey(), message)
+		err = crypto.E2EDecrypt(session.GetE2EGroup(), recpKey.GetKey(), message)
 	}
 
 	if err != nil {

@@ -84,9 +84,12 @@ func E2EEncryptUnsafe(grp *cyclic.Group,
 	// and GO only uses 15 bytes, so use those
 	var iv [e2e.AESBlockSize]byte
 	copy(iv[:], keyFP[:e2e.AESBlockSize])
-	encryptedTimestamp, _ :=
+	encryptedTimestamp, err :=
 		e2e.EncryptAES256WithIV(key.Bytes(), iv,
-			msg.GetTimestamp())
+			msg.GetTimestamp()[:15])
+	if err != nil {
+		panic(err)
+	}
 	msg.SetTimestamp(encryptedTimestamp)
 
 	// E2E encrypt the msg

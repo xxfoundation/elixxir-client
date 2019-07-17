@@ -15,12 +15,14 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
+var topology *circuit.Circuit
 var messaging io.Communications
 
 var rekeyTriggerList rekeyTriggerListener
@@ -81,13 +83,14 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications) {
+func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
 	rekeyConfirmList = rekeyConfirmListener{}
 
 	session = s
+	topology = t
 	messaging = m
 	l := session.GetSwitchboard()
 
@@ -118,7 +121,7 @@ const (
 
 func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
-	grp := session.GetGroup()
+	grp := session.GetCmixGroup()
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -241,17 +244,18 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Directly send raw publicKey bytes, without any message type
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
-		return messaging.SendMessageNoPartition(session, partner, parse.E2E,
+		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
 			pubKey.GetKey().LeftpadBytes(uint64(format.TotalLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()
 		h.Write(ctx.BaseKey.Bytes())
+		baseKeyHash := h.Sum(nil)
 		msg := parse.Pack(&parse.TypedBody{
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
-			Body:        h.Sum(nil),
+			Body:        baseKeyHash,
 		})
-		return messaging.SendMessage(session, partner, parse.None, msg)
+		return messaging.SendMessage(session, topology, partner, parse.None, msg)
 	}
 	return nil
 }

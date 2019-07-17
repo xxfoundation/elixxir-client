@@ -1,6 +1,7 @@
 package keyStore
 
 import (
+	"fmt"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
@@ -20,6 +21,12 @@ type RekeyKeys struct {
 }
 
 func (k *RekeyKeys) RotateKeysIfReady() {
+	if k.NewPrivKey != nil {
+		fmt.Println("privkey", k.NewPrivKey.Bytes())
+	}
+	if k.NewPubKey != nil {
+		fmt.Println("pubkey", k.NewPubKey.Bytes())
+	}
 	if k.NewPrivKey != nil && k.NewPubKey != nil {
 		k.CurrPrivKey = k.NewPrivKey
 		k.CurrPubKey = k.NewPubKey

@@ -442,7 +442,7 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.comm, cl.topology)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.comm)
+	rekey.InitRekey(cl.session, cl.comm, cl.topology)
 
 	email := session.GetCurrentUser().Email
 

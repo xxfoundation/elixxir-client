@@ -2,7 +2,6 @@ package rekey
 
 import (
 	"bytes"
-	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
@@ -272,20 +271,7 @@ func TestRekey(t *testing.T) {
 		t.Errorf("Rekey returned error: %v", rekeyList.err.Error())
 	}
 	// Confirm hash of baseKey matches expected
-	var value []byte
-
-	cont := true
-
-	for cont {
-		select {
-		case value = <-ListenCh:
-			fmt.Println("aaa")
-		default:
-			cont = false
-		}
-
-	}
-
+	value := <- ListenCh
 	// Get hash as last 32 bytes of message bytes
 	actual := value[len(value)-32:]
 	km = session.GetKeyStore().GetRecvManager(partnerID)

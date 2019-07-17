@@ -54,6 +54,10 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	partnerPubKey := m.GetPayload()
+	if m.GetCryptoType() != parse.Rekey {
+		globals.Log.WARN.Printf("Received message with NO_TYPE but not Rekey CryptoType, needs to be fixed!")
+		return
+	}
 	globals.Log.DEBUG.Printf("Received Rekey message from user %v", *partner)
 	err := rekeyProcess(Rekey, partner, partnerPubKey)
 	if err != nil {

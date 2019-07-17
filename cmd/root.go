@@ -49,6 +49,7 @@ var registrationCertPath string
 var registrationAddr string
 var registrationCode string
 var userEmail string
+var userNick string
 var end2end bool
 var keyParams []string
 var client *api.Client
@@ -506,8 +507,13 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
 		"email", "E",
-		"",
+		"default@default.com",
 		"Email to register for User Discovery")
+
+	rootCmd.PersistentFlags().StringVar(&userNick,
+		"nick",
+		"Default",
+		"Nickname to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

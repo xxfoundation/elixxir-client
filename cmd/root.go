@@ -506,17 +506,17 @@ func init() {
 			" store it there.  If not passed the session will be stored"+
 			" to ram and lost when the cli finishes")
 
-	rootCmd.PersistentFlags().StringVarP(&ndfPath,
-		"ndf",
-		"n",
-		"ndf.json",
-		"Path to the network definition JSON file")
-
 	rootCmd.PersistentFlags().StringVarP(&ndfPubKey,
 		"ndfPubKey",
 		"p",
 		"",
 		"Path to the public key for the network definition JSON file")
+
+	rootCmd.PersistentFlags().StringVarP(&ndfPath,
+		"ndf",
+		"n",
+		"ndf.json",
+		"Path to the network definition JSON file")
 
 	rootCmd.PersistentFlags().BoolVar(&ndfVerifySignature,
 		"ndfVerifySignature",

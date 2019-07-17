@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
 	"log"
@@ -51,20 +52,15 @@ var userEmail string
 var end2end bool
 var keyParams []string
 var client *api.Client
-var ndfPubKey = `-----BEGIN PUBLIC KEY-----
-MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA1dn7rREgAU1PDHqczJAe
-kQX1eJhrREnOAlKGu+bgpIxHOyzECtnFFnbX+XfZZATjPLuBKHPzlkxQvE6j8aAr
-fOh7DZl56i492zDY/I+JmrSxpNw2NkB7KdRlWIeUNSdFrc/U3A3ot4FmPxIgy7Hi
-5uW9L3RsY7vmTliD9hwGDWXrOCOWp+LhJjuT5hJwxMHj95vo12o2VPHXk6G3lomF
-g0hy+3YN9vzaKFUV+38iGk/ytpDiYa0JD5TfWV/vFyLdNtajd/8llcTUnSIpCROG
-NO9lUX4OViW7+9mylT6XQjOwb58qVaLGPXuEQBqj/m8t6c08X6apbgeRP1D5CL2o
-dMgqB68SmxOFgmSroMGZBpb9F7XniwJc0+rgrzc31nu+l2dCTcU84QENFg96yRen
-1CD+kJ8jtcazQQ79f72R32TDbXvgB2sQD8aBzOfGVlTHFh6IUkD8X9vOxbNRh48H
-YF58Qhjc7TC3d9FLaDi3KhM/1NrCOtNVM9n+W8DTLN0ptmc442dKLMFEQ8Uw2pkM
-VDWW3zrZeD6+Vsn1D9v57+0v+X01gqjUPgZBeeRUAsomeiL2Dn7/GA+/xuweX45m
-NrzFlgTDOrJ0TLWPPstFBhyX4+6tY6/FGP/5Gwjt29Kr1EN72HcUuDCecSn6MUsS
-/EiMyA55AI68m/Wx+kHnJN0CAwEAAQ==
------END PUBLIC KEY-----`
+var ndfPath string
+var ndfVerifySignature bool
+var ndfRegistration []string
+var ndfUDB []string
+var ndfPubKey = `-----BEGIN RSA PUBLIC KEY-----
+MGgCYQCsQxKjqNmoTNCu5RfMzsS01xv9h/ZYHD27s5uwzbS2pb5ZGQ2KuvyEwMh0
+O9YfmS1hCb7d2ZFqfVPwcY7o4iMuGf1BB7GjyqyeyDD41vZAl04bfyqCqh//ea6z
+OG8EimMCAwEAAQ==
+-----END RSA PUBLIC KEY-----`
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -80,9 +76,29 @@ func sessionInitialization() *id.User {
 	var err error
 	register := false
 
+	// Read in the network definition file and save as string
+	ndfBytes, err := ioutil.ReadFile(ndfPath)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not read network definition file: %v", err)
+	}
+
+	// Check if the NDF verify flag is set
+	if !ndfVerifySignature {
+		ndfPubKey = ""
+		globals.Log.WARN.Println("Skipping NDF verification")
+	} else if ndfPubKey == "" {
+		globals.Log.FATAL.Panicln("No public key for NDF found")
+	}
+
+	// Verify the signature
+	ndfJSON := api.VerifyNDF(string(ndfBytes), ndfPubKey)
+
+	// Overwrite the network definition with any specified flags
+	overwriteNDF(ndfJSON)
+
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "")
+		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -106,7 +122,7 @@ func sessionInitialization() *id.User {
 		}
 
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile)
+		client, err = api.NewClient(nil, sessionFile, ndfJSON)
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
@@ -494,6 +510,27 @@ func init() {
 			" store it there.  If not passed the session will be stored"+
 			" to ram and lost when the cli finishes")
 
+	rootCmd.PersistentFlags().StringVarP(&ndfPath,
+		"ndf",
+		"n",
+		"ndf.json",
+		"Path to the network definition JSON file")
+
+	rootCmd.PersistentFlags().BoolVar(&ndfVerifySignature,
+		"ndfVerifySignature",
+		true,
+		"Specifies if the NDF should be loaded without the signature")
+
+	rootCmd.PersistentFlags().StringSliceVar(&ndfRegistration,
+		"ndfRegistration",
+		nil,
+		"Overwrite the Registration values for the NDF")
+
+	rootCmd.PersistentFlags().StringSliceVar(&ndfUDB,
+		"ndfUDB",
+		nil,
+		"Overwrite the UDB values for the NDF")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
@@ -546,5 +583,31 @@ func initLog() {
 		} else {
 			globals.Log.SetLogOutput(logFile)
 		}
+	}
+}
+
+// overwriteNDF replaces fields in the NetworkDefinition structure with values
+// specified from the commandline.
+func overwriteNDF(n *ndf.NetworkDefinition) {
+	if len(ndfRegistration) == 3 {
+		n.Registration.DsaPublicKey = ndfRegistration[0]
+		n.Registration.Address = ndfRegistration[1]
+		n.Registration.TlsCertificate = ndfRegistration[2]
+
+		globals.Log.WARN.Println("Overwrote Registration values in the " +
+			"NetworkDefinition from the commandline")
+	}
+
+	if len(ndfUDB) == 2 {
+		udbIdString, err := base64.StdEncoding.DecodeString(ndfUDB[0])
+		if err != nil {
+			globals.Log.WARN.Printf("Could not decode USB ID: %v", err)
+		}
+
+		n.UDB.ID = udbIdString
+		n.UDB.DsaPublicKey = ndfUDB[1]
+
+		globals.Log.WARN.Println("Overwrote UDB values in the " +
+			"NetworkDefinition from the commandline")
 	}
 }

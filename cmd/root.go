@@ -56,11 +56,7 @@ var ndfPath string
 var ndfVerifySignature bool
 var ndfRegistration []string
 var ndfUDB []string
-var ndfPubKey = `-----BEGIN RSA PUBLIC KEY-----
-MGgCYQCsQxKjqNmoTNCu5RfMzsS01xv9h/ZYHD27s5uwzbS2pb5ZGQ2KuvyEwMh0
-O9YfmS1hCb7d2ZFqfVPwcY7o4iMuGf1BB7GjyqyeyDD41vZAl04bfyqCqh//ea6z
-OG8EimMCAwEAAQ==
------END RSA PUBLIC KEY-----`
+var ndfPubKey string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -515,6 +511,12 @@ func init() {
 		"n",
 		"ndf.json",
 		"Path to the network definition JSON file")
+
+	rootCmd.PersistentFlags().StringVarP(&ndfPubKey,
+		"ndfPubKey",
+		"p",
+		"",
+		"Path to the public key for the network definition JSON file")
 
 	rootCmd.PersistentFlags().BoolVar(&ndfVerifySignature,
 		"ndfVerifySignature",

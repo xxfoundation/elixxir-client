@@ -148,8 +148,11 @@ func sessionInitialization() *id.User {
 	}
 
 	// Connect to gateways and reg server
-	client.Connect(gateways, gwCertPath,
-		registrationAddr, registrationCertPath)
+	err = client.Connect()
+
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
+	}
 
 	// Holds the User ID
 	var uid *id.User
@@ -173,7 +176,7 @@ func sessionInitialization() *id.User {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, "", mint, &grp)
+		uid, err = client.Register(userId != 0, regCode, "", userEmail)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
@@ -191,7 +194,7 @@ func sessionInitialization() *id.User {
 
 	// Log the user in, for now using the first gateway specified
 	// This will also register the user email with UDB
-	_, err = client.Login(uid, userEmail)
+	_, err = client.Login(uid)
 	if err != nil {
 		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID
@@ -387,7 +390,7 @@ var rootCmd = &cobra.Command{
 					recipientNick, message)
 
 				// Send the message
-				client.Send(&parse.Message{
+				err := client.Send(&parse.Message{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
@@ -396,6 +399,9 @@ var rootCmd = &cobra.Command{
 					InferredType: cryptoType,
 					Receiver:     recipientId,
 				})
+				if err != nil {
+					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				}
 			}
 		}
 
@@ -424,7 +430,10 @@ var rootCmd = &cobra.Command{
 					},
 					InferredType: cryptoType,
 					Receiver:     recipientId}
-				client.Send(message)
+				err := client.Send(message)
+				if err != nil {
+					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				}
 
 				timer = time.NewTimer(dummyPeriod)
 			}
@@ -554,14 +563,7 @@ func init() {
 }
 
 // initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	// Temporarily need to get group as JSON data into viper
-	json, err := globals.InitCrypto().MarshalJSON()
-	if err != nil {
-		// panic
-	}
-	viper.Set("group", string(json))
-}
+func initConfig() {}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {

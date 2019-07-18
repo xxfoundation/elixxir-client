@@ -56,6 +56,8 @@ Optional args:
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 |--end2end| |Send messages with E2E encryption to destination user|--end2end|
 |--keyParams| |Set E2E key generation parameters. Pass values in comma separated list, with the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys|--keyParams 100,200,32,1.2,50|
+|--email|-E|Email to register for User Discovery (default "default@default.com")||
+|--nick| |Nickname to register for User Discovery (default "Default")||
 |--ndfPubKey|-p|Path to the public key for the network definition JSON file|
 |--ndf|-n|Path to the network definition JSON file|
 |--ndfVerifySignature| |Specifies if the NDF should be loaded without the signature|

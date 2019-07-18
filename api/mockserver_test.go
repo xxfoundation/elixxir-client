@@ -16,11 +16,14 @@ import (
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"math/rand"
 	"os"
 	"testing"
+	"time"
 )
 
-const NumGWs = 3
+const NumNodes = 3
+const NumGWs = NumNodes
 const RegPort = 5000
 const GWsStartPort = 10000
 
@@ -28,7 +31,7 @@ var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
 
 const ValidRegCode = "UAV6IWD6"
-const InvalidRegCode = "INVALID_REG_CODE"
+const InvalidRegCode = "INVALID_REG_CODE_"
 
 var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 	{LastReceivedMessage: pb.Slot{}},
@@ -104,7 +107,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	if *regRes == *id.ZeroID {
-		t.Errorf("Invalid registration number received: %v", *regRes)
+		t.Errorf("Invalid registration number received: %+v", *regRes)
 	}
 }
 
@@ -126,9 +129,9 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	// Register with invalid reg code
-	_, err = client.Register(true, InvalidRegCode, "", "")
-	if err != nil {
-		t.Error("Registration worked with invalid registration code!")
+	uid, err := client.Register(true, InvalidRegCode, "", "")
+	if err == nil {
+		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
 }
 
@@ -278,13 +281,17 @@ func TestLogout(t *testing.T) {
 // gateways used for registration and gateway used for session
 func testMainWrapper(m *testing.M) int {
 
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	rndPort := int(rng.Uint64() % 10000)
+
 	def = getNDF()
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i, handler := range RegGWHandlers {
 
 		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i),
+			Address: fmtAddress(GWsStartPort + i + rndPort),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
@@ -295,10 +302,19 @@ func testMainWrapper(m *testing.M) int {
 
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
-		Address: fmtAddress(RegPort),
+		Address: fmtAddress(RegPort + rndPort),
 	}
 	RegComms = registration.StartRegistrationServer(def.Registration.Address,
 		&RegHandler, "", "")
+
+	for i := 0; i < NumNodes; i++ {
+		nIdBytes := make([]byte, id.NodeIdLen)
+		nIdBytes[0] = byte(i)
+		n := ndf.Node{
+			ID: nIdBytes,
+		}
+		def.Nodes = append(def.Nodes, n)
+	}
 
 	defer testWrapperShutdown()
 	return m.Run()
@@ -333,19 +349,23 @@ func getNDF() *ndf.NetworkDefinition {
 			Generator:  "2",
 		},
 		CMIX: ndf.Group{
-			Prime: "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
-				"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
-				"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
-				"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
-				"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
-				"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
-				"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
-				"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
-				"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
-				"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
-				"15728E5A8AACAA68FFFFFFFFFFFFFFFF",
-			SmallPrime: "2",
-			Generator:  "2",
+			Prime: "9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48" +
+				"C8F7A41AADFA187324B87674FA1822B00F1ECF8136943D7C55757264E5A1A44F" +
+				"FE012E9936E00C1D3E9310B01C7D179805D3058B2A9F4BB6F9716BFE6117C6B5" +
+				"B3CC4D9BE341104AD4A80AD6C94E005F4B993E14F091EB51743BF33050C38DE2" +
+				"35567E1B34C3D6A5C0CEAA1A0F368213C3D19843D0B4B09DCB9FC72D39C8DE41" +
+				"F1BF14D4BB4563CA28371621CAD3324B6A2D392145BEBFAC748805236F5CA2FE" +
+				"92B871CD8F9C36D3292B5509CA8CAA77A2ADFC7BFD77DDA6F71125A7456FEA15" +
+				"3E433256A2261C6A06ED3693797E7995FAD5AABBCFBE3EDA2741E375404AE25B",
+			SmallPrime: "F2C3119374CE76C9356990B465374A17F23F9ED35089BD969F61C6DDE9998C1F",
+			Generator: "5C7FF6B06F8F143FE8288433493E4769C4D988ACE5BE25A0E24809670716C613" +
+				"D7B0CEE6932F8FAA7C44D2CB24523DA53FBE4F6EC3595892D1AA58C4328A06C4" +
+				"6A15662E7EAA703A1DECF8BBB2D05DBE2EB956C142A338661D10461C0D135472" +
+				"085057F3494309FFA73C611F78B32ADBB5740C361C9F35BE90997DB2014E2EF5" +
+				"AA61782F52ABEB8BD6432C4DD097BC5423B285DAFB60DC364E8161F4A2A35ACA" +
+				"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71" +
+				"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0" +
+				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
 		},
 	}
 }

@@ -38,6 +38,8 @@ func setup() {
 
 	cmixGrp, e2eGrp := getGroups()
 
+	user.InitUserRegistry(cmixGrp)
+
 	UID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 18})
 	u, _ := user.Users.GetUser(UID)
 

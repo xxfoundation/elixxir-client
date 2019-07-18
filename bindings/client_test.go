@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/comms/gateway"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"math/rand"
 	"os"
 	"reflect"
 	"testing"
@@ -23,11 +24,9 @@ import (
 )
 
 const NumGWs = 1
-const gwAddress = "localhost:5557"
 const GWsStartPort = 10000
 
 const ValidRegCode = "UAV6IWD6"
-const InvalidRegCode = "INVALID_REG_CODE"
 
 var GWComms [NumGWs]*gateway.GatewayComms
 
@@ -60,22 +59,6 @@ func TestNewClient(t *testing.T) {
 	} else if client == nil {
 		t.Errorf("NewClient returned nil Client object")
 	}
-}
-
-// BytesReceiver receives the last message and puts the data it received into
-// byte slices
-type BytesReceiver struct {
-	receptionBuffer []byte
-	lastSID         []byte
-	lastRID         []byte
-}
-
-// This is the method that globals.Receive calls when you set a BytesReceiver
-// as the global receiver
-func (br *BytesReceiver) Receive(message Message) {
-	br.receptionBuffer = append(br.receptionBuffer, message.GetPayload()...)
-	br.lastRID = message.GetRecipient()
-	br.lastSID = message.GetSender()
 }
 
 func TestRegister(t *testing.T) {
@@ -269,13 +252,17 @@ func TestParse(t *testing.T) {
 // gateways used for registration and gateway used for session
 func testMainWrapper(m *testing.M) int {
 
+	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	rndPort := int(rng.Uint64() % 10000)
+
 	def = getNDF()
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i := 0; i < NumGWs; i++ {
 
 		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i),
+			Address: fmtAddress(GWsStartPort + i + rndPort),
 		}
 
 		def.Gateways = append(def.Gateways, gw)

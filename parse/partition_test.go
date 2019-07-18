@@ -8,8 +8,6 @@ package parse
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
 	"testing"
 )
@@ -108,7 +106,7 @@ func TestPartitionLongest(t *testing.T) {
 		t.Fatalf(err.Error())
 	}
 
-	expectedNumberOfPartitions := 143
+	expectedNumberOfPartitions := 139
 
 	if len(actual) != expectedNumberOfPartitions {
 		t.Errorf("Expected a 52480-byte message to split into %v partitions, got %v instead",
@@ -118,7 +116,7 @@ func TestPartitionLongest(t *testing.T) {
 
 	// check the index and max index of the last partition
 	lastIndex := len(actual) - 1
-	expectedIdx := byte(142)
+	expectedIdx := byte(138)
 	idxLocation := len(id)
 	maxIdxLocation := len(id) + 1
 	actualIdx := actual[lastIndex][idxLocation]
@@ -137,7 +135,7 @@ func TestPartitionLongest(t *testing.T) {
 // message that's too long to partition
 func TestPartitionTooLong(t *testing.T) {
 	id := []byte{0x1f, 0x2f, 0x3f, 0x4f, 0x5f}
-	_, err := Partition(randomString(0, 57856), id)
+	_, err := Partition(randomString(0, 257856), id)
 
 	if err == nil {
 		t.Error("Partition() processed a message that was too long to be" +
@@ -157,12 +155,7 @@ func TestOnlyAssemble(t *testing.T) {
 
 	partitions := make([][]byte, len(messageChunks))
 	for i := range partitions {
-		paddedChunk, err := e2e.Pad([]byte(messageChunks[i]),
-			format.ContentsLen)
-		if err != nil {
-			t.Error(err)
-		}
-		partitions[i] = append(partitions[i], paddedChunk...)
+		partitions[i] = append(partitions[i], []byte(messageChunks[i])...)
 	}
 
 	assembled, err := Assemble(partitions)
@@ -170,7 +163,7 @@ func TestOnlyAssemble(t *testing.T) {
 		t.Error(err.Error())
 	}
 	if completeMessage != string(assembled) {
-		t.Errorf("TestOnlyAssemble: got \"%v\"; expected \"%v\".",
+		t.Errorf("TestOnlyAssemble: got \"%v\";\n expected \"%v\".",
 			string(assembled), completeMessage)
 	}
 }

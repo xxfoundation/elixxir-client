@@ -41,7 +41,7 @@ func TestCollator_AddMessage(t *testing.T) {
 
 			fm := format.NewMessage()
 			fm.SetRecipient(id.NewUserFromUint(6, t))
-			fm.Contents.Set(partitions[j])
+			fm.Contents.SetRightAligned(partitions[j])
 
 			result = collator.AddMessage(fm, time.Minute)
 		}
@@ -53,7 +53,7 @@ func TestCollator_AddMessage(t *testing.T) {
 		// already, and strings should respect null terminators,
 		// so it's probably not actually that much of a problem.
 		if !bytes.Contains(result.Body, typedBody.Body) {
-			t.Errorf("Input didn't match output for %v. Got: %v, expected %v",
+			t.Errorf("Input didn't match output for %v. \n  Got: %v\n  Expected %v",
 				i, hex.EncodeToString(result.Body),
 				hex.EncodeToString(typedBody.Body))
 		}
@@ -74,7 +74,7 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	for i := range partitions {
 		fm := format.NewMessage()
 		fm.SetRecipient(id.NewUserFromUint(6, t))
-		fm.Contents.Set(partitions[i])
+		fm.Contents.SetRightAligned(partitions[i])
 
 		result = collator.AddMessage(fm, 80*time.Millisecond)
 		if result != nil {

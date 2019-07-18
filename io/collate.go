@@ -49,7 +49,7 @@ func NewCollator() *Collator {
 func (mb *Collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
-	payload := message.Contents.Get()
+	payload := message.Contents.GetRightAligned()
 	// There's currently no mechanism for knowing who sent an unencrypted
 	// message, I think?
 	// Let's just try ZeroID for now...

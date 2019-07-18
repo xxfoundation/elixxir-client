@@ -201,7 +201,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 	// Generate DSA keypair even for precanned users as it will probably
 	// be needed for the new UDB flow
-	params := signature.GetDefaultDSAParams()
+	params := signature.CustomDSAParams(
+		cmixGrp.GetP(),
+		cmixGrp.GetQ(),
+		cmixGrp.GetG())
 	privateKey := params.PrivateKeyGen(rand.Reader)
 	publicKey := privateKey.PublicKeyGen()
 
@@ -211,10 +214,11 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		globals.Log.DEBUG.Printf("Registering precanned user")
 		UID, successLook = user.Users.LookupUser(registrationCode)
 
+		fmt.Println("UID:", UID, "success:", successLook)
+
 		if !successLook {
 			globals.Log.ERROR.Printf("Register: HUID does not match")
-			err = errors.New("could not register due to invalid HUID")
-			return id.ZeroID, err
+			return id.ZeroID, errors.New("could not register due to invalid HUID")
 		}
 
 		var successGet bool
@@ -412,7 +416,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		return id.ZeroID, err
 	}
 
-	nus.Immolate()
+	err = nus.Immolate()
+	if err != nil {
+		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
+	}
 	nus = nil
 
 	return UID, nil
@@ -604,7 +611,7 @@ func (cl *Client) LookupNick(user *id.User,
 func (cl *Client) registerUserE2E(partnerID *id.User,
 	partnerPubKey []byte) {
 	// Get needed variables from session
-	grp := cl.session.GetE2EGroup()
+	grp := cl.session.GetCmixGroup()
 	userID := cl.session.GetCurrentUser().User
 
 	// Create user private key and partner public key

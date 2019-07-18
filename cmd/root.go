@@ -41,7 +41,6 @@ var message string
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
-var mint bool
 var rateLimiting uint32
 var showVer bool
 var gwCertPath string
@@ -177,7 +176,7 @@ func sessionInitialization() *id.User {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, "", userEmail)
+		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Register User: %s\n", err.Error())
 			return id.ZeroID
@@ -301,7 +300,12 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	message := item.(*parse.Message)
 	globals.Log.INFO.Println("Hearing a channel message")
 	result := cmixproto.ChannelMessage{}
-	proto.Unmarshal(message.Body, &result)
+	err := proto.Unmarshal(message.Body, &result)
+
+	if err != nil {
+		globals.Log.ERROR.Printf("Could not unmarhsal message, message "+
+			"not processed: %+v", err)
+	}
 
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
@@ -474,9 +478,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
-	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "", false,
-		"Mint some coins for testing")
-
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		1000, "Sets the amount of time, in ms, "+
 			"that the client waits between sending messages.  "+

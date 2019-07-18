@@ -58,8 +58,8 @@ func TestMain(m *testing.M) {
 	user.InitUserRegistry(grp)
 	params := signature.CustomDSAParams(
 		grp.GetP(),
-		grp.GetG(),
-		grp.GetQ())
+		grp.GetQ(),
+		grp.GetG())
 	rng := csprng.NewSystemRNG()
 	u := &user.User{
 		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
@@ -249,8 +249,8 @@ func TestRekey(t *testing.T) {
 	grp, _ := getGroups()
 	params := signature.CustomDSAParams(
 		grp.GetP(),
-		grp.GetG(),
-		grp.GetQ())
+		grp.GetQ(),
+		grp.GetG())
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
@@ -271,7 +271,7 @@ func TestRekey(t *testing.T) {
 		t.Errorf("Rekey returned error: %v", rekeyList.err.Error())
 	}
 	// Confirm hash of baseKey matches expected
-	value := <- ListenCh
+	value := <-ListenCh
 	// Get hash as last 32 bytes of message bytes
 	actual := value[len(value)-32:]
 	km = session.GetKeyStore().GetRecvManager(partnerID)

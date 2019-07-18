@@ -8,6 +8,7 @@ package bindings
 
 import (
 	"errors"
+	"fmt"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -123,7 +124,7 @@ func (cl *Client) Connect() error {
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
 func (cl *Client) Register(preCan bool, registrationCode, nick, email string) ([]byte, error) {
-
+	fmt.Println("calling client reg")
 	UID, err := cl.client.Register(preCan, registrationCode, nick, email)
 
 	if err != nil {

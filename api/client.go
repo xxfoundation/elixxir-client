@@ -208,6 +208,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	privateKey := params.PrivateKeyGen(rand.Reader)
 	publicKey := privateKey.PublicKeyGen()
 
+	fmt.Println("gened private keys")
+
 	// Handle precanned registration
 	if preCan {
 		var successLook bool
@@ -295,7 +297,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 			// Disconnect from regServer here since it will not be needed
 			(cl.comm).(*io.Messaging).Comms.Disconnect(cl.ndf.Registration.Address)
 		}
-
+		fmt.Println("passed reg")
 		// Loop over all Servers
 		for _, gateway := range cl.ndf.Gateways {
 

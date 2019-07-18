@@ -34,8 +34,10 @@ const (
 	E2E
 )
 
-func (CryptoType) String() string {
-	return "yo, there's probably a crypto type that needs to get got around here"
+var cryptoTypeStrArr = []string{"None", "Unencrypted", "Rekey", "E2E"}
+
+func (ct CryptoType) String() string {
+	return cryptoTypeStrArr[ct]
 }
 
 // Interface used to standardize message definitions

@@ -59,7 +59,7 @@ Optional args:
 |--nick| |Nickname to register for User Discovery (default "Default")||
 |--ndfPubKey|-p|Path to the public key for the network definition JSON file|
 |--ndf|-n|Path to the network definition JSON file|
-|--ndfVerifySignature| |Specifies if the NDF should be loaded without the signature. defaults to true|
+|--skipNDFVerification| |Specifies if the NDF should be loaded without the signature (default false)|
 |--ndfRegistration| |Overwrite the Registration values for the NDF|
 |--ndfUDB| |Overwrite the UDB values for the NDF|
 

@@ -52,7 +52,7 @@ var userNick string
 var end2end bool
 var keyParams []string
 var ndfPath string
-var ndfVerifySignature bool
+var skipNDFVerification bool
 var ndfRegistration []string
 var ndfUDB []string
 var ndfPubKey string
@@ -80,7 +80,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 	}
 
 	// Check if the NDF verify flag is set
-	if !ndfVerifySignature {
+	if skipNDFVerification {
 		ndfPubKey = ""
 		globals.Log.WARN.Println("Skipping NDF verification")
 	} else if ndfPubKey == "" {
@@ -134,18 +134,13 @@ func sessionInitialization() (*id.User, *api.Client) {
 	client.SetRateLimiting(rateLimiting)
 
 	// Handle parsing gateway addresses from the config file
-	gateways := viper.GetStringSlice("gateways")
-	if len(gwAddresses) < 1 {
-		// If gwAddr was not passed via command line, check config file
-		if len(gateways) < 1 {
-			// No gateways in config file or passed via command line
-			globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
-				" configuration file or pass via command line using -g!\n")
-			return id.ZeroID, nil
-		} else {
-			// List of gateways found in config file
-			gwAddresses = gateways
-		}
+	gateways := ndfJSON.Gateways
+	// If gwAddr was not passed via command line, check config file
+	if len(gateways) < 1 {
+		// No gateways in config file or passed via command line
+		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
+			" configuration file or pass via command line using -g!\n")
+		return id.ZeroID, nil
 	}
 
 	// Connect to gateways and reg server
@@ -539,9 +534,9 @@ func init() {
 		"ndf.json",
 		"Path to the network definition JSON file")
 
-	rootCmd.PersistentFlags().BoolVar(&ndfVerifySignature,
-		"ndfVerifySignature",
-		true,
+	rootCmd.PersistentFlags().BoolVar(&skipNDFVerification,
+		"skipNDFVerification",
+		false,
 		"Specifies if the NDF should be loaded without the signature")
 
 	rootCmd.PersistentFlags().StringSliceVar(&ndfRegistration,

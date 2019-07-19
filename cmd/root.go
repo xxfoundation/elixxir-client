@@ -53,7 +53,7 @@ var end2end bool
 var keyParams []string
 var client *api.Client
 var ndfPath string
-var ndfVerifySignature bool
+var skipNDFVerification bool
 var ndfRegistration []string
 var ndfUDB []string
 var ndfPubKey string
@@ -79,7 +79,7 @@ func sessionInitialization() *id.User {
 	}
 
 	// Check if the NDF verify flag is set
-	if !ndfVerifySignature {
+	if skipNDFVerification {
 		ndfPubKey = ""
 		globals.Log.WARN.Println("Skipping NDF verification")
 	} else if ndfPubKey == "" {
@@ -534,9 +534,9 @@ func init() {
 		"ndf.json",
 		"Path to the network definition JSON file")
 
-	rootCmd.PersistentFlags().BoolVar(&ndfVerifySignature,
-		"ndfVerifySignature",
-		true,
+	rootCmd.PersistentFlags().BoolVar(&skipNDFVerification,
+		"skipNDFVerification",
+		false,
 		"Specifies if the NDF should be loaded without the signature")
 
 	rootCmd.PersistentFlags().StringSliceVar(&ndfRegistration,

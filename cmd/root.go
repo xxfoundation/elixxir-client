@@ -133,18 +133,13 @@ func sessionInitialization() *id.User {
 	client.SetRateLimiting(rateLimiting)
 
 	// Handle parsing gateway addresses from the config file
-	gateways := viper.GetStringSlice("gateways")
-	if len(gwAddresses) < 1 {
-		// If gwAddr was not passed via command line, check config file
-		if len(gateways) < 1 {
-			// No gateways in config file or passed via command line
-			globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
-				" configuration file or pass via command line using -g!\n")
-			return id.ZeroID
-		} else {
-			// List of gateways found in config file
-			gwAddresses = gateways
-		}
+	gateways := ndfJSON.Gateways
+	// If gwAddr was not passed via command line, check config file
+	if len(gateways) < 1 {
+		// No gateways in config file or passed via command line
+		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
+			" configuration file or pass via command line using -g!\n")
+		return id.ZeroID
 	}
 
 	// Connect to gateways and reg server

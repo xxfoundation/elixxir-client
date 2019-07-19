@@ -103,7 +103,6 @@ func sessionInitialization() (*id.User, *api.Client) {
 		}
 		register = true
 	} else {
-
 		//If a session file is passed, check if it's valid
 		_, err1 := os.Stat(sessionFile)
 
@@ -155,15 +154,6 @@ func sessionInitialization() (*id.User, *api.Client) {
 
 	// Register a new user if requested
 	if register {
-		grpJSON := viper.GetString("group")
-
-		// Unmarshal group JSON
-		var grp cyclic.Group
-		err := grp.UnmarshalJSON([]byte(grpJSON))
-		if err != nil {
-			return id.ZeroID, nil
-		}
-
 		regCode := registrationCode
 		// If precanned user, use generated code instead
 		if userId != 0 {

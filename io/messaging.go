@@ -175,7 +175,7 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 	}
 
 	// CMIX Encryption
-	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
+	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
 	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
@@ -301,7 +301,7 @@ func handleE2EReceiving(session user.Session,
 	rekey := false
 	if recpKey == nil {
 		// TODO Handle sending error message to SW
-		return rekey, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
+		return false, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
 	} else if recpKey.GetOuterType() == parse.Rekey {
 		// If key type is rekey, the message is a rekey from partner
 		rekey = true
@@ -414,7 +414,11 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						"Adding message ID %v to received message IDs", messageID)
 					m.ReceivedMessages[messageID] = struct{}{}
 					session.SetLastMessageID(messageID)
-					session.StoreSession()
+					err = session.StoreSession()
+					if err != nil {
+						globals.Log.ERROR.Printf("Could not store session "+
+							"after message recieved from gateway: %+v", err)
+					}
 				}
 			}
 		}

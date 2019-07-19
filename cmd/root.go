@@ -51,7 +51,6 @@ var userEmail string
 var userNick string
 var end2end bool
 var keyParams []string
-var client *api.Client
 var ndfPath string
 var ndfVerifySignature bool
 var ndfRegistration []string
@@ -68,9 +67,11 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() *id.User {
+func sessionInitialization() (*id.User, *api.Client) {
 	var err error
 	register := false
+
+	var client *api.Client
 
 	// Read in the network definition file and save as string
 	ndfBytes, err := ioutil.ReadFile(ndfPath)
@@ -98,7 +99,7 @@ func sessionInitialization() *id.User {
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return id.ZeroID
+			return id.ZeroID, nil
 		}
 		register = true
 	} else {
@@ -113,7 +114,7 @@ func sessionInitialization() *id.User {
 			} else {
 				//Fail if any other error is received
 				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
-				return id.ZeroID
+				return id.ZeroID, nil
 			}
 		}
 
@@ -122,7 +123,7 @@ func sessionInitialization() *id.User {
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return id.ZeroID
+			return id.ZeroID, nil
 		}
 	}
 
@@ -140,7 +141,7 @@ func sessionInitialization() *id.User {
 			// No gateways in config file or passed via command line
 			globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 				" configuration file or pass via command line using -g!\n")
-			return id.ZeroID
+			return id.ZeroID, nil
 		} else {
 			// List of gateways found in config file
 			gwAddresses = gateways
@@ -165,7 +166,7 @@ func sessionInitialization() *id.User {
 		var grp cyclic.Group
 		err := grp.UnmarshalJSON([]byte(grpJSON))
 		if err != nil {
-			return id.ZeroID
+			return id.ZeroID, nil
 		}
 
 		regCode := registrationCode
@@ -179,7 +180,7 @@ func sessionInitialization() *id.User {
 		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Register User: %s\n", err.Error())
-			return id.ZeroID
+			return id.ZeroID, nil
 		}
 
 		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
@@ -197,13 +198,13 @@ func sessionInitialization() *id.User {
 	_, err = client.Login(uid)
 	if err != nil {
 		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
-		return id.ZeroID
+		return id.ZeroID, nil
 	}
 
-	return uid
+	return uid, client
 }
 
-func setKeyParams() {
+func setKeyParams(client *api.Client) {
 	globals.Log.DEBUG.Printf("Trying to parse key parameters...")
 	minKeys, err := strconv.Atoi(keyParams[0])
 	if err != nil {
@@ -296,6 +297,9 @@ type ChannelListener struct {
 	messagesReceived int64
 }
 
+//used to get the client object into hear
+var globalClient *api.Client
+
 func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	message := item.(*parse.Message)
 	globals.Log.INFO.Println("Hearing a channel message")
@@ -319,7 +323,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := id.NewUserFromBytes(result.SpeakerID)
-	client.GetSwitchboard().Speak(&parse.Message{
+	globalClient.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,
 		Receiver:  id.ZeroID,
@@ -343,10 +347,11 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
-		userID := sessionInitialization()
+		userID, client := sessionInitialization()
+		globalClient = client
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
-			setKeyParams()
+			setKeyParams(client)
 		}
 		// Set up the listeners for both of the types the client needs for
 		// the integration test

@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -72,9 +73,9 @@ func NewMessenger() *Messaging {
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (m *Messaging) SendMessage(session user.Session,
+func (m *Messaging) SendMessage(session user.Session, topology *circuit.Circuit,
 	recipientID *id.User,
-	cryptoType format.CryptoType,
+	cryptoType parse.CryptoType,
 	message []byte) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -85,7 +86,6 @@ func (m *Messaging) SendMessage(session user.Session,
 	// TBD: Is there a really good reason why we'd ever have more than one user
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
-	userID := session.GetCurrentUser().User
 	parts, err := parse.Partition([]byte(message),
 		m.nextId())
 	if err != nil {
@@ -100,15 +100,15 @@ func (m *Messaging) SendMessage(session user.Session,
 	if err != nil {
 		return fmt.Errorf("SendMessage MarshalBinary() error: %v", err.Error())
 	}
+	extendedNowBytes := append(nowBytes, 0)
 	for i := range parts {
 		message := format.NewMessage()
-		message.SetSender(userID)
 		message.SetRecipient(recipientID)
 		// The timestamp will be encrypted later
 		// NOTE: This sets 15 bytes, not 16
-		message.SetTimestamp(nowBytes)
-		message.SetPayloadData(parts[i])
-		err = m.send(session, cryptoType, message, false)
+		message.SetTimestamp(extendedNowBytes)
+		message.Contents.SetRightAligned(parts[i])
+		err = m.send(session, topology, cryptoType, message, false)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
@@ -120,14 +120,12 @@ func (m *Messaging) SendMessage(session user.Session,
 // This function will be needed for example to send a Rekey
 // message, where a new public key will take up the whole message
 func (m *Messaging) SendMessageNoPartition(session user.Session,
-	recipientID *id.User,
-	cryptoType format.CryptoType,
+	topology *circuit.Circuit, recipientID *id.User, cryptoType parse.CryptoType,
 	message []byte) error {
 	size := len(message)
-	if size > format.TOTAL_LEN {
+	if size > format.TotalLen {
 		return fmt.Errorf("SendMessageNoPartition() error: message to be sent is too big")
 	}
-	userID := session.GetCurrentUser().User
 	now := time.Now()
 	// GO Timestamp binary serialization is 15 bytes, which
 	// allows the encrypted timestamp to fit in 16 bytes
@@ -141,17 +139,9 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 	// The timestamp will be encrypted later
 	// NOTE: This sets 15 bytes, not 16
 	msg.SetTimestamp(nowBytes)
-	// If message is bigger than payload size
-	// use SenderID space to send it
-	if size > format.MP_PAYLOAD_LEN {
-		msg.SetSenderID(message[:format.MP_SID_END])
-		msg.SetPayloadData(message[format.MP_SID_END:])
-	} else {
-		msg.SetSender(userID)
-		msg.SetPayloadData(message)
-	}
+	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)
-	err = m.send(session, cryptoType, msg, true)
+	err = m.send(session, topology, cryptoType, msg, true)
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())
 	}
@@ -159,8 +149,8 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 }
 
 // send actually sends the message to the server
-func (m *Messaging) send(session user.Session,
-	cryptoType format.CryptoType,
+func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
+	cryptoType parse.CryptoType,
 	message *format.Message,
 	rekey bool) error {
 	// Enable transmission blocking if enabled
@@ -173,25 +163,25 @@ func (m *Messaging) send(session user.Session,
 	}
 
 	// Check message type
-	if cryptoType == format.E2E {
+	if cryptoType == parse.E2E {
 		handleE2ESending(session, message, rekey)
 	} else {
-		padded, err := e2e.Pad(message.GetPayload(), format.TOTAL_LEN)
+		padded, err := e2e.Pad(message.Contents.GetRightAligned(), format.ContentsLen)
 		if err != nil {
 			return err
 		}
-		message.SetPayload(padded)
+		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
 	}
 
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 16)
-	encMsg := crypto.CMIXEncrypt(session, salt, message)
+	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
 		SenderID:       session.GetCurrentUser().User.Bytes(),
-		MessagePayload: encMsg.SerializePayload(),
-		AssociatedData: encMsg.SerializeAssociatedData(),
+		MessagePayload: encMsg.GetPayloadA(),
+		AssociatedData: encMsg.GetPayloadB(),
 		Salt:           salt,
 		KMACs:          make([][]byte, 0),
 	}
@@ -242,20 +232,20 @@ func handleE2ESending(session user.Session,
 				MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 				Body:        []byte{},
 			},
-			CryptoType: format.None,
-			Receiver:   recipientID,
+			InferredType: parse.None,
+			Receiver:     recipientID,
 		}
 		go session.GetSwitchboard().Speak(rekeyMsg)
 	}
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
 	if rekey {
-		crypto.E2EEncryptUnsafe(session.GetGroup(),
+		crypto.E2EEncryptUnsafe(session.GetE2EGroup(),
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)
 	} else {
-		crypto.E2EEncrypt(session.GetGroup(),
+		crypto.E2EEncrypt(session.GetE2EGroup(),
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)
@@ -302,7 +292,7 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 
 func handleE2EReceiving(session user.Session,
 	message *format.Message) (bool, error) {
-	keyFingerprint := message.GetKeyFingerprint()
+	keyFingerprint := message.GetKeyFP()
 
 	// Lookup reception key
 	recpKey := session.GetKeyStore().
@@ -312,7 +302,7 @@ func handleE2EReceiving(session user.Session,
 	if recpKey == nil {
 		// TODO Handle sending error message to SW
 		return rekey, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
-	} else if recpKey.GetOuterType() == format.Rekey {
+	} else if recpKey.GetOuterType() == parse.Rekey {
 		// If key type is rekey, the message is a rekey from partner
 		rekey = true
 	}
@@ -320,9 +310,9 @@ func handleE2EReceiving(session user.Session,
 	globals.Log.DEBUG.Printf("E2E decrypting message")
 	var err error
 	if rekey {
-		err = crypto.E2EDecryptUnsafe(session.GetGroup(), recpKey.GetKey(), message)
+		err = crypto.E2EDecryptUnsafe(session.GetE2EGroup(), recpKey.GetKey(), message)
 	} else {
-		err = crypto.E2EDecrypt(session.GetGroup(), recpKey.GetKey(), message)
+		err = crypto.E2EDecrypt(session.GetE2EGroup(), recpKey.GetKey(), message)
 	}
 
 	if err != nil {
@@ -335,15 +325,15 @@ func handleE2EReceiving(session user.Session,
 	// Send rekey message to switchboard
 	if rekey {
 		partner := recpKey.GetManager().GetPartner()
-		partnerPubKey := message.SerializePayload()
+		partnerPubKey := message.Contents.Get()
 		rekeyMsg := &parse.Message{
 			Sender: partner,
 			TypedBody: parse.TypedBody{
 				MessageType: int32(cmixproto.Type_NO_TYPE),
 				Body:        partnerPubKey,
 			},
-			CryptoType: format.Rekey,
-			Receiver:   session.GetCurrentUser().User,
+			InferredType: parse.Rekey,
+			Receiver:     session.GetCurrentUser().User,
 		}
 		go session.GetSwitchboard().Speak(rekeyMsg)
 	}
@@ -392,10 +382,8 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					}
 
 					msg := format.NewMessage()
-					msg.AssociatedData = format.DeserializeAssociatedData(
-						newMessage.AssociatedData)
-					msg.Payload = format.DeserializePayload(newMessage.
-						MessagePayload)
+					msg.SetPayloadA(newMessage.MessagePayload)
+					msg.SetPayloadB(newMessage.AssociatedData)
 
 					var err error = nil
 					var rekey bool
@@ -405,9 +393,9 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						rekey, err = handleE2EReceiving(session, msg)
 					} else {
 						// If message is non E2E, need to unpad payload
-						unpadded, err = e2e.Unpad(msg.SerializePayload())
+						unpadded, err = e2e.Unpad(msg.Contents.Get())
 						if err == nil {
-							msg.SetSplitPayload(unpadded)
+							msg.Contents.Set(unpadded)
 						}
 					}
 

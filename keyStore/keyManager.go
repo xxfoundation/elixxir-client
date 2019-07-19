@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -88,11 +89,11 @@ func NewManager(baseKey *cyclic.Int,
 	km.ttl = ttl
 	km.numKeys = numKeys
 	km.numReKeys = numReKeys
-	for i, _ := range km.recvKeysState {
+	for i := range km.recvKeysState {
 		km.recvKeysState[i] = new(uint64)
 		*km.recvKeysState[i] = 0
 	}
-	for i, _ := range km.recvReKeysState {
+	for i := range km.recvReKeysState {
 		km.recvReKeysState[i] = new(uint64)
 		*km.recvReKeysState[i] = 0
 	}
@@ -283,7 +284,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			e2ekey := new(E2EKey)
 			e2ekey.key = key
 			e2ekey.manager = km
-			e2ekey.outer = format.E2E
+			e2ekey.outer = parse.E2E
 			km.sendKeys.Push(e2ekey)
 		}
 
@@ -295,7 +296,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			e2ekey := new(E2EKey)
 			e2ekey.key = key
 			e2ekey.manager = km
-			e2ekey.outer = format.Rekey
+			e2ekey.outer = parse.Rekey
 			km.sendReKeys.Push(e2ekey)
 		}
 		// Add KeyManager to KeyStore map
@@ -317,7 +318,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey := new(E2EKey)
 				e2ekey.key = key
 				e2ekey.manager = km
-				e2ekey.outer = format.E2E
+				e2ekey.outer = parse.E2E
 				e2ekey.keyNum = uint32(i)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
@@ -333,7 +334,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey := new(E2EKey)
 				e2ekey.key = key
 				e2ekey.manager = km
-				e2ekey.outer = format.Rekey
+				e2ekey.outer = parse.Rekey
 				e2ekey.keyNum = uint32(i)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)

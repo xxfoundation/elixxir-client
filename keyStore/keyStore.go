@@ -3,6 +3,7 @@ package keyStore
 import (
 	"bytes"
 	"encoding/gob"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -68,7 +69,7 @@ func (m *inKeyMap) Pop(fingerprint format.Fingerprint) *E2EKey {
 	m.Delete(fingerprint)
 	// Update Key Manager Receiving State
 	key.GetManager().updateRecvState(
-		key.GetOuterType() == format.Rekey,
+		key.GetOuterType() == parse.Rekey,
 		key.keyNum)
 	return key
 }

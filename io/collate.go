@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/id"
 	"sync"
 	"time"
 )
@@ -48,8 +49,11 @@ func NewCollator() *Collator {
 func (mb *Collator) AddMessage(message *format.Message,
 	timeout time.Duration) *parse.Message {
 
-	payload := message.GetPayloadData()
-	sender := message.GetSender()
+	payload := message.Contents.GetRightAligned()
+	// There's currently no mechanism for knowing who sent an unencrypted
+	// message, I think?
+	// Let's just try ZeroID for now...
+	sender := id.ZeroID
 	recipient := message.GetRecipient()
 
 	partition, err := parse.ValidatePartition(payload)
@@ -66,10 +70,10 @@ func (mb *Collator) AddMessage(message *format.Message,
 			}
 
 			msg := parse.Message{
-				TypedBody:  *typedBody,
-				CryptoType: format.Unencrypted,
-				Sender:     sender,
-				Receiver:   recipient,
+				TypedBody:    *typedBody,
+				InferredType: parse.Unencrypted,
+				Sender:       sender,
+				Receiver:     recipient,
 			}
 
 			return &msg
@@ -131,10 +135,10 @@ func (mb *Collator) AddMessage(message *format.Message,
 				}
 
 				msg := parse.Message{
-					TypedBody:  *typedBody,
-					CryptoType: format.Unencrypted,
-					Sender:     sender,
-					Receiver:   recipient,
+					TypedBody:    *typedBody,
+					InferredType: parse.Unencrypted,
+					Sender:       sender,
+					Receiver:     recipient,
 				}
 
 				delete(mb.pendingMessages, key)

@@ -48,7 +48,6 @@ Optional args:
 |--version|-V|Show the generated version information. Run `$ go generate cmd/version.go` if the information is out of date.|--version|
 |--sessionfile|-f|File path for storing the session. If not specified, the session will be stored in RAM and won't persist.|-f mySuperCoolSessionFile|
 |--noBlockingTransmission| |Disables transmission rate limiting (useful for dummy client)|--noBlockingTransmission|
-|--mint| |Creates some coins for this user for testing and demos|--mint|
 |--help|-h|Prints a help message with all of these flags|-h|
 |--gwcertpath|-c|Enables TLS by passing in path to the gateway certificate file|-c "~/Documents/gateway.cert"|
 |--registrationcertpath|-r|Enables TLS by passing in path to the registration server certificate file|-r "~/Documents/registration.cert"|
@@ -56,6 +55,13 @@ Optional args:
 |--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
 |--end2end| |Send messages with E2E encryption to destination user|--end2end|
 |--keyParams| |Set E2E key generation parameters. Pass values in comma separated list, with the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys|--keyParams 100,200,32,1.2,50|
+|--email|-E|Email to register for User Discovery (default "default@default.com")||
+|--nick| |Nickname to register for User Discovery (default "Default")||
+|--ndfPubKey|-p|Path to the public key for the network definition JSON file|
+|--ndf|-n|Path to the network definition JSON file|
+|--ndfVerifySignature| |Specifies if the NDF should be loaded without the signature. defaults to true|
+|--ndfRegistration| |Overwrite the Registration values for the NDF|
+|--ndfUDB| |Overwrite the UDB values for the NDF|
 
 ##Project Structure
 
@@ -84,9 +90,7 @@ the client's part of the cipher.
 without seriously considering the alternatives. Most important is the Log 
 variable:
 
-```go
 globals.Log.ERROR.Println("this is an error")
-```
 
 Using this global Log variable allows external users of jww logging, like the 
 console UI, to see and print log messages from the client library if they need

@@ -395,7 +395,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						// If message is non E2E, need to unpad payload
 						unpadded, err = e2e.Unpad(msg.Contents.Get())
 						if err == nil {
-							msg.Contents.Set(unpadded)
+							msg.Contents.SetRightAligned(unpadded)
 						}
 					}
 

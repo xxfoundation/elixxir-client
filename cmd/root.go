@@ -163,7 +163,8 @@ func sessionInitialization() (*id.User, *api.Client) {
 
 		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
 		if err != nil {
-			globals.Log.ERROR.Printf("Could Not Register User: %s\n", err.Error())
+			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
+				err.Error())
 			return id.ZeroID, nil
 		}
 

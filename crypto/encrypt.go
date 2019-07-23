@@ -28,9 +28,7 @@ func CMIXEncrypt(session user.Session, topology *circuit.Circuit, salt []byte,
 	for i, key := range nodeKeys {
 		baseKeys[i] = key.TransmissionKey
 		//TODO: Add KMAC generation here
-		globals.Log.INFO.Printf("base keys: %x", key.TransmissionKey.Bytes())
 	}
-	globals.Log.INFO.Printf("base keys: ", baseKeys)
 
 	return cmix.ClientEncrypt(session.GetCmixGroup(), msg, salt, baseKeys)
 }

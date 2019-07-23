@@ -179,6 +179,7 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 	globals.Log.INFO.Printf("message payload B %x", message.GetPayloadB())
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
+	fmt.Printf("Message before send: %+v", message)
 	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
@@ -188,10 +189,7 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		Salt:           salt,
 		KMACs:          make([][]byte, 0),
 	}
-	globals.Log.INFO.Printf("encrypted mesage sending to gateway: %x", msgPacket.MessagePayload)
-	globals.Log.INFO.Printf("encrypted AD sending to gateway: %x", msgPacket.AssociatedData)
 
-	globals.Log.INFO.Println("Sending put message to gateway")
 	return m.Comms.SendPutMessage(m.SendAddress, msgPacket)
 }
 
@@ -388,13 +386,14 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 
 					msg := format.NewMessage()
 					msg.SetPayloadA(newMessage.MessagePayload)
-					msg.SetPayloadB(newMessage.AssociatedData)
-					globals.Log.INFO.Printf("message from gateway: %x", msg.GetMaster())
+					msg.SetDecryptedPayloadB(newMessage.AssociatedData)
 					var err error = nil
 					var rekey bool
 					var unpadded []byte
 					// If message is E2E, handle decryption
+					fmt.Printf("Message before send: %+v", msg)
 					if !e2e.IsUnencrypted(msg) {
+						globals.Log.INFO.Println("HORSE THINK UNENCRYPTED")
 						rekey, err = handleE2EReceiving(session, msg)
 					} else {
 						// If message is non E2E, need to unpad payload

@@ -53,7 +53,7 @@ func (mb *Collator) AddMessage(message *format.Message,
 	// There's currently no mechanism for knowing who sent an unencrypted
 	// message, I think?
 	// Let's just try ZeroID for now...
-	sender := id.ZeroID
+	sender := id.NewUserFromBytes(message.GetMAC())
 	recipient := message.GetRecipient()
 
 	partition, err := parse.ValidatePartition(payload)

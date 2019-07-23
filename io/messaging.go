@@ -172,8 +172,11 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		}
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
+		message.SetMAC(session.GetCurrentUser().User.Bytes())
 	}
-
+	globals.Log.INFO.Printf("message is this: %x\n", message.GetMaster())
+	globals.Log.INFO.Printf("message payload A %x", message.GetPayloadA())
+	globals.Log.INFO.Printf("message payload B %x", message.GetPayloadB())
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
 	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
@@ -185,6 +188,8 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		Salt:           salt,
 		KMACs:          make([][]byte, 0),
 	}
+	globals.Log.INFO.Printf("encrypted mesage sending to gateway: %x", msgPacket.MessagePayload)
+	globals.Log.INFO.Printf("encrypted AD sending to gateway: %x", msgPacket.AssociatedData)
 
 	globals.Log.INFO.Println("Sending put message to gateway")
 	return m.Comms.SendPutMessage(m.SendAddress, msgPacket)
@@ -384,7 +389,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					msg := format.NewMessage()
 					msg.SetPayloadA(newMessage.MessagePayload)
 					msg.SetPayloadB(newMessage.AssociatedData)
-
+					globals.Log.INFO.Printf("message from gateway: %x", msg.GetMaster())
 					var err error = nil
 					var rekey bool
 					var unpadded []byte

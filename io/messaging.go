@@ -173,7 +173,6 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
 	}
-
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
 	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
@@ -186,7 +185,6 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		KMACs:          make([][]byte, 0),
 	}
 
-	globals.Log.INFO.Println("Sending put message to gateway")
 	return m.Comms.SendPutMessage(m.SendAddress, msgPacket)
 }
 
@@ -383,8 +381,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 
 					msg := format.NewMessage()
 					msg.SetPayloadA(newMessage.MessagePayload)
-					msg.SetPayloadB(newMessage.AssociatedData)
-
+					msg.SetDecryptedPayloadB(newMessage.AssociatedData)
 					var err error = nil
 					var rekey bool
 					var unpadded []byte

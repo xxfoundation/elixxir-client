@@ -73,10 +73,10 @@ func newRegistry(grp *cyclic.Group) Registry {
 		currentID.RegistrationCode()
 		// TODO We need a better way to generate base/recursive keys
 		h := sha256.New()
-		h.Write([]byte(string(20000 + i)))
+		h.Write([]byte(string(40000 + i)))
 		k.TransmissionKey = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
-		h.Write([]byte(string(40000 + i)))
+		h.Write([]byte(string(60000 + i)))
 		k.ReceptionKey = grp.NewIntFromBytes(h.Sum(nil))
 
 		// Add user to collection and lookup table

@@ -76,21 +76,12 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}
 	h := sha256.New()
-	h.Write([]byte(string(20001)))
+	h.Write([]byte(string(40001)))
 	key := grp.NewIntFromBytes(h.Sum(nil))
 	if keys.TransmissionKey.Text(16) != key.Text(16) {
 		t.Errorf("LookupKeys returned an incorrect key. "+
 			"Expected:%v \nActual%v", key.Text(16),
 			keys.TransmissionKey.Text(16))
-	}
-
-	h = sha256.New()
-	h.Write([]byte(string(40001)))
-	key = grp.NewIntFromBytes(h.Sum(nil))
-	if keys.ReceptionKey.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. "+
-			"Expected:%v \nActual%v", key.Text(16),
-			keys.ReceptionKey.Text(16))
 	}
 
 	// Test delete user

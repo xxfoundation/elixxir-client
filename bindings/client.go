@@ -123,7 +123,7 @@ func (cl *Client) Connect() error {
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, nick, email string) ([]byte, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
 	fmt.Println("calling client reg")
 	UID, err := cl.client.Register(preCan, registrationCode, nick, email)
 
@@ -143,7 +143,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) ([
 // certificate string to "default", the bindings will use that certificate.
 // If you leave it empty, the Client will try to connect to the GW without TLS
 // This should only ever be used for testing purposes
-func (cl *Client) Login(UID []byte) (string, error) {
+func (cl *Client) Login(UID []byte, password string) (string, error) {
 	userID := id.NewUserFromBytes(UID)
 	return cl.client.Login(userID)
 }

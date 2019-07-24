@@ -91,7 +91,7 @@ func TestRegister(t *testing.T) {
 	}
 
 	regRes, err := client.Register(true, ValidRegCode,
-		"", "")
+		"", "", "")
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -133,8 +133,8 @@ func TestLoginLogout(t *testing.T) {
 	}
 
 	regRes, err := client.Register(true, ValidRegCode,
-		"", "")
-	loginRes, err2 := client.Login(regRes)
+		"", "", "")
+	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
 	}
@@ -170,8 +170,8 @@ func TestListen(t *testing.T) {
 	}
 
 	regRes, _ := client.Register(true, ValidRegCode,
-		"", "")
-	_, err = client.Login(regRes)
+		"", "", "")
+	_, err = client.Login(regRes, "")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
@@ -207,9 +207,9 @@ func TestStopListening(t *testing.T) {
 	}
 
 	regRes, _ := client.Register(true, ValidRegCode,
-		"", "")
+		"", "", "")
 
-	_, err = client.Login(regRes)
+	_, err = client.Login(regRes, "")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)

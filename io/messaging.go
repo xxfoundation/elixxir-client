@@ -172,7 +172,6 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		}
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
-		message.SetMAC(session.GetCurrentUser().User.Bytes())
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
@@ -388,7 +387,6 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					var unpadded []byte
 					// If message is E2E, handle decryption
 					if !e2e.IsUnencrypted(msg) {
-						globals.Log.INFO.Println("HORSE THINK UNENCRYPTED")
 						rekey, err = handleE2EReceiving(session, msg)
 					} else {
 						// If message is non E2E, need to unpad payload

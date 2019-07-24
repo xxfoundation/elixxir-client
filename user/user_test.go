@@ -84,8 +84,6 @@ func TestUserRegistry(t *testing.T) {
 			keys.TransmissionKey.Text(16))
 	}
 
-
-
 	// Test delete user
 	Users.DeleteUser(id.NewUserFromUint(2, t))
 

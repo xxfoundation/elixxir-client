@@ -78,7 +78,7 @@ func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 func VerifyRegisterGobKeys(session user.Session, topology *circuit.Circuit, t *testing.T) {
 	cmixGrp, _ := getGroups()
 	h := sha256.New()
-	h.Write([]byte(string(20005)))
+	h.Write([]byte(string(40005)))
 	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
 
 	if session.GetKeys(topology)[0].TransmissionKey.Cmp(
@@ -87,15 +87,7 @@ func VerifyRegisterGobKeys(session user.Session, topology *circuit.Circuit, t *t
 			session.GetKeys(topology)[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
-	h = sha256.New()
-	h.Write([]byte(string(40005)))
-	expectedReceptionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
-	if session.GetKeys(topology)[0].ReceptionKey.Cmp(
-		expectedReceptionBaseKey) != 0 {
-		t.Errorf("Reception base key was %v, expected %v",
-			session.GetKeys(topology)[0].ReceptionKey.Text(16),
-			expectedReceptionBaseKey.Text(16))
-	}
+
 }
 
 // Make sure that a formatted text message can deserialize to the text

@@ -157,13 +157,13 @@ func (cl *Client) Connect() error {
 	}
 
 	//connect to all gateways
-	for _, gateway := range cl.ndf.Gateways {
+	for i, gateway := range cl.ndf.Gateways {
 		var gwCreds credentials.TransportCredentials
 		if gateway.TlsCertificate != "" {
 			gwCreds = connect.NewCredentialsFromPEM(gateway.TlsCertificate, "")
 		}
-		addr := io.ConnAddr(gateway.Address)
-		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(addr, gateway.Address, gwCreds)
+		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 	}
 
 	//connect to the registration server
@@ -172,7 +172,7 @@ func (cl *Client) Connect() error {
 		if cl.ndf.Registration.TlsCertificate != "" {
 			regCreds = connect.NewCredentialsFromPEM(cl.ndf.Registration.TlsCertificate, "")
 		}
-		addr := io.ConnAddr(cl.ndf.Registration.Address)
+		addr := io.ConnAddr("registration")
 		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCreds)
 	} else {
 		globals.Log.WARN.Printf("No registration server found to connect to")
@@ -273,7 +273,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
 			// Send registration code and public key to RegistrationServer
 			response, err := (cl.comm).(*io.Messaging).Comms.
-				SendRegistrationMessage(io.ConnAddr(cl.ndf.Registration.Address),
+				SendRegistrationMessage(io.ConnAddr("registration"),
 					&pb.UserRegistration{
 						RegistrationCode: registrationCode,
 						Client: &pb.DSAPublicKey{
@@ -300,13 +300,13 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		}
 		fmt.Println("passed reg")
 		// Loop over all Servers
-		for _, gateway := range cl.ndf.Gateways {
+		for i := range cl.ndf.Gateways {
 
-			gwAddr := io.ConnAddr(gateway.Address)
+			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 
 			// Send signed public key and salt for UserID to Server
 			nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
-				SendRequestNonceMessage(gwAddr,
+				SendRequestNonceMessage(gwID,
 					&pb.NonceRequest{
 						Salt: salt,
 						Client: &pb.DSAPublicKey{
@@ -344,7 +344,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 			// Send signed nonce to Server
 			// TODO: This returns a receipt that can be used to speed up registration
 			confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
-				SendConfirmNonceMessage(gwAddr,
+				SendConfirmNonceMessage(gwID,
 					&pb.DSASignature{
 						Hash: nonce,
 						R:    sig.R.Bytes(),
@@ -437,9 +437,10 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 		return "", errors.New("Unable to load session: " + err.Error())
 	}
 
-	(cl.comm).(*io.Messaging).SendAddress = io.ConnAddr(cl.ndf.Gateways[0].Address)
-	(cl.comm).(*io.Messaging).ReceiveAddress =
-		io.ConnAddr(cl.ndf.Gateways[len(cl.ndf.Gateways)-1].Address)
+	(cl.comm).(*io.Messaging).SendGateway =
+		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	(cl.comm).(*io.Messaging).ReceiveGateway =
+		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",

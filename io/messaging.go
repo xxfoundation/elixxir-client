@@ -41,9 +41,9 @@ type Messaging struct {
 	nextId   func() []byte
 	collator *Collator
 	// SendAddress is the address of the server to send messages
-	SendAddress ConnAddr
+	SendGateway *id.Gateway
 	// ReceiveAddress is the address of the server to receive messages from
-	ReceiveAddress ConnAddr
+	ReceiveGateway *id.Gateway
 	// BlockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
 	BlockTransmissions bool
@@ -185,7 +185,7 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 		KMACs:          make([][]byte, 0),
 	}
 
-	return m.Comms.SendPutMessage(m.SendAddress, msgPacket)
+	return m.Comms.SendPutMessage(m.SendGateway, msgPacket)
 }
 
 func handleE2ESending(session user.Session,
@@ -342,7 +342,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 	pollingMessage *pb.ClientRequest) []*format.Message {
 	if session != nil {
 		pollingMessage.LastMessageID = session.GetLastMessageID()
-		messages, err := m.Comms.SendCheckMessages(m.ReceiveAddress,
+		messages, err := m.Comms.SendCheckMessages(m.ReceiveGateway,
 			pollingMessage)
 
 		if err != nil {
@@ -362,7 +362,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 				// We haven't seen this message before.
 				// So, we should retrieve it from the gateway.
 				newMessage, err := m.Comms.SendGetMessage(
-					m.ReceiveAddress,
+					m.ReceiveGateway,
 					&pb.ClientRequest{
 						UserID: session.GetCurrentUser().User.
 							Bytes(),

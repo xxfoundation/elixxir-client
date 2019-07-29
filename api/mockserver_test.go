@@ -297,7 +297,7 @@ func testMainWrapper(m *testing.M) int {
 		def.Gateways = append(def.Gateways, gw)
 
 		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, "", "")
+			handler, nil, nil)
 	}
 
 	// Start mock registration server and defer its shutdown
@@ -305,7 +305,7 @@ func testMainWrapper(m *testing.M) int {
 		Address: fmtAddress(RegPort + rndPort),
 	}
 	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, "", "")
+		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)

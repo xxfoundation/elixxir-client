@@ -87,10 +87,13 @@ func sessionInitialization() (*id.User, *api.Client) {
 	}
 
 	// Verify the signature
+	globals.Log.INFO.Println("Verifying NDF...")
 	ndfJSON := api.VerifyNDF(string(ndfBytes), ndfPubKey)
+	globals.Log.INFO.Printf("NDF Verified: %v", ndfJSON)
 
 	// Overwrite the network definition with any specified flags
 	overwriteNDF(ndfJSON)
+	globals.Log.INFO.Printf("Overwrote NDF Vars: %v", ndfJSON)
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
@@ -100,6 +103,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 				err.Error())
 			return id.ZeroID, nil
 		}
+		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
 	} else {
 		//If a session file is passed, check if it's valid
@@ -123,9 +127,12 @@ func sessionInitialization() (*id.User, *api.Client) {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, nil
 		}
+		globals.Log.INFO.Println("Initialized OS Storage")
+
 	}
 
 	if noBlockingTransmission {
+		globals.Log.INFO.Println("Disabling Blocking Transmissions")
 		client.DisableBlockingTransmission()
 	}
 
@@ -142,17 +149,21 @@ func sessionInitialization() (*id.User, *api.Client) {
 	}
 
 	// Connect to gateways and reg server
+	globals.Log.INFO.Println("Connecting...")
 	err = client.Connect()
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
+	globals.Log.INFO.Println("Connected!")
 
 	// Holds the User ID
 	var uid *id.User
 
 	// Register a new user if requested
 	if register {
+		globals.Log.INFO.Println("Registering...")
+
 		regCode := registrationCode
 		// If precanned user, use generated code instead
 		if userId != 0 {
@@ -176,6 +187,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
 		// clear userEmail if it was defined, since login was previously done
 		userEmail = ""
+		globals.Log.INFO.Println("Skipped Registration, user: %v", uid)
 	}
 
 	// Log the user in, for now using the first gateway specified
@@ -185,6 +197,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
 		return id.ZeroID, nil
 	}
+	globals.Log.INFO.Println("Logged In!")
 
 	return uid, client
 }

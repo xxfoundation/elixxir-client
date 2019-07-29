@@ -317,8 +317,9 @@ func testMainWrapper(m *testing.M) int {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
+
 		GWComms[i] = gateway.StartGateway(gw.Address,
-			gateway.NewImplementation(), nil, nil)
+			gateway.NewImplementation(), "", "")
 	}
 
 	for i := 0; i < NumNodes; i++ {

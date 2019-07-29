@@ -187,7 +187,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
 		// clear userEmail if it was defined, since login was previously done
 		userEmail = ""
-		globals.Log.INFO.Println("Skipped Registration, user: %v", uid)
+		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
 	// Log the user in, for now using the first gateway specified

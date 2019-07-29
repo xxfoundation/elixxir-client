@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -35,8 +36,8 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"google.golang.org/grpc/credentials"
 	goio "io"
-	"io/ioutil"
 	"time"
 )
 
@@ -157,33 +158,22 @@ func (cl *Client) Connect() error {
 
 	//connect to all gateways
 	for i, gateway := range cl.ndf.Gateways {
-		var gwCreds []byte
-		var err error
+		var gwCreds credentials.TransportCredentials
 		if gateway.TlsCertificate != "" {
-			gwCreds, err = ioutil.ReadFile(gateway.TlsCertificate)
-			if err != nil {
-				globals.Log.ERROR.Printf("Failed to read certificate at %s: %+v", gateway.TlsCertificate, err)
-			}
+			gwCreds = connect.NewCredentialsFromPEM(gateway.TlsCertificate, "")
 		}
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
+		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 	}
 
 	//connect to the registration server
 	if cl.ndf.Registration.Address != "" {
-		var cert []byte
-		var err error
+		var regCreds credentials.TransportCredentials
 		if cl.ndf.Registration.TlsCertificate != "" {
-			cert, err = ioutil.ReadFile(cl.ndf.Registration.TlsCertificate)
-			if err != nil {
-				globals.Log.ERROR.Printf("failed to read certificate from %s: %+v", cl.ndf.Registration.TlsCertificate, err)
-			}
+			regCreds = connect.NewCredentialsFromPEM(cl.ndf.Registration.TlsCertificate, "")
 		}
 		addr := io.ConnAddr("registration")
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, cert)
-		if err != nil {
-			globals.Log.ERROR.Printf("Failed connecting to registrations")
-		}
+		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCreds)
 	} else {
 		globals.Log.WARN.Printf("No registration server found to connect to")
 	}

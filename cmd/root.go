@@ -185,8 +185,6 @@ func sessionInitialization() (*id.User, *api.Client) {
 		// hack for session persisting with cmd line
 		// doesn't support non pre canned users
 		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
-		// clear userEmail if it was defined, since login was previously done
-		userEmail = ""
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 

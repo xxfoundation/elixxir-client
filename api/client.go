@@ -237,10 +237,6 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 			u.Nick = nick
 		}
 
-		if email != "" {
-			u.Email = email
-		}
-
 		nodekeys, successKeys := user.Users.LookupKeys(u.User)
 
 		if !successKeys {
@@ -402,6 +398,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		u = user.Users.NewUser(UID, actualNick)
 		user.Users.UpsertUser(u)
 	}
+
+	u.Email = email
 
 	// Create the user session
 	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey, cmixGrp, e2eGrp)

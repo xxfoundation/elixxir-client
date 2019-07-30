@@ -96,16 +96,17 @@ func (m *Messaging) SendMessage(session user.Session, topology *circuit.Circuit,
 	// GO Timestamp binary serialization is 15 bytes, which
 	// allows the encrypted timestamp to fit in 16 bytes
 	// using AES encryption
+	// The timestamp will be encrypted later
+	// NOTE: This sets 15 bytes, not 16
 	nowBytes, err := now.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("SendMessage MarshalBinary() error: %v", err.Error())
 	}
+	// Add a byte for later encryption (15->16 bytes)
 	extendedNowBytes := append(nowBytes, 0)
 	for i := range parts {
 		message := format.NewMessage()
 		message.SetRecipient(recipientID)
-		// The timestamp will be encrypted later
-		// NOTE: This sets 15 bytes, not 16
 		message.SetTimestamp(extendedNowBytes)
 		message.Contents.SetRightAligned(parts[i])
 		err = m.send(session, topology, cryptoType, message, false)
@@ -130,14 +131,16 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 	// GO Timestamp binary serialization is 15 bytes, which
 	// allows the encrypted timestamp to fit in 16 bytes
 	// using AES encryption
+	// The timestamp will be encrypted later
+	// NOTE: This sets 15 bytes, not 16
 	nowBytes, err := now.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition MarshalBinary() error: %v", err.Error())
 	}
 	msg := format.NewMessage()
 	msg.SetRecipient(recipientID)
-	// The timestamp will be encrypted later
-	// NOTE: This sets 15 bytes, not 16
+	// Add a byte to support later encryption (15 -> 16 bytes)
+	nowBytes = append(nowBytes, 0)
 	msg.SetTimestamp(nowBytes)
 	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)

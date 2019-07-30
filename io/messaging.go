@@ -138,6 +138,7 @@ func (m *Messaging) SendMessageNoPartition(session user.Session,
 	msg.SetRecipient(recipientID)
 	// The timestamp will be encrypted later
 	// NOTE: This sets 15 bytes, not 16
+	nowBytes = append(nowBytes, 0)
 	msg.SetTimestamp(nowBytes)
 	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)

@@ -126,6 +126,10 @@ const (
 func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
 	grp := session.GetCmixGroup()
+	e2egrp := session.GetE2EGroup()
+
+	globals.Log.INFO.Printf("grp fingerprint: %s, e2e fingerprint: %s",
+		grp.GetFingerprint(), e2egrp.GetFingerprint())
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -186,6 +190,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			pubKeyCyclic,
 			privKeyCyclic,
 			grp)
+
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,
 			PrivKey: privKeyCyclic,
@@ -214,7 +219,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			partner, false,
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
-		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
+		km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
 		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E"+
 			" relationship with user %v", *partner)
 	case RekeyConfirm:
@@ -231,7 +236,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 				partner, true,
 				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
-			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
+			km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
 			globals.Log.DEBUG.Printf("Generated new send keys for E2E"+

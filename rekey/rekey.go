@@ -128,7 +128,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	grp := session.GetCmixGroup()
 	e2egrp := session.GetE2EGroup()
 
-	globals.Log.INFO.Printf("grp fingerprint: %s, e2e fingerprint: %s",
+	globals.Log.INFO.Printf("grp fingerprint: %d, e2e fingerprint: %d",
 		grp.GetFingerprint(), e2egrp.GetFingerprint())
 
 	// Error handling according to Rekey Message Type

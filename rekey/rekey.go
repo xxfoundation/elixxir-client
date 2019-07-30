@@ -249,7 +249,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
 		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
-			pubKey.GetKey().LeftpadBytes(uint64(format.TotalLen)))
+			pubKey.GetKey().LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()

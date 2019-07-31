@@ -126,6 +126,10 @@ const (
 func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
 	grp := session.GetCmixGroup()
+	e2egrp := session.GetE2EGroup()
+
+	globals.Log.INFO.Printf("grp fingerprint: %d, e2e fingerprint: %d",
+		grp.GetFingerprint(), e2egrp.GetFingerprint())
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -186,6 +190,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			pubKeyCyclic,
 			privKeyCyclic,
 			grp)
+
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,
 			PrivKey: privKeyCyclic,
@@ -214,7 +219,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			partner, false,
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
-		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
+		km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
 		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E"+
 			" relationship with user %v", *partner)
 	case RekeyConfirm:
@@ -231,7 +236,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 				partner, true,
 				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
-			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
+			km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
 			globals.Log.DEBUG.Printf("Generated new send keys for E2E"+
@@ -249,7 +254,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
 		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
-			pubKey.GetKey().LeftpadBytes(uint64(format.TotalLen)))
+			pubKey.GetKey().LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()

@@ -239,7 +239,7 @@ func setKeyParams(client *api.Client) {
 }
 
 type FallbackListener struct {
-	messagesReceived int64
+	MessagesReceived int64
 }
 
 func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
@@ -252,7 +252,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		} else {
 			senderNick = sender.Nick
 		}
-		atomic.AddInt64(&l.messagesReceived, 1)
+		atomic.AddInt64(&l.MessagesReceived, 1)
 		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
 			message.MessageType, *message.Sender, senderNick,
 			string(message.Body))
@@ -260,7 +260,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 }
 
 type TextListener struct {
-	messagesReceived int64
+	MessagesReceived int64
 }
 
 func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
@@ -286,11 +286,11 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	globals.Log.INFO.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
-	atomic.AddInt64(&l.messagesReceived, 1)
+	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
 type ChannelListener struct {
-	messagesReceived int64
+	MessagesReceived int64
 }
 
 //used to get the client object into hear
@@ -324,7 +324,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		Sender:    speakerId,
 		Receiver:  id.ZeroID,
 	})
-	atomic.AddInt64(&l.messagesReceived, 1)
+	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -444,10 +444,18 @@ var rootCmd = &cobra.Command{
 				timer = time.NewTimer(dummyPeriod)
 			}
 		} else {
-			// wait 45 seconds since UDB commands are now non-blocking
-			// TODO figure out the right way to do this
-			timer = time.NewTimer(45 * time.Second)
-			<-timer.C
+			// Wait up to 45 seconds to receive a message
+			for timeout := time.After(45 * time.Second); ; {
+				if text.MessagesReceived > 0 {
+					break
+				}
+
+				select {
+				case <-timeout:
+					break
+				default:
+				}
+			}
 		}
 
 		//Logout

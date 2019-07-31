@@ -151,6 +151,10 @@ func (cl *Client) StartMessageReceiver() error {
 // Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload
 // Returns an error if either sender or recipient are too short
+// the encrypt bool tell the client if it should send and e2e encrypted message
+// or not.  If true, and there is no keying relationship with the user specified
+// in the message object, then it will return an error.  If using precanned
+// users encryption must be set to false.
 func (cl *Client) Send(m Message, encrypt bool) error {
 	sender := id.NewUserFromBytes(m.GetSender())
 	recipient := id.NewUserFromBytes(m.GetRecipient())

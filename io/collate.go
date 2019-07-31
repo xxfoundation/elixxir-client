@@ -57,8 +57,6 @@ func (mb *Collator) AddMessage(message *format.Message,
 	sender := id.NewUserFromBytes(message.GetMAC())
 	recipient := message.GetRecipient()
 
-	jww.ERROR.Printf("Sender: %v, Recipient: %v", sender, recipient)
-
 	partition, err := parse.ValidatePartition(payload)
 
 	if err == nil {

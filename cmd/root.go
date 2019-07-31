@@ -67,7 +67,7 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() (*id.User, *api.Client) {
+func sessionInitialization() (*id.User, string, *api.Client) {
 	var err error
 	register := false
 
@@ -102,7 +102,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return id.ZeroID, nil
+			return id.ZeroID, "", nil
 		}
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
@@ -117,7 +117,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 			} else {
 				//Fail if any other error is received
 				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
-				return id.ZeroID, nil
+				return id.ZeroID, "", nil
 			}
 		}
 
@@ -126,7 +126,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return id.ZeroID, nil
+			return id.ZeroID, "", nil
 		}
 		globals.Log.INFO.Println("Initialized OS Storage")
 
@@ -146,7 +146,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		// No gateways in config file or passed via command line
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
-		return id.ZeroID, nil
+		return id.ZeroID, "", nil
 	}
 
 	// Connect to gateways and reg server
@@ -177,7 +177,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
-			return id.ZeroID, nil
+			return id.ZeroID, "", nil
 		}
 
 		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
@@ -189,13 +189,13 @@ func sessionInitialization() (*id.User, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	err = client.LoadSession(uid)
+	nick, err := client.Login(uid)
 
 	if err != nil {
-		globals.Log.FATAL.Panicf("Could not load session: %v", err)
+		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
 
-	return uid, client
+	return uid, nick, client
 }
 
 func setKeyParams(client *api.Client) {
@@ -342,7 +342,7 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
-		userID, client := sessionInitialization()
+		userID, _, client := sessionInitialization()
 		globalClient = client
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
@@ -367,9 +367,9 @@ var rootCmd = &cobra.Command{
 		// Log the user in, for now using the first gateway specified
 		// This will also register the user email with UDB
 		globals.Log.INFO.Println("Logging in...")
-		_, err := client.Login(userID)
+		err := client.StartMessageReceiver()
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not Log In: %s\n", err)
+			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
 		globals.Log.INFO.Println("Logged In!")
 

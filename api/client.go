@@ -437,27 +437,27 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 }
 
 // LoadSession loads the session object for the UID
-func (cl *Client) LoadSession(UID *id.User) error {
+func (cl *Client) Login(UID *id.User) (string, error) {
 	session, err := user.LoadSession(cl.storage, UID)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return err
+		return "", err
 	}
 
 	if session == nil {
-		return errors.New("Unable to load session: " + err.Error())
+		return "", errors.New("Unable to load session: " + err.Error())
 	}
 
 	cl.session = session
-	return nil
+	return cl.session.GetCurrentUser().Nick, nil
 }
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) Login(UID *id.User) (string, error) {
+func (cl *Client) StartMessageReceiver() error {
 	(cl.comm).(*io.Messaging).SendGateway =
 		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
 	(cl.comm).(*io.Messaging).ReceiveGateway =
@@ -481,12 +481,12 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 		if err != nil {
 			globals.Log.ERROR.Printf(
 				"Unable to register with UDB: %s", err)
-			return "", err
+			return err
 		}
 		globals.Log.INFO.Printf("Registered!")
 	}
 
-	return cl.session.GetCurrentUser().Nick, nil
+	return nil
 }
 
 // Send prepares and sends a message to the cMix network
@@ -537,6 +537,7 @@ func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
+// fixme: blocks forever is message reciever
 func (cl *Client) Logout() error {
 	if cl.session == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")

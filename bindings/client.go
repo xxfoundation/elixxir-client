@@ -137,15 +137,15 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
-// TODO Pass the session in a proto struct/interface in the bindings or something
-// Currently there's only one possibility that makes sense for the TLS
-// certificate and it's in the crypto repository. So, if you set the TLS
-// certificate string to "default", the bindings will use that certificate.
-// If you leave it empty, the Client will try to connect to the GW without TLS
-// This should only ever be used for testing purposes
 func (cl *Client) Login(UID []byte, password string) (string, error) {
 	userID := id.NewUserFromBytes(UID)
 	return cl.client.Login(userID)
+}
+
+// Starts the polling of the external servers.
+// Must be done after listeners are set up.
+func (cl *Client) StartMessageReceiver() error {
+	return cl.client.StartMessageReceiver()
 }
 
 // Sends a message structured via the message interface

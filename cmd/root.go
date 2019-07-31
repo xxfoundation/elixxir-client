@@ -189,15 +189,6 @@ func sessionInitialization() (*id.User, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	// Log the user in, for now using the first gateway specified
-	// This will also register the user email with UDB
-	_, err = client.Login(uid)
-	if err != nil {
-		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
-		return id.ZeroID, nil
-	}
-	globals.Log.INFO.Println("Logged In!")
-
 	return uid, client
 }
 
@@ -366,6 +357,15 @@ var rootCmd = &cobra.Command{
 		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
 			&fallback)
 
+		// Log the user in, for now using the first gateway specified
+		// This will also register the user email with UDB
+		globals.Log.INFO.Println("Logging in...")
+		_, err := client.Login(userID)
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could Not Log In: %s\n", err)
+		}
+		globals.Log.INFO.Println("Logged In!")
+
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
 			dummyPeriod = time.Nanosecond *
@@ -464,7 +464,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		//Logout
-		err := client.Logout()
+		err = client.Logout()
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
@@ -596,8 +596,8 @@ func initLog() {
 		globals.Log.SetStdoutThreshold(jww.LevelDebug)
 		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	} else {
-		globals.Log.SetLogThreshold(jww.LevelWarn)
-		globals.Log.SetStdoutThreshold(jww.LevelWarn)
+		globals.Log.SetLogThreshold(jww.LevelInfo)
+		globals.Log.SetStdoutThreshold(jww.LevelInfo)
 	}
 	if viper.Get("logPath") != nil {
 		// Create log file, overwrites if existing

@@ -105,7 +105,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 // is created
 // returns a new Client object, and an error if it fails
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
-	globals.Log.INFO.Printf("NDF: %+v\n", ndfJSON)
+	globals.Log.DEBUG.Printf("NDF: %+v\n", ndfJSON)
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +

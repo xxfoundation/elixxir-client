@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -36,8 +35,8 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"google.golang.org/grpc/credentials"
 	goio "io"
+	"io/ioutil"
 	"time"
 )
 
@@ -158,22 +157,33 @@ func (cl *Client) Connect() error {
 
 	//connect to all gateways
 	for i, gateway := range cl.ndf.Gateways {
-		var gwCreds credentials.TransportCredentials
+		var gwCreds []byte
+		var err error
 		if gateway.TlsCertificate != "" {
-			gwCreds = connect.NewCredentialsFromPEM(gateway.TlsCertificate, "")
+			gwCreds, err = ioutil.ReadFile(gateway.TlsCertificate)
+			if err != nil {
+				globals.Log.ERROR.Printf("Failed to read certificate at %s: %+v", gateway.TlsCertificate, err)
+			}
 		}
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
-		(cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 	}
 
 	//connect to the registration server
 	if cl.ndf.Registration.Address != "" {
-		var regCreds credentials.TransportCredentials
+		var cert []byte
+		var err error
 		if cl.ndf.Registration.TlsCertificate != "" {
-			regCreds = connect.NewCredentialsFromPEM(cl.ndf.Registration.TlsCertificate, "")
+			cert, err = ioutil.ReadFile(cl.ndf.Registration.TlsCertificate)
+			if err != nil {
+				globals.Log.ERROR.Printf("failed to read certificate from %s: %+v", cl.ndf.Registration.TlsCertificate, err)
+			}
 		}
 		addr := io.ConnAddr("registration")
-		(cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCreds)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, cert)
+		if err != nil {
+			globals.Log.ERROR.Printf("Failed connecting to registrations")
+		}
 	} else {
 		globals.Log.WARN.Printf("No registration server found to connect to")
 	}

@@ -9,7 +9,6 @@ package io
 import (
 	"crypto/sha256"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/format"
@@ -56,8 +55,6 @@ func (mb *Collator) AddMessage(message *format.Message,
 	// Let's just try ZeroID for now...
 	sender := id.NewUserFromBytes(message.GetMAC())
 	recipient := message.GetRecipient()
-
-	jww.ERROR.Printf("Sender: %v, Recipient: %v", sender, recipient)
 
 	partition, err := parse.ValidatePartition(payload)
 

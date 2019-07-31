@@ -104,13 +104,10 @@ func TestKeyStack_Delete(t *testing.T) {
 
 	ks.Delete()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Pop should panic when stack is empty")
-		}
-	}()
-
-	ks.Pop()
+	k4 := ks.Pop()
+	if k4 != nil {
+		t.Errorf("Pop should return nil when stack is empty")
+	}
 }
 
 // Test concurrent access
@@ -139,11 +136,8 @@ func TestKeyStack_Concurrent(t *testing.T) {
 	// wait for goroutines
 	time.Sleep(500 * time.Millisecond)
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Pop should panic when stack is empty")
-		}
-	}()
-
-	ks.Pop()
+	k4 := ks.Pop()
+	if k4 != nil {
+		t.Errorf("Pop should return nil when stack is empty")
+	}
 }

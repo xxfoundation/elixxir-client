@@ -208,7 +208,7 @@ func handleE2ESending(session user.Session,
 
 	// FIXME: This is a hack to prevent a crash, this function should be
 	//        able to block until this condition is true.
-	for end, timeout := false, time.After(60*time.Second); end; {
+	for end, timeout := false, time.After(60*time.Second); !end; {
 		if rekey {
 			// Get send Rekey
 			key, action = km.PopRekey()

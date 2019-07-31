@@ -447,7 +447,7 @@ var rootCmd = &cobra.Command{
 			}
 		} else {
 			// Wait up to 45 seconds to receive a message
-			for end, timeout := true, time.After(45*time.Second); end; {
+			for end, timeout := false, time.After(45*time.Second); !end; {
 				if text.MessagesReceived > 0 {
 					end = true
 				}

@@ -9,6 +9,7 @@ package cmd
 
 import (
 	"encoding/base64"
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -87,13 +88,13 @@ func sessionInitialization() (*id.User, *api.Client) {
 	}
 
 	// Verify the signature
-	globals.Log.INFO.Println("Verifying NDF...")
+	globals.Log.DEBUG.Println("Verifying NDF...")
 	ndfJSON := api.VerifyNDF(string(ndfBytes), ndfPubKey)
-	globals.Log.INFO.Printf("NDF Verified: %v", ndfJSON)
+	globals.Log.DEBUG.Printf("NDF Verified: %v", ndfJSON)
 
 	// Overwrite the network definition with any specified flags
 	overwriteNDF(ndfJSON)
-	globals.Log.INFO.Printf("Overwrote NDF Vars: %v", ndfJSON)
+	globals.Log.DEBUG.Printf("Overwrote NDF Vars: %v", ndfJSON)
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
@@ -283,7 +284,8 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	globals.Log.INFO.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
+	fmt.Printf("Message from %v, %v Received: %s\n",
+		large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
@@ -315,7 +317,7 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		senderNick = sender.Nick
 	}
 
-	globals.Log.INFO.Printf("Message from channel %v, %v: ",
+	fmt.Printf("Message from channel %v, %v: ",
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := id.NewUserFromBytes(result.SpeakerID)
@@ -392,7 +394,7 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					recipientNick, message)
 
 				// Send the message
@@ -444,15 +446,18 @@ var rootCmd = &cobra.Command{
 				timer = time.NewTimer(dummyPeriod)
 			}
 		} else {
-			// Wait up to 45 seconds to receive a message
-			for timeout := time.After(45 * time.Second); ; {
+			// Wait up to 2 minutes to receive a message
+			for end, timeout := false, time.After(120*time.Second); !end; {
 				if text.MessagesReceived > 0 {
-					break
+					end = true
 				}
 
 				select {
 				case <-timeout:
-					break
+					fmt.Println("Timing out client " +
+						"as no messages have" +
+						" been received")
+					end = true
 				default:
 				}
 			}
@@ -583,7 +588,7 @@ func initConfig() {}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {
-	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelWarn, os.Stdout,
+	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelInfo, os.Stdout,
 		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
 	// If verbose flag set then log more info for debugging
 	if verbose || viper.GetBool("verbose") {

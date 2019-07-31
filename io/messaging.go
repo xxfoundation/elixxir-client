@@ -206,12 +206,25 @@ func handleE2ESending(session user.Session,
 			" user %v", *recipientID)
 	}
 
-	if rekey {
-		// Get send Rekey
-		key, action = km.PopRekey()
-	} else {
-		// Get send key
-		key, action = km.PopKey()
+	// FIXME: This is a hack to prevent a crash, this function should be
+	//        able to block until this condition is true.
+	for timeout := time.After(60 * time.Second); ; {
+		if rekey {
+			// Get send Rekey
+			key, action = km.PopRekey()
+		} else {
+			// Get send key
+			key, action = km.PopKey()
+		}
+		if key != nil {
+			break
+		}
+
+		select {
+		case <-timeout:
+			break
+		default:
+		}
 	}
 
 	if key == nil {

@@ -42,7 +42,8 @@ func (ks *KeyStack) Pop() *E2EKey {
 
 	// Check if the key exists and panic otherwise
 	if keyFace == nil {
-		globals.Log.FATAL.Panicf("E2E key stack is empty!")
+		globals.Log.WARN.Printf("E2E key stack is empty!")
+		key = nil
 	} else {
 		key = keyFace.(*E2EKey)
 	}

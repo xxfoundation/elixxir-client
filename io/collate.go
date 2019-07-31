@@ -9,7 +9,6 @@ package io
 import (
 	"crypto/sha256"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/format"

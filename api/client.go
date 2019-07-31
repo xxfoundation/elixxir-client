@@ -436,51 +436,57 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	return UID, nil
 }
 
-// Logs in user and sets session on client object
-// returns the nickname or error if login fails
-func (cl *Client) Login(UID *id.User) (string, error) {
+// LoadSession loads the session object for the UID
+func (cl *Client) LoadSession(UID *id.User) error {
 	session, err := user.LoadSession(cl.storage, UID)
-
-	if session == nil {
-		return "", errors.New("Unable to load session: " + err.Error())
-	}
-
-	(cl.comm).(*io.Messaging).SendGateway =
-		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	(cl.comm).(*io.Messaging).ReceiveGateway =
-		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
 			err.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return "", err
+		return err
+	}
+
+	if session == nil {
+		return errors.New("Unable to load session: " + err.Error())
 	}
 
 	cl.session = session
+	return nil
+}
 
-	pollWaitTimeMillis := 1000 * time.Millisecond
-	// TODO Don't start the message receiver if it's already started.
-	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
+// Logs in user and sets session on client object
+// returns the nickname or error if login fails
+func (cl *Client) Login(UID *id.User) (string, error) {
+	(cl.comm).(*io.Messaging).SendGateway =
+		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	(cl.comm).(*io.Messaging).ReceiveGateway =
+		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.comm, cl.topology)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.comm, cl.topology)
 
-	email := session.GetCurrentUser().Email
+	pollWaitTimeMillis := 1000 * time.Millisecond
+	// TODO Don't start the message receiver if it's already started.
+	// Should be a pretty rare occurrence except perhaps for mobile.
+	go cl.comm.MessageReceiver(cl.session, pollWaitTimeMillis)
+
+	email := cl.session.GetCurrentUser().Email
 
 	if email != "" {
-		err = cl.registerForUserDiscovery(email)
+		globals.Log.INFO.Printf("Registering user as %s", email)
+		err := cl.registerForUserDiscovery(email)
 		if err != nil {
 			globals.Log.ERROR.Printf(
 				"Unable to register with UDB: %s", err)
 			return "", err
 		}
+		globals.Log.INFO.Printf("Registered!")
 	}
 
-	return session.GetCurrentUser().Nick, nil
+	return cl.session.GetCurrentUser().Nick, nil
 }
 
 // Send prepares and sends a message to the cMix network

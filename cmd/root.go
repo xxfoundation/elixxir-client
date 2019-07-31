@@ -189,6 +189,12 @@ func sessionInitialization() (*id.User, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
+	err = client.LoadSession(uid)
+
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not load session: %v", err)
+	}
+
 	return uid, client
 }
 
@@ -342,6 +348,7 @@ var rootCmd = &cobra.Command{
 		if len(keyParams) == 5 {
 			setKeyParams(client)
 		}
+
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -522,7 +529,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
 		"email", "E",
-		"default@default.com",
+		"",
 		"Email to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVar(&userNick,

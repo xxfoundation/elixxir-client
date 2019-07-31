@@ -208,7 +208,7 @@ func handleE2ESending(session user.Session,
 
 	// FIXME: This is a hack to prevent a crash, this function should be
 	//        able to block until this condition is true.
-	for timeout := time.After(60 * time.Second); ; {
+	for end, timeout := false, time.After(60*time.Second); end; {
 		if rekey {
 			// Get send Rekey
 			key, action = km.PopRekey()
@@ -217,12 +217,12 @@ func handleE2ESending(session user.Session,
 			key, action = km.PopKey()
 		}
 		if key != nil {
-			break
+			end = true
 		}
 
 		select {
 		case <-timeout:
-			break
+			end = true
 		default:
 		}
 	}
@@ -288,7 +288,7 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 			return
 		default:
 			time.Sleep(delay)
-			globals.Log.INFO.Printf("Attempting to receive message from gateway")
+			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
 			decryptedMessages := m.receiveMessagesFromGateway(session, &pollingMessage)
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {

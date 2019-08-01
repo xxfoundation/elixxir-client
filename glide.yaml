@@ -4,15 +4,15 @@ import:
   version: master
   vcs: git
 - package: gitlab.com/elixxir/crypto
-  version: updateMessageFormat
+  version: master
   repo: git@gitlab.com:elixxir/crypto
   vcs: git
 - package: gitlab.com/elixxir/comms
-  version: dispatch
+  version: master
   repo: git@gitlab.com:elixxir/comms
   vcs: git
 - package: gitlab.com/elixxir/primitives
-  version: newMessageFormat
+  version: master
   repo: git@gitlab.com:elixxir/primitives
   vcs: git
 - package: github.com/mitchellh/go-homedir

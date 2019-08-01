@@ -9,9 +9,9 @@ package api
 
 import (
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
 )
@@ -40,8 +40,8 @@ func (m APIMessage) GetMessageType() int32 {
 	return int32(cmixproto.Type_NO_TYPE)
 }
 
-func (m APIMessage) GetCryptoType() format.CryptoType {
-	return format.None
+func (m APIMessage) GetCryptoType() parse.CryptoType {
+	return parse.None
 }
 
 func (m APIMessage) Pack() []byte {
@@ -54,14 +54,14 @@ func (m APIMessage) Pack() []byte {
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
 type TestInterface struct {
-	LastReceivedMessage pb.CmixMessage
+	LastReceivedMessage pb.Slot
 }
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
 func (m *TestInterface) GetMessage(userId *id.User,
-	msgId string) (*pb.CmixMessage, bool) {
-	return &pb.CmixMessage{}, true
+	msgId string) (*pb.Slot, bool) {
+	return &pb.Slot{}, true
 }
 
 // Return any MessageIDs in the globals for this User
@@ -70,31 +70,34 @@ func (m *TestInterface) CheckMessages(userId *id.User,
 	return make([]string, 0), true
 }
 
-// Receives batch from server and stores it in the local MessageBuffer
-func (m *TestInterface) ReceiveBatch(msg *pb.OutputMessages) {
-}
-
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
-func (m *TestInterface) PutMessage(msg *pb.CmixMessage) bool {
+func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
 	m.LastReceivedMessage = *msg
 	return true
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.ConfirmNonceMessage) (*pb.RegistrationConfirmation, error) {
-	regConfifmration := &pb.RegistrationConfirmation{}
+func (m *TestInterface) ConfirmNonce(message *pb.DSASignature) (*pb.RegistrationConfirmation, error) {
+	regConfirmation := &pb.RegistrationConfirmation{
+		Server: &pb.DSAPublicKey{},
+	}
 
-	regConfifmration.P = large.NewInt(1).Bytes()
-	regConfifmration.Q = large.NewInt(1).Bytes()
-	regConfifmration.G = large.NewInt(1).Bytes()
-	regConfifmration.Y = large.NewInt(1).Bytes()
+	regConfirmation.Server.P = large.NewInt(1).Bytes()
+	regConfirmation.Server.Q = large.NewInt(1).Bytes()
+	regConfirmation.Server.G = large.NewInt(1).Bytes()
+	regConfirmation.Server.Y = large.NewInt(1).Bytes()
 
-	return regConfifmration, nil
+	return regConfirmation, nil
 }
 
 // Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
 type MockRegistration struct {
 	//LastReceivedMessage pb.CmixMessage
+}
+
+func (s *MockRegistration) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr string) error {
+	return nil
 }
 
 // Registers a user and returns a signed public key
@@ -103,10 +106,9 @@ func (s *MockRegistration) RegisterUser(registrationCode string,
 	return nil, nil, nil, nil
 }
 
-
 // Pass-through for Registration Nonce Communication
-func (m *TestInterface) RequestNonce(message *pb.RequestNonceMessage) (*pb.NonceMessage, error) {
-	return &pb.NonceMessage{}, nil
+func (m *TestInterface) RequestNonce(message *pb.NonceRequest) (*pb.Nonce, error) {
+	return &pb.Nonce{}, nil
 }
 
 // Mock dummy storage interface for testing.

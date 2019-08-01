@@ -20,12 +20,9 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
-	"gitlab.com/elixxir/crypto/certs"
-	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
 	"log"
@@ -44,7 +41,6 @@ var message string
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
-var mint bool
 var rateLimiting uint32
 var showVer bool
 var gwCertPath string
@@ -52,9 +48,14 @@ var registrationCertPath string
 var registrationAddr string
 var registrationCode string
 var userEmail string
+var userNick string
 var end2end bool
 var keyParams []string
-var client *api.Client
+var ndfPath string
+var skipNDFVerification bool
+var ndfRegistration []string
+var ndfUDB []string
+var ndfPubKey string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -66,21 +67,46 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() *id.User {
+func sessionInitialization() (*id.User, *api.Client) {
 	var err error
 	register := false
 
+	var client *api.Client
+
+	// Read in the network definition file and save as string
+	ndfBytes, err := ioutil.ReadFile(ndfPath)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not read network definition file: %v", err)
+	}
+
+	// Check if the NDF verify flag is set
+	if skipNDFVerification {
+		ndfPubKey = ""
+		globals.Log.WARN.Println("Skipping NDF verification")
+	} else if ndfPubKey == "" {
+		globals.Log.FATAL.Panicln("No public key for NDF found")
+	}
+
+	// Verify the signature
+	globals.Log.DEBUG.Println("Verifying NDF...")
+	ndfJSON := api.VerifyNDF(string(ndfBytes), ndfPubKey)
+	globals.Log.DEBUG.Printf("NDF Verified: %v", ndfJSON)
+
+	// Overwrite the network definition with any specified flags
+	overwriteNDF(ndfJSON)
+	globals.Log.DEBUG.Printf("Overwrote NDF Vars: %v", ndfJSON)
+
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "")
+		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON)
 		if err != nil {
-			fmt.Printf("Could Not Initialize Ram Storage: %s\n",
+			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return id.ZeroID
+			return id.ZeroID, nil
 		}
+		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
 	} else {
-
 		//If a session file is passed, check if it's valid
 		_, err1 := os.Stat(sessionFile)
 
@@ -90,53 +116,54 @@ func sessionInitialization() *id.User {
 				register = true
 			} else {
 				//Fail if any other error is received
-				fmt.Printf("Error with file path: %s\n", err1.Error())
+				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
+				return id.ZeroID, nil
 			}
 		}
 
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile)
+		client, err = api.NewClient(nil, sessionFile, ndfJSON)
 
 		if err != nil {
-			fmt.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return id.ZeroID
+			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
+			return id.ZeroID, nil
 		}
+		globals.Log.INFO.Println("Initialized OS Storage")
+
 	}
 
 	if noBlockingTransmission {
+		globals.Log.INFO.Println("Disabling Blocking Transmissions")
 		client.DisableBlockingTransmission()
 	}
 
 	client.SetRateLimiting(rateLimiting)
 
 	// Handle parsing gateway addresses from the config file
-	gateways := viper.GetStringSlice("gateways")
-	if len(gwAddresses) < 1 {
-		// If gwAddr was not passed via command line, check config file
-		if len(gateways) < 1 {
-			// No gateways in config file or passed via command line
-			fmt.Printf("Error: No gateway specified! Add to" +
-				" configuration file or pass via command line using -g!")
-			return id.ZeroID
-		} else {
-			// List of gateways found in config file
-			gwAddresses = gateways
-		}
+	gateways := ndfJSON.Gateways
+	// If gwAddr was not passed via command line, check config file
+	if len(gateways) < 1 {
+		// No gateways in config file or passed via command line
+		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
+			" configuration file or pass via command line using -g!\n")
+		return id.ZeroID, nil
 	}
+
+	// Connect to gateways and reg server
+	globals.Log.INFO.Println("Connecting...")
+	err = client.Connect()
+
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
+	}
+	globals.Log.INFO.Println("Connected!")
 
 	// Holds the User ID
 	var uid *id.User
 
 	// Register a new user if requested
 	if register {
-		grpJSON := viper.GetString("group")
-
-		// Unmarshal group JSON
-		var grp cyclic.Group
-		err := grp.UnmarshalJSON([]byte(grpJSON))
-		if err != nil {
-			return id.ZeroID
-		}
+		globals.Log.INFO.Println("Registering...")
 
 		regCode := registrationCode
 		// If precanned user, use generated code instead
@@ -146,11 +173,11 @@ func sessionInitialization() *id.User {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, "",
-			registrationAddr, gwAddresses, mint, &grp)
+		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
 		if err != nil {
-			fmt.Printf("Could Not Register User: %s\n", err.Error())
-			return id.ZeroID
+			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
+				err.Error())
+			return id.ZeroID, nil
 		}
 
 		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
@@ -159,23 +186,22 @@ func sessionInitialization() *id.User {
 		// hack for session persisting with cmd line
 		// doesn't support non pre canned users
 		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
-		// clear userEmail if it was defined, since login was previously done
-		userEmail = ""
+		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
 	// Log the user in, for now using the first gateway specified
 	// This will also register the user email with UDB
-	_, err = client.Login(uid, userEmail,
-		gwAddresses[len(gwAddresses)-1], certs.GatewayTLS)
+	_, err = client.Login(uid)
 	if err != nil {
-		fmt.Printf("Could Not Log In: %s\n", err)
-		return id.ZeroID
+		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
+		return id.ZeroID, nil
 	}
+	globals.Log.INFO.Println("Logged In!")
 
-	return uid
+	return uid, client
 }
 
-func setKeyParams() {
+func setKeyParams(client *api.Client) {
 	globals.Log.DEBUG.Printf("Trying to parse key parameters...")
 	minKeys, err := strconv.Atoi(keyParams[0])
 	if err != nil {
@@ -214,28 +240,28 @@ func setKeyParams() {
 }
 
 type FallbackListener struct {
-	messagesReceived int64
+	MessagesReceived int64
 }
 
 func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	if !isHeardElsewhere {
 		message := item.(*parse.Message)
-		sender := client.GetUser(message.Sender)
+		sender, ok := user.Users.GetUser(message.Sender)
 		var senderNick string
-		if sender == nil {
+		if !ok {
 			globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 		} else {
 			senderNick = sender.Nick
 		}
-		atomic.AddInt64(&l.messagesReceived, 1)
-		fmt.Printf("Message of type %v from %q, %v received with fallback: %s\n",
+		atomic.AddInt64(&l.MessagesReceived, 1)
+		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
 			message.MessageType, *message.Sender, senderNick,
 			string(message.Body))
 	}
 }
 
 type TextListener struct {
-	messagesReceived int64
+	MessagesReceived int64
 }
 
 func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
@@ -248,35 +274,44 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 			err.Error())
 	}
 
-	sender := client.GetUser(message.Sender)
+	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
-	if sender == nil {
+	if !ok {
 		globals.Log.INFO.Printf("First message from sender %v", message.Sender)
-		u := user.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
-		client.UpsertUser(u)
+		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
+		user.Users.UpsertUser(u)
 		senderNick = u.Nick
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n", large.NewIntFromBytes(message.Sender[:]).Text(10),
+	fmt.Printf("Message from %v, %v Received: %s\n",
+		large.NewIntFromBytes(message.Sender[:]).Text(10),
 		senderNick, result.Message)
 
-	atomic.AddInt64(&l.messagesReceived, 1)
+	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
 type ChannelListener struct {
-	messagesReceived int64
+	MessagesReceived int64
 }
+
+//used to get the client object into hear
+var globalClient *api.Client
 
 func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	message := item.(*parse.Message)
 	globals.Log.INFO.Println("Hearing a channel message")
 	result := cmixproto.ChannelMessage{}
-	proto.Unmarshal(message.Body, &result)
+	err := proto.Unmarshal(message.Body, &result)
 
-	sender := client.GetUser(message.Sender)
+	if err != nil {
+		globals.Log.ERROR.Printf("Could not unmarhsal message, message "+
+			"not processed: %+v", err)
+	}
+
+	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
-	if sender == nil {
+	if !ok {
 		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 	} else {
 		senderNick = sender.Nick
@@ -286,12 +321,12 @@ func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
 	typedBody, _ := parse.Parse(result.Message)
 	speakerId := id.NewUserFromBytes(result.SpeakerID)
-	client.GetSwitchboard().Speak(&parse.Message{
+	globalClient.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: *typedBody,
 		Sender:    speakerId,
 		Receiver:  id.ZeroID,
 	})
-	atomic.AddInt64(&l.messagesReceived, 1)
+	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -310,27 +345,25 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
-		// Set the cert paths explicitly to avoid data races
-		SetCertPaths(gwCertPath, registrationCertPath)
-
-		userID := sessionInitialization()
+		userID, client := sessionInitialization()
+		globalClient = client
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
-			setKeyParams()
+			setKeyParams(client)
 		}
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		client.Listen(id.ZeroID, format.None, int32(cmixproto.Type_TEXT_MESSAGE),
+		client.Listen(id.ZeroID, int32(cmixproto.Type_TEXT_MESSAGE),
 			&text)
 		// Channel messages
 		channel := ChannelListener{}
-		client.Listen(id.ZeroID, format.None,
+		client.Listen(id.ZeroID,
 			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel)
 		// All other messages
 		fallback := FallbackListener{}
-		client.Listen(id.ZeroID, format.None, int32(cmixproto.Type_NO_TYPE),
+		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
 			&fallback)
 
 		// Do calculation for dummy messages if the flag is set
@@ -339,9 +372,9 @@ var rootCmd = &cobra.Command{
 				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
 		}
 
-		cryptoType := format.Unencrypted
+		cryptoType := parse.Unencrypted
 		if end2end {
-			cryptoType = format.E2E
+			cryptoType = parse.E2E
 		}
 
 		// Only send a message if we have a message to send (except dummy messages)
@@ -349,8 +382,8 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			u := client.GetUser(recipientId)
-			if u != nil {
+			u, ok := user.Users.GetUser(recipientId)
+			if ok {
 				recipientNick = u.Nick
 			}
 
@@ -365,15 +398,18 @@ var rootCmd = &cobra.Command{
 					recipientNick, message)
 
 				// Send the message
-				client.Send(&parse.Message{
+				err := client.Send(&parse.Message{
 					Sender: userID,
 					TypedBody: parse.TypedBody{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:        wireOut,
 					},
-					CryptoType: cryptoType,
-					Receiver:   recipientId,
+					InferredType: cryptoType,
+					Receiver:     recipientId,
 				})
+				if err != nil {
+					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				}
 			}
 		}
 
@@ -387,11 +423,11 @@ var rootCmd = &cobra.Command{
 				<-timer.C
 
 				contact := ""
-				u := client.GetUser(recipientId)
-				if u != nil {
+				u, ok := user.Users.GetUser(recipientId)
+				if ok {
 					contact = u.Nick
 				}
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
 					contact, message)
 
 				message := &parse.Message{
@@ -400,24 +436,38 @@ var rootCmd = &cobra.Command{
 						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
 						Body:        api.FormatTextMessage(message),
 					},
-					CryptoType: cryptoType,
-					Receiver:   recipientId}
-				client.Send(message)
+					InferredType: cryptoType,
+					Receiver:     recipientId}
+				err := client.Send(message)
+				if err != nil {
+					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				}
 
 				timer = time.NewTimer(dummyPeriod)
 			}
 		} else {
-			// wait 45 seconds since UDB commands are now non-blocking
-			// TODO figure out the right way to do this
-			timer = time.NewTimer(45 * time.Second)
-			<-timer.C
+			// Wait up to 45s to receive a message
+			for end, timeout := false, time.After(45*time.Second); !end; {
+				if text.MessagesReceived > 0 {
+					end = true
+				}
+
+				select {
+				case <-timeout:
+					fmt.Println("Timing out client " +
+						"as no messages have" +
+						" been received")
+					end = true
+				default:
+				}
+			}
 		}
 
 		//Logout
 		err := client.Logout()
 
 		if err != nil {
-			fmt.Printf("Could not logout: %s\n", err.Error())
+			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
 			return
 		}
 
@@ -442,9 +492,6 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
 		"", false, "Sets if transmitting messages blocks or not.  "+
 			"Defaults to true if unset.")
-	rootCmd.PersistentFlags().BoolVarP(&mint, "mint", "", false,
-		"Mint some coins for testing")
-
 	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
 		1000, "Sets the amount of time, in ms, "+
 			"that the client waits between sending messages.  "+
@@ -475,14 +522,46 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
 		"email", "E",
-		"",
+		"default@default.com",
 		"Email to register for User Discovery")
+
+	rootCmd.PersistentFlags().StringVar(&userNick,
+		"nick",
+		"Default",
+		"Nickname to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+
 			"If the file doesn't exist the code will register the user and"+
 			" store it there.  If not passed the session will be stored"+
 			" to ram and lost when the cli finishes")
+
+	rootCmd.PersistentFlags().StringVarP(&ndfPubKey,
+		"ndfPubKey",
+		"p",
+		"",
+		"Path to the public key for the network definition JSON file")
+
+	rootCmd.PersistentFlags().StringVarP(&ndfPath,
+		"ndf",
+		"n",
+		"ndf.json",
+		"Path to the network definition JSON file")
+
+	rootCmd.PersistentFlags().BoolVar(&skipNDFVerification,
+		"skipNDFVerification",
+		false,
+		"Specifies if the NDF should be loaded without the signature")
+
+	rootCmd.PersistentFlags().StringSliceVar(&ndfRegistration,
+		"ndfRegistration",
+		nil,
+		"Overwrite the Registration values for the NDF")
+
+	rootCmd.PersistentFlags().StringSliceVar(&ndfUDB,
+		"ndfUDB",
+		nil,
+		"Overwrite the UDB values for the NDF")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -504,25 +583,12 @@ func init() {
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 }
 
-// Sets the cert paths in comms
-func SetCertPaths(gwCertPath, registrationCertPath string) {
-	connect.GatewayCertPath = gwCertPath
-	connect.RegistrationCertPath = registrationCertPath
-}
-
 // initConfig reads in config file and ENV variables if set.
-func initConfig() {
-	// Temporarily need to get group as JSON data into viper
-	json, err := globals.InitCrypto().MarshalJSON()
-	if err != nil {
-		// panic
-	}
-	viper.Set("group", string(json))
-}
+func initConfig() {}
 
 // initLog initializes logging thresholds and the log path.
 func initLog() {
-	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelWarn, os.Stdout,
+	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelInfo, os.Stdout,
 		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
 	// If verbose flag set then log more info for debugging
 	if verbose || viper.GetBool("verbose") {
@@ -542,5 +608,31 @@ func initLog() {
 		} else {
 			globals.Log.SetLogOutput(logFile)
 		}
+	}
+}
+
+// overwriteNDF replaces fields in the NetworkDefinition structure with values
+// specified from the commandline.
+func overwriteNDF(n *ndf.NetworkDefinition) {
+	if len(ndfRegistration) == 3 {
+		n.Registration.DsaPublicKey = ndfRegistration[0]
+		n.Registration.Address = ndfRegistration[1]
+		n.Registration.TlsCertificate = ndfRegistration[2]
+
+		globals.Log.WARN.Println("Overwrote Registration values in the " +
+			"NetworkDefinition from the commandline")
+	}
+
+	if len(ndfUDB) == 2 {
+		udbIdString, err := base64.StdEncoding.DecodeString(ndfUDB[0])
+		if err != nil {
+			globals.Log.WARN.Printf("Could not decode USB ID: %v", err)
+		}
+
+		n.UDB.ID = udbIdString
+		n.UDB.DsaPublicKey = ndfUDB[1]
+
+		globals.Log.WARN.Println("Overwrote UDB values in the " +
+			"NetworkDefinition from the commandline")
 	}
 }

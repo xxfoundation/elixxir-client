@@ -14,6 +14,94 @@ import (
 	"testing"
 )
 
+// TestUserRegistry tests the constructors/getters/setters
+// surrounding the User struct and the Registry interface
+func TestUserRegistry(t *testing.T) {
+	InitUserRegistry(InitGroup())
+	// Test if CountUsers correctly counts the hard-coded demo users
+	if Users.CountUsers() != NumDemoUsers {
+		t.Errorf("CountUsers: Start size of userRegistry not zero!")
+	}
+	// Test the integration of the LookupUser, UserHash and GetUser functions
+	for i := 0; i < len(DemoUserNicks); i++ {
+		currentID := id.NewUserFromUint(uint64(i+1), t)
+		reg, ok := Users.LookupUser(currentID.RegistrationCode())
+		if !ok {
+			t.Errorf("Couldn't lookup user %q with code %v", *currentID,
+				currentID.RegistrationCode())
+		}
+		usr, ok := Users.GetUser(reg)
+		if !ok {
+			t.Logf("Reg codes of both: %v, %v", reg.RegistrationCode(),
+				currentID.RegistrationCode())
+			t.Errorf("Couldn't get user %q corresponding to user %q",
+				*reg, *currentID)
+		}
+		if usr.Nick != DemoUserNicks[i] {
+			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
+				DemoUserNicks[i], usr.Nick)
+		}
+	}
+	// Test the NewUser function
+	newID := id.NewUserFromUint(2002, t)
+	usr := Users.NewUser(newID, "Will I am")
+
+	if usr.Nick != "Will I am" {
+		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
+	}
+
+	// Test that UpsertUser successfully adds a user to the usermap
+	userCount := Users.CountUsers()
+	Users.UpsertUser(usr)
+	if Users.CountUsers() != userCount+1 {
+		t.Errorf("Upsert did not add a new user. User count is incorrect")
+	}
+	newUsr, suc := Users.GetUser(newID)
+	if !suc {
+		t.Errorf("Upsert did not add the test user correctly. " +
+			"The ID was not found by GetUser.")
+	}
+	if newUsr.Nick != "Will I am" {
+		t.Errorf("Upsert did not add the test user correctly. "+
+			"The set nickname was incorrect. Expected: Will I am, "+
+			"Actual: %v", newUsr.Nick)
+	}
+
+	// Initialize group
+	grp := InitGroup()
+
+	// Test LookupKeys
+	keys, suc := Users.LookupKeys(id.NewUserFromUint(1, t))
+	if !suc {
+		t.Errorf("LookupKeys failed to find a valid user.")
+	}
+	h := sha256.New()
+	h.Write([]byte(string(40001)))
+	key := grp.NewIntFromBytes(h.Sum(nil))
+	if keys.TransmissionKey.Text(16) != key.Text(16) {
+		t.Errorf("LookupKeys returned an incorrect key. "+
+			"Expected:%v \nActual%v", key.Text(16),
+			keys.TransmissionKey.Text(16))
+	}
+
+	// Test delete user
+	Users.DeleteUser(id.NewUserFromUint(2, t))
+
+	_, ok := Users.GetUser(id.NewUserFromUint(2, t))
+	if ok {
+		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
+	}
+}
+
+// Doesn't actually do any testing, but can print the registration codes for
+// the first several users
+func TestPrintRegCodes(t *testing.T) {
+	for i := 1; i <= NumDemoUsers; i++ {
+		currentID := id.NewUserFromUint(uint64(i), t)
+		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
+	}
+}
+
 // InitGroup sets up the cryptographic constants for cMix
 func InitGroup() *cyclic.Group {
 
@@ -46,102 +134,4 @@ func InitGroup() *cyclic.Group {
 	grp := cyclic.NewGroup(p, g, q)
 
 	return grp
-}
-
-// TestUserRegistry tests the constructors/getters/setters
-// surrounding the User struct and the Registry interface
-func TestUserRegistry(t *testing.T) {
-	// Initialize group
-	grp := InitGroup()
-	// Create registry with the hard-coded demo users
-	userReg := NewRegistry(grp)
-	// Test the integration of the LookupUser, UserHash and GetUser functions
-	for i := 0; i < len(DemoUserNicks); i++ {
-		currentID := id.NewUserFromUint(uint64(i+1), t)
-		reg, ok := userReg.LookupUser(currentID.RegistrationCode())
-		if !ok {
-			t.Errorf("Couldn't lookup user %q with code %v", *currentID,
-				currentID.RegistrationCode())
-		}
-		usr, ok := userReg.GetUser(reg)
-		if !ok {
-			t.Logf("Reg codes of both: %v, %v", reg.RegistrationCode(),
-				currentID.RegistrationCode())
-			t.Errorf("Couldn't get user %q corresponding to user %q",
-				*reg, *currentID)
-		}
-		if usr.Nick != DemoUserNicks[i] {
-			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
-				DemoUserNicks[i], usr.Nick)
-		}
-	}
-	// Test the NewUser function
-	newID := id.NewUserFromUint(2002, t)
-	usr := NewUser(newID, "Will I am")
-
-	if usr.Nick != "Will I am" {
-		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
-	}
-
-	// Check user list getter
-	list := userReg.GetUserList()
-
-	if len(list) != len(DemoUserNicks) {
-		t.Errorf("Expected %d users in registry, got %d instead",
-			len(DemoUserNicks), len(list))
-	}
-
-	// Test that UpsertUser successfully adds a user to the usermap
-	userReg.UpsertUser(usr)
-
-	newUsr, suc := userReg.GetUser(newID)
-	if !suc {
-		t.Errorf("Upsert did not add the test user correctly. " +
-			"The ID was not found by GetUser.")
-	}
-	if newUsr.Nick != "Will I am" {
-		t.Errorf("Upsert did not add the test user correctly. "+
-			"The set nickname was incorrect. Expected: Will I am, "+
-			"Actual: %v", newUsr.Nick)
-	}
-
-	// Test LookupKeys
-	keys, suc := userReg.LookupKeys(id.NewUserFromUint(1, t))
-	if !suc {
-		t.Errorf("LookupKeys failed to find a valid user.")
-	}
-	h := sha256.New()
-	h.Write([]byte(string(20001)))
-	key := grp.NewIntFromBytes(h.Sum(nil))
-	if keys.TransmissionKey.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. "+
-			"Expected:%v \nActual%v", key.Text(16),
-			keys.TransmissionKey.Text(16))
-	}
-
-	h = sha256.New()
-	h.Write([]byte(string(40001)))
-	key = grp.NewIntFromBytes(h.Sum(nil))
-	if keys.ReceptionKey.Text(16) != key.Text(16) {
-		t.Errorf("LookupKeys returned an incorrect key. "+
-			"Expected:%v \nActual%v", key.Text(16),
-			keys.ReceptionKey.Text(16))
-	}
-
-	// Test delete user
-	userReg.DeleteUser(id.NewUserFromUint(2, t))
-
-	_, ok := userReg.GetUser(id.NewUserFromUint(2, t))
-	if ok {
-		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
-	}
-}
-
-// Doesn't actually do any testing, but can print the registration codes for
-// the first several users
-func TestPrintRegCodes(t *testing.T) {
-	for i := 1; i <= len(DemoUserNicks); i++ {
-		currentID := id.NewUserFromUint(uint64(i), t)
-		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
-	}
 }

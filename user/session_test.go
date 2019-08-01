@@ -9,14 +9,15 @@ package user
 import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
 )
-
-var grp = globals.InitCrypto()
 
 // TestUserRegistry tests the constructors/getters/setters
 // surrounding the User struct and the Registry interface
@@ -25,18 +26,26 @@ func TestUserSession(t *testing.T) {
 	test := 11
 	pass := 0
 
+	u := new(User)
 	// This is 65 so you can see the letter A in the gob if you need to make
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	userID := id.NewUserFromUint(UID, t)
-	u := NewUser(userID, "Mario")
+	u.User = id.NewUserFromUint(UID, t)
+	u.Nick = "Mario"
 
-	keys := make([]NodeKeys, 1)
-	keys[0] = NodeKeys{
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	nodeID := id.NewNodeFromUInt(1, t)
+
+	keys[*nodeID] = NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
 	}
+
+	topology := circuit.New([]*id.Node{nodeID})
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -45,8 +54,11 @@ func TestUserSession(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(storage, u, NewRegistry(grp),
-		"abc", keys, publicKey, privateKey, grp)
+
+	cmixGrp, e2eGrp := getGroups()
+
+	ses := NewSession(storage,
+		u, keys, publicKey, privateKey, cmixGrp, e2eGrp)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -83,20 +95,6 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if ses.GetGWAddress() == "" {
-		t.Errorf("Error: Node Address not set correctly with Regestration!")
-	} else {
-		pass++
-	}
-
-	ses.SetGWAddress("test")
-
-	if ses.GetGWAddress() != "test" {
-		t.Errorf("Error: Node Address not set correctly with SetNodeAddress!")
-	} else {
-		pass++
-	}
-
 	if ses.GetLastMessageID() != "totally unique ID" {
 		t.Errorf("Error: Last message ID should have been stored and loaded")
 	} else {
@@ -112,22 +110,22 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if ses.GetKeys() == nil {
+	if ses.GetKeys(topology) == nil {
 		t.Errorf("Error: Keys not set correctly!")
 	} else {
 
-		test += len(ses.GetKeys())
+		test += len(ses.GetKeys(topology))
 
-		for i := 0; i < len(ses.GetKeys()); i++ {
+		for i := 0; i < len(ses.GetKeys(topology)); i++ {
 
 			if !reflect.DeepEqual(*ses.GetPublicKey(), *publicKey) {
 				t.Errorf("Error: Public key not set correctly!")
 			} else if !reflect.DeepEqual(*ses.GetPrivateKey(), *privateKey) {
 				t.Errorf("Error: Private key not set correctly!")
-			} else if ses.GetKeys()[i].ReceptionKey.Cmp(grp.
+			} else if ses.GetKeys(topology)[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Reception key not set correctly!")
-			} else if ses.GetKeys()[i].TransmissionKey.Cmp(grp.
+			} else if ses.GetKeys(topology)[i].TransmissionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Error: Transmission key not set correctly!")
 			}
@@ -204,8 +202,11 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	keys := make([]NodeKeys, 1)
-	keys[0] = NodeKeys{
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	keys[*id.NewNodeFromUInt(1, t)] = NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
 	}
@@ -214,8 +215,10 @@ func TestGetPubKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(nil, u, NewRegistry(grp),
-		"abc", keys, publicKey, privateKey, grp)
+
+	cmixGrp, e2eGrp := getGroups()
+
+	ses := NewSession(nil, u, keys, publicKey, privateKey, cmixGrp, e2eGrp)
 
 	pubKey := ses.GetPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -230,8 +233,11 @@ func TestGetPrivKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	keys := make([]NodeKeys, 1)
-	keys[0] = NodeKeys{
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	keys[*id.NewNodeFromUInt(1, t)] = NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
 	}
@@ -240,11 +246,72 @@ func TestGetPrivKey(t *testing.T) {
 	params := signature.NewDSAParams(rng, signature.L1024N160)
 	privateKey := params.PrivateKeyGen(rng)
 	publicKey := privateKey.PublicKeyGen()
-	ses := NewSession(nil, u, NewRegistry(grp),
-		"abc", keys, publicKey, privateKey, grp)
+
+	cmixGrp, e2eGrp := getGroups()
+
+	ses := NewSession(nil, u, keys, publicKey, privateKey, cmixGrp, e2eGrp)
 
 	privKey := ses.GetPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {
 		t.Errorf("Private key is not returned correctly!")
 	}
+}
+
+func TestBruntString(t *testing.T) {
+	// Generate a new user and record the pointer to the nick
+	u := new(User)
+	u.Nick = "Mario"
+	preBurnPointer := &u.Nick
+
+	// Burn the string and record the pointer to the nick
+	u.Nick = burntString(len(u.Nick))
+	postBurnPointer := &u.Nick
+
+	// Check the nick is not the same as before
+	if u.Nick == "Mario" {
+		t.Errorf("String was not burnt")
+	}
+
+	// Check the pointer is the same (otherwise it wasn't overwritten)
+	if preBurnPointer != postBurnPointer {
+		t.Errorf("Pointer values are not the same")
+	}
+}
+
+func getGroups() (*cyclic.Group, *cyclic.Group) {
+
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString("FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1"+
+			"29024E088A67CC74020BBEA63B139B22514A08798E3404DD"+
+			"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245"+
+			"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED"+
+			"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D"+
+			"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F"+
+			"83655D23DCA3AD961C62F356208552BB9ED529077096966D"+
+			"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B"+
+			"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"+
+			"DE2BCBF6955817183995497CEA956AE515D2261898FA0510"+
+			"15728E5A8AACAA68FFFFFFFFFFFFFFFF", 16),
+		large.NewIntFromString("2", 16),
+		large.NewIntFromString("2", 16))
+
+	e2eGrp := cyclic.NewGroup(
+		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
+			"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE"+
+			"DF6C01C94764DAB937935AA83BE36E67760713AB44A6337C20E7861575E745D31F"+
+			"8B9E9AD8412118C62A3E2E29DF46B0864D0C951C394A5CBBDC6ADC718DD2A3E041"+
+			"023DBB5AB23EBB4742DE9C1687B5B34FA48C3521632C4A530E8FFB1BC51DADDF45"+
+			"3B0B2717C2BC6669ED76B4BDD5C9FF558E88F26E5785302BEDBCA23EAC5ACE9209"+
+			"6EE8A60642FB61E8F3D24990B8CB12EE448EEF78E184C7242DD161C7738F32BF29"+
+			"A841698978825B4111B4BC3E1E198455095958333D776D8B2BEEED3A1A1A221A6E"+
+			"37E664A64B83981C46FFDDC1A45E3D5211AAF8BFBC072768C4F50D7D7803D2D4F2"+
+			"78DE8014A47323631D7E064DE81C0C6BFA43EF0E6998860F1390B5D3FEACAF1696"+
+			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
+			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
+			"847AEF49F66E43873", 16),
+		large.NewIntFromString("2", 16),
+		large.NewIntFromString("2", 16))
+
+	return cmixGrp, e2eGrp
+
 }

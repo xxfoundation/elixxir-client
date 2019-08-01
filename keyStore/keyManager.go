@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -29,7 +30,7 @@ type KeyManager struct {
 	// Own Private Key
 	privKey *cyclic.Int
 	// Partner Public Key
-	pubKey  *cyclic.Int
+	pubKey *cyclic.Int
 
 	// Designates end-to-end partner
 	partner *id.User
@@ -88,11 +89,11 @@ func NewManager(baseKey *cyclic.Int,
 	km.ttl = ttl
 	km.numKeys = numKeys
 	km.numReKeys = numReKeys
-	for i, _ := range km.recvKeysState {
+	for i := range km.recvKeysState {
 		km.recvKeysState[i] = new(uint64)
 		*km.recvKeysState[i] = 0
 	}
-	for i, _ := range km.recvReKeysState {
+	for i := range km.recvReKeysState {
 		km.recvReKeysState[i] = new(uint64)
 		*km.recvReKeysState[i] = 0
 	}
@@ -128,17 +129,17 @@ const (
 	// Delete is most significant bit
 	stateDeleteMask uint64 = 0x8000000000000000
 	// Key Counter is lowest 32 bits
-	stateKeyMask    uint64 = 0x00000000FFFFFFFF
+	stateKeyMask uint64 = 0x00000000FFFFFFFF
 	// ReKey Counter is bits 55 to 40 (0 indexed)
-	stateReKeyMask  uint64 = 0x00FFFF0000000000
+	stateReKeyMask uint64 = 0x00FFFF0000000000
 	// ReKey Counter shift value is 40
 	stateReKeyShift uint64 = 40
 	// Delete Increment is 1 shifted by 63 bits
 	stateDeleteIncr uint64 = 1 << 63
 	// Key Counter increment is 1
-	stateKeyIncr    uint64 = 1
+	stateKeyIncr uint64 = 1
 	// ReKey Counter increment is 1 << 40
-	stateReKeyIncr  uint64 = 1 << stateReKeyShift
+	stateReKeyIncr uint64 = 1 << stateReKeyShift
 )
 
 // Check if a Rekey should be triggered
@@ -192,7 +193,7 @@ func (km *KeyManager) updateState(rekey bool) Action {
 		// set delete bit
 		atomic.AddUint64(km.sendState, stateDeleteIncr)
 		return Purge
-	// Check if result should trigger a Rekey
+		// Check if result should trigger a Rekey
 	} else if !rekey && checkRekey(result, km.ttl) {
 		return Rekey
 	}
@@ -283,7 +284,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			e2ekey := new(E2EKey)
 			e2ekey.key = key
 			e2ekey.manager = km
-			e2ekey.outer = format.E2E
+			e2ekey.outer = parse.E2E
 			km.sendKeys.Push(e2ekey)
 		}
 
@@ -295,7 +296,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			e2ekey := new(E2EKey)
 			e2ekey.key = key
 			e2ekey.manager = km
-			e2ekey.outer = format.Rekey
+			e2ekey.outer = parse.Rekey
 			km.sendReKeys.Push(e2ekey)
 		}
 		// Add KeyManager to KeyStore map
@@ -317,7 +318,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey := new(E2EKey)
 				e2ekey.key = key
 				e2ekey.manager = km
-				e2ekey.outer = format.E2E
+				e2ekey.outer = parse.E2E
 				e2ekey.keyNum = uint32(i)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
@@ -333,7 +334,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey := new(E2EKey)
 				e2ekey.key = key
 				e2ekey.manager = km
-				e2ekey.outer = format.Rekey
+				e2ekey.outer = parse.Rekey
 				e2ekey.keyNum = uint32(i)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)

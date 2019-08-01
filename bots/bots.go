@@ -6,12 +6,13 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
+var topology *circuit.Circuit
 var messaging io.Communications
 
 // UdbID is the ID of the user discovery bot, which is always 3
@@ -31,7 +32,7 @@ var searchResponseListener channelResponseListener
 var nicknameResponseListener channelResponseListener
 
 // Nickname request listener
-type nickReqListener struct {}
+type nickReqListener struct{}
 
 // Nickname listener simply replies with message containing user's nick
 func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
@@ -39,7 +40,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	nick := session.GetCurrentUser().Nick
 	resp := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
-		Body: []byte(nick),
+		Body:        []byte(nick),
 	})
 	globals.Log.DEBUG.Printf("Sending nickname response to user %v", *m.Sender)
 	sendCommand(m.Sender, resp)
@@ -48,7 +49,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session,m io.Communications) {
+func InitBots(s user.Session, m io.Communications, top *circuit.Circuit) {
 	UdbID = id.NewUserFromUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(channelResponseListener)
@@ -59,57 +60,45 @@ func InitBots(s user.Session,m io.Communications) {
 	nicknameResponseListener = make(channelResponseListener)
 
 	session = s
+	topology = top
 	messaging = m
 	l := session.GetSwitchboard()
 
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
 		&pushKeyResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
 		&getKeyResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
 		&registerResponseListener)
-	l.Register(UdbID,
-		format.None, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
+	l.Register(UdbID, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
 		&searchResponseListener)
 	l.Register(id.ZeroID,
-		format.None, int32(cmixproto.Type_NICKNAME_REQUEST),
-		&nicknameRequestListener)
+		int32(cmixproto.Type_NICKNAME_REQUEST), &nicknameRequestListener)
 	l.Register(id.ZeroID,
-		format.None, int32(cmixproto.Type_NICKNAME_RESPONSE),
-		&nicknameResponseListener)
+		int32(cmixproto.Type_NICKNAME_RESPONSE), &nicknameResponseListener)
 }
 
 // sendCommand sends a command to the udb. This doesn't block.
 // Callers that need to wait on a response should implement waiting with a
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
-	return messaging.SendMessage(session, botID,
-		format.Unencrypted, command)
+	return messaging.SendMessage(session, topology, botID,
+		parse.Unencrypted, command)
 }
 
 // Nickname Lookup function
-
-func LookupNick(uid *id.User) (string, error) {
-	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *uid)
+func LookupNick(user *id.User) (string, error) {
+	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *user)
 	msg := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
-		Body: []byte{},
+		Body:        []byte{},
 	})
 
-	err := sendCommand(uid, msg)
+	err := sendCommand(user, msg)
 	if err != nil {
 		return "", err
 	}
 
 	nickResponse := <-nicknameResponseListener
-	u, ok := session.GetRegistry().GetUser(uid)
-	if ok {
-		u.Nick = nickResponse
-		session.GetRegistry().UpsertUser(u)
-	}
-
 	return nickResponse, nil
 }

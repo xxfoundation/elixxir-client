@@ -1,9 +1,9 @@
 package keyStore
 
 import (
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"testing"
 	"time"
 )
@@ -32,7 +32,7 @@ func TestKeyStack(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		key := new(E2EKey)
-		key.outer = format.E2E
+		key.outer = parse.E2E
 		key.key = grp.NewInt(int64(i + 2))
 		key.manager = nil
 		expectedKeys[99-i] = key
@@ -57,7 +57,7 @@ func TestKeyStack_Panic(t *testing.T) {
 
 	for i := 0; i < 10; i++ {
 		key := new(E2EKey)
-		key.outer = format.E2E
+		key.outer = parse.E2E
 		key.key = grp.NewInt(int64(i + 2))
 		key.manager = nil
 		expectedKeys[9-i] = key
@@ -88,7 +88,7 @@ func TestKeyStack_Delete(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		key := new(E2EKey)
-		key.outer = format.E2E
+		key.outer = parse.E2E
 		key.key = grp.NewInt(int64(i + 2))
 		key.manager = nil
 		expectedKeys[99-i] = key
@@ -104,13 +104,10 @@ func TestKeyStack_Delete(t *testing.T) {
 
 	ks.Delete()
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Pop should panic when stack is empty")
-		}
-	}()
-
-	ks.Pop()
+	k4 := ks.Pop()
+	if k4 != nil {
+		t.Errorf("Pop should return nil when stack is empty")
+	}
 }
 
 // Test concurrent access
@@ -123,7 +120,7 @@ func TestKeyStack_Concurrent(t *testing.T) {
 
 	for i := 0; i < 100; i++ {
 		key := new(E2EKey)
-		key.outer = format.E2E
+		key.outer = parse.E2E
 		key.key = grp.NewInt(int64(i + 2))
 		key.manager = nil
 		expectedKeys[99-i] = key
@@ -139,11 +136,8 @@ func TestKeyStack_Concurrent(t *testing.T) {
 	// wait for goroutines
 	time.Sleep(500 * time.Millisecond)
 
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Pop should panic when stack is empty")
-		}
-	}()
-
-	ks.Pop()
+	k4 := ks.Pop()
+	if k4 != nil {
+		t.Errorf("Pop should return nil when stack is empty")
+	}
 }

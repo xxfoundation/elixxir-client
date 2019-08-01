@@ -15,19 +15,21 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
+var topology *circuit.Circuit
 var messaging io.Communications
 
 var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
 var rekeyConfirmList rekeyConfirmListener
 
-type rekeyTriggerListener struct{
+type rekeyTriggerListener struct {
 	err error
 }
 
@@ -44,7 +46,7 @@ func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 	}
 }
 
-type rekeyListener struct{
+type rekeyListener struct {
 	err error
 }
 
@@ -52,6 +54,10 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	partnerPubKey := m.GetPayload()
+	if m.GetCryptoType() != parse.Rekey {
+		globals.Log.WARN.Printf("Received message with NO_TYPE but not Rekey CryptoType, needs to be fixed!")
+		return
+	}
 	globals.Log.DEBUG.Printf("Received Rekey message from user %v", *partner)
 	err := rekeyProcess(Rekey, partner, partnerPubKey)
 	if err != nil {
@@ -62,7 +68,7 @@ func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	}
 }
 
-type rekeyConfirmListener struct{
+type rekeyConfirmListener struct {
 	err error
 }
 
@@ -81,24 +87,30 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications) {
+func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
 	rekeyConfirmList = rekeyConfirmListener{}
 
 	session = s
+	topology = t
 	messaging = m
 	l := session.GetSwitchboard()
 
 	l.Register(s.GetCurrentUser().User,
-		format.None, int32(cmixproto.Type_REKEY_TRIGGER),
+		int32(cmixproto.Type_REKEY_TRIGGER),
 		&rekeyTriggerList)
+	// TODO(nen) Wouldn't it be possible to register these listeners based
+	//  solely on the inner type? maybe the switchboard can rebroadcast
+	//  messages that have a type that includes the outer type if that's not
+	//  possible
+	// in short, switchboard should be the package that includes outer
 	l.Register(id.ZeroID,
-		format.Rekey, int32(cmixproto.Type_NO_TYPE),
+		int32(cmixproto.Type_NO_TYPE),
 		&rekeyList)
 	l.Register(id.ZeroID,
-		format.None, int32(cmixproto.Type_REKEY_CONFIRM),
+		int32(cmixproto.Type_REKEY_CONFIRM),
 		&rekeyConfirmList)
 }
 
@@ -113,7 +125,11 @@ const (
 
 func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
-	grp := session.GetGroup()
+	grp := session.GetCmixGroup()
+	e2egrp := session.GetE2EGroup()
+
+	globals.Log.INFO.Printf("grp fingerprint: %d, e2e fingerprint: %d",
+		grp.GetFingerprint(), e2egrp.GetFingerprint())
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -174,6 +190,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			pubKeyCyclic,
 			privKeyCyclic,
 			grp)
+
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,
 			PrivKey: privKeyCyclic,
@@ -202,8 +219,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			partner, false,
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
-		km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
-		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E" +
+		km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
+		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E"+
 			" relationship with user %v", *partner)
 	case RekeyConfirm:
 		// Check baseKey Hash matches expected
@@ -219,10 +236,10 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 				partner, true,
 				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
-			km.GenerateKeys(grp, session.GetCurrentUser().User, session.GetKeyStore())
+			km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
-			globals.Log.DEBUG.Printf("Generated new send keys for E2E" +
+			globals.Log.DEBUG.Printf("Generated new send keys for E2E"+
 				" relationship with user %v", *partner)
 		} else {
 			return fmt.Errorf("rekey-confirm from user %v failed,"+
@@ -236,17 +253,18 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Directly send raw publicKey bytes, without any message type
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
-		return messaging.SendMessageNoPartition(session, partner, format.E2E,
-			pubKey.GetKey().LeftpadBytes(uint64(format.TOTAL_LEN)))
+		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
+			pubKey.GetKey().LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()
 		h.Write(ctx.BaseKey.Bytes())
+		baseKeyHash := h.Sum(nil)
 		msg := parse.Pack(&parse.TypedBody{
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
-			Body: h.Sum(nil),
+			Body:        baseKeyHash,
 		})
-		return messaging.SendMessage(session, partner, format.None, msg)
+		return messaging.SendMessage(session, topology, partner, parse.None, msg)
 	}
 	return nil
 }

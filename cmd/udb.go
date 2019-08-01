@@ -14,7 +14,7 @@ import (
 	"strings"
 )
 
-type callbackSearch struct {}
+type callbackSearch struct{}
 
 func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
 	if err != nil {

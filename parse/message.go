@@ -9,7 +9,6 @@ package parse
 import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/format"
 )
 
 const MessageHashLenBits = 256
@@ -19,10 +18,26 @@ type MessageHash [MessageHashLen]byte
 
 type Message struct {
 	TypedBody
-	CryptoType format.CryptoType
-	Sender   *id.User
-	Receiver *id.User
-	Nonce    []byte
+	// The crypto type is inferred from the message's contents
+	InferredType CryptoType
+	Sender       *id.User
+	Receiver     *id.User
+	Nonce        []byte
+}
+
+type CryptoType int32
+
+const (
+	None CryptoType = iota
+	Unencrypted
+	Rekey
+	E2E
+)
+
+var cryptoTypeStrArr = []string{"None", "Unencrypted", "Rekey", "E2E"}
+
+func (ct CryptoType) String() string {
+	return cryptoTypeStrArr[ct]
 }
 
 // Interface used to standardize message definitions
@@ -38,7 +53,7 @@ type MessageInterface interface {
 	// Return the message's inner type
 	GetMessageType() int32
 	// Returns the message's outer type
-	GetCryptoType() format.CryptoType
+	GetCryptoType() CryptoType
 	// Return the message fully serialized including the type prefix
 	// Does this really belong in the interface?
 	Pack() []byte
@@ -78,8 +93,8 @@ func (m *Message) GetMessageType() int32 {
 	return m.MessageType
 }
 
-func (m *Message) GetCryptoType() format.CryptoType {
-	return m.CryptoType
+func (m *Message) GetCryptoType() CryptoType {
+	return m.InferredType
 }
 
 func (m *Message) Pack() []byte {
@@ -113,6 +128,6 @@ func (p *BindingsMessageProxy) GetMessageType() int32 {
 func (p *BindingsMessageProxy) Pack() []byte {
 	return Pack(&TypedBody{
 		MessageType: p.Proxy.GetMessageType(),
-		Body: p.Proxy.GetPayload(),
+		Body:        p.Proxy.GetPayload(),
 	})
 }

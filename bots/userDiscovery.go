@@ -37,7 +37,7 @@ func Register(valueType, value string, publicKey []byte) error {
 
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_REGISTER),
-		Body: []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
+		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
 	// Send register command
@@ -60,7 +60,7 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_SEARCH),
-		Body: []byte(fmt.Sprintf("%s %s", valueType, value)),
+		Body:        []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
 	err := sendCommand(UdbID, msgBody)
 	if err != nil {
@@ -80,7 +80,7 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 	// Get the full key and decode it
 	msgBody = parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_GET_KEY),
-		Body: []byte(keyFP),
+		Body:        []byte(keyFP),
 	})
 	err = sendCommand(UdbID, msgBody)
 	if err != nil {
@@ -143,7 +143,7 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
-		Body: []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
+		Body:        []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
 	}))
 	response := <-pushKeyResponseListener
 	if response != expected {
@@ -157,7 +157,7 @@ func keyExists(udbID *id.User, keyFP string) bool {
 	globals.Log.DEBUG.Printf("Running keyexists for %q, %v", *udbID, keyFP)
 	cmd := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_GET_KEY),
-		Body: []byte(fmt.Sprintf("%s", keyFP)),
+		Body:        []byte(fmt.Sprintf("%s", keyFP)),
 	})
 	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
 	err := sendCommand(udbID, cmd)

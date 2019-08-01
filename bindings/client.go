@@ -8,16 +8,13 @@ package bindings
 
 import (
 	"errors"
+	"fmt"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/certs"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
-	"strings"
 )
 
 type Client struct {
@@ -74,7 +71,7 @@ func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener)
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return cl.client.Listen(typedUserId, format.None, messageType, listener)
+	return cl.client.Listen(typedUserId, messageType, listener)
 }
 
 // Pass the listener handle that Listen() returned to delete the listener
@@ -99,15 +96,24 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, loc string) (*Client, error) {
+func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, error) {
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
 	}
 
+	ndf := api.VerifyNDF(ndfStr, ndfPubKey)
+
 	proxy := &storageProxy{boundStorage: storage}
-	cl, err := api.NewClient(globals.Storage(proxy), loc)
+	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf)
 
 	return &Client{client: cl}, err
+}
+
+// Connects to gateways and registration server (if needed)
+// using TLS filepaths to create credential information
+// for connection establishment
+func (cl *Client) Connect() error {
+	return cl.client.Connect()
 }
 
 // Registers user and returns the User ID bytes.
@@ -117,25 +123,9 @@ func NewClient(storage Storage, loc string) (*Client, error) {
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, nick,
-	registrationAddr string, gwAddressesList string,
-	mint bool, grpJSON string) ([]byte, error) {
-
-	if gwAddressesList == "" {
-		return id.ZeroID[:], errors.New("invalid number of nodes")
-	}
-
-	// Unmarshal group JSON
-	var grp cyclic.Group
-	err := grp.UnmarshalJSON([]byte(grpJSON))
-	if err != nil {
-		return id.ZeroID[:], err
-	}
-
-	gwList := strings.Split(gwAddressesList, ",")
-
-	UID, err := cl.client.Register(preCan, registrationCode, nick,
-		registrationAddr, gwList, mint, &grp)
+func (cl *Client) Register(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+	fmt.Println("calling client reg")
+	UID, err := cl.client.Register(preCan, registrationCode, nick, email)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -153,17 +143,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick,
 // certificate string to "default", the bindings will use that certificate.
 // If you leave it empty, the Client will try to connect to the GW without TLS
 // This should only ever be used for testing purposes
-func (cl *Client) Login(UID []byte, email, addr string,
-	tlsCert string) (string, error) {
+func (cl *Client) Login(UID []byte, password string) (string, error) {
 	userID := id.NewUserFromBytes(UID)
-	var err error
-	var nick string
-	if tlsCert == "default" {
-		nick, err = cl.client.Login(userID, email, addr, certs.GatewayTLS)
-	} else {
-		nick, err = cl.client.Login(userID, email, addr, tlsCert)
-	}
-	return nick, err
+	return cl.client.Login(userID)
 }
 
 // Sends a message structured via the message interface
@@ -173,11 +155,11 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 	sender := id.NewUserFromBytes(m.GetSender())
 	recipient := id.NewUserFromBytes(m.GetRecipient())
 
-	var cryptoType format.CryptoType
+	var cryptoType parse.CryptoType
 	if encrypt {
-		cryptoType = format.E2E
+		cryptoType = parse.E2E
 	} else {
-		cryptoType = format.Unencrypted
+		cryptoType = parse.Unencrypted
 	}
 
 	return cl.client.Send(&parse.Message{
@@ -185,9 +167,9 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 			MessageType: m.GetMessageType(),
 			Body:        m.GetPayload(),
 		},
-		CryptoType: cryptoType,
-		Sender:     sender,
-		Receiver:   recipient,
+		InferredType: cryptoType,
+		Sender:       sender,
+		Receiver:     recipient,
 	})
 }
 

@@ -15,7 +15,7 @@ import (
 // of a body in a struct
 type TypedBody struct {
 	MessageType int32
-	Body []byte
+	Body        []byte
 }
 
 // Determine the type of a message body. Returns the type and the part of the

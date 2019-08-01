@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"math/rand"
@@ -29,13 +30,11 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetRegistry() Registry
-	GetGWAddress() string
-	SetGWAddress(addr string)
-	GetKeys() []NodeKeys
+	GetKeys(topology *circuit.Circuit) []NodeKeys
 	GetPrivateKey() *signature.DSAPrivateKey
 	GetPublicKey() *signature.DSAPublicKey
-	GetGroup() *cyclic.Group
+	GetCmixGroup() *cyclic.Group
+	GetE2EGroup() *cyclic.Group
 	GetLastMessageID() string
 	SetLastMessageID(id string)
 	StoreSession() error
@@ -59,20 +58,19 @@ type NodeKeys struct {
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
-	u *User, reg Registry, GatewayAddr string, nk []NodeKeys,
+	u *User, nk map[id.Node]NodeKeys,
 	publicKey *signature.DSAPublicKey,
 	privateKey *signature.DSAPrivateKey,
-	grp *cyclic.Group) Session {
+	cmixGrp, e2eGrp *cyclic.Group) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:         u,
-		UserRegistry:        reg,
-		GWAddress:           GatewayAddr, // FIXME: don't store this here
 		Keys:                nk,
 		PrivateKey:          privateKey,
 		PublicKey:           publicKey,
-		Grp:                 grp,
+		CmixGrp:             cmixGrp,
+		E2EGrp:              e2eGrp,
 		InterfaceMap:        make(map[string]interface{}),
 		KeyMaps:             keyStore.NewStore(),
 		RekeyManager:        keyStore.NewRekeyManager(),
@@ -99,9 +97,7 @@ func LoadSession(store globals.Storage,
 
 	dec := gob.NewDecoder(&sessionBytes)
 
-	// Need to use empty object of the type that implements
-	// interface, so that GobDecoder knows what function to call
-	session := SessionObj{UserRegistry: Registry(&UserMap{})}
+	session := SessionObj{}
 
 	err := dec.Decode(&session)
 
@@ -134,7 +130,7 @@ func LoadSession(store globals.Storage,
 	}
 
 	// Reconstruct Key maps
-	session.KeyMaps.ReconstructKeys(session.Grp, UID)
+	session.KeyMaps.ReconstructKeys(session.E2EGrp, UID)
 
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
@@ -151,16 +147,11 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	// User Registry
-	UserRegistry Registry
-
-	// Gateway address to the cMix network
-	GWAddress string
-
-	Keys       []NodeKeys
+	Keys       map[id.Node]NodeKeys
 	PrivateKey *signature.DSAPrivateKey
 	PublicKey  *signature.DSAPublicKey
-	Grp        *cyclic.Group
+	CmixGrp    *cyclic.Group
+	E2EGrp     *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -199,10 +190,17 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.UnlockStorage()
 }
 
-func (s *SessionObj) GetKeys() []NodeKeys {
+func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.Keys
+
+	keys := make([]NodeKeys, topology.Len())
+
+	for i := 0; i < topology.Len(); i++ {
+		keys[i] = s.Keys[*topology.GetNodeAtIndex(i)]
+	}
+
+	return keys
 }
 
 func (s *SessionObj) GetPrivateKey() *signature.DSAPrivateKey {
@@ -217,10 +215,16 @@ func (s *SessionObj) GetPublicKey() *signature.DSAPublicKey {
 	return s.PublicKey
 }
 
-func (s *SessionObj) GetGroup() *cyclic.Group {
+func (s *SessionObj) GetCmixGroup() *cyclic.Group {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.Grp
+	return s.CmixGrp
+}
+
+func (s *SessionObj) GetE2EGroup() *cyclic.Group {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.E2EGrp
 }
 
 // Return a copy of the current user
@@ -231,27 +235,12 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			User: s.CurrentUser.User,
-			Nick: s.CurrentUser.Nick,
+			User:  s.CurrentUser.User,
+			Nick:  s.CurrentUser.Nick,
+			Email: s.CurrentUser.Email,
 		}
 	}
 	return currentUser
-}
-
-func (s *SessionObj) GetRegistry() Registry {
-	return s.UserRegistry
-}
-
-func (s *SessionObj) GetGWAddress() string {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.GWAddress
-}
-
-func (s *SessionObj) SetGWAddress(addr string) {
-	s.LockStorage()
-	s.GWAddress = addr
-	s.UnlockStorage()
 }
 
 func (s *SessionObj) storeSession() error {
@@ -299,10 +288,6 @@ func (s *SessionObj) Immolate() error {
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
 	s.CurrentUser.Nick = ""
-
-	s.GWAddress = burntString(len(s.GWAddress))
-	s.GWAddress = burntString(len(s.GWAddress))
-	s.GWAddress = ""
 
 	s.UnlockStorage()
 
@@ -394,13 +379,9 @@ func clearCyclicInt(c *cyclic.Int) {
 
 // FIXME Shouldn't we just be putting pseudorandom bytes in to obscure the mem?
 func burntString(length int) string {
+	b := make([]byte, length)
 
-	var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
-
-	b := make([]rune, length)
-	for i := range b {
-		b[i] = letterRunes[rand.Intn(len(letterRunes))]
-	}
+	rand.Read(b)
 
 	return string(b)
 }

@@ -141,7 +141,11 @@ func TestLoginLogout(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	time.Sleep(2000 * time.Millisecond)
+	err = client.StartMessageReceiver()
+	if err != nil {
+		t.Errorf("Could not start message reciever: %+v", err)
+	}
+	time.Sleep(200 * time.Millisecond)
 	err3 := client.Logout()
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err3.Error())

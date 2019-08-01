@@ -194,6 +194,12 @@ func TestSend(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
+	err = client.StartMessageReceiver()
+
+	if err != nil {
+		t.Errorf("Could not start message reception: %+v", err)
+	}
+
 	// Test send with invalid sender ID
 	err = client.Send(
 		APIMessage{
@@ -260,6 +266,12 @@ func TestLogout(t *testing.T) {
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = client.StartMessageReceiver()
+
+	if err != nil {
+		t.Errorf("Failed to start message reciever: %s", err.Error())
 	}
 
 	err = client.Logout()

@@ -105,7 +105,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 // is created
 // returns a new Client object, and an error if it fails
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
-	globals.Log.INFO.Printf("NDF: %+v\n", ndfJSON)
+	globals.Log.DEBUG.Printf("NDF: %+v\n", ndfJSON)
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -436,19 +436,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	return UID, nil
 }
 
-// Logs in user and sets session on client object
-// returns the nickname or error if login fails
+// LoadSession loads the session object for the UID
 func (cl *Client) Login(UID *id.User) (string, error) {
 	session, err := user.LoadSession(cl.storage, UID)
-
-	if session == nil {
-		return "", errors.New("Unable to load session: " + err.Error())
-	}
-
-	(cl.comm).(*io.Messaging).SendGateway =
-		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	(cl.comm).(*io.Messaging).ReceiveGateway =
-		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
@@ -457,30 +447,46 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 		return "", err
 	}
 
-	cl.session = session
+	if session == nil {
+		return "", errors.New("Unable to load session: " + err.Error())
+	}
 
-	pollWaitTimeMillis := 1000 * time.Millisecond
-	// TODO Don't start the message receiver if it's already started.
-	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.comm.MessageReceiver(session, pollWaitTimeMillis)
+	cl.session = session
+	return cl.session.GetCurrentUser().Nick, nil
+}
+
+// Logs in user and sets session on client object
+// returns the nickname or error if login fails
+func (cl *Client) StartMessageReceiver() error {
+	(cl.comm).(*io.Messaging).SendGateway =
+		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	(cl.comm).(*io.Messaging).ReceiveGateway =
+		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.comm, cl.topology)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.comm, cl.topology)
 
-	email := session.GetCurrentUser().Email
+	pollWaitTimeMillis := 1000 * time.Millisecond
+	// TODO Don't start the message receiver if it's already started.
+	// Should be a pretty rare occurrence except perhaps for mobile.
+	go cl.comm.MessageReceiver(cl.session, pollWaitTimeMillis)
+
+	email := cl.session.GetCurrentUser().Email
 
 	if email != "" {
-		err = cl.registerForUserDiscovery(email)
+		globals.Log.INFO.Printf("Registering user as %s", email)
+		err := cl.registerForUserDiscovery(email)
 		if err != nil {
 			globals.Log.ERROR.Printf(
 				"Unable to register with UDB: %s", err)
-			return "", err
+			return err
 		}
+		globals.Log.INFO.Printf("Registered!")
 	}
 
-	return session.GetCurrentUser().Nick, nil
+	return nil
 }
 
 // Send prepares and sends a message to the cMix network
@@ -531,6 +537,7 @@ func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 // Logout closes the connection to the server at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
+// fixme: blocks forever is message reciever
 func (cl *Client) Logout() error {
 	if cl.session == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")

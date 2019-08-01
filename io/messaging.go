@@ -367,7 +367,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 			return nil
 		}
 
-		globals.Log.INFO.Printf("Checking novelty of %v messages", len(messages.IDs))
+		globals.Log.DEBUG.Printf("Checking novelty of %v messages", len(messages.IDs))
 
 		results := make([]*format.Message, 0, len(messages.IDs))
 		for _, messageID := range messages.IDs {

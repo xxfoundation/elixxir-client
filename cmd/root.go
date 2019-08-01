@@ -67,7 +67,7 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() (*id.User, *api.Client) {
+func sessionInitialization() (*id.User, string, *api.Client) {
 	var err error
 	register := false
 
@@ -102,7 +102,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return id.ZeroID, nil
+			return id.ZeroID, "", nil
 		}
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
@@ -117,7 +117,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 			} else {
 				//Fail if any other error is received
 				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
-				return id.ZeroID, nil
+				return id.ZeroID, "", nil
 			}
 		}
 
@@ -126,7 +126,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return id.ZeroID, nil
+			return id.ZeroID, "", nil
 		}
 		globals.Log.INFO.Println("Initialized OS Storage")
 
@@ -146,7 +146,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		// No gateways in config file or passed via command line
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
-		return id.ZeroID, nil
+		return id.ZeroID, "", nil
 	}
 
 	// Connect to gateways and reg server
@@ -177,7 +177,7 @@ func sessionInitialization() (*id.User, *api.Client) {
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
-			return id.ZeroID, nil
+			return id.ZeroID, "", nil
 		}
 
 		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
@@ -189,16 +189,13 @@ func sessionInitialization() (*id.User, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	// Log the user in, for now using the first gateway specified
-	// This will also register the user email with UDB
-	_, err = client.Login(uid)
-	if err != nil {
-		globals.Log.ERROR.Printf("Could Not Log In: %s\n", err)
-		return id.ZeroID, nil
-	}
-	globals.Log.INFO.Println("Logged In!")
+	nick, err := client.Login(uid)
 
-	return uid, client
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not login: %v", err)
+	}
+
+	return uid, nick, client
 }
 
 func setKeyParams(client *api.Client) {
@@ -345,12 +342,13 @@ var rootCmd = &cobra.Command{
 		var dummyPeriod time.Duration
 		var timer *time.Timer
 
-		userID, client := sessionInitialization()
+		userID, _, client := sessionInitialization()
 		globalClient = client
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
 			setKeyParams(client)
 		}
+
 		// Set up the listeners for both of the types the client needs for
 		// the integration test
 		// Normal text messages
@@ -365,6 +363,15 @@ var rootCmd = &cobra.Command{
 		fallback := FallbackListener{}
 		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
 			&fallback)
+
+		// Log the user in, for now using the first gateway specified
+		// This will also register the user email with UDB
+		globals.Log.INFO.Println("Logging in...")
+		err := client.StartMessageReceiver()
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
+		}
+		globals.Log.INFO.Println("Logged In!")
 
 		// Do calculation for dummy messages if the flag is set
 		if dummyFrequency != 0 {
@@ -464,7 +471,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		//Logout
-		err := client.Logout()
+		err = client.Logout()
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
@@ -522,7 +529,7 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
 		"email", "E",
-		"default@default.com",
+		"",
 		"Email to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVar(&userNick,
@@ -596,8 +603,8 @@ func initLog() {
 		globals.Log.SetStdoutThreshold(jww.LevelDebug)
 		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
 	} else {
-		globals.Log.SetLogThreshold(jww.LevelWarn)
-		globals.Log.SetStdoutThreshold(jww.LevelWarn)
+		globals.Log.SetLogThreshold(jww.LevelInfo)
+		globals.Log.SetStdoutThreshold(jww.LevelInfo)
 	}
 	if viper.Get("logPath") != nil {
 		// Create log file, overwrites if existing

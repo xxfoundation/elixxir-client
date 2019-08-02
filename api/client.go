@@ -605,10 +605,11 @@ func (cl *Client) SearchForUser(emailAddress string,
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
 		if err == nil {
 			cl.registerUserE2E(uid, pubKey)
+			cb.Callback(uid[:], pubKey, err)
 		} else {
 			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
+			cb.Callback(nil, nil, err)
 		}
-		cb.Callback(uid[:], pubKey, err)
 	}()
 }
 
@@ -623,7 +624,11 @@ func (cl *Client) LookupNick(user *id.User,
 	cb NickLookupCallback) {
 	go func() {
 		nick, err := bots.LookupNick(user)
+		if err != nil {
+			globals.Log.INFO.Printf("Lookup for nickname for user %s failed", user)
+		}
 		cb.Callback(nick, err)
+
 	}()
 }
 

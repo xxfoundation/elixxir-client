@@ -167,6 +167,9 @@ func (cl *Client) Connect() error {
 		}
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
+		if err != nil {
+			globals.Log.ERROR.Printf("Failed to connect to gateway %s: %+v", gateway.Address, err)
+		}
 	}
 
 	//connect to the registration server
@@ -182,10 +185,10 @@ func (cl *Client) Connect() error {
 		addr := io.ConnAddr("registration")
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, cert)
 		if err != nil {
-			globals.Log.ERROR.Printf("Failed connecting to registrations")
+			globals.Log.ERROR.Printf("Failed connecting to permissioning: %+v", err)
 		}
 	} else {
-		globals.Log.WARN.Printf("No registration server found to connect to")
+		globals.Log.WARN.Printf("Unable to find registration server")
 	}
 	return nil
 }

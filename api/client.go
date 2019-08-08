@@ -612,6 +612,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 		} else {
 			if err == nil {
 				globals.Log.INFO.Printf("UDB Search for email %s failed: user not found", emailAddress)
+				err = errors.New("user not found in UDB")
 				cb.Callback(nil, nil, err)
 			} else {
 				globals.Log.INFO.Printf("UDB Search for email %s failed: %+v", emailAddress, err)

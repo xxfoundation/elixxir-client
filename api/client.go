@@ -606,6 +606,8 @@ func (cl *Client) SearchForUser(emailAddress string,
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
+		globals.Log.ERROR.Printf("uid: %+v", uid)
+		globals.Log.ERROR.Printf("pubkey: %+v", uid)
 		if err == nil {
 			cl.registerUserE2E(uid, pubKey)
 			cb.Callback(uid[:], pubKey, err)

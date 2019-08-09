@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
 )
@@ -77,15 +76,10 @@ func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
 	return true
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.DSASignature) (*pb.RegistrationConfirmation, error) {
+func (m *TestInterface) ConfirmNonce(message *pb.RSASignature) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
-		Server: &pb.DSAPublicKey{},
+		ClientSignedByServer: &pb.RSASignature{},
 	}
-
-	regConfirmation.Server.P = large.NewInt(1).Bytes()
-	regConfirmation.Server.Q = large.NewInt(1).Bytes()
-	regConfirmation.Server.G = large.NewInt(1).Bytes()
-	regConfirmation.Server.Y = large.NewInt(1).Bytes()
 
 	return regConfirmation, nil
 }
@@ -101,9 +95,9 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 }
 
 // Registers a user and returns a signed public key
-func (s *MockRegistration) RegisterUser(registrationCode string,
-	Y, P, Q, G []byte) (hash, R, S []byte, err error) {
-	return nil, nil, nil, nil
+func (s *MockRegistration) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
 }
 
 // Pass-through for Registration Nonce Communication

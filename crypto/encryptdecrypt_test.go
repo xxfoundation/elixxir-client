@@ -81,7 +81,7 @@ func setup() {
 	}
 
 	session = user.NewSession(nil, u, nkMap,
-		nil, nil, cmixGrp, e2eGrp)
+		nil, nil, nil, nil, cmixGrp, e2eGrp)
 }
 
 func TestMain(m *testing.M) {

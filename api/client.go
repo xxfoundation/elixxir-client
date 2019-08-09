@@ -7,6 +7,7 @@
 package api
 
 import (
+	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -29,7 +30,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
-	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
@@ -213,14 +213,15 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	// Make CMIX keys array
 	nk := make(map[id.Node]user.NodeKeys)
 
-	// Generate DSA keypair even for precanned users as it will probably
-	// be needed for the new UDB flow
-	params := signature.CustomDSAParams(
-		cmixGrp.GetP(),
-		cmixGrp.GetQ(),
-		cmixGrp.GetG())
-	privateKey := params.PrivateKeyGen(rand.Reader)
-	publicKey := privateKey.PublicKeyGen()
+	// GENERATE CLIENT RSA KEYS
+	privateKeyRSA, err := rsa.GenerateKey(rand.Reader, 4096)
+	if err != nil {
+		return nil, err
+	}
+	publicKeyRSA := privateKeyRSA.GetPublic()
+
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
 	fmt.Println("gened private keys")
 
@@ -271,11 +272,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		}
 
 		// Generate UserID by hashing salt and public key
-		UID = registration.GenUserID(publicKey, salt)
-		// Keep track of Server public keys provided at end of registration
-		var serverPublicKeys []*signature.DSAPublicKey
+		UID = registration.GenUserID(publicKeyRSA, salt)
+
 		// Initialized response from Registration Server
-		regHash, regR, regS := make([]byte, 0), make([]byte, 0), make([]byte, 0)
+		regHash := make([]byte, 0)
 
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
@@ -285,12 +285,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 				SendRegistrationMessage(io.ConnAddr("registration"),
 					&pb.UserRegistration{
 						RegistrationCode: registrationCode,
-						Client: &pb.DSAPublicKey{
-							Y: publicKey.GetKey().Bytes(),
-							P: params.GetP().Bytes(),
-							Q: params.GetQ().Bytes(),
-							G: params.GetG().Bytes(),
-						},
+						ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
 					})
 			if err != nil {
 				globals.Log.ERROR.Printf(
@@ -301,33 +296,42 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 				globals.Log.ERROR.Printf("Register: %s", response.Error)
 				return id.ZeroID, errors.New(response.Error)
 			}
-			regHash = response.ClientSignedByServer.Hash
-			regR = response.ClientSignedByServer.R
-			regS = response.ClientSignedByServer.S
+			regHash = response.ClientSignedByServer.Signature
 			// Disconnect from regServer here since it will not be needed
 			(cl.comm).(*io.Messaging).Comms.Disconnect(cl.ndf.Registration.Address)
 		}
 		fmt.Println("passed reg")
+
+		// Initialise blake2b hash for transmission keys and sha256 for reception
+		// keys
+		transmissionHash, _ := hash.NewCMixHash()
+		receptionHash := sha256.New()
+
 		// Loop over all Servers
 		for i := range cl.ndf.Gateways {
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+			sha := crypto.SHA256
+			opts := rsa.NewDefaultOptions()
+			opts.Hash = sha
+			data := sha.New().Sum(publicKeyDH.Bytes())[len(publicKeyDH.Bytes()):]
+			signed, err := privateKeyRSA.Sign(rand.Reader, data, opts)
+			if err != nil {
+				return nil, err
+			}
 
 			// Send signed public key and salt for UserID to Server
 			nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
 				SendRequestNonceMessage(gwID,
 					&pb.NonceRequest{
-						Salt: salt,
-						Client: &pb.DSAPublicKey{
-							Y: publicKey.GetKey().Bytes(),
-							P: params.GetP().Bytes(),
-							Q: params.GetQ().Bytes(),
-							G: params.GetG().Bytes(),
+						Salt:            salt,
+						ClientRSAPubKey: string(rsa.CreatePublicKeyPem(publicKeyRSA)),
+						ClientSignedByServer: &pb.RSASignature{
+							Signature: regHash,
 						},
-						ClientSignedByServer: &pb.DSASignature{
-							Hash: regHash,
-							R:    regR,
-							S:    regS,
+						ClientDHPubKey: publicKeyDH.Bytes(),
+						RequestSignature: &pb.RSASignature{
+							Signature: signed,
 						},
 					})
 			if err != nil {
@@ -343,7 +347,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 			// Use Client keypair to sign Server nonce
 			nonce := nonceResponse.Nonce
-			sig, err := privateKey.Sign(nonce, rand.Reader)
+			data = sha.New().Sum(nonce)[len(nonce):]
+			sig, err := privateKeyRSA.Sign(rand.Reader, data, opts)
 			if err != nil {
 				globals.Log.ERROR.Printf(
 					"Register: Unable to sign nonce! %s", err)
@@ -354,10 +359,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 			// TODO: This returns a receipt that can be used to speed up registration
 			confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
 				SendConfirmNonceMessage(gwID,
-					&pb.DSASignature{
-						Hash: nonce,
-						R:    sig.R.Bytes(),
-						S:    sig.S.Bytes(),
+					&pb.RSASignature{
+						Signature: sig,
 					})
 			if err != nil {
 				globals.Log.ERROR.Printf(
@@ -370,32 +373,12 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 				return id.ZeroID, errors.New(confirmResponse.Error)
 			}
 
-			// Append Server public key
-			serverPublicKeys = append(serverPublicKeys,
-				signature.ReconstructPublicKey(signature.
-					CustomDSAParams(
-						large.NewIntFromBytes(confirmResponse.Server.GetP()),
-						large.NewIntFromBytes(confirmResponse.Server.GetQ()),
-						large.NewIntFromBytes(confirmResponse.Server.GetG())),
-					large.NewIntFromBytes(confirmResponse.Server.GetY())))
-
-		}
-
-		// Initialise blake2b hash for transmission keys and sha256 for reception
-		// keys
-		transmissionHash, _ := hash.NewCMixHash()
-		receptionHash := sha256.New()
-
-		// Loop through all the server public keys
-		for itr, publicKey := range serverPublicKeys {
-
-			nodeID := *cl.topology.GetNodeAtIndex(itr)
-
+			nodeID := *cl.topology.GetNodeAtIndex(i)
 			nk[nodeID] = user.NodeKeys{
 				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-					publicKey, privateKey, transmissionHash),
-				ReceptionKey: registration.GenerateBaseKey(cmixGrp, publicKey,
-					privateKey, receptionHash),
+					publicKeyDH, privateKeyDH, transmissionHash),
+				ReceptionKey: registration.GenerateBaseKey(cmixGrp, publicKeyDH,
+					privateKeyDH, receptionHash),
 			}
 
 			receptionHash.Reset()
@@ -415,7 +398,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	u.Email = email
 
 	// Create the user session
-	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey, cmixGrp, e2eGrp)
+	nus := user.NewSession(cl.storage, u, nk, publicKeyRSA, privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
 
 	// Store the user session
 	errStore := nus.StoreSession()
@@ -590,8 +573,8 @@ func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 		return err
 	}
 
-	publicKey := cl.session.GetPublicKey()
-	publicKeyBytes := publicKey.GetKey().LeftpadBytes(256)
+	publicKey := cl.session.GetRSAPublicKey()
+	publicKeyBytes := rsa.CreatePublicKeyPem(publicKey)
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
@@ -643,8 +626,8 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 
 	// Create user private key and partner public key
 	// in the group
-	privKey := cl.session.GetPrivateKey()
-	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetKey())
+	privKey := cl.session.GetDHPrivateKey()
+	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetLargeInt())
 	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
 
 	// Generate baseKey

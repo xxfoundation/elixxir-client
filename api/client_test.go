@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -198,14 +199,18 @@ func TestRegisterUserE2E(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKey := myPrivKey.PublicKeyGen()
+	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewInt(1))
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), myPubKey, myPrivKey, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA, privateKeyRSA,
+		myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
 
 	testClient.session = session
 	fmt.Println("runn")
@@ -287,15 +292,18 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKey := myPrivKey.PublicKeyGen()
+	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewInt(1))
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), myPubKey,
-		myPrivKey, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
 
 	testClient.session = session
 

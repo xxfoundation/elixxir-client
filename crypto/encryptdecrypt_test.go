@@ -124,9 +124,9 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	// This block imitates what the server does during the realtime
 	payloadA := cmixGrp.NewIntFromBytes(encMsg.GetPayloadA())
 	payloadB := cmixGrp.NewIntFromBytes(encMsg.GetPayloadB())
-	// Multiply payloadA and associated data by serverPayloadBkey
+	// Multiply payloadA by its server key
 	cmixGrp.Mul(payloadA, serverPayloadAKey, payloadA)
-	// Multiply payloadB data only by serverPayloadAkey
+	// Multiply payloadB by its server key
 	cmixGrp.Mul(payloadB, serverPayloadBKey, payloadB)
 
 	decMsg := format.NewMessage()
@@ -186,17 +186,17 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	// This block imitates what the server does during the realtime
 	var encryptedNet *pb.Slot
 	{
-		payload := cmixGrp.NewIntFromBytes(encMsg.GetPayloadA())
-		assocData := cmixGrp.NewIntFromBytes(encMsg.GetPayloadB())
-		// Multiply payload and associated data by transmission key only
-		cmixGrp.Mul(payload, serverPayloadAKey, payload)
-		// Multiply associated data only by transmission key
-		cmixGrp.Mul(assocData, serverPayloadBKey, assocData)
+		payloadA := cmixGrp.NewIntFromBytes(encMsg.GetPayloadA())
+		payloadB := cmixGrp.NewIntFromBytes(encMsg.GetPayloadB())
+		// Multiply payloadA by transmission key
+		cmixGrp.Mul(payloadA, serverPayloadAKey, payloadA)
+		// Multiply payloadB by transmission key
+		cmixGrp.Mul(payloadB, serverPayloadBKey, payloadB)
 		encryptedNet = &pb.Slot{
 			SenderID: sender.Bytes(),
 			Salt:     salt,
-			PayloadA: payload.LeftpadBytes(uint64(format.PayloadLen)),
-			PayloadB: assocData.LeftpadBytes(uint64(format.PayloadLen)),
+			PayloadA: payloadA.LeftpadBytes(uint64(format.PayloadLen)),
+			PayloadB: payloadB.LeftpadBytes(uint64(format.PayloadLen)),
 		}
 	}
 

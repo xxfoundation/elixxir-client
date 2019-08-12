@@ -193,6 +193,147 @@ func (cl *Client) Connect() error {
 	return nil
 }
 
+func (cl *Client) precannedRegister(registrationCode, nick string, nk map[id.Node]user.NodeKeys) (*user.User, *id.User, map[id.Node]user.NodeKeys, error) {
+	var successLook bool
+	var UID *id.User
+	var u *user.User
+	var err error
+
+	globals.Log.DEBUG.Printf("Registering precanned user")
+	UID, successLook = user.Users.LookupUser(registrationCode)
+
+	fmt.Println("UID:", UID, "success:", successLook)
+
+	if !successLook {
+		globals.Log.ERROR.Printf("Register: HUID does not match")
+		return nil, nil, nil, errors.New("could not register due to invalid HUID")
+	}
+
+	var successGet bool
+	u, successGet = user.Users.GetUser(UID)
+
+	if !successGet {
+		globals.Log.ERROR.Printf("Register: ID lookup failed")
+		err = errors.New("could not register due to ID lookup failure")
+		return nil, nil, nil, err
+	}
+
+	if nick != "" {
+		u.Nick = nick
+	}
+
+	nodekeys, successKeys := user.Users.LookupKeys(u.User)
+
+	if !successKeys {
+		globals.Log.ERROR.Printf("Register: could not find user keys")
+		err = errors.New("could not register due to missing user keys")
+		return nil, nil, nil, err
+	}
+
+	for i := 0; i < len(cl.ndf.Gateways); i++ {
+		nk[*cl.topology.GetNodeAtIndex(i)] = *nodekeys
+	}
+	return u, UID, nk, nil
+}
+
+func (cl *Client) sendRegistrationMessage(regHash []byte, registrationCode string, publicKeyRSA *rsa.PublicKey) ([]byte, error) {
+	// Send registration code and public key to RegistrationServer
+	response, err := (cl.comm).(*io.Messaging).Comms.
+		SendRegistrationMessage(io.ConnAddr("registration"),
+			&pb.UserRegistration{
+				RegistrationCode: registrationCode,
+				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
+			})
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"Register: Unable to contact Registration Server! %s", err)
+		return nil, err
+	}
+	if response.Error != "" {
+		globals.Log.ERROR.Printf("Register: %s", response.Error)
+		return nil, errors.New(response.Error)
+	}
+	regHash = response.ClientSignedByServer.Signature
+	// Disconnect from regServer here since it will not be needed
+	(cl.comm).(*io.Messaging).Comms.Disconnect(cl.ndf.Registration.Address)
+	return regHash, nil
+}
+
+func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
+	publicKeyDH *cyclic.Int, publicKeyRSA *rsa.PublicKey,
+	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) ([]byte, error) {
+	opts := rsa.NewDefaultOptions()
+	opts.Hash = sha
+	// Sign DH pubkey
+	data := sha.New().Sum(publicKeyDH.Bytes())[len(publicKeyDH.Bytes()):]
+	signed, err := privateKeyRSA.Sign(rand.Reader, data, opts)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send signed public key and salt for UserID to Server
+	nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
+		SendRequestNonceMessage(gwID,
+			&pb.NonceRequest{
+				Salt:            salt,
+				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(publicKeyRSA)),
+				ClientSignedByServer: &pb.RSASignature{
+					Signature: regHash,
+				},
+				ClientDHPubKey: publicKeyDH.Bytes(),
+				RequestSignature: &pb.RSASignature{
+					Signature: signed,
+				},
+			})
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"Register: Unable to request nonce! %s",
+			err)
+		return nil, err
+	}
+	if nonceResponse.Error != "" {
+		globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
+		return nil, errors.New(nonceResponse.Error)
+	}
+
+	// Use Client keypair to sign Server nonce
+	return nonceResponse.Nonce, nil
+
+}
+
+func (cl *Client) confirmNonce(sha crypto.Hash, nonce []byte, privateKeyRSA *rsa.PrivateKey,
+	gwID *id.Gateway) error {
+	opts := rsa.NewDefaultOptions()
+	opts.Hash = sha
+
+	data := sha.New().Sum(nonce)[len(nonce):]
+	sig, err := privateKeyRSA.Sign(rand.Reader, data, opts)
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"Register: Unable to sign nonce! %s", err)
+		return err
+	}
+
+	// Send signed nonce to Server
+	// TODO: This returns a receipt that can be used to speed up registration
+	confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
+		SendConfirmNonceMessage(gwID,
+			&pb.RSASignature{
+				Signature: sig,
+			})
+	if err != nil {
+		globals.Log.ERROR.Printf(
+			"Register: Unable to send signed nonce! %s", err)
+		return err
+	}
+	if confirmResponse.Error != "" {
+		globals.Log.ERROR.Printf(
+			"Register: %s", confirmResponse.Error)
+		return errors.New(confirmResponse.Error)
+	}
+	return nil
+}
+
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*id.User, error) {
@@ -227,40 +368,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 	// Handle precanned registration
 	if preCan {
-		var successLook bool
-		globals.Log.DEBUG.Printf("Registering precanned user")
-		UID, successLook = user.Users.LookupUser(registrationCode)
-
-		fmt.Println("UID:", UID, "success:", successLook)
-
-		if !successLook {
-			globals.Log.ERROR.Printf("Register: HUID does not match")
-			return id.ZeroID, errors.New("could not register due to invalid HUID")
-		}
-
-		var successGet bool
-		u, successGet = user.Users.GetUser(UID)
-
-		if !successGet {
-			globals.Log.ERROR.Printf("Register: ID lookup failed")
-			err = errors.New("could not register due to ID lookup failure")
+		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
+		if err != nil {
 			return id.ZeroID, err
-		}
-
-		if nick != "" {
-			u.Nick = nick
-		}
-
-		nodekeys, successKeys := user.Users.LookupKeys(u.User)
-
-		if !successKeys {
-			globals.Log.ERROR.Printf("Register: could not find user keys")
-			err = errors.New("could not register due to missing user keys")
-			return id.ZeroID, err
-		}
-
-		for i := 0; i < len(cl.ndf.Gateways); i++ {
-			nk[*cl.topology.GetNodeAtIndex(i)] = *nodekeys
 		}
 	} else {
 		// Generate salt for UserID
@@ -280,25 +390,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			// Send registration code and public key to RegistrationServer
-			response, err := (cl.comm).(*io.Messaging).Comms.
-				SendRegistrationMessage(io.ConnAddr("registration"),
-					&pb.UserRegistration{
-						RegistrationCode: registrationCode,
-						ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
-					})
+			regHash, err = cl.sendRegistrationMessage(regHash, registrationCode, publicKeyRSA)
 			if err != nil {
-				globals.Log.ERROR.Printf(
-					"Register: Unable to contact Registration Server! %s", err)
-				return id.ZeroID, err
+				return id.ZeroID, nil
 			}
-			if response.Error != "" {
-				globals.Log.ERROR.Printf("Register: %s", response.Error)
-				return id.ZeroID, errors.New(response.Error)
-			}
-			regHash = response.ClientSignedByServer.Signature
-			// Disconnect from regServer here since it will not be needed
-			(cl.comm).(*io.Messaging).Comms.Disconnect(cl.ndf.Registration.Address)
 		}
 		fmt.Println("passed reg")
 
@@ -312,65 +407,17 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 			sha := crypto.SHA256
-			opts := rsa.NewDefaultOptions()
-			opts.Hash = sha
-			data := sha.New().Sum(publicKeyDH.Bytes())[len(publicKeyDH.Bytes()):]
-			signed, err := privateKeyRSA.Sign(rand.Reader, data, opts)
-			if err != nil {
-				return nil, err
-			}
 
-			// Send signed public key and salt for UserID to Server
-			nonceResponse, err := (cl.comm).(*io.Messaging).Comms.
-				SendRequestNonceMessage(gwID,
-					&pb.NonceRequest{
-						Salt:            salt,
-						ClientRSAPubKey: string(rsa.CreatePublicKeyPem(publicKeyRSA)),
-						ClientSignedByServer: &pb.RSASignature{
-							Signature: regHash,
-						},
-						ClientDHPubKey: publicKeyDH.Bytes(),
-						RequestSignature: &pb.RSASignature{
-							Signature: signed,
-						},
-					})
+			// Request nonce message from gateway
+			nonce, err := cl.requestNonce(sha, salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
 			if err != nil {
-				globals.Log.ERROR.Printf(
-					"Register: Unable to request nonce! %s",
-					err)
-				return id.ZeroID, err
-			}
-			if nonceResponse.Error != "" {
-				globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
-				return id.ZeroID, errors.New(nonceResponse.Error)
-			}
-
-			// Use Client keypair to sign Server nonce
-			nonce := nonceResponse.Nonce
-			data = sha.New().Sum(nonce)[len(nonce):]
-			sig, err := privateKeyRSA.Sign(rand.Reader, data, opts)
-			if err != nil {
-				globals.Log.ERROR.Printf(
-					"Register: Unable to sign nonce! %s", err)
 				return id.ZeroID, err
 			}
 
-			// Send signed nonce to Server
-			// TODO: This returns a receipt that can be used to speed up registration
-			confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
-				SendConfirmNonceMessage(gwID,
-					&pb.RSASignature{
-						Signature: sig,
-					})
+			// Confirm received nonce
+			err = cl.confirmNonce(sha, nonce, privateKeyRSA, gwID)
 			if err != nil {
-				globals.Log.ERROR.Printf(
-					"Register: Unable to send signed nonce! %s", err)
 				return id.ZeroID, err
-			}
-			if confirmResponse.Error != "" {
-				globals.Log.ERROR.Printf(
-					"Register: %s", confirmResponse.Error)
-				return id.ZeroID, errors.New(confirmResponse.Error)
 			}
 
 			nodeID := *cl.topology.GetNodeAtIndex(i)

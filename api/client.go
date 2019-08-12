@@ -193,7 +193,10 @@ func (cl *Client) Connect() error {
 	return nil
 }
 
-func (cl *Client) precannedRegister(registrationCode, nick string, nk map[id.Node]user.NodeKeys) (*user.User, *id.User, map[id.Node]user.NodeKeys, error) {
+// precannedRegister is a helper function for Register
+// It handles the precanned registration case
+func (cl *Client) precannedRegister(registrationCode, nick string,
+	nk map[id.Node]user.NodeKeys) (*user.User, *id.User, map[id.Node]user.NodeKeys, error) {
 	var successLook bool
 	var UID *id.User
 	var u *user.User
@@ -236,7 +239,11 @@ func (cl *Client) precannedRegister(registrationCode, nick string, nk map[id.Nod
 	return u, UID, nk, nil
 }
 
-func (cl *Client) sendRegistrationMessage(regHash []byte, registrationCode string, publicKeyRSA *rsa.PublicKey) ([]byte, error) {
+// sendRegistrationMessage is a helper for the Register function
+// It sends a registration message and returns the registration hash
+func (cl *Client) sendRegistrationMessage(registrationCode string,
+	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
+	regHash := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
 	response, err := (cl.comm).(*io.Messaging).Comms.
 		SendRegistrationMessage(io.ConnAddr("registration"),
@@ -259,6 +266,9 @@ func (cl *Client) sendRegistrationMessage(regHash []byte, registrationCode strin
 	return regHash, nil
 }
 
+// requestNonce is a helper for the Register function
+// It sends a request nonce message containing the client's keys for signing
+// Returns nonce if successful
 func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
 	publicKeyDH *cyclic.Int, publicKeyRSA *rsa.PublicKey,
 	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) ([]byte, error) {
@@ -301,8 +311,11 @@ func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
 
 }
 
-func (cl *Client) confirmNonce(sha crypto.Hash, nonce []byte, privateKeyRSA *rsa.PrivateKey,
-	gwID *id.Gateway) error {
+// confirmNonce is a helper for the Register function
+// It signs a nonce and sends it for confirmation
+// Returns nil if successful, error otherwise
+func (cl *Client) confirmNonce(sha crypto.Hash, nonce []byte,
+	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) error {
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = sha
 
@@ -390,7 +403,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			regHash, err = cl.sendRegistrationMessage(regHash, registrationCode, publicKeyRSA)
+			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				return id.ZeroID, nil
 			}

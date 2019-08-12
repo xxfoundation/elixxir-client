@@ -8,6 +8,7 @@ package api
 
 import (
 	"bytes"
+	"crypto"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
@@ -423,6 +424,95 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetKey().Text(10))
 		}
 	}
+}
+
+func TestClient_precannedRegister(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	nk := make(map[id.Node]user.NodeKeys)
+
+	_, _, nk, err = testClient.precannedRegister("UAV6IWD6", "", nk)
+	if err != nil {
+		t.Errorf("Error during precannedRegister: %+v", err)
+	}
+}
+
+func TestClient_sendRegistrationMessage(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+
+	_, err = testClient.sendRegistrationMessage("UAV6IWD6", &publicKeyRSA)
+	if err != nil {
+		t.Errorf("Error during sendRegistrationMessage: %+v", err)
+	}
+}
+
+func TestClient_requestNonce(t *testing.T) {
+	cmixGrp, _ := getGroups()
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	salt := make([]byte, 256)
+	_, err = csprng.NewSystemRNG().Read(salt)
+	if err != nil {
+		t.Errorf("Unable to generate salt! %s", err)
+	}
+
+	sha := crypto.SHA256
+	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
+	_, err = testClient.requestNonce(sha, salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
+	if err != nil {
+		t.Errorf("Error during requestNonce: %+v", err)
+	}
+}
+
+func TestClient_confirmNonce(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	sha := crypto.SHA256
+	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
+	err = testClient.confirmNonce(sha, []byte("test"), privateKeyRSA, gwID)
 }
 
 // FIXME Reinstate tests for the UDB api

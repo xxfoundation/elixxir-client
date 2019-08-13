@@ -426,6 +426,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	}
 }
 
+// Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
 	testClient, err := NewClient(&globals.RamStorage{}, "", def)
 	if err != nil {
@@ -439,12 +440,13 @@ func TestClient_precannedRegister(t *testing.T) {
 
 	nk := make(map[id.Node]user.NodeKeys)
 
-	_, _, nk, err = testClient.precannedRegister("UAV6IWD6", "", nk)
+	_, _, nk, err = testClient.precannedRegister("UAV6IWD6", "tony_johns", nk)
 	if err != nil {
 		t.Errorf("Error during precannedRegister: %+v", err)
 	}
 }
 
+// Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
 	testClient, err := NewClient(&globals.RamStorage{}, "", def)
 	if err != nil {
@@ -466,6 +468,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	}
 }
 
+// Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
 	cmixGrp, _ := getGroups()
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
@@ -492,12 +495,13 @@ func TestClient_requestNonce(t *testing.T) {
 
 	sha := crypto.SHA256
 	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
-	_, err = testClient.requestNonce(sha, salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
+	_, _, err = testClient.requestNonce(sha, salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
 	if err != nil {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
 }
 
+// Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
 	testClient, err := NewClient(&globals.RamStorage{}, "", def)
 	if err != nil {
@@ -513,82 +517,10 @@ func TestClient_confirmNonce(t *testing.T) {
 	sha := crypto.SHA256
 	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
 	err = testClient.confirmNonce(sha, []byte("test"), privateKeyRSA, gwID)
+	if err != nil {
+		t.Errorf("Error during confirmNonce: %+v", err)
+	}
 }
-
-// FIXME Reinstate tests for the UDB api
-//var ListenCh chan *format.Message
-//var lastmsg string
-
-//type dummyMessaging struct {
-//	listener chan *format.Message
-//}
-
-// SendMessage to the server
-//func (d *dummyMessaging) SendMessage(recipientID id.User,
-//	message string) error {
-//	jww.INFO.Printf("Sending: %s", message)
-//	lastmsg = message
-//	return nil
-//}
-
-// Listen for messages from a given sender
-//func (d *dummyMessaging) Listen(senderID id.User) chan *format.Message {
-//	return d.listener
-//}
-
-// StopListening to a given switchboard (closes and deletes)
-//func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
-
-// MessageReceiver thread to get new messages
-//func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
-
-//var pubKeyBits []string
-//var keyFingerprint string
-//var pubKey []byte
-
-// SendMsg puts a fake udb response message on the channel
-//func SendMsg(msg string) {
-//	m, _ := format.NewMessage(13, 1, msg)
-//	ListenCh <- &m[0]
-//}
-
-//func TestRegisterPubKeyByteLen(t *testing.T) {
-//	ListenCh = make(chan *format.Message, 100)
-//	io.Messaging = &dummyMessaging{
-//		switchboard: ListenCh,
-//	}
-//	pubKeyBits = []string{
-//		"S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNz" +
-//			"LU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClp" +
-//			"q4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY4=",
-//		"8Lg/eoeKGgPlleTYfO3JyGfnwBtLi73ti0h2dBQWW94JTqTQDr+z" +
-//			"xVpLzdgTt+87TkAl0yXu9mOUXqGJ+51lTcRlIdIpWpfgUbibdRme8IThg0RNCF31ESKCts" +
-//			"o8gJ8mSVljIXxrC+Uuoi+Gl1LNN5nPARykatx0Y70xNdJd2BQ=",
-//	}
-//	pubKey = make([]byte, 256)
-//	for i := range pubKeyBits {
-//		pubkeyBytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
-//		for j := range pubkeyBytes {
-//			pubKey[j+i*128] = pubkeyBytes[j]
-//		}
-//	}
-//
-//	keyFingerprint = "8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
-//	//SendMsg("SEARCH blah@privategrity.com NOTFOUND")
-//	SendMsg(fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint))
-//	SendMsg("PUSHKEY ACK NEED 128")
-//	SendMsg(fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint))
-//	SendMsg("REGISTRATION COMPLETE")
-//
-//	err := bots.Register("EMAIL", "blah@privategrity.com", pubKey)
-//
-//	if err != nil {
-//		t.Errorf("Unexpected error: %s", err.Error())
-//	}
-//	if len(lastmsg) != 81 {
-//		t.Errorf("Message wrong length: %d v. expected 81", len(lastmsg))
-//	}
-//}
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {
 

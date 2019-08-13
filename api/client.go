@@ -202,22 +202,19 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 	var u *user.User
 	var err error
 
-	globals.Log.DEBUG.Printf("Registering precanned user")
 	UID, successLook = user.Users.LookupUser(registrationCode)
 
-	fmt.Println("UID:", UID, "success:", successLook)
+	globals.Log.DEBUG.Printf("UID: %+v, success: %+v", UID, successLook)
 
 	if !successLook {
-		globals.Log.ERROR.Printf("Register: HUID does not match")
-		return nil, nil, nil, errors.New("could not register due to invalid HUID")
+		return nil, nil, nil, errors.New("precannedRegister: could not register due to invalid HUID")
 	}
 
 	var successGet bool
 	u, successGet = user.Users.GetUser(UID)
 
 	if !successGet {
-		globals.Log.ERROR.Printf("Register: ID lookup failed")
-		err = errors.New("could not register due to ID lookup failure")
+		err = errors.New("precannedRegister: could not register due to ID lookup failure")
 		return nil, nil, nil, err
 	}
 
@@ -228,8 +225,7 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 	nodekeys, successKeys := user.Users.LookupKeys(u.User)
 
 	if !successKeys {
-		globals.Log.ERROR.Printf("Register: could not find user keys")
-		err = errors.New("could not register due to missing user keys")
+		err = errors.New("precannedRegister: could not register due to missing user keys")
 		return nil, nil, nil, err
 	}
 
@@ -252,13 +248,13 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
 			})
 	if err != nil {
-		globals.Log.ERROR.Printf(
-			"Register: Unable to contact Registration Server! %s", err)
+		err = errors.New(fmt.Sprintf(
+			"sendRegistrationMessage: Unable to contact Registration Server! %s", err))
 		return nil, err
 	}
 	if response.Error != "" {
-		globals.Log.ERROR.Printf("Register: %s", response.Error)
-		return nil, errors.New(response.Error)
+		err = errors.New(fmt.Sprintf("sendRegistrationMessage: error handing message: %s", response.Error))
+		return nil, err
 	}
 	regHash = response.ClientSignedByServer.Signature
 	// Disconnect from regServer here since it will not be needed
@@ -271,14 +267,17 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 // Returns nonce if successful
 func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
 	publicKeyDH *cyclic.Int, publicKeyRSA *rsa.PublicKey,
-	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) ([]byte, error) {
+	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) ([]byte, []byte, error) {
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = sha
+
+	dhPub := publicKeyDH.Bytes()
+	data := sha.New().Sum(dhPub)[len(dhPub):]
 	// Sign DH pubkey
-	data := sha.New().Sum(publicKeyDH.Bytes())[len(publicKeyDH.Bytes()):]
-	signed, err := privateKeyRSA.Sign(rand.Reader, data, opts)
+	rng := csprng.NewSystemRNG()
+	signed, err := rsa.Sign(rng, privateKeyRSA, sha, data, opts)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Send signed public key and salt for UserID to Server
@@ -294,20 +293,19 @@ func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
 				RequestSignature: &pb.RSASignature{
 					Signature: signed,
 				},
-			})
+			}) // TODO: modify this to return server DH
 	if err != nil {
-		globals.Log.ERROR.Printf(
-			"Register: Unable to request nonce! %s",
-			err)
-		return nil, err
+		err := errors.New(fmt.Sprintf(
+			"Register: Unable to request nonce! %s", err))
+		return nil, nil, err
 	}
 	if nonceResponse.Error != "" {
 		globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
-		return nil, errors.New(nonceResponse.Error)
+		return nil, nil, errors.New(nonceResponse.Error)
 	}
 
 	// Use Client keypair to sign Server nonce
-	return nonceResponse.Nonce, nil
+	return nonceResponse.Nonce, nonceResponse.DHPubKey, nil
 
 }
 
@@ -319,8 +317,9 @@ func (cl *Client) confirmNonce(sha crypto.Hash, nonce []byte,
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = sha
 
+	// Hash nonce & sign
 	data := sha.New().Sum(nonce)[len(nonce):]
-	sig, err := privateKeyRSA.Sign(rand.Reader, data, opts)
+	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, data, opts)
 	if err != nil {
 		globals.Log.ERROR.Printf(
 			"Register: Unable to sign nonce! %s", err)
@@ -341,7 +340,7 @@ func (cl *Client) confirmNonce(sha crypto.Hash, nonce []byte,
 	}
 	if confirmResponse.Error != "" {
 		globals.Log.ERROR.Printf(
-			"Register: %s", confirmResponse.Error)
+			"Register: Error confirming nonce: %s", confirmResponse.Error)
 		return errors.New(confirmResponse.Error)
 	}
 	return nil
@@ -354,35 +353,39 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	var u *user.User
 	var UID *id.User
 
+	largeIntBits := 16
+
 	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, 16),
-		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, 16))
+		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits),
+		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, largeIntBits))
 
 	e2eGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.E2E.Prime, 16),
-		large.NewIntFromString(cl.ndf.E2E.Generator, 16),
-		large.NewIntFromString(cl.ndf.E2E.SmallPrime, 16))
+		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits),
+		large.NewIntFromString(cl.ndf.E2E.SmallPrime, largeIntBits))
 
 	// Make CMIX keys array
 	nk := make(map[id.Node]user.NodeKeys)
 
 	// GENERATE CLIENT RSA KEYS
-	privateKeyRSA, err := rsa.GenerateKey(rand.Reader, 4096)
+	privateKeyRSA, err := rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
 	if err != nil {
 		return nil, err
 	}
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
-	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
 
-	fmt.Println("gened private keys")
+	globals.Log.INFO.Println("gened private keys")
 
 	// Handle precanned registration
 	if preCan {
+		globals.Log.DEBUG.Printf("Registering precanned user")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
+			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
 			return id.ZeroID, err
 		}
 	} else {
@@ -402,13 +405,15 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
+		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
-				return id.ZeroID, nil
+				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
+				return id.ZeroID, err
 			}
 		}
-		fmt.Println("passed reg")
+		globals.Log.INFO.Println("passed reg")
 
 		// Initialise blake2b hash for transmission keys and sha256 for reception
 		// keys
@@ -422,22 +427,29 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 			sha := crypto.SHA256
 
 			// Request nonce message from gateway
-			nonce, err := cl.requestNonce(sha, salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
+			globals.Log.INFO.Println("Register: Requesting nonce from gateway")
+			nonce, dhPub, err := cl.requestNonce(sha, salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
 			if err != nil {
+				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
 				return id.ZeroID, err
 			}
 
+			// Load server DH pubkey
+			serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
+
 			// Confirm received nonce
+			globals.Log.INFO.Println("Register: Confirming received nonce")
 			err = cl.confirmNonce(sha, nonce, privateKeyRSA, gwID)
 			if err != nil {
+				globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
 				return id.ZeroID, err
 			}
 
 			nodeID := *cl.topology.GetNodeAtIndex(i)
 			nk[nodeID] = user.NodeKeys{
 				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-					publicKeyDH, privateKeyDH, transmissionHash),
-				ReceptionKey: registration.GenerateBaseKey(cmixGrp, publicKeyDH,
+					serverPubDH, privateKeyDH, transmissionHash),
+				ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 					privateKeyDH, receptionHash),
 			}
 
@@ -458,10 +470,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	u.Email = email
 
 	// Create the user session
-	nus := user.NewSession(cl.storage, u, nk, publicKeyRSA, privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA, privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
 
 	// Store the user session
-	errStore := nus.StoreSession()
+	errStore := newSession.StoreSession()
 
 	// FIXME If we have an error here, the session that gets created doesn't get immolated.
 	// Immolation should happen in a deferred call instead.
@@ -473,11 +485,11 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		return id.ZeroID, err
 	}
 
-	err = nus.Immolate()
+	err = newSession.Immolate()
 	if err != nil {
 		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
 	}
-	nus = nil
+	newSession = nil
 
 	return UID, nil
 }

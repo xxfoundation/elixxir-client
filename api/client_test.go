@@ -8,7 +8,6 @@ package api
 
 import (
 	"bytes"
-	"crypto"
 	"crypto/sha256"
 	"encoding/gob"
 	"fmt"
@@ -493,9 +492,8 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Errorf("Unable to generate salt! %s", err)
 	}
 
-	sha := crypto.SHA256
 	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
-	_, _, err = testClient.requestNonce(sha, salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
+	_, _, err = testClient.requestNonce(salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
 	if err != nil {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
@@ -514,9 +512,8 @@ func TestClient_confirmNonce(t *testing.T) {
 	}
 	rng := csprng.NewSystemRNG()
 	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
-	sha := crypto.SHA256
 	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
-	err = testClient.confirmNonce(sha, []byte("test"), privateKeyRSA, gwID)
+	err = testClient.confirmNonce([]byte("test"), privateKeyRSA, gwID)
 	if err != nil {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}

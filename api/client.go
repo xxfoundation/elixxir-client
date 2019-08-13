@@ -265,14 +265,16 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 // requestNonce is a helper for the Register function
 // It sends a request nonce message containing the client's keys for signing
 // Returns nonce if successful
-func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
+func (cl *Client) requestNonce(salt, regHash []byte,
 	publicKeyDH *cyclic.Int, publicKeyRSA *rsa.PublicKey,
 	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) ([]byte, []byte, error) {
+	dhPub := publicKeyDH.Bytes()
+	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = sha
-
-	dhPub := publicKeyDH.Bytes()
-	data := sha.New().Sum(dhPub)[len(dhPub):]
+	h := sha.New()
+	h.Write(dhPub)
+	data := h.Sum(nil)
 	// Sign DH pubkey
 	rng := csprng.NewSystemRNG()
 	signed, err := rsa.Sign(rng, privateKeyRSA, sha, data, opts)
@@ -312,13 +314,16 @@ func (cl *Client) requestNonce(sha crypto.Hash, salt, regHash []byte,
 // confirmNonce is a helper for the Register function
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
-func (cl *Client) confirmNonce(sha crypto.Hash, nonce []byte,
+func (cl *Client) confirmNonce(nonce []byte,
 	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) error {
+	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = sha
+	h := sha.New()
+	h.Write(nonce)
+	data := h.Sum(nil)
 
 	// Hash nonce & sign
-	data := sha.New().Sum(nonce)[len(nonce):]
 	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, data, opts)
 	if err != nil {
 		globals.Log.ERROR.Printf(
@@ -424,11 +429,10 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		for i := range cl.ndf.Gateways {
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
-			sha := crypto.SHA256
 
 			// Request nonce message from gateway
 			globals.Log.INFO.Println("Register: Requesting nonce from gateway")
-			nonce, dhPub, err := cl.requestNonce(sha, salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
+			nonce, dhPub, err := cl.requestNonce(salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
 				return id.ZeroID, err
@@ -439,7 +443,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 			// Confirm received nonce
 			globals.Log.INFO.Println("Register: Confirming received nonce")
-			err = cl.confirmNonce(sha, nonce, privateKeyRSA, gwID)
+			err = cl.confirmNonce(nonce, privateKeyRSA, gwID)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
 				return id.ZeroID, err

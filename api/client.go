@@ -36,7 +36,6 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
-	"io/ioutil"
 	"time"
 )
 
@@ -160,10 +159,7 @@ func (cl *Client) Connect() error {
 		var gwCreds []byte
 		var err error
 		if gateway.TlsCertificate != "" {
-			gwCreds, err = ioutil.ReadFile(gateway.TlsCertificate)
-			if err != nil {
-				globals.Log.ERROR.Printf("Failed to read certificate at %s: %+v", gateway.TlsCertificate, err)
-			}
+			gwCreds = []byte(gateway.TlsCertificate)
 		}
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
@@ -174,16 +170,13 @@ func (cl *Client) Connect() error {
 
 	//connect to the registration server
 	if cl.ndf.Registration.Address != "" {
-		var cert []byte
+		var regCert []byte
 		var err error
 		if cl.ndf.Registration.TlsCertificate != "" {
-			cert, err = ioutil.ReadFile(cl.ndf.Registration.TlsCertificate)
-			if err != nil {
-				globals.Log.ERROR.Printf("failed to read certificate from %s: %+v", cl.ndf.Registration.TlsCertificate, err)
-			}
+			regCert = []byte(cl.ndf.Registration.TlsCertificate)
 		}
 		addr := io.ConnAddr("registration")
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, cert)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCert)
 		if err != nil {
 			globals.Log.ERROR.Printf("Failed connecting to permissioning: %+v", err)
 		}

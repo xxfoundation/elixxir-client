@@ -314,7 +314,7 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 // confirmNonce is a helper for the Register function
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
-func (cl *Client) confirmNonce(nonce []byte,
+func (cl *Client) confirmNonce(UID, nonce []byte,
 	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) error {
 	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
@@ -333,11 +333,14 @@ func (cl *Client) confirmNonce(nonce []byte,
 
 	// Send signed nonce to Server
 	// TODO: This returns a receipt that can be used to speed up registration
+	msg := &pb.RequestRegistrationConfirmation{
+		UserID: UID,
+		NonceSignedByClient: &pb.RSASignature{
+			Signature: sig,
+		},
+	}
 	confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
-		SendConfirmNonceMessage(gwID,
-			&pb.RSASignature{
-				Signature: sig,
-			})
+		SendConfirmNonceMessage(gwID, msg)
 	if err != nil {
 		globals.Log.ERROR.Printf(
 			"Register: Unable to send signed nonce! %s", err)
@@ -443,7 +446,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 
 			// Confirm received nonce
 			globals.Log.INFO.Println("Register: Confirming received nonce")
-			err = cl.confirmNonce(nonce, privateKeyRSA, gwID)
+			err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
 				return id.ZeroID, err

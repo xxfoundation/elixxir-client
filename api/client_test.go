@@ -513,7 +513,7 @@ func TestClient_confirmNonce(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
 	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
-	err = testClient.confirmNonce([]byte("test"), privateKeyRSA, gwID)
+	err = testClient.confirmNonce([]byte("user"), []byte("test"), privateKeyRSA, gwID)
 	if err != nil {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}

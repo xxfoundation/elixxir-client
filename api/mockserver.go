@@ -78,7 +78,7 @@ func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
 	return true
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.RSASignature) (*pb.RegistrationConfirmation, error) {
+func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
 		ClientSignedByServer: &pb.RSASignature{},
 	}

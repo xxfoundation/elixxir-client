@@ -589,12 +589,19 @@ func (cl *Client) SearchForUser(emailAddress string,
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
-		if err == nil {
+		if err == nil && uid != nil && pubKey != nil {
 			cl.registerUserE2E(uid, pubKey)
 			cb.Callback(uid[:], pubKey, err)
 		} else {
-			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
-			cb.Callback(nil, nil, err)
+			if err == nil {
+				globals.Log.INFO.Printf("UDB Search for email %s failed: user not found", emailAddress)
+				err = errors.New("user not found in UDB")
+				cb.Callback(nil, nil, err)
+			} else {
+				globals.Log.INFO.Printf("UDB Search for email %s failed: %+v", emailAddress, err)
+				cb.Callback(nil, nil, err)
+			}
+
 		}
 	}()
 }

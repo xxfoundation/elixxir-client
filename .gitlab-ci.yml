@@ -31,6 +31,7 @@ stages:
   - release
   - deploy
   - trigger_integration
+  - trigger_release_integration
 
 setup:
   stage: setup
@@ -160,3 +161,17 @@ trigger_integration:
     - "curl -X POST -F token=e34aa19ef1530e579c5d590873d3c6 -F ref=master https://gitlab.com/api/v4/projects/5615854/trigger/pipeline"
   only:
     - master
+    
+trigger_release_integration:
+  stage: trigger_release_integration
+  script:
+    # client-consoleUI
+    - "curl -X POST -F token=d1888aeb7d0e1e6573b313a59ff16e -F ref=release https://gitlab.com/api/v4/projects/5681102/trigger/pipeline"
+    # channelbot
+    - "curl -X POST -F token=de4b7c93b0c2ce5d76e8780ab0fd73 -F ref=release https://gitlab.com/api/v4/projects/6204331/trigger/pipeline"
+    # UDB
+    - "curl -X POST -F token=c00a076be6a46d931bddefd56f3040 -F ref=release https://gitlab.com/api/v4/projects/6317316/trigger/pipeline"
+    # integration
+    - "curl -X POST -F token=e34aa19ef1530e579c5d590873d3c6 -F ref=release -F \"variables[CLIENT_ID]=release\" -F \"variables[GATEWAY_ID]=release\" -F \"variables[REGISTRATION_ID]=release\" -F \"variables[SERVER_ID]=release\" -F \"variables[UDB_ID]=release\" https://gitlab.com/api/v4/projects/5615854/trigger/pipeline"
+  only:
+    - release

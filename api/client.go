@@ -195,6 +195,152 @@ func (cl *Client) Connect() error {
 	return nil
 }
 
+// Registers user and returns the User ID.
+// Returns an error if registration fails.
+func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*id.User, error) {
+	var err error
+	var u *user.User
+	var UID *id.User
+
+	largeIntBits := 16
+
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits),
+		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, largeIntBits))
+
+	e2eGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits),
+		large.NewIntFromString(cl.ndf.E2E.SmallPrime, largeIntBits))
+
+	// Make CMIX keys array
+	nk := make(map[id.Node]user.NodeKeys)
+
+	// GENERATE CLIENT RSA KEYS
+	privateKeyRSA, err := rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
+	if err != nil {
+		return nil, err
+	}
+	publicKeyRSA := privateKeyRSA.GetPublic()
+
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
+
+	// Handle precanned registration
+	if preCan {
+		globals.Log.INFO.Printf("Registering precanned user")
+		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
+		if err != nil {
+			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
+			return id.ZeroID, err
+		}
+	} else {
+		saltSize := 256
+		// Generate salt for UserID
+		salt := make([]byte, saltSize)
+		_, err = csprng.NewSystemRNG().Read(salt)
+		if err != nil {
+			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
+			return id.ZeroID, err
+		}
+
+		// Generate UserID by hashing salt and public key
+		UID = registration.GenUserID(publicKeyRSA, salt)
+
+		// Initialized response from Registration Server
+		regHash := make([]byte, 0)
+
+		// If Registration Server is specified, contact it
+		// Only if registrationCode is set
+		globals.Log.INFO.Println("Register: Contacting registration server")
+		if cl.ndf.Registration.Address != "" && registrationCode != "" {
+			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+			if err != nil {
+				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
+				return id.ZeroID, err
+			}
+		}
+		globals.Log.INFO.Println("Register: successfully passed Registration message")
+
+		// Initialise blake2b hash for transmission keys and sha256 for reception
+		// keys
+		transmissionHash, _ := hash.NewCMixHash()
+		receptionHash := sha256.New()
+
+		// Loop over all Servers
+		for i := range cl.ndf.Gateways {
+
+			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+
+			// Request nonce message from gateway
+			globals.Log.INFO.Println("Register: Requesting nonce from gateway")
+			nonce, dhPub, err := cl.requestNonce(salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
+			if err != nil {
+				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
+				return id.ZeroID, err
+			}
+
+			// Load server DH pubkey
+			serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
+
+			// Confirm received nonce
+			globals.Log.INFO.Println("Register: Confirming received nonce")
+			err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
+			if err != nil {
+				globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
+				return id.ZeroID, err
+			}
+
+			nodeID := *cl.topology.GetNodeAtIndex(i)
+			nk[nodeID] = user.NodeKeys{
+				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
+					serverPubDH, privateKeyDH, transmissionHash),
+				ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
+					privateKeyDH, receptionHash),
+			}
+
+			receptionHash.Reset()
+			transmissionHash.Reset()
+		}
+
+		var actualNick string
+		if nick != "" {
+			actualNick = nick
+		} else {
+			actualNick = base64.StdEncoding.EncodeToString(UID[:])
+		}
+		u = user.Users.NewUser(UID, actualNick)
+		user.Users.UpsertUser(u)
+	}
+
+	u.Email = email
+
+	// Create the user session
+	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA, privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+
+	// Store the user session
+	errStore := newSession.StoreSession()
+
+	// FIXME If we have an error here, the session that gets created doesn't get immolated.
+	// Immolation should happen in a deferred call instead.
+	if errStore != nil {
+		err = errors.New(fmt.Sprintf(
+			"Register: could not register due to failed session save"+
+				": %s", errStore.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return id.ZeroID, err
+	}
+
+	err = newSession.Immolate()
+	if err != nil {
+		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
+	}
+	newSession = nil
+
+	return UID, nil
+}
+
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
 func (cl *Client) precannedRegister(registrationCode, nick string,
@@ -354,152 +500,6 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 		return err
 	}
 	return nil
-}
-
-// Registers user and returns the User ID.
-// Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*id.User, error) {
-	var err error
-	var u *user.User
-	var UID *id.User
-
-	largeIntBits := 16
-
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, largeIntBits))
-
-	e2eGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.SmallPrime, largeIntBits))
-
-	// Make CMIX keys array
-	nk := make(map[id.Node]user.NodeKeys)
-
-	// GENERATE CLIENT RSA KEYS
-	privateKeyRSA, err := rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
-	if err != nil {
-		return nil, err
-	}
-	publicKeyRSA := privateKeyRSA.GetPublic()
-
-	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
-
-	// Handle precanned registration
-	if preCan {
-		globals.Log.INFO.Printf("Registering precanned user")
-		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
-		if err != nil {
-			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
-			return id.ZeroID, err
-		}
-	} else {
-		saltSize := 256
-		// Generate salt for UserID
-		salt := make([]byte, saltSize)
-		_, err = csprng.NewSystemRNG().Read(salt)
-		if err != nil {
-			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
-			return id.ZeroID, err
-		}
-
-		// Generate UserID by hashing salt and public key
-		UID = registration.GenUserID(publicKeyRSA, salt)
-
-		// Initialized response from Registration Server
-		regHash := make([]byte, 0)
-
-		// If Registration Server is specified, contact it
-		// Only if registrationCode is set
-		globals.Log.INFO.Println("Register: Contacting registration server")
-		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
-				return id.ZeroID, err
-			}
-		}
-		globals.Log.INFO.Println("Register: successfully passed Registration message")
-
-		// Initialise blake2b hash for transmission keys and sha256 for reception
-		// keys
-		transmissionHash, _ := hash.NewCMixHash()
-		receptionHash := sha256.New()
-
-		// Loop over all Servers
-		for i := range cl.ndf.Gateways {
-
-			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
-
-			// Request nonce message from gateway
-			globals.Log.INFO.Println("Register: Requesting nonce from gateway")
-			nonce, dhPub, err := cl.requestNonce(salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
-				return id.ZeroID, err
-			}
-
-			// Load server DH pubkey
-			serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
-
-			// Confirm received nonce
-			globals.Log.INFO.Println("Register: Confirming received nonce")
-			err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
-				return id.ZeroID, err
-			}
-
-			nodeID := *cl.topology.GetNodeAtIndex(i)
-			nk[nodeID] = user.NodeKeys{
-				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-					serverPubDH, privateKeyDH, transmissionHash),
-				ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-					privateKeyDH, receptionHash),
-			}
-
-			receptionHash.Reset()
-			transmissionHash.Reset()
-		}
-
-		var actualNick string
-		if nick != "" {
-			actualNick = nick
-		} else {
-			actualNick = base64.StdEncoding.EncodeToString(UID[:])
-		}
-		u = user.Users.NewUser(UID, actualNick)
-		user.Users.UpsertUser(u)
-	}
-
-	u.Email = email
-
-	// Create the user session
-	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA, privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
-
-	// Store the user session
-	errStore := newSession.StoreSession()
-
-	// FIXME If we have an error here, the session that gets created doesn't get immolated.
-	// Immolation should happen in a deferred call instead.
-	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
-			"Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
-		return id.ZeroID, err
-	}
-
-	err = newSession.Immolate()
-	if err != nil {
-		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
-	}
-	newSession = nil
-
-	return UID, nil
 }
 
 // LoadSession loads the session object for the UID

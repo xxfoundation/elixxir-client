@@ -36,7 +36,6 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
-	"io/ioutil"
 	"time"
 )
 
@@ -160,11 +159,9 @@ func (cl *Client) Connect() error {
 		var gwCreds []byte
 		var err error
 		if gateway.TlsCertificate != "" {
-			gwCreds, err = ioutil.ReadFile(gateway.TlsCertificate)
-			if err != nil {
-				globals.Log.ERROR.Printf("Failed to read certificate at %s: %+v", gateway.TlsCertificate, err)
-			}
+			gwCreds = []byte(gateway.TlsCertificate)
 		}
+
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 		if err != nil {
@@ -174,16 +171,14 @@ func (cl *Client) Connect() error {
 
 	//connect to the registration server
 	if cl.ndf.Registration.Address != "" {
-		var cert []byte
+		var regCert []byte
 		var err error
 		if cl.ndf.Registration.TlsCertificate != "" {
-			cert, err = ioutil.ReadFile(cl.ndf.Registration.TlsCertificate)
-			if err != nil {
-				globals.Log.ERROR.Printf("failed to read certificate from %s: %+v", cl.ndf.Registration.TlsCertificate, err)
-			}
+			regCert = []byte(cl.ndf.Registration.TlsCertificate)
 		}
+
 		addr := io.ConnAddr("registration")
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, cert)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCert)
 		if err != nil {
 			globals.Log.ERROR.Printf("Failed connecting to permissioning: %+v", err)
 		}
@@ -465,19 +460,19 @@ func (cl *Client) StartMessageReceiver() error {
 		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
 	(cl.comm).(*io.Messaging).ReceiveGateway =
 		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
-
+	globals.Log.INFO.Println("inits")
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.comm, cl.topology)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.comm, cl.topology)
-
+	globals.Log.INFO.Println("initingDone")
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	go cl.comm.MessageReceiver(cl.session, pollWaitTimeMillis)
 
 	email := cl.session.GetCurrentUser().Email
-
+	globals.Log.INFO.Println("set up reciever, registering with udb")
 	if email != "" {
 		globals.Log.INFO.Printf("Registering user as %s", email)
 		err := cl.registerForUserDiscovery(email)
@@ -606,12 +601,19 @@ func (cl *Client) SearchForUser(emailAddress string,
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
-		if err == nil {
+		if err == nil && uid != nil && pubKey != nil {
 			cl.registerUserE2E(uid, pubKey)
 			cb.Callback(uid[:], pubKey, err)
 		} else {
-			globals.Log.INFO.Printf("UDB Search for email %s failed", emailAddress)
-			cb.Callback(nil, nil, err)
+			if err == nil {
+				globals.Log.INFO.Printf("UDB Search for email %s failed: user not found", emailAddress)
+				err = errors.New("user not found in UDB")
+				cb.Callback(nil, nil, err)
+			} else {
+				globals.Log.INFO.Printf("UDB Search for email %s failed: %+v", emailAddress, err)
+				cb.Callback(nil, nil, err)
+			}
+
 		}
 	}()
 }

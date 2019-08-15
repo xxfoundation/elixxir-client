@@ -48,6 +48,8 @@ type Client struct {
 	topology *circuit.Circuit
 }
 
+var PermissioningAddrID = "registration"
+
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
@@ -182,7 +184,7 @@ func (cl *Client) Connect() error {
 				globals.Log.ERROR.Printf("failed to read certificate from %s: %+v", cl.ndf.Registration.TlsCertificate, err)
 			}
 		}
-		addr := io.ConnAddr("registration")
+		addr := io.ConnAddr(PermissioningAddrID)
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, cert)
 		if err != nil {
 			globals.Log.ERROR.Printf("Failed connecting to permissioning: %+v", err)
@@ -242,7 +244,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	regHash := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
 	response, err := (cl.comm).(*io.Messaging).Comms.
-		SendRegistrationMessage(io.ConnAddr("registration"),
+		SendRegistrationMessage(io.ConnAddr(PermissioningAddrID),
 			&pb.UserRegistration{
 				RegistrationCode: registrationCode,
 				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
@@ -298,12 +300,12 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 			}) // TODO: modify this to return server DH
 	if err != nil {
 		err := errors.New(fmt.Sprintf(
-			"Register: Unable to request nonce! %s", err))
+			"requestNonce: Unable to request nonce! %s", err))
 		return nil, nil, err
 	}
 	if nonceResponse.Error != "" {
-		globals.Log.ERROR.Printf("Register: %s", nonceResponse.Error)
-		return nil, nil, errors.New(nonceResponse.Error)
+		err := errors.New(fmt.Sprintf("requestNonce: nonceResponse error: %s", nonceResponse.Error))
+		return nil, nil, err
 	}
 
 	// Use Client keypair to sign Server nonce
@@ -342,14 +344,14 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 	confirmResponse, err := (cl.comm).(*io.Messaging).Comms.
 		SendConfirmNonceMessage(gwID, msg)
 	if err != nil {
-		globals.Log.ERROR.Printf(
-			"Register: Unable to send signed nonce! %s", err)
+		err := errors.New(fmt.Sprintf(
+			"confirmNonce: Unable to send signed nonce! %s", err))
 		return err
 	}
 	if confirmResponse.Error != "" {
-		globals.Log.ERROR.Printf(
-			"Register: Error confirming nonce: %s", confirmResponse.Error)
-		return errors.New(confirmResponse.Error)
+		err := errors.New(fmt.Sprintf(
+			"confirmNonce: Error confirming nonce: %s", confirmResponse.Error))
+		return err
 	}
 	return nil
 }
@@ -386,19 +388,18 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
 
-	globals.Log.INFO.Println("gened private keys")
-
 	// Handle precanned registration
 	if preCan {
-		globals.Log.DEBUG.Printf("Registering precanned user")
+		globals.Log.INFO.Printf("Registering precanned user")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
 			return id.ZeroID, err
 		}
 	} else {
+		saltSize := 256
 		// Generate salt for UserID
-		salt := make([]byte, 256)
+		salt := make([]byte, saltSize)
 		_, err = csprng.NewSystemRNG().Read(salt)
 		if err != nil {
 			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
@@ -421,7 +422,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 				return id.ZeroID, err
 			}
 		}
-		globals.Log.INFO.Println("passed reg")
+		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
 		// Initialise blake2b hash for transmission keys and sha256 for reception
 		// keys

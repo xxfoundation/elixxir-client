@@ -33,6 +33,8 @@ import (
 	"time"
 )
 
+var TestKeySize = 768
+
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def)
@@ -199,12 +201,12 @@ func TestRegisterUserE2E(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewInt(1))
+	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
-	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	myUser := &user.User{User: userID, Nick: "test"}
@@ -292,12 +294,12 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewInt(1))
+	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
-	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	myUser := &user.User{User: userID, Nick: "test"}
@@ -458,7 +460,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	}
 
 	rng := csprng.NewSystemRNG()
-	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	_, err = testClient.sendRegistrationMessage("UAV6IWD6", &publicKeyRSA)
@@ -470,10 +472,10 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 // Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
 	cmixGrp, _ := getGroups()
-	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
-	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
 	rng := csprng.NewSystemRNG()
-	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	testClient, err := NewClient(&globals.RamStorage{}, "", def)
@@ -511,7 +513,7 @@ func TestClient_confirmNonce(t *testing.T) {
 		t.Error(err)
 	}
 	rng := csprng.NewSystemRNG()
-	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
 	err = testClient.confirmNonce([]byte("user"), []byte("test"), privateKeyRSA, gwID)
 	if err != nil {

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
@@ -67,14 +68,17 @@ func TestMain(m *testing.M) {
 	}
 	myPrivKey := params.PrivateKeyGen(rng)
 	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKey := myPrivKey.PublicKeyGen()
+	myPubKeyCyclic := grp.ExpG(myPrivKeyCyclic, grp.NewInt(1))
 	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	partnerPrivKey := params.PrivateKeyGen(rng)
 	partnerPubKey := partnerPrivKey.PublicKeyGen()
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, myPubKey, myPrivKey, grp, e2eGrp)
+		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, grp, e2eGrp)
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
@@ -216,7 +220,7 @@ func TestRekeyConfirm(t *testing.T) {
 
 	// Confirm that user Private key in Send Key Manager
 	// differs from the one stored in session
-	if session.GetPrivateKey().GetKey().Cmp(
+	if session.GetDHPrivateKey().GetLargeInt().Cmp(
 		session.GetKeyStore().GetSendManager(partnerID).
 			GetPrivKey().GetLargeInt()) == 0 {
 		t.Errorf("PrivateKey remained unchanged after Outgoing Rekey!")
@@ -291,7 +295,7 @@ func TestRekey(t *testing.T) {
 	keys := rkm.GetKeys(partnerID)
 
 	if keys.CurrPrivKey.GetLargeInt().
-		Cmp(session.GetPrivateKey().GetKey()) == 0 {
+		Cmp(session.GetDHPrivateKey().GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
 	}
 

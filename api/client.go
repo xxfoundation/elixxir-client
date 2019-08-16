@@ -161,15 +161,16 @@ func (cl *Client) Connect() error {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
-		globals.Log.INFO.Printf("Connecting to gateway at %s...",
-			gateway.Address)
+		globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
+			gwID.String(), gateway.Address)
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 		if err != nil {
-			return errors.New(fmt.Sprintf("Failed to connect to gateway %s: %+v",
-				gateway.Address, err))
+			return errors.New(fmt.Sprintf(
+				"Failed to connect to gateway %s at %s: %+v",
+				gwID.String(), gateway.Address, err))
 		}
-		globals.Log.INFO.Printf("Connected to gateway at %v successfully!",
-			gateway.Address)
+		globals.Log.INFO.Printf("Connected to gateway %s at %s successfully!",
+			gwID.String(), gateway.Address)
 	}
 
 	//connect to the registration server
@@ -459,10 +460,12 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver() error {
-	(cl.comm).(*io.Messaging).SendGateway =
-		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	(cl.comm).(*io.Messaging).ReceiveGateway =
-		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
+	sendGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	receiveGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
+	(cl.comm).(*io.Messaging).SendGateway = sendGateway
+	(cl.comm).(*io.Messaging).ReceiveGateway = receiveGateway
+	globals.Log.INFO.Printf("Sending gateway: %s", sendGateway.String())
+	globals.Log.INFO.Printf("Receiving gateway: %s", receiveGateway.String())
 
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.comm, cl.topology)

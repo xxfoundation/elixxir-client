@@ -7,9 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
@@ -51,18 +49,14 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// get the gob out of there again
-	sessionGob := testClient.storage.Load()
-	var sessionBytes bytes.Buffer
-	sessionBytes.Write(decrypt(sessionGob, "password"))
-	dec := gob.NewDecoder(&sessionBytes)
-	Session := user.SessionObj{}
-	err = dec.Decode(&Session)
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
 	if err != nil {
 		t.Error(err)
 	}
 
-	VerifyRegisterGobUser(&Session, t)
-	VerifyRegisterGobKeys(&Session, testClient.topology, t)
+	VerifyRegisterGobUser(Session, t)
+	VerifyRegisterGobKeys(Session, testClient.topology, t)
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {

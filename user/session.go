@@ -91,8 +91,6 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	sessionGob := store.Load()
 
 	var sessionBytes bytes.Buffer

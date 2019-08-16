@@ -188,7 +188,8 @@ func (cl *Client) Connect() error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick, email,
+	password string) (*id.User, error) {
 	var err error
 	var u *user.User
 	var UID *id.User
@@ -408,7 +409,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	u.Email = email
 
 	// Create the user session
-	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey, cmixGrp, e2eGrp)
+	nus := user.NewSession(cl.storage, u, nk, publicKey, privateKey,
+		cmixGrp, e2eGrp, password)
 
 	// Store the user session
 	errStore := nus.StoreSession()
@@ -432,9 +434,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	return UID, nil
 }
 
-// LoadSession loads the session object for the UID
-func (cl *Client) Login(UID *id.User) (string, error) {
-	session, err := user.LoadSession(cl.storage, UID)
+// LoadSession loads the session object with the given password
+func (cl *Client) Login(password string) (string, error) {
+	session, err := user.LoadSession(cl.storage, password)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",

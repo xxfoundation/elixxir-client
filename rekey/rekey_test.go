@@ -74,7 +74,7 @@ func TestMain(m *testing.M) {
 	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
 
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, myPubKey, myPrivKey, grp, e2eGrp)
+		u, nil, myPubKey, myPrivKey, grp, e2eGrp, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,

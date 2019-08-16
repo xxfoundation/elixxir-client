@@ -56,6 +56,7 @@ var skipNDFVerification bool
 var ndfRegistration []string
 var ndfUDB []string
 var ndfPubKey string
+var sessFilePassword string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -173,7 +174,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
+		uid, err = client.Register(userId != 0, regCode, userNick,
+			userEmail, "password")
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
@@ -189,7 +191,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	nick, err := client.Login(uid)
+	nick, err := client.Login(sessFilePassword)
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
@@ -569,6 +571,12 @@ func init() {
 		"ndfUDB",
 		nil,
 		"Overwrite the UDB values for the NDF")
+
+	rootCmd.PersistentFlags().StringVarP(&sessFilePassword,
+		"password",
+		"P",
+		"",
+		"Password to the session file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

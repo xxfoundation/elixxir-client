@@ -125,7 +125,8 @@ func (cl *Client) Connect() error {
 // grp is the CMIX group needed for keys generation in JSON string format
 func (cl *Client) Register(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
 	fmt.Println("calling client reg")
-	UID, err := cl.client.Register(preCan, registrationCode, nick, email)
+	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
+		password)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -138,8 +139,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func (cl *Client) Login(UID []byte, password string) (string, error) {
-	userID := id.NewUserFromBytes(UID)
-	return cl.client.Login(userID)
+	return cl.client.Login(password)
 }
 
 // Starts the polling of the external servers.

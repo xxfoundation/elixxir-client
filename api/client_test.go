@@ -45,7 +45,7 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "")
+	_, err = testClient.Register(true, "UAV6IWD6", "", "", "password")
 	if err != nil {
 		t.Error(err)
 	}
@@ -53,7 +53,7 @@ func TestRegistrationGob(t *testing.T) {
 	// get the gob out of there again
 	sessionGob := testClient.storage.Load()
 	var sessionBytes bytes.Buffer
-	sessionBytes.Write(sessionGob)
+	sessionBytes.Write(decrypt(sessionGob, "password"))
 	dec := gob.NewDecoder(&sessionBytes)
 	Session := user.SessionObj{}
 	err = dec.Decode(&Session)
@@ -205,7 +205,8 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), myPubKey, myPrivKey, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), myPubKey, myPrivKey,
+		cmixGrp, e2eGrp, "password")
 
 	testClient.session = session
 	fmt.Println("runn")
@@ -295,7 +296,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), myPubKey,
-		myPrivKey, cmixGrp, e2eGrp)
+		myPrivKey, cmixGrp, e2eGrp, "password")
 
 	testClient.session = session
 

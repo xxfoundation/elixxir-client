@@ -71,7 +71,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 
 	// Register precanned user with all gateways
 	regRes, err := client.Register(true, ValidRegCode,
-		"", "")
+		"", "", "password")
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -101,7 +101,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.Register(false, ValidRegCode, "", "")
+	regRes, err := client.Register(false, ValidRegCode, "", "", "password")
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -129,7 +129,7 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	// Register with invalid reg code
-	uid, err := client.Register(true, InvalidRegCode, "", "")
+	uid, err := client.Register(true, InvalidRegCode, "", "", "password")
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
@@ -156,7 +156,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.Register(true, ValidRegCode, "", "")
+	_, err = client.Register(true, ValidRegCode, "", "", "password")
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -181,14 +181,14 @@ func TestSend(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "", "")
+	userID, err := client.Register(true, ValidRegCode, "", "", "password")
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID)
+	_, err = client.Login("password")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
@@ -255,14 +255,14 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "", "")
+	_, err = client.Register(true, ValidRegCode, "", "", "password")
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
 	}
 
 	// Login to gateway
-	_, err = client.Login(userID)
+	_, err = client.Login("password")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())

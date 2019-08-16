@@ -15,7 +15,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -25,7 +24,6 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 	"sync"
-	"time"
 )
 
 // Errors
@@ -65,7 +63,8 @@ func NewSession(store globals.Storage,
 	u *User, nk map[id.Node]NodeKeys,
 	publicKey *signature.DSAPublicKey,
 	privateKey *signature.DSAPrivateKey,
-	cmixGrp, e2eGrp *cyclic.Group) Session {
+	cmixGrp, e2eGrp *cyclic.Group,
+	password string) Session {
 
 	// With an underlying Session data structure
 	return Session(&SessionObj{
@@ -81,11 +80,12 @@ func NewSession(store globals.Storage,
 		store:               store,
 		listeners:           switchboard.NewSwitchboard(),
 		quitReceptionRunner: make(chan bool),
+		password:            password,
 	})
 }
 
 func LoadSession(store globals.Storage,
-	UID *id.User) (Session, error) {
+	password string) (Session, error) {
 	if store == nil {
 		err := errors.New("LoadSession: Local Storage not avalible")
 		return nil, err
@@ -95,7 +95,7 @@ func LoadSession(store globals.Storage,
 
 	var sessionBytes bytes.Buffer
 
-	sessionBytes.Write(sessionGob)
+	sessionBytes.Write(decrypt(sessionGob, password))
 
 	dec := gob.NewDecoder(&sessionBytes)
 
@@ -104,35 +104,14 @@ func LoadSession(store globals.Storage,
 	err := dec.Decode(&session)
 
 	if err != nil {
-		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
-		return nil, err
-	}
-
-	// FIXME We got a nil pointer dereference on the next lines but I haven't
-	// been able to reproduce it. We should investigate why either of these
-	// could be nil at this point. If you manage to reproduce the dereference
-	// and you have the time, please try to figure out what's going on.
-	// I suspect the client was loading some sort of malformed session gob,
-	// and we need to fail faster in the case that a malformed gob got loaded.
-	if session.CurrentUser.User == nil && UID == nil {
-		jww.ERROR.Panic("Dereferencing nil session.CurrentUser.User AND UID")
-	} else if session.CurrentUser.User == nil {
-		jww.ERROR.Panic("Dereferencing nil session.CurrentUser.User")
-	} else if UID == nil {
-		jww.ERROR.Panic("Dereferencing nil param UID")
-	}
-
-	// Line of the actual crash
-	if *session.CurrentUser.User != *UID {
 		err = errors.New(fmt.Sprintf(
-			"LoadSession: loaded incorrect "+
-				"user; Expected: %q; Received: %q",
-			*session.CurrentUser.User, *UID))
+			"LoadSession: unable to load session: %s", err.Error()))
 		return nil, err
 	}
 
 	// Reconstruct Key maps
-	session.KeyMaps.ReconstructKeys(session.E2EGrp, UID)
+	session.KeyMaps.ReconstructKeys(session.E2EGrp,
+		session.CurrentUser.User)
 
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
@@ -178,6 +157,9 @@ type SessionObj struct {
 	quitReceptionRunner chan bool
 
 	lock sync.Mutex
+
+	// The password used to encrypt this session when saved
+	password string
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -253,7 +235,7 @@ func (s *SessionObj) storeSession() error {
 	}
 
 	sessionData, err := s.getSessionData()
-	err = s.store.Save(sessionData)
+	err = s.store.Save(encrypt(sessionData, s.password))
 	if err != nil {
 		return err
 	}
@@ -424,7 +406,8 @@ func decrypt(data []byte, password string) []byte {
 	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Cannot decrypt with password %s: %s",
+		globals.Log.FATAL.Panicf("Cannot decrypt with password '%s':"+
+			" %s",
 			password, err.Error())
 	}
 	return plaintext

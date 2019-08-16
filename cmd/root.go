@@ -150,13 +150,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	// Connect to gateways and reg server
-	globals.Log.INFO.Println("Connecting...")
 	err = client.Connect()
-
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
-	globals.Log.INFO.Println("Connected!")
 
 	// Holds the User ID
 	var uid *id.User

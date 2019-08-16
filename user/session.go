@@ -8,6 +8,10 @@ package user
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -19,7 +23,7 @@ import (
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"math/rand"
+	"io"
 	"sync"
 	"time"
 )
@@ -384,4 +388,46 @@ func burntString(length int) string {
 	rand.Read(b)
 
 	return string(b)
+}
+
+// Internal crypto helper functions below
+
+func hashPassword(password string) []byte {
+	hasher := sha256.New()
+	hasher.Write([]byte(password))
+	return hasher.Sum(nil)
+}
+
+func initAESGCM(password string) cipher.AEAD {
+	aesCipher, _ := aes.NewCipher(hashPassword(password))
+	// NOTE: We use gcm as it's authenticated and simplest to set up
+	aesGCM, err := cipher.NewGCM(aesCipher)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not init AES GCM mode: %s",
+			err.Error())
+	}
+	return aesGCM
+}
+
+func encrypt(data []byte, password string) []byte {
+	aesGCM := initAESGCM(password)
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		globals.Log.FATAL.Panicf("Could not generate nonce: %s",
+			err.Error())
+	}
+	ciphertext := aesGCM.Seal(nonce, nonce, data, nil)
+	return ciphertext
+}
+
+func decrypt(data []byte, password string) []byte {
+	aesGCM := initAESGCM(password)
+	nonceLen := aesGCM.NonceSize()
+	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
+	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Cannot decrypt with password %s: %s",
+			password, err.Error())
+	}
+	return plaintext
 }

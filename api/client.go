@@ -161,6 +161,7 @@ func (cl *Client) Connect() error {
 		if gateway.TlsCertificate != "" {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
+
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 		if err != nil {
@@ -175,6 +176,7 @@ func (cl *Client) Connect() error {
 		if cl.ndf.Registration.TlsCertificate != "" {
 			regCert = []byte(cl.ndf.Registration.TlsCertificate)
 		}
+
 		addr := io.ConnAddr("registration")
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCert)
 		if err != nil {
@@ -460,19 +462,19 @@ func (cl *Client) StartMessageReceiver() error {
 		id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
 	(cl.comm).(*io.Messaging).ReceiveGateway =
 		id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
-
+	globals.Log.INFO.Println("inits")
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.comm, cl.topology)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.comm, cl.topology)
-
+	globals.Log.INFO.Println("initingDone")
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	go cl.comm.MessageReceiver(cl.session, pollWaitTimeMillis)
 
 	email := cl.session.GetCurrentUser().Email
-
+	globals.Log.INFO.Println("set up reciever, registering with udb")
 	if email != "" {
 		globals.Log.INFO.Printf("Registering user as %s", email)
 		err := cl.registerForUserDiscovery(email)

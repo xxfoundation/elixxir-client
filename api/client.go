@@ -149,41 +149,50 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect() error {
+	var err error
 	if len(cl.ndf.Gateways) < 1 {
-		globals.Log.ERROR.Printf("Connect: Invalid number of nodes")
 		return errors.New("could not connect due to invalid number of nodes")
 	}
 
-	//connect to all gateways
+	// connect to all gateways
 	for i, gateway := range cl.ndf.Gateways {
 		var gwCreds []byte
-		var err error
 		if gateway.TlsCertificate != "" {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+		globals.Log.INFO.Printf("Connecting to gateway at %s...",
+			gateway.Address)
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
 		if err != nil {
-			globals.Log.ERROR.Printf("Failed to connect to gateway %s: %+v", gateway.Address, err)
+			return errors.New(fmt.Sprintf("Failed to connect to gateway %s: %+v",
+				gateway.Address, err))
 		}
+		globals.Log.INFO.Printf("Connected to gateway at %v successfully!",
+			gateway.Address)
 	}
 
 	//connect to the registration server
 	if cl.ndf.Registration.Address != "" {
 		var regCert []byte
-		var err error
 		if cl.ndf.Registration.TlsCertificate != "" {
 			regCert = []byte(cl.ndf.Registration.TlsCertificate)
 		}
 		addr := io.ConnAddr("registration")
+		globals.Log.INFO.Printf("Connecting to permissioning at %s...",
+			cl.ndf.Registration.Address)
 		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCert)
 		if err != nil {
-			globals.Log.ERROR.Printf("Failed connecting to permissioning: %+v", err)
+			return errors.New(fmt.Sprintf(
+				"Failed connecting to permissioning: %+v", err))
 		}
+		globals.Log.INFO.Printf(
+			"Connected to permissioning at %v successfully!",
+			cl.ndf.Registration.Address)
 	} else {
-		globals.Log.WARN.Printf("Unable to find registration server")
+		globals.Log.WARN.Printf("Unable to find permissioning server!")
 	}
-	return nil
+	return err
 }
 
 // Registers user and returns the User ID.
@@ -441,10 +450,6 @@ func (cl *Client) Login(UID *id.User) (string, error) {
 			err.Error()))
 		globals.Log.ERROR.Printf(err.Error())
 		return "", err
-	}
-
-	if session == nil {
-		return "", errors.New("Unable to load session: " + err.Error())
 	}
 
 	cl.session = session

@@ -632,7 +632,6 @@ func initLog() {
 // specified from the commandline.
 func overwriteNDF(n *ndf.NetworkDefinition) {
 	if len(ndfRegistration) == 3 {
-		n.Registration.DsaPublicKey = ndfRegistration[0]
 		n.Registration.Address = ndfRegistration[1]
 		n.Registration.TlsCertificate = ndfRegistration[2]
 
@@ -647,7 +646,6 @@ func overwriteNDF(n *ndf.NetworkDefinition) {
 		}
 
 		n.UDB.ID = udbIdString
-		n.UDB.DsaPublicKey = ndfUDB[1]
 
 		globals.Log.WARN.Println("Overwrote UDB values in the " +
 			"NetworkDefinition from the commandline")

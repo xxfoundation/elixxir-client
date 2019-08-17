@@ -12,7 +12,7 @@ import:
   repo: git@gitlab.com:elixxir/comms
   vcs: git
 - package: gitlab.com/elixxir/primitives
-  version: master
+  version: release
   repo: git@gitlab.com:elixxir/primitives
   vcs: git
 - package: github.com/mitchellh/go-homedir

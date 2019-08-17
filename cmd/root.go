@@ -45,7 +45,6 @@ var rateLimiting uint32
 var showVer bool
 var gwCertPath string
 var registrationCertPath string
-var registrationAddr string
 var registrationCode string
 var userEmail string
 var userNick string
@@ -522,11 +521,6 @@ func init() {
 	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
 		"",
 		"Path to the certificate file for connecting to registration server"+
-			" using TLS")
-	rootCmd.PersistentFlags().StringVarP(&registrationAddr,
-		"registrationaddr", "a",
-		"",
-		"Address:Port for connecting to registration server"+
 			" using TLS")
 
 	rootCmd.PersistentFlags().StringVarP(&registrationCode,

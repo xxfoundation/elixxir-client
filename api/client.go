@@ -269,12 +269,13 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 		receptionHash := sha256.New()
 
 		// Loop over all Servers
+		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 
 			// Request nonce message from gateway
-			globals.Log.INFO.Println("Register: Requesting nonce from gateway")
+			globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v", i, len(cl.ndf.Gateways))
 			nonce, dhPub, err := cl.requestNonce(salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)

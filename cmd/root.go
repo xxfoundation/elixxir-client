@@ -384,8 +384,14 @@ var rootCmd = &cobra.Command{
 			cryptoType = parse.E2E
 		}
 
-		// Only send a message if we have a message to send (except dummy messages)
-		recipientId := id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
+		var recipientId *id.User
+
+		if destinationUserId == 0 {
+			recipientId = userID
+		} else {
+			recipientId = id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
+		}
+
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""

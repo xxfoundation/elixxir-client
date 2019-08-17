@@ -56,6 +56,7 @@ var skipNDFVerification bool
 var ndfRegistration []string
 var ndfUDB []string
 var ndfPubKey string
+var noTLS bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -594,6 +595,9 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
+
+	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
+		"Set to ignore TLS")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -647,5 +651,15 @@ func overwriteNDF(n *ndf.NetworkDefinition) {
 
 		globals.Log.WARN.Println("Overwrote UDB values in the " +
 			"NetworkDefinition from the commandline")
+	}
+
+	if noTLS {
+		for i := 0; i < len(n.Nodes); i++ {
+			n.Nodes[i].TlsCertificate = ""
+		}
+		n.Registration.TlsCertificate = ""
+		for i := 0; i < len(n.Gateways); i++ {
+			n.Gateways[i].TlsCertificate = ""
+		}
 	}
 }

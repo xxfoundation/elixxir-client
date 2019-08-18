@@ -424,6 +424,7 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 	h := sha.New()
 	h.Write(dhPub)
 	data := h.Sum(nil)
+	fmt.Println(data)
 	// Sign DH pubkey
 	rng := csprng.NewSystemRNG()
 	signed, err := rsa.Sign(rng, privateKeyRSA, sha, data, opts)

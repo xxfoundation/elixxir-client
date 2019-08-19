@@ -36,14 +36,12 @@ import (
 var verbose bool
 var userId uint64
 var destinationUserId uint64
-var gwAddresses []string
 var message string
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
-var gwCertPath string
 var registrationCertPath string
 var registrationCode string
 var userEmail string
@@ -513,11 +511,6 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"ID to sign in as")
-	rootCmd.PersistentFlags().StringSliceVarP(&gwAddresses, "gwaddresses",
-		"g", make([]string, 0), "Gateway addresses:port for message sending, "+
-			"comma-separated")
-	rootCmd.PersistentFlags().StringVarP(&gwCertPath, "gwcertpath", "c", "",
-		"Path to the certificate file for connecting to gateway using TLS")
 	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
 		"",
 		"Path to the certificate file for connecting to registration server"+

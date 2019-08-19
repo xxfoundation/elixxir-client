@@ -9,6 +9,7 @@ package api
 import (
 	"crypto"
 	"crypto/rand"
+	gorsa "crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
 	"errors"
@@ -31,6 +32,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/tls"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
@@ -80,19 +82,19 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 			"definition file")
 	} else {
 		// Get public key
-		pubKey, err := rsa.LoadPublicKeyFromPem([]byte(ndfPub))
+		cert, err := tls.LoadCertificate(ndfPub)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not load public key: %v", err)
 		}
+		pubKey := &rsa.PublicKey{PublicKey: *cert.PublicKey.(*gorsa.PublicKey)}
 
 		// Hash NDF JSON
-		opts := rsa.NewDefaultOptions()
-		rsaHash := opts.Hash.New()
+		rsaHash := sha256.New()
 		rsaHash.Write(ndfJSON.Serialize())
 
 		// Verify signature
 		err = rsa.Verify(
-			pubKey, opts.Hash, rsaHash.Sum(nil), ndfSignature, nil)
+			pubKey, crypto.SHA256, rsaHash.Sum(nil), ndfSignature, nil)
 
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not verify NDF: %v", err)

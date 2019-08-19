@@ -23,7 +23,6 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
@@ -191,20 +190,15 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Error(err)
 	}
 
+	rng := csprng.NewSystemRNG()
 	cmixGrp, e2eGrp := getGroups()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
-	params := signature.CustomDSAParams(
-		cmixGrp.GetP(),
-		cmixGrp.GetQ(),
-		cmixGrp.GetG())
-	rng := csprng.NewSystemRNG()
-	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
+
+	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
-	partnerPrivKey := params.PrivateKeyGen(rng)
-	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
+
+	partnerPubKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
@@ -287,17 +281,13 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	cmixGrp, e2eGrp := getGroups()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
-	params := signature.CustomDSAParams(
-		cmixGrp.GetP(),
-		cmixGrp.GetQ(),
-		cmixGrp.GetG())
+
 	rng := csprng.NewSystemRNG()
-	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
+	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
-	partnerPrivKey := params.PrivateKeyGen(rng)
-	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
+
+	partnerPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	partnerPubKeyCyclic := cmixGrp.ExpG(partnerPrivKeyCyclic, cmixGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}

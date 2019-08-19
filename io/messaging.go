@@ -182,11 +182,11 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
-		SenderID:       session.GetCurrentUser().User.Bytes(),
-		MessagePayload: encMsg.GetPayloadA(),
-		AssociatedData: encMsg.GetPayloadB(),
-		Salt:           salt,
-		KMACs:          make([][]byte, 0),
+		SenderID: session.GetCurrentUser().User.Bytes(),
+		PayloadA: encMsg.GetPayloadA(),
+		PayloadB: encMsg.GetPayloadB(),
+		Salt:     salt,
+		KMACs:    make([][]byte, 0),
 	}
 
 	return m.Comms.SendPutMessage(m.SendGateway, msgPacket)
@@ -390,15 +390,15 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 						"Couldn't receive message with ID %v while"+
 							" polling gateway", messageID)
 				} else {
-					if newMessage.MessagePayload == nil ||
-						newMessage.AssociatedData == nil {
+					if newMessage.PayloadA == nil ||
+						newMessage.PayloadB == nil {
 						globals.Log.INFO.Println("Message fields not populated")
 						continue
 					}
 
 					msg := format.NewMessage()
-					msg.SetPayloadA(newMessage.MessagePayload)
-					msg.SetDecryptedPayloadB(newMessage.AssociatedData)
+					msg.SetPayloadA(newMessage.PayloadA)
+					msg.SetDecryptedPayloadB(newMessage.PayloadB)
 					var err error = nil
 					var rekey bool
 					var unpadded []byte

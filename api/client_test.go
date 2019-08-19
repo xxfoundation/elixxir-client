@@ -23,7 +23,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -31,6 +31,8 @@ import (
 	"testing"
 	"time"
 )
+
+var TestKeySize = 768
 
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
@@ -188,24 +190,23 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Error(err)
 	}
 
+	rng := csprng.NewSystemRNG()
 	cmixGrp, e2eGrp := getGroups()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
-	params := signature.CustomDSAParams(
-		cmixGrp.GetP(),
-		cmixGrp.GetQ(),
-		cmixGrp.GetG())
-	rng := csprng.NewSystemRNG()
-	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKey := myPrivKey.PublicKeyGen()
-	partnerPrivKey := params.PrivateKeyGen(rng)
-	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
+
+	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
+
+	partnerPubKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), myPubKey, myPrivKey, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA, privateKeyRSA,
+		myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
 
 	testClient.session = session
 	fmt.Println("runn")
@@ -280,22 +281,21 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	cmixGrp, e2eGrp := getGroups()
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
-	params := signature.CustomDSAParams(
-		cmixGrp.GetP(),
-		cmixGrp.GetQ(),
-		cmixGrp.GetG())
+
 	rng := csprng.NewSystemRNG()
-	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := cmixGrp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKey := myPrivKey.PublicKeyGen()
-	partnerPrivKey := params.PrivateKeyGen(rng)
-	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := cmixGrp.NewIntFromLargeInt(partnerPubKey.GetKey())
+	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
+
+	partnerPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	partnerPubKeyCyclic := cmixGrp.ExpG(partnerPrivKeyCyclic, cmixGrp.NewMaxInt())
+
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), myPubKey,
-		myPrivKey, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
 
 	testClient.session = session
 
@@ -417,80 +417,99 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	}
 }
 
-// FIXME Reinstate tests for the UDB api
-//var ListenCh chan *format.Message
-//var lastmsg string
+// Test happy path for precannedRegister
+func TestClient_precannedRegister(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
 
-//type dummyMessaging struct {
-//	listener chan *format.Message
-//}
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
 
-// SendMessage to the server
-//func (d *dummyMessaging) SendMessage(recipientID id.User,
-//	message string) error {
-//	jww.INFO.Printf("Sending: %s", message)
-//	lastmsg = message
-//	return nil
-//}
+	nk := make(map[id.Node]user.NodeKeys)
 
-// Listen for messages from a given sender
-//func (d *dummyMessaging) Listen(senderID id.User) chan *format.Message {
-//	return d.listener
-//}
+	_, _, nk, err = testClient.precannedRegister("UAV6IWD6", "tony_johns", nk)
+	if err != nil {
+		t.Errorf("Error during precannedRegister: %+v", err)
+	}
+}
 
-// StopListening to a given switchboard (closes and deletes)
-//func (d *dummyMessaging) StopListening(listenerCh chan *format.Message) {}
+// Test happy path for sendRegistrationMessage
+func TestClient_sendRegistrationMessage(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
 
-// MessageReceiver thread to get new messages
-//func (d *dummyMessaging) MessageReceiver(delay time.Duration) {}
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
 
-//var pubKeyBits []string
-//var keyFingerprint string
-//var pubKey []byte
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-// SendMsg puts a fake udb response message on the channel
-//func SendMsg(msg string) {
-//	m, _ := format.NewMessage(13, 1, msg)
-//	ListenCh <- &m[0]
-//}
+	_, err = testClient.sendRegistrationMessage("UAV6IWD6", &publicKeyRSA)
+	if err != nil {
+		t.Errorf("Error during sendRegistrationMessage: %+v", err)
+	}
+}
 
-//func TestRegisterPubKeyByteLen(t *testing.T) {
-//	ListenCh = make(chan *format.Message, 100)
-//	io.Messaging = &dummyMessaging{
-//		switchboard: ListenCh,
-//	}
-//	pubKeyBits = []string{
-//		"S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNz" +
-//			"LU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClp" +
-//			"q4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY4=",
-//		"8Lg/eoeKGgPlleTYfO3JyGfnwBtLi73ti0h2dBQWW94JTqTQDr+z" +
-//			"xVpLzdgTt+87TkAl0yXu9mOUXqGJ+51lTcRlIdIpWpfgUbibdRme8IThg0RNCF31ESKCts" +
-//			"o8gJ8mSVljIXxrC+Uuoi+Gl1LNN5nPARykatx0Y70xNdJd2BQ=",
-//	}
-//	pubKey = make([]byte, 256)
-//	for i := range pubKeyBits {
-//		pubkeyBytes, _ := base64.StdEncoding.DecodeString(pubKeyBits[i])
-//		for j := range pubkeyBytes {
-//			pubKey[j+i*128] = pubkeyBytes[j]
-//		}
-//	}
-//
-//	keyFingerprint = "8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
-//	//SendMsg("SEARCH blah@privategrity.com NOTFOUND")
-//	SendMsg(fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint))
-//	SendMsg("PUSHKEY ACK NEED 128")
-//	SendMsg(fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint))
-//	SendMsg("REGISTRATION COMPLETE")
-//
-//	err := bots.Register("EMAIL", "blah@privategrity.com", pubKey)
-//
-//	if err != nil {
-//		t.Errorf("Unexpected error: %s", err.Error())
-//	}
-//	if len(lastmsg) != 81 {
-//		t.Errorf("Message wrong length: %d v. expected 81", len(lastmsg))
-//	}
-//}
+// Test happy path for requestNonce
+func TestClient_requestNonce(t *testing.T) {
+	cmixGrp, _ := getGroups()
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	salt := make([]byte, 256)
+	_, err = csprng.NewSystemRNG().Read(salt)
+	if err != nil {
+		t.Errorf("Unable to generate salt! %s", err)
+	}
+
+	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
+	_, _, err = testClient.requestNonce(salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
+	if err != nil {
+		t.Errorf("Error during requestNonce: %+v", err)
+	}
+}
+
+// Test happy path for confirmNonce
+func TestClient_confirmNonce(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
+	err = testClient.confirmNonce([]byte("user"), []byte("test"), privateKeyRSA, gwID)
+	if err != nil {
+		t.Errorf("Error during confirmNonce: %+v", err)
+	}
+}
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {
 

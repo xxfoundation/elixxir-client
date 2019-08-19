@@ -81,7 +81,7 @@ func setup() {
 	}
 
 	session = user.NewSession(nil, u, nkMap,
-		nil, nil, cmixGrp, e2eGrp)
+		nil, nil, nil, nil, cmixGrp, e2eGrp)
 }
 
 func TestMain(m *testing.M) {
@@ -193,16 +193,16 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		// Multiply associated data only by transmission key
 		cmixGrp.Mul(assocData, serverPayloadBKey, assocData)
 		encryptedNet = &pb.Slot{
-			SenderID:       sender.Bytes(),
-			Salt:           salt,
-			MessagePayload: payload.LeftpadBytes(uint64(format.PayloadLen)),
-			AssociatedData: assocData.LeftpadBytes(uint64(format.PayloadLen)),
+			SenderID: sender.Bytes(),
+			Salt:     salt,
+			PayloadA: payload.LeftpadBytes(uint64(format.PayloadLen)),
+			PayloadB: assocData.LeftpadBytes(uint64(format.PayloadLen)),
 		}
 	}
 
 	decMsg := format.NewMessage()
-	decMsg.SetPayloadA(encryptedNet.MessagePayload)
-	decMsg.SetDecryptedPayloadB(encryptedNet.AssociatedData)
+	decMsg.SetPayloadA(encryptedNet.PayloadA)
+	decMsg.SetDecryptedPayloadB(encryptedNet.PayloadB)
 
 	// E2E Decryption
 	err := E2EDecryptUnsafe(e2eGrp, key, decMsg)

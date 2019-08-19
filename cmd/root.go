@@ -36,16 +36,13 @@ import (
 var verbose bool
 var userId uint64
 var destinationUserId uint64
-var gwAddresses []string
 var message string
 var sessionFile string
 var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
-var gwCertPath string
 var registrationCertPath string
-var registrationAddr string
 var registrationCode string
 var userEmail string
 var userNick string
@@ -56,6 +53,7 @@ var skipNDFVerification bool
 var ndfRegistration []string
 var ndfUDB []string
 var ndfPubKey string
+var noTLS bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -150,13 +148,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	// Connect to gateways and reg server
-	globals.Log.INFO.Println("Connecting...")
 	err = client.Connect()
-
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
-	globals.Log.INFO.Println("Connected!")
 
 	// Holds the User ID
 	var uid *id.User
@@ -384,8 +379,14 @@ var rootCmd = &cobra.Command{
 			cryptoType = parse.E2E
 		}
 
-		// Only send a message if we have a message to send (except dummy messages)
-		recipientId := id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
+		var recipientId *id.User
+
+		if destinationUserId == 0 {
+			recipientId = userID
+		} else {
+			recipientId = id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
+		}
+
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
@@ -507,19 +508,9 @@ func init() {
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
 		"ID to sign in as")
-	rootCmd.PersistentFlags().StringSliceVarP(&gwAddresses, "gwaddresses",
-		"g", make([]string, 0), "Gateway addresses:port for message sending, "+
-			"comma-separated")
-	rootCmd.PersistentFlags().StringVarP(&gwCertPath, "gwcertpath", "c", "",
-		"Path to the certificate file for connecting to gateway using TLS")
 	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
 		"",
 		"Path to the certificate file for connecting to registration server"+
-			" using TLS")
-	rootCmd.PersistentFlags().StringVarP(&registrationAddr,
-		"registrationaddr", "a",
-		"",
-		"Address:Port for connecting to registration server"+
 			" using TLS")
 
 	rootCmd.PersistentFlags().StringVarP(&registrationCode,
@@ -588,6 +579,9 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
+
+	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
+		"Set to ignore TLS")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -622,7 +616,6 @@ func initLog() {
 // specified from the commandline.
 func overwriteNDF(n *ndf.NetworkDefinition) {
 	if len(ndfRegistration) == 3 {
-		n.Registration.DsaPublicKey = ndfRegistration[0]
 		n.Registration.Address = ndfRegistration[1]
 		n.Registration.TlsCertificate = ndfRegistration[2]
 
@@ -637,9 +630,18 @@ func overwriteNDF(n *ndf.NetworkDefinition) {
 		}
 
 		n.UDB.ID = udbIdString
-		n.UDB.DsaPublicKey = ndfUDB[1]
 
 		globals.Log.WARN.Println("Overwrote UDB values in the " +
 			"NetworkDefinition from the commandline")
+	}
+
+	if noTLS {
+		for i := 0; i < len(n.Nodes); i++ {
+			n.Nodes[i].TlsCertificate = ""
+		}
+		n.Registration.TlsCertificate = ""
+		for i := 0; i < len(n.Gateways); i++ {
+			n.Gateways[i].TlsCertificate = ""
+		}
 	}
 }

@@ -162,6 +162,7 @@ func (cl *Client) Connect() error {
 		if gateway.TlsCertificate != "" {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
+
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 			gwID.String(), gateway.Address)

@@ -22,7 +22,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
 	"log"
@@ -50,8 +49,6 @@ var end2end bool
 var keyParams []string
 var ndfPath string
 var skipNDFVerification bool
-var ndfRegistration []string
-var ndfUDB []string
 var ndfPubKey string
 var noTLS bool
 
@@ -91,7 +88,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	globals.Log.DEBUG.Printf("NDF Verified: %v", ndfJSON)
 
 	// Overwrite the network definition with any specified flags
-	overwriteNDF(ndfJSON)
 	globals.Log.DEBUG.Printf("Overwrote NDF Vars: %v", ndfJSON)
 
 	//If no session file is passed initialize with RAM Storage
@@ -145,6 +141,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
 		return id.ZeroID, "", nil
+	}
+
+	if noTLS {
+		client.DisableTLS()
 	}
 
 	// Connect to gateways and reg server
@@ -551,16 +551,6 @@ func init() {
 		false,
 		"Specifies if the NDF should be loaded without the signature")
 
-	rootCmd.PersistentFlags().StringSliceVar(&ndfRegistration,
-		"ndfRegistration",
-		nil,
-		"Overwrite the Registration values for the NDF")
-
-	rootCmd.PersistentFlags().StringSliceVar(&ndfUDB,
-		"ndfUDB",
-		nil,
-		"Overwrite the UDB values for the NDF")
-
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
@@ -608,40 +598,6 @@ func initLog() {
 			globals.Log.WARN.Println("Invalid or missing log path, default path used.")
 		} else {
 			globals.Log.SetLogOutput(logFile)
-		}
-	}
-}
-
-// overwriteNDF replaces fields in the NetworkDefinition structure with values
-// specified from the commandline.
-func overwriteNDF(n *ndf.NetworkDefinition) {
-	if len(ndfRegistration) == 3 {
-		n.Registration.Address = ndfRegistration[1]
-		n.Registration.TlsCertificate = ndfRegistration[2]
-
-		globals.Log.WARN.Println("Overwrote Registration values in the " +
-			"NetworkDefinition from the commandline")
-	}
-
-	if len(ndfUDB) == 2 {
-		udbIdString, err := base64.StdEncoding.DecodeString(ndfUDB[0])
-		if err != nil {
-			globals.Log.WARN.Printf("Could not decode USB ID: %v", err)
-		}
-
-		n.UDB.ID = udbIdString
-
-		globals.Log.WARN.Println("Overwrote UDB values in the " +
-			"NetworkDefinition from the commandline")
-	}
-
-	if noTLS {
-		for i := 0; i < len(n.Nodes); i++ {
-			n.Nodes[i].TlsCertificate = ""
-		}
-		n.Registration.TlsCertificate = ""
-		for i := 0; i < len(n.Gateways); i++ {
-			n.Gateways[i].TlsCertificate = ""
 		}
 	}
 }

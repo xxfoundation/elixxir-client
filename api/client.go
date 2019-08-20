@@ -47,6 +47,7 @@ type Client struct {
 	comm     io.Communications
 	ndf      *ndf.NetworkDefinition
 	topology *circuit.Circuit
+	tls      bool
 }
 
 var PermissioningAddrID = "registration"
@@ -146,7 +147,15 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition) (*
 
 	cl.topology = circuit.New(nodeIDs)
 
+	cl.tls = true
+
 	return cl, nil
+}
+
+// DisableTLS makes the client run with TLS disabled
+// Must be called before Connect
+func (cl *Client) DisableTLS() {
+	cl.tls = false
 }
 
 // Connects to gateways and registration server (if needed)
@@ -161,7 +170,7 @@ func (cl *Client) Connect() error {
 	// connect to all gateways
 	for i, gateway := range cl.ndf.Gateways {
 		var gwCreds []byte
-		if gateway.TlsCertificate != "" {
+		if gateway.TlsCertificate != "" && cl.tls {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
 
@@ -181,7 +190,7 @@ func (cl *Client) Connect() error {
 	//connect to the registration server
 	if cl.ndf.Registration.Address != "" {
 		var regCert []byte
-		if cl.ndf.Registration.TlsCertificate != "" {
+		if cl.ndf.Registration.TlsCertificate != "" && cl.tls {
 			regCert = []byte(cl.ndf.Registration.TlsCertificate)
 		}
 		addr := io.ConnAddr(PermissioningAddrID)

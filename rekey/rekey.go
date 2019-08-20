@@ -2,7 +2,6 @@ package rekey
 
 import (
 	"bytes"
-	"crypto/rand"
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -14,7 +13,6 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/crypto/signature"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -164,37 +162,36 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	// Add context to RekeyManager in case of RekeyTrigger
 	var privKeyCyclic *cyclic.Int
 	var pubKeyCyclic *cyclic.Int
+	var partnerPubKeyCyclic *cyclic.Int
 	var baseKey *cyclic.Int
-	var pubKey *signature.DSAPublicKey
 	if ctx == nil {
 		if rt == RekeyTrigger {
-			params := signature.GetDefaultDSAParams()
-			privateKey := params.PrivateKeyGen(rand.Reader)
-			pubKey = privateKey.PublicKeyGen()
-			privKeyCyclic = grp.NewIntFromLargeInt(privateKey.GetKey())
+			privKeyCyclic = grp.RandomCoprime(grp.NewInt(1))
+			fmt.Println("Private key actual: ", privKeyCyclic.Text(16))
+			pubKeyCyclic = grp.ExpG(privKeyCyclic, grp.NewInt(1))
 			// Get Current Partner Public Key from RekeyKeys
-			pubKeyCyclic = keys.CurrPubKey
+			partnerPubKeyCyclic = keys.CurrPubKey
 			// Set new Own Private Key
 			keys.NewPrivKey = privKeyCyclic
 		} else {
 			// Get Current Own Private Key from RekeyKeys
 			privKeyCyclic = keys.CurrPrivKey
 			// Get Partner New Public Key from data
-			pubKeyCyclic = grp.NewIntFromBytes(data)
+			partnerPubKeyCyclic = grp.NewIntFromBytes(data)
 			// Set new Partner Public Key
-			keys.NewPubKey = pubKeyCyclic
+			keys.NewPubKey = partnerPubKeyCyclic
 		}
 
 		// Generate baseKey
 		baseKey, _ = diffieHellman.CreateDHSessionKey(
-			pubKeyCyclic,
+			partnerPubKeyCyclic,
 			privKeyCyclic,
 			grp)
 
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,
 			PrivKey: privKeyCyclic,
-			PubKey:  pubKeyCyclic,
+			PubKey:  partnerPubKeyCyclic,
 		}
 
 		if rt == RekeyTrigger {
@@ -254,7 +251,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
 		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
-			pubKey.GetKey().LeftpadBytes(uint64(format.ContentsLen)))
+			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()

@@ -85,10 +85,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	// Verify the signature
 	globals.Log.DEBUG.Println("Verifying NDF...")
 	ndfJSON := api.VerifyNDF(string(ndfBytes), ndfPubKey)
-	globals.Log.DEBUG.Printf("NDF Verified: %v", ndfJSON)
-
-	// Overwrite the network definition with any specified flags
-	globals.Log.DEBUG.Printf("Overwrote NDF Vars: %v", ndfJSON)
+	globals.Log.DEBUG.Printf("   NDF Verified")
 
 	//If no session file is passed initialize with RAM Storage
 	if sessionFile == "" {

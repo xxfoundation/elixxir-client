@@ -27,6 +27,5 @@ localdev_*
 *.class
 *.aar
 *.jar
-glide.yaml
 # Ignore genered version file
 cmd/version_vars.go

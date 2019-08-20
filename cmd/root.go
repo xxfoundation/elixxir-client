@@ -20,7 +20,9 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/utils"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
@@ -34,7 +36,9 @@ import (
 
 var verbose bool
 var userId uint64
+var sourcePublicKeyPath string
 var destinationUserId uint64
+var destinationUserIDBase64 string
 var message string
 var sessionFile string
 var dummyFrequency float64
@@ -165,14 +169,27 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
+		var privKey *rsa.PrivateKey
+
+		if sourcePublicKeyPath != "" {
+			pubKeyBytes, err := ioutil.ReadFile(utils.GetFullPath(sourcePublicKeyPath))
+			jww.FATAL.Panicf("Could not load user public key PEM from "+
+				"path %s: %+v", sourcePublicKeyPath, err)
+			privKey, err = rsa.LoadPrivateKeyFromPem(pubKeyBytes)
+			jww.FATAL.Panicf("Could not public key from "+
+				"PEM: %+v", err)
+		}
+
+		uid, err = client.Register(userId != 0, regCode, userNick, userEmail, privKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
 			return id.ZeroID, "", nil
 		}
 
-		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
+		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
+
+		globals.Log.INFO.Printf("Successfully registered user %s!", userbase64)
 
 	} else {
 		// hack for session persisting with cmd line
@@ -378,8 +395,19 @@ var rootCmd = &cobra.Command{
 
 		var recipientId *id.User
 
-		if destinationUserId == 0 {
+		if destinationUserId != 0 && destinationUserIDBase64 != "" {
+			jww.FATAL.Panicf("Two destiantions set for the message, can only have one")
+		}
+
+		if destinationUserId == 0 && destinationUserIDBase64 == "" {
 			recipientId = userID
+		} else if destinationUserIDBase64 != "" {
+			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)
+			if err != nil {
+				jww.FATAL.Panic("Could not decode the destination user ID")
+			}
+			recipientId = id.NewUserFromBytes(recipientIdBytes)
+
 		} else {
 			recipientId = id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
 		}
@@ -569,6 +597,13 @@ func init() {
 
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
 		"Set to ignore TLS")
+
+	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "pubKey", "",
+		"The path for a PEM encoded public key which will be used "+
+			"to create the user")
+
+	rootCmd.Flags().StringVar(&destinationUserIDBase64, "dest64", "",
+		"Sets the destination user id encoded in base 64")
 }
 
 // initConfig reads in config file and ENV variables if set.

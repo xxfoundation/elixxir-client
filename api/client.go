@@ -80,7 +80,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 		globals.Log.WARN.Printf("Running without signed network " +
 			"definition file")
 	} else {
-		// Get public key
+		// Load the TLS cert given to us, and from that get the RSA public key
 		cert, err := tls.LoadCertificate(ndfPub)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not load public key: %v", err)

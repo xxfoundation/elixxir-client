@@ -571,7 +571,7 @@ func init() {
 		"w", 1, "Denotes the number of messages the "+
 			"client should receive before closing")
 
-	rootCmd.Flags().StringVar(&searchForUser, "SearchForUser", "s",
+	rootCmd.Flags().StringVar(&searchForUser, "SearchForUser", "s", "",
 		"Sets the email to search for to find a user with user discovery")
 
 	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",

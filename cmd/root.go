@@ -40,7 +40,6 @@ var destinationUserId uint64
 var destinationUserIDBase64 string
 var message string
 var sessionFile string
-var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
@@ -334,9 +333,6 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		var dummyPeriod time.Duration
-		var timer *time.Timer
-
 		userID, _, client := sessionInitialization()
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
@@ -362,12 +358,6 @@ var rootCmd = &cobra.Command{
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
 		globals.Log.INFO.Println("Logged In!")
-
-		// Do calculation for dummy messages if the flag is set
-		if dummyFrequency != 0 {
-			dummyPeriod = time.Nanosecond *
-				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
-		}
 
 		cryptoType := parse.Unencrypted
 		if end2end {
@@ -434,39 +424,7 @@ var rootCmd = &cobra.Command{
 			client.SearchForUser(searchForUser, udbLister)
 		}
 
-		if dummyFrequency != 0 {
-			timer = time.NewTimer(dummyPeriod)
-		}
-
-		if dummyPeriod != 0 {
-			for {
-				// need to constantly send new messages
-				<-timer.C
-
-				contact := ""
-				u, ok := user.Users.GetUser(recipientId)
-				if ok {
-					contact = u.Nick
-				}
-				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-					contact, message)
-
-				message := &parse.Message{
-					Sender: userID,
-					TypedBody: parse.TypedBody{
-						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:        api.FormatTextMessage(message),
-					},
-					InferredType: cryptoType,
-					Receiver:     recipientId}
-				err := client.Send(message)
-				if err != nil {
-					globals.Log.ERROR.Printf("Error sending message: %+v", err)
-				}
-
-				timer = time.NewTimer(dummyPeriod)
-			}
-		} else {
+		if message != "" {
 			// Wait up to 45s to receive a message
 			for end, timeout := false, time.After(45*time.Second); !end; {
 				numMsgRecieved := atomic.LoadInt64(&text.MessagesReceived)
@@ -476,7 +434,7 @@ var rootCmd = &cobra.Command{
 
 				select {
 				case <-timeout:
-					fmt.Println("Timing out client, "+
+					fmt.Printf("Timing out client, "+
 						"%v/%v message(s) been received", numMsgRecieved,
 						waitForMessages)
 					end = true
@@ -591,10 +549,6 @@ func init() {
 		"ID to send message to")
 	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
 		"Show the server version information.")
-
-	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
-		"Frequency of dummy messages in Hz.  If no message is passed, "+
-			"will transmit a random message.  Dummies are only sent if this flag is passed")
 
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")

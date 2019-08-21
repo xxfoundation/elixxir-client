@@ -64,7 +64,6 @@ Optional args:
 |--verbose|-v|Verbose mode for debugging|-v|
 |--version|-V|Show the client version information|-V|
 |--waitForMessages|-w|Denotes the number of messages the client should receive before closing (default 1)|-w 7|
-|--dummyfrequency| |Frequency of dummy messages in Hz.  If no message is passed, will transmit a random message.  Dummies are only sent if this flag is passed| --dummyfrequency 30.5|
 
 Runs a client for cMix anonymous communication platform
 

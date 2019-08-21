@@ -183,8 +183,6 @@ func (cl *Client) Connect() error {
 				"Failed to connect to gateway %s at %s: %+v",
 				gwID.String(), gateway.Address, err))
 		}
-		globals.Log.INFO.Printf("Connected to gateway %s at %s successfully!",
-			gwID.String(), gateway.Address)
 	}
 
 	//connect to the registration server
@@ -675,8 +673,8 @@ func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 		return err
 	}
 
-	publicKey := cl.session.GetRSAPublicKey()
-	publicKeyBytes := rsa.CreatePublicKeyPem(publicKey)
+	publicKeyBytes := cl.session.GetDHPublicKey().Bytes()
+
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 

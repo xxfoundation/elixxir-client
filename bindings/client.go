@@ -137,7 +137,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
 	fmt.Println("calling client reg")
-	UID, err := cl.client.Register(preCan, registrationCode, nick, email, nil)
+	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
+		password, nil)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -152,8 +153,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 func (cl *Client) Login(UID []byte, password string) (string, error) {
 	globals.Log.INFO.Printf("Binding call: Login()\n"+
 		"   UID: %v\n   Password: ********", UID)
-	userID := id.NewUserFromBytes(UID)
-	return cl.client.Login(userID)
+	return cl.client.Login(password)
 }
 
 // Starts the polling of the external servers.

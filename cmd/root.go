@@ -51,6 +51,7 @@ var keyParams []string
 var ndfPath string
 var skipNDFVerification bool
 var ndfPubKey string
+var sessFilePassword string
 var noTLS bool
 var searchForUser string
 var waitForMessages uint
@@ -185,7 +186,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.Register(userId != 0, regCode, userNick, userEmail, privKey)
+		uid, err = client.Register(userId != 0, regCode, userNick,
+			userEmail, sessFilePassword, privKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
@@ -203,7 +205,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	nick, err := client.Login(uid)
+	nick, err := client.Login(sessFilePassword)
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
@@ -541,6 +543,12 @@ func init() {
 		"skipNDFVerification",
 		false,
 		"Specifies if the NDF should be loaded without the signature")
+
+	rootCmd.PersistentFlags().StringVarP(&sessFilePassword,
+		"password",
+		"P",
+		"",
+		"Password to the session file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

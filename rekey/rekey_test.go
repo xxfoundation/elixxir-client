@@ -72,7 +72,8 @@ func TestMain(m *testing.M) {
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, grp, e2eGrp)
+		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclic,
+		myPrivKeyCyclic, grp, e2eGrp, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,

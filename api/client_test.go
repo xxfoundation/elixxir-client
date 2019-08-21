@@ -7,9 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -46,24 +44,20 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "", nil)
+	_, err = testClient.Register(true, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// get the gob out of there again
-	sessionGob := testClient.storage.Load()
-	var sessionBytes bytes.Buffer
-	sessionBytes.Write(sessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
-	Session := user.SessionObj{}
-	err = dec.Decode(&Session)
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
 	if err != nil {
 		t.Error(err)
 	}
 
-	VerifyRegisterGobUser(&Session, t)
-	VerifyRegisterGobKeys(&Session, testClient.topology, t)
+	VerifyRegisterGobUser(Session, t)
+	VerifyRegisterGobKeys(Session, testClient.topology, t)
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -204,8 +198,9 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA, privateKeyRSA,
-		myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		e2eGrp, "password")
 
 	testClient.session = session
 
@@ -294,7 +289,8 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
+		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		e2eGrp, "password")
 
 	testClient.session = session
 

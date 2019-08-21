@@ -210,7 +210,8 @@ func (cl *Client) Connect() error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick, email string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick, email,
+	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 	var err error
 	var u *user.User
 	var UID *id.User
@@ -334,13 +335,16 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string, pr
 	u.Email = email
 
 	// Create the user session
-	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA, privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
+		privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp,
+		password)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
 
-	// FIXME If we have an error here, the session that gets created doesn't get immolated.
-	// Immolation should happen in a deferred call instead.
+	// FIXME If we have an error here, the session that gets created
+	// doesn't get immolated. Immolation should happen in a deferred
+	//  call instead.
 	if errStore != nil {
 		err = errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+
@@ -521,8 +525,8 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 }
 
 // LoadSession loads the session object for the UID
-func (cl *Client) Login(UID *id.User) (string, error) {
-	session, err := user.LoadSession(cl.storage, UID)
+func (cl *Client) Login(password string) (string, error) {
+	session, err := user.LoadSession(cl.storage, password)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("Login: Could not login: %s",

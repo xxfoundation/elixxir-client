@@ -27,7 +27,6 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -45,7 +44,6 @@ var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
-var registrationCertPath string
 var registrationCode string
 var userEmail string
 var userNick string
@@ -55,13 +53,16 @@ var ndfPath string
 var skipNDFVerification bool
 var ndfPubKey string
 var noTLS bool
+var searchForUser string
+var waitForMessages uint
+var messageTimeout uint
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		jww.ERROR.Println(err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
@@ -173,11 +174,16 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		if sourcePublicKeyPath != "" {
 			pubKeyBytes, err := ioutil.ReadFile(utils.GetFullPath(sourcePublicKeyPath))
-			jww.FATAL.Panicf("Could not load user public key PEM from "+
-				"path %s: %+v", sourcePublicKeyPath, err)
+			if err != nil {
+				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
+					"path %s: %+v", sourcePublicKeyPath, err)
+			}
+
 			privKey, err = rsa.LoadPrivateKeyFromPem(pubKeyBytes)
-			jww.FATAL.Panicf("Could not public key from "+
-				"PEM: %+v", err)
+			if err != nil {
+				globals.Log.FATAL.Panicf("Could not public key from "+
+					"PEM: %+v", err)
+			}
 		}
 
 		uid, err = client.Register(userId != 0, regCode, userNick, userEmail, privKey)
@@ -297,42 +303,22 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
-type ChannelListener struct {
-	MessagesReceived int64
+type userSearcher struct {
+	foundUserChan chan []byte
 }
 
-//used to get the client object into hear
-var globalClient *api.Client
+func newUserSearcher() api.SearchCallback {
+	us := userSearcher{}
+	us.foundUserChan = make(chan []byte)
+	return &us
+}
 
-func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
-	message := item.(*parse.Message)
-	globals.Log.INFO.Println("Hearing a channel message")
-	result := cmixproto.ChannelMessage{}
-	err := proto.Unmarshal(message.Body, &result)
-
+func (us *userSearcher) Callback(userID, pubKey []byte, err error) {
 	if err != nil {
-		globals.Log.ERROR.Printf("Could not unmarhsal message, message "+
-			"not processed: %+v", err)
-	}
-
-	sender, ok := user.Users.GetUser(message.Sender)
-	var senderNick string
-	if !ok {
-		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.Log.ERROR.Printf("Could not find searched user: %+v", err)
 	} else {
-		senderNick = sender.Nick
+		us.foundUserChan <- userID
 	}
-
-	fmt.Printf("Message from channel %v, %v: ",
-		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
-	typedBody, _ := parse.Parse(result.Message)
-	speakerId := id.NewUserFromBytes(result.SpeakerID)
-	globalClient.GetSwitchboard().Speak(&parse.Message{
-		TypedBody: *typedBody,
-		Sender:    speakerId,
-		Receiver:  id.ZeroID,
-	})
-	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -352,7 +338,6 @@ var rootCmd = &cobra.Command{
 		var timer *time.Timer
 
 		userID, _, client := sessionInitialization()
-		globalClient = client
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
 			setKeyParams(client)
@@ -364,10 +349,6 @@ var rootCmd = &cobra.Command{
 		text := TextListener{}
 		client.Listen(id.ZeroID, int32(cmixproto.Type_TEXT_MESSAGE),
 			&text)
-		// Channel messages
-		channel := ChannelListener{}
-		client.Listen(id.ZeroID,
-			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel)
 		// All other messages
 		fallback := FallbackListener{}
 		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
@@ -396,7 +377,7 @@ var rootCmd = &cobra.Command{
 		var recipientId *id.User
 
 		if destinationUserId != 0 && destinationUserIDBase64 != "" {
-			jww.FATAL.Panicf("Two destiantions set for the message, can only have one")
+			globals.Log.FATAL.Panicf("Two destiantions set for the message, can only have one")
 		}
 
 		if destinationUserId == 0 && destinationUserIDBase64 == "" {
@@ -404,7 +385,7 @@ var rootCmd = &cobra.Command{
 		} else if destinationUserIDBase64 != "" {
 			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)
 			if err != nil {
-				jww.FATAL.Panic("Could not decode the destination user ID")
+				globals.Log.FATAL.Panic("Could not decode the destination user ID")
 			}
 			recipientId = id.NewUserFromBytes(recipientIdBytes)
 
@@ -446,6 +427,13 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		var udbLister api.SearchCallback
+
+		if searchForUser != "" {
+			udbLister = newUserSearcher()
+			client.SearchForUser(searchForUser, udbLister)
+		}
+
 		if dummyFrequency != 0 {
 			timer = time.NewTimer(dummyPeriod)
 		}
@@ -481,18 +469,30 @@ var rootCmd = &cobra.Command{
 		} else {
 			// Wait up to 45s to receive a message
 			for end, timeout := false, time.After(45*time.Second); !end; {
-				if text.MessagesReceived > 0 {
+				numMsgRecieved := atomic.LoadInt64(&text.MessagesReceived)
+				if numMsgRecieved == int64(waitForMessages) {
 					end = true
 				}
 
 				select {
 				case <-timeout:
-					fmt.Println("Timing out client " +
-						"as no messages have" +
-						" been received")
+					fmt.Println("Timing out client, "+
+						"%v/%v message(s) been received", numMsgRecieved,
+						waitForMessages)
 					end = true
 				default:
 				}
+			}
+		}
+
+		if searchForUser != "" {
+			foundUser := <-udbLister.(*userSearcher).foundUserChan
+			if isValidUser(foundUser) {
+				userIDBase64 := base64.StdEncoding.EncodeToString(foundUser)
+				globals.Log.INFO.Printf("Found User %s at ID: %s",
+					userEmail, userIDBase64)
+			} else {
+				globals.Log.INFO.Printf("Found User %s is invalid")
 			}
 		}
 
@@ -505,6 +505,18 @@ var rootCmd = &cobra.Command{
 		}
 
 	},
+}
+
+func isValidUser(usr []byte) bool {
+	if len(usr) != id.UserLen {
+		return false
+	}
+	for _, b := range usr {
+		if b != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // init is the initialization function for Cobra which defines commands
@@ -532,16 +544,12 @@ func init() {
 			"Automatically disabled if 'blockingTransmission' is false")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
-		"ID to sign in as")
-	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
-		"",
-		"Path to the certificate file for connecting to registration server"+
-			" using TLS")
+		"ID to sign in as. Does not register, must be an available precanned user")
 
 	rootCmd.PersistentFlags().StringVarP(&registrationCode,
-		"regcode", "e",
+		"regcode", "r",
 		"",
-		"Registration Code")
+		"Registration Code with the registration server")
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
 		"email", "E",
@@ -589,21 +597,32 @@ func init() {
 			"will transmit a random message.  Dummies are only sent if this flag is passed")
 
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
-		"Send messages with E2E encryption to destination user")
+		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 
 	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
-		"Set to ignore TLS")
+		"Set to ignore TLS. Connections will fail if the network requires TLS. For debugging")
 
-	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "pubKey", "",
-		"The path for a PEM encoded public key which will be used "+
+	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "privateKey", "",
+		"The path for a PEM encoded private key which will be used "+
 			"to create the user")
 
 	rootCmd.Flags().StringVar(&destinationUserIDBase64, "dest64", "",
 		"Sets the destination user id encoded in base 64")
+
+	rootCmd.Flags().UintVarP(&waitForMessages, "waitForMessages",
+		"w", 1, "Denotes the number of messages the "+
+			"client should receive before closing")
+
+	rootCmd.Flags().StringVar(&searchForUser, "SearchForUser", "",
+		"Sets the email to search for to find a user with user discovery")
+
+	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
+		"t", 45, "The number of seconds to wait for "+
+			"'waitForMessages' messages to arrive")
 }
 
 // initConfig reads in config file and ENV variables if set.

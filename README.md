@@ -41,27 +41,36 @@ Optional args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--gwaddresses|-g|Addresses:port of the gateways to connect to, separated by commas (Overrides config file)|-g localhost:8443,localhost:8444|
-|--destid|-d|ID of the user to send messages to|-d 6|
-|--message|-m|Text message to send|-m "let's both have a good day"|
-|--verbose|-v|Prints more logging messages for debugging|-v|
-|--version|-V|Show the generated version information. Run `$ go generate cmd/version.go` if the information is out of date.|--version|
-|--sessionfile|-f|File path for storing the session. If not specified, the session will be stored in RAM and won't persist.|-f mySuperCoolSessionFile|
-|--noBlockingTransmission| |Disables transmission rate limiting (useful for dummy client)|--noBlockingTransmission|
-|--help|-h|Prints a help message with all of these flags|-h|
-|--gwcertpath|-c|Enables TLS by passing in path to the gateway certificate file|-c "~/Documents/gateway.cert"|
-|--registrationcertpath|-r|Enables TLS by passing in path to the registration server certificate file|-r "~/Documents/registration.cert"|
-|--registrationaddr|-a|Address:Port for connecting to the registration server|-a "localhost:11420"|
-|--dummyfrequency| |How often dummy messages should be sent per second. This flag is likely to be replaced when we implement better dummy message sending.|--dummyfrequency 0.5|
-|--end2end| |Send messages with E2E encryption to destination user|--end2end|
-|--keyParams| |Set E2E key generation parameters. Pass values in comma separated list, with the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys|--keyParams 100,200,32,1.2,50|
-|--email|-E|Email to register for User Discovery (default "default@default.com")||
-|--nick| |Nickname to register for User Discovery (default "Default")||
+|--message|-ms|Message to send|-m "top of the morning"|
+|--messageTimeout|-t|The number of seconds to wait for 'waitForMessages' messages to arrive (default 45)|-t 42|
+|--ndf|-n|Path to the network definition JSON file (default "ndf.json")| -n "ndf.json"|
+|--SearchForUser| |Sets the email to search for to find a user with user discovery| -s "david@chaum.com|
+|--dest64| |Sets the destination user id encoded in base 64| --dest64 "yCvV6AsEK3l+45Gn4awBJ4lpb+hT2sO6yzxjeraRor0="|
+|--destid|-d|ID to send message to| -d 69|
+|--email|-E|Email to register for User Discovery| -e "david@chaum.com"|
+|--end2end| |Send messages with E2E encryption to destination user. Must have found each other via UDB first| -end2end|
+|--help| |help for client| --help|
+|--keyParams| |Define key generation parameters. Pass values in comma separated list in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys| |
 |--ndfPubKey|-p|Path to the public key for the network definition JSON file|
-|--ndf|-n|Path to the network definition JSON file|
-|--skipNDFVerification| |Specifies if the NDF should be loaded without the signature (default false)|
-|--ndfRegistration| |Overwrite the Registration values for the NDF|
-|--ndfUDB| |Overwrite the UDB values for the NDF|
+|--nick| |Nickname to register for User Discovery (default "Default")| --nick "zezima"|
+|--noBlockingTransmission| |Sets if transmitting messages blocks or not.  Defaults to true if unset.|--noBlockingTransmission|
+|--noTLS| |Set to ignore TLS. Connections will fail if the network requires TLS. For debugging|--noTLS|
+|--privateKey| |The path for a PEM encoded private key which will be used to create the user|--privateKey "key.pem"|
+|--rateLimiting| |Sets the amount of time, in ms, that the client waits between sending messages.  set to zero to disable.  Automatically disabled if 'blockingTransmission' is false (default 1000)| --rateLimiting 100|
+|--regcode string|-r|Registration Code with the registration server |--regcode "AAAA"|
+|--sessionfile|-f|Passes a file path for loading a session.  If the file doesnt exist the code will register the user and store it there.  If not passed the session will be stored to ram and lost when the cli finishes| -s "user.session"|
+|--skipNDFVerification| |Specifies if the NDF should be loaded without the signature|--skipNDFVerification|
+|--userid|-i|ID to sign in as. Does not register, must be an available precanned user |-i 32|
+|--verbose|-v|Verbose mode for debugging|-v|
+|--version|-V|Show the client version information|-V|
+|--waitForMessages|-w|Denotes the number of messages the client should receive before closing (default 1)|-w 7|
+|--dummyfrequency| |Frequency of dummy messages in Hz.  If no message is passed, will transmit a random message.  Dummies are only sent if this flag is passed| --dummyfrequency 30.5|
+
+Runs a client for cMix anonymous communication platform
+
+Use "client [command] --help" for more information about a command.
+
+
 
 ##Project Structure
 

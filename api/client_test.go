@@ -47,7 +47,7 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "")
+	_, err = testClient.Register(true, "UAV6IWD6", "", "", nil)
 	if err != nil {
 		t.Error(err)
 	}

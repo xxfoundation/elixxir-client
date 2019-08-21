@@ -137,7 +137,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
 	fmt.Println("calling client reg")
-	UID, err := cl.client.Register(preCan, registrationCode, nick, email)
+	UID, err := cl.client.Register(preCan, registrationCode, nick, email, nil)
 
 	if err != nil {
 		return id.ZeroID[:], err

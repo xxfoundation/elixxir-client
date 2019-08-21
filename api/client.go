@@ -212,7 +212,7 @@ func (cl *Client) Connect() error {
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*id.User, error) {
+func (cl *Client) Register(preCan bool, registrationCode, nick, email string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 	var err error
 	var u *user.User
 	var UID *id.User
@@ -233,10 +233,13 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email string) (*
 	nk := make(map[id.Node]user.NodeKeys)
 
 	// GENERATE CLIENT RSA KEYS
-	privateKeyRSA, err := rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
-	if err != nil {
-		return nil, err
+	if privateKeyRSA == nil {
+		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
+		if err != nil {
+			return nil, err
+		}
 	}
+
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())

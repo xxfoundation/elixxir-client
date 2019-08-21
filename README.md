@@ -41,10 +41,10 @@ Optional args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--message|-ms|Message to send|-m "top of the morning"|
+|--message|-m|Message to send|-m "top of the morning"|
 |--messageTimeout|-t|The number of seconds to wait for 'waitForMessages' messages to arrive (default 45)|-t 42|
 |--ndf|-n|Path to the network definition JSON file (default "ndf.json")| -n "ndf.json"|
-|--SearchForUser| |Sets the email to search for to find a user with user discovery| -s "david@chaum.com|
+|--SearchForUser|-s|Sets the email to search for to find a user with user discovery| -s "david@chaum.com|
 |--dest64| |Sets the destination user id encoded in base 64| --dest64 "yCvV6AsEK3l+45Gn4awBJ4lpb+hT2sO6yzxjeraRor0="|
 |--destid|-d|ID to send message to| -d 69|
 |--email|-E|Email to register for User Discovery| -e "david@chaum.com"|

@@ -730,7 +730,7 @@ func (cl *Client) LookupNick(user *id.User,
 func (cl *Client) registerUserE2E(partnerID *id.User,
 	partnerPubKey []byte) {
 	// Get needed variables from session
-	grp := cl.session.GetCmixGroup()
+	grp := cl.session.GetE2EGroup()
 	userID := cl.session.GetCurrentUser().User
 
 	// Create user private key and partner public key

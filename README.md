@@ -41,7 +41,7 @@ Optional args:
 
 |Long flag|Short flag|Effect|Example|
 |---|---|---|---|
-|--message|-ms|Message to send|-m "top of the morning"|
+|--message|-m|Message to send|-m "top of the morning"|
 |--messageTimeout|-t|The number of seconds to wait for 'waitForMessages' messages to arrive (default 45)|-t 42|
 |--ndf|-n|Path to the network definition JSON file (default "ndf.json")| -n "ndf.json"|
 |--SearchForUser|-s|Sets the email to search for to find a user with user discovery| -s "david@chaum.com|

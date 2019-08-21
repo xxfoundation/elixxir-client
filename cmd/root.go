@@ -450,7 +450,7 @@ var rootCmd = &cobra.Command{
 				globals.Log.INFO.Printf("Found User %s at ID: %s",
 					userEmail, userIDBase64)
 			} else {
-				globals.Log.INFO.Printf("Found User %s is invalid")
+				globals.Log.INFO.Printf("Found User %s is invalid", userEmail)
 			}
 		}
 

@@ -10,7 +10,6 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/gob"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -195,10 +194,10 @@ func TestRegisterUserE2E(t *testing.T) {
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 
-	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
+	myPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	myPubKeyCyclic := e2eGrp.ExpG(myPrivKeyCyclic, e2eGrp.NewMaxInt())
 
-	partnerPubKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	partnerPubKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
@@ -209,9 +208,9 @@ func TestRegisterUserE2E(t *testing.T) {
 		myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
 
 	testClient.session = session
-	fmt.Println("runn")
+
 	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
-	fmt.Println("dunn")
+
 	// Confirm we can get all types of keys
 	km := session.GetKeyStore().GetSendManager(partner)
 	if km == nil {
@@ -241,9 +240,9 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	// Generate one reception key of each type to test
 	// fingerprint map
-	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, cmixGrp)
-	recvKeys := e2e.DeriveKeys(cmixGrp, baseKey, partner, uint(1))
-	recvReKeys := e2e.DeriveEmergencyKeys(cmixGrp, baseKey, partner, uint(1))
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, e2eGrp)
+	recvKeys := e2e.DeriveKeys(e2eGrp, baseKey, partner, uint(1))
+	recvReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey, partner, uint(1))
 
 	h, _ := hash.NewCMixHash()
 	h.Write(recvKeys[0].Bytes())
@@ -283,11 +282,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	partner := id.NewUserFromUint(14, t)
 
 	rng := csprng.NewSystemRNG()
-	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
+	myPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	myPubKeyCyclic := e2eGrp.ExpG(myPrivKeyCyclic, e2eGrp.NewMaxInt())
 
-	partnerPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	partnerPubKeyCyclic := cmixGrp.ExpG(partnerPrivKeyCyclic, cmixGrp.NewMaxInt())
+	partnerPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	partnerPubKeyCyclic := e2eGrp.ExpG(partnerPrivKeyCyclic, e2eGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
@@ -303,15 +302,15 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	// Generate all keys and confirm they all match
 	keyParams := testClient.GetKeyParams()
-	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, cmixGrp)
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, e2eGrp)
 	keyTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
 		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
-	sendKeys := e2e.DeriveKeys(cmixGrp, baseKey, userID, uint(numKeys))
-	sendReKeys := e2e.DeriveEmergencyKeys(cmixGrp, baseKey,
+	sendKeys := e2e.DeriveKeys(e2eGrp, baseKey, userID, uint(numKeys))
+	sendReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey,
 		userID, uint(keyParams.NumRekeys))
-	recvKeys := e2e.DeriveKeys(cmixGrp, baseKey, partner, uint(numKeys))
-	recvReKeys := e2e.DeriveEmergencyKeys(cmixGrp, baseKey,
+	recvKeys := e2e.DeriveKeys(e2eGrp, baseKey, partner, uint(numKeys))
+	recvReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey,
 		partner, uint(keyParams.NumRekeys))
 
 	// Confirm all keys

@@ -179,14 +179,14 @@ func (m *Messaging) send(session user.Session, topology *circuit.Circuit,
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
-	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
+	encMsg, KMAC := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
 		SenderID: session.GetCurrentUser().User.Bytes(),
 		PayloadA: encMsg.GetPayloadA(),
 		PayloadB: encMsg.GetPayloadB(),
 		Salt:     salt,
-		KMACs:    make([][]byte, 0),
+		KMACs:    KMAC,
 	}
 
 	return m.Comms.SendPutMessage(m.SendGateway, msgPacket)

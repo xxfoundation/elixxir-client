@@ -126,7 +126,7 @@ func parseGetKey(msg string) []byte {
 		return nil
 	}
 	keymat, err := base64.StdEncoding.DecodeString(resParts[2])
-	if err != nil {
+	if err != nil || len(keymat)==0{
 		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}

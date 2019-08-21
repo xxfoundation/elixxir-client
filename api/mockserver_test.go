@@ -258,7 +258,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "", "", "password",
+	_, err = client.Register(true, ValidRegCode, "", "", "password",
 		nil)
 
 	if err != nil {

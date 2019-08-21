@@ -8,8 +8,6 @@ package api
 
 import (
 	"crypto/sha256"
-	"fmt"
-	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"

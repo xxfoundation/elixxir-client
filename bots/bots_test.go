@@ -70,7 +70,7 @@ func TestMain(m *testing.M) {
 	cmixGrp, e2eGrp := getGroups()
 
 	fakeSession := user.NewSession(&globals.RamStorage{},
-		u, nil, nil, nil, cmixGrp, e2eGrp, "password")
+		u, nil, nil, nil, nil, nil, cmixGrp, e2eGrp, "password")
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}

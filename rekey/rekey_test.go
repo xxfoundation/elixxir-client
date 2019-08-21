@@ -2,6 +2,7 @@ package rekey
 
 import (
 	"bytes"
+	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
@@ -13,7 +14,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
@@ -56,25 +57,23 @@ func TestMain(m *testing.M) {
 
 	grp, e2eGrp := getGroups()
 	user.InitUserRegistry(grp)
-	params := signature.CustomDSAParams(
-		grp.GetP(),
-		grp.GetQ(),
-		grp.GetG())
 	rng := csprng.NewSystemRNG()
 	u := &user.User{
 		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
 		Nick: "Bernie",
 	}
-	myPrivKey := params.PrivateKeyGen(rng)
-	myPrivKeyCyclic := grp.NewIntFromLargeInt(myPrivKey.GetKey())
-	myPubKey := myPrivKey.PublicKeyGen()
+	myPrivKeyCyclic := grp.RandomCoprime(grp.NewMaxInt())
+	myPubKeyCyclic := grp.ExpG(myPrivKeyCyclic, grp.NewInt(1))
 	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
-	partnerPrivKey := params.PrivateKeyGen(rng)
-	partnerPubKey := partnerPrivKey.PublicKeyGen()
-	partnerPubKeyCyclic := grp.NewIntFromLargeInt(partnerPubKey.GetKey())
+
+	partnerPubKeyCyclic := grp.RandomCoprime(grp.NewMaxInt())
+
+	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
+	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, myPubKey, myPrivKey, grp, e2eGrp, "password")
+		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclic,
+		myPrivKeyCyclic, grp, e2eGrp, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
@@ -146,13 +145,15 @@ func TestRekeyTrigger(t *testing.T) {
 	grp := session.GetCmixGroup()
 	actualPubKey := grp.NewIntFromBytes(value)
 	privKey := session.GetRekeyManager().GetCtx(partnerID).PrivKey
+	fmt.Println("privKey: ", privKey.Text(16))
 	expectedPubKey := grp.NewInt(1)
 	grp.ExpG(privKey, expectedPubKey)
+	fmt.Println("new pub key: ", value)
 
 	if expectedPubKey.Cmp(actualPubKey) != 0 {
 		t.Errorf("RekeyTrigger publicKey mismatch, expected %s,"+
-			" got %s", expectedPubKey.Text(10),
-			actualPubKey.Text(10))
+			" got %s", expectedPubKey.Text(16),
+			actualPubKey.Text(16))
 	}
 
 	// Check that trying to send another rekeyTrigger message returns an error
@@ -216,7 +217,7 @@ func TestRekeyConfirm(t *testing.T) {
 
 	// Confirm that user Private key in Send Key Manager
 	// differs from the one stored in session
-	if session.GetPrivateKey().GetKey().Cmp(
+	if session.GetDHPrivateKey().GetLargeInt().Cmp(
 		session.GetKeyStore().GetSendManager(partnerID).
 			GetPrivKey().GetLargeInt()) == 0 {
 		t.Errorf("PrivateKey remained unchanged after Outgoing Rekey!")
@@ -247,19 +248,14 @@ func TestRekey(t *testing.T) {
 	km := session.GetKeyStore().GetSendManager(partnerID)
 	// Generate new partner public key
 	grp, _ := getGroups()
-	params := signature.CustomDSAParams(
-		grp.GetP(),
-		grp.GetQ(),
-		grp.GetG())
-	rng := csprng.NewSystemRNG()
-	partnerPrivKey := params.PrivateKeyGen(rng)
-	partnerPubKey := partnerPrivKey.PublicKeyGen()
+	privKey := grp.RandomCoprime(grp.NewMaxInt())
+	pubKey := grp.ExpG(privKey, grp.NewMaxInt())
 	// Test receiving a Rekey message
 	msg := &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NO_TYPE),
-			Body:        partnerPubKey.GetKey().Bytes(),
+			Body:        pubKey.Bytes(),
 		},
 		InferredType: parse.Rekey,
 		Receiver:     session.GetCurrentUser().User,
@@ -291,12 +287,12 @@ func TestRekey(t *testing.T) {
 	keys := rkm.GetKeys(partnerID)
 
 	if keys.CurrPrivKey.GetLargeInt().
-		Cmp(session.GetPrivateKey().GetKey()) == 0 {
+		Cmp(session.GetDHPrivateKey().GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
 	}
 
 	if keys.CurrPubKey.GetLargeInt().
-		Cmp(partnerPubKey.GetKey()) != 0 {
+		Cmp(pubKey.GetLargeInt()) != 0 {
 		t.Errorf("Partner PublicKey didn't update properly after both parties rekeys")
 	}
 }

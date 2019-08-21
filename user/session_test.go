@@ -11,7 +11,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
@@ -51,14 +51,17 @@ func TestUserSession(t *testing.T) {
 	storage := &globals.RamStorage{}
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L1024N160)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
 
 	cmixGrp, e2eGrp := getGroups()
 
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+
 	ses := NewSession(storage,
-		u, keys, publicKey, privateKey, cmixGrp, e2eGrp, "password")
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		cmixGrp, e2eGrp, "password")
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -105,11 +108,26 @@ func TestUserSession(t *testing.T) {
 
 		for i := 0; i < len(ses.GetKeys(topology)); i++ {
 
-			if !reflect.DeepEqual(*ses.GetPublicKey(), *publicKey) {
-				t.Errorf("Public key not set correctly!")
-			} else if !reflect.DeepEqual(*ses.GetPrivateKey(),
-				*privateKey) {
-				t.Errorf("Private key not set correct!")
+			sesPriv := ses.GetRSAPrivateKey().PrivateKey
+			if !reflect.DeepEqual(*ses.GetRSAPublicKey(), publicKey) {
+				t.Errorf("Error: Public key not set correctly!")
+			} else if !reflect.DeepEqual(sesPriv, privateKey.PrivateKey) {
+				orig := privateKey.PrivateKey
+				if sesPriv.E != orig.E {
+					t.Errorf("Error: Private key not set correctly E!  \nExpected: %+v\nreceived: %+v",
+						orig.E, sesPriv.E)
+				} else if sesPriv.D.Cmp(orig.D) != 0 {
+					t.Errorf("Error: Private key not set correctly D!  \nExpected: %+v\nreceived: %+v",
+						orig.D, sesPriv.D)
+				} else if sesPriv.N.Cmp(orig.N) != 0 {
+					t.Errorf("Error: Private key not set correctly N!  \nExpected: %+v\nreceived: %+v",
+						orig.N, sesPriv.N)
+				} else if !reflect.DeepEqual(sesPriv.Primes, orig.Primes) {
+					t.Errorf("Error: Private key not set correctly PRIMES!  \nExpected: %+v\nreceived: %+v",
+						orig, sesPriv)
+				} else {
+					t.Log("DeepEqual failed, but values are equal...")
+				}
 			} else if ses.GetKeys(topology)[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Reception key not set correct!")
@@ -123,8 +141,8 @@ func TestUserSession(t *testing.T) {
 	}
 
 	//TODO: FIX THIS?
-	if ses.GetPrivateKey() == nil {
-		t.Errorf("Private Keys not set correctly!")
+	if ses.GetRSAPrivateKey() == nil {
+		t.Errorf("Error: Private Keys not set correctly!")
 	} else {
 		pass++
 	}
@@ -203,16 +221,18 @@ func TestGetPubKey(t *testing.T) {
 	}
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L1024N160)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
 
 	cmixGrp, e2eGrp := getGroups()
 
-	ses := NewSession(nil, u, keys, publicKey, privateKey, cmixGrp, e2eGrp,
-		"password")
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
-	pubKey := ses.GetPublicKey()
+	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
+		privateKeyDH, cmixGrp, e2eGrp, "password")
+
+	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
 		t.Errorf("Public key not returned correctly!")
 	}
@@ -235,16 +255,18 @@ func TestGetPrivKey(t *testing.T) {
 	}
 
 	rng := rand.New(rand.NewSource(42))
-	params := signature.NewDSAParams(rng, signature.L1024N160)
-	privateKey := params.PrivateKeyGen(rng)
-	publicKey := privateKey.PublicKeyGen()
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
 
 	cmixGrp, e2eGrp := getGroups()
 
-	ses := NewSession(nil, u, keys, publicKey, privateKey, cmixGrp, e2eGrp,
-		"password")
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
-	privKey := ses.GetPrivateKey()
+	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
+		privateKeyDH, cmixGrp, e2eGrp, "password")
+
+	privKey := ses.GetRSAPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {
 		t.Errorf("Private key is not returned correctly!")
 	}

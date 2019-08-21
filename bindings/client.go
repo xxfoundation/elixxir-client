@@ -97,6 +97,7 @@ func FormatTextMessage(message string) []byte {
 // this would be the filename of the file that you're storing the user
 // session in.
 func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, error) {
+	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
 	}
@@ -109,10 +110,18 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, 
 	return &Client{client: cl}, err
 }
 
+// DisableTLS makes the client run with TLS disabled
+// Must be called before Connect
+func (cl *Client) DisableTLS() {
+	globals.Log.INFO.Printf("Binding call: DisableTLS()")
+	cl.DisableTLS()
+}
+
 // Connects to gateways and registration server (if needed)
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect() error {
+	globals.Log.INFO.Printf("Binding call: Connect()")
 	return cl.client.Connect()
 }
 
@@ -124,9 +133,12 @@ func (cl *Client) Connect() error {
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
 func (cl *Client) Register(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+	globals.Log.INFO.Printf("Binding call: Register()\n"+
+		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
+		"   Password: ********", preCan, registrationCode, nick, email)
 	fmt.Println("calling client reg")
 	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
-		password)
+		password, nil)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -139,12 +151,15 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func (cl *Client) Login(UID []byte, password string) (string, error) {
+	globals.Log.INFO.Printf("Binding call: Login()\n"+
+		"   UID: %v\n   Password: ********", UID)
 	return cl.client.Login(password)
 }
 
 // Starts the polling of the external servers.
 // Must be done after listeners are set up.
 func (cl *Client) StartMessageReceiver() error {
+	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
 	return cl.client.StartMessageReceiver()
 }
 

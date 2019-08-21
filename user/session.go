@@ -18,7 +18,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/signature"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -33,8 +33,10 @@ var ErrQuery = errors.New("element not in map")
 type Session interface {
 	GetCurrentUser() (currentUser *User)
 	GetKeys(topology *circuit.Circuit) []NodeKeys
-	GetPrivateKey() *signature.DSAPrivateKey
-	GetPublicKey() *signature.DSAPublicKey
+	GetRSAPrivateKey() *rsa.PrivateKey
+	GetRSAPublicKey() *rsa.PublicKey
+	GetDHPrivateKey() *cyclic.Int
+	GetDHPublicKey() *cyclic.Int
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	GetLastMessageID() string
@@ -61,8 +63,10 @@ type NodeKeys struct {
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
 	u *User, nk map[id.Node]NodeKeys,
-	publicKey *signature.DSAPublicKey,
-	privateKey *signature.DSAPrivateKey,
+	publicKeyRSA *rsa.PublicKey,
+	privateKeyRSA *rsa.PrivateKey,
+	publicKeyDH *cyclic.Int,
+	privateKeyDH *cyclic.Int,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string) Session {
 
@@ -70,8 +74,10 @@ func NewSession(store globals.Storage,
 	return Session(&SessionObj{
 		CurrentUser:         u,
 		Keys:                nk,
-		PrivateKey:          privateKey,
-		PublicKey:           publicKey,
+		RSAPublicKey:        publicKeyRSA,
+		RSAPrivateKey:       privateKeyRSA,
+		DHPublicKey:         publicKeyDH,
+		DHPrivateKey:        privateKeyDH,
 		CmixGrp:             cmixGrp,
 		E2EGrp:              e2eGrp,
 		InterfaceMap:        make(map[string]interface{}),
@@ -128,11 +134,13 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	Keys       map[id.Node]NodeKeys
-	PrivateKey *signature.DSAPrivateKey
-	PublicKey  *signature.DSAPublicKey
-	CmixGrp    *cyclic.Group
-	E2EGrp     *cyclic.Group
+	Keys          map[id.Node]NodeKeys
+	RSAPrivateKey *rsa.PrivateKey
+	RSAPublicKey  *rsa.PublicKey
+	DHPrivateKey  *cyclic.Int
+	DHPublicKey   *cyclic.Int
+	CmixGrp       *cyclic.Group
+	E2EGrp        *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -187,16 +195,28 @@ func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
 	return keys
 }
 
-func (s *SessionObj) GetPrivateKey() *signature.DSAPrivateKey {
+func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.PrivateKey
+	return s.RSAPrivateKey
 }
 
-func (s *SessionObj) GetPublicKey() *signature.DSAPublicKey {
+func (s *SessionObj) GetRSAPublicKey() *rsa.PublicKey {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.PublicKey
+	return s.RSAPublicKey
+}
+
+func (s *SessionObj) GetDHPrivateKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.DHPrivateKey
+}
+
+func (s *SessionObj) GetDHPublicKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.DHPublicKey
 }
 
 func (s *SessionObj) GetCmixGroup() *cyclic.Group {

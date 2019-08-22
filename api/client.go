@@ -249,13 +249,14 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
-		globals.Log.INFO.Printf("Registering precanned user")
+		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
 			return id.ZeroID, err
 		}
 	} else {
+		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
 		salt := make([]byte, saltSize)

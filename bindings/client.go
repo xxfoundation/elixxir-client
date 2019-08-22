@@ -8,7 +8,6 @@ package bindings
 
 import (
 	"errors"
-	"fmt"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -136,7 +135,6 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	globals.Log.INFO.Printf("Binding call: Register()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	fmt.Println("calling client reg")
 	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
 		password, nil)
 

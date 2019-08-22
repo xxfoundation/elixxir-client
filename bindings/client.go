@@ -113,7 +113,7 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, 
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
 	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.DisableTLS()
+	cl.client.DisableTLS()
 }
 
 // Connects to gateways and registration server (if needed)

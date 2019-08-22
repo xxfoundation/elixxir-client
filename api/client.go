@@ -177,7 +177,7 @@ func (cl *Client) Connect() error {
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 			gwID.String(), gateway.Address)
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds, true)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRemote(gwID, gateway.Address, gwCreds, true)
 		if err != nil {
 			return errors.New(fmt.Sprintf(
 				"Failed to connect to gateway %s at %s: %+v",
@@ -196,7 +196,7 @@ func (cl *Client) Connect() error {
 		addr := io.ConnAddr(PermissioningAddrID)
 		globals.Log.INFO.Printf("Connecting to permissioning/registration at %s...",
 			cl.ndf.Registration.Address)
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCert, true)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRemote(addr, cl.ndf.Registration.Address, regCert, true)
 		if err != nil {
 			return errors.New(fmt.Sprintf(
 				"Failed connecting to permissioning: %+v", err))

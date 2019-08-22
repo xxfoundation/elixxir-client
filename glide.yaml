@@ -1,29 +1,29 @@
 package: gitlab.com/elixxir/client
 import:
-- package: github.com/xeipuuv/gojsonschema
-  version: master
-  vcs: git
-- package: gitlab.com/elixxir/crypto
-  version: release
-  repo: git@gitlab.com:elixxir/crypto
-  vcs: git
-- package: gitlab.com/elixxir/comms
-  version: release
-  repo: git@gitlab.com:elixxir/comms
-  vcs: git
-- package: gitlab.com/elixxir/primitives
-  version: release
-  repo: git@gitlab.com:elixxir/primitives
-  vcs: git
-- package: github.com/mitchellh/go-homedir
-  version: master
-  repo: https://github.com/mitchellh/go-homedir.git
-  vcs: git
-- package: github.com/spf13/cobra
-  version: ^0.0.1
-  subpackages:
-  - cobra
-- package: github.com/golang-collections/collections
-  version: master
-  repo: https://github.com/golang-collections/collections.git
-  vcs: git
+  - package: github.com/xeipuuv/gojsonschema
+    version: master
+    vcs: git
+  - package: gitlab.com/elixxir/crypto
+    version: release
+    repo: git@gitlab.com:elixxir/crypto
+    vcs: git
+  - package: gitlab.com/elixxir/comms
+    version: release
+    repo: git@gitlab.com:elixxir/comms
+    vcs: git
+  - package: gitlab.com/elixxir/primitives
+    version: release
+    repo: git@gitlab.com:elixxir/primitives
+    vcs: git
+  - package: github.com/mitchellh/go-homedir
+    version: master
+    repo: https://github.com/mitchellh/go-homedir.git
+    vcs: git
+  - package: github.com/spf13/cobra
+    version: ^0.0.1
+    subpackages:
+      - cobra
+  - package: github.com/golang-collections/collections
+    version: master
+    repo: https://github.com/golang-collections/collections.git
+    vcs: git

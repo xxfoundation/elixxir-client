@@ -244,8 +244,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	cmixPrivateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
 
-	e2ePrivateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	e2ePublicKeyDH := cmixGrp.ExpG(e2ePrivateKeyDH, cmixGrp.NewMaxInt())
+	e2ePrivateKeyDH := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
 
 	// Handle precanned registration
 	if preCan {

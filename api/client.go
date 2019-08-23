@@ -698,7 +698,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
 		if err == nil && uid != nil && pubKey != nil {
-			cl.registerUserE2E(uid, pubKey)
+			err = cl.registerUserE2E(uid, pubKey)
 			cb.Callback(uid[:], pubKey, err)
 		} else {
 			if err == nil {
@@ -734,7 +734,17 @@ func (cl *Client) LookupNick(user *id.User,
 }
 
 func (cl *Client) registerUserE2E(partnerID *id.User,
-	partnerPubKey []byte) {
+	partnerPubKey []byte) error {
+
+	if partnerKeyStore := cl.session.GetKeyStore().GetSendManager(partnerID); partnerKeyStore != nil {
+		return errors.New(fmt.Sprintf("UDB searched failed for %v because user has "+
+			"been searched for before", partnerID))
+	}
+
+	if cl.session.GetCurrentUser().User.Cmp(partnerID) {
+		return errors.New("cannot search for yourself on UDB")
+	}
+
 	// Get needed variables from session
 	grp := cl.session.GetE2EGroup()
 	userID := cl.session.GetCurrentUser().User
@@ -780,6 +790,8 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	}
 
 	rkm.AddKeys(partnerID, keys)
+
+	return nil
 }
 
 //Message struct adherent to interface in bindings for data return from ParseMessage

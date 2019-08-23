@@ -46,14 +46,10 @@ func NewCollator() *Collator {
 // TODO this takes too many types. i should split it up.
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
-func (mb *Collator) AddMessage(message *format.Message,
+func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 	timeout time.Duration) *parse.Message {
 
 	payload := message.Contents.GetRightAligned()
-	// There's currently no mechanism for knowing who sent an unencrypted
-	// message, I think?
-	// Let's just try ZeroID for now...
-	sender := id.NewUserFromBytes(message.GetMAC())
 	recipient := message.GetRecipient()
 
 	partition, err := parse.ValidatePartition(payload)

@@ -289,12 +289,12 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 		default:
 			time.Sleep(delay)
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
-			decryptedMessages := m.receiveMessagesFromGateway(session, &pollingMessage)
+			decryptedMessages, senders := m.receiveMessagesFromGateway(session, &pollingMessage)
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
-					assembledMessage := m.collator.AddMessage(
-						decryptedMessages[i], time.Minute)
+					assembledMessage := m.collator.AddMessage(decryptedMessages[i],
+						senders[i], time.Minute)
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
 						broadcastMessageReception(assembledMessage, session.GetSwitchboard())
@@ -306,7 +306,7 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 }
 
 func handleE2EReceiving(session user.Session,
-	message *format.Message) (bool, error) {
+	message *format.Message) (*id.User, bool, error) {
 	keyFingerprint := message.GetKeyFP()
 
 	// Lookup reception key
@@ -316,11 +316,13 @@ func handleE2EReceiving(session user.Session,
 	rekey := false
 	if recpKey == nil {
 		// TODO Handle sending error message to SW
-		return false, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
+		return nil, false, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
 	} else if recpKey.GetOuterType() == parse.Rekey {
 		// If key type is rekey, the message is a rekey from partner
 		rekey = true
 	}
+
+	sender := recpKey.GetManager().GetPartner()
 
 	globals.Log.DEBUG.Printf("E2E decrypting message")
 	var err error
@@ -352,25 +354,26 @@ func handleE2EReceiving(session user.Session,
 		}
 		go session.GetSwitchboard().Speak(rekeyMsg)
 	}
-	return rekey, err
+	return sender, rekey, err
 }
 
 func (m *Messaging) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientRequest) []*format.Message {
+	pollingMessage *pb.ClientRequest) ([]*format.Message, []*id.User) {
 	if session != nil {
 		pollingMessage.LastMessageID = session.GetLastMessageID()
-		messages, err := m.Comms.SendCheckMessages(m.ReceiveGateway,
+		messageIDs, err := m.Comms.SendCheckMessages(m.ReceiveGateway,
 			pollingMessage)
 
 		if err != nil {
 			globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
-			return nil
+			return nil, nil
 		}
 
-		globals.Log.DEBUG.Printf("Checking novelty of %v messages", len(messages.IDs))
+		globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
 
-		results := make([]*format.Message, 0, len(messages.IDs))
-		for _, messageID := range messages.IDs {
+		messages := make([]*format.Message, 0, len(messageIDs.IDs))
+		senders := make([]*id.User, 0, len(messageIDs.IDs))
+		for _, messageID := range messageIDs.IDs {
 			// Get the first unseen message from the list of IDs
 			_, received := m.ReceivedMessages[messageID]
 			if !received {
@@ -402,26 +405,29 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 					var err error = nil
 					var rekey bool
 					var unpadded []byte
+					var sender *id.User
 					// If message is E2E, handle decryption
 					if !e2e.IsUnencrypted(msg) {
-						rekey, err = handleE2EReceiving(session, msg)
+						sender, rekey, err = handleE2EReceiving(session, msg)
 					} else {
 						// If message is non E2E, need to unpad payload
 						unpadded, err = e2e.Unpad(msg.Contents.Get())
 						if err == nil {
 							msg.Contents.SetRightAligned(unpadded)
 						}
+						sender = id.NewUserFromBytes(msg.GetMAC())
 					}
 
 					if err != nil {
 						globals.Log.WARN.Printf(
 							"Message did not decrypt properly, "+
-								"not adding to results array: %v", err.Error())
+								"not adding to messages array: %v", err.Error())
 					} else if rekey {
 						globals.Log.INFO.Printf("Correctly processed rekey message," +
-							" not adding to results array")
+							" not adding to messages array")
 					} else {
-						results = append(results, msg)
+						messages = append(messages, msg)
+						senders = append(senders, sender)
 					}
 
 					globals.Log.INFO.Printf(
@@ -436,9 +442,9 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 				}
 			}
 		}
-		return results
+		return messages, senders
 	}
-	return nil
+	return nil, nil
 }
 
 func broadcastMessageReception(message *parse.Message,

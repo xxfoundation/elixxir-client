@@ -126,6 +126,7 @@ func LoadSession(store globals.Storage,
 
 	// Set storage pointer
 	session.store = store
+	session.password = password
 	return &session, nil
 }
 
@@ -255,6 +256,8 @@ func (s *SessionObj) storeSession() error {
 	}
 
 	sessionData, err := s.getSessionData()
+	globals.Log.ERROR.Printf("Storing session with password: %s",
+		s.password)
 	err = s.store.Save(encrypt(sessionData, s.password))
 	if err != nil {
 		return err

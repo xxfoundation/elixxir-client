@@ -56,6 +56,7 @@ var noTLS bool
 var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
+var messageCnt uint
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -400,21 +401,25 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-					recipientNick, message)
-
-				// Send the message
-				err := client.Send(&parse.Message{
-					Sender: userID,
-					TypedBody: parse.TypedBody{
-						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:        wireOut,
-					},
-					InferredType: cryptoType,
-					Receiver:     recipientId,
-				})
-				if err != nil {
-					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				for i := uint(0); i < messageCnt; i++ {
+					fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+						recipientNick, message)
+					if i != 0 {
+						time.Sleep(1 * time.Second)
+					}
+					// Send the message
+					err := client.Send(&parse.Message{
+						Sender: userID,
+						TypedBody: parse.TypedBody{
+							MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
+							Body:        wireOut,
+						},
+						InferredType: cryptoType,
+						Receiver:     recipientId,
+					})
+					if err != nil {
+						globals.Log.ERROR.Printf("Error sending message: %+v", err)
+					}
 				}
 			}
 		}
@@ -428,16 +433,21 @@ var rootCmd = &cobra.Command{
 
 		if message != "" {
 			// Wait up to 45s to receive a message
+			lastCnt := int64(0)
 			for end, timeout := false, time.After(45*time.Second); !end; {
-				numMsgRecieved := atomic.LoadInt64(&text.MessagesReceived)
-				if numMsgRecieved == int64(waitForMessages) {
+				numMsgReceived := atomic.LoadInt64(&text.MessagesReceived)
+				if numMsgReceived == int64(waitForMessages) {
 					end = true
+				}
+				if numMsgReceived != lastCnt {
+					lastCnt = numMsgReceived
+					timeout = time.After(45 * time.Second)
 				}
 
 				select {
 				case <-timeout:
 					fmt.Printf("Timing out client, "+
-						"%v/%v message(s) been received", numMsgRecieved,
+						"%v/%v message(s) been received", numMsgReceived,
 						waitForMessages)
 					end = true
 				default:
@@ -585,6 +595,9 @@ func init() {
 	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
 		"t", 45, "The number of seconds to wait for "+
 			"'waitForMessages' messages to arrive")
+
+	rootCmd.Flags().UintVarP(&messageCnt, "messageCount",
+		"c", 1, "The number of times to send the message")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -366,6 +366,23 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	return UID, nil
 }
 
+// RegisterWithUDB uses the account's email to register with the UDB for
+// User discovery.  Must be called after Register and Connect.
+// It will fail if the user has already registered with UDB
+func (cl *Client) RegisterWithUDB() error {
+	email := cl.session.GetCurrentUser().Email
+
+	if email != "" {
+		globals.Log.INFO.Printf("Registering user as %s with UDB", email)
+		err := cl.registerForUserDiscovery(email)
+		if err != nil {
+			return err
+		}
+		globals.Log.INFO.Printf("Registered with UDB!")
+	}
+	return nil
+}
+
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
 func (cl *Client) precannedRegister(registrationCode, nick string,
@@ -567,19 +584,6 @@ func (cl *Client) StartMessageReceiver() error {
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	go cl.comm.MessageReceiver(cl.session, pollWaitTimeMillis)
 
-	email := cl.session.GetCurrentUser().Email
-
-	if email != "" {
-		globals.Log.INFO.Printf("Registering user as %s", email)
-		err := cl.registerForUserDiscovery(email)
-		if err != nil {
-			globals.Log.ERROR.Printf(
-				"Unable to register with UDB: %s", err)
-			return err
-		}
-		globals.Log.INFO.Printf("Registered!")
-	}
-
 	return nil
 }
 
@@ -675,7 +679,7 @@ func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 	userId, _, err := bots.Search(valueType, emailAddress)
 	if userId != nil {
 		globals.Log.DEBUG.Printf("Already registered %s", emailAddress)
-		return nil
+		return errors.New(fmt.Sprintf("Could not register in UDB, email %s already registered", emailAddress))
 	}
 	if err != nil {
 		return err

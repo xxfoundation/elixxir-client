@@ -212,6 +212,13 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
 
+	if userEmail != "" {
+		err := client.RegisterWithUDB()
+		if err != nil {
+			jww.ERROR.Printf("Could not register with UDB: %+v", err)
+		}
+	}
+
 	return uid, nick, client
 }
 

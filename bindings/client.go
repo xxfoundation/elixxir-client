@@ -145,6 +145,14 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	return UID[:], nil
 }
 
+// Register with UDB uses the account's email to register with the UDB for
+// User discovery.  Must be called after Register and Connect.
+// It will fail if the user has already registered with UDB
+func (cl *Client) RegisterWithUDB() error {
+	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
+	return cl.client.RegisterWithUDB()
+}
+
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice

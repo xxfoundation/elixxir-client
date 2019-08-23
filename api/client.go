@@ -177,7 +177,7 @@ func (cl *Client) Connect() error {
 		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 		globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 			gwID.String(), gateway.Address)
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToGateway(gwID, gateway.Address, gwCreds)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRemote(gwID, gateway.Address, gwCreds, false)
 		if err != nil {
 			return errors.New(fmt.Sprintf(
 				"Failed to connect to gateway %s at %s: %+v",
@@ -194,7 +194,7 @@ func (cl *Client) Connect() error {
 		addr := io.ConnAddr(PermissioningAddrID)
 		globals.Log.INFO.Printf("Connecting to permissioning/registration at %s...",
 			cl.ndf.Registration.Address)
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToRegistration(addr, cl.ndf.Registration.Address, regCert)
+		err = (cl.comm).(*io.Messaging).Comms.ConnectToRemote(addr, cl.ndf.Registration.Address, regCert, false)
 		if err != nil {
 			return errors.New(fmt.Sprintf(
 				"Failed connecting to permissioning: %+v", err))
@@ -241,18 +241,22 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
+	cmixPrivateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
+
+	e2ePrivateKeyDH := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
 
 	// Handle precanned registration
 	if preCan {
-		globals.Log.INFO.Printf("Registering precanned user")
+		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
 			return id.ZeroID, err
 		}
 	} else {
+		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
 		salt := make([]byte, saltSize)
@@ -293,7 +297,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 			// Request nonce message from gateway
 			globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v", i, len(cl.ndf.Gateways))
-			nonce, dhPub, err := cl.requestNonce(salt, regHash, publicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
+			nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
 				return id.ZeroID, err
@@ -313,9 +317,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			nodeID := *cl.topology.GetNodeAtIndex(i)
 			nk[nodeID] = user.NodeKeys{
 				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-					serverPubDH, privateKeyDH, transmissionHash),
+					serverPubDH, cmixPrivateKeyDH, transmissionHash),
 				ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-					privateKeyDH, receptionHash),
+					cmixPrivateKeyDH, receptionHash),
 			}
 
 			receptionHash.Reset()
@@ -336,8 +340,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Create the user session
 	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
-		privateKeyRSA, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp,
-		password)
+		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
+		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -677,7 +681,7 @@ func (cl *Client) registerForUserDiscovery(emailAddress string) error {
 		return err
 	}
 
-	publicKeyBytes := cl.session.GetDHPublicKey().Bytes()
+	publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
 
 	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
@@ -737,8 +741,7 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 
 	// Create user private key and partner public key
 	// in the group
-	privKey := cl.session.GetDHPrivateKey()
-	privKeyCyclic := grp.NewIntFromLargeInt(privKey.GetLargeInt())
+	privKeyCyclic := cl.session.GetE2EDHPrivateKey()
 	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
 
 	// Generate baseKey

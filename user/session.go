@@ -35,8 +35,10 @@ type Session interface {
 	GetKeys(topology *circuit.Circuit) []NodeKeys
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
-	GetDHPrivateKey() *cyclic.Int
-	GetDHPublicKey() *cyclic.Int
+	GetCMIXDHPrivateKey() *cyclic.Int
+	GetCMIXDHPublicKey() *cyclic.Int
+	GetE2EDHPrivateKey() *cyclic.Int
+	GetE2EDHPublicKey() *cyclic.Int
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	GetLastMessageID() string
@@ -65,8 +67,10 @@ func NewSession(store globals.Storage,
 	u *User, nk map[id.Node]NodeKeys,
 	publicKeyRSA *rsa.PublicKey,
 	privateKeyRSA *rsa.PrivateKey,
-	publicKeyDH *cyclic.Int,
-	privateKeyDH *cyclic.Int,
+	cmixPublicKeyDH *cyclic.Int,
+	cmixPrivateKeyDH *cyclic.Int,
+	e2ePublicKeyDH *cyclic.Int,
+	e2ePrivateKeyDH *cyclic.Int,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string) Session {
 
@@ -76,8 +80,10 @@ func NewSession(store globals.Storage,
 		Keys:                nk,
 		RSAPublicKey:        publicKeyRSA,
 		RSAPrivateKey:       privateKeyRSA,
-		DHPublicKey:         publicKeyDH,
-		DHPrivateKey:        privateKeyDH,
+		CMIXDHPublicKey:     cmixPublicKeyDH,
+		CMIXDHPrivateKey:    cmixPrivateKeyDH,
+		E2EDHPublicKey:      e2ePublicKeyDH,
+		E2EDHPrivateKey:     e2ePrivateKeyDH,
 		CmixGrp:             cmixGrp,
 		E2EGrp:              e2eGrp,
 		InterfaceMap:        make(map[string]interface{}),
@@ -135,13 +141,15 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	Keys          map[id.Node]NodeKeys
-	RSAPrivateKey *rsa.PrivateKey
-	RSAPublicKey  *rsa.PublicKey
-	DHPrivateKey  *cyclic.Int
-	DHPublicKey   *cyclic.Int
-	CmixGrp       *cyclic.Group
-	E2EGrp        *cyclic.Group
+	Keys             map[id.Node]NodeKeys
+	RSAPrivateKey    *rsa.PrivateKey
+	RSAPublicKey     *rsa.PublicKey
+	CMIXDHPrivateKey *cyclic.Int
+	CMIXDHPublicKey  *cyclic.Int
+	E2EDHPrivateKey  *cyclic.Int
+	E2EDHPublicKey   *cyclic.Int
+	CmixGrp          *cyclic.Group
+	E2EGrp           *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -208,16 +216,28 @@ func (s *SessionObj) GetRSAPublicKey() *rsa.PublicKey {
 	return s.RSAPublicKey
 }
 
-func (s *SessionObj) GetDHPrivateKey() *cyclic.Int {
+func (s *SessionObj) GetCMIXDHPrivateKey() *cyclic.Int {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.DHPrivateKey
+	return s.CMIXDHPrivateKey
 }
 
-func (s *SessionObj) GetDHPublicKey() *cyclic.Int {
+func (s *SessionObj) GetCMIXDHPublicKey() *cyclic.Int {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.DHPublicKey
+	return s.CMIXDHPublicKey
+}
+
+func (s *SessionObj) GetE2EDHPrivateKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.E2EDHPrivateKey
+}
+
+func (s *SessionObj) GetE2EDHPublicKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.E2EDHPublicKey
 }
 
 func (s *SessionObj) GetCmixGroup() *cyclic.Group {

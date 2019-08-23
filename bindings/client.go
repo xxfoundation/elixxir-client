@@ -8,7 +8,6 @@ package bindings
 
 import (
 	"errors"
-	"fmt"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -114,7 +113,7 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, 
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
 	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.DisableTLS()
+	cl.client.DisableTLS()
 }
 
 // Connects to gateways and registration server (if needed)
@@ -136,7 +135,6 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	globals.Log.INFO.Printf("Binding call: Register()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	fmt.Println("calling client reg")
 	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
 		password, nil)
 

@@ -123,11 +123,7 @@ const (
 
 func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
-	grp := session.GetCmixGroup()
 	e2egrp := session.GetE2EGroup()
-
-	globals.Log.INFO.Printf("grp fingerprint: %d, e2e fingerprint: %d",
-		grp.GetFingerprint(), e2egrp.GetFingerprint())
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -166,9 +162,9 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	var baseKey *cyclic.Int
 	if ctx == nil {
 		if rt == RekeyTrigger {
-			privKeyCyclic = grp.RandomCoprime(grp.NewInt(1))
+			privKeyCyclic = e2egrp.RandomCoprime(e2egrp.NewInt(1))
 			fmt.Println("Private key actual: ", privKeyCyclic.Text(16))
-			pubKeyCyclic = grp.ExpG(privKeyCyclic, grp.NewInt(1))
+			pubKeyCyclic = e2egrp.ExpG(privKeyCyclic, e2egrp.NewInt(1))
 			// Get Current Partner Public Key from RekeyKeys
 			partnerPubKeyCyclic = keys.CurrPubKey
 			// Set new Own Private Key
@@ -177,7 +173,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			// Get Current Own Private Key from RekeyKeys
 			privKeyCyclic = keys.CurrPrivKey
 			// Get Partner New Public Key from data
-			partnerPubKeyCyclic = grp.NewIntFromBytes(data)
+			partnerPubKeyCyclic = e2egrp.NewIntFromBytes(data)
 			// Set new Partner Public Key
 			keys.NewPubKey = partnerPubKeyCyclic
 		}
@@ -186,7 +182,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		baseKey, _ = diffieHellman.CreateDHSessionKey(
 			partnerPubKeyCyclic,
 			privKeyCyclic,
-			grp)
+			e2egrp)
 
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,

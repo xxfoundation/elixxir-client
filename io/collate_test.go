@@ -18,6 +18,9 @@ import (
 )
 
 func TestCollator_AddMessage(t *testing.T) {
+
+	uid := id.NewUserFromUint(69, t)
+
 	collator := &Collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
@@ -36,6 +39,7 @@ func TestCollator_AddMessage(t *testing.T) {
 		if err != nil {
 			t.Errorf("Error partitioning messages: %v", err.Error())
 		}
+
 		var result *parse.Message
 		for j := range partitions {
 
@@ -43,7 +47,7 @@ func TestCollator_AddMessage(t *testing.T) {
 			fm.SetRecipient(id.NewUserFromUint(6, t))
 			fm.Contents.SetRightAligned(partitions[j])
 
-			result = collator.AddMessage(fm, time.Minute)
+			result = collator.AddMessage(fm, uid, time.Minute)
 		}
 
 		typedBody, err := parse.Parse(bodies[i])
@@ -61,6 +65,9 @@ func TestCollator_AddMessage(t *testing.T) {
 }
 
 func TestCollator_AddMessage_Timeout(t *testing.T) {
+
+	uid := id.NewUserFromUint(69, t)
+
 	collator := &Collator{
 		pendingMessages: make(map[PendingMessageKey]*multiPartMessage),
 	}
@@ -76,7 +83,7 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 		fm.SetRecipient(id.NewUserFromUint(6, t))
 		fm.Contents.SetRightAligned(partitions[i])
 
-		result = collator.AddMessage(fm, 80*time.Millisecond)
+		result = collator.AddMessage(fm, uid, 80*time.Millisecond)
 		if result != nil {
 			t.Error("Got a result from collator when it should be timing out" +
 				" submessages")

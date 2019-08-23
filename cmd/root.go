@@ -450,9 +450,9 @@ var rootCmd = &cobra.Command{
 			if isValidUser(foundUser) {
 				userIDBase64 := base64.StdEncoding.EncodeToString(foundUser)
 				globals.Log.INFO.Printf("Found User %s at ID: %s",
-					userEmail, userIDBase64)
+					searchForUser, userIDBase64)
 			} else {
-				globals.Log.INFO.Printf("Found User %s is invalid", userEmail)
+				globals.Log.INFO.Printf("Found User %s is invalid", searchForUser)
 			}
 		}
 

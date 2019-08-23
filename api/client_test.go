@@ -199,7 +199,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
 		e2eGrp, "password")
 
 	testClient.session = session
@@ -289,7 +289,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
 		e2eGrp, "password")
 
 	testClient.session = session

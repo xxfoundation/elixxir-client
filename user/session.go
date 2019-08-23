@@ -256,8 +256,6 @@ func (s *SessionObj) storeSession() error {
 	}
 
 	sessionData, err := s.getSessionData()
-	globals.Log.ERROR.Printf("Storing session with password: %s",
-		s.password)
 	err = s.store.Save(encrypt(sessionData, s.password))
 	if err != nil {
 		return err
@@ -429,9 +427,8 @@ func decrypt(data []byte, password string) []byte {
 	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Cannot decrypt with password '%s':"+
-			" %s",
-			password, err.Error())
+		globals.Log.FATAL.Panicf("Cannot decrypt with password!" +
+			" %s", err.Error())
 	}
 	return plaintext
 }

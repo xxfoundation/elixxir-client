@@ -736,6 +736,7 @@ func (cl *Client) LookupNick(user *id.User,
 func (cl *Client) registerUserE2E(partnerID *id.User,
 	partnerPubKey []byte) error {
 
+	// Check that the returned user is valid
 	if partnerKeyStore := cl.session.GetKeyStore().GetSendManager(partnerID); partnerKeyStore != nil {
 		return errors.New(fmt.Sprintf("UDB searched failed for %v because user has "+
 			"been searched for before", partnerID))

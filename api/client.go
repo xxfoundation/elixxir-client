@@ -12,9 +12,9 @@ import (
 	gorsa "crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -38,6 +38,7 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
+	"sync"
 	"time"
 )
 
@@ -166,22 +167,45 @@ func (cl *Client) Connect() error {
 	if len(cl.ndf.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
-
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(cl.ndf.Gateways))
 	// connect to all gateways
 	for i, gateway := range cl.ndf.Gateways {
-		var gwCreds []byte
-		if gateway.TlsCertificate != "" && cl.tls {
-			gwCreds = []byte(gateway.TlsCertificate)
+		wg.Add(1)
+		go func() {
+			var gwCreds []byte
+			if gateway.TlsCertificate != "" && cl.tls {
+				gwCreds = []byte(gateway.TlsCertificate)
+			}
+
+			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
+				gwID.String(), gateway.Address)
+			err = (cl.comm).(*io.Messaging).Comms.ConnectToRemote(gwID, gateway.Address,
+				gwCreds, false)
+
+			if err != nil {
+				errChan <- errors.New(fmt.Sprintf(
+					"Failed to connect to gateway %s at %s: %+v",
+					gwID.String(), gateway.Address, err))
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+
+		var errs error
+		for len(errChan) > 0 {
+			err = <-errChan
+			if errs != nil {
+				errs = errors.Wrap(errs, err.Error())
+			} else {
+				errs = err
+			}
+
 		}
 
-		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
-		globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
-			gwID.String(), gateway.Address)
-		err = (cl.comm).(*io.Messaging).Comms.ConnectToRemote(gwID, gateway.Address, gwCreds, false)
-		if err != nil {
-			return errors.New(fmt.Sprintf(
-				"Failed to connect to gateway %s at %s: %+v",
-				gwID.String(), gateway.Address, err))
+		if errs != nil {
+			return errs
 		}
 	}
 
@@ -284,46 +308,72 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		// Initialise blake2b hash for transmission keys and sha256 for reception
-		// keys
-		transmissionHash, _ := hash.NewCMixHash()
-		receptionHash := sha256.New()
+		var wg sync.WaitGroup
+		errChan := make(chan error, len(cl.ndf.Gateways))
 
 		// Loop over all Servers
 		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+			// Multithread registration for better performance
+			wg.Add(1)
+			go func() {
+				// Initialise blake2b hash for transmission keys and sha256 for reception
+				// keys
+				transmissionHash, _ := hash.NewCMixHash()
+				receptionHash := sha256.New()
 
-			// Request nonce message from gateway
-			globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v", i, len(cl.ndf.Gateways))
-			nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH, publicKeyRSA, privateKeyRSA, gwID)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
-				return id.ZeroID, err
+				// Request nonce message from gateway
+				globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
+					i, len(cl.ndf.Gateways))
+				nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH,
+					publicKeyRSA, privateKeyRSA, gwID)
+
+				if err != nil {
+					globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
+					errChan <- err
+				}
+
+				// Load server DH pubkey
+				serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
+
+				// Confirm received nonce
+				globals.Log.INFO.Println("Register: Confirming received nonce")
+				err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
+				if err != nil {
+					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
+					errChan <- err
+				}
+
+				nodeID := *cl.topology.GetNodeAtIndex(i)
+				nk[nodeID] = user.NodeKeys{
+					TransmissionKey: registration.GenerateBaseKey(cmixGrp,
+						serverPubDH, cmixPrivateKeyDH, transmissionHash),
+					ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
+						cmixPrivateKeyDH, receptionHash),
+				}
+
+				wg.Done()
+			}()
+
+			wg.Wait()
+
+			var errs error
+			for len(errChan) > 0 {
+				err = <-errChan
+				if errs != nil {
+					errs = errors.Wrap(errs, err.Error())
+				} else {
+					errs = err
+				}
+
 			}
 
-			// Load server DH pubkey
-			serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
-
-			// Confirm received nonce
-			globals.Log.INFO.Println("Register: Confirming received nonce")
-			err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
-				return id.ZeroID, err
+			if errs != nil {
+				return id.ZeroID, errs
 			}
 
-			nodeID := *cl.topology.GetNodeAtIndex(i)
-			nk[nodeID] = user.NodeKeys{
-				TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-					serverPubDH, cmixPrivateKeyDH, transmissionHash),
-				ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-					cmixPrivateKeyDH, receptionHash),
-			}
-
-			receptionHash.Reset()
-			transmissionHash.Reset()
 		}
 
 		var actualNick string

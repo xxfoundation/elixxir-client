@@ -372,15 +372,21 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 func (cl *Client) RegisterWithUDB() error {
 	email := cl.session.GetCurrentUser().Email
 
+	var err error
+
 	if email != "" {
 		globals.Log.INFO.Printf("Registering user as %s with UDB", email)
-		err := cl.registerForUserDiscovery(email)
-		if err != nil {
-			return err
-		}
+		valueType := "EMAIL"
+
+		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
+
+		err = bots.Register(valueType, email, publicKeyBytes)
 		globals.Log.INFO.Printf("Registered with UDB!")
+	} else {
+		globals.Log.INFO.Printf("Not registering with UDB because no " +
+			"email found")
 	}
-	return nil
+	return err
 }
 
 // precannedRegister is a helper function for Register
@@ -671,23 +677,6 @@ func (cl *Client) Logout() error {
 	}
 
 	return nil
-}
-
-// Internal API for user discovery
-func (cl *Client) registerForUserDiscovery(emailAddress string) error {
-	valueType := "EMAIL"
-	userId, _, err := bots.Search(valueType, emailAddress)
-	if userId != nil {
-		globals.Log.DEBUG.Printf("Already registered %s", emailAddress)
-		return errors.New(fmt.Sprintf("Could not register in UDB, email %s already registered", emailAddress))
-	}
-	if err != nil {
-		return err
-	}
-
-	publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-
-	return bots.Register(valueType, emailAddress, publicKeyBytes)
 }
 
 type SearchCallback interface {

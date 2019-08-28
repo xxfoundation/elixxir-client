@@ -44,17 +44,23 @@ func TestMain(m *testing.M) {
 	os.Exit(testMainWrapper(m))
 }
 
+type MockConStatCallabck struct{}
+
+func (*MockConStatCallabck) Callback(status int, TimeoutSeconds int) { return }
+
 // Make sure NewClient returns an error when called incorrectly.
 func TestNewClientNil(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	_, err := NewClient(nil, "", ndfStr, pubKey)
+	_, err := NewClient(nil, "", ndfStr, pubKey,
+		&MockConStatCallabck{})
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, nil) input!")
 	}
 
-	_, err = NewClient(nil, "hello", "", "")
+	_, err = NewClient(nil, "hello", "", "",
+		&MockConStatCallabck{})
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
 	}
@@ -65,7 +71,8 @@ func TestNewClient(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	client, err := NewClient(&d, "hello", ndfStr, pubKey)
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallabck{})
 	if err != nil {
 		t.Errorf("NewClient returned error: %v", err)
 	} else if client == nil {
@@ -78,7 +85,8 @@ func TestRegister(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey)
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallabck{})
 
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -110,7 +118,8 @@ func TestConnectBadNumNodes(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(&newDef, t)
 
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey)
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallabck{})
 
 	// Connect to empty gw
 	err = client.Connect()
@@ -125,7 +134,8 @@ func TestLoginLogout(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey)
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallabck{})
 
 	// Connect to gateway
 	err = client.Connect()
@@ -165,7 +175,8 @@ func TestListen(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey)
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallabck{})
 
 	// Connect to gateway
 	err = client.Connect()
@@ -202,7 +213,8 @@ func TestStopListening(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey)
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallabck{})
 
 	// Connect to gateway
 	err = client.Connect()

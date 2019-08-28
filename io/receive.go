@@ -253,7 +253,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 					err = session.StoreSession()
 					if err != nil {
 						globals.Log.ERROR.Printf("Could not store session "+
-							"after message recieved from gateway: %+v", err)
+							"after message received from gateway: %+v", err)
 					}
 				}
 			}

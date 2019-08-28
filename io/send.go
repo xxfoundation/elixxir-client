@@ -54,12 +54,13 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 	}
 	// Add a byte for later encryption (15->16 bytes)
 	extendedNowBytes := append(nowBytes, 0)
+	transmitGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.TransmissionGatewayIndex].ID).NewGateway()
 	for i := range parts {
 		message := format.NewMessage()
 		message.SetRecipient(recipientID)
 		message.SetTimestamp(extendedNowBytes)
 		message.Contents.SetRightAligned(parts[i])
-		err = cm.send(session, topology, cryptoType, message, false)
+		err = cm.send(session, topology, cryptoType, message, false, transmitGateway)
 		if err != nil {
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
@@ -94,7 +95,8 @@ func (cm *CommManager) SendMessageNoPartition(session user.Session,
 	msg.SetTimestamp(nowBytes)
 	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)
-	err = cm.send(session, topology, cryptoType, msg, true)
+	transmitGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.TransmissionGatewayIndex].ID).NewGateway()
+	err = cm.send(session, topology, cryptoType, msg, true, transmitGateway)
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())
 	}
@@ -105,7 +107,7 @@ func (cm *CommManager) SendMessageNoPartition(session user.Session,
 func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
 	cryptoType parse.CryptoType,
 	message *format.Message,
-	rekey bool) error {
+	rekey bool, transmitGateway *id.Gateway) error {
 	// Enable transmission blocking if enabled
 	if cm.BlockTransmissions {
 		cm.sendLock.Lock()
@@ -138,9 +140,6 @@ func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
 		Salt:     salt,
 		KMACs:    make([][]byte, 0),
 	}
-
-	//FIXME: dont do this over an over
-	transmitGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.TransmissionGatewayIndex].ID).NewGateway()
 
 	return cm.Comms.SendPutMessage(transmitGateway, msgPacket)
 }

@@ -348,6 +348,11 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 // User discovery.  Must be called after Register and Connect.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB() error {
+	status := cl.commManger.GetConnectionStatus()
+	if status == io.Connecting || status == io.Offline {
+		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
+	}
+
 	email := cl.session.GetCurrentUser().Email
 
 	if email != "" {
@@ -398,6 +403,10 @@ func (cl *Client) Login(password string) (string, error) {
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver() error {
+	status := cl.commManger.GetConnectionStatus()
+	if status == io.Connecting || status == io.Offline {
+		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
+	}
 
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.commManger, cl.topology)
@@ -421,6 +430,11 @@ func (cl *Client) TryReconnect() {
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {
+	status := cl.commManger.GetConnectionStatus()
+	if status == io.Connecting || status == io.Offline {
+		return errors.New("Could not Send - connection is either offline or connecting")
+	}
+
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
@@ -461,6 +475,10 @@ func (cl *Client) GetCurrentUser() *id.User {
 
 func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 	return cl.session.GetKeyStore().GetKeyParams()
+}
+
+func (cl *Client) GetNetworkStatus() uint32 {
+	return cl.commManger.GetConnectionStatus()
 }
 
 // Logout closes the connection to the server at this time and does
@@ -512,6 +530,12 @@ type SearchCallback interface {
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback) {
+	status := cl.commManger.GetConnectionStatus()
+	if status == io.Connecting || status == io.Offline {
+		err := errors.New("Could not SearchForUser - connection is either offline or connecting")
+		cb.Callback(nil, nil, err)
+	}
+
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress)
@@ -542,6 +566,11 @@ type NickLookupCallback interface {
 func (cl *Client) LookupNick(user *id.User,
 	cb NickLookupCallback) {
 	go func() {
+		status := cl.commManger.GetConnectionStatus()
+		if status == io.Connecting || status == io.Offline {
+			err := errors.New("Could not RegisterWithUDB - connection is either offline or connecting")
+			cb.Callback("", err)
+		}
 		nick, err := bots.LookupNick(user)
 		if err != nil {
 			globals.Log.INFO.Printf("Lookup for nickname for user %s failed", user)

@@ -96,7 +96,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	//If no session file is passed initialize with RAM Storage
 
 	dummyConnectionStatusHandler := func(status uint32, timeout int) {
-		return
+		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
 	}
 
 	if sessionFile == "" {

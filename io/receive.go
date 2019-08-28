@@ -32,6 +32,8 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
 
+	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
+
 	for {
 		select {
 		case <-session.GetQuitChan():
@@ -40,7 +42,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 		default:
 			time.Sleep(delay)
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
-			decryptedMessages, senders, err := cm.receiveMessagesFromGateway(session, &pollingMessage)
+			decryptedMessages, senders, err := cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
 			if err != nil {
 
 				backoffCount := 0
@@ -171,11 +173,10 @@ func handleE2EReceiving(session user.Session,
 }
 
 func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientRequest) ([]*format.Message, []*id.User, error) {
+	pollingMessage *pb.ClientRequest, receiveGateway *id.Gateway) ([]*format.Message, []*id.User, error) {
 	if session != nil {
 		pollingMessage.LastMessageID = session.GetLastMessageID()
 		//FIXME: dont do this over an over
-		receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
 
 		messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway,
 			pollingMessage)

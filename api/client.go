@@ -618,9 +618,17 @@ func (cl *Client) Login(password string) (string, error) {
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver() error {
 	sendGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	sendGatewayAddr := cl.ndf.Gateways[0].Address
+	sendGatewayCred := []byte(cl.ndf.Gateways[0].TlsCertificate)
 	receiveGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
+	receiveGatewayAddr := cl.ndf.Gateways[len(cl.ndf.Gateways)-1].Address
+	receiveGatewayCred := []byte(cl.ndf.Gateways[len(cl.ndf.Gateways)-1].TlsCertificate)
 	(cl.comm).(*io.Messaging).SendGateway = sendGateway
+	(cl.comm).(*io.Messaging).SendGatewayAddr = sendGatewayAddr
+	(cl.comm).(*io.Messaging).SendGatewayCred = sendGatewayCred
 	(cl.comm).(*io.Messaging).ReceiveGateway = receiveGateway
+	(cl.comm).(*io.Messaging).ReceiveGatewayAddr = receiveGatewayAddr
+	(cl.comm).(*io.Messaging).ReceiveGatewayCred = receiveGatewayCred
 	globals.Log.INFO.Printf("Sending gateway: %s", sendGateway.String())
 	globals.Log.INFO.Printf("Receiving gateway: %s", receiveGateway.String())
 

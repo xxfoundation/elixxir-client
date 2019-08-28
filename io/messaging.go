@@ -10,6 +10,8 @@
 package io
 
 import (
+	"crypto/rand"
+	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/crypto"
@@ -26,9 +28,13 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"math/big"
 	"sync"
 	"time"
 )
+
+const maxAttempts = 15
+const maxBackoffTime = 180
 
 type ConnAddr string
 
@@ -42,8 +48,12 @@ type Messaging struct {
 	collator *Collator
 	// SendAddress is the address of the server to send messages
 	SendGateway *id.Gateway
+	SendGatewayAddr string
+	SendGatewayCred []byte
 	// ReceiveAddress is the address of the server to receive messages from
 	ReceiveGateway *id.Gateway
+	ReceiveGatewayAddr string
+	ReceiveGatewayCred []byte
 	// BlockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
 	BlockTransmissions bool
@@ -267,6 +277,41 @@ func handleE2ESending(session user.Session,
 	}
 }
 
+func (m *Messaging) backoff(count int) error {
+	if count < maxAttempts {
+		return errors.New(fmt.Sprintf(
+			"ERROR: tryReconnect failed: reached maximum of %d attempts", maxAttempts))
+	}
+
+	wait := 2^count
+	if wait > maxBackoffTime {
+		wait = maxBackoffTime
+	}
+
+	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
+	time.Sleep(time.Second * time.Duration(wait) + time.Millisecond * time.Duration(jitter.Int64()))
+	err := m.reconnectGateways()
+	if err != nil {
+		return m.backoff(count+1)
+	}
+
+	return nil
+}
+
+func (m *Messaging) reconnectGateways() error {
+	m.Comms.Disconnect(m.ReceiveGateway.String())
+	err := m.Comms.ConnectToRemote(m.ReceiveGateway, m.ReceiveGatewayAddr, m.ReceiveGatewayCred, false)
+	if err != nil {
+		return err
+	}
+	m.Comms.Disconnect(m.SendGateway.String())
+	err = m.Comms.ConnectToRemote(m.SendGateway, m.SendGatewayAddr, m.SendGatewayCred, false)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // MessageReceiver is a polling thread for receiving messages -- again.. we
 // should be passing this a user object with some keys, and maybe a shared
 // list for the listeners?
@@ -289,7 +334,13 @@ func (m *Messaging) MessageReceiver(session user.Session, delay time.Duration) {
 		default:
 			time.Sleep(delay)
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
-			decryptedMessages, senders := m.receiveMessagesFromGateway(session, &pollingMessage)
+			decryptedMessages, senders, err := m.receiveMessagesFromGateway(session, &pollingMessage)
+			if err != nil {
+				err := m.backoff(0)
+				if err != nil {
+					globals.Log.FATAL.Panicf("MessageReceiver could not reconnect: %+v", err)
+				}
+			}
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
@@ -358,7 +409,7 @@ func handleE2EReceiving(session user.Session,
 }
 
 func (m *Messaging) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientRequest) ([]*format.Message, []*id.User) {
+	pollingMessage *pb.ClientRequest) ([]*format.Message, []*id.User, error) {
 	if session != nil {
 		pollingMessage.LastMessageID = session.GetLastMessageID()
 		messageIDs, err := m.Comms.SendCheckMessages(m.ReceiveGateway,
@@ -366,7 +417,7 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 
 		if err != nil {
 			globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
-			return nil, nil
+			return nil, nil, err
 		}
 
 		globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
@@ -442,9 +493,9 @@ func (m *Messaging) receiveMessagesFromGateway(session user.Session,
 				}
 			}
 		}
-		return messages, senders
+		return messages, senders, nil
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func broadcastMessageReception(message *parse.Message,

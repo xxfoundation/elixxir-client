@@ -157,7 +157,7 @@ func (cl *Client) DisableTLS() {
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect() error {
-	return cl.commManager.Connect()
+	return cl.commManager.ConnectToGateways()
 }
 
 // Registers user and returns the User ID.

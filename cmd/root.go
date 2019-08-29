@@ -370,7 +370,7 @@ var rootCmd = &cobra.Command{
 		if userEmail != "" {
 			err := client.RegisterWithUDB()
 			if err != nil {
-				jww.ERROR.Printf("Could not register with UDB: %+v", err)
+				globals.Log.ERROR.Printf("Could not register with UDB: %+v", err)
 			}
 		}
 		globals.Log.INFO.Println("Logged In!")

@@ -355,21 +355,30 @@ func (cl *Client) RegisterWithUDB() error {
 
 	email := cl.session.GetCurrentUser().Email
 
-	var err error
-
 	if email != "" {
 		globals.Log.INFO.Printf("Registering user as %s with UDB", email)
 
 		valueType := "EMAIL"
+		userId, _, err := bots.Search(valueType, email)
+		if userId != nil {
+			globals.Log.DEBUG.Printf("Already registered %s", email)
+			return errors.New(fmt.Sprintf("Could not register in UDB, "+
+				"email %s already registered", email))
+		}
+		if err != nil {
+			return err
+		}
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
+
 		err = bots.Register(valueType, email, publicKeyBytes)
+
+		if err != nil {
+			return err
+		}
 		globals.Log.INFO.Printf("Registered with UDB!")
-	} else {
-		globals.Log.INFO.Printf("Not registering with UDB because no " +
-			"email found")
 	}
-	return err
+	return nil
 }
 
 // LoadSession loads the session object for the UID
@@ -400,7 +409,7 @@ func (cl *Client) StartMessageReceiver() error {
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
+	bots.InitBots(cl.session, cl.commManager, cl.topology)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.commManager, cl.topology)
 

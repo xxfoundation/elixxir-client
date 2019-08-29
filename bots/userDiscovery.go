@@ -27,10 +27,12 @@ func Register(valueType, value string, publicKey []byte) error {
 		value, publicKey)
 	keyFP := fingerprint(publicKey)
 
-	//Push the key
-	err := pushKey(UdbID, keyFP, publicKey)
-	if err != nil {
-		return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
+	// check if key already exists and push one if it doesn't
+	if !keyExists(UdbID, keyFP) {
+		err := pushKey(UdbID, keyFP, publicKey)
+		if err != nil {
+			return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
+		}
 	}
 
 	msgBody := parse.Pack(&parse.TypedBody{
@@ -39,7 +41,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	})
 
 	// Send register command
-	err = sendCommand(UdbID, msgBody)
+	err := sendCommand(UdbID, msgBody)
 	if err == nil {
 		regResult := <-registerResponseListener
 		if regResult != "REGISTRATION COMPLETE" {

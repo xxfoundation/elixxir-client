@@ -103,9 +103,36 @@ func (cm *CommManager) Connect() error {
 
 	cm.Comms.ConnectionManager.SetMaxRetries(1)
 
+	//connect to the registration server
+	if cm.ndf.Registration.Address != "" {
+		var regCert []byte
+		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {
+			regCert = []byte(cm.ndf.Registration.TlsCertificate)
+		}
+		addr := ConnAddr(PermissioningAddrID)
+		globals.Log.INFO.Printf("Connecting to permissioning/registration at %s...",
+			cm.ndf.Registration.Address)
+		err = cm.Comms.ConnectToRemote(addr, cm.ndf.Registration.Address, regCert, false)
+		if err != nil {
+			return errors.New(fmt.Sprintf(
+				"Failed connecting to permissioning: %+v", err))
+		}
+		globals.Log.INFO.Printf(
+			"Connected to permissioning at %v successfully!",
+			cm.ndf.Registration.Address)
+
+		// TODO make sure client version is OK before proceeding to connect to gateways
+	} else {
+		globals.Log.WARN.Printf("Unable to find permissioning server!")
+	}
+	if err != nil {
+		return err
+	}
+
+
+	// connect to all gateways
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cm.ndf.Gateways))
-	// connect to all gateways
 	for i, gateway := range cm.ndf.Gateways {
 		wg.Add(1)
 		go func() {
@@ -145,29 +172,6 @@ func (cm *CommManager) Connect() error {
 		}
 	}
 
-	//connect to the registration server
-	if cm.ndf.Registration.Address != "" {
-		var regCert []byte
-		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {
-			regCert = []byte(cm.ndf.Registration.TlsCertificate)
-		}
-		addr := ConnAddr(PermissioningAddrID)
-		globals.Log.INFO.Printf("Connecting to permissioning/registration at %s...",
-			cm.ndf.Registration.Address)
-		err = cm.Comms.ConnectToRemote(addr, cm.ndf.Registration.Address, regCert, false)
-		if err != nil {
-			return errors.New(fmt.Sprintf(
-				"Failed connecting to permissioning: %+v", err))
-		}
-		globals.Log.INFO.Printf(
-			"Connected to permissioning at %v successfully!",
-			cm.ndf.Registration.Address)
-	} else {
-		globals.Log.WARN.Printf("Unable to find permissioning server!")
-	}
-	if err != nil {
-		return err
-	}
 	cm.setConnectionStatus(Online, 0)
 	return nil
 }

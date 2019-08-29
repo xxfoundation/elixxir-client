@@ -79,7 +79,7 @@ func TestMain(m *testing.M) {
 
 	topology := circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
 
-	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")))
+	InitBots(fakeSession, fakeComm, topology)
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots
@@ -91,7 +91,7 @@ func TestMain(m *testing.M) {
 	pubKeyBits = "S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNzLU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClpq4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY7wuD96h4oaA+WV5Nh87cnIZ+fAG0uLve2LSHZ0FBZb3glOpNAOv7PFWkvN2BO37ztOQCXTJe72Y5ReoYn7nWVNxGUh0ilal+BRuJt1GZ7whOGDRE0IXfURIoK2yjyAnyZJWWMhfGsL5S6iL4aXUs03mc8BHKRq3HRjvTE10l3YFA=="
 	pubKey, _ = base64.StdEncoding.DecodeString(pubKeyBits)
 
-	keyFingerprint = fingerprint(pubKey)
+	keyFingerprint = "8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
 	os.Exit(m.Run())
 }
 
@@ -99,6 +99,7 @@ func TestMain(m *testing.M) {
 func TestRegister(t *testing.T) {
 
 	// Send response messages from fake UDB in advance
+	getKeyResponseListener <- fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint)
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
 
@@ -111,15 +112,13 @@ func TestRegister(t *testing.T) {
 // TestSearch smoke tests the search function
 func TestSearch(t *testing.T) {
 
-	publicKeyString := base64.StdEncoding.EncodeToString(pubKey)
-
 	// Send response messages from fake UDB in advance
 	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %s %s",
 		"blah@elixxir.io",
 		base64.StdEncoding.EncodeToString(id.NewUserFromUint(26, t)[:]),
 		keyFingerprint)
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
-		publicKeyString)
+		pubKeyBits)
 
 	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io")
 	if err != nil {

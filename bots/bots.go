@@ -49,8 +49,8 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *id.User) {
-	UdbID = udbID
+func InitBots(s user.Session, m io.Communications, top *circuit.Circuit) {
+	UdbID = id.NewUserFromUints(&[4]uint64{0, 0, 0, 3})
 
 	pushKeyResponseListener = make(channelResponseListener)
 	getKeyResponseListener = make(channelResponseListener)

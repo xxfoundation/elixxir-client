@@ -102,6 +102,10 @@ func (s *MockRegistration) RegisterUser(registrationCode,
 	return nil, nil
 }
 
+func (s *MockRegistration) GetCurrentClientVersion() (version string, err error) {
+	return "", nil
+}
+
 func getDHPubKey() *cyclic.Int {
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+

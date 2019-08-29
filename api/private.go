@@ -68,7 +68,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
 	regHash := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
-	response, err := cl.commManger.Comms.
+	response, err := cl.commManager.Comms.
 		SendRegistrationMessage(io.ConnAddr(PermissioningAddrID),
 			&pb.UserRegistration{
 				RegistrationCode: registrationCode,
@@ -85,7 +85,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	}
 	regHash = response.ClientSignedByServer.Signature
 	// Disconnect from regServer here since it will not be needed
-	cl.commManger.Comms.Disconnect(cl.ndf.Registration.Address)
+	cl.commManager.Comms.Disconnect(cl.ndf.Registration.Address)
 	return regHash, nil
 }
 
@@ -111,7 +111,7 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 	}
 
 	// Send signed public key and salt for UserID to Server
-	nonceResponse, err := cl.commManger.Comms.
+	nonceResponse, err := cl.commManager.Comms.
 		SendRequestNonceMessage(gwID,
 			&pb.NonceRequest{
 				Salt:            salt,
@@ -167,7 +167,7 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 			Signature: sig,
 		},
 	}
-	confirmResponse, err := cl.commManger.Comms.
+	confirmResponse, err := cl.commManager.Comms.
 		SendConfirmNonceMessage(gwID, msg)
 	if err != nil {
 		err := errors.New(fmt.Sprintf(

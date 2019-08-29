@@ -18,11 +18,7 @@ import (
 	"time"
 )
 
-// MessageReceiver is a polling thread for receiving messages -- again.. we
-// should be passing this a user object with some keys, and maybe a shared
-// list for the listeners?
-// Accessing all of these global variables is extremely problematic for this
-// kind of thread.
+// MessageReceiver is a polling thread for receiving messages
 func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {

@@ -40,11 +40,11 @@ import (
 )
 
 type Client struct {
-	storage    globals.Storage
-	session    user.Session
-	commManger *io.CommManager
-	ndf        *ndf.NetworkDefinition
-	topology   *circuit.Circuit
+	storage     globals.Storage
+	session     user.Session
+	commManager *io.CommManager
+	ndf         *ndf.NetworkDefinition
+	topology    *circuit.Circuit
 }
 
 // Populates a text message and returns its wire representation
@@ -132,7 +132,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManger = io.NewCommManager(ndfJSON, callback)
+	cl.commManager = io.NewCommManager(ndfJSON, callback)
 
 	cl.ndf = ndfJSON
 
@@ -150,14 +150,14 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 // DisableTLS makes the client run with TLS disabled
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
-	cl.commManger.TLS = false
+	cl.commManager.TLS = false
 }
 
 // Connects to gateways and registration server (if needed)
 // using TLS filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect() error {
-	return cl.commManger.Connect()
+	return cl.commManager.Connect()
 }
 
 // Registers user and returns the User ID.
@@ -348,7 +348,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 // User discovery.  Must be called after Register and Connect.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB() error {
-	status := cl.commManger.GetConnectionStatus()
+	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
 	}
@@ -403,20 +403,20 @@ func (cl *Client) Login(password string) (string, error) {
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver() error {
-	status := cl.commManger.GetConnectionStatus()
+	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManger, cl.topology)
+	bots.InitBots(cl.session, cl.commManager, cl.topology)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.commManger, cl.topology)
+	rekey.InitRekey(cl.session, cl.commManager, cl.topology)
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.commManger.MessageReceiver(cl.session, pollWaitTimeMillis)
+	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis)
 
 	return nil
 }
@@ -424,13 +424,13 @@ func (cl *Client) StartMessageReceiver() error {
 // TryReconnect Attemps to to reconnect with te network.  It will only cause
 // an attempt if called durring a backoff timeout
 func (cl *Client) TryReconnect() {
-	cl.commManger.TryReconnect()
+	cl.commManager.TryReconnect()
 }
 
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {
-	status := cl.commManger.GetConnectionStatus()
+	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("Could not Send - connection is either offline or connecting")
 	}
@@ -438,19 +438,19 @@ func (cl *Client) Send(message parse.MessageInterface) error {
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
-	return cl.commManger.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
+	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for
 // use with the channel bot and dummy bot
 func (cl *Client) DisableBlockingTransmission() {
-	cl.commManger.BlockTransmissions = false
+	cl.commManager.BlockTransmissions = false
 }
 
 // SetRateLimiting sets the minimum amount of time between message
 // transmissions just for testing, probably to be removed in production
 func (cl *Client) SetRateLimiting(limit uint32) {
-	cl.commManger.TransmitDelay = time.Duration(limit) * time.Millisecond
+	cl.commManager.TransmitDelay = time.Duration(limit) * time.Millisecond
 }
 
 func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
@@ -478,7 +478,7 @@ func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 }
 
 func (cl *Client) GetNetworkStatus() uint32 {
-	return cl.commManger.GetConnectionStatus()
+	return cl.commManager.GetConnectionStatus()
 }
 
 // Logout closes the connection to the server at this time and does
@@ -497,7 +497,7 @@ func (cl *Client) Logout() error {
 
 	// Disconnect from the gateways
 	for _, gateway := range cl.ndf.Gateways {
-		cl.commManger.Comms.Disconnect(gateway.Address)
+		cl.commManager.Comms.Disconnect(gateway.Address)
 	}
 
 	errStore := cl.session.StoreSession()
@@ -530,7 +530,7 @@ type SearchCallback interface {
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback) {
-	status := cl.commManger.GetConnectionStatus()
+	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		err := errors.New("Could not SearchForUser - connection is either offline or connecting")
 		cb.Callback(nil, nil, err)
@@ -566,7 +566,7 @@ type NickLookupCallback interface {
 func (cl *Client) LookupNick(user *id.User,
 	cb NickLookupCallback) {
 	go func() {
-		status := cl.commManger.GetConnectionStatus()
+		status := cl.commManager.GetConnectionStatus()
 		if status == io.Connecting || status == io.Offline {
 			err := errors.New("Could not RegisterWithUDB - connection is either offline or connecting")
 			cb.Callback("", err)

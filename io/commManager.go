@@ -63,7 +63,7 @@ type CommManager struct {
 
 	tryReconnect chan struct{}
 
-	connectionState *uint32
+	connectionStatus *uint32
 }
 
 func NewCommManager(ndf *ndf.NetworkDefinition,
@@ -84,7 +84,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		ReceptionGatewayIndex:    len(ndf.Gateways) - 1,
 		TransmissionGatewayIndex: 0,
 		connectionStatusCallback: callback,
-		connectionState:          &status,
+		connectionStatus:         &status,
 	}
 
 	return &cm
@@ -175,11 +175,11 @@ func (cm *CommManager) Disconnect() {
 }
 
 func (cm *CommManager) GetConnectionStatus() uint32 {
-	return atomic.LoadUint32(cm.connectionState)
+	return atomic.LoadUint32(cm.connectionStatus)
 }
 
 func (cm *CommManager) setConnectionStatus(status uint32, timeout int) {
-	atomic.SwapUint32(cm.connectionState, status)
+	atomic.SwapUint32(cm.connectionStatus, status)
 	cm.connectionStatusCallback(status, timeout)
 }
 

@@ -21,7 +21,7 @@ import (
 
 var session user.Session
 var topology *circuit.Circuit
-var messaging io.Communications
+var comms io.Communications
 
 var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
@@ -93,7 +93,7 @@ func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
 
 	session = s
 	topology = t
-	messaging = m
+	comms = m
 	l := session.GetSwitchboard()
 
 	l.Register(s.GetCurrentUser().User,
@@ -246,7 +246,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Directly send raw publicKey bytes, without any message type
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
-		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
+		return comms.SendMessageNoPartition(session, topology, partner, parse.E2E,
 			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
 		// Send rekey confirm message with hash of the baseKey
@@ -257,7 +257,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        baseKeyHash,
 		})
-		return messaging.SendMessage(session, topology, partner, parse.None, msg)
+		return comms.SendMessage(session, topology, partner, parse.None, msg)
 	}
 	return nil
 }

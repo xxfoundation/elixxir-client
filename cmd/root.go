@@ -94,8 +94,14 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	globals.Log.DEBUG.Printf("   NDF Verified")
 
 	//If no session file is passed initialize with RAM Storage
+
+	dummyConnectionStatusHandler := func(status uint32, timeout int) {
+		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
+	}
+
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON)
+		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
+			dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -119,7 +125,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON)
+		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())

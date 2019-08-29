@@ -79,7 +79,7 @@ func TestMain(m *testing.M) {
 
 	topology := circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
 
-	InitBots(fakeSession, fakeComm, topology)
+	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")))
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots

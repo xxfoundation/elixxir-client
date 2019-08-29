@@ -363,7 +363,6 @@ func (cl *Client) RegisterWithUDB() error {
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-
 		err = bots.Register(valueType, email, publicKeyBytes)
 		globals.Log.INFO.Printf("Registered with UDB!")
 	} else {
@@ -401,7 +400,7 @@ func (cl *Client) StartMessageReceiver() error {
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManager, cl.topology)
+	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.commManager, cl.topology)
 

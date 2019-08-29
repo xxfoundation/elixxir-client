@@ -49,16 +49,33 @@ func parseClientVersion(versionString string) (*clientVersion, error) {
 // Major and minor versions should both be numbers, and patch versions can be
 // anything, but they must be present
 // receiver is the version from the registration server
-func (v *clientVersion) isCompatible(ourVersion *clientVersion) bool {
+func (v *clientVersion) isCompatible(theirVersion *clientVersion) bool {
 	// Compare major version: must be equal to be deemed compatible
-	if ourVersion.major != v.major {
+	if theirVersion.major != v.major {
 		return false
 	}
 	// Compare minor version: our version must be greater than or equal to their version to be deemed compatible
-	if ourVersion.minor < v.minor {
+	if theirVersion.minor > v.minor {
 		return false
 	}
 	// Patch versions aren't supposed to affect compatibility, so they're ignored for the check
 
 	return true
+}
+
+// Parse both versions and ensure they're compatible
+// Ours is the local version of the client library, theirs is the version on the
+// registration server
+func CheckVersion(ours string, theirs string) (ok bool, err error) {
+	theirVersion, err := parseClientVersion(theirs)
+	if err != nil {
+		return false, errors.Wrapf(err,
+			"Error parsing permissioning's version (%v)", theirs)
+	}
+	ourVersion, err := parseClientVersion(ours)
+	if err != nil {
+		return false, errors.Wrapf(err,
+			"Error parsing our version (%v)", ours)
+	}
+	return theirVersion.isCompatible(ourVersion), nil
 }

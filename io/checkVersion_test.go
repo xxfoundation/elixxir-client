@@ -68,7 +68,7 @@ func TestClientVersion_IsCompatible_Zero(t *testing.T) {
 		minor: 1,
 		patch: "even more stuff",
 	}
-	if !theirVersion.isCompatible(ourVersion_compatible) {
+	if !ourVersion_compatible.isCompatible(theirVersion) {
 		t.Errorf("Our version %v should have been compatible with their version %v",
 			ourVersion_compatible, theirVersion)
 	}
@@ -77,7 +77,7 @@ func TestClientVersion_IsCompatible_Zero(t *testing.T) {
 		minor: 0,
 		patch: "other stuff",
 	}
-	if theirVersion.isCompatible(ourVersion_incompatible) {
+	if ourVersion_incompatible.isCompatible(theirVersion) {
 		t.Errorf("Our version %v shouldn't have been compatible with their version %v",
 			ourVersion_incompatible, theirVersion)
 	}
@@ -119,7 +119,7 @@ func TestClientVersion_IsCompatible_Nonzero(t *testing.T) {
 		patch: "51",
 	}}
 	for i := 0; i < len(ourVersion_compatible); i++ {
-		if !theirVersion.isCompatible(ourVersion_compatible[i]) {
+		if !ourVersion_compatible[i].isCompatible(theirVersion) {
 			t.Errorf("Versions (ours) %v (and theirs) %v were incorrectly incompatible at index %v.",
 				ourVersion_compatible[i], theirVersion, i)
 		}
@@ -143,7 +143,7 @@ func TestClientVersion_IsCompatible_Nonzero(t *testing.T) {
 		patch: "9",
 	}}
 	for i := 0; i < len(ourVersion_incompatible); i++ {
-		if theirVersion.isCompatible(ourVersion_incompatible[i]) {
+		if ourVersion_incompatible[i].isCompatible(theirVersion) {
 			t.Errorf("Versions (ours) %v (and theirs) %v were incorrectly compatible at index %v.",
 				ourVersion_incompatible[i], theirVersion, i)
 		}

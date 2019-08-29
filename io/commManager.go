@@ -121,14 +121,27 @@ func (cm *CommManager) Connect() error {
 			"Connected to permissioning at %v successfully!",
 			cm.ndf.Registration.Address)
 
-		// TODO make sure client version is OK before proceeding to connect to gateways
+		// At this point, we should be connected to the registration server
+		// So, we'll make sure that our client version is compatible with the
+		// network
+		registrationConnID := ConnAddr(PermissioningAddrID)
+		registrationVersion, err := cm.Comms.SendGetCurrentClientVersionMessage(registrationConnID)
+		if err != nil {
+			return errors.Wrap(err, "Couldn't get current version from permissioning")
+		}
+		versionOk, err := CheckVersion(SEMVER, registrationVersion.Version)
+		if err != nil {
+			return err
+		}
+		if !versionOk {
+			return errors.New(fmt.Sprintf(
+				"Please update local client library.\n"+
+					"Local client version: %v, minimum version: %v",
+				SEMVER, registrationVersion.Version))
+		}
 	} else {
 		globals.Log.WARN.Printf("Unable to find permissioning server!")
 	}
-	if err != nil {
-		return err
-	}
-
 
 	// connect to all gateways
 	var wg sync.WaitGroup

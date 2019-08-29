@@ -8,7 +8,7 @@ import:
   repo: git@gitlab.com:elixxir/crypto
   vcs: git
 - package: gitlab.com/elixxir/comms
-  version: release
+  version: versionVerification
   repo: git@gitlab.com:elixxir/comms
   vcs: git
 - package: gitlab.com/elixxir/primitives

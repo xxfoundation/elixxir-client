@@ -105,15 +105,22 @@ func LoadSession(store globals.Storage,
 
 	sessionGob := store.Load()
 
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not decode the "+
+			"session file %+v", err))
+	}
+
 	var sessionBytes bytes.Buffer
 
-	sessionBytes.Write(decrypt(sessionGob, password))
+	sessionBytes.Write(decryptedSessionGob)
 
 	dec := gob.NewDecoder(&sessionBytes)
 
 	session := SessionObj{}
 
-	err := dec.Decode(&session)
+	err = dec.Decode(&session)
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf(
@@ -441,14 +448,14 @@ func encrypt(data []byte, password string) []byte {
 	return ciphertext
 }
 
-func decrypt(data []byte, password string) []byte {
+func decrypt(data []byte, password string) ([]byte, error) {
 	aesGCM := initAESGCM(password)
 	nonceLen := aesGCM.NonceSize()
 	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Cannot decrypt with password!" +
-			" %s", err.Error())
+		return nil, errors.New(fmt.Sprintf("Cannot decrypt with password!"+
+			" %s", err.Error()))
 	}
-	return plaintext
+	return plaintext, nil
 }

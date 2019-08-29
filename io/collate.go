@@ -61,7 +61,7 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 			typedBody, err := parse.Parse(partition.Body)
 			// Log an error if the message is malformed and return nothing
 			if err != nil {
-				globals.Log.ERROR.Printf("Malformed message recieved")
+				globals.Log.ERROR.Printf("Malformed message received")
 				return nil
 			}
 

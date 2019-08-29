@@ -201,7 +201,7 @@ func (e *errorMessaging) MessageReceiver(session user.Session,
 // Test LookupNick returns error on sending problem
 func TestLookupNick_error(t *testing.T) {
 	// Replace comms with errorMessaging
-	messaging = &errorMessaging{}
+	comms = &errorMessaging{}
 	_, err := LookupNick(session.GetCurrentUser().User)
 	if err == nil {
 		t.Errorf("LookupNick should have returned an error")

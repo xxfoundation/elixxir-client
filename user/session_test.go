@@ -202,8 +202,8 @@ func TestUserSession(t *testing.T) {
 	}()
 
 	_, err = LoadSession(storage, "password")
-	if err != nil || err == nil {
-		t.Errorf("LoadSession should panic on bad decrypt!")
+	if err == nil {
+		t.Errorf("LoadSession should error on bad decrypt!")
 	}
 }
 

@@ -12,48 +12,11 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 )
 
 type Client struct {
 	client *api.Client
-}
-
-// Copy of the storage interface.
-// It is identical to the interface used in Globals,
-// and a results the types can be passed freely between the two
-type Storage interface {
-	// Give a Location for storage.  Does not need to be implemented if unused.
-	SetLocation(string) error
-	// Returns the Location for storage.
-	// Does not need to be implemented if unused.
-	GetLocation() string
-	// Stores the passed byte slice
-	Save([]byte) error
-	// Returns the stored byte slice
-	Load() []byte
-}
-
-// Message used for binding
-type Message interface {
-	// Returns the message's sender ID
-	GetSender() []byte
-	// Returns the message payload
-	// Parse this with protobuf/whatever according to the type of the message
-	GetPayload() []byte
-	// Returns the message's recipient ID
-	GetRecipient() []byte
-	// Returns the message's type
-	GetMessageType() int32
-}
-
-// Translate a bindings message to a parse message
-// An object implementing this interface can be called back when the client
-// gets a message of the type that the registerer specified at registration
-// time.
-type Listener interface {
-	Hear(msg Message, isHeardElsewhere bool)
 }
 
 // Returns listener handle as a string.
@@ -95,7 +58,8 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, error) {
+func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
+	csc ConnectionStatusCallback) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
@@ -104,7 +68,12 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, 
 	ndf := api.VerifyNDF(ndfStr, ndfPubKey)
 
 	proxy := &storageProxy{boundStorage: storage}
-	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf)
+
+	conStatCallback := func(status uint32, TimeoutSeconds int) {
+		csc.Callback(int(status), TimeoutSeconds)
+	}
+
+	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf, conStatCallback)
 
 	return &Client{client: cl}, err
 }
@@ -216,34 +185,10 @@ func (cl *Client) SetRateLimiting(limit int) {
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
-type SearchCallback interface {
-	Callback(userID, pubKey []byte, err error)
-}
-
-type searchCallbackProxy struct {
-	proxy SearchCallback
-}
-
-func (scp *searchCallbackProxy) Callback(userID, pubKey []byte, err error) {
-	scp.proxy.Callback(userID, pubKey, err)
-}
-
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback) {
 	proxy := &searchCallbackProxy{cb}
 	cl.client.SearchForUser(emailAddress, proxy)
-}
-
-type NickLookupCallback interface {
-	Callback(nick string, err error)
-}
-
-type nickCallbackProxy struct {
-	proxy NickLookupCallback
-}
-
-func (ncp *nickCallbackProxy) Callback(nick string, err error) {
-	ncp.proxy.Callback(nick, err)
 }
 
 // Nickname lookup API
@@ -260,23 +205,6 @@ func (cl *Client) LookupNick(user []byte,
 // across the Bindings
 func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
-}
-
-// Translate a bindings listener to a switchboard listener
-// Note to users of this package from other languages: Symbols that start with
-// lowercase are unexported from the package and meant for internal use only.
-type listenerProxy struct {
-	proxy Listener
-}
-
-func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool) {
-	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
-	lp.proxy.Hear(msgInterface, isHeardElsewhere)
-}
-
-// Translate a bindings storage to a client storage
-type storageProxy struct {
-	boundStorage Storage
 }
 
 func (s *storageProxy) SetLocation(location string) error {

@@ -9,6 +9,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
+	"gitlab.com/elixxir/client/io"
 )
 
 //go:generate go run gen.go
@@ -19,8 +20,8 @@ func init() {
 }
 
 func printVersion() {
-	fmt.Printf("Elixxir Client v%s -- %s\n\n", SEMVER, GITVERSION)
-	fmt.Printf("Dependencies:\n\n%s\n", GLIDEDEPS)
+	fmt.Printf("Elixxir Client v%s -- %s\n\n", io.SEMVER, io.GITVERSION)
+	fmt.Printf("Dependencies:\n\n%s\n", io.GLIDEDEPS)
 }
 
 var versionCmd = &cobra.Command{

@@ -45,7 +45,7 @@ func main() {
 	gitversion := GenerateGitVersion()
 	glidedependencies := ReadGlideLock()
 
-	f, err := os.Create("version_vars.go")
+	f, err := os.Create("../io/version_vars.go")
 	die(err)
 	defer f.Close()
 

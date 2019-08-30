@@ -409,7 +409,7 @@ func (cl *Client) StartMessageReceiver() error {
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManager, cl.topology)
+	bots.InitBots(cl.session, cl.commManager, cl.topology, cl.ndf.UDB.ID)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.commManager, cl.topology)
 

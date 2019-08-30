@@ -101,6 +101,8 @@ func (cm *CommManager) Connect() error {
 
 	cm.setConnectionStatus(Connecting, 0)
 
+	cm.Comms.ConnectionManager.SetMaxRetries(1)
+
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cm.ndf.Gateways))
 	// connect to all gateways

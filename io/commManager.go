@@ -182,7 +182,8 @@ func (cm *CommManager) GetConnectionStatus() uint32 {
 
 func (cm *CommManager) setConnectionStatus(status uint32, timeout int) {
 	atomic.SwapUint32(cm.connectionStatus, status)
-	cm.connectionStatusCallback(status, timeout)
+	globals.Log.INFO.Printf("Connection status changed to: %v", status)
+	go cm.connectionStatusCallback(status, timeout)
 }
 
 func toSeconds(duration time.Duration) int {

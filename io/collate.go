@@ -52,6 +52,15 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 	payload := message.Contents.GetRightAligned()
 	recipient := message.GetRecipient()
 
+	//get the time
+	timestamp := time.Time{}
+
+	err := timestamp.UnmarshalBinary(message.GetTimestamp()[:len(message.GetTimestamp())-1])
+
+	if err != nil {
+		globals.Log.WARN.Printf("Failed to parse timestamp for message: %v", message.GetTimestamp())
+	}
+
 	partition, err := parse.ValidatePartition(payload)
 
 	if err == nil {
@@ -70,6 +79,7 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 				InferredType: parse.Unencrypted,
 				Sender:       sender,
 				Receiver:     recipient,
+				Timestamp:    timestamp,
 			}
 
 			return &msg
@@ -135,6 +145,7 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 					InferredType: parse.Unencrypted,
 					Sender:       sender,
 					Receiver:     recipient,
+					Timestamp:    timestamp,
 				}
 
 				delete(mb.pendingMessages, key)

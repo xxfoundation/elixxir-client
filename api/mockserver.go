@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
+	"time"
 )
 
 // APIMessage are an implementation of the interface in bindings and API
@@ -43,6 +44,10 @@ func (m APIMessage) GetMessageType() int32 {
 
 func (m APIMessage) GetCryptoType() parse.CryptoType {
 	return parse.None
+}
+
+func (m APIMessage) GetTimestamp() time.Time {
+	return time.Now()
 }
 
 func (m APIMessage) Pack() []byte {

@@ -602,6 +602,10 @@ func (p ParsedMessage) GetMessageType() int32 {
 	return p.Typed
 }
 
+func (p ParsedMessage) GetTimestamp() int64 {
+	return 0
+}
+
 // Parses a passed message.  Allows a message to be aprsed using the interal parser
 // across the API
 func ParseMessage(message []byte) (ParsedMessage, error) {

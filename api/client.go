@@ -522,6 +522,16 @@ func (cl *Client) Logout() error {
 	return nil
 }
 
+// Returns the local version of the client repo
+func GetLocalVersion() string {
+	return io.SEMVER
+}
+
+// Returns the compatible version of client, according to permissioning
+func (cl *Client) GetRemoteVersion() string {
+	return cl.commManager.RegistrationVersion
+}
+
 type SearchCallback interface {
 	Callback(userID, pubKey []byte, err error)
 }

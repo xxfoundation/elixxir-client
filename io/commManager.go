@@ -65,7 +65,7 @@ type CommManager struct {
 
 	connectionStatus *uint32
 
-	registrationVersion string
+	RegistrationVersion string
 }
 
 func NewCommManager(ndf *ndf.NetworkDefinition,
@@ -121,7 +121,7 @@ func (cm *CommManager) ConnectToGateways() error {
 		if err != nil {
 			return errors.Wrap(err, "Couldn't get current version from permissioning")
 		}
-		cm.registrationVersion = registrationVersion.Version
+		cm.RegistrationVersion = registrationVersion.Version
 		versionOk, err := CheckVersion(SEMVER, registrationVersion.Version)
 		if err != nil {
 			return err

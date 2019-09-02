@@ -164,6 +164,11 @@ func (cl *Client) Connect() error {
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
+
+	if cl.commManager.GetConnectionStatus()!=io.Online{
+		return nil, errors.New("Cannot register when disconnected from the network")
+	}
+
 	var err error
 	var u *user.User
 	var UID *id.User

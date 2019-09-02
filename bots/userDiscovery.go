@@ -128,7 +128,6 @@ func parseGetKey(msg string) []byte {
 		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}
-
 	return keymat
 }
 

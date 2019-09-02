@@ -193,10 +193,22 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	cmixPrivateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+
+	if err!=nil{
+		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
+	}
+
+	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
 	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
 
-	e2ePrivateKeyDH := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+
+	if err!=nil{
+		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
+	}
+
+	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
 	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
 
 	// Handle precanned registration

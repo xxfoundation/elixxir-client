@@ -9,6 +9,7 @@ package parse
 import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/primitives/id"
+	"time"
 )
 
 const MessageHashLenBits = 256
@@ -23,6 +24,7 @@ type Message struct {
 	Sender       *id.User
 	Receiver     *id.User
 	Nonce        []byte
+	Timestamp    time.Time
 }
 
 type CryptoType int32
@@ -54,6 +56,8 @@ type MessageInterface interface {
 	GetMessageType() int32
 	// Returns the message's outer type
 	GetCryptoType() CryptoType
+	// Returns the message's timestamp in ns since linux epoc
+	GetTimestamp() time.Time
 	// Return the message fully serialized including the type prefix
 	// Does this really belong in the interface?
 	Pack() []byte
@@ -97,6 +101,10 @@ func (m *Message) GetCryptoType() CryptoType {
 	return m.InferredType
 }
 
+func (m *Message) GetTimestamp() time.Time {
+	return m.Timestamp
+}
+
 func (m *Message) Pack() []byte {
 	return Pack(&m.TypedBody)
 }
@@ -122,6 +130,10 @@ func (p *BindingsMessageProxy) GetPayload() []byte {
 
 func (p *BindingsMessageProxy) GetMessageType() int32 {
 	return int32(p.Proxy.GetMessageType())
+}
+
+func (p *BindingsMessageProxy) GetTimestamp() int64 {
+	return p.Proxy.Timestamp.UnixNano()
 }
 
 // Includes the type. Not sure if this is the right way to approach this.

@@ -218,13 +218,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
 
-	if userEmail != "" {
-		err := client.RegisterWithUDB()
-		if err != nil {
-			jww.ERROR.Printf("Could not register with UDB: %+v", err)
-		}
-	}
-
 	return uid, nick, client
 }
 
@@ -311,9 +304,9 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n",
+	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
-		senderNick, result.Message)
+		senderNick, result.Message, message.Timestamp.String())
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }
@@ -374,6 +367,13 @@ var rootCmd = &cobra.Command{
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
 		globals.Log.INFO.Println("Logged In!")
+
+		if userEmail != "" {
+			err := client.RegisterWithUDB()
+			if err != nil {
+				jww.ERROR.Printf("Could not register with UDB: %+v", err)
+			}
+		}
 
 		cryptoType := parse.Unencrypted
 		if end2end {

@@ -165,7 +165,7 @@ func (cl *Client) Connect() error {
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
-	if cl.commManager.GetConnectionStatus()!=io.Online{
+	if !preCan && cl.commManager.GetConnectionStatus() != io.Online {
 		return nil, errors.New("Cannot register when disconnected from the network")
 	}
 
@@ -198,18 +198,18 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
-	if err!=nil{
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
 	}
 
 	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
 	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
 
-	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
-	if err!=nil{
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
 	}
 
@@ -388,7 +388,6 @@ func (cl *Client) RegisterWithUDB() error {
 	}
 	return err
 }
-
 
 // LoadSession loads the session object for the UID
 func (cl *Client) Login(password string) (string, error) {

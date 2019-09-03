@@ -128,7 +128,6 @@ func parseGetKey(msg string) []byte {
 		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}
-
 	return keymat
 }
 
@@ -139,9 +138,11 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 		publicKeyString)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
+	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
+
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
-		Body:        []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
+		Body:        []byte(pushKeyMsg),
 	}))
 	response := <-pushKeyResponseListener
 	if response != expected {

@@ -304,9 +304,9 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n",
+	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
-		senderNick, result.Message)
+		senderNick, result.Message, message.Timestamp.String())
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }

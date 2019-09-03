@@ -164,6 +164,11 @@ func (cl *Client) Connect() error {
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
+
+	if cl.commManager.GetConnectionStatus()!=io.Online{
+		return nil, errors.New("Cannot register when disconnected from the network")
+	}
+
 	var err error
 	var u *user.User
 	var UID *id.User
@@ -193,10 +198,22 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	cmixPrivateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+
+	if err!=nil{
+		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
+	}
+
+	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
 	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
 
-	e2ePrivateKeyDH := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+
+	if err!=nil{
+		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
+	}
+
+	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
 	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
 
 	// Handle precanned registration
@@ -592,6 +609,10 @@ func (p ParsedMessage) GetRecipient() []byte {
 
 func (p ParsedMessage) GetMessageType() int32 {
 	return p.Typed
+}
+
+func (p ParsedMessage) GetTimestamp() int64 {
+	return 0
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

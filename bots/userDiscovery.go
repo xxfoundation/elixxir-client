@@ -40,7 +40,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	keyFP := fingerprint(publicKey)
 
 	// check if key already exists and push one if it doesn't
-	err := pushKey(UdbID, keyFP, publicKey)
+	err = pushKey(UdbID, keyFP, publicKey)
 	if err != nil {
 		return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
 	}

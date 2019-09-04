@@ -45,7 +45,11 @@ type Client struct {
 	commManager *io.CommManager
 	ndf         *ndf.NetworkDefinition
 	topology    *circuit.Circuit
+	regStatus   RegisterProgressCallback
 }
+
+//used to report the state of registration
+type RegisterProgressCallback func(string)
 
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
@@ -144,6 +148,10 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl.topology = circuit.New(nodeIDs)
 
+	cl.regStatus = func(string) {
+		return
+	}
+
 	return cl, nil
 }
 
@@ -160,18 +168,24 @@ func (cl *Client) Connect() error {
 	return cl.commManager.Connect()
 }
 
+func (cl *Client) SetRegisterProgressCallback(rpc RegisterProgressCallback) {
+	cl.regStatus = func(s string) { go rpc(s) }
+}
+
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
-	if cl.commManager.GetConnectionStatus()!=io.Online{
+	if cl.commManager.GetConnectionStatus() != io.Online {
 		return nil, errors.New("Cannot register when disconnected from the network")
 	}
 
 	var err error
 	var u *user.User
 	var UID *id.User
+
+	cl.regStatus("Generating Cryptographic Keys")
 
 	largeIntBits := 16
 
@@ -198,18 +212,18 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
-	if err!=nil{
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
 	}
 
 	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
 	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
 
-	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(),256,csprng.NewSystemRNG())
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
-	if err!=nil{
+	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
 	}
 
@@ -218,6 +232,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
+		cl.regStatus("Doing a Precann Registration (Not Secure)")
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
@@ -225,6 +240,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			return id.ZeroID, err
 		}
 	} else {
+		cl.regStatus("Generating User ID")
 		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
@@ -245,6 +261,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
+			cl.regStatus("Validating User Identity With Permissioning Server")
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
@@ -253,12 +270,16 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
+		cl.regStatus("Registering with Nodes")
+
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(cl.ndf.Gateways))
 
 		// Loop over all Servers
 		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
+
+			localI := i
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 			// Multithread registration for better performance
@@ -287,8 +308,13 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 				globals.Log.INFO.Println("Register: Confirming received nonce")
 				err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
 				if err != nil {
+					cl.regStatus(fmt.Sprintf("Failed to Register with Node %v/%v",
+						localI, len(cl.ndf.Gateways)))
 					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
 					errChan <- err
+				} else {
+					cl.regStatus(fmt.Sprintf("Registered with Node %v/%v",
+						localI, len(cl.ndf.Gateways)))
 				}
 
 				nodeID := *cl.topology.GetNodeAtIndex(i)
@@ -316,6 +342,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}
 
 			if errs != nil {
+				cl.regStatus(fmt.Sprintf("Failed to Register with %v/%v "+
+					"nodes, Registration Failed", localI, len(cl.ndf.Gateways)))
 				return id.ZeroID, errs
 			}
 
@@ -331,12 +359,16 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		user.Users.UpsertUser(u)
 	}
 
+	cl.regStatus("Creating Local Secure Session")
+
 	u.Email = email
 
 	// Create the user session
 	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
+
+	cl.regStatus("Storing Session")
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -357,6 +389,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
 	}
 	newSession = nil
+
+	cl.regStatus("Registration Complete")
 
 	return UID, nil
 }
@@ -380,7 +414,7 @@ func (cl *Client) RegisterWithUDB() error {
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes)
+		err = bots.Register(valueType, email, publicKeyBytes, cl.regStatus)
 		globals.Log.INFO.Printf("Registered with UDB!")
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
@@ -388,7 +422,6 @@ func (cl *Client) RegisterWithUDB() error {
 	}
 	return err
 }
-
 
 // LoadSession loads the session object for the UID
 func (cl *Client) Login(password string) (string, error) {

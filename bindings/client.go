@@ -8,12 +8,12 @@ package bindings
 
 import (
 	"errors"
+	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
-	"github.com/spf13/jwalterweatherman"
 )
 
 type Client struct {
@@ -86,7 +86,7 @@ func (cl *Client) DisableTLS() {
 	cl.client.DisableTLS()
 }
 
-func (cl *Client) EnableDebugLogs(){
+func (cl *Client) EnableDebugLogs() {
 	globals.Log.INFO.Printf("Binding call: EnableDebugLogs()")
 	globals.Log.SetStdoutThreshold(jwalterweatherman.LevelDebug)
 	globals.Log.SetLogThreshold(jwalterweatherman.LevelDebug)
@@ -98,6 +98,15 @@ func (cl *Client) EnableDebugLogs(){
 func (cl *Client) Connect() error {
 	globals.Log.INFO.Printf("Binding call: Connect()")
 	return cl.client.Connect()
+}
+
+// Sets a callback which receives a strings describing the current status of
+// Registration or UDB Registeration
+func (cl *Client) SetRegisterProgressCallback(rpcFace RegistraionProgressCallback) {
+	rpc := func(s string) {
+		rpcFace.Callback(s)
+	}
+	cl.client.SetRegisterProgressCallback(rpc)
 }
 
 // Registers user and returns the User ID bytes.

@@ -103,7 +103,11 @@ func TestRegister(t *testing.T) {
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
 
-	err := Register("EMAIL", "rick@elixxir.io", pubKey)
+	dummyRegState := func(string) {
+		return
+	}
+
+	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}

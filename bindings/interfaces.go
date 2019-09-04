@@ -82,10 +82,17 @@ type nickCallbackProxy struct {
 	proxy NickLookupCallback
 }
 
+// interface used to receive the result of a nickname request
 func (ncp *nickCallbackProxy) Callback(nick string, err error) {
 	ncp.proxy.Callback(nick, err)
 }
 
+// interface used to receive a ui friendly description of the current status of
+// registration
 type ConnectionStatusCallback interface {
 	Callback(status int, TimeoutSeconds int)
+}
+
+type RegistraionProgressCallback interface {
+	Callback(string)
 }

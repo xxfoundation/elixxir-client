@@ -22,12 +22,12 @@ import (
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
 // valueType: Currently only "EMAIL"
-func Register(valueType, value string, publicKey []byte, regStatus func(string)) error {
+func Register(valueType, value string, publicKey []byte, regStatus func(int)) error {
 	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
 		value, publicKey)
 	keyFP := fingerprint(publicKey)
 
-	regStatus("Pushing Cryptographic Material to the User Discovery Bot")
+	regStatus(10)
 
 	// check if key already exists and push one if it doesn't
 	err := pushKey(UdbID, keyFP, publicKey)
@@ -40,7 +40,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(string))
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
-	regStatus("Registering User with the User Discovery Bot")
+	regStatus(11)
 
 	// Send register command
 	err = sendCommand(UdbID, msgBody)

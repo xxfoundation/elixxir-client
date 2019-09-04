@@ -102,9 +102,9 @@ func (cl *Client) Connect() error {
 
 // Sets a callback which receives a strings describing the current status of
 // Registration or UDB Registeration
-func (cl *Client) SetRegisterProgressCallback(rpcFace RegistraionProgressCallback) {
-	rpc := func(s string) {
-		rpcFace.Callback(s)
+func (cl *Client) SetRegisterProgressCallback(rpcFace RegistrationProgressCallback) {
+	rpc := func(i int) {
+		rpcFace.Callback(i)
 	}
 	cl.client.SetRegisterProgressCallback(rpc)
 }

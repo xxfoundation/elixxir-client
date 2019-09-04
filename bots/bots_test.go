@@ -103,7 +103,7 @@ func TestRegister(t *testing.T) {
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
 
-	dummyRegState := func(string) {
+	dummyRegState := func(int) {
 		return
 	}
 

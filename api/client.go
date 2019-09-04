@@ -49,7 +49,7 @@ type Client struct {
 }
 
 //used to report the state of registration
-type RegisterProgressCallback func(string)
+type RegisterProgressCallback func(int)
 
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
@@ -148,7 +148,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl.topology = circuit.New(nodeIDs)
 
-	cl.regStatus = func(string) {
+	cl.regStatus = func(int) {
 		return
 	}
 
@@ -169,7 +169,7 @@ func (cl *Client) Connect() error {
 }
 
 func (cl *Client) SetRegisterProgressCallback(rpc RegisterProgressCallback) {
-	cl.regStatus = func(s string) { go rpc(s) }
+	cl.regStatus = func(i int) { go rpc(i) }
 }
 
 // Registers user and returns the User ID.
@@ -177,7 +177,7 @@ func (cl *Client) SetRegisterProgressCallback(rpc RegisterProgressCallback) {
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
-	if cl.commManager.GetConnectionStatus() != io.Online {
+	if !preCan && cl.commManager.GetConnectionStatus() != io.Online {
 		return nil, errors.New("Cannot register when disconnected from the network")
 	}
 
@@ -185,7 +185,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	var u *user.User
 	var UID *id.User
 
-	cl.regStatus("Generating Cryptographic Keys")
+	cl.regStatus(1)
 
 	largeIntBits := 16
 
@@ -232,7 +232,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
-		cl.regStatus("Doing a Precann Registration (Not Secure)")
+		cl.regStatus(2)
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
@@ -240,7 +240,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			return id.ZeroID, err
 		}
 	} else {
-		cl.regStatus("Generating User ID")
+		cl.regStatus(3)
 		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
@@ -261,7 +261,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.regStatus("Validating User Identity With Permissioning Server")
+			cl.regStatus(4)
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
@@ -270,7 +270,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		cl.regStatus("Registering with Nodes")
+		cl.regStatus(5)
 
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(cl.ndf.Gateways))
@@ -278,8 +278,6 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Loop over all Servers
 		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
-
-			localI := i
 
 			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 			// Multithread registration for better performance
@@ -308,13 +306,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 				globals.Log.INFO.Println("Register: Confirming received nonce")
 				err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
 				if err != nil {
-					cl.regStatus(fmt.Sprintf("Failed to Register with Node %v/%v",
-						localI, len(cl.ndf.Gateways)))
 					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
 					errChan <- err
 				} else {
-					cl.regStatus(fmt.Sprintf("Registered with Node %v/%v",
-						localI, len(cl.ndf.Gateways)))
 				}
 
 				nodeID := *cl.topology.GetNodeAtIndex(i)
@@ -342,8 +336,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}
 
 			if errs != nil {
-				cl.regStatus(fmt.Sprintf("Failed to Register with %v/%v "+
-					"nodes, Registration Failed", localI, len(cl.ndf.Gateways)))
+				cl.regStatus(6)
 				return id.ZeroID, errs
 			}
 
@@ -359,7 +352,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		user.Users.UpsertUser(u)
 	}
 
-	cl.regStatus("Creating Local Secure Session")
+	cl.regStatus(7)
 
 	u.Email = email
 
@@ -368,7 +361,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
 
-	cl.regStatus("Storing Session")
+	cl.regStatus(8)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -390,7 +383,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	}
 	newSession = nil
 
-	cl.regStatus("Registration Complete")
+	cl.regStatus(9)
 
 	return UID, nil
 }

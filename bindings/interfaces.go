@@ -93,6 +93,6 @@ type ConnectionStatusCallback interface {
 	Callback(status int, TimeoutSeconds int)
 }
 
-type RegistraionProgressCallback interface {
-	Callback(string)
+type RegistrationProgressCallback interface {
+	Callback(int)
 }

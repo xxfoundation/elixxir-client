@@ -7,6 +7,7 @@
 package api
 
 import (
+	"bufio"
 	"crypto"
 	"crypto/rand"
 	gorsa "crypto/rsa"
@@ -35,6 +36,7 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
+	"strings"
 	"sync"
 	"time"
 )
@@ -65,17 +67,28 @@ func FormatTextMessage(message string) []byte {
 // the signature cannot be verified. If the NDF public key is empty, then the
 // signature verification is skipped and warning is printed.
 func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
-	// Decode NDF string to a NetworkDefinition and its signature
-	ndfJSON, ndfSignature, err := ndf.DecodeNDF(ndfString)
-	if err != nil {
-		globals.Log.FATAL.Panicf("Could not decode NDF: %v", err)
-	}
-
 	// If there is no public key, then skip verification and print warning
 	if ndfPub == "" {
 		globals.Log.WARN.Printf("Running without signed network " +
 			"definition file")
 	} else {
+		ndfReader := bufio.NewReader(strings.NewReader(ndfString))
+		ndfData, err := ndfReader.ReadBytes('\n')
+		ndfData = ndfData[:len(ndfData)-1]
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not read NDF: %v", err)
+		}
+		ndfSignature, err := ndfReader.ReadBytes('\n')
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not read NDF Sig: %v",
+				err)
+		}
+		ndfSignature, err = base64.StdEncoding.DecodeString(
+			string(ndfSignature[:len(ndfSignature)-1]))
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not read NDF Sig: %v",
+				err)
+		}
 		// Load the TLS cert given to us, and from that get the RSA public key
 		cert, err := tls.LoadCertificate(ndfPub)
 		if err != nil {
@@ -85,7 +98,10 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 
 		// Hash NDF JSON
 		rsaHash := sha256.New()
-		rsaHash.Write(ndfJSON.Serialize())
+		rsaHash.Write(ndfData)
+
+		globals.Log.INFO.Printf("%s \n::\n %s",
+			ndfSignature, ndfData)
 
 		// Verify signature
 		err = rsa.Verify(
@@ -96,6 +112,10 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 		}
 	}
 
+	ndfJSON, _, err := ndf.DecodeNDF(ndfString)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not decode NDF: %v", err)
+	}
 	return ndfJSON
 }
 

@@ -8,7 +8,10 @@
 package bots
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -25,14 +28,21 @@ import (
 func Register(valueType, value string, publicKey []byte) error {
 	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
 		value, publicKey)
+
+	var err error
+	if valueType == "EMAIL" {
+		value, err = hashAndEncode(value)
+		if err != nil {
+			return fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
+		}
+	}
+
 	keyFP := fingerprint(publicKey)
 
 	// check if key already exists and push one if it doesn't
-	if !keyExists(UdbID, keyFP) {
-		err := pushKey(UdbID, keyFP, publicKey)
-		if err != nil {
-			return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
-		}
+	err = pushKey(UdbID, keyFP, publicKey)
+	if err != nil {
+		return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
 	}
 
 	msgBody := parse.Pack(&parse.TypedBody{
@@ -41,7 +51,7 @@ func Register(valueType, value string, publicKey []byte) error {
 	})
 
 	// Send register command
-	err := sendCommand(UdbID, msgBody)
+	err = sendCommand(UdbID, msgBody)
 	if err == nil {
 		regResult := <-registerResponseListener
 		if regResult != "REGISTRATION COMPLETE" {
@@ -58,11 +68,20 @@ func Register(valueType, value string, publicKey []byte) error {
 // returns a map of userid -> public key
 func Search(valueType, value string) (*id.User, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
+
+	var err error
+	if valueType == "EMAIL" {
+		value, err = hashAndEncode(value)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
+		}
+	}
+
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_SEARCH),
 		Body:        []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
-	err := sendCommand(UdbID, msgBody)
+	err = sendCommand(UdbID, msgBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -99,6 +118,29 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 	return cMixUID, publicKey, nil
 }
 
+func hashAndEncode(s string) (string, error) {
+	buf := new(bytes.Buffer)
+	encoder := base64.NewEncoder(base64.StdEncoding, buf)
+
+	sha := sha256.New()
+	sha.Write([]byte(s))
+	hashed := sha.Sum(nil)
+
+	_, err := encoder.Write(hashed)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error base64 encoding string %s: %+v", s, err))
+		return "", err
+	}
+
+	err = encoder.Close()
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error closing encoder: %+v", err))
+		return "", err
+	}
+
+	return buf.String(), nil
+}
+
 // parseSearch parses the responses from SEARCH. It returns the user's id and
 // the user's public key fingerprint
 func parseSearch(msg string) (*id.User, string) {
@@ -130,7 +172,6 @@ func parseGetKey(msg string) []byte {
 		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}
-
 	return keymat
 }
 
@@ -141,9 +182,11 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 		publicKeyString)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
+	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
+
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
-		Body:        []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
+		Body:        []byte(pushKeyMsg),
 	}))
 	response := <-pushKeyResponseListener
 	if response != expected {

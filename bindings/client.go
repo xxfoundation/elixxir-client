@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"github.com/spf13/jwalterweatherman"
 )
 
 type Client struct {
@@ -83,6 +84,12 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
 func (cl *Client) DisableTLS() {
 	globals.Log.INFO.Printf("Binding call: DisableTLS()")
 	cl.client.DisableTLS()
+}
+
+func (cl *Client) EnableDebugLogs(){
+	globals.Log.INFO.Printf("Binding call: EnableDebugLogs()")
+	globals.Log.SetStdoutThreshold(jwalterweatherman.LevelDebug)
+	globals.Log.SetLogThreshold(jwalterweatherman.LevelDebug)
 }
 
 // Connects to gateways and registration server (if needed)

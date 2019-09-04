@@ -16,6 +16,8 @@ type Message interface {
 	GetRecipient() []byte
 	// Returns the message's type
 	GetMessageType() int32
+	// Returns the message's timestamp in ns since unix epoc
+	GetTimestamp() int64
 }
 
 // Copy of the storage interface.

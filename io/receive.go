@@ -31,12 +31,12 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
 
 	for {
+		timerDelay := time.NewTimer(delay)
 		select {
 		case <-session.GetQuitChan():
 			close(session.GetQuitChan())
 			return
-		default:
-			time.Sleep(delay)
+		case <-timerDelay.C:
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
 			decryptedMessages, senders, err := cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
 			if err != nil {

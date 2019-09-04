@@ -66,7 +66,7 @@ func (v *clientVersion) isCompatible(theirVersion *clientVersion) bool {
 // Parse both versions and ensure they're compatible
 // Ours is the local version of the client library, theirs is the version on the
 // registration server
-func CheckVersion(ours string, theirs string) (ok bool, err error) {
+func checkVersion(ours string, theirs string) (ok bool, err error) {
 	theirVersion, err := parseClientVersion(theirs)
 	if err != nil {
 		return false, errors.Wrapf(err,

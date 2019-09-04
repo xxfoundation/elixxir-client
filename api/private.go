@@ -66,11 +66,15 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 // It sends a registration message and returns the registration hash
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	err := cl.commManager.ConnectToPermissioning()
+	connected, err := cl.commManager.ConnectToPermissioning()
+	defer cl.commManager.DisconnectFromPermissioning()
 	if err != nil {
 		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
 	}
-	defer cl.commManager.DisconnectFromPermissioning()
+	if !connected {
+		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
+	}
+
 	regHash := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
 	response, err := cl.commManager.Comms.

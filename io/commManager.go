@@ -173,7 +173,7 @@ func (cm *CommManager) UpdateRemoteVersion() error {
 // Utility method, returns whether the local version and remote version are
 // compatible
 func (cm *CommManager) CheckVersion() (bool, error) {
-	return checkVersion(SEMVER, cm.RegistrationVersion)
+	return checkVersion(globals.SEMVER, cm.RegistrationVersion)
 }
 
 // There's currently no need to keep connected to permissioning constantly,

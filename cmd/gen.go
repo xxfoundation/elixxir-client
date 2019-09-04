@@ -8,7 +8,7 @@
 
 // +build ignore
 
-// This program generates cmd/version_vars.go. It can be invoked by running
+// This program generates cmd/version.go. It can be invoked by running
 // go generate
 package main
 
@@ -45,7 +45,7 @@ func main() {
 	gitversion := GenerateGitVersion()
 	glidedependencies := ReadGlideLock()
 
-	f, err := os.Create("../io/version_vars.go")
+	f, err := os.Create("../globals/version.go")
 	die(err)
 	defer f.Close()
 

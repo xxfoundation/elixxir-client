@@ -170,7 +170,7 @@ func (cl *Client) Connect() error {
 		}
 		if !ok {
 			err = errors.New("Couldn't connect to gateways: Versions incompatible")
-			return errors.Wrapf(err, "Local version: %v; remote version: %v", io.SEMVER,
+			return errors.Wrapf(err, "Local version: %v; remote version: %v", globals.SEMVER,
 				cl.commManager.RegistrationVersion)
 		}
 	} else {
@@ -554,7 +554,7 @@ func (cl *Client) Logout() error {
 
 // Returns the local version of the client repo
 func GetLocalVersion() string {
-	return io.SEMVER
+	return globals.SEMVER
 }
 
 // Returns the compatible version of client, according to permissioning

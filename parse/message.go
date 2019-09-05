@@ -132,8 +132,12 @@ func (p *BindingsMessageProxy) GetMessageType() int32 {
 	return int32(p.Proxy.GetMessageType())
 }
 
-func (p *BindingsMessageProxy) GetTimestamp() int64 {
+func (p *BindingsMessageProxy) GetTimestampNano() int64 {
 	return p.Proxy.Timestamp.UnixNano()
+}
+
+func (p *BindingsMessageProxy) GetTimestamp() int64 {
+	return p.Proxy.Timestamp.Unix()
 }
 
 // Includes the type. Not sure if this is the right way to approach this.

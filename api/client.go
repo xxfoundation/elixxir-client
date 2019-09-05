@@ -45,7 +45,11 @@ type Client struct {
 	commManager *io.CommManager
 	ndf         *ndf.NetworkDefinition
 	topology    *circuit.Circuit
+	regStatus   RegisterProgressCallback
 }
+
+//used to report the state of registration
+type RegisterProgressCallback func(int)
 
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
@@ -144,6 +148,10 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl.topology = circuit.New(nodeIDs)
 
+	cl.regStatus = func(int) {
+		return
+	}
+
 	return cl, nil
 }
 
@@ -182,6 +190,10 @@ func (cl *Client) Connect() error {
 	return cl.commManager.ConnectToGateways()
 }
 
+func (cl *Client) SetRegisterProgressCallback(rpc RegisterProgressCallback) {
+	cl.regStatus = func(i int) { go rpc(i) }
+}
+
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
@@ -194,6 +206,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	var err error
 	var u *user.User
 	var UID *id.User
+
+	cl.regStatus(globals.KEYGEN)
 
 	largeIntBits := 16
 
@@ -240,6 +254,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
+		cl.regStatus(globals.PRECAN_REG)
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
@@ -247,6 +262,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			return id.ZeroID, err
 		}
 	} else {
+		cl.regStatus(globals.UID_GEN)
 		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
@@ -267,6 +283,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
+			cl.regStatus(globals.PERM_REG)
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
@@ -274,6 +291,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
+
+		cl.regStatus(globals.NODE_REG)
 
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(cl.ndf.Gateways))
@@ -311,6 +330,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 				if err != nil {
 					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
 					errChan <- err
+				} else {
 				}
 
 				nodeID := *cl.topology.GetNodeAtIndex(i)
@@ -338,6 +358,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}
 
 			if errs != nil {
+				cl.regStatus(globals.REG_FAIL)
 				return id.ZeroID, errs
 			}
 
@@ -353,12 +374,16 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		user.Users.UpsertUser(u)
 	}
 
+	cl.regStatus(globals.SECURE_STORE)
+
 	u.Email = email
 
 	// Create the user session
 	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
+
+	cl.regStatus(globals.SAVE)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -379,6 +404,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
 	}
 	newSession = nil
+
+	cl.regStatus(globals.REG_COMPLETE)
 
 	return UID, nil
 }
@@ -402,7 +429,7 @@ func (cl *Client) RegisterWithUDB() error {
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes)
+		err = bots.Register(valueType, email, publicKeyBytes, cl.regStatus)
 		globals.Log.INFO.Printf("Registered with UDB!")
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
@@ -640,6 +667,10 @@ func (p ParsedMessage) GetRecipient() []byte {
 
 func (p ParsedMessage) GetMessageType() int32 {
 	return p.Typed
+}
+
+func (p ParsedMessage) GetTimestampNano() int64 {
+	return 0
 }
 
 func (p ParsedMessage) GetTimestamp() int64 {

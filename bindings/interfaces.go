@@ -16,8 +16,10 @@ type Message interface {
 	GetRecipient() []byte
 	// Returns the message's type
 	GetMessageType() int32
-	// Returns the message's timestamp in ns since unix epoc
+	// Returns the message's timestamp in seconds since unix epoc
 	GetTimestamp() int64
+	// Returns the message's timestamp in ns since unix epoc
+	GetTimestampNano() int64
 }
 
 // Copy of the storage interface.
@@ -82,10 +84,17 @@ type nickCallbackProxy struct {
 	proxy NickLookupCallback
 }
 
+// interface used to receive the result of a nickname request
 func (ncp *nickCallbackProxy) Callback(nick string, err error) {
 	ncp.proxy.Callback(nick, err)
 }
 
+// interface used to receive a ui friendly description of the current status of
+// registration
 type ConnectionStatusCallback interface {
 	Callback(status int, TimeoutSeconds int)
+}
+
+type RegistrationProgressCallback interface {
+	Callback(int)
 }

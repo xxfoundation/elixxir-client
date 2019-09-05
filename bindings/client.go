@@ -8,12 +8,12 @@ package bindings
 
 import (
 	"errors"
+	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
-	"github.com/spf13/jwalterweatherman"
 )
 
 type Client struct {
@@ -86,7 +86,7 @@ func (cl *Client) DisableTLS() {
 	cl.client.DisableTLS()
 }
 
-func (cl *Client) EnableDebugLogs(){
+func (cl *Client) EnableDebugLogs() {
 	globals.Log.INFO.Printf("Binding call: EnableDebugLogs()")
 	globals.Log.SetStdoutThreshold(jwalterweatherman.LevelDebug)
 	globals.Log.SetLogThreshold(jwalterweatherman.LevelDebug)
@@ -98,6 +98,15 @@ func (cl *Client) EnableDebugLogs(){
 func (cl *Client) Connect() error {
 	globals.Log.INFO.Printf("Binding call: Connect()")
 	return cl.client.Connect()
+}
+
+// Sets a callback which receives a strings describing the current status of
+// Registration or UDB Registeration
+func (cl *Client) SetRegisterProgressCallback(rpcFace RegistrationProgressCallback) {
+	rpc := func(i int) {
+		rpcFace.Callback(i)
+	}
+	cl.client.SetRegisterProgressCallback(rpc)
 }
 
 // Registers user and returns the User ID bytes.
@@ -253,4 +262,12 @@ func SetLogOutput(w Writer) {
 // Call this to get the session data without getting Save called from the Go side
 func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
+}
+
+//Call to get the networking status of the client
+// 0 - Offline
+// 1 - Connecting
+// 2 - Connected
+func (cl *Client) GetNetworkStatus()int64{
+	return int64(cl.GetNetworkStatus())
 }

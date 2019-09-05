@@ -25,7 +25,7 @@ import (
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
 // valueType: Currently only "EMAIL"
-func Register(valueType, value string, publicKey []byte) error {
+func Register(valueType, value string, publicKey []byte, regStatus func(int)) error {
 	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
 		value, publicKey)
 
@@ -39,6 +39,8 @@ func Register(valueType, value string, publicKey []byte) error {
 
 	keyFP := fingerprint(publicKey)
 
+	regStatus(globals.UDB_KEY)
+
 	// check if key already exists and push one if it doesn't
 	err = pushKey(UdbID, keyFP, publicKey)
 	if err != nil {
@@ -49,6 +51,8 @@ func Register(valueType, value string, publicKey []byte) error {
 		MessageType: int32(cmixproto.Type_UDB_REGISTER),
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
+
+	regStatus(globals.UDB_REG)
 
 	// Send register command
 	err = sendCommand(UdbID, msgBody)

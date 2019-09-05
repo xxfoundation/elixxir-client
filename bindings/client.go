@@ -180,6 +180,20 @@ func (cl *Client) Logout() error {
 	return cl.client.Logout()
 }
 
+// Get the version string from the locally built client repository
+func GetLocalVersion() string {
+	return api.GetLocalVersion()
+}
+
+// Get the version string from the registration server
+// You need to connect to gateways for this to be populated.
+// For the client to function, the local version must be compatible with this
+// version. If that's not the case, check out the git tag corresponding to the
+// client release version returned here.
+func (cl *Client) GetRemoteVersion() string {
+	return cl.client.GetRemoteVersion()
+}
+
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
 func (cl *Client) DisableBlockingTransmission() {

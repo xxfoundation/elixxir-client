@@ -207,7 +207,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	var u *user.User
 	var UID *id.User
 
-	cl.regStatus(1)
+	cl.regStatus(globals.KEYGEN)
 
 	largeIntBits := 16
 
@@ -254,7 +254,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
-		cl.regStatus(2)
+		cl.regStatus(globals.PRECAN_REG)
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
@@ -262,7 +262,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			return id.ZeroID, err
 		}
 	} else {
-		cl.regStatus(3)
+		cl.regStatus(globals.UID_GEN)
 		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
@@ -283,7 +283,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.regStatus(4)
+			cl.regStatus(globals.PERM_REG)
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
@@ -292,7 +292,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		cl.regStatus(5)
+		cl.regStatus(globals.NODE_REG)
 
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(cl.ndf.Gateways))
@@ -358,7 +358,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}
 
 			if errs != nil {
-				cl.regStatus(6)
+				cl.regStatus(globals.REG_FAIL)
 				return id.ZeroID, errs
 			}
 
@@ -374,7 +374,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		user.Users.UpsertUser(u)
 	}
 
-	cl.regStatus(7)
+	cl.regStatus(globals.SECURE_STORE)
 
 	u.Email = email
 
@@ -383,7 +383,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
 
-	cl.regStatus(8)
+	cl.regStatus(globals.SAVE)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -405,7 +405,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	}
 	newSession = nil
 
-	cl.regStatus(9)
+	cl.regStatus(globals.REG_COMPLETE)
 
 	return UID, nil
 }
@@ -667,6 +667,10 @@ func (p ParsedMessage) GetRecipient() []byte {
 
 func (p ParsedMessage) GetMessageType() int32 {
 	return p.Typed
+}
+
+func (p ParsedMessage) GetTimestampNano() int64 {
+	return 0
 }
 
 func (p ParsedMessage) GetTimestamp() int64 {

@@ -263,3 +263,11 @@ func SetLogOutput(w Writer) {
 func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
 }
+
+//Call to get the networking status of the client
+// 0 - Offline
+// 1 - Connecting
+// 2 - Connected
+func (cl *Client) GetNetworkStatus()int64{
+	return int64(cl.GetNetworkStatus())
+}

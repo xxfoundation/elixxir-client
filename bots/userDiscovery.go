@@ -39,7 +39,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 
 	keyFP := fingerprint(publicKey)
 
-	regStatus(10)
+	regStatus(globals.UDB_KEY)
 
 	// check if key already exists and push one if it doesn't
 	err = pushKey(UdbID, keyFP, publicKey)
@@ -52,7 +52,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
-	regStatus(11)
+	regStatus(globals.UDB_REG)
 
 	// Send register command
 	err = sendCommand(UdbID, msgBody)

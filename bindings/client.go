@@ -268,6 +268,7 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 // 0 - Offline
 // 1 - Connecting
 // 2 - Connected
-func (cl *Client) GetNetworkStatus()int64{
-	return int64(cl.GetNetworkStatus())
+func (cl *Client) GetNetworkStatus() int64 {
+	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
+	return int64(cl.client.GetNetworkStatus())
 }

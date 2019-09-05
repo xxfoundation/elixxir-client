@@ -9,6 +9,7 @@ package api
 
 import (
 	"gitlab.com/elixxir/client/cmixproto"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -105,6 +106,10 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 func (s *MockRegistration) RegisterUser(registrationCode,
 	key string) (hash []byte, err error) {
 	return nil, nil
+}
+
+func (s *MockRegistration) GetCurrentClientVersion() (version string, err error) {
+	return globals.SEMVER, nil
 }
 
 func getDHPubKey() *cyclic.Int {

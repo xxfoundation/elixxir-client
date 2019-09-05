@@ -66,6 +66,15 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 // It sends a registration message and returns the registration hash
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
+	connected, err := cl.commManager.ConnectToPermissioning()
+	defer cl.commManager.DisconnectFromPermissioning()
+	if err != nil {
+		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
+	}
+	if !connected {
+		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
+	}
+
 	regHash := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
 	response, err := cl.commManager.Comms.
@@ -75,17 +84,14 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
 			})
 	if err != nil {
-		err = errors.New(fmt.Sprintf(
-			"sendRegistrationMessage: Unable to contact Registration Server! %s", err))
+		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Registration Server!")
 		return nil, err
 	}
 	if response.Error != "" {
-		err = errors.New(fmt.Sprintf("sendRegistrationMessage: error handing message: %s", response.Error))
-		return nil, err
+		return nil, errors.Wrapf(err, "sendRegistrationMessage: error handling message: %s", response.Error)
 	}
 	regHash = response.ClientSignedByServer.Signature
 	// Disconnect from regServer here since it will not be needed
-	cl.commManager.Comms.Disconnect(cl.ndf.Registration.Address)
 	return regHash, nil
 }
 

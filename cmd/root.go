@@ -20,11 +20,11 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/utils"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/elixxir/primitives/utils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -75,7 +75,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	var client *api.Client
 
 	// Read in the network definition file and save as string
-	ndfBytes, err := ioutil.ReadFile(ndfPath)
+	ndfBytes, err := utils.ReadFile(ndfPath)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not read network definition file: %v", err)
 	}
@@ -180,7 +180,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		var privKey *rsa.PrivateKey
 
 		if sourcePublicKeyPath != "" {
-			pubKeyBytes, err := ioutil.ReadFile(utils.GetFullPath(sourcePublicKeyPath))
+			pubKeyBytes, err := utils.ReadFile(sourcePublicKeyPath)
 			if err != nil {
 				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
 					"path %s: %+v", sourcePublicKeyPath, err)

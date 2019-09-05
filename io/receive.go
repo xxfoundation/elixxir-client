@@ -68,7 +68,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 					//call the callback with the connecting status
 
-					err := cm.Connect()
+					err := cm.ConnectToGateways()
 
 					if err == nil {
 						notConnected = false

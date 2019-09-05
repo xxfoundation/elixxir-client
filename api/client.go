@@ -161,11 +161,33 @@ func (cl *Client) DisableTLS() {
 	cl.commManager.TLS = false
 }
 
-// Connects to gateways and registration server (if needed)
-// using TLS filepaths to create credential information
-// for connection establishment
+// Checks version and connects to gateways using TLS filepaths to create
+// credential information for connection establishment
 func (cl *Client) Connect() error {
-	return cl.commManager.Connect()
+	err := cl.commManager.UpdateRemoteVersion()
+	if err != nil {
+		return err
+	}
+	// Only check the version if we got a remote version
+	// The remote version won't have been populated if we didn't connect to
+	// permissioning
+	if cl.commManager.RegistrationVersion != "" {
+		ok, err := cl.commManager.CheckVersion()
+		if err != nil {
+			return err
+		}
+		if !ok {
+			err = errors.New("Couldn't connect to gateways: Versions incompatible")
+			return errors.Wrapf(err, "Local version: %v; remote version: %v", globals.SEMVER,
+				cl.commManager.RegistrationVersion)
+		}
+	} else {
+		globals.Log.WARN.Printf("Not checking version from " +
+			"registration server, because it's not populated. Do you have " +
+			"access to the registration server?")
+	}
+
+	return cl.commManager.ConnectToGateways()
 }
 
 func (cl *Client) SetRegisterProgressCallback(rpc RegisterProgressCallback) {
@@ -555,6 +577,16 @@ func (cl *Client) Logout() error {
 	}
 
 	return nil
+}
+
+// Returns the local version of the client repo
+func GetLocalVersion() string {
+	return globals.SEMVER
+}
+
+// Returns the compatible version of client, according to permissioning
+func (cl *Client) GetRemoteVersion() string {
+	return cl.commManager.RegistrationVersion
 }
 
 type SearchCallback interface {

@@ -64,6 +64,8 @@ type CommManager struct {
 	tryReconnect chan struct{}
 
 	connectionStatus *uint32
+
+	RegistrationVersion string
 }
 
 func NewCommManager(ndf *ndf.NetworkDefinition,
@@ -90,10 +92,9 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 	return &cm
 }
 
-// Connects to gateways and registration server (if needed)
-// using TLS filepaths to create credential information
+// Connects to gateways using TLS filepaths to create credential information
 // for connection establishment
-func (cm *CommManager) Connect() error {
+func (cm *CommManager) ConnectToGateways() error {
 	var err error
 	if len(cm.ndf.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
@@ -103,9 +104,9 @@ func (cm *CommManager) Connect() error {
 
 	cm.Comms.ConnectionManager.SetMaxRetries(1)
 
+	// connect to all gateways
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cm.ndf.Gateways))
-	// connect to all gateways
 	for i, gateway := range cm.ndf.Gateways {
 		wg.Add(1)
 		go func() {
@@ -145,7 +146,42 @@ func (cm *CommManager) Connect() error {
 		}
 	}
 
-	//connect to the registration server
+	cm.setConnectionStatus(Online, 0)
+	return nil
+}
+
+// Connects to the permissioning server, if we know about it, to get the latest
+// version from it
+func (cm *CommManager) UpdateRemoteVersion() error {
+	connected, err := cm.ConnectToPermissioning()
+	defer cm.DisconnectFromPermissioning()
+	if err != nil {
+		return err
+	}
+
+	if connected {
+		registrationVersion, err := cm.Comms.
+			SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
+		if err != nil {
+			return errors.Wrap(err, "Couldn't get current version from permissioning")
+		}
+		cm.RegistrationVersion = registrationVersion.Version
+	}
+	return nil
+}
+
+// Utility method, returns whether the local version and remote version are
+// compatible
+func (cm *CommManager) CheckVersion() (bool, error) {
+	return checkVersion(globals.SEMVER, cm.RegistrationVersion)
+}
+
+// There's currently no need to keep connected to permissioning constantly,
+// so we have functions to connect to and disconnect from it when a connection
+// to permissioning is needed
+func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
+	// Only connect to permissioning if it exists in the NDF
+	// Otherwise, no connection will be established
 	if cm.ndf.Registration.Address != "" {
 		var regCert []byte
 		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {
@@ -156,20 +192,23 @@ func (cm *CommManager) Connect() error {
 			cm.ndf.Registration.Address)
 		err = cm.Comms.ConnectToRemote(addr, cm.ndf.Registration.Address, regCert, false)
 		if err != nil {
-			return errors.New(fmt.Sprintf(
+			return false, errors.New(fmt.Sprintf(
 				"Failed connecting to permissioning: %+v", err))
 		}
 		globals.Log.INFO.Printf(
 			"Connected to permissioning at %v successfully!",
 			cm.ndf.Registration.Address)
+		return true, nil
 	} else {
-		globals.Log.WARN.Printf("Unable to find permissioning server!")
+		// Without an NDF, we can't connect to permissioning, but this isn't an
+		// error per se, because we should be phasing out permissioning at some
+		// point
+		return false, nil
 	}
-	if err != nil {
-		return err
-	}
-	cm.setConnectionStatus(Online, 0)
-	return nil
+}
+
+func (cm *CommManager) DisconnectFromPermissioning() {
+	cm.Comms.Disconnect(PermissioningAddrID)
 }
 
 func (cm *CommManager) Disconnect() {

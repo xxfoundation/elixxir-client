@@ -93,6 +93,7 @@ func TestRegister(t *testing.T) {
 	}
 
 	// Connect to gateway
+	// Currently, we
 	err = client.Connect()
 
 	if err != nil {

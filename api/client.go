@@ -207,7 +207,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	var u *user.User
 	var UID *id.User
 
-	cl.opStatus(globals.KEYGEN)
+	cl.opStatus(globals.REG_KEYGEN)
 
 	largeIntBits := 16
 
@@ -254,7 +254,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
-		cl.opStatus(globals.PRECAN_REG)
+		cl.opStatus(globals.REG_PRECAN)
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
@@ -262,7 +262,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			return id.ZeroID, err
 		}
 	} else {
-		cl.opStatus(globals.UID_GEN)
+		cl.opStatus(globals.REG_UID_GEN)
 		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
@@ -283,7 +283,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.opStatus(globals.PERM_REG)
+			cl.opStatus(globals.REG_PERM)
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
@@ -292,7 +292,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		cl.opStatus(globals.NODE_REG)
+		cl.opStatus(globals.REG_NODE)
 
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(cl.ndf.Gateways))
@@ -374,7 +374,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		user.Users.UpsertUser(u)
 	}
 
-	cl.opStatus(globals.SECURE_STORE)
+	cl.opStatus(globals.REG_SECURE_STORE)
 
 	u.Email = email
 
@@ -383,7 +383,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
 
-	cl.opStatus(globals.SAVE)
+	cl.opStatus(globals.REG_SAVE)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -404,8 +404,6 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
 	}
 	newSession = nil
-
-	cl.opStatus(globals.REG_COMPLETE)
 
 	return UID, nil
 }

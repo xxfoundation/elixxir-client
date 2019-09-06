@@ -95,6 +95,6 @@ type ConnectionStatusCallback interface {
 	Callback(status int, TimeoutSeconds int)
 }
 
-type RegistrationProgressCallback interface {
+type OperationProgressCallback interface {
 	Callback(int)
 }

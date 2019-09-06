@@ -45,11 +45,11 @@ type Client struct {
 	commManager *io.CommManager
 	ndf         *ndf.NetworkDefinition
 	topology    *circuit.Circuit
-	regStatus   RegisterProgressCallback
+	opStatus    OperationProgressCallback
 }
 
 //used to report the state of registration
-type RegisterProgressCallback func(int)
+type OperationProgressCallback func(int)
 
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
@@ -148,7 +148,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl.topology = circuit.New(nodeIDs)
 
-	cl.regStatus = func(int) {
+	cl.opStatus = func(int) {
 		return
 	}
 
@@ -190,8 +190,8 @@ func (cl *Client) Connect() error {
 	return cl.commManager.ConnectToGateways()
 }
 
-func (cl *Client) SetRegisterProgressCallback(rpc RegisterProgressCallback) {
-	cl.regStatus = func(i int) { go rpc(i) }
+func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
+	cl.opStatus = func(i int) { go rpc(i) }
 }
 
 // Registers user and returns the User ID.
@@ -207,7 +207,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	var u *user.User
 	var UID *id.User
 
-	cl.regStatus(globals.KEYGEN)
+	cl.opStatus(globals.KEYGEN)
 
 	largeIntBits := 16
 
@@ -254,7 +254,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	// Handle precanned registration
 	if preCan {
-		cl.regStatus(globals.PRECAN_REG)
+		cl.opStatus(globals.PRECAN_REG)
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
@@ -262,7 +262,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			return id.ZeroID, err
 		}
 	} else {
-		cl.regStatus(globals.UID_GEN)
+		cl.opStatus(globals.UID_GEN)
 		globals.Log.INFO.Printf("Registering dynamic user...")
 		saltSize := 256
 		// Generate salt for UserID
@@ -283,7 +283,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.regStatus(globals.PERM_REG)
+			cl.opStatus(globals.PERM_REG)
 			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
@@ -292,7 +292,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		cl.regStatus(globals.NODE_REG)
+		cl.opStatus(globals.NODE_REG)
 
 		var wg sync.WaitGroup
 		errChan := make(chan error, len(cl.ndf.Gateways))
@@ -358,7 +358,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}
 
 			if errs != nil {
-				cl.regStatus(globals.REG_FAIL)
+				cl.opStatus(globals.REG_FAIL)
 				return id.ZeroID, errs
 			}
 
@@ -374,7 +374,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		user.Users.UpsertUser(u)
 	}
 
-	cl.regStatus(globals.SECURE_STORE)
+	cl.opStatus(globals.SECURE_STORE)
 
 	u.Email = email
 
@@ -383,7 +383,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
 
-	cl.regStatus(globals.SAVE)
+	cl.opStatus(globals.SAVE)
 
 	// Store the user session
 	errStore := newSession.StoreSession()
@@ -405,7 +405,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	}
 	newSession = nil
 
-	cl.regStatus(globals.REG_COMPLETE)
+	cl.opStatus(globals.REG_COMPLETE)
 
 	return UID, nil
 }
@@ -429,7 +429,7 @@ func (cl *Client) RegisterWithUDB() error {
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes, cl.regStatus)
+		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus)
 		globals.Log.INFO.Printf("Registered with UDB!")
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
@@ -605,8 +605,9 @@ func (cl *Client) SearchForUser(emailAddress string,
 
 	valueType := "EMAIL"
 	go func() {
-		uid, pubKey, err := bots.Search(valueType, emailAddress)
+		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus)
 		if err == nil && uid != nil && pubKey != nil {
+			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
 			err = cl.registerUserE2E(uid, pubKey)
 			cb.Callback(uid[:], pubKey, err)
 		} else {

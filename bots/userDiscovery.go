@@ -70,7 +70,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string) (*id.User, []byte, error) {
+func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 
 	var err error
@@ -80,6 +80,8 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 			return nil, nil, fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
 		}
 	}
+
+	searchStatus(globals.UDB_SEARCH_LOOK)
 
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_SEARCH),
@@ -99,6 +101,8 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 	if *cMixUID == *id.ZeroID {
 		return nil, nil, fmt.Errorf("%s", keyFP)
 	}
+
+	searchStatus(globals.UDB_SEARCH_GETKEY)
 
 	// Get the full key and decode it
 	msgBody = parse.Pack(&parse.TypedBody{

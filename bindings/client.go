@@ -101,12 +101,12 @@ func (cl *Client) Connect() error {
 }
 
 // Sets a callback which receives a strings describing the current status of
-// Registration or UDB Registeration
-func (cl *Client) SetRegisterProgressCallback(rpcFace RegistrationProgressCallback) {
+// Registration or UDB Registration, or UDB Search
+func (cl *Client) SetOperationProgressCallback(rpcFace RegistrationProgressCallback) {
 	rpc := func(i int) {
 		rpcFace.Callback(i)
 	}
-	cl.client.SetRegisterProgressCallback(rpc)
+	cl.client.SetOperationProgressCallback(rpc)
 }
 
 // Registers user and returns the User ID bytes.

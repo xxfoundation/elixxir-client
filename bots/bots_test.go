@@ -125,7 +125,12 @@ func TestSearch(t *testing.T) {
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		publicKeyString)
 
-	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io")
+	dummySearchState := func(int) {
+		return
+	}
+
+	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io",
+		dummySearchState)
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}

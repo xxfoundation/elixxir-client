@@ -31,7 +31,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 
 	var err error
 	if valueType == "EMAIL" {
-		value, err = hashAndEncode(value)
+		value, err = hashAndEncode(strings.ToLower(value))
 		if err != nil {
 			return fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
 		}
@@ -75,7 +75,7 @@ func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, 
 
 	var err error
 	if valueType == "EMAIL" {
-		value, err = hashAndEncode(value)
+		value, err = hashAndEncode(strings.ToLower(value))
 		if err != nil {
 			return nil, nil, fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
 		}

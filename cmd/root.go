@@ -20,11 +20,11 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/utils"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/elixxir/primitives/utils"
 	"io/ioutil"
 	"log"
 	"os"
@@ -51,10 +51,12 @@ var keyParams []string
 var ndfPath string
 var skipNDFVerification bool
 var ndfPubKey string
+var sessFilePassword string
 var noTLS bool
 var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
+var messageCnt uint
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -73,7 +75,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	var client *api.Client
 
 	// Read in the network definition file and save as string
-	ndfBytes, err := ioutil.ReadFile(ndfPath)
+	ndfBytes, err := utils.ReadFile(ndfPath)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not read network definition file: %v", err)
 	}
@@ -92,8 +94,14 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	globals.Log.DEBUG.Printf("   NDF Verified")
 
 	//If no session file is passed initialize with RAM Storage
+
+	dummyConnectionStatusHandler := func(status uint32, timeout int) {
+		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
+	}
+
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON)
+		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
+			dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -117,7 +125,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON)
+		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
@@ -172,7 +180,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		var privKey *rsa.PrivateKey
 
 		if sourcePublicKeyPath != "" {
-			pubKeyBytes, err := ioutil.ReadFile(utils.GetFullPath(sourcePublicKeyPath))
+			pubKeyBytes, err := utils.ReadFile(sourcePublicKeyPath)
 			if err != nil {
 				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
 					"path %s: %+v", sourcePublicKeyPath, err)
@@ -185,7 +193,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.Register(userId != 0, regCode, userNick, userEmail, privKey)
+		uid, err = client.Register(userId != 0, regCode, userNick,
+			userEmail, sessFilePassword, privKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
@@ -193,7 +202,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
-
+		globals.Log.INFO.Printf("Registered as user (uid, the var) %v", uid)
+		globals.Log.INFO.Printf("Registered as user (userID, the global) %v", userId)
 		globals.Log.INFO.Printf("Successfully registered user %s!", userbase64)
 
 	} else {
@@ -203,7 +213,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	nick, err := client.Login(uid)
+	nick, err := client.Login(sessFilePassword)
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
@@ -295,9 +305,9 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n",
+	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
-		senderNick, result.Message)
+		senderNick, result.Message, message.Timestamp.String())
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }
@@ -359,6 +369,13 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Log.INFO.Println("Logged In!")
 
+		if userEmail != "" {
+			err := client.RegisterWithUDB()
+			if err != nil {
+				jww.ERROR.Printf("Could not register with UDB: %+v", err)
+			}
+		}
+
 		cryptoType := parse.Unencrypted
 		if end2end {
 			cryptoType = parse.E2E
@@ -398,21 +415,25 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-					recipientNick, message)
-
-				// Send the message
-				err := client.Send(&parse.Message{
-					Sender: userID,
-					TypedBody: parse.TypedBody{
-						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:        wireOut,
-					},
-					InferredType: cryptoType,
-					Receiver:     recipientId,
-				})
-				if err != nil {
-					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				for i := uint(0); i < messageCnt; i++ {
+					fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+						recipientNick, message)
+					if i != 0 {
+						time.Sleep(1 * time.Second)
+					}
+					// Send the message
+					err := client.Send(&parse.Message{
+						Sender: userID,
+						TypedBody: parse.TypedBody{
+							MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
+							Body:        wireOut,
+						},
+						InferredType: cryptoType,
+						Receiver:     recipientId,
+					})
+					if err != nil {
+						globals.Log.ERROR.Printf("Error sending message: %+v", err)
+					}
 				}
 			}
 		}
@@ -426,16 +447,21 @@ var rootCmd = &cobra.Command{
 
 		if message != "" {
 			// Wait up to 45s to receive a message
+			lastCnt := int64(0)
 			for end, timeout := false, time.After(45*time.Second); !end; {
-				numMsgRecieved := atomic.LoadInt64(&text.MessagesReceived)
-				if numMsgRecieved == int64(waitForMessages) {
+				numMsgReceived := atomic.LoadInt64(&text.MessagesReceived)
+				if numMsgReceived == int64(waitForMessages) {
 					end = true
+				}
+				if numMsgReceived != lastCnt {
+					lastCnt = numMsgReceived
+					timeout = time.After(45 * time.Second)
 				}
 
 				select {
 				case <-timeout:
 					fmt.Printf("Timing out client, "+
-						"%v/%v message(s) been received", numMsgRecieved,
+						"%v/%v message(s) been received", numMsgReceived,
 						waitForMessages)
 					end = true
 				default:
@@ -448,9 +474,9 @@ var rootCmd = &cobra.Command{
 			if isValidUser(foundUser) {
 				userIDBase64 := base64.StdEncoding.EncodeToString(foundUser)
 				globals.Log.INFO.Printf("Found User %s at ID: %s",
-					userEmail, userIDBase64)
+					searchForUser, userIDBase64)
 			} else {
-				globals.Log.INFO.Printf("Found User %s is invalid", userEmail)
+				globals.Log.INFO.Printf("Found User %s is invalid", searchForUser)
 			}
 		}
 
@@ -542,6 +568,12 @@ func init() {
 		false,
 		"Specifies if the NDF should be loaded without the signature")
 
+	rootCmd.PersistentFlags().StringVarP(&sessFilePassword,
+		"password",
+		"P",
+		"",
+		"Password to the session file")
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
@@ -577,6 +609,9 @@ func init() {
 	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
 		"t", 45, "The number of seconds to wait for "+
 			"'waitForMessages' messages to arrive")
+
+	rootCmd.Flags().UintVarP(&messageCnt, "messageCount",
+		"c", 1, "The number of times to send the message")
 }
 
 // initConfig reads in config file and ENV variables if set.

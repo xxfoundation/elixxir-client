@@ -7,9 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -33,9 +31,14 @@ import (
 
 var TestKeySize = 768
 
+func dummyConnectionStatusHandler(status uint32, timeout int) {
+	return
+}
+
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -46,24 +49,20 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "", nil)
+	_, err = testClient.Register(true, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// get the gob out of there again
-	sessionGob := testClient.storage.Load()
-	var sessionBytes bytes.Buffer
-	sessionBytes.Write(sessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
-	Session := user.SessionObj{}
-	err = dec.Decode(&Session)
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
 	if err != nil {
 		t.Error(err)
 	}
 
-	VerifyRegisterGobUser(&Session, t)
-	VerifyRegisterGobKeys(&Session, testClient.topology, t)
+	VerifyRegisterGobUser(Session, t)
+	VerifyRegisterGobKeys(Session, testClient.topology, t)
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -184,7 +183,7 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -204,8 +203,9 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA, privateKeyRSA,
-		myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		e2eGrp, "password")
 
 	testClient.session = session
 
@@ -272,7 +272,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -294,7 +294,8 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		e2eGrp, "password")
 
 	testClient.session = session
 
@@ -418,7 +419,8 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -438,7 +440,8 @@ func TestClient_precannedRegister(t *testing.T) {
 
 // Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -467,7 +470,8 @@ func TestClient_requestNonce(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -492,7 +496,8 @@ func TestClient_requestNonce(t *testing.T) {
 
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}

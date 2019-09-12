@@ -8,7 +8,10 @@
 package bots
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -22,17 +25,26 @@ import (
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
 // valueType: Currently only "EMAIL"
-func Register(valueType, value string, publicKey []byte) error {
+func Register(valueType, value string, publicKey []byte, regStatus func(int)) error {
 	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
 		value, publicKey)
+
+	var err error
+	if valueType == "EMAIL" {
+		value, err = hashAndEncode(value)
+		if err != nil {
+			return fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
+		}
+	}
+
 	keyFP := fingerprint(publicKey)
 
+	regStatus(globals.UDB_REG_PUSHKEY)
+
 	// check if key already exists and push one if it doesn't
-	if !keyExists(UdbID, keyFP) {
-		err := pushKey(UdbID, keyFP, publicKey)
-		if err != nil {
-			return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
-		}
+	err = pushKey(UdbID, keyFP, publicKey)
+	if err != nil {
+		return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
 	}
 
 	msgBody := parse.Pack(&parse.TypedBody{
@@ -40,8 +52,10 @@ func Register(valueType, value string, publicKey []byte) error {
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
+	regStatus(globals.UDB_REG_PUSHUSER)
+
 	// Send register command
-	err := sendCommand(UdbID, msgBody)
+	err = sendCommand(UdbID, msgBody)
 	if err == nil {
 		regResult := <-registerResponseListener
 		if regResult != "REGISTRATION COMPLETE" {
@@ -56,13 +70,24 @@ func Register(valueType, value string, publicKey []byte) error {
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string) (*id.User, []byte, error) {
+func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
+
+	var err error
+	if valueType == "EMAIL" {
+		value, err = hashAndEncode(value)
+		if err != nil {
+			return nil, nil, fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
+		}
+	}
+
+	searchStatus(globals.UDB_SEARCH_LOOK)
+
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_SEARCH),
 		Body:        []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
-	err := sendCommand(UdbID, msgBody)
+	err = sendCommand(UdbID, msgBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -76,6 +101,8 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 	if *cMixUID == *id.ZeroID {
 		return nil, nil, fmt.Errorf("%s", keyFP)
 	}
+
+	searchStatus(globals.UDB_SEARCH_GETKEY)
 
 	// Get the full key and decode it
 	msgBody = parse.Pack(&parse.TypedBody{
@@ -97,6 +124,29 @@ func Search(valueType, value string) (*id.User, []byte, error) {
 	}
 
 	return cMixUID, publicKey, nil
+}
+
+func hashAndEncode(s string) (string, error) {
+	buf := new(bytes.Buffer)
+	encoder := base64.NewEncoder(base64.StdEncoding, buf)
+
+	sha := sha256.New()
+	sha.Write([]byte(s))
+	hashed := sha.Sum(nil)
+
+	_, err := encoder.Write(hashed)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error base64 encoding string %s: %+v", s, err))
+		return "", err
+	}
+
+	err = encoder.Close()
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Error closing encoder: %+v", err))
+		return "", err
+	}
+
+	return buf.String(), nil
 }
 
 // parseSearch parses the responses from SEARCH. It returns the user's id and
@@ -126,11 +176,10 @@ func parseGetKey(msg string) []byte {
 		return nil
 	}
 	keymat, err := base64.StdEncoding.DecodeString(resParts[2])
-	if err != nil || len(keymat)==0{
+	if err != nil || len(keymat) == 0 {
 		globals.Log.WARN.Printf("Couldn't decode GETKEY keymat: %s", msg)
 		return nil
 	}
-
 	return keymat
 }
 
@@ -141,9 +190,11 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 		publicKeyString)
 	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
+	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
+
 	sendCommand(udbID, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
-		Body:        []byte(fmt.Sprintf("%s %s", keyFP, publicKeyString)),
+		Body:        []byte(pushKeyMsg),
 	}))
 	response := <-pushKeyResponseListener
 	if response != expected {

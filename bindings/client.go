@@ -8,53 +8,16 @@ package bindings
 
 import (
 	"errors"
-	"fmt"
+	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 )
 
 type Client struct {
 	client *api.Client
-}
-
-// Copy of the storage interface.
-// It is identical to the interface used in Globals,
-// and a results the types can be passed freely between the two
-type Storage interface {
-	// Give a Location for storage.  Does not need to be implemented if unused.
-	SetLocation(string) error
-	// Returns the Location for storage.
-	// Does not need to be implemented if unused.
-	GetLocation() string
-	// Stores the passed byte slice
-	Save([]byte) error
-	// Returns the stored byte slice
-	Load() []byte
-}
-
-// Message used for binding
-type Message interface {
-	// Returns the message's sender ID
-	GetSender() []byte
-	// Returns the message payload
-	// Parse this with protobuf/whatever according to the type of the message
-	GetPayload() []byte
-	// Returns the message's recipient ID
-	GetRecipient() []byte
-	// Returns the message's type
-	GetMessageType() int32
-}
-
-// Translate a bindings message to a parse message
-// An object implementing this interface can be called back when the client
-// gets a message of the type that the registerer specified at registration
-// time.
-type Listener interface {
-	Hear(msg Message, isHeardElsewhere bool)
 }
 
 // Returns listener handle as a string.
@@ -96,7 +59,8 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, error) {
+func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
+	csc ConnectionStatusCallback) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
@@ -105,7 +69,12 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, 
 	ndf := api.VerifyNDF(ndfStr, ndfPubKey)
 
 	proxy := &storageProxy{boundStorage: storage}
-	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf)
+
+	conStatCallback := func(status uint32, TimeoutSeconds int) {
+		csc.Callback(int(status), TimeoutSeconds)
+	}
+
+	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf, conStatCallback)
 
 	return &Client{client: cl}, err
 }
@@ -114,7 +83,13 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string) (*Client, 
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
 	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.DisableTLS()
+	cl.client.DisableTLS()
+}
+
+func (cl *Client) EnableDebugLogs() {
+	globals.Log.INFO.Printf("Binding call: EnableDebugLogs()")
+	globals.Log.SetStdoutThreshold(jwalterweatherman.LevelDebug)
+	globals.Log.SetLogThreshold(jwalterweatherman.LevelDebug)
 }
 
 // Connects to gateways and registration server (if needed)
@@ -123,6 +98,15 @@ func (cl *Client) DisableTLS() {
 func (cl *Client) Connect() error {
 	globals.Log.INFO.Printf("Binding call: Connect()")
 	return cl.client.Connect()
+}
+
+// Sets a callback which receives a strings describing the current status of
+// Registration or UDB Registration, or UDB Search
+func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback) {
+	rpc := func(i int) {
+		rpcFace.Callback(i)
+	}
+	cl.client.SetOperationProgressCallback(rpc)
 }
 
 // Registers user and returns the User ID bytes.
@@ -136,8 +120,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	globals.Log.INFO.Printf("Binding call: Register()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	fmt.Println("calling client reg")
-	UID, err := cl.client.Register(preCan, registrationCode, nick, email, nil)
+	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
+		password, nil)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -146,14 +130,21 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	return UID[:], nil
 }
 
+// Register with UDB uses the account's email to register with the UDB for
+// User discovery.  Must be called after Register and Connect.
+// It will fail if the user has already registered with UDB
+func (cl *Client) RegisterWithUDB() error {
+	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
+	return cl.client.RegisterWithUDB()
+}
+
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
 func (cl *Client) Login(UID []byte, password string) (string, error) {
 	globals.Log.INFO.Printf("Binding call: Login()\n"+
 		"   UID: %v\n   Password: ********", UID)
-	userID := id.NewUserFromBytes(UID)
-	return cl.client.Login(userID)
+	return cl.client.Login(password)
 }
 
 // Starts the polling of the external servers.
@@ -198,6 +189,20 @@ func (cl *Client) Logout() error {
 	return cl.client.Logout()
 }
 
+// Get the version string from the locally built client repository
+func GetLocalVersion() string {
+	return api.GetLocalVersion()
+}
+
+// Get the version string from the registration server
+// You need to connect to gateways for this to be populated.
+// For the client to function, the local version must be compatible with this
+// version. If that's not the case, check out the git tag corresponding to the
+// client release version returned here.
+func (cl *Client) GetRemoteVersion() string {
+	return cl.client.GetRemoteVersion()
+}
+
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
 func (cl *Client) DisableBlockingTransmission() {
@@ -210,34 +215,10 @@ func (cl *Client) SetRateLimiting(limit int) {
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
-type SearchCallback interface {
-	Callback(userID, pubKey []byte, err error)
-}
-
-type searchCallbackProxy struct {
-	proxy SearchCallback
-}
-
-func (scp *searchCallbackProxy) Callback(userID, pubKey []byte, err error) {
-	scp.proxy.Callback(userID, pubKey, err)
-}
-
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback) {
 	proxy := &searchCallbackProxy{cb}
 	cl.client.SearchForUser(emailAddress, proxy)
-}
-
-type NickLookupCallback interface {
-	Callback(nick string, err error)
-}
-
-type nickCallbackProxy struct {
-	proxy NickLookupCallback
-}
-
-func (ncp *nickCallbackProxy) Callback(nick string, err error) {
-	ncp.proxy.Callback(nick, err)
 }
 
 // Nickname lookup API
@@ -254,23 +235,6 @@ func (cl *Client) LookupNick(user []byte,
 // across the Bindings
 func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
-}
-
-// Translate a bindings listener to a switchboard listener
-// Note to users of this package from other languages: Symbols that start with
-// lowercase are unexported from the package and meant for internal use only.
-type listenerProxy struct {
-	proxy Listener
-}
-
-func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool) {
-	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
-	lp.proxy.Hear(msgInterface, isHeardElsewhere)
-}
-
-// Translate a bindings storage to a client storage
-type storageProxy struct {
-	boundStorage Storage
 }
 
 func (s *storageProxy) SetLocation(location string) error {
@@ -298,4 +262,13 @@ func SetLogOutput(w Writer) {
 // Call this to get the session data without getting Save called from the Go side
 func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
+}
+
+//Call to get the networking status of the client
+// 0 - Offline
+// 1 - Connecting
+// 2 - Connected
+func (cl *Client) GetNetworkStatus() int64 {
+	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
+	return int64(cl.client.GetNetworkStatus())
 }

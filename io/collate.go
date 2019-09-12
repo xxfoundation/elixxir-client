@@ -46,15 +46,20 @@ func NewCollator() *Collator {
 // TODO this takes too many types. i should split it up.
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
-func (mb *Collator) AddMessage(message *format.Message,
+func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 	timeout time.Duration) *parse.Message {
 
 	payload := message.Contents.GetRightAligned()
-	// There's currently no mechanism for knowing who sent an unencrypted
-	// message, I think?
-	// Let's just try ZeroID for now...
-	sender := id.NewUserFromBytes(message.GetMAC())
 	recipient := message.GetRecipient()
+
+	//get the time
+	timestamp := time.Time{}
+
+	err := timestamp.UnmarshalBinary(message.GetTimestamp()[:len(message.GetTimestamp())-1])
+
+	if err != nil {
+		globals.Log.WARN.Printf("Failed to parse timestamp for message: %v", message.GetTimestamp())
+	}
 
 	partition, err := parse.ValidatePartition(payload)
 
@@ -65,7 +70,7 @@ func (mb *Collator) AddMessage(message *format.Message,
 			typedBody, err := parse.Parse(partition.Body)
 			// Log an error if the message is malformed and return nothing
 			if err != nil {
-				globals.Log.ERROR.Printf("Malformed message recieved")
+				globals.Log.ERROR.Printf("Malformed message received")
 				return nil
 			}
 
@@ -74,6 +79,7 @@ func (mb *Collator) AddMessage(message *format.Message,
 				InferredType: parse.Unencrypted,
 				Sender:       sender,
 				Receiver:     recipient,
+				Timestamp:    timestamp,
 			}
 
 			return &msg
@@ -139,6 +145,7 @@ func (mb *Collator) AddMessage(message *format.Message,
 					InferredType: parse.Unencrypted,
 					Sender:       sender,
 					Receiver:     recipient,
+					Timestamp:    timestamp,
 				}
 
 				delete(mb.pendingMessages, key)

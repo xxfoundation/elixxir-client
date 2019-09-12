@@ -62,17 +62,21 @@ func TestMain(m *testing.M) {
 		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
 		Nick: "Bernie",
 	}
-	myPrivKeyCyclic := grp.RandomCoprime(grp.NewMaxInt())
-	myPubKeyCyclic := grp.ExpG(myPrivKeyCyclic, grp.NewInt(1))
+	myPrivKeyCyclicCMIX := grp.RandomCoprime(grp.NewMaxInt())
+	myPubKeyCyclicCMIX := grp.ExpG(myPrivKeyCyclicCMIX, grp.NewInt(1))
+	myPrivKeyCyclicE2E := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	myPubKeyCyclicE2E := e2eGrp.ExpG(myPrivKeyCyclicE2E, e2eGrp.NewInt(1))
 	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 
-	partnerPubKeyCyclic := grp.RandomCoprime(grp.NewMaxInt())
+	partnerPubKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, grp, e2eGrp)
+		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclicCMIX,
+		myPrivKeyCyclicCMIX, myPubKeyCyclicE2E, myPrivKeyCyclicE2E,
+		grp, e2eGrp, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
@@ -83,8 +87,8 @@ func TestMain(m *testing.M) {
 	// Generate baseKey
 	baseKey, _ := diffieHellman.CreateDHSessionKey(
 		partnerPubKeyCyclic,
-		myPrivKeyCyclic,
-		grp)
+		myPrivKeyCyclicE2E,
+		e2eGrp)
 
 	// Generate key TTL and number of keys
 	keyParams := session.GetKeyStore().GetKeyParams()
@@ -92,15 +96,15 @@ func TestMain(m *testing.M) {
 		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
 	// Create Send KeyManager
-	km := keyStore.NewManager(baseKey, myPrivKeyCyclic,
+	km := keyStore.NewManager(baseKey, myPrivKeyCyclicE2E,
 		partnerPubKeyCyclic, partnerID, true,
 		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Send Keys
-	km.GenerateKeys(grp, u.User, session.GetKeyStore())
+	km.GenerateKeys(e2eGrp, u.User, session.GetKeyStore())
 
 	// Create Receive KeyManager
-	km = keyStore.NewManager(baseKey, myPrivKeyCyclic,
+	km = keyStore.NewManager(baseKey, myPrivKeyCyclicE2E,
 		partnerPubKeyCyclic, partnerID, false,
 		numKeys, keysTTL, keyParams.NumRekeys)
 
@@ -108,7 +112,7 @@ func TestMain(m *testing.M) {
 	km.GenerateKeys(grp, u.User, session.GetKeyStore())
 
 	keys := &keyStore.RekeyKeys{
-		CurrPrivKey: myPrivKeyCyclic,
+		CurrPrivKey: myPrivKeyCyclicE2E,
 		CurrPubKey:  partnerPubKeyCyclic,
 	}
 
@@ -141,12 +145,12 @@ func TestRekeyTrigger(t *testing.T) {
 	// Get new PubKey from Rekey message and confirm value matches
 	// with PubKey created from privKey in Rekey Context
 	value := <-ListenCh
-	grp := session.GetCmixGroup()
-	actualPubKey := grp.NewIntFromBytes(value)
+	grpE2E := session.GetE2EGroup()
+	actualPubKey := grpE2E.NewIntFromBytes(value)
 	privKey := session.GetRekeyManager().GetCtx(partnerID).PrivKey
 	fmt.Println("privKey: ", privKey.Text(16))
-	expectedPubKey := grp.NewInt(1)
-	grp.ExpG(privKey, expectedPubKey)
+	expectedPubKey := grpE2E.NewInt(1)
+	grpE2E.ExpG(privKey, expectedPubKey)
 	fmt.Println("new pub key: ", value)
 
 	if expectedPubKey.Cmp(actualPubKey) != 0 {
@@ -216,7 +220,7 @@ func TestRekeyConfirm(t *testing.T) {
 
 	// Confirm that user Private key in Send Key Manager
 	// differs from the one stored in session
-	if session.GetDHPrivateKey().GetLargeInt().Cmp(
+	if session.GetE2EDHPrivateKey().GetLargeInt().Cmp(
 		session.GetKeyStore().GetSendManager(partnerID).
 			GetPrivKey().GetLargeInt()) == 0 {
 		t.Errorf("PrivateKey remained unchanged after Outgoing Rekey!")
@@ -246,7 +250,7 @@ func TestRekey(t *testing.T) {
 	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetSendManager(partnerID)
 	// Generate new partner public key
-	grp, _ := getGroups()
+	_, grp := getGroups()
 	privKey := grp.RandomCoprime(grp.NewMaxInt())
 	pubKey := grp.ExpG(privKey, grp.NewMaxInt())
 	// Test receiving a Rekey message
@@ -286,7 +290,7 @@ func TestRekey(t *testing.T) {
 	keys := rkm.GetKeys(partnerID)
 
 	if keys.CurrPrivKey.GetLargeInt().
-		Cmp(session.GetDHPrivateKey().GetLargeInt()) == 0 {
+		Cmp(session.GetE2EDHPrivateKey().GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
 	}
 

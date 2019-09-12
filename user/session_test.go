@@ -59,46 +59,37 @@ func TestUserSession(t *testing.T) {
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
 	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, cmixGrp, e2eGrp, "password")
 
 	ses.SetLastMessageID("totally unique ID")
 
 	err := ses.StoreSession()
 
 	if err != nil {
-		t.Errorf("Error: Session not stored correctly: %s", err.Error())
+		t.Errorf("Session not stored correctly: %s", err.Error())
 	}
 
 	ses.Immolate()
 
 	//TODO: write test which validates the immolation
 
-	ses, err = LoadSession(storage, id.NewUserFromUint(UID, t))
+	ses, err = LoadSession(storage, "password")
 
 	if err != nil {
-		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
-	} else {
-		pass++
-	}
-
-	_, err = LoadSession(storage,
-		id.NewUserFromUint(10002, t))
-
-	if err == nil {
-		t.Errorf("Error: Able to login with invalid user!")
-	} else {
-		pass++
-	}
-
-	if ses == nil {
-		t.Errorf("Error: CurrentUser not set correctly!")
+		t.Errorf("Unable to login with valid user: %v",
+			err.Error())
 	} else {
 		pass++
 	}
 
 	if ses.GetLastMessageID() != "totally unique ID" {
-		t.Errorf("Error: Last message ID should have been stored and loaded")
+		t.Errorf("Last message ID should have been stored " +
+			"and loaded")
 	} else {
 		pass++
 	}
@@ -106,14 +97,14 @@ func TestUserSession(t *testing.T) {
 	ses.SetLastMessageID("test")
 
 	if ses.GetLastMessageID() != "test" {
-		t.Errorf("Error: Last message ID not set correctly with" +
+		t.Errorf("Last message ID not set correctly with" +
 			" SetLastMessageID!")
 	} else {
 		pass++
 	}
 
 	if ses.GetKeys(topology) == nil {
-		t.Errorf("Error: Keys not set correctly!")
+		t.Errorf("Keys not set correctly!")
 	} else {
 
 		test += len(ses.GetKeys(topology))
@@ -142,10 +133,10 @@ func TestUserSession(t *testing.T) {
 				}
 			} else if ses.GetKeys(topology)[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
-				t.Errorf("Error: Reception key not set correctly!")
-			} else if ses.GetKeys(topology)[i].TransmissionKey.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Error: Transmission key not set correctly!")
+				t.Errorf("Reception key not set correct!")
+			} else if ses.GetKeys(topology)[i].TransmissionKey.Cmp(
+				grp.NewInt(2)) != 0 {
+				t.Errorf("Transmission key not set correctly!")
 			}
 
 			pass++
@@ -162,19 +153,19 @@ func TestUserSession(t *testing.T) {
 	err = ses.UpsertMap("test", 5)
 
 	if err != nil {
-		t.Errorf("Error: Could not store in session map interface: %s",
+		t.Errorf("Could not store in session map interface: %s",
 			err.Error())
 	}
 
 	element, err := ses.QueryMap("test")
 
 	if err != nil {
-		t.Errorf("Error: Could not read element in session map "+
+		t.Errorf("Could not read element in session map "+
 			"interface: %s", err.Error())
 	}
 
 	if element.(int) != 5 {
-		t.Errorf("Error: Could not read element in session map "+
+		t.Errorf("Could not read element in session map "+
 			"interface: Expected: 5, Recieved: %v", element)
 	}
 
@@ -183,7 +174,7 @@ func TestUserSession(t *testing.T) {
 	_, err = ses.QueryMap("test")
 
 	if err == nil {
-		t.Errorf("Error: Could not delete element in session map " +
+		t.Errorf("Could not delete element in session map " +
 			"interface")
 	}
 
@@ -194,7 +185,7 @@ func TestUserSession(t *testing.T) {
 
 	// Test nil LocalStorage
 
-	_, err = LoadSession(nil, id.NewUserFromUint(6, t))
+	_, err = LoadSession(nil, "password")
 
 	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
@@ -206,10 +197,13 @@ func TestUserSession(t *testing.T) {
 	randBytes := h.Sum(nil)
 	storage.Save(randBytes)
 
-	_, err = LoadSession(storage, id.NewUserFromUint(6, t))
+	defer func() {
+		recover()
+	}()
 
+	_, err = LoadSession(storage, "password")
 	if err == nil {
-		t.Errorf("Error did not catch a corrupt LocalStorage")
+		t.Errorf("LoadSession should error on bad decrypt!")
 	}
 }
 
@@ -238,7 +232,12 @@ func TestGetPubKey(t *testing.T) {
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
-	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
+		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
+		e2eGrp, "password")
 
 	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -271,7 +270,12 @@ func TestGetPrivKey(t *testing.T) {
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
-	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
+		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
+		e2eGrp, "password")
 
 	privKey := ses.GetRSAPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

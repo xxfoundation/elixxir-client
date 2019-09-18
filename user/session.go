@@ -51,7 +51,7 @@ type Session interface {
 	GetKeyStore() *keyStore.KeyStore
 	GetRekeyManager() *keyStore.RekeyManager
 	GetSwitchboard() *switchboard.Switchboard
-	GetQuitChan() chan bool
+	GetQuitChan() chan struct{}
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
@@ -91,7 +91,7 @@ func NewSession(store globals.Storage,
 		RekeyManager:        keyStore.NewRekeyManager(),
 		store:               store,
 		listeners:           switchboard.NewSwitchboard(),
-		quitReceptionRunner: make(chan bool),
+		quitReceptionRunner: make(chan struct{}),
 		password:            password,
 	})
 }
@@ -135,7 +135,7 @@ func LoadSession(store globals.Storage,
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
-	session.quitReceptionRunner = make(chan bool)
+	session.quitReceptionRunner = make(chan struct{})
 
 	// Set storage pointer
 	session.store = store
@@ -178,7 +178,7 @@ type SessionObj struct {
 	listeners *switchboard.Switchboard
 
 	// Quit channel for message reception runner
-	quitReceptionRunner chan bool
+	quitReceptionRunner chan struct{}
 
 	lock sync.Mutex
 
@@ -374,7 +374,7 @@ func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
 	return s.listeners
 }
 
-func (s *SessionObj) GetQuitChan() chan bool {
+func (s *SessionObj) GetQuitChan() chan struct{} {
 	return s.quitReceptionRunner
 }
 

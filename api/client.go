@@ -548,7 +548,7 @@ func (cl *Client) Logout() error {
 	}
 
 	// Stop reception runner goroutine
-	cl.session.GetQuitChan() <- true
+	close(cl.session.GetQuitChan())
 
 	// Disconnect from the gateways
 	for _, gateway := range cl.ndf.Gateways {

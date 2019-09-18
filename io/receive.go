@@ -53,6 +53,8 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 					cm.setConnectionStatus(Offline, toSeconds(backoffTime))
 
+					globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
+
 					timer := time.NewTimer(backoffTime)
 
 					if block {
@@ -103,8 +105,11 @@ func (cm *CommManager) TryReconnect() {
 }
 
 func (cm *CommManager) computeBackoff(count int) (bool, time.Duration) {
-	if count < maxAttempts {
-		return true, 100 * time.Hour
+	if count > maxAttempts {
+		delay := time.Hour
+		globals.Log.WARN.Printf("Exceeded maximum attempts, waiting "+
+			"%s to reconnect", delay)
+		return true, delay
 	}
 
 	wait := 2 ^ count

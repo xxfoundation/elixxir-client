@@ -30,11 +30,13 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
 
+	quit := session.GetQuitChan()
+
 	for {
 		timerDelay := time.NewTimer(delay)
 		select {
-		case <-session.GetQuitChan():
-			close(session.GetQuitChan())
+		case <-quit:
+			globals.Log.DEBUG.Printf("Stopped message receiver")
 			return
 		case <-timerDelay.C:
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")

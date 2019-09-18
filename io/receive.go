@@ -36,7 +36,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 		timerDelay := time.NewTimer(delay)
 		select {
 		case <-quit:
-			globals.Log.DEBUG.Printf("Stopped message receiver")
+			globals.Log.DEBUG.Printf("Stopped message receiver\n")
 			return
 		case <-timerDelay.C:
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")

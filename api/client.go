@@ -194,6 +194,53 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
 }
 
+func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.User,
+	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
+	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
+	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys) chan error {
+
+	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
+
+	errChan := make(chan error, len(cl.ndf.Gateways))
+
+	// Initialise blake2b hash for transmission keys and sha256 for reception
+	// keys
+	transmissionHash, _ := hash.NewCMixHash()
+	receptionHash := sha256.New()
+
+	// Request nonce message from gateway
+	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
+		index, len(cl.ndf.Gateways))
+	nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH,
+		publicKeyRSA, privateKeyRSA, gatewayID)
+
+	if err != nil {
+		globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
+		errChan <- err
+	}
+
+	// Load server DH pubkey
+	serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
+
+	// Confirm received nonce
+	globals.Log.INFO.Println("Register: Confirming received nonce")
+	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
+	if err != nil {
+		globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
+		errChan <- err
+	} else {
+	}
+
+	nodeID := *cl.topology.GetNodeAtIndex(index)
+	nodeKey[nodeID] = user.NodeKeys{
+		TransmissionKey: registration.GenerateBaseKey(cmixGrp,
+			serverPubDH, cmixPrivateKeyDH, transmissionHash),
+		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
+			cmixPrivateKeyDH, receptionHash),
+	}
+	return errChan
+}
+
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
@@ -293,53 +340,19 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
 		cl.opStatus(globals.REG_NODE)
+		errChan := make(chan error, len(cl.ndf.Gateways))
 
 		var wg sync.WaitGroup
-		errChan := make(chan error, len(cl.ndf.Gateways))
 
 		// Loop over all Servers
 		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
 
-			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 			// Multithread registration for better performance
 			wg.Add(1)
 			go func() {
-				// Initialise blake2b hash for transmission keys and sha256 for reception
-				// keys
-				transmissionHash, _ := hash.NewCMixHash()
-				receptionHash := sha256.New()
-
-				// Request nonce message from gateway
-				globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
-					i, len(cl.ndf.Gateways))
-				nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH,
-					publicKeyRSA, privateKeyRSA, gwID)
-
-				if err != nil {
-					globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
-					errChan <- err
-				}
-
-				// Load server DH pubkey
-				serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
-
-				// Confirm received nonce
-				globals.Log.INFO.Println("Register: Confirming received nonce")
-				err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
-				if err != nil {
-					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
-					errChan <- err
-				} else {
-				}
-
-				nodeID := *cl.topology.GetNodeAtIndex(i)
-				nk[nodeID] = user.NodeKeys{
-					TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-						serverPubDH, cmixPrivateKeyDH, transmissionHash),
-					ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-						cmixPrivateKeyDH, receptionHash),
-				}
+				errChan = cl.registrationHelper(i, salt, regHash, UID, publicKeyRSA, privateKeyRSA,
+					cmixPublicKeyDH, cmixPrivateKeyDH, cmixGrp, nk)
 
 				wg.Done()
 			}()

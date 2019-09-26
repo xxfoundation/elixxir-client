@@ -155,25 +155,20 @@ func (cm *CommManager) ConnectToGateways() error {
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
 func (cm *CommManager) UpdateRemoteVersion() error {
-	connected, err := cm.ConnectToPermissioning()
-	defer cm.DisconnectFromPermissioning()
-	if err != nil {
-		return err
-	}
 
-	if connected {
-		registrationVersion, err := cm.Comms.
-			SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
-		if err != nil {
-			return errors.Wrap(err, "Couldn't get current version from permissioning")
-		}
-		cm.RegistrationVersion = registrationVersion.Version
+	registrationVersion, err := cm.Comms.
+		SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
+	if err != nil {
+		return errors.Wrap(err, "Couldn't get current version from permissioning")
 	}
+	cm.RegistrationVersion = registrationVersion.Version
+
 	return nil
 }
 
 //Connects to the permissioning server to get the updated NDF from it
 func (cm *CommManager) GetUpdatedNDF() error {
+	//FixMe how to do when no ndf? just a mock ndf with
 	connected, err := cm.ConnectToPermissioning()
 	defer cm.DisconnectFromPermissioning()
 	if err != nil {
@@ -181,7 +176,7 @@ func (cm *CommManager) GetUpdatedNDF() error {
 	}
 
 	if connected {
-		//Hash the client's ndf for comparison with ndf
+		//Hash the client's ndf for comparison with registration's ndf
 		hash := sha256.New()
 		ndfBytes := cm.ndf.Serialize()
 		hash.Write(ndfBytes)
@@ -206,9 +201,7 @@ func (cm *CommManager) GetUpdatedNDF() error {
 			}
 			//Set the updated ndf to be the client's ndf
 			cm.ndf = updatedNdf
-
 		}
-
 	}
 
 	return nil

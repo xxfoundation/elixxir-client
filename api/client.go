@@ -164,7 +164,26 @@ func (cl *Client) DisableTLS() {
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
-	err := cl.commManager.UpdateRemoteVersion()
+	_, err := cl.commManager.ConnectToPermissioning()
+	defer cl.commManager.DisconnectFromPermissioning()
+	if err != nil {
+		return err
+	}
+
+	//
+	blockingChan := make(chan struct{})
+	go func() {
+		for {
+			err = cl.commManager.GetUpdatedNDF()
+			blockingChan <- struct{}{}
+			time.Sleep(5 * time.Minute)
+
+		}
+	}()
+	//Block until ndf is updated
+	<-blockingChan
+
+	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
 		return err
 	}

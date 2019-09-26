@@ -170,8 +170,16 @@ func (cl *Client) Connect() error {
 	}
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to
-	// permissioning
 	if cl.commManager.RegistrationVersion != "" {
+		isConnected, err := cl.commManager.ConnectToPermissioning()
+		if err != nil{
+			return err
+		}
+		if !isConnected{
+			err=errors.New("Couldn't connect to permissioning")
+			return err
+			}
+		cl.commManager.DisconnectFromPermissioning()
 		ok, err := cl.commManager.CheckVersion()
 		if err != nil {
 			return err

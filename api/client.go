@@ -309,7 +309,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 				// keys
 				transmissionHash, _ := hash.NewCMixHash()
 				receptionHash := sha256.New()
-
+				globals.Log.INFO.Printf("Working on gw: %v", gwID)
 				// Request nonce message from gateway
 				globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
 					i, len(cl.ndf.Gateways))
@@ -320,7 +320,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 					globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
 					errChan <- err
 				}
-
+				globals.Log.INFO.Printf("gw: %v has %v", gwID, dhPub)
 				// Load server DH pubkey
 				serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
 

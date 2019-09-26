@@ -10,11 +10,13 @@
 package io
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"sync/atomic"
 
 	"gitlab.com/elixxir/primitives/id"
@@ -167,6 +169,48 @@ func (cm *CommManager) UpdateRemoteVersion() error {
 		}
 		cm.RegistrationVersion = registrationVersion.Version
 	}
+	return nil
+}
+
+//Connects to the permissioning server to get the updated NDF from it
+func (cm *CommManager) GetUpdatedNDF() error {
+	connected, err := cm.ConnectToPermissioning()
+	defer cm.DisconnectFromPermissioning()
+	if err != nil {
+		return err
+	}
+
+	if connected {
+		//Hash the client's ndf for comparison with ndf
+		hash := sha256.New()
+		ndfBytes := cm.ndf.Serialize()
+		hash.Write(ndfBytes)
+		ndfHash := hash.Sum(nil)
+		msg := &mixmessages.NDFHash{Hash: ndfHash}
+
+		// FIXME: pull from ndf, or have permissioning from tmp/mock ndf
+		response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
+		if err != nil {
+			errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
+			return errors.New(errMsg)
+		}
+		//If there was no error and the response is nil, client's ndf is up-to-date
+		if response == nil {
+			return nil
+		} else {
+			//Otherwise pull the ndf out of the response
+			updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
+			if err != nil {
+				errMsg := fmt.Sprintf("Failed to convert response to ndf: %v", err)
+				return errors.New(errMsg)
+			}
+			//Set the updated ndf to be the client's ndf
+			cm.ndf = updatedNdf
+
+		}
+
+	}
+
 	return nil
 }
 

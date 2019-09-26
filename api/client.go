@@ -140,6 +140,18 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl.ndf = ndfJSON
 
+	globals.Log.INFO.Printf("about to enter blocking")
+	blockingChan := make(chan struct{})
+	go func() {
+		for {
+			err = cl.commManager.GetUpdatedNDF()
+			blockingChan <- struct{}{}
+			time.Sleep(5 * time.Minute)
+
+		}
+	}()
+	//Block until ndf is updated
+	<-blockingChan
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {
@@ -164,28 +176,18 @@ func (cl *Client) DisableTLS() {
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
-	_, err := cl.commManager.ConnectToPermissioning()
+	connection, err := cl.commManager.ConnectToPermissioning()
 	defer cl.commManager.DisconnectFromPermissioning()
 	if err != nil {
 		return err
 	}
 
-	//
-	blockingChan := make(chan struct{})
-	go func() {
-		for {
-			err = cl.commManager.GetUpdatedNDF()
-			blockingChan <- struct{}{}
-			time.Sleep(5 * time.Minute)
-
+	globals.Log.INFO.Printf("failed to connect? %v", connection)
+	if connection {
+		err = cl.commManager.UpdateRemoteVersion()
+		if err != nil {
+			return err
 		}
-	}()
-	//Block until ndf is updated
-	<-blockingChan
-
-	err = cl.commManager.UpdateRemoteVersion()
-	if err != nil {
-		return err
 	}
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to

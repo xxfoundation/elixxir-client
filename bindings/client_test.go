@@ -94,8 +94,9 @@ func TestRegister(t *testing.T) {
 
 	// Connect to gateway
 	// Currently, we
+	fmt.Printf("connecting")
 	err = client.Connect()
-
+	t.Log("done connecting")
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}

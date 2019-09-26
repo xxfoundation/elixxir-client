@@ -102,6 +102,10 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 	return nil
 }
 
+func (s *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	return nil, nil
+}
+
 // Registers a user and returns a signed public key
 func (s *MockRegistration) RegisterUser(registrationCode,
 	key string) (hash []byte, err error) {

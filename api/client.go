@@ -110,7 +110,6 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 //FIXME: Tls argument to be depracated
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	callback io.ConnectionStatusCallback, tls bool) (*Client, error) {
-	globals.Log.DEBUG.Printf("NDF: %+v\n", ndfJSON)
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -131,10 +130,6 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	cl.storage = store
 	cl.commManager = io.NewCommManager(ndfJSON, callback, tls)
 
-	//FIXME: Should this be here??
-	globals.Log.INFO.Printf("before get updated ndf, comm manager tls %v", cl.commManager.TLS)
-	globals.Log.INFO.Printf("about to enter blocking")
-
 	blockingChan := make(chan struct{})
 	go func() {
 		for {
@@ -143,19 +138,18 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 			if err != nil {
 				globals.Log.ERROR.Printf(err.Error())
 			} else {
+				globals.Log.DEBUG.Printf("Setting ndf to: %v", newNDf)
 				cl.ndf = newNDf
 				blockingChan <- struct{}{}
 			}
-			//Fixme increase it logarithmically?
-			time.Sleep(5 * time.Second)
+			//Fixme increase it logarithmically? like a backoff?
+			time.Sleep(15 * time.Second)
 
 		}
 	}()
 	//Block until ndf is updated
 	<-blockingChan
-	globals.Log.INFO.Printf("exited blocking")
 
-	globals.Log.INFO.Printf("newNDF: %s", cl.ndf)
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {
@@ -187,13 +181,11 @@ func (cl *Client) DisableTLS() {
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
-	cl.commManager.TLS = false
 	_, err := cl.commManager.ConnectToPermissioning()
 	defer cl.commManager.DisconnectFromPermissioning()
 	if err != nil {
 		return err
 	}
-
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
 		return err
@@ -225,6 +217,7 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
 }
 
+//RegistrationHelper  registers a user. It serves as a helper for register
 func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
@@ -417,6 +410,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 					ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 						cmixPrivateKeyDH, receptionHash),
 				}
+
 				wg.Done()
 			}()
 

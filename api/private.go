@@ -18,7 +18,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 )
 
-const PermissioningAddrID = "registration"
+const PermissioningAddrID = "Permissioning"
 
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
@@ -74,7 +74,6 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	if !connected {
 		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
 	}
-
 	regHash := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
 	response, err := cl.commManager.Comms.

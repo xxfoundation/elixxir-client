@@ -308,7 +308,6 @@ func testMainWrapper(m *testing.M) int {
 	rndPort := int(rng.Uint64() % 10000)
 
 	def = getNDF()
-
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i, handler := range RegGWHandlers {
 
@@ -324,7 +323,7 @@ func testMainWrapper(m *testing.M) int {
 
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
-		Address: fmtAddress(RegPort + rndPort),
+		Address: fmtAddress(RegPort),
 	}
 	RegComms = registration.StartRegistrationServer(def.Registration.Address,
 		&RegHandler, nil, nil)

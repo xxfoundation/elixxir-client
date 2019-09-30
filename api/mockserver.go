@@ -8,6 +8,8 @@
 package api
 
 import (
+	"encoding/json"
+	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -15,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
 	"time"
 )
@@ -103,7 +106,41 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 }
 
 func (s *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	return nil, nil
+	fmt.Println("GetUpdated!")
+
+	ndfData := buildMockNDF()
+	globals.Log.INFO.Printf("retndf serialization in mock updateNDF: %v", ndfData.Serialize())
+	ndfJson, _ := json.Marshal(ndfData)
+	return ndfJson, nil
+}
+
+func buildMockNDF() ndf.NetworkDefinition {
+	reg := ndf.Registration{Address: "localhost:5000", TlsCertificate: "CERT"}
+	var Nodes []ndf.Node
+	for i := 0; i < 3; i++ {
+		nIdBytes := make([]byte, id.NodeIdLen)
+		nIdBytes[0] = byte(i)
+		n := ndf.Node{
+			ID: nIdBytes,
+		}
+		Nodes = append(Nodes, n)
+	}
+	var grp ndf.Group
+	grp.Prime = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
+		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
+		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
+		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
+		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
+		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
+		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
+		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
+		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
+		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
+		"15728E5A8AACAA68FFFFFFFFFFFFFFFF"
+	grp.Generator = "2"
+	grp.SmallPrime = "2"
+	retNDF := ndf.NetworkDefinition{Timestamp: time.Now(), Registration: reg, Nodes: Nodes, CMIX: grp, E2E: grp}
+	return retNDF
 }
 
 // Registers a user and returns a signed public key

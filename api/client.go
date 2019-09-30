@@ -133,7 +133,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	blockingChan := make(chan struct{})
 	go func() {
 		for {
-
+			globals.Log.INFO.Printf("about to get updated NDF")
 			newNDf, err := cl.commManager.GetUpdatedNDF()
 			if err != nil {
 				globals.Log.ERROR.Printf(err.Error())
@@ -149,7 +149,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	}()
 	//Block until ndf is updated
 	<-blockingChan
-
+	globals.Log.INFO.Printf("exiting blocking")
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {

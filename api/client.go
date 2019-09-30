@@ -107,8 +107,9 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
+//FIXME: Tls argument to be depracated
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
-	callback io.ConnectionStatusCallback) (*Client, error) {
+	callback io.ConnectionStatusCallback, tls bool) (*Client, error) {
 	globals.Log.DEBUG.Printf("NDF: %+v\n", ndfJSON)
 	var store globals.Storage
 	if s == nil {
@@ -120,38 +121,41 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	}
 
 	err := store.SetLocation(loc)
-
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())
 		globals.Log.ERROR.Printf(err.Error())
 		return nil, err
 	}
 
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(ndfJSON.CMIX.Prime, 16),
-		large.NewIntFromString(ndfJSON.CMIX.Generator, 16),
-		large.NewIntFromString(ndfJSON.CMIX.SmallPrime, 16))
-
-	user.InitUserRegistry(cmixGrp)
-
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON, callback)
+	cl.commManager = io.NewCommManager(ndfJSON, callback, tls)
 
-	cl.ndf = ndfJSON
-
+	//FIXME: Should this be here??
+	globals.Log.INFO.Printf("before get updated ndf, comm manager tls %v", cl.commManager.TLS)
 	globals.Log.INFO.Printf("about to enter blocking")
+
 	blockingChan := make(chan struct{})
 	go func() {
 		for {
-			err = cl.commManager.GetUpdatedNDF()
-			blockingChan <- struct{}{}
-			time.Sleep(5 * time.Minute)
+
+			newNDf, err := cl.commManager.GetUpdatedNDF()
+			if err != nil {
+				globals.Log.ERROR.Printf(err.Error())
+			} else {
+				cl.ndf = newNDf
+				blockingChan <- struct{}{}
+			}
+			//Fixme increase it logarithmically?
+			time.Sleep(5 * time.Second)
 
 		}
 	}()
 	//Block until ndf is updated
 	<-blockingChan
+	globals.Log.INFO.Printf("exited blocking")
+
+	globals.Log.INFO.Printf("newNDF: %s", cl.ndf)
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {
@@ -163,6 +167,13 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	cl.opStatus = func(int) {
 		return
 	}
+
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, 16),
+		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, 16))
+
+	user.InitUserRegistry(cmixGrp)
 
 	return cl, nil
 }
@@ -176,19 +187,18 @@ func (cl *Client) DisableTLS() {
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
-	connection, err := cl.commManager.ConnectToPermissioning()
+	cl.commManager.TLS = false
+	_, err := cl.commManager.ConnectToPermissioning()
 	defer cl.commManager.DisconnectFromPermissioning()
 	if err != nil {
 		return err
 	}
 
-	globals.Log.INFO.Printf("failed to connect? %v", connection)
-	if connection {
-		err = cl.commManager.UpdateRemoteVersion()
-		if err != nil {
-			return err
-		}
+	err = cl.commManager.UpdateRemoteVersion()
+	if err != nil {
+		return err
 	}
+
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to
 	// permissioning
@@ -368,13 +378,45 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Loop over all Servers
 		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
-
+			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 			// Multithread registration for better performance
 			wg.Add(1)
 			go func() {
-				errChan = cl.registrationHelper(i, salt, regHash, UID, publicKeyRSA, privateKeyRSA,
-					cmixPublicKeyDH, cmixPrivateKeyDH, cmixGrp, nk)
+				// Initialise blake2b hash for transmission keys and sha256 for reception
+				// keys
+				transmissionHash, _ := hash.NewCMixHash()
+				receptionHash := sha256.New()
 
+				// Request nonce message from gateway
+				globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
+					i, len(cl.ndf.Gateways))
+				nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH,
+					publicKeyRSA, privateKeyRSA, gwID)
+
+				if err != nil {
+					globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
+					errChan <- err
+				}
+
+				// Load server DH pubkey
+				serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
+
+				// Confirm received nonce
+				globals.Log.INFO.Println("Register: Confirming received nonce")
+				err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
+				if err != nil {
+					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
+					errChan <- err
+				} else {
+				}
+
+				nodeID := *cl.topology.GetNodeAtIndex(i)
+				nk[nodeID] = user.NodeKeys{
+					TransmissionKey: registration.GenerateBaseKey(cmixGrp,
+						serverPubDH, cmixPrivateKeyDH, transmissionHash),
+					ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
+						cmixPrivateKeyDH, receptionHash),
+				}
 				wg.Done()
 			}()
 

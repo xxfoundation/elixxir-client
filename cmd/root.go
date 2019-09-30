@@ -98,10 +98,11 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	dummyConnectionStatusHandler := func(status uint32, timeout int) {
 		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
 	}
-
+	//FIXME: probs happends here
 	if sessionFile == "" {
+		globals.Log.INFO.Printf("noTLS set to : %v", noTLS)
 		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
-			dummyConnectionStatusHandler)
+			dummyConnectionStatusHandler, noTLS)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -123,10 +124,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 				return id.ZeroID, "", nil
 			}
 		}
-
+		globals.Log.INFO.Printf("noTLS befroe new client: %v", noTLS)
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
-
+		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler, noTLS)
+		client.Connect()
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil
@@ -153,6 +154,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	if noTLS {
+		globals.Log.INFO.Printf("disabling tls")
 		client.DisableTLS()
 	}
 

@@ -27,7 +27,7 @@ import (
 
 const maxAttempts = 15
 const maxBackoffTime = 180
-const PermissioningAddrID = "registration"
+const PermissioningAddrID = "Permissioning"
 
 type ConnAddr string
 
@@ -71,7 +71,7 @@ type CommManager struct {
 }
 
 func NewCommManager(ndf *ndf.NetworkDefinition,
-	callback ConnectionStatusCallback) *CommManager {
+	callback ConnectionStatusCallback, tls bool) *CommManager {
 
 	status := uint32(0)
 
@@ -83,7 +83,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		ReceivedMessages:         make(map[string]struct{}),
 		Comms:                    &client.ClientComms{},
 		tryReconnect:             make(chan struct{}),
-		TLS:                      true,
+		TLS:                      !tls,
 		ndf:                      ndf,
 		ReceptionGatewayIndex:    len(ndf.Gateways) - 1,
 		TransmissionGatewayIndex: 0,
@@ -112,6 +112,7 @@ func (cm *CommManager) ConnectToGateways() error {
 	for i, gateway := range cm.ndf.Gateways {
 		wg.Add(1)
 		go func() {
+			globals.Log.INFO.Printf("cm gate")
 			var gwCreds []byte
 			if gateway.TlsCertificate != "" && cm.TLS {
 				gwCreds = []byte(gateway.TlsCertificate)
@@ -167,44 +168,58 @@ func (cm *CommManager) UpdateRemoteVersion() error {
 }
 
 //Connects to the permissioning server to get the updated NDF from it
-func (cm *CommManager) GetUpdatedNDF() error {
+func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	//FixMe how to do when no ndf? just a mock ndf with
+	globals.Log.INFO.Printf("comm manger in get updated tls set to : %v", cm.TLS)
+	//TODO: fix so that this doesn't happen in second loop
+
 	connected, err := cm.ConnectToPermissioning()
 	defer cm.DisconnectFromPermissioning()
 	if err != nil {
-		return err
+		cm.ndf = &ndf.NetworkDefinition{}
+		return &ndf.NetworkDefinition{}, err
+	}
+	globals.Log.DEBUG.Printf("in if conn status: %v", cm.GetConnectionStatus())
+	if !connected {
+		errMsg := fmt.Sprintf("Failed to connect to permissioning server")
+		globals.Log.ERROR.Printf(errMsg)
+		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
 
-	if connected {
-		//Hash the client's ndf for comparison with registration's ndf
-		hash := sha256.New()
-		ndfBytes := cm.ndf.Serialize()
-		hash.Write(ndfBytes)
-		ndfHash := hash.Sum(nil)
-		msg := &mixmessages.NDFHash{Hash: ndfHash}
+	globals.Log.DEBUG.Printf("connection status: %v", cm.GetConnectionStatus())
+	globals.Log.INFO.Printf("hashing ndf")
+	//fixme (possibly): move this to outside the go func so not hashing every attempt?
+	//Hash the client's ndf for comparison with registration's ndf
+	hash := sha256.New()
+	ndfBytes := cm.ndf.Serialize()
+	hash.Write(ndfBytes)
+	ndfHash := hash.Sum(nil)
+	msg := &mixmessages.NDFHash{Hash: ndfHash}
 
-		// FIXME: pull from ndf, or have permissioning from tmp/mock ndf
-		response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
-		if err != nil {
-			errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
-			return errors.New(errMsg)
-		}
-		//If there was no error and the response is nil, client's ndf is up-to-date
-		if response == nil {
-			return nil
-		} else {
-			//Otherwise pull the ndf out of the response
-			updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
-			if err != nil {
-				errMsg := fmt.Sprintf("Failed to convert response to ndf: %v", err)
-				return errors.New(errMsg)
-			}
-			//Set the updated ndf to be the client's ndf
-			cm.ndf = updatedNdf
-		}
+	// FIXME: pull from ndf, or have permissioning from tmp/mock ndf
+	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
+	if err != nil {
+		globals.Log.INFO.Printf("error when getting it: %v", err)
+		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
+		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+	}
+	//If there was no error and the response is nil, client's ndf is up-to-date
+	if response == nil {
+		globals.Log.INFO.Printf("no response")
+		return cm.ndf, nil
 	}
 
-	return nil
+	//Otherwise pull the ndf out of the response
+	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
+	if err != nil {
+		//If there was an error decoding ndf
+		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
+		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+	}
+	cm.ndf = updatedNdf
+	globals.Log.INFO.Printf("setting ndf to: %v", updatedNdf)
+	//Set the updated ndf to be the client's ndf
+	return updatedNdf, nil
 }
 
 // Utility method, returns whether the local version and remote version are
@@ -220,8 +235,10 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 	// Only connect to permissioning if it exists in the NDF
 	// Otherwise, no connection will be established
 	if cm.ndf.Registration.Address != "" {
+		globals.Log.INFO.Printf("Attempting to connect, cm tls is set to: %v", cm.TLS)
 		var regCert []byte
 		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {
+			globals.Log.INFO.Printf("in if statement")
 			regCert = []byte(cm.ndf.Registration.TlsCertificate)
 		}
 		addr := ConnAddr(PermissioningAddrID)
@@ -237,6 +254,7 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 			cm.ndf.Registration.Address)
 		return true, nil
 	} else {
+		globals.Log.INFO.Printf("failed to connect silently")
 		// Without an NDF, we can't connect to permissioning, but this isn't an
 		// error per se, because we should be phasing out permissioning at some
 		// point
@@ -245,6 +263,7 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 }
 
 func (cm *CommManager) DisconnectFromPermissioning() {
+	globals.Log.DEBUG.Printf("Disconnecting from permissioning")
 	cm.Comms.Disconnect(PermissioningAddrID)
 }
 

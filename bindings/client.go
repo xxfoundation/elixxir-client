@@ -74,7 +74,7 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
 		csc.Callback(int(status), TimeoutSeconds)
 	}
 
-	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf, conStatCallback)
+	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf, conStatCallback, true)
 
 	return &Client{client: cl}, err
 }

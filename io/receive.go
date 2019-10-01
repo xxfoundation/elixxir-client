@@ -27,10 +27,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	pollingMessage := pb.ClientRequest{
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
-	globals.Log.INFO.Printf("cm ndf num of nodes: %v", len(cm.ndf.Nodes))
-
-	globals.Log.INFO.Printf("cm ndf: %v", cm.ndf.Nodes)
-	globals.Log.INFO.Printf("cm reception gateway index: %v", cm.ReceptionGatewayIndex)
 
 	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
 

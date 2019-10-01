@@ -16,16 +16,14 @@ import (
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
-	"math/rand"
 	"os"
 	"testing"
-	"time"
 )
 
 const NumNodes = 3
 const NumGWs = NumNodes
 const RegPort = 5000
-const GWsStartPort = 10000
+const GWsStartPort = 7900
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
@@ -303,16 +301,12 @@ func TestLogout(t *testing.T) {
 // gateways used for registration and gateway used for session
 func testMainWrapper(m *testing.M) int {
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	rndPort := int(rng.Uint64() % 10000)
-
 	def = getNDF()
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i, handler := range RegGWHandlers {
 
 		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i + rndPort),
+			Address: fmtAddress(GWsStartPort + i),
 		}
 
 		def.Gateways = append(def.Gateways, gw)

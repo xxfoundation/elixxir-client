@@ -103,6 +103,25 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	return ndfJSON
 }
 
+//pollForNewNDF calls getUpdatedNDF repeatedly for a new ndf
+func pollForNewNDF(cl *Client, blockingChan chan struct{}) {
+	//Continuosly polls for a new ndf after sleeping
+	for {
+		globals.Log.INFO.Printf("Polling for a new NDF")
+		newNDf, err := cl.commManager.GetUpdatedNDF()
+		if err != nil {
+			globals.Log.ERROR.Printf(err.Error())
+		} else {
+			globals.Log.DEBUG.Printf("Recieved/Already had the up-to-date NDF")
+			cl.ndf = newNDf
+			blockingChan <- struct{}{}
+		}
+		//Fixme increase it logarithmically? like a backoff?
+		time.Sleep(5 * time.Minute)
+
+	}
+}
+
 // Creates a new Client using the storage mechanism provided.
 // If none is provided, a default storage using OS file access
 // is created
@@ -131,25 +150,9 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	cl.commManager = io.NewCommManager(ndfJSON, callback, tls)
 
 	blockingChan := make(chan struct{})
-	go func() {
-		for {
-			globals.Log.INFO.Printf("about to get updated NDF")
-			newNDf, err := cl.commManager.GetUpdatedNDF()
-			if err != nil {
-				globals.Log.ERROR.Printf(err.Error())
-			} else {
-				globals.Log.DEBUG.Printf("Setting ndf to: %v", newNDf)
-				cl.ndf = newNDf
-				blockingChan <- struct{}{}
-			}
-			//Fixme increase it logarithmically? like a backoff?
-			time.Sleep(15 * time.Second)
-
-		}
-	}()
+	go pollForNewNDF(cl, blockingChan)
 	//Block until ndf is updated
 	<-blockingChan
-	globals.Log.INFO.Printf("exiting blocking")
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {
@@ -182,7 +185,6 @@ func (cl *Client) DisableTLS() {
 // credential information for connection establishment
 func (cl *Client) Connect() error {
 	_, err := cl.commManager.ConnectToPermissioning()
-	defer cl.commManager.DisconnectFromPermissioning()
 	if err != nil {
 		return err
 	}
@@ -217,7 +219,7 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
 }
 
-//RegistrationHelper  registers a user. It serves as a helper for register
+//RegistrationHelper registers a user. It serves as a helper for Register
 func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,

@@ -199,7 +199,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")
 		return cm.ndf, nil
 	}
-	globals.Log.INFO.Printf("response NDF: %v", response.Ndf)
+
 	//Otherwise pull the ndf out of the response
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
 	if err != nil {
@@ -245,7 +245,7 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 			cm.ndf.Registration.Address)
 		return true, nil
 	} else {
-		globals.Log.INFO.Printf("failed to connect silently")
+		globals.Log.DEBUG.Printf("failed to connect to %v silently", cm.ndf.Registration.Address)
 		// Without an NDF, we can't connect to permissioning, but this isn't an
 		// error per se, because we should be phasing out permissioning at some
 		// point

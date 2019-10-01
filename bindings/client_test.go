@@ -18,21 +18,24 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/gateway"
+	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
-	"math/rand"
 	"os"
 	"reflect"
 	"testing"
 	"time"
 )
 
-const NumNodes = 1
+const NumNodes = 3
 const NumGWs = NumNodes
-const GWsStartPort = 10000
-
+const GWsStartPort = 7900
+const RegPort = 5000
 const ValidRegCode = "UAV6IWD6"
+
+var RegHandler = api.MockRegistration{}
+var RegComms *registration.RegistrationComms
 
 var GWComms [NumGWs]*gateway.GatewayComms
 
@@ -106,26 +109,6 @@ func TestRegister(t *testing.T) {
 	}
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
-	}
-}
-
-func TestConnectBadNumNodes(t *testing.T) {
-
-	newDef := *def
-
-	newDef.Gateways = make([]ndf.Gateway, 0)
-
-	ndfStr, pubKey := getNDFJSONStr(&newDef, t)
-
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
-		&MockConStatCallback{})
-
-	// Connect to empty gw
-	err = client.Connect()
-
-	if err == nil {
-		t.Errorf("Connect should have returned an error when no gateway is passed")
 	}
 }
 
@@ -321,23 +304,27 @@ func getNDFJSONStr(netDef *ndf.NetworkDefinition, t *testing.T) (string, string)
 // gateways used for registration and gateway used for session
 func testMainWrapper(m *testing.M) int {
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	rndPort := int(rng.Uint64() % 10000)
-
 	def = getNDF()
+	//TODO: change this shit here to match what was done in api
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i := 0; i < NumGWs; i++ {
 
 		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i + rndPort),
+			Address: fmtAddress(GWsStartPort + i),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
 		GWComms[i] = gateway.StartGateway(gw.Address,
 			gateway.NewImplementation(), nil, nil)
 	}
+
+	// Start mock registration server and defer its shutdown
+	def.Registration = ndf.Registration{
+		Address: fmtAddress(RegPort),
+	}
+	RegComms = registration.StartRegistrationServer(def.Registration.Address,
+		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)

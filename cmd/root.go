@@ -124,7 +124,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 				return id.ZeroID, "", nil
 			}
 		}
-		globals.Log.INFO.Printf("noTLS befroe new client: %v", noTLS)
 		//Initialize client with OS Storage
 		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler, noTLS)
 		client.Connect()

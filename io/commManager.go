@@ -71,7 +71,7 @@ type CommManager struct {
 }
 
 func NewCommManager(ndf *ndf.NetworkDefinition,
-	callback ConnectionStatusCallback, tls bool) *CommManager {
+	callback ConnectionStatusCallback, noTLS bool) *CommManager {
 
 	status := uint32(0)
 
@@ -83,7 +83,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		ReceivedMessages:         make(map[string]struct{}),
 		Comms:                    &client.ClientComms{},
 		tryReconnect:             make(chan struct{}),
-		TLS:                      !tls,
+		TLS:                      !noTLS,
 		ndf:                      ndf,
 		ReceptionGatewayIndex:    len(ndf.Gateways) - 1,
 		TransmissionGatewayIndex: 0,

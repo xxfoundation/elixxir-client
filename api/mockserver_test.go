@@ -337,6 +337,7 @@ func testMainWrapper(m *testing.M) int {
 
 func testWrapperShutdown() {
 	for _, gw := range GWComms {
+		fmt.Printf("closing gw: %v", gw)
 		gw.Shutdown()
 	}
 	RegComms.Shutdown()

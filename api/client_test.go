@@ -65,6 +65,38 @@ func TestRegistrationGob(t *testing.T) {
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
 }
 
+//Happy path for a non precen user
+func TestClient_Register(t *testing.T) {
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler, true)
+
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// populate a gob in the store
+	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// get the gob out of there again
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
+	if err != nil {
+		t.Error(err)
+	}
+
+	VerifyRegisterGobUser(Session, t)
+	//Probs can't do this as there is now a sense of randomness??
+	//VerifyRegisterGobKeys(Session, testClient.topology, t)
+}
+
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 
 	expectedUser := id.NewUserFromUint(5, t)

@@ -129,7 +129,7 @@ func pollForNewNDF(cl *Client, blockingChan chan struct{}, errorChan chan error)
 // returns a new Client object, and an error if it fails
 //FIXME: Tls argument to be depracated
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
-	callback io.ConnectionStatusCallback, tls bool) (*Client, error) {
+	callback io.ConnectionStatusCallback, noTLS bool) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -148,7 +148,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON, callback, tls)
+	cl.commManager = io.NewCommManager(ndfJSON, callback, noTLS)
 
 	blockingChan := make(chan struct{})
 	errorChan := make(chan error)
@@ -234,11 +234,9 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
-	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys) chan error {
+	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys, errorChan chan error) {
 
 	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
-
-	errChan := make(chan error, len(cl.ndf.Gateways))
 
 	// Initialise blake2b hash for transmission keys and sha256 for reception
 	// keys
@@ -253,7 +251,7 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 
 	if err != nil {
 		globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
-		errChan <- err
+		errorChan <- err
 	}
 
 	// Load server DH pubkey
@@ -264,7 +262,7 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
 	if err != nil {
 		globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
-		errChan <- err
+		errorChan <- err
 	} else {
 	}
 
@@ -275,7 +273,6 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 			cmixPrivateKeyDH, receptionHash),
 	}
-	return errChan
 }
 
 // Registers user and returns the User ID.
@@ -384,45 +381,11 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Loop over all Servers
 		globals.Log.INFO.Println("Register: Requesting nonces")
 		for i := range cl.ndf.Gateways {
-			gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
 			// Multithread registration for better performance
 			wg.Add(1)
 			go func() {
-				// Initialise blake2b hash for transmission keys and sha256 for reception
-				// keys
-				transmissionHash, _ := hash.NewCMixHash()
-				receptionHash := sha256.New()
-
-				// Request nonce message from gateway
-				globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
-					i, len(cl.ndf.Gateways))
-				nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH,
-					publicKeyRSA, privateKeyRSA, gwID)
-
-				if err != nil {
-					globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
-					errChan <- err
-				}
-
-				// Load server DH pubkey
-				serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
-
-				// Confirm received nonce
-				globals.Log.INFO.Println("Register: Confirming received nonce")
-				err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gwID)
-				if err != nil {
-					globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
-					errChan <- err
-				} else {
-				}
-
-				nodeID := *cl.topology.GetNodeAtIndex(i)
-				nk[nodeID] = user.NodeKeys{
-					TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-						serverPubDH, cmixPrivateKeyDH, transmissionHash),
-					ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-						cmixPrivateKeyDH, receptionHash),
-				}
+				cl.registrationHelper(i, salt, regHash, UID, publicKeyRSA, privateKeyRSA,
+					cmixPublicKeyDH, cmixPrivateKeyDH, cmixGrp, nk, errChan)
 
 				wg.Done()
 			}()

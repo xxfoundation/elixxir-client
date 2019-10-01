@@ -104,13 +104,14 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 }
 
 //pollForNewNDF calls getUpdatedNDF repeatedly for a new ndf
-func pollForNewNDF(cl *Client, blockingChan chan struct{}) {
+func pollForNewNDF(cl *Client, blockingChan chan struct{}, errorChan chan error) {
 	//Continuosly polls for a new ndf after sleeping
 	for {
 		globals.Log.INFO.Printf("Polling for a new NDF")
 		newNDf, err := cl.commManager.GetUpdatedNDF()
 		if err != nil {
-			globals.Log.ERROR.Printf(err.Error())
+			errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
+			errorChan <- errors.New(errMsg)
 		} else {
 			globals.Log.DEBUG.Printf("Recieved/Already had the up-to-date NDF")
 			cl.ndf = newNDf
@@ -150,9 +151,17 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	cl.commManager = io.NewCommManager(ndfJSON, callback, tls)
 
 	blockingChan := make(chan struct{})
-	go pollForNewNDF(cl, blockingChan)
+	errorChan := make(chan error)
+	go pollForNewNDF(cl, blockingChan, errorChan)
+
 	//Block until ndf is updated
 	<-blockingChan
+	//Check if pollForNewNDF returns error by checking the error Chan
+	if len(errorChan) != 0 {
+		err = <-errorChan
+		globals.Log.ERROR.Printf(err.Error())
+		return nil, err
+	}
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {

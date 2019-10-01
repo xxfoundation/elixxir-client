@@ -343,6 +343,8 @@ func testWrapperShutdown() {
 	for _, gw := range GWComms {
 		gw.Shutdown()
 	}
+	RegComms.Shutdown()
+
 }
 
 func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port) }

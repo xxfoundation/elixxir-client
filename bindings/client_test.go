@@ -18,9 +18,14 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/gateway"
+	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	//"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	pb "gitlab.com/elixxir/comms/mixmessages"
+	//"gitlab.com/elixxir/server/server"
+	//"gitlab.com/elixxir/server/services"
 	"math/rand"
 	"os"
 	"reflect"
@@ -37,6 +42,46 @@ const ValidRegCode = "UAV6IWD6"
 var GWComms [NumGWs]*gateway.GatewayComms
 
 var def *ndf.NetworkDefinition
+
+//Variables ported to get mock permissioning server running
+var nodeId *id.Node
+var permComms *registration.RegistrationComms
+
+type mockPermission struct{}
+
+func (i *mockPermission) RegisterUser(registrationCode, test string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (i *mockPermission) RegisterNode(ID []byte, ServerAddr, ServerTlsCert,
+GatewayAddr, GatewayTlsCert, RegistrationCode string) error {
+
+	go func() {
+		err := permComms.ConnectToRemote(nodeId, ServerAddr, nil, false)
+		if err != nil {
+			panic(err)
+		}
+		nodeTop := make([]*pb.NodeInfo, 0)
+		nodeTop = append(nodeTop, &pb.NodeInfo{
+			Id:             nodeId.Bytes(),
+			Index:          0,
+			ServerAddress:  ServerAddr,
+			ServerTlsCert:  "a",
+			GatewayTlsCert: "b",
+			GatewayAddress: GatewayAddr,
+		})
+		nwTop := &pb.NodeTopology{
+			Topology: nodeTop,
+		}
+		err = permComms.SendNodeTopology(nodeId, nwTop)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	return nil
+}
+
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
@@ -94,6 +139,68 @@ func TestRegister(t *testing.T) {
 
 	// Connect to gateway
 	// Currently, we
+	// Register the node in a separate thread and notify when finished
+	//gwConnected := make(chan struct{})
+	//permDone := make(chan struct{})
+	//nodeId = id.NewNodeFromUInt(uint64(0), t)
+	//addr := fmt.Sprintf("0.0.0.0:%d", 6000+rand.Intn(1000))
+
+	// Initialize permissioning server
+	// Initialize permissioning server
+	pAddr := fmt.Sprintf("0.0.0.0:%d", 5000+rand.Intn(1000))
+	pHandler := registration.Handler(&mockPermission{})
+	permComms = registration.StartRegistrationServer(pAddr, pHandler, nil, nil)
+
+	//gAddr := fmt.Sprintf("0.0.0.0:%d", 5000+rand.Intn(1000))
+	//gHandler := gateway.Handler(&mockGateway{})
+	//gwComms = gateway.StartGateway(gAddr, gHandler, nil, nil)
+	//
+	//// Initialize definition
+	//def := &server.Definition{
+	//	Flags:         server.Flags{},
+	//	ID:            nodeId,
+	//	PublicKey:     nil,
+	//	PrivateKey:    nil,
+	//	TlsCert:       nil,
+	//	TlsKey:        nil,
+	//	Address:       addr,
+	//	LogPath:       "",
+	//	MetricLogPath: "",
+	//	Gateway: server.GW{
+	//		Address: gAddr,
+	//		TlsCert: nil,
+	//	},
+	//	UserRegistry:    nil,
+	//	GraphGenerator:  services.GraphGenerator{},
+	//	ResourceMonitor: nil,
+	//	BatchSize:       0,
+	//	CmixGroup:       nil,
+	//	E2EGroup:        nil,
+	//	Topology:        nil,
+	//	Nodes:           make([]server.Node, 1),
+	//	Permissioning: server.Perm{
+	//		TlsCert:          nil,
+	//		RegistrationCode: "",
+	//		Address:          pAddr,
+	//	},
+	//}
+	//
+	//
+	//
+	//go func() {
+	//	nodes, nodeIds, serverCert, gwCert := RegisterNode(def)
+	//	def.Nodes = nodes
+	//	def.TlsCert = []byte(serverCert)
+	//	def.Gateway.TlsCert = []byte(gwCert)
+	//	def.Topology = circuit.New(nodeIds)
+	//	permDone <- struct{}{}
+	//}()
+	//
+	//// wait for gateway to connect
+	//<-gwConnected
+
+
+
 	err = client.Connect()
 
 	if err != nil {

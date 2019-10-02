@@ -139,6 +139,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	}
 
 	err := store.SetLocation(loc)
+
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())
 		globals.Log.ERROR.Printf(err.Error())
@@ -194,20 +195,21 @@ func (cl *Client) DisableTLS() {
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
-	//Connect to permissioning
-	_, err := cl.commManager.ConnectToPermissioning()
+	isConnected, err := cl.commManager.ConnectToPermissioning()
 	if err != nil {
 		return err
 	}
-	//Attempt to update the version
+	if !isConnected {
+		err = errors.New("Couldn't connect to permissioning")
+		return err
+	}
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
 		return err
 	}
-
+	cl.commManager.DisconnectFromPermissioning()
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to
-	// permissioning
 	if cl.commManager.RegistrationVersion != "" {
 		ok, err := cl.commManager.CheckVersion()
 		if err != nil {

@@ -41,6 +41,26 @@ var GWComms [NumGWs]*gateway.GatewayComms
 
 var def *ndf.NetworkDefinition
 
+//Variables ported to get mock permissioning server running
+var nodeId *id.Node
+var permComms *registration.RegistrationComms
+
+type mockPermission struct {
+}
+
+func (i *mockPermission) RegisterUser(registrationCode, test string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (i *mockPermission) RegisterNode(ID []byte, ServerAddr, ServerTlsCert,
+	GatewayAddr, GatewayTlsCert, RegistrationCode string) error {
+	return nil
+}
+
+func (i *mockPermission) GetCurrentClientVersion() (string, error) {
+	return "0.0.0", nil
+}
+
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
 
@@ -98,8 +118,6 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	// Connect to gateway
-	// Currently, we
 	err = client.Connect()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
@@ -125,6 +143,9 @@ func TestLoginLogout(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Error starting client: %+v", err)
+	}
 
 	// Connect to gateway
 	err = client.Connect()
@@ -319,6 +340,11 @@ func testMainWrapper(m *testing.M) int {
 	def = getNDF()
 	//TODO: change this shit here to match what was done in api
 
+	// Initialize permissioning server
+	pAddr := def.Registration.Address
+	pHandler := registration.Handler(&mockPermission{})
+	permComms = registration.StartRegistrationServer(pAddr, pHandler, nil, nil)
+
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	for i := 0; i < NumGWs; i++ {
 
@@ -399,6 +425,10 @@ func getNDF() *ndf.NetworkDefinition {
 				"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71" +
 				"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0" +
 				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
+		},
+		Registration: ndf.Registration{
+			Address:        fmt.Sprintf("0.0.0.0:%d", 5000+rand.Intn(1000)),
+			TlsCertificate: "",
 		},
 	}
 }

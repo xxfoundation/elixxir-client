@@ -18,11 +18,10 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/mixmessages"
-	"sync/atomic"
-
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -113,7 +112,6 @@ func (cm *CommManager) ConnectToGateways() error {
 	for i, gateway := range cm.ndf.Gateways {
 		wg.Add(1)
 		go func() {
-			globals.Log.INFO.Printf("cm gate")
 			var gwCreds []byte
 			if gateway.TlsCertificate != "" && cm.TLS {
 				gwCreds = []byte(gateway.TlsCertificate)
@@ -157,14 +155,12 @@ func (cm *CommManager) ConnectToGateways() error {
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
 func (cm *CommManager) UpdateRemoteVersion() error {
-
 	registrationVersion, err := cm.Comms.
 		SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
 	if err != nil {
 		return errors.Wrap(err, "Couldn't get current version from permissioning")
 	}
 	cm.RegistrationVersion = registrationVersion.Version
-
 	return nil
 }
 
@@ -230,8 +226,6 @@ func (cm *CommManager) CheckVersion() (bool, error) {
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
 func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
-	// Only connect to permissioning if it exists in the NDF
-	// Otherwise, no connection will be established
 	if cm.ndf.Registration.Address != "" {
 		var regCert []byte
 		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {

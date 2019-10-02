@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/gateway"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -24,6 +25,7 @@ import (
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"reflect"
 	"testing"
 	"time"
@@ -37,6 +39,18 @@ func dummyConnectionStatusHandler(status uint32, timeout int) {
 
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
+	for i, handler := range RegGWHandlers {
+
+		gw := ndf.Gateway{
+			Address: fmtAddress(GWsStartPort + i),
+		}
+
+		def.Gateways = append(def.Gateways, gw)
+
+		GWComms[i] = gateway.StartGateway(gw.Address,
+			handler, nil, nil)
+	}
+
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler, true)
 	if err != nil {
@@ -64,14 +78,28 @@ func TestRegistrationGob(t *testing.T) {
 	VerifyRegisterGobUser(Session, t)
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
 	RegComms.Disconnect(PermissioningAddrID)
-	RegComms.Shutdown()
+	for _, gw := range GWComms {
+		gw.Shutdown()
 
+	}
 }
 
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler, true)
+	// Start mock gateways used by registration and defer their shutdown (may not be needed)
+	for i, handler := range RegGWHandlers {
+
+		gw := ndf.Gateway{
+			Address: fmtAddress(GWsStartPort + i),
+		}
+
+		def.Gateways = append(def.Gateways, gw)
+
+		GWComms[i] = gateway.StartGateway(gw.Address,
+			handler, nil, nil)
+	}
 
 	if err != nil {
 		t.Error(err)
@@ -97,7 +125,6 @@ func TestClient_Register(t *testing.T) {
 
 	VerifyRegisterGobUser(Session, t)
 	RegComms.Disconnect(PermissioningAddrID)
-	RegComms.Shutdown()
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
 }

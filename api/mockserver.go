@@ -9,7 +9,6 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -106,7 +105,6 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 }
 
 func (s *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	fmt.Println("GetUpdated!")
 
 	ndfData := buildMockNDF()
 	globals.Log.INFO.Printf("retndf serialization in mock updateNDF: %v", ndfData.Serialize())

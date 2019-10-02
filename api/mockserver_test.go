@@ -302,18 +302,6 @@ func TestLogout(t *testing.T) {
 func testMainWrapper(m *testing.M) int {
 
 	def = getNDF()
-	// Start mock gateways used by registration and defer their shutdown (may not be needed)
-	for i, handler := range RegGWHandlers {
-
-		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i),
-		}
-
-		def.Gateways = append(def.Gateways, gw)
-
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
-	}
 
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
@@ -336,11 +324,7 @@ func testMainWrapper(m *testing.M) int {
 }
 
 func testWrapperShutdown() {
-	fmt.Printf("closing shit")
-	for _, gw := range GWComms {
-		fmt.Printf("closing gw: %v", gw)
-		gw.Shutdown()
-	}
+
 	RegComms.Shutdown()
 }
 

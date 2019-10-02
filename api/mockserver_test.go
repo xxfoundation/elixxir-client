@@ -52,6 +52,8 @@ func TestMain(m *testing.M) {
 
 // Verify that a valid precanned user can register
 func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
+	//Start gateway and registration servers
+	startServers()
 
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -80,11 +82,13 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
+	killServers()
 }
 
 // Verify that a valid precanned user can register
 func TestRegister_ValidRegParams___(t *testing.T) {
-
+	//Start up gateways and registration servers
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -110,11 +114,15 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %+v", *regRes)
 	}
+
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 // Verify that registering with an invalid registration code will fail
 func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
-
+	//Start up gateways and registrations
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -136,10 +144,13 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 func TestRegister_DeletedUserReturnsErr(t *testing.T) {
-
+	//Start up gateways and registration server
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -167,9 +178,13 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 
 	// ...
 	user.Users.UpsertUser(tempUser)
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 func TestSend(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -234,10 +249,12 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
 	}
+	killServers()
 }
 
 func TestLogout(t *testing.T) {
-
+	//Start up gateways and registration server
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -295,6 +312,8 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Logout did not throw an error when called on a client that" +
 			" is not currently logged in.")
 	}
+
+	killServers()
 }
 
 // Handles initialization of mock registration server,
@@ -307,8 +326,6 @@ func testMainWrapper(m *testing.M) int {
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)
@@ -369,4 +386,29 @@ func getNDF() *ndf.NetworkDefinition {
 				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
 		},
 	}
+}
+
+func startServers() {
+	RegComms = registration.StartRegistrationServer(def.Registration.Address,
+		&RegHandler, nil, nil)
+	//Start up gateways
+	for i, handler := range RegGWHandlers {
+
+		gw := ndf.Gateway{
+			Address: fmtAddress(GWsStartPort + i),
+		}
+
+		def.Gateways = append(def.Gateways, gw)
+
+		GWComms[i] = gateway.StartGateway(gw.Address,
+			handler, nil, nil)
+	}
+}
+
+func killServers() {
+	for _, gw := range GWComms {
+		gw.Shutdown()
+
+	}
+	RegComms.Shutdown()
 }

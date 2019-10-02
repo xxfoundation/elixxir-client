@@ -10,6 +10,7 @@
 package io
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"github.com/pkg/errors"
@@ -180,7 +181,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		globals.Log.ERROR.Printf(errMsg)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
 	ndfBytes := cm.ndf.Serialize()
@@ -194,8 +194,14 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-	//If there was no error and the response is nil, client's ndf is up-to-date
+	globals.Log.INFO.Printf("Before response check: %v", response)
 	if response == nil {
+		globals.Log.WARN.Printf("Response given was an unexpected nil")
+		return cm.ndf, nil
+	}
+
+	//If there was no error and the response is an empty byte slice, client's ndf is up-to-date
+	if bytes.Compare(response.Ndf, make([]byte, 0)) == 0 {
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")
 		return cm.ndf, nil
 	}
@@ -208,7 +214,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
 	globals.Log.DEBUG.Printf("Client NDF out of date, updating now")
-
 	cm.ndf = updatedNdf
 	cm.ReceptionGatewayIndex = len(cm.ndf.Gateways) - 1
 	//Set the updated ndf to be the client's ndf

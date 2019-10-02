@@ -113,7 +113,6 @@ func pollForNewNDF(cl *Client, blockingChan chan struct{}, errorChan chan error)
 			errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
 			errorChan <- errors.New(errMsg)
 		} else {
-			globals.Log.DEBUG.Printf("Recieved/Already had the up-to-date NDF")
 			cl.ndf = newNDf
 			blockingChan <- struct{}{}
 		}
@@ -156,9 +155,11 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	//Block until ndf is updated
 	<-blockingChan
+	globals.Log.INFO.Printf("left blocking")
 	//Check if pollForNewNDF returns error by checking the error Chan
 	if len(errorChan) != 0 {
 		err = <-errorChan
+		globals.Log.ERROR.Printf("Unable to poll for new ndf: %v", err.Error())
 		globals.Log.ERROR.Printf(err.Error())
 		return nil, err
 	}

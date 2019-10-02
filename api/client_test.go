@@ -63,6 +63,9 @@ func TestRegistrationGob(t *testing.T) {
 
 	VerifyRegisterGobUser(Session, t)
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
+	RegComms.Disconnect(PermissioningAddrID)
+	RegComms.Shutdown()
+
 }
 
 //Happy path for a non precen user
@@ -93,6 +96,8 @@ func TestClient_Register(t *testing.T) {
 	}
 
 	VerifyRegisterGobUser(Session, t)
+	RegComms.Disconnect(PermissioningAddrID)
+	RegComms.Shutdown()
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
 }

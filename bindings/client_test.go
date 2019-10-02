@@ -81,6 +81,9 @@ func TestNewClient(t *testing.T) {
 	} else if client == nil {
 		t.Errorf("NewClient returned nil Client object")
 	}
+	for _, gw := range GWComms {
+		gw.Disconnect(api.PermissioningAddrID)
+	}
 }
 
 func TestRegister(t *testing.T) {
@@ -109,6 +112,9 @@ func TestRegister(t *testing.T) {
 	}
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+	for _, gw := range GWComms {
+		gw.Disconnect(api.PermissioningAddrID)
 	}
 }
 
@@ -143,6 +149,9 @@ func TestLoginLogout(t *testing.T) {
 	err3 := client.Logout()
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err3.Error())
+	}
+	for _, gw := range GWComms {
+		gw.Disconnect(api.PermissioningAddrID)
 	}
 }
 
@@ -188,6 +197,9 @@ func TestListen(t *testing.T) {
 	})
 	if !listener {
 		t.Error("Message not received")
+	}
+	for _, gw := range GWComms {
+		gw.Disconnect(api.PermissioningAddrID)
 	}
 }
 
@@ -340,6 +352,7 @@ func testMainWrapper(m *testing.M) int {
 }
 
 func testWrapperShutdown() {
+	fmt.Printf("closing shit")
 	for _, gw := range GWComms {
 		gw.Shutdown()
 	}

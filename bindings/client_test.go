@@ -23,7 +23,6 @@ import (
 	//"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	//"gitlab.com/elixxir/server/server"
 	//"gitlab.com/elixxir/server/services"
 	"math/rand"
@@ -56,30 +55,6 @@ func (i *mockPermission) RegisterUser(registrationCode, test string) (hash []byt
 
 func (i *mockPermission) RegisterNode(ID []byte, ServerAddr, ServerTlsCert,
 GatewayAddr, GatewayTlsCert, RegistrationCode string) error {
-
-	go func() {
-		err := permComms.ConnectToRemote(nodeId, ServerAddr, nil, false)
-		if err != nil {
-			panic(err)
-		}
-		nodeTop := make([]*pb.NodeInfo, 0)
-		nodeTop = append(nodeTop, &pb.NodeInfo{
-			Id:             nodeId.Bytes(),
-			Index:          0,
-			ServerAddress:  ServerAddr,
-			ServerTlsCert:  "a",
-			GatewayTlsCert: "b",
-			GatewayAddress: GatewayAddr,
-		})
-		nwTop := &pb.NodeTopology{
-			Topology: nodeTop,
-		}
-		err = permComms.SendNodeTopology(nodeId, nwTop)
-		if err != nil {
-			panic(err)
-		}
-	}()
-
 	return nil
 }
 

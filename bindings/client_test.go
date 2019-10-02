@@ -141,62 +141,6 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	// Connect to gateway
-	// Currently, we
-	// Register the node in a separate thread and notify when finished
-	//gwConnected := make(chan struct{})
-	//permDone := make(chan struct{})
-	//nodeId = id.NewNodeFromUInt(uint64(0), t)
-	//addr := fmt.Sprintf("0.0.0.0:%d", 6000+rand.Intn(1000))
-
-	//gAddr := fmt.Sprintf("0.0.0.0:%d", 5000+rand.Intn(1000))
-	//gHandler := gateway.Handler(&mockGateway{})
-	//gwComms = gateway.StartGateway(gAddr, gHandler, nil, nil)
-	//
-	//// Initialize definition
-	//def := &server.Definition{
-	//	Flags:         server.Flags{},
-	//	ID:            nodeId,
-	//	PublicKey:     nil,
-	//	PrivateKey:    nil,
-	//	TlsCert:       nil,
-	//	TlsKey:        nil,
-	//	Address:       addr,
-	//	LogPath:       "",
-	//	MetricLogPath: "",
-	//	Gateway: server.GW{
-	//		Address: gAddr,
-	//		TlsCert: nil,
-	//	},
-	//	UserRegistry:    nil,
-	//	GraphGenerator:  services.GraphGenerator{},
-	//	ResourceMonitor: nil,
-	//	BatchSize:       0,
-	//	CmixGroup:       nil,
-	//	E2EGroup:        nil,
-	//	Topology:        nil,
-	//	Nodes:           make([]server.Node, 1),
-	//	Permissioning: server.Perm{
-	//		TlsCert:          nil,
-	//		RegistrationCode: "",
-	//		Address:          pAddr,
-	//	},
-	//}
-	//
-	//
-	//
-	//go func() {
-	//	nodes, nodeIds, serverCert, gwCert := RegisterNode(def)
-	//	def.Nodes = nodes
-	//	def.TlsCert = []byte(serverCert)
-	//	def.Gateway.TlsCert = []byte(gwCert)
-	//	def.Topology = circuit.New(nodeIds)
-	//	permDone <- struct{}{}
-	//}()
-	//
-	//// wait for gateway to connect
-	//<-gwConnected
-
 	err = client.Connect()
 
 	if err != nil {

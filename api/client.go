@@ -103,8 +103,8 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	return ndfJSON
 }
 
-//pollForNewNDF calls getUpdatedNDF repeatedly for a new ndf
-func pollForNewNDF(cl *Client, blockingChan chan struct{}, errorChan chan error) {
+//request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
+func requestNdf(cl *Client, blockingChan chan struct{}, errorChan chan error) {
 	//Continuosly polls for a new ndf after sleeping
 	for {
 		globals.Log.INFO.Printf("Polling for a new NDF")
@@ -115,6 +115,7 @@ func pollForNewNDF(cl *Client, blockingChan chan struct{}, errorChan chan error)
 		} else {
 			cl.ndf = newNDf
 			blockingChan <- struct{}{}
+			return
 		}
 		//Fixme increase it logarithmically? like a backoff?
 		time.Sleep(5 * time.Minute)
@@ -152,11 +153,11 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	blockingChan := make(chan struct{})
 	errorChan := make(chan error)
-	go pollForNewNDF(cl, blockingChan, errorChan)
+	go requestNdf(cl, blockingChan, errorChan)
 
 	//Block until ndf is updated
 	<-blockingChan
-	globals.Log.INFO.Printf("left blocking")
+
 	//Check if pollForNewNDF returns error by checking the error Chan
 	if len(errorChan) != 0 {
 		err = <-errorChan
@@ -164,6 +165,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 		globals.Log.ERROR.Printf(err.Error())
 		return nil, err
 	}
+
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {

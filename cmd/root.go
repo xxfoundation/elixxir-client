@@ -98,7 +98,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	dummyConnectionStatusHandler := func(status uint32, timeout int) {
 		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
 	}
-	//FIXME: probs happends here
+
 	if sessionFile == "" {
 		globals.Log.INFO.Printf("noTLS set to : %v", noTLS)
 		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,

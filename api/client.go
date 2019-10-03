@@ -105,7 +105,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 
 //request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
 func requestNdf(cl *Client, blockingChan chan struct{}) {
-	//Continuosly polls for a new ndf after sleeping
+	//Continuosly polls for a new ndf after sleeping until response if gotten
 	for {
 		globals.Log.INFO.Printf("Polling for a new NDF")
 		newNDf, err := cl.commManager.GetUpdatedNDF()

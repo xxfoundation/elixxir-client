@@ -186,13 +186,12 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 
 	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
 	if err != nil {
-		globals.Log.INFO.Printf("error when getting it: %v", err)
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-	globals.Log.INFO.Printf("Before response check: %v", response)
+	//Response should not be nil, check comms
 	if response == nil {
-		globals.Log.WARN.Printf("Response given was an unexpected nil")
+		globals.Log.ERROR.Printf("Response given was an unexpected nil, check comms")
 		return cm.ndf, nil
 	}
 
@@ -209,7 +208,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-	globals.Log.DEBUG.Printf("Client NDF out of date, updating now")
+	globals.Log.INFO.Printf("Client NDF out of date, updating now")
 	cm.ndf = updatedNdf
 	cm.ReceptionGatewayIndex = len(cm.ndf.Gateways) - 1
 	//Set the updated ndf to be the client's ndf

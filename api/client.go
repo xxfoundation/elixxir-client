@@ -169,12 +169,19 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 		return
 	}
 
+	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
 		large.NewIntFromString(cl.ndf.CMIX.Generator, 16),
 		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, 16))
-
 	user.InitUserRegistry(cmixGrp)
+
+	//Log whether we are using TLS
+	if noTLS {
+		globals.Log.INFO.Printf("Starting client with no TLS...")
+	} else {
+		globals.Log.INFO.Printf("Starting client with TLS...")
+	}
 
 	return cl, nil
 }
@@ -204,7 +211,7 @@ func (cl *Client) Connect() error {
 	}
 	cl.commManager.DisconnectFromPermissioning()
 	// Only check the version if we got a remote version
-	// The remote version won't have been populated if we didn't connect to
+	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.commManager.RegistrationVersion != "" {
 		ok, err := cl.commManager.CheckVersion()
 		if err != nil {

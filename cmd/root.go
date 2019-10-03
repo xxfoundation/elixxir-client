@@ -100,7 +100,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	if sessionFile == "" {
-		globals.Log.INFO.Printf("noTLS set to : %v", noTLS)
 		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
 			dummyConnectionStatusHandler, noTLS)
 		if err != nil {
@@ -154,7 +153,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 	*/
 	if noTLS {
-		globals.Log.INFO.Printf("disabling tls")
 		client.DisableTLS()
 	}
 

@@ -460,9 +460,9 @@ var rootCmd = &cobra.Command{
 
 				select {
 				case <-timeout:
-					fmt.Printf("Timing out client, "+
-						"%v/%v message(s) been received", numMsgReceived,
-						waitForMessages)
+					fmt.Printf("Timing out client, %v/%v "+
+						"message(s) been received\n",
+						numMsgReceived, waitForMessages)
 					end = true
 				default:
 				}

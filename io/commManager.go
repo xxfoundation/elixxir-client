@@ -202,6 +202,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	}
 
 	//Otherwise pull the ndf out of the response
+	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
 	if err != nil {
 		//If there was an error decoding ndf

@@ -143,7 +143,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 	// Handle parsing gateway addresses from the config file
 
-	/*gateways := ndfJSON.Gateways
+	gateways := ndfJSON.Gateways
 	// If gwAddr was not passed via command line, check config file
 	if len(gateways) < 1 {
 		// No gateways in config file or passed via command line
@@ -151,7 +151,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			" configuration file or pass via command line using -g!\n")
 		return id.ZeroID, "", nil
 	}
-	*/
+
 	if noTLS {
 		client.DisableTLS()
 	}

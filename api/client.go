@@ -153,9 +153,11 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	blockingChan := make(chan struct{})
 	go requestNdf(cl, blockingChan)
-
 	//Block until ndf is updated
 	<-blockingChan
+
+	//Remake  comm manager with the updated ndf
+	cl.commManager = io.NewCommManager(cl.ndf, callback, noTLS)
 
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))

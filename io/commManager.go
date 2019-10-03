@@ -210,7 +210,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	}
 	globals.Log.INFO.Printf("Client NDF out of date, updating now")
 	cm.ndf = updatedNdf
-	cm.ReceptionGatewayIndex = len(cm.ndf.Gateways) - 1
 	//Set the updated ndf to be the client's ndf
 	return updatedNdf, nil
 }

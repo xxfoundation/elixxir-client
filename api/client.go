@@ -103,6 +103,11 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	return ndfJSON
 }
 
+//GetNDF returns the clients ndf
+func (cl *Client) GetNDF() *ndf.NetworkDefinition {
+	return cl.ndf
+}
+
 //request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
 func requestNdf(cl *Client, blockingChan chan struct{}) {
 	//Continuosly polls for a new ndf after sleeping until response if gotten

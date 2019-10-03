@@ -195,6 +195,7 @@ func (cl *Client) DisableTLS() {
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
+	//Connect to permissioning
 	isConnected, err := cl.commManager.ConnectToPermissioning()
 	if err != nil {
 		return err
@@ -203,6 +204,7 @@ func (cl *Client) Connect() error {
 		err = errors.New("Couldn't connect to permissioning")
 		return err
 	}
+	//Check if versioning is up to date
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
 		return err

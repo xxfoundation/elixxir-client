@@ -123,6 +123,10 @@ func requestNdf(cl *Client, blockingChan chan struct{}) {
 	}
 }
 
+func (cl *Client) GetNDF() *ndf.NetworkDefinition {
+	return cl.ndf
+}
+
 // Creates a new Client using the storage mechanism provided.
 // If none is provided, a default storage using OS file access
 // is created

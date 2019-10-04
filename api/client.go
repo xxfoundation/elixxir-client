@@ -103,11 +103,6 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	return ndfJSON
 }
 
-//GetNDF returns the clients ndf
-func (cl *Client) GetNDF() *ndf.NetworkDefinition {
-	return cl.ndf
-}
-
 //request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
 func requestNdf(cl *Client, blockingChan chan struct{}) {
 	//Continuosly polls for a new ndf after sleeping until response if gotten
@@ -126,10 +121,6 @@ func requestNdf(cl *Client, blockingChan chan struct{}) {
 		time.Sleep(5 * time.Minute)
 
 	}
-}
-
-func (cl *Client) GetNDF() *ndf.NetworkDefinition {
-	return cl.ndf
 }
 
 // Creates a new Client using the storage mechanism provided.
@@ -201,6 +192,11 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
 	cl.commManager.TLS = false
+}
+
+//GetNDF returns the clients ndf
+func (cl *Client) GetNDF() *ndf.NetworkDefinition {
+	return cl.ndf
 }
 
 // Checks version and connects to gateways using TLS filepaths to create

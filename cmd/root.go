@@ -201,7 +201,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
-
+		globals.Log.INFO.Printf("Registered as user (uid, the var) %v", uid)
+		globals.Log.INFO.Printf("Registered as user (userID, the global) %v", userId)
 		globals.Log.INFO.Printf("Successfully registered user %s!", userbase64)
 
 	} else {

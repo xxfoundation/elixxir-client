@@ -127,7 +127,6 @@ func requestNdf(cl *Client, blockingChan chan struct{}) {
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-//FIXME: Tls argument to be depracated
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	callback io.ConnectionStatusCallback, noTLS bool) (*Client, error) {
 	var store globals.Storage
@@ -262,8 +261,9 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 		publicKeyRSA, privateKeyRSA, gatewayID)
 
 	if err != nil {
-		globals.Log.ERROR.Printf("Register: Failed requesting nonce from gateway: %+v", err)
-		errorChan <- err
+		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
+		globals.Log.ERROR.Printf(errMsg)
+		errorChan <- errors.New(errMsg)
 	}
 
 	// Load server DH pubkey
@@ -273,8 +273,9 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 	globals.Log.INFO.Println("Register: Confirming received nonce")
 	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
 	if err != nil {
-		globals.Log.ERROR.Printf("Register: Unable to confirm nonce: %+v", err)
-		errorChan <- err
+		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
+		globals.Log.ERROR.Printf(errMsg)
+		errorChan <- errors.New(errMsg)
 	} else {
 	}
 
@@ -289,6 +290,7 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
+//Fixme: maybe pull the generation of everything that goes in regHelper into respoective functions??
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
@@ -396,6 +398,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			// Multithread registration for better performance
 			wg.Add(1)
 			go func() {
+				//Register the client over all servers
 				cl.registrationHelper(i, salt, regHash, UID, publicKeyRSA, privateKeyRSA,
 					cmixPublicKeyDH, cmixPrivateKeyDH, cmixGrp, nk, errChan)
 
@@ -403,7 +406,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			}()
 
 			wg.Wait()
-
+			//See if the registration returned errors at all
 			var errs error
 			for len(errChan) > 0 {
 				err = <-errChan
@@ -414,7 +417,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 				}
 
 			}
-
+			//If an error every occured, return with error
 			if errs != nil {
 				cl.opStatus(globals.REG_FAIL)
 				return id.ZeroID, errs

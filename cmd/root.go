@@ -125,7 +125,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 		//Initialize client with OS Storage
 		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler, noTLS)
-		client.Connect()
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil

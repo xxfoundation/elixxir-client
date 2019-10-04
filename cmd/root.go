@@ -101,7 +101,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 	if sessionFile == "" {
 		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
-			dummyConnectionStatusHandler, noTLS)
+			dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -124,7 +124,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler, noTLS)
+		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil
@@ -142,6 +142,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 	// Handle parsing gateway addresses from the config file
 
+	//REVIEWER NOTE: Possibly need to remove/rearrange this,
+	// now that client may not know gw's upon client creation
 	gateways := client.GetNDF().Gateways
 	// If gwAddr was not passed via command line, check config file
 	if len(gateways) < 1 {
@@ -156,7 +158,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	// Connect to gateways and reg server
-	err = client.Connect()
+	err = client.Connect(dummyConnectionStatusHandler)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
@@ -201,7 +203,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
-
+		globals.Log.INFO.Printf("Registered as user (uid, the var) %v", uid)
+		globals.Log.INFO.Printf("Registered as user (userID, the global) %v", userId)
 		globals.Log.INFO.Printf("Successfully registered user %s!", userbase64)
 
 	} else {

@@ -104,22 +104,18 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 }
 
 //request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
-func requestNdf(cl *Client, blockingChan chan struct{}) {
+func requestNdf(cl *Client, errChan chan error) {
 	//Continuosly polls for a new ndf after sleeping until response if gotten
+	globals.Log.INFO.Printf("Polling for a new NDF")
 	for {
-		globals.Log.INFO.Printf("Polling for a new NDF")
 		newNDf, err := cl.commManager.GetUpdatedNDF()
 		if err != nil {
-			errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
-			globals.Log.WARN.Printf("%v", errMsg)
+			errChan <- err
+			return
 		} else {
 			cl.ndf = newNDf
-			blockingChan <- struct{}{}
 			return
 		}
-		//Fixme increase it logarithmically? like a backoff?
-		time.Sleep(5 * time.Minute)
-
 	}
 }
 
@@ -128,7 +124,7 @@ func requestNdf(cl *Client, blockingChan chan struct{}) {
 // is created
 // returns a new Client object, and an error if it fails
 func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
-	callback io.ConnectionStatusCallback, noTLS bool) (*Client, error) {
+	callback io.ConnectionStatusCallback) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -148,15 +144,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON, callback, noTLS)
-
-	blockingChan := make(chan struct{})
-	go requestNdf(cl, blockingChan)
-	//Block until ndf is updated
-	<-blockingChan
-
-	//Remake  comm manager with the updated ndf
-	cl.commManager = io.NewCommManager(cl.ndf, callback, noTLS)
+	cl.commManager = io.NewCommManager(ndfJSON, callback)
 
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -177,13 +165,6 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, 16))
 	user.InitUserRegistry(cmixGrp)
 
-	//Log whether we are using TLS
-	if noTLS {
-		globals.Log.INFO.Printf("Starting client with no TLS...")
-	} else {
-		globals.Log.INFO.Printf("Starting client with TLS...")
-	}
-
 	return cl, nil
 }
 
@@ -200,7 +181,7 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
-func (cl *Client) Connect() error {
+func (cl *Client) Connect(callback io.ConnectionStatusCallback) error {
 	//Connect to permissioning
 	isConnected, err := cl.commManager.ConnectToPermissioning()
 	if err != nil {
@@ -210,11 +191,37 @@ func (cl *Client) Connect() error {
 		err = errors.New("Couldn't connect to permissioning")
 		return err
 	}
+	tlsEnabled := cl.commManager.TLS
 	//Check if versioning is up to date
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
 		return err
 	}
+	errorChan := make(chan error)
+	go requestNdf(cl, errorChan)
+	//Block until ndf is updated
+
+	if len(errorChan) != 0 {
+		err = <-errorChan
+		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
+		globals.Log.WARN.Printf("%v", errMsg)
+		return errors.New(errMsg)
+
+	}
+
+	//Remake  comm manager with the updated ndf
+	cl.commManager = io.NewCommManager(cl.ndf, callback)
+	if !tlsEnabled {
+		cl.DisableTLS()
+	}
+	//build the topology
+	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
+	for i, node := range cl.ndf.Nodes {
+		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
+	}
+
+	cl.topology = circuit.New(nodeIDs)
+
 	cl.commManager.DisconnectFromPermissioning()
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
@@ -241,8 +248,8 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
 }
 
-//RegistrationHelper registers a user. It serves as a helper for Register
-func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.User,
+//registerWithNode registers a user. It serves as a helper for Register
+func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
 	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys, errorChan chan error) {
@@ -257,7 +264,7 @@ func (cl *Client) registrationHelper(index int, salt, regHash []byte, UID *id.Us
 	// Request nonce message from gateway
 	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
 		index, len(cl.ndf.Gateways))
-	nonce, dhPub, err := cl.requestNonce(salt, regHash, cmixPublicKeyDH,
+	nonce, dhPub, err := cl.requestNonce(salt, registrationValidationSignature, cmixPublicKeyDH,
 		publicKeyRSA, privateKeyRSA, gatewayID)
 
 	if err != nil {
@@ -347,6 +354,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
 	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
 
+	// Initialized response from Registration Server
+	regValidationSignature := make([]byte, 0)
+
 	// Handle precanned registration
 	if preCan {
 		cl.opStatus(globals.REG_PRECAN)
@@ -371,15 +381,12 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		// Generate UserID by hashing salt and public key
 		UID = registration.GenUserID(publicKeyRSA, salt)
 
-		// Initialized response from Registration Server
-		regHash := make([]byte, 0)
-
 		// If Registration Server is specified, contact it
 		// Only if registrationCode is set
 		globals.Log.INFO.Println("Register: Contacting registration server")
 		if cl.ndf.Registration.Address != "" && registrationCode != "" {
 			cl.opStatus(globals.REG_PERM)
-			regHash, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+			regValidationSignature, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
 				return id.ZeroID, err
@@ -399,7 +406,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 			wg.Add(1)
 			go func() {
 				//Register the client over all servers
-				cl.registrationHelper(i, salt, regHash, UID, publicKeyRSA, privateKeyRSA,
+				cl.registerWithNode(i, salt, regValidationSignature, UID, publicKeyRSA, privateKeyRSA,
 					cmixPublicKeyDH, cmixPrivateKeyDH, cmixGrp, nk, errChan)
 
 				wg.Done()
@@ -442,8 +449,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	// Create the user session
 	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, cmixGrp, e2eGrp, password)
-
+		e2ePrivateKeyDH, cmixGrp, e2eGrp, password, regValidationSignature)
 	cl.opStatus(globals.REG_SAVE)
 
 	// Store the user session
@@ -510,6 +516,71 @@ func (cl *Client) Login(password string) (string, error) {
 
 	if session == nil {
 		return "", errors.New("Unable to load session: " + err.Error())
+	}
+	//Load Cmix keys & group
+	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
+	cmixDHPubKey := session.GetCMIXDHPublicKey()
+	cmixGrp := session.GetCmixGroup()
+
+	//Load the rsa keys
+	rsaPubKey := session.GetRSAPublicKey()
+	rsaPrivKey := session.GetRSAPrivateKey()
+
+	//Load the user ID
+	UID := session.GetCurrentUser().User
+
+	//Load the registration signature
+	regSignature := session.GetRegistrationValidationSignature()
+
+	//Fixme: Reviewer: Save salt in session or generate one here?
+	saltSize := 256
+	salt := make([]byte, saltSize)
+	_, err = csprng.NewSystemRNG().Read(salt)
+	if err != nil {
+		errMsg := fmt.Sprintf("Login: Unable to generate salt! %s", err)
+		globals.Log.ERROR.Printf(errMsg)
+		return "", errors.New(errMsg)
+	}
+
+	// Make CMIX keys array
+	nk := make(map[id.Node]user.NodeKeys)
+
+	var wg sync.WaitGroup
+	errChan := make(chan error, len(cl.ndf.Gateways))
+
+	//Get the registered node keys
+	registedNodes := session.GetNodeKeys()
+
+	for i := range cl.ndf.Gateways {
+		wg.Add(1)
+		go func() {
+			nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
+			//Register with node if the node has not been registered with already
+			if registedNodes[nodeID].TransmissionKey == nil && registedNodes[nodeID].ReceptionKey == nil {
+				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
+					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
+			}
+			wg.Done()
+		}()
+		wg.Wait()
+
+	}
+	//fixme: reviewer: how to handle errors?
+	//See if the registration returned errors at all
+	var errs error
+	for len(errChan) > 0 {
+		err = <-errChan
+		if errs != nil {
+			errs = errors.Wrap(errs, err.Error())
+		} else {
+			errs = err
+		}
+
+	}
+	//If an error every occured, return with error
+	if errs != nil {
+		cl.opStatus(globals.REG_FAIL)
+		return "", errs
 	}
 
 	cl.session = session

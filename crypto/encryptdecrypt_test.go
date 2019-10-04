@@ -118,7 +118,7 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	E2EEncrypt(e2eGrp, key, fp, msg)
 
 	// CMIX Encryption
-	encMsg := CMIXEncrypt(session, topology, salt, msg)
+	encMsg, _ := CMIXEncrypt(session, topology, salt, msg)
 
 	// Server will decrypt payload (which is OK because the payload is now e2e)
 	// This block imitates what the server does during the realtime
@@ -180,7 +180,7 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	E2EEncryptUnsafe(e2eGrp, key, fp, msg)
 
 	// CMIX Encryption
-	encMsg := CMIXEncrypt(session, topology, salt, msg)
+	encMsg, _ := CMIXEncrypt(session, topology, salt, msg)
 
 	// Server will decrypt payload (which is OK because the payload is now e2e)
 	// This block imitates what the server does during the realtime

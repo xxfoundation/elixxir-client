@@ -55,6 +55,8 @@ type Session interface {
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
+	GetRegistrationValidationSignature() []byte
+	GetNodeKeys() map[id.Node]NodeKeys
 }
 
 type NodeKeys struct {
@@ -72,27 +74,29 @@ func NewSession(store globals.Storage,
 	e2ePublicKeyDH *cyclic.Int,
 	e2ePrivateKeyDH *cyclic.Int,
 	cmixGrp, e2eGrp *cyclic.Group,
-	password string) Session {
-
+	password string,
+	regSignature []byte) Session {
+	fmt.Printf("the nk is the following: %v", nk)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		CurrentUser:         u,
-		Keys:                nk,
-		RSAPublicKey:        publicKeyRSA,
-		RSAPrivateKey:       privateKeyRSA,
-		CMIXDHPublicKey:     cmixPublicKeyDH,
-		CMIXDHPrivateKey:    cmixPrivateKeyDH,
-		E2EDHPublicKey:      e2ePublicKeyDH,
-		E2EDHPrivateKey:     e2ePrivateKeyDH,
-		CmixGrp:             cmixGrp,
-		E2EGrp:              e2eGrp,
-		InterfaceMap:        make(map[string]interface{}),
-		KeyMaps:             keyStore.NewStore(),
-		RekeyManager:        keyStore.NewRekeyManager(),
-		store:               store,
-		listeners:           switchboard.NewSwitchboard(),
-		quitReceptionRunner: make(chan struct{}),
-		password:            password,
+		CurrentUser:            u,
+		Keys:                   nk,
+		RSAPublicKey:           publicKeyRSA,
+		RSAPrivateKey:          privateKeyRSA,
+		CMIXDHPublicKey:        cmixPublicKeyDH,
+		CMIXDHPrivateKey:       cmixPrivateKeyDH,
+		E2EDHPublicKey:         e2ePublicKeyDH,
+		E2EDHPrivateKey:        e2ePrivateKeyDH,
+		CmixGrp:                cmixGrp,
+		E2EGrp:                 e2eGrp,
+		InterfaceMap:           make(map[string]interface{}),
+		KeyMaps:                keyStore.NewStore(),
+		RekeyManager:           keyStore.NewRekeyManager(),
+		store:                  store,
+		listeners:              switchboard.NewSwitchboard(),
+		quitReceptionRunner:    make(chan struct{}),
+		password:               password,
+		regValidationSignature: regSignature,
 	})
 }
 
@@ -184,6 +188,9 @@ type SessionObj struct {
 
 	// The password used to encrypt this session when saved
 	password string
+
+	//The validation signature provided by permissioning
+	regValidationSignature []byte
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -196,6 +203,12 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.LockStorage()
 	s.LastMessageID = id
 	s.UnlockStorage()
+}
+
+func (s *SessionObj) GetNodeKeys() map[id.Node]NodeKeys {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.Keys
 }
 
 func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
@@ -251,6 +264,12 @@ func (s *SessionObj) GetCmixGroup() *cyclic.Group {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.CmixGrp
+}
+
+func (s *SessionObj) GetRegistrationValidationSignature() []byte {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.regValidationSignature
 }
 
 func (s *SessionObj) GetE2EGroup() *cyclic.Group {

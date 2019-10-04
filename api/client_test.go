@@ -40,7 +40,7 @@ func TestRegistrationGob(t *testing.T) {
 	startServers()
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler, true)
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -76,7 +76,7 @@ func TestClient_Register(t *testing.T) {
 
 	//Make mock client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler, true)
+		dummyConnectionStatusHandler)
 
 	if err != nil {
 		t.Error(err)
@@ -228,7 +228,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler, true)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -321,7 +321,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler, true)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -474,7 +474,7 @@ func TestClient_precannedRegister(t *testing.T) {
 
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler, true)
+		dummyConnectionStatusHandler)
 
 	if err != nil {
 		t.Error(err)
@@ -503,7 +503,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler, true)
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -539,7 +539,7 @@ func TestClient_requestNonce(t *testing.T) {
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler, true)
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -570,7 +570,7 @@ func TestClient_confirmNonce(t *testing.T) {
 	startServers()
 
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler, true)
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}

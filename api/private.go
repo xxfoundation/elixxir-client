@@ -63,7 +63,7 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 }
 
 // sendRegistrationMessage is a helper for the Register function
-// It sends a registration message and returns the registration hash
+// It sends a registration message and returns the registration signature
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
 	connected, err := cl.commManager.ConnectToPermissioning()
@@ -74,7 +74,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	if !connected {
 		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
 	}
-	regHash := make([]byte, 0)
+	regValidationSignature := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
 	response, err := cl.commManager.Comms.
 		SendRegistrationMessage(io.ConnAddr(PermissioningAddrID),
@@ -89,9 +89,9 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	if response.Error != "" {
 		return nil, errors.Wrapf(err, "sendRegistrationMessage: error handling message: %s", response.Error)
 	}
-	regHash = response.ClientSignedByServer.Signature
+	regValidationSignature = response.ClientSignedByServer.Signature
 	// Disconnect from regServer here since it will not be needed
-	return regHash, nil
+	return regValidationSignature, nil
 }
 
 // requestNonce is a helper for the Register function

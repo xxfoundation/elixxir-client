@@ -54,6 +54,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 	}
 	// Add a byte for later encryption (15->16 bytes)
 	extendedNowBytes := append(nowBytes, 0)
+	cm.lock.RLock()
 	transmitGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.TransmissionGatewayIndex].ID).NewGateway()
 	for i := range parts {
 		message := format.NewMessage()
@@ -131,14 +132,14 @@ func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
-	encMsg := crypto.CMIXEncrypt(session, topology, salt, message)
+	encMsg, kmacs := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
 		SenderID: session.GetCurrentUser().User.Bytes(),
 		PayloadA: encMsg.GetPayloadA(),
 		PayloadB: encMsg.GetPayloadB(),
 		Salt:     salt,
-		KMACs:    make([][]byte, 0),
+		KMACs:    kmacs,
 	}
 
 	return cm.Comms.SendPutMessage(transmitGateway, msgPacket)

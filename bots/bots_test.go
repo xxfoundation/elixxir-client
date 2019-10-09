@@ -111,6 +111,14 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
+
+	// Send response messages from fake UDB in advance
+	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
+	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	if err != nil {
+		t.Errorf("Registration duplicate failure: %s", err.Error())
+	}
+
 }
 
 // TestSearch smoke tests the search function
@@ -157,18 +165,6 @@ func TestNicknameFunctions(t *testing.T) {
 
 	// Test nickname lookup
 
-	// Spawn lookup on goroutine
-	go func() {
-		nick, err := LookupNick(session.GetCurrentUser().User)
-		if err != nil {
-			t.Errorf("Error on LookupNick: %s", err.Error())
-		}
-		if nick != session.GetCurrentUser().Nick {
-			t.Errorf("LookupNick returned wrong value. Expected %s,"+
-				" Got %s", session.GetCurrentUser().Nick, nick)
-		}
-	}()
-
 	// send response to switchboard
 	msg = &parse.Message{
 		Sender: session.GetCurrentUser().User,
@@ -180,6 +176,15 @@ func TestNicknameFunctions(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
+	// AFter sending the message, perform the lookup to read it
+	nick, err := LookupNick(session.GetCurrentUser().User)
+	if err != nil {
+		t.Errorf("Error on LookupNick: %s", err.Error())
+	}
+	if nick != session.GetCurrentUser().Nick {
+		t.Errorf("LookupNick returned wrong value. Expected %s,"+
+			" Got %s", session.GetCurrentUser().Nick, nick)
+	}
 }
 
 type errorMessaging struct{}

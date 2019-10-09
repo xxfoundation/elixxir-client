@@ -154,6 +154,8 @@ func handleE2ESending(session user.Session,
 	// Get KeyManager for this partner
 	km := session.GetKeyStore().GetSendManager(recipientID)
 	if km == nil {
+		partners := session.GetKeyStore().GetPartners()
+		globals.Log.INFO.Printf("Valid Partner IDs: %+v", partners)
 		globals.Log.FATAL.Panicf("Couldn't get KeyManager to E2E encrypt message to"+
 			" user %v", *recipientID)
 	}

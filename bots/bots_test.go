@@ -157,18 +157,6 @@ func TestNicknameFunctions(t *testing.T) {
 
 	// Test nickname lookup
 
-	// Spawn lookup on goroutine
-	go func() {
-		nick, err := LookupNick(session.GetCurrentUser().User)
-		if err != nil {
-			t.Errorf("Error on LookupNick: %s", err.Error())
-		}
-		if nick != session.GetCurrentUser().Nick {
-			t.Errorf("LookupNick returned wrong value. Expected %s,"+
-				" Got %s", session.GetCurrentUser().Nick, nick)
-		}
-	}()
-
 	// send response to switchboard
 	msg = &parse.Message{
 		Sender: session.GetCurrentUser().User,
@@ -180,6 +168,14 @@ func TestNicknameFunctions(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
+	nick, err := LookupNick(session.GetCurrentUser().User)
+	if err != nil {
+		t.Errorf("Error on LookupNick: %s", err.Error())
+	}
+	if nick != session.GetCurrentUser().Nick {
+		t.Errorf("LookupNick returned wrong value. Expected %s,"+
+			" Got %s", session.GetCurrentUser().Nick, nick)
+	}
 }
 
 type errorMessaging struct{}

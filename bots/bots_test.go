@@ -111,6 +111,14 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
+
+	// Send response messages from fake UDB in advance
+	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
+	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	if err != nil {
+		t.Errorf("Registration duplicate failure: %s", err.Error())
+	}
+
 }
 
 // TestSearch smoke tests the search function

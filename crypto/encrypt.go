@@ -21,16 +21,24 @@ import (
 // of the msg to a team of nodes
 // It returns a new msg
 func CMIXEncrypt(session user.Session, topology *circuit.Circuit, salt []byte,
-	msg *format.Message) *format.Message {
+	msg *format.Message) (*format.Message, [][]byte) {
 	// Generate the encryption key
 	nodeKeys := session.GetKeys(topology)
 	baseKeys := make([]*cyclic.Int, len(nodeKeys))
 	for i, key := range nodeKeys {
 		baseKeys[i] = key.TransmissionKey
-		//TODO: Add KMAC generation here
 	}
 
-	return cmix.ClientEncrypt(session.GetCmixGroup(), msg, salt, baseKeys)
+	ecrMsg := cmix.ClientEncrypt(session.GetCmixGroup(), msg, salt, baseKeys)
+
+	h, err := hash.NewCMixHash()
+	if err != nil {
+		globals.Log.ERROR.Printf("Cound not get hash for KMAC generation: %+v", h)
+	}
+
+	KMAC := cmix.GenerateKMACs(salt, baseKeys, h)
+
+	return ecrMsg, KMAC
 }
 
 // E2EEncrypt uses the E2E key to encrypt msg

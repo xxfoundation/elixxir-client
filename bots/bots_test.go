@@ -176,6 +176,7 @@ func TestNicknameFunctions(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
+	// AFter sending the message, perform the lookup to read it
 	nick, err := LookupNick(session.GetCurrentUser().User)
 	if err != nil {
 		t.Errorf("Error on LookupNick: %s", err.Error())

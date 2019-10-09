@@ -44,7 +44,12 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 	// check if key already exists and push one if it doesn't
 	err = pushKey(UdbID, keyFP, publicKey)
 	if err != nil {
-		return fmt.Errorf("Could not PUSHKEY: %s", err.Error())
+		errStr := err.Error()
+		if strings.HasSuffix(errStr, "key already exists") {
+			// Already registered
+			return nil
+		}
+		return fmt.Errorf("Could not PUSHKEY: %s", errStr)
 	}
 
 	msgBody := parse.Pack(&parse.TypedBody{

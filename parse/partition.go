@@ -149,7 +149,7 @@ type MultiPartMessage struct {
 
 func ValidatePartition(partition []byte) (message *MultiPartMessage,
 	err error) {
-	globals.Log.DEBUG.Printf("%v\n", partition)
+	globals.Log.DEBUG.Printf("Partition: %v\n", partition)
 	// ID is first, and it's variable length
 	msbMask := byte(0x80)
 	indexInformationStart := 0

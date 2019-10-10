@@ -47,6 +47,17 @@ func (m *keyManMap) values() []*KeyManager {
 	return valueList
 }
 
+// Internal helper function to get a list of all keys
+// contained in a KeyManMap
+func (m *keyManMap) keys() []id.User {
+	keyList := make([]id.User, 0)
+	(*sync.Map)(m).Range(func(key, value interface{}) bool {
+		keyList = append(keyList, key.(id.User))
+		return true
+	})
+	return keyList
+}
+
 // Stores an *E2EKey for given fingerprint
 func (m *inKeyMap) Store(fingerprint format.Fingerprint, key *E2EKey) {
 	(*sync.Map)(m).Store(fingerprint, key)
@@ -145,6 +156,11 @@ func (ks *KeyStore) AddSendManager(km *KeyManager) {
 // based on partner ID
 func (ks *KeyStore) GetSendManager(partner *id.User) *KeyManager {
 	return ks.sendKeyManagers.Load(partner)
+}
+
+// GetPartners returns the list of partners we have keys for
+func (ks *KeyStore) GetPartners() []id.User {
+	return ks.sendKeyManagers.keys()
 }
 
 // Delete a Send KeyManager from respective map in KeyStore

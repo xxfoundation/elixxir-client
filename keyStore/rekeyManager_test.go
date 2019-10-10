@@ -18,9 +18,7 @@ func TestRekeyManager_New(t *testing.T) {
 
 // Test all Ctx related functions of RekeyManager
 func TestRekeyManager_Ctx(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
@@ -69,9 +67,7 @@ func TestRekeyManager_Ctx(t *testing.T) {
 
 // Test all Keys related functions of RekeyManager
 func TestRekeyManager_Keys(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
 	partner := id.NewUserFromUint(14, t)

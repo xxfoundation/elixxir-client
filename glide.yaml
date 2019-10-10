@@ -4,11 +4,11 @@ import:
   version: master
   vcs: git
 - package: gitlab.com/elixxir/crypto
-  version: small-prime-fix
+  version: release
   repo: git@gitlab.com:elixxir/crypto
   vcs: git
 - package: gitlab.com/elixxir/comms
-  version: small-prime-fix
+  version: release
   repo: git@gitlab.com:elixxir/comms
   vcs: git
 - package: gitlab.com/elixxir/primitives

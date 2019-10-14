@@ -52,12 +52,15 @@ var nicknameRequestListener nickReqListener
 func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *id.User) {
 	UdbID = udbID
 
-	pushKeyResponseListener = make(channelResponseListener)
-	getKeyResponseListener = make(channelResponseListener)
-	registerResponseListener = make(channelResponseListener)
-	searchResponseListener = make(channelResponseListener)
+	// FIXME: these all need to be used in non-blocking threads if we are
+	// going to do it this way...
+	msgBufSize := 100
+	pushKeyResponseListener = make(channelResponseListener, msgBufSize)
+	getKeyResponseListener = make(channelResponseListener, msgBufSize)
+	registerResponseListener = make(channelResponseListener, msgBufSize)
+	searchResponseListener = make(channelResponseListener, msgBufSize)
 	nicknameRequestListener = nickReqListener{}
-	nicknameResponseListener = make(channelResponseListener)
+	nicknameResponseListener = make(channelResponseListener, msgBufSize)
 
 	session = s
 	topology = top

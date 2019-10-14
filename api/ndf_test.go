@@ -30,7 +30,7 @@ func TestVerifyNDF(t *testing.T) {
 	// Sign the NDF
 	ndfJSON, _, _ := ndf.DecodeNDF(ExampleJSON + "\n")
 	rsaHash := crypto.SHA256.New()
-	rsaHash.Write(ndfJSON.Serialize())
+	rsaHash.Write([]byte(ExampleJSON))
 	signature, _ := rsa.Sign(
 		rand.Reader, privKey, crypto.SHA256, rsaHash.Sum(nil), nil)
 
@@ -43,7 +43,7 @@ func TestVerifyNDF(t *testing.T) {
 	}()
 
 	// Compose network definition string
-	ndfString := ExampleJSON + "\n" + base64.StdEncoding.EncodeToString(signature)
+	ndfString := ExampleJSON + "\n" + base64.StdEncoding.EncodeToString(signature) + "\n"
 
 	// Run VerifyNDF()
 	fmt.Println(ndfString)

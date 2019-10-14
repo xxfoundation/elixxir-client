@@ -181,8 +181,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, 16),
-		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, 16))
+		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
 	user.InitUserRegistry(cmixGrp)
 
 	return cl, nil

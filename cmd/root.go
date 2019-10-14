@@ -169,7 +169,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	// Connect to gateways and reg server
-	err = client.Connect(dummyConnectionStatusHandler)
+	err = client.Connect()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}

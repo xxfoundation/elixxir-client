@@ -165,7 +165,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	cl := new(Client)
 	cl.storage = store
 	cl.commManager = io.NewCommManager(ndfJSON, callback)
-
+	cl.ndf = ndfJSON
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {
@@ -200,7 +200,7 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
-func (cl *Client) Connect(callback io.ConnectionStatusCallback) error {
+func (cl *Client) Connect() error {
 	//Connect to permissioning
 	isConnected, err := cl.commManager.ConnectToPermissioning()
 	if err != nil {
@@ -229,7 +229,7 @@ func (cl *Client) Connect(callback io.ConnectionStatusCallback) error {
 
 	//Remake  comm manager with the updated ndf
 	tlsEnabled := cl.commManager.TLS
-	cl.commManager = io.NewCommManager(cl.ndf, callback)
+	cl.commManager = io.NewCommManager(cl.ndf, cl.commManager.GetConnectionCallback())
 	if !tlsEnabled {
 		cl.DisableTLS()
 	}
@@ -259,7 +259,6 @@ func (cl *Client) Connect(callback io.ConnectionStatusCallback) error {
 			"registration server, because it's not populated. Do you have " +
 			"access to the registration server?")
 	}
-
 	return cl.commManager.ConnectToGateways()
 }
 
@@ -304,7 +303,6 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 		errorChan <- errors.New(errMsg)
 	} else {
 	}
-
 	nodeID := *cl.topology.GetNodeAtIndex(index)
 	nodeKey[nodeID] = user.NodeKeys{
 		TransmissionKey: registration.GenerateBaseKey(cmixGrp,

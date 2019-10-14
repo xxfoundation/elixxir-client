@@ -80,8 +80,10 @@ func setup() {
 		nkMap[*topology.GetNodeAtIndex(i)] = nk
 	}
 
+	regSignature := make([]byte, 8)
+
 	session = user.NewSession(nil, u, nkMap,
-		nil, nil, nil, nil, nil, nil, cmixGrp, e2eGrp, "password")
+		nil, nil, nil, nil, nil, nil, cmixGrp, e2eGrp, "password", regSignature)
 }
 
 func TestMain(m *testing.M) {

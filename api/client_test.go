@@ -86,7 +86,6 @@ func TestClient_Register(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-
 	// populate a gob in the store
 	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
@@ -245,12 +244,13 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+	regSignature := make([]byte, 8)
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
 		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
-		e2eGrp, "password")
+		e2eGrp, "password", regSignature)
 
 	testClient.session = session
 
@@ -340,11 +340,13 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
+	regSignature := make([]byte, 8)
+
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
 		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
-		e2eGrp, "password")
+		e2eGrp, "password", regSignature)
 
 	testClient.session = session
 

@@ -118,7 +118,6 @@ func (cm *CommManager) ConnectToGateways() error {
 			if gateway.TlsCertificate != "" && cm.TLS {
 				gwCreds = []byte(gateway.TlsCertificate)
 			}
-
 			gwID := id.NewNodeFromBytes(cm.ndf.Nodes[i].ID).NewGateway()
 			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 				gwID.String(), gateway.Address)
@@ -166,6 +165,10 @@ func (cm *CommManager) UpdateRemoteVersion() error {
 	return nil
 }
 
+func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
+	return cm.connectionStatusCallback
+}
+
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
 func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	connected, err := cm.ConnectToPermissioning()
@@ -211,7 +214,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-	globals.Log.INFO.Printf("Client NDF out of date, updating now")
 	cm.ndf = updatedNdf
 	//Set the updated ndf to be the client's ndf
 	return updatedNdf, nil

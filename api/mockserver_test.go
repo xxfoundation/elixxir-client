@@ -335,7 +335,6 @@ func testMainWrapper(m *testing.M) int {
 		}
 		def.Nodes = append(def.Nodes, n)
 	}
-
 	defer testWrapperShutdown()
 	return m.Run()
 }
@@ -363,8 +362,7 @@ func getNDF() *ndf.NetworkDefinition {
 				"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E" +
 				"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873" +
 				"847AEF49F66E43873",
-			SmallPrime: "2",
-			Generator:  "2",
+			Generator: "2",
 		},
 		CMIX: ndf.Group{
 			Prime: "9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48" +
@@ -375,7 +373,6 @@ func getNDF() *ndf.NetworkDefinition {
 				"F1BF14D4BB4563CA28371621CAD3324B6A2D392145BEBFAC748805236F5CA2FE" +
 				"92B871CD8F9C36D3292B5509CA8CAA77A2ADFC7BFD77DDA6F71125A7456FEA15" +
 				"3E433256A2261C6A06ED3693797E7995FAD5AABBCFBE3EDA2741E375404AE25B",
-			SmallPrime: "F2C3119374CE76C9356990B465374A17F23F9ED35089BD969F61C6DDE9998C1F",
 			Generator: "5C7FF6B06F8F143FE8288433493E4769C4D988ACE5BE25A0E24809670716C613" +
 				"D7B0CEE6932F8FAA7C44D2CB24523DA53FBE4F6EC3595892D1AA58C4328A06C4" +
 				"6A15662E7EAA703A1DECF8BBB2D05DBE2EB956C142A338661D10461C0D135472" +
@@ -391,6 +388,8 @@ func getNDF() *ndf.NetworkDefinition {
 func startServers() {
 	RegComms = registration.StartRegistrationServer(def.Registration.Address,
 		&RegHandler, nil, nil)
+	def.Gateways = make([]ndf.Gateway, 0)
+
 	//Start up gateways
 	for i, handler := range RegGWHandlers {
 
@@ -407,8 +406,10 @@ func startServers() {
 
 func killServers() {
 	for _, gw := range GWComms {
+		gw.DisconnectAll()
 		gw.Shutdown()
 
 	}
+	RegComms.DisconnectAll()
 	RegComms.Shutdown()
 }

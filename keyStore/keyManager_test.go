@@ -36,22 +36,17 @@ func initGroup() *cyclic.Group {
 		"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0" +
 		"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7"
 
-	qString := "F2C3119374CE76C9356990B465374A17F23F9ED35089BD969F61C6DDE9998C1F"
-
 	p := large.NewIntFromString(pString, base)
 	g := large.NewIntFromString(gString, base)
-	q := large.NewIntFromString(qString, base)
 
-	grp := cyclic.NewGroup(p, g, q)
+	grp := cyclic.NewGroup(p, g)
 
 	return grp
 }
 
 // Test creation of KeyManager
 func TestKeyManager_New(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
@@ -65,9 +60,7 @@ func TestKeyManager_New(t *testing.T) {
 
 // Test KeyManager base key getter
 func TestKeyManager_GetBaseKey(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
@@ -87,9 +80,7 @@ func TestKeyManager_GetBaseKey(t *testing.T) {
 
 // Test KeyManager private key getter
 func TestKeyManager_GetPrivKey(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
@@ -109,9 +100,7 @@ func TestKeyManager_GetPrivKey(t *testing.T) {
 
 // Test KeyManager public key getter
 func TestKeyManager_GetPubKey(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
@@ -131,9 +120,7 @@ func TestKeyManager_GetPubKey(t *testing.T) {
 
 // Test KeyManager partner getter
 func TestKeyManager_GetPartner(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
@@ -153,9 +140,7 @@ func TestKeyManager_GetPartner(t *testing.T) {
 
 // Test rekey trigger
 func TestKeyManager_Rekey(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
@@ -180,9 +165,7 @@ func TestKeyManager_Rekey(t *testing.T) {
 
 // Test purge trigger
 func TestKeyManager_Purge(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 
@@ -214,9 +197,7 @@ func TestKeyManager_Purge(t *testing.T) {
 
 // Test receive state update
 func TestKeyManager_UpdateRecvState(t *testing.T) {
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
 	partner := id.NewUserFromUint(14, t)
 

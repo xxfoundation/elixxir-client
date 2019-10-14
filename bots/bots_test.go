@@ -251,10 +251,10 @@ func getGroups() (cmixGrp *cyclic.Group, e2eGrp *cyclic.Group) {
 		"847AEF49F66E43873"
 
 	cmixGrp = cyclic.NewGroup(large.NewIntFromString(cmixPrime, 16),
-		large.NewIntFromUInt(2), large.NewIntFromUInt(2))
+		large.NewIntFromUInt(2))
 
 	e2eGrp = cyclic.NewGroup(large.NewIntFromString(e2ePrime, 16),
-		large.NewIntFromUInt(2), large.NewIntFromUInt(2))
+		large.NewIntFromUInt(2))
 
 	return
 }

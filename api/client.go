@@ -129,8 +129,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString(ndfJSON.CMIX.Prime, 16),
-		large.NewIntFromString(ndfJSON.CMIX.Generator, 16),
-		large.NewIntFromString(ndfJSON.CMIX.SmallPrime, 16))
+		large.NewIntFromString(ndfJSON.CMIX.Generator, 16))
 
 	user.InitUserRegistry(cmixGrp)
 
@@ -213,13 +212,11 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.SmallPrime, largeIntBits))
+		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits))
 
 	e2eGrp := cyclic.NewGroup(
 		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.SmallPrime, largeIntBits))
+		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits))
 
 	// Make CMIX keys array
 	nk := make(map[id.Node]user.NodeKeys)

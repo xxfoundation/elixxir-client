@@ -25,9 +25,7 @@ func E2EKeyCmp(a, b *E2EKey) bool {
 // Test KeyStack creation and push/pop
 func TestKeyStack(t *testing.T) {
 	ks := NewKeyStack()
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	expectedKeys := make([]*E2EKey, 100)
 
 	for i := 0; i < 100; i++ {
@@ -50,9 +48,7 @@ func TestKeyStack(t *testing.T) {
 // Test that KeyStack panics on pop if empty
 func TestKeyStack_Panic(t *testing.T) {
 	ks := NewKeyStack()
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	expectedKeys := make([]*E2EKey, 10)
 
 	for i := 0; i < 10; i++ {
@@ -81,9 +77,7 @@ func TestKeyStack_Panic(t *testing.T) {
 // Test that delete correctly empties stack
 func TestKeyStack_Delete(t *testing.T) {
 	ks := NewKeyStack()
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	expectedKeys := make([]*E2EKey, 100)
 
 	for i := 0; i < 100; i++ {
@@ -113,9 +107,7 @@ func TestKeyStack_Delete(t *testing.T) {
 // Test concurrent access
 func TestKeyStack_Concurrent(t *testing.T) {
 	ks := NewKeyStack()
-	grp := cyclic.NewGroup(large.NewInt(107),
-		large.NewInt(2),
-		large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	expectedKeys := make([]*E2EKey, 100)
 
 	for i := 0; i < 100; i++ {

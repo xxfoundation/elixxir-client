@@ -66,6 +66,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
 	}
+	cm.lock.RUnlock()
 	return nil
 }
 

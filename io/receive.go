@@ -27,9 +27,9 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	pollingMessage := pb.ClientRequest{
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
-
+	cm.lock.RLock()
 	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
-
+	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
 	for {

@@ -84,8 +84,19 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	if skipNDFVerification {
 		ndfPubKey = ""
 		globals.Log.WARN.Println("Skipping NDF verification")
-	} else if ndfPubKey == "" {
-		globals.Log.FATAL.Panicln("No public key for NDF found")
+	} else {
+		pkFile, err := os.Open(ndfPubKey)
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not open cert file: %v",
+				err)
+		}
+
+		pkBytes, err := ioutil.ReadAll(pkFile)
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not read cert file: %v",
+				err)
+		}
+		ndfPubKey = string(pkBytes)
 	}
 
 	// Verify the signature
@@ -553,10 +564,11 @@ func init() {
 			" to ram and lost when the cli finishes")
 
 	rootCmd.PersistentFlags().StringVarP(&ndfPubKey,
-		"ndfPubKey",
+		"ndfPubKeyCertPath",
 		"p",
 		"",
-		"Path to the public key for the network definition JSON file")
+		"Path to the certificated containing the public key for the "+
+			" network definition JSON file")
 
 	rootCmd.PersistentFlags().StringVarP(&ndfPath,
 		"ndf",

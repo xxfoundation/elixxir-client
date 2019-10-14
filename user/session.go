@@ -76,7 +76,6 @@ func NewSession(store globals.Storage,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string,
 	regSignature []byte) Session {
-	fmt.Printf("the nk is the following: %v", nk)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:            u,

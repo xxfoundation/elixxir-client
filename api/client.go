@@ -210,7 +210,6 @@ func (cl *Client) Connect(callback io.ConnectionStatusCallback) error {
 		err = errors.New("Couldn't connect to permissioning")
 		return err
 	}
-	tlsEnabled := cl.commManager.TLS
 	//Check if versioning is up to date
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
@@ -229,6 +228,7 @@ func (cl *Client) Connect(callback io.ConnectionStatusCallback) error {
 	}
 
 	//Remake  comm manager with the updated ndf
+	tlsEnabled := cl.commManager.TLS
 	cl.commManager = io.NewCommManager(cl.ndf, callback)
 	if !tlsEnabled {
 		cl.DisableTLS()

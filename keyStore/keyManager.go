@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync/atomic"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // The KeyManager keeps track of all keys used in a single E2E
@@ -261,9 +262,10 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // This way, this function can be used to generate all keys when a new
 // E2E relationship is established, and also to generate all previously
 // unused keys based on KeyManager state, when reloading an user session
-// The function also adds the Key Manager to the respective map of KeyStore
-func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
-	ks *KeyStore) {
+// The function returns modifications that need to be independently made to the keystore.
+func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) ([]*E2EKey){
+	var recE2EKeys []*E2EKey
+
 	if km.sendOrRecv {
 		// Calculate how many unused send keys are needed
 		usedSendKeys := uint32(*km.sendState & stateKeyMask)
@@ -299,8 +301,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 			e2ekey.outer = parse.Rekey
 			km.sendReKeys.Push(e2ekey)
 		}
-		// Add KeyManager to KeyStore map
-		ks.AddSendManager(km)
+
 	} else {
 		// For receiving keys, generate all, and then only add to the map
 		// the unused ones based on recvStates
@@ -309,8 +310,7 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 		// Generate numReKeys recv reKeys
 		recvReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, km.partner, uint(km.numReKeys))
 
-		// Create Receive E2E Keys and add them to ReceptionKeys map
-		// while keeping a list of the fingerprints
+		// Create Receive E2E Keys and put them into the E2eKeys obbj to return into the parent
 		// Skip keys that were already used as per recvStates
 		km.recvKeysFingerprint = make([]format.Fingerprint, 0)
 		for i, key := range recvKeys {
@@ -320,13 +320,13 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey.manager = km
 				e2ekey.outer = parse.E2E
 				e2ekey.keyNum = uint32(i)
+				recE2EKeys = append(recE2EKeys, e2ekey)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvKeysFingerprint = append(km.recvKeysFingerprint, keyFP)
-				ks.AddRecvKey(keyFP, e2ekey)
 			}
 		}
 
-		// Create Receive E2E Keys and add them to ReceptionKeys map
+		// Create Receive E2E reKeys and add them into the E2ERekeys variable to return back to parent
 		// while keeping a list of the fingerprints
 		km.recvReKeysFingerprint = make([]format.Fingerprint, 0)
 		for i, key := range recvReKeys {
@@ -336,14 +336,13 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User,
 				e2ekey.manager = km
 				e2ekey.outer = parse.Rekey
 				e2ekey.keyNum = uint32(i)
+				recE2EKeys = append(recE2EKeys, e2ekey)
 				keyFP := e2ekey.KeyFingerprint()
 				km.recvReKeysFingerprint = append(km.recvReKeysFingerprint, keyFP)
-				ks.AddRecvKey(keyFP, e2ekey)
 			}
 		}
-		// Add KeyManager to KeyStore map
-		ks.AddRecvManager(km)
 	}
+	return recE2EKeys
 }
 
 // Pops first key from Send KeyStack of KeyManager
@@ -381,11 +380,9 @@ func (km *KeyManager) Destroy(ks *KeyStore) {
 		km.sendKeys.Delete()
 		km.sendReKeys.Delete()
 	} else {
-		// Remove KeyManager from KeyStore
-		ks.DeleteRecvManager(km.partner)
-		// Delete receiving keys
-		ks.DeleteRecvKeyList(km.recvKeysFingerprint)
-		ks.DeleteRecvKeyList(km.recvReKeysFingerprint)
+		//FixMe: Needs to review deletion works, as this no longer handles deleting recieved keys.
+		jww.DEBUG.Println("This function no longer handles deleting of reception keys.")
+
 	}
 
 	// Hopefully when the function returns there

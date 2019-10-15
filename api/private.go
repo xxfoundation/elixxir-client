@@ -227,7 +227,8 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Send Keys
-	km.GenerateKeys(grp, userID, cl.session.GetKeyStore())
+	km.GenerateKeys(grp, userID)
+	cl.session.GetKeyStore().AddSendManager(km)
 
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, privKeyCyclic,
@@ -235,7 +236,9 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Receive Keys
-	km.GenerateKeys(grp, userID, cl.session.GetKeyStore())
+	newE2eKeys := km.GenerateKeys(grp, userID)
+	cl.session.GetKeyStore().AddRecvManager(km)
+	cl.session.GetKeyStore().AddReceiveKeysByFingerprint(newE2eKeys)
 
 	// Create RekeyKeys and add to RekeyManager
 	rkm := cl.session.GetRekeyManager()

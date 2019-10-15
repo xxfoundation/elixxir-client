@@ -204,15 +204,15 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	// Create Key Manager if needed
 	switch rt {
 	case Rekey:
-		// Delete current receive KeyManager
-		oldKm := session.GetKeyStore().GetRecvManager(partner)
-		oldKm.Destroy(session.GetKeyStore())
 		// Create Receive KeyManager
 		km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 			partner, false,
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
-		km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
+		e2ekeys := km.GenerateKeys(e2egrp, session.GetCurrentUser().User)
+		session.GetKeyStore().AddRecvManager(km)
+		session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
+
 		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E"+
 			" relationship with user %v", *partner)
 	case RekeyConfirm:
@@ -229,7 +229,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 				partner, true,
 				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
-			km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
+			km.GenerateKeys(e2egrp, session.GetCurrentUser().User)
+			session.GetKeyStore().AddSendManager(km)
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
 			globals.Log.DEBUG.Printf("Generated new send keys for E2E"+

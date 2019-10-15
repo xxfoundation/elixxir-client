@@ -101,7 +101,8 @@ func TestMain(m *testing.M) {
 		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Send Keys
-	km.GenerateKeys(e2eGrp, u.User, session.GetKeyStore())
+	km.GenerateKeys(grp, u.User)
+	session.GetKeyStore().AddSendManager(km)
 
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, myPrivKeyCyclicE2E,
@@ -109,7 +110,12 @@ func TestMain(m *testing.M) {
 		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Receive Keys
-	km.GenerateKeys(grp, u.User, session.GetKeyStore())
+	e2ekeys := km.GenerateKeys(grp, u.User)
+	//FixMe: Do we keep this here
+	session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
+	session.GetKeyStore().AddRecvManager(km)
+	session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
+
 
 	keys := &keyStore.RekeyKeys{
 		CurrPrivKey: myPrivKeyCyclicE2E,

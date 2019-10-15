@@ -172,28 +172,39 @@ func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
 func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	connected, err := cm.ConnectToPermissioning()
+	cm.lock.Lock()
+	cm.lock.RLock()
 	defer cm.DisconnectFromPermissioning()
+	defer cm.lock.Unlock()
+	defer cm.lock.RUnlock()
+
 	if err != nil {
 		cm.ndf = &ndf.NetworkDefinition{}
 		return &ndf.NetworkDefinition{}, err
 	}
+
 	if !connected {
 		errMsg := fmt.Sprintf("Failed to connect to permissioning server")
 		globals.Log.ERROR.Printf(errMsg)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
+
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
 	ndfBytes := cm.ndf.Serialize()
 	hash.Write(ndfBytes)
 	ndfHash := hash.Sum(nil)
+
+	//Put the hash in a message
 	msg := &mixmessages.NDFHash{Hash: ndfHash}
 
+	//Send the hash to registration
 	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
+
 	//Response should not be nil, check comms
 	if response == nil {
 		globals.Log.ERROR.Printf("Response given was an unexpected nil, check comms")
@@ -206,16 +217,20 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		return cm.ndf, nil
 	}
 
-	//Otherwise pull the ndf out of the response
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
+	//Otherwise pull the ndf out of the response
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
 	if err != nil {
 		//If there was an error decoding ndf
 		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-	cm.ndf = updatedNdf
+
 	//Set the updated ndf to be the client's ndf
+	cm.ndf = updatedNdf
+	//Update the amount of gateways
+	cm.ReceptionGatewayIndex = len(updatedNdf.Gateways) - 1
+
 	return updatedNdf, nil
 }
 

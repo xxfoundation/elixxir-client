@@ -173,6 +173,12 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
 	}
 
+	//Create the cmix group and init the registry
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
+	user.InitUserRegistry(cmixGrp)
+
 	cl.opStatus = func(int) {
 		return
 	}
@@ -196,6 +202,8 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 func (cl *Client) Connect() error {
 	//Connect to permissioning
 	isConnected, err := cl.commManager.ConnectToPermissioning()
+	defer cl.commManager.Disconnect()
+
 	if err != nil {
 		return err
 	}
@@ -206,28 +214,26 @@ func (cl *Client) Connect() error {
 	//Check if versioning is up to date
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
+		cl.commManager.DisconnectFromPermissioning()
 		return err
 	}
 
+	//Check whether tls is disabled
+	tlsEnabled := cl.commManager.TLS
+
+	//Request a new ndf from
 	err = requestNdf(cl)
-	//Block until ndf is updated
-
 	if err != nil {
+		cl.commManager.DisconnectFromPermissioning()
 		return err
 
 	}
+	cl.commManager.DisconnectFromPermissioning()
 
 	//Remake  comm manager with the updated ndf
-	tlsEnabled := cl.commManager.TLS
-	cl.commManager = io.NewCommManager(cl.ndf, cl.commManager.GetConnectionCallback())
 	if !tlsEnabled {
 		cl.DisableTLS()
 	}
-	//Create the cmix group and init the registry
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
-	user.InitUserRegistry(cmixGrp)
 
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -237,7 +243,6 @@ func (cl *Client) Connect() error {
 
 	cl.topology = circuit.New(nodeIDs)
 
-	cl.commManager.DisconnectFromPermissioning()
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.commManager.RegistrationVersion != "" {
@@ -310,7 +315,6 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
-//Fixme: maybe pull the generation of everything that goes in regHelper into respoective functions??
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
@@ -560,14 +564,14 @@ func (cl *Client) Login(password string) (string, error) {
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
 	//Get the registered node keys
-	registedNodes := session.GetNodeKeys()
+	registedNodes := session.GetNodes()
 
 	for i := range cl.ndf.Gateways {
 		wg.Add(1)
 		go func() {
-			nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
+			nodeID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
 			//Register with node if the node has not been registered with already
-			if registedNodes[nodeID].TransmissionKey == nil && registedNodes[nodeID].ReceptionKey == nil {
+			if !registedNodes[i].Cmp(nodeID) {
 				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
 					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
 			}
@@ -576,7 +580,6 @@ func (cl *Client) Login(password string) (string, error) {
 		wg.Wait()
 
 	}
-	//fixme: reviewer: how to handle errors?
 	//See if the registration returned errors at all
 	var errs error
 	for len(errChan) > 0 {

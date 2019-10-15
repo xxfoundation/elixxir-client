@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"sync/atomic"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // The KeyManager keeps track of all keys used in a single E2E
@@ -263,7 +263,7 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // E2E relationship is established, and also to generate all previously
 // unused keys based on KeyManager state, when reloading an user session
 // The function returns modifications that need to be independently made to the keystore.
-func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) ([]*E2EKey){
+func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) []*E2EKey {
 	var recE2EKeys []*E2EKey
 
 	if km.sendOrRecv {
@@ -453,7 +453,7 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 	s.BaseKey = append(s.BaseKey, keyBytes...)
 
 	// GobEncode privKey
-	if(km.privKey != nil){
+	if km.privKey != nil {
 		keyBytes, err = km.privKey.GobEncode()
 
 		if err != nil {
@@ -461,19 +461,17 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 		}
 	}
 
-
 	// Add privKey to struct
 	s.PrivKey = append(s.BaseKey, keyBytes...)
 
 	// GobEncode pubKey
-	if km.pubKey != nil{
+	if km.pubKey != nil {
 		keyBytes, err = km.pubKey.GobEncode()
 
 		if err != nil {
 			return nil, err
 		}
 	}
-
 
 	// Add pubKey to struct
 	s.PubKey = append(s.BaseKey, keyBytes...)

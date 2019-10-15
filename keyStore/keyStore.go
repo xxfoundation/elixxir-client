@@ -121,12 +121,10 @@ type KeyStore struct {
 	receptionKeys *inKeyMap
 
 	// Reception Key Managers map
-	recvKeyManagers map[id.User] *ReceptionKeyManagerBuffer
+	recvKeyManagers map[id.User]*ReceptionKeyManagerBuffer
 
 	lock sync.Mutex
 }
-
-
 
 func NewStore() *KeyStore {
 	ks := new(KeyStore)
@@ -193,10 +191,10 @@ func (ks *KeyStore) AddRecvManager(km *KeyManager) {
 	//ks.recvKeyManagers = km
 	keys, ok := ks.recvKeyManagers[*km.partner]
 
-	if ok{
+	if ok {
 		toBeDeleted := keys.push(km)
 		ks.DeleteReceiveKeysByFingerprint(toBeDeleted)
-	}else{
+	} else {
 		newBuffer := NewReceptionKeyManagerBuffer()
 		newBuffer.push(km)
 		ks.recvKeyManagers[*km.partner] = newBuffer
@@ -305,8 +303,8 @@ func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.User) {
 	}
 
 	for _, kmb := range ks.recvKeyManagers {
-		for _, km := range kmb.managers{
-			if km != nil{
+		for _, km := range kmb.managers {
+			if km != nil {
 				e2eKeys := km.GenerateKeys(grp, userID)
 				ks.AddReceiveKeysByFingerprint(e2eKeys)
 			}
@@ -314,14 +312,14 @@ func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.User) {
 	}
 }
 
-func (ks *KeyStore) DeleteReceiveKeysByFingerprint (toBeDeleted []format.Fingerprint) {
-	if len(toBeDeleted) != 0{
+func (ks *KeyStore) DeleteReceiveKeysByFingerprint(toBeDeleted []format.Fingerprint) {
+	if len(toBeDeleted) != 0 {
 		ks.receptionKeys.DeleteList(toBeDeleted)
 	}
 }
 
-func (ks *KeyStore) AddReceiveKeysByFingerprint (newKeys []*E2EKey) {
-	for _, key := range newKeys{
+func (ks *KeyStore) AddReceiveKeysByFingerprint(newKeys []*E2EKey) {
+	for _, key := range newKeys {
 		// FixMe: is this the same? as the commented line?
 		ks.AddRecvKey(key.KeyFingerprint(), key)
 		//ks.receptionKeys.Store(key.KeyFingerprint(), key)

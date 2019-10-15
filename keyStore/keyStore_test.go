@@ -114,7 +114,7 @@ func TestKeyStore_GobDecodeErrors(t *testing.T) {
 	err := ksTest.GobDecode([]byte{})
 
 	if err.Error() != "EOF" {
-	//if !reflect.DeepEqual(err, errors.New("EOF")) {
+		//if !reflect.DeepEqual(err, errors.New("EOF")) {
 		t.Errorf("GobDecode() did not produce the expected error\n\treceived: %v"+
 			"\n\texpected: %v", err, errors.New("EOF"))
 	}

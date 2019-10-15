@@ -498,7 +498,6 @@ func TestKeyManager_Gob(t *testing.T) {
 	ks.AddRecvManager(km2)
 	ks.AddReceiveKeysByFingerprint(e2ekeys)
 
-
 	// Generate keys here to have a way to compare after
 	sendKeys := e2e.DeriveKeys(grp, baseKey, userID, uint(km.numKeys))
 	sendReKeys := e2e.DeriveEmergencyKeys(grp, baseKey, userID, uint(km.numReKeys))
@@ -594,7 +593,6 @@ func TestKeyManager_Gob(t *testing.T) {
 	// Destroy Key Manager (and maps) and confirm no more receive keys exist
 	km2.Destroy(ks)
 
-
 	// GOB Decode Key Manager2
 	outKm2 := &KeyManager{}
 	err = dec.Decode(&outKm2)
@@ -611,8 +609,6 @@ func TestKeyManager_Gob(t *testing.T) {
 	e2ekeys = outKm2.GenerateKeys(grp, userID)
 	ks.AddRecvManager(km)
 	ks.AddReceiveKeysByFingerprint(e2ekeys)
-
-
 
 	// Confirm maps are the same as before delete
 

@@ -107,7 +107,6 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 func (s *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
 
 	ndfData := buildMockNDF()
-	globals.Log.INFO.Printf("retndf serialization in mock updateNDF: %v", ndfData.Serialize())
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }

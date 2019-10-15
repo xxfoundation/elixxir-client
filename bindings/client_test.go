@@ -64,7 +64,6 @@ func (i *mockPermission) GetCurrentClientVersion() (string, error) {
 
 func (i *mockPermission) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
 	ndfData := buildMockNDF()
-	globals.Log.INFO.Printf("retndf serialization in mock updateNDF: %v", ndfData.Serialize())
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }
@@ -144,7 +143,7 @@ func TestRegister(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
-
+	client.DisableTLS()
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -177,7 +176,7 @@ func TestLoginLogout(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
 	}
-
+	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
 	if err != nil {
@@ -221,7 +220,7 @@ func TestListen(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
-
+	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
 
@@ -262,7 +261,7 @@ func TestStopListening(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
-
+	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
 

@@ -172,11 +172,6 @@ func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
 func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	connected, err := cm.ConnectToPermissioning()
-	cm.lock.Lock()
-	cm.lock.RLock()
-	defer cm.DisconnectFromPermissioning()
-	defer cm.lock.Unlock()
-	defer cm.lock.RUnlock()
 
 	if err != nil {
 		cm.ndf = &ndf.NetworkDefinition{}
@@ -188,13 +183,15 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		globals.Log.ERROR.Printf(errMsg)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-
+	//Lock for reading
+	cm.lock.RLock()
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
 	ndfBytes := cm.ndf.Serialize()
 	hash.Write(ndfBytes)
 	ndfHash := hash.Sum(nil)
-
+	//Unlock the lock now that we have read the ndf
+	cm.lock.RUnlock()
 	//Put the hash in a message
 	msg := &mixmessages.NDFHash{Hash: ndfHash}
 
@@ -218,6 +215,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	}
 
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
+
 	//Otherwise pull the ndf out of the response
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
 	if err != nil {
@@ -225,12 +223,11 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
 		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-
+	cm.lock.Lock()
 	//Set the updated ndf to be the client's ndf
 	cm.ndf = updatedNdf
 	//Update the amount of gateways
-	cm.ReceptionGatewayIndex = len(updatedNdf.Gateways) - 1
-
+	cm.lock.Unlock()
 	return updatedNdf, nil
 }
 

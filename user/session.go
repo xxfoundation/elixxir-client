@@ -56,7 +56,7 @@ type Session interface {
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
 	GetRegistrationValidationSignature() []byte
-	GetNodes() []id.Node
+	GetNodes() map[id.Node]int
 }
 
 type NodeKeys struct {
@@ -204,12 +204,12 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.UnlockStorage()
 }
 
-func (s *SessionObj) GetNodes() []id.Node {
+func (s *SessionObj) GetNodes() map[id.Node]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	nodes := make([]id.Node, 0)
+	nodes := make(map[id.Node]int, 0)
 	for node, _ := range s.Keys {
-		nodes = append(nodes, node)
+		nodes[node] = 1
 	}
 	return nodes
 }

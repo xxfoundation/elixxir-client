@@ -128,13 +128,14 @@ func requestNdf(cl *Client) error {
 	//Continuosly polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
 	newNDf, err := cl.commManager.GetUpdatedNDF()
+
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
 		globals.Log.ERROR.Printf(errMsg)
 		return errors.New(errMsg)
 	} else {
+		cl.commManager.ReceptionGatewayIndex = len(newNDf.Gateways) - 1
 		cl.ndf = newNDf
-		globals.Log.INFO.Printf("newNDF: %v", newNDf)
 		return nil
 	}
 
@@ -202,7 +203,6 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 func (cl *Client) Connect() error {
 	//Connect to permissioning
 	isConnected, err := cl.commManager.ConnectToPermissioning()
-	defer cl.commManager.Disconnect()
 
 	if err != nil {
 		return err
@@ -218,9 +218,6 @@ func (cl *Client) Connect() error {
 		return err
 	}
 
-	//Check whether tls is disabled
-	tlsEnabled := cl.commManager.TLS
-
 	//Request a new ndf from
 	err = requestNdf(cl)
 	if err != nil {
@@ -229,11 +226,6 @@ func (cl *Client) Connect() error {
 
 	}
 	cl.commManager.DisconnectFromPermissioning()
-
-	//Remake  comm manager with the updated ndf
-	if !tlsEnabled {
-		cl.DisableTLS()
-	}
 
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -569,9 +561,9 @@ func (cl *Client) Login(password string) (string, error) {
 	for i := range cl.ndf.Gateways {
 		wg.Add(1)
 		go func() {
-			nodeID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
+			nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
 			//Register with node if the node has not been registered with already
-			if !registedNodes[i].Cmp(nodeID) {
+			if registedNodes[nodeID] == 0 {
 				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
 					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
 			}

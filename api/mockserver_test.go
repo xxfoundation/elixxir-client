@@ -62,6 +62,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -96,6 +97,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -130,7 +132,7 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-
+	client.DisableTLS()
 	// Connect to gateways and reg server
 	err = client.Connect()
 
@@ -158,6 +160,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -192,6 +195,7 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -262,7 +266,7 @@ func TestLogout(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-
+	client.DisableTLS()
 	// Connect to gateways and reg server
 	err = client.Connect()
 
@@ -398,7 +402,7 @@ func startServers() {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-
+		fmt.Printf("started gw: %v", gw.Address)
 		GWComms[i] = gateway.StartGateway(gw.Address,
 			handler, nil, nil)
 	}

@@ -356,45 +356,13 @@ func TestKeyManager_Destroy(t *testing.T) {
 	}
 
 	// Destroy KeyManager and confirm KeyManager is gone from map
-	ks.DestroyKeyManager(km)
+	km.Destroy(ks)
 
 	retKM = ks.GetSendManager(partner)
 	if retKM != nil {
 		t.Errorf("KeyManager was not properly removed from KeyStore")
 	}
 
-	//FixMe: koko? is this circumventing actually checking keystore
-	actual = ks.GetRecvKey(km2.recvReKeysFingerprint[6])
-	//actual = ks.GetRecvKey(e2ekeys[6].KeyFingerprint())
-
-	if actual == nil {
-		t.Errorf("ReceptionKeys Map returned nil for Key")
-	}
-
-	//FixMe: koko? is this circumventing actually checking keystore
-	actual = ks.GetRecvKey(km2.recvReKeysFingerprint[2])
-	//actual = ks.GetRecvKey(e2ekeys[2].KeyFingerprint())
-
-	if actual == nil {
-		t.Errorf("ReceptionKeys Map returned nil for ReKey")
-	}
-
-	// Destroy KeyManager2 and confirm no more Receive keys exist
-	ks.DestroyKeyManager(km2)
-
-	for i := 0; i < 12; i++ {
-		actual = ks.GetRecvKey(km2.recvKeysFingerprint[i])
-		if actual != nil {
-			t.Errorf("ReceptionKeys Map should have returned nil for Key")
-		}
-	}
-
-	for i := 0; i < 10; i++ {
-		actual = ks.GetRecvKey(km2.recvReKeysFingerprint[i])
-		if actual != nil {
-			t.Errorf("ReceptionKeys Map should have returned nil for ReKey")
-		}
-	}
 }
 
 // Test GOB Encode/Decode of KeyManager
@@ -602,7 +570,7 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Destroy KeyManager and confirm KeyManager is gone from map
-	ks.DestroyKeyManager(km)
+	km.Destroy(ks)
 
 	retKM = ks.GetSendManager(partner)
 	if retKM != nil {
@@ -624,21 +592,8 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Destroy Key Manager (and maps) and confirm no more receive keys exist
-	ks.DestroyKeyManager(km2)
+	km2.Destroy(ks)
 
-	for i := 0; i < 12; i++ {
-		actual := ks.GetRecvKey(km2.recvKeysFingerprint[i])
-		if actual != nil {
-			t.Errorf("ReceptionKeys Map should have returned nil for Key")
-		}
-	}
-
-	for i := 0; i < 10; i++ {
-		actual := ks.GetRecvKey(km2.recvReKeysFingerprint[i])
-		if actual != nil {
-			t.Errorf("ReceptionKeys Map should have returned nil for ReKey")
-		}
-	}
 
 	// GOB Decode Key Manager2
 	outKm2 := &KeyManager{}

@@ -187,7 +187,7 @@ func handleE2ESending(session user.Session,
 	} else if action == keyStore.Purge {
 		// Destroy this key manager
 		km := key.GetManager()
-		session.GetKeyStore().DestroyKeyManager(km)
+		km.Destroy(session.GetKeyStore())
 		globals.Log.WARN.Printf("Destroying E2E Send Keys Manager for partner: %v", *recipientID)
 	} else if action == keyStore.Deleted {
 		globals.Log.FATAL.Panicf("Key Manager is deleted when trying to get E2E Send Key")

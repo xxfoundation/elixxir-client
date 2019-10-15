@@ -333,23 +333,3 @@ func (ks *KeyStore) AddReceiveKeysByFingerprint (newKeys []*E2EKey) {
 func (ks *KeyStore) DeleteRecvKeyList(fingerprints []format.Fingerprint) {
 	ks.receptionKeys.DeleteList(fingerprints)
 }
-
-// TODO: this is getting messy, we use Delete in some places and destroy in others
-// Do we destroy the whole key manager buffer? Do we want the ability to destroy individual keymanagers in the buffer.
-func (ks *KeyStore) DestroyKeyManager (km *KeyManager) {
-	if km.sendOrRecv{
-		// Remove KeyManager from KeyStore
-		ks.DeleteSendManager(km.partner)
-	} else{
-		// Remove KeyManager from KeyStore
-		ks.DeleteRecvManager(km.partner)
-		// Delete receiving keys
-		ks.DeleteRecvKeyList(km.recvKeysFingerprint)
-		ks.DeleteRecvKeyList(km.recvReKeysFingerprint)
-	}
-	km.Destroy()
-
-}
-
-
-

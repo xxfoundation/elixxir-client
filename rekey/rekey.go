@@ -223,7 +223,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		if bytes.Equal(expected, data) {
 			// Delete current send KeyManager
 			oldKm := session.GetKeyStore().GetSendManager(partner)
-			session.GetKeyStore().DestroyKeyManager(oldKm)
+			oldKm.Destroy(session.GetKeyStore())
 			// Create Send KeyManager
 			km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 				partner, true,

@@ -111,11 +111,9 @@ func TestMain(m *testing.M) {
 
 	// Generate Receive Keys
 	e2ekeys := km.GenerateKeys(grp, u.User)
-	//FixMe: Do we keep this here
 	session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
 	session.GetKeyStore().AddRecvManager(km)
 	session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
-
 
 	keys := &keyStore.RekeyKeys{
 		CurrPrivKey: myPrivKeyCyclicE2E,

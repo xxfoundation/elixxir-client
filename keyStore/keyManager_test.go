@@ -277,8 +277,6 @@ func TestKeyManager_GenerateKeys(t *testing.T) {
 
 	// Confirm Receive Keys can be obtained from KeyStore
 	actual = ks.GetRecvKey(kmRecv.recvKeysFingerprint[4])
-	// FixMe: is this right?
-	//actual = ks.GetRecvKey(e2ekeys[4].KeyFingerprint())
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for Key")
 	}
@@ -340,17 +338,13 @@ func TestKeyManager_Destroy(t *testing.T) {
 	}
 
 	// Confirm Receive Keys can be obtained from KeyStore
-	//FixMe: koko? is this circumventing actually checking keystore
 	actual = ks.GetRecvKey(km2.recvKeysFingerprint[4])
-	//actual = ks.GetRecvKey(e2ekeys[4].KeyFingerprint())
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for Key")
 	}
 
-	//FixMe: koko? is this circumventing actually checking keystore
 	actual = ks.GetRecvKey(km2.recvReKeysFingerprint[8])
-	//actual = ks.GetRecvKey(e2ekeys[8].KeyFingerprint())
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for ReKey")
 	}
@@ -494,7 +488,6 @@ func TestKeyManager_Gob(t *testing.T) {
 
 	// Generate Receive Keys
 	e2ekeys := km2.GenerateKeys(grp, userID)
-	//FixMe:Is this needed here?
 	ks.AddRecvManager(km2)
 	ks.AddReceiveKeysByFingerprint(e2ekeys)
 

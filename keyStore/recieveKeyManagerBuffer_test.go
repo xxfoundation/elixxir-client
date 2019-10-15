@@ -40,7 +40,6 @@ func TestPush(t *testing.T) {
 
 		} else {
 			if len(toDelete) == 0 {
-				//FixME: We need to create new fingerprints that can help us identify them here
 				t.Errorf("Error not returning old keymanager to properly be disposed of")
 			}
 
@@ -114,7 +113,6 @@ func TestReceptionKeyManagerBuffer_Gob(t *testing.T) {
 	partner := id.NewUserFromUint(14, t)
 	userID := id.NewUserFromUint(18, t)
 
-	//FixMe: if public keys are nil then this will fail
 	newKm := *NewManager(baseKey, nil,
 		nil, partner,
 		false, 12, 10, 10)

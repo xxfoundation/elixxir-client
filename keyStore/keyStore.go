@@ -320,9 +320,7 @@ func (ks *KeyStore) DeleteReceiveKeysByFingerprint(toBeDeleted []format.Fingerpr
 
 func (ks *KeyStore) AddReceiveKeysByFingerprint(newKeys []*E2EKey) {
 	for _, key := range newKeys {
-		// FixMe: is this the same? as the commented line?
 		ks.AddRecvKey(key.KeyFingerprint(), key)
-		//ks.receptionKeys.Store(key.KeyFingerprint(), key)
 	}
 }
 

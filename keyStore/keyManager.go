@@ -4,12 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"encoding/gob"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab2/elixxir/client/globals"
 	"sync/atomic"
 )
 
@@ -380,8 +380,7 @@ func (km *KeyManager) Destroy(ks *KeyStore) {
 		km.sendKeys.Delete()
 		km.sendReKeys.Delete()
 	} else {
-		//FixMe: Needs to review deletion works, as this no longer handles deleting recieved keys.
-		jww.DEBUG.Println("This function no longer handles deleting of reception keys.")
+		globals.Log.WARN.Println("This function no longer handles deleting of reception keys.")
 	}
 
 	// Hopefully when the function returns there

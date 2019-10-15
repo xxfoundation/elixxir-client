@@ -124,19 +124,20 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 }
 
 //request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
-func requestNdf(cl *Client, errChan chan error) {
+func requestNdf(cl *Client) error {
 	//Continuosly polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
-	for {
-		newNDf, err := cl.commManager.GetUpdatedNDF()
-		if err != nil {
-			errChan <- err
-			return
-		} else {
-			cl.ndf = newNDf
-			return
-		}
+	newNDf, err := cl.commManager.GetUpdatedNDF()
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
+		globals.Log.ERROR.Printf(errMsg)
+		return errors.New(errMsg)
+	} else {
+		cl.ndf = newNDf
+		globals.Log.INFO.Printf("newNDF: %v", newNDf)
+		return nil
 	}
+
 }
 
 // Creates a new Client using the storage mechanism provided.
@@ -172,17 +173,9 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
 	}
 
-	cl.topology = circuit.New(nodeIDs)
-
 	cl.opStatus = func(int) {
 		return
 	}
-
-	//Create the cmix group and init the registry
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
-	user.InitUserRegistry(cmixGrp)
 
 	return cl, nil
 }
@@ -215,15 +208,12 @@ func (cl *Client) Connect() error {
 	if err != nil {
 		return err
 	}
-	errorChan := make(chan error)
-	go requestNdf(cl, errorChan)
+
+	err = requestNdf(cl)
 	//Block until ndf is updated
 
-	if len(errorChan) != 0 {
-		err = <-errorChan
-		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
-		globals.Log.WARN.Printf("%v", errMsg)
-		return errors.New(errMsg)
+	if err != nil {
+		return err
 
 	}
 
@@ -233,6 +223,12 @@ func (cl *Client) Connect() error {
 	if !tlsEnabled {
 		cl.DisableTLS()
 	}
+	//Create the cmix group and init the registry
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
+	user.InitUserRegistry(cmixGrp)
+
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
 	for i, node := range cl.ndf.Nodes {

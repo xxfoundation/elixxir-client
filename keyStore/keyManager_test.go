@@ -356,7 +356,7 @@ func TestKeyManager_Destroy(t *testing.T) {
 	}
 
 	// Destroy KeyManager and confirm KeyManager is gone from map
-	km.Destroy(ks)
+	ks.DestroyKeyManager(km)
 
 	retKM = ks.GetSendManager(partner)
 	if retKM != nil {
@@ -380,7 +380,7 @@ func TestKeyManager_Destroy(t *testing.T) {
 	}
 
 	// Destroy KeyManager2 and confirm no more Receive keys exist
-	km2.Destroy(ks)
+	ks.DestroyKeyManager(km2)
 
 	for i := 0; i < 12; i++ {
 		//TODO:UNCOMMENT
@@ -604,7 +604,7 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Destroy KeyManager and confirm KeyManager is gone from map
-	km.Destroy(ks)
+	ks.DestroyKeyManager(km)
 
 	retKM = ks.GetSendManager(partner)
 	if retKM != nil {
@@ -612,8 +612,8 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// GOB Decode Key Manager
-	outKm := &KeyManager{}
-	err = dec.Decode(&outKm)
+	sendKm := &KeyManager{}
+	err = dec.Decode(&sendKm)
 
 	if err != nil {
 		t.Errorf("Error GOB Decoding KeyManager: %s", err)
@@ -626,7 +626,7 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Destroy Key Manager (and maps) and confirm no more receive keys exist
-	km2.Destroy(ks)
+	ks.DestroyKeyManager(km2)
 
 	for i := 0; i < 12; i++ {
 		actual := ks.GetRecvKey(km2.recvKeysFingerprint[i])
@@ -651,8 +651,8 @@ func TestKeyManager_Gob(t *testing.T) {
 	}
 
 	// Generate Keys from decoded Key Managers
-	e2ekeys = outKm.GenerateKeys(grp, userID)
-	ks.AddSendManager(km)
+	e2ekeys = sendKm.GenerateKeys(grp, userID)
+	ks.AddSendManager(sendKm)
 	//ks.AddReceiveKeysByFingerprint(e2ekeys)
 
 	e2ekeys = outKm2.GenerateKeys(grp, userID)
@@ -664,23 +664,23 @@ func TestKeyManager_Gob(t *testing.T) {
 	// Confirm maps are the same as before delete
 
 	// First, check that len of send Stacks matches expected
-	if outKm.sendKeys.keys.Len() != int(outKm.numKeys)-usedSendKeys {
+	if sendKm.sendKeys.keys.Len() != int(sendKm.numKeys)-usedSendKeys {
 		t.Errorf("SendKeys Stack contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
-			int(outKm.numKeys)-usedSendKeys,
-			outKm.sendKeys.keys.Len())
+			int(sendKm.numKeys)-usedSendKeys,
+			sendKm.sendKeys.keys.Len())
 	}
 
-	if outKm.sendReKeys.keys.Len() != int(outKm.numReKeys)-usedSendReKeys {
+	if sendKm.sendReKeys.keys.Len() != int(sendKm.numReKeys)-usedSendReKeys {
 		t.Errorf("SendReKeys Stack contains more keys than expected after decode."+
 			" Expected: %d, Got: %d",
-			int(outKm.numReKeys)-usedSendReKeys,
-			outKm.sendReKeys.keys.Len())
+			int(sendKm.numReKeys)-usedSendReKeys,
+			sendKm.sendReKeys.keys.Len())
 	}
 
 	// Now confirm that all send keys are in the expected map
 	retKM = ks.GetSendManager(partner)
-	for i := 0; i < int(outKm.numKeys)-usedSendKeys; i++ {
+	for i := 0; i < int(sendKm.numKeys)-usedSendKeys; i++ {
 		key, _ := retKM.PopKey()
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("SendKey %v was used or didn't exist before",
@@ -688,7 +688,7 @@ func TestKeyManager_Gob(t *testing.T) {
 		}
 	}
 
-	for i := 0; i < int(outKm.numReKeys)-usedSendReKeys; i++ {
+	for i := 0; i < int(sendKm.numReKeys)-usedSendReKeys; i++ {
 		key, _ := retKM.PopRekey()
 		if expectedKeyMap[base64.StdEncoding.EncodeToString(key.key.Bytes())] != true {
 			t.Errorf("SendReKey %v was used or didn't exist before",

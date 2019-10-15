@@ -49,6 +49,7 @@ func TestKeyStore_Gob(t *testing.T) {
 
 	// Generate Send Keys
 	e2ekeys := km.GenerateKeys(grp, userID)
+	ks.AddSendManager(km)
 
 	km2 := NewManager(baseKey, privKey, pubKey,
 		partner, false, 12, 10, 10)
@@ -56,6 +57,7 @@ func TestKeyStore_Gob(t *testing.T) {
 	// Generate Receive Keys
 	e2ekeys = km2.GenerateKeys(grp, userID)
 	ks.AddReceiveKeysByFingerprint(e2ekeys)
+	ks.AddRecvManager(km2)
 
 	// Now that some KeyManagers are in the keystore, Gob Encode it
 	var byteBuf bytes.Buffer

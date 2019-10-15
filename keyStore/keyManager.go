@@ -371,16 +371,16 @@ func (km *KeyManager) PopRekey() (*E2EKey, Action) {
 // will remove it from KeyStore map and then destroy it's key stacks
 // If it is a receiving one, destroy will remove it
 // from KeyStore map and then remove all keys from receiving key
-// map
-func (km *KeyManager) Destroy(ks *KeyStore) {
+// map.
+// Only DestroyKeyManager from the Keystore should be executed.
+func (km *KeyManager) Destroy() {
 	if km.sendOrRecv {
-		// Remove KeyManager from KeyStore
-		ks.DeleteSendManager(km.partner)
 		// Delete KeyStacks
 		km.sendKeys.Delete()
 		km.sendReKeys.Delete()
 	} else {
 		//FixMe: Needs to review deletion works, as this no longer handles deleting recieved keys.
+
 		jww.DEBUG.Println("This function no longer handles deleting of reception keys.")
 
 	}

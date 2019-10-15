@@ -1,6 +1,10 @@
 package keyStore
 
 import (
+	"bytes"
+	"encoding/gob"
+	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -56,3 +60,74 @@ func (rkmb *ReceptionKeyManagerBuffer) getReceptionKeyManagerAtLoc(n int) *KeyMa
 	return rkmb.managers[n % ReceptionKeyManagerBufferLength]
 }
 
+func (rkmb *ReceptionKeyManagerBuffer) GobEncode () ([]byte, error){
+
+	//get rid of nils for encoding
+	var bufferSlice []*KeyManager
+
+	for i:=0; i < len(rkmb.managers); i++{
+		j := ((rkmb.loc + i) % len(rkmb.managers))
+		if rkmb.managers[j] != nil{
+			bufferSlice = append(bufferSlice, rkmb.managers[j])
+		}
+
+
+	}
+
+	anon := struct {
+		Managers []*KeyManager
+		Loc int
+	}{
+		bufferSlice,
+		rkmb.loc,
+	}
+
+
+	var encodeBytes bytes.Buffer
+
+	enc := gob.NewEncoder(&encodeBytes)
+
+	err := enc.Encode(anon)
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("Could not encode Reception Keymanager Buffer: %s",
+			err.Error()))
+		return nil, err
+	}
+	return encodeBytes.Bytes(), nil
+
+}
+
+func (rkmb *ReceptionKeyManagerBuffer) GobDecode (in []byte) error{
+
+	anon := struct {
+		Managers []*KeyManager
+		Loc int
+	}{
+
+	}
+
+	var buf bytes.Buffer
+
+	// Write bytes to the buffer
+	buf.Write(in)
+
+	dec := gob.NewDecoder(&buf)
+
+	err := dec.Decode(&anon)
+
+	if err != nil{
+		err = errors.New(fmt.Sprintf("Could not Decode Reception Keymanager Buffer: %s", err.Error()))
+		return err
+	}
+
+
+	rkmb.loc = anon.Loc
+
+	for i:=0; i < len(anon.Managers); i++{
+		j := ((anon.Loc + i) % len(rkmb.managers))
+		rkmb.managers[j] = anon.Managers[i]
+	}
+
+	return nil
+}

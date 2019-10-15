@@ -454,21 +454,27 @@ func (km *KeyManager) GobEncode() ([]byte, error) {
 	s.BaseKey = append(s.BaseKey, keyBytes...)
 
 	// GobEncode privKey
-	keyBytes, err = km.privKey.GobEncode()
+	if(km.privKey != nil){
+		keyBytes, err = km.privKey.GobEncode()
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
+
 
 	// Add privKey to struct
 	s.PrivKey = append(s.BaseKey, keyBytes...)
 
 	// GobEncode pubKey
-	keyBytes, err = km.pubKey.GobEncode()
+	if km.pubKey != nil{
+		keyBytes, err = km.pubKey.GobEncode()
 
-	if err != nil {
-		return nil, err
+		if err != nil {
+			return nil, err
+		}
 	}
+
 
 	// Add pubKey to struct
 	s.PubKey = append(s.BaseKey, keyBytes...)

@@ -5,7 +5,6 @@ import (
 	"encoding/gob"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/primitives/id"
-	"reflect"
 	"testing"
 )
 
@@ -114,7 +113,8 @@ func TestKeyStore_GobDecodeErrors(t *testing.T) {
 	ksTest := KeyStore{}
 	err := ksTest.GobDecode([]byte{})
 
-	if !reflect.DeepEqual(err, errors.New("EOF")) {
+	if err.Error() != "EOF" {
+	//if !reflect.DeepEqual(err, errors.New("EOF")) {
 		t.Errorf("GobDecode() did not produce the expected error\n\treceived: %v"+
 			"\n\texpected: %v", err, errors.New("EOF"))
 	}

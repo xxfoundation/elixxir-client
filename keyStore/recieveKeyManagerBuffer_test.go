@@ -1,6 +1,8 @@
 package keyStore
 
 import (
+	"bytes"
+	"encoding/gob"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
 )
@@ -105,5 +107,40 @@ func TestNewReceptionKeyManagerBuffer(t *testing.T) {
 
 	if aBuffer == nil {
 		t.Errorf("Error creating new reception keymanager buffer returning nil")
+	}
+}
+
+func TestReceptionKeyManagerBuffer_Gob(t *testing.T) {
+	aBuffer := NewReceptionKeyManagerBuffer()
+	grp := initGroup()
+	baseKey := grp.NewInt(57)
+	partner := id.NewUserFromUint(14, t)
+	userID := id.NewUserFromUint(18, t)
+
+	//FixMe: if public keys are nil then this will fail
+	newKm := *NewManager(baseKey, nil,
+		nil, partner,
+		false, 12, 10, 10)
+
+	newKm.GenerateKeys(grp, userID)
+
+	aBuffer.push(&newKm)
+
+	var byteBuf bytes.Buffer
+
+	enc := gob.NewEncoder(&byteBuf)
+	dec := gob.NewDecoder(&byteBuf)
+
+	err := enc.Encode(aBuffer)
+
+
+	if err != nil{
+		t.Errorf("Failed to encode GOB KeyManagerBuffer: %s", err)
+	}
+
+	newBuffer := NewReceptionKeyManagerBuffer()
+	err = dec.Decode(&newBuffer)
+	if err != nil{
+		t.Errorf("Failed to decode GOB KeyManagerBuffer: %s", err)
 	}
 }

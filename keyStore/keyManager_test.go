@@ -341,16 +341,16 @@ func TestKeyManager_Destroy(t *testing.T) {
 
 	// Confirm Receive Keys can be obtained from KeyStore
 	//FixMe: koko? is this circumventing actually checking keystore
-	//actual = ks.GetRecvKey(km2.recvKeysFingerprint[4])
-	actual = ks.GetRecvKey(e2ekeys[4].KeyFingerprint())
+	actual = ks.GetRecvKey(km2.recvKeysFingerprint[4])
+	//actual = ks.GetRecvKey(e2ekeys[4].KeyFingerprint())
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for Key")
 	}
 
 	//FixMe: koko? is this circumventing actually checking keystore
-	//actual = ks.GetRecvKey(km2.recvReKeysFingerprint[8])
-	actual = ks.GetRecvKey(e2ekeys[8].KeyFingerprint())
+	actual = ks.GetRecvKey(km2.recvReKeysFingerprint[8])
+	//actual = ks.GetRecvKey(e2ekeys[8].KeyFingerprint())
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for ReKey")
 	}
@@ -364,16 +364,16 @@ func TestKeyManager_Destroy(t *testing.T) {
 	}
 
 	//FixMe: koko? is this circumventing actually checking keystore
-	//actual = ks.GetRecvKey(km2.recvReKeysFingerprint[6])
-	actual = ks.GetRecvKey(e2ekeys[6].KeyFingerprint())
+	actual = ks.GetRecvKey(km2.recvReKeysFingerprint[6])
+	//actual = ks.GetRecvKey(e2ekeys[6].KeyFingerprint())
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for Key")
 	}
 
 	//FixMe: koko? is this circumventing actually checking keystore
-	//actual = ks.GetRecvKey(km2.recvReKeysFingerprint[2])
-	actual = ks.GetRecvKey(e2ekeys[2].KeyFingerprint())
+	actual = ks.GetRecvKey(km2.recvReKeysFingerprint[2])
+	//actual = ks.GetRecvKey(e2ekeys[2].KeyFingerprint())
 
 	if actual == nil {
 		t.Errorf("ReceptionKeys Map returned nil for ReKey")
@@ -383,19 +383,17 @@ func TestKeyManager_Destroy(t *testing.T) {
 	ks.DestroyKeyManager(km2)
 
 	for i := 0; i < 12; i++ {
-		//TODO:UNCOMMENT
-		//actual = ks.GetRecvKey(km2.recvKeysFingerprint[i])
-		//if actual != nil {
-		//	t.Errorf("ReceptionKeys Map should have returned nil for Key")
-		//}
+		actual = ks.GetRecvKey(km2.recvKeysFingerprint[i])
+		if actual != nil {
+			t.Errorf("ReceptionKeys Map should have returned nil for Key")
+		}
 	}
 
 	for i := 0; i < 10; i++ {
-		//TODO:UNCOMMENT
-		//actual = ks.GetRecvKey(km2.recvReKeysFingerprint[i])
-		//if actual != nil {
-		//	t.Errorf("ReceptionKeys Map should have returned nil for ReKey")
-		//}
+		actual = ks.GetRecvKey(km2.recvReKeysFingerprint[i])
+		if actual != nil {
+			t.Errorf("ReceptionKeys Map should have returned nil for ReKey")
+		}
 	}
 }
 

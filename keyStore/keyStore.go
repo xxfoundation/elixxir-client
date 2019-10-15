@@ -306,8 +306,10 @@ func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.User) {
 
 	for _, kmb := range ks.recvKeyManagers {
 		for _, km := range kmb.managers{
-			e2eKeys := km.GenerateKeys(grp, userID)
-			ks.AddReceiveKeysByFingerprint(e2eKeys)
+			if km != nil{
+				e2eKeys := km.GenerateKeys(grp, userID)
+				ks.AddReceiveKeysByFingerprint(e2eKeys)
+			}
 		}
 	}
 }

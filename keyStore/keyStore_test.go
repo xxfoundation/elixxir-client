@@ -3,9 +3,8 @@ package keyStore
 import (
 	"bytes"
 	"encoding/gob"
-	"errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/primitives/id"
-	"reflect"
 	"testing"
 )
 
@@ -48,13 +47,16 @@ func TestKeyStore_Gob(t *testing.T) {
 		partner, true, 12, 10, 10)
 
 	// Generate Send Keys
-	km.GenerateKeys(grp, userID, ks)
+	e2ekeys := km.GenerateKeys(grp, userID)
+	ks.AddSendManager(km)
 
 	km2 := NewManager(baseKey, privKey, pubKey,
 		partner, false, 12, 10, 10)
 
 	// Generate Receive Keys
-	km2.GenerateKeys(grp, userID, ks)
+	e2ekeys = km2.GenerateKeys(grp, userID)
+	ks.AddReceiveKeysByFingerprint(e2ekeys)
+	ks.AddRecvManager(km2)
 
 	// Now that some KeyManagers are in the keystore, Gob Encode it
 	var byteBuf bytes.Buffer
@@ -111,7 +113,8 @@ func TestKeyStore_GobDecodeErrors(t *testing.T) {
 	ksTest := KeyStore{}
 	err := ksTest.GobDecode([]byte{})
 
-	if !reflect.DeepEqual(err, errors.New("EOF")) {
+	if err.Error() != "EOF" {
+		//if !reflect.DeepEqual(err, errors.New("EOF")) {
 		t.Errorf("GobDecode() did not produce the expected error\n\treceived: %v"+
 			"\n\texpected: %v", err, errors.New("EOF"))
 	}

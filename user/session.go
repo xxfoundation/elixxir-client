@@ -102,7 +102,7 @@ func NewSession(store globals.Storage,
 func LoadSession(store globals.Storage,
 	password string) (Session, error) {
 	if store == nil {
-		err := errors.New("LoadSession: Local Storage not avalible")
+		err := errors.New("LoadSession: Local Storage not available")
 		return nil, err
 	}
 

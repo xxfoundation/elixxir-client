@@ -62,9 +62,12 @@ func TestUserSession(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
 	ses := NewSession(storage,
 		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, cmixGrp, e2eGrp, "password")
+		publicKeyDHE2E, privateKeyDHE2E, cmixGrp, e2eGrp, "password", regSignature)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -235,9 +238,12 @@ func TestGetPubKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
 	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
 		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
-		e2eGrp, "password")
+		e2eGrp, "password", regSignature)
 
 	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -273,9 +279,12 @@ func TestGetPrivKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
 	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
 		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
-		e2eGrp, "password")
+		e2eGrp, "password", regSignature)
 
 	privKey := ses.GetRSAPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

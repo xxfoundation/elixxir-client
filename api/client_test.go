@@ -36,12 +36,15 @@ func dummyConnectionStatusHandler(status uint32, timeout int) {
 }
 
 func TestRegistrationGob(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -63,6 +66,46 @@ func TestRegistrationGob(t *testing.T) {
 
 	VerifyRegisterGobUser(Session, t)
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
+
+	killServers()
+}
+
+//Happy path for a non precen user
+func TestClient_Register(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	// populate a gob in the store
+	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// get the gob out of there again
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
+	if err != nil {
+		t.Error(err)
+	}
+
+	VerifyRegisterGobUser(Session, t)
+
+	//Probs can't do this as there is now a sense of randomness??
+	//VerifyRegisterGobKeys(Session, testClient.topology, t)
+	killServers()
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -183,6 +226,9 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
 	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -200,12 +246,13 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+	regSignature := make([]byte, 8)
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
 		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
-		e2eGrp, "password")
+		e2eGrp, "password", regSignature)
 
 	testClient.session = session
 
@@ -268,10 +315,14 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	}
+	killServers()
 }
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
 	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -291,11 +342,13 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
+	regSignature := make([]byte, 8)
+
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
 		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
-		e2eGrp, "password")
+		e2eGrp, "password", regSignature)
 
 	testClient.session = session
 
@@ -415,15 +468,22 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetKey().Text(10))
 		}
 	}
+	killServers()
 }
 
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
+	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
+
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -436,15 +496,23 @@ func TestClient_precannedRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during precannedRegister: %+v", err)
 	}
+
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 // Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
+	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -459,10 +527,16 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during sendRegistrationMessage: %+v", err)
 	}
+
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 // Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
 	cmixGrp, _ := getGroups()
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
@@ -475,6 +549,7 @@ func TestClient_requestNonce(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -492,16 +567,21 @@ func TestClient_requestNonce(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
+
+	killServers()
 }
 
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
-
+	testClient.DisableTLS()
 	err = testClient.Connect()
 	if err != nil {
 		t.Error(err)
@@ -513,6 +593,8 @@ func TestClient_confirmNonce(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

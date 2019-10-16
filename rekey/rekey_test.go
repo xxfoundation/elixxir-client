@@ -50,7 +50,7 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {
+	delay time.Duration, rekeyChan chan struct{}) {
 }
 
 func TestMain(m *testing.M) {
@@ -83,7 +83,9 @@ func TestMain(m *testing.M) {
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
-	InitRekey(session, fakeComm, circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}))
+
+	rekeyChan2 := make(chan struct{}, 50)
+	InitRekey(session, fakeComm, circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey
@@ -298,6 +300,7 @@ func TestRekey(t *testing.T) {
 	if keys.CurrPrivKey.GetLargeInt().
 		Cmp(session.GetE2EDHPrivateKey().GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
+		t.Errorf("%s\n%s", keys.CurrPrivKey.GetLargeInt().Text(16), session.GetE2EDHPrivateKey().GetLargeInt().Text(16))
 	}
 
 	if keys.CurrPubKey.GetLargeInt().

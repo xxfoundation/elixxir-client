@@ -26,5 +26,5 @@ type Communications interface {
 	SendMessageNoPartition(session user.Session, topology *circuit.Circuit,
 		recipientID *id.User, cryptoType parse.CryptoType, message []byte) error
 	// MessageReceiver thread to get new messages
-	MessageReceiver(session user.Session, delay time.Duration)
+	MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{})
 }

@@ -2,7 +2,7 @@ package io
 
 import (
 	"crypto/rand"
-	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
@@ -18,8 +18,10 @@ import (
 	"time"
 )
 
+var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
+
 // MessageReceiver is a polling thread for receiving messages
-func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration) {
+func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{}) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
@@ -32,7 +34,10 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
+	var encryptedMessages []*format.Message
+
 	for {
+		// TODO: replace timer with ticker
 		timerDelay := time.NewTimer(delay)
 		select {
 		case <-quit:
@@ -40,11 +45,16 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			return
 		case <-timerDelay.C:
 			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
-			decryptedMessages, senders, err := cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
+
+			var err error
+
+			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
+
 			if err != nil {
 
 				backoffCount := 0
 
+				// Handles disconnections
 				for notConnected := true; notConnected; {
 
 					cm.Disconnect()
@@ -82,6 +92,19 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 				}
 				//call the callback with the connected status
 			}
+		case <-rekeyChan:
+			encryptedMessages = session.PopGarbledMessages()
+
+		}
+
+		if len(encryptedMessages) != 0 {
+
+			decryptedMessages, senders, garbledMessages := cm.decryptMessages(session, encryptedMessages)
+
+			if len(garbledMessages) != 0 {
+				session.AppendGarbledMessage(garbledMessages...)
+			}
+
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
@@ -94,6 +117,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 				}
 			}
 		}
+
 	}
 }
 
@@ -134,7 +158,7 @@ func handleE2EReceiving(session user.Session,
 	rekey := false
 	if recpKey == nil {
 		// TODO Handle sending error message to SW
-		return nil, false, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
+		return nil, false, errE2ENotFound
 	} else if recpKey.GetOuterType() == parse.Rekey {
 		// If key type is rekey, the message is a rekey from partner
 		rekey = true
@@ -176,95 +200,139 @@ func handleE2EReceiving(session user.Session,
 }
 
 func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientRequest, receiveGateway *id.Gateway) ([]*format.Message, []*id.User, error) {
-	if session != nil {
-		pollingMessage.LastMessageID = session.GetLastMessageID()
-		//FIXME: dont do this over an over
+	pollingMessage *pb.ClientRequest, receiveGateway *id.Gateway) ([]*format.Message, error) {
+	// Get the last message ID received
+	pollingMessage.LastMessageID = session.GetLastMessageID()
+	// FIXME: dont do this over an over
 
-		messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway,
-			pollingMessage)
+	// Gets a list of mssages that are newer than the last one recieved
+	messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway,
+		pollingMessage)
 
-		if err != nil {
-			globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
-			return nil, nil, err
-		}
+	if err != nil {
+		globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
+		return nil, err
+	}
 
-		globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
 
-		messages := make([]*format.Message, 0, len(messageIDs.IDs))
-		senders := make([]*id.User, 0, len(messageIDs.IDs))
-		for _, messageID := range messageIDs.IDs {
-			// Get the first unseen message from the list of IDs
-			_, received := cm.ReceivedMessages[messageID]
-			if !received {
-				globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
-					messageID)
-				// We haven't seen this message before.
-				// So, we should retrieve it from the gateway.
-				newMessage, err := cm.Comms.SendGetMessage(
-					receiveGateway,
-					&pb.ClientRequest{
-						UserID: session.GetCurrentUser().User.
-							Bytes(),
-						LastMessageID: messageID,
-					})
-				if err != nil {
-					globals.Log.WARN.Printf(
-						"Couldn't receive message with ID %v while"+
-							" polling gateway", messageID)
-				} else {
-					if newMessage.PayloadA == nil ||
-						newMessage.PayloadB == nil {
-						globals.Log.INFO.Println("Message fields not populated")
-						continue
-					}
+	messages := make([]*format.Message, 0, len(messageIDs.IDs))
+	mIDs := make([]string, 0, len(messageIDs.IDs))
 
-					msg := format.NewMessage()
-					msg.SetPayloadA(newMessage.PayloadA)
-					msg.SetDecryptedPayloadB(newMessage.PayloadB)
-					var err error = nil
-					var rekey bool
-					var unpadded []byte
-					var sender *id.User
-					// If message is E2E, handle decryption
-					if !e2e.IsUnencrypted(msg) {
-						sender, rekey, err = handleE2EReceiving(session, msg)
-					} else {
-						// If message is non E2E, need to unpad payload
-						unpadded, err = e2e.Unpad(msg.Contents.Get())
-						if err == nil {
-							msg.Contents.SetRightAligned(unpadded)
-						}
-						sender = id.NewUserFromBytes(msg.GetMAC())
-					}
+	// fixme: this could miss messages if the client has not seen them but
+	// the gateway say them before a message the client has seen
 
-					if err != nil {
-						globals.Log.WARN.Printf(
-							"Message did not decrypt properly, "+
-								"not adding to messages array: %v", err.Error())
-					} else if rekey {
-						globals.Log.INFO.Printf("Correctly processed rekey message," +
-							" not adding to messages array")
-					} else {
-						messages = append(messages, msg)
-						senders = append(senders, sender)
-					}
-
-					globals.Log.INFO.Printf(
-						"Adding message ID %v to received message IDs", messageID)
-					cm.ReceivedMessages[messageID] = struct{}{}
-					session.SetLastMessageID(messageID)
-					err = session.StoreSession()
-					if err != nil {
-						globals.Log.ERROR.Printf("Could not store session "+
-							"after message received from gateway: %+v", err)
-					}
+	// Loops through every new message and retrieves it
+	bufLoc := 0
+	for _, messageID := range messageIDs.IDs {
+		// Get the first unseen message from the list of IDs
+		_, received := cm.ReceivedMessages[messageID]
+		if !received {
+			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
+				messageID)
+			// We haven't seen this message before.
+			// So, we should retrieve it from the gateway.
+			newMessage, err := cm.Comms.SendGetMessage(
+				receiveGateway,
+				&pb.ClientRequest{
+					UserID: session.GetCurrentUser().User.
+						Bytes(),
+					LastMessageID: messageID,
+				})
+			if err != nil {
+				globals.Log.WARN.Printf(
+					"Couldn't receive message with ID %v while"+
+						" polling gateway", messageID)
+			} else {
+				if newMessage.PayloadA == nil ||
+					newMessage.PayloadB == nil {
+					globals.Log.INFO.Println("Message fields not populated")
+					continue
 				}
+
+				msg := format.NewMessage()
+				msg.SetPayloadA(newMessage.PayloadA)
+				msg.SetDecryptedPayloadB(newMessage.PayloadB)
+
+				messages[bufLoc] = msg
+				mIDs[bufLoc] = messageID
+				bufLoc++
 			}
 		}
-		return messages, senders, nil
 	}
-	return nil, nil, nil
+	// record that the messages were recieved so they are not re-retrieved
+	if bufLoc > 0 {
+		for i := 0; i < bufLoc; i++ {
+			globals.Log.INFO.Printf(
+				"Adding message ID %v to received message IDs", mIDs[i])
+			cm.ReceivedMessages[mIDs[i]] = struct{}{}
+		}
+		session.SetLastMessageID(mIDs[bufLoc-1])
+		err = session.StoreSession()
+		if err != nil {
+			globals.Log.ERROR.Printf("Could not store session "+
+				"after messages received from gateway: %+v", err)
+		}
+	}
+
+	return messages[:bufLoc], nil
+}
+
+func (cm *CommManager) decryptMessages(session user.Session,
+	encryptedMessages []*format.Message) ([]*format.Message, []*id.User,
+	[]*format.Message) {
+
+	messages := make([]*format.Message, 0, len(encryptedMessages))
+	senders := make([]*id.User, 0, len(encryptedMessages))
+	messagesSendersLoc := 0
+
+	garbledMessages := make([]*format.Message, 0, len(encryptedMessages))
+	garbledMessagesLoc := 0
+
+	for _, msg := range encryptedMessages {
+		var err error = nil
+		var rekey bool
+		var unpadded []byte
+		var sender *id.User
+		garbled := false
+
+		// If message is E2E, handle decryption
+		if e2e.IsUnencrypted(msg) {
+			// If message is non E2E, need to un-pad payload
+			unpadded, err = e2e.Unpad(msg.Contents.Get())
+			if err == nil {
+				msg.Contents.SetRightAligned(unpadded)
+			}
+
+			keyFP := msg.AssociatedData.GetKeyFP()
+			sender = id.NewUserFromBytes(keyFP[:])
+		} else {
+			sender, rekey, err = handleE2EReceiving(session, msg)
+
+			if err == errE2ENotFound {
+				garbled = true
+				err = nil
+			}
+		}
+
+		if err != nil {
+			globals.Log.WARN.Printf(
+				"Message did not decrypt properly, "+
+					"not adding to messages array: %v", err.Error())
+		} else if rekey {
+			globals.Log.INFO.Printf("Correctly processed rekey message," +
+				" not adding to messages array")
+		} else if garbled {
+			garbledMessages[garbledMessagesLoc] = msg
+			garbledMessagesLoc++
+		} else {
+			messages[messagesSendersLoc] = msg
+			senders[messagesSendersLoc] = sender
+			messagesSendersLoc++
+		}
+	}
+
+	return messages[:messagesSendersLoc], senders[:messagesSendersLoc], garbledMessages[:garbledMessagesLoc]
 }
 
 func broadcastMessageReception(message *parse.Message,

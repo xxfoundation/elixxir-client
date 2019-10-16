@@ -134,10 +134,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 				return id.ZeroID, "", nil
 			}
 		}
-
 		//Initialize client with OS Storage
 		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
-
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil
@@ -154,7 +152,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	client.SetRateLimiting(rateLimiting)
 
 	// Handle parsing gateway addresses from the config file
-	gateways := ndfJSON.Gateways
+
+	//REVIEWER NOTE: Possibly need to remove/rearrange this,
+	// now that client may not know gw's upon client creation
+	gateways := client.GetNDF().Gateways
 	// If gwAddr was not passed via command line, check config file
 	if len(gateways) < 1 {
 		// No gateways in config file or passed via command line

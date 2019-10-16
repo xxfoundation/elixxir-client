@@ -54,6 +54,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 	}
 	// Add a byte for later encryption (15->16 bytes)
 	extendedNowBytes := append(nowBytes, 0)
+	cm.lock.RLock()
 	transmitGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.TransmissionGatewayIndex].ID).NewGateway()
 	for i := range parts {
 		message := format.NewMessage()
@@ -65,6 +66,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 			return fmt.Errorf("SendMessage send() error: %v", err.Error())
 		}
 	}
+	cm.lock.RUnlock()
 	return nil
 }
 

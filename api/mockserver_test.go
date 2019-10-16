@@ -16,16 +16,14 @@ import (
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
-	"math/rand"
 	"os"
 	"testing"
-	"time"
 )
 
 const NumNodes = 3
 const NumGWs = NumNodes
 const RegPort = 5000
-const GWsStartPort = 10000
+const GWsStartPort = 7900
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
@@ -54,6 +52,8 @@ func TestMain(m *testing.M) {
 
 // Verify that a valid precanned user can register
 func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
+	//Start gateway and registration servers
+	startServers()
 
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -62,6 +62,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -82,11 +83,13 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
+	killServers()
 }
 
 // Verify that a valid precanned user can register
 func TestRegister_ValidRegParams___(t *testing.T) {
-
+	//Start up gateways and registration servers
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -94,6 +97,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -112,11 +116,15 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %+v", *regRes)
 	}
+
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 // Verify that registering with an invalid registration code will fail
 func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
-
+	//Start up gateways and registrations
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -124,7 +132,7 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-
+	client.DisableTLS()
 	// Connect to gateways and reg server
 	err = client.Connect()
 
@@ -138,10 +146,13 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 func TestRegister_DeletedUserReturnsErr(t *testing.T) {
-
+	//Start up gateways and registration server
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -149,6 +160,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -169,9 +181,13 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 
 	// ...
 	user.Users.UpsertUser(tempUser)
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 func TestSend(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -179,6 +195,7 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
+	client.DisableTLS()
 
 	// Connect to gateways and reg server
 	err = client.Connect()
@@ -236,10 +253,12 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
 	}
+	killServers()
 }
 
 func TestLogout(t *testing.T) {
-
+	//Start up gateways and registration server
+	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", def,
@@ -247,7 +266,7 @@ func TestLogout(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-
+	client.DisableTLS()
 	// Connect to gateways and reg server
 	err = client.Connect()
 
@@ -297,37 +316,20 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Logout did not throw an error when called on a client that" +
 			" is not currently logged in.")
 	}
+
+	killServers()
 }
 
 // Handles initialization of mock registration server,
 // gateways used for registration and gateway used for session
 func testMainWrapper(m *testing.M) int {
 
-	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-
-	rndPort := int(rng.Uint64() % 10000)
-
 	def = getNDF()
-
-	// Start mock gateways used by registration and defer their shutdown (may not be needed)
-	for i, handler := range RegGWHandlers {
-
-		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i + rndPort),
-		}
-
-		def.Gateways = append(def.Gateways, gw)
-
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
-	}
 
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
-		Address: fmtAddress(RegPort + rndPort),
+		Address: fmtAddress(RegPort),
 	}
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)
@@ -337,15 +339,12 @@ func testMainWrapper(m *testing.M) int {
 		}
 		def.Nodes = append(def.Nodes, n)
 	}
-
 	defer testWrapperShutdown()
 	return m.Run()
 }
 
 func testWrapperShutdown() {
-	for _, gw := range GWComms {
-		gw.Shutdown()
-	}
+
 	RegComms.Shutdown()
 }
 
@@ -367,8 +366,7 @@ func getNDF() *ndf.NetworkDefinition {
 				"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E" +
 				"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873" +
 				"847AEF49F66E43873",
-			SmallPrime: "2",
-			Generator:  "2",
+			Generator: "2",
 		},
 		CMIX: ndf.Group{
 			Prime: "9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48" +
@@ -379,7 +377,6 @@ func getNDF() *ndf.NetworkDefinition {
 				"F1BF14D4BB4563CA28371621CAD3324B6A2D392145BEBFAC748805236F5CA2FE" +
 				"92B871CD8F9C36D3292B5509CA8CAA77A2ADFC7BFD77DDA6F71125A7456FEA15" +
 				"3E433256A2261C6A06ED3693797E7995FAD5AABBCFBE3EDA2741E375404AE25B",
-			SmallPrime: "F2C3119374CE76C9356990B465374A17F23F9ED35089BD969F61C6DDE9998C1F",
 			Generator: "5C7FF6B06F8F143FE8288433493E4769C4D988ACE5BE25A0E24809670716C613" +
 				"D7B0CEE6932F8FAA7C44D2CB24523DA53FBE4F6EC3595892D1AA58C4328A06C4" +
 				"6A15662E7EAA703A1DECF8BBB2D05DBE2EB956C142A338661D10461C0D135472" +
@@ -390,4 +387,33 @@ func getNDF() *ndf.NetworkDefinition {
 				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
 		},
 	}
+}
+
+func startServers() {
+	RegComms = registration.StartRegistrationServer(def.Registration.Address,
+		&RegHandler, nil, nil)
+	def.Gateways = make([]ndf.Gateway, 0)
+
+	//Start up gateways
+	for i, handler := range RegGWHandlers {
+
+		gw := ndf.Gateway{
+			Address: fmtAddress(GWsStartPort + i),
+		}
+
+		def.Gateways = append(def.Gateways, gw)
+		fmt.Printf("started gw: %v", gw.Address)
+		GWComms[i] = gateway.StartGateway(gw.Address,
+			handler, nil, nil)
+	}
+}
+
+func killServers() {
+	for _, gw := range GWComms {
+		gw.DisconnectAll()
+		gw.Shutdown()
+
+	}
+	RegComms.DisconnectAll()
+	RegComms.Shutdown()
 }

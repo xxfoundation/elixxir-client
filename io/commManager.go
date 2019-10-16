@@ -10,22 +10,24 @@
 package io
 
 import (
+	"bytes"
+	"crypto/sha256"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
-	"sync/atomic"
-
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
 const maxAttempts = 15
 const maxBackoffTime = 180
-const PermissioningAddrID = "registration"
+const PermissioningAddrID = "Permissioning"
 
 type ConnAddr string
 
@@ -66,6 +68,8 @@ type CommManager struct {
 	connectionStatus *uint32
 
 	RegistrationVersion string
+
+	lock sync.RWMutex
 }
 
 func NewCommManager(ndf *ndf.NetworkDefinition,
@@ -114,7 +118,6 @@ func (cm *CommManager) ConnectToGateways() error {
 			if gateway.TlsCertificate != "" && cm.TLS {
 				gwCreds = []byte(gateway.TlsCertificate)
 			}
-
 			gwID := id.NewNodeFromBytes(cm.ndf.Nodes[i].ID).NewGateway()
 			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 				gwID.String(), gateway.Address)
@@ -153,21 +156,79 @@ func (cm *CommManager) ConnectToGateways() error {
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
 func (cm *CommManager) UpdateRemoteVersion() error {
-	connected, err := cm.ConnectToPermissioning()
-	defer cm.DisconnectFromPermissioning()
+	registrationVersion, err := cm.Comms.
+		SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Couldn't get current version from permissioning")
+	}
+	cm.RegistrationVersion = registrationVersion.Version
+	return nil
+}
+
+func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
+	return cm.connectionStatusCallback
+}
+
+//GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
+func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
+	connected, err := cm.ConnectToPermissioning()
+
+	if err != nil {
+		cm.ndf = &ndf.NetworkDefinition{}
+		return &ndf.NetworkDefinition{}, err
 	}
 
-	if connected {
-		registrationVersion, err := cm.Comms.
-			SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
-		if err != nil {
-			return errors.Wrap(err, "Couldn't get current version from permissioning")
-		}
-		cm.RegistrationVersion = registrationVersion.Version
+	if !connected {
+		errMsg := fmt.Sprintf("Failed to connect to permissioning server")
+		globals.Log.ERROR.Printf(errMsg)
+		return &ndf.NetworkDefinition{}, errors.New(errMsg)
 	}
-	return nil
+	//Lock for reading
+	cm.lock.RLock()
+	//Hash the client's ndf for comparison with registration's ndf
+	hash := sha256.New()
+	ndfBytes := cm.ndf.Serialize()
+	hash.Write(ndfBytes)
+	ndfHash := hash.Sum(nil)
+	//Unlock the lock now that we have read the ndf
+	cm.lock.RUnlock()
+	//Put the hash in a message
+	msg := &mixmessages.NDFHash{Hash: ndfHash}
+
+	//Send the hash to registration
+	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
+		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+	}
+
+	//Response should not be nil, check comms
+	if response == nil {
+		globals.Log.ERROR.Printf("Response given was an unexpected nil, check comms")
+		return cm.ndf, nil
+	}
+
+	//If there was no error and the response is an empty byte slice, client's ndf is up-to-date
+	if bytes.Compare(response.Ndf, make([]byte, 0)) == 0 {
+		globals.Log.DEBUG.Printf("Client NDF up-to-date")
+		return cm.ndf, nil
+	}
+
+	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
+
+	//Otherwise pull the ndf out of the response
+	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
+	if err != nil {
+		//If there was an error decoding ndf
+		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
+		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+	}
+	cm.lock.Lock()
+	//Set the updated ndf to be the client's ndf
+	cm.ndf = updatedNdf
+	//Update the amount of gateways
+	cm.lock.Unlock()
+	return updatedNdf, nil
 }
 
 // Utility method, returns whether the local version and remote version are
@@ -180,8 +241,6 @@ func (cm *CommManager) CheckVersion() (bool, error) {
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
 func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
-	// Only connect to permissioning if it exists in the NDF
-	// Otherwise, no connection will be established
 	if cm.ndf.Registration.Address != "" {
 		var regCert []byte
 		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {
@@ -200,6 +259,7 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 			cm.ndf.Registration.Address)
 		return true, nil
 	} else {
+		globals.Log.DEBUG.Printf("failed to connect to %v silently", cm.ndf.Registration.Address)
 		// Without an NDF, we can't connect to permissioning, but this isn't an
 		// error per se, because we should be phasing out permissioning at some
 		// point
@@ -208,6 +268,7 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 }
 
 func (cm *CommManager) DisconnectFromPermissioning() {
+	globals.Log.DEBUG.Printf("Disconnecting from permissioning")
 	cm.Comms.Disconnect(PermissioningAddrID)
 }
 

@@ -9,7 +9,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab2/elixxir/client/globals"
+	"gitlab.com/elixxir/client/globals"
 	"sync/atomic"
 )
 

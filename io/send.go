@@ -129,7 +129,7 @@ func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
 		}
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
-		message.SetMAC(session.GetCurrentUser().User.Bytes())
+		message.SetKeyFP(*format.NewFingerprint(session.GetCurrentUser().User.Bytes()))
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)

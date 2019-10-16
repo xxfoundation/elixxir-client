@@ -149,3 +149,29 @@ func TestClientVersion_IsCompatible_Nonzero(t *testing.T) {
 		}
 	}
 }
+
+func TestClientVersion_String(t *testing.T) {
+	cv := clientVersion{5, 10, "test"}
+
+	testString := "5.10.test"
+
+	if cv.String() != testString {
+		t.Errorf("String() did not return the correct string"+
+			"\n\texpected: %s\n\treceived: %s", cv.String(), testString)
+	}
+}
+
+func TestCommManager_CheckVersion(t *testing.T) {
+	_, err := checkVersion("ours", "theirs")
+
+	if err == nil {
+		t.Errorf("checkVersion() did not return an error"+
+			"\n\t%v", err)
+	}
+	_, err = checkVersion("ours", "1.2.3456")
+
+	if err == nil {
+		t.Errorf("checkVersion() did not return an error"+
+			"\n\t%v", err)
+	}
+}

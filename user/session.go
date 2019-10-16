@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
@@ -57,6 +58,8 @@ type Session interface {
 	GetSessionData() ([]byte, error)
 	GetRegistrationValidationSignature() []byte
 	GetNodes() map[id.Node]int
+	AppendGarbledMessage(messages ...*format.Message)
+	PopGarbledMessages() []*format.Message
 }
 
 type NodeKeys struct {
@@ -190,6 +193,9 @@ type SessionObj struct {
 
 	//The validation signature provided by permissioning
 	regValidationSignature []byte
+
+	// Buffer of messages that cannot be decrypted
+	garbledMessages []*format.Message
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -306,17 +312,13 @@ func (s *SessionObj) storeSession() error {
 
 	sessionData, err := s.getSessionData()
 	err = s.store.Save(encrypt(sessionData, s.password))
-	if err != nil {
-		return err
-	}
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
 			" session: %s", err.Error()))
-		return err
 	}
 
-	return nil
+	return err
 
 }
 
@@ -480,4 +482,19 @@ func decrypt(data []byte, password string) ([]byte, error) {
 			" %s", err.Error()))
 	}
 	return plaintext, nil
+}
+
+// AppendGarbledMessage appends a message or messages to the garbled message
+// buffer.
+// FIXME: improve performance of adding items to the buffer
+func (s *SessionObj) AppendGarbledMessage(messages ...*format.Message) {
+	s.garbledMessages = append(s.garbledMessages, messages...)
+}
+
+// PopGarbledMessages returns the content of the garbled message buffer and
+// deletes its contents.
+func (s *SessionObj) PopGarbledMessages() []*format.Message {
+	tempBuffer := s.garbledMessages
+	s.garbledMessages = []*format.Message{}
+	return tempBuffer
 }

@@ -93,7 +93,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 			globals.Log.FATAL.Panicf("Could not read NDF Sig: %v",
 				err)
 		}
-		// Load the tls cert given to us, and from that get the RSA public key
+		// Load the TLS cert given to us, and from that get the RSA public key
 		cert, err := tls.LoadCertificate(ndfPub)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not load public key: %v", err)
@@ -188,7 +188,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	return cl, nil
 }
 
-// DisableTLS makes the client run with tls disabled
+// DisableTLS makes the client run with TLS disabled
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
 	globals.Log.INFO.Println("Running client without tls")
@@ -200,7 +200,7 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 	return cl.ndf
 }
 
-// Checks version and connects to gateways using tls filepaths to create
+// Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
 	//Connect to permissioning
@@ -601,15 +601,17 @@ func (cl *Client) StartMessageReceiver() error {
 		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
 	}
 
+	rekeyChan := make(chan struct{}, 50)
+
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.commManager, cl.topology)
+	rekey.InitRekey(cl.session, cl.commManager, cl.topology, rekeyChan)
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis)
+	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, rekeyChan)
 
 	return nil
 }

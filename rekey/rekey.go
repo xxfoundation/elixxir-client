@@ -27,6 +27,8 @@ var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
 var rekeyConfirmList rekeyConfirmListener
 
+var rekeyChan chan struct{}
+
 type rekeyTriggerListener struct {
 	err error
 }
@@ -85,7 +87,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
+func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
@@ -94,6 +96,7 @@ func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
 	session = s
 	topology = t
 	comms = m
+	rekeyChan = rekeyChan2
 	l := session.GetSwitchboard()
 
 	l.Register(s.GetCurrentUser().User,
@@ -250,6 +253,11 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		return comms.SendMessageNoPartition(session, topology, partner, parse.E2E,
 			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
+		// Trigger the rekey channel
+		select {
+		case rekeyChan <- struct{}{}:
+		}
+
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()
 		h.Write(ctx.BaseKey.Bytes())

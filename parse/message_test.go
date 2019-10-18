@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
+	"time"
 )
 
 //Shows that MessageHash ia an independent function of every field in Message
@@ -77,4 +78,68 @@ func TestMessage_Hash(t *testing.T) {
 	//}
 	//
 	//m.Nonce = []byte{0, 0}
+}
+
+func TestCryptoType_String(t *testing.T) {
+	cs := CryptoType(0)
+
+	if cs.String() != "None" {
+		t.Errorf("String() did not return the correct value"+
+			"\n\texpected: %s\n\treceived: %s",
+			cs.String(), "None")
+	}
+
+	cs = CryptoType(1)
+
+	if cs.String() != "Unencrypted" {
+		t.Errorf("String() did not return the correct value"+
+			"\n\texpected: %s\n\treceived: %s",
+			cs.String(), "Unencrypted")
+	}
+
+	cs = CryptoType(2)
+
+	if cs.String() != "Rekey" {
+		t.Errorf("String() did not return the correct value"+
+			"\n\texpected: %s\n\treceived: %s",
+			cs.String(), "Rekey")
+	}
+
+	cs = CryptoType(3)
+
+	if cs.String() != "E2E" {
+		t.Errorf("String() did not return the correct value"+
+			"\n\texpected: %s\n\treceived: %s",
+			cs.String(), "E2E")
+	}
+}
+
+func TestMessage_GetTimestamp(t *testing.T) {
+	testTime := time.Now()
+	message := Message{Timestamp: testTime}
+
+	if message.GetTimestamp() != testTime {
+		t.Errorf("GetTimestamp() did not return the correct timestamp"+
+			"\n\texpected: %v\n\treceived: %v", message.GetTimestamp(), testTime)
+	}
+}
+
+func TestBindingsMessageProxy_GetTimestamp(t *testing.T) {
+	testTime := time.Now()
+	message := BindingsMessageProxy{Proxy: &Message{Timestamp: testTime}}
+
+	if message.GetTimestamp() != testTime.Unix() {
+		t.Errorf("GetTimestamp() did not return the correct timestamp"+
+			"\n\texpected: %v\n\treceived: %v", message.GetTimestamp(), testTime.Unix())
+	}
+}
+
+func TestBindingsMessageProxy_GetTimestampNano(t *testing.T) {
+	testTime := time.Now()
+	message := BindingsMessageProxy{Proxy: &Message{Timestamp: testTime}}
+
+	if message.GetTimestampNano() != testTime.UnixNano() {
+		t.Errorf("GetTimestampNano() did not return the correct timestamp"+
+			"\n\texpected: %v\n\treceived: %v", message.GetTimestampNano(), testTime.UnixNano())
+	}
 }

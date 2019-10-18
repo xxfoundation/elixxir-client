@@ -174,7 +174,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	connected, err := cm.ConnectToPermissioning()
 
 	if err != nil {
-		cm.ndf = &ndf.NetworkDefinition{}
 		return nil, err
 	}
 

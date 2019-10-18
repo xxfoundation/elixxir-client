@@ -2,6 +2,7 @@ package io
 
 import (
 	"crypto/rand"
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/crypto"
@@ -30,7 +31,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
 	cm.lock.RLock()
-	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
+	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.receptionGatewayIndex].ID).NewGateway()
 	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
@@ -117,7 +118,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 				}
 			}
 		}
-
 	}
 }
 
@@ -158,7 +158,7 @@ func handleE2EReceiving(session user.Session,
 	rekey := false
 	if recpKey == nil {
 		// TODO Handle sending error message to SW
-		return nil, false, errE2ENotFound
+		return nil, false, fmt.Errorf("E2EKey for matching fingerprint not found, can't process message")
 	} else if recpKey.GetOuterType() == parse.Rekey {
 		// If key type is rekey, the message is a rekey from partner
 		rekey = true
@@ -226,7 +226,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	bufLoc := 0
 	for _, messageID := range messageIDs.IDs {
 		// Get the first unseen message from the list of IDs
-		_, received := cm.ReceivedMessages[messageID]
+		_, received := cm.receivedMessages[messageID]
 		if !received {
 			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 				messageID)
@@ -267,7 +267,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
 				"Adding message ID %v to received message IDs", mIDs[i])
-			cm.ReceivedMessages[mIDs[i]] = struct{}{}
+			cm.receivedMessages[mIDs[i]] = struct{}{}
 		}
 		session.SetLastMessageID(mIDs[bufLoc-1])
 		err = session.StoreSession()

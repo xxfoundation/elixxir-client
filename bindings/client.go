@@ -79,7 +79,7 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
 	return &Client{client: cl}, err
 }
 
-// DisableTLS makes the client run with TLS disabled
+// DisableTLS makes the client run with tls disabled
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
 	globals.Log.INFO.Printf("Binding call: DisableTLS()")
@@ -93,7 +93,7 @@ func (cl *Client) EnableDebugLogs() {
 }
 
 // Connects to gateways and registration server (if needed)
-// using TLS filepaths to create credential information
+// using tls filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect() error {
 	globals.Log.INFO.Printf("Binding call: Connect()")

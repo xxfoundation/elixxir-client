@@ -1,7 +1,8 @@
 package io
 
 const (
-	Offline uint32 = iota
+	Setup uint32 = iota
+	Offline
 	Connecting
 	Online
 )

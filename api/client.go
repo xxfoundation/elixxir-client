@@ -204,27 +204,29 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 // credential information for connection establishment
 func (cl *Client) Connect() error {
 	//Connect to permissioning
-	isConnected, err := cl.commManager.ConnectToPermissioning()
-	defer cl.commManager.DisconnectFromPermissioning()
+	if cl.ndf.Registration.Address != "" {
+		isConnected, err := cl.commManager.ConnectToPermissioning()
+		defer cl.commManager.DisconnectFromPermissioning()
 
-	if err != nil {
-		return err
-	}
-	if !isConnected {
-		err = errors.New("Couldn't connect to permissioning")
-		return err
-	}
-	//Check if versioning is up to date
-	err = cl.commManager.UpdateRemoteVersion()
-	if err != nil {
-		return err
-	}
+		if err != nil {
+			return err
+		}
+		if !isConnected {
+			err = errors.New("Couldn't connect to permissioning")
+			return err
+		}
+		//Check if versioning is up to date
+		err = cl.commManager.UpdateRemoteVersion()
+		if err != nil {
+			return err
+		}
 
-	//Request a new ndf from
-	err = requestNdf(cl)
-	if err != nil {
-		return err
+		//Request a new ndf from
+		err = requestNdf(cl)
+		if err != nil {
+			return err
 
+		}
 	}
 
 	//build the topology

@@ -180,7 +180,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 
 	if !connected {
 		errMsg := fmt.Sprintf("Failed to connect to permissioning server")
-		globals.Log.ERROR.Printf(errMsg)
 		return nil, errors.New(errMsg)
 	}
 	//Lock for reading

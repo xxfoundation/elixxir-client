@@ -175,13 +175,13 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 
 	if err != nil {
 		cm.ndf = &ndf.NetworkDefinition{}
-		return &ndf.NetworkDefinition{}, err
+		return nil, err
 	}
 
 	if !connected {
 		errMsg := fmt.Sprintf("Failed to connect to permissioning server")
 		globals.Log.ERROR.Printf(errMsg)
-		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+		return nil, errors.New(errMsg)
 	}
 	//Lock for reading
 	cm.lock.RLock()
@@ -197,6 +197,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 
 	//Send the hash to registration
 	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
+
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return nil, errors.New(errMsg)
@@ -212,10 +213,6 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	if bytes.Compare(response.Ndf, make([]byte, 0)) == 0 {
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")
 		return cm.ndf, nil
-	}
-
-	if err != nil {
-		return nil, err
 	}
 
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?

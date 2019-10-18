@@ -1,8 +1,5 @@
 package: gitlab.com/elixxir/client
 import:
-- package: github.com/xeipuuv/gojsonschema
-  version: master
-  vcs: git
 - package: gitlab.com/elixxir/crypto
   version: release
   repo: git@gitlab.com:elixxir/crypto
@@ -26,4 +23,7 @@ import:
 - package: github.com/golang-collections/collections
   version: master
   repo: https://github.com/golang-collections/collections.git
+  vcs: git
+- package: github.com/xeipuuv/gojsonschema
+  version: master
   vcs: git

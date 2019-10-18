@@ -10,7 +10,6 @@
 package io
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"github.com/pkg/errors"
@@ -37,37 +36,39 @@ func (a ConnAddr) String() string {
 
 // CommManager implements the Communications interface
 type CommManager struct {
+	// Comms pointer to send/recv messages
+	Comms *client.ClientComms
+
 	nextId   func() []byte
 	collator *Collator
 
 	//Defines network Topology
 	ndf *ndf.NetworkDefinition
-	//Flags if the network is using TLS or note
-	TLS bool
+	//Flags if the network is using tls or note
+	tls bool
 	// Index in the NDF of the gateway used to receive messages
-	ReceptionGatewayIndex int
+	receptionGatewayIndex int
 	// Index in the NDF of the gateway used to send messages
-	TransmissionGatewayIndex int
+	transmissionGatewayIndex int
 	//Callback which passes the connection status when it updates
 	connectionStatusCallback ConnectionStatusCallback
 
-	// BlockTransmissions will use a mutex to prevent multiple threads from sending
+	// blockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
-	BlockTransmissions bool
-	// TransmitDelay is the minimum delay between transmissions.
-	TransmitDelay time.Duration
+	blockTransmissions bool
+	// transmitDelay is the minimum delay between transmissions.
+	transmitDelay time.Duration
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
-	ReceivedMessages map[string]struct{}
-	// Comms pointer to send/recv messages
-	Comms    *client.ClientComms
+	receivedMessages map[string]struct{}
+
 	sendLock sync.Mutex
 
 	tryReconnect chan struct{}
 
 	connectionStatus *uint32
 
-	RegistrationVersion string
+	registrationVersion string
 
 	lock sync.RWMutex
 }
@@ -80,15 +81,15 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 	cm := CommManager{
 		nextId:                   parse.IDCounter(),
 		collator:                 NewCollator(),
-		BlockTransmissions:       true,
-		TransmitDelay:            1000 * time.Millisecond,
-		ReceivedMessages:         make(map[string]struct{}),
+		blockTransmissions:       true,
+		transmitDelay:            1000 * time.Millisecond,
+		receivedMessages:         make(map[string]struct{}),
 		Comms:                    &client.ClientComms{},
 		tryReconnect:             make(chan struct{}),
-		TLS:                      true,
+		tls:                      true,
 		ndf:                      ndf,
-		ReceptionGatewayIndex:    len(ndf.Gateways) - 1,
-		TransmissionGatewayIndex: 0,
+		receptionGatewayIndex:    len(ndf.Gateways) - 1,
+		transmissionGatewayIndex: 0,
 		connectionStatusCallback: callback,
 		connectionStatus:         &status,
 	}
@@ -96,7 +97,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 	return &cm
 }
 
-// Connects to gateways using TLS filepaths to create credential information
+// Connects to gateways using tls filepaths to create credential information
 // for connection establishment
 func (cm *CommManager) ConnectToGateways() error {
 	var err error
@@ -115,7 +116,7 @@ func (cm *CommManager) ConnectToGateways() error {
 		wg.Add(1)
 		go func() {
 			var gwCreds []byte
-			if gateway.TlsCertificate != "" && cm.TLS {
+			if gateway.TlsCertificate != "" && cm.tls {
 				gwCreds = []byte(gateway.TlsCertificate)
 			}
 			gwID := id.NewNodeFromBytes(cm.ndf.Nodes[i].ID).NewGateway()
@@ -161,7 +162,7 @@ func (cm *CommManager) UpdateRemoteVersion() error {
 	if err != nil {
 		return errors.Wrap(err, "Couldn't get current version from permissioning")
 	}
-	cm.RegistrationVersion = registrationVersion.Version
+	cm.registrationVersion = registrationVersion.Version
 	return nil
 }
 
@@ -170,27 +171,13 @@ func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
 }
 
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
-func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
-	connected, err := cm.ConnectToPermissioning()
-	if err != nil {
-		return nil, err
-	}
-
-	if !connected {
-		errMsg := fmt.Sprintf("Failed to connect to permissioning server")
-		return nil, errors.New(errMsg)
-	}
-	//Lock for reading
-	cm.lock.RLock()
+func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.NetworkDefinition, error) {
 
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
-	ndfBytes := cm.ndf.Serialize()
+	ndfBytes := currentNDF.Serialize()
 	hash.Write(ndfBytes)
 	ndfHash := hash.Sum(nil)
-
-	//Unlock the lock now that we have read the ndf
-	cm.lock.RUnlock()
 
 	//Put the hash in a message
 	msg := &mixmessages.NDFHash{Hash: ndfHash}
@@ -202,14 +189,8 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		return nil, errors.New(errMsg)
 	}
 
-	//Response should not be nil, check comms
+	//If there was no error and the response is nil, client's ndf is up-to-date
 	if response == nil {
-		globals.Log.ERROR.Printf("Response given was an unexpected nil, check comms")
-		return cm.ndf, nil
-	}
-
-	//If there was no error and the response is an empty byte slice, client's ndf is up-to-date
-	if bytes.Compare(response.Ndf, make([]byte, 0)) == 0 {
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")
 		return cm.ndf, nil
 	}
@@ -223,18 +204,23 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
 		return nil, errors.New(errMsg)
 	}
-	cm.lock.Lock()
-	//Set the updated ndf to be the client's ndf
-	cm.ndf = updatedNdf
-	//Update the amount of gateways
-	cm.lock.Unlock()
 	return updatedNdf, nil
+}
+
+// Update NDF modifies the network properties for the network which is
+// communicated with
+func (cm *CommManager) UpdateNDF(updatedNDF *ndf.NetworkDefinition) {
+	cm.lock.Lock()
+	cm.ndf = updatedNDF
+	cm.receptionGatewayIndex = len(cm.ndf.Gateways) - 1
+	cm.transmissionGatewayIndex = 0
+	cm.lock.Unlock()
 }
 
 // Utility method, returns whether the local version and remote version are
 // compatible
 func (cm *CommManager) CheckVersion() (bool, error) {
-	return checkVersion(globals.SEMVER, cm.RegistrationVersion)
+	return checkVersion(globals.SEMVER, cm.registrationVersion)
 }
 
 // There's currently no need to keep connected to permissioning constantly,
@@ -243,7 +229,7 @@ func (cm *CommManager) CheckVersion() (bool, error) {
 func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 	if cm.ndf.Registration.Address != "" {
 		var regCert []byte
-		if cm.ndf.Registration.TlsCertificate != "" && cm.TLS {
+		if cm.ndf.Registration.TlsCertificate != "" && cm.tls {
 			regCert = []byte(cm.ndf.Registration.TlsCertificate)
 		}
 		addr := ConnAddr(PermissioningAddrID)
@@ -274,6 +260,40 @@ func (cm *CommManager) DisconnectFromPermissioning() {
 
 func (cm *CommManager) Disconnect() {
 	cm.Comms.DisconnectAll()
+}
+
+func (cm *CommManager) DisableTLS() {
+	status := atomic.LoadUint32(cm.connectionStatus)
+
+	if status != Setup {
+		globals.Log.FATAL.Panicf("Cannot disable TLS" +
+			"while communications are running")
+	}
+	cm.tls = false
+}
+
+func (cm *CommManager) GetRegistrationVersion() string {
+	return cm.registrationVersion
+}
+
+func (cm *CommManager) DisableBlockingTransmission() {
+	status := atomic.LoadUint32(cm.connectionStatus)
+
+	if status != Setup {
+		globals.Log.FATAL.Panicf("Cannot set tramsmission to blocking" +
+			"while communications are running")
+	}
+	cm.blockTransmissions = false
+}
+
+func (cm *CommManager) SetRateLimit(delay time.Duration) {
+	status := atomic.LoadUint32(cm.connectionStatus)
+
+	if status != Setup {
+		globals.Log.FATAL.Panicf("Cannot set the connection rate limit " +
+			"while communications are running")
+	}
+	cm.transmitDelay = delay
 }
 
 func (cm *CommManager) GetConnectionStatus() uint32 {

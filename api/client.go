@@ -93,7 +93,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 			globals.Log.FATAL.Panicf("Could not read NDF Sig: %v",
 				err)
 		}
-		// Load the TLS cert given to us, and from that get the RSA public key
+		// Load the tls cert given to us, and from that get the RSA public key
 		cert, err := tls.LoadCertificate(ndfPub)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not load public key: %v", err)
@@ -127,7 +127,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 func requestNdf(cl *Client) error {
 	// Continuously polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
-	newNDf, err := cl.commManager.GetUpdatedNDF()
+	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
 
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
@@ -135,8 +135,10 @@ func requestNdf(cl *Client) error {
 		return errors.New(errMsg)
 	}
 
-	cl.commManager.ReceptionGatewayIndex = len(newNDf.Gateways) - 1
 	cl.ndf = newNDf
+
+	cl.commManager.UpdateNDF(newNDf)
+
 	return nil
 }
 
@@ -186,11 +188,11 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	return cl, nil
 }
 
-// DisableTLS makes the client run with TLS disabled
+// DisableTLS makes the client run with tls disabled
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Println("Running client without TLS")
-	cl.commManager.TLS = false
+	globals.Log.INFO.Println("Running client without tls")
+	cl.commManager.DisableTLS()
 }
 
 //GetNDF returns the clients ndf
@@ -198,11 +200,12 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 	return cl.ndf
 }
 
-// Checks version and connects to gateways using TLS filepaths to create
+// Checks version and connects to gateways using tls filepaths to create
 // credential information for connection establishment
 func (cl *Client) Connect() error {
 	//Connect to permissioning
 	isConnected, err := cl.commManager.ConnectToPermissioning()
+	defer cl.commManager.DisconnectFromPermissioning()
 
 	if err != nil {
 		return err
@@ -214,18 +217,15 @@ func (cl *Client) Connect() error {
 	//Check if versioning is up to date
 	err = cl.commManager.UpdateRemoteVersion()
 	if err != nil {
-		cl.commManager.DisconnectFromPermissioning()
 		return err
 	}
 
 	//Request a new ndf from
 	err = requestNdf(cl)
 	if err != nil {
-		cl.commManager.DisconnectFromPermissioning()
 		return err
 
 	}
-	cl.commManager.DisconnectFromPermissioning()
 
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -237,7 +237,7 @@ func (cl *Client) Connect() error {
 
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
-	if cl.commManager.RegistrationVersion != "" {
+	if cl.commManager.GetRegistrationVersion() != "" {
 		ok, err := cl.commManager.CheckVersion()
 		if err != nil {
 			return err
@@ -245,7 +245,7 @@ func (cl *Client) Connect() error {
 		if !ok {
 			err = errors.New("Couldn't connect to gateways: Versions incompatible")
 			return errors.Wrapf(err, "Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.RegistrationVersion)
+				cl.commManager.GetRegistrationVersion())
 		}
 	} else {
 		globals.Log.WARN.Printf("Not checking version from " +
@@ -637,13 +637,13 @@ func (cl *Client) Send(message parse.MessageInterface) error {
 // DisableBlockingTransmission turns off blocking transmission, for
 // use with the channel bot and dummy bot
 func (cl *Client) DisableBlockingTransmission() {
-	cl.commManager.BlockTransmissions = false
+	cl.commManager.DisableBlockingTransmission()
 }
 
 // SetRateLimiting sets the minimum amount of time between message
 // transmissions just for testing, probably to be removed in production
 func (cl *Client) SetRateLimiting(limit uint32) {
-	cl.commManager.TransmitDelay = time.Duration(limit) * time.Millisecond
+	cl.commManager.SetRateLimit(time.Duration(limit) * time.Millisecond)
 }
 
 func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
@@ -722,7 +722,7 @@ func GetLocalVersion() string {
 
 // Returns the compatible version of client, according to permissioning
 func (cl *Client) GetRemoteVersion() string {
-	return cl.commManager.RegistrationVersion
+	return cl.commManager.GetRegistrationVersion()
 }
 
 type SearchCallback interface {

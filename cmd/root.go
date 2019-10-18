@@ -603,7 +603,7 @@ func init() {
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
-		"Set to ignore TLS. Connections will fail if the network requires TLS. For debugging")
+		"Set to ignore tls. Connections will fail if the network requires tls. For debugging")
 
 	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "privateKey", "",
 		"The path for a PEM encoded private key which will be used "+

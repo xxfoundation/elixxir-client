@@ -28,7 +28,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
 	cm.lock.RLock()
-	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.ReceptionGatewayIndex].ID).NewGateway()
+	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.receptionGatewayIndex].ID).NewGateway()
 	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
@@ -195,7 +195,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		senders := make([]*id.User, 0, len(messageIDs.IDs))
 		for _, messageID := range messageIDs.IDs {
 			// Get the first unseen message from the list of IDs
-			_, received := cm.ReceivedMessages[messageID]
+			_, received := cm.receivedMessages[messageID]
 			if !received {
 				globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 					messageID)
@@ -252,7 +252,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 
 					globals.Log.INFO.Printf(
 						"Adding message ID %v to received message IDs", messageID)
-					cm.ReceivedMessages[messageID] = struct{}{}
+					cm.receivedMessages[messageID] = struct{}{}
 					session.SetLastMessageID(messageID)
 					err = session.StoreSession()
 					if err != nil {

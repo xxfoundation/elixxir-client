@@ -199,7 +199,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
-		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+		return nil, errors.New(errMsg)
 	}
 
 	//Response should not be nil, check comms
@@ -214,6 +214,10 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 		return cm.ndf, nil
 	}
 
+	if err != nil {
+		return nil, err
+	}
+
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
 
 	//Otherwise pull the ndf out of the response
@@ -221,7 +225,7 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	if err != nil {
 		//If there was an error decoding ndf
 		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
-		return &ndf.NetworkDefinition{}, errors.New(errMsg)
+		return nil, errors.New(errMsg)
 	}
 	cm.lock.Lock()
 	//Set the updated ndf to be the client's ndf

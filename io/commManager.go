@@ -113,17 +113,19 @@ func (cm *CommManager) ConnectToGateways() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cm.ndf.Gateways))
 	for i, gateway := range cm.ndf.Gateways {
+
+		var gwCreds []byte
+
+		cm.lock.RLock()
+		if gateway.TlsCertificate != "" && cm.tls {
+			gwCreds = []byte(gateway.TlsCertificate)
+		}
+		gwID := id.NewNodeFromBytes(cm.ndf.Nodes[i].ID).NewGateway()
+		gwAddr := gateway.Address
+		cm.lock.RUnlock()
+
 		wg.Add(1)
 		go func() {
-			var gwCreds []byte
-
-			cm.lock.RLock()
-			if gateway.TlsCertificate != "" && cm.tls {
-				gwCreds = []byte(gateway.TlsCertificate)
-			}
-			gwID := id.NewNodeFromBytes(cm.ndf.Nodes[i].ID).NewGateway()
-			gwAddr := gateway.Address
-			cm.lock.Unlock()
 
 			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 				gwID.String(), gwAddr)

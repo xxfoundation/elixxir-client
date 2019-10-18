@@ -97,7 +97,11 @@ func (cm *CommManager) SendMessageNoPartition(session user.Session,
 	msg.SetTimestamp(nowBytes)
 	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)
+
+	cm.lock.RLock()
 	transmitGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.transmissionGatewayIndex].ID).NewGateway()
+	cm.lock.RUnlock()
+
 	err = cm.send(session, topology, cryptoType, msg, true, transmitGateway)
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())

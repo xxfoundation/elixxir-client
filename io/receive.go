@@ -216,8 +216,8 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 
 	globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
 
-	messages := make([]*format.Message, 0, len(messageIDs.IDs))
-	mIDs := make([]string, 0, len(messageIDs.IDs))
+	messages := make([]*format.Message, len(messageIDs.IDs))
+	mIDs := make([]string, len(messageIDs.IDs))
 
 	// fixme: this could miss messages if the client has not seen them but
 	// the gateway say them before a message the client has seen
@@ -284,11 +284,11 @@ func (cm *CommManager) decryptMessages(session user.Session,
 	encryptedMessages []*format.Message) ([]*format.Message, []*id.User,
 	[]*format.Message) {
 
-	messages := make([]*format.Message, 0, len(encryptedMessages))
-	senders := make([]*id.User, 0, len(encryptedMessages))
+	messages := make([]*format.Message, len(encryptedMessages))
+	senders := make([]*id.User, len(encryptedMessages))
 	messagesSendersLoc := 0
 
-	garbledMessages := make([]*format.Message, 0, len(encryptedMessages))
+	garbledMessages := make([]*format.Message, len(encryptedMessages))
 	garbledMessagesLoc := 0
 
 	for _, msg := range encryptedMessages {

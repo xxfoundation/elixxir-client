@@ -116,19 +116,24 @@ func (cm *CommManager) ConnectToGateways() error {
 		wg.Add(1)
 		go func() {
 			var gwCreds []byte
+
+			cm.lock.RLock()
 			if gateway.TlsCertificate != "" && cm.tls {
 				gwCreds = []byte(gateway.TlsCertificate)
 			}
 			gwID := id.NewNodeFromBytes(cm.ndf.Nodes[i].ID).NewGateway()
+			gwAddr := gateway.Address
+			cm.lock.Unlock()
+
 			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
-				gwID.String(), gateway.Address)
-			err = cm.Comms.ConnectToRemote(gwID, gateway.Address,
+				gwID.String(), gwAddr)
+			err = cm.Comms.ConnectToRemote(gwID, gwAddr,
 				gwCreds, false)
 
 			if err != nil {
 				errChan <- errors.New(fmt.Sprintf(
 					"Failed to connect to gateway %s at %s: %+v",
-					gwID.String(), gateway.Address, err))
+					gwID.String(), gwAddr, err))
 			}
 			wg.Done()
 		}()

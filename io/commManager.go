@@ -172,7 +172,6 @@ func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
 func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	connected, err := cm.ConnectToPermissioning()
-
 	if err != nil {
 		return nil, err
 	}
@@ -183,19 +182,21 @@ func (cm *CommManager) GetUpdatedNDF() (*ndf.NetworkDefinition, error) {
 	}
 	//Lock for reading
 	cm.lock.RLock()
+
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
 	ndfBytes := cm.ndf.Serialize()
 	hash.Write(ndfBytes)
 	ndfHash := hash.Sum(nil)
+
 	//Unlock the lock now that we have read the ndf
 	cm.lock.RUnlock()
+
 	//Put the hash in a message
 	msg := &mixmessages.NDFHash{Hash: ndfHash}
 
 	//Send the hash to registration
 	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
-
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return nil, errors.New(errMsg)

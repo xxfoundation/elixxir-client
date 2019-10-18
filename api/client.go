@@ -125,7 +125,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 
 //request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
 func requestNdf(cl *Client) error {
-	//Continuosly polls for a new ndf after sleeping until response if gotten
+	// Continuously polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
 	newNDf, err := cl.commManager.GetUpdatedNDF()
 
@@ -133,12 +133,11 @@ func requestNdf(cl *Client) error {
 		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
 		globals.Log.ERROR.Printf(errMsg)
 		return errors.New(errMsg)
-	} else {
-		cl.commManager.ReceptionGatewayIndex = len(newNDf.Gateways) - 1
-		cl.ndf = newNDf
-		return nil
 	}
 
+	cl.commManager.ReceptionGatewayIndex = len(newNDf.Gateways) - 1
+	cl.ndf = newNDf
+	return nil
 }
 
 // Creates a new Client using the storage mechanism provided.

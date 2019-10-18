@@ -227,6 +227,8 @@ func (cl *Client) Connect() error {
 			return err
 
 		}
+	} else {
+		globals.Log.WARN.Println("Registration not defined, not contacted")
 	}
 
 	//build the topology

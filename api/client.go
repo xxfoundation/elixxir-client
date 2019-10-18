@@ -135,6 +135,8 @@ func requestNdf(cl *Client) error {
 		return errors.New(errMsg)
 	} else {
 		cl.commManager.ReceptionGatewayIndex = len(newNDf.Gateways) - 1
+		globals.Log.INFO.Printf("Reception Gateway: %d",
+			cl.commManager.ReceptionGatewayIndex)
 		cl.ndf = newNDf
 		return nil
 	}

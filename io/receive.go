@@ -254,6 +254,8 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 				msg.SetPayloadA(newMessage.PayloadA)
 				msg.SetDecryptedPayloadB(newMessage.PayloadB)
 
+				globals.Log.WARN.Printf(
+					"Loc: %d, %v", bufLoc, messageID)
 				messages[bufLoc] = msg
 				mIDs[bufLoc] = messageID
 				bufLoc++

@@ -190,7 +190,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 // DisableTLS makes the client run with TLS disabled
 // Must be called before Connect
 func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Println("Starting client without TLS")
+	globals.Log.INFO.Println("Running client without TLS")
 	cl.commManager.TLS = false
 }
 

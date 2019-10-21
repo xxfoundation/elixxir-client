@@ -1,15 +1,15 @@
 package: gitlab.com/elixxir/client
 import:
 - package: gitlab.com/elixxir/crypto
-  version: release
+  version: master
   repo: git@gitlab.com:elixxir/crypto
   vcs: git
 - package: gitlab.com/elixxir/comms
-  version: release
+  version: master
   repo: git@gitlab.com:elixxir/comms
   vcs: git
 - package: gitlab.com/elixxir/primitives
-  version: release
+  version: master
   repo: git@gitlab.com:elixxir/primitives
   vcs: git
 - package: github.com/mitchellh/go-homedir

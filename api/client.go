@@ -48,6 +48,7 @@ type Client struct {
 	ndf         *ndf.NetworkDefinition
 	topology    *circuit.Circuit
 	opStatus    OperationProgressCallback
+	rekeyChan   chan struct{}
 }
 
 //used to report the state of registration
@@ -184,6 +185,8 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 	cl.opStatus = func(int) {
 		return
 	}
+
+	cl.rekeyChan = make(chan struct{}, 1)
 
 	return cl, nil
 }
@@ -605,17 +608,15 @@ func (cl *Client) StartMessageReceiver() error {
 		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
 	}
 
-	rekeyChan := make(chan struct{}, 50)
-
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.commManager, cl.topology, rekeyChan)
+	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, rekeyChan)
+	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
 
 	return nil
 }
@@ -751,6 +752,12 @@ func (cl *Client) SearchForUser(emailAddress string,
 		if err == nil && uid != nil && pubKey != nil {
 			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
 			err = cl.registerUserE2E(uid, pubKey)
+			// If there is something in the channel then send it; otherwise,
+			// skip over it
+			select {
+			case cl.rekeyChan <- struct{}{}:
+			default:
+			}
 			cb.Callback(uid[:], pubKey, err)
 		} else {
 			if err == nil {

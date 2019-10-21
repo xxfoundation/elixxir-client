@@ -80,8 +80,10 @@ func setup() {
 		nkMap[*topology.GetNodeAtIndex(i)] = nk
 	}
 
+	regSignature := make([]byte, 8)
+
 	session = user.NewSession(nil, u, nkMap,
-		nil, nil, nil, nil, cmixGrp, e2eGrp)
+		nil, nil, nil, nil, nil, nil, cmixGrp, e2eGrp, "password", regSignature)
 }
 
 func TestMain(m *testing.M) {
@@ -118,7 +120,7 @@ func TestFullEncryptDecrypt(t *testing.T) {
 	E2EEncrypt(e2eGrp, key, fp, msg)
 
 	// CMIX Encryption
-	encMsg := CMIXEncrypt(session, topology, salt, msg)
+	encMsg, _ := CMIXEncrypt(session, topology, salt, msg)
 
 	// Server will decrypt payload (which is OK because the payload is now e2e)
 	// This block imitates what the server does during the realtime
@@ -180,7 +182,7 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	E2EEncryptUnsafe(e2eGrp, key, fp, msg)
 
 	// CMIX Encryption
-	encMsg := CMIXEncrypt(session, topology, salt, msg)
+	encMsg, _ := CMIXEncrypt(session, topology, salt, msg)
 
 	// Server will decrypt payload (which is OK because the payload is now e2e)
 	// This block imitates what the server does during the realtime
@@ -358,7 +360,6 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"+
 			"DE2BCBF6955817183995497CEA956AE515D2261898FA0510"+
 			"15728E5A8AACAA68FFFFFFFFFFFFFFFF", 16),
-		large.NewIntFromString("2", 16),
 		large.NewIntFromString("2", 16))
 
 	e2eGrp := cyclic.NewGroup(
@@ -375,7 +376,6 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
 			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
 			"847AEF49F66E43873", 16),
-		large.NewIntFromString("2", 16),
 		large.NewIntFromString("2", 16))
 
 	return cmixGrp, e2eGrp

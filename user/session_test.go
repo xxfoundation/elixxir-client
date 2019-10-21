@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
 	"reflect"
@@ -34,7 +35,7 @@ func TestUserSession(t *testing.T) {
 	u.User = id.NewUserFromUint(UID, t)
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
 	keys := make(map[id.Node]NodeKeys)
 
@@ -59,46 +60,40 @@ func TestUserSession(t *testing.T) {
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
 	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, cmixGrp, e2eGrp, "password", regSignature)
 
 	ses.SetLastMessageID("totally unique ID")
 
 	err := ses.StoreSession()
 
 	if err != nil {
-		t.Errorf("Error: Session not stored correctly: %s", err.Error())
+		t.Errorf("Session not stored correctly: %s", err.Error())
 	}
 
 	ses.Immolate()
 
 	//TODO: write test which validates the immolation
 
-	ses, err = LoadSession(storage, id.NewUserFromUint(UID, t))
+	ses, err = LoadSession(storage, "password")
 
 	if err != nil {
-		t.Errorf("Error: Unable to login with valid user: %v", err.Error())
-	} else {
-		pass++
-	}
-
-	_, err = LoadSession(storage,
-		id.NewUserFromUint(10002, t))
-
-	if err == nil {
-		t.Errorf("Error: Able to login with invalid user!")
-	} else {
-		pass++
-	}
-
-	if ses == nil {
-		t.Errorf("Error: CurrentUser not set correctly!")
+		t.Errorf("Unable to login with valid user: %v",
+			err.Error())
 	} else {
 		pass++
 	}
 
 	if ses.GetLastMessageID() != "totally unique ID" {
-		t.Errorf("Error: Last message ID should have been stored and loaded")
+		t.Errorf("Last message ID should have been stored " +
+			"and loaded")
 	} else {
 		pass++
 	}
@@ -106,14 +101,14 @@ func TestUserSession(t *testing.T) {
 	ses.SetLastMessageID("test")
 
 	if ses.GetLastMessageID() != "test" {
-		t.Errorf("Error: Last message ID not set correctly with" +
+		t.Errorf("Last message ID not set correctly with" +
 			" SetLastMessageID!")
 	} else {
 		pass++
 	}
 
 	if ses.GetKeys(topology) == nil {
-		t.Errorf("Error: Keys not set correctly!")
+		t.Errorf("Keys not set correctly!")
 	} else {
 
 		test += len(ses.GetKeys(topology))
@@ -142,10 +137,10 @@ func TestUserSession(t *testing.T) {
 				}
 			} else if ses.GetKeys(topology)[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
-				t.Errorf("Error: Reception key not set correctly!")
-			} else if ses.GetKeys(topology)[i].TransmissionKey.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Error: Transmission key not set correctly!")
+				t.Errorf("Reception key not set correct!")
+			} else if ses.GetKeys(topology)[i].TransmissionKey.Cmp(
+				grp.NewInt(2)) != 0 {
+				t.Errorf("Transmission key not set correctly!")
 			}
 
 			pass++
@@ -162,19 +157,19 @@ func TestUserSession(t *testing.T) {
 	err = ses.UpsertMap("test", 5)
 
 	if err != nil {
-		t.Errorf("Error: Could not store in session map interface: %s",
+		t.Errorf("Could not store in session map interface: %s",
 			err.Error())
 	}
 
 	element, err := ses.QueryMap("test")
 
 	if err != nil {
-		t.Errorf("Error: Could not read element in session map "+
+		t.Errorf("Could not read element in session map "+
 			"interface: %s", err.Error())
 	}
 
 	if element.(int) != 5 {
-		t.Errorf("Error: Could not read element in session map "+
+		t.Errorf("Could not read element in session map "+
 			"interface: Expected: 5, Recieved: %v", element)
 	}
 
@@ -183,7 +178,7 @@ func TestUserSession(t *testing.T) {
 	_, err = ses.QueryMap("test")
 
 	if err == nil {
-		t.Errorf("Error: Could not delete element in session map " +
+		t.Errorf("Could not delete element in session map " +
 			"interface")
 	}
 
@@ -194,7 +189,7 @@ func TestUserSession(t *testing.T) {
 
 	// Test nil LocalStorage
 
-	_, err = LoadSession(nil, id.NewUserFromUint(6, t))
+	_, err = LoadSession(nil, "password")
 
 	if err == nil {
 		t.Errorf("Error did not catch a nil LocalStorage")
@@ -206,10 +201,13 @@ func TestUserSession(t *testing.T) {
 	randBytes := h.Sum(nil)
 	storage.Save(randBytes)
 
-	_, err = LoadSession(storage, id.NewUserFromUint(6, t))
+	defer func() {
+		recover()
+	}()
 
+	_, err = LoadSession(storage, "password")
 	if err == nil {
-		t.Errorf("Error did not catch a corrupt LocalStorage")
+		t.Errorf("LoadSession should error on bad decrypt!")
 	}
 }
 
@@ -220,7 +218,7 @@ func TestGetPubKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
 	keys := make(map[id.Node]NodeKeys)
 
@@ -238,7 +236,15 @@ func TestGetPubKey(t *testing.T) {
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
-	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
+		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
+		e2eGrp, "password", regSignature)
 
 	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -253,7 +259,7 @@ func TestGetPrivKey(t *testing.T) {
 	u.User = UID
 	u.Nick = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2), large.NewInt(5))
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
 	keys := make(map[id.Node]NodeKeys)
 
@@ -271,7 +277,15 @@ func TestGetPrivKey(t *testing.T) {
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
 
-	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH, cmixGrp, e2eGrp)
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
+		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
+		e2eGrp, "password", regSignature)
 
 	privKey := ses.GetRSAPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {
@@ -314,7 +328,6 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9"+
 			"DE2BCBF6955817183995497CEA956AE515D2261898FA0510"+
 			"15728E5A8AACAA68FFFFFFFFFFFFFFFF", 16),
-		large.NewIntFromString("2", 16),
 		large.NewIntFromString("2", 16))
 
 	e2eGrp := cyclic.NewGroup(
@@ -331,9 +344,63 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
 			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
 			"847AEF49F66E43873", 16),
-		large.NewIntFromString("2", 16),
 		large.NewIntFromString("2", 16))
 
 	return cmixGrp, e2eGrp
 
+}
+
+// Tests that AppendGarbledMessage properly appends an array of messages by
+// testing that the final buffer matches the values appended.
+func TestSessionObj_AppendGarbledMessage(t *testing.T) {
+	session := NewSession(nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, "", nil)
+	msgs := GenerateTestMessages(10)
+
+	session.AppendGarbledMessage(msgs...)
+
+	if !reflect.DeepEqual(msgs, session.(*SessionObj).garbledMessages) {
+		t.Errorf("AppendGarbledMessage() did not append the correct values"+
+			"\n\texpected: %v\n\trecieved: %v",
+			msgs, session.(*SessionObj).garbledMessages)
+	}
+}
+
+// Tests that PopGarbledMessages returns the correct data and that the buffer
+// is cleared.
+func TestSessionObj_PopGarbledMessages(t *testing.T) {
+	session := NewSession(nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, "", nil)
+	msgs := GenerateTestMessages(10)
+
+	session.(*SessionObj).garbledMessages = msgs
+
+	poppedMsgs := session.PopGarbledMessages()
+
+	if !reflect.DeepEqual(msgs, poppedMsgs) {
+		t.Errorf("PopGarbledMessages() did not pop the correct values"+
+			"\n\texpected: %v\n\trecieved: %v",
+			msgs, poppedMsgs)
+	}
+
+	if !reflect.DeepEqual([]*format.Message{}, session.(*SessionObj).garbledMessages) {
+		t.Errorf("PopGarbledMessages() did not remove the values from the buffer"+
+			"\n\texpected: %#v\n\trecieved: %#v",
+			[]*format.Message{}, session.(*SessionObj).garbledMessages)
+	}
+
+}
+
+func GenerateTestMessages(size int) []*format.Message {
+	msgs := make([]*format.Message, size)
+
+	for i := 0; i < size; i++ {
+		msgs[i] = format.NewMessage()
+		payloadBytes := make([]byte, format.PayloadLen)
+		payloadBytes[0] = byte(i)
+		msgs[i].SetPayloadA(payloadBytes)
+		msgs[i].SetPayloadB(payloadBytes)
+	}
+
+	return msgs
 }

@@ -21,12 +21,12 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/elixxir/primitives/utils"
 	"io/ioutil"
 	"log"
-	"math/big"
 	"os"
 	"strconv"
 	"sync/atomic"
@@ -35,14 +35,14 @@ import (
 
 var verbose bool
 var userId uint64
+var sourcePublicKeyPath string
 var destinationUserId uint64
+var destinationUserIDBase64 string
 var message string
 var sessionFile string
-var dummyFrequency float64
 var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
-var registrationCertPath string
 var registrationCode string
 var userEmail string
 var userNick string
@@ -50,17 +50,20 @@ var end2end bool
 var keyParams []string
 var ndfPath string
 var skipNDFVerification bool
-var ndfRegistration []string
-var ndfUDB []string
 var ndfPubKey string
+var sessFilePassword string
 var noTLS bool
+var searchForUser string
+var waitForMessages uint
+var messageTimeout uint
+var messageCnt uint
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
-		jww.ERROR.Println(err)
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }
@@ -72,7 +75,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	var client *api.Client
 
 	// Read in the network definition file and save as string
-	ndfBytes, err := ioutil.ReadFile(ndfPath)
+	ndfBytes, err := utils.ReadFile(ndfPath)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not read network definition file: %v", err)
 	}
@@ -81,22 +84,35 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	if skipNDFVerification {
 		ndfPubKey = ""
 		globals.Log.WARN.Println("Skipping NDF verification")
-	} else if ndfPubKey == "" {
-		globals.Log.FATAL.Panicln("No public key for NDF found")
+	} else {
+		pkFile, err := os.Open(ndfPubKey)
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not open cert file: %v",
+				err)
+		}
+
+		pkBytes, err := ioutil.ReadAll(pkFile)
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not read cert file: %v",
+				err)
+		}
+		ndfPubKey = string(pkBytes)
 	}
 
 	// Verify the signature
 	globals.Log.DEBUG.Println("Verifying NDF...")
 	ndfJSON := api.VerifyNDF(string(ndfBytes), ndfPubKey)
-	globals.Log.DEBUG.Printf("NDF Verified: %v", ndfJSON)
-
-	// Overwrite the network definition with any specified flags
-	overwriteNDF(ndfJSON)
-	globals.Log.DEBUG.Printf("Overwrote NDF Vars: %v", ndfJSON)
+	globals.Log.DEBUG.Printf("   NDF Verified")
 
 	//If no session file is passed initialize with RAM Storage
+
+	dummyConnectionStatusHandler := func(status uint32, timeout int) {
+		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
+	}
+
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON)
+		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
+			dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -118,10 +134,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 				return id.ZeroID, "", nil
 			}
 		}
-
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON)
-
+		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil
@@ -138,13 +152,20 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	client.SetRateLimiting(rateLimiting)
 
 	// Handle parsing gateway addresses from the config file
-	gateways := ndfJSON.Gateways
+
+	//REVIEWER NOTE: Possibly need to remove/rearrange this,
+	// now that client may not know gw's upon client creation
+	gateways := client.GetNDF().Gateways
 	// If gwAddr was not passed via command line, check config file
 	if len(gateways) < 1 {
 		// No gateways in config file or passed via command line
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
 		return id.ZeroID, "", nil
+	}
+
+	if noTLS {
+		client.DisableTLS()
 	}
 
 	// Connect to gateways and reg server
@@ -168,14 +189,34 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
-		uid, err = client.Register(userId != 0, regCode, userNick, userEmail)
+		var privKey *rsa.PrivateKey
+
+		if sourcePublicKeyPath != "" {
+			pubKeyBytes, err := utils.ReadFile(sourcePublicKeyPath)
+			if err != nil {
+				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
+					"path %s: %+v", sourcePublicKeyPath, err)
+			}
+
+			privKey, err = rsa.LoadPrivateKeyFromPem(pubKeyBytes)
+			if err != nil {
+				globals.Log.FATAL.Panicf("Could not public key from "+
+					"PEM: %+v", err)
+			}
+		}
+
+		uid, err = client.Register(userId != 0, regCode, userNick,
+			userEmail, sessFilePassword, privKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
 				err.Error())
 			return id.ZeroID, "", nil
 		}
 
-		globals.Log.INFO.Printf("Successfully registered user %v!", uid)
+		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
+		globals.Log.INFO.Printf("Registered as user (uid, the var) %v", uid)
+		globals.Log.INFO.Printf("Registered as user (userID, the global) %v", userId)
+		globals.Log.INFO.Printf("Successfully registered user %s!", userbase64)
 
 	} else {
 		// hack for session persisting with cmd line
@@ -184,7 +225,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	nick, err := client.Login(uid)
+	nick, err := client.Login(sessFilePassword)
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
@@ -276,49 +317,29 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
 	} else {
 		senderNick = sender.Nick
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n",
+	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
-		senderNick, result.Message)
+		senderNick, result.Message, message.Timestamp.String())
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
-type ChannelListener struct {
-	MessagesReceived int64
+type userSearcher struct {
+	foundUserChan chan []byte
 }
 
-//used to get the client object into hear
-var globalClient *api.Client
+func newUserSearcher() api.SearchCallback {
+	us := userSearcher{}
+	us.foundUserChan = make(chan []byte)
+	return &us
+}
 
-func (l *ChannelListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
-	message := item.(*parse.Message)
-	globals.Log.INFO.Println("Hearing a channel message")
-	result := cmixproto.ChannelMessage{}
-	err := proto.Unmarshal(message.Body, &result)
-
+func (us *userSearcher) Callback(userID, pubKey []byte, err error) {
 	if err != nil {
-		globals.Log.ERROR.Printf("Could not unmarhsal message, message "+
-			"not processed: %+v", err)
-	}
-
-	sender, ok := user.Users.GetUser(message.Sender)
-	var senderNick string
-	if !ok {
-		globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
+		globals.Log.ERROR.Printf("Could not find searched user: %+v", err)
 	} else {
-		senderNick = sender.Nick
+		us.foundUserChan <- userID
 	}
-
-	fmt.Printf("Message from channel %v, %v: ",
-		new(big.Int).SetBytes(message.Sender[:]).Text(10), senderNick)
-	typedBody, _ := parse.Parse(result.Message)
-	speakerId := id.NewUserFromBytes(result.SpeakerID)
-	globalClient.GetSwitchboard().Speak(&parse.Message{
-		TypedBody: *typedBody,
-		Sender:    speakerId,
-		Receiver:  id.ZeroID,
-	})
-	atomic.AddInt64(&l.MessagesReceived, 1)
 }
 
 // rootCmd represents the base command when called without any subcommands
@@ -334,11 +355,7 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
-		var dummyPeriod time.Duration
-		var timer *time.Timer
-
 		userID, _, client := sessionInitialization()
-		globalClient = client
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
 			setKeyParams(client)
@@ -350,10 +367,6 @@ var rootCmd = &cobra.Command{
 		text := TextListener{}
 		client.Listen(id.ZeroID, int32(cmixproto.Type_TEXT_MESSAGE),
 			&text)
-		// Channel messages
-		channel := ChannelListener{}
-		client.Listen(id.ZeroID,
-			int32(cmixproto.Type_CHANNEL_MESSAGE), &channel)
 		// All other messages
 		fallback := FallbackListener{}
 		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
@@ -368,10 +381,11 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Log.INFO.Println("Logged In!")
 
-		// Do calculation for dummy messages if the flag is set
-		if dummyFrequency != 0 {
-			dummyPeriod = time.Nanosecond *
-				(time.Duration(float64(1000000000) * (float64(1.0) / dummyFrequency)))
+		if userEmail != "" {
+			err := client.RegisterWithUDB()
+			if err != nil {
+				jww.ERROR.Printf("Could not register with UDB: %+v", err)
+			}
 		}
 
 		cryptoType := parse.Unencrypted
@@ -381,8 +395,19 @@ var rootCmd = &cobra.Command{
 
 		var recipientId *id.User
 
-		if destinationUserId == 0 {
+		if destinationUserId != 0 && destinationUserIDBase64 != "" {
+			globals.Log.FATAL.Panicf("Two destiantions set for the message, can only have one")
+		}
+
+		if destinationUserId == 0 && destinationUserIDBase64 == "" {
 			recipientId = userID
+		} else if destinationUserIDBase64 != "" {
+			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)
+			if err != nil {
+				globals.Log.FATAL.Panic("Could not decode the destination user ID")
+			}
+			recipientId = id.NewUserFromBytes(recipientIdBytes)
+
 		} else {
 			recipientId = id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
 		}
@@ -402,72 +427,68 @@ var rootCmd = &cobra.Command{
 				// Handle sending to any other destination
 				wireOut := api.FormatTextMessage(message)
 
-				fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-					recipientNick, message)
-
-				// Send the message
-				err := client.Send(&parse.Message{
-					Sender: userID,
-					TypedBody: parse.TypedBody{
-						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:        wireOut,
-					},
-					InferredType: cryptoType,
-					Receiver:     recipientId,
-				})
-				if err != nil {
-					globals.Log.ERROR.Printf("Error sending message: %+v", err)
+				for i := uint(0); i < messageCnt; i++ {
+					fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+						recipientNick, message)
+					if i != 0 {
+						time.Sleep(1 * time.Second)
+					}
+					// Send the message
+					err := client.Send(&parse.Message{
+						Sender: userID,
+						TypedBody: parse.TypedBody{
+							MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
+							Body:        wireOut,
+						},
+						InferredType: cryptoType,
+						Receiver:     recipientId,
+					})
+					if err != nil {
+						globals.Log.ERROR.Printf("Error sending message: %+v", err)
+					}
 				}
 			}
 		}
 
-		if dummyFrequency != 0 {
-			timer = time.NewTimer(dummyPeriod)
+		var udbLister api.SearchCallback
+
+		if searchForUser != "" {
+			udbLister = newUserSearcher()
+			client.SearchForUser(searchForUser, udbLister)
 		}
 
-		if dummyPeriod != 0 {
-			for {
-				// need to constantly send new messages
-				<-timer.C
-
-				contact := ""
-				u, ok := user.Users.GetUser(recipientId)
-				if ok {
-					contact = u.Nick
-				}
-				globals.Log.INFO.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
-					contact, message)
-
-				message := &parse.Message{
-					Sender: userID,
-					TypedBody: parse.TypedBody{
-						MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
-						Body:        api.FormatTextMessage(message),
-					},
-					InferredType: cryptoType,
-					Receiver:     recipientId}
-				err := client.Send(message)
-				if err != nil {
-					globals.Log.ERROR.Printf("Error sending message: %+v", err)
-				}
-
-				timer = time.NewTimer(dummyPeriod)
-			}
-		} else {
+		if message != "" {
 			// Wait up to 45s to receive a message
+			lastCnt := int64(0)
 			for end, timeout := false, time.After(45*time.Second); !end; {
-				if text.MessagesReceived > 0 {
+				numMsgReceived := atomic.LoadInt64(&text.MessagesReceived)
+				if numMsgReceived == int64(waitForMessages) {
 					end = true
+				}
+				if numMsgReceived != lastCnt {
+					lastCnt = numMsgReceived
+					timeout = time.After(45 * time.Second)
 				}
 
 				select {
 				case <-timeout:
-					fmt.Println("Timing out client " +
-						"as no messages have" +
-						" been received")
+					fmt.Printf("Timing out client, %v/%v "+
+						"message(s) been received\n",
+						numMsgReceived, waitForMessages)
 					end = true
 				default:
 				}
+			}
+		}
+
+		if searchForUser != "" {
+			foundUser := <-udbLister.(*userSearcher).foundUserChan
+			if isValidUser(foundUser) {
+				userIDBase64 := base64.StdEncoding.EncodeToString(foundUser)
+				globals.Log.INFO.Printf("Found User %s at ID: %s",
+					searchForUser, userIDBase64)
+			} else {
+				globals.Log.INFO.Printf("Found User %s is invalid", searchForUser)
 			}
 		}
 
@@ -480,6 +501,18 @@ var rootCmd = &cobra.Command{
 		}
 
 	},
+}
+
+func isValidUser(usr []byte) bool {
+	if len(usr) != id.UserLen {
+		return false
+	}
+	for _, b := range usr {
+		if b != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 // init is the initialization function for Cobra which defines commands
@@ -507,16 +540,12 @@ func init() {
 			"Automatically disabled if 'blockingTransmission' is false")
 
 	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
-		"ID to sign in as")
-	rootCmd.PersistentFlags().StringVarP(&registrationCertPath, "registrationcertpath", "r",
-		"",
-		"Path to the certificate file for connecting to registration server"+
-			" using TLS")
+		"ID to sign in as. Does not register, must be an available precanned user")
 
 	rootCmd.PersistentFlags().StringVarP(&registrationCode,
-		"regcode", "e",
+		"regcode", "r",
 		"",
-		"Registration Code")
+		"Registration Code with the registration server")
 
 	rootCmd.PersistentFlags().StringVarP(&userEmail,
 		"email", "E",
@@ -535,10 +564,11 @@ func init() {
 			" to ram and lost when the cli finishes")
 
 	rootCmd.PersistentFlags().StringVarP(&ndfPubKey,
-		"ndfPubKey",
+		"ndfPubKeyCertPath",
 		"p",
 		"",
-		"Path to the public key for the network definition JSON file")
+		"Path to the certificated containing the public key for the "+
+			" network definition JSON file")
 
 	rootCmd.PersistentFlags().StringVarP(&ndfPath,
 		"ndf",
@@ -551,15 +581,11 @@ func init() {
 		false,
 		"Specifies if the NDF should be loaded without the signature")
 
-	rootCmd.PersistentFlags().StringSliceVar(&ndfRegistration,
-		"ndfRegistration",
-		nil,
-		"Overwrite the Registration values for the NDF")
-
-	rootCmd.PersistentFlags().StringSliceVar(&ndfUDB,
-		"ndfUDB",
-		nil,
-		"Overwrite the UDB values for the NDF")
+	rootCmd.PersistentFlags().StringVarP(&sessFilePassword,
+		"password",
+		"P",
+		"",
+		"Password to the session file")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -569,19 +595,36 @@ func init() {
 	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
 		"Show the server version information.")
 
-	rootCmd.Flags().Float64VarP(&dummyFrequency, "dummyfrequency", "", 0,
-		"Frequency of dummy messages in Hz.  If no message is passed, "+
-			"will transmit a random message.  Dummies are only sent if this flag is passed")
-
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
-		"Send messages with E2E encryption to destination user")
+		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 
 	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
-		"Set to ignore TLS")
+		"Set to ignore tls. Connections will fail if the network requires tls. For debugging")
+
+	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "privateKey", "",
+		"The path for a PEM encoded private key which will be used "+
+			"to create the user")
+
+	rootCmd.Flags().StringVar(&destinationUserIDBase64, "dest64", "",
+		"Sets the destination user id encoded in base 64")
+
+	rootCmd.Flags().UintVarP(&waitForMessages, "waitForMessages",
+		"w", 1, "Denotes the number of messages the "+
+			"client should receive before closing")
+
+	rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
+		"Sets the email to search for to find a user with user discovery")
+
+	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
+		"t", 45, "The number of seconds to wait for "+
+			"'waitForMessages' messages to arrive")
+
+	rootCmd.Flags().UintVarP(&messageCnt, "messageCount",
+		"c", 1, "The number of times to send the message")
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -608,40 +651,6 @@ func initLog() {
 			globals.Log.WARN.Println("Invalid or missing log path, default path used.")
 		} else {
 			globals.Log.SetLogOutput(logFile)
-		}
-	}
-}
-
-// overwriteNDF replaces fields in the NetworkDefinition structure with values
-// specified from the commandline.
-func overwriteNDF(n *ndf.NetworkDefinition) {
-	if len(ndfRegistration) == 3 {
-		n.Registration.Address = ndfRegistration[1]
-		n.Registration.TlsCertificate = ndfRegistration[2]
-
-		globals.Log.WARN.Println("Overwrote Registration values in the " +
-			"NetworkDefinition from the commandline")
-	}
-
-	if len(ndfUDB) == 2 {
-		udbIdString, err := base64.StdEncoding.DecodeString(ndfUDB[0])
-		if err != nil {
-			globals.Log.WARN.Printf("Could not decode USB ID: %v", err)
-		}
-
-		n.UDB.ID = udbIdString
-
-		globals.Log.WARN.Println("Overwrote UDB values in the " +
-			"NetworkDefinition from the commandline")
-	}
-
-	if noTLS {
-		for i := 0; i < len(n.Nodes); i++ {
-			n.Nodes[i].TlsCertificate = ""
-		}
-		n.Registration.TlsCertificate = ""
-		for i := 0; i < len(n.Gateways); i++ {
-			n.Gateways[i].TlsCertificate = ""
 		}
 	}
 }

@@ -54,7 +54,7 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {
+	delay time.Duration, rekeyChan chan struct{}) {
 }
 
 var pubKeyBits string
@@ -69,15 +69,19 @@ func TestMain(m *testing.M) {
 
 	cmixGrp, e2eGrp := getGroups()
 
+	regSignature := make([]byte, 8)
+
 	fakeSession := user.NewSession(&globals.RamStorage{},
-		u, nil, nil, nil, nil, nil, cmixGrp, e2eGrp)
+		u, nil, nil, nil, nil,
+		nil, nil, nil,
+		cmixGrp, e2eGrp, "password", regSignature)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
 
 	topology := circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
 
-	InitBots(fakeSession, fakeComm, topology)
+	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")))
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots
@@ -89,7 +93,8 @@ func TestMain(m *testing.M) {
 	pubKeyBits = "S8KXBczy0jins9uS4LgBPt0bkFl8t00MnZmExQ6GcOcu8O7DKgAsNzLU7a+gMTbIsS995IL/kuFF8wcBaQJBY23095PMSQ/nMuetzhk9HdXxrGIiKBo3C/n4SClpq4H+PoF9XziEVKua8JxGM2o83KiCK3tNUpaZbAAElkjueY7wuD96h4oaA+WV5Nh87cnIZ+fAG0uLve2LSHZ0FBZb3glOpNAOv7PFWkvN2BO37ztOQCXTJe72Y5ReoYn7nWVNxGUh0ilal+BRuJt1GZ7whOGDRE0IXfURIoK2yjyAnyZJWWMhfGsL5S6iL4aXUs03mc8BHKRq3HRjvTE10l3YFA=="
 	pubKey, _ = base64.StdEncoding.DecodeString(pubKeyBits)
 
-	keyFingerprint = "8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
+	keyFingerprint = fingerprint(pubKey)
+
 	os.Exit(m.Run())
 }
 
@@ -97,18 +102,30 @@ func TestMain(m *testing.M) {
 func TestRegister(t *testing.T) {
 
 	// Send response messages from fake UDB in advance
-	getKeyResponseListener <- fmt.Sprintf("GETKEY %s NOTFOUND", keyFingerprint)
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
 
-	err := Register("EMAIL", "rick@elixxir.io", pubKey)
+	dummyRegState := func(int) {
+		return
+	}
+
+	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
+
+	// Send response messages from fake UDB in advance
+	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
+	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	if err != nil {
+		t.Errorf("Registration duplicate failure: %s", err.Error())
+	}
+
 }
 
 // TestSearch smoke tests the search function
 func TestSearch(t *testing.T) {
+	publicKeyString := base64.StdEncoding.EncodeToString(pubKey)
 
 	// Send response messages from fake UDB in advance
 	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %s %s",
@@ -116,9 +133,14 @@ func TestSearch(t *testing.T) {
 		base64.StdEncoding.EncodeToString(id.NewUserFromUint(26, t)[:]),
 		keyFingerprint)
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
-		pubKeyBits)
+		publicKeyString)
 
-	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io")
+	dummySearchState := func(int) {
+		return
+	}
+
+	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io",
+		dummySearchState)
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}
@@ -145,18 +167,6 @@ func TestNicknameFunctions(t *testing.T) {
 
 	// Test nickname lookup
 
-	// Spawn lookup on goroutine
-	go func() {
-		nick, err := LookupNick(session.GetCurrentUser().User)
-		if err != nil {
-			t.Errorf("Error on LookupNick: %s", err.Error())
-		}
-		if nick != session.GetCurrentUser().Nick {
-			t.Errorf("LookupNick returned wrong value. Expected %s,"+
-				" Got %s", session.GetCurrentUser().Nick, nick)
-		}
-	}()
-
 	// send response to switchboard
 	msg = &parse.Message{
 		Sender: session.GetCurrentUser().User,
@@ -168,6 +178,15 @@ func TestNicknameFunctions(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
+	// AFter sending the message, perform the lookup to read it
+	nick, err := LookupNick(session.GetCurrentUser().User)
+	if err != nil {
+		t.Errorf("Error on LookupNick: %s", err.Error())
+	}
+	if nick != session.GetCurrentUser().Nick {
+		t.Errorf("LookupNick returned wrong value. Expected %s,"+
+			" Got %s", session.GetCurrentUser().Nick, nick)
+	}
 }
 
 type errorMessaging struct{}
@@ -192,13 +211,13 @@ func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (e *errorMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {
+	delay time.Duration, rekeyChan chan struct{}) {
 }
 
 // Test LookupNick returns error on sending problem
 func TestLookupNick_error(t *testing.T) {
 	// Replace comms with errorMessaging
-	messaging = &errorMessaging{}
+	comms = &errorMessaging{}
 	_, err := LookupNick(session.GetCurrentUser().User)
 	if err == nil {
 		t.Errorf("LookupNick should have returned an error")
@@ -234,10 +253,10 @@ func getGroups() (cmixGrp *cyclic.Group, e2eGrp *cyclic.Group) {
 		"847AEF49F66E43873"
 
 	cmixGrp = cyclic.NewGroup(large.NewIntFromString(cmixPrime, 16),
-		large.NewIntFromUInt(2), large.NewIntFromUInt(2))
+		large.NewIntFromUInt(2))
 
 	e2eGrp = cyclic.NewGroup(large.NewIntFromString(e2ePrime, 16),
-		large.NewIntFromUInt(2), large.NewIntFromUInt(2))
+		large.NewIntFromUInt(2))
 
 	return
 }

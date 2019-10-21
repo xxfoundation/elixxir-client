@@ -50,7 +50,7 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration) {
+	delay time.Duration, rekeyChan chan struct{}) {
 }
 
 func TestMain(m *testing.M) {
@@ -62,29 +62,37 @@ func TestMain(m *testing.M) {
 		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
 		Nick: "Bernie",
 	}
-	myPrivKeyCyclic := grp.RandomCoprime(grp.NewMaxInt())
-	myPubKeyCyclic := grp.ExpG(myPrivKeyCyclic, grp.NewInt(1))
+	myPrivKeyCyclicCMIX := grp.RandomCoprime(grp.NewMaxInt())
+	myPubKeyCyclicCMIX := grp.ExpG(myPrivKeyCyclicCMIX, grp.NewInt(1))
+	myPrivKeyCyclicE2E := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	myPubKeyCyclicE2E := e2eGrp.ExpG(myPrivKeyCyclicE2E, e2eGrp.NewInt(1))
 	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 
-	partnerPubKeyCyclic := grp.RandomCoprime(grp.NewMaxInt())
+	partnerPubKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
+	regSignature := make([]byte, 8)
+
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, grp, e2eGrp)
+		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclicCMIX,
+		myPrivKeyCyclicCMIX, myPubKeyCyclicE2E, myPrivKeyCyclicE2E,
+		grp, e2eGrp, "password", regSignature)
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
-	InitRekey(session, fakeComm, circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}))
+
+	rekeyChan2 := make(chan struct{}, 50)
+	InitRekey(session, fakeComm, circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey
 	baseKey, _ := diffieHellman.CreateDHSessionKey(
 		partnerPubKeyCyclic,
-		myPrivKeyCyclic,
-		grp)
+		myPrivKeyCyclicE2E,
+		e2eGrp)
 
 	// Generate key TTL and number of keys
 	keyParams := session.GetKeyStore().GetKeyParams()
@@ -92,23 +100,27 @@ func TestMain(m *testing.M) {
 		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
 	// Create Send KeyManager
-	km := keyStore.NewManager(baseKey, myPrivKeyCyclic,
+	km := keyStore.NewManager(baseKey, myPrivKeyCyclicE2E,
 		partnerPubKeyCyclic, partnerID, true,
 		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Send Keys
-	km.GenerateKeys(grp, u.User, session.GetKeyStore())
+	km.GenerateKeys(grp, u.User)
+	session.GetKeyStore().AddSendManager(km)
 
 	// Create Receive KeyManager
-	km = keyStore.NewManager(baseKey, myPrivKeyCyclic,
+	km = keyStore.NewManager(baseKey, myPrivKeyCyclicE2E,
 		partnerPubKeyCyclic, partnerID, false,
 		numKeys, keysTTL, keyParams.NumRekeys)
 
 	// Generate Receive Keys
-	km.GenerateKeys(grp, u.User, session.GetKeyStore())
+	e2ekeys := km.GenerateKeys(grp, u.User)
+	session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
+	session.GetKeyStore().AddRecvManager(km)
+	session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
 
 	keys := &keyStore.RekeyKeys{
-		CurrPrivKey: myPrivKeyCyclic,
+		CurrPrivKey: myPrivKeyCyclicE2E,
 		CurrPubKey:  partnerPubKeyCyclic,
 	}
 
@@ -141,12 +153,12 @@ func TestRekeyTrigger(t *testing.T) {
 	// Get new PubKey from Rekey message and confirm value matches
 	// with PubKey created from privKey in Rekey Context
 	value := <-ListenCh
-	grp := session.GetCmixGroup()
-	actualPubKey := grp.NewIntFromBytes(value)
+	grpE2E := session.GetE2EGroup()
+	actualPubKey := grpE2E.NewIntFromBytes(value)
 	privKey := session.GetRekeyManager().GetCtx(partnerID).PrivKey
 	fmt.Println("privKey: ", privKey.Text(16))
-	expectedPubKey := grp.NewInt(1)
-	grp.ExpG(privKey, expectedPubKey)
+	expectedPubKey := grpE2E.NewInt(1)
+	grpE2E.ExpG(privKey, expectedPubKey)
 	fmt.Println("new pub key: ", value)
 
 	if expectedPubKey.Cmp(actualPubKey) != 0 {
@@ -216,7 +228,7 @@ func TestRekeyConfirm(t *testing.T) {
 
 	// Confirm that user Private key in Send Key Manager
 	// differs from the one stored in session
-	if session.GetDHPrivateKey().GetLargeInt().Cmp(
+	if session.GetE2EDHPrivateKey().GetLargeInt().Cmp(
 		session.GetKeyStore().GetSendManager(partnerID).
 			GetPrivKey().GetLargeInt()) == 0 {
 		t.Errorf("PrivateKey remained unchanged after Outgoing Rekey!")
@@ -246,7 +258,7 @@ func TestRekey(t *testing.T) {
 	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
 	km := session.GetKeyStore().GetSendManager(partnerID)
 	// Generate new partner public key
-	grp, _ := getGroups()
+	_, grp := getGroups()
 	privKey := grp.RandomCoprime(grp.NewMaxInt())
 	pubKey := grp.ExpG(privKey, grp.NewMaxInt())
 	// Test receiving a Rekey message
@@ -286,8 +298,9 @@ func TestRekey(t *testing.T) {
 	keys := rkm.GetKeys(partnerID)
 
 	if keys.CurrPrivKey.GetLargeInt().
-		Cmp(session.GetDHPrivateKey().GetLargeInt()) == 0 {
+		Cmp(session.GetE2EDHPrivateKey().GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
+		t.Errorf("%s\n%s", keys.CurrPrivKey.GetLargeInt().Text(16), session.GetE2EDHPrivateKey().GetLargeInt().Text(16))
 	}
 
 	if keys.CurrPubKey.GetLargeInt().
@@ -342,8 +355,7 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString("F6FAC7E480EE519354C058BF856AEBDC43AD60141BAD5573910476D030A869979A7E23F5FC006B6CE1B1D7CDA849BDE46A145F80EE97C21AA2154FA3A5CF25C75E225C6F3384D3C0C6BEF5061B87E8D583BEFDF790ECD351F6D2B645E26904DE3F8A9861CC3EAD0AA40BD7C09C1F5F655A9E7BA7986B92B73FD9A6A69F54EFC92AC7E21D15C9B85A76084D1EEFBC4781B91E231E9CE5F007BC75A8656CBD98E282671C08A5400C4E4D039DE5FD63AA89A618C5668256B12672C66082F0348B6204DD0ADE58532C967D055A5D2C34C43DF9998820B5DFC4C49C6820191CB3EC81062AA51E23CEEA9A37AB523B24C0E93B440FDC17A50B219AB0D373014C25EE8F", 16),
-		large.NewIntFromString("B22FDF91EE6BA01BDE4969C1A986EA1F81C4A1795921403F3437D681D05E95167C2F6414CCB74AC8D6B3BA8C0E85C7E4DEB0E8B5256D37BC5C21C8BE068F5342858AFF2FC7FF2644EBED8B10271941C74C86CCD71AA6D2D98E4C8C70875044900F842998037A7DFB9BC63BAF1BC2800E73AF9615E4F5B869D4C6DE6E5F48FACE9CA594CC5D228CB7F763A0AD6BF6ED78B27F902D9ADA38A1FCD7D09E398CE377BB15A459044D3B8541DC6D8049B66AE1662682254E69FAD31CA0016251D0522EF8FE587A3F6E3AB1E5F9D8C2998874ABAB205217E95B234A7D3E69713B884918ADB57360B5DE97336C7DC2EB8A3FEFB0C4290E7A92FF5758529AC45273135427", 16),
-		large.NewIntFromString("D6B35AA395D9287A5530C474D776EA2FCF5B815E89C9DB4C7BB7A9EFB8F3F34B", 16))
+		large.NewIntFromString("B22FDF91EE6BA01BDE4969C1A986EA1F81C4A1795921403F3437D681D05E95167C2F6414CCB74AC8D6B3BA8C0E85C7E4DEB0E8B5256D37BC5C21C8BE068F5342858AFF2FC7FF2644EBED8B10271941C74C86CCD71AA6D2D98E4C8C70875044900F842998037A7DFB9BC63BAF1BC2800E73AF9615E4F5B869D4C6DE6E5F48FACE9CA594CC5D228CB7F763A0AD6BF6ED78B27F902D9ADA38A1FCD7D09E398CE377BB15A459044D3B8541DC6D8049B66AE1662682254E69FAD31CA0016251D0522EF8FE587A3F6E3AB1E5F9D8C2998874ABAB205217E95B234A7D3E69713B884918ADB57360B5DE97336C7DC2EB8A3FEFB0C4290E7A92FF5758529AC45273135427", 16))
 
 	e2eGrp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -359,7 +371,6 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
 			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
 			"847AEF49F66E43873", 16),
-		large.NewIntFromString("2", 16),
 		large.NewIntFromString("2", 16))
 
 	return cmixGrp, e2eGrp

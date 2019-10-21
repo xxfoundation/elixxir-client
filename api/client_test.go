@@ -7,10 +7,7 @@
 package api
 
 import (
-	"bytes"
 	"crypto/sha256"
-	"encoding/gob"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -34,12 +31,20 @@ import (
 
 var TestKeySize = 768
 
+func dummyConnectionStatusHandler(status uint32, timeout int) {
+	return
+}
+
 func TestRegistrationGob(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -47,24 +52,60 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "")
+	_, err = testClient.Register(true, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
 		t.Error(err)
 	}
 
 	// get the gob out of there again
-	sessionGob := testClient.storage.Load()
-	var sessionBytes bytes.Buffer
-	sessionBytes.Write(sessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
-	Session := user.SessionObj{}
-	err = dec.Decode(&Session)
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
 	if err != nil {
 		t.Error(err)
 	}
 
-	VerifyRegisterGobUser(&Session, t)
-	VerifyRegisterGobKeys(&Session, testClient.topology, t)
+	VerifyRegisterGobUser(Session, t)
+	VerifyRegisterGobKeys(Session, testClient.topology, t)
+
+	killServers()
+}
+
+//Happy path for a non precen user
+func TestClient_Register(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	// populate a gob in the store
+	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// get the gob out of there again
+	Session, err := user.LoadSession(testClient.storage,
+		"password")
+	if err != nil {
+		t.Error(err)
+	}
+
+	VerifyRegisterGobUser(Session, t)
+
+	//Probs can't do this as there is now a sense of randomness??
+	//VerifyRegisterGobKeys(Session, testClient.topology, t)
+	killServers()
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -185,7 +226,10 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	//Start up gateways and registration server
+	startServers()
+
+	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -195,23 +239,25 @@ func TestRegisterUserE2E(t *testing.T) {
 	userID := id.NewUserFromUint(18, t)
 	partner := id.NewUserFromUint(14, t)
 
-	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
+	myPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	myPubKeyCyclic := e2eGrp.ExpG(myPrivKeyCyclic, e2eGrp.NewMaxInt())
 
-	partnerPubKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
+	partnerPubKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
+	regSignature := make([]byte, 8)
 
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA, privateKeyRSA,
-		myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
+		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		e2eGrp, "password", regSignature)
 
 	testClient.session = session
-	fmt.Println("runn")
+
 	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
-	fmt.Println("dunn")
+
 	// Confirm we can get all types of keys
 	km := session.GetKeyStore().GetSendManager(partner)
 	if km == nil {
@@ -241,9 +287,9 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	// Generate one reception key of each type to test
 	// fingerprint map
-	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, cmixGrp)
-	recvKeys := e2e.DeriveKeys(cmixGrp, baseKey, partner, uint(1))
-	recvReKeys := e2e.DeriveEmergencyKeys(cmixGrp, baseKey, partner, uint(1))
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, e2eGrp)
+	recvKeys := e2e.DeriveKeys(e2eGrp, baseKey, partner, uint(1))
+	recvReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey, partner, uint(1))
 
 	h, _ := hash.NewCMixHash()
 	h.Write(recvKeys[0].Bytes())
@@ -269,11 +315,15 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	}
+	killServers()
 }
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	//Start up gateways and registration server
+	startServers()
+
+	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -283,19 +333,22 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	partner := id.NewUserFromUint(14, t)
 
 	rng := csprng.NewSystemRNG()
-	myPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	myPubKeyCyclic := cmixGrp.ExpG(myPrivKeyCyclic, cmixGrp.NewMaxInt())
+	myPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	myPubKeyCyclic := e2eGrp.ExpG(myPrivKeyCyclic, e2eGrp.NewMaxInt())
 
-	partnerPrivKeyCyclic := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
-	partnerPubKeyCyclic := cmixGrp.ExpG(partnerPrivKeyCyclic, cmixGrp.NewMaxInt())
+	partnerPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
+	partnerPubKeyCyclic := e2eGrp.ExpG(partnerPrivKeyCyclic, e2eGrp.NewMaxInt())
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
+	regSignature := make([]byte, 8)
+
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp, e2eGrp)
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		e2eGrp, "password", regSignature)
 
 	testClient.session = session
 
@@ -303,15 +356,15 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	// Generate all keys and confirm they all match
 	keyParams := testClient.GetKeyParams()
-	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, cmixGrp)
+	baseKey, _ := diffieHellman.CreateDHSessionKey(partnerPubKeyCyclic, myPrivKeyCyclic, e2eGrp)
 	keyTTL, numKeys := e2e.GenerateKeyTTL(baseKey.GetLargeInt(),
 		keyParams.MinKeys, keyParams.MaxKeys, keyParams.TTLParams)
 
-	sendKeys := e2e.DeriveKeys(cmixGrp, baseKey, userID, uint(numKeys))
-	sendReKeys := e2e.DeriveEmergencyKeys(cmixGrp, baseKey,
+	sendKeys := e2e.DeriveKeys(e2eGrp, baseKey, userID, uint(numKeys))
+	sendReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey,
 		userID, uint(keyParams.NumRekeys))
-	recvKeys := e2e.DeriveKeys(cmixGrp, baseKey, partner, uint(numKeys))
-	recvReKeys := e2e.DeriveEmergencyKeys(cmixGrp, baseKey,
+	recvKeys := e2e.DeriveKeys(e2eGrp, baseKey, partner, uint(numKeys))
+	recvReKeys := e2e.DeriveEmergencyKeys(e2eGrp, baseKey,
 		partner, uint(keyParams.NumRekeys))
 
 	// Confirm all keys
@@ -415,14 +468,22 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetKey().Text(10))
 		}
 	}
+	killServers()
 }
 
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	//Start up gateways and registration server
+	startServers()
+
+	//Start client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -435,14 +496,23 @@ func TestClient_precannedRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during precannedRegister: %+v", err)
 	}
+
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 // Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	//Start up gateways and registration server
+	startServers()
+
+	//Start client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -457,10 +527,16 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during sendRegistrationMessage: %+v", err)
 	}
+
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 // Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
+	//Start up gateways and registration server
+	startServers()
+
 	cmixGrp, _ := getGroups()
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
@@ -468,10 +544,12 @@ func TestClient_requestNonce(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
+	testClient.DisableTLS()
 
 	err = testClient.Connect()
 	if err != nil {
@@ -489,15 +567,21 @@ func TestClient_requestNonce(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
+
+	killServers()
 }
 
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def)
+	//Start up gateways and registration server
+	startServers()
+
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
-
+	testClient.DisableTLS()
 	err = testClient.Connect()
 	if err != nil {
 		t.Error(err)
@@ -509,6 +593,8 @@ func TestClient_confirmNonce(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}
+	//Disconnect and shutdown servers
+	killServers()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {
@@ -529,8 +615,7 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"AA61782F52ABEB8BD6432C4DD097BC5423B285DAFB60DC364E8161F4A2A35ACA"+
 			"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71"+
 			"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0"+
-			"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16),
-		large.NewIntFromString("F2C3119374CE76C9356990B465374A17F23F9ED35089BD969F61C6DDE9998C1F", 16))
+			"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16))
 
 	e2eGrp := cyclic.NewGroup(
 		large.NewIntFromString("E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B"+
@@ -546,7 +631,6 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 			"015CB79C3F9C2D93D961120CD0E5F12CBB687EAB045241F96789C38E89D796138E"+
 			"6319BE62E35D87B1048CA28BE389B575E994DCA755471584A09EC723742DC35873"+
 			"847AEF49F66E43873", 16),
-		large.NewIntFromString("2", 16),
 		large.NewIntFromString("2", 16))
 
 	return cmixGrp, e2eGrp

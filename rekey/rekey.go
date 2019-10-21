@@ -21,11 +21,13 @@ import (
 
 var session user.Session
 var topology *circuit.Circuit
-var messaging io.Communications
+var comms io.Communications
 
 var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
 var rekeyConfirmList rekeyConfirmListener
+
+var rekeyChan chan struct{}
 
 type rekeyTriggerListener struct {
 	err error
@@ -85,7 +87,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
+func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
@@ -93,7 +95,8 @@ func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit) {
 
 	session = s
 	topology = t
-	messaging = m
+	comms = m
+	rekeyChan = rekeyChan2
 	l := session.GetSwitchboard()
 
 	l.Register(s.GetCurrentUser().User,
@@ -123,11 +126,7 @@ const (
 
 func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	rkm := session.GetRekeyManager()
-	grp := session.GetCmixGroup()
 	e2egrp := session.GetE2EGroup()
-
-	globals.Log.INFO.Printf("grp fingerprint: %d, e2e fingerprint: %d",
-		grp.GetFingerprint(), e2egrp.GetFingerprint())
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -166,9 +165,9 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	var baseKey *cyclic.Int
 	if ctx == nil {
 		if rt == RekeyTrigger {
-			privKeyCyclic = grp.RandomCoprime(grp.NewInt(1))
+			privKeyCyclic = e2egrp.RandomCoprime(e2egrp.NewInt(1))
 			fmt.Println("Private key actual: ", privKeyCyclic.Text(16))
-			pubKeyCyclic = grp.ExpG(privKeyCyclic, grp.NewInt(1))
+			pubKeyCyclic = e2egrp.ExpG(privKeyCyclic, e2egrp.NewInt(1))
 			// Get Current Partner Public Key from RekeyKeys
 			partnerPubKeyCyclic = keys.CurrPubKey
 			// Set new Own Private Key
@@ -177,7 +176,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			// Get Current Own Private Key from RekeyKeys
 			privKeyCyclic = keys.CurrPrivKey
 			// Get Partner New Public Key from data
-			partnerPubKeyCyclic = grp.NewIntFromBytes(data)
+			partnerPubKeyCyclic = e2egrp.NewIntFromBytes(data)
 			// Set new Partner Public Key
 			keys.NewPubKey = partnerPubKeyCyclic
 		}
@@ -186,7 +185,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		baseKey, _ = diffieHellman.CreateDHSessionKey(
 			partnerPubKeyCyclic,
 			privKeyCyclic,
-			grp)
+			e2egrp)
 
 		ctx = &keyStore.RekeyContext{
 			BaseKey: baseKey,
@@ -208,15 +207,15 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	// Create Key Manager if needed
 	switch rt {
 	case Rekey:
-		// Delete current receive KeyManager
-		oldKm := session.GetKeyStore().GetRecvManager(partner)
-		oldKm.Destroy(session.GetKeyStore())
 		// Create Receive KeyManager
 		km := keyStore.NewManager(ctx.BaseKey, ctx.PrivKey, ctx.PubKey,
 			partner, false,
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
-		km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
+		e2ekeys := km.GenerateKeys(e2egrp, session.GetCurrentUser().User)
+		session.GetKeyStore().AddRecvManager(km)
+		session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
+
 		globals.Log.DEBUG.Printf("Generated new receiving keys for E2E"+
 			" relationship with user %v", *partner)
 	case RekeyConfirm:
@@ -233,7 +232,8 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 				partner, true,
 				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
-			km.GenerateKeys(e2egrp, session.GetCurrentUser().User, session.GetKeyStore())
+			km.GenerateKeys(e2egrp, session.GetCurrentUser().User)
+			session.GetKeyStore().AddSendManager(km)
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)
 			globals.Log.DEBUG.Printf("Generated new send keys for E2E"+
@@ -250,9 +250,14 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Directly send raw publicKey bytes, without any message type
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
-		return messaging.SendMessageNoPartition(session, topology, partner, parse.E2E,
+		return comms.SendMessageNoPartition(session, topology, partner, parse.E2E,
 			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)))
 	case Rekey:
+		// Trigger the rekey channel
+		select {
+		case rekeyChan <- struct{}{}:
+		}
+
 		// Send rekey confirm message with hash of the baseKey
 		h, _ := hash.NewCMixHash()
 		h.Write(ctx.BaseKey.Bytes())
@@ -261,7 +266,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        baseKeyHash,
 		})
-		return messaging.SendMessage(session, topology, partner, parse.None, msg)
+		return comms.SendMessage(session, topology, partner, parse.None, msg)
 	}
 	return nil
 }

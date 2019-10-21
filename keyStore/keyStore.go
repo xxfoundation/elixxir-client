@@ -47,6 +47,17 @@ func (m *keyManMap) values() []*KeyManager {
 	return valueList
 }
 
+// Internal helper function to get a list of all keys
+// contained in a KeyManMap
+func (m *keyManMap) keys() []id.User {
+	keyList := make([]id.User, 0)
+	(*sync.Map)(m).Range(func(key, value interface{}) bool {
+		keyList = append(keyList, key.(id.User))
+		return true
+	})
+	return keyList
+}
+
 // Stores an *E2EKey for given fingerprint
 func (m *inKeyMap) Store(fingerprint format.Fingerprint, key *E2EKey) {
 	(*sync.Map)(m).Store(fingerprint, key)
@@ -110,8 +121,9 @@ type KeyStore struct {
 	receptionKeys *inKeyMap
 
 	// Reception Key Managers map
-	recvKeyManagers map[id.User]*KeyManager
-	lock            sync.Mutex
+	recvKeyManagers map[id.User]*ReceptionKeyManagerBuffer
+
+	lock sync.Mutex
 }
 
 func NewStore() *KeyStore {
@@ -127,7 +139,7 @@ func NewStore() *KeyStore {
 	}
 	ks.sendKeyManagers = new(keyManMap)
 	ks.receptionKeys = new(inKeyMap)
-	ks.recvKeyManagers = make(map[id.User]*KeyManager)
+	ks.recvKeyManagers = make(map[id.User]*ReceptionKeyManagerBuffer)
 	return ks
 }
 
@@ -145,6 +157,11 @@ func (ks *KeyStore) AddSendManager(km *KeyManager) {
 // based on partner ID
 func (ks *KeyStore) GetSendManager(partner *id.User) *KeyManager {
 	return ks.sendKeyManagers.Load(partner)
+}
+
+// GetPartners returns the list of partners we have keys for
+func (ks *KeyStore) GetPartners() []id.User {
+	return ks.sendKeyManagers.keys()
 }
 
 // Delete a Send KeyManager from respective map in KeyStore
@@ -166,25 +183,30 @@ func (ks *KeyStore) GetRecvKey(fingerprint format.Fingerprint) *E2EKey {
 	return ks.receptionKeys.Pop(fingerprint)
 }
 
-// Delete multiple Receiving E2EKeys from the correct KeyStore map
-// based on a list of fingerprints
-func (ks *KeyStore) DeleteRecvKeyList(fingerprints []format.Fingerprint) {
-	ks.receptionKeys.DeleteList(fingerprints)
-}
-
 // Add a Receive KeyManager to respective map in KeyStore
 func (ks *KeyStore) AddRecvManager(km *KeyManager) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	ks.recvKeyManagers[*km.GetPartner()] = km
+
+	//ks.recvKeyManagers = km
+	keys, ok := ks.recvKeyManagers[*km.partner]
+
+	if ok {
+		toBeDeleted := keys.push(km)
+		ks.DeleteReceiveKeysByFingerprint(toBeDeleted)
+	} else {
+		newBuffer := NewReceptionKeyManagerBuffer()
+		newBuffer.push(km)
+		ks.recvKeyManagers[*km.partner] = newBuffer
+	}
 }
 
-// Get a Receive KeyManager from respective map in KeyStore
+// Gets the Key manager at the current location on the ReceptionKeyManagerBuffer
 // based on partner ID
 func (ks *KeyStore) GetRecvManager(partner *id.User) *KeyManager {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	return ks.recvKeyManagers[*partner]
+	return ks.recvKeyManagers[*partner].getCurrentReceptionKeyManager()
 }
 
 // Delete a Receive KeyManager based on partner ID from respective map in KeyStore
@@ -273,11 +295,37 @@ func (ks *KeyStore) GobDecode(in []byte) error {
 // calls GenerateKeys on each of them, in order to rebuild
 // the key maps
 func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.User) {
+
 	kmList := ks.sendKeyManagers.values()
 	for _, km := range kmList {
-		km.GenerateKeys(grp, userID, ks)
+		km.GenerateKeys(grp, userID)
+		ks.AddSendManager(km)
 	}
-	for _, km := range ks.recvKeyManagers {
-		km.GenerateKeys(grp, userID, ks)
+
+	for _, kmb := range ks.recvKeyManagers {
+		for _, km := range kmb.managers {
+			if km != nil {
+				e2eKeys := km.GenerateKeys(grp, userID)
+				ks.AddReceiveKeysByFingerprint(e2eKeys)
+			}
+		}
 	}
+}
+
+func (ks *KeyStore) DeleteReceiveKeysByFingerprint(toBeDeleted []format.Fingerprint) {
+	if len(toBeDeleted) != 0 {
+		ks.receptionKeys.DeleteList(toBeDeleted)
+	}
+}
+
+func (ks *KeyStore) AddReceiveKeysByFingerprint(newKeys []*E2EKey) {
+	for _, key := range newKeys {
+		ks.AddRecvKey(key.KeyFingerprint(), key)
+	}
+}
+
+// Delete multiple Receiving E2EKeys from the correct KeyStore map
+// based on a list of fingerprints
+func (ks *KeyStore) DeleteRecvKeyList(fingerprints []format.Fingerprint) {
+	ks.receptionKeys.DeleteList(fingerprints)
 }

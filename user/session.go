@@ -8,20 +8,23 @@ package user
 
 import (
 	"bytes"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/sha256"
 	"encoding/gob"
 	"errors"
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/circuit"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"math/rand"
+	"io"
 	"sync"
-	"time"
 )
 
 // Errors
@@ -33,8 +36,10 @@ type Session interface {
 	GetKeys(topology *circuit.Circuit) []NodeKeys
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
-	GetDHPrivateKey() *cyclic.Int
-	GetDHPublicKey() *cyclic.Int
+	GetCMIXDHPrivateKey() *cyclic.Int
+	GetCMIXDHPublicKey() *cyclic.Int
+	GetE2EDHPrivateKey() *cyclic.Int
+	GetE2EDHPublicKey() *cyclic.Int
 	GetCmixGroup() *cyclic.Group
 	GetE2EGroup() *cyclic.Group
 	GetLastMessageID() string
@@ -47,10 +52,14 @@ type Session interface {
 	GetKeyStore() *keyStore.KeyStore
 	GetRekeyManager() *keyStore.RekeyManager
 	GetSwitchboard() *switchboard.Switchboard
-	GetQuitChan() chan bool
+	GetQuitChan() chan struct{}
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
+	GetRegistrationValidationSignature() []byte
+	GetNodes() map[id.Node]int
+	AppendGarbledMessage(messages ...*format.Message)
+	PopGarbledMessages() []*format.Message
 }
 
 type NodeKeys struct {
@@ -63,88 +72,80 @@ func NewSession(store globals.Storage,
 	u *User, nk map[id.Node]NodeKeys,
 	publicKeyRSA *rsa.PublicKey,
 	privateKeyRSA *rsa.PrivateKey,
-	publicKeyDH *cyclic.Int,
-	privateKeyDH *cyclic.Int,
-	cmixGrp, e2eGrp *cyclic.Group) Session {
-
+	cmixPublicKeyDH *cyclic.Int,
+	cmixPrivateKeyDH *cyclic.Int,
+	e2ePublicKeyDH *cyclic.Int,
+	e2ePrivateKeyDH *cyclic.Int,
+	cmixGrp, e2eGrp *cyclic.Group,
+	password string,
+	regSignature []byte) Session {
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		CurrentUser:         u,
-		Keys:                nk,
-		RSAPublicKey:        publicKeyRSA,
-		RSAPrivateKey:       privateKeyRSA,
-		DHPublicKey:         publicKeyDH,
-		DHPrivateKey:        privateKeyDH,
-		CmixGrp:             cmixGrp,
-		E2EGrp:              e2eGrp,
-		InterfaceMap:        make(map[string]interface{}),
-		KeyMaps:             keyStore.NewStore(),
-		RekeyManager:        keyStore.NewRekeyManager(),
-		store:               store,
-		listeners:           switchboard.NewSwitchboard(),
-		quitReceptionRunner: make(chan bool),
+		CurrentUser:            u,
+		Keys:                   nk,
+		RSAPublicKey:           publicKeyRSA,
+		RSAPrivateKey:          privateKeyRSA,
+		CMIXDHPublicKey:        cmixPublicKeyDH,
+		CMIXDHPrivateKey:       cmixPrivateKeyDH,
+		E2EDHPublicKey:         e2ePublicKeyDH,
+		E2EDHPrivateKey:        e2ePrivateKeyDH,
+		CmixGrp:                cmixGrp,
+		E2EGrp:                 e2eGrp,
+		InterfaceMap:           make(map[string]interface{}),
+		KeyMaps:                keyStore.NewStore(),
+		RekeyManager:           keyStore.NewRekeyManager(),
+		store:                  store,
+		listeners:              switchboard.NewSwitchboard(),
+		quitReceptionRunner:    make(chan struct{}),
+		password:               password,
+		regValidationSignature: regSignature,
 	})
 }
 
 func LoadSession(store globals.Storage,
-	UID *id.User) (Session, error) {
+	password string) (Session, error) {
 	if store == nil {
-		err := errors.New("LoadSession: Local Storage not avalible")
+		err := errors.New("LoadSession: Local Storage not available")
 		return nil, err
 	}
 
-	rand.Seed(time.Now().UnixNano())
-
 	sessionGob := store.Load()
+
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Could not decode the "+
+			"session file %+v", err))
+	}
 
 	var sessionBytes bytes.Buffer
 
-	sessionBytes.Write(sessionGob)
+	sessionBytes.Write(decryptedSessionGob)
 
 	dec := gob.NewDecoder(&sessionBytes)
 
 	session := SessionObj{}
 
-	err := dec.Decode(&session)
+	err = dec.Decode(&session)
 
 	if err != nil {
-		err = errors.New(fmt.Sprintf("LoadSession: unable to load session: %s", err.Error()))
-		return nil, err
-	}
-
-	// FIXME We got a nil pointer dereference on the next lines but I haven't
-	// been able to reproduce it. We should investigate why either of these
-	// could be nil at this point. If you manage to reproduce the dereference
-	// and you have the time, please try to figure out what's going on.
-	// I suspect the client was loading some sort of malformed session gob,
-	// and we need to fail faster in the case that a malformed gob got loaded.
-	if session.CurrentUser.User == nil && UID == nil {
-		jww.ERROR.Panic("Dereferencing nil session.CurrentUser.User AND UID")
-	} else if session.CurrentUser.User == nil {
-		jww.ERROR.Panic("Dereferencing nil session.CurrentUser.User")
-	} else if UID == nil {
-		jww.ERROR.Panic("Dereferencing nil param UID")
-	}
-
-	// Line of the actual crash
-	if *session.CurrentUser.User != *UID {
 		err = errors.New(fmt.Sprintf(
-			"LoadSession: loaded incorrect "+
-				"user; Expected: %q; Received: %q",
-			*session.CurrentUser.User, *UID))
+			"LoadSession: unable to load session: %s", err.Error()))
 		return nil, err
 	}
 
 	// Reconstruct Key maps
-	session.KeyMaps.ReconstructKeys(session.E2EGrp, UID)
+	session.KeyMaps.ReconstructKeys(session.E2EGrp,
+		session.CurrentUser.User)
 
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
-	session.quitReceptionRunner = make(chan bool)
+	session.quitReceptionRunner = make(chan struct{})
 
 	// Set storage pointer
 	session.store = store
+	session.password = password
 	return &session, nil
 }
 
@@ -153,13 +154,15 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	Keys          map[id.Node]NodeKeys
-	RSAPrivateKey *rsa.PrivateKey
-	RSAPublicKey  *rsa.PublicKey
-	DHPrivateKey  *cyclic.Int
-	DHPublicKey   *cyclic.Int
-	CmixGrp       *cyclic.Group
-	E2EGrp        *cyclic.Group
+	Keys             map[id.Node]NodeKeys
+	RSAPrivateKey    *rsa.PrivateKey
+	RSAPublicKey     *rsa.PublicKey
+	CMIXDHPrivateKey *cyclic.Int
+	CMIXDHPublicKey  *cyclic.Int
+	E2EDHPrivateKey  *cyclic.Int
+	E2EDHPublicKey   *cyclic.Int
+	CmixGrp          *cyclic.Group
+	E2EGrp           *cyclic.Group
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -181,9 +184,18 @@ type SessionObj struct {
 	listeners *switchboard.Switchboard
 
 	// Quit channel for message reception runner
-	quitReceptionRunner chan bool
+	quitReceptionRunner chan struct{}
 
 	lock sync.Mutex
+
+	// The password used to encrypt this session when saved
+	password string
+
+	//The validation signature provided by permissioning
+	regValidationSignature []byte
+
+	// Buffer of messages that cannot be decrypted
+	garbledMessages []*format.Message
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -196,6 +208,16 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.LockStorage()
 	s.LastMessageID = id
 	s.UnlockStorage()
+}
+
+func (s *SessionObj) GetNodes() map[id.Node]int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	nodes := make(map[id.Node]int, 0)
+	for node, _ := range s.Keys {
+		nodes[node] = 1
+	}
+	return nodes
 }
 
 func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
@@ -223,22 +245,40 @@ func (s *SessionObj) GetRSAPublicKey() *rsa.PublicKey {
 	return s.RSAPublicKey
 }
 
-func (s *SessionObj) GetDHPrivateKey() *cyclic.Int {
+func (s *SessionObj) GetCMIXDHPrivateKey() *cyclic.Int {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.DHPrivateKey
+	return s.CMIXDHPrivateKey
 }
 
-func (s *SessionObj) GetDHPublicKey() *cyclic.Int {
+func (s *SessionObj) GetCMIXDHPublicKey() *cyclic.Int {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.DHPublicKey
+	return s.CMIXDHPublicKey
+}
+
+func (s *SessionObj) GetE2EDHPrivateKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.E2EDHPrivateKey
+}
+
+func (s *SessionObj) GetE2EDHPublicKey() *cyclic.Int {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.E2EDHPublicKey
 }
 
 func (s *SessionObj) GetCmixGroup() *cyclic.Group {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.CmixGrp
+}
+
+func (s *SessionObj) GetRegistrationValidationSignature() []byte {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.regValidationSignature
 }
 
 func (s *SessionObj) GetE2EGroup() *cyclic.Group {
@@ -271,18 +311,14 @@ func (s *SessionObj) storeSession() error {
 	}
 
 	sessionData, err := s.getSessionData()
-	err = s.store.Save(sessionData)
-	if err != nil {
-		return err
-	}
+	err = s.store.Save(encrypt(sessionData, s.password))
 
 	if err != nil {
 		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
 			" session: %s", err.Error()))
-		return err
 	}
 
-	return nil
+	return err
 
 }
 
@@ -362,7 +398,7 @@ func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
 	return s.listeners
 }
 
-func (s *SessionObj) GetQuitChan() chan bool {
+func (s *SessionObj) GetQuitChan() chan struct{} {
 	return s.quitReceptionRunner
 }
 
@@ -404,4 +440,61 @@ func burntString(length int) string {
 	rand.Read(b)
 
 	return string(b)
+}
+
+// Internal crypto helper functions below
+
+func hashPassword(password string) []byte {
+	hasher := sha256.New()
+	hasher.Write([]byte(password))
+	return hasher.Sum(nil)
+}
+
+func initAESGCM(password string) cipher.AEAD {
+	aesCipher, _ := aes.NewCipher(hashPassword(password))
+	// NOTE: We use gcm as it's authenticated and simplest to set up
+	aesGCM, err := cipher.NewGCM(aesCipher)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not init AES GCM mode: %s",
+			err.Error())
+	}
+	return aesGCM
+}
+
+func encrypt(data []byte, password string) []byte {
+	aesGCM := initAESGCM(password)
+	nonce := make([]byte, aesGCM.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		globals.Log.FATAL.Panicf("Could not generate nonce: %s",
+			err.Error())
+	}
+	ciphertext := aesGCM.Seal(nonce, nonce, data, nil)
+	return ciphertext
+}
+
+func decrypt(data []byte, password string) ([]byte, error) {
+	aesGCM := initAESGCM(password)
+	nonceLen := aesGCM.NonceSize()
+	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
+	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Cannot decrypt with password!"+
+			" %s", err.Error()))
+	}
+	return plaintext, nil
+}
+
+// AppendGarbledMessage appends a message or messages to the garbled message
+// buffer.
+// FIXME: improve performance of adding items to the buffer
+func (s *SessionObj) AppendGarbledMessage(messages ...*format.Message) {
+	s.garbledMessages = append(s.garbledMessages, messages...)
+}
+
+// PopGarbledMessages returns the content of the garbled message buffer and
+// deletes its contents.
+func (s *SessionObj) PopGarbledMessages() []*format.Message {
+	tempBuffer := s.garbledMessages
+	s.garbledMessages = []*format.Message{}
+	return tempBuffer
 }

@@ -1,10 +1,9 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-// io sends and receives messages using gRPC
 package io
 
 import (
@@ -18,6 +17,7 @@ import (
 // Communication interface implements send/receive functionality with the server
 type Communications interface {
 	// SendMessage to the server
+
 	// TODO(nen) Can we get rid of the crypto type param here?
 	SendMessage(session user.Session, topology *circuit.Circuit,
 		recipientID *id.User, cryptoType parse.CryptoType, message []byte) error
@@ -26,5 +26,5 @@ type Communications interface {
 	SendMessageNoPartition(session user.Session, topology *circuit.Circuit,
 		recipientID *id.User, cryptoType parse.CryptoType, message []byte) error
 	// MessageReceiver thread to get new messages
-	MessageReceiver(session user.Session, delay time.Duration)
+	MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{})
 }

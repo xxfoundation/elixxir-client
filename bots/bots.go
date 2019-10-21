@@ -13,7 +13,7 @@ import (
 
 var session user.Session
 var topology *circuit.Circuit
-var messaging io.Communications
+var comms io.Communications
 
 // UdbID is the ID of the user discovery bot, which is always 3
 var UdbID *id.User
@@ -49,19 +49,22 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *circuit.Circuit) {
-	UdbID = id.NewUserFromUints(&[4]uint64{0, 0, 0, 3})
+func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *id.User) {
+	UdbID = udbID
 
-	pushKeyResponseListener = make(channelResponseListener)
-	getKeyResponseListener = make(channelResponseListener)
-	registerResponseListener = make(channelResponseListener)
-	searchResponseListener = make(channelResponseListener)
+	// FIXME: these all need to be used in non-blocking threads if we are
+	// going to do it this way...
+	msgBufSize := 100
+	pushKeyResponseListener = make(channelResponseListener, msgBufSize)
+	getKeyResponseListener = make(channelResponseListener, msgBufSize)
+	registerResponseListener = make(channelResponseListener, msgBufSize)
+	searchResponseListener = make(channelResponseListener, msgBufSize)
 	nicknameRequestListener = nickReqListener{}
-	nicknameResponseListener = make(channelResponseListener)
+	nicknameResponseListener = make(channelResponseListener, msgBufSize)
 
 	session = s
 	topology = top
-	messaging = m
+	comms = m
 	l := session.GetSwitchboard()
 
 	l.Register(UdbID, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
@@ -82,7 +85,7 @@ func InitBots(s user.Session, m io.Communications, top *circuit.Circuit) {
 // Callers that need to wait on a response should implement waiting with a
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
-	return messaging.SendMessage(session, topology, botID,
+	return comms.SendMessage(session, topology, botID,
 		parse.Unencrypted, command)
 }
 

@@ -752,6 +752,8 @@ func (cl *Client) SearchForUser(emailAddress string,
 		if err == nil && uid != nil && pubKey != nil {
 			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
 			err = cl.registerUserE2E(uid, pubKey)
+			// If there is something in the channel then send it; otherwise,
+			// skip over it
 			select {
 			case cl.rekeyChan <- struct{}{}:
 			default:

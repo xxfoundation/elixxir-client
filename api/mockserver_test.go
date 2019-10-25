@@ -27,6 +27,7 @@ const GWsStartPort = 7900
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
+var NDFErrorReg = MockRegNoNDF{}
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
@@ -402,7 +403,6 @@ func startServers() {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		fmt.Printf("started gw: %v", gw.Address)
 		GWComms[i] = gateway.StartGateway(gw.Address,
 			handler, nil, nil)
 	}

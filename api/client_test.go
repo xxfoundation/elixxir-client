@@ -8,12 +8,16 @@ package api
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/gateway"
+	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -24,6 +28,7 @@ import (
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"reflect"
 	"testing"
 	"time"
@@ -106,6 +111,64 @@ func TestClient_Register(t *testing.T) {
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
 	killServers()
+}
+
+// Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
+type MockRegNoNDF struct {
+}
+
+func (s *MockRegNoNDF) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+
+func (s *MockRegNoNDF) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
+
+	return nil, errors.New(errMsg)
+}
+
+// Registers a user and returns a signed public key
+func (s *MockRegNoNDF) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (s *MockRegNoNDF) GetCurrentClientVersion() (version string, err error) {
+	return globals.SEMVER, nil
+}
+
+func TestClient_Register_NoNDFReturned(t *testing.T) {
+	RegComms = registration.StartRegistrationServer(def.Registration.Address,
+		&NDFErrorReg, nil, nil)
+	def.Gateways = make([]ndf.Gateway, 0)
+
+	//Start up gateways
+	for i, handler := range RegGWHandlers {
+
+		gw := ndf.Gateway{
+			Address: fmtAddress(GWsStartPort + i),
+		}
+
+		def.Gateways = append(def.Gateways, gw)
+		GWComms[i] = gateway.StartGateway(gw.Address,
+			handler, nil, nil)
+	}
+
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error path, should not have gotted ndf from connect")
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {

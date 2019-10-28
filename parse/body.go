@@ -8,7 +8,7 @@ package parse
 
 import (
 	"encoding/binary"
-	"errors"
+	"github.com/pkg/errors"
 )
 
 // To allow mobile to bind this module if necessary, we'll return the two parts

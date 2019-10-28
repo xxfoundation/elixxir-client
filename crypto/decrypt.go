@@ -7,7 +7,7 @@
 package crypto
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"

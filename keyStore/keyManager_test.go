@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/gob"
-	"errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
-	"reflect"
 	"testing"
 )
 
@@ -459,7 +458,7 @@ func TestKeyManager_GobDecodeError(t *testing.T) {
 	km := KeyManager{}
 	err := km.GobDecode([]byte{})
 
-	if !reflect.DeepEqual(err, errors.New("EOF")) {
+	if err.Error() != "EOF" {
 		t.Errorf("GobDecode() did not produce the expected error\n\treceived: %v"+
 			"\n\texpected: %v", err, errors.New("EOF"))
 	}

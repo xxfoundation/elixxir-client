@@ -134,7 +134,7 @@ func requestNdf(cl *Client) error {
 
 	if err != nil {
 		//lets the client continue when permissioning does not provide NDFs
-		if err == noNDFErr {
+		if err.Error() == noNDFErr.Error() {
 			globals.Log.WARN.Println("Continuing without an updated NDF")
 			return nil
 		}

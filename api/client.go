@@ -51,6 +51,8 @@ type Client struct {
 	rekeyChan   chan struct{}
 }
 
+var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code = Unknown desc = Permissioning server does not have an ndf to give to client")
+
 //used to report the state of registration
 type OperationProgressCallback func(int)
 
@@ -131,6 +133,12 @@ func requestNdf(cl *Client) error {
 	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
 
 	if err != nil {
+		//lets the client continue when permissioning does not provide NDFs
+		if err.Error() == noNDFErr.Error() {
+			globals.Log.WARN.Println("Continuing without an updated NDF")
+			return nil
+		}
+
 		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
 		globals.Log.ERROR.Printf(errMsg)
 		return errors.New(errMsg)
@@ -752,13 +760,26 @@ func (cl *Client) SearchForUser(emailAddress string,
 		if err == nil && uid != nil && pubKey != nil {
 			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
 			err = cl.registerUserE2E(uid, pubKey)
+			if err != nil {
+				cb.Callback(uid[:], pubKey, err)
+				return
+			}
+
+			err = cl.session.StoreSession()
+			if err != nil {
+				cb.Callback(uid[:], pubKey, err)
+				return
+			}
+
 			// If there is something in the channel then send it; otherwise,
 			// skip over it
 			select {
 			case cl.rekeyChan <- struct{}{}:
 			default:
 			}
+
 			cb.Callback(uid[:], pubKey, err)
+
 		} else {
 			if err == nil {
 				globals.Log.INFO.Printf("UDB Search for email %s failed: user not found", emailAddress)

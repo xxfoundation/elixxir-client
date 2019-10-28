@@ -7,7 +7,7 @@
 package bindings
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"

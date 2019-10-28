@@ -9,8 +9,8 @@ package bots
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"

@@ -8,8 +8,8 @@ package parse
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/primitives/format"
 	"math"

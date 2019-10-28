@@ -155,14 +155,14 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 	//REVIEWER NOTE: Possibly need to remove/rearrange this,
 	// now that client may not know gw's upon client creation
-	gateways := client.GetNDF().Gateways
+	/*gateways := client.GetNDF().Gateways
 	// If gwAddr was not passed via command line, check config file
 	if len(gateways) < 1 {
 		// No gateways in config file or passed via command line
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
 		return id.ZeroID, "", nil
-	}
+	}*/
 
 	if noTLS {
 		client.DisableTLS()

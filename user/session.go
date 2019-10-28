@@ -305,6 +305,8 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 
 func (s *SessionObj) storeSession() error {
 
+	fmt.Println("storing Session")
+
 	if s.store == nil {
 		err := errors.New("StoreSession: Local Storage not available")
 		return err

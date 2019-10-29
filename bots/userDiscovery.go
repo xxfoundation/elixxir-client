@@ -63,11 +63,9 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 		if regResult != "REGISTRATION COMPLETE" {
 			return fmt.Errorf("Registration failed: %s", regResult)
 		}
-		return nil
-	} else {
-		return err
 	}
-	return nil
+
+	return err
 }
 
 // Search returns a userID and public key based on the search criteria

@@ -457,29 +457,3 @@ func getNDF() *ndf.NetworkDefinition {
 		},
 	}
 }
-
-func startServers() {
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
-	def.Gateways = make([]ndf.Gateway, 0)
-
-	//Start up gateways
-	for i, handler := range RegGWHandlers {
-
-		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i),
-		}
-
-		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
-	}
-}
-
-func disconnectServers() {
-	for _, gw := range GWComms {
-		gw.DisconnectAll()
-
-	}
-	RegComms.DisconnectAll()
-}

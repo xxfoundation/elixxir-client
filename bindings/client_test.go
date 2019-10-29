@@ -131,9 +131,7 @@ func TestNewClient(t *testing.T) {
 	} else if client == nil {
 		t.Errorf("NewClient returned nil Client object")
 	}
-	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
-	}
+
 }
 
 func TestRegister(t *testing.T) {
@@ -143,10 +141,10 @@ func TestRegister(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
-	client.DisableTLS()
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
+	client.DisableTLS()
 
 	err = client.Connect()
 	if err != nil {
@@ -160,9 +158,6 @@ func TestRegister(t *testing.T) {
 	}
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
-	}
-	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
 	}
 }
 
@@ -201,9 +196,6 @@ func TestLoginLogout(t *testing.T) {
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err3.Error())
 	}
-	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
-	}
 }
 
 type MockListener bool
@@ -220,6 +212,9 @@ func TestListen(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Error starting client: %+v", err)
+	}
 	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
@@ -249,9 +244,6 @@ func TestListen(t *testing.T) {
 	if !listener {
 		t.Error("Message not received")
 	}
-	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
-	}
 }
 
 func TestStopListening(t *testing.T) {
@@ -261,6 +253,9 @@ func TestStopListening(t *testing.T) {
 	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", ndfStr, pubKey,
 		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Error starting client: %+v", err)
+	}
 	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
@@ -382,16 +377,14 @@ func testMainWrapper(m *testing.M) int {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			gateway.NewImplementation(), nil, nil)
+		//GWComms[i] = gateway.StartGateway(gw.Address, gateway.NewImplementation(), nil, nil)
 	}
 
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
+	//RegComms = registration.StartRegistrationServer(def.Registration.Address, &RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)

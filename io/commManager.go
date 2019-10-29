@@ -192,6 +192,7 @@ func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.Ne
 	//Send the hash to registration
 	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
 	if err != nil {
+		fmt.Println("lolololololol")
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return nil, errors.New(errMsg)
 	}

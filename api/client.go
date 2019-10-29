@@ -131,7 +131,6 @@ func requestNdf(cl *Client) error {
 	// Continuously polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
 	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
-
 	if err != nil {
 		//lets the client continue when permissioning does not provide NDFs
 		if err.Error() == noNDFErr.Error() {
@@ -517,9 +516,9 @@ func (cl *Client) RegisterWithUDB() error {
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
 		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus)
-		if err==nil{
+		if err == nil {
 			globals.Log.INFO.Printf("Registered with UDB!")
-		}else{
+		} else {
 			globals.Log.WARN.Printf("Could not register with UDB: %s", err)
 		}
 

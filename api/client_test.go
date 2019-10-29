@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/gateway"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -41,8 +40,6 @@ func dummyConnectionStatusHandler(status uint32, timeout int) {
 }
 
 func TestRegistrationGob(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
@@ -72,14 +69,11 @@ func TestRegistrationGob(t *testing.T) {
 	VerifyRegisterGobUser(Session, t)
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
 
-	killServers()
+	disconnectServers()
 }
 
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	//Make mock client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
@@ -110,7 +104,7 @@ func TestClient_Register(t *testing.T) {
 
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
-	killServers()
+	disconnectServers()
 }
 
 // Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
@@ -124,7 +118,6 @@ func (s *MockRegNoNDF) RegisterNode(ID []byte,
 
 func (s *MockRegNoNDF) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
 	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
-
 	return nil, errors.New(errMsg)
 }
 
@@ -138,21 +131,20 @@ func (s *MockRegNoNDF) GetCurrentClientVersion() (version string, err error) {
 	return globals.SEMVER, nil
 }
 
-func TestClient_Register_NoNDFReturned(t *testing.T) {
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&NDFErrorReg, nil, nil)
+func TestClient_Register_NoUpdatingNDF(t *testing.T) {
+	noNdfDef := def
+	noNdfDef.Registration.Address = "0.0.0.0:50001"
+	RegComms = registration.StartRegistrationServer(noNdfDef.Registration.Address, &NDFErrorReg, nil, nil)
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways
-	for i, handler := range RegGWHandlers {
+	for i, _ := range RegGWHandlers {
 
 		gw := ndf.Gateway{
 			Address: fmtAddress(GWsStartPort + i),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
 	}
 
 	//Make mock client
@@ -166,9 +158,8 @@ func TestClient_Register_NoNDFReturned(t *testing.T) {
 
 	err = testClient.Connect()
 	if err != nil {
-		return
+		t.Errorf("Expected error path, should not have gotted ndf from connect")
 	}
-	t.Errorf("Expected error path, should not have gotted ndf from connect")
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -289,9 +280,6 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -378,14 +366,11 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -531,14 +516,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetKey().Text(10))
 		}
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
@@ -561,13 +543,11 @@ func TestClient_precannedRegister(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
@@ -592,14 +572,11 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	cmixGrp, _ := getGroups()
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
@@ -631,13 +608,11 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
 
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 
 	testClient, err := NewClient(&globals.RamStorage{}, "", def,
 		dummyConnectionStatusHandler)
@@ -657,7 +632,7 @@ func TestClient_confirmNonce(t *testing.T) {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

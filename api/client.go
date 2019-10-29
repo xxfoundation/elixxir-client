@@ -517,7 +517,12 @@ func (cl *Client) RegisterWithUDB() error {
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
 		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus)
-		globals.Log.INFO.Printf("Registered with UDB!")
+		if err==nil{
+			globals.Log.INFO.Printf("Registered with UDB!")
+		}else{
+			globals.Log.WARN.Printf("Could not register with UDB: %s", err)
+		}
+
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
 			"email found")

@@ -41,14 +41,11 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 
 	regStatus(globals.UDB_REG_PUSHKEY)
 
-	// check if key already exists and push one if it doesn't
+	// push key and error if it already exists
 	err = pushKey(UdbID, keyFP, publicKey)
+
 	if err != nil {
 		errStr := err.Error()
-		if strings.HasSuffix(errStr, "key already exists") {
-			// Already registered
-			return nil
-		}
 		return fmt.Errorf("Could not PUSHKEY: %s", errStr)
 	}
 
@@ -70,6 +67,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 	} else {
 		return err
 	}
+	return nil
 }
 
 // Search returns a userID and public key based on the search criteria
@@ -202,6 +200,7 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 		Body:        []byte(pushKeyMsg),
 	}))
 	response := <-pushKeyResponseListener
+
 	if response != expected {
 		return fmt.Errorf("PUSHKEY Failed: %s", response)
 	}

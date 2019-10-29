@@ -6,7 +6,7 @@ setup:
 update:
 	rm -rf vendor/
 	go mod vendor
-	GOFLAGS="" go get -u
+	GOFLAGS="" go get -u all
 
 build:
 	go build ./...

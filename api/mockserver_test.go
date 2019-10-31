@@ -24,13 +24,16 @@ const NumNodes = 3
 const NumGWs = NumNodes
 const RegPort = 5000
 const GWsStartPort = 7900
+const PermErrorServerPort = 4000
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
-var NDFErrorReg = MockRegNoNDF{}
+var NDFErrorReg = MockPerm_NDF_ErrorCase{}
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
+
+const InvalidClientVersion = "1.1.0"
 
 var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 	{LastReceivedMessage: pb.Slot{}},
@@ -40,6 +43,7 @@ var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 var GWComms [NumGWs]*gateway.GatewayComms
 
 var def *ndf.NetworkDefinition
+var errorDef *ndf.NetworkDefinition
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
@@ -312,10 +316,13 @@ func TestLogout(t *testing.T) {
 func testMainWrapper(m *testing.M) int {
 
 	def = getNDF()
-
+	errorDef = getNDF()
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
+	}
+	errorDef.Registration = ndf.Registration{
+		Address: fmtAddress(PermErrorServerPort),
 	}
 
 	for i := 0; i < NumNodes; i++ {
@@ -325,6 +332,7 @@ func testMainWrapper(m *testing.M) int {
 			ID: nIdBytes,
 		}
 		def.Nodes = append(def.Nodes, n)
+		errorDef.Nodes = append(errorDef.Nodes, n)
 	}
 	startServers()
 	defer testWrapperShutdown()

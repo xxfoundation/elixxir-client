@@ -30,6 +30,47 @@ import (
 	"time"
 )
 
+type mockMesssage struct {
+	parse.TypedBody
+	// The crypto type is inferred from the message's contents
+	InferredType parse.CryptoType
+	Sender       *id.User
+	Receiver     *id.User
+	Nonce        []byte
+	Timestamp    time.Time
+}
+
+// Returns the message's sender ID
+func (m mockMesssage) GetSender() []byte {
+	return m.Sender.Bytes()
+}
+
+// Returns the message payload
+// Parse this with protobuf/whatever according to the type of the message
+func (m mockMesssage) GetPayload() []byte {
+	return m.TypedBody.Body
+}
+
+// Returns the message's recipient ID
+func (m mockMesssage) GetRecipient() []byte {
+	return m.Receiver.Bytes()
+}
+
+// Returns the message's type
+func (m mockMesssage) GetMessageType() int32 {
+	return m.TypedBody.MessageType
+}
+
+// Returns the message's timestamp in seconds since unix epoc
+func (m mockMesssage) GetTimestamp() int64 {
+	return m.Timestamp.Unix()
+}
+
+// Returns the message's timestamp in ns since unix epoc
+func (m mockMesssage) GetTimestampNano() int64 {
+	return m.Timestamp.UnixNano()
+}
+
 const NumNodes = 3
 const NumGWs = NumNodes
 const GWsStartPort = 6900
@@ -123,6 +164,7 @@ func TestNewClientNil(t *testing.T) {
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
 	}
+	disconnectServers()
 }
 
 func TestNewClient(t *testing.T) {
@@ -137,7 +179,7 @@ func TestNewClient(t *testing.T) {
 	} else if client == nil {
 		t.Errorf("NewClient returned nil Client object")
 	}
-
+	disconnectServers()
 }
 
 func TestRegister(t *testing.T) {
@@ -165,6 +207,77 @@ func TestRegister(t *testing.T) {
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
+	disconnectServers()
+}
+
+func TestClient_Send(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	newClient, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+	newClient.DisableTLS()
+
+	err = newClient.Connect()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	// Register with a valid registration code
+	userID, err := newClient.Register(true, ValidRegCode, "", "", "password")
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	// Login to gateway
+	_, err = newClient.Login(userID, "password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = newClient.StartMessageReceiver()
+
+	if err != nil {
+		t.Errorf("Could not start message reception: %+v", err)
+	}
+
+	// Test send with invalid sender ID
+	err = newClient.Send(
+		mockMesssage{
+			Sender:    id.NewUserFromUint(12, t),
+			TypedBody: parse.TypedBody{Body: []byte("test")},
+			Receiver:  id.NewUserFromBytes(userID),
+		}, false)
+
+	if err != nil {
+		// TODO: would be nice to catch the sender but we
+		// don't have the interface/mocking for that.
+		t.Errorf("error on first message send: %+v", err)
+	}
+
+	// Test send with valid inputs
+	err = newClient.Send(
+		mockMesssage{
+			Sender:    id.NewUserFromBytes(userID),
+			TypedBody: parse.TypedBody{Body: []byte("test")},
+			Receiver:  newClient.client.GetCurrentUser(),
+		}, false)
+
+	if err != nil {
+		t.Errorf("Error sending message: %v", err)
+	}
+
+	err = newClient.Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+	disconnectServers()
 }
 
 func TestLoginLogout(t *testing.T) {
@@ -202,6 +315,7 @@ func TestLoginLogout(t *testing.T) {
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err3.Error())
 	}
+	disconnectServers()
 }
 
 type MockListener bool
@@ -250,6 +364,7 @@ func TestListen(t *testing.T) {
 	if !listener {
 		t.Error("Message not received")
 	}
+	disconnectServers()
 }
 
 func TestStopListening(t *testing.T) {
@@ -293,6 +408,7 @@ func TestStopListening(t *testing.T) {
 	if listener {
 		t.Error("Message was received after we stopped listening for it")
 	}
+	disconnectServers()
 }
 
 type MockWriter struct {
@@ -362,6 +478,38 @@ func getNDFJSONStr(netDef *ndf.NetworkDefinition, t *testing.T) (string, string)
 	ndfStr := string(ndfBytes) + "\n" + base64.StdEncoding.EncodeToString(signature) + "\n"
 
 	return ndfStr, "-----BEGIN CERTIFICATE-----\n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\n-----END CERTIFICATE-----\n"
+}
+
+func TestClient_GetNetworkStatus_FullyConnected(t *testing.T) {
+	expectedCompleteConnStatus := int64(3)
+	expectedNotConnected := int64(0)
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Error starting client: %+v", err)
+	}
+
+	observedConnStatus := client.GetNetworkStatus()
+	if observedConnStatus != expectedNotConnected {
+		t.Errorf("Unexpected connection status! Expected: %v Recieved: %v",
+			expectedNotConnected, observedConnStatus)
+	}
+	client.DisableTLS()
+	// Connect to gateway
+	err = client.Connect()
+
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	observedConnStatus = client.GetNetworkStatus()
+	if observedConnStatus != expectedCompleteConnStatus {
+		t.Errorf("Unexpected connection status! Expected: %v Recieved: %v",
+			expectedCompleteConnStatus, observedConnStatus)
+	}
 }
 
 // Handles initialization of mock registration server,
@@ -455,24 +603,6 @@ func getNDF() *ndf.NetworkDefinition {
 			Address:        fmt.Sprintf("0.0.0.0:%d", 5000+rand.Intn(1000)),
 			TlsCertificate: "",
 		},
-	}
-}
-
-func startServers() {
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
-	def.Gateways = make([]ndf.Gateway, 0)
-
-	//Start up gateways
-	for i, handler := range RegGWHandlers {
-
-		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i),
-		}
-
-		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
 	}
 }
 

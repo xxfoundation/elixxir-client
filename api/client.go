@@ -230,7 +230,6 @@ func (cl *Client) Connect() error {
 		if err != nil {
 			return err
 		}
-
 		//Request a new ndf from
 		err = requestNdf(cl)
 		if err != nil {
@@ -248,7 +247,6 @@ func (cl *Client) Connect() error {
 	}
 
 	cl.topology = circuit.New(nodeIDs)
-
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.commManager.GetRegistrationVersion() != "" {

@@ -8,6 +8,7 @@ package api
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
@@ -37,6 +38,80 @@ var TestKeySize = 768
 
 func dummyConnectionStatusHandler(status uint32, timeout int) {
 	return
+}
+
+// Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
+type MockPerm_NDF_ErrorCase struct {
+}
+
+func (s *MockPerm_NDF_ErrorCase) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+
+func (s *MockPerm_NDF_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
+	return nil, errors.New(errMsg)
+}
+
+// Registers a user and returns a signed public key
+func (s *MockPerm_NDF_ErrorCase) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (s *MockPerm_NDF_ErrorCase) GetCurrentClientVersion() (version string, err error) {
+	return globals.SEMVER, nil
+}
+
+// Blank struct implementing Registration Handler interface for testing purposes (Error cases)
+type MockPerm_CheckVersion_ErrorCase struct {
+}
+
+func (s *MockPerm_CheckVersion_ErrorCase) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+
+func (s *MockPerm_CheckVersion_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	ndfData := buildMockNDF()
+	ndfJson, _ := json.Marshal(ndfData)
+	return ndfJson, nil
+}
+
+// Registers a user and returns a signed public key
+func (s *MockPerm_CheckVersion_ErrorCase) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (s *MockPerm_CheckVersion_ErrorCase) GetCurrentClientVersion() (version string, err error) {
+	return globals.SEMVER, errors.New("Could not get version")
+}
+
+// Blank struct implementing Registration Handler interface for testing purposes (Incorrect Version)
+type MockPerm_CheckVersion_BadVersion struct {
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	ndfData := buildMockNDF()
+	ndfJson, _ := json.Marshal(ndfData)
+	return ndfJson, nil
+}
+
+// Registers a user and returns a signed public key
+func (s *MockPerm_CheckVersion_BadVersion) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) GetCurrentClientVersion() (version string, err error) {
+	return InvalidClientVersion, nil
 }
 
 func TestRegistrationGob(t *testing.T) {
@@ -107,34 +182,10 @@ func TestClient_Register(t *testing.T) {
 	disconnectServers()
 }
 
-// Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
-type MockRegNoNDF struct {
-}
-
-func (s *MockRegNoNDF) RegisterNode(ID []byte,
-	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
-	return nil
-}
-
-func (s *MockRegNoNDF) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
-	return nil, errors.New(errMsg)
-}
-
-// Registers a user and returns a signed public key
-func (s *MockRegNoNDF) RegisterUser(registrationCode,
-	key string) (hash []byte, err error) {
-	return nil, nil
-}
-
-func (s *MockRegNoNDF) GetCurrentClientVersion() (version string, err error) {
-	return globals.SEMVER, nil
-}
-
 func TestClient_Register_NoUpdatingNDF(t *testing.T) {
-	noNdfDef := def
-	noNdfDef.Registration.Address = "0.0.0.0:50001"
-	RegComms = registration.StartRegistrationServer(noNdfDef.Registration.Address, &NDFErrorReg, nil, nil)
+	mockRegError := registration.StartRegistrationServer(errorDef.Registration.Address, &NDFErrorReg,
+		nil, nil)
+	defer mockRegError.Shutdown()
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways
@@ -160,6 +211,50 @@ func TestClient_Register_NoUpdatingNDF(t *testing.T) {
 	if err != nil {
 		t.Errorf("Expected error path, should not have gotted ndf from connect")
 	}
+}
+
+//Error path: Force an error in connect through mockPerm_CheckVersion_ErrorCase
+func TestClient_CheckVersionErr(t *testing.T) {
+	mockRegError := registration.StartRegistrationServer(errorDef.Registration.Address,
+		&MockPerm_CheckVersion_ErrorCase{}, nil, nil)
+	defer mockRegError.Shutdown()
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", errorDef,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		return
+	}
+	t.Error("Expected error case: UpdateVersion should have returned an error")
+}
+
+//Error Path: Force error in connect by providing a bad version through mockPerm
+func TestClient_CheckVersion_BadVersion(t *testing.T) {
+	mockRegError := registration.StartRegistrationServer(errorDef.Registration.Address,
+		&MockPerm_CheckVersion_BadVersion{}, nil, nil)
+	defer mockRegError.Shutdown()
+
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", errorDef,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	//Check version here should return a version that does not match the global being checked
+	err = testClient.Connect()
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error case: Version from mock permissioning should not match expected")
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {

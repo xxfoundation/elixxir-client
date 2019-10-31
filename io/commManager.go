@@ -78,7 +78,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 
 	status := uint32(0)
 
-	cm := CommManager{
+	cm := &CommManager{
 		nextId:                   parse.IDCounter(),
 		collator:                 NewCollator(),
 		blockTransmissions:       true,
@@ -94,7 +94,9 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		connectionStatus:         &status,
 	}
 
-	return &cm
+	cm.Comms.ConnectionManager.SetMaxRetries(1)
+
+	return cm
 }
 
 // Connects to gateways using tls filepaths to create credential information
@@ -106,8 +108,6 @@ func (cm *CommManager) ConnectToGateways() error {
 	}
 
 	cm.setConnectionStatus(Connecting, 0)
-
-	cm.Comms.ConnectionManager.SetMaxRetries(1)
 
 	// connect to all gateways
 	var wg sync.WaitGroup

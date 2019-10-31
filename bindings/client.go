@@ -231,7 +231,7 @@ func (cl *Client) LookupNick(user []byte,
 	cl.client.LookupNick(userID, proxy)
 }
 
-// Parses a passed message.  Allows a message to be aprsed using the interal parser
+// Parses a passed message.  Allows a message to be parsed using the internal parser
 // across the Bindings
 func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)

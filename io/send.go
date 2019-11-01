@@ -64,7 +64,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 		message.Contents.SetRightAligned(parts[i])
 		err = cm.send(session, topology, cryptoType, message, false, transmitGateway)
 		if err != nil {
-			return errors.Wrap( err,"SendMessage send() error:")
+			return errors.Wrap(err, "SendMessage send() error:")
 		}
 	}
 	cm.lock.RUnlock()

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"math/big"
+	"strings"
 	"time"
 )
 
@@ -52,46 +53,47 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
 
 			if err != nil {
+				globals.Log.WARN.Printf(err.Error())
+				if strings.Contains(err.Error(), "Client has exceeded communications rate limit"){
+					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
+					time.Sleep(5*time.Second)
+				}else if !skipErrChecker(err){
+					backoffCount := 0
 
-				backoffCount := 0
+					// Handles disconnections
+					for notConnected := true; notConnected; {
 
-				// Handles disconnections
-				for notConnected := true; notConnected; {
+						cm.Disconnect()
 
-					cm.Disconnect()
+						block, backoffTime := cm.computeBackoff(backoffCount)
 
-					block, backoffTime := cm.computeBackoff(backoffCount)
+						cm.setConnectionStatus(Offline, toSeconds(backoffTime))
 
-					cm.setConnectionStatus(Offline, toSeconds(backoffTime))
+						globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
 
-					globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
+						timer := time.NewTimer(backoffTime)
 
-					timer := time.NewTimer(backoffTime)
+						if block {
+							timer.Stop()
+						}
 
-					if block {
-						timer.Stop()
+						select {
+						case <-session.GetQuitChan():
+							close(session.GetQuitChan())
+							return
+						case <-timer.C:
+						case <-cm.tryReconnect:
+							backoffCount = 0
+						}
+						err := cm.ConnectToGateways()
+
+						if err == nil {
+							notConnected = false
+						}
+
+						backoffCount++
 					}
-
-					select {
-					case <-session.GetQuitChan():
-						close(session.GetQuitChan())
-						return
-					case <-timer.C:
-					case <-cm.tryReconnect:
-						backoffCount = 0
-					}
-
-					//call the callback with the connecting status
-
-					err := cm.ConnectToGateways()
-
-					if err == nil {
-						notConnected = false
-					}
-
-					backoffCount++
 				}
-				//call the callback with the connected status
 			}
 		case <-rekeyChan:
 			encryptedMessages = session.PopGarbledMessages()
@@ -210,7 +212,6 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		pollingMessage)
 
 	if err != nil {
-		globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
 		return nil, err
 	}
 
@@ -341,4 +342,13 @@ func broadcastMessageReception(message *parse.Message,
 	listeners *switchboard.Switchboard) {
 
 	listeners.Speak(message)
+}
+
+func skipErrChecker(err error)bool{
+	if strings.Contains(err.Error(), "Could not find any message IDs for this user"){
+		return true
+	}
+
+	return false
+
 }

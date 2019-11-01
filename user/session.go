@@ -478,8 +478,7 @@ func decrypt(data []byte, password string) ([]byte, error) {
 	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Cannot decrypt with password!"+
-			" %s", err.Error()))
+		return nil, errors.Wrap(err, "Cannot decrypt with password!")
 	}
 	return plaintext, nil
 }

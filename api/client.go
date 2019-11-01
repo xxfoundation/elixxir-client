@@ -517,9 +517,9 @@ func (cl *Client) RegisterWithUDB() error {
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
 		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus)
-		if err==nil{
+		if err == nil {
 			globals.Log.INFO.Printf("Registered with UDB!")
-		}else{
+		} else {
 			globals.Log.WARN.Printf("Could not register with UDB: %s", err)
 		}
 
@@ -535,8 +535,7 @@ func (cl *Client) Login(password string) (string, error) {
 	session, err := user.LoadSession(cl.storage, password)
 
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
-			err.Error()))
+		err = errors.Wrap(err, "Login: Could not login")
 		globals.Log.ERROR.Printf(err.Error())
 		return "", err
 	}

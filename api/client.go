@@ -272,7 +272,7 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 }
 
 //registerWithNode registers a user. It serves as a helper for Register
-func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
+func (cl *Client) qregisterWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
 	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys, errorChan chan error) {

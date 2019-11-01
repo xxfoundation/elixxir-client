@@ -311,6 +311,53 @@ func TestLogout(t *testing.T) {
 	disconnectServers()
 }
 
+//Error path: disconnect gateways before messageReceiver
+func TestClient_StartMessageReceiver_ErrorPath(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+		}
+
+	}()
+	// Initialize client with dummy storage
+	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", def,
+		dummyConnectionStatusHandler)
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+	client.DisableTLS()
+
+	// Connect to gateways and reg server
+	err = client.Connect()
+
+	if err != nil {
+		t.Errorf("Client failed of connect: %+v", err)
+	}
+
+	// Register with a valid registration code
+	_, err = client.Register(true, ValidRegCode, "", "", "password",
+		nil)
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	// Login to gateway
+	_, err = client.Login("password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	disconnectServers()
+	client.commManager.Disconnect()
+
+	err = client.StartMessageReceiver()
+
+	fmt.Println(err)
+
+}
+
 // Handles initialization of mock registration server,
 // gateways used for registration and gateway used for session
 func testMainWrapper(m *testing.M) int {

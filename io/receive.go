@@ -344,6 +344,7 @@ func broadcastMessageReception(message *parse.Message,
 	listeners.Speak(message)
 }
 
+// skipErrChecker checks checks if the error is fatal or should be ignored
 func skipErrChecker(err error)bool{
 	if strings.Contains(err.Error(), "Could not find any message IDs for this user"){
 		return true

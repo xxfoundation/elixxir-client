@@ -117,8 +117,8 @@ func TestRegister(t *testing.T) {
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
 	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
-	if err != nil {
-		t.Errorf("Registration duplicate failure: %s", err.Error())
+	if err == nil {
+		t.Errorf("Registration duplicate did not fail")
 	}
 
 }

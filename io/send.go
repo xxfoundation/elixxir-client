@@ -2,6 +2,7 @@ package io
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
@@ -63,7 +64,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 		message.Contents.SetRightAligned(parts[i])
 		err = cm.send(session, topology, cryptoType, message, false, transmitGateway)
 		if err != nil {
-			return fmt.Errorf("SendMessage send() error: %v", err.Error())
+			return errors.Wrap( err,"SendMessage send() error:")
 		}
 	}
 	cm.lock.RUnlock()

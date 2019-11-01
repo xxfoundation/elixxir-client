@@ -73,24 +73,24 @@ type TestInterface struct {
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
 func (m *TestInterface) GetMessage(userId *id.User,
-	msgId string) (*pb.Slot, bool) {
-	return &pb.Slot{}, true
+	msgId, ipaddr string) (*pb.Slot, error) {
+	return &pb.Slot{}, nil
 }
 
 // Return any MessageIDs in the globals for this User
 func (m *TestInterface) CheckMessages(userId *id.User,
-	messageID string) ([]string, bool) {
-	return make([]string, 0), true
+	messageID, ipaddr string) ([]string, error) {
+	return make([]string, 0), nil
 }
 
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
-func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
+func (m *TestInterface) PutMessage(msg *pb.Slot, ipaddr string) error {
 	m.LastReceivedMessage = *msg
-	return true
+	return nil
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error) {
+func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
 		ClientSignedByServer: &pb.RSASignature{},
 	}
@@ -172,7 +172,7 @@ func getDHPubKey() *cyclic.Int {
 }
 
 // Pass-through for Registration Nonce Communication
-func (m *TestInterface) RequestNonce(message *pb.NonceRequest) (*pb.Nonce, error) {
+func (m *TestInterface) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
 	dh := getDHPubKey().Bytes()
 	return &pb.Nonce{
 		DHPubKey: dh,

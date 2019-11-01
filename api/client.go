@@ -532,8 +532,7 @@ func (cl *Client) Login(password string) (string, error) {
 	session, err := user.LoadSession(cl.storage, password)
 
 	if err != nil {
-		err = errors.New(fmt.Sprintf("Login: Could not login: %s",
-			err.Error()))
+		err = errors.Wrap(err, "Login: Could not login")
 		globals.Log.ERROR.Printf(err.Error())
 		return "", err
 	}

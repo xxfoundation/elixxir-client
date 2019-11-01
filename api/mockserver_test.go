@@ -10,10 +10,13 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
+	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"os"
@@ -32,8 +35,6 @@ var NDFErrorReg = MockPerm_NDF_ErrorCase{}
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
-
-const InvalidClientVersion = "1.1.0"
 
 var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 	{LastReceivedMessage: pb.Slot{}},
@@ -249,6 +250,44 @@ func TestSend(t *testing.T) {
 	disconnectServers()
 }
 
+//Happy path: register with udb
+func TestClient_RegisterWithUDB(t *testing.T) {
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+
+	// Get a Client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// populate a gob in the store
+	_, err = testClient.Register(true, "UAV6IWD6", "tester", "josh@elixxir.io", "password", privateKeyRSA)
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Login to gateway
+	_, err = testClient.Login("password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = testClient.StartMessageReceiver()
+
+	if err != nil {
+		t.Errorf("Could not start message reception: %+v", err)
+	}
+}
+
 func TestLogout(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
@@ -311,6 +350,7 @@ func TestLogout(t *testing.T) {
 	disconnectServers()
 }
 
+//fixme: revise for an actual error path..or make smoke test
 //Error path: disconnect gateways before messageReceiver
 func TestClient_StartMessageReceiver_ErrorPath(t *testing.T) {
 	defer func() {
@@ -353,8 +393,6 @@ func TestClient_StartMessageReceiver_ErrorPath(t *testing.T) {
 	client.commManager.Disconnect()
 
 	err = client.StartMessageReceiver()
-
-	fmt.Println(err)
 
 }
 

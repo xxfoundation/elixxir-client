@@ -9,6 +9,8 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -20,6 +22,8 @@ import (
 	"sync"
 	"time"
 )
+
+const InvalidClientVersion = "1.1.0"
 
 // APIMessage are an implementation of the interface in bindings and API
 // easy to use from Go
@@ -217,4 +221,72 @@ type DummyReceiver struct {
 
 func (d *DummyReceiver) Receive(message APIMessage) {
 	d.LastMessage = message
+}
+
+//registration handler for getUpdatedNDF error case
+type MockPerm_NDF_ErrorCase struct {
+}
+
+func (s *MockPerm_NDF_ErrorCase) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+
+func (s *MockPerm_NDF_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
+	return nil, errors.New(errMsg)
+}
+
+func (s *MockPerm_NDF_ErrorCase) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (s *MockPerm_NDF_ErrorCase) GetCurrentClientVersion() (version string, err error) {
+	return globals.SEMVER, nil
+}
+
+//Mock Permissioning handler for error cases involving check version
+type MockPerm_CheckVersion_ErrorCase struct {
+}
+
+func (s *MockPerm_CheckVersion_ErrorCase) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+func (s *MockPerm_CheckVersion_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	ndfData := buildMockNDF()
+	ndfJson, _ := json.Marshal(ndfData)
+	return ndfJson, nil
+}
+func (s *MockPerm_CheckVersion_ErrorCase) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+func (s *MockPerm_CheckVersion_ErrorCase) GetCurrentClientVersion() (version string, err error) {
+	return globals.SEMVER, errors.New("Could not get version")
+}
+
+//Registration handler for handling a bad client version (aka client is not up to date)
+type MockPerm_CheckVersion_BadVersion struct {
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) RegisterNode(ID []byte,
+	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
+	return nil
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+	ndfData := buildMockNDF()
+	ndfJson, _ := json.Marshal(ndfData)
+	return ndfJson, nil
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) RegisterUser(registrationCode,
+	key string) (hash []byte, err error) {
+	return nil, nil
+}
+
+func (s *MockPerm_CheckVersion_BadVersion) GetCurrentClientVersion() (version string, err error) {
+	return InvalidClientVersion, nil
 }

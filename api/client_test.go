@@ -8,10 +8,7 @@ package api
 
 import (
 	"crypto/sha256"
-	"encoding/json"
-	"fmt"
 	"github.com/golang/protobuf/proto"
-	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
@@ -38,80 +35,6 @@ var TestKeySize = 768
 
 func dummyConnectionStatusHandler(status uint32, timeout int) {
 	return
-}
-
-// Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
-type MockPerm_NDF_ErrorCase struct {
-}
-
-func (s *MockPerm_NDF_ErrorCase) RegisterNode(ID []byte,
-	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
-	return nil
-}
-
-func (s *MockPerm_NDF_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
-	return nil, errors.New(errMsg)
-}
-
-// Registers a user and returns a signed public key
-func (s *MockPerm_NDF_ErrorCase) RegisterUser(registrationCode,
-	key string) (hash []byte, err error) {
-	return nil, nil
-}
-
-func (s *MockPerm_NDF_ErrorCase) GetCurrentClientVersion() (version string, err error) {
-	return globals.SEMVER, nil
-}
-
-// Blank struct implementing Registration Handler interface for testing purposes (Error cases)
-type MockPerm_CheckVersion_ErrorCase struct {
-}
-
-func (s *MockPerm_CheckVersion_ErrorCase) RegisterNode(ID []byte,
-	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
-	return nil
-}
-
-func (s *MockPerm_CheckVersion_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	ndfData := buildMockNDF()
-	ndfJson, _ := json.Marshal(ndfData)
-	return ndfJson, nil
-}
-
-// Registers a user and returns a signed public key
-func (s *MockPerm_CheckVersion_ErrorCase) RegisterUser(registrationCode,
-	key string) (hash []byte, err error) {
-	return nil, nil
-}
-
-func (s *MockPerm_CheckVersion_ErrorCase) GetCurrentClientVersion() (version string, err error) {
-	return globals.SEMVER, errors.New("Could not get version")
-}
-
-// Blank struct implementing Registration Handler interface for testing purposes (Incorrect Version)
-type MockPerm_CheckVersion_BadVersion struct {
-}
-
-func (s *MockPerm_CheckVersion_BadVersion) RegisterNode(ID []byte,
-	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
-	return nil
-}
-
-func (s *MockPerm_CheckVersion_BadVersion) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	ndfData := buildMockNDF()
-	ndfJson, _ := json.Marshal(ndfData)
-	return ndfJson, nil
-}
-
-// Registers a user and returns a signed public key
-func (s *MockPerm_CheckVersion_BadVersion) RegisterUser(registrationCode,
-	key string) (hash []byte, err error) {
-	return nil, nil
-}
-
-func (s *MockPerm_CheckVersion_BadVersion) GetCurrentClientVersion() (version string, err error) {
-	return InvalidClientVersion, nil
 }
 
 func TestRegistrationGob(t *testing.T) {

@@ -128,10 +128,7 @@ func TestSearch(t *testing.T) {
 	publicKeyString := base64.StdEncoding.EncodeToString(pubKey)
 
 	// Send response messages from fake UDB in advance
-	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %s %s",
-		"blah@elixxir.io",
-		base64.StdEncoding.EncodeToString(id.NewUserFromUint(26, t)[:]),
-		keyFingerprint)
+	searchResponseListener <- "blah@elixxir.io FOUND UR69db14ZyicpZVqJ1HFC5rk9UZ8817aV6+VHmrJpGc= AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABo= 8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		publicKeyString)
 
@@ -140,16 +137,15 @@ func TestSearch(t *testing.T) {
 	}
 
 	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io",
-		dummySearchState)
+		dummySearchState, 30*time.Second)
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}
 	if *searchedUser != *id.NewUserFromUint(26, t) {
-		t.Errorf("Search did not return user ID 26!")
+		t.Errorf("Search did not return user ID 26! returned %v", string(searchedUser.Bytes()))
 	}
 }
 
-// Test NICKNAME_REQUEST and NICKNAME_RESPONSE
 // messages using switchboard
 // Test LookupNick function
 func TestNicknameFunctions(t *testing.T) {

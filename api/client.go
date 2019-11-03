@@ -258,9 +258,9 @@ func (cl *Client) Connect() error {
 			return err
 		}
 		if !ok {
-			err = errors.New("Couldn't connect to gateways: Versions incompatible")
-			return errors.Wrapf(err, "Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.GetRegistrationVersion())
+			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.commManager.GetRegistrationVersion()))
+			return err
 		}
 	} else {
 		globals.Log.WARN.Printf("Not checking version from " +
@@ -504,7 +504,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 // RegisterWithUDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and Connect.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB() error {
+func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
@@ -520,7 +520,7 @@ func (cl *Client) RegisterWithUDB() error {
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus)
+		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus, timeout)
 		if err == nil {
 			globals.Log.INFO.Printf("Registered with UDB!")
 		} else {

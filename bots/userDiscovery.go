@@ -26,9 +26,11 @@ import (
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
 // valueType: Currently only "EMAIL"
-func Register(valueType, value string, publicKey []byte, regStatus func(int)) error {
+func Register(valueType, value string, publicKey []byte, regStatus func(int), timeout time.Duration) error {
 	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
 		value, publicKey)
+
+	registerTimeout := time.NewTimer(timeout)
 
 	var err error
 	if valueType == "EMAIL" {
@@ -46,10 +48,28 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 	err = pushKey(UdbID, keyFP, publicKey)
 
 	if err != nil {
-		errStr := err.Error()
-		return fmt.Errorf("Could not PUSHKEY: %s", errStr)
+		return errors.Wrap(err, "Could not PUSHKEY")
 	}
 
+	var response string
+
+	// wait for the response to submitting the key against the timeout.
+	// discard responses from other searches
+	submitted := false
+
+	for !submitted {
+		select {
+		case response = <-pushKeyResponseListener:
+			expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
+			if strings.Contains(response, expected) {
+				submitted = true
+			}
+		case <-registerTimeout.C:
+			return errors.New("UDB register timeout exceeded on key submission")
+		}
+	}
+
+	//send the user information to udb
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_REGISTER),
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
@@ -58,15 +78,29 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 	regStatus(globals.UDB_REG_PUSHUSER)
 
 	// Send register command
+	// Send register command
 	err = sendCommand(UdbID, msgBody)
-	if err == nil {
-		regResult := <-registerResponseListener
-		if regResult != "REGISTRATION COMPLETE" {
-			return fmt.Errorf("Registration failed: %s", regResult)
+	if err != nil {
+		return errors.Wrap(err, "Could not Push User")
+	}
+
+	// wait for the response to submitting the key against the timeout.
+	// discard responses from other searches
+	complete := false
+
+	for !complete {
+		select {
+		case response = <-registerResponseListener:
+			expected := "REGISTRATION COMPLETE"
+			if strings.Contains(response, expected) {
+				complete = true
+			}
+		case <-registerTimeout.C:
+			return errors.New("UDB register timeout exceeded on user submission")
 		}
 	}
 
-	return err
+	return nil
 }
 
 // Search returns a userID and public key based on the search criteria
@@ -105,7 +139,6 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	for !found {
 		select {
 		case response = <-searchResponseListener:
-			fmt.Printf("i got it %s vs %s \n", response, value)
 			empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
 			if response == empty {
 				return nil, nil, nil
@@ -142,7 +175,6 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	for !found {
 		select {
 		case response = <-getKeyResponseListener:
-			fmt.Printf("i got it %s vs %s \n", response, keyFP)
 			if strings.Contains(response, keyFP) {
 				found = true
 			}
@@ -218,20 +250,14 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
 		publicKeyString)
-	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
+
 
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 
-	sendCommand(udbID, parse.Pack(&parse.TypedBody{
+	return sendCommand(udbID, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
 		Body:        []byte(pushKeyMsg),
 	}))
-	response := <-pushKeyResponseListener
-
-	if response != expected {
-		return fmt.Errorf("PUSHKEY Failed: %s", response)
-	}
-	return nil
 }
 
 // keyExists checks for the existence of a key on the bot

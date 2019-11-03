@@ -60,6 +60,7 @@ type Session interface {
 	GetNodes() map[id.Node]int
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
+	GetSalt() []byte
 }
 
 type NodeKeys struct {
@@ -76,6 +77,7 @@ func NewSession(store globals.Storage,
 	cmixPrivateKeyDH *cyclic.Int,
 	e2ePublicKeyDH *cyclic.Int,
 	e2ePrivateKeyDH *cyclic.Int,
+	salt []byte,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string,
 	regSignature []byte) Session {
@@ -99,6 +101,7 @@ func NewSession(store globals.Storage,
 		quitReceptionRunner:    make(chan struct{}),
 		password:               password,
 		regValidationSignature: regSignature,
+		Salt:                   salt,
 	})
 }
 
@@ -163,6 +166,7 @@ type SessionObj struct {
 	E2EDHPublicKey   *cyclic.Int
 	CmixGrp          *cyclic.Group
 	E2EGrp           *cyclic.Group
+	Salt             []byte
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -218,6 +222,14 @@ func (s *SessionObj) GetNodes() map[id.Node]int {
 		nodes[node] = 1
 	}
 	return nodes
+}
+
+func (s *SessionObj) GetSalt() []byte {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	salt := make([]byte, len(s.Salt))
+	copy(salt, s.Salt)
+	return salt
 }
 
 func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {

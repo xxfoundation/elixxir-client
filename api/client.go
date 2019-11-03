@@ -320,6 +320,8 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	}
 }
 
+const SaltSize = 256
+
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) Register(preCan bool, registrationCode, nick, email,
@@ -379,6 +381,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	// Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
 
+	var salt []byte
+
 	// Handle precanned registration
 	if preCan {
 		cl.opStatus(globals.REG_PRECAN)
@@ -391,9 +395,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	} else {
 		cl.opStatus(globals.REG_UID_GEN)
 		globals.Log.INFO.Printf("Registering dynamic user...")
-		saltSize := 256
+
 		// Generate salt for UserID
-		salt := make([]byte, saltSize)
+		salt = make([]byte, SaltSize)
 		_, err = csprng.NewSystemRNG().Read(salt)
 		if err != nil {
 			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
@@ -471,7 +475,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	// Create the user session
 	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, cmixGrp, e2eGrp, password, regValidationSignature)
+		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
 	cl.opStatus(globals.REG_SAVE)
 
 	// Store the user session
@@ -541,8 +545,9 @@ func (cl *Client) Login(password string) (string, error) {
 	}
 
 	if session == nil {
-		return "", errors.New("Unable to load session: " + err.Error())
+		return "", errors.New("Unable to load session, no error reported")
 	}
+
 	//Load Cmix keys & group
 	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
 	cmixDHPubKey := session.GetCMIXDHPublicKey()
@@ -558,16 +563,6 @@ func (cl *Client) Login(password string) (string, error) {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
-	//Fixme: Reviewer: Save salt in session or generate one here?
-	saltSize := 256
-	salt := make([]byte, saltSize)
-	_, err = csprng.NewSystemRNG().Read(salt)
-	if err != nil {
-		errMsg := fmt.Sprintf("Login: Unable to generate salt! %s", err)
-		globals.Log.ERROR.Printf(errMsg)
-		return "", errors.New(errMsg)
-	}
-
 	// Make CMIX keys array
 	nk := make(map[id.Node]user.NodeKeys)
 
@@ -577,20 +572,22 @@ func (cl *Client) Login(password string) (string, error) {
 	//Get the registered node keys
 	registedNodes := session.GetNodes()
 
+	salt := session.GetSalt()
+
 	for i := range cl.ndf.Gateways {
-		wg.Add(1)
-		go func() {
-			nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
-			//Register with node if the node has not been registered with already
-			if registedNodes[nodeID] == 0 {
+		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
+		//Register with node if the node has not been registered with already
+		if _, ok := registedNodes[nodeID]; !ok {
+			wg.Add(1)
+			go func() {
 				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
 					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
-			}
-			wg.Done()
-		}()
-		wg.Wait()
-
+				wg.Done()
+			}()
+		}
 	}
+
+	wg.Wait()
 	//See if the registration returned errors at all
 	var errs error
 	for len(errChan) > 0 {

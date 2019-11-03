@@ -73,7 +73,7 @@ func TestMain(m *testing.M) {
 
 	fakeSession := user.NewSession(&globals.RamStorage{},
 		u, nil, nil, nil, nil,
-		nil, nil, nil,
+		nil, nil, nil, nil,
 		cmixGrp, e2eGrp, "password", regSignature)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,

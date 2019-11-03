@@ -237,7 +237,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		return nil, err
 	}
 
-	globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	if len(messageIDs.IDs) < 0 {
+		globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	}
 
 	messages := make([]*format.Message, len(messageIDs.IDs))
 	mIDs := make([]string, len(messageIDs.IDs))

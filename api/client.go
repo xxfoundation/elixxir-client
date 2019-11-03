@@ -258,9 +258,9 @@ func (cl *Client) Connect() error {
 			return err
 		}
 		if !ok {
-			err = errors.New("Couldn't connect to gateways: Versions incompatible")
-			return errors.Wrapf(err, "Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.GetRegistrationVersion())
+			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.commManager.GetRegistrationVersion()))
+			return err
 		}
 	} else {
 		globals.Log.WARN.Printf("Not checking version from " +

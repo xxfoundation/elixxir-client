@@ -60,7 +60,8 @@ type CommManager struct {
 	transmitDelay time.Duration
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
-	receivedMessages map[string]struct{}
+	receivedMessages   map[string]struct{}
+	recievedMesageLock sync.RWMutex
 
 	sendLock sync.Mutex
 

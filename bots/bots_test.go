@@ -109,14 +109,14 @@ func TestRegister(t *testing.T) {
 		return
 	}
 
-	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
 
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
-	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err == nil {
 		t.Errorf("Registration duplicate did not fail")
 	}

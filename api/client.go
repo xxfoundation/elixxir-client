@@ -748,7 +748,7 @@ type SearchCallback interface {
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
-	cb SearchCallback) {
+	cb SearchCallback, timeout time.Duration) {
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		err := errors.New("Could not SearchForUser - connection is either offline or connecting")
@@ -757,7 +757,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 
 	valueType := "EMAIL"
 	go func() {
-		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus)
+		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus, timeout)
 		if err == nil && uid != nil && pubKey != nil {
 			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
 			err = cl.registerUserE2E(uid, pubKey)

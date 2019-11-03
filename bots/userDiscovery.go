@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/id"
 	"strings"
+	"time"
 )
 
 // Register sends a registration message to the UDB. It does this by sending 2
@@ -71,8 +72,10 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, error) {
+func Search(valueType, value string, searchStatus func(int), timeout time.Duration) (*id.User, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
+
+	searchTimeout := time.NewTimer(timeout)
 
 	var err error
 	if valueType == "EMAIL" {
@@ -92,11 +95,29 @@ func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, 
 	if err != nil {
 		return nil, nil, err
 	}
-	response := <-searchResponseListener
-	empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
-	if response == empty {
-		return nil, nil, nil
+
+	var response string
+
+	// wait for the response to searching for the value against the timeout.
+	// discard responses from other searches
+	found := false
+
+	for !found {
+		select {
+		case response = <-searchResponseListener:
+			fmt.Printf("i got it %s vs %s \n", response, value)
+			empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
+			if response == empty {
+				return nil, nil, nil
+			}
+			if strings.Contains(response, value) {
+				found = true
+			}
+		case <-searchTimeout.C:
+			return nil, nil, errors.New("UDB search timeout exceeded on user lookup")
+		}
 	}
+
 	// While search returns more than 1 result, we only process the first
 	cMixUID, keyFP := parseSearch(response)
 	if *cMixUID == *id.ZeroID {
@@ -114,15 +135,23 @@ func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, 
 	if err != nil {
 		return nil, nil, err
 	}
-	response = <-getKeyResponseListener
-	publicKey := parseGetKey(response)
 
-	actualFP := fingerprint(publicKey)
-	if keyFP != actualFP {
-		return nil, nil, fmt.Errorf("Fingerprint for %s did not match %s!",
-			keyFP,
-			actualFP)
+	// wait for the response to searching for the key against the timeout.
+	// discard responses from other searches
+	found = false
+	for !found {
+		select {
+		case response = <-getKeyResponseListener:
+			fmt.Printf("i got it %s vs %s \n", response, keyFP)
+			if strings.Contains(response, keyFP) {
+				found = true
+			}
+		case <-searchTimeout.C:
+			return nil, nil, errors.New("UDB search timeout exceeded on key lookup")
+		}
 	}
+
+	publicKey := parseGetKey(response)
 
 	return cMixUID, publicKey, nil
 }

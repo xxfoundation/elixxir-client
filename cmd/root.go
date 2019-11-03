@@ -454,7 +454,7 @@ var rootCmd = &cobra.Command{
 
 		if searchForUser != "" {
 			udbLister = newUserSearcher()
-			client.SearchForUser(searchForUser, udbLister)
+			client.SearchForUser(searchForUser, udbLister, 2*time.Second)
 		}
 
 		if message != "" {

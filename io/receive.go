@@ -227,7 +227,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	bufLoc := 0
 	for _, messageID := range messageIDs.IDs {
 		// Get the first unseen message from the list of IDs
+		cm.recievedMesageLock.RLock()
 		_, received := cm.receivedMessages[messageID]
+		cm.recievedMesageLock.RUnlock()
 		if !received {
 			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 				messageID)
@@ -268,7 +270,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
 				"Adding message ID %v to received message IDs", mIDs[i])
+			cm.recievedMesageLock.Lock()
 			cm.receivedMessages[mIDs[i]] = struct{}{}
+			cm.recievedMesageLock.Unlock()
 		}
 		session.SetLastMessageID(mIDs[bufLoc-1])
 		err = session.StoreSession()

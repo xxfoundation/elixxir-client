@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
@@ -634,5 +635,35 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 		large.NewIntFromString("2", 16))
 
 	return cmixGrp, e2eGrp
+
+}
+
+// Test happy path for client.GetSession
+func TestClient_GetSession(t *testing.T) {
+
+	//Start client
+	testClient, _ := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	testClient.session = &user.SessionObj{}
+
+	if !reflect.DeepEqual(testClient.GetSession(), testClient.session) {
+		t.Error("Received session not the same as the real session")
+	}
+
+}
+
+// Test happy path for client.GetCommManager
+func TestClient_GetCommManager(t *testing.T) {
+
+	//Start client
+	testClient, _ := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	testClient.commManager = &io.CommManager{}
+
+	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.commManager) {
+		t.Error("Received session not the same as the real session")
+	}
 
 }

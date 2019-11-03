@@ -101,7 +101,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	// wait for the response to searching for the value against the timeout.
 	// discard responses from other searches
 	found := false
-	fmt.Println("aaaa")
+
 	for !found {
 		select {
 		case response = <-searchResponseListener:
@@ -117,7 +117,6 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 			return nil, nil, errors.New("UDB search timeout exceeded on user lookup")
 		}
 	}
-	fmt.Println("bbbb")
 
 	// While search returns more than 1 result, we only process the first
 	cMixUID, keyFP := parseSearch(response)
@@ -139,7 +138,6 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 
 	// wait for the response to searching for the key against the timeout.
 	// discard responses from other searches
-	fmt.Println("cccc")
 	found = false
 	for !found {
 		select {
@@ -152,7 +150,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 			return nil, nil, errors.New("UDB search timeout exceeded on key lookup")
 		}
 	}
-	fmt.Println("dddd")
+
 	publicKey := parseGetKey(response)
 
 	return cMixUID, publicKey, nil

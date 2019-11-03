@@ -204,6 +204,8 @@ func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.Ne
 
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
 
+	globals.Log.INFO.Printf("Remote NDF: %s", string(response.Ndf))
+
 	//Otherwise pull the ndf out of the response
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
 	if err != nil {

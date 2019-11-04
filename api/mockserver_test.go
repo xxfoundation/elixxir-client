@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"os"
 	"testing"
+	"time"
 )
 
 const NumNodes = 3
@@ -250,7 +251,7 @@ func TestSend(t *testing.T) {
 	disconnectServers()
 }
 
-//Happy path: register with udb
+//Error path: register with udb, but udb is not set up to return a message
 func TestClient_RegisterWithUDB(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
@@ -269,7 +270,8 @@ func TestClient_RegisterWithUDB(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "tester", "josh@elixxir.io", "password", privateKeyRSA)
+	_, err = testClient.Register(true, "UAV6IWD6",
+		"tester", "josh@elixxir.io", "password", privateKeyRSA)
 	if err != nil {
 		t.Error(err)
 	}
@@ -286,6 +288,12 @@ func TestClient_RegisterWithUDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)
 	}
+
+	err = testClient.RegisterWithUDB(1 * time.Second)
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error path: should not successfully register with udb")
 }
 
 func TestLogout(t *testing.T) {
@@ -348,52 +356,6 @@ func TestLogout(t *testing.T) {
 	}
 
 	disconnectServers()
-}
-
-//fixme: revise for an actual error path..or make smoke test
-//Error path: disconnect gateways before messageReceiver
-func TestClient_StartMessageReceiver_ErrorPath(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			return
-		}
-
-	}()
-	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
-		dummyConnectionStatusHandler)
-	if err != nil {
-		t.Errorf("Failed to initialize dummy client: %s", err.Error())
-	}
-	client.DisableTLS()
-
-	// Connect to gateways and reg server
-	err = client.Connect()
-
-	if err != nil {
-		t.Errorf("Client failed of connect: %+v", err)
-	}
-
-	// Register with a valid registration code
-	_, err = client.Register(true, ValidRegCode, "", "", "password",
-		nil)
-
-	if err != nil {
-		t.Errorf("Register failed: %s", err.Error())
-	}
-
-	// Login to gateway
-	_, err = client.Login("password")
-
-	if err != nil {
-		t.Errorf("Login failed: %s", err.Error())
-	}
-
-	disconnectServers()
-	client.commManager.Disconnect()
-
-	err = client.StartMessageReceiver()
 }
 
 // Handles initialization of mock registration server,

@@ -28,6 +28,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -212,6 +213,39 @@ func TestRegister(t *testing.T) {
 	}
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+	disconnectServers()
+}
+
+func TestClient_GetRemoteVersion(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+	client.DisableTLS()
+
+	err = client.Connect()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	regRes, err := client.Register(true, ValidRegCode,
+		"", "", "")
+	if err != nil {
+		t.Errorf("Registration failed: %s", err.Error())
+	}
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+
+	observedVersion := client.GetRemoteVersion()
+
+	if strings.Compare(observedVersion, globals.SEMVER) != 0 {
+		t.Errorf("Unexpected client version set. Recieved: %v Expected: %v", observedVersion, globals.SEMVER)
 	}
 	disconnectServers()
 }

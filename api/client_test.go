@@ -99,7 +99,7 @@ func TestClient_SearchForUser(t *testing.T) {
 	}
 
 	var searchCb SearchCallback
-	testClient.SearchForUser("not@found.com", searchCb, 1*time.Microsecond)
+	testClient.SearchForUser("not@found.com", searchCb, 5*time.Second)
 }
 
 //Happy path for a non precen user

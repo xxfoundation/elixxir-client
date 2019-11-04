@@ -79,8 +79,8 @@ func (m *TestInterface) GetMessage(userId *id.User,
 
 // Return any MessageIDs in the globals for this User
 func (m *TestInterface) CheckMessages(userId *id.User,
-	messageID, ipaddr string) ([]string, bool) {
-	return make([]string, 0), false
+	messageID, ipAddress string) ([]string, error) {
+	return make([]string, 0), nil
 }
 
 // PutMessage adds a message to the outgoing queue and

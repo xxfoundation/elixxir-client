@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"time"
 )
 
 type Client struct {
@@ -133,9 +134,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 // Register with UDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and Connect.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB() error {
+func (cl *Client) RegisterWithUDB(timeoutMS int) error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
-	return cl.client.RegisterWithUDB()
+	return cl.client.RegisterWithUDB(time.Duration(timeoutMS) * time.Millisecond)
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
@@ -215,10 +216,13 @@ func (cl *Client) SetRateLimiting(limit int) {
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
-func (cl *Client) SearchForUser(emailAddress string,
-	cb SearchCallback) {
+// SearchForUser searches for the user with the passed username.
+// returns state on the search callback.  A timeout in ms is required.
+// A recommended timeout is 2 minutes or 120000
+func (cl *Client) SearchForUser(username string,
+	cb SearchCallback, timeoutMS int) {
 	proxy := &searchCallbackProxy{cb}
-	cl.client.SearchForUser(emailAddress, proxy)
+	cl.client.SearchForUser(username, proxy, time.Duration(timeoutMS)*time.Millisecond)
 }
 
 // Nickname lookup API

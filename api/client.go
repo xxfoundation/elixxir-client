@@ -255,9 +255,9 @@ func (cl *Client) Connect() error {
 			return err
 		}
 		if !ok {
-			err = errors.New("Couldn't connect to gateways: Versions incompatible")
-			return errors.Wrapf(err, "Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.GetRegistrationVersion())
+			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.commManager.GetRegistrationVersion()))
+			return err
 		}
 	} else {
 		globals.Log.WARN.Printf("Not checking version from " +
@@ -316,6 +316,8 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 			cmixPrivateKeyDH, receptionHash),
 	}
 }
+
+const SaltSize = 256
 
 // Registers user and returns the User ID.
 // Returns an error if registration fails.
@@ -376,6 +378,8 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	// Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
 
+	var salt []byte
+
 	// Handle precanned registration
 	if preCan {
 		cl.opStatus(globals.REG_PRECAN)
@@ -388,9 +392,9 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	} else {
 		cl.opStatus(globals.REG_UID_GEN)
 		globals.Log.INFO.Printf("Registering dynamic user...")
-		saltSize := 256
+
 		// Generate salt for UserID
-		salt := make([]byte, saltSize)
+		salt = make([]byte, SaltSize)
 		_, err = csprng.NewSystemRNG().Read(salt)
 		if err != nil {
 			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
@@ -468,7 +472,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 	// Create the user session
 	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, cmixGrp, e2eGrp, password, regValidationSignature)
+		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
 	cl.opStatus(globals.REG_SAVE)
 
 	// Store the user session
@@ -497,7 +501,7 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 // RegisterWithUDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and Connect.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB() error {
+func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
@@ -513,7 +517,7 @@ func (cl *Client) RegisterWithUDB() error {
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus)
+		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus, timeout)
 		if err == nil {
 			globals.Log.INFO.Printf("Registered with UDB!")
 		} else {
@@ -538,8 +542,9 @@ func (cl *Client) Login(password string) (string, error) {
 	}
 
 	if session == nil {
-		return "", errors.New("Unable to load session: " + err.Error())
+		return "", errors.New("Unable to load session, no error reported")
 	}
+
 	//Load Cmix keys & group
 	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
 	cmixDHPubKey := session.GetCMIXDHPublicKey()
@@ -555,16 +560,6 @@ func (cl *Client) Login(password string) (string, error) {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
-	//Fixme: Reviewer: Save salt in session or generate one here?
-	saltSize := 256
-	salt := make([]byte, saltSize)
-	_, err = csprng.NewSystemRNG().Read(salt)
-	if err != nil {
-		errMsg := fmt.Sprintf("Login: Unable to generate salt! %s", err)
-		globals.Log.ERROR.Printf(errMsg)
-		return "", errors.New(errMsg)
-	}
-
 	// Make CMIX keys array
 	nk := make(map[id.Node]user.NodeKeys)
 
@@ -574,20 +569,22 @@ func (cl *Client) Login(password string) (string, error) {
 	//Get the registered node keys
 	registedNodes := session.GetNodes()
 
+	salt := session.GetSalt()
+
 	for i := range cl.ndf.Gateways {
-		wg.Add(1)
-		go func() {
-			nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
-			//Register with node if the node has not been registered with already
-			if registedNodes[nodeID] == 0 {
+		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
+		//Register with node if the node has not been registered with already
+		if _, ok := registedNodes[nodeID]; !ok {
+			wg.Add(1)
+			go func() {
 				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
 					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
-			}
-			wg.Done()
-		}()
-		wg.Wait()
-
+				wg.Done()
+			}()
+		}
 	}
+
+	wg.Wait()
 	//See if the registration returned errors at all
 	var errs error
 	for len(errChan) > 0 {
@@ -748,7 +745,7 @@ type SearchCallback interface {
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
-	cb SearchCallback) {
+	cb SearchCallback, timeout time.Duration) {
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		err := errors.New("Could not SearchForUser - connection is either offline or connecting")
@@ -757,7 +754,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 
 	valueType := "EMAIL"
 	go func() {
-		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus)
+		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus, timeout)
 		if err == nil && uid != nil && pubKey != nil {
 			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
 			err = cl.registerUserE2E(uid, pubKey)
@@ -873,4 +870,16 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 // Set the output of the
 func SetLogOutput(w goio.Writer) {
 	globals.Log.SetLogOutput(w)
+}
+
+// GetSession returns the session object for external access.  Access at your
+// own risk
+func (cl *Client) GetSession() user.Session {
+	return cl.session
+}
+
+// CommManager returns the comm manager object for external access.  Access
+// at your own risk
+func (cl *Client) GetCommManager() *io.CommManager {
+	return cl.commManager
 }

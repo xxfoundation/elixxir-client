@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -73,7 +74,7 @@ func TestMain(m *testing.M) {
 
 	fakeSession := user.NewSession(&globals.RamStorage{},
 		u, nil, nil, nil, nil,
-		nil, nil, nil,
+		nil, nil, nil, nil,
 		cmixGrp, e2eGrp, "password", regSignature)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
@@ -109,14 +110,14 @@ func TestRegister(t *testing.T) {
 		return
 	}
 
-	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
 
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
-	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState)
+	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err == nil {
 		t.Errorf("Registration duplicate did not fail")
 	}
@@ -128,10 +129,7 @@ func TestSearch(t *testing.T) {
 	publicKeyString := base64.StdEncoding.EncodeToString(pubKey)
 
 	// Send response messages from fake UDB in advance
-	searchResponseListener <- fmt.Sprintf("SEARCH %s FOUND %s %s",
-		"blah@elixxir.io",
-		base64.StdEncoding.EncodeToString(id.NewUserFromUint(26, t)[:]),
-		keyFingerprint)
+	searchResponseListener <- "blah@elixxir.io FOUND UR69db14ZyicpZVqJ1HFC5rk9UZ8817aV6+VHmrJpGc= AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABo= 8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		publicKeyString)
 
@@ -140,16 +138,20 @@ func TestSearch(t *testing.T) {
 	}
 
 	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io",
-		dummySearchState)
+		dummySearchState, 30*time.Second)
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}
 	if *searchedUser != *id.NewUserFromUint(26, t) {
-		t.Errorf("Search did not return user ID 26!")
+		t.Errorf("Search did not return user ID 26! returned %v", string(searchedUser.Bytes()))
+	}
+	//Test the timeout capabilities
+	searchedUser, _, err = Search("EMAIL", "blah@elixxir.io", dummySearchState, 1*time.Millisecond)
+	if strings.Compare(err.Error(), "UDB search timeout exceeded on user lookup") != 0 {
+		t.Errorf("error: %v", err)
 	}
 }
 
-// Test NICKNAME_REQUEST and NICKNAME_RESPONSE
 // messages using switchboard
 // Test LookupNick function
 func TestNicknameFunctions(t *testing.T) {

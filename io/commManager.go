@@ -60,7 +60,8 @@ type CommManager struct {
 	transmitDelay time.Duration
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
-	receivedMessages map[string]struct{}
+	receivedMessages   map[string]struct{}
+	recievedMesageLock sync.RWMutex
 
 	sendLock sync.Mutex
 
@@ -203,6 +204,8 @@ func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.Ne
 	}
 
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
+
+	globals.Log.INFO.Printf("Remote NDF: %s", string(response.Ndf))
 
 	//Otherwise pull the ndf out of the response
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))

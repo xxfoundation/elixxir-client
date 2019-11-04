@@ -382,7 +382,7 @@ var rootCmd = &cobra.Command{
 		globals.Log.INFO.Println("Logged In!")
 
 		if userEmail != "" {
-			err := client.RegisterWithUDB()
+			err := client.RegisterWithUDB(2 * time.Minute)
 			if err != nil {
 				jww.ERROR.Printf("Could not register with UDB: %+v", err)
 			}
@@ -454,7 +454,7 @@ var rootCmd = &cobra.Command{
 
 		if searchForUser != "" {
 			udbLister = newUserSearcher()
-			client.SearchForUser(searchForUser, udbLister)
+			client.SearchForUser(searchForUser, udbLister, 2*time.Minute)
 		}
 
 		if message != "" {

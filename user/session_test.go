@@ -68,7 +68,7 @@ func TestUserSession(t *testing.T) {
 
 	ses := NewSession(storage,
 		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, cmixGrp, e2eGrp, "password", regSignature)
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -243,7 +243,7 @@ func TestGetPubKey(t *testing.T) {
 	rng.Read(regSignature)
 
 	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
-		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
+		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp,
 		e2eGrp, "password", regSignature)
 
 	pubKey := *ses.GetRSAPublicKey()
@@ -284,7 +284,7 @@ func TestGetPrivKey(t *testing.T) {
 	rng.Read(regSignature)
 
 	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
-		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, cmixGrp,
+		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp,
 		e2eGrp, "password", regSignature)
 
 	privKey := ses.GetRSAPrivateKey()
@@ -354,7 +354,7 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 // testing that the final buffer matches the values appended.
 func TestSessionObj_AppendGarbledMessage(t *testing.T) {
 	session := NewSession(nil, nil, nil, nil, nil, nil,
-		nil, nil, nil, nil, nil, "", nil)
+		nil, nil, nil, nil, nil, nil, "", nil)
 	msgs := GenerateTestMessages(10)
 
 	session.AppendGarbledMessage(msgs...)
@@ -370,7 +370,7 @@ func TestSessionObj_AppendGarbledMessage(t *testing.T) {
 // is cleared.
 func TestSessionObj_PopGarbledMessages(t *testing.T) {
 	session := NewSession(nil, nil, nil, nil, nil, nil,
-		nil, nil, nil, nil, nil, "", nil)
+		nil, nil, nil, nil, nil, nil, "", nil)
 	msgs := GenerateTestMessages(10)
 
 	session.(*SessionObj).garbledMessages = msgs

@@ -112,7 +112,7 @@ func (i *mockPermission) RegisterNode(ID []byte, ServerAddr, ServerTlsCert,
 }
 
 func (i *mockPermission) GetCurrentClientVersion() (string, error) {
-	return "0.0.0", nil
+	return globals.SEMVER, nil
 }
 
 func (i *mockPermission) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {

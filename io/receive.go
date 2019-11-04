@@ -20,6 +20,8 @@ import (
 	"time"
 )
 
+const reportDuration = 30 * time.Second
+
 var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
 
 // MessageReceiver is a polling thread for receiving messages
@@ -36,17 +38,36 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
+	NumChecks := 0
+	NumMessages := 0
+
+	reportTicker := time.NewTicker(reportDuration)
+
 	var encryptedMessages []*format.Message
+
+	globals.Log.DEBUG.Printf("Gateway Polling for Message Reception Begun")
 
 	for {
 		// TODO: replace timer with ticker
 		timerDelay := time.NewTimer(delay)
+		NumChecks++
 		select {
 		case <-quit:
 			globals.Log.DEBUG.Printf("Stopped message receiver\n")
 			return
 		case <-timerDelay.C:
-			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
+
+			//check if a report on the polling status is due, report to logs if
+			//it is
+			select {
+			case <-reportTicker.C:
+				globals.Log.DEBUG.Printf("Over the passed %v "+
+					"gateway has been checked %v time and %v messages recieved",
+					reportDuration, NumChecks, NumMessages)
+			default:
+			}
+
+			NumChecks++
 
 			var err error
 
@@ -95,6 +116,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 					}
 				}
 			}
+			NumMessages += len(encryptedMessages)
 		case <-rekeyChan:
 			encryptedMessages = session.PopGarbledMessages()
 
@@ -215,7 +237,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		return nil, err
 	}
 
-	globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	if len(messageIDs.IDs) < 0 {
+		globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	}
 
 	messages := make([]*format.Message, len(messageIDs.IDs))
 	mIDs := make([]string, len(messageIDs.IDs))
@@ -227,7 +251,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	bufLoc := 0
 	for _, messageID := range messageIDs.IDs {
 		// Get the first unseen message from the list of IDs
+		cm.recievedMesageLock.RLock()
 		_, received := cm.receivedMessages[messageID]
+		cm.recievedMesageLock.RUnlock()
 		if !received {
 			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 				messageID)
@@ -268,7 +294,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
 				"Adding message ID %v to received message IDs", mIDs[i])
+			cm.recievedMesageLock.Lock()
 			cm.receivedMessages[mIDs[i]] = struct{}{}
+			cm.recievedMesageLock.Unlock()
 		}
 		session.SetLastMessageID(mIDs[bufLoc-1])
 		err = session.StoreSession()

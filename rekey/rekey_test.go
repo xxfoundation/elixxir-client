@@ -77,7 +77,7 @@ func TestMain(m *testing.M) {
 
 	session := user.NewSession(&globals.RamStorage{},
 		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclicCMIX,
-		myPrivKeyCyclicCMIX, myPubKeyCyclicE2E, myPrivKeyCyclicE2E,
+		myPrivKeyCyclicCMIX, myPubKeyCyclicE2E, myPrivKeyCyclicE2E, make([]byte, 1),
 		grp, e2eGrp, "password", regSignature)
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{

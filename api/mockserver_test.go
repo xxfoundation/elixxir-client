@@ -354,7 +354,8 @@ func TestLogout(t *testing.T) {
 //Error path: disconnect gateways before messageReceiver
 func TestClient_StartMessageReceiver_ErrorPath(t *testing.T) {
 	defer func() {
-		if r := recover(); r != nil {
+		if r := recover(); r == nil {
+			return
 		}
 
 	}()
@@ -393,7 +394,6 @@ func TestClient_StartMessageReceiver_ErrorPath(t *testing.T) {
 	client.commManager.Disconnect()
 
 	err = client.StartMessageReceiver()
-
 }
 
 // Handles initialization of mock registration server,

@@ -72,36 +72,6 @@ func TestRegistrationGob(t *testing.T) {
 	disconnectServers()
 }
 
-//TestSearch: Error path
-func TestClient_SearchForUser(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			return
-		}
-	}()
-	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler)
-
-	if err != nil {
-		t.Error(err)
-	}
-	testClient.DisableTLS()
-
-	err = testClient.Connect()
-	if err != nil {
-		t.Error(err)
-	}
-	// populate a gob in the store
-	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	var searchCb SearchCallback
-	testClient.SearchForUser("not@found.com", searchCb, 5*time.Second)
-}
-
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	//Make mock client

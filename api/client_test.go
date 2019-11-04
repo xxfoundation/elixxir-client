@@ -28,6 +28,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -71,6 +72,36 @@ func TestRegistrationGob(t *testing.T) {
 	disconnectServers()
 }
 
+//TestSearch: Error path
+func TestClient_SearchForUser(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	// populate a gob in the store
+	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	var searchCb SearchCallback
+	testClient.SearchForUser("not@found.com", searchCb, 1*time.Microsecond)
+}
+
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	//Make mock client
@@ -104,6 +135,33 @@ func TestClient_Register(t *testing.T) {
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
 	disconnectServers()
+}
+
+//Test GetRemoveVersion returns the expected value (globals.SEMVER)
+func TestClient_GetRemoteVersion(t *testing.T) {
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	// populate a gob in the store
+	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	//Get it from a good version
+	if strings.Compare(globals.SEMVER, testClient.GetRemoteVersion()) != 0 {
+		t.Errorf("Client not up to date: Recieved %v Expected %v", testClient.GetRemoteVersion(), globals.SEMVER)
+	}
+
 }
 
 func TestClient_Register_NoUpdatingNDF(t *testing.T) {

@@ -507,11 +507,16 @@ func (cl *Client) RegisterWithNodes() error {
 
 	salt := session.GetSalt()
 
+	// This variable keeps track of whether there were new registrations
+	// required, thus requiring the state file to be saved again
+	newRegistrations := false
+
 	for i := range cl.ndf.Gateways {
 		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
 		//Register with node if the node has not been registered with already
 		if _, ok := registeredNodes[nodeID]; !ok {
 			wg.Add(1)
+			newRegistrations = true
 			go func() {
 				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
 					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
@@ -536,8 +541,10 @@ func (cl *Client) RegisterWithNodes() error {
 	if errs != nil {
 		cl.opStatus(globals.REG_FAIL)
 		return errs
-	} else {
-		// Store the user session
+	}
+
+	// Store the user session if there were changes during node registration
+	if newRegistrations {
 		errStore := session.StoreSession()
 		if errStore != nil {
 			err := errors.New(fmt.Sprintf(

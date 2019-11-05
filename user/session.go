@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -233,7 +233,7 @@ func (s *SessionObj) GetNodes() map[id.Node]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	nodes := make(map[id.Node]int, 0)
-	for node, _ := range s.Keys {
+	for node := range s.Keys {
 		nodes[node] = 1
 	}
 	return nodes

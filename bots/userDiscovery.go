@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -253,7 +253,6 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
 		publicKeyString)
-
 
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 

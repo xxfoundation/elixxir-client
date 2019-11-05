@@ -285,6 +285,10 @@ func (s *storageProxy) Load() []byte {
 	return s.boundStorage.Load()
 }
 
+func (s *storageProxy) IsEmpty() bool {
+	return s.boundStorage.IsEmpty()
+}
+
 type Writer interface{ io.Writer }
 
 func SetLogOutput(w Writer) {

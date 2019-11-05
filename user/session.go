@@ -331,6 +331,7 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 }
 
 func (s *SessionObj) GetRegState() uint32 {
+	fmt.Println("regstate: ", s.regState)
 	return atomic.LoadUint32(s.regState)
 }
 

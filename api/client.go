@@ -279,10 +279,10 @@ const SaltSize = 256
 // RegisterWithPermissioning registers user with permissioning and returns the
 // User ID.  Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
-	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
+	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, user.Session, error) {
 
 	if !preCan && cl.commManager.GetConnectionStatus() != io.Online {
-		return nil, errors.New("Cannot register when disconnected from the network")
+		return nil, nil, errors.New("Cannot register when disconnected from the network")
 	}
 
 	var err error
@@ -308,7 +308,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	if privateKeyRSA == nil {
 		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
@@ -317,7 +317,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
+		return nil, nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
 	}
 
 	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
@@ -326,7 +326,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
+		return nil, nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
 	}
 
 	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
@@ -344,7 +344,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
-			return id.ZeroID, err
+			return id.ZeroID, nil, err
 		}
 	} else {
 		cl.opStatus(globals.REG_UID_GEN)
@@ -355,7 +355,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		_, err = csprng.NewSystemRNG().Read(salt)
 		if err != nil {
 			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
-			return id.ZeroID, err
+			return id.ZeroID, nil, err
 		}
 
 		// Generate UserID by hashing salt and public key
@@ -369,7 +369,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 			regValidationSignature, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
 				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
-				return id.ZeroID, err
+				return id.ZeroID, nil, err
 			}
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
@@ -397,7 +397,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	//set the registration state
 	err = newSession.SetRegState(user.PermissioningComplete)
 	if err != nil {
-		return id.ZeroID, errors.Wrap(err, "Permissioning Registration "+
+		return id.ZeroID, nil, errors.Wrap(err, "Permissioning Registration "+
 			"Failed")
 	}
 
@@ -408,10 +408,10 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		err = errors.New(fmt.Sprintf(
 			"Permissioning Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
-		return id.ZeroID, err
+		return id.ZeroID, nil, err
 	}
 
-	return UID, nil
+	return UID, newSession, nil
 }
 
 // RegisterWithUDB uses the account's email to register with the UDB for
@@ -419,7 +419,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 
-	regState := cl.session.GetRegState()
+	regState := cl.GetSession().GetRegState()
 
 	if regState != user.PermissioningComplete {
 		return errors.New("Cannot register with UDB when registration " +
@@ -604,7 +604,7 @@ func (cl *Client) Login(password string) (string, error) {
 	if session == nil {
 		return "", errors.New("Unable to load session, no error reported")
 	}
-
+	fmt.Println("flim flam: ", session.GetRegState())
 	if session.GetRegState() != user.UDBComplete {
 		return "", errors.New("Cannot log a user in which has not " +
 			"completed registration ")

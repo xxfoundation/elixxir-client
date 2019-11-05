@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -35,11 +35,7 @@ func (ds *DefaultStorage) GetLocation() string {
 
 func (ds *DefaultStorage) IsEmpty() bool {
 	_, err := os.Stat(ds.location)
-	if err != nil && !os.IsNotExist(err) {
-		return true
-	} else {
-		return false
-	}
+	return err != nil && !os.IsNotExist(err)
 }
 
 func (ds *DefaultStorage) Save(data []byte) error {
@@ -139,6 +135,6 @@ func (rs *RamStorage) Load() []byte {
 	return b
 }
 
-func (ds *RamStorage) IsEmpty() bool {
-	return len(ds.data) == 0 || ds.data == nil
+func (rs *RamStorage) IsEmpty() bool {
+	return rs.data == nil || len(rs.data) == 0
 }

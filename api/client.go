@@ -274,8 +274,6 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
 }
 
-
-
 const SaltSize = 256
 
 // RegisterWithPermissioning registers user with permissioning and returns the
@@ -398,7 +396,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 
 	//set the registration state
 	err = newSession.SetRegState(user.PermissioningComplete)
-
 	if err != nil {
 		return id.ZeroID, errors.Wrap(err, "Permissioning Registration "+
 			"Failed")
@@ -411,7 +408,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		err = errors.New(fmt.Sprintf(
 			"Permissioning Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
 		return id.ZeroID, err
 	}
 
@@ -429,7 +425,6 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 		return errors.New("Cannot register with UDB when registration " +
 			"state is not PermissioningComplete")
 	}
-
 
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
@@ -478,7 +473,6 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 		err = errors.New(fmt.Sprintf(
 			"UDB Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -546,12 +540,10 @@ func (cl *Client) RegisterWithNodes() error {
 
 	// Store the user session
 	errStore := session.StoreSession()
-
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf(
 			"Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -579,7 +571,6 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 
 	if err != nil {
 		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
-		globals.Log.ERROR.Printf(errMsg)
 		errorChan <- errors.New(errMsg)
 	}
 
@@ -591,9 +582,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
 	if err != nil {
 		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
-		globals.Log.ERROR.Printf(errMsg)
 		errorChan <- errors.New(errMsg)
-	} else {
 	}
 	nodeID := *cl.topology.GetNodeAtIndex(index)
 	nodeKey[nodeID] = user.NodeKeys{
@@ -604,15 +593,12 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	}
 }
 
-
 // LoadSession loads the session object for the UID
 func (cl *Client) Login(password string) (string, error) {
 	session, err := user.LoadSession(cl.storage, password)
 
 	if err != nil {
-		err = errors.Wrap(err, "Login: Could not login")
-		globals.Log.ERROR.Printf(err.Error())
-		return "", err
+		return "", errors.Wrap(err, "Login: Could not login")
 	}
 
 	if session == nil {

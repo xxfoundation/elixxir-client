@@ -503,14 +503,14 @@ func (cl *Client) RegisterWithNodes() error {
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
 	//Get the registered node keys
-	registedNodes := session.GetNodes()
+	registeredNodes := session.GetNodes()
 
 	salt := session.GetSalt()
 
 	for i := range cl.ndf.Gateways {
 		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
 		//Register with node if the node has not been registered with already
-		if _, ok := registedNodes[nodeID]; !ok {
+		if _, ok := registeredNodes[nodeID]; !ok {
 			wg.Add(1)
 			go func() {
 				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
@@ -532,19 +532,19 @@ func (cl *Client) RegisterWithNodes() error {
 		}
 
 	}
-	//If an error every occured, return with error
+	//If an error every occurred, return with error
 	if errs != nil {
 		cl.opStatus(globals.REG_FAIL)
 		return errs
-	}
-
-	// Store the user session
-	errStore := session.StoreSession()
-	if errStore != nil {
-		err := errors.New(fmt.Sprintf(
-			"Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		return err
+	} else {
+		// Store the user session
+		errStore := session.StoreSession()
+		if errStore != nil {
+			err := errors.New(fmt.Sprintf(
+				"Register: could not register due to failed session save"+
+					": %s", errStore.Error()))
+			return err
+		}
 	}
 
 	return nil

@@ -64,7 +64,6 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 		select {
 		case response = <-pushKeyResponseListener:
 			if strings.Contains(response, keyFP) {
-				var pushkeyExpected = "PUSHKEY COMPLETE"
 				if strings.Contains(response, pushkeyExpected) {
 					submitted = true
 				} else {

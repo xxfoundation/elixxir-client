@@ -65,6 +65,7 @@ type Session interface {
 	SetRegState(rs uint32) error
 	GetRegState() uint32
 	ChangeUsername(string) error
+	StorageIsEmpty() bool
 }
 
 type NodeKeys struct {
@@ -214,6 +215,12 @@ func (s *SessionObj) GetLastMessageID() string {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.LastMessageID
+}
+
+func (s *SessionObj) StorageIsEmpty() bool {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.store.IsEmpty()
 }
 
 func (s *SessionObj) SetLastMessageID(id string) {

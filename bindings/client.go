@@ -135,7 +135,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 // Returns error if registration fails
 func (cl *Client) RegisterWithNodes() error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithNodes()")
-	err := cl.RegisterWithNodes()
+	err := cl.client.RegisterWithNodes()
 
 	if err != nil {
 		return err
@@ -168,9 +168,24 @@ func (cl *Client) StartMessageReceiver() error {
 	return cl.client.StartMessageReceiver()
 }
 
-// Overwrites the username in registration
-func (cl *Client) ChangeUsername(string) {
-	cl.ses
+// Overwrites the username in registration. Only succeeds if the client
+// has registered with permissioning but not UDB
+func (cl *Client) ChangeUsername(un string) error {
+	return cl.client.GetSession().ChangeUsername(un)
+}
+
+// gets the curent registration status.  they cane be:
+//  0 - NotStarted
+//	1 - PermissioningComplete
+//	2 - UDBComplete
+func (cl *Client) GetRegState() uint32 {
+	return cl.client.GetSession().GetRegState()
+}
+
+// Registers user with all nodes it has not been registered with.
+// Returns error if registration fails
+func (cl *Client) StorageIsEmpty() bool {
+	return cl.client.GetSession().StorageIsEmpty()
 }
 
 

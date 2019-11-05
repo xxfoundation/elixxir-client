@@ -16,6 +16,7 @@ type Storage interface {
 	GetLocation() string
 	Save([]byte) error
 	Load() []byte
+	IsEmpty() bool
 }
 
 type DefaultStorage struct {
@@ -30,6 +31,15 @@ func (ds *DefaultStorage) SetLocation(location string) error {
 
 func (ds *DefaultStorage) GetLocation() string {
 	return ds.location
+}
+
+func (ds *DefaultStorage) IsEmpty() bool {
+	_, err := os.Stat(ds.location)
+	if err != nil && !os.IsNotExist(err) {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (ds *DefaultStorage) Save(data []byte) error {
@@ -127,4 +137,8 @@ func (rs *RamStorage) Load() []byte {
 	copy(b, rs.data)
 
 	return b
+}
+
+func (ds *RamStorage) IsEmpty() bool {
+	return len(ds.data) == 0 || ds.data == nil
 }

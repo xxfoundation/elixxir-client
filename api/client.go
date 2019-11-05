@@ -611,7 +611,6 @@ func (cl *Client) Login(password string) (string, error) {
 	if session == nil {
 		return "", errors.New("Unable to load session, no error reported")
 	}
-	fmt.Println("flim flam: ", session)
 	if session.GetRegState() < user.PermissioningComplete {
 		return "", errors.New("Cannot log a user in which has not " +
 			"completed registration ")

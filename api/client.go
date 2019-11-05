@@ -893,3 +893,15 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 func SetLogOutput(w goio.Writer) {
 	globals.Log.SetLogOutput(w)
 }
+
+// GetSession returns the session object for external access.  Access at your
+// own risk
+func (cl *Client) GetSession() user.Session {
+	return cl.session
+}
+
+// CommManager returns the comm manager object for external access.  Access
+// at your own risk
+func (cl *Client) GetCommManager() *io.CommManager {
+	return cl.commManager
+}

@@ -354,7 +354,6 @@ func (s *SessionObj) ChangeUsername(username string) error {
 	return nil
 }
 
-
 func (s *SessionObj) storeSession() error {
 
 	if s.store == nil {

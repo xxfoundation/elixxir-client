@@ -75,10 +75,10 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 			if err != nil {
 
-				if strings.Contains(err.Error(), "Client has exceeded communications rate limit"){
+				if strings.Contains(err.Error(), "Client has exceeded communications rate limit") {
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
-					time.Sleep(5*time.Second)
-				}else if !skipErrChecker(err){
+					time.Sleep(5 * time.Second)
+				} else if !skipErrChecker(err) {
 					backoffCount := 0
 
 					// Handles disconnections
@@ -373,8 +373,8 @@ func broadcastMessageReception(message *parse.Message,
 }
 
 // skipErrChecker checks checks if the error is fatal or should be ignored
-func skipErrChecker(err error)bool{
-	if strings.Contains(err.Error(), "Could not find any message IDs for this user"){
+func skipErrChecker(err error) bool {
+	if strings.Contains(err.Error(), "Could not find any message IDs for this user") {
 		return true
 	}
 

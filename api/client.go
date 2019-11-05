@@ -480,7 +480,7 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 }
 
 func (cl *Client) RegisterWithNodes() error {
-	session := cl.session
+	session := cl.GetSession()
 	//Load Cmix keys & group
 	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
 	cmixDHPubKey := session.GetCMIXDHPublicKey()
@@ -890,4 +890,8 @@ func (cl *Client) GetSession() user.Session {
 // at your own risk
 func (cl *Client) GetCommManager() *io.CommManager {
 	return cl.commManager
+}
+
+func (cl *Client) StoreSession(session user.Session) {
+	cl.session = session
 }

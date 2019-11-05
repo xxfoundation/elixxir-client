@@ -72,7 +72,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.Register(true, ValidRegCode,
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "password", nil)
 
 	// Verify registration succeeds with valid precanned registration code
@@ -107,7 +107,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.Register(false, ValidRegCode, "", "",
+	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode, "", "",
 		"password", nil)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
@@ -115,6 +115,11 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %+v", *regRes)
+	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
 	}
 
 	//Disconnect and shutdown servers
@@ -141,11 +146,17 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	// Register with invalid reg code
-	uid, err := client.Register(true, InvalidRegCode, "", "",
+	uid, err := client.RegisterWithPermissioning(true, InvalidRegCode, "", "",
 		"password", nil)
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
+	}
+
 	//Disconnect and shutdown servers
 	killServers()
 }
@@ -174,11 +185,14 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.Register(true, ValidRegCode, "", "", "password", nil)
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password", nil)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
-
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
+	}
 	// ...
 	user.Users.UpsertUser(tempUser)
 	//Disconnect and shutdown servers
@@ -205,11 +219,16 @@ func TestSend(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.Register(true, ValidRegCode, "", "", "password",
+	userID, err := client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
 		nil)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
 	}
 
 	// Login to gateway
@@ -283,11 +302,16 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	_, err = client.Register(true, ValidRegCode, "", "", "password",
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
 		nil)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
 	}
 
 	// Login to gateway

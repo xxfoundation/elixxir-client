@@ -53,12 +53,10 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, testSession, err := testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
 		t.Error(err)
 	}
-
-	testClient.StoreSession(testSession)
 
 	err = testClient.RegisterWithNodes()
 	if err != nil {
@@ -97,12 +95,10 @@ func TestClient_Register(t *testing.T) {
 		t.Error(err)
 	}
 	// populate a gob in the store
-	_, testSession, err := testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
 		t.Error(err)
 	}
-
-	testClient.StoreSession(testSession)
 
 	err = testClient.RegisterWithNodes()
 	if err != nil {

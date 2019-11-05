@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"os"
 	"sync"
 	"time"
 )
@@ -180,6 +181,15 @@ type DummyStorage struct {
 	Location string
 	LastSave []byte
 	mutex    sync.Mutex
+}
+
+func (d *DummyStorage) IsEmpty() bool {
+	_, err := os.Stat(d.Location)
+	if err != nil && !os.IsNotExist(err) {
+		return true
+	} else {
+		return false
+	}
 }
 
 func (d *DummyStorage) SetLocation(l string) error {

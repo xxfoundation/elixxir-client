@@ -87,7 +87,6 @@ func NewSession(store globals.Storage,
 	password string,
 	regSignature []byte) Session {
 	regState := NotStarted
-	fmt.Println("in new session: reg state: ", &regState)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:            u,
@@ -109,7 +108,7 @@ func NewSession(store globals.Storage,
 		password:               password,
 		regValidationSignature: regSignature,
 		Salt:                   salt,
-		regState:               &regState,
+		RegState:               &regState,
 	})
 }
 
@@ -132,13 +131,11 @@ func LoadSession(store globals.Storage,
 	var sessionBytes bytes.Buffer
 
 	sessionBytes.Write(decryptedSessionGob)
-
 	dec := gob.NewDecoder(&sessionBytes)
 
 	session := SessionObj{}
 
 	err = dec.Decode(&session)
-	fmt.Println("in load, salt: ", session.E2EGrp)
 	if err != nil {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: unable to load session: %s", err.Error()))
@@ -208,7 +205,7 @@ type SessionObj struct {
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
 
-	regState *uint32
+	RegState *uint32
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -331,13 +328,12 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 }
 
 func (s *SessionObj) GetRegState() uint32 {
-	fmt.Println("regstate: ", s.regState)
-	return atomic.LoadUint32(s.regState)
+	return atomic.LoadUint32(s.RegState)
 }
 
 func (s *SessionObj) SetRegState(rs uint32) error {
 	prevRs := rs - 1
-	b := atomic.CompareAndSwapUint32(s.regState, prevRs, rs)
+	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
 	if !b {
 		return errors.New("Could not increment registration state")
 	}

@@ -222,6 +222,11 @@ func TestSend(t *testing.T) {
 		t.Error(err)
 	}
 
+	err = client.session.StoreSession()
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
 	// Login to gateway
 	_, err = client.Login("password")
 

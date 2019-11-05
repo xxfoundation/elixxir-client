@@ -208,16 +208,14 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		uid, err = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
 			userEmail, sessFilePassword, privKey)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
+			globals.Log.FATAL.Panicf("Could Not Register User: %s",
 				err.Error())
-			return id.ZeroID, "", nil
 		}
 
 		err := client.RegisterWithNodes()
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s\n",
+			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s",
 				err.Error())
-			return id.ZeroID, "", nil
 		}
 
 		userbase64 := base64.StdEncoding.EncodeToString(uid[:])

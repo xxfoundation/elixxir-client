@@ -136,12 +136,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 func (cl *Client) RegisterWithNodes() error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithNodes()")
 	err := cl.client.RegisterWithNodes()
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 // Register with UDB uses the account's email to register with the UDB for
@@ -187,7 +182,6 @@ func (cl *Client) GetRegState() uint32 {
 func (cl *Client) StorageIsEmpty() bool {
 	return cl.client.GetSession().StorageIsEmpty()
 }
-
 
 // Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload

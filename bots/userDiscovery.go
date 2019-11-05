@@ -22,6 +22,9 @@ import (
 	"time"
 )
 
+var pushkeyExpected = "PUSHKEY COMPLETE"
+var pushkeyErrorExpected = "Could not push key"
+
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
@@ -60,9 +63,13 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 	for !submitted {
 		select {
 		case response = <-pushKeyResponseListener:
-			expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
-			if strings.Contains(response, expected) {
-				submitted = true
+			if strings.Contains(response, keyFP) {
+				if strings.Contains(response, pushkeyExpected) {
+					submitted = true
+				} else {
+					err := errors.New(response)
+					return errors.Wrap(err, "PushKey failed")
+				}
 			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on key submission")

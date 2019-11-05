@@ -87,6 +87,7 @@ func NewSession(store globals.Storage,
 	password string,
 	regSignature []byte) Session {
 	regState := NotStarted
+	fmt.Println("in new session: reg state: ", &regState)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:            u,
@@ -137,7 +138,7 @@ func LoadSession(store globals.Storage,
 	session := SessionObj{}
 
 	err = dec.Decode(&session)
-
+	fmt.Println("in load, salt: ", session.E2EGrp)
 	if err != nil {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: unable to load session: %s", err.Error()))
@@ -147,7 +148,6 @@ func LoadSession(store globals.Storage,
 	// Reconstruct Key maps
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
 		session.CurrentUser.User)
-
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner

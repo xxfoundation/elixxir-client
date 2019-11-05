@@ -64,6 +64,10 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 			if strings.Contains(response, expected) {
 				submitted = true
 			}
+			errorExpected := fmt.Sprintf("Could not push key %s because key already exists", keyFP)
+			if strings.Contains(response, errorExpected) {
+				return errors.New("UDB key registration failed due to duplicate key")
+			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on key submission")
 		}

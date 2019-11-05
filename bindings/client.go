@@ -117,11 +117,11 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
-	globals.Log.INFO.Printf("Binding call: Register()\n"+
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
+	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email,
 		password, nil)
 
 	if err != nil {
@@ -129,6 +129,19 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	}
 
 	return UID[:], nil
+}
+
+// Registers user with all nodes it has not been registered with.
+// Returns error if registration fails
+func (cl *Client) RegisterWithNodes() error {
+	globals.Log.INFO.Printf("Binding call: RegisterWithNodes()")
+	err := cl.RegisterWithNodes()
+
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // Register with UDB uses the account's email to register with the UDB for
@@ -154,6 +167,12 @@ func (cl *Client) StartMessageReceiver() error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
 	return cl.client.StartMessageReceiver()
 }
+
+// Overwrites the username in registration
+func (cl *Client) ChangeUsername(string) {
+	cl.ses
+}
+
 
 // Sends a message structured via the message interface
 // Automatically serializes the message type before the rest of the payload

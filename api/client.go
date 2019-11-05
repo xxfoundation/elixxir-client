@@ -274,57 +274,13 @@ func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
 }
 
-//registerWithNode registers a user. It serves as a helper for Register
-func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
-	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
-	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
-	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys, errorChan chan error) {
 
-	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
-
-	// Initialise blake2b hash for transmission keys and sha256 for reception
-	// keys
-	transmissionHash, _ := hash.NewCMixHash()
-	receptionHash := sha256.New()
-
-	// Request nonce message from gateway
-	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
-		index, len(cl.ndf.Gateways))
-	nonce, dhPub, err := cl.requestNonce(salt, registrationValidationSignature, cmixPublicKeyDH,
-		publicKeyRSA, privateKeyRSA, gatewayID)
-
-	if err != nil {
-		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
-		globals.Log.ERROR.Printf(errMsg)
-		errorChan <- errors.New(errMsg)
-	}
-
-	// Load server DH pubkey
-	serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
-
-	// Confirm received nonce
-	globals.Log.INFO.Println("Register: Confirming received nonce")
-	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
-	if err != nil {
-		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
-		globals.Log.ERROR.Printf(errMsg)
-		errorChan <- errors.New(errMsg)
-	} else {
-	}
-	nodeID := *cl.topology.GetNodeAtIndex(index)
-	nodeKey[nodeID] = user.NodeKeys{
-		TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-			serverPubDH, cmixPrivateKeyDH, transmissionHash),
-		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-			cmixPrivateKeyDH, receptionHash),
-	}
-}
 
 const SaltSize = 256
 
-// Registers user and returns the User ID.
-// Returns an error if registration fails.
-func (cl *Client) Register(preCan bool, registrationCode, nick, email,
+// RegisterWithPermissioning registers user with permissioning and returns the
+// User ID.  Returns an error if registration fails.
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
 	if !preCan && cl.commManager.GetConnectionStatus() != io.Online {
@@ -420,44 +376,6 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		cl.opStatus(globals.REG_NODE)
-
-		var wg sync.WaitGroup
-		errChan := make(chan error, len(cl.ndf.Gateways))
-
-		// Loop over all Servers
-		globals.Log.INFO.Println("Register: Requesting nonces")
-		for i := range cl.ndf.Gateways {
-			// Multithread registration for better performance
-			wg.Add(1)
-			go func() {
-				//Register the client over all servers
-				cl.registerWithNode(i, salt, regValidationSignature, UID, publicKeyRSA, privateKeyRSA,
-					cmixPublicKeyDH, cmixPrivateKeyDH, cmixGrp, nk, errChan)
-
-				wg.Done()
-			}()
-
-			wg.Wait()
-			//See if the registration returned errors at all
-			var errs error
-			for len(errChan) > 0 {
-				err = <-errChan
-				if errs != nil {
-					errs = errors.Wrap(errs, err.Error())
-				} else {
-					errs = err
-				}
-
-			}
-			//If an error every occured, return with error
-			if errs != nil {
-				cl.opStatus(globals.REG_FAIL)
-				return id.ZeroID, errs
-			}
-
-		}
-
 		var actualNick string
 		if nick != "" {
 			actualNick = nick
@@ -478,25 +396,24 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
 	cl.opStatus(globals.REG_SAVE)
 
+	//set the registration state
+	err = newSession.SetRegState(user.PermissioningComplete)
+
+	if err != nil {
+		return id.ZeroID, errors.Wrap(err, "Permissioning Registration "+
+			"Failed")
+	}
+
 	// Store the user session
 	errStore := newSession.StoreSession()
 
-	// FIXME If we have an error here, the session that gets created
-	// doesn't get immolated. Immolation should happen in a deferred
-	//  call instead.
 	if errStore != nil {
 		err = errors.New(fmt.Sprintf(
-			"Register: could not register due to failed session save"+
+			"Permissioning Register: could not register due to failed session save"+
 				": %s", errStore.Error()))
 		globals.Log.ERROR.Printf(err.Error())
 		return id.ZeroID, err
 	}
-
-	err = newSession.Immolate()
-	if err != nil {
-		globals.Log.ERROR.Printf("Error on immolate: %+v", err)
-	}
-	newSession = nil
 
 	return UID, nil
 }
@@ -505,6 +422,15 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email,
 // User discovery.  Must be called after Register and Connect.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
+
+	regState := cl.session.GetRegState()
+
+	if regState != user.PermissioningComplete {
+		return errors.New("Cannot register with UDB when registration " +
+			"state is not PermissioningComplete")
+	}
+
+
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
@@ -531,23 +457,36 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
 			"email found")
 	}
-	return err
-}
-
-// LoadSession loads the session object for the UID
-func (cl *Client) Login(password string) (string, error) {
-	session, err := user.LoadSession(cl.storage, password)
 
 	if err != nil {
-		err = errors.Wrap(err, "Login: Could not login")
+		return errors.Wrap(err, "Could not register with UDB")
+	}
+
+	//set the registration state
+	err = cl.session.SetRegState(user.PermissioningComplete)
+
+	if err != nil {
+		return errors.Wrap(err, "UDB Registration Failed")
+	}
+
+	errStore := cl.session.StoreSession()
+
+	// FIXME If we have an error here, the session that gets created
+	// doesn't get immolated. Immolation should happen in a deferred
+	//  call instead.
+	if errStore != nil {
+		err = errors.New(fmt.Sprintf(
+			"UDB Register: could not register due to failed session save"+
+				": %s", errStore.Error()))
 		globals.Log.ERROR.Printf(err.Error())
-		return "", err
+		return err
 	}
 
-	if session == nil {
-		return "", errors.New("Unable to load session, no error reported")
-	}
+	return nil
+}
 
+func (cl *Client) RegisterWithNodes() error {
+	session := cl.session
 	//Load Cmix keys & group
 	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
 	cmixDHPubKey := session.GetCMIXDHPublicKey()
@@ -591,7 +530,7 @@ func (cl *Client) Login(password string) (string, error) {
 	//See if the registration returned errors at all
 	var errs error
 	for len(errChan) > 0 {
-		err = <-errChan
+		err := <-errChan
 		if errs != nil {
 			errs = errors.Wrap(errs, err.Error())
 		} else {
@@ -602,7 +541,87 @@ func (cl *Client) Login(password string) (string, error) {
 	//If an error every occured, return with error
 	if errs != nil {
 		cl.opStatus(globals.REG_FAIL)
-		return "", errs
+		return errs
+	}
+
+	// Store the user session
+	errStore := session.StoreSession()
+
+	if errStore != nil {
+		err := errors.New(fmt.Sprintf(
+			"Register: could not register due to failed session save"+
+				": %s", errStore.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	return nil
+}
+
+//registerWithNode registers a user. It serves as a helper for Register
+func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
+	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
+	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
+	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys, errorChan chan error) {
+
+	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
+
+	// Initialise blake2b hash for transmission keys and sha256 for reception
+	// keys
+	transmissionHash, _ := hash.NewCMixHash()
+	receptionHash := sha256.New()
+
+	// Request nonce message from gateway
+	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
+		index, len(cl.ndf.Gateways))
+	nonce, dhPub, err := cl.requestNonce(salt, registrationValidationSignature, cmixPublicKeyDH,
+		publicKeyRSA, privateKeyRSA, gatewayID)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
+		globals.Log.ERROR.Printf(errMsg)
+		errorChan <- errors.New(errMsg)
+	}
+
+	// Load server DH pubkey
+	serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
+
+	// Confirm received nonce
+	globals.Log.INFO.Println("Register: Confirming received nonce")
+	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
+	if err != nil {
+		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
+		globals.Log.ERROR.Printf(errMsg)
+		errorChan <- errors.New(errMsg)
+	} else {
+	}
+	nodeID := *cl.topology.GetNodeAtIndex(index)
+	nodeKey[nodeID] = user.NodeKeys{
+		TransmissionKey: registration.GenerateBaseKey(cmixGrp,
+			serverPubDH, cmixPrivateKeyDH, transmissionHash),
+		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
+			cmixPrivateKeyDH, receptionHash),
+	}
+}
+
+
+// LoadSession loads the session object for the UID
+func (cl *Client) Login(password string) (string, error) {
+	session, err := user.LoadSession(cl.storage, password)
+
+	if err != nil {
+		err = errors.Wrap(err, "Login: Could not login")
+		globals.Log.ERROR.Printf(err.Error())
+		return "", err
+	}
+
+	if session == nil {
+		return "", errors.New("Unable to load session, no error reported")
+	}
+
+	if session.GetRegState() != user.UDBComplete {
+		return "", errors.New("Cannot log a user in which has not " +
+			"completed registration ")
 	}
 
 	cl.session = session

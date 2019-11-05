@@ -92,8 +92,11 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 		select {
 		case response = <-registerResponseListener:
 			expected := "REGISTRATION COMPLETE"
+			unavalibleReg := "Can not register with existing email"
 			if strings.Contains(response, expected) {
 				complete = true
+			} else if strings.Contains(response, value) && strings.Contains(response, unavalibleReg) {
+				return errors.New("Cannot register with existing username")
 			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on user submission")

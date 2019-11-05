@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 	"sync"
+	"sync/atomic"
 )
 
 // Errors
@@ -61,6 +62,9 @@ type Session interface {
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
 	GetSalt() []byte
+	SetRegState(rs uint32) error
+	GetRegState() uint32
+	ChangeUsername(string) error
 }
 
 type NodeKeys struct {
@@ -81,6 +85,7 @@ func NewSession(store globals.Storage,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string,
 	regSignature []byte) Session {
+	regState := NotStarted
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:            u,
@@ -102,6 +107,7 @@ func NewSession(store globals.Storage,
 		password:               password,
 		regValidationSignature: regSignature,
 		Salt:                   salt,
+		regState:               &regState,
 	})
 }
 
@@ -200,6 +206,8 @@ type SessionObj struct {
 
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
+
+	regState *uint32
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -314,6 +322,31 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	}
 	return currentUser
 }
+
+func (s *SessionObj) GetRegState() uint32 {
+	return atomic.LoadUint32(s.regState)
+}
+
+func (s *SessionObj) SetRegState(rs uint32) error {
+	prevRs := rs - 1
+	b := atomic.CompareAndSwapUint32(s.regState, prevRs, rs)
+	if !b {
+		return errors.New("Could not increment registration state")
+	}
+	return nil
+}
+
+func (s *SessionObj) ChangeUsername(username string) error {
+	b := s.GetRegState()
+	if b != PermissioningComplete {
+		return errors.New("Can only change username during " +
+			"PermissioningComplete registration state")
+	}
+	s.CurrentUser.Email = username
+	s.CurrentUser.Nick = username
+	return nil
+}
+
 
 func (s *SessionObj) storeSession() error {
 

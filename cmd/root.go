@@ -205,10 +205,17 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.Register(userId != 0, regCode, userNick,
+		uid, err = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
 			userEmail, sessFilePassword, privKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
+				err.Error())
+			return id.ZeroID, "", nil
+		}
+
+		err := client.RegisterWithNodes()
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s\n",
 				err.Error())
 			return id.ZeroID, "", nil
 		}

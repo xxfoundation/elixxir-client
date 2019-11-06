@@ -337,7 +337,7 @@ func TestClient_GetRegState(t *testing.T) {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
 	}
 
-	if newClient.GetRegState() != user.PermissioningComplete {
+	if newClient.GetRegState() != int64(user.PermissioningComplete) {
 		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
 			user.PermissioningComplete, newClient.GetRegState())
 	}
@@ -351,8 +351,7 @@ func TestClient_GetRegState(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-
-	if newClient.GetRegState() < user.UDBComplete {
+	if newClient.GetRegState() < int64(user.UDBComplete) {
 		t.Errorf("Unexpected regState: Expected: %d or less, recieved: %d",
 			user.UDBComplete, user.UDBComplete)
 	}

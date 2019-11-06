@@ -599,9 +599,34 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	cl.session.PushNodeKey(nodeID, key)
 }
 
+var sessionFileError = errors.New("Session file cannot be loaded and " +
+	"is possibly corrupt. Please contact support@xxmessenger.io")
+
 // LoadSession loads the session object for the UID
 func (cl *Client) Login(password string) (string, error) {
-	session, err := user.LoadSession(cl.storage, password)
+
+	var session user.Session
+	var err error
+	done := make(chan struct{})
+
+	// run session loading in a separate goroutine so if it panics it can
+	// be caught and an error can be returned
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Session file loading crashed")
+				err = sessionFileError
+				done <- struct{}{}
+			}
+		}()
+
+		session, err = user.LoadSession(cl.storage, password)
+		done <- struct{}{}
+	}()
+
+	//wait for session file loading to complete
+	<-done
+
 	if err != nil {
 		return "", errors.Wrap(err, "Login: Could not login")
 	}

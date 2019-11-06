@@ -117,11 +117,11 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) Register(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
-	globals.Log.INFO.Printf("Binding call: Register()\n"+
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.Register(preCan, registrationCode, nick, email,
+	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email,
 		password, nil)
 
 	if err != nil {
@@ -129,6 +129,14 @@ func (cl *Client) Register(preCan bool, registrationCode, nick, email, password 
 	}
 
 	return UID[:], nil
+}
+
+// Registers user with all nodes it has not been registered with.
+// Returns error if registration fails
+func (cl *Client) RegisterWithNodes() error {
+	globals.Log.INFO.Printf("Binding call: RegisterWithNodes()")
+	err := cl.client.RegisterWithNodes()
+	return err
 }
 
 // Register with UDB uses the account's email to register with the UDB for
@@ -153,6 +161,26 @@ func (cl *Client) Login(UID []byte, password string) (string, error) {
 func (cl *Client) StartMessageReceiver() error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
 	return cl.client.StartMessageReceiver()
+}
+
+// Overwrites the username in registration. Only succeeds if the client
+// has registered with permissioning but not UDB
+func (cl *Client) ChangeUsername(un string) error {
+	return cl.client.GetSession().ChangeUsername(un)
+}
+
+// gets the curent registration status.  they cane be:
+//  0 - NotStarted
+//	1 - PermissioningComplete
+//	2 - UDBComplete
+func (cl *Client) GetRegState() uint32 {
+	return cl.client.GetSession().GetRegState()
+}
+
+// Registers user with all nodes it has not been registered with.
+// Returns error if registration fails
+func (cl *Client) StorageIsEmpty() bool {
+	return cl.client.GetSession().StorageIsEmpty()
 }
 
 // Sends a message structured via the message interface
@@ -255,6 +283,10 @@ func (s *storageProxy) Save(data []byte) error {
 
 func (s *storageProxy) Load() []byte {
 	return s.boundStorage.Load()
+}
+
+func (s *storageProxy) IsEmpty() bool {
+	return s.boundStorage.IsEmpty()
 }
 
 type Writer interface{ io.Writer }

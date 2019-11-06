@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -99,8 +99,11 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 		select {
 		case response = <-registerResponseListener:
 			expected := "REGISTRATION COMPLETE"
+			unavalibleReg := "Can not register with existing email"
 			if strings.Contains(response, expected) {
 				complete = true
+			} else if strings.Contains(response, value) && strings.Contains(response, unavalibleReg) {
+				return errors.New("Cannot register with existing username")
 			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on user submission")
@@ -257,7 +260,6 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
 		publicKeyString)
-
 
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 

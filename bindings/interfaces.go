@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2019 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
@@ -35,6 +41,8 @@ type Storage interface {
 	Save([]byte) error
 	// Returns the stored byte slice
 	Load() []byte
+	// Returns whether the storage has even been written to
+	IsEmpty() bool
 }
 
 // Translate a bindings storage to a client storage

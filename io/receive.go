@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2019 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package io
 
 import (
@@ -74,7 +80,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
 
 			if err != nil {
-				globals.Log.WARN.Printf(err.Error())
+
 				if strings.Contains(err.Error(), "Client has exceeded communications rate limit") {
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
 					time.Sleep(5 * time.Second)

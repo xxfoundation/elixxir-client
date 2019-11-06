@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -21,6 +21,9 @@ import (
 	"strings"
 	"time"
 )
+
+var pushkeyExpected = "PUSHKEY COMPLETE"
+var pushkeyErrorExpected = "Could not push key"
 
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
@@ -60,9 +63,13 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 	for !submitted {
 		select {
 		case response = <-pushKeyResponseListener:
-			expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
-			if strings.Contains(response, expected) {
-				submitted = true
+			if strings.Contains(response, keyFP) {
+				if strings.Contains(response, pushkeyExpected) {
+					submitted = true
+				} else {
+					err := errors.New(response)
+					return errors.Wrap(err, "PushKey failed")
+				}
 			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on key submission")
@@ -92,8 +99,11 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 		select {
 		case response = <-registerResponseListener:
 			expected := "REGISTRATION COMPLETE"
+			unavalibleReg := "Can not register with existing email"
 			if strings.Contains(response, expected) {
 				complete = true
+			} else if strings.Contains(response, value) && strings.Contains(response, unavalibleReg) {
+				return errors.New("Cannot register with existing username")
 			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on user submission")

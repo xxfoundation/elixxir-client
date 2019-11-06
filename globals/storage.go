@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -16,6 +16,7 @@ type Storage interface {
 	GetLocation() string
 	Save([]byte) error
 	Load() []byte
+	IsEmpty() bool
 }
 
 type DefaultStorage struct {
@@ -30,6 +31,11 @@ func (ds *DefaultStorage) SetLocation(location string) error {
 
 func (ds *DefaultStorage) GetLocation() string {
 	return ds.location
+}
+
+func (ds *DefaultStorage) IsEmpty() bool {
+	_, err := os.Stat(ds.location)
+	return err != nil && !os.IsNotExist(err)
 }
 
 func (ds *DefaultStorage) Save(data []byte) error {
@@ -127,4 +133,8 @@ func (rs *RamStorage) Load() []byte {
 	copy(b, rs.data)
 
 	return b
+}
+
+func (rs *RamStorage) IsEmpty() bool {
+	return rs.data == nil || len(rs.data) == 0
 }

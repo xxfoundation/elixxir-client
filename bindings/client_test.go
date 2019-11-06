@@ -233,7 +233,7 @@ func TestClient_GetRemoteVersion(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.Register(true, ValidRegCode,
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
@@ -338,7 +338,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.Register(true, ValidRegCode,
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
@@ -384,7 +384,7 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.Register(true, ValidRegCode,
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	_, err = client.Login(regRes, "")
 
@@ -426,7 +426,7 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.Register(true, ValidRegCode,
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 
 	_, err = client.Login(regRes, "")

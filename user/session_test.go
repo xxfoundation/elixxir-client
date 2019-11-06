@@ -107,13 +107,13 @@ func TestUserSession(t *testing.T) {
 		pass++
 	}
 
-	if ses.GetKeys(topology) == nil {
+	if ses.GetNodeKeys(topology) == nil {
 		t.Errorf("Keys not set correctly!")
 	} else {
 
-		test += len(ses.GetKeys(topology))
+		test += len(ses.GetNodeKeys(topology))
 
-		for i := 0; i < len(ses.GetKeys(topology)); i++ {
+		for i := 0; i < len(ses.GetNodeKeys(topology)); i++ {
 
 			sesPriv := ses.GetRSAPrivateKey().PrivateKey
 			if !reflect.DeepEqual(*ses.GetRSAPublicKey(), publicKey) {
@@ -135,10 +135,10 @@ func TestUserSession(t *testing.T) {
 				} else {
 					t.Log("DeepEqual failed, but values are equal...")
 				}
-			} else if ses.GetKeys(topology)[i].ReceptionKey.Cmp(grp.
+			} else if ses.GetNodeKeys(topology)[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Reception key not set correct!")
-			} else if ses.GetKeys(topology)[i].TransmissionKey.Cmp(
+			} else if ses.GetNodeKeys(topology)[i].TransmissionKey.Cmp(
 				grp.NewInt(2)) != 0 {
 				t.Errorf("Transmission key not set correctly!")
 			}

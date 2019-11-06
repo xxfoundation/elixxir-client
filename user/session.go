@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 	"sync"
+	"sync/atomic"
 )
 
 // Errors
@@ -33,7 +34,8 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetKeys(topology *circuit.Circuit) []NodeKeys
+	GetNodeKeys(topology *circuit.Circuit) []NodeKeys
+	PushNodeKey(id *id.Node, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
 	GetCMIXDHPrivateKey() *cyclic.Int
@@ -61,6 +63,10 @@ type Session interface {
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
 	GetSalt() []byte
+	SetRegState(rs uint32) error
+	GetRegState() uint32
+	ChangeUsername(string) error
+	StorageIsEmpty() bool
 }
 
 type NodeKeys struct {
@@ -81,6 +87,7 @@ func NewSession(store globals.Storage,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string,
 	regSignature []byte) Session {
+	regState := NotStarted
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:            u,
@@ -102,6 +109,7 @@ func NewSession(store globals.Storage,
 		password:               password,
 		regValidationSignature: regSignature,
 		Salt:                   salt,
+		RegState:               &regState,
 	})
 }
 
@@ -124,13 +132,11 @@ func LoadSession(store globals.Storage,
 	var sessionBytes bytes.Buffer
 
 	sessionBytes.Write(decryptedSessionGob)
-
 	dec := gob.NewDecoder(&sessionBytes)
 
 	session := SessionObj{}
 
 	err = dec.Decode(&session)
-
 	if err != nil {
 		err = errors.New(fmt.Sprintf(
 			"LoadSession: unable to load session: %s", err.Error()))
@@ -140,7 +146,6 @@ func LoadSession(store globals.Storage,
 	// Reconstruct Key maps
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
 		session.CurrentUser.User)
-
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
@@ -200,12 +205,20 @@ type SessionObj struct {
 
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
+
+	RegState *uint32
 }
 
 func (s *SessionObj) GetLastMessageID() string {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.LastMessageID
+}
+
+func (s *SessionObj) StorageIsEmpty() bool {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.store.IsEmpty()
 }
 
 func (s *SessionObj) SetLastMessageID(id string) {
@@ -218,7 +231,7 @@ func (s *SessionObj) GetNodes() map[id.Node]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	nodes := make(map[id.Node]int, 0)
-	for node, _ := range s.Keys {
+	for node := range s.Keys {
 		nodes[node] = 1
 	}
 	return nodes
@@ -232,7 +245,7 @@ func (s *SessionObj) GetSalt() []byte {
 	return salt
 }
 
-func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
+func (s *SessionObj) GetNodeKeys(topology *circuit.Circuit) []NodeKeys {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
@@ -243,6 +256,13 @@ func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
 	}
 
 	return keys
+}
+
+func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	s.Keys[*id] = key
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
@@ -313,6 +333,30 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 		}
 	}
 	return currentUser
+}
+
+func (s *SessionObj) GetRegState() uint32 {
+	return atomic.LoadUint32(s.RegState)
+}
+
+func (s *SessionObj) SetRegState(rs uint32) error {
+	prevRs := rs - 1
+	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
+	if !b {
+		return errors.New("Could not increment registration state")
+	}
+	return nil
+}
+
+func (s *SessionObj) ChangeUsername(username string) error {
+	b := s.GetRegState()
+	if b != PermissioningComplete {
+		return errors.New("Can only change username during " +
+			"PermissioningComplete registration state")
+	}
+	s.CurrentUser.Email = username
+	s.CurrentUser.Nick = username
+	return nil
 }
 
 func (s *SessionObj) storeSession() error {

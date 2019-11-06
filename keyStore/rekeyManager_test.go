@@ -86,14 +86,14 @@ func TestRekeyManager_Keys(t *testing.T) {
 	actual := rkm.GetKeys(userID)
 
 	if actual != nil {
-		t.Errorf("GetKeys returned something but expected nil")
+		t.Errorf("GetNodeKeys returned something but expected nil")
 	}
 
 	// Get added value and compare
 	actual = rkm.GetKeys(partner)
 
 	if actual == nil {
-		t.Errorf("GetKeys returned nil")
+		t.Errorf("GetNodeKeys returned nil")
 	} else if actual.CurrPrivKey.Cmp(privKey) != 0 {
 		t.Errorf("CurrPrivKey doesn't match for RekeyKeys added to Keys map")
 	} else if actual.CurrPubKey.Cmp(pubKey) != 0 {
@@ -106,7 +106,7 @@ func TestRekeyManager_Keys(t *testing.T) {
 	actual = rkm.GetKeys(partner)
 
 	if actual != nil {
-		t.Errorf("GetKeys returned something but expected nil after deletion")
+		t.Errorf("GetNodeKeys returned something but expected nil after deletion")
 	}
 
 	// Confirm RekeyKeys behavior of key rotation

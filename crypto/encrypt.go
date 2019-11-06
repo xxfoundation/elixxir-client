@@ -23,7 +23,8 @@ import (
 func CMIXEncrypt(session user.Session, topology *circuit.Circuit, salt []byte,
 	msg *format.Message) (*format.Message, [][]byte) {
 	// Generate the encryption key
-	nodeKeys := session.GetKeys(topology)
+	nodeKeys := session.GetNodeKeys(topology)
+
 	baseKeys := make([]*cyclic.Int, len(nodeKeys))
 	for i, key := range nodeKeys {
 		baseKeys[i] = key.TransmissionKey

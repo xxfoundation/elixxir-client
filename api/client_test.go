@@ -54,7 +54,12 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Error(err)
 	}
@@ -88,7 +93,12 @@ func TestClient_Register(t *testing.T) {
 		t.Error(err)
 	}
 	// populate a gob in the store
-	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Error(err)
 	}
@@ -225,10 +235,10 @@ func VerifyRegisterGobKeys(session user.Session, topology *circuit.Circuit, t *t
 	h.Write([]byte(string(40005)))
 	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
 
-	if session.GetKeys(topology)[0].TransmissionKey.Cmp(
+	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetKeys(topology)[0].TransmissionKey.Text(16),
+			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
 

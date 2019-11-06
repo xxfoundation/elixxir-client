@@ -135,10 +135,10 @@ func VerifyRegisterGobKeys(session user.Session, topology *circuit.Circuit, t *t
 	h.Write([]byte(string(40005)))
 	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
 
-	if session.GetKeys(topology)[0].TransmissionKey.Cmp(
+	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetKeys(topology)[0].TransmissionKey.Text(16),
+			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
 

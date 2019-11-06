@@ -34,7 +34,8 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetKeys(topology *circuit.Circuit) []NodeKeys
+	GetNodeKeys(topology *circuit.Circuit) []NodeKeys
+	PushNodeKey(id *id.Node, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
 	GetCMIXDHPrivateKey() *cyclic.Int
@@ -244,7 +245,7 @@ func (s *SessionObj) GetSalt() []byte {
 	return salt
 }
 
-func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
+func (s *SessionObj) GetNodeKeys(topology *circuit.Circuit) []NodeKeys {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
@@ -255,6 +256,13 @@ func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
 	}
 
 	return keys
+}
+
+func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	s.Keys[*id] = key
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {

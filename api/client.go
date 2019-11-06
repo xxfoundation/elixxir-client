@@ -496,9 +496,6 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
-	// Make CMIX keys array
-	nk := make(map[id.Node]user.NodeKeys)
-
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
@@ -512,14 +509,15 @@ func (cl *Client) RegisterWithNodes() error {
 	newRegistrations := false
 
 	for i := range cl.ndf.Gateways {
+		localI := i
 		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
 		//Register with node if the node has not been registered with already
 		if _, ok := registeredNodes[nodeID]; !ok {
 			wg.Add(1)
 			newRegistrations = true
 			go func() {
-				cl.registerWithNode(i, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
-					cmixDHPubKey, cmixDHPrivKey, cmixGrp, nk, errChan)
+				cl.registerWithNode(localI, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
+					cmixDHPubKey, cmixDHPrivKey, cmixGrp, errChan)
 				wg.Done()
 			}()
 		}
@@ -561,7 +559,7 @@ func (cl *Client) RegisterWithNodes() error {
 func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
-	cmixGrp *cyclic.Group, nodeKey map[id.Node]user.NodeKeys, errorChan chan error) {
+	cmixGrp *cyclic.Group, errorChan chan error) {
 
 	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
 
@@ -572,7 +570,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 
 	// Request nonce message from gateway
 	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
-		index, len(cl.ndf.Gateways))
+		index+1, len(cl.ndf.Gateways))
 	nonce, dhPub, err := cl.requestNonce(salt, registrationValidationSignature, cmixPublicKeyDH,
 		publicKeyRSA, privateKeyRSA, gatewayID)
 
@@ -591,13 +589,14 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
 		errorChan <- errors.New(errMsg)
 	}
-	nodeID := *cl.topology.GetNodeAtIndex(index)
-	nodeKey[nodeID] = user.NodeKeys{
+	nodeID := cl.topology.GetNodeAtIndex(index)
+	key := user.NodeKeys{
 		TransmissionKey: registration.GenerateBaseKey(cmixGrp,
 			serverPubDH, cmixPrivateKeyDH, transmissionHash),
 		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 			cmixPrivateKeyDH, receptionHash),
 	}
+	cl.session.PushNodeKey(nodeID, key)
 }
 
 // LoadSession loads the session object for the UID

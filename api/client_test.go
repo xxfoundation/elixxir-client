@@ -133,7 +133,7 @@ func TestClient_GetRemoteVersion(t *testing.T) {
 		t.Error(err)
 	}
 	// populate a gob in the store
-	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(false, "UAV6IWD6", "", "", "password", nil)
 	if err != nil {
 		t.Error(err)
 	}

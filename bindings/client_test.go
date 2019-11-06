@@ -206,14 +206,20 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.Register(true, ValidRegCode,
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	if err != nil {
-		t.Errorf("Registration failed: %s", err.Error())
+		t.Errorf("Registration with permissioning failed: %s", err.Error())
 	}
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Errorf("Registration with nodes failed: %s", err.Error())
+	}
+
 	disconnectServers()
 }
 
@@ -268,10 +274,15 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := newClient.Register(true, ValidRegCode, "", "", "password")
+	userID, err := newClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
 
 	if err != nil {
-		t.Errorf("Register failed: %s", err.Error())
+		t.Errorf("Register with permissioning failed: %s", err.Error())
+	}
+
+	err = newClient.RegisterWithNodes()
+	if err != nil {
+		t.Errorf("Register with nodes failed: %v", err.Error())
 	}
 
 	// Login to gateway

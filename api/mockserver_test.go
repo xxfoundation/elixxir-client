@@ -285,10 +285,15 @@ func TestClient_RegisterWithUDB(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6",
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6",
 		"tester", "josh@elixxir.io", "password", privateKeyRSA)
 	if err != nil {
 		t.Error(err)
+	}
+
+	err = testClient.RegisterWithNodes()
+	if err != nil {
+		t.Error(err.Error())
 	}
 
 	// Login to gateway

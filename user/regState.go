@@ -1,7 +1,7 @@
 package user
 
 const (
-	NotStarted uint32 = iota
+	NotStarted int64 = iota
 	PermissioningComplete
 	UDBComplete
 )

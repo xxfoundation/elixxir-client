@@ -63,8 +63,8 @@ type Session interface {
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
 	GetSalt() []byte
-	SetRegState(rs uint32) error
-	GetRegState() uint32
+	SetRegState(rs int64) error
+	GetRegState() int64
 	ChangeUsername(string) error
 	StorageIsEmpty() bool
 }
@@ -206,7 +206,7 @@ type SessionObj struct {
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
 
-	RegState *uint32
+	RegState *int64
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -335,13 +335,13 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	return currentUser
 }
 
-func (s *SessionObj) GetRegState() uint32 {
-	return atomic.LoadUint32(s.RegState)
+func (s *SessionObj) GetRegState() int64 {
+	return atomic.LoadInt64(s.RegState)
 }
 
-func (s *SessionObj) SetRegState(rs uint32) error {
+func (s *SessionObj) SetRegState(rs int64) error {
 	prevRs := rs - 1
-	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
+	b := atomic.CompareAndSwapInt64(s.RegState, prevRs, rs)
 	if !b {
 		return errors.New("Could not increment registration state")
 	}

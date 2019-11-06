@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
@@ -309,6 +310,51 @@ func TestClient_ChangeUsername(t *testing.T) {
 	err = client.ChangeUsername("josh420")
 	if err != nil {
 		t.Errorf("Unexpected error, should have changed username: %v", err)
+	}
+
+}
+
+func TestClient_GetRegState(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	newClient, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+	newClient.DisableTLS()
+
+	err = newClient.Connect()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	// Register with a valid registration code
+	_, err = newClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
+
+	if err != nil {
+		t.Errorf("Register with permissioning failed: %s", err.Error())
+	}
+
+	if newClient.GetRegState() != user.PermissioningComplete {
+		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
+			user.PermissioningComplete, newClient.GetRegState())
+	}
+
+	err = newClient.RegisterWithNodes()
+	if err != nil {
+		t.Errorf("Register with nodes failed: %v", err.Error())
+	}
+
+	err = newClient.RegisterWithUDB(7)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	if newClient.GetRegState() < user.UDBComplete {
+		t.Errorf("Unexpected regState: Expected: %d or less, recieved: %d",
+			user.UDBComplete, user.UDBComplete)
 	}
 
 }

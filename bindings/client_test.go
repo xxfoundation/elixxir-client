@@ -256,6 +256,63 @@ func TestClient_GetRemoteVersion(t *testing.T) {
 	disconnectServers()
 }
 
+//Error path: Changing username should panic before registration has happened
+func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+	client.DisableTLS()
+	err = client.Connect()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = client.ChangeUsername("josh420")
+	if err == nil {
+		t.Error("Expected error path, should not be able to change username before" +
+			"regState PermissioningComplete")
+	}
+}
+
+//Happy path: should have no errors when changing username
+func TestClient_ChangeUsername(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+		&MockConStatCallback{})
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+	client.DisableTLS()
+	err = client.Connect()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
+		"", "", "")
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+
+	err = client.ChangeUsername("josh420")
+	if err != nil {
+		t.Errorf("Unexpected error, should have changed username: %v", err)
+	}
+
+}
+
 //Happy path: send unencrypted message
 func TestClient_Send(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)

@@ -56,176 +56,21 @@ func (ds *DefaultStorage) IsEmpty() bool {
 }
 
 func (ds *DefaultStorage) SaveA(data []byte) error {
-	//check if the file exists, delete if it does
-	_, err1 := os.Stat(ds.locationA)
-
-	if err1 == nil {
-		errRmv := os.Remove(ds.locationA)
-		if errRmv != nil {
-			Log.WARN.Printf("Could not remove Storage File A: %s", errRmv)
-		}
-	} else if !os.IsNotExist(err1) {
-		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
-			" file check: \n  %v",
-			err1.Error())
-		return err1
-	}
-
-	//create new file
-	f, err2 := os.Create(ds.locationA)
-
-	defer func() {
-		if f != nil {
-			f.Close()
-		} else {
-			Log.WARN.Println("Could not close file, file is nil")
-		}
-	}()
-
-	if err2 != nil {
-		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
-			" file creation: \n %v", err2.Error())
-		return err2
-	}
-
-	//Save to file
-	_, err3 := f.Write(data)
-
-	if err3 != nil {
-		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
-			" file write: \n %v", err3.Error())
-		return err3
-	}
-
-	return nil
+	return dsSaveHelper(ds.locationA, data)
 }
 
 func (ds *DefaultStorage) LoadA() []byte {
-	// Check if the file exists, return nil if it does not
-	finfo, err1 := os.Stat(ds.locationA)
-
-	if err1 != nil {
-		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
-			" file check: \n  %v", err1.Error())
-		return nil
-	}
-
-	b := make([]byte, finfo.Size())
-
-	// Open the file, return nil if it cannot be opened
-	f, err2 := os.Open(ds.locationA)
-
-	defer func() {
-		if f != nil {
-			f.Close()
-		} else {
-			Log.WARN.Println("Could not close file, file is nil")
-		}
-	}()
-
-	if err2 != nil {
-		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
-			" file open: \n  %v", err2.Error())
-		return nil
-	}
-
-	// Read the data from the file, return nil if read fails
-	_, err3 := f.Read(b)
-
-	if err3 != nil {
-		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
-			" file read: \n  %v", err3.Error())
-		return nil
-	}
-
-	return b
+	return dsLoadHelper(ds.locationA)
 }
 
+
+
 func (ds *DefaultStorage) SaveB(data []byte) error {
-	//check if the file exists, delete if it does
-	_, err1 := os.Stat(ds.locationB)
-
-	if err1 == nil {
-		errRmv := os.Remove(ds.locationB)
-		if errRmv != nil {
-			Log.WARN.Printf("Could not remove Storage File B: %s", errRmv)
-		}
-	} else if !os.IsNotExist(err1) {
-		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
-			" file check: \n  %v",
-			err1.Error())
-		return err1
-	}
-
-	//create new file
-	f, err2 := os.Create(ds.locationB)
-
-	defer func() {
-		if f != nil {
-			f.Close()
-		} else {
-			Log.WARN.Println("Could not close file, file is nil")
-		}
-	}()
-
-	if err2 != nil {
-		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
-			" file creation: \n %v", err2.Error())
-		return err2
-	}
-
-	//Save to file
-	_, err3 := f.Write(data)
-
-	if err3 != nil {
-		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
-			" file write: \n %v", err3.Error())
-		return err3
-	}
-
-	return nil
+	return dsSaveHelper(ds.locationB, data)
 }
 
 func (ds *DefaultStorage) LoadB() []byte {
-	// Check if the file exists, return nil if it does not
-	finfo, err1 := os.Stat(ds.locationB)
-
-	if err1 != nil {
-		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
-			" file check: \n  %v", err1.Error())
-		return nil
-	}
-
-	b := make([]byte, finfo.Size())
-
-	// Open the file, return nil if it cannot be opened
-	f, err2 := os.Open(ds.locationB)
-
-	defer func() {
-		if f != nil {
-			f.Close()
-		} else {
-			Log.WARN.Println("Could not close file, file is nil")
-		}
-	}()
-
-	if err2 != nil {
-		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
-			" file open: \n  %v", err2.Error())
-		return nil
-	}
-
-	// Read the data from the file, return nil if read fails
-	_, err3 := f.Read(b)
-
-	if err3 != nil {
-		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
-			" file read: \n  %v", err3.Error())
-		return nil
-	}
-
-	return b
-
+	return dsLoadHelper(ds.locationB)
 }
 
 
@@ -270,4 +115,91 @@ func (rs *RamStorage) LoadB() []byte {
 
 func (rs *RamStorage) IsEmpty() bool {
 	return (rs.DataA == nil || len(rs.DataA) == 0) && (rs.DataB == nil || len(rs.DataB) == 0)
+}
+
+func dsLoadHelper(loc string) []byte {
+	// Check if the file exists, return nil if it does not
+	finfo, err1 := os.Stat(loc)
+
+	if err1 != nil {
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+			" file check: \n  %v", err1.Error())
+		return nil
+	}
+
+	b := make([]byte, finfo.Size())
+
+	// Open the file, return nil if it cannot be opened
+	f, err2 := os.Open(loc)
+
+	defer func() {
+		if f != nil {
+			f.Close()
+		} else {
+			Log.WARN.Println("Could not close file, file is nil")
+		}
+	}()
+
+	if err2 != nil {
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+			" file open: \n  %v", err2.Error())
+		return nil
+	}
+
+	// Read the data from the file, return nil if read fails
+	_, err3 := f.Read(b)
+
+	if err3 != nil {
+		Log.ERROR.Printf("Default Storage Load: Unknown Error Occurred on"+
+			" file read: \n  %v", err3.Error())
+		return nil
+	}
+
+	return b
+
+}
+
+func dsSaveHelper(loc string, data []byte) error {
+	//check if the file exists, delete if it does
+	_, err1 := os.Stat(loc)
+
+	if err1 == nil {
+		errRmv := os.Remove(loc)
+		if errRmv != nil {
+			Log.WARN.Printf("Could not remove Storage File B: %s", errRmv)
+		}
+	} else if !os.IsNotExist(err1) {
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+			" file check: \n  %v",
+			err1.Error())
+		return err1
+	}
+
+	//create new file
+	f, err2 := os.Create(loc)
+
+	defer func() {
+		if f != nil {
+			f.Close()
+		} else {
+			Log.WARN.Println("Could not close file, file is nil")
+		}
+	}()
+
+	if err2 != nil {
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+			" file creation: \n %v", err2.Error())
+		return err2
+	}
+
+	//Save to file
+	_, err3 := f.Write(data)
+
+	if err3 != nil {
+		Log.ERROR.Printf("Default Storage Save: Unknown Error Occurred on"+
+			" file write: \n %v", err3.Error())
+		return err3
+	}
+
+	return nil
 }

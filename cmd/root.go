@@ -29,6 +29,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -111,7 +112,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
+		client, err = api.NewClient(&globals.RamStorage{}, "", "", ndfJSON,
 			dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
@@ -121,21 +122,36 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
 	} else {
-		//If a session file is passed, check if it's valid
-		_, err1 := os.Stat(sessionFile)
 
-		if err1 != nil {
+		var sessionA, sessionB string
+
+		locs := strings.Split(sessionFile, ",")
+
+		if len(locs) == 2 {
+			sessionA = locs[0]
+			sessionB = locs[1]
+		} else {
+			sessionA = sessionFile
+			sessionB = sessionFile + "-2"
+		}
+
+		//If a session file is passed, check if it's valid
+		_, err1 := os.Stat(sessionA)
+		_, err2 := os.Stat(sessionB)
+
+		if err1 != nil && err2 != nil {
 			//If the file does not exist, register a new user
-			if os.IsNotExist(err1) {
+			if os.IsNotExist(err1) && os.IsNotExist(err2) {
 				register = true
 			} else {
 				//Fail if any other error is received
-				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
+				globals.Log.ERROR.Printf("Error with file paths: %s %s",
+					err1, err2)
 				return id.ZeroID, "", nil
 			}
 		}
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
+		client, err = api.NewClient(nil, sessionA, sessionB, ndfJSON, dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil

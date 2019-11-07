@@ -56,8 +56,8 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	startServers()
 
 	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -91,8 +91,8 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	//Start up gateways and registration servers
 	startServers()
 	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -130,8 +130,8 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	//Start up gateways and registrations
 	startServers()
 	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -159,8 +159,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -194,8 +194,8 @@ func TestSend(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -275,8 +275,8 @@ func TestLogout(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 	// Initialize client with dummy storage
-	storage := DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", def,
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())

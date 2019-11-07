@@ -26,6 +26,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Errors
@@ -110,6 +111,7 @@ func NewSession(store globals.Storage,
 		regValidationSignature: regSignature,
 		Salt:                   salt,
 		RegState:               &regState,
+		storageLocation:        globals.LocationA,
 	})
 }
 
@@ -120,27 +122,42 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	sessionGob := store.Load()
+	var session *SessionObj
 
-	decryptedSessionGob, err := decrypt(sessionGob, password)
+	//load sessions
+	sessionA, errA := processSession(store.LoadA(), password)
+	sessionB, errB := processSession(store.LoadB(), password)
 
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not decode the "+
-			"session file %+v", err))
+	//figure out which session to use
+	if sessionA != nil {
+		sessionA.storageLocation = globals.LocationA
+	} else if errA != nil {
+		errA = errors.New("Session is nil")
 	}
 
-	var sessionBytes bytes.Buffer
+	if sessionB != nil {
+		sessionB.storageLocation = globals.LocationB
+	} else if errB != nil {
+		errB = errors.New("Session is nil")
+	}
 
-	sessionBytes.Write(decryptedSessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
+	if errA != nil && errB != nil {
+		return nil, fmt.Errorf("Loading both sessions errored: \n "+
+			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
+	} else if errA == nil && errB != nil {
+		session = sessionA
+	} else if errA != nil && errB == nil {
+		session = sessionB
+	} else {
+		if sessionA.LastStore.After(sessionB.LastStore) {
+			session = sessionA
+		} else {
+			session = sessionB
+		}
+	}
 
-	session := SessionObj{}
-
-	err = dec.Decode(&session)
-	if err != nil {
-		err = errors.New(fmt.Sprintf(
-			"LoadSession: unable to load session: %s", err.Error()))
-		return nil, err
+	if session == nil {
+		return nil, errors.New("Nill session selected, should never happen")
 	}
 
 	// Reconstruct Key maps
@@ -154,7 +171,7 @@ func LoadSession(store globals.Storage,
 	// Set storage pointer
 	session.store = store
 	session.password = password
-	return &session, nil
+	return session, nil
 }
 
 // Struct holding relevant session data
@@ -207,6 +224,10 @@ type SessionObj struct {
 	garbledMessages []*format.Message
 
 	RegState *uint32
+
+	storageLocation uint8
+
+	LastStore time.Time
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -361,18 +382,39 @@ func (s *SessionObj) ChangeUsername(username string) error {
 
 func (s *SessionObj) storeSession() error {
 
+	s.LastStore = time.Now()
+
 	if s.store == nil {
 		err := errors.New("StoreSession: Local Storage not available")
 		return err
 	}
 
 	sessionData, err := s.getSessionData()
-	err = s.store.Save(encrypt(sessionData, s.password))
 
-	if err != nil {
-		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
-			" session: %s", err.Error()))
+	encryptedSession := encrypt(sessionData, s.password)
+
+	if s.storageLocation == globals.LocationA {
+		err = s.store.SaveB(encryptedSession)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+				" session in location B: %s", err.Error()))
+		} else {
+			s.storageLocation = globals.LocationB
+		}
+	} else if s.storageLocation == globals.LocationB {
+		err = s.store.SaveA(encryptedSession)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+				" session in location A: %s", err.Error()))
+		} else {
+			s.storageLocation = globals.LocationA
+		}
+	} else {
+		err = errors.New("Could not store because no location is " +
+			"selected")
 	}
+
+
 
 	return err
 
@@ -552,4 +594,32 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	tempBuffer := s.garbledMessages
 	s.garbledMessages = []*format.Message{}
 	return tempBuffer
+}
+
+func processSession(sessionGob []byte, password string) (*SessionObj, error) {
+
+	if sessionGob == nil || len(sessionGob) < 12 {
+		return nil, errors.New("No session file passed")
+	}
+
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode the "+
+			"session file")
+	}
+
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Write(decryptedSessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+
+	session := SessionObj{}
+
+	err = dec.Decode(&session)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to decode session")
+	}
+
+	return &session, nil
 }

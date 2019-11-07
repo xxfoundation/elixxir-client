@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
-	"os"
 	"sync"
 	"time"
 )
@@ -178,34 +177,37 @@ func (m *TestInterface) RequestNonce(message *pb.NonceRequest, ipaddr string) (*
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
-	Location string
-	LastSave []byte
-	mutex    sync.Mutex
+	LocationA string
+	LocationB string
+	StoreA    []byte
+	StoreB    []byte
+	mutex     sync.Mutex
 }
 
 func (d *DummyStorage) IsEmpty() bool {
-	_, err := os.Stat(d.Location)
-	if err != nil && !os.IsNotExist(err) {
-		return true
-	} else {
-		return false
-	}
+	return d.StoreA == nil && d.StoreB == nil
 }
 
-func (d *DummyStorage) SetLocation(l string) error {
-	d.Location = l
+func (d *DummyStorage) SetLocation(lA, lB string) error {
+	d.LocationA = lA
+	d.LocationB = lB
 	return nil
 }
 
-func (d *DummyStorage) GetLocation() string {
-	return d.Location
+func (d *DummyStorage) GetLocation() (string, string) {
+	//return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
+	return d.LocationA, d.LocationB
 }
 
-func (d *DummyStorage) Save(b []byte) error {
-	d.LastSave = make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		d.LastSave[i] = b[i]
-	}
+func (d *DummyStorage) SaveA(b []byte) error {
+	d.StoreA = make([]byte, len(b))
+	copy(d.StoreA, b)
+	return nil
+}
+
+func (d *DummyStorage) SaveB(b []byte) error {
+	d.StoreB = make([]byte, len(b))
+	copy(d.StoreB, b)
 	return nil
 }
 
@@ -217,8 +219,12 @@ func (d *DummyStorage) Unlock() {
 	d.mutex.Unlock()
 }
 
-func (d *DummyStorage) Load() []byte {
-	return d.LastSave
+func (d *DummyStorage) LoadA() []byte {
+	return d.StoreA
+}
+
+func (d *DummyStorage) LoadB() []byte {
+	return d.StoreB
 }
 
 type DummyReceiver struct {

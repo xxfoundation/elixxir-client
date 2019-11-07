@@ -13,45 +13,73 @@ import (
 )
 
 func TestInitStorage(t *testing.T) {
-	TestData := []byte{12, 14, 54}
-	TestSaveLoc := "testStorage.data"
+	TestDataA := []byte{12, 14, 54}
+	TestDataB := []byte{69, 42, 32}
+	TestSaveLocA := "testStorageA.data"
+	TestSaveLocB := "testStorageB.data"
 
 	// Test DefaultStorage initialization without existing storage
 	storage := &DefaultStorage{}
-	storage.SetLocation(TestSaveLoc)
+	storage.SetLocation(TestSaveLocA, TestSaveLocB)
 
-	// Check that DS file location is correct
-	//jww.ERROR.Printf("Default Storage file location: %v",
-	//	LocalStorage.GetLocation())
-
-	// Test DS save
-	err := storage.Save(TestData)
+	// Test DS saveA
+	err := storage.SaveA(TestDataA)
 	if err != nil {
-		t.Errorf("ds.Save failed to create a save file at: %v",
-			storage.GetLocation())
+		t.Errorf("ds.Save failed to create a save file A at: %v",
+			TestSaveLocA)
 	}
 	// Check that save file was made
-	if !exists(TestSaveLoc) {
-		t.Errorf("ds.Save failed to create a save file at: %v",
-			TestSaveLoc)
+	if !exists(TestSaveLocA) {
+		t.Errorf("ds.Save failed to create a save file A at: %v",
+			TestSaveLocA)
 	}
-	// Test DS load
-	actualData := storage.Load()
-	if reflect.DeepEqual(actualData, TestData) != true {
-		t.Errorf("ds.Load failed to load expected data. Expected:%v Actual:%v",
-			TestData, actualData)
+
+	// Test DS loadA
+	actualData := storage.LoadA()
+	if reflect.DeepEqual(actualData, TestDataA) != true {
+		t.Errorf("ds.Load failed to load expected data on A. Expected:%v Actual:%v",
+			TestDataA, actualData)
 	}
+
+	// Test DS saveB
+	err = storage.SaveB(TestDataB)
+	if err != nil {
+		t.Errorf("ds.Save failed to create a save file B at: %v",
+			TestSaveLocB)
+	}
+	// Check that save file was made
+	if !exists(TestSaveLocB) {
+		t.Errorf("ds.Save failed to create a save file B at: %v",
+			TestSaveLocB)
+	}
+
+	// Test DS loadA
+	actualData = storage.LoadB()
+	if reflect.DeepEqual(actualData, TestDataB) != true {
+		t.Errorf("ds.Load failed to load expected data on B. Expected:%v Actual:%v",
+			TestDataB, actualData)
+	}
+
 
 	// Test RamStorage
 	store := RamStorage{}
 	actualData = nil
-	store.Save(TestData)
-	actualData = store.Load()
-	if reflect.DeepEqual(actualData, TestData) != true {
-		t.Errorf("rs.Load failed to load expected data. Expected:%v Actual:%v",
-			TestData, actualData)
+	// Test A
+	store.SaveA(TestDataA)
+	actualData = store.LoadA()
+	if reflect.DeepEqual(actualData, TestDataA) != true {
+		t.Errorf("rs.Load failed to load expected data A. Expected:%v Actual:%v",
+			TestDataA, actualData)
 	}
-	os.Remove(TestSaveLoc)
+	//Test B
+	store.SaveB(TestDataB)
+	actualData = store.LoadB()
+	if reflect.DeepEqual(actualData, TestDataB) != true {
+		t.Errorf("rs.Load failed to load expected data B. Expected:%v Actual:%v",
+			TestDataB, actualData)
+	}
+	os.Remove(TestSaveLocA)
+	os.Remove(TestSaveLocB)
 }
 
 // exists returns whether the given file or directory exists or not
@@ -67,23 +95,32 @@ func exists(path string) bool {
 }
 
 func TestDefaultStorage_GetLocation(t *testing.T) {
-	location := "hi"
+	locationA := "hi"
+	locationB := "hi2"
 
-	ds := DefaultStorage{location: location}
+	ds := DefaultStorage{locationA: locationA, locationB: locationB}
 
-	if ds.GetLocation() != location {
-		t.Errorf("defaultStorage.GetLocation returned incorrect location. Expected:%v Actual:%v",
-			location, ds.GetLocation())
+	recievedLocA, recievedLocB := ds.GetLocation()
+
+	if recievedLocA != locationA {
+		t.Errorf("defaultStorage.GetLocation returned incorrect location A. Expected:%v Actual:%v",
+			locationA, recievedLocA)
+	}
+
+	if recievedLocB != locationB {
+		t.Errorf("defaultStorage.GetLocation returned incorrect location B. Expected:%v Actual:%v",
+			locationB, recievedLocB)
 	}
 }
 
 func TestRamStorage_GetLocation(t *testing.T) {
-	location := ""
 
 	ds := RamStorage{}
 
-	if ds.GetLocation() != location {
-		t.Errorf("RamStorage.GetLocation returned incorrect location. Expected:%v Actual:%v",
-			location, ds.GetLocation())
+	a, b := ds.GetLocation()
+
+	if a != "" && b != "" {
+		t.Errorf("RamStorage.GetLocation returned incorrect location. Actual: '', ''; Expected:'%v','%v'",
+			a, b)
 	}
 }

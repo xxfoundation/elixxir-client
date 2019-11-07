@@ -155,7 +155,7 @@ func requestNdf(cl *Client) error {
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
+func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition,
 	callback io.ConnectionStatusCallback) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
@@ -166,7 +166,7 @@ func NewClient(s globals.Storage, loc string, ndfJSON *ndf.NetworkDefinition,
 		store = s
 	}
 
-	err := store.SetLocation(loc)
+	err := store.SetLocation(locA, locB)
 
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())

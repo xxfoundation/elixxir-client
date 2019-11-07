@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"strings"
 	"time"
 )
 
@@ -60,7 +61,7 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
+func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 	csc ConnectionStatusCallback) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
@@ -75,7 +76,7 @@ func NewClient(storage Storage, loc string, ndfStr, ndfPubKey string,
 		csc.Callback(int(status), TimeoutSeconds)
 	}
 
-	cl, err := api.NewClient(globals.Storage(proxy), loc, ndf, conStatCallback)
+	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf, conStatCallback)
 
 	return &Client{client: cl}, err
 }
@@ -269,20 +270,35 @@ func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
 }
 
-func (s *storageProxy) SetLocation(location string) error {
-	return s.boundStorage.SetLocation(location)
+func (s *storageProxy) SetLocation(locationA, locationB string) error {
+	return s.boundStorage.SetLocation(locationA, locationB)
 }
 
-func (s *storageProxy) GetLocation() string {
-	return s.boundStorage.GetLocation()
+func (s *storageProxy) GetLocation() (string, string) {
+	locsStr := s.boundStorage.GetLocation()
+	locs := strings.Split(locsStr, ",")
+
+	if len(locs) == 2 {
+		return locs[0], locs[1]
+	} else {
+		return locsStr, locsStr + "-2"
+	}
 }
 
-func (s *storageProxy) Save(data []byte) error {
-	return s.boundStorage.Save(data)
+func (s *storageProxy) SaveA(data []byte) error {
+	return s.boundStorage.SaveA(data)
 }
 
-func (s *storageProxy) Load() []byte {
-	return s.boundStorage.Load()
+func (s *storageProxy) LoadA() []byte {
+	return s.boundStorage.LoadA()
+}
+
+func (s *storageProxy) SaveB(data []byte) error {
+	return s.boundStorage.SaveB(data)
+}
+
+func (s *storageProxy) LoadB() []byte {
+	return s.boundStorage.LoadB()
 }
 
 func (s *storageProxy) IsEmpty() bool {

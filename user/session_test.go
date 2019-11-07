@@ -199,7 +199,7 @@ func TestUserSession(t *testing.T) {
 	h := sha256.New()
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
-	storage.Save(randBytes)
+	storage.SaveA(randBytes)
 
 	defer func() {
 		recover()

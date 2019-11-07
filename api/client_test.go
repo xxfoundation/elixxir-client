@@ -41,7 +41,7 @@ func dummyConnectionStatusHandler(status uint32, timeout int) {
 
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -80,7 +80,7 @@ func TestRegistrationGob(t *testing.T) {
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	if err != nil {
@@ -120,7 +120,7 @@ func TestClient_Register(t *testing.T) {
 //Test GetRemoveVersion returns the expected value (globals.SEMVER)
 func TestClient_GetRemoteVersion(t *testing.T) {
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	if err != nil {
@@ -337,7 +337,7 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -428,7 +428,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -579,7 +579,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	if err != nil {
@@ -607,7 +607,7 @@ func TestClient_precannedRegister(t *testing.T) {
 func TestClient_sendRegistrationMessage(t *testing.T) {
 
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -641,7 +641,7 @@ func TestClient_requestNonce(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -671,7 +671,7 @@ func TestClient_requestNonce(t *testing.T) {
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -736,7 +736,7 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 func TestClient_GetSession(t *testing.T) {
 
 	//Start client
-	testClient, _ := NewClient(&globals.RamStorage{}, "", def,
+	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	testClient.session = &user.SessionObj{}
@@ -751,7 +751,7 @@ func TestClient_GetSession(t *testing.T) {
 func TestClient_GetCommManager(t *testing.T) {
 
 	//Start client
-	testClient, _ := NewClient(&globals.RamStorage{}, "", def,
+	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	testClient.commManager = &io.CommManager{}

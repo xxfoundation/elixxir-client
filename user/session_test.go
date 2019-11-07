@@ -114,27 +114,22 @@ func TestUserSession(t *testing.T) {
 		test += len(ses.GetNodeKeys(topology))
 
 		for i := 0; i < len(ses.GetNodeKeys(topology)); i++ {
-
+			orig := privateKey.PrivateKey
 			sesPriv := ses.GetRSAPrivateKey().PrivateKey
 			if !reflect.DeepEqual(*ses.GetRSAPublicKey(), publicKey) {
 				t.Errorf("Error: Public key not set correctly!")
-			} else if !reflect.DeepEqual(sesPriv, privateKey.PrivateKey) {
-				orig := privateKey.PrivateKey
-				if sesPriv.E != orig.E {
+			} else if sesPriv.E != orig.E {
 					t.Errorf("Error: Private key not set correctly E!  \nExpected: %+v\nreceived: %+v",
 						orig.E, sesPriv.E)
-				} else if sesPriv.D.Cmp(orig.D) != 0 {
-					t.Errorf("Error: Private key not set correctly D!  \nExpected: %+v\nreceived: %+v",
-						orig.D, sesPriv.D)
-				} else if sesPriv.N.Cmp(orig.N) != 0 {
-					t.Errorf("Error: Private key not set correctly N!  \nExpected: %+v\nreceived: %+v",
-						orig.N, sesPriv.N)
-				} else if !reflect.DeepEqual(sesPriv.Primes, orig.Primes) {
-					t.Errorf("Error: Private key not set correctly PRIMES!  \nExpected: %+v\nreceived: %+v",
-						orig, sesPriv)
-				} else {
-					t.Log("DeepEqual failed, but values are equal...")
-				}
+			} else if sesPriv.D.Cmp(orig.D) != 0 {
+				t.Errorf("Error: Private key not set correctly D!  \nExpected: %+v\nreceived: %+v",
+					orig.D, sesPriv.D)
+			} else if sesPriv.N.Cmp(orig.N) != 0 {
+				t.Errorf("Error: Private key not set correctly N!  \nExpected: %+v\nreceived: %+v",
+					orig.N, sesPriv.N)
+			} else if !reflect.DeepEqual(sesPriv.Primes, orig.Primes) {
+				t.Errorf("Error: Private key not set correctly PRIMES!  \nExpected: %+v\nreceived: %+v",
+					orig, sesPriv)
 			} else if ses.GetNodeKeys(topology)[i].ReceptionKey.Cmp(grp.
 				NewInt(2)) != 0 {
 				t.Errorf("Reception key not set correct!")
@@ -199,7 +194,8 @@ func TestUserSession(t *testing.T) {
 	h := sha256.New()
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
-	storage.Save(randBytes)
+	storage.SaveA(randBytes)
+	storage.SaveB(randBytes)
 
 	defer func() {
 		recover()

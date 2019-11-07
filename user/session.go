@@ -26,6 +26,7 @@ import (
 	"io"
 	"sync"
 	"sync/atomic"
+	"time"
 )
 
 // Errors
@@ -110,6 +111,7 @@ func NewSession(store globals.Storage,
 		regValidationSignature: regSignature,
 		Salt:                   salt,
 		RegState:               &regState,
+		storageLocation:        globals.LocationA,
 	})
 }
 
@@ -120,28 +122,47 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	sessionGob := store.Load()
+	var wrappedSession *SessionStorageWrapper
+	loadLocation := globals.NoSave
 
-	decryptedSessionGob, err := decrypt(sessionGob, password)
+	//load sessions
+	wrappedSessionA, errA := processSessionWrapper(store.LoadA(), password)
+	wrappedSessionB, errB := processSessionWrapper(store.LoadB(), password)
 
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not decode the "+
-			"session file %+v", err))
+	//figure out which session to use
+	if errA != nil && errB != nil {
+		return nil, fmt.Errorf("Loading both sessions errored: \n "+
+			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
+	} else if errA == nil && errB != nil {
+		loadLocation = globals.LocationA
+		wrappedSession = wrappedSessionA
+	} else if errA != nil && errB == nil {
+		loadLocation = globals.LocationB
+		wrappedSession = wrappedSessionB
+	} else {
+		if wrappedSessionA.Timestamp.After(wrappedSessionB.Timestamp) {
+			loadLocation = globals.LocationA
+			wrappedSession = wrappedSessionA
+		} else {
+			loadLocation = globals.LocationB
+			wrappedSession = wrappedSessionB
+		}
 	}
 
+	//extract teh session from the wrapper
 	var sessionBytes bytes.Buffer
 
-	sessionBytes.Write(decryptedSessionGob)
+	sessionBytes.Write(wrappedSession.Session)
 	dec := gob.NewDecoder(&sessionBytes)
 
 	session := SessionObj{}
 
-	err = dec.Decode(&session)
+	err := dec.Decode(&session)
 	if err != nil {
-		err = errors.New(fmt.Sprintf(
-			"LoadSession: unable to load session: %s", err.Error()))
-		return nil, err
+		return nil, errors.Wrap(err, "Unable to decode session")
 	}
+
+	session.storageLocation = loadLocation
 
 	// Reconstruct Key maps
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
@@ -207,6 +228,8 @@ type SessionObj struct {
 	garbledMessages []*format.Message
 
 	RegState *uint32
+
+	storageLocation uint8
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -359,6 +382,12 @@ func (s *SessionObj) ChangeUsername(username string) error {
 	return nil
 }
 
+type SessionStorageWrapper struct {
+	Version   uint32
+	Timestamp time.Time
+	Session   []byte
+}
+
 func (s *SessionObj) storeSession() error {
 
 	if s.store == nil {
@@ -367,12 +396,31 @@ func (s *SessionObj) storeSession() error {
 	}
 
 	sessionData, err := s.getSessionData()
-	err = s.store.Save(encrypt(sessionData, s.password))
 
-	if err != nil {
-		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
-			" session: %s", err.Error()))
+	encryptedSession := encrypt(sessionData, s.password)
+
+	if s.storageLocation == globals.LocationA {
+		err = s.store.SaveB(encryptedSession)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+				" session in location B: %s", err.Error()))
+		} else {
+			s.storageLocation = globals.LocationB
+		}
+	} else if s.storageLocation == globals.LocationB {
+		err = s.store.SaveA(encryptedSession)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+				" session in location A: %s", err.Error()))
+		} else {
+			s.storageLocation = globals.LocationA
+		}
+	} else {
+		err = errors.New("Could not store because no location is " +
+			"selected")
 	}
+
+
 
 	return err
 
@@ -459,9 +507,9 @@ func (s *SessionObj) GetQuitChan() chan struct{} {
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {
-	var session bytes.Buffer
+	var sessionBuffer bytes.Buffer
 
-	enc := gob.NewEncoder(&session)
+	enc := gob.NewEncoder(&sessionBuffer)
 
 	err := enc.Encode(s)
 
@@ -470,7 +518,26 @@ func (s *SessionObj) getSessionData() ([]byte, error) {
 			" session: %s", err.Error()))
 		return nil, err
 	}
-	return session.Bytes(), nil
+
+	sw := SessionStorageWrapper{
+		Version:   SessionVersion,
+		Session:   sessionBuffer.Bytes(),
+		Timestamp: time.Now(),
+	}
+
+	var wrapperBuffer bytes.Buffer
+
+	enc = gob.NewEncoder(&wrapperBuffer)
+
+	err = enc.Encode(&sw)
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("StoreSession: Could not encode user"+
+			" session wrapper: %s", err.Error()))
+		return nil, err
+	}
+
+	return wrapperBuffer.Bytes(), nil
 }
 
 // Locking a mutex that belongs to the session object makes the locking
@@ -552,4 +619,32 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	tempBuffer := s.garbledMessages
 	s.garbledMessages = []*format.Message{}
 	return tempBuffer
+}
+
+func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
+
+	if sessionGob == nil || len(sessionGob) < 12 {
+		return nil, errors.New("No session file passed")
+	}
+
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode the "+
+			"session wrapper")
+	}
+
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Write(decryptedSessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+
+	wrappedSession := SessionStorageWrapper{}
+
+	err = dec.Decode(&wrappedSession)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to decode session wrapper")
+	}
+
+	return &wrappedSession, nil
 }

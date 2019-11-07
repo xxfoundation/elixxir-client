@@ -94,8 +94,8 @@ func (rs *RamStorage) SaveA(data []byte) error {
 }
 
 func (rs *RamStorage) SaveB(data []byte) error {
-	rs.DataA = make([]byte, len(data))
-	copy(rs.DataA, data)
+	rs.DataB = make([]byte, len(data))
+	copy(rs.DataB, data)
 	return nil
 }
 
@@ -107,8 +107,8 @@ func (rs *RamStorage) LoadA() []byte {
 }
 
 func (rs *RamStorage) LoadB() []byte {
-	b := make([]byte, len(rs.DataA))
-	copy(b, rs.DataA)
+	b := make([]byte, len(rs.DataB))
+	copy(b, rs.DataB)
 
 	return b
 }

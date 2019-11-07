@@ -458,7 +458,7 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	}
 
 	//set the registration state
-	err = cl.session.SetRegState(user.PermissioningComplete)
+	err = cl.session.SetRegState(user.UDBComplete)
 
 	if err != nil {
 		return errors.Wrap(err, "UDB Registration Failed")

@@ -174,8 +174,8 @@ func (cl *Client) ChangeUsername(un string) error {
 //  0 - NotStarted
 //	1 - PermissioningComplete
 //	2 - UDBComplete
-func (cl *Client) GetRegState() uint32 {
-	return cl.client.GetSession().GetRegState()
+func (cl *Client) GetRegState() int64 {
+	return int64(cl.client.GetSession().GetRegState())
 }
 
 // Registers user with all nodes it has not been registered with.

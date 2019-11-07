@@ -789,6 +789,13 @@ func (cl *Client) SearchForUser(emailAddress string,
 		cb.Callback(nil, nil, err)
 	}
 
+	//see if the user has been searched before, if it has, return it
+	uid, pk := cl.session.GetUserByValue(emailAddress)
+
+	if uid != nil {
+		cb.Callback(uid.Bytes(), pk, nil)
+	}
+
 	valueType := "EMAIL"
 	go func() {
 		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus, timeout)
@@ -799,6 +806,8 @@ func (cl *Client) SearchForUser(emailAddress string,
 				cb.Callback(uid[:], pubKey, err)
 				return
 			}
+			//store the user so future lookups can find it
+			cl.session.StoreUserByValue(emailAddress, uid, pubKey)
 
 			err = cl.session.StoreSession()
 			if err != nil {
@@ -849,7 +858,6 @@ func (cl *Client) LookupNick(user *id.User,
 			globals.Log.INFO.Printf("Lookup for nickname for user %s failed", user)
 		}
 		cb.Callback(nick, err)
-
 	}()
 }
 

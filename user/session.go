@@ -68,6 +68,8 @@ type Session interface {
 	GetRegState() uint32
 	ChangeUsername(string) error
 	StorageIsEmpty() bool
+	GetUserByValue(string) (*id.User, []byte)
+	StoreUserByValue(string, *id.User, []byte)
 }
 
 type NodeKeys struct {
@@ -112,6 +114,7 @@ func NewSession(store globals.Storage,
 		Salt:                   salt,
 		RegState:               &regState,
 		storageLocation:        globals.LocationA,
+		UsersByValue:           make(map[string]SearchedUserRecord),
 	})
 }
 
@@ -230,6 +233,13 @@ type SessionObj struct {
 	RegState *uint32
 
 	storageLocation uint8
+
+	UsersByValue map[string]SearchedUserRecord
+}
+
+type SearchedUserRecord struct {
+	Id id.User
+	Pk []byte
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -419,8 +429,6 @@ func (s *SessionObj) storeSession() error {
 		err = errors.New("Could not store because no location is " +
 			"selected")
 	}
-
-
 
 	return err
 
@@ -647,4 +655,29 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 	}
 
 	return &wrappedSession, nil
+}
+
+func (s *SessionObj) GetUserByValue(v string) (*id.User, []byte) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	u, ok := s.UsersByValue[v]
+	if !ok {
+		return nil, nil
+	}
+	return &(u.Id), u.Pk
+}
+
+func (s *SessionObj) StoreUserByValue(v string, uid *id.User, pk []byte) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	u, ok := s.UsersByValue[v]
+	if ok {
+		globals.Log.WARN.Printf("Attempted to store over extant "+
+			"user value: %s; before: %v, new: %v", v, u.Id, *uid)
+	} else {
+		s.UsersByValue[v] = SearchedUserRecord{
+			Id: *uid,
+			Pk: pk,
+		}
+	}
 }

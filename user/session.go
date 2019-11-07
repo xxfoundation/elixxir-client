@@ -29,8 +29,6 @@ import (
 	"time"
 )
 
-const sessionVersion = 1
-
 // Errors
 var ErrQuery = errors.New("element not in map")
 
@@ -522,7 +520,7 @@ func (s *SessionObj) getSessionData() ([]byte, error) {
 	}
 
 	sw := SessionStorageWrapper{
-		Version:   sessionVersion,
+		Version:   SessionVersion,
 		Session:   sessionBuffer.Bytes(),
 		Timestamp: time.Now(),
 	}

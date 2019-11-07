@@ -30,6 +30,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -98,7 +99,7 @@ var def *ndf.NetworkDefinition
 
 //Variables ported to get mock permissioning server running
 var nodeId *id.Node
-var permComms *registration.RegistrationComms
+var permComms *registration.Comms
 
 //Permissioning handler for bindings to prevent a port conflict
 type mockPermission struct {
@@ -161,13 +162,13 @@ func TestNewClientNil(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	_, err := NewClient(nil, "", ndfStr, pubKey,
+	_, err := NewClient(nil, "", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, nil) input!")
 	}
 
-	_, err = NewClient(nil, "hello", "", "",
+	_, err = NewClient(nil, "", "", "", "hello",
 		&MockConStatCallback{})
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
@@ -176,11 +177,11 @@ func TestNewClientNil(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("NewClient returned error: %v", err)
@@ -194,8 +195,8 @@ func TestRegister(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -438,8 +439,8 @@ func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
@@ -483,8 +484,8 @@ func TestListen(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
@@ -525,8 +526,8 @@ func TestStopListening(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
@@ -760,12 +761,63 @@ func getNDF() *ndf.NetworkDefinition {
 	}
 }
 
+// Mock dummy storage interface for testing.
+type DummyStorage struct {
+	LocationA string
+	LocationB string
+	StoreA    []byte
+	StoreB    []byte
+	mutex     sync.Mutex
+}
+
+func (d *DummyStorage) IsEmpty() bool {
+	return d.StoreA == nil && d.StoreB == nil
+}
+
+func (d *DummyStorage) SetLocation(lA, lB string) error {
+	d.LocationA = lA
+	d.LocationB = lB
+	return nil
+}
+
+func (d *DummyStorage) GetLocation() (string) {
+	return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
+}
+
+func (d *DummyStorage) SaveA(b []byte) error {
+	d.StoreA = make([]byte, len(b))
+	copy(d.StoreA, b)
+	return nil
+}
+
+func (d *DummyStorage) SaveB(b []byte) error {
+	d.StoreB = make([]byte, len(b))
+	copy(d.StoreB, b)
+	return nil
+}
+
+func (d *DummyStorage) Lock() {
+	d.mutex.Lock()
+}
+
+func (d *DummyStorage) Unlock() {
+	d.mutex.Unlock()
+}
+
+func (d *DummyStorage) LoadA() []byte {
+	return d.StoreA
+}
+
+func (d *DummyStorage) LoadB() []byte {
+	return d.StoreB
+}
+
 func disconnectServers() {
 	for _, gw := range GWComms {
-		gw.DisconnectAll()
+		gw.()
 
 	}
-	RegComms.DisconnectAll()
+	RegComms.()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

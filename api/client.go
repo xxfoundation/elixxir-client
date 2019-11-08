@@ -790,7 +790,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 	}
 
 	//see if the user has been searched before, if it has, return it
-	uid, pk := cl.session.GetUserByValue(emailAddress)
+	uid, pk := cl.session.GetContactByValue(emailAddress)
 
 	if uid != nil {
 		cb.Callback(uid.Bytes(), pk, nil)
@@ -807,7 +807,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 				return
 			}
 			//store the user so future lookups can find it
-			cl.session.StoreUserByValue(emailAddress, uid, pubKey)
+			cl.session.StoreContactByValue(emailAddress, uid, pubKey)
 
 			err = cl.session.StoreSession()
 			if err != nil {
@@ -840,6 +840,35 @@ func (cl *Client) SearchForUser(emailAddress string,
 
 type NickLookupCallback interface {
 	Callback(nick string, err error)
+}
+
+func (cl *Client) DeleteUser(u *id.User) (string, error) {
+
+	//delete from session
+	v, err1 := cl.session.DeleteContact(u)
+
+	//delete from keystore
+	err2 := cl.session.GetKeyStore().DeleteContactKeys(u)
+
+	if err1 == nil && err2 == nil {
+		return v, nil
+	}
+
+	if err1 != nil && err2 == nil {
+		return "", errors.Wrap(err1, "Failed to remove from value store")
+	}
+
+	if err1 == nil && err2 != nil {
+		return v, errors.Wrap(err2, "Failed to remove from key store")
+	}
+
+	if err1 != nil && err2 != nil {
+		return "", errors.Wrap(fmt.Errorf("%s\n%s", err1, err2),
+			"Failed to remove from key store and value store")
+	}
+
+	return v, nil
+
 }
 
 // Nickname lookup API

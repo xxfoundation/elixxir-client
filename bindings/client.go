@@ -167,6 +167,8 @@ func (cl *Client) StartMessageReceiver() error {
 // Overwrites the username in registration. Only succeeds if the client
 // has registered with permissioning but not UDB
 func (cl *Client) ChangeUsername(un string) error {
+	globals.Log.INFO.Printf("Binding call: ChangeUsername()\n"+
+		"   username: %s", un)
 	return cl.client.GetSession().ChangeUsername(un)
 }
 
@@ -175,12 +177,14 @@ func (cl *Client) ChangeUsername(un string) error {
 //	1 - PermissioningComplete
 //	2 - UDBComplete
 func (cl *Client) GetRegState() int64 {
+	globals.Log.INFO.Printf("Binding call: GetRegState()")
 	return int64(cl.client.GetSession().GetRegState())
 }
 
 // Registers user with all nodes it has not been registered with.
 // Returns error if registration fails
 func (cl *Client) StorageIsEmpty() bool {
+	globals.Log.INFO.Printf("Binding call: StorageIsEmpty()")
 	return cl.client.GetSession().StorageIsEmpty()
 }
 
@@ -192,6 +196,13 @@ func (cl *Client) StorageIsEmpty() bool {
 // in the message object, then it will return an error.  If using precanned
 // users encryption must be set to false.
 func (cl *Client) Send(m Message, encrypt bool) error {
+	globals.Log.INFO.Printf("Binding call: Send()\n"+
+		"Sender: %v\n"+
+		"Payload: %v\n"+
+		"Recipient: %v\n"+
+		"MessageTye: %v", m.GetSender(), m.GetPayload(),
+		m.GetRecipient(), m.GetMessageType())
+
 	sender := id.NewUserFromBytes(m.GetSender())
 	recipient := id.NewUserFromBytes(m.GetRecipient())
 
@@ -216,11 +227,13 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 // Logs the user out, saving the state for the system and clearing all data
 // from RAM
 func (cl *Client) Logout() error {
+	globals.Log.INFO.Printf("Binding call: Logout()\n")
 	return cl.client.Logout()
 }
 
 // Get the version string from the locally built client repository
 func GetLocalVersion() string {
+	globals.Log.INFO.Printf("Binding call: GetLocalVersion()\n")
 	return api.GetLocalVersion()
 }
 
@@ -230,18 +243,22 @@ func GetLocalVersion() string {
 // version. If that's not the case, check out the git tag corresponding to the
 // client release version returned here.
 func (cl *Client) GetRemoteVersion() string {
+	globals.Log.INFO.Printf("Binding call: GetRemoteVersion()\n")
 	return cl.client.GetRemoteVersion()
 }
 
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
 func (cl *Client) DisableBlockingTransmission() {
+	globals.Log.INFO.Printf("Binding call: DisableBlockingTransmission()\n")
 	cl.client.DisableBlockingTransmission()
 }
 
 // Sets the minimum amount of time, in ms, between message transmissions
 // Just for testing, probably to be removed in production
 func (cl *Client) SetRateLimiting(limit int) {
+	globals.Log.INFO.Printf("Binding call: SetRateLimiting()\n"+
+		"   limit: %v", limit)
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
@@ -250,8 +267,23 @@ func (cl *Client) SetRateLimiting(limit int) {
 // A recommended timeout is 2 minutes or 120000
 func (cl *Client) SearchForUser(username string,
 	cb SearchCallback, timeoutMS int) {
+
+	globals.Log.INFO.Printf("Binding call: SearchForUser()\n"+
+		"   username: %v\n"+
+		"   timeout: %v\n", username, timeoutMS)
+
 	proxy := &searchCallbackProxy{cb}
 	cl.client.SearchForUser(username, proxy, time.Duration(timeoutMS)*time.Millisecond)
+}
+
+// DeleteContact deletes the contact at the given userID.  returns the emails
+// of that contact if possible
+func (cl *Client) DeleteContact(uid []byte) (string, error) {
+	globals.Log.INFO.Printf("Binding call: DeleteContact()\n"+
+		"   uid: %v\n", uid)
+	u := id.NewUserFromBytes(uid)
+
+	return cl.client.DeleteUser(u)
 }
 
 // Nickname lookup API

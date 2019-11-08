@@ -68,8 +68,9 @@ type Session interface {
 	GetRegState() uint32
 	ChangeUsername(string) error
 	StorageIsEmpty() bool
-	GetUserByValue(string) (*id.User, []byte)
-	StoreUserByValue(string, *id.User, []byte)
+	GetContactByValue(string) (*id.User, []byte)
+	StoreContactByValue(string, *id.User, []byte)
+	DeleteContact(*id.User) (string, error)
 }
 
 type NodeKeys struct {
@@ -114,7 +115,7 @@ func NewSession(store globals.Storage,
 		Salt:                   salt,
 		RegState:               &regState,
 		storageLocation:        globals.LocationA,
-		UsersByValue:           make(map[string]SearchedUserRecord),
+		ContactsByValue:        make(map[string]SearchedUserRecord),
 	})
 }
 
@@ -234,7 +235,7 @@ type SessionObj struct {
 
 	storageLocation uint8
 
-	UsersByValue map[string]SearchedUserRecord
+	ContactsByValue map[string]SearchedUserRecord
 }
 
 type SearchedUserRecord struct {
@@ -657,27 +658,48 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 	return &wrappedSession, nil
 }
 
-func (s *SessionObj) GetUserByValue(v string) (*id.User, []byte) {
+func (s *SessionObj) GetContactByValue(v string) (*id.User, []byte) {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	u, ok := s.UsersByValue[v]
+	u, ok := s.ContactsByValue[v]
 	if !ok {
 		return nil, nil
 	}
 	return &(u.Id), u.Pk
 }
 
-func (s *SessionObj) StoreUserByValue(v string, uid *id.User, pk []byte) {
+func (s *SessionObj) StoreContactByValue(v string, uid *id.User, pk []byte) {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	u, ok := s.UsersByValue[v]
+	u, ok := s.ContactsByValue[v]
 	if ok {
 		globals.Log.WARN.Printf("Attempted to store over extant "+
 			"user value: %s; before: %v, new: %v", v, u.Id, *uid)
 	} else {
-		s.UsersByValue[v] = SearchedUserRecord{
+		s.ContactsByValue[v] = SearchedUserRecord{
 			Id: *uid,
 			Pk: pk,
 		}
 	}
+}
+
+func (s *SessionObj) DeleteContact(uid *id.User) (string, error) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	for v, u := range s.ContactsByValue {
+		if u.Id.Cmp(uid) {
+			delete(s.ContactsByValue, v)
+			_, ok := s.ContactsByValue[v]
+			if ok {
+				return "", errors.Errorf("Failed to delete user: %+v", u)
+			} else {
+				return v, nil
+			}
+		}
+	}
+
+	return "", errors.Errorf("No user found in usermap with userid: %s",
+		uid)
+
 }

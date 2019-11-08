@@ -119,8 +119,8 @@ func TestUserSession(t *testing.T) {
 			if !reflect.DeepEqual(*ses.GetRSAPublicKey(), publicKey) {
 				t.Errorf("Error: Public key not set correctly!")
 			} else if sesPriv.E != orig.E {
-					t.Errorf("Error: Private key not set correctly E!  \nExpected: %+v\nreceived: %+v",
-						orig.E, sesPriv.E)
+				t.Errorf("Error: Private key not set correctly E!  \nExpected: %+v\nreceived: %+v",
+					orig.E, sesPriv.E)
 			} else if sesPriv.D.Cmp(orig.D) != 0 {
 				t.Errorf("Error: Private key not set correctly D!  \nExpected: %+v\nreceived: %+v",
 					orig.D, sesPriv.D)
@@ -204,6 +204,56 @@ func TestUserSession(t *testing.T) {
 	_, err = LoadSession(storage, "password")
 	if err == nil {
 		t.Errorf("LoadSession should error on bad decrypt!")
+	}
+}
+
+func TestSessionObj_DeleteContact(t *testing.T) {
+	u := new(User)
+	// This is 65 so you can see the letter A in the gob if you need to make
+	// sure that the gob contains the user ID
+	UID := uint64(65)
+
+	u.User = id.NewUserFromUint(UID, t)
+	u.Nick = "Mario"
+
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	nodeID := id.NewNodeFromUInt(1, t)
+
+	keys[*nodeID] = NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	}
+
+	// Storage
+	storage := &globals.RamStorage{}
+
+	rng := rand.New(rand.NewSource(42))
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
+
+	cmixGrp, e2eGrp := getGroups()
+
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	ses := NewSession(storage,
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+
+	ses.StoreContactByValue("test", id.NewUserFromBytes([]byte("test")), []byte("test"))
+
+	_, err := ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
+	if err != nil {
+		t.Errorf("Failed to delete contact: %+v", err)
 	}
 }
 

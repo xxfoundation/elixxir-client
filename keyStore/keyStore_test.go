@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"testing"
 )
@@ -117,5 +118,47 @@ func TestKeyStore_GobDecodeErrors(t *testing.T) {
 		//if !reflect.DeepEqual(err, errors.New("EOF")) {
 		t.Errorf("GobDecode() did not produce the expected error\n\treceived: %v"+
 			"\n\texpected: %v", err, errors.New("EOF"))
+	}
+}
+
+func TestKeyStore_DeleteContactKeys(t *testing.T) {
+	grp := initGroup()
+	baseKey := grp.NewInt(57)
+	privKey := grp.NewInt(5)
+	pubKey := grp.NewInt(42)
+	partner := id.NewUserFromUint(14, t)
+	userID := id.NewUserFromUint(18, t)
+
+	ks := NewStore()
+	km := NewManager(baseKey, privKey, pubKey,
+		partner, true, 12, 10, 10)
+
+	// Generate Send Keys
+	e2ekeys := km.GenerateKeys(grp, userID)
+	km.recvReKeysFingerprint = []format.Fingerprint{*format.NewFingerprint([]byte("testtesttesttesttesttesttesttest"))}
+	km.recvKeysFingerprint = []format.Fingerprint{*format.NewFingerprint([]byte("testtesttesttesttesttesttesttest"))}
+	ks.AddSendManager(km)
+	rkmb := NewReceptionKeyManagerBuffer()
+
+	km2 := NewManager(baseKey, privKey, pubKey,
+		partner, false, 12, 10, 10)
+
+	// Generate Receive Keys
+	e2ekeys = km2.GenerateKeys(grp, userID)
+	ks.AddReceiveKeysByFingerprint(e2ekeys)
+	km2.recvReKeysFingerprint = []format.Fingerprint{*format.NewFingerprint([]byte("testtesttesttesttesttesttesttest"))}
+	km2.recvKeysFingerprint = []format.Fingerprint{*format.NewFingerprint([]byte("testtesttesttesttesttesttesttest"))}
+	ks.AddRecvManager(km2)
+
+	rkmb.managers[0] = km
+	rkmb.managers[1] = km2
+	rkmb.managers[2] = km2
+	rkmb.managers[3] = km2
+	rkmb.managers[4] = km2
+	ks.recvKeyManagers[*partner] = rkmb
+
+	err := ks.DeleteContactKeys(partner)
+	if err != nil {
+		t.Errorf("Failed to delete contact keys: %+v", err)
 	}
 }

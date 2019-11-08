@@ -144,7 +144,7 @@ func NewStore() *KeyStore {
 	return ks
 }
 
-func (ks *KeyStore) DeleteUser(id *id.User) error {
+func (ks *KeyStore) DeleteContactKeys(id *id.User) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 

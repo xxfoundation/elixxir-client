@@ -3,7 +3,7 @@ package keyStore
 import (
 	"bytes"
 	"encoding/gob"
-	"github.com/spf13/jwalterweatherman"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -144,7 +144,7 @@ func NewStore() *KeyStore {
 	return ks
 }
 
-func (ks *KeyStore) DeleteUser(id *id.User) {
+func (ks *KeyStore) DeleteUser(id *id.User) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 
@@ -156,10 +156,11 @@ func (ks *KeyStore) DeleteUser(id *id.User) {
 			ks.receptionKeys.DeleteList(append(keys, rekeys...))
 		}
 	} else {
-		jwalterweatherman.WARN.Printf("User with id %+v not in map", id)
+		return errors.Errorf("User with id %+v not in map of key managers", id)
 	}
 	delete(ks.recvKeyManagers, *id)
 	ks.sendKeyManagers.Delete(id)
+	return nil
 }
 
 // Get Key generation parameters from KeyStore

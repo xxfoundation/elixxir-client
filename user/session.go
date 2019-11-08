@@ -686,8 +686,12 @@ func (s *SessionObj) StoreUserByValue(v string, uid *id.User, pk []byte) {
 func (s *SessionObj) DeleteUserByValue(v string) error {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	delete(s.UsersByValue, v)
 	u, ok := s.UsersByValue[v]
+	if ok {
+		return errors.Errorf("No user found with value: %+v", v)
+	}
+	delete(s.UsersByValue, v)
+	u, ok = s.UsersByValue[v]
 	if ok {
 		return errors.Errorf("Failed to delete user: %+v", u)
 	}

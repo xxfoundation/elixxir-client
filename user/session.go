@@ -70,6 +70,7 @@ type Session interface {
 	StorageIsEmpty() bool
 	GetUserByValue(string) (*id.User, []byte)
 	StoreUserByValue(string, *id.User, []byte)
+	DeleteUserByValue(string) error
 }
 
 type NodeKeys struct {
@@ -680,4 +681,15 @@ func (s *SessionObj) StoreUserByValue(v string, uid *id.User, pk []byte) {
 			Pk: pk,
 		}
 	}
+}
+
+func (s *SessionObj) DeleteUserByValue(v string) error {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	delete(s.UsersByValue, v)
+	u, ok := s.UsersByValue[v]
+	if ok {
+		return errors.Errorf("Failed to delete user: %+v", u)
+	}
+	return nil
 }

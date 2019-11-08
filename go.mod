@@ -15,9 +15,9 @@ require (
 	gitlab.com/elixxir/comms v0.0.0-20191101195956-b97dcdffb4ad
 	gitlab.com/elixxir/crypto v0.0.0-20191029164123-324be42ee600
 	gitlab.com/elixxir/primitives v0.0.0-20191029164023-7f6b4088b191
-	golang.org/x/crypto v0.0.0-20191105034135-c7e5f84aec59
+	golang.org/x/crypto v0.0.0-20191106202628-ed6320f186d4
 	golang.org/x/net v0.0.0-20191105084925-a882066a44e0 // indirect
-	golang.org/x/sys v0.0.0-20191105142833-ac3223d80179 // indirect
-	google.golang.org/appengine v1.4.0 // indirect
+	golang.org/x/sys v0.0.0-20191105231009-c1f44814a5cd // indirect
+	google.golang.org/grpc v1.25.0 // indirect
 	gopkg.in/yaml.v2 v2.2.5 // indirect
 )

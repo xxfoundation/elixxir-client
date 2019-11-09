@@ -151,9 +151,11 @@ func (ks *KeyStore) DeleteContactKeys(id *id.User) error {
 	rkmb, ok := ks.recvKeyManagers[*id]
 	if ok {
 		for _, manager := range rkmb.managers {
-			keys := manager.recvKeysFingerprint
-			rekeys := manager.recvReKeysFingerprint
-			ks.receptionKeys.DeleteList(append(keys, rekeys...))
+			if manager != nil {
+				keys := manager.recvKeysFingerprint
+				rekeys := manager.recvReKeysFingerprint
+				ks.receptionKeys.DeleteList(append(keys, rekeys...))
+			}
 		}
 	} else {
 		return errors.Errorf("User with id %+v not in map of key managers", id)

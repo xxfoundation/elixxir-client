@@ -217,7 +217,6 @@ func (cl *Client) Connect() error {
 	//Connect to permissioning
 	if cl.ndf.Registration.Address != "" {
 		isConnected, err := cl.commManager.ConnectToPermissioning()
-		defer cl.commManager.DisconnectFromPermissioning()
 
 		if err != nil {
 			return err
@@ -738,10 +737,7 @@ func (cl *Client) Logout() error {
 	// Stop reception runner goroutine
 	close(cl.session.GetQuitChan())
 
-	// Disconnect from the gateways
-	for _, gateway := range cl.ndf.Gateways {
-		cl.commManager.Comms.Disconnect(gateway.Address)
-	}
+	cl.commManager.Disconnect()
 
 	errStore := cl.session.StoreSession()
 

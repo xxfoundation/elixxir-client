@@ -154,7 +154,12 @@ func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
 		KMACs:    kmacs,
 	}
 
-	return cm.Comms.SendPutMessage(transmitGateway, msgPacket)
+	host, ok := cm.Comms.GetHost(transmitGateway.String())
+	if !ok {
+		return errors.Errorf("Could not find host with ID %s", transmitGateway.String())
+	}
+
+	return cm.Comms.SendPutMessage(host, msgPacket)
 }
 
 func handleE2ESending(session user.Session,

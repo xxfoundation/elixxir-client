@@ -26,7 +26,7 @@ const RegPort = 5000
 const GWsStartPort = 7900
 
 var RegHandler = MockRegistration{}
-var RegComms *registration.RegistrationComms
+var RegComms *registration.Comms
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
@@ -36,7 +36,7 @@ var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 	{LastReceivedMessage: pb.Slot{}},
 	{LastReceivedMessage: pb.Slot{}},
 }
-var GWComms [NumGWs]*gateway.GatewayComms
+var GWComms [NumGWs]*gateway.Comms
 
 var def *ndf.NetworkDefinition
 

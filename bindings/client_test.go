@@ -37,15 +37,15 @@ const RegPort = 5000
 const ValidRegCode = "UAV6IWD6"
 
 var RegHandler = api.MockRegistration{}
-var RegComms *registration.RegistrationComms
+var RegComms *registration.Comms
 
-var GWComms [NumGWs]*gateway.GatewayComms
+var GWComms [NumGWs]*gateway.Comms
 
 var def *ndf.NetworkDefinition
 
 //Variables ported to get mock permissioning server running
 var nodeId *id.Node
-var permComms *registration.RegistrationComms
+var permComms *registration.Comms
 
 type mockPermission struct {
 }
@@ -133,7 +133,7 @@ func TestNewClient(t *testing.T) {
 		t.Errorf("NewClient returned nil Client object")
 	}
 	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
+		gw.DisconnectAll()
 	}
 }
 
@@ -163,7 +163,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
 	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
+		gw.DisconnectAll()
 	}
 }
 
@@ -203,7 +203,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Logoutfailed: %s", err3.Error())
 	}
 	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
+		gw.DisconnectAll()
 	}
 }
 
@@ -251,7 +251,7 @@ func TestListen(t *testing.T) {
 		t.Error("Message not received")
 	}
 	for _, gw := range GWComms {
-		gw.Disconnect(api.PermissioningAddrID)
+		gw.DisconnectAll()
 	}
 }
 
@@ -479,7 +479,7 @@ func (d *DummyStorage) SetLocation(lA, lB string) error {
 	return nil
 }
 
-func (d *DummyStorage) GetLocation() (string) {
+func (d *DummyStorage) GetLocation() string {
 	return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
 }
 

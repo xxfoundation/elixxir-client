@@ -56,50 +56,6 @@ var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code
 //used to report the state of registration
 type OperationProgressCallback func(int)
 
-// Creates a new Client using the storage mechanism provided.
-// If none is provided, a default storage using OS file access
-// is created
-// returns a new Client object, and an error if it fails
-func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition,
-	callback io.ConnectionStatusCallback) (*Client, error) {
-	var store globals.Storage
-	if s == nil {
-		globals.Log.INFO.Printf("No storage provided," +
-			" initializing Client with default storage")
-		store = &globals.DefaultStorage{}
-	} else {
-		store = s
-	}
-
-	err := store.SetLocation(locA, locB)
-
-	if err != nil {
-		err = errors.New("Invalid Local Storage Location: " + err.Error())
-		return nil, err
-	}
-
-	cl := new(Client)
-	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON, callback)
-	cl.ndf = ndfJSON
-
-	cl.topology = nil
-
-	//Create the cmix group and init the registry
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
-	user.InitUserRegistry(cmixGrp)
-
-	cl.opStatus = func(int) {
-		return
-	}
-
-	cl.rekeyChan = make(chan struct{}, 1)
-
-	return cl, nil
-}
-
 // Populates a text message and returns its wire representation
 // TODO support multi-type messages or telling if a message is too long?
 func FormatTextMessage(message string) []byte {
@@ -175,6 +131,7 @@ func requestNdf(cl *Client) error {
 	// Continuously polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
 	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
+
 	if err != nil {
 		//lets the client continue when permissioning does not provide NDFs
 		if err.Error() == noNDFErr.Error() {
@@ -191,6 +148,54 @@ func requestNdf(cl *Client) error {
 	cl.commManager.UpdateNDF(newNDf)
 
 	return nil
+}
+
+// Creates a new Client using the storage mechanism provided.
+// If none is provided, a default storage using OS file access
+// is created
+// returns a new Client object, and an error if it fails
+func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition,
+	callback io.ConnectionStatusCallback) (*Client, error) {
+	var store globals.Storage
+	if s == nil {
+		globals.Log.INFO.Printf("No storage provided," +
+			" initializing Client with default storage")
+		store = &globals.DefaultStorage{}
+	} else {
+		store = s
+	}
+
+	err := store.SetLocation(locA, locB)
+
+	if err != nil {
+		err = errors.New("Invalid Local Storage Location: " + err.Error())
+		globals.Log.ERROR.Printf(err.Error())
+		return nil, err
+	}
+
+	cl := new(Client)
+	cl.storage = store
+	cl.commManager = io.NewCommManager(ndfJSON, callback)
+	cl.ndf = ndfJSON
+	//build the topology
+	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
+	for i, node := range cl.ndf.Nodes {
+		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
+	}
+
+	//Create the cmix group and init the registry
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
+	user.InitUserRegistry(cmixGrp)
+
+	cl.opStatus = func(int) {
+		return
+	}
+
+	cl.rekeyChan = make(chan struct{}, 1)
+
+	return cl, nil
 }
 
 // DisableTLS makes the client run with TLS disabled
@@ -211,7 +216,6 @@ func (cl *Client) Connect() error {
 	//Connect to permissioning
 	if cl.ndf.Registration.Address != "" {
 		isConnected, err := cl.commManager.ConnectToPermissioning()
-		defer cl.commManager.DisconnectFromPermissioning()
 
 		if err != nil {
 			return err
@@ -264,192 +268,6 @@ func (cl *Client) Connect() error {
 
 func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
-}
-
-var sessionFileError = errors.New("Session file cannot be loaded and " +
-	"is possibly corrupt. Please contact support@xxmessenger.io")
-
-// LoadSession loads the session object for the UID
-func (cl *Client) Login(password string) (string, error) {
-
-	var session user.Session
-	var err error
-	done := make(chan struct{})
-
-	// run session loading in a separate goroutine so if it panics it can
-	// be caught and an error can be returned
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				err = sessionFileError
-				done <- struct{}{}
-			}
-		}()
-
-		session, err = user.LoadSession(cl.storage, password)
-		done <- struct{}{}
-	}()
-
-	//wait for session file loading to complete
-	<-done
-
-	if err != nil {
-		return "", errors.Wrap(err, "Login: Could not login")
-	}
-
-	if session == nil {
-		return "", errors.New("Unable to load session, no error reported")
-	}
-	if session.GetRegState() < user.PermissioningComplete {
-		return "", errors.New("Cannot log a user in which has not " +
-			"completed registration ")
-	}
-
-	cl.session = session
-	return cl.session.GetCurrentUser().Nick, nil
-}
-
-// Logout closes the connection to the server at this time and does
-// nothing with the user id. In the future this will release resources
-// and safely release any sensitive memory.
-// fixme: blocks forever is message reciever
-func (cl *Client) Logout() error {
-	if cl.session == nil {
-		err := errors.New("Logout: Cannot Logout when you are not logged in")
-		return err
-	}
-
-	// Stop reception runner goroutine
-	close(cl.session.GetQuitChan())
-
-	// Disconnect from the gateways
-	for _, gateway := range cl.ndf.Gateways {
-		cl.commManager.Comms.Disconnect(gateway.Address)
-	}
-
-	errStore := cl.session.StoreSession()
-
-	if errStore != nil {
-		err := errors.Errorf("Logout: Store Failed: %s" +
-			errStore.Error())
-		return err
-	}
-
-	errImmolate := cl.session.Immolate()
-	cl.session = nil
-
-	if errImmolate != nil {
-		err := errors.Errorf("Logout: Immolation Failed: %s" +
-			errImmolate.Error())
-		return err
-	}
-
-	return nil
-}
-
-// Logs in user and sets session on client object
-// returns the nickname or error if login fails
-func (cl *Client) StartMessageReceiver(errorCallback func(error)) error {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
-	}
-
-	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
-	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
-
-	pollWaitTimeMillis := 1000 * time.Millisecond
-	// TODO Don't start the message receiver if it's already started.
-	// Should be a pretty rare occurrence except perhaps for mobile.
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				time.Sleep(1 * time.Second)
-				go func() {
-					errorCallback(errors.Errorf(fmt.Sprintln("Message Receiver Panicked", r)))
-				}()
-			}
-		}()
-		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
-	}()
-
-	return nil
-}
-
-// TryReconnect Attemps to to reconnect with te network.  It will only cause
-// an attempt if called durring a backoff timeout
-func (cl *Client) TryReconnect() {
-	cl.commManager.TryReconnect()
-}
-
-// Send prepares and sends a message to the cMix network
-// FIXME: We need to think through the message interface part.
-func (cl *Client) Send(message parse.MessageInterface) error {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("Could not Send - connection is either offline or connecting")
-	}
-
-	// FIXME: There should (at least) be a version of this that takes a byte array
-	recipientID := message.GetRecipient()
-	cryptoType := message.GetCryptoType()
-	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
-}
-
-// DisableBlockingTransmission turns off blocking transmission, for
-// use with the channel bot and dummy bot
-func (cl *Client) DisableBlockingTransmission() {
-	cl.commManager.DisableBlockingTransmission()
-}
-
-// SetRateLimiting sets the minimum amount of time between message
-// transmissions just for testing, probably to be removed in production
-func (cl *Client) SetRateLimiting(limit uint32) {
-	cl.commManager.SetRateLimit(time.Duration(limit) * time.Millisecond)
-}
-
-func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
-	listenerId := cl.session.GetSwitchboard().
-		Register(user, messageType, newListener)
-	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
-		user, messageType, listenerId)
-	return listenerId
-}
-
-func (cl *Client) StopListening(listenerHandle string) {
-	cl.session.GetSwitchboard().Unregister(listenerHandle)
-}
-
-func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
-	return cl.session.GetSwitchboard()
-}
-
-func (cl *Client) GetCurrentUser() *id.User {
-	return cl.session.GetCurrentUser().User
-}
-
-func (cl *Client) GetKeyParams() *keyStore.KeyParams {
-	return cl.session.GetKeyStore().GetKeyParams()
-}
-
-func (cl *Client) GetNetworkStatus() uint32 {
-	return cl.commManager.GetConnectionStatus()
-}
-
-// Returns the local version of the client repo
-func GetLocalVersion() string {
-	return globals.SEMVER
-}
-
-// Returns the compatible version of client, according to permissioning
-func (cl *Client) GetRemoteVersion() string {
-	return cl.commManager.GetRegistrationVersion()
-}
-
-type SearchCallback interface {
-	Callback(userID, pubKey []byte, err error)
 }
 
 const SaltSize = 256
@@ -777,6 +595,183 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	cl.session.PushNodeKey(nodeID, key)
 }
 
+var sessionFileError = errors.New("Session file cannot be loaded and " +
+	"is possibly corrupt. Please contact support@xxmessenger.io")
+
+// LoadSession loads the session object for the UID
+func (cl *Client) Login(password string) (string, error) {
+
+	var session user.Session
+	var err error
+	done := make(chan struct{})
+
+	// run session loading in a separate goroutine so if it panics it can
+	// be caught and an error can be returned
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Session file loading crashed")
+				err = sessionFileError
+				done <- struct{}{}
+			}
+		}()
+
+		session, err = user.LoadSession(cl.storage, password)
+		done <- struct{}{}
+	}()
+
+	//wait for session file loading to complete
+	<-done
+
+	if err != nil {
+		return "", errors.Wrap(err, "Login: Could not login")
+	}
+
+	if session == nil {
+		return "", errors.New("Unable to load session, no error reported")
+	}
+	if session.GetRegState() < user.PermissioningComplete {
+		return "", errors.New("Cannot log a user in which has not " +
+			"completed registration ")
+	}
+
+	cl.session = session
+	return cl.session.GetCurrentUser().Nick, nil
+}
+
+// Logs in user and sets session on client object
+// returns the nickname or error if login fails
+func (cl *Client) StartMessageReceiver() error {
+	status := cl.commManager.GetConnectionStatus()
+	if status == io.Connecting || status == io.Offline {
+		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
+	}
+
+	// Initialize UDB and nickname "bot" stuff here
+	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
+	// Initialize Rekey listeners
+	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
+
+	pollWaitTimeMillis := 1000 * time.Millisecond
+	// TODO Don't start the message receiver if it's already started.
+	// Should be a pretty rare occurrence except perhaps for mobile.
+	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+
+	return nil
+}
+
+// TryReconnect Attemps to to reconnect with te network.  It will only cause
+// an attempt if called durring a backoff timeout
+func (cl *Client) TryReconnect() {
+	cl.commManager.TryReconnect()
+}
+
+// Send prepares and sends a message to the cMix network
+// FIXME: We need to think through the message interface part.
+func (cl *Client) Send(message parse.MessageInterface) error {
+	status := cl.commManager.GetConnectionStatus()
+	if status == io.Connecting || status == io.Offline {
+		return errors.New("Could not Send - connection is either offline or connecting")
+	}
+
+	// FIXME: There should (at least) be a version of this that takes a byte array
+	recipientID := message.GetRecipient()
+	cryptoType := message.GetCryptoType()
+	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
+}
+
+// DisableBlockingTransmission turns off blocking transmission, for
+// use with the channel bot and dummy bot
+func (cl *Client) DisableBlockingTransmission() {
+	cl.commManager.DisableBlockingTransmission()
+}
+
+// SetRateLimiting sets the minimum amount of time between message
+// transmissions just for testing, probably to be removed in production
+func (cl *Client) SetRateLimiting(limit uint32) {
+	cl.commManager.SetRateLimit(time.Duration(limit) * time.Millisecond)
+}
+
+func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
+	listenerId := cl.session.GetSwitchboard().
+		Register(user, messageType, newListener)
+	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
+		user, messageType, listenerId)
+	return listenerId
+}
+
+func (cl *Client) StopListening(listenerHandle string) {
+	cl.session.GetSwitchboard().Unregister(listenerHandle)
+}
+
+func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
+	return cl.session.GetSwitchboard()
+}
+
+func (cl *Client) GetCurrentUser() *id.User {
+	return cl.session.GetCurrentUser().User
+}
+
+func (cl *Client) GetKeyParams() *keyStore.KeyParams {
+	return cl.session.GetKeyStore().GetKeyParams()
+}
+
+func (cl *Client) GetNetworkStatus() uint32 {
+	return cl.commManager.GetConnectionStatus()
+}
+
+// Logout closes the connection to the server at this time and does
+// nothing with the user id. In the future this will release resources
+// and safely release any sensitive memory.
+// fixme: blocks forever is message reciever
+func (cl *Client) Logout() error {
+	if cl.session == nil {
+		err := errors.New("Logout: Cannot Logout when you are not logged in")
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	// Stop reception runner goroutine
+	close(cl.session.GetQuitChan())
+
+	cl.commManager.Disconnect()
+
+	errStore := cl.session.StoreSession()
+
+	if errStore != nil {
+		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
+			errStore.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	errImmolate := cl.session.Immolate()
+	cl.session = nil
+
+	if errImmolate != nil {
+		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
+			errImmolate.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	return nil
+}
+
+// Returns the local version of the client repo
+func GetLocalVersion() string {
+	return globals.SEMVER
+}
+
+// Returns the compatible version of client, according to permissioning
+func (cl *Client) GetRemoteVersion() string {
+	return cl.commManager.GetRegistrationVersion()
+}
+
+type SearchCallback interface {
+	Callback(userID, pubKey []byte, err error)
+}
+
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
@@ -834,63 +829,6 @@ func (cl *Client) SearchForUser(emailAddress string,
 
 		}
 	}()
-}
-
-func (cl *Client) GetSessionData() ([]byte, error) {
-	return cl.session.GetSessionData()
-}
-
-// Set the output of the
-func SetLogOutput(w goio.Writer) {
-	globals.Log.SetLogOutput(w)
-}
-
-// GetSession returns the session object for external access.  Access at your
-// own risk
-func (cl *Client) GetSession() user.Session {
-	return cl.session
-}
-
-// CommManager returns the comm manager object for external access.  Access
-// at your own risk
-func (cl *Client) GetCommManager() *io.CommManager {
-	return cl.commManager
-}
-
-// LoadSessionText: load the encrypted session as a string
-func (cl *Client) LoadEncryptedSession() (string, error) {
-	encryptedSession, err := cl.GetSession().LoadEncryptedSession(cl.storage)
-	if err != nil {
-		return "", err
-	}
-	//Encode session to bas64 for useability
-	encodedSession := base64.StdEncoding.EncodeToString(encryptedSession)
-
-	return encodedSession, nil
-}
-
-//WriteToSession: Writes an arbitrary string to the session file
-// Takes in a string that is base64 encoded (meant to be output of LoadEncryptedSession)
-func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) error {
-	//This call must not occur prior to a newClient call, thus check that client has been initialized
-	if cl.ndf == nil || cl.topology == nil {
-		errMsg := errors.Errorf("Cannot write to session if client hasn't been created yet")
-		return errMsg
-	}
-	//Decode the base64 encoded replacement string (assumed to be encoded form LoadEncryptedSession)
-	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
-	if err != nil {
-		errMsg := errors.Errorf("Failed to decode replacment string: %+v", err)
-		return errMsg
-	}
-	//Write the new session data to both locations
-	err = user.WriteToSession(decodedSession, store)
-	if err != nil {
-		errMsg := errors.Errorf("Failed to store session: %+v", err)
-		return errMsg
-	}
-
-	return nil
 }
 
 type NickLookupCallback interface {
@@ -990,4 +928,25 @@ func ParseMessage(message []byte) (ParsedMessage, error) {
 	pm.Typed = int32(tb.MessageType)
 
 	return pm, nil
+}
+
+func (cl *Client) GetSessionData() ([]byte, error) {
+	return cl.session.GetSessionData()
+}
+
+// Set the output of the
+func SetLogOutput(w goio.Writer) {
+	globals.Log.SetLogOutput(w)
+}
+
+// GetSession returns the session object for external access.  Access at your
+// own risk
+func (cl *Client) GetSession() user.Session {
+	return cl.session
+}
+
+// CommManager returns the comm manager object for external access.  Access
+// at your own risk
+func (cl *Client) GetCommManager() *io.CommManager {
+	return cl.commManager
 }

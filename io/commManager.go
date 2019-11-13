@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
@@ -37,7 +38,7 @@ func (a ConnAddr) String() string {
 // CommManager implements the Communications interface
 type CommManager struct {
 	// Comms pointer to send/recv messages
-	Comms *client.ClientComms
+	Comms *client.Comms
 
 	nextId   func() []byte
 	collator *Collator
@@ -85,7 +86,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		blockTransmissions:       true,
 		transmitDelay:            1000 * time.Millisecond,
 		receivedMessages:         make(map[string]struct{}),
-		Comms:                    &client.ClientComms{},
+		Comms:                    &client.Comms{},
 		tryReconnect:             make(chan struct{}),
 		tls:                      true,
 		ndf:                      ndf,
@@ -95,7 +96,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		connectionStatus:         &status,
 	}
 
-	cm.Comms.ConnectionManager.SetMaxRetries(1)
+	//cm.Comms.ConnectionManager.SetMaxRetries(1)
 
 	return cm
 }
@@ -130,14 +131,13 @@ func (cm *CommManager) ConnectToGateways() error {
 
 			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 				gwID.String(), gwAddr)
-			err = cm.Comms.ConnectToRemote(gwID, gwAddr,
-				gwCreds, false)
-
+			host, err := connect.NewHost(gwAddr, gwCreds, false)
 			if err != nil {
 				errChan <- errors.New(fmt.Sprintf(
-					"Failed to connect to gateway %s at %s: %+v",
+					"Failed to create host for gateway %s at %s: %+v",
 					gwID.String(), gwAddr, err))
 			}
+			cm.Comms.AddHost(gwID.String(), host)
 			wg.Done()
 		}()
 		wg.Wait()
@@ -165,8 +165,12 @@ func (cm *CommManager) ConnectToGateways() error {
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
 func (cm *CommManager) UpdateRemoteVersion() error {
+	permissioningHost, ok := cm.Comms.GetHost(PermissioningAddrID)
+	if !ok {
+		return errors.Errorf("Failed to find permissioning host with id %s", PermissioningAddrID)
+	}
 	registrationVersion, err := cm.Comms.
-		SendGetCurrentClientVersionMessage(ConnAddr(PermissioningAddrID))
+		SendGetCurrentClientVersionMessage(permissioningHost)
 	if err != nil {
 		return errors.Wrap(err, "Couldn't get current version from permissioning")
 	}
@@ -190,8 +194,13 @@ func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.Ne
 	//Put the hash in a message
 	msg := &mixmessages.NDFHash{Hash: ndfHash}
 
+	host, ok := cm.Comms.GetHost(PermissioningAddrID)
+	if !ok {
+		return nil, errors.New("Failed to find permissioning host")
+	}
+
 	//Send the hash to registration
-	response, err := cm.Comms.SendGetUpdatedNDF(ConnAddr(PermissioningAddrID), msg)
+	response, err := cm.Comms.SendGetUpdatedNDF(host, msg)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		return nil, errors.New(errMsg)
@@ -238,18 +247,24 @@ func (cm *CommManager) CheckVersion() (bool, error) {
 // to permissioning is needed
 func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 	if cm.ndf.Registration.Address != "" {
+		_, ok := cm.Comms.GetHost(PermissioningAddrID)
+		if ok {
+			return true, nil
+		}
 		var regCert []byte
 		if cm.ndf.Registration.TlsCertificate != "" && cm.tls {
 			regCert = []byte(cm.ndf.Registration.TlsCertificate)
 		}
-		addr := ConnAddr(PermissioningAddrID)
+
 		globals.Log.INFO.Printf("Connecting to permissioning/registration at %s...",
 			cm.ndf.Registration.Address)
-		err = cm.Comms.ConnectToRemote(addr, cm.ndf.Registration.Address, regCert, false)
+		host, err := connect.NewHost(cm.ndf.Registration.Address, regCert, false)
 		if err != nil {
 			return false, errors.New(fmt.Sprintf(
-				"Failed connecting to permissioning: %+v", err))
+				"Failed connecting to create host for permissioning: %+v", err))
 		}
+		cm.Comms.AddHost(PermissioningAddrID, host)
+
 		globals.Log.INFO.Printf(
 			"Connected to permissioning at %v successfully!",
 			cm.ndf.Registration.Address)
@@ -261,11 +276,6 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 		// point
 		return false, nil
 	}
-}
-
-func (cm *CommManager) DisconnectFromPermissioning() {
-	globals.Log.DEBUG.Printf("Disconnecting from permissioning")
-	cm.Comms.Disconnect(PermissioningAddrID)
 }
 
 func (cm *CommManager) Disconnect() {

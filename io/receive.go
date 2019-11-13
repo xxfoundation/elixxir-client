@@ -84,42 +84,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 				if strings.Contains(err.Error(), "Client has exceeded communications rate limit") {
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
 					time.Sleep(5 * time.Second)
-				} else if !skipErrChecker(err) {
-					backoffCount := 0
-
-					// Handles disconnections
-					for notConnected := true; notConnected; {
-
-						cm.Disconnect()
-
-						block, backoffTime := cm.computeBackoff(backoffCount)
-
-						cm.setConnectionStatus(Offline, toSeconds(backoffTime))
-
-						globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
-
-						timer := time.NewTimer(backoffTime)
-
-						if block {
-							timer.Stop()
-						}
-
-						select {
-						case <-session.GetQuitChan():
-							close(session.GetQuitChan())
-							return
-						case <-timer.C:
-						case <-cm.tryReconnect:
-							backoffCount = 0
-						}
-						err := cm.ConnectToGateways()
-
-						if err == nil {
-							notConnected = false
-						}
-
-						backoffCount++
-					}
 				}
 			}
 			NumMessages += len(encryptedMessages)
@@ -236,8 +200,11 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	// FIXME: dont do this over an over
 
 	// Gets a list of mssages that are newer than the last one recieved
-	messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway,
-		pollingMessage)
+	host, ok := cm.Comms.GetHost(receiveGateway.String())
+	if !ok {
+		return nil, errors.Errorf("Could not find host with id %s", receiveGateway.String())
+	}
+	messageIDs, err := cm.Comms.SendCheckMessages(host, pollingMessage)
 
 	if err != nil {
 		return nil, err
@@ -265,8 +232,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 				messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
-			newMessage, err := cm.Comms.SendGetMessage(
-				receiveGateway,
+			newMessage, err := cm.Comms.SendGetMessage(host,
 				&pb.ClientRequest{
 					UserID: session.GetCurrentUser().User.
 						Bytes(),

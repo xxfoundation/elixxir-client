@@ -464,6 +464,8 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 		return errors.Wrap(err, "UDB Registration Failed")
 	}
 
+	cl.opStatus(globals.REG_SECURE_STORE)
+
 	errStore := cl.session.StoreSession()
 
 	// FIXME If we have an error here, the session that gets created
@@ -480,6 +482,7 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 }
 
 func (cl *Client) RegisterWithNodes() error {
+	cl.opStatus(globals.REG_NODE)
 	session := cl.GetSession()
 	//Load Cmix keys & group
 	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
@@ -543,6 +546,7 @@ func (cl *Client) RegisterWithNodes() error {
 
 	// Store the user session if there were changes during node registration
 	if newRegistrations {
+		cl.opStatus(globals.REG_SECURE_STORE)
 		errStore := session.StoreSession()
 		if errStore != nil {
 			err := errors.New(fmt.Sprintf(
@@ -659,7 +663,16 @@ func (cl *Client) StartMessageReceiver() error {
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
+				time.Sleep(1 * time.Second)
+				globals.Log.FATAL.Panic("No recovery from Message Receiver panic defined")
+			}
+		}()
+		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+	}()
 
 	return nil
 }

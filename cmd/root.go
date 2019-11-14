@@ -396,7 +396,7 @@ var rootCmd = &cobra.Command{
 		// Log the user in, for now using the first gateway specified
 		// This will also register the user email with UDB
 		globals.Log.INFO.Println("Logging in...")
-		err := client.StartMessageReceiver()
+		err := client.StartMessageReceiver(func(err error) { return })
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}

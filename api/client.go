@@ -663,12 +663,6 @@ func (cl *Client) StartMessageReceiver() error {
 	return nil
 }
 
-// TryReconnect Attemps to to reconnect with te network.  It will only cause
-// an attempt if called durring a backoff timeout
-func (cl *Client) TryReconnect() {
-	cl.commManager.TryReconnect()
-}
-
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {

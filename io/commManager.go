@@ -25,8 +25,6 @@ import (
 	"time"
 )
 
-const maxAttempts = 15
-const maxBackoffTime = 180
 const PermissioningAddrID = "Permissioning"
 
 type ConnAddr string
@@ -66,8 +64,6 @@ type CommManager struct {
 
 	sendLock sync.Mutex
 
-	tryReconnect chan struct{}
-
 	connectionStatus *uint32
 
 	registrationVersion string
@@ -87,7 +83,6 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		transmitDelay:            1000 * time.Millisecond,
 		receivedMessages:         make(map[string]struct{}),
 		Comms:                    &client.Comms{},
-		tryReconnect:             make(chan struct{}),
 		tls:                      true,
 		ndf:                      ndf,
 		receptionGatewayIndex:    len(ndf.Gateways) - 1,

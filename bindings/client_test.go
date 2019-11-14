@@ -99,7 +99,7 @@ var def *ndf.NetworkDefinition
 
 //Variables ported to get mock permissioning server running
 var nodeId *id.Node
-var permComms *registration.Comms
+var permComms *registration.RegistrationComms
 
 //Permissioning handler for bindings to prevent a port conflict
 type mockPermission struct {
@@ -228,8 +228,8 @@ func TestRegister(t *testing.T) {
 func TestClient_GetRemoteVersion(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -267,8 +267,8 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 	}()
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -290,8 +290,8 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 func TestClient_ChangeUsername(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -318,8 +318,8 @@ func TestClient_ChangeUsername(t *testing.T) {
 func TestClient_GetRegState(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	newClient, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	newClient, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -363,8 +363,8 @@ func TestClient_GetRegState(t *testing.T) {
 func TestClient_Send(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	newClient, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	newClient, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -395,7 +395,7 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = newClient.StartMessageReceiver()
+	err = newClient.StartMessageReceiver(func(err error) { return })
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)
@@ -640,8 +640,8 @@ func TestClient_GetNetworkStatus_FullyConnected(t *testing.T) {
 	expectedNotConnected := int64(0)
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
@@ -814,10 +814,10 @@ func (d *DummyStorage) LoadB() []byte {
 
 func disconnectServers() {
 	for _, gw := range GWComms {
-		gw.()
+		gw.ConnectionManager.DisconnectAll()
 
 	}
-	RegComms.()
+	RegComms.ConnectionManager.DisconnectAll()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

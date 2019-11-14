@@ -7,7 +7,6 @@
 package io
 
 import (
-	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
@@ -16,12 +15,10 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"math/big"
 	"strings"
 	"time"
 )
@@ -113,32 +110,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			}
 		}
 	}
-}
-
-func (cm *CommManager) TryReconnect() {
-	select {
-	case cm.tryReconnect <- struct{}{}:
-	default:
-	}
-}
-
-func (cm *CommManager) computeBackoff(count int) (bool, time.Duration) {
-	if count > maxAttempts {
-		delay := time.Hour
-		globals.Log.WARN.Printf("Exceeded maximum attempts, waiting "+
-			"%s to reconnect", delay)
-		return true, delay
-	}
-
-	wait := 2 ^ count
-	if wait > maxBackoffTime {
-		wait = maxBackoffTime
-	}
-
-	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
-	backoffTime := time.Second*time.Duration(wait) + time.Millisecond*time.Duration(jitter.Int64())
-
-	return false, backoffTime
 }
 
 func handleE2EReceiving(session user.Session,

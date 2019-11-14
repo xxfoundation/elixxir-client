@@ -71,6 +71,7 @@ type Session interface {
 	GetContactByValue(string) (*id.User, []byte)
 	StoreContactByValue(string, *id.User, []byte)
 	DeleteContact(*id.User) (string, error)
+	GetSessionLocation() uint8
 }
 
 type NodeKeys struct {
@@ -702,4 +703,13 @@ func (s *SessionObj) DeleteContact(uid *id.User) (string, error) {
 	return "", errors.Errorf("No user found in usermap with userid: %s",
 		uid)
 
+}
+
+func (s *SessionObj) GetSessionLocation() uint8 {
+	if s.storageLocation == globals.LocationA {
+		return globals.LocationA
+	} else if s.storageLocation == globals.LocationB {
+		return globals.LocationB
+	}
+	return globals.NoSave
 }

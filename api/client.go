@@ -649,7 +649,7 @@ func (cl *Client) Login(password string) (string, error) {
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) StartMessageReceiver() error {
+func (cl *Client) StartMessageReceiver(errorCallback func(error)) error {
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
@@ -668,7 +668,9 @@ func (cl *Client) StartMessageReceiver() error {
 			if r := recover(); r != nil {
 				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
 				time.Sleep(1 * time.Second)
-				globals.Log.FATAL.Panic("No recovery from Message Receiver panic defined")
+				go func() {
+					errorCallback(errors.New(fmt.Sprintln("Message Receiver Panicked", r)))
+				}()
 			}
 		}()
 		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)

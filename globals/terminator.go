@@ -41,7 +41,6 @@ func (t ThreadTerminator) BlockingTerminate(timeout uint64) bool {
 			return false
 		}
 	} else {
-		_ = <-killNotify
 		return true
 	}
 }

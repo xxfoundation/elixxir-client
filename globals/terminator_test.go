@@ -67,3 +67,41 @@ func TestBlockingTerminate(t *testing.T) {
 	}
 
 }
+
+//Timeout path
+func TestBlockingTerminate_Timeout(t *testing.T) {
+	term := NewThreadTerminator()
+
+	go func(term ThreadTerminator) {
+
+		q := false
+		//Sleep long enough for the blocking terminate to complete below
+		time.Sleep(5 * time.Millisecond)
+		for !q {
+			select {
+			case _ = <-term:
+				q = true
+			}
+
+			close(term)
+
+		}
+	}(term)
+
+	//Should return false, as the go func does not complete before the timeout
+	fail := term.BlockingTerminate(1)
+
+	if fail {
+		t.Errorf("BlockingTerminate: Expected error path, should have timed out")
+	}
+}
+
+func TestBlockingTerminate_ZeroTimeout(t *testing.T) {
+	term := NewThreadTerminator()
+
+	success := term.BlockingTerminate(0)
+
+	if !success {
+		t.Errorf("BlockingTerminate: Thread did not terminate in time")
+	}
+}

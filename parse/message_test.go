@@ -7,6 +7,7 @@
 package parse
 
 import (
+	"bytes"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
 	"testing"
@@ -131,6 +132,25 @@ func TestBindingsMessageProxy_GetTimestamp(t *testing.T) {
 	if message.GetTimestamp() != testTime.Unix() {
 		t.Errorf("GetTimestamp() did not return the correct timestamp"+
 			"\n\texpected: %v\n\treceived: %v", message.GetTimestamp(), testTime.Unix())
+	}
+}
+
+func TestBindingsMessageProxy_GetMessage(t *testing.T) {
+	expectedBody := []byte("testPayload")
+	expectedMessageType := int32(42)
+	message := BindingsMessageProxy{
+		Proxy: &Message{TypedBody: TypedBody{MessageType: expectedMessageType, Body: expectedBody}}}
+	observedBody := message.GetPayload()
+	observedMessageType := message.GetMessageType()
+
+	if bytes.Compare(expectedBody, observedBody) != 0 {
+		t.Errorf("Failed to retrieve the body from the message. Expected %v Recieved: %v",
+			expectedBody, observedBody)
+	}
+
+	if expectedMessageType != observedMessageType {
+		t.Errorf("Failed to retrieve the messageType from the message. Expected: %v Recieved: %v",
+			expectedMessageType, observedMessageType)
 	}
 }
 

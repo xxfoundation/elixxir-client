@@ -10,23 +10,29 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
+	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"os"
 	"testing"
+	"time"
 )
 
 const NumNodes = 3
 const NumGWs = NumNodes
 const RegPort = 5000
 const GWsStartPort = 7900
+const PermErrorServerPort = 4000
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.RegistrationComms
+var NDFErrorReg = MockPerm_NDF_ErrorCase{}
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
@@ -39,6 +45,7 @@ var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 var GWComms [NumGWs]*gateway.GatewayComms
 
 var def *ndf.NetworkDefinition
+var errorDef *ndf.NetworkDefinition
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
@@ -46,15 +53,11 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
-
 	os.Exit(testMainWrapper(m))
 }
 
 // Verify that a valid precanned user can register
 func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
-	//Start gateway and registration servers
-	startServers()
-
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", "", def,
@@ -83,13 +86,11 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if *regRes == *id.ZeroID {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Verify that a valid precanned user can register
 func TestRegister_ValidRegParams___(t *testing.T) {
-	//Start up gateways and registration servers
-	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", "", def,
@@ -122,13 +123,11 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Verify that registering with an invalid registration code will fail
 func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
-	//Start up gateways and registrations
-	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", "", def,
@@ -152,12 +151,10 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 func TestRegister_DeletedUserReturnsErr(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", "", def,
@@ -187,12 +184,10 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	// ...
 	user.Users.UpsertUser(tempUser)
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 func TestSend(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", "", def,
@@ -268,12 +263,60 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
 	}
-	killServers()
+	disconnectServers()
+}
+
+//Error path: register with udb, but udb is not set up to return a message
+func TestClient_RegisterWithUDB(t *testing.T) {
+	rng := csprng.NewSystemRNG()
+	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
+
+	// Get a Client
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
+		dummyConnectionStatusHandler)
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// populate a gob in the store
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6",
+		"tester", "josh@elixxir.io", "password", privateKeyRSA)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.RegisterWithNodes()
+	if err != nil {
+		t.Error(err.Error())
+	}
+
+	// Login to gateway
+	_, err = testClient.Login("password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = testClient.StartMessageReceiver(func(err error) { return })
+
+	if err != nil {
+		t.Errorf("Could not start message reception: %+v", err)
+	}
+
+	err = testClient.RegisterWithUDB(1 * time.Second)
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error path: should not successfully register with udb")
 }
 
 func TestLogout(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, "hello", "", def,
@@ -337,7 +380,7 @@ func TestLogout(t *testing.T) {
 			" is not currently logged in.")
 	}
 
-	killServers()
+	disconnectServers()
 }
 
 // Handles initialization of mock registration server,
@@ -345,10 +388,13 @@ func TestLogout(t *testing.T) {
 func testMainWrapper(m *testing.M) int {
 
 	def = getNDF()
-
+	errorDef = getNDF()
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
+	}
+	errorDef.Registration = ndf.Registration{
+		Address: fmtAddress(PermErrorServerPort),
 	}
 
 	for i := 0; i < NumNodes; i++ {
@@ -358,13 +404,19 @@ func testMainWrapper(m *testing.M) int {
 			ID: nIdBytes,
 		}
 		def.Nodes = append(def.Nodes, n)
+		errorDef.Nodes = append(errorDef.Nodes, n)
 	}
+	startServers()
 	defer testWrapperShutdown()
 	return m.Run()
 }
 
 func testWrapperShutdown() {
 
+	for _, gw := range GWComms {
+		gw.Shutdown()
+
+	}
 	RegComms.Shutdown()
 }
 
@@ -422,18 +474,15 @@ func startServers() {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		fmt.Printf("started gw: %v", gw.Address)
 		GWComms[i] = gateway.StartGateway(gw.Address,
 			handler, nil, nil)
 	}
 }
 
-func killServers() {
+func disconnectServers() {
 	for _, gw := range GWComms {
 		gw.DisconnectAll()
-		gw.Shutdown()
 
 	}
 	RegComms.DisconnectAll()
-	RegComms.Shutdown()
 }

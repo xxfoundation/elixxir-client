@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -25,7 +26,9 @@ import (
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -37,8 +40,6 @@ func dummyConnectionStatusHandler(status uint32, timeout int) {
 }
 
 func TestRegistrationGob(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
@@ -73,14 +74,11 @@ func TestRegistrationGob(t *testing.T) {
 	VerifyRegisterGobUser(Session, t)
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
 
-	killServers()
+	disconnectServers()
 }
 
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	//Make mock client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
@@ -116,7 +114,109 @@ func TestClient_Register(t *testing.T) {
 
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
-	killServers()
+	disconnectServers()
+}
+
+//Test GetRemoveVersion returns the expected value (globals.SEMVER)
+func TestClient_GetRemoteVersion(t *testing.T) {
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Error(err)
+	}
+	// populate a gob in the store
+	_, err = testClient.RegisterWithPermissioning(false, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+	//Get it from a good version
+	if strings.Compare(globals.SEMVER, testClient.GetRemoteVersion()) != 0 {
+		t.Errorf("Client not up to date: Recieved %v Expected %v", testClient.GetRemoteVersion(), globals.SEMVER)
+	}
+
+}
+
+func TestClient_Register_NoUpdatingNDF(t *testing.T) {
+	mockRegError := registration.StartRegistrationServer(errorDef.Registration.Address, &NDFErrorReg,
+		nil, nil)
+	defer mockRegError.Shutdown()
+	def.Gateways = make([]ndf.Gateway, 0)
+
+	//Start up gateways
+	for i, _ := range RegGWHandlers {
+
+		gw := ndf.Gateway{
+			Address: fmtAddress(GWsStartPort + i),
+		}
+
+		def.Gateways = append(def.Gateways, gw)
+	}
+
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		t.Errorf("Expected error path, should not have gotted ndf from connect")
+	}
+}
+
+//Error path: Force an error in connect through mockPerm_CheckVersion_ErrorCase
+func TestClient_CheckVersionErr(t *testing.T) {
+	mockRegError := registration.StartRegistrationServer(errorDef.Registration.Address,
+		&MockPerm_CheckVersion_ErrorCase{}, nil, nil)
+	defer mockRegError.Shutdown()
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", errorDef,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	err = testClient.Connect()
+	if err != nil {
+		return
+	}
+	t.Error("Expected error case: UpdateVersion should have returned an error")
+}
+
+//Error Path: Force error in connect by providing a bad version through mockPerm
+func TestClient_CheckVersion_BadVersion(t *testing.T) {
+	mockRegError := registration.StartRegistrationServer(errorDef.Registration.Address,
+		&MockPerm_CheckVersion_BadVersion{}, nil, nil)
+	defer mockRegError.Shutdown()
+
+	//Make mock client
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", errorDef,
+		dummyConnectionStatusHandler)
+
+	if err != nil {
+		t.Error(err)
+	}
+	testClient.DisableTLS()
+
+	//Check version here should return a version that does not match the global being checked
+	err = testClient.Connect()
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error case: Version from mock permissioning should not match expected")
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -237,9 +337,6 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -326,14 +423,11 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -479,14 +573,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetKey().Text(10))
 		}
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
@@ -509,13 +600,11 @@ func TestClient_precannedRegister(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
@@ -540,14 +629,11 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	cmixGrp, _ := getGroups()
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
@@ -579,13 +665,11 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
 
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
@@ -605,7 +689,7 @@ func TestClient_confirmNonce(t *testing.T) {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

@@ -174,7 +174,6 @@ func requestNdf(cl *Client) error {
 	// Continuously polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
 	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
-
 	if err != nil {
 		//lets the client continue when permissioning does not provide NDFs
 		if err.Error() == noNDFErr.Error() {
@@ -226,7 +225,6 @@ func (cl *Client) Connect() error {
 		if err != nil {
 			return err
 		}
-
 		//Request a new ndf from
 		err = requestNdf(cl)
 		if err != nil {
@@ -244,7 +242,6 @@ func (cl *Client) Connect() error {
 	}
 
 	cl.topology = circuit.New(nodeIDs)
-
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.commManager.GetRegistrationVersion() != "" {

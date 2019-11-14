@@ -159,9 +159,9 @@ func (cl *Client) Login(UID []byte, password string) (string, error) {
 
 // Starts the polling of the external servers.
 // Must be done after listeners are set up.
-func (cl *Client) StartMessageReceiver() error {
+func (cl *Client) StartMessageReceiver(f func(error)) error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
-	return cl.client.StartMessageReceiver()
+	return cl.client.StartMessageReceiver(f)
 }
 
 // Overwrites the username in registration. Only succeeds if the client
@@ -355,4 +355,16 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 func (cl *Client) GetNetworkStatus() int64 {
 	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
 	return int64(cl.client.GetNetworkStatus())
+}
+
+//LoadEncryptedSession: Spits out the encrypted session file in text
+func (cl *Client) LoadEncryptedSession() (string, error) {
+	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")
+	return cl.client.LoadEncryptedSession()
+}
+
+//WriteToSession: Writes to file the replacement string
+func (cl *Client) WriteToSession(replacement string) error {
+	globals.Log.INFO.Printf("Binding call: WriteToSession")
+	return cl.client.WriteToSession(replacement)
 }

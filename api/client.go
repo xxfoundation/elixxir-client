@@ -356,7 +356,7 @@ func (cl *Client) Logout() error {
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) StartMessageReceiver() error {
+func (cl *Client) StartMessageReceiver(errorCallback func(error)) error {
 	status := cl.commManager.GetConnectionStatus()
 	if status == io.Connecting || status == io.Offline {
 		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
@@ -370,7 +370,18 @@ func (cl *Client) StartMessageReceiver() error {
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
+				time.Sleep(1 * time.Second)
+				go func() {
+					errorCallback(errors.New(fmt.Sprintln("Message Receiver Panicked", r)))
+				}()
+			}
+		}()
+		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+	}()
 
 	return nil
 }
@@ -530,7 +541,7 @@ func (cl *Client) GetCommManager() *io.CommManager {
 }
 
 // LoadSessionText: load the session file as a string
-func (cl *Client) LoadSessionText() (string, error) {
+func (cl *Client) LoadEncryptedSession() (string, error) {
 	//Find out where the session is being saved
 	storageLocation := cl.session.GetSessionLocation()
 	// if location is A, get session file A
@@ -538,25 +549,33 @@ func (cl *Client) LoadSessionText() (string, error) {
 		return string(cl.storage.LoadA()), nil
 	} else if storageLocation == globals.LocationB {
 		// or if B, get session file B
-		return string(cl.storage.LoadB()), nil
+		encodedSession := base64.StdEncoding.EncodeToString(cl.storage.LoadB())
+		return encodedSession, nil
 	}
 	//If it is neither, the storage location has not been specified
 	return "", errors.New("cannot get session text: storage location not specified")
 }
 
+//WriteToSession: Writes an arbitrary string to the session file
+// Takes in a string that is base64 encoded (meant to be output of LoadEncryptedSession)
 func (cl *Client) WriteToSession(replacement string) error {
 	// Find out where the session is being saved
 	storageLocation := cl.session.GetSessionLocation()
+	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to decode replacment string: %+v", err)
+		return errors.New(errMsg)
+	}
 	if storageLocation == globals.LocationA {
 		// Put the replacement text into session A if stored there
-		err := cl.storage.SaveA([]byte(replacement))
+		err := cl.storage.SaveA([]byte(decodedSession))
 		if err != nil {
 			return errors.Errorf("Failed to save to session A: %v", err)
 		}
 		return nil
 	} else if storageLocation == globals.LocationB {
 		// Put the replacement text into session B if it's stored here
-		err := cl.storage.SaveB([]byte(replacement))
+		err := cl.storage.SaveB([]byte(decodedSession))
 		if err != nil {
 			return errors.Errorf("Failed to save to session A: %v", err)
 		}

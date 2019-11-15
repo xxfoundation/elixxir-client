@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -49,8 +48,6 @@ type CommManager struct {
 	receptionGatewayIndex int
 	// Index in the NDF of the gateway used to send messages
 	transmissionGatewayIndex int
-	//Callback which passes the connection status when it updates
-	connectionStatusCallback ConnectionStatusCallback
 
 	// blockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
@@ -64,18 +61,12 @@ type CommManager struct {
 
 	sendLock sync.Mutex
 
-	connectionStatus *uint32
-
 	registrationVersion string
 
 	lock sync.RWMutex
 }
 
-func NewCommManager(ndf *ndf.NetworkDefinition,
-	callback ConnectionStatusCallback) *CommManager {
-
-	status := uint32(0)
-
+func NewCommManager(ndf *ndf.NetworkDefinition) *CommManager {
 	cm := &CommManager{
 		nextId:                   parse.IDCounter(),
 		collator:                 NewCollator(),
@@ -87,8 +78,6 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		ndf:                      ndf,
 		receptionGatewayIndex:    len(ndf.Gateways) - 1,
 		transmissionGatewayIndex: 0,
-		connectionStatusCallback: callback,
-		connectionStatus:         &status,
 	}
 
 	//cm.Comms.ConnectionManager.SetMaxRetries(1)
@@ -98,13 +87,11 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 
 // Connects to gateways using tls filepaths to create credential information
 // for connection establishment
-func (cm *CommManager) ConnectToGateways() error {
+func (cm *CommManager) ConnectToGateways() error { // tear out
 	var err error
 	if len(cm.ndf.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
-
-	cm.setConnectionStatus(Connecting, 0)
 
 	// connect to all gateways
 	var wg sync.WaitGroup
@@ -113,7 +100,7 @@ func (cm *CommManager) ConnectToGateways() error {
 
 		var gwCreds []byte
 
-		cm.lock.RLock()
+		cm.lock.RLock() // what is the purpose of this locked block
 		if gateway.TlsCertificate != "" && cm.tls {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
@@ -122,8 +109,7 @@ func (cm *CommManager) ConnectToGateways() error {
 		cm.lock.RUnlock()
 
 		wg.Add(1)
-		go func() {
-
+		go func() { // Does this still need a thread?
 			globals.Log.INFO.Printf("Connecting to gateway %s at %s...",
 				gwID.String(), gwAddr)
 			host, err := connect.NewHost(gwAddr, gwCreds, false)
@@ -145,7 +131,6 @@ func (cm *CommManager) ConnectToGateways() error {
 			} else {
 				errs = err
 			}
-
 		}
 
 		if errs != nil {
@@ -153,13 +138,12 @@ func (cm *CommManager) ConnectToGateways() error {
 		}
 	}
 
-	cm.setConnectionStatus(Online, 0)
 	return nil
 }
 
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
-func (cm *CommManager) UpdateRemoteVersion() error {
+func (cm *CommManager) UpdateRemoteVersion() error { // need this but make getremoteversion, handle versioning in client
 	permissioningHost, ok := cm.Comms.GetHost(PermissioningAddrID)
 	if !ok {
 		return errors.Errorf("Failed to find permissioning host with id %s", PermissioningAddrID)
@@ -173,12 +157,8 @@ func (cm *CommManager) UpdateRemoteVersion() error {
 	return nil
 }
 
-func (cm *CommManager) GetConnectionCallback() ConnectionStatusCallback {
-	return cm.connectionStatusCallback
-}
-
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
-func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.NetworkDefinition, error) {
+func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.NetworkDefinition, error) { // again, uses internal ndf.  stay here, return results instead
 
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
@@ -223,7 +203,7 @@ func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.Ne
 
 // Update NDF modifies the network properties for the network which is
 // communicated with
-func (cm *CommManager) UpdateNDF(updatedNDF *ndf.NetworkDefinition) {
+func (cm *CommManager) UpdateNDF(updatedNDF *ndf.NetworkDefinition) { // again, don't worry about ndf in this object
 	cm.lock.Lock()
 	cm.ndf = updatedNDF
 	cm.receptionGatewayIndex = len(cm.ndf.Gateways) - 1
@@ -233,14 +213,14 @@ func (cm *CommManager) UpdateNDF(updatedNDF *ndf.NetworkDefinition) {
 
 // Utility method, returns whether the local version and remote version are
 // compatible
-func (cm *CommManager) CheckVersion() (bool, error) {
+func (cm *CommManager) CheckVersion() (bool, error) { // again, version stuff, move to globals
 	return checkVersion(globals.SEMVER, cm.registrationVersion)
 }
 
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
+func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) { // this disappears, make host in simple call
 	if cm.ndf.Registration.Address != "" {
 		_, ok := cm.Comms.GetHost(PermissioningAddrID)
 		if ok {
@@ -273,54 +253,22 @@ func (cm *CommManager) ConnectToPermissioning() (connected bool, err error) {
 	}
 }
 
-func (cm *CommManager) Disconnect() {
+func (cm *CommManager) Disconnect() { // gone
 	cm.Comms.DisconnectAll()
 }
 
-func (cm *CommManager) DisableTLS() {
-	status := atomic.LoadUint32(cm.connectionStatus)
-
-	if status != Setup {
-		globals.Log.FATAL.Panicf("Cannot disable TLS" +
-			"while communications are running")
-	}
+func (cm *CommManager) DisableTLS() { // gone
 	cm.tls = false
 }
 
-func (cm *CommManager) GetRegistrationVersion() string {
+func (cm *CommManager) GetRegistrationVersion() string { // on client
 	return cm.registrationVersion
 }
 
-func (cm *CommManager) DisableBlockingTransmission() {
-	status := atomic.LoadUint32(cm.connectionStatus)
-
-	if status != Setup {
-		globals.Log.FATAL.Panicf("Cannot set tramsmission to blocking" +
-			"while communications are running")
-	}
+func (cm *CommManager) DisableBlockingTransmission() { // flag passed into receiver
 	cm.blockTransmissions = false
 }
 
-func (cm *CommManager) SetRateLimit(delay time.Duration) {
-	status := atomic.LoadUint32(cm.connectionStatus)
-
-	if status != Setup {
-		globals.Log.FATAL.Panicf("Cannot set the connection rate limit " +
-			"while communications are running")
-	}
+func (cm *CommManager) SetRateLimit(delay time.Duration) { // pass into received
 	cm.transmitDelay = delay
-}
-
-func (cm *CommManager) GetConnectionStatus() uint32 {
-	return atomic.LoadUint32(cm.connectionStatus)
-}
-
-func (cm *CommManager) setConnectionStatus(status uint32, timeout int) {
-	atomic.SwapUint32(cm.connectionStatus, status)
-	globals.Log.INFO.Printf("Connection status changed to: %v", status)
-	go cm.connectionStatusCallback(status, timeout)
-}
-
-func toSeconds(duration time.Duration) int {
-	return int(duration) / int(time.Second)
 }

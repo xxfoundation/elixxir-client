@@ -154,8 +154,7 @@ func requestNdf(cl *Client) error {
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition,
-	callback io.ConnectionStatusCallback) (*Client, error) {
+func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -175,7 +174,7 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON, callback)
+	cl.commManager = io.NewCommManager(ndfJSON)
 	cl.ndf = ndfJSON
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -276,10 +275,6 @@ const SaltSize = 256
 // User ID.  Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
-
-	if !preCan && cl.commManager.GetConnectionStatus() != io.Online {
-		return nil, errors.New("Cannot register when disconnected from the network")
-	}
 
 	var err error
 	var u *user.User
@@ -420,11 +415,6 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	if regState != user.PermissioningComplete {
 		return errors.New("Cannot register with UDB when registration " +
 			"state is not PermissioningComplete")
-	}
-
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
 	}
 
 	email := cl.session.GetCurrentUser().Email
@@ -642,11 +632,6 @@ func (cl *Client) Login(password string) (string, error) {
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver() error {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
-	}
-
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
 	// Initialize Rekey listeners
@@ -663,11 +648,6 @@ func (cl *Client) StartMessageReceiver() error {
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("Could not Send - connection is either offline or connecting")
-	}
-
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
@@ -708,10 +688,6 @@ func (cl *Client) GetCurrentUser() *id.User {
 
 func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 	return cl.session.GetKeyStore().GetKeyParams()
-}
-
-func (cl *Client) GetNetworkStatus() uint32 {
-	return cl.commManager.GetConnectionStatus()
 }
 
 // Logout closes the connection to the server at this time and does
@@ -770,12 +746,6 @@ type SearchCallback interface {
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback, timeout time.Duration) {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		err := errors.New("Could not SearchForUser - connection is either offline or connecting")
-		cb.Callback(nil, nil, err)
-	}
-
 	//see if the user has been searched before, if it has, return it
 	uid, pk := cl.session.GetContactByValue(emailAddress)
 
@@ -864,11 +834,6 @@ func (cl *Client) DeleteUser(u *id.User) (string, error) {
 func (cl *Client) LookupNick(user *id.User,
 	cb NickLookupCallback) {
 	go func() {
-		status := cl.commManager.GetConnectionStatus()
-		if status == io.Connecting || status == io.Offline {
-			err := errors.New("Could not RegisterWithUDB - connection is either offline or connecting")
-			cb.Callback("", err)
-		}
 		nick, err := bots.LookupNick(user)
 		if err != nil {
 			globals.Log.INFO.Printf("Lookup for nickname for user %s failed", user)

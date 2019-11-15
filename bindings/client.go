@@ -352,15 +352,6 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
 }
 
-//Call to get the networking status of the client
-// 0 - Offline
-// 1 - Connecting
-// 2 - Connected
-func (cl *Client) GetNetworkStatus() int64 {
-	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
-	return int64(cl.client.GetNetworkStatus())
-}
-
 //LoadEncryptedSession: Spits out the encrypted session file in text
 func (cl *Client) LoadEncryptedSession() (string, error) {
 	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")

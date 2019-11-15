@@ -95,13 +95,3 @@ func TestBlockingTerminate_Timeout(t *testing.T) {
 		t.Errorf("BlockingTerminate: Expected error path, should have timed out")
 	}
 }
-
-func TestBlockingTerminate_ZeroTimeout(t *testing.T) {
-	term := NewThreadTerminator()
-
-	success := term.BlockingTerminate(0)
-
-	if !success {
-		t.Errorf("BlockingTerminate: Thread did not terminate in time")
-	}
-}

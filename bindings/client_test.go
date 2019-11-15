@@ -441,7 +441,6 @@ func (*DummyReceptionCallback) Callback(error) {
 	return
 }
 
-
 func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)

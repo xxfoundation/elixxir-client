@@ -40,8 +40,7 @@ func TestRegistrationGob(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -82,8 +81,7 @@ func TestClient_Register(t *testing.T) {
 	startServers()
 
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 
 	if err != nil {
 		t.Error(err)
@@ -240,7 +238,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -334,7 +332,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -488,8 +486,7 @@ func TestClient_precannedRegister(t *testing.T) {
 	startServers()
 
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 
 	if err != nil {
 		t.Error(err)
@@ -518,8 +515,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	startServers()
 
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -555,8 +551,7 @@ func TestClient_requestNonce(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -587,8 +582,7 @@ func TestClient_confirmNonce(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -652,8 +646,7 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 func TestClient_GetSession(t *testing.T) {
 
 	//Start client
-	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def)
 
 	testClient.session = &user.SessionObj{}
 
@@ -667,8 +660,7 @@ func TestClient_GetSession(t *testing.T) {
 func TestClient_GetCommManager(t *testing.T) {
 
 	//Start client
-	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
+	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def)
 
 	testClient.commManager = &io.CommManager{}
 

@@ -107,14 +107,12 @@ func TestNewClientNil(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	_, err := NewClient(nil, "", "", ndfStr, pubKey,
-		&MockConStatCallback{})
+	_, err := NewClient(nil, "", "", ndfStr, pubKey)
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, nil) input!")
 	}
 
-	_, err = NewClient(nil, "", "", "", "hello",
-		&MockConStatCallback{})
+	_, err = NewClient(nil, "", "", "", "hello")
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
 	}
@@ -125,8 +123,7 @@ func TestNewClient(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
-		&MockConStatCallback{})
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("NewClient returned error: %v", err)
 	} else if client == nil {
@@ -142,8 +139,7 @@ func TestRegister(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
-		&MockConStatCallback{})
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	client.DisableTLS()
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -172,8 +168,7 @@ func TestLoginLogout(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
-		&MockConStatCallback{})
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
 	}
@@ -219,8 +214,7 @@ func TestListen(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
-		&MockConStatCallback{})
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
@@ -260,8 +254,7 @@ func TestStopListening(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
-		&MockConStatCallback{})
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	client.DisableTLS()
 	// Connect to gateway
 	err = client.Connect()
@@ -376,10 +369,12 @@ func testMainWrapper(m *testing.M) int {
 	permComms = registration.StartRegistrationServer(pAddr, pHandler, nil, nil)
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
+	//the ports used are colliding between tests in GoLand when running full suite, this is a dumb fix
+	bump := rand.Intn(10) * 10
 	for i := 0; i < NumGWs; i++ {
 
 		gw := ndf.Gateway{
-			Address: fmtAddress(GWsStartPort + i),
+			Address: fmtAddress(GWsStartPort + i + bump),
 		}
 
 		def.Gateways = append(def.Gateways, gw)

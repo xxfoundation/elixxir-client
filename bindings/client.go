@@ -61,8 +61,7 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
-	csc ConnectionStatusCallback) (*Client, error) {
+func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
@@ -72,11 +71,7 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 
 	proxy := &storageProxy{boundStorage: storage}
 
-	conStatCallback := func(status uint32, TimeoutSeconds int) {
-		csc.Callback(int(status), TimeoutSeconds)
-	}
-
-	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf, conStatCallback)
+	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf)
 
 	return &Client{client: cl}, err
 }
@@ -346,13 +341,4 @@ func SetLogOutput(w Writer) {
 // Call this to get the session data without getting Save called from the Go side
 func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
-}
-
-//Call to get the networking status of the client
-// 0 - Offline
-// 1 - Connecting
-// 2 - Connected
-func (cl *Client) GetNetworkStatus() int64 {
-	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
-	return int64(cl.client.GetNetworkStatus())
 }

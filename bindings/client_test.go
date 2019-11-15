@@ -435,6 +435,13 @@ func TestClient_Send(t *testing.T) {
 	disconnectServers()
 }
 
+type DummyReceptionCallback struct{}
+
+func (*DummyReceptionCallback) Callback(error) {
+	return
+}
+
+
 func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
@@ -461,7 +468,7 @@ func TestLoginLogout(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	err = client.StartMessageReceiver(func(err error) { return })
+	err = client.StartMessageReceiver(&DummyReceptionCallback{})
 	if err != nil {
 		t.Errorf("Could not start message reciever: %+v", err)
 	}

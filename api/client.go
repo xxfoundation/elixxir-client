@@ -78,11 +78,8 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	cl.storage = store
 	cl.commManager = io.NewCommManager(ndfJSON, callback)
 	cl.ndf = ndfJSON
-	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
-	}
+
+	cl.topology = nil
 
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
@@ -537,49 +534,40 @@ func (cl *Client) GetCommManager() *io.CommManager {
 	return cl.commManager
 }
 
-// LoadSessionText: load the session file as a string
-func (cl *Client) LoadEncryptedSession() (string, error) {
-	//Find out where the session is being saved
-	storageLocation := cl.session.GetSessionLocation()
-	// if location is A, get session file A
-	if storageLocation == globals.LocationA {
-		return string(cl.storage.LoadA()), nil
-	} else if storageLocation == globals.LocationB {
-		// or if B, get session file B
-		encodedSession := base64.StdEncoding.EncodeToString(cl.storage.LoadB())
-		return encodedSession, nil
+// LoadSessionText: load the encrypted session as a string
+func (cl *Client) LoadEncryptedSession(password string) (string, error) {
+	encryptedSession, err := user.LoadEncryptedSession(cl.storage, password)
+	if err != nil {
+		return "", err
 	}
-	//If it is neither, the storage location has not been specified
-	return "", errors.New("cannot get session text: storage location not specified")
+	//Encode session to bas64 for useability
+	encodedSession := base64.StdEncoding.EncodeToString(encryptedSession)
+
+	return encodedSession, nil
 }
 
 //WriteToSession: Writes an arbitrary string to the session file
 // Takes in a string that is base64 encoded (meant to be output of LoadEncryptedSession)
-func (cl *Client) WriteToSession(replacement string) error {
-	// Find out where the session is being saved
-	storageLocation := cl.session.GetSessionLocation()
+func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) error {
+	//This call must not occur prior to a newClient call, thus check that client has been initialized
+	if cl.ndf == nil || cl.topology == nil {
+		errMsg := fmt.Sprintf("Cannot write to session if client hasn't been created yet")
+		return errors.New(errMsg)
+	}
+	//Decode the base64 encoded replacement string (assumed to be encoded form LoadEncryptedSession)
 	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to decode replacment string: %+v", err)
 		return errors.New(errMsg)
 	}
-	if storageLocation == globals.LocationA {
-		// Put the replacement text into session A if stored there
-		err := cl.storage.SaveA([]byte(decodedSession))
-		if err != nil {
-			return errors.Errorf("Failed to save to session A: %v", err)
-		}
-		return nil
-	} else if storageLocation == globals.LocationB {
-		// Put the replacement text into session B if it's stored here
-		err := cl.storage.SaveB([]byte(decodedSession))
-		if err != nil {
-			return errors.Errorf("Failed to save to session A: %v", err)
-		}
-		return nil
+	//Write the new session data to both locations
+	err = user.WriteToSession(decodedSession, store)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to store session: %+v", err)
+		return errors.New(errMsg)
 	}
-	// If it is neither, the storage location has not been specified
-	return errors.New("cannot get session text: storage location not specified")
+
+	return nil
 }
 
 type NickLookupCallback interface {

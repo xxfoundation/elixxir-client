@@ -395,7 +395,7 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = newClient.StartMessageReceiver(func(err error) { return })
+	err = newClient.StartMessageReceiver(&DummyReceptionCallback{})
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)

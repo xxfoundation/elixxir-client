@@ -120,23 +120,17 @@ func NewSession(store globals.Storage,
 	})
 }
 
-func LoadSession(store globals.Storage,
-	password string) (Session, error) {
-	if store == nil {
-		err := errors.New("LoadSession: Local Storage not available")
-		return nil, err
-	}
-
+//processSession: gets the loadLocation and decrypted wrappedSession
+func processSession(store globals.Storage, password string) (*SessionStorageWrapper, uint8, error) {
 	var wrappedSession *SessionStorageWrapper
 	loadLocation := globals.NoSave
-
 	//load sessions
 	wrappedSessionA, errA := processSessionWrapper(store.LoadA(), password)
 	wrappedSessionB, errB := processSessionWrapper(store.LoadB(), password)
 
-	//figure out which session to use
+	//figure out which session to use of the two locations
 	if errA != nil && errB != nil {
-		return nil, fmt.Errorf("Loading both sessions errored: \n "+
+		return nil, globals.NoSave, fmt.Errorf("Loading both sessions errored: \n "+
 			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
 	} else if errA == nil && errB != nil {
 		loadLocation = globals.LocationA
@@ -153,6 +147,49 @@ func LoadSession(store globals.Storage,
 			wrappedSession = wrappedSessionB
 		}
 	}
+	return wrappedSession, loadLocation, nil
+
+}
+
+func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
+
+	if sessionGob == nil || len(sessionGob) < 12 {
+		return nil, errors.New("No session file passed")
+	}
+
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode the "+
+			"session wrapper")
+	}
+
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Write(decryptedSessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+
+	wrappedSession := SessionStorageWrapper{}
+
+	err = dec.Decode(&wrappedSession)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to decode session wrapper")
+	}
+
+	return &wrappedSession, nil
+}
+
+func LoadSession(store globals.Storage,
+	password string) (Session, error) {
+	if store == nil {
+		err := errors.New("LoadSession: Local Storage not available")
+		return nil, err
+	}
+
+	wrappedSession, loadLocation, err := processSession(store, password)
+	if err != nil {
+		return nil, err
+	}
 
 	//extract teh session from the wrapper
 	var sessionBytes bytes.Buffer
@@ -162,7 +199,7 @@ func LoadSession(store globals.Storage,
 
 	session := SessionObj{}
 
-	err := dec.Decode(&session)
+	err = dec.Decode(&session)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to decode session")
 	}
@@ -237,6 +274,33 @@ type SessionObj struct {
 	storageLocation uint8
 
 	ContactsByValue map[string]SearchedUserRecord
+}
+
+//WriteToSession: Writes to the location where session is being stored the arbitrary replacement string
+// The replacement string is meant to be the output of a loadEncryptedSession
+func WriteToSession(replacement []byte, store globals.Storage) error {
+	//Write to both
+	err := store.SaveA(replacement)
+	if err != nil {
+		return errors.Errorf("Failed to save to session A: %v", err)
+	}
+	err = store.SaveB(replacement)
+	if err != nil {
+		return errors.Errorf("Failed to save to session B: %v", err)
+	}
+
+	return nil
+}
+
+//LoadEncryptedSession: gets the encrypted session file from storage
+// Returns it as a base64 encoded string
+func LoadEncryptedSession(store globals.Storage, password string) ([]byte, error) {
+	sessionData, _, err := processSession(store, password)
+	if err != nil {
+		return make([]byte, 0), err
+	}
+	encryptedSession := encrypt(sessionData.Session, password)
+	return encryptedSession, nil
 }
 
 type SearchedUserRecord struct {
@@ -410,7 +474,6 @@ func (s *SessionObj) storeSession() error {
 	sessionData, err := s.getSessionData()
 
 	encryptedSession := encrypt(sessionData, s.password)
-
 	if s.storageLocation == globals.LocationA {
 		err = s.store.SaveB(encryptedSession)
 		if err != nil {
@@ -629,34 +692,6 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	tempBuffer := s.garbledMessages
 	s.garbledMessages = []*format.Message{}
 	return tempBuffer
-}
-
-func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
-
-	if sessionGob == nil || len(sessionGob) < 12 {
-		return nil, errors.New("No session file passed")
-	}
-
-	decryptedSessionGob, err := decrypt(sessionGob, password)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Could not decode the "+
-			"session wrapper")
-	}
-
-	var sessionBytes bytes.Buffer
-
-	sessionBytes.Write(decryptedSessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
-
-	wrappedSession := SessionStorageWrapper{}
-
-	err = dec.Decode(&wrappedSession)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to decode session wrapper")
-	}
-
-	return &wrappedSession, nil
 }
 
 func (s *SessionObj) GetContactByValue(v string) (*id.User, []byte) {

@@ -44,9 +44,8 @@ func TestRegistrationGob(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}
@@ -86,9 +85,8 @@ func TestClient_Register(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}
@@ -491,9 +489,8 @@ func TestClient_precannedRegister(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}
@@ -519,9 +516,8 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}
@@ -555,9 +551,8 @@ func TestClient_requestNonce(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}
@@ -586,8 +581,8 @@ func TestClient_confirmNonce(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
-	err = testClient.Connect()
+
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}

@@ -6,3 +6,9 @@ package globals
 const GITVERSION = `bd4f026 Merge branch 'hotfix/fixtimeout' into 'release'`
 const SEMVER = "0.1.0"
 const GLIDEDEPS = ``
+
+// Utility method, returns whether the local version and remote version are
+// compatible
+func CheckVersion(ver string) (bool, error) { // again, version stuff, move to globals
+	return checkVersion(SEMVER, ver)
+}

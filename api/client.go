@@ -42,13 +42,14 @@ import (
 )
 
 type Client struct {
-	storage     globals.Storage
-	session     user.Session
-	commManager *io.CommManager
-	ndf         *ndf.NetworkDefinition
-	topology    *circuit.Circuit
-	opStatus    OperationProgressCallback
-	rekeyChan   chan struct{}
+	storage             globals.Storage
+	session             user.Session
+	commManager         *io.CommManager
+	ndf                 *ndf.NetworkDefinition
+	topology            *circuit.Circuit
+	opStatus            OperationProgressCallback
+	rekeyChan           chan struct{}
+	registrationVersion string
 }
 
 var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code = Unknown desc = Permissioning server does not have an ndf to give to client")
@@ -144,9 +145,9 @@ func requestNdf(cl *Client) error {
 		return errors.New(errMsg)
 	}
 
-	cl.ndf = newNDf
-
-	cl.commManager.UpdateNDF(newNDf)
+	if newNDf != nil {
+		cl.ndf = newNDf
+	}
 
 	return nil
 }
@@ -175,7 +176,7 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON)
+	cl.commManager = io.NewCommManager()
 	cl.ndf = ndfJSON
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -198,11 +199,8 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	return cl, nil
 }
 
-// DisableTLS makes the client run with TLS disabled
-// Must be called before Connect
-func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Println("Running client without tls")
-	cl.commManager.DisableTLS()
+func (cl *Client) GetRegistrationVersion() string { // on client
+	return cl.registrationVersion
 }
 
 //GetNDF returns the clients ndf
@@ -212,10 +210,10 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
-func (cl *Client) Connect() error {
-	//Connect to permissioning
+func (cl *Client) InitNetwork() error {
+	//InitNetwork to permissioning
 	if cl.ndf.Registration.Address != "" {
-		isConnected, err := cl.commManager.ConnectToPermissioning()
+		isConnected, err := cl.commManager.AddPermissioningHost(&cl.ndf.Registration)
 
 		if err != nil {
 			return err
@@ -224,11 +222,12 @@ func (cl *Client) Connect() error {
 			err = errors.New("Couldn't connect to permissioning")
 			return err
 		}
-		//Check if versioning is up to date
-		err = cl.commManager.UpdateRemoteVersion()
+		//Get remote version and update
+		ver, err := cl.commManager.GetRemoteVersion()
 		if err != nil {
 			return err
 		}
+		cl.registrationVersion = ver
 
 		//Request a new ndf from
 		err = requestNdf(cl)
@@ -250,14 +249,14 @@ func (cl *Client) Connect() error {
 
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
-	if cl.commManager.GetRegistrationVersion() != "" {
-		ok, err := cl.commManager.CheckVersion()
+	if cl.GetRegistrationVersion() != "" {
+		ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
 		if err != nil {
 			return err
 		}
 		if !ok {
 			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.GetRegistrationVersion()))
+				cl.GetRegistrationVersion()))
 			return err
 		}
 	} else {
@@ -265,7 +264,7 @@ func (cl *Client) Connect() error {
 			"registration server, because it's not populated. Do you have " +
 			"access to the registration server?")
 	}
-	return cl.commManager.ConnectToGateways()
+	return cl.commManager.AddGatewayHosts(cl.ndf)
 }
 
 func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
@@ -409,7 +408,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 }
 
 // RegisterWithUDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and Connect.
+// User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 
@@ -635,15 +634,25 @@ func (cl *Client) Login(password string) (string, error) {
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver() error {
+	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	transmissionHost, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
+	}
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
+	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
 
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
+	receptionHost, ok := cl.commManager.Comms.GetHost(receptionGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
+	}
+	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan, receptionHost)
 
 	return nil
 }
@@ -651,10 +660,15 @@ func (cl *Client) StartMessageReceiver() error {
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {
+	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	host, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
+	}
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
-	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
+	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack(), host)
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for
@@ -707,7 +721,7 @@ func (cl *Client) Logout() error {
 	// Stop reception runner goroutine
 	close(cl.session.GetQuitChan())
 
-	cl.commManager.Disconnect()
+	cl.commManager.Comms.DisconnectAll()
 
 	errStore := cl.session.StoreSession()
 
@@ -734,11 +748,6 @@ func (cl *Client) Logout() error {
 // Returns the local version of the client repo
 func GetLocalVersion() string {
 	return globals.SEMVER
-}
-
-// Returns the compatible version of client, according to permissioning
-func (cl *Client) GetRemoteVersion() string {
-	return cl.commManager.GetRegistrationVersion()
 }
 
 type SearchCallback interface {
@@ -839,7 +848,7 @@ func (cl *Client) LookupNick(user *id.User,
 	go func() {
 		nick, err := bots.LookupNick(user)
 		if err != nil {
-			globals.Log.INFO.Printf("Lookup for nickname for user %s failed", user)
+			globals.Log.INFO.Printf("Lookup for nickname for user %+v failed", user)
 		}
 		cb.Callback(nick, err)
 	}()

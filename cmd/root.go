@@ -174,12 +174,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		return id.ZeroID, "", nil
 	}*/
 
-	if noTLS {
-		client.DisableTLS()
-	}
-
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}

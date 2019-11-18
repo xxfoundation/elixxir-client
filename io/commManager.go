@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
@@ -87,7 +86,7 @@ func (cm *CommManager) AddGatewayHosts(ndf *ndf.NetworkDefinition) error { // te
 		gwID := id.NewNodeFromBytes(ndf.Nodes[i].ID).NewGateway()
 		gwAddr := gateway.Address
 
-		host, err := connect.NewHost(gwAddr, gwCreds, false)
+		_, err := cm.Comms.AddHost(gwID.String(), gwAddr, gwCreds, false)
 		if err != nil {
 			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
 				gwID.String(), gwAddr, err)
@@ -97,7 +96,6 @@ func (cm *CommManager) AddGatewayHosts(ndf *ndf.NetworkDefinition) error { // te
 				errs = err
 			}
 		}
-		cm.Comms.AddHost(gwID.String(), host)
 	}
 	return errs
 }
@@ -175,13 +173,11 @@ func (cm *CommManager) AddPermissioningHost(reg *ndf.Registration) (bool, error)
 			regCert = []byte(reg.TlsCertificate)
 		}
 
-		host, err := connect.NewHost(reg.Address, regCert, false)
+		_, err := cm.Comms.AddHost(PermissioningAddrID, reg.Address, regCert, false)
 		if err != nil {
 			return false, errors.New(fmt.Sprintf(
 				"Failed connecting to create host for permissioning: %+v", err))
 		}
-		cm.Comms.AddHost(PermissioningAddrID, host)
-
 		return true, nil
 	} else {
 		globals.Log.DEBUG.Printf("failed to connect to %v silently", reg.Address)

@@ -31,8 +31,8 @@ import (
 
 const NumNodes = 3
 const NumGWs = NumNodes
-const GWsStartPort = 7900
-const RegPort = 5000
+const GWsStartPort = 7950
+const RegPort = 5100
 const ValidRegCode = "UAV6IWD6"
 
 var RegHandler = MockRegistration{}
@@ -65,7 +65,6 @@ func (i *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
-
 	os.Exit(testMainWrapper(m))
 }
 

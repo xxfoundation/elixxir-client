@@ -120,6 +120,47 @@ func NewSession(store globals.Storage,
 	})
 }
 
+func LoadSession(store globals.Storage,
+	password string) (Session, error) {
+	if store == nil {
+		err := errors.New("LoadSession: Local Storage not available")
+		return nil, err
+	}
+
+	wrappedSession, loadLocation, err := processSession(store, password)
+	if err != nil {
+		return nil, err
+	}
+
+	//extract teh session from the wrapper
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Write(wrappedSession.Session)
+	dec := gob.NewDecoder(&sessionBytes)
+
+	session := SessionObj{}
+
+	err = dec.Decode(&session)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to decode session")
+	}
+
+	session.storageLocation = loadLocation
+
+	// Reconstruct Key maps
+	session.KeyMaps.ReconstructKeys(session.E2EGrp,
+		session.CurrentUser.User)
+	// Create switchboard
+	session.listeners = switchboard.NewSwitchboard()
+	// Create quit channel for reception runner
+	session.quitReceptionRunner = make(chan struct{})
+
+	// Set storage pointer
+	session.store = store
+	session.password = password
+	return &session, nil
+}
+
 //processSession: gets the loadLocation and decrypted wrappedSession
 func processSession(store globals.Storage, password string) (*SessionStorageWrapper, uint8, error) {
 	var wrappedSession *SessionStorageWrapper
@@ -177,47 +218,6 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 	}
 
 	return &wrappedSession, nil
-}
-
-func LoadSession(store globals.Storage,
-	password string) (Session, error) {
-	if store == nil {
-		err := errors.New("LoadSession: Local Storage not available")
-		return nil, err
-	}
-
-	wrappedSession, loadLocation, err := processSession(store, password)
-	if err != nil {
-		return nil, err
-	}
-
-	//extract teh session from the wrapper
-	var sessionBytes bytes.Buffer
-
-	sessionBytes.Write(wrappedSession.Session)
-	dec := gob.NewDecoder(&sessionBytes)
-
-	session := SessionObj{}
-
-	err = dec.Decode(&session)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to decode session")
-	}
-
-	session.storageLocation = loadLocation
-
-	// Reconstruct Key maps
-	session.KeyMaps.ReconstructKeys(session.E2EGrp,
-		session.CurrentUser.User)
-	// Create switchboard
-	session.listeners = switchboard.NewSwitchboard()
-	// Create quit channel for reception runner
-	session.quitReceptionRunner = make(chan struct{})
-
-	// Set storage pointer
-	session.store = store
-	session.password = password
-	return &session, nil
 }
 
 // Struct holding relevant session data

@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
@@ -68,6 +69,50 @@ func FormatTextMessage(message string) []byte {
 
 	wireRepresentation, _ := proto.Marshal(&textMessage)
 	return wireRepresentation
+}
+
+//GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
+func (cl *Client) getUpdatedNDF() (*ndf.NetworkDefinition, error) { // again, uses internal ndf.  stay here, return results instead
+
+	//Hash the client's ndf for comparison with registration's ndf
+	hash := sha256.New()
+	ndfBytes := cl.ndf.Serialize()
+	hash.Write(ndfBytes)
+	ndfHash := hash.Sum(nil)
+
+	//Put the hash in a message
+	msg := &mixmessages.NDFHash{Hash: ndfHash}
+
+	host, ok := cl.commManager.Comms.GetHost(PermissioningAddrID)
+	if !ok {
+		return nil, errors.New("Failed to find permissioning host")
+	}
+
+	//Send the hash to registration
+	response, err := cl.commManager.Comms.SendGetUpdatedNDF(host, msg)
+	if err != nil {
+		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
+		return nil, errors.New(errMsg)
+	}
+
+	//If there was no error and the response is nil, client's ndf is up-to-date
+	if response == nil {
+		globals.Log.DEBUG.Printf("Client NDF up-to-date")
+		return nil, nil
+	}
+
+	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
+
+	globals.Log.INFO.Printf("Remote NDF: %s", string(response.Ndf))
+
+	//Otherwise pull the ndf out of the response
+	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
+	if err != nil {
+		//If there was an error decoding ndf
+		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
+		return nil, errors.New(errMsg)
+	}
+	return updatedNdf, nil
 }
 
 // VerifyNDF verifies the signature of the network definition file (NDF) and
@@ -131,7 +176,7 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 func requestNdf(cl *Client) error {
 	// Continuously polls for a new ndf after sleeping until response if gotten
 	globals.Log.INFO.Printf("Polling for a new NDF")
-	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
+	newNDf, err := cl.getUpdatedNDF()
 
 	if err != nil {
 		//lets the client continue when permissioning does not provide NDFs
@@ -206,65 +251,6 @@ func (cl *Client) GetRegistrationVersion() string { // on client
 //GetNDF returns the clients ndf
 func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 	return cl.ndf
-}
-
-// Checks version and connects to gateways using TLS filepaths to create
-// credential information for connection establishment
-func (cl *Client) InitNetwork() error {
-	//InitNetwork to permissioning
-	if cl.ndf.Registration.Address != "" {
-		isConnected, err := cl.commManager.AddPermissioningHost(&cl.ndf.Registration)
-
-		if err != nil {
-			return err
-		}
-		if !isConnected {
-			err = errors.New("Couldn't connect to permissioning")
-			return err
-		}
-		//Get remote version and update
-		ver, err := cl.commManager.GetRemoteVersion()
-		if err != nil {
-			return err
-		}
-		cl.registrationVersion = ver
-
-		//Request a new ndf from
-		err = requestNdf(cl)
-		if err != nil {
-			return err
-
-		}
-	} else {
-		globals.Log.WARN.Println("Registration not defined, not contacted")
-	}
-
-	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
-	}
-
-	cl.topology = circuit.New(nodeIDs)
-
-	// Only check the version if we got a remote version
-	// The remote version won't have been populated if we didn't connect to permissioning
-	if cl.GetRegistrationVersion() != "" {
-		ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
-		if err != nil {
-			return err
-		}
-		if !ok {
-			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.GetRegistrationVersion()))
-			return err
-		}
-	} else {
-		globals.Log.WARN.Printf("Not checking version from " +
-			"registration server, because it's not populated. Do you have " +
-			"access to the registration server?")
-	}
-	return cl.commManager.AddGatewayHosts(cl.ndf)
 }
 
 func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {

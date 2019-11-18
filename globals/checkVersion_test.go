@@ -4,9 +4,11 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package globals
 
-import "testing"
+import (
+	"testing"
+)
 
 func TestParseClientVersion_Success(t *testing.T) {
 	version, err := parseClientVersion("1.2.3456")

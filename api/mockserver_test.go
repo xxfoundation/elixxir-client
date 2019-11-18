@@ -48,6 +48,7 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
+
 	os.Exit(testMainWrapper(m))
 }
 
@@ -59,10 +60,9 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -91,10 +91,9 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -127,9 +126,8 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -153,10 +151,9 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -185,10 +182,9 @@ func TestSend(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -263,9 +259,8 @@ func TestLogout(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)

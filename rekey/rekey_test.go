@@ -8,6 +8,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -33,7 +34,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 	topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	d.listener <- message
 	return nil
 }
@@ -43,14 +44,14 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 	topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	d.listener <- message
 	return nil
 }
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}) {
+	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host) {
 }
 
 func TestMain(m *testing.M) {

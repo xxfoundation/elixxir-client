@@ -81,13 +81,6 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 	return &Client{client: cl}, err
 }
 
-// DisableTLS makes the client run with tls disabled
-// Must be called before Connect
-func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.client.DisableTLS()
-}
-
 func (cl *Client) EnableDebugLogs() {
 	globals.Log.INFO.Printf("Binding call: EnableDebugLogs()")
 	globals.Log.SetStdoutThreshold(jwalterweatherman.LevelDebug)
@@ -98,8 +91,8 @@ func (cl *Client) EnableDebugLogs() {
 // using tls filepaths to create credential information
 // for connection establishment
 func (cl *Client) Connect() error {
-	globals.Log.INFO.Printf("Binding call: Connect()")
-	return cl.client.Connect()
+	globals.Log.INFO.Printf("Binding call: InitNetwork()")
+	return cl.client.InitNetwork()
 }
 
 // Sets a callback which receives a strings describing the current status of
@@ -141,7 +134,7 @@ func (cl *Client) RegisterWithNodes() error {
 }
 
 // Register with UDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and Connect.
+// User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeoutMS int) error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
@@ -248,7 +241,7 @@ func GetLocalVersion() string {
 // client release version returned here.
 func (cl *Client) GetRemoteVersion() string {
 	globals.Log.INFO.Printf("Binding call: GetRemoteVersion()\n")
-	return cl.client.GetRemoteVersion()
+	return cl.GetRemoteVersion()
 }
 
 // Turns off blocking transmission so multiple messages can be sent

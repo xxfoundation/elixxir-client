@@ -23,6 +23,8 @@ import (
 	"time"
 )
 
+var def *ndf.NetworkDefinition
+
 const InvalidClientVersion = "1.1.0"
 
 // APIMessage are an implementation of the interface in bindings and API
@@ -110,7 +112,8 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 
 func (s *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
 
-	ndfData := buildMockNDF()
+	ndfData := def
+
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }

@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
@@ -28,7 +29,8 @@ const reportDuration = 30 * time.Second
 var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
 
 // MessageReceiver is a polling thread for receiving messages
-func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{}) {
+func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{},
+	receptionHost *connect.Host) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
@@ -36,9 +38,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	pollingMessage := pb.ClientRequest{
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
-	cm.lock.RLock()
-	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.receptionGatewayIndex].ID).NewGateway()
-	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
 	NumChecks := 0
@@ -74,7 +73,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 			var err error
 
-			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
+			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receptionHost)
 
 			if err != nil {
 
@@ -165,17 +164,13 @@ func handleE2EReceiving(session user.Session,
 }
 
 func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientRequest, receiveGateway *id.Gateway) ([]*format.Message, error) {
+	pollingMessage *pb.ClientRequest, receiveGateway *connect.Host) ([]*format.Message, error) {
 	// Get the last message ID received
 	pollingMessage.LastMessageID = session.GetLastMessageID()
 	// FIXME: dont do this over an over
 
 	// Gets a list of mssages that are newer than the last one recieved
-	host, ok := cm.Comms.GetHost(receiveGateway.String())
-	if !ok {
-		return nil, errors.Errorf("Could not find host with id %s", receiveGateway.String())
-	}
-	messageIDs, err := cm.Comms.SendCheckMessages(host, pollingMessage)
+	messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway, pollingMessage)
 
 	if err != nil {
 		return nil, err
@@ -203,7 +198,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 				messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
-			newMessage, err := cm.Comms.SendGetMessage(host,
+			newMessage, err := cm.Comms.SendGetMessage(receiveGateway,
 				&pb.ClientRequest{
 					UserID: session.GetCurrentUser().User.
 						Bytes(),

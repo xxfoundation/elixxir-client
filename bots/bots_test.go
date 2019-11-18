@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/circuit"
@@ -38,7 +39,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 	topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
@@ -48,14 +49,14 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 	topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}) {
+	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host) {
 }
 
 var pubKeyBits string
@@ -79,10 +80,10 @@ func TestMain(m *testing.M) {
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
-
+	h := connect.Host{}
 	topology := circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
 
-	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")))
+	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")), &h)
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots
@@ -198,7 +199,7 @@ func (e *errorMessaging) SendMessage(sess user.Session,
 	topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	return errors.New("This is an error")
 }
 
@@ -207,13 +208,13 @@ func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 	topology *circuit.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	return errors.New("This is an error")
 }
 
 // MessageReceiver thread to get new messages
 func (e *errorMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}) {
+	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host) {
 }
 
 // Test LookupNick returns error on sending problem

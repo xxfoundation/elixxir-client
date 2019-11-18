@@ -10,18 +10,14 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
-	"gitlab.com/elixxir/crypto/csprng"
-	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"os"
 	"testing"
-	"time"
 )
 
 const NumNodes = 3
@@ -264,56 +260,6 @@ func TestSend(t *testing.T) {
 		t.Errorf("Logout failed: %v", err)
 	}
 	disconnectServers()
-}
-
-//Error path: register with udb, but udb is not set up to return a message
-func TestClient_RegisterWithUDB(t *testing.T) {
-	rng := csprng.NewSystemRNG()
-	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
-
-	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
-		dummyConnectionStatusHandler)
-	if err != nil {
-		t.Error(err)
-	}
-	testClient.DisableTLS()
-
-	err = testClient.Connect()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6",
-		"tester", "josh@elixxir.io", "password", privateKeyRSA)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.RegisterWithNodes()
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// Login to gateway
-	_, err = testClient.Login("password")
-
-	if err != nil {
-		t.Errorf("Login failed: %s", err.Error())
-	}
-
-	err = testClient.StartMessageReceiver(func(err error) { return })
-
-	if err != nil {
-		t.Errorf("Could not start message reception: %+v", err)
-	}
-
-	err = testClient.RegisterWithUDB(1 * time.Second)
-	if err != nil {
-		return
-	}
-	t.Errorf("Expected error path: should not successfully register with udb")
 }
 
 func TestLogout(t *testing.T) {

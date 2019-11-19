@@ -307,11 +307,7 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	cb := func(err error) {
-		t.Log(err)
-	}
-
-	err = client.StartMessageReceiver(cb)
+	err = client.StartMessageReceiver(func(err error) { return })
 
 	if err != nil {
 		t.Errorf("Failed to start message reciever: %s", err.Error())

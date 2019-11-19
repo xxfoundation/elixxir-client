@@ -128,6 +128,12 @@ func TestRegister(t *testing.T) {
 	}
 }
 
+type DummyReceptionCallback struct{}
+
+func (*DummyReceptionCallback) Callback(error) {
+	return
+}
+
 func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
@@ -153,11 +159,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
 
-	cb := func(err error) {
-		t.Log(err)
-	}
-
-	err = client.StartMessageReceiver(cb)
+	err = client.StartMessageReceiver(&DummyReceptionCallback{})
 	if err != nil {
 		t.Errorf("Could not start message reciever: %+v", err)
 	}

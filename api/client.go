@@ -438,6 +438,8 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 		return errors.Wrap(err, "UDB Registration Failed")
 	}
 
+	cl.opStatus(globals.REG_SECURE_STORE)
+
 	errStore := cl.session.StoreSession()
 
 	// FIXME If we have an error here, the session that gets created
@@ -454,6 +456,7 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 }
 
 func (cl *Client) RegisterWithNodes() error {
+	cl.opStatus(globals.REG_NODE)
 	session := cl.GetSession()
 	//Load Cmix keys & group
 	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
@@ -517,6 +520,7 @@ func (cl *Client) RegisterWithNodes() error {
 
 	// Store the user session if there were changes during node registration
 	if newRegistrations {
+		cl.opStatus(globals.REG_SECURE_STORE)
 		errStore := session.StoreSession()
 		if errStore != nil {
 			err := errors.New(fmt.Sprintf(
@@ -635,10 +639,19 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 	receptionHost, ok := cl.commManager.Comms.GetHost(receptionGateway.String())
-	if !ok {
-		return errors.New("Failed to retrieve host for transmission")
-	}
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan, receptionHost, callback)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
+				time.Sleep(1 * time.Second)
+				go func() {
+					callback(errors.New(fmt.Sprintln("Message Receiver Panicked", r)))
+				}()
+			}
+		}()
+		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan, receptionHost, callback)
+	}()
 
 	return nil
 }

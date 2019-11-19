@@ -390,6 +390,7 @@ var rootCmd = &cobra.Command{
 			globals.Log.ERROR.Print(err)
 		}
 		err := client.StartMessageReceiver(cb)
+
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}

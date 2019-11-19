@@ -147,9 +147,9 @@ func (cl *Client) Login(UID []byte, password string) (string, error) {
 
 // Starts the polling of the external servers.
 // Must be done after listeners are set up.
-func (cl *Client) StartMessageReceiver() error {
+func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
-	return cl.client.StartMessageReceiver()
+	return cl.client.StartMessageReceiver(callback)
 }
 
 // Overwrites the username in registration. Only succeeds if the client

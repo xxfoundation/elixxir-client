@@ -222,7 +222,11 @@ func TestSend(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = client.StartMessageReceiver()
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	err = client.StartMessageReceiver(cb)
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)
@@ -303,7 +307,11 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = client.StartMessageReceiver()
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	err = client.StartMessageReceiver(cb)
 
 	if err != nil {
 		t.Errorf("Failed to start message reciever: %s", err.Error())

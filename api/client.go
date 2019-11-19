@@ -619,7 +619,7 @@ func (cl *Client) Login(password string) (string, error) {
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) StartMessageReceiver() error {
+func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
 	transmissionHost, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
 	if !ok {
@@ -638,7 +638,7 @@ func (cl *Client) StartMessageReceiver() error {
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan, receptionHost)
+	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan, receptionHost, callback)
 
 	return nil
 }

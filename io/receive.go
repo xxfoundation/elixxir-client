@@ -30,7 +30,7 @@ var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can'
 
 // MessageReceiver is a polling thread for receiving messages
 func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{},
-	receptionHost *connect.Host) {
+	receptionHost *connect.Host, callback func(error)) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
@@ -81,11 +81,11 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
 					time.Sleep(5 * time.Second)
 				}
+				callback(err)
 			}
 			NumMessages += len(encryptedMessages)
 		case <-rekeyChan:
 			encryptedMessages = session.PopGarbledMessages()
-
 		}
 
 		if len(encryptedMessages) != 0 {

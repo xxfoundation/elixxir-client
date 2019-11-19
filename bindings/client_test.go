@@ -85,6 +85,9 @@ const ValidRegCode = "UAV6IWD6"
 
 var TestKeySize = 768
 
+var RegHandler = mockPermission{}
+var RegComms *registration.RegistrationComms
+
 var GWComms [NumGWs]*gateway.GatewayComms
 var RegGWHandlers [3]*api.TestInterface = [NumGWs]*api.TestInterface{
 	{LastReceivedMessage: pb.Slot{}},
@@ -696,6 +699,7 @@ func testMainWrapper(m *testing.M) int {
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
+	RegComms = registration.StartRegistrationServer(def.Registration.Address, &RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)
@@ -714,7 +718,7 @@ func testWrapperShutdown() {
 	for _, gw := range GWComms {
 		gw.Shutdown()
 	}
-	permComms.Shutdown()
+	RegComms.Shutdown()
 
 }
 
@@ -819,7 +823,7 @@ func disconnectServers() {
 		gw.ConnectionManager.DisconnectAll()
 
 	}
-	permComms.ConnectionManager.DisconnectAll()
+	RegComms.ConnectionManager.DisconnectAll()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

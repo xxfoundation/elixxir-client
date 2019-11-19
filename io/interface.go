@@ -30,5 +30,5 @@ type Communications interface { // this can go
 		transmissionHost *connect.Host) error
 	// MessageReceiver thread to get new messages
 	MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{},
-		receptionHost *connect.Host)
+		receptionHost *connect.Host, callback func(error))
 }

@@ -56,7 +56,7 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host) {
+	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host, callback func(error)) {
 }
 
 var pubKeyBits string
@@ -214,7 +214,7 @@ func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (e *errorMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host) {
+	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host, callback func(error)) {
 }
 
 // Test LookupNick returns error on sending problem

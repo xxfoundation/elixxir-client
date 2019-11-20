@@ -31,7 +31,7 @@ import (
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circuit,
+func (rm *ReceptionManager) SendMessage(session user.Session, topology *circuit.Circuit,
 	recipientID *id.User, cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
@@ -44,7 +44,7 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 	// in this library? why not pass a sender object instead?
 	globals.Log.DEBUG.Printf("Sending message to %q: %q", *recipientID, message)
 	parts, err := parse.Partition([]byte(message),
-		cm.nextId())
+		rm.nextId())
 	if err != nil {
 		return fmt.Errorf("SendMessage Partition() error: %v", err.Error())
 	}
@@ -61,25 +61,23 @@ func (cm *CommManager) SendMessage(session user.Session, topology *circuit.Circu
 	}
 	// Add a byte for later encryption (15->16 bytes)
 	extendedNowBytes := append(nowBytes, 0)
-	cm.lock.RLock()
 	for i := range parts {
 		message := format.NewMessage()
 		message.SetRecipient(recipientID)
 		message.SetTimestamp(extendedNowBytes)
 		message.Contents.SetRightAligned(parts[i])
-		err = cm.send(session, topology, cryptoType, message, false, transmissionHost)
+		err = rm.send(session, topology, cryptoType, message, false, transmissionHost)
 		if err != nil {
 			return errors.Wrap(err, "SendMessage send() error:")
 		}
 	}
-	cm.lock.RUnlock()
 	return nil
 }
 
 // Send Message without doing partitions
 // This function will be needed for example to send a Rekey
 // message, where a new public key will take up the whole message
-func (cm *CommManager) SendMessageNoPartition(session user.Session,
+func (rm *ReceptionManager) SendMessageNoPartition(session user.Session,
 	topology *circuit.Circuit, recipientID *id.User, cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	size := len(message)
@@ -104,7 +102,7 @@ func (cm *CommManager) SendMessageNoPartition(session user.Session,
 	msg.Contents.Set(message)
 	globals.Log.DEBUG.Printf("Sending message to %v: %x", *recipientID, message)
 
-	err = cm.send(session, topology, cryptoType, msg, true, transmissionHost)
+	err = rm.send(session, topology, cryptoType, msg, true, transmissionHost)
 	if err != nil {
 		return fmt.Errorf("SendMessageNoPartition send() error: %v", err.Error())
 	}
@@ -112,16 +110,16 @@ func (cm *CommManager) SendMessageNoPartition(session user.Session,
 }
 
 // send actually sends the message to the server
-func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
+func (rm *ReceptionManager) send(session user.Session, topology *circuit.Circuit,
 	cryptoType parse.CryptoType,
 	message *format.Message,
 	rekey bool, transmitGateway *connect.Host) error {
 	// Enable transmission blocking if enabled
-	if cm.blockTransmissions {
-		cm.sendLock.Lock()
+	if rm.blockTransmissions {
+		rm.sendLock.Lock()
 		defer func() {
-			time.Sleep(cm.transmitDelay)
-			cm.sendLock.Unlock()
+			time.Sleep(rm.transmitDelay)
+			rm.sendLock.Unlock()
 		}()
 	}
 
@@ -149,7 +147,7 @@ func (cm *CommManager) send(session user.Session, topology *circuit.Circuit,
 		KMACs:    kmacs,
 	}
 
-	return cm.Comms.SendPutMessage(transmitGateway, msgPacket)
+	return rm.Comms.SendPutMessage(transmitGateway, msgPacket)
 }
 
 func handleE2ESending(session user.Session,

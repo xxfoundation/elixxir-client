@@ -25,8 +25,8 @@ func (a ConnAddr) String() string {
 	return string(a)
 }
 
-// CommManager implements the Communications interface
-type CommManager struct {
+// ReceptionManager implements the Communications interface
+type ReceptionManager struct {
 	// Comms pointer to send/recv messages
 	Comms *client.Comms
 
@@ -35,9 +35,9 @@ type CommManager struct {
 
 	// blockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
-	blockTransmissions bool
+	blockTransmissions bool // pass into receiver
 	// transmitDelay is the minimum delay between transmissions.
-	transmitDelay time.Duration
+	transmitDelay time.Duration // same
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
 	receivedMessages   map[string]struct{}
@@ -45,17 +45,18 @@ type CommManager struct {
 
 	sendLock sync.Mutex
 
-	lock sync.RWMutex
+	rekeyChan chan struct{}
 }
 
-func NewCommManager() *CommManager {
-	cm := &CommManager{
+func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
+	cm := &ReceptionManager{
 		nextId:             parse.IDCounter(),
 		collator:           NewCollator(),
 		blockTransmissions: true,
 		transmitDelay:      1000 * time.Millisecond,
 		receivedMessages:   make(map[string]struct{}),
 		Comms:              &client.Comms{},
+		rekeyChan:          rekeyChan,
 	}
 
 	return cm
@@ -63,12 +64,12 @@ func NewCommManager() *CommManager {
 
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
-func (cm *CommManager) GetRemoteVersion() (string, error) { // need this but make getremoteversion, handle versioning in client
-	permissioningHost, ok := cm.Comms.GetHost(PermissioningAddrID)
+func (rm *ReceptionManager) GetRemoteVersion() (string, error) { // need this but make getremoteversion, handle versioning in client
+	permissioningHost, ok := rm.Comms.GetHost(PermissioningAddrID)
 	if !ok {
 		return "", errors.Errorf("Failed to find permissioning host with id %s", PermissioningAddrID)
 	}
-	registrationVersion, err := cm.Comms.
+	registrationVersion, err := rm.Comms.
 		SendGetCurrentClientVersionMessage(permissioningHost)
 	if err != nil {
 		return "", errors.Wrap(err, "Couldn't get current version from permissioning")
@@ -76,10 +77,10 @@ func (cm *CommManager) GetRemoteVersion() (string, error) { // need this but mak
 	return registrationVersion.Version, nil
 }
 
-func (cm *CommManager) DisableBlockingTransmission() { // flag passed into receiver
-	cm.blockTransmissions = false
+func (rm *ReceptionManager) DisableBlockingTransmission() { // flag passed into receiver
+	rm.blockTransmissions = false
 }
 
-func (cm *CommManager) SetRateLimit(delay time.Duration) { // pass into received
-	cm.transmitDelay = delay
+func (rm *ReceptionManager) SetRateLimit(delay time.Duration) { // pass into received
+	rm.transmitDelay = delay
 }

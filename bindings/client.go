@@ -90,7 +90,7 @@ func (cl *Client) EnableDebugLogs() {
 // Connects to gateways and registration server (if needed)
 // using tls filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect() error {
+func (cl *Client) InitNetwork() error {
 	globals.Log.INFO.Printf("Binding call: InitNetwork()")
 	return cl.client.InitNetwork()
 }

@@ -110,7 +110,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	err = client.Connect()
+	err = client.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
@@ -144,7 +144,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Error starting client: %+v", err)
 	}
 	// InitNetwork to gateway
-	err = client.Connect()
+	err = client.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
@@ -186,7 +186,7 @@ func TestListen(t *testing.T) {
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	// InitNetwork to gateway
-	err = client.Connect()
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
@@ -225,7 +225,7 @@ func TestStopListening(t *testing.T) {
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	// InitNetwork to gateway
-	err = client.Connect()
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)

@@ -45,7 +45,7 @@ import (
 type Client struct {
 	storage             globals.Storage
 	session             user.Session
-	commManager         *io.CommManager
+	commManager         *io.ReceptionManager
 	ndf                 *ndf.NetworkDefinition
 	topology            *circuit.Circuit
 	opStatus            OperationProgressCallback
@@ -220,7 +220,7 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager()
+	cl.commManager = io.NewReceptionManager(cl.rekeyChan)
 	cl.ndf = ndfJSON
 	//build the topology
 	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
@@ -637,7 +637,19 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
-	go cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan, receptionHost, callback)
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
+				time.Sleep(1 * time.Second)
+				go func() {
+					callback(errors.New(fmt.Sprintln("Message Receiver Panicked", r)))
+				}()
+			}
+		}()
+		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, receptionHost, callback)
+	}()
 
 	return nil
 }
@@ -901,8 +913,8 @@ func (cl *Client) GetSession() user.Session {
 	return cl.session
 }
 
-// CommManager returns the comm manager object for external access.  Access
+// ReceptionManager returns the comm manager object for external access.  Access
 // at your own risk
-func (cl *Client) GetCommManager() *io.CommManager {
+func (cl *Client) GetCommManager() *io.ReceptionManager {
 	return cl.commManager
 }

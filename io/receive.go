@@ -7,7 +7,6 @@
 package io
 
 import (
-	"crypto/rand"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
@@ -15,13 +14,12 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"math/big"
 	"strings"
 	"time"
 )
@@ -31,7 +29,8 @@ const reportDuration = 30 * time.Second
 var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
 
 // MessageReceiver is a polling thread for receiving messages
-func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{}) {
+func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Duration,
+	receptionHost *connect.Host, callback func(error)) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
@@ -39,9 +38,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	pollingMessage := pb.ClientRequest{
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
-	cm.lock.RLock()
-	receiveGateway := id.NewNodeFromBytes(cm.ndf.Nodes[cm.receptionGatewayIndex].ID).NewGateway()
-	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
 	NumChecks := 0
@@ -77,60 +73,24 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 			var err error
 
-			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receiveGateway)
+			encryptedMessages, err = rm.receiveMessagesFromGateway(session, &pollingMessage, receptionHost)
 
 			if err != nil {
 
 				if strings.Contains(err.Error(), "Client has exceeded communications rate limit") {
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
 					time.Sleep(5 * time.Second)
-				} else if !skipErrChecker(err) {
-					backoffCount := 0
-
-					// Handles disconnections
-					for notConnected := true; notConnected; {
-
-						cm.Disconnect()
-
-						block, backoffTime := cm.computeBackoff(backoffCount)
-
-						cm.setConnectionStatus(Offline, toSeconds(backoffTime))
-
-						globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
-
-						timer := time.NewTimer(backoffTime)
-
-						if block {
-							timer.Stop()
-						}
-
-						select {
-						case <-session.GetQuitChan():
-							close(session.GetQuitChan())
-							return
-						case <-timer.C:
-						case <-cm.tryReconnect:
-							backoffCount = 0
-						}
-						err := cm.ConnectToGateways()
-
-						if err == nil {
-							notConnected = false
-						}
-
-						backoffCount++
-					}
 				}
+				callback(err)
 			}
 			NumMessages += len(encryptedMessages)
-		case <-rekeyChan:
+		case <-rm.rekeyChan:
 			encryptedMessages = session.PopGarbledMessages()
-
 		}
 
 		if len(encryptedMessages) != 0 {
 
-			decryptedMessages, senders, garbledMessages := cm.decryptMessages(session, encryptedMessages)
+			decryptedMessages, senders, garbledMessages := rm.decryptMessages(session, encryptedMessages)
 
 			if len(garbledMessages) != 0 {
 				session.AppendGarbledMessage(garbledMessages...)
@@ -139,7 +99,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
-					assembledMessage := cm.collator.AddMessage(decryptedMessages[i],
+					assembledMessage := rm.collator.AddMessage(decryptedMessages[i],
 						senders[i], time.Minute)
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
@@ -149,32 +109,6 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			}
 		}
 	}
-}
-
-func (cm *CommManager) TryReconnect() {
-	select {
-	case cm.tryReconnect <- struct{}{}:
-	default:
-	}
-}
-
-func (cm *CommManager) computeBackoff(count int) (bool, time.Duration) {
-	if count > maxAttempts {
-		delay := time.Hour
-		globals.Log.WARN.Printf("Exceeded maximum attempts, waiting "+
-			"%s to reconnect", delay)
-		return true, delay
-	}
-
-	wait := 2 ^ count
-	if wait > maxBackoffTime {
-		wait = maxBackoffTime
-	}
-
-	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
-	backoffTime := time.Second*time.Duration(wait) + time.Millisecond*time.Duration(jitter.Int64())
-
-	return false, backoffTime
 }
 
 func handleE2EReceiving(session user.Session,
@@ -229,15 +163,14 @@ func handleE2EReceiving(session user.Session,
 	return sender, rekey, err
 }
 
-func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
-	pollingMessage *pb.ClientRequest, receiveGateway *id.Gateway) ([]*format.Message, error) {
+func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
+	pollingMessage *pb.ClientRequest, receiveGateway *connect.Host) ([]*format.Message, error) {
 	// Get the last message ID received
 	pollingMessage.LastMessageID = session.GetLastMessageID()
 	// FIXME: dont do this over an over
 
 	// Gets a list of mssages that are newer than the last one recieved
-	messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway,
-		pollingMessage)
+	messageIDs, err := rm.Comms.SendCheckMessages(receiveGateway, pollingMessage)
 
 	if err != nil {
 		return nil, err
@@ -257,16 +190,15 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	bufLoc := 0
 	for _, messageID := range messageIDs.IDs {
 		// Get the first unseen message from the list of IDs
-		cm.recievedMesageLock.RLock()
-		_, received := cm.receivedMessages[messageID]
-		cm.recievedMesageLock.RUnlock()
+		rm.recievedMesageLock.RLock()
+		_, received := rm.receivedMessages[messageID]
+		rm.recievedMesageLock.RUnlock()
 		if !received {
 			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 				messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
-			newMessage, err := cm.Comms.SendGetMessage(
-				receiveGateway,
+			newMessage, err := rm.Comms.SendGetMessage(receiveGateway,
 				&pb.ClientRequest{
 					UserID: session.GetCurrentUser().User.
 						Bytes(),
@@ -300,9 +232,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
 				"Adding message ID %v to received message IDs", mIDs[i])
-			cm.recievedMesageLock.Lock()
-			cm.receivedMessages[mIDs[i]] = struct{}{}
-			cm.recievedMesageLock.Unlock()
+			rm.recievedMesageLock.Lock()
+			rm.receivedMessages[mIDs[i]] = struct{}{}
+			rm.recievedMesageLock.Unlock()
 		}
 		session.SetLastMessageID(mIDs[bufLoc-1])
 		err = session.StoreSession()
@@ -315,7 +247,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	return messages[:bufLoc], nil
 }
 
-func (cm *CommManager) decryptMessages(session user.Session,
+func (rm *ReceptionManager) decryptMessages(session user.Session,
 	encryptedMessages []*format.Message) ([]*format.Message, []*id.User,
 	[]*format.Message) {
 

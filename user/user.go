@@ -140,7 +140,7 @@ func (m *UserMap) GetUser(id *id.User) (user *User, ok bool) {
 	return
 }
 
-// DeleteUser deletes a user with the given ID from userCollection.
+// DeleteContactKeys deletes a user with the given ID from userCollection.
 func (m *UserMap) DeleteUser(id *id.User) {
 	// If key does not exist, do nothing
 	delete(m.userCollection, *id)

@@ -61,8 +61,7 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
-	csc ConnectionStatusCallback) (*Client, error) {
+func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
@@ -72,20 +71,9 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 
 	proxy := &storageProxy{boundStorage: storage}
 
-	conStatCallback := func(status uint32, TimeoutSeconds int) {
-		csc.Callback(int(status), TimeoutSeconds)
-	}
-
-	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf, conStatCallback)
+	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf)
 
 	return &Client{client: cl}, err
-}
-
-// DisableTLS makes the client run with tls disabled
-// Must be called before Connect
-func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.client.DisableTLS()
 }
 
 func (cl *Client) EnableDebugLogs() {
@@ -97,9 +85,9 @@ func (cl *Client) EnableDebugLogs() {
 // Connects to gateways and registration server (if needed)
 // using tls filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect() error {
-	globals.Log.INFO.Printf("Binding call: Connect()")
-	return cl.client.Connect()
+func (cl *Client) InitNetwork() error {
+	globals.Log.INFO.Printf("Binding call: InitNetwork()")
+	return cl.client.InitNetwork()
 }
 
 // Sets a callback which receives a strings describing the current status of
@@ -141,7 +129,7 @@ func (cl *Client) RegisterWithNodes() error {
 }
 
 // Register with UDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and Connect.
+// User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeoutMS int) error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
@@ -157,16 +145,22 @@ func (cl *Client) Login(UID []byte, password string) (string, error) {
 	return cl.client.Login(password)
 }
 
+type MessageReceiverCallback interface {
+	Callback(err error)
+}
+
 // Starts the polling of the external servers.
 // Must be done after listeners are set up.
-func (cl *Client) StartMessageReceiver() error {
+func (cl *Client) StartMessageReceiver(mrc MessageReceiverCallback) error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
-	return cl.client.StartMessageReceiver()
+	return cl.client.StartMessageReceiver(mrc.Callback)
 }
 
 // Overwrites the username in registration. Only succeeds if the client
 // has registered with permissioning but not UDB
 func (cl *Client) ChangeUsername(un string) error {
+	globals.Log.INFO.Printf("Binding call: ChangeUsername()\n"+
+		"   username: %s", un)
 	return cl.client.GetSession().ChangeUsername(un)
 }
 
@@ -175,12 +169,14 @@ func (cl *Client) ChangeUsername(un string) error {
 //	1 - PermissioningComplete
 //	2 - UDBComplete
 func (cl *Client) GetRegState() int64 {
+	globals.Log.INFO.Printf("Binding call: GetRegState()")
 	return int64(cl.client.GetSession().GetRegState())
 }
 
 // Registers user with all nodes it has not been registered with.
 // Returns error if registration fails
 func (cl *Client) StorageIsEmpty() bool {
+	globals.Log.INFO.Printf("Binding call: StorageIsEmpty()")
 	return cl.client.GetSession().StorageIsEmpty()
 }
 
@@ -192,6 +188,13 @@ func (cl *Client) StorageIsEmpty() bool {
 // in the message object, then it will return an error.  If using precanned
 // users encryption must be set to false.
 func (cl *Client) Send(m Message, encrypt bool) error {
+	globals.Log.INFO.Printf("Binding call: Send()\n"+
+		"Sender: %v\n"+
+		"Payload: %v\n"+
+		"Recipient: %v\n"+
+		"MessageTye: %v", m.GetSender(), m.GetPayload(),
+		m.GetRecipient(), m.GetMessageType())
+
 	sender := id.NewUserFromBytes(m.GetSender())
 	recipient := id.NewUserFromBytes(m.GetRecipient())
 
@@ -216,11 +219,13 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 // Logs the user out, saving the state for the system and clearing all data
 // from RAM
 func (cl *Client) Logout() error {
+	globals.Log.INFO.Printf("Binding call: Logout()\n")
 	return cl.client.Logout()
 }
 
 // Get the version string from the locally built client repository
 func GetLocalVersion() string {
+	globals.Log.INFO.Printf("Binding call: GetLocalVersion()\n")
 	return api.GetLocalVersion()
 }
 
@@ -230,18 +235,22 @@ func GetLocalVersion() string {
 // version. If that's not the case, check out the git tag corresponding to the
 // client release version returned here.
 func (cl *Client) GetRemoteVersion() string {
-	return cl.client.GetRemoteVersion()
+	globals.Log.INFO.Printf("Binding call: GetRemoteVersion()\n")
+	return cl.GetRemoteVersion()
 }
 
 // Turns off blocking transmission so multiple messages can be sent
 // simultaneously
 func (cl *Client) DisableBlockingTransmission() {
+	globals.Log.INFO.Printf("Binding call: DisableBlockingTransmission()\n")
 	cl.client.DisableBlockingTransmission()
 }
 
 // Sets the minimum amount of time, in ms, between message transmissions
 // Just for testing, probably to be removed in production
 func (cl *Client) SetRateLimiting(limit int) {
+	globals.Log.INFO.Printf("Binding call: SetRateLimiting()\n"+
+		"   limit: %v", limit)
 	cl.client.SetRateLimiting(uint32(limit))
 }
 
@@ -250,8 +259,23 @@ func (cl *Client) SetRateLimiting(limit int) {
 // A recommended timeout is 2 minutes or 120000
 func (cl *Client) SearchForUser(username string,
 	cb SearchCallback, timeoutMS int) {
+
+	globals.Log.INFO.Printf("Binding call: SearchForUser()\n"+
+		"   username: %v\n"+
+		"   timeout: %v\n", username, timeoutMS)
+
 	proxy := &searchCallbackProxy{cb}
 	cl.client.SearchForUser(username, proxy, time.Duration(timeoutMS)*time.Millisecond)
+}
+
+// DeleteContact deletes the contact at the given userID.  returns the emails
+// of that contact if possible
+func (cl *Client) DeleteContact(uid []byte) (string, error) {
+	globals.Log.INFO.Printf("Binding call: DeleteContact()\n"+
+		"   uid: %v\n", uid)
+	u := id.NewUserFromBytes(uid)
+
+	return cl.client.DeleteUser(u)
 }
 
 // Nickname lookup API
@@ -314,13 +338,4 @@ func SetLogOutput(w Writer) {
 // Call this to get the session data without getting Save called from the Go side
 func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
-}
-
-//Call to get the networking status of the client
-// 0 - Offline
-// 1 - Connecting
-// 2 - Connected
-func (cl *Client) GetNetworkStatus() int64 {
-	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
-	return int64(cl.client.GetNetworkStatus())
 }

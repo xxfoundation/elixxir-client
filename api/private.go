@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -66,8 +65,7 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 // It sends a registration message and returns the registration signature
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	connected, err := cl.commManager.ConnectToPermissioning()
-	defer cl.commManager.DisconnectFromPermissioning()
+	connected, err := AddPermissioningHost(cl.commManager, cl.ndf)
 	if err != nil {
 		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
 	}
@@ -76,8 +74,12 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	}
 	regValidationSignature := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
+	host, ok := cl.commManager.Comms.GetHost(PermissioningAddrID)
+	if !ok {
+		return nil, errors.New("Failed to find permissioning host")
+	}
 	response, err := cl.commManager.Comms.
-		SendRegistrationMessage(io.ConnAddr(PermissioningAddrID),
+		SendRegistrationMessage(host,
 			&pb.UserRegistration{
 				RegistrationCode: registrationCode,
 				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
@@ -116,8 +118,12 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 	}
 
 	// Send signed public key and salt for UserID to Server
+	host, ok := cl.commManager.Comms.GetHost(gwID.String())
+	if !ok {
+		return nil, nil, errors.Errorf("Failed to find host with ID %s", gwID.String())
+	}
 	nonceResponse, err := cl.commManager.Comms.
-		SendRequestNonceMessage(gwID,
+		SendRequestNonceMessage(host,
 			&pb.NonceRequest{
 				Salt:            salt,
 				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(publicKeyRSA)),
@@ -172,8 +178,12 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 			Signature: sig,
 		},
 	}
+	host, ok := cl.commManager.Comms.GetHost(gwID.String())
+	if !ok {
+		return errors.Errorf("Failed to find host with ID %s", gwID.String())
+	}
 	confirmResponse, err := cl.commManager.Comms.
-		SendConfirmNonceMessage(gwID, msg)
+		SendConfirmNonceMessage(host, msg)
 	if err != nil {
 		err := errors.New(fmt.Sprintf(
 			"confirmNonce: Unable to send signed nonce! %s", err))

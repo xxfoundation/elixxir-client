@@ -31,8 +31,9 @@ const GWsStartPort = 7900
 const PermErrorServerPort = 4000
 
 var RegHandler = MockRegistration{}
-var RegComms *registration.RegistrationComms
+var RegComms *registration.Comms
 var NDFErrorReg = MockPerm_NDF_ErrorCase{}
+var errorDef *ndf.NetworkDefinition
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
@@ -42,14 +43,10 @@ var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 	{LastReceivedMessage: pb.Slot{}},
 	{LastReceivedMessage: pb.Slot{}},
 }
-var GWComms [NumGWs]*gateway.GatewayComms
-
-var def *ndf.NetworkDefinition
-var errorDef *ndf.NetworkDefinition
+var GWComms [NumGWs]*gateway.Comms
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
-
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
@@ -60,15 +57,13 @@ func TestMain(m *testing.M) {
 func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def,
-		dummyConnectionStatusHandler)
+	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -93,15 +88,13 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 func TestRegister_ValidRegParams___(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def,
-		dummyConnectionStatusHandler)
+	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -130,14 +123,12 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def,
-		dummyConnectionStatusHandler)
+	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -157,15 +148,13 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def,
-		dummyConnectionStatusHandler)
+	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -190,15 +179,13 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 func TestSend(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def,
-		dummyConnectionStatusHandler)
+	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
 
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -229,7 +216,11 @@ func TestSend(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = client.StartMessageReceiver()
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	err = client.StartMessageReceiver(cb)
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)
@@ -266,6 +257,7 @@ func TestSend(t *testing.T) {
 	disconnectServers()
 }
 
+//Need this???????//
 //Error path: register with udb, but udb is not set up to return a message
 func TestClient_RegisterWithUDB(t *testing.T) {
 	rng := csprng.NewSystemRNG()
@@ -319,14 +311,12 @@ func TestClient_RegisterWithUDB(t *testing.T) {
 func TestLogout(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def,
-		dummyConnectionStatusHandler)
+	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
-	client.DisableTLS()
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -360,7 +350,7 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = client.StartMessageReceiver()
+	err = client.StartMessageReceiver(func(err error) { return })
 
 	if err != nil {
 		t.Errorf("Failed to start message reciever: %s", err.Error())

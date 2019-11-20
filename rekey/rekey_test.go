@@ -51,7 +51,7 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}, transmissionHost *connect.Host, callback func(error)) {
+	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
 func TestMain(m *testing.M) {

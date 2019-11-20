@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 )
 
 // Checks version and connects to gateways using TLS filepaths to create
@@ -13,7 +15,7 @@ import (
 func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
 	if cl.ndf.Registration.Address != "" {
-		isConnected, err := cl.AddPermissioningHost()
+		isConnected, err := AddPermissioningHost(cl.commManager, cl.ndf)
 
 		if err != nil {
 			return err
@@ -39,14 +41,6 @@ func (cl *Client) InitNetwork() error {
 		globals.Log.WARN.Println("Registration not defined, not contacted")
 	}
 
-	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
-	}
-
-	cl.topology = circuit.New(nodeIDs)
-
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.GetRegistrationVersion() != "" {
@@ -64,29 +58,38 @@ func (cl *Client) InitNetwork() error {
 			"registration server, because it's not populated. Do you have " +
 			"access to the registration server?")
 	}
-	return cl.AddGatewayHosts()
+
+	//build the topology
+	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
+	for i, node := range cl.ndf.Nodes {
+		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
+	}
+
+	cl.topology = circuit.New(nodeIDs)
+
+	return AddGatewayHosts(cl.commManager, cl.ndf)
 }
 
 // Connects to gateways using tls filepaths to create credential information
 // for connection establishment
-func (cl *Client) AddGatewayHosts() error { // tear out
-	if len(cl.ndf.Gateways) < 1 {
+func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error { // tear out
+	if len(definition.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
 
 	// connect to all gateways
 	var errs error = nil
-	for i, gateway := range cl.ndf.Gateways {
+	for i, gateway := range definition.Gateways {
 
 		var gwCreds []byte
 
 		if gateway.TlsCertificate != "" {
 			gwCreds = []byte(gateway.TlsCertificate)
 		}
-		gwID := id.NewNodeFromBytes(cl.ndf.Nodes[i].ID).NewGateway()
+		gwID := id.NewNodeFromBytes(definition.Nodes[i].ID).NewGateway()
 		gwAddr := gateway.Address
 
-		_, err := cl.commManager.Comms.AddHost(gwID.String(), gwAddr, gwCreds, false)
+		_, err := rm.Comms.AddHost(gwID.String(), gwAddr, gwCreds, false)
 		if err != nil {
 			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
 				gwID.String(), gwAddr, err)
@@ -103,25 +106,21 @@ func (cl *Client) AddGatewayHosts() error { // tear out
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func (cl *Client) AddPermissioningHost() (bool, error) { // this disappears, make host in simple call
-	if cl.ndf.Registration.Address != "" {
-		_, ok := cl.commManager.Comms.GetHost(PermissioningAddrID)
-		if ok {
-			return true, nil
-		}
+func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) (bool, error) { // this disappears, make host in simple call
+	if definition.Registration.Address != "" {
 		var regCert []byte
-		if cl.ndf.Registration.TlsCertificate != "" {
-			regCert = []byte(cl.ndf.Registration.TlsCertificate)
+		if definition.Registration.TlsCertificate != "" {
+			regCert = []byte(definition.Registration.TlsCertificate)
 		}
 
-		_, err := cl.commManager.Comms.AddHost(PermissioningAddrID, cl.ndf.Registration.Address, regCert, false)
+		_, err := rm.Comms.AddHost(PermissioningAddrID, definition.Registration.Address, regCert, false)
 		if err != nil {
 			return false, errors.New(fmt.Sprintf(
 				"Failed connecting to create host for permissioning: %+v", err))
 		}
 		return true, nil
 	} else {
-		globals.Log.DEBUG.Printf("failed to connect to %v silently", cl.ndf.Registration.Address)
+		globals.Log.DEBUG.Printf("failed to connect to %v silently", definition.Registration.Address)
 		// Without an NDF, we can't connect to permissioning, but this isn't an
 		// error per se, because we should be phasing out permissioning at some
 		// point

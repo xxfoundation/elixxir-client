@@ -29,7 +29,7 @@ const reportDuration = 30 * time.Second
 var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
 
 // MessageReceiver is a polling thread for receiving messages
-func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{},
+func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Duration,
 	receptionHost *connect.Host, callback func(error)) {
 	// FIXME: It's not clear we should be doing decryption here.
 	if session == nil {
@@ -73,7 +73,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 			var err error
 
-			encryptedMessages, err = cm.receiveMessagesFromGateway(session, &pollingMessage, receptionHost)
+			encryptedMessages, err = rm.receiveMessagesFromGateway(session, &pollingMessage, receptionHost)
 
 			if err != nil {
 
@@ -84,13 +84,13 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 				callback(err)
 			}
 			NumMessages += len(encryptedMessages)
-		case <-rekeyChan:
+		case <-rm.rekeyChan:
 			encryptedMessages = session.PopGarbledMessages()
 		}
 
 		if len(encryptedMessages) != 0 {
 
-			decryptedMessages, senders, garbledMessages := cm.decryptMessages(session, encryptedMessages)
+			decryptedMessages, senders, garbledMessages := rm.decryptMessages(session, encryptedMessages)
 
 			if len(garbledMessages) != 0 {
 				session.AppendGarbledMessage(garbledMessages...)
@@ -99,7 +99,7 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
-					assembledMessage := cm.collator.AddMessage(decryptedMessages[i],
+					assembledMessage := rm.collator.AddMessage(decryptedMessages[i],
 						senders[i], time.Minute)
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
@@ -163,14 +163,14 @@ func handleE2EReceiving(session user.Session,
 	return sender, rekey, err
 }
 
-func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
+func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 	pollingMessage *pb.ClientRequest, receiveGateway *connect.Host) ([]*format.Message, error) {
 	// Get the last message ID received
 	pollingMessage.LastMessageID = session.GetLastMessageID()
 	// FIXME: dont do this over an over
 
 	// Gets a list of mssages that are newer than the last one recieved
-	messageIDs, err := cm.Comms.SendCheckMessages(receiveGateway, pollingMessage)
+	messageIDs, err := rm.Comms.SendCheckMessages(receiveGateway, pollingMessage)
 
 	if err != nil {
 		return nil, err
@@ -190,15 +190,15 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	bufLoc := 0
 	for _, messageID := range messageIDs.IDs {
 		// Get the first unseen message from the list of IDs
-		cm.recievedMesageLock.RLock()
-		_, received := cm.receivedMessages[messageID]
-		cm.recievedMesageLock.RUnlock()
+		rm.recievedMesageLock.RLock()
+		_, received := rm.receivedMessages[messageID]
+		rm.recievedMesageLock.RUnlock()
 		if !received {
 			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 				messageID)
 			// We haven't seen this message before.
 			// So, we should retrieve it from the gateway.
-			newMessage, err := cm.Comms.SendGetMessage(receiveGateway,
+			newMessage, err := rm.Comms.SendGetMessage(receiveGateway,
 				&pb.ClientRequest{
 					UserID: session.GetCurrentUser().User.
 						Bytes(),
@@ -232,9 +232,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
 				"Adding message ID %v to received message IDs", mIDs[i])
-			cm.recievedMesageLock.Lock()
-			cm.receivedMessages[mIDs[i]] = struct{}{}
-			cm.recievedMesageLock.Unlock()
+			rm.recievedMesageLock.Lock()
+			rm.receivedMessages[mIDs[i]] = struct{}{}
+			rm.recievedMesageLock.Unlock()
 		}
 		session.SetLastMessageID(mIDs[bufLoc-1])
 		err = session.StoreSession()
@@ -247,7 +247,7 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	return messages[:bufLoc], nil
 }
 
-func (cm *CommManager) decryptMessages(session user.Session,
+func (rm *ReceptionManager) decryptMessages(session user.Session,
 	encryptedMessages []*format.Message) ([]*format.Message, []*id.User,
 	[]*format.Message) {
 

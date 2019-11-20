@@ -29,6 +29,6 @@ type Communications interface { // this can go
 		recipientID *id.User, cryptoType parse.CryptoType, message []byte,
 		transmissionHost *connect.Host) error
 	// MessageReceiver thread to get new messages
-	MessageReceiver(session user.Session, delay time.Duration, rekeyChan chan struct{},
+	MessageReceiver(session user.Session, delay time.Duration,
 		receptionHost *connect.Host, callback func(error))
 }

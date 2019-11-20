@@ -20,7 +20,6 @@ import (
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"time"
@@ -31,7 +30,7 @@ import (
 // the keys) here. I won't touch crypto at this time, though...
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
-func (rm *ReceptionManager) SendMessage(session user.Session, topology *circuit.Circuit,
+func (rm *ReceptionManager) SendMessage(session user.Session, topology *connect.Circuit,
 	recipientID *id.User, cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
@@ -78,7 +77,7 @@ func (rm *ReceptionManager) SendMessage(session user.Session, topology *circuit.
 // This function will be needed for example to send a Rekey
 // message, where a new public key will take up the whole message
 func (rm *ReceptionManager) SendMessageNoPartition(session user.Session,
-	topology *circuit.Circuit, recipientID *id.User, cryptoType parse.CryptoType,
+	topology *connect.Circuit, recipientID *id.User, cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	size := len(message)
 	if size > format.TotalLen {
@@ -110,7 +109,7 @@ func (rm *ReceptionManager) SendMessageNoPartition(session user.Session,
 }
 
 // send actually sends the message to the server
-func (rm *ReceptionManager) send(session user.Session, topology *circuit.Circuit,
+func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit,
 	cryptoType parse.CryptoType,
 	message *format.Message,
 	rekey bool, transmitGateway *connect.Host) error {

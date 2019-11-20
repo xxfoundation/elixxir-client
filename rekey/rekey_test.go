@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
 	"testing"
@@ -31,7 +30,7 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
@@ -41,7 +40,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
@@ -86,7 +85,7 @@ func TestMain(m *testing.M) {
 	}
 
 	rekeyChan2 := make(chan struct{}, 50)
-	InitRekey(session, fakeComm, circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
+	InitRekey(session, fakeComm, connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey

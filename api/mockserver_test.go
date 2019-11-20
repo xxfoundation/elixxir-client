@@ -33,7 +33,7 @@ const PermErrorServerPort = 4000
 var RegHandler = MockRegistration{}
 var RegComms *registration.Comms
 var NDFErrorReg = MockPerm_NDF_ErrorCase{}
-var errorDef *ndf.NetworkDefinition
+var ErrorDef *ndf.NetworkDefinition
 
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
@@ -379,12 +379,12 @@ func TestLogout(t *testing.T) {
 func testMainWrapper(m *testing.M) int {
 
 	def = getNDF()
-	errorDef = getNDF()
+	ErrorDef = getNDF()
 	// Start mock registration server and defer its shutdown
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
-	errorDef.Registration = ndf.Registration{
+	ErrorDef.Registration = ndf.Registration{
 		Address: fmtAddress(PermErrorServerPort),
 	}
 
@@ -395,7 +395,7 @@ func testMainWrapper(m *testing.M) int {
 			ID: nIdBytes,
 		}
 		def.Nodes = append(def.Nodes, n)
-		errorDef.Nodes = append(errorDef.Nodes, n)
+		ErrorDef.Nodes = append(ErrorDef.Nodes, n)
 	}
 	startServers()
 	defer testWrapperShutdown()

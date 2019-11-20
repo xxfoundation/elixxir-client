@@ -17,9 +17,9 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -35,7 +35,7 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetNodeKeys(topology *circuit.Circuit) []NodeKeys
+	GetNodeKeys(topology *connect.Circuit) []NodeKeys
 	PushNodeKey(id *id.Node, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
@@ -279,7 +279,7 @@ func (s *SessionObj) GetSalt() []byte {
 	return salt
 }
 
-func (s *SessionObj) GetNodeKeys(topology *circuit.Circuit) []NodeKeys {
+func (s *SessionObj) GetNodeKeys(topology *connect.Circuit) []NodeKeys {
 	s.LockStorage()
 	defer s.UnlockStorage()
 

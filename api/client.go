@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -32,7 +33,6 @@ import (
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/tls"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -47,7 +47,7 @@ type Client struct {
 	session             user.Session
 	commManager         *io.ReceptionManager
 	ndf                 *ndf.NetworkDefinition
-	topology            *circuit.Circuit
+	topology            *connect.Circuit
 	opStatus            OperationProgressCallback
 	rekeyChan           chan struct{}
 	registrationVersion string
@@ -246,11 +246,6 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 func (cl *Client) GetRegistrationVersion() string { // on client
 	return cl.registrationVersion
-}
-
-//GetNDF returns the clients ndf
-func (cl *Client) GetNDF() *ndf.NetworkDefinition {
-	return cl.ndf
 }
 
 func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
@@ -851,36 +846,6 @@ func (cl *Client) LookupNick(user *id.User,
 		}
 		cb.Callback(nick, err)
 	}()
-}
-
-//Message struct adherent to interface in bindings for data return from ParseMessage
-type ParsedMessage struct {
-	Typed   int32
-	Payload []byte
-}
-
-func (p ParsedMessage) GetSender() []byte {
-	return []byte{}
-}
-
-func (p ParsedMessage) GetPayload() []byte {
-	return p.Payload
-}
-
-func (p ParsedMessage) GetRecipient() []byte {
-	return []byte{}
-}
-
-func (p ParsedMessage) GetMessageType() int32 {
-	return p.Typed
-}
-
-func (p ParsedMessage) GetTimestampNano() int64 {
-	return 0
-}
-
-func (p ParsedMessage) GetTimestamp() int64 {
-	return 0
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

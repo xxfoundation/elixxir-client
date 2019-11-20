@@ -286,3 +286,33 @@ func (s *MockPerm_CheckVersion_BadVersion) RegisterUser(registrationCode,
 func (s *MockPerm_CheckVersion_BadVersion) GetCurrentClientVersion() (version string, err error) {
 	return InvalidClientVersion, nil
 }
+
+//Message struct adherent to interface in bindings for data return from ParseMessage
+type ParsedMessage struct {
+	Typed   int32
+	Payload []byte
+}
+
+func (p ParsedMessage) GetSender() []byte {
+	return []byte{}
+}
+
+func (p ParsedMessage) GetPayload() []byte {
+	return p.Payload
+}
+
+func (p ParsedMessage) GetRecipient() []byte {
+	return []byte{}
+}
+
+func (p ParsedMessage) GetMessageType() int32 {
+	return p.Typed
+}
+
+func (p ParsedMessage) GetTimestampNano() int64 {
+	return 0
+}
+
+func (p ParsedMessage) GetTimestamp() int64 {
+	return 0
+}

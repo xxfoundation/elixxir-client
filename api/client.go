@@ -917,6 +917,6 @@ func (cl *Client) GetSession() user.Session {
 
 // ReceptionManager returns the comm manager object for external access.  Access
 // at your own risk
-func (cl *Client) GetCommManager() *io.ReceptionManager {
+func (cl *Client) GetReceptionManager() *io.ReceptionManager {
 	return cl.commManager
 }

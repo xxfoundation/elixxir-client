@@ -75,7 +75,7 @@ func TestRegistrationGob(t *testing.T) {
 	disconnectServers()
 }
 
-//Happy path for a non precen user
+//Happy path for a non precan user
 func TestClient_Register(t *testing.T) {
 	//Make mock client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
@@ -735,7 +735,7 @@ func TestClient_GetCommManager(t *testing.T) {
 
 	testClient.commManager = &io.ReceptionManager{}
 
-	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.commManager) {
+	if !reflect.DeepEqual(testClient.GetReceptionManager(), testClient.commManager) {
 		t.Error("Received session not the same as the real session")
 	}
 

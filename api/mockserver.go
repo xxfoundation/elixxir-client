@@ -251,7 +251,7 @@ func (s *MockPerm_CheckVersion_ErrorCase) RegisterNode(ID []byte,
 	return nil
 }
 func (s *MockPerm_CheckVersion_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	ndfData := buildMockNDF()
+	ndfData := def
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }
@@ -273,7 +273,7 @@ func (s *MockPerm_CheckVersion_BadVersion) RegisterNode(ID []byte,
 }
 
 func (s *MockPerm_CheckVersion_BadVersion) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	ndfData := buildMockNDF()
+	ndfData := def
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }

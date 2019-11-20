@@ -132,8 +132,8 @@ func TestClient_GetRemoteVersion(t *testing.T) {
 		t.Error(err)
 	}
 	//Get it from a good version
-	if strings.Compare(globals.SEMVER, testClient.GetRemoteVersion()) != 0 {
-		t.Errorf("Client not up to date: Recieved %v Expected %v", testClient.GetRemoteVersion(), globals.SEMVER)
+	if strings.Compare(globals.SEMVER, testClient.GetRegistrationVersion()) != 0 {
+		t.Errorf("Client not up to date: Recieved %v Expected %v", testClient.GetRegistrationVersion(), globals.SEMVER)
 	}
 
 }
@@ -155,15 +155,13 @@ func TestClient_Register_NoUpdatingNDF(t *testing.T) {
 	}
 
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Expected error path, should not have gotted ndf from connect")
 	}
@@ -175,15 +173,13 @@ func TestClient_CheckVersionErr(t *testing.T) {
 		&MockPerm_CheckVersion_ErrorCase{}, nil, nil)
 	defer mockRegError.Shutdown()
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", errorDef,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", errorDef)
 
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		return
 	}
@@ -197,16 +193,14 @@ func TestClient_CheckVersion_BadVersion(t *testing.T) {
 	defer mockRegError.Shutdown()
 
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", errorDef,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", errorDef)
 
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
 	//Check version here should return a version that does not match the global being checked
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		return
 	}

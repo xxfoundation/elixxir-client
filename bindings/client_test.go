@@ -13,13 +13,11 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
@@ -29,7 +27,6 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -179,12 +176,12 @@ func TestRegister(t *testing.T) {
 	disconnectServers()
 }
 
+/*
 func TestClient_GetRemoteVersion(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
-		&MockConStatCallback{})
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -209,7 +206,7 @@ func TestClient_GetRemoteVersion(t *testing.T) {
 		t.Errorf("Unexpected client version set. Recieved: %v Expected: %v", observedVersion, globals.SEMVER)
 	}
 	disconnectServers()
-}
+}*/
 
 //Error path: Changing username should panic before registration has happened
 func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
@@ -220,14 +217,14 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 	}()
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
-		&MockConStatCallback{})
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
-	client.DisableTLS()
-	err = client.Connect()
+
+	err = client.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
@@ -243,14 +240,14 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 func TestClient_ChangeUsername(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
-		&MockConStatCallback{})
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
-	client.DisableTLS()
-	err = client.Connect()
+
+	err = client.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
@@ -271,15 +268,13 @@ func TestClient_ChangeUsername(t *testing.T) {
 func TestClient_GetRegState(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	newClient, err := NewClient(&d, "hello", ndfStr, pubKey,
-		&MockConStatCallback{})
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	newClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
-	newClient.DisableTLS()
 
-	err = newClient.Connect()
+	err = newClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
@@ -316,15 +311,14 @@ func TestClient_GetRegState(t *testing.T) {
 func TestClient_Send(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	newClient, err := NewClient(&d, "hello", ndfStr, pubKey,
-		&MockConStatCallback{})
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	newClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
-	newClient.DisableTLS()
 
-	err = newClient.Connect()
+	err = newClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
@@ -348,7 +342,7 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = newClient.StartMessageReceiver()
+	err = newClient.StartMessageReceiver(&DummyReceptionCallback{})
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)
@@ -364,7 +358,7 @@ func TestClient_Send(t *testing.T) {
 
 	if err != nil {
 		// TODO: would be nice to catch the sender but we
-		// don't have the interface/mocking for that.
+		//  don't have the interface/mocking for that.
 		t.Errorf("error on first message send: %+v", err)
 	}
 

@@ -264,14 +264,12 @@ func TestClient_RegisterWithUDB(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
-		dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
 	}
-	testClient.DisableTLS()
 
-	err = testClient.Connect()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Error(err)
 	}
@@ -294,8 +292,11 @@ func TestClient_RegisterWithUDB(t *testing.T) {
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
+	cb := func(err error) {
+		t.Log(err)
+	}
 
-	err = testClient.StartMessageReceiver()
+	err = testClient.StartMessageReceiver(cb)
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)

@@ -9,7 +9,7 @@ cache:
 variables:
   REPO_DIR: gitlab.com/elixxir
   REPO_NAME: client
-  DOCKER_IMAGE: bmastc/golang-glide:latest
+  DOCKER_IMAGE: golang:1.13.4-buster
   MIN_CODE_COVERAGE: "72"
 
 before_script:
@@ -50,6 +50,10 @@ test:
   stage: test
   image: $DOCKER_IMAGE
   script:
+    - GO111MODULE=off go get -u github.com/haya14busa/goverage
+    - apt-get update
+    - apt-get install bc -y
+
     - mkdir -p testdata
 
     # Test coverage

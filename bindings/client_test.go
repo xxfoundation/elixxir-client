@@ -135,10 +135,10 @@ func TestNewClient(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("NewClient returned error: %v", err)
-	} else if client == nil {
+	} else if testClient == nil {
 		t.Errorf("NewClient returned nil Client object")
 	}
 	disconnectServers()
@@ -149,17 +149,17 @@ func TestRegister(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	err = client.InitNetwork()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, err := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	if err != nil {
 		t.Errorf("Registration with permissioning failed: %s", err.Error())
@@ -168,7 +168,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
 
-	err = client.RegisterWithNodes()
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Errorf("Registration with nodes failed: %s", err.Error())
 	}
@@ -219,17 +219,17 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	err = client.InitNetwork()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = client.ChangeUsername("josh420")
+	err = testClient.ChangeUsername("josh420")
 	if err == nil {
 		t.Error("Expected error path, should not be able to change username before" +
 			"regState PermissioningComplete")
@@ -242,65 +242,95 @@ func TestClient_ChangeUsername(t *testing.T) {
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	err = client.InitNetwork()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode,
 		"", "", "")
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
 
-	err = client.ChangeUsername("josh420")
+	err = testClient.ChangeUsername("josh420")
 	if err != nil {
 		t.Errorf("Unexpected error, should have changed username: %v", err)
 	}
 
 }
 
-func TestClient_GetRegState(t *testing.T) {
+//Error path: Have added no contacts, so deleting a contact should fail
+func TestDeleteUsername_EmptyContactList(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	newClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	err = newClient.InitNetwork()
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode,
+		"", "", "")
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+	//Attempt to delete a contact from an empty contact list
+	_, err = testClient.DeleteContact([]byte("typo"))
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error path, but did not get error on deleting a contact." +
+		"Contact list should be empty")
+}
+
+func TestClient_GetRegState(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
 	// Register with a valid registration code
-	_, err = newClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
+	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
 
 	if err != nil {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
 	}
 
-	if newClient.GetRegState() != int64(user.PermissioningComplete) {
+	if testClient.GetRegState() != int64(user.PermissioningComplete) {
 		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
-			user.PermissioningComplete, newClient.GetRegState())
+			user.PermissioningComplete, testClient.GetRegState())
 	}
 
-	err = newClient.RegisterWithNodes()
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Errorf("Register with nodes failed: %v", err.Error())
 	}
 
-	err = newClient.RegisterWithUDB(7)
+	err = testClient.RegisterWithUDB(7)
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	if newClient.GetRegState() < int64(user.UDBComplete) {
+	if testClient.GetRegState() < int64(user.UDBComplete) {
 		t.Errorf("Unexpected regState: Expected: %d or less, recieved: %d",
 			user.UDBComplete, user.UDBComplete)
 	}
@@ -312,44 +342,44 @@ func TestClient_Send(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	newClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
 
-	err = newClient.InitNetwork()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
 	// Register with a valid registration code
-	userID, err := newClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
+	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
 
 	if err != nil {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
 	}
 
-	err = newClient.RegisterWithNodes()
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Errorf("Register with nodes failed: %v", err.Error())
 	}
 
 	// Login to gateway
-	_, err = newClient.Login(userID, "password")
+	_, err = testClient.Login(userID, "password")
 
 	if err != nil {
 		t.Errorf("Login failed: %s", err.Error())
 	}
 
-	err = newClient.StartMessageReceiver(&DummyReceptionCallback{})
+	err = testClient.StartMessageReceiver(&DummyReceptionCallback{})
 
 	if err != nil {
 		t.Errorf("Could not start message reception: %+v", err)
 	}
 
 	// Test send with invalid sender ID
-	err = newClient.Send(
+	err = testClient.Send(
 		mockMesssage{
 			Sender:    id.NewUserFromUint(12, t),
 			TypedBody: parse.TypedBody{Body: []byte("test")},
@@ -363,18 +393,18 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	// Test send with valid inputs
-	err = newClient.Send(
+	err = testClient.Send(
 		mockMesssage{
 			Sender:    id.NewUserFromBytes(userID),
 			TypedBody: parse.TypedBody{Body: []byte("test")},
-			Receiver:  newClient.client.GetCurrentUser(),
+			Receiver:  testClient.client.GetCurrentUser(),
 		}, false)
 
 	if err != nil {
 		t.Errorf("Error sending message: %v", err)
 	}
 
-	err = newClient.Logout()
+	err = testClient.Logout()
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
@@ -393,19 +423,19 @@ func TestLoginLogout(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
 	}
 	// InitNetwork to gateway
-	err = client.InitNetwork()
+	err = testClient.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, err := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
-	loginRes, err2 := client.Login(regRes, "")
+	loginRes, err2 := testClient.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
 	}
@@ -413,12 +443,12 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
 
-	err = client.StartMessageReceiver(&DummyReceptionCallback{})
+	err = testClient.StartMessageReceiver(&DummyReceptionCallback{})
 	if err != nil {
 		t.Errorf("Could not start message reciever: %+v", err)
 	}
 	time.Sleep(200 * time.Millisecond)
-	err3 := client.Logout()
+	err3 := testClient.Logout()
 	if err3 != nil {
 		t.Errorf("Logoutfailed: %s", err3.Error())
 	}
@@ -437,31 +467,31 @@ func TestListen(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	// InitNetwork to gateway
-	err = client.InitNetwork()
+	err = testClient.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, _ := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
-	_, err = client.Login(regRes, "")
+	_, err = testClient.Login(regRes, "")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
 	}
 
 	listener := MockListener(false)
-	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
-	client.client.GetSwitchboard().Speak(&parse.Message{
+	testClient.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	testClient.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
 		},
 		Sender:   id.ZeroID,
-		Receiver: client.client.GetCurrentUser(),
+		Receiver: testClient.client.GetCurrentUser(),
 	})
 	if !listener {
 		t.Error("Message not received")
@@ -474,27 +504,27 @@ func TestStopListening(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
 	// InitNetwork to gateway
-	err = client.InitNetwork()
+	err = testClient.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, _ := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 
-	_, err = client.Login(regRes, "")
+	_, err = testClient.Login(regRes, "")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
 	}
 
 	listener := MockListener(false)
-	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
-	client.StopListening(handle)
-	client.client.GetSwitchboard().Speak(&parse.Message{
+	handle := testClient.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	testClient.StopListening(handle)
+	testClient.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),

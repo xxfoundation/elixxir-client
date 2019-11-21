@@ -251,7 +251,6 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// Directly send raw publicKey bytes, without any message type
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
-		globals.Log.WARN.Println("Fuck shit flim flam")
 		return comms.SendMessageNoPartition(session, topology, partner, parse.E2E,
 			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)), transmissionHost)
 	case Rekey:

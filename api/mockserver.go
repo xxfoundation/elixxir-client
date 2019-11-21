@@ -17,6 +17,7 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
@@ -24,6 +25,7 @@ import (
 )
 
 const InvalidClientVersion = "1.1.0"
+const BatchSize = 10
 
 var def *ndf.NetworkDefinition
 
@@ -68,36 +70,84 @@ func (m APIMessage) Pack() []byte {
 }
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
-type TestInterface struct {
+type GatewayHandler struct {
 	LastReceivedMessage pb.Slot
 }
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *TestInterface) GetMessage(userId *id.User,
+func (m *GatewayHandler) GetMessage(userId *id.User,
 	msgId, ipaddr string) (*pb.Slot, error) {
 	return &pb.Slot{}, nil
 }
 
 // Return any MessageIDs in the globals for this User
-func (m *TestInterface) CheckMessages(userId *id.User,
+func (m *GatewayHandler) CheckMessages(userId *id.User,
 	messageID, ipaddr string) ([]string, error) {
 	return make([]string, 0), nil
 }
 
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
-func (m *TestInterface) PutMessage(msg *pb.Slot, ipaddr string) error {
+func (m *GatewayHandler) PutMessage(msg *pb.Slot, ipaddr string) error {
 	m.LastReceivedMessage = *msg
 	return nil
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
+func (m *GatewayHandler) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
 		ClientSignedByServer: &pb.RSASignature{},
 	}
 
 	return regConfirmation, nil
+}
+
+// Pass-through for Registration Nonce Communication
+func (m *GatewayHandler) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
+	dh := getDHPubKey().Bytes()
+	return &pb.Nonce{
+		DHPubKey: dh,
+	}, nil
+}
+
+//Blank struct that has an error path f
+type GatewayHandlerMultipleMessages struct {
+	LastReceivedMessage []pb.Slot
+}
+
+func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
+	msgId, ipaddr string) (*pb.Slot, error) {
+	fmt.Println("yepppers, this is done indeedy")
+	return &pb.Slot{
+		PayloadA: make([]byte, format.PayloadLen),
+		PayloadB: make([]byte, format.PayloadLen),
+	}, nil
+}
+
+// Return any MessageIDs in the globals for this User
+func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.User,
+	messageID, ipaddr string) ([]string, error) {
+	msgs := []string{"a", "b", "c", "d", "e", "f", "g"}
+	return msgs, nil
+}
+
+// PutMessage adds a message to the outgoing queue and
+// calls SendBatch when it's size is the batch size
+func (m *GatewayHandlerMultipleMessages) PutMessage(msg *pb.Slot, ipaddr string) error {
+	for i := 0; i < BatchSize; i++ {
+		msg.Index = uint32(i)
+		m.LastReceivedMessage = append(m.LastReceivedMessage, *msg)
+	}
+	return nil
+}
+
+func (m *GatewayHandlerMultipleMessages) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
+	return nil, nil
+}
+
+// Pass-through for Registration Nonce Communication
+func (m *GatewayHandlerMultipleMessages) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
+	return nil, nil
 }
 
 // Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
@@ -149,14 +199,6 @@ func getDHPubKey() *cyclic.Int {
 
 	dh := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	return cmixGrp.ExpG(dh, cmixGrp.NewMaxInt())
-}
-
-// Pass-through for Registration Nonce Communication
-func (m *TestInterface) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
-	dh := getDHPubKey().Bytes()
-	return &pb.Nonce{
-		DHPubKey: dh,
-	}, nil
 }
 
 // Mock dummy storage interface for testing.

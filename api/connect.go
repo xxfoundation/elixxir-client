@@ -66,7 +66,6 @@ func (cl *Client) InitNetwork() error {
 	}
 
 	cl.topology = connect.NewCircuit(nodeIDs)
-
 	return AddGatewayHosts(cl.commManager, cl.ndf)
 }
 

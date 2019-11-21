@@ -645,6 +645,7 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 				}()
 			}
 		}()
+		globals.Log.WARN.Println("messageReciever starting")
 		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, receptionHost, callback)
 	}()
 

@@ -28,6 +28,7 @@ const NumNodes = 3
 const NumGWs = NumNodes
 const RegPort = 5000
 const GWsStartPort = 7900
+const GWErrorPort = 7800
 const PermErrorServerPort = 4000
 
 var RegHandler = MockRegistration{}
@@ -38,12 +39,14 @@ var ErrorDef *ndf.NetworkDefinition
 const ValidRegCode = "UAV6IWD6"
 const InvalidRegCode = "INVALID_REG_CODE_"
 
-var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
+var RegGWHandlers [3]*GatewayHandler = [NumGWs]*GatewayHandler{
 	{LastReceivedMessage: pb.Slot{}},
 	{LastReceivedMessage: pb.Slot{}},
 	{LastReceivedMessage: pb.Slot{}},
 }
+
 var GWComms [NumGWs]*gateway.Comms
+var GWErrComms [NumGWs]*gateway.Comms
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
@@ -51,6 +54,71 @@ func TestMain(m *testing.M) {
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
 	os.Exit(testMainWrapper(m))
+}
+
+func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
+	// Initialize client with dummy storage
+	testDef := getNDF()
+	for i := 0; i < NumNodes; i++ {
+		gw := ndf.Gateway{
+			Address: string(fmtAddress(GWErrorPort + i)),
+		}
+		testDef.Gateways = append(testDef.Gateways, gw)
+		GWErrComms[i] = gateway.StartGateway(gw.Address,
+			&GatewayHandlerMultipleMessages{}, nil, nil)
+
+	}
+
+	testDef.Nodes = def.Nodes
+
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", testDef)
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
+
+	if err != nil {
+		t.Errorf("Client failed of connect: %+v", err)
+	}
+
+	// Register with a valid registration code
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
+		nil)
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = client.session.StoreSession()
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Login to gateway
+	_, err = client.Login("password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	err = client.StartMessageReceiver(cb)
+
+	time.Sleep(3 * time.Second)
+	for _, gw := range GWErrComms {
+		gw.DisconnectAll()
+	}
 }
 
 // Verify that a valid precanned user can register
@@ -407,6 +475,9 @@ func testWrapperShutdown() {
 	for _, gw := range GWComms {
 		gw.Shutdown()
 
+	}
+	for _, gw := range GWErrComms {
+		gw.Shutdown()
 	}
 	RegComms.Shutdown()
 }

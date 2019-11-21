@@ -20,7 +20,13 @@ func TestInitStorage(t *testing.T) {
 
 	// Test DefaultStorage initialization without existing storage
 	storage := &DefaultStorage{}
+	//Check that storage is empty prior to any Save calls
+	if !storage.IsEmpty() {
+		t.Errorf("ds.IsEmpty failed to detect an empty storage")
+	}
 	storage.SetLocation(TestSaveLocA, TestSaveLocB)
+
+	//Test that the storage is empty
 
 	// Test DS saveA
 	err := storage.SaveA(TestDataA)
@@ -28,10 +34,15 @@ func TestInitStorage(t *testing.T) {
 		t.Errorf("ds.Save failed to create a save file A at: %v",
 			TestSaveLocA)
 	}
+
 	// Check that save file was made
 	if !exists(TestSaveLocA) {
 		t.Errorf("ds.Save failed to create a save file A at: %v",
 			TestSaveLocA)
+	}
+	//Check that the storage is not empty after a saveA call
+	if storage.IsEmpty() {
+		t.Errorf("ds.IsEmpty failed to detect a non-empty storage")
 	}
 
 	// Test DS loadA
@@ -52,6 +63,11 @@ func TestInitStorage(t *testing.T) {
 		t.Errorf("ds.Save failed to create a save file B at: %v",
 			TestSaveLocB)
 	}
+	//TODO: have a check one only SaveB is called and vice versa? Maybe split into separate tests?
+	//Check that the storage is not empty after a saveB call
+	if storage.IsEmpty() {
+		t.Errorf("ds.IsEmpty failed to detect a non-empty storage")
+	}
 
 	// Test DS loadA
 	actualData = storage.LoadB()
@@ -62,6 +78,10 @@ func TestInitStorage(t *testing.T) {
 
 	// Test RamStorage
 	store := RamStorage{}
+	//Check that the ramStorage is empty prior to any save calls
+	if !store.IsEmpty() {
+		t.Errorf("rs.IsEmpty failed to detect an empty storage")
+	}
 	actualData = nil
 	// Test A
 	store.SaveA(TestDataA)
@@ -70,6 +90,11 @@ func TestInitStorage(t *testing.T) {
 		t.Errorf("rs.Load failed to load expected data A. Expected:%v Actual:%v",
 			TestDataA, actualData)
 	}
+	//Checks that the ramStorage is not empty after a saveA call
+	if store.IsEmpty() {
+		t.Errorf("rs.IsEmpty failed to detect a non-empty storage")
+	}
+
 	//Test B
 	store.SaveB(TestDataB)
 	actualData = store.LoadB()
@@ -77,6 +102,11 @@ func TestInitStorage(t *testing.T) {
 		t.Errorf("rs.Load failed to load expected data B. Expected:%v Actual:%v",
 			TestDataB, actualData)
 	}
+	//Checks that the ramStorage is not empty after a saveA call
+	if store.IsEmpty() {
+		t.Errorf("rs.IsEmpty failed to detect a non-empty storage")
+	}
+
 	os.Remove(TestSaveLocA)
 	os.Remove(TestSaveLocB)
 }

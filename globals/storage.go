@@ -49,9 +49,11 @@ func (ds *DefaultStorage) GetLocation() (string, string) {
 
 func (ds *DefaultStorage) IsEmpty() bool {
 	_, err := os.Stat(ds.locationA)
-	firstEmpty := err != nil && !os.IsNotExist(err)
+
+	firstEmpty := err != nil && os.IsNotExist(err)
 	_, err = os.Stat(ds.locationB)
-	secondEmpty := err != nil && !os.IsNotExist(err)
+	secondEmpty := err != nil && os.IsNotExist(err)
+
 	return firstEmpty && secondEmpty
 }
 

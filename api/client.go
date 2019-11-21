@@ -831,7 +831,6 @@ func (cl *Client) DeleteUser(u *id.User) (string, error) {
 	}
 
 	return v, nil
-
 }
 
 // Nickname lookup API

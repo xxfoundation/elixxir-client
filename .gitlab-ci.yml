@@ -32,6 +32,7 @@ stages:
   - setup
   - test
   - build
+  - bindings
   - trigger_integration
   - trigger_release_integration
 
@@ -86,6 +87,21 @@ build:
   artifacts:
     paths:
      - release/
+
+bindings:
+  stage: bindings
+  tags: 
+    - ios
+  script:
+    - GO111MODULE=off go get gitlab.com/elixxir/client
+    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    - zip -r iOS.zip Bindings.framework
+  artifacts:
+    paths:
+      - iOS.zip
+      - bindings.aar
+      - bindings-sources.jar
 
 trigger_integration:
   stage: trigger_integration

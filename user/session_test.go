@@ -298,6 +298,67 @@ func TestGetPubKey(t *testing.T) {
 	}
 }
 
+//Tests the isEmpty function before and after StoreSession
+func TestSessionObj_StorageIsEmpty(t *testing.T) {
+	// Generate all the values needed for a session
+	u := new(User)
+	// This is 65 so you can see the letter A in the gob if you need to make
+	// sure that the gob contains the user ID
+	UID := uint64(65)
+
+	u.User = id.NewUserFromUint(UID, t)
+	u.Nick = "Mario"
+
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	nodeID := id.NewNodeFromUInt(1, t)
+
+	keys[*nodeID] = NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	}
+
+	// Storage
+	storage := &globals.RamStorage{}
+
+	//Keys
+	rng := rand.New(rand.NewSource(42))
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
+	cmixGrp, e2eGrp := getGroups()
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	//Crate the session
+	ses := NewSession(storage,
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+
+	ses.SetLastMessageID("totally unique ID")
+
+	//Test that the session is empty before the StoreSession call
+	if !ses.StorageIsEmpty() {
+		t.Errorf("session should be empty before a StoreSession call")
+	}
+	err := ses.StoreSession()
+	if err != nil {
+		t.Errorf("Failed to store session: %v", err)
+	}
+
+	//Test that the session is not empty after the StoreSession call
+	if ses.StorageIsEmpty() {
+		t.Errorf("session should not be empty after a StoreSession call")
+	}
+
+}
+
 func TestGetPrivKey(t *testing.T) {
 	u := new(User)
 	UID := id.NewUserFromUint(1, t)

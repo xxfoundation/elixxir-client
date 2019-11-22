@@ -325,9 +325,8 @@ func TestSend(t *testing.T) {
 	disconnectServers()
 }
 
-//Need this???????//
 //Error path: register with udb, but udb is not set up to return a message
-func TestClient_RegisterWithUDB(t *testing.T) {
+func TestClient_RegisterWithUDB_NoUDB(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 

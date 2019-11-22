@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
@@ -117,10 +118,14 @@ type GatewayHandlerMultipleMessages struct {
 
 func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
 	msgId, ipaddr string) (*pb.Slot, error) {
-	fmt.Println("yepppers, this is done indeedy")
+	msg := []byte("Hello")
+	payload, err := e2e.Pad(msg, format.PayloadLen)
+	if err != nil {
+		fmt.Println("hello!")
+	}
 	return &pb.Slot{
-		PayloadA: make([]byte, format.PayloadLen),
-		PayloadB: make([]byte, format.PayloadLen),
+		PayloadA: payload,
+		PayloadB: payload,
 	}, nil
 }
 

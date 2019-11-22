@@ -110,7 +110,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 			} else if strings.Contains(response, alreadyExists) {
 				id, b, err := Search("EMAIL", value, func(int) { return }, 1000*time.Millisecond)
 				if err != nil {
-					return errors.Errorf("Failed to search for user: %+v", err)
+					return errors.New("Cannot register with existing username")
 				}
 				if id != nil && bytes.Compare(b, publicKey) != 0 {
 					complete = true

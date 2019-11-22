@@ -362,9 +362,9 @@ func (cl *Client) GetNetworkStatus() int64 {
 }
 
 //LoadEncryptedSession: Spits out the encrypted session file in text
-func (cl *Client) LoadEncryptedSession(password string) (string, error) {
+func (cl *Client) LoadEncryptedSession() (string, error) {
 	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")
-	return cl.client.LoadEncryptedSession(password)
+	return cl.client.LoadEncryptedSession()
 }
 
 //WriteToSession: Writes to file the replacement string

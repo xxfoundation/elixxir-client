@@ -14,14 +14,13 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
-var topology *circuit.Circuit
+var topology *connect.Circuit
 var comms io.Communications
 var transmissionHost *connect.Host
 
@@ -89,7 +88,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit, rekeyChan2 chan struct{}) {
+func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}

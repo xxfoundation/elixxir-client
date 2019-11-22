@@ -66,6 +66,8 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 			if strings.Contains(response, keyFP) {
 				if strings.Contains(response, pushkeyExpected) {
 					submitted = true
+				} else if strings.Contains(response, pushkeyErrorExpected) {
+					submitted = true
 				} else {
 					err := errors.New(response)
 					return errors.Wrap(err, "PushKey failed")
@@ -100,10 +102,21 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 		case response = <-registerResponseListener:
 			expected := "REGISTRATION COMPLETE"
 			unavalibleReg := "Can not register with existing email"
+			alreadyExists := "Cannot write to a user that already exists"
 			if strings.Contains(response, expected) {
 				complete = true
 			} else if strings.Contains(response, value) && strings.Contains(response, unavalibleReg) {
 				return errors.New("Cannot register with existing username")
+			} else if strings.Contains(response, alreadyExists) {
+				id, b, err := Search("EMAIL", value, func(int) { return }, 1000*time.Millisecond)
+				if err != nil {
+					return errors.Errorf("Failed to search for user: %+v", err)
+				}
+				if id != nil && bytes.Compare(b, publicKey) != 0 {
+					complete = true
+				} else {
+					return errors.New("Cannot register with existing username")
+				}
 			}
 		case <-registerTimeout.C:
 			return errors.New("UDB register timeout exceeded on user submission")

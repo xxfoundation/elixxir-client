@@ -172,7 +172,7 @@ func processSession(store globals.Storage, password string) (*SessionStorageWrap
 
 	//figure out which session to use of the two locations
 	if errA != nil && errB != nil {
-		return nil, globals.NoSave, fmt.Errorf("Loading both sessions errored: \n "+
+		return nil, globals.NoSave, errors.Errorf("Loading both sessions errored: \n "+
 			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
 	} else if errA == nil && errB != nil {
 		loadLocation = globals.LocationA

@@ -69,7 +69,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
+		return nil, errors.Errorf("Could not generate cmix DH private key: %s", err.Error())
 	}
 
 	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
@@ -78,7 +78,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
+		return nil, errors.Errorf("Could not generate e2e DH private key: %s", err.Error())
 	}
 
 	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
@@ -95,8 +95,8 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		globals.Log.INFO.Printf("Registering precanned user...")
 		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
 		if err != nil {
-			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
-			return id.ZeroID, err
+			errMsg := errors.Errorf("Unable to complete precanned registration: %+v", err)
+			return id.ZeroID, errMsg
 		}
 	} else {
 		cl.opStatus(globals.REG_UID_GEN)
@@ -106,8 +106,8 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		salt = make([]byte, SaltSize)
 		_, err = csprng.NewSystemRNG().Read(salt)
 		if err != nil {
-			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
-			return id.ZeroID, err
+			errMsg := errors.Errorf("Register: Unable to generate salt! %s", err)
+			return id.ZeroID, errMsg
 		}
 
 		// Generate UserID by hashing salt and public key
@@ -120,7 +120,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 			cl.opStatus(globals.REG_PERM)
 			regValidationSignature, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 			if err != nil {
-				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
+				err = errors.Errorf("Register: Unable to send registration message: %+v", err)
 				return id.ZeroID, err
 			}
 		}
@@ -157,10 +157,10 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	errStore := newSession.StoreSession()
 
 	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
+		errMsg := errors.Errorf(
 			"Permissioning Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		return id.ZeroID, err
+				": %s", errStore.Error())
+		return id.ZeroID, errMsg
 	}
 	cl.session = newSession
 	return UID, nil
@@ -222,10 +222,10 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	// doesn't get immolated. Immolation should happen in a deferred
 	//  call instead.
 	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
+		errMsg := errors.Errorf(
 			"UDB Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		return err
+				": %s", errStore.Error())
+		return errMsg
 	}
 
 	return nil
@@ -297,9 +297,9 @@ func (cl *Client) RegisterWithNodes() error {
 	if newRegistrations {
 		errStore := session.StoreSession()
 		if errStore != nil {
-			err := errors.New(fmt.Sprintf(
+			err := errors.Errorf(
 				"Register: could not register due to failed session save"+
-					": %s", errStore.Error()))
+					": %s", errStore.Error())
 			return err
 		}
 	}
@@ -327,8 +327,8 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 		publicKeyRSA, privateKeyRSA, gatewayID)
 
 	if err != nil {
-		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
-		errorChan <- errors.New(errMsg)
+		errMsg := errors.Errorf("Register: Failed requesting nonce from gateway: %+v", err)
+		errorChan <- errMsg
 	}
 
 	// Load server DH pubkey
@@ -338,8 +338,8 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	globals.Log.INFO.Println("Register: Confirming received nonce")
 	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
 	if err != nil {
-		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
-		errorChan <- errors.New(errMsg)
+		errMsg := errors.Errorf("Register: Unable to confirm nonce: %v", err)
+		errorChan <- errMsg
 	}
 	nodeID := cl.topology.GetNodeAtIndex(index)
 	key := user.NodeKeys{

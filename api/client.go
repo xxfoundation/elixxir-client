@@ -70,7 +70,6 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())
-		globals.Log.ERROR.Printf(err.Error())
 		return nil, err
 	}
 
@@ -178,8 +177,7 @@ func requestNdf(cl *Client) error {
 			return nil
 		}
 
-		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
-		globals.Log.ERROR.Printf(errMsg)
+		errMsg := errors.Errorf("Failed to get updated ndf: %v", err)
 		return errors.New(errMsg)
 	}
 
@@ -247,8 +245,8 @@ func (cl *Client) Connect() error {
 			return err
 		}
 		if !ok {
-			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.GetRegistrationVersion()))
+			err = errors.Errorf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.commManager.GetRegistrationVersion())
 			return err
 		}
 	} else {
@@ -278,7 +276,6 @@ func (cl *Client) Login(password string) (string, error) {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				globals.Log.ERROR.Println("Session file loading crashed")
 				err = sessionFileError
 				done <- struct{}{}
 			}
@@ -314,7 +311,6 @@ func (cl *Client) Login(password string) (string, error) {
 func (cl *Client) Logout() error {
 	if cl.session == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
-		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -329,9 +325,8 @@ func (cl *Client) Logout() error {
 	errStore := cl.session.StoreSession()
 
 	if errStore != nil {
-		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
-			errStore.Error()))
-		globals.Log.ERROR.Printf(err.Error())
+		err := errors.Errorf("Logout: Store Failed: %s" +
+			errStore.Error())
 		return err
 	}
 
@@ -339,9 +334,8 @@ func (cl *Client) Logout() error {
 	cl.session = nil
 
 	if errImmolate != nil {
-		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
-			errImmolate.Error()))
-		globals.Log.ERROR.Printf(err.Error())
+		err := errors.Errorf("Logout: Immolation Failed: %s" +
+			errImmolate.Error())
 		return err
 	}
 
@@ -367,10 +361,9 @@ func (cl *Client) StartMessageReceiver(errorCallback func(error)) error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
 				time.Sleep(1 * time.Second)
 				go func() {
-					errorCallback(errors.New(fmt.Sprintln("Message Receiver Panicked", r)))
+					errorCallback(errors.Errorf(fmt.Sprintln("Message Receiver Panicked", r)))
 				}()
 			}
 		}()
@@ -551,20 +544,20 @@ func (cl *Client) LoadEncryptedSession() (string, error) {
 func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) error {
 	//This call must not occur prior to a newClient call, thus check that client has been initialized
 	if cl.ndf == nil || cl.topology == nil {
-		errMsg := fmt.Sprintf("Cannot write to session if client hasn't been created yet")
-		return errors.New(errMsg)
+		errMsg := errors.Errorf("Cannot write to session if client hasn't been created yet")
+		return errMsg
 	}
 	//Decode the base64 encoded replacement string (assumed to be encoded form LoadEncryptedSession)
 	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to decode replacment string: %+v", err)
-		return errors.New(errMsg)
+		errMsg := errors.Errorf("Failed to decode replacment string: %+v", err)
+		return errMsg
 	}
 	//Write the new session data to both locations
 	err = user.WriteToSession(decodedSession, store)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to store session: %+v", err)
-		return errors.New(errMsg)
+		errMsg := errors.Errorf("Failed to store session: %+v", err)
+		return errMsg
 	}
 
 	return nil

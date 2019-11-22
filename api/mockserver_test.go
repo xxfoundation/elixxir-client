@@ -39,7 +39,6 @@ var RegGWHandlers [3]*TestInterface = [NumGWs]*TestInterface{
 }
 var GWComms [NumGWs]*gateway.Comms
 
-var def *ndf.NetworkDefinition
 var errorDef *ndf.NetworkDefinition
 
 // Setups general testing params and calls test wrapper

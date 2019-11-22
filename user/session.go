@@ -72,6 +72,7 @@ type Session interface {
 	StoreContactByValue(string, *id.User, []byte)
 	DeleteContact(*id.User) (string, error)
 	GetSessionLocation() uint8
+	LoadEncryptedSession(store globals.Storage) ([]byte, error)
 }
 
 type NodeKeys struct {
@@ -294,12 +295,12 @@ func WriteToSession(replacement []byte, store globals.Storage) error {
 
 //LoadEncryptedSession: gets the encrypted session file from storage
 // Returns it as a base64 encoded string
-func LoadEncryptedSession(store globals.Storage, password string) ([]byte, error) {
-	sessionData, _, err := processSession(store, password)
+func (s *SessionObj) LoadEncryptedSession(store globals.Storage) ([]byte, error) {
+	sessionData, _, err := processSession(store, s.password)
 	if err != nil {
 		return make([]byte, 0), err
 	}
-	encryptedSession := encrypt(sessionData.Session, password)
+	encryptedSession := encrypt(sessionData.Session, s.password)
 	return encryptedSession, nil
 }
 
@@ -311,6 +312,7 @@ type SearchedUserRecord struct {
 func (s *SessionObj) GetLastMessageID() string {
 	s.LockStorage()
 	defer s.UnlockStorage()
+
 	return s.LastMessageID
 }
 

@@ -535,8 +535,8 @@ func (cl *Client) GetCommManager() *io.CommManager {
 }
 
 // LoadSessionText: load the encrypted session as a string
-func (cl *Client) LoadEncryptedSession(password string) (string, error) {
-	encryptedSession, err := user.LoadEncryptedSession(cl.storage, password)
+func (cl *Client) LoadEncryptedSession() (string, error) {
+	encryptedSession, err := cl.GetSession().LoadEncryptedSession(cl.storage)
 	if err != nil {
 		return "", err
 	}

@@ -9,18 +9,18 @@ package crypto
 import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 )
 
 // CMIX Encrypt performs the encryption
 // of the msg to a team of nodes
 // It returns a new msg
-func CMIXEncrypt(session user.Session, topology *circuit.Circuit, salt []byte,
+func CMIXEncrypt(session user.Session, topology *connect.Circuit, salt []byte,
 	msg *format.Message) (*format.Message, [][]byte) {
 	// Generate the encryption key
 	nodeKeys := session.GetNodeKeys(topology)

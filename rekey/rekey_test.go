@@ -296,7 +296,10 @@ func TestRekey(t *testing.T) {
 	// Confirm that keys rotated properly in RekeyManager
 	rkm := session.GetRekeyManager()
 	keys := rkm.GetKeys(partnerID)
+	if keys.CurrPubKey.GetLargeInt().Cmp(session.GetE2EDHPublicKey().GetLargeInt()) == 0 {
+		t.Errorf("Own publicKey didn't update properly after both parties rekeys")
 
+	}
 	if keys.CurrPrivKey.GetLargeInt().
 		Cmp(session.GetE2EDHPrivateKey().GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")

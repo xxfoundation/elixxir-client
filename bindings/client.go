@@ -300,7 +300,7 @@ func (cl *Client) LookupNick(user []byte,
 	cl.client.LookupNick(userID, proxy)
 }
 
-// Parses a passed message.  Allows a message to be aprsed using the interal parser
+// Parses a passed message.  Allows a message to be parsed using the internal parser
 // across the Bindings
 func ParseMessage(message []byte) (Message, error) {
 	return api.ParseMessage(message)
@@ -359,4 +359,16 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 func (cl *Client) GetNetworkStatus() int64 {
 	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
 	return int64(cl.client.GetNetworkStatus())
+}
+
+//LoadEncryptedSession: Spits out the encrypted session file in text
+func (cl *Client) LoadEncryptedSession() (string, error) {
+	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")
+	return cl.client.LoadEncryptedSession()
+}
+
+//WriteToSession: Writes to file the replacement string
+func (cl *Client) WriteToSession(replacement string, storage globals.Storage) error {
+	globals.Log.INFO.Printf("Binding call: WriteToSession")
+	return cl.client.WriteToSessionFile(replacement, storage)
 }

@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -143,6 +144,11 @@ func TestSearch(t *testing.T) {
 	}
 	if *searchedUser != *id.NewUserFromUint(26, t) {
 		t.Errorf("Search did not return user ID 26! returned %v", string(searchedUser.Bytes()))
+	}
+	//Test the timeout capabilities
+	searchedUser, _, err = Search("EMAIL", "blah@elixxir.io", dummySearchState, 1*time.Millisecond)
+	if strings.Compare(err.Error(), "UDB search timeout exceeded on user lookup") != 0 {
+		t.Errorf("error: %v", err)
 	}
 }
 

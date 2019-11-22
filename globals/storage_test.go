@@ -60,7 +60,6 @@ func TestInitStorage(t *testing.T) {
 			TestDataB, actualData)
 	}
 
-
 	// Test RamStorage
 	store := RamStorage{}
 	actualData = nil

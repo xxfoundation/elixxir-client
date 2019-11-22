@@ -158,6 +158,7 @@ func TestLoginLogout(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
+
 	err = client.StartMessageReceiver(&DummyReceptionCallback{})
 	if err != nil {
 		t.Errorf("Could not start message reciever: %+v", err)

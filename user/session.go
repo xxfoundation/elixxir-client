@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -13,8 +13,8 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/gob"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -25,6 +25,8 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"io"
 	"sync"
+	"sync/atomic"
+	"time"
 )
 
 // Errors
@@ -33,7 +35,8 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetKeys(topology *circuit.Circuit) []NodeKeys
+	GetNodeKeys(topology *circuit.Circuit) []NodeKeys
+	PushNodeKey(id *id.Node, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
 	GetCMIXDHPrivateKey() *cyclic.Int
@@ -60,6 +63,14 @@ type Session interface {
 	GetNodes() map[id.Node]int
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
+	GetSalt() []byte
+	SetRegState(rs uint32) error
+	GetRegState() uint32
+	ChangeUsername(string) error
+	StorageIsEmpty() bool
+	GetContactByValue(string) (*id.User, []byte)
+	StoreContactByValue(string, *id.User, []byte)
+	DeleteContact(*id.User) (string, error)
 }
 
 type NodeKeys struct {
@@ -76,9 +87,11 @@ func NewSession(store globals.Storage,
 	cmixPrivateKeyDH *cyclic.Int,
 	e2ePublicKeyDH *cyclic.Int,
 	e2ePrivateKeyDH *cyclic.Int,
+	salt []byte,
 	cmixGrp, e2eGrp *cyclic.Group,
 	password string,
 	regSignature []byte) Session {
+	regState := NotStarted
 	// With an underlying Session data structure
 	return Session(&SessionObj{
 		CurrentUser:            u,
@@ -99,6 +112,10 @@ func NewSession(store globals.Storage,
 		quitReceptionRunner:    make(chan struct{}),
 		password:               password,
 		regValidationSignature: regSignature,
+		Salt:                   salt,
+		RegState:               &regState,
+		storageLocation:        globals.LocationA,
+		ContactsByValue:        make(map[string]SearchedUserRecord),
 	})
 }
 
@@ -109,35 +126,51 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	sessionGob := store.Load()
+	var wrappedSession *SessionStorageWrapper
+	loadLocation := globals.NoSave
 
-	decryptedSessionGob, err := decrypt(sessionGob, password)
+	//load sessions
+	wrappedSessionA, errA := processSessionWrapper(store.LoadA(), password)
+	wrappedSessionB, errB := processSessionWrapper(store.LoadB(), password)
 
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not decode the "+
-			"session file %+v", err))
+	//figure out which session to use
+	if errA != nil && errB != nil {
+		return nil, fmt.Errorf("Loading both sessions errored: \n "+
+			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
+	} else if errA == nil && errB != nil {
+		loadLocation = globals.LocationA
+		wrappedSession = wrappedSessionA
+	} else if errA != nil && errB == nil {
+		loadLocation = globals.LocationB
+		wrappedSession = wrappedSessionB
+	} else {
+		if wrappedSessionA.Timestamp.After(wrappedSessionB.Timestamp) {
+			loadLocation = globals.LocationA
+			wrappedSession = wrappedSessionA
+		} else {
+			loadLocation = globals.LocationB
+			wrappedSession = wrappedSessionB
+		}
 	}
 
+	//extract teh session from the wrapper
 	var sessionBytes bytes.Buffer
 
-	sessionBytes.Write(decryptedSessionGob)
-
+	sessionBytes.Write(wrappedSession.Session)
 	dec := gob.NewDecoder(&sessionBytes)
 
 	session := SessionObj{}
 
-	err = dec.Decode(&session)
-
+	err := dec.Decode(&session)
 	if err != nil {
-		err = errors.New(fmt.Sprintf(
-			"LoadSession: unable to load session: %s", err.Error()))
-		return nil, err
+		return nil, errors.Wrap(err, "Unable to decode session")
 	}
+
+	session.storageLocation = loadLocation
 
 	// Reconstruct Key maps
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
 		session.CurrentUser.User)
-
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
@@ -163,6 +196,7 @@ type SessionObj struct {
 	E2EDHPublicKey   *cyclic.Int
 	CmixGrp          *cyclic.Group
 	E2EGrp           *cyclic.Group
+	Salt             []byte
 
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
@@ -196,12 +230,29 @@ type SessionObj struct {
 
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
+
+	RegState *uint32
+
+	storageLocation uint8
+
+	ContactsByValue map[string]SearchedUserRecord
+}
+
+type SearchedUserRecord struct {
+	Id id.User
+	Pk []byte
 }
 
 func (s *SessionObj) GetLastMessageID() string {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.LastMessageID
+}
+
+func (s *SessionObj) StorageIsEmpty() bool {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	return s.store.IsEmpty()
 }
 
 func (s *SessionObj) SetLastMessageID(id string) {
@@ -214,13 +265,21 @@ func (s *SessionObj) GetNodes() map[id.Node]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	nodes := make(map[id.Node]int, 0)
-	for node, _ := range s.Keys {
+	for node := range s.Keys {
 		nodes[node] = 1
 	}
 	return nodes
 }
 
-func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
+func (s *SessionObj) GetSalt() []byte {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	salt := make([]byte, len(s.Salt))
+	copy(salt, s.Salt)
+	return salt
+}
+
+func (s *SessionObj) GetNodeKeys(topology *circuit.Circuit) []NodeKeys {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
@@ -231,6 +290,13 @@ func (s *SessionObj) GetKeys(topology *circuit.Circuit) []NodeKeys {
 	}
 
 	return keys
+}
+
+func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	s.Keys[*id] = key
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
@@ -303,6 +369,36 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	return currentUser
 }
 
+func (s *SessionObj) GetRegState() uint32 {
+	return atomic.LoadUint32(s.RegState)
+}
+
+func (s *SessionObj) SetRegState(rs uint32) error {
+	prevRs := rs - 1
+	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
+	if !b {
+		return errors.New("Could not increment registration state")
+	}
+	return nil
+}
+
+func (s *SessionObj) ChangeUsername(username string) error {
+	b := s.GetRegState()
+	if b != PermissioningComplete {
+		return errors.New("Can only change username during " +
+			"PermissioningComplete registration state")
+	}
+	s.CurrentUser.Email = username
+	s.CurrentUser.Nick = username
+	return nil
+}
+
+type SessionStorageWrapper struct {
+	Version   uint32
+	Timestamp time.Time
+	Session   []byte
+}
+
 func (s *SessionObj) storeSession() error {
 
 	if s.store == nil {
@@ -311,11 +407,28 @@ func (s *SessionObj) storeSession() error {
 	}
 
 	sessionData, err := s.getSessionData()
-	err = s.store.Save(encrypt(sessionData, s.password))
 
-	if err != nil {
-		err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
-			" session: %s", err.Error()))
+	encryptedSession := encrypt(sessionData, s.password)
+
+	if s.storageLocation == globals.LocationA {
+		err = s.store.SaveB(encryptedSession)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+				" session in location B: %s", err.Error()))
+		} else {
+			s.storageLocation = globals.LocationB
+		}
+	} else if s.storageLocation == globals.LocationB {
+		err = s.store.SaveA(encryptedSession)
+		if err != nil {
+			err = errors.New(fmt.Sprintf("StoreSession: Could not save the encoded user"+
+				" session in location A: %s", err.Error()))
+		} else {
+			s.storageLocation = globals.LocationA
+		}
+	} else {
+		err = errors.New("Could not store because no location is " +
+			"selected")
 	}
 
 	return err
@@ -403,9 +516,9 @@ func (s *SessionObj) GetQuitChan() chan struct{} {
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {
-	var session bytes.Buffer
+	var sessionBuffer bytes.Buffer
 
-	enc := gob.NewEncoder(&session)
+	enc := gob.NewEncoder(&sessionBuffer)
 
 	err := enc.Encode(s)
 
@@ -414,7 +527,26 @@ func (s *SessionObj) getSessionData() ([]byte, error) {
 			" session: %s", err.Error()))
 		return nil, err
 	}
-	return session.Bytes(), nil
+
+	sw := SessionStorageWrapper{
+		Version:   SessionVersion,
+		Session:   sessionBuffer.Bytes(),
+		Timestamp: time.Now(),
+	}
+
+	var wrapperBuffer bytes.Buffer
+
+	enc = gob.NewEncoder(&wrapperBuffer)
+
+	err = enc.Encode(&sw)
+
+	if err != nil {
+		err = errors.New(fmt.Sprintf("StoreSession: Could not encode user"+
+			" session wrapper: %s", err.Error()))
+		return nil, err
+	}
+
+	return wrapperBuffer.Bytes(), nil
 }
 
 // Locking a mutex that belongs to the session object makes the locking
@@ -478,8 +610,7 @@ func decrypt(data []byte, password string) ([]byte, error) {
 	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
 	plaintext, err := aesGCM.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Cannot decrypt with password!"+
-			" %s", err.Error()))
+		return nil, errors.Wrap(err, "Cannot decrypt with password!")
 	}
 	return plaintext, nil
 }
@@ -497,4 +628,78 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	tempBuffer := s.garbledMessages
 	s.garbledMessages = []*format.Message{}
 	return tempBuffer
+}
+
+func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
+
+	if sessionGob == nil || len(sessionGob) < 12 {
+		return nil, errors.New("No session file passed")
+	}
+
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode the "+
+			"session wrapper")
+	}
+
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Write(decryptedSessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+
+	wrappedSession := SessionStorageWrapper{}
+
+	err = dec.Decode(&wrappedSession)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to decode session wrapper")
+	}
+
+	return &wrappedSession, nil
+}
+
+func (s *SessionObj) GetContactByValue(v string) (*id.User, []byte) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	u, ok := s.ContactsByValue[v]
+	if !ok {
+		return nil, nil
+	}
+	return &(u.Id), u.Pk
+}
+
+func (s *SessionObj) StoreContactByValue(v string, uid *id.User, pk []byte) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+	u, ok := s.ContactsByValue[v]
+	if ok {
+		globals.Log.WARN.Printf("Attempted to store over extant "+
+			"user value: %s; before: %v, new: %v", v, u.Id, *uid)
+	} else {
+		s.ContactsByValue[v] = SearchedUserRecord{
+			Id: *uid,
+			Pk: pk,
+		}
+	}
+}
+
+func (s *SessionObj) DeleteContact(uid *id.User) (string, error) {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	for v, u := range s.ContactsByValue {
+		if u.Id.Cmp(uid) {
+			delete(s.ContactsByValue, v)
+			_, ok := s.ContactsByValue[v]
+			if ok {
+				return "", errors.Errorf("Failed to delete user: %+v", u)
+			} else {
+				return v, nil
+			}
+		}
+	}
+
+	return "", errors.Errorf("No user found in usermap with userid: %s",
+		uid)
+
 }

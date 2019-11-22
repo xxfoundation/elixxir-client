@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2019 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package io
 
 import (
@@ -16,8 +22,11 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"math/big"
+	"strings"
 	"time"
 )
+
+const reportDuration = 30 * time.Second
 
 var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
 
@@ -35,17 +44,36 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 	cm.lock.RUnlock()
 	quit := session.GetQuitChan()
 
+	NumChecks := 0
+	NumMessages := 0
+
+	reportTicker := time.NewTicker(reportDuration)
+
 	var encryptedMessages []*format.Message
+
+	globals.Log.DEBUG.Printf("Gateway Polling for Message Reception Begun")
 
 	for {
 		// TODO: replace timer with ticker
 		timerDelay := time.NewTimer(delay)
+		NumChecks++
 		select {
 		case <-quit:
 			globals.Log.DEBUG.Printf("Stopped message receiver\n")
 			return
 		case <-timerDelay.C:
-			globals.Log.DEBUG.Printf("Attempting to receive message from gateway")
+
+			//check if a report on the polling status is due, report to logs if
+			//it is
+			select {
+			case <-reportTicker.C:
+				globals.Log.DEBUG.Printf("Over the passed %v "+
+					"gateway has been checked %v time and %v messages recieved",
+					reportDuration, NumChecks, NumMessages)
+			default:
+			}
+
+			NumChecks++
 
 			var err error
 
@@ -53,46 +81,48 @@ func (cm *CommManager) MessageReceiver(session user.Session, delay time.Duration
 
 			if err != nil {
 
-				backoffCount := 0
+				if strings.Contains(err.Error(), "Client has exceeded communications rate limit") {
+					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
+					time.Sleep(5 * time.Second)
+				} else if !skipErrChecker(err) {
+					backoffCount := 0
 
-				// Handles disconnections
-				for notConnected := true; notConnected; {
+					// Handles disconnections
+					for notConnected := true; notConnected; {
 
-					cm.Disconnect()
+						cm.Disconnect()
 
-					block, backoffTime := cm.computeBackoff(backoffCount)
+						block, backoffTime := cm.computeBackoff(backoffCount)
 
-					cm.setConnectionStatus(Offline, toSeconds(backoffTime))
+						cm.setConnectionStatus(Offline, toSeconds(backoffTime))
 
-					globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
+						globals.Log.WARN.Printf("Disconnected, reconnecting in %s", backoffTime)
 
-					timer := time.NewTimer(backoffTime)
+						timer := time.NewTimer(backoffTime)
 
-					if block {
-						timer.Stop()
+						if block {
+							timer.Stop()
+						}
+
+						select {
+						case <-session.GetQuitChan():
+							close(session.GetQuitChan())
+							return
+						case <-timer.C:
+						case <-cm.tryReconnect:
+							backoffCount = 0
+						}
+						err := cm.ConnectToGateways()
+
+						if err == nil {
+							notConnected = false
+						}
+
+						backoffCount++
 					}
-
-					select {
-					case <-session.GetQuitChan():
-						close(session.GetQuitChan())
-						return
-					case <-timer.C:
-					case <-cm.tryReconnect:
-						backoffCount = 0
-					}
-
-					//call the callback with the connecting status
-
-					err := cm.ConnectToGateways()
-
-					if err == nil {
-						notConnected = false
-					}
-
-					backoffCount++
 				}
-				//call the callback with the connected status
 			}
+			NumMessages += len(encryptedMessages)
 		case <-rekeyChan:
 			encryptedMessages = session.PopGarbledMessages()
 
@@ -210,11 +240,12 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		pollingMessage)
 
 	if err != nil {
-		globals.Log.WARN.Printf("CheckMessages error during polling: %v", err.Error())
 		return nil, err
 	}
 
-	globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	if len(messageIDs.IDs) < 0 {
+		globals.Log.DEBUG.Printf("Checking novelty of %v messageIDs", len(messageIDs.IDs))
+	}
 
 	messages := make([]*format.Message, len(messageIDs.IDs))
 	mIDs := make([]string, len(messageIDs.IDs))
@@ -226,7 +257,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 	bufLoc := 0
 	for _, messageID := range messageIDs.IDs {
 		// Get the first unseen message from the list of IDs
+		cm.recievedMesageLock.RLock()
 		_, received := cm.receivedMessages[messageID]
+		cm.recievedMesageLock.RUnlock()
 		if !received {
 			globals.Log.INFO.Printf("Got a message waiting on the gateway: %v",
 				messageID)
@@ -267,7 +300,9 @@ func (cm *CommManager) receiveMessagesFromGateway(session user.Session,
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
 				"Adding message ID %v to received message IDs", mIDs[i])
+			cm.recievedMesageLock.Lock()
 			cm.receivedMessages[mIDs[i]] = struct{}{}
+			cm.recievedMesageLock.Unlock()
 		}
 		session.SetLastMessageID(mIDs[bufLoc-1])
 		err = session.StoreSession()
@@ -341,4 +376,14 @@ func broadcastMessageReception(message *parse.Message,
 	listeners *switchboard.Switchboard) {
 
 	listeners.Speak(message)
+}
+
+// skipErrChecker checks checks if the error is fatal or should be ignored
+func skipErrChecker(err error) bool {
+	if strings.Contains(err.Error(), "Could not find any message IDs for this user") {
+		return true
+	}
+
+	return false
+
 }

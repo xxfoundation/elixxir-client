@@ -29,6 +29,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 )
@@ -111,7 +112,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "", ndfJSON,
+		client, err = api.NewClient(&globals.RamStorage{}, "", "", ndfJSON,
 			dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
@@ -121,21 +122,36 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
 	} else {
-		//If a session file is passed, check if it's valid
-		_, err1 := os.Stat(sessionFile)
 
-		if err1 != nil {
+		var sessionA, sessionB string
+
+		locs := strings.Split(sessionFile, ",")
+
+		if len(locs) == 2 {
+			sessionA = locs[0]
+			sessionB = locs[1]
+		} else {
+			sessionA = sessionFile
+			sessionB = sessionFile + "-2"
+		}
+
+		//If a session file is passed, check if it's valid
+		_, err1 := os.Stat(sessionA)
+		_, err2 := os.Stat(sessionB)
+
+		if err1 != nil && err2 != nil {
 			//If the file does not exist, register a new user
-			if os.IsNotExist(err1) {
+			if os.IsNotExist(err1) && os.IsNotExist(err2) {
 				register = true
 			} else {
 				//Fail if any other error is received
-				globals.Log.ERROR.Printf("Error with file path: %s\n", err1.Error())
+				globals.Log.ERROR.Printf("Error with file paths: %s %s",
+					err1, err2)
 				return id.ZeroID, "", nil
 			}
 		}
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionFile, ndfJSON, dummyConnectionStatusHandler)
+		client, err = api.NewClient(nil, sessionA, sessionB, ndfJSON, dummyConnectionStatusHandler)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil
@@ -155,14 +171,14 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 	//REVIEWER NOTE: Possibly need to remove/rearrange this,
 	// now that client may not know gw's upon client creation
-	gateways := client.GetNDF().Gateways
+	/*gateways := client.GetNDF().Gateways
 	// If gwAddr was not passed via command line, check config file
 	if len(gateways) < 1 {
 		// No gateways in config file or passed via command line
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
 		return id.ZeroID, "", nil
-	}
+	}*/
 
 	if noTLS {
 		client.DisableTLS()
@@ -205,12 +221,17 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.Register(userId != 0, regCode, userNick,
+		uid, err = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
 			userEmail, sessFilePassword, privKey)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not Register User: %s\n",
+			globals.Log.FATAL.Panicf("Could Not Register User: %s",
 				err.Error())
-			return id.ZeroID, "", nil
+		}
+
+		err := client.RegisterWithNodes()
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s",
+				err.Error())
 		}
 
 		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
@@ -375,14 +396,14 @@ var rootCmd = &cobra.Command{
 		// Log the user in, for now using the first gateway specified
 		// This will also register the user email with UDB
 		globals.Log.INFO.Println("Logging in...")
-		err := client.StartMessageReceiver()
+		err := client.StartMessageReceiver(func(err error) { return })
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
 		globals.Log.INFO.Println("Logged In!")
 
 		if userEmail != "" {
-			err := client.RegisterWithUDB()
+			err := client.RegisterWithUDB(2 * time.Minute)
 			if err != nil {
 				jww.ERROR.Printf("Could not register with UDB: %+v", err)
 			}
@@ -454,7 +475,7 @@ var rootCmd = &cobra.Command{
 
 		if searchForUser != "" {
 			udbLister = newUserSearcher()
-			client.SearchForUser(searchForUser, udbLister)
+			client.SearchForUser(searchForUser, udbLister, 2*time.Minute)
 		}
 
 		if message != "" {

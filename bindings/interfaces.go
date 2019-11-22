@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2019 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
@@ -27,14 +33,21 @@ type Message interface {
 // and a results the types can be passed freely between the two
 type Storage interface {
 	// Give a Location for storage.  Does not need to be implemented if unused.
-	SetLocation(string) error
+	SetLocation(string, string) error
 	// Returns the Location for storage.
 	// Does not need to be implemented if unused.
 	GetLocation() string
-	// Stores the passed byte slice
-	Save([]byte) error
-	// Returns the stored byte slice
-	Load() []byte
+	// Stores the passed byte slice to location A
+	SaveA([]byte) error
+	// Returns the stored byte slice stored in location A
+	LoadA() []byte
+	// Stores the passed byte slice to location B
+	SaveB([]byte) error
+	// Returns the stored byte slice stored in location B
+	LoadB() []byte
+	// Returns whether the storage has even been written to.
+	// if something exists in A or B
+	IsEmpty() bool
 }
 
 // Translate a bindings storage to a client storage

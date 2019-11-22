@@ -69,24 +69,24 @@ type TestInterface struct {
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
 func (m *TestInterface) GetMessage(userId *id.User,
-	msgId string) (*pb.Slot, bool) {
-	return &pb.Slot{}, true
+	msgId, ipaddr string) (*pb.Slot, error) {
+	return &pb.Slot{}, nil
 }
 
 // Return any MessageIDs in the globals for this User
 func (m *TestInterface) CheckMessages(userId *id.User,
-	messageID string) ([]string, bool) {
-	return make([]string, 0), true
+	messageID, ipaddr string) ([]string, error) {
+	return make([]string, 0), nil
 }
 
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
-func (m *TestInterface) PutMessage(msg *pb.Slot) bool {
+func (m *TestInterface) PutMessage(msg *pb.Slot, ipaddr string) error {
 	m.LastReceivedMessage = *msg
-	return true
+	return nil
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error) {
+func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
 		ClientSignedByServer: &pb.RSASignature{},
 	}
@@ -168,7 +168,7 @@ func getDHPubKey() *cyclic.Int {
 }
 
 // Pass-through for Registration Nonce Communication
-func (m *TestInterface) RequestNonce(message *pb.NonceRequest) (*pb.Nonce, error) {
+func (m *TestInterface) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
 	dh := getDHPubKey().Bytes()
 	return &pb.Nonce{
 		DHPubKey: dh,
@@ -177,25 +177,37 @@ func (m *TestInterface) RequestNonce(message *pb.NonceRequest) (*pb.Nonce, error
 
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
-	Location string
-	LastSave []byte
-	mutex    sync.Mutex
+	LocationA string
+	LocationB string
+	StoreA    []byte
+	StoreB    []byte
+	mutex     sync.Mutex
 }
 
-func (d *DummyStorage) SetLocation(l string) error {
-	d.Location = l
+func (d *DummyStorage) IsEmpty() bool {
+	return d.StoreA == nil && d.StoreB == nil
+}
+
+func (d *DummyStorage) SetLocation(lA, lB string) error {
+	d.LocationA = lA
+	d.LocationB = lB
 	return nil
 }
 
-func (d *DummyStorage) GetLocation() string {
-	return d.Location
+func (d *DummyStorage) GetLocation() (string, string) {
+	//return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
+	return d.LocationA, d.LocationB
 }
 
-func (d *DummyStorage) Save(b []byte) error {
-	d.LastSave = make([]byte, len(b))
-	for i := 0; i < len(b); i++ {
-		d.LastSave[i] = b[i]
-	}
+func (d *DummyStorage) SaveA(b []byte) error {
+	d.StoreA = make([]byte, len(b))
+	copy(d.StoreA, b)
+	return nil
+}
+
+func (d *DummyStorage) SaveB(b []byte) error {
+	d.StoreB = make([]byte, len(b))
+	copy(d.StoreB, b)
 	return nil
 }
 
@@ -207,8 +219,12 @@ func (d *DummyStorage) Unlock() {
 	d.mutex.Unlock()
 }
 
-func (d *DummyStorage) Load() []byte {
-	return d.LastSave
+func (d *DummyStorage) LoadA() []byte {
+	return d.StoreA
+}
+
+func (d *DummyStorage) LoadB() []byte {
+	return d.StoreB
 }
 
 type DummyReceiver struct {

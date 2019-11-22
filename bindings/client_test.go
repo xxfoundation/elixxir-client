@@ -25,6 +25,7 @@ import (
 	"math/rand"
 	"os"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -106,13 +107,13 @@ func TestNewClientNil(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	_, err := NewClient(nil, "", ndfStr, pubKey,
+	_, err := NewClient(nil, "", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, nil) input!")
 	}
 
-	_, err = NewClient(nil, "hello", "", "",
+	_, err = NewClient(nil, "", "", "", "hello",
 		&MockConStatCallback{})
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
@@ -120,11 +121,11 @@ func TestNewClientNil(t *testing.T) {
 }
 
 func TestNewClient(t *testing.T) {
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("NewClient returned error: %v", err)
@@ -140,8 +141,8 @@ func TestRegister(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	client.DisableTLS()
 	if err != nil {
@@ -153,7 +154,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.Register(true, ValidRegCode,
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
@@ -166,12 +167,19 @@ func TestRegister(t *testing.T) {
 	}
 }
 
+type DummyReceptionCallback struct{}
+
+func (*DummyReceptionCallback) Callback(error) {
+	return
+}
+
+
 func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
@@ -183,7 +191,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.Register(true, ValidRegCode,
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
@@ -192,7 +200,7 @@ func TestLoginLogout(t *testing.T) {
 	if len(loginRes) == 0 {
 		t.Errorf("Invalid login received: %v", loginRes)
 	}
-	err = client.StartMessageReceiver()
+	err = client.StartMessageReceiver(&DummyReceptionCallback{})
 	if err != nil {
 		t.Errorf("Could not start message reciever: %+v", err)
 	}
@@ -217,8 +225,8 @@ func TestListen(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	client.DisableTLS()
 	// Connect to gateway
@@ -228,7 +236,7 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.Register(true, ValidRegCode,
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 	_, err = client.Login(regRes, "")
 
@@ -258,8 +266,8 @@ func TestStopListening(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := api.DummyStorage{Location: "Blah", LastSave: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", ndfStr, pubKey,
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, "hello", "", ndfStr, pubKey,
 		&MockConStatCallback{})
 	client.DisableTLS()
 	// Connect to gateway
@@ -269,7 +277,7 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.Register(true, ValidRegCode,
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "")
 
 	_, err = client.Login(regRes, "")
@@ -457,4 +465,55 @@ func getNDF() *ndf.NetworkDefinition {
 			TlsCertificate: "",
 		},
 	}
+}
+
+// Mock dummy storage interface for testing.
+type DummyStorage struct {
+	LocationA string
+	LocationB string
+	StoreA    []byte
+	StoreB    []byte
+	mutex     sync.Mutex
+}
+
+func (d *DummyStorage) IsEmpty() bool {
+	return d.StoreA == nil && d.StoreB == nil
+}
+
+func (d *DummyStorage) SetLocation(lA, lB string) error {
+	d.LocationA = lA
+	d.LocationB = lB
+	return nil
+}
+
+func (d *DummyStorage) GetLocation() (string) {
+	return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
+}
+
+func (d *DummyStorage) SaveA(b []byte) error {
+	d.StoreA = make([]byte, len(b))
+	copy(d.StoreA, b)
+	return nil
+}
+
+func (d *DummyStorage) SaveB(b []byte) error {
+	d.StoreB = make([]byte, len(b))
+	copy(d.StoreB, b)
+	return nil
+}
+
+func (d *DummyStorage) Lock() {
+	d.mutex.Lock()
+}
+
+func (d *DummyStorage) Unlock() {
+	d.mutex.Unlock()
+}
+
+func (d *DummyStorage) LoadA() []byte {
+	return d.StoreA
+}
+
+func (d *DummyStorage) LoadB() []byte {
+	return d.StoreB
 }

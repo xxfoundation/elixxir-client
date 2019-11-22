@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -11,23 +11,29 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
-	"errors"
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/id"
 	"strings"
+	"time"
 )
+
+var pushkeyExpected = "PUSHKEY COMPLETE"
+var pushkeyErrorExpected = "Could not push key"
 
 // Register sends a registration message to the UDB. It does this by sending 2
 // PUSHKEY messages to the UDB, then calling UDB's REGISTER command.
 // If any of the commands fail, it returns an error.
 // valueType: Currently only "EMAIL"
-func Register(valueType, value string, publicKey []byte, regStatus func(int)) error {
+func Register(valueType, value string, publicKey []byte, regStatus func(int), timeout time.Duration) error {
 	globals.Log.DEBUG.Printf("Running register for %v, %v, %q", valueType,
 		value, publicKey)
+
+	registerTimeout := time.NewTimer(timeout)
 
 	var err error
 	if valueType == "EMAIL" {
@@ -41,17 +47,36 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 
 	regStatus(globals.UDB_REG_PUSHKEY)
 
-	// check if key already exists and push one if it doesn't
+	// push key and error if it already exists
 	err = pushKey(UdbID, keyFP, publicKey)
+
 	if err != nil {
-		errStr := err.Error()
-		if strings.HasSuffix(errStr, "key already exists") {
-			// Already registered
-			return nil
-		}
-		return fmt.Errorf("Could not PUSHKEY: %s", errStr)
+		return errors.Wrap(err, "Could not PUSHKEY")
 	}
 
+	var response string
+
+	// wait for the response to submitting the key against the timeout.
+	// discard responses from other searches
+	submitted := false
+
+	for !submitted {
+		select {
+		case response = <-pushKeyResponseListener:
+			if strings.Contains(response, keyFP) {
+				if strings.Contains(response, pushkeyExpected) {
+					submitted = true
+				} else {
+					err := errors.New(response)
+					return errors.Wrap(err, "PushKey failed")
+				}
+			}
+		case <-registerTimeout.C:
+			return errors.New("UDB register timeout exceeded on key submission")
+		}
+	}
+
+	//send the user information to udb
 	msgBody := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_REGISTER),
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
@@ -60,23 +85,41 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int)) er
 	regStatus(globals.UDB_REG_PUSHUSER)
 
 	// Send register command
+	// Send register command
 	err = sendCommand(UdbID, msgBody)
-	if err == nil {
-		regResult := <-registerResponseListener
-		if regResult != "REGISTRATION COMPLETE" {
-			return fmt.Errorf("Registration failed: %s", regResult)
-		}
-		return nil
-	} else {
-		return err
+	if err != nil {
+		return errors.Wrap(err, "Could not Push User")
 	}
+
+	// wait for the response to submitting the key against the timeout.
+	// discard responses from other searches
+	complete := false
+
+	for !complete {
+		select {
+		case response = <-registerResponseListener:
+			expected := "REGISTRATION COMPLETE"
+			unavalibleReg := "Can not register with existing email"
+			if strings.Contains(response, expected) {
+				complete = true
+			} else if strings.Contains(response, value) && strings.Contains(response, unavalibleReg) {
+				return errors.New("Cannot register with existing username")
+			}
+		case <-registerTimeout.C:
+			return errors.New("UDB register timeout exceeded on user submission")
+		}
+	}
+
+	return nil
 }
 
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, error) {
+func Search(valueType, value string, searchStatus func(int), timeout time.Duration) (*id.User, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
+
+	searchTimeout := time.NewTimer(timeout)
 
 	var err error
 	if valueType == "EMAIL" {
@@ -96,11 +139,28 @@ func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, 
 	if err != nil {
 		return nil, nil, err
 	}
-	response := <-searchResponseListener
-	empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
-	if response == empty {
-		return nil, nil, nil
+
+	var response string
+
+	// wait for the response to searching for the value against the timeout.
+	// discard responses from other searches
+	found := false
+
+	for !found {
+		select {
+		case response = <-searchResponseListener:
+			empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
+			if response == empty {
+				return nil, nil, nil
+			}
+			if strings.Contains(response, value) {
+				found = true
+			}
+		case <-searchTimeout.C:
+			return nil, nil, errors.New("UDB search timeout exceeded on user lookup")
+		}
 	}
+
 	// While search returns more than 1 result, we only process the first
 	cMixUID, keyFP := parseSearch(response)
 	if *cMixUID == *id.ZeroID {
@@ -118,15 +178,22 @@ func Search(valueType, value string, searchStatus func(int)) (*id.User, []byte, 
 	if err != nil {
 		return nil, nil, err
 	}
-	response = <-getKeyResponseListener
-	publicKey := parseGetKey(response)
 
-	actualFP := fingerprint(publicKey)
-	if keyFP != actualFP {
-		return nil, nil, fmt.Errorf("Fingerprint for %s did not match %s!",
-			keyFP,
-			actualFP)
+	// wait for the response to searching for the key against the timeout.
+	// discard responses from other searches
+	found = false
+	for !found {
+		select {
+		case response = <-getKeyResponseListener:
+			if strings.Contains(response, keyFP) {
+				found = true
+			}
+		case <-searchTimeout.C:
+			return nil, nil, errors.New("UDB search timeout exceeded on key lookup")
+		}
 	}
+
+	publicKey := parseGetKey(response)
 
 	return cMixUID, publicKey, nil
 }
@@ -193,19 +260,13 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
 	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
 		publicKeyString)
-	expected := fmt.Sprintf("PUSHKEY COMPLETE %s", keyFP)
 
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 
-	sendCommand(udbID, parse.Pack(&parse.TypedBody{
+	return sendCommand(udbID, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
 		Body:        []byte(pushKeyMsg),
 	}))
-	response := <-pushKeyResponseListener
-	if response != expected {
-		return fmt.Errorf("PUSHKEY Failed: %s", response)
-	}
-	return nil
 }
 
 // keyExists checks for the existence of a key on the bot

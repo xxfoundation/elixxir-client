@@ -11,6 +11,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
@@ -39,7 +40,7 @@ func TestRegistrationGob(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -52,7 +53,12 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.Register(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Error(err)
 	}
@@ -76,7 +82,7 @@ func TestClient_Register(t *testing.T) {
 	startServers()
 
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	if err != nil {
@@ -89,7 +95,12 @@ func TestClient_Register(t *testing.T) {
 		t.Error(err)
 	}
 	// populate a gob in the store
-	_, err = testClient.Register(false, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = testClient.RegisterWithNodes()
 	if err != nil {
 		t.Error(err)
 	}
@@ -124,10 +135,10 @@ func VerifyRegisterGobKeys(session user.Session, topology *circuit.Circuit, t *t
 	h.Write([]byte(string(40005)))
 	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
 
-	if session.GetKeys(topology)[0].TransmissionKey.Cmp(
+	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
 		expectedTransmissionBaseKey) != 0 {
 		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetKeys(topology)[0].TransmissionKey.Text(16),
+			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
 			expectedTransmissionBaseKey.Text(16))
 	}
 
@@ -229,7 +240,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -251,7 +262,7 @@ func TestRegisterUserE2E(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
 		e2eGrp, "password", regSignature)
 
 	testClient.session = session
@@ -323,7 +334,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def, dummyConnectionStatusHandler)
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def, dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
 	}
@@ -347,7 +358,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	myUser := &user.User{User: userID, Nick: "test"}
 	session := user.NewSession(testClient.storage,
 		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, cmixGrp,
+		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
 		e2eGrp, "password", regSignature)
 
 	testClient.session = session
@@ -477,7 +488,7 @@ func TestClient_precannedRegister(t *testing.T) {
 	startServers()
 
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 
 	if err != nil {
@@ -507,7 +518,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	startServers()
 
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -544,7 +555,7 @@ func TestClient_requestNonce(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -576,7 +587,7 @@ func TestClient_confirmNonce(t *testing.T) {
 	//Start up gateways and registration server
 	startServers()
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", def,
+	testClient, err := NewClient(&globals.RamStorage{}, "", "", def,
 		dummyConnectionStatusHandler)
 	if err != nil {
 		t.Error(err)
@@ -634,5 +645,35 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 		large.NewIntFromString("2", 16))
 
 	return cmixGrp, e2eGrp
+
+}
+
+// Test happy path for client.GetSession
+func TestClient_GetSession(t *testing.T) {
+
+	//Start client
+	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def,
+		dummyConnectionStatusHandler)
+
+	testClient.session = &user.SessionObj{}
+
+	if !reflect.DeepEqual(testClient.GetSession(), testClient.session) {
+		t.Error("Received session not the same as the real session")
+	}
+
+}
+
+// Test happy path for client.GetCommManager
+func TestClient_GetCommManager(t *testing.T) {
+
+	//Start client
+	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def,
+		dummyConnectionStatusHandler)
+
+	testClient.commManager = &io.CommManager{}
+
+	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.commManager) {
+		t.Error("Received session not the same as the real session")
+	}
 
 }

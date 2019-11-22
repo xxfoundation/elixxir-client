@@ -9,8 +9,8 @@ cache:
 variables:
   REPO_DIR: gitlab.com/elixxir
   REPO_NAME: client
-  DOCKER_IMAGE: bmastc/golang-glide:latest
-  MIN_CODE_COVERAGE: "73"
+  DOCKER_IMAGE: golang:1.13.4-buster
+  MIN_CODE_COVERAGE: "72"
 
 before_script:
   ##
@@ -19,17 +19,19 @@ before_script:
   - go version || echo "Go executable not found."
   - echo $CI_BUILD_REF
   - echo $CI_PROJECT_DIR
-  - mkdir -p $GOPATH/src/$REPO_DIR
-  - ln -s $CI_PROJECT_DIR $GOPATH/src/$REPO_DIR/$REPO_NAME
-  - cd $GOPATH/src/$REPO_DIR/$REPO_NAME
   - echo $PWD
+  - eval $(ssh-agent -s)
+  - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
+  - mkdir -p ~/.ssh
+  - chmod 700 ~/.ssh
+  - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
+  - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
+  - export GOFLAGS=-mod=vendor
 
 stages:
   - setup
   - test
   - build
-  - release
-  - deploy
   - trigger_integration
   - trigger_release_integration
 
@@ -37,41 +39,9 @@ setup:
   stage: setup
   image: $DOCKER_IMAGE
   script:
-    # https://docs.gitlab.com/ee/ci/ssh_keys/README.html
-
-    ##
-    ## Run ssh-agent (inside the build environment)
-    ##
-    - eval $(ssh-agent -s)
-
-    ##
-    ## Add the SSH key stored in SSH_PRIVATE_KEY variable to the agent store
-    ## We're using tr to fix line endings which makes ed25519 keys work
-    ## without extra base64 encoding.
-    ## https://gitlab.com/gitlab-examples/ssh-private-key/issues/1#note_48526556
-    ##
-    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
-
-    ##
-    ## Create the SSH directory and give it the right permissions
-    ##
-    - mkdir -p ~/.ssh
-    - chmod 700 ~/.ssh
-
-    ##
-    ## Add SSH key for gitlab.com
-    ##
-    - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
-
-    ##
-    ## Glide diagnostics
-    ##
-    - glide --version
-
-    - git clean -ffdx
-    - rm -fr /root/.glide
-    - rm -fr ~/.glide
-    - glide install -v
+    - go mod vendor -v
+    - go build ./...
+    - go mod tidy
   artifacts:
     paths:
      - vendor/
@@ -80,6 +50,10 @@ test:
   stage: test
   image: $DOCKER_IMAGE
   script:
+    - GO111MODULE=off go get -u github.com/haya14busa/goverage
+    - apt-get update
+    - apt-get install bc -y
+
     - mkdir -p testdata
 
     # Test coverage
@@ -113,48 +87,25 @@ build:
     paths:
      - release/
 
-release:
-  stage: release
-  image: docker:latest
+bindings:
+  stage: build
+  tags: 
+    - ios
   script:
-    - cd release
-    # - docker login -u gitlab-ci-token -p ${CI_BUILD_TOKEN} ${CI_REGISTRY}
-    # - docker build -t ${CONTAINER_IMAGE} .
-    # - docker tag ${CONTAINER_IMAGE} ${CONTAINER_IMAGE_LATEST}
-    # - docker push ${CONTAINER_IMAGE}
-    # - docker push ${CONTAINER_IMAGE_LATEST}
-
-deploy_staging:
-  stage: deploy
-  image: lwolf/helm-kubectl-docker:v152_213
-  before_script:
-    - mkdir -p /etc/deploy
-    # - echo ${kube_config} | base64 -d > ${KUBECONFIG}
-    # - kubectl config use-context homekube
-    # - helm init --client-only
-    # - helm repo add stable https://kubernetes-charts.storage.googleapis.com/
-    # - helm repo add incubator https://kubernetes-charts-incubator.storage.googleapis.com/
-    # - helm repo update
-  script:
-    - cd /etc/deploy
-    # - helm dep build
-    # - export API_VERSION="$(grep "appVersion" Chart.yaml | cut -d" " -f2)"
-    # - export RELEASE_NAME="libr-files-v${API_VERSION/./-}"
-    # - export DEPLOYS=$(helm ls | grep $RELEASE_NAME | wc -l)
-    # - if [ ${DEPLOYS}  -eq 0 ]; then helm install --name=${RELEASE_NAME} . --namespace=${STAGING_NAMESPACE}; else helm upgrade ${RELEASE_NAME} . --namespace=${STAGING_NAMESPACE}; fi
-  environment:
-    name: staging
-    # url: https://librerio.example.com
-  only:
-  - master
+    - GO111MODULE=off go get golang.org/x/mobile/cmd/gomobile
+    - GO111MODULE=off go get gitlab.com/elixxir/client
+    - GO111MODULE=off gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - GO111MODULE=off gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    - zip -r iOS.zip Bindings.framework
+  artifacts:
+    paths:
+      - iOS.zip
+      - bindings.aar
+      - bindings-sources.jar
 
 trigger_integration:
   stage: trigger_integration
   script:
-    # client-consoleUI
-    # - "curl -X POST -F token=d1888aeb7d0e1e6573b313a59ff16e -F ref=master https://gitlab.com/api/v4/projects/5681102/trigger/pipeline"
-    # channelbot
-    # - "curl -X POST -F token=de4b7c93b0c2ce5d76e8780ab0fd73 -F ref=master https://gitlab.com/api/v4/projects/6204331/trigger/pipeline"
     # UDB
     - "curl -X POST -F token=dcf1a672991bbc2520e96cea271b5a -F ref=master https://gitlab.com/api/v4/projects/6317316/trigger/pipeline"
     # integration
@@ -165,10 +116,6 @@ trigger_integration:
 trigger_release_integration:
   stage: trigger_release_integration
   script:
-    # client-consoleUI
-    # - "curl -X POST -F token=d1888aeb7d0e1e6573b313a59ff16e -F ref=release https://gitlab.com/api/v4/projects/5681102/trigger/pipeline"
-    # channelbot
-    # - "curl -X POST -F token=de4b7c93b0c2ce5d76e8780ab0fd73 -F ref=release https://gitlab.com/api/v4/projects/6204331/trigger/pipeline"
     # UDB
     - "curl -X POST -F token=dcf1a672991bbc2520e96cea271b5a -F ref=release https://gitlab.com/api/v4/projects/6317316/trigger/pipeline"
     # integration

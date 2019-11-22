@@ -60,7 +60,8 @@ type CommManager struct {
 	transmitDelay time.Duration
 	// Map that holds a record of the messages that this client successfully
 	// received during this session
-	receivedMessages map[string]struct{}
+	receivedMessages   map[string]struct{}
+	recievedMesageLock sync.RWMutex
 
 	sendLock sync.Mutex
 
@@ -78,7 +79,7 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 
 	status := uint32(0)
 
-	cm := CommManager{
+	cm := &CommManager{
 		nextId:                   parse.IDCounter(),
 		collator:                 NewCollator(),
 		blockTransmissions:       true,
@@ -94,7 +95,9 @@ func NewCommManager(ndf *ndf.NetworkDefinition,
 		connectionStatus:         &status,
 	}
 
-	return &cm
+	cm.Comms.ConnectionManager.SetMaxRetries(1)
+
+	return cm
 }
 
 // Connects to gateways using tls filepaths to create credential information
@@ -106,8 +109,6 @@ func (cm *CommManager) ConnectToGateways() error {
 	}
 
 	cm.setConnectionStatus(Connecting, 0)
-
-	cm.Comms.ConnectionManager.SetMaxRetries(1)
 
 	// connect to all gateways
 	var wg sync.WaitGroup
@@ -203,6 +204,8 @@ func (cm *CommManager) GetUpdatedNDF(currentNDF *ndf.NetworkDefinition) (*ndf.Ne
 	}
 
 	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
+
+	globals.Log.INFO.Printf("Remote NDF: %s", string(response.Ndf))
 
 	//Otherwise pull the ndf out of the response
 	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))

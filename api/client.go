@@ -178,7 +178,7 @@ func requestNdf(cl *Client) error {
 		}
 
 		errMsg := errors.Errorf("Failed to get updated ndf: %v", err)
-		return errors.New(errMsg)
+		return errMsg
 	}
 
 	cl.ndf = newNDf

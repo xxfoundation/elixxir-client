@@ -9,7 +9,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/globals"

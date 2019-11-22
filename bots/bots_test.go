@@ -19,7 +19,6 @@ import (
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
@@ -36,7 +35,7 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
@@ -46,7 +45,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
@@ -81,7 +80,7 @@ func TestMain(m *testing.M) {
 		listener: ListenCh,
 	}
 	h := connect.Host{}
-	topology := circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
+	topology := connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
 
 	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")), &h)
 
@@ -196,7 +195,7 @@ type errorMessaging struct{}
 
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
@@ -205,7 +204,7 @@ func (e *errorMessaging) SendMessage(sess user.Session,
 
 // SendMessage no partition that just errors out
 func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {

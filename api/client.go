@@ -23,12 +23,12 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/tls"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -42,7 +42,7 @@ type Client struct {
 	session             user.Session
 	commManager         *io.ReceptionManager
 	ndf                 *ndf.NetworkDefinition
-	topology            *circuit.Circuit
+	topology            *connect.Circuit
 	opStatus            OperationProgressCallback
 	rekeyChan           chan struct{}
 	registrationVersion string

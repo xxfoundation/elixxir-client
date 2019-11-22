@@ -10,10 +10,10 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"math/rand"
@@ -47,7 +47,7 @@ func TestUserSession(t *testing.T) {
 		ReceptionKey:    grp.NewInt(2),
 	}
 
-	topology := circuit.New([]*id.Node{nodeID})
+	topology := connect.NewCircuit([]*id.Node{nodeID})
 
 	// Storage
 	storage := &globals.RamStorage{}

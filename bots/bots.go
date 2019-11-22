@@ -7,13 +7,12 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
-var topology *circuit.Circuit
+var topology *connect.Circuit
 var comms io.Communications
 var transmissionHost *connect.Host
 
@@ -51,7 +50,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *id.User, host *connect.Host) {
+func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *id.User, host *connect.Host) {
 	UdbID = udbID
 
 	// FIXME: these all need to be used in non-blocking threads if we are

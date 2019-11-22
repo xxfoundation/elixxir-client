@@ -5,7 +5,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/primitives/circuit"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 )
@@ -65,7 +65,7 @@ func (cl *Client) InitNetwork() error {
 		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
 	}
 
-	cl.topology = circuit.New(nodeIDs)
+	cl.topology = connect.NewCircuit(nodeIDs)
 
 	return AddGatewayHosts(cl.commManager, cl.ndf)
 }

@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -22,7 +23,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
@@ -122,7 +122,7 @@ func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 	}
 }
 
-func VerifyRegisterGobKeys(session user.Session, topology *circuit.Circuit, t *testing.T) {
+func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
 	cmixGrp, _ := getGroups()
 	h := sha256.New()
 	h.Write([]byte(string(40005)))

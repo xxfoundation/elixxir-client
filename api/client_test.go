@@ -32,13 +32,7 @@ import (
 
 var TestKeySize = 768
 
-func dummyConnectionStatusHandler(status uint32, timeout int) {
-	return
-}
-
 func TestRegistrationGob(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
@@ -71,14 +65,11 @@ func TestRegistrationGob(t *testing.T) {
 	VerifyRegisterGobUser(Session, t)
 	VerifyRegisterGobKeys(Session, testClient.topology, t)
 
-	killServers()
+	disconnectServers()
 }
 
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	//Make mock client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 
@@ -112,7 +103,7 @@ func TestClient_Register(t *testing.T) {
 
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
-	killServers()
+	disconnectServers()
 }
 
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
@@ -233,9 +224,6 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
@@ -322,14 +310,11 @@ func TestRegisterUserE2E(t *testing.T) {
 		t.Errorf("Key type expected 'Rekey', got %s",
 			key.GetOuterType())
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
 		t.Error(err)
@@ -475,14 +460,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 				key.GetKey().Text(10))
 		}
 	}
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 
@@ -503,13 +485,11 @@ func TestClient_precannedRegister(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for sendRegistrationMessage
 func TestClient_sendRegistrationMessage(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 
 	//Start client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
@@ -532,14 +512,11 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	}
 
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for requestNonce
 func TestClient_requestNonce(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
-
 	cmixGrp, _ := getGroups()
 	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewMaxInt())
 	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewMaxInt())
@@ -569,13 +546,11 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Errorf("Error during requestNonce: %+v", err)
 	}
 
-	killServers()
+	disconnectServers()
 }
 
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
-	//Start up gateways and registration server
-	startServers()
 
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
 	if err != nil {
@@ -594,7 +569,7 @@ func TestClient_confirmNonce(t *testing.T) {
 		t.Errorf("Error during confirmNonce: %+v", err)
 	}
 	//Disconnect and shutdown servers
-	killServers()
+	disconnectServers()
 }
 
 func getGroups() (*cyclic.Group, *cyclic.Group) {

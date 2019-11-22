@@ -283,6 +283,9 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
 	receptionHost, ok := cl.commManager.Comms.GetHost(receptionGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
+	}
 
 	go func() {
 		defer func() {
@@ -525,6 +528,42 @@ func (cl *Client) GetSession() user.Session {
 // at your own risk
 func (cl *Client) GetCommManager() *io.ReceptionManager {
 	return cl.commManager
+}
+
+// LoadSessionText: load the encrypted session as a string
+func (cl *Client) LoadEncryptedSession() (string, error) {
+	encryptedSession, err := cl.GetSession().LoadEncryptedSession(cl.storage)
+	if err != nil {
+		return "", err
+	}
+	//Encode session to bas64 for useability
+	encodedSession := base64.StdEncoding.EncodeToString(encryptedSession)
+
+	return encodedSession, nil
+}
+
+//WriteToSession: Writes an arbitrary string to the session file
+// Takes in a string that is base64 encoded (meant to be output of LoadEncryptedSession)
+func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) error {
+	//This call must not occur prior to a newClient call, thus check that client has been initialized
+	if cl.ndf == nil || cl.topology == nil {
+		errMsg := errors.Errorf("Cannot write to session if client hasn't been created yet")
+		return errMsg
+	}
+	//Decode the base64 encoded replacement string (assumed to be encoded form LoadEncryptedSession)
+	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
+	if err != nil {
+		errMsg := errors.Errorf("Failed to decode replacment string: %+v", err)
+		return errMsg
+	}
+	//Write the new session data to both locations
+	err = user.WriteToSession(decodedSession, store)
+	if err != nil {
+		errMsg := errors.Errorf("Failed to store session: %+v", err)
+		return errMsg
+	}
+
+	return nil
 }
 
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it

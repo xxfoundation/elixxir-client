@@ -71,6 +71,8 @@ type Session interface {
 	GetContactByValue(string) (*id.User, []byte)
 	StoreContactByValue(string, *id.User, []byte)
 	DeleteContact(*id.User) (string, error)
+	GetSessionLocation() uint8
+	LoadEncryptedSession(store globals.Storage) ([]byte, error)
 }
 
 type NodeKeys struct {
@@ -126,31 +128,9 @@ func LoadSession(store globals.Storage,
 		return nil, err
 	}
 
-	var wrappedSession *SessionStorageWrapper
-	loadLocation := globals.NoSave
-
-	//load sessions
-	wrappedSessionA, errA := processSessionWrapper(store.LoadA(), password)
-	wrappedSessionB, errB := processSessionWrapper(store.LoadB(), password)
-
-	//figure out which session to use
-	if errA != nil && errB != nil {
-		return nil, fmt.Errorf("Loading both sessions errored: \n "+
-			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
-	} else if errA == nil && errB != nil {
-		loadLocation = globals.LocationA
-		wrappedSession = wrappedSessionA
-	} else if errA != nil && errB == nil {
-		loadLocation = globals.LocationB
-		wrappedSession = wrappedSessionB
-	} else {
-		if wrappedSessionA.Timestamp.After(wrappedSessionB.Timestamp) {
-			loadLocation = globals.LocationA
-			wrappedSession = wrappedSessionA
-		} else {
-			loadLocation = globals.LocationB
-			wrappedSession = wrappedSessionB
-		}
+	wrappedSession, loadLocation, err := processSession(store, password)
+	if err != nil {
+		return nil, err
 	}
 
 	//extract teh session from the wrapper
@@ -161,7 +141,7 @@ func LoadSession(store globals.Storage,
 
 	session := SessionObj{}
 
-	err := dec.Decode(&session)
+	err = dec.Decode(&session)
 	if err != nil {
 		return nil, errors.Wrap(err, "Unable to decode session")
 	}
@@ -180,6 +160,65 @@ func LoadSession(store globals.Storage,
 	session.store = store
 	session.password = password
 	return &session, nil
+}
+
+//processSession: gets the loadLocation and decrypted wrappedSession
+func processSession(store globals.Storage, password string) (*SessionStorageWrapper, uint8, error) {
+	var wrappedSession *SessionStorageWrapper
+	loadLocation := globals.NoSave
+	//load sessions
+	wrappedSessionA, errA := processSessionWrapper(store.LoadA(), password)
+	wrappedSessionB, errB := processSessionWrapper(store.LoadB(), password)
+
+	//figure out which session to use of the two locations
+	if errA != nil && errB != nil {
+		return nil, globals.NoSave, errors.Errorf("Loading both sessions errored: \n "+
+			"SESSION A ERR: %s \n SESSION B ERR: %s", errA, errB)
+	} else if errA == nil && errB != nil {
+		loadLocation = globals.LocationA
+		wrappedSession = wrappedSessionA
+	} else if errA != nil && errB == nil {
+		loadLocation = globals.LocationB
+		wrappedSession = wrappedSessionB
+	} else {
+		if wrappedSessionA.Timestamp.After(wrappedSessionB.Timestamp) {
+			loadLocation = globals.LocationA
+			wrappedSession = wrappedSessionA
+		} else {
+			loadLocation = globals.LocationB
+			wrappedSession = wrappedSessionB
+		}
+	}
+	return wrappedSession, loadLocation, nil
+
+}
+
+func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
+
+	if sessionGob == nil || len(sessionGob) < 12 {
+		return nil, errors.New("No session file passed")
+	}
+
+	decryptedSessionGob, err := decrypt(sessionGob, password)
+
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not decode the "+
+			"session wrapper")
+	}
+
+	var sessionBytes bytes.Buffer
+
+	sessionBytes.Write(decryptedSessionGob)
+	dec := gob.NewDecoder(&sessionBytes)
+
+	wrappedSession := SessionStorageWrapper{}
+
+	err = dec.Decode(&wrappedSession)
+	if err != nil {
+		return nil, errors.Wrap(err, "Unable to decode session wrapper")
+	}
+
+	return &wrappedSession, nil
 }
 
 // Struct holding relevant session data
@@ -238,6 +277,33 @@ type SessionObj struct {
 	ContactsByValue map[string]SearchedUserRecord
 }
 
+//WriteToSession: Writes to the location where session is being stored the arbitrary replacement string
+// The replacement string is meant to be the output of a loadEncryptedSession
+func WriteToSession(replacement []byte, store globals.Storage) error {
+	//Write to both
+	err := store.SaveA(replacement)
+	if err != nil {
+		return errors.Errorf("Failed to save to session A: %v", err)
+	}
+	err = store.SaveB(replacement)
+	if err != nil {
+		return errors.Errorf("Failed to save to session B: %v", err)
+	}
+
+	return nil
+}
+
+//LoadEncryptedSession: gets the encrypted session file from storage
+// Returns it as a base64 encoded string
+func (s *SessionObj) LoadEncryptedSession(store globals.Storage) ([]byte, error) {
+	sessionData, _, err := processSession(store, s.password)
+	if err != nil {
+		return make([]byte, 0), err
+	}
+	encryptedSession := encrypt(sessionData.Session, s.password)
+	return encryptedSession, nil
+}
+
 type SearchedUserRecord struct {
 	Id id.User
 	Pk []byte
@@ -246,6 +312,7 @@ type SearchedUserRecord struct {
 func (s *SessionObj) GetLastMessageID() string {
 	s.LockStorage()
 	defer s.UnlockStorage()
+
 	return s.LastMessageID
 }
 
@@ -409,7 +476,6 @@ func (s *SessionObj) storeSession() error {
 	sessionData, err := s.getSessionData()
 
 	encryptedSession := encrypt(sessionData, s.password)
-
 	if s.storageLocation == globals.LocationA {
 		err = s.store.SaveB(encryptedSession)
 		if err != nil {
@@ -630,34 +696,6 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	return tempBuffer
 }
 
-func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
-
-	if sessionGob == nil || len(sessionGob) < 12 {
-		return nil, errors.New("No session file passed")
-	}
-
-	decryptedSessionGob, err := decrypt(sessionGob, password)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "Could not decode the "+
-			"session wrapper")
-	}
-
-	var sessionBytes bytes.Buffer
-
-	sessionBytes.Write(decryptedSessionGob)
-	dec := gob.NewDecoder(&sessionBytes)
-
-	wrappedSession := SessionStorageWrapper{}
-
-	err = dec.Decode(&wrappedSession)
-	if err != nil {
-		return nil, errors.Wrap(err, "Unable to decode session wrapper")
-	}
-
-	return &wrappedSession, nil
-}
-
 func (s *SessionObj) GetContactByValue(v string) (*id.User, []byte) {
 	s.LockStorage()
 	defer s.UnlockStorage()
@@ -702,4 +740,13 @@ func (s *SessionObj) DeleteContact(uid *id.User) (string, error) {
 	return "", errors.Errorf("No user found in usermap with userid: %s",
 		uid)
 
+}
+
+func (s *SessionObj) GetSessionLocation() uint8 {
+	if s.storageLocation == globals.LocationA {
+		return globals.LocationA
+	} else if s.storageLocation == globals.LocationB {
+		return globals.LocationB
+	}
+	return globals.NoSave
 }

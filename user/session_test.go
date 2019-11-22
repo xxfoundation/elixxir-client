@@ -7,6 +7,7 @@
 package user
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -295,6 +296,125 @@ func TestGetPubKey(t *testing.T) {
 	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
 		t.Errorf("Public key not returned correctly!")
+	}
+}
+
+//Tests the isEmpty function before and after StoreSession
+func TestSessionObj_StorageIsEmpty(t *testing.T) {
+	// Generate all the values needed for a session
+	u := new(User)
+	// This is 65 so you can see the letter A in the gob if you need to make
+	// sure that the gob contains the user ID
+	UID := uint64(65)
+
+	u.User = id.NewUserFromUint(UID, t)
+	u.Nick = "Mario"
+
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	nodeID := id.NewNodeFromUInt(1, t)
+
+	keys[*nodeID] = NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	}
+
+	// Storage
+	storage := &globals.RamStorage{}
+
+	//Keys
+	rng := rand.New(rand.NewSource(42))
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
+	cmixGrp, e2eGrp := getGroups()
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	//Crate the session
+	ses := NewSession(storage,
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+
+	ses.SetLastMessageID("totally unique ID")
+
+	//Test that the session is empty before the StoreSession call
+	if !ses.StorageIsEmpty() {
+		t.Errorf("session should be empty before a StoreSession call")
+	}
+	err := ses.StoreSession()
+	if err != nil {
+		t.Errorf("Failed to store session: %v", err)
+	}
+
+	//Test that the session is not empty after the StoreSession call
+	if ses.StorageIsEmpty() {
+		t.Errorf("session should not be empty after a StoreSession call")
+	}
+
+}
+
+// GetContactByValue happy path
+func TestSessionObj_GetContactByValue(t *testing.T) {
+	// Generate all the values needed for a session
+	u := new(User)
+	// This is 65 so you can see the letter A in the gob if you need to make
+	// sure that the gob contains the user ID
+	UID := uint64(65)
+
+	u.User = id.NewUserFromUint(UID, t)
+	u.Nick = "Mario"
+
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	nodeID := id.NewNodeFromUInt(1, t)
+
+	keys[*nodeID] = NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	}
+
+	// Storage
+	storage := &globals.RamStorage{}
+
+	//Keys
+	rng := rand.New(rand.NewSource(42))
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
+	cmixGrp, e2eGrp := getGroups()
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	//Crate the session
+	ses := NewSession(storage,
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+
+	ses.StoreContactByValue("value", id.NewUserFromBytes([]byte("test")), []byte("test"))
+
+	observedUser, observedPk := ses.GetContactByValue("value")
+
+	if bytes.Compare([]byte("test"), observedPk) != 0 {
+		t.Errorf("Failed to retieve public key using GetContactByValue; "+
+			"Expected: %+v\n\tRecieved: %+v", privateKey.PublicKey.N.Bytes(), observedPk)
+	}
+
+	if !observedUser.Cmp(id.NewUserFromBytes([]byte("test"))) {
+		t.Errorf("Failed to retrieve user using GetContactByValue;"+
+			"Expected: %+v\n\tRecieved: %+v", u.User, observedUser)
 	}
 }
 

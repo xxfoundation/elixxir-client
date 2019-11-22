@@ -123,7 +123,7 @@ func (p *BindingsMessageProxy) GetRecipient() []byte {
 }
 
 // TODO Should we actually pass this over the boundary as a byte slice?
-// It's essentially a binary blob, so probably yes.
+//  It's essentially a binary blob, so probably yes.
 func (p *BindingsMessageProxy) GetPayload() []byte {
 	return p.Proxy.GetPayload()
 }

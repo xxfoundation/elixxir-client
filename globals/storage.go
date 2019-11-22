@@ -63,8 +63,6 @@ func (ds *DefaultStorage) LoadA() []byte {
 	return dsLoadHelper(ds.locationA)
 }
 
-
-
 func (ds *DefaultStorage) SaveB(data []byte) error {
 	return dsSaveHelper(ds.locationB, data)
 }
@@ -72,7 +70,6 @@ func (ds *DefaultStorage) SaveB(data []byte) error {
 func (ds *DefaultStorage) LoadB() []byte {
 	return dsLoadHelper(ds.locationB)
 }
-
 
 type RamStorage struct {
 	DataA []byte

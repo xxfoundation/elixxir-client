@@ -173,7 +173,6 @@ func (*DummyReceptionCallback) Callback(error) {
 	return
 }
 
-
 func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
@@ -486,7 +485,7 @@ func (d *DummyStorage) SetLocation(lA, lB string) error {
 	return nil
 }
 
-func (d *DummyStorage) GetLocation() (string) {
+func (d *DummyStorage) GetLocation() string {
 	return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
 }
 

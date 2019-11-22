@@ -269,25 +269,6 @@ func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
 	}))
 }
 
-// keyExists checks for the existence of a key on the bot
-func keyExists(udbID *id.User, keyFP string) bool {
-	globals.Log.DEBUG.Printf("Running keyexists for %q, %v", *udbID, keyFP)
-	cmd := parse.Pack(&parse.TypedBody{
-		MessageType: int32(cmixproto.Type_UDB_GET_KEY),
-		Body:        []byte(fmt.Sprintf("%s", keyFP)),
-	})
-	expected := fmt.Sprintf("GETKEY %s NOTFOUND", keyFP)
-	err := sendCommand(udbID, cmd)
-	if err != nil {
-		return false
-	}
-	getKeyResponse := <-getKeyResponseListener
-	if getKeyResponse != expected {
-		return true
-	}
-	return false
-}
-
 // fingerprint generates the same fingerprint that the udb should generate
 // TODO: Maybe move this helper to crypto module?
 func fingerprint(publicKey []byte) string {

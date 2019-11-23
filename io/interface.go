@@ -15,7 +15,7 @@ import (
 )
 
 // Communication interface implements send/receive functionality with the server
-type Communications interface { // this can go
+type Communications interface {
 	// SendMessage to the server
 
 	// TODO(nen) Can we get rid of the crypto type param here?

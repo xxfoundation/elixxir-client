@@ -351,3 +351,8 @@ func (cl *Client) WriteToSession(replacement string, storage globals.Storage) er
 	globals.Log.INFO.Printf("Binding call: WriteToSession")
 	return cl.client.WriteToSessionFile(replacement, storage)
 }
+
+func (cl *Client) InitListeners() error {
+	globals.Log.INFO.Printf("Binding call: InitListeners")
+	return cl.client.InitListeners()
+}

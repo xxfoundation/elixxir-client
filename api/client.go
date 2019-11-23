@@ -24,7 +24,6 @@ import (
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
-	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -47,8 +46,6 @@ type Client struct {
 	rekeyChan           chan struct{}
 	registrationVersion string
 }
-
-var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code = Unknown desc = Permissioning server does not have an ndf to give to client")
 
 //used to report the state of registration
 type OperationProgressCallback func(int)
@@ -79,11 +76,6 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	cl.storage = store
 	cl.commManager = io.NewReceptionManager(cl.rekeyChan)
 	cl.ndf = ndfJSON
-	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
-	}
 
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
@@ -265,19 +257,23 @@ func FormatTextMessage(message string) []byte {
 var sessionFileError = errors.New("Session file cannot be loaded and " +
 	"is possibly corrupt. Please contact support@xxmessenger.io")
 
-// Logs in user and sets session on client object
-// returns the nickname or error if login fails
-func (cl *Client) StartMessageReceiver(callback func(error)) error {
+func (cl *Client) InitListeners() error {
 	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
 	transmissionHost, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
+
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
+	return nil
+}
 
+// Logs in user and sets session on client object
+// returns the nickname or error if login fails
+func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
@@ -518,7 +514,7 @@ func SetLogOutput(w goio.Writer) {
 	globals.Log.SetLogOutput(w)
 }
 
-// GetSession returns the session object for external access.  Access at your
+// GetSession returns the session object for external access.  Access at yourx
 // own risk
 func (cl *Client) GetSession() user.Session {
 	return cl.session
@@ -561,75 +557,6 @@ func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) 
 	if err != nil {
 		errMsg := errors.Errorf("Failed to store session: %+v", err)
 		return errMsg
-	}
-
-	return nil
-}
-
-//GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
-func (cl *Client) getUpdatedNDF() (*ndf.NetworkDefinition, error) { // again, uses internal ndf.  stay here, return results instead
-
-	//Hash the client's ndf for comparison with registration's ndf
-	hash := sha256.New()
-	ndfBytes := cl.ndf.Serialize()
-	hash.Write(ndfBytes)
-	ndfHash := hash.Sum(nil)
-
-	//Put the hash in a message
-	msg := &mixmessages.NDFHash{Hash: ndfHash}
-
-	host, ok := cl.commManager.Comms.GetHost(PermissioningAddrID)
-	if !ok {
-		return nil, errors.New("Failed to find permissioning host")
-	}
-
-	//Send the hash to registration
-	response, err := cl.commManager.Comms.SendGetUpdatedNDF(host, msg)
-	if err != nil {
-		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
-		return nil, errors.New(errMsg)
-	}
-
-	//If there was no error and the response is nil, client's ndf is up-to-date
-	if response == nil {
-		globals.Log.DEBUG.Printf("Client NDF up-to-date")
-		return nil, nil
-	}
-
-	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
-
-	globals.Log.INFO.Printf("Remote NDF: %s", string(response.Ndf))
-
-	//Otherwise pull the ndf out of the response
-	updatedNdf, _, err := ndf.DecodeNDF(string(response.Ndf))
-	if err != nil {
-		//If there was an error decoding ndf
-		errMsg := fmt.Sprintf("Failed to decode response to ndf: %v", err)
-		return nil, errors.New(errMsg)
-	}
-	return updatedNdf, nil
-}
-
-//request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
-func requestNdf(cl *Client) error {
-	// Continuously polls for a new ndf after sleeping until response if gotten
-	globals.Log.INFO.Printf("Polling for a new NDF")
-	newNDf, err := cl.getUpdatedNDF()
-
-	if err != nil {
-		//lets the client continue when permissioning does not provide NDFs
-		if err.Error() == noNDFErr.Error() {
-			globals.Log.WARN.Println("Continuing without an updated NDF")
-			return nil
-		}
-
-		errMsg := fmt.Sprintf("Failed to get updated ndf: %v", err)
-		globals.Log.ERROR.Printf(errMsg)
-		return errors.New(errMsg)
-	}
-
-	if newNDf != nil {
-		cl.ndf = newNDf
 	}
 
 	return nil

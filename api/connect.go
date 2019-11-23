@@ -32,10 +32,12 @@ func (cl *Client) InitNetwork() error {
 		cl.registrationVersion = ver
 
 		//Request a new ndf from
-		err = requestNdf(cl)
+		def, err = io.GetUpdatedNDF(cl.ndf, cl.commManager.Comms)
 		if err != nil {
 			return err
-
+		}
+		if def != nil {
+			cl.ndf = def
 		}
 	} else {
 		globals.Log.WARN.Println("Registration not defined, not contacted")
@@ -90,17 +92,22 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 		gwAddr := gateway.Address
 
 		_, err := rm.Comms.AddHost(gwID.String(), gwAddr, gwCreds, false)
-		if err != nil {
-			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
-				gwID.String(), gwAddr, err)
-			if errs != nil {
-				errs = errors.Wrap(errs, err.Error())
-			} else {
-				errs = err
-			}
-		}
+		errs = handleError(errs, err, gwID.String(), gwAddr)
 	}
 	return errs
+}
+
+func handleError(base, err error, id, addr string) error {
+	if err != nil {
+		err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
+			id, addr, err)
+		if base != nil {
+			base = errors.Wrap(base, err.Error())
+		} else {
+			base = err
+		}
+	}
+	return base
 }
 
 // There's currently no need to keep connected to permissioning constantly,

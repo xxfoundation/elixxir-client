@@ -79,7 +79,15 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	for i, gateway := range definition.Gateways {
 		gwID := id.NewNodeFromBytes(definition.Nodes[i].ID).NewGateway()
 		err := addHost(rm, gwID.String(), gateway.Address, gateway.TlsCertificate, false)
-		errs = handleError(errs, err, gwID.String(), gateway.Address)
+		if err != nil {
+			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
+				gwID.String(), gateway.Address, err)
+			if errs != nil {
+				errs = err
+			} else {
+				errs = errors.Wrap(errs, err.Error())
+			}
+		}
 	}
 	return errs
 }
@@ -94,19 +102,6 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout b
 		return err
 	}
 	return nil
-}
-
-func handleError(base, err error, id, addr string) error {
-	if err != nil {
-		err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
-			id, addr, err)
-		if base != nil {
-			base = errors.Wrap(base, err.Error())
-		} else {
-			base = err
-		}
-	}
-	return base
 }
 
 // There's currently no need to keep connected to permissioning constantly,

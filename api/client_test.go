@@ -13,84 +13,17 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 )
 
 var TestKeySize = 768
-
-//Test GetRemoveVersion returns the expected value (globals.SEMVER)
-func TestClient_GetRemoteVersion(t *testing.T) {
-	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.InitNetwork()
-	if err != nil {
-		t.Error(err)
-	}
-	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(false, "UAV6IWD6", "", "", "password", nil)
-	if err != nil {
-		t.Error(err)
-	}
-	//Get it from a good version
-	if strings.Compare(globals.SEMVER, testClient.GetRegistrationVersion()) != 0 {
-		t.Errorf("Client not up to date: Recieved %v Expected %v", testClient.GetRegistrationVersion(), globals.SEMVER)
-	}
-
-}
-
-//Error path: Force an error in connect through mockPerm_CheckVersion_ErrorCase
-func TestClient_CheckVersionErr(t *testing.T) {
-	mockRegError := registration.StartRegistrationServer(ErrorDef.Registration.Address,
-		&MockPerm_CheckVersion_ErrorCase{}, nil, nil)
-	defer mockRegError.Shutdown()
-	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", ErrorDef)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.InitNetwork()
-	if err != nil {
-		return
-	}
-	t.Error("Expected error case: UpdateVersion should have returned an error")
-}
-
-//Error Path: Force error in connect by providing a bad version through mockPerm
-func TestClient_CheckVersion_BadVersion(t *testing.T) {
-	mockRegError := registration.StartRegistrationServer(ErrorDef.Registration.Address,
-		&MockPerm_CheckVersion_BadVersion{}, nil, nil)
-	defer mockRegError.Shutdown()
-
-	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", ErrorDef)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	//Check version here should return a version that does not match the global being checked
-	err = testClient.InitNetwork()
-	if err != nil {
-		return
-	}
-	t.Errorf("Expected error case: Version from mock permissioning should not match expected")
-}
 
 // Make sure that a formatted text message can deserialize to the text
 // message we would expect

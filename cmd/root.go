@@ -389,8 +389,12 @@ var rootCmd = &cobra.Command{
 		cb := func(err error) {
 			globals.Log.ERROR.Print(err)
 		}
-		err := client.StartMessageReceiver(cb)
+		err := client.InitListeners()
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
+		}
 
+		err = client.StartMessageReceiver(cb)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}

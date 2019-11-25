@@ -32,48 +32,6 @@ import (
 	"time"
 )
 
-type mockMesssage struct {
-	parse.TypedBody
-	// The crypto type is inferred from the message's contents
-	InferredType parse.CryptoType
-	Sender       *id.User
-	Receiver     *id.User
-	Nonce        []byte
-	Timestamp    time.Time
-}
-
-// Returns the message's sender ID
-func (m mockMesssage) GetSender() []byte {
-	return m.Sender.Bytes()
-}
-
-// Returns the message payload
-// Parse this with protobuf/whatever according to the type of the message
-func (m mockMesssage) GetPayload() []byte {
-	return m.TypedBody.Body
-}
-
-// Returns the message's recipient ID
-func (m mockMesssage) GetRecipient() []byte {
-	return m.Receiver.Bytes()
-}
-
-// Returns the message's type
-func (m mockMesssage) GetMessageType() int32 {
-	return m.TypedBody.MessageType
-}
-
-// Returns the message's timestamp in seconds since unix epoc
-func (m mockMesssage) GetTimestamp() int64 {
-	return m.Timestamp.Unix()
-}
-
-// Returns the message's timestamp in ns since unix epoc
-func (m mockMesssage) GetTimestampNano() int64 {
-	return m.Timestamp.UnixNano()
-}
-
-//Mock networking
 const NumNodes = 3
 const NumGWs = NumNodes
 const GWsStartPort = 7950
@@ -800,4 +758,45 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 
 	return cmixGrp, e2eGrp
 
+}
+
+type mockMesssage struct {
+	parse.TypedBody
+	// The crypto type is inferred from the message's contents
+	InferredType parse.CryptoType
+	Sender       *id.User
+	Receiver     *id.User
+	Nonce        []byte
+	Timestamp    time.Time
+}
+
+// Returns the message's sender ID
+func (m mockMesssage) GetSender() []byte {
+	return m.Sender.Bytes()
+}
+
+// Returns the message payload
+// Parse this with protobuf/whatever according to the type of the message
+func (m mockMesssage) GetPayload() []byte {
+	return m.TypedBody.Body
+}
+
+// Returns the message's recipient ID
+func (m mockMesssage) GetRecipient() []byte {
+	return m.Receiver.Bytes()
+}
+
+// Returns the message's type
+func (m mockMesssage) GetMessageType() int32 {
+	return m.TypedBody.MessageType
+}
+
+// Returns the message's timestamp in seconds since unix epoc
+func (m mockMesssage) GetTimestamp() int64 {
+	return m.Timestamp.Unix()
+}
+
+// Returns the message's timestamp in ns since unix epoc
+func (m mockMesssage) GetTimestampNano() int64 {
+	return m.Timestamp.UnixNano()
 }

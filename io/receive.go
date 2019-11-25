@@ -81,7 +81,8 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
 					time.Sleep(5 * time.Second)
 				}
-				callback(err)
+				go callback(err)
+				return
 			}
 			NumMessages += len(encryptedMessages)
 		case <-rm.rekeyChan:

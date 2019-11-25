@@ -64,7 +64,7 @@ func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
 
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
-func (rm *ReceptionManager) GetRemoteVersion() (string, error) { // need this but make getremoteversion, handle versioning in client
+func (rm *ReceptionManager) GetRemoteVersion() (string, error) {
 	permissioningHost, ok := rm.Comms.GetHost(PermissioningAddrID)
 	if !ok {
 		return "", errors.Errorf("Failed to find permissioning host with id %s", PermissioningAddrID)

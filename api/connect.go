@@ -14,7 +14,7 @@ import (
 // credential information for connection establishment
 func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
-	isConnected, err := AddPermissioningHost(cl.commManager, cl.ndf)
+	isConnected, err := AddPermissioningHost(cl.receptionManager, cl.ndf)
 	if err != nil {
 		return err
 	}
@@ -23,14 +23,14 @@ func (cl *Client) InitNetwork() error {
 		return err
 	}
 	//Get remote version and update
-	ver, err := cl.commManager.GetRemoteVersion()
+	ver, err := cl.receptionManager.GetRemoteVersion()
 	if err != nil {
 		return err
 	}
 	cl.registrationVersion = ver
 
 	//Request a new ndf from permissioning
-	def, err = io.GetUpdatedNDF(cl.ndf, cl.commManager.Comms)
+	def, err = io.GetUpdatedNDF(cl.ndf, cl.receptionManager.Comms)
 	if err != nil {
 		return err
 	}
@@ -64,7 +64,7 @@ func (cl *Client) InitNetwork() error {
 
 	cl.topology = connect.NewCircuit(nodeIDs)
 
-	return AddGatewayHosts(cl.commManager, cl.ndf)
+	return AddGatewayHosts(cl.receptionManager, cl.ndf)
 }
 
 // Connects to gateways using tls filepaths to create credential information

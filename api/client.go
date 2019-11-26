@@ -48,9 +48,12 @@ type Client struct {
 	rekeyChan           chan struct{}
 	registrationVersion string
 
+	// Pointer to a send function, which allows testing to override the default
+	// using NewTestClient
 	sendFunc sender
 }
 
+// Type that defines what the default and any testing send functions should look like
 type sender func(message parse.MessageInterface, rm *io.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error
 
 //used to report the state of registration
@@ -67,6 +70,8 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 	case *testing.T:
 		break
 	case *testing.M:
+		break
+	case *testing.B:
 		break
 	default:
 		jww.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)

@@ -8,6 +8,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -15,7 +16,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
 	"testing"
@@ -30,27 +30,27 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	d.listener <- message
 	return nil
 }
 
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	d.listener <- message
 	return nil
 }
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}) {
+	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
 func TestMain(m *testing.M) {
@@ -85,7 +85,7 @@ func TestMain(m *testing.M) {
 	}
 
 	rekeyChan2 := make(chan struct{}, 50)
-	InitRekey(session, fakeComm, circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
+	InitRekey(session, fakeComm, connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey

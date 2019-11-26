@@ -6,14 +6,15 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/primitives/circuit"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
-var topology *circuit.Circuit
+var topology *connect.Circuit
 var comms io.Communications
+var transmissionHost *connect.Host
 
 // UdbID is the ID of the user discovery bot, which is always 3
 var UdbID *id.User
@@ -49,7 +50,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *id.User) {
+func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *id.User, host *connect.Host) {
 	UdbID = udbID
 
 	// FIXME: these all need to be used in non-blocking threads if we are
@@ -65,6 +66,8 @@ func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *
 	session = s
 	topology = top
 	comms = m
+	transmissionHost = host
+
 	l := session.GetSwitchboard()
 
 	l.Register(UdbID, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
@@ -86,7 +89,7 @@ func InitBots(s user.Session, m io.Communications, top *circuit.Circuit, udbID *
 // listener.
 func sendCommand(botID *id.User, command []byte) error {
 	return comms.SendMessage(session, topology, botID,
-		parse.Unencrypted, command)
+		parse.Unencrypted, command, transmissionHost)
 }
 
 // Nickname Lookup function

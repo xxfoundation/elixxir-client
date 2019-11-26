@@ -16,9 +16,9 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"os"
@@ -35,27 +35,27 @@ type dummyMessaging struct {
 
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
 
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	jww.INFO.Printf("Sending: %s", string(message))
 	return nil
 }
 
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}) {
+	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
 var pubKeyBits string
@@ -79,10 +79,10 @@ func TestMain(m *testing.M) {
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
+	h := connect.Host{}
+	topology := connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
 
-	topology := circuit.New([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
-
-	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")))
+	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")), &h)
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots
@@ -195,25 +195,25 @@ type errorMessaging struct{}
 
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	return errors.New("This is an error")
 }
 
 // SendMessage no partition that just errors out
 func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
-	topology *circuit.Circuit,
+	topology *connect.Circuit,
 	recipientID *id.User,
 	cryptoType parse.CryptoType,
-	message []byte) error {
+	message []byte, transmissionHost *connect.Host) error {
 	return errors.New("This is an error")
 }
 
 // MessageReceiver thread to get new messages
 func (e *errorMessaging) MessageReceiver(session user.Session,
-	delay time.Duration, rekeyChan chan struct{}) {
+	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
 // Test LookupNick returns error on sending problem

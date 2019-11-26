@@ -61,8 +61,7 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
-	csc ConnectionStatusCallback) (*Client, error) {
+func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
@@ -72,20 +71,9 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 
 	proxy := &storageProxy{boundStorage: storage}
 
-	conStatCallback := func(status uint32, TimeoutSeconds int) {
-		csc.Callback(int(status), TimeoutSeconds)
-	}
-
-	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf, conStatCallback)
+	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf)
 
 	return &Client{client: cl}, err
-}
-
-// DisableTLS makes the client run with tls disabled
-// Must be called before Connect
-func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.client.DisableTLS()
 }
 
 func (cl *Client) EnableDebugLogs() {
@@ -97,9 +85,9 @@ func (cl *Client) EnableDebugLogs() {
 // Connects to gateways and registration server (if needed)
 // using tls filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect() error {
-	globals.Log.INFO.Printf("Binding call: Connect()")
-	return cl.client.Connect()
+func (cl *Client) InitNetwork() error {
+	globals.Log.INFO.Printf("Binding call: InitNetwork()")
+	return cl.client.InitNetwork()
 }
 
 // Sets a callback which receives a strings describing the current status of
@@ -141,7 +129,7 @@ func (cl *Client) RegisterWithNodes() error {
 }
 
 // Register with UDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and Connect.
+// User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeoutMS int) error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
@@ -248,7 +236,7 @@ func GetLocalVersion() string {
 // client release version returned here.
 func (cl *Client) GetRemoteVersion() string {
 	globals.Log.INFO.Printf("Binding call: GetRemoteVersion()\n")
-	return cl.client.GetRemoteVersion()
+	return cl.GetRemoteVersion()
 }
 
 // Turns off blocking transmission so multiple messages can be sent
@@ -352,15 +340,6 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
 }
 
-//Call to get the networking status of the client
-// 0 - Offline
-// 1 - Connecting
-// 2 - Connected
-func (cl *Client) GetNetworkStatus() int64 {
-	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
-	return int64(cl.client.GetNetworkStatus())
-}
-
 //LoadEncryptedSession: Spits out the encrypted session file in text
 func (cl *Client) LoadEncryptedSession() (string, error) {
 	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")
@@ -371,4 +350,9 @@ func (cl *Client) LoadEncryptedSession() (string, error) {
 func (cl *Client) WriteToSession(replacement string, storage globals.Storage) error {
 	globals.Log.INFO.Printf("Binding call: WriteToSession")
 	return cl.client.WriteToSessionFile(replacement, storage)
+}
+
+func (cl *Client) InitListeners() error {
+	globals.Log.INFO.Printf("Binding call: InitListeners")
+	return cl.client.InitListeners()
 }

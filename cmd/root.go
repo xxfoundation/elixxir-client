@@ -106,14 +106,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	globals.Log.DEBUG.Printf("   NDF Verified")
 
 	//If no session file is passed initialize with RAM Storage
-
-	dummyConnectionStatusHandler := func(status uint32, timeout int) {
-		globals.Log.INFO.Printf("Network status: %+v, %+v", status, timeout)
-	}
-
 	if sessionFile == "" {
-		client, err = api.NewClient(&globals.RamStorage{}, "", "", ndfJSON,
-			dummyConnectionStatusHandler)
+		client, err = api.NewClient(&globals.RamStorage{}, "", "", ndfJSON)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
@@ -151,7 +145,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 		//Initialize client with OS Storage
-		client, err = api.NewClient(nil, sessionA, sessionB, ndfJSON, dummyConnectionStatusHandler)
+		client, err = api.NewClient(nil, sessionA, sessionB, ndfJSON)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
 			return id.ZeroID, "", nil
@@ -180,12 +174,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		return id.ZeroID, "", nil
 	}*/
 
-	if noTLS {
-		client.DisableTLS()
-	}
-
-	// Connect to gateways and reg server
-	err = client.Connect()
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
@@ -396,7 +386,15 @@ var rootCmd = &cobra.Command{
 		// Log the user in, for now using the first gateway specified
 		// This will also register the user email with UDB
 		globals.Log.INFO.Println("Logging in...")
-		err := client.StartMessageReceiver(func(err error) { return })
+		cb := func(err error) {
+			globals.Log.ERROR.Print(err)
+		}
+		err := client.InitListeners()
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
+		}
+
+		err = client.StartMessageReceiver(cb)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}

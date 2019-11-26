@@ -9,7 +9,6 @@ package api
 import (
 	"bufio"
 	"crypto"
-	"crypto/rand"
 	gorsa "crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
@@ -24,34 +23,29 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/tls"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
 	"strings"
-	"sync"
 	"time"
 )
 
 type Client struct {
-	storage     globals.Storage
-	session     user.Session
-	commManager *io.CommManager
-	ndf         *ndf.NetworkDefinition
-	topology    *circuit.Circuit
-	opStatus    OperationProgressCallback
-	rekeyChan   chan struct{}
+	storage             globals.Storage
+	session             user.Session
+	commManager         *io.ReceptionManager
+	ndf                 *ndf.NetworkDefinition
+	topology            *connect.Circuit
+	opStatus            OperationProgressCallback
+	rekeyChan           chan struct{}
+	registrationVersion string
 }
-
-var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code = Unknown desc = Permissioning server does not have an ndf to give to client")
 
 //used to report the state of registration
 type OperationProgressCallback func(int)
@@ -60,8 +54,7 @@ type OperationProgressCallback func(int)
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition,
-	callback io.ConnectionStatusCallback) (*Client, error) {
+func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -75,15 +68,14 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	if err != nil {
 		err = errors.New("Invalid Local Storage Location: " + err.Error())
+		globals.Log.ERROR.Printf(err.Error())
 		return nil, err
 	}
 
 	cl := new(Client)
 	cl.storage = store
-	cl.commManager = io.NewCommManager(ndfJSON, callback)
+	cl.commManager = io.NewReceptionManager(cl.rekeyChan)
 	cl.ndf = ndfJSON
-
-	cl.topology = nil
 
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
@@ -100,17 +92,83 @@ func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	return cl, nil
 }
 
-// Populates a text message and returns its wire representation
-// TODO support multi-type messages or telling if a message is too long?
-func FormatTextMessage(message string) []byte {
-	textMessage := cmixproto.TextMessage{
-		Color:   -1,
-		Message: message,
-		Time:    time.Now().Unix(),
+// LoadSession loads the session object for the UID
+func (cl *Client) Login(password string) (string, error) {
+
+	var session user.Session
+	var err error
+	done := make(chan struct{})
+
+	// run session loading in a separate goroutine so if it panics it can
+	// be caught and an error can be returned
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Session file loading crashed")
+				err = sessionFileError
+				done <- struct{}{}
+			}
+		}()
+
+		session, err = user.LoadSession(cl.storage, password)
+		done <- struct{}{}
+	}()
+
+	//wait for session file loading to complete
+	<-done
+
+	if err != nil {
+		return "", errors.Wrap(err, "Login: Could not login")
 	}
 
-	wireRepresentation, _ := proto.Marshal(&textMessage)
-	return wireRepresentation
+	if session == nil {
+		return "", errors.New("Unable to load session, no error reported")
+	}
+	if session.GetRegState() < user.PermissioningComplete {
+		return "", errors.New("Cannot log a user in which has not " +
+			"completed registration ")
+	}
+
+	cl.session = session
+	return cl.session.GetCurrentUser().Nick, nil
+}
+
+// Logout closes the connection to the server at this time and does
+// nothing with the user id. In the future this will release resources
+// and safely release any sensitive memory.
+// fixme: blocks forever is message reciever
+func (cl *Client) Logout() error {
+	if cl.session == nil {
+		err := errors.New("Logout: Cannot Logout when you are not logged in")
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	// Stop reception runner goroutine
+	close(cl.session.GetQuitChan())
+
+	cl.commManager.Comms.DisconnectAll()
+
+	errStore := cl.session.StoreSession()
+
+	if errStore != nil {
+		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
+			errStore.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	errImmolate := cl.session.Immolate()
+	cl.session = nil
+
+	if errImmolate != nil {
+		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
+			errImmolate.Error()))
+		globals.Log.ERROR.Printf(err.Error())
+		return err
+	}
+
+	return nil
 }
 
 // VerifyNDF verifies the signature of the network definition file (NDF) and
@@ -170,34 +228,8 @@ func VerifyNDF(ndfString, ndfPub string) *ndf.NetworkDefinition {
 	return ndfJSON
 }
 
-//request calls getUpdatedNDF for a new NDF repeatedly until it gets an NDF
-func requestNdf(cl *Client) error {
-	// Continuously polls for a new ndf after sleeping until response if gotten
-	globals.Log.INFO.Printf("Polling for a new NDF")
-	newNDf, err := cl.commManager.GetUpdatedNDF(cl.ndf)
-	if err != nil {
-		//lets the client continue when permissioning does not provide NDFs
-		if err.Error() == noNDFErr.Error() {
-			globals.Log.WARN.Println("Continuing without an updated NDF")
-			return nil
-		}
-
-		errMsg := errors.Errorf("Failed to get updated ndf: %v", err)
-		return errMsg
-	}
-
-	cl.ndf = newNDf
-
-	cl.commManager.UpdateNDF(newNDf)
-
-	return nil
-}
-
-// DisableTLS makes the client run with TLS disabled
-// Must be called before Connect
-func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Println("Running client without tls")
-	cl.commManager.DisableTLS()
+func (cl *Client) GetRegistrationVersion() string { // on client
+	return cl.registrationVersion
 }
 
 //GetNDF returns the clients ndf
@@ -205,197 +237,80 @@ func (cl *Client) GetNDF() *ndf.NetworkDefinition {
 	return cl.ndf
 }
 
-// Checks version and connects to gateways using TLS filepaths to create
-// credential information for connection establishment
-func (cl *Client) Connect() error {
-	//Connect to permissioning
-	if cl.ndf.Registration.Address != "" {
-		isConnected, err := cl.commManager.ConnectToPermissioning()
-		defer cl.commManager.DisconnectFromPermissioning()
-
-		if err != nil {
-			return err
-		}
-		if !isConnected {
-			err = errors.New("Couldn't connect to permissioning")
-			return err
-		}
-		//Check if versioning is up to date
-		err = cl.commManager.UpdateRemoteVersion()
-		if err != nil {
-			return err
-		}
-		//Request a new ndf from
-		err = requestNdf(cl)
-		if err != nil {
-			return err
-
-		}
-	} else {
-		globals.Log.WARN.Println("Registration not defined, not contacted")
-	}
-
-	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
-	}
-
-	cl.topology = circuit.New(nodeIDs)
-	// Only check the version if we got a remote version
-	// The remote version won't have been populated if we didn't connect to permissioning
-	if cl.commManager.GetRegistrationVersion() != "" {
-		ok, err := cl.commManager.CheckVersion()
-		if err != nil {
-			return err
-		}
-		if !ok {
-			err = errors.Errorf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.commManager.GetRegistrationVersion())
-			return err
-		}
-	} else {
-		globals.Log.WARN.Printf("Not checking version from " +
-			"registration server, because it's not populated. Do you have " +
-			"access to the registration server?")
-	}
-	return cl.commManager.ConnectToGateways()
-}
-
 func (cl *Client) SetOperationProgressCallback(rpc OperationProgressCallback) {
 	cl.opStatus = func(i int) { go rpc(i) }
+}
+
+// Populates a text message and returns its wire representation
+// TODO support multi-type messages or telling if a message is too long?
+func FormatTextMessage(message string) []byte {
+	textMessage := cmixproto.TextMessage{
+		Color:   -1,
+		Message: message,
+		Time:    time.Now().Unix(),
+	}
+
+	wireRepresentation, _ := proto.Marshal(&textMessage)
+	return wireRepresentation
 }
 
 var sessionFileError = errors.New("Session file cannot be loaded and " +
 	"is possibly corrupt. Please contact support@xxmessenger.io")
 
-// LoadSession loads the session object for the UID
-func (cl *Client) Login(password string) (string, error) {
-
-	var session user.Session
-	var err error
-	done := make(chan struct{})
-
-	// run session loading in a separate goroutine so if it panics it can
-	// be caught and an error can be returned
-	go func() {
-		defer func() {
-			if r := recover(); r != nil {
-				err = sessionFileError
-				done <- struct{}{}
-			}
-		}()
-
-		session, err = user.LoadSession(cl.storage, password)
-		done <- struct{}{}
-	}()
-
-	//wait for session file loading to complete
-	<-done
-
-	if err != nil {
-		return "", errors.Wrap(err, "Login: Could not login")
+func (cl *Client) InitListeners() error {
+	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	transmissionHost, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
 	}
 
-	if session == nil {
-		return "", errors.New("Unable to load session, no error reported")
-	}
-	if session.GetRegState() < user.PermissioningComplete {
-		return "", errors.New("Cannot log a user in which has not " +
-			"completed registration ")
-	}
-
-	cl.session = session
-	return cl.session.GetCurrentUser().Nick, nil
-}
-
-// Logout closes the connection to the server at this time and does
-// nothing with the user id. In the future this will release resources
-// and safely release any sensitive memory.
-// fixme: blocks forever is message reciever
-func (cl *Client) Logout() error {
-	if cl.session == nil {
-		err := errors.New("Logout: Cannot Logout when you are not logged in")
-		return err
-	}
-
-	// Stop reception runner goroutine
-	close(cl.session.GetQuitChan())
-
-	// Disconnect from the gateways
-	for _, gateway := range cl.ndf.Gateways {
-		cl.commManager.Comms.Disconnect(gateway.Address)
-	}
-
-	errStore := cl.session.StoreSession()
-
-	if errStore != nil {
-		err := errors.Errorf("Logout: Store Failed: %s" +
-			errStore.Error())
-		return err
-	}
-
-	errImmolate := cl.session.Immolate()
-	cl.session = nil
-
-	if errImmolate != nil {
-		err := errors.Errorf("Logout: Immolation Failed: %s" +
-			errImmolate.Error())
-		return err
-	}
-
+	// Initialize UDB and nickname "bot" stuff here
+	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
+	// Initialize Rekey listeners
+	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
 	return nil
 }
 
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
-func (cl *Client) StartMessageReceiver(errorCallback func(error)) error {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("ERROR: could not StartMessageReceiver - connection is either offline or connecting")
-	}
-
-	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID))
-	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
-
+func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	pollWaitTimeMillis := 1000 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
+	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
+	receptionHost, ok := cl.commManager.Comms.GetHost(receptionGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
+	}
+
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
+				globals.Log.ERROR.Println("Message Receiver Panicked: ", r)
 				time.Sleep(1 * time.Second)
 				go func() {
-					errorCallback(errors.Errorf(fmt.Sprintln("Message Receiver Panicked", r)))
+					callback(errors.New(fmt.Sprintln("Message Receiver Panicked", r)))
 				}()
 			}
 		}()
-		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, cl.rekeyChan)
+		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, receptionHost, callback)
 	}()
 
 	return nil
 }
 
-// TryReconnect Attemps to to reconnect with te network.  It will only cause
-// an attempt if called durring a backoff timeout
-func (cl *Client) TryReconnect() {
-	cl.commManager.TryReconnect()
-}
-
 // Send prepares and sends a message to the cMix network
 // FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("Could not Send - connection is either offline or connecting")
+	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
+	host, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
+	if !ok {
+		return errors.New("Failed to retrieve host for transmission")
 	}
-
 	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
-	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack())
+	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack(), host)
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for
@@ -434,359 +349,19 @@ func (cl *Client) GetKeyParams() *keyStore.KeyParams {
 	return cl.session.GetKeyStore().GetKeyParams()
 }
 
-func (cl *Client) GetNetworkStatus() uint32 {
-	return cl.commManager.GetConnectionStatus()
-}
-
 // Returns the local version of the client repo
 func GetLocalVersion() string {
 	return globals.SEMVER
-}
-
-// Returns the compatible version of client, according to permissioning
-func (cl *Client) GetRemoteVersion() string {
-	return cl.commManager.GetRegistrationVersion()
 }
 
 type SearchCallback interface {
 	Callback(userID, pubKey []byte, err error)
 }
 
-const SaltSize = 256
-
-// RegisterWithPermissioning registers user with permissioning and returns the
-// User ID.  Returns an error if registration fails.
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
-	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
-
-	if !preCan && cl.commManager.GetConnectionStatus() != io.Online {
-		return nil, errors.New("Cannot register when disconnected from the network")
-	}
-
-	var err error
-	var u *user.User
-	var UID *id.User
-
-	cl.opStatus(globals.REG_KEYGEN)
-
-	largeIntBits := 16
-
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits))
-
-	e2eGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits))
-
-	// Make CMIX keys array
-	nk := make(map[id.Node]user.NodeKeys)
-
-	// GENERATE CLIENT RSA KEYS
-	if privateKeyRSA == nil {
-		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	publicKeyRSA := privateKeyRSA.GetPublic()
-
-	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-
-	if err != nil {
-		return nil, errors.Errorf("Could not generate cmix DH private key: %s", err.Error())
-	}
-
-	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
-	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
-
-	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-
-	if err != nil {
-		return nil, errors.Errorf("Could not generate e2e DH private key: %s", err.Error())
-	}
-
-	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
-	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
-
-	// Initialized response from Registration Server
-	regValidationSignature := make([]byte, 0)
-
-	var salt []byte
-
-	// Handle precanned registration
-	if preCan {
-		cl.opStatus(globals.REG_PRECAN)
-		globals.Log.INFO.Printf("Registering precanned user...")
-		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
-		if err != nil {
-			errMsg := errors.Errorf("Unable to complete precanned registration: %+v", err)
-			return id.ZeroID, errMsg
-		}
-	} else {
-		cl.opStatus(globals.REG_UID_GEN)
-		globals.Log.INFO.Printf("Registering dynamic user...")
-
-		// Generate salt for UserID
-		salt = make([]byte, SaltSize)
-		_, err = csprng.NewSystemRNG().Read(salt)
-		if err != nil {
-			errMsg := errors.Errorf("Register: Unable to generate salt! %s", err)
-			return id.ZeroID, errMsg
-		}
-
-		// Generate UserID by hashing salt and public key
-		UID = registration.GenUserID(publicKeyRSA, salt)
-
-		// If Registration Server is specified, contact it
-		// Only if registrationCode is set
-		globals.Log.INFO.Println("Register: Contacting registration server")
-		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.opStatus(globals.REG_PERM)
-			regValidationSignature, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-			if err != nil {
-				err = errors.Errorf("Register: Unable to send registration message: %+v", err)
-				return id.ZeroID, err
-			}
-		}
-		globals.Log.INFO.Println("Register: successfully passed Registration message")
-
-		var actualNick string
-		if nick != "" {
-			actualNick = nick
-		} else {
-			actualNick = base64.StdEncoding.EncodeToString(UID[:])
-		}
-		u = user.Users.NewUser(UID, actualNick)
-		user.Users.UpsertUser(u)
-	}
-
-	cl.opStatus(globals.REG_SECURE_STORE)
-
-	u.Email = email
-
-	// Create the user session
-	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
-		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
-	cl.opStatus(globals.REG_SAVE)
-
-	//set the registration state
-	err = newSession.SetRegState(user.PermissioningComplete)
-	if err != nil {
-		return id.ZeroID, errors.Wrap(err, "Permissioning Registration "+
-			"Failed")
-	}
-
-	// Store the user session
-	errStore := newSession.StoreSession()
-
-	if errStore != nil {
-		errMsg := errors.Errorf(
-			"Permissioning Register: could not register due to failed session save"+
-				": %s", errStore.Error())
-		return id.ZeroID, errMsg
-	}
-	cl.session = newSession
-	return UID, nil
-}
-
-// RegisterWithUDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and Connect.
-// It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
-
-	regState := cl.GetSession().GetRegState()
-
-	if regState != user.PermissioningComplete {
-		return errors.New("Cannot register with UDB when registration " +
-			"state is not PermissioningComplete")
-	}
-
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		return errors.New("ERROR: could not RegisterWithUDB - connection is either offline or connecting")
-	}
-
-	email := cl.session.GetCurrentUser().Email
-
-	var err error
-
-	if email != "" {
-		globals.Log.INFO.Printf("Registering user as %s with UDB", email)
-
-		valueType := "EMAIL"
-
-		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus, timeout)
-		if err == nil {
-			globals.Log.INFO.Printf("Registered with UDB!")
-		} else {
-			globals.Log.WARN.Printf("Could not register with UDB: %s", err)
-		}
-
-	} else {
-		globals.Log.INFO.Printf("Not registering with UDB because no " +
-			"email found")
-	}
-
-	if err != nil {
-		return errors.Wrap(err, "Could not register with UDB")
-	}
-
-	//set the registration state
-	err = cl.session.SetRegState(user.UDBComplete)
-
-	if err != nil {
-		return errors.Wrap(err, "UDB Registration Failed")
-	}
-
-	errStore := cl.session.StoreSession()
-
-	// FIXME If we have an error here, the session that gets created
-	// doesn't get immolated. Immolation should happen in a deferred
-	//  call instead.
-	if errStore != nil {
-		errMsg := errors.Errorf(
-			"UDB Register: could not register due to failed session save"+
-				": %s", errStore.Error())
-		return errMsg
-	}
-
-	return nil
-}
-
-func (cl *Client) RegisterWithNodes() error {
-	session := cl.GetSession()
-	//Load Cmix keys & group
-	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
-	cmixDHPubKey := session.GetCMIXDHPublicKey()
-	cmixGrp := session.GetCmixGroup()
-
-	//Load the rsa keys
-	rsaPubKey := session.GetRSAPublicKey()
-	rsaPrivKey := session.GetRSAPrivateKey()
-
-	//Load the user ID
-	UID := session.GetCurrentUser().User
-
-	//Load the registration signature
-	regSignature := session.GetRegistrationValidationSignature()
-
-	var wg sync.WaitGroup
-	errChan := make(chan error, len(cl.ndf.Gateways))
-
-	//Get the registered node keys
-	registeredNodes := session.GetNodes()
-
-	salt := session.GetSalt()
-
-	// This variable keeps track of whether there were new registrations
-	// required, thus requiring the state file to be saved again
-	newRegistrations := false
-
-	for i := range cl.ndf.Gateways {
-		localI := i
-		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
-		//Register with node if the node has not been registered with already
-		if _, ok := registeredNodes[nodeID]; !ok {
-			wg.Add(1)
-			newRegistrations = true
-			go func() {
-				cl.registerWithNode(localI, salt, regSignature, UID, rsaPubKey, rsaPrivKey,
-					cmixDHPubKey, cmixDHPrivKey, cmixGrp, errChan)
-				wg.Done()
-			}()
-		}
-	}
-
-	wg.Wait()
-	//See if the registration returned errors at all
-	var errs error
-	for len(errChan) > 0 {
-		err := <-errChan
-		if errs != nil {
-			errs = errors.Wrap(errs, err.Error())
-		} else {
-			errs = err
-		}
-
-	}
-	//If an error every occurred, return with error
-	if errs != nil {
-		cl.opStatus(globals.REG_FAIL)
-		return errs
-	}
-
-	// Store the user session if there were changes during node registration
-	if newRegistrations {
-		errStore := session.StoreSession()
-		if errStore != nil {
-			err := errors.Errorf(
-				"Register: could not register due to failed session save"+
-					": %s", errStore.Error())
-			return err
-		}
-	}
-
-	return nil
-}
-
-//registerWithNode registers a user. It serves as a helper for Register
-func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
-	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
-	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
-	cmixGrp *cyclic.Group, errorChan chan error) {
-
-	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
-
-	// Initialise blake2b hash for transmission keys and sha256 for reception
-	// keys
-	transmissionHash, _ := hash.NewCMixHash()
-	receptionHash := sha256.New()
-
-	// Request nonce message from gateway
-	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v/%v",
-		index+1, len(cl.ndf.Gateways))
-	nonce, dhPub, err := cl.requestNonce(salt, registrationValidationSignature, cmixPublicKeyDH,
-		publicKeyRSA, privateKeyRSA, gatewayID)
-
-	if err != nil {
-		errMsg := errors.Errorf("Register: Failed requesting nonce from gateway: %+v", err)
-		errorChan <- errMsg
-	}
-
-	// Load server DH pubkey
-	serverPubDH := cmixGrp.NewIntFromBytes(dhPub)
-
-	// Confirm received nonce
-	globals.Log.INFO.Println("Register: Confirming received nonce")
-	err = cl.confirmNonce(UID.Bytes(), nonce, privateKeyRSA, gatewayID)
-	if err != nil {
-		errMsg := errors.Errorf("Register: Unable to confirm nonce: %v", err)
-		errorChan <- errMsg
-	}
-	nodeID := cl.topology.GetNodeAtIndex(index)
-	key := user.NodeKeys{
-		TransmissionKey: registration.GenerateBaseKey(cmixGrp,
-			serverPubDH, cmixPrivateKeyDH, transmissionHash),
-		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
-			cmixPrivateKeyDH, receptionHash),
-	}
-	cl.session.PushNodeKey(nodeID, key)
-}
-
 // UDB Search API
 // Pass a callback function to extract results
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback, timeout time.Duration) {
-	status := cl.commManager.GetConnectionStatus()
-	if status == io.Connecting || status == io.Offline {
-		err := errors.New("Could not SearchForUser - connection is either offline or connecting")
-		cb.Callback(nil, nil, err)
-	}
-
 	//see if the user has been searched before, if it has, return it
 	uid, pk := cl.session.GetContactByValue(emailAddress)
 
@@ -836,63 +411,6 @@ func (cl *Client) SearchForUser(emailAddress string,
 	}()
 }
 
-func (cl *Client) GetSessionData() ([]byte, error) {
-	return cl.session.GetSessionData()
-}
-
-// Set the output of the
-func SetLogOutput(w goio.Writer) {
-	globals.Log.SetLogOutput(w)
-}
-
-// GetSession returns the session object for external access.  Access at your
-// own risk
-func (cl *Client) GetSession() user.Session {
-	return cl.session
-}
-
-// CommManager returns the comm manager object for external access.  Access
-// at your own risk
-func (cl *Client) GetCommManager() *io.CommManager {
-	return cl.commManager
-}
-
-// LoadSessionText: load the encrypted session as a string
-func (cl *Client) LoadEncryptedSession() (string, error) {
-	encryptedSession, err := cl.GetSession().LoadEncryptedSession(cl.storage)
-	if err != nil {
-		return "", err
-	}
-	//Encode session to bas64 for useability
-	encodedSession := base64.StdEncoding.EncodeToString(encryptedSession)
-
-	return encodedSession, nil
-}
-
-//WriteToSession: Writes an arbitrary string to the session file
-// Takes in a string that is base64 encoded (meant to be output of LoadEncryptedSession)
-func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) error {
-	//This call must not occur prior to a newClient call, thus check that client has been initialized
-	if cl.ndf == nil || cl.topology == nil {
-		errMsg := errors.Errorf("Cannot write to session if client hasn't been created yet")
-		return errMsg
-	}
-	//Decode the base64 encoded replacement string (assumed to be encoded form LoadEncryptedSession)
-	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
-	if err != nil {
-		errMsg := errors.Errorf("Failed to decode replacment string: %+v", err)
-		return errMsg
-	}
-	//Write the new session data to both locations
-	err = user.WriteToSession(decodedSession, store)
-	if err != nil {
-		errMsg := errors.Errorf("Failed to store session: %+v", err)
-		return errMsg
-	}
-
-	return nil
-}
-
 type NickLookupCallback interface {
 	Callback(nick string, err error)
 }
@@ -932,14 +450,9 @@ func (cl *Client) DeleteUser(u *id.User) (string, error) {
 func (cl *Client) LookupNick(user *id.User,
 	cb NickLookupCallback) {
 	go func() {
-		status := cl.commManager.GetConnectionStatus()
-		if status == io.Connecting || status == io.Offline {
-			err := errors.New("Could not RegisterWithUDB - connection is either offline or connecting")
-			cb.Callback("", err)
-		}
 		nick, err := bots.LookupNick(user)
 		if err != nil {
-			globals.Log.INFO.Printf("Lookup for nickname for user %s failed", user)
+			globals.Log.INFO.Printf("Lookup for nickname for user %+v failed", user)
 		}
 		cb.Callback(nick, err)
 	}()
@@ -990,4 +503,61 @@ func ParseMessage(message []byte) (ParsedMessage, error) {
 	pm.Typed = int32(tb.MessageType)
 
 	return pm, nil
+}
+
+func (cl *Client) GetSessionData() ([]byte, error) {
+	return cl.session.GetSessionData()
+}
+
+// Set the output of the
+func SetLogOutput(w goio.Writer) {
+	globals.Log.SetLogOutput(w)
+}
+
+// GetSession returns the session object for external access.  Access at yourx
+// own risk
+func (cl *Client) GetSession() user.Session {
+	return cl.session
+}
+
+// ReceptionManager returns the comm manager object for external access.  Access
+// at your own risk
+func (cl *Client) GetCommManager() *io.ReceptionManager {
+	return cl.commManager
+}
+
+// LoadSessionText: load the encrypted session as a string
+func (cl *Client) LoadEncryptedSession() (string, error) {
+	encryptedSession, err := cl.GetSession().LoadEncryptedSession(cl.storage)
+	if err != nil {
+		return "", err
+	}
+	//Encode session to bas64 for useability
+	encodedSession := base64.StdEncoding.EncodeToString(encryptedSession)
+
+	return encodedSession, nil
+}
+
+//WriteToSession: Writes an arbitrary string to the session file
+// Takes in a string that is base64 encoded (meant to be output of LoadEncryptedSession)
+func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) error {
+	//This call must not occur prior to a newClient call, thus check that client has been initialized
+	if cl.ndf == nil || cl.topology == nil {
+		errMsg := errors.Errorf("Cannot write to session if client hasn't been created yet")
+		return errMsg
+	}
+	//Decode the base64 encoded replacement string (assumed to be encoded form LoadEncryptedSession)
+	decodedSession, err := base64.StdEncoding.DecodeString(replacement)
+	if err != nil {
+		errMsg := errors.Errorf("Failed to decode replacment string: %+v", err)
+		return errMsg
+	}
+	//Write the new session data to both locations
+	err = user.WriteToSession(decodedSession, store)
+	if err != nil {
+		errMsg := errors.Errorf("Failed to store session: %+v", err)
+		return errMsg
+	}
+
+	return nil
 }

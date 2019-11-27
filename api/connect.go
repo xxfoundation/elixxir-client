@@ -19,41 +19,46 @@ func (cl *Client) InitNetwork() error {
 		return err
 	}
 	if !isConnected {
+		// No permissioing info was passed in through NDF so ignore all permissioning code
 		err = errors.New("Couldn't connect to permissioning")
-		return err
-	}
-	//Get remote version and update
-	ver, err := cl.receptionManager.GetRemoteVersion()
-	if err != nil {
-		return err
-	}
-	cl.registrationVersion = ver
+		globals.Log.WARN.Print("Skipping connection to permissioing, most likely no permissioning information in NDF")
 
-	//Request a new ndf from permissioning
-	def, err = io.GetUpdatedNDF(cl.ndf, cl.receptionManager.Comms)
-	if err != nil {
-		return err
-	}
-	if def != nil {
-		cl.ndf = def
-	}
 
-	// Only check the version if we got a remote version
-	// The remote version won't have been populated if we didn't connect to permissioning
-	if cl.GetRegistrationVersion() != "" {
-		ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
+	}else{
+		//Get remote version and update
+		ver, err := cl.receptionManager.GetRemoteVersion()
 		if err != nil {
 			return err
 		}
-		if !ok {
-			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.GetRegistrationVersion()))
+		cl.registrationVersion = ver
+
+		//Request a new ndf from permissioning
+		def, err = io.GetUpdatedNDF(cl.ndf, cl.receptionManager.Comms)
+		if err != nil {
 			return err
 		}
-	} else {
-		globals.Log.WARN.Printf("Not checking version from " +
-			"registration server, because it's not populated. Do you have " +
-			"access to the registration server?")
+		if def != nil {
+			cl.ndf = def
+		}
+
+		// Only check the version if we got a remote version
+		// The remote version won't have been populated if we didn't connect to permissioning
+		if cl.GetRegistrationVersion() != "" {
+			ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
+			if err != nil {
+				return err
+			}
+			if !ok {
+				err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+					cl.GetRegistrationVersion()))
+				return err
+			}
+		} else {
+			globals.Log.WARN.Printf("Not checking version from " +
+				"registration server, because it's not populated. Do you have " +
+				"access to the registration server?")
+		}
+
 	}
 
 	//build the topology

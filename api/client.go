@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -34,56 +33,28 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	goio "io"
 	"strings"
-	"testing"
 	"time"
 )
 
 type Client struct {
 	storage             globals.Storage
 	session             user.Session
-	receptionManager    *io.ReceptionManager
+	commManager         *io.ReceptionManager
 	ndf                 *ndf.NetworkDefinition
 	topology            *connect.Circuit
 	opStatus            OperationProgressCallback
 	rekeyChan           chan struct{}
 	registrationVersion string
-
-	// Pointer to a send function, which allows testing to override the default
-	// using NewTestClient
-	sendFunc sender
 }
-
-// Type that defines what the default and any testing send functions should look like
-type sender func(message parse.MessageInterface, rm *io.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error
 
 //used to report the state of registration
 type OperationProgressCallback func(int)
-
-// Creates a new client with the default send function
-func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
-	return newClient(s, locA, locB, ndfJSON, send)
-}
-
-// Creates a new test client with an overridden send function
-func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition, i interface{}, sendFunc sender) (*Client, error) {
-	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
-		break
-	default:
-		jww.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
-	}
-	return newClient(s, locA, locB, ndfJSON, sendFunc)
-}
 
 // Creates a new Client using the storage mechanism provided.
 // If none is provided, a default storage using OS file access
 // is created
 // returns a new Client object, and an error if it fails
-func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition, sendFunc sender) (*Client, error) {
+func NewClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinition) (*Client, error) {
 	var store globals.Storage
 	if s == nil {
 		globals.Log.INFO.Printf("No storage provided," +
@@ -103,9 +74,8 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager = io.NewReceptionManager(cl.rekeyChan)
+	cl.commManager = io.NewReceptionManager(cl.rekeyChan)
 	cl.ndf = ndfJSON
-	cl.sendFunc = sendFunc
 
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
@@ -177,7 +147,7 @@ func (cl *Client) Logout() error {
 	// Stop reception runner goroutine
 	close(cl.session.GetQuitChan())
 
-	cl.receptionManager.Comms.DisconnectAll()
+	cl.commManager.Comms.DisconnectAll()
 
 	errStore := cl.session.StoreSession()
 
@@ -289,15 +259,15 @@ var sessionFileError = errors.New("Session file cannot be loaded and " +
 
 func (cl *Client) InitListeners() error {
 	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	transmissionHost, ok := cl.receptionManager.Comms.GetHost(transmitGateway.String())
+	transmissionHost, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.receptionManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
+	bots.InitBots(cl.session, cl.commManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, cl.rekeyChan)
+	rekey.InitRekey(cl.session, cl.commManager, cl.topology, cl.rekeyChan)
 	return nil
 }
 
@@ -308,7 +278,7 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
-	receptionHost, ok := cl.receptionManager.Comms.GetHost(receptionGateway.String())
+	receptionHost, ok := cl.commManager.Comms.GetHost(receptionGateway.String())
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
@@ -323,40 +293,36 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 				}()
 			}
 		}()
-		cl.receptionManager.MessageReceiver(cl.session, pollWaitTimeMillis, receptionHost, callback)
+		cl.commManager.MessageReceiver(cl.session, pollWaitTimeMillis, receptionHost, callback)
 	}()
 
 	return nil
 }
 
-// Default send function, can be overridden for testing
+// Send prepares and sends a message to the cMix network
+// FIXME: We need to think through the message interface part.
 func (cl *Client) Send(message parse.MessageInterface) error {
 	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	host, ok := cl.receptionManager.Comms.GetHost(transmitGateway.String())
+	host, ok := cl.commManager.Comms.GetHost(transmitGateway.String())
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
-
-	return cl.sendFunc(message, cl.receptionManager, cl.session, cl.topology, host)
-}
-
-// Send prepares and sends a message to the cMix network
-func send(message parse.MessageInterface, rm *io.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error {
+	// FIXME: There should (at least) be a version of this that takes a byte array
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
-	return rm.SendMessage(session, topology, recipientID, cryptoType, message.Pack(), host)
+	return cl.commManager.SendMessage(cl.session, cl.topology, recipientID, cryptoType, message.Pack(), host)
 }
 
 // DisableBlockingTransmission turns off blocking transmission, for
 // use with the channel bot and dummy bot
 func (cl *Client) DisableBlockingTransmission() {
-	cl.receptionManager.DisableBlockingTransmission()
+	cl.commManager.DisableBlockingTransmission()
 }
 
 // SetRateLimiting sets the minimum amount of time between message
 // transmissions just for testing, probably to be removed in production
 func (cl *Client) SetRateLimiting(limit uint32) {
-	cl.receptionManager.SetRateLimit(time.Duration(limit) * time.Millisecond)
+	cl.commManager.SetRateLimit(time.Duration(limit) * time.Millisecond)
 }
 
 func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
@@ -557,7 +523,7 @@ func (cl *Client) GetSession() user.Session {
 // ReceptionManager returns the comm manager object for external access.  Access
 // at your own risk
 func (cl *Client) GetCommManager() *io.ReceptionManager {
-	return cl.receptionManager
+	return cl.commManager
 }
 
 // LoadSessionText: load the encrypted session as a string

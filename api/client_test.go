@@ -632,9 +632,9 @@ func TestClient_GetCommManager(t *testing.T) {
 	//Start client
 	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def)
 
-	testClient.receptionManager = &io.ReceptionManager{}
+	testClient.commManager = &io.ReceptionManager{}
 
-	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.receptionManager) {
+	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.commManager) {
 		t.Error("Received session not the same as the real session")
 	}
 

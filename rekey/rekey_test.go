@@ -178,7 +178,7 @@ func TestRekeyTrigger(t *testing.T) {
 		Receiver:     partnerID,
 	}
 	session.GetSwitchboard().Speak(msg)
-
+	time.Sleep(time.Second)
 	// Check that error occurred in rekeytrigger for repeated message
 	if rekeyTriggerList.err == nil {
 		t.Errorf("RekeyTrigger should have returned error")
@@ -201,7 +201,7 @@ func TestRekeyConfirm(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
-
+	time.Sleep(time.Second)
 	// Check that error occurred in RekeyConfirm when hash is wrong
 	if rekeyConfirmList.err == nil {
 		t.Errorf("RekeyConfirm should have returned error")
@@ -220,7 +220,7 @@ func TestRekeyConfirm(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
-
+	time.Sleep(time.Second)
 	// Check no error occurred in rekeyConfirm processing
 	if rekeyConfirmList.err != nil {
 		t.Errorf("RekeyConfirm returned error: %v", rekeyConfirmList.err.Error())
@@ -246,7 +246,7 @@ func TestRekeyConfirm(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
-
+	time.Sleep(time.Second)
 	// Check that error occurred in RekeyConfirm for repeated message
 	if rekeyConfirmList.err == nil {
 		t.Errorf("RekeyConfirm should have returned error")
@@ -347,7 +347,7 @@ func TestRekey_Errors(t *testing.T) {
 		Receiver:     session.GetCurrentUser().User,
 	}
 	session.GetSwitchboard().Speak(msg)
-
+	time.Sleep(time.Second)
 	// Check error occurred on Rekey
 	if rekeyList.err == nil {
 		t.Errorf("Rekey should have returned error")

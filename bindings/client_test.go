@@ -211,6 +211,7 @@ func TestListen(t *testing.T) {
 		Sender:   id.ZeroID,
 		Receiver: client.client.GetCurrentUser(),
 	})
+	time.Sleep(time.Second)
 	if !listener {
 		t.Error("Message not received")
 	}

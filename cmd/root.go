@@ -287,7 +287,7 @@ type FallbackListener struct {
 	MessagesReceived int64
 }
 
-func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
+func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	if !isHeardElsewhere {
 		message := item.(*parse.Message)
 		sender, ok := user.Users.GetUser(message.Sender)
@@ -308,7 +308,7 @@ type TextListener struct {
 	MessagesReceived int64
 }
 
-func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool) {
+func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	message := item.(*parse.Message)
 	globals.Log.INFO.Println("Hearing a text message")
 	result := cmixproto.TextMessage{}

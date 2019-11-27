@@ -70,7 +70,7 @@ type listenerProxy struct {
 	proxy Listener
 }
 
-func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
 	lp.proxy.Hear(msgInterface, isHeardElsewhere)
 }

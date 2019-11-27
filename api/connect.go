@@ -10,18 +10,23 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 )
 
+var ErrNoPermissioning = error.New("No Permissioning In NDF")
+
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
-	isConnected, err := AddPermissioningHost(cl.receptionManager, cl.ndf)
-	if err != nil {
-		return err
-	}
-	if !isConnected {
+	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+
+	if err == ErrNoPermissioning {
 		// No permissioing info was passed in through NDF so ignore all permissioning code
 		globals.Log.WARN.Print("Skipping connection to permissioning, most likely no permissioning information in NDF")
-	}else{
+	}else if err != nil && err != ErrNoPermissioning {
+		// Permissioning has an error so stop running
+		return err
+	} else{
+		// Permissioning was connected run corresponding code
+
 		//Get remote version and update
 		ver, err := cl.receptionManager.GetRemoteVersion()
 		if err != nil {
@@ -109,20 +114,20 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout b
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) (bool, error) {
+func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) (error) {
 	if definition.Registration.Address != "" {
 		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
 			definition.Registration.TlsCertificate, false)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf(
+			return errors.New(fmt.Sprintf(
 				"Failed connecting to create host for permissioning: %+v", err))
 		}
-		return true, nil
+		return nil
 	} else {
 		globals.Log.DEBUG.Printf("failed to connect to %v silently", definition.Registration.Address)
 		// Without an NDF, we can't connect to permissioning, but this isn't an
 		// error per se, because we should be phasing out permissioning at some
 		// point
-		return false, nil
+		return ErrNoPermissioning
 	}
 }

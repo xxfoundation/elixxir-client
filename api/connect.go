@@ -20,10 +20,7 @@ func (cl *Client) InitNetwork() error {
 	}
 	if !isConnected {
 		// No permissioing info was passed in through NDF so ignore all permissioning code
-		err = errors.New("Couldn't connect to permissioning")
 		globals.Log.WARN.Print("Skipping connection to permissioning, most likely no permissioning information in NDF")
-
-
 	}else{
 		//Get remote version and update
 		ver, err := cl.receptionManager.GetRemoteVersion()

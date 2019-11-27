@@ -7,19 +7,23 @@
 package bindings
 
 import (
+	"crypto/rand"
 	"github.com/pkg/errors"
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"math/big"
 	"strings"
 	"time"
 )
 
 type Client struct {
 	client *api.Client
+	cb     ConnectionStatusCallback
 }
 
 // Returns listener handle as a string.
@@ -74,6 +78,12 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*C
 	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf)
 
 	return &Client{client: cl}, err
+}
+
+func NewClient_deprecated(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
+	csc ConnectionStatusCallback) (*Client, error) {
+
+	return &Client{client: nil, cb: csc}, nil
 }
 
 func (cl *Client) EnableDebugLogs() {
@@ -154,6 +164,59 @@ type MessageReceiverCallback interface {
 func (cl *Client) StartMessageReceiver(mrc MessageReceiverCallback) error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
 	return cl.client.StartMessageReceiver(mrc.Callback)
+}
+
+func (cl *Client) StartMessageReceiver_deprecated() error {
+	cb := func(err error) {
+		cl.backoff(0)
+	}
+
+	err := cl.client.StartMessageReceiver(cb)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cl *Client) backoff(backoffCount int) {
+	cb := func(err error) {
+		cl.backoff(backoffCount + 1)
+	}
+
+	// Compute backoff time
+	var delay time.Duration
+	var block = false
+	if backoffCount > 15 {
+		delay = time.Hour
+		block = true
+	}
+	wait := 2 ^ backoffCount
+	if wait > 180 {
+		wait = 180
+	}
+	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
+	delay = time.Second*time.Duration(wait) + time.Millisecond*time.Duration(jitter.Int64())
+
+	cl.cb.Callback(0, int(delay.Seconds()))
+
+	// Start timer, or stop if max attempts reached
+	timer := time.NewTimer(delay)
+	if block {
+		timer.Stop()
+	}
+
+	select {
+	case <-timer.C:
+		backoffCount = 0
+	}
+
+	// attempt to start the message receiver
+	cl.cb.Callback(1, 0)
+	err := cl.client.StartMessageReceiver(cb)
+	if err != nil {
+		cl.cb.Callback(0, 0)
+	}
+	cl.cb.Callback(2, 0)
 }
 
 // Overwrites the username in registration. Only succeeds if the client

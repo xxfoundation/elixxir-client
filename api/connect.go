@@ -10,7 +10,7 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 )
 
-var ErrNoPermissioning = error.New("No Permissioning In NDF")
+var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment

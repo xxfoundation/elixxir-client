@@ -22,8 +22,8 @@ import (
 )
 
 type Client struct {
-	client *api.Client
-	cb     ConnectionStatusCallback
+	client         *api.Client
+	statusCallback ConnectionStatusCallback
 }
 
 // Returns listener handle as a string.
@@ -83,7 +83,7 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*C
 func NewClient_deprecated(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 	csc ConnectionStatusCallback) (*Client, error) {
 
-	return &Client{client: nil, cb: csc}, nil
+	return &Client{client: nil, statusCallback: csc}, nil
 }
 
 func (cl *Client) EnableDebugLogs() {
@@ -167,11 +167,11 @@ func (cl *Client) StartMessageReceiver(mrc MessageReceiverCallback) error {
 }
 
 func (cl *Client) StartMessageReceiver_deprecated() error {
-	cb := func(err error) {
+	receiverCallback := func(err error) {
 		cl.backoff(0)
 	}
 
-	err := cl.client.StartMessageReceiver(cb)
+	err := cl.client.StartMessageReceiver(receiverCallback)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func (cl *Client) StartMessageReceiver_deprecated() error {
 }
 
 func (cl *Client) backoff(backoffCount int) {
-	cb := func(err error) {
+	receiverCallback := func(err error) {
 		cl.backoff(backoffCount + 1)
 	}
 
@@ -197,7 +197,7 @@ func (cl *Client) backoff(backoffCount int) {
 	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
 	delay = time.Second*time.Duration(wait) + time.Millisecond*time.Duration(jitter.Int64())
 
-	cl.cb.Callback(0, int(delay.Seconds()))
+	cl.statusCallback.Callback(0, int(delay.Seconds()))
 
 	// Start timer, or stop if max attempts reached
 	timer := time.NewTimer(delay)
@@ -211,12 +211,12 @@ func (cl *Client) backoff(backoffCount int) {
 	}
 
 	// attempt to start the message receiver
-	cl.cb.Callback(1, 0)
-	err := cl.client.StartMessageReceiver(cb)
+	cl.statusCallback.Callback(1, 0)
+	err := cl.client.StartMessageReceiver(receiverCallback)
 	if err != nil {
-		cl.cb.Callback(0, 0)
+		cl.statusCallback.Callback(0, 0)
 	}
-	cl.cb.Callback(2, 0)
+	cl.statusCallback.Callback(2, 0)
 }
 
 // Overwrites the username in registration. Only succeeds if the client

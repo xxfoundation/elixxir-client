@@ -28,7 +28,7 @@ func (cl *Client) InitNetwork() error {
 		return err
 	}
 
-	if !skipPermissioning{
+	if !skipPermissioning {
 		// Permissioning was found in ndf run corresponding code
 
 		//Get remote version and update

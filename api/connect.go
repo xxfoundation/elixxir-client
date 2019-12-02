@@ -29,7 +29,7 @@ func (cl *Client) InitNetwork() error {
 	runPermissioning := err != ErrNoPermissioning
 
 	if runPermissioning {
-		err = setupPermissioning(cl)
+		err = cl.setupPermissioning()
 
 		if err != nil {
 			return err
@@ -47,7 +47,7 @@ func (cl *Client) InitNetwork() error {
 	return AddGatewayHosts(cl.receptionManager, cl.ndf)
 }
 
-func setupPermissioning(cl *Client) error {
+func (cl *Client) setupPermissioning() error {
 	// Permissioning was found in ndf run corresponding code
 
 	//Get remote version and update

@@ -70,13 +70,15 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 // It sends a registration message and returns the registration signature
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	 err := AddPermissioningHost(cl.receptionManager, cl.ndf)
-	if err == ErrNoPermissioning  {
+	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+
+	skipPermissioning := err == ErrNoPermissioning
+
+	if skipPermissioning {
 		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
-	}else if err != nil && err != ErrNoPermissioning{
+	} else if err != nil && !skipPermissioning {
 		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
 	}
-
 
 	regValidationSignature := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer

@@ -18,14 +18,18 @@ func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
 	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
 
-	if err == ErrNoPermissioning {
-		// No permissioing info was passed in through NDF so ignore all permissioning code
+	skipPermissioning := err == ErrNoPermissioning
+
+	if skipPermissioning {
+		// No permissioning info was passed in through NDF so ignore all permissioning code
 		globals.Log.WARN.Print("Skipping connection to permissioning, most likely no permissioning information in NDF")
-	}else if err != nil && err != ErrNoPermissioning {
+	} else if err != nil && !skipPermissioning {
 		// Permissioning has an error so stop running
 		return err
-	} else{
-		// Permissioning was connected run corresponding code
+	}
+
+	if !skipPermissioning{
+		// Permissioning was found in ndf run corresponding code
 
 		//Get remote version and update
 		ver, err := cl.receptionManager.GetRemoteVersion()
@@ -60,7 +64,6 @@ func (cl *Client) InitNetwork() error {
 				"registration server, because it's not populated. Do you have " +
 				"access to the registration server?")
 		}
-
 	}
 
 	//build the topology
@@ -114,7 +117,7 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout b
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) (error) {
+func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
 		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
 			definition.Registration.TlsCertificate, false)

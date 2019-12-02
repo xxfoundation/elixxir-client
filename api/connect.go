@@ -18,51 +18,21 @@ func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
 	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
 
-	skipPermissioning := err == ErrNoPermissioning
-
-	if skipPermissioning {
-		// No permissioning info was passed in through NDF so ignore all permissioning code
+	if err != nil {
+		if err != ErrNoPermissioning {
+			// Permissioning has an error so stop running
+			return err
+		}
 		globals.Log.WARN.Print("Skipping connection to permissioning, most likely no permissioning information in NDF")
-	} else if err != nil && !skipPermissioning {
-		// Permissioning has an error so stop running
-		return err
 	}
 
-	if !skipPermissioning {
-		// Permissioning was found in ndf run corresponding code
+	runPermissioning := err != ErrNoPermissioning
 
-		//Get remote version and update
-		ver, err := cl.receptionManager.GetRemoteVersion()
+	if runPermissioning {
+		err = setupPermissioning(cl)
+
 		if err != nil {
 			return err
-		}
-		cl.registrationVersion = ver
-
-		//Request a new ndf from permissioning
-		def, err = io.GetUpdatedNDF(cl.ndf, cl.receptionManager.Comms)
-		if err != nil {
-			return err
-		}
-		if def != nil {
-			cl.ndf = def
-		}
-
-		// Only check the version if we got a remote version
-		// The remote version won't have been populated if we didn't connect to permissioning
-		if cl.GetRegistrationVersion() != "" {
-			ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
-			if err != nil {
-				return err
-			}
-			if !ok {
-				err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-					cl.GetRegistrationVersion()))
-				return err
-			}
-		} else {
-			globals.Log.WARN.Printf("Not checking version from " +
-				"registration server, because it's not populated. Do you have " +
-				"access to the registration server?")
 		}
 	}
 
@@ -75,6 +45,47 @@ func (cl *Client) InitNetwork() error {
 	cl.topology = connect.NewCircuit(nodeIDs)
 
 	return AddGatewayHosts(cl.receptionManager, cl.ndf)
+}
+
+func setupPermissioning(cl *Client) error {
+	// Permissioning was found in ndf run corresponding code
+
+	//Get remote version and update
+	ver, err := cl.receptionManager.GetRemoteVersion()
+	if err != nil {
+		return err
+	}
+	cl.registrationVersion = ver
+
+	//Request a new ndf from permissioning
+	def, err = io.GetUpdatedNDF(cl.ndf, cl.receptionManager.Comms)
+	if err != nil {
+		return err
+	}
+	if def != nil {
+		cl.ndf = def
+	}
+
+	// Only check the version if we got a remote version
+	// The remote version won't have been populated if we didn't connect to permissioning
+	if cl.GetRegistrationVersion() != "" {
+		ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
+		if err != nil {
+			return err
+		}
+		if !ok {
+			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.GetRegistrationVersion()))
+			return err
+		}
+	} else {
+		globals.Log.WARN.Printf("Not checking version from " +
+			"registration server, because it's not populated. Do you have " +
+			"access to the registration server?")
+	}
+
+	return nil
+
 }
 
 // Connects to gateways using tls filepaths to create credential information

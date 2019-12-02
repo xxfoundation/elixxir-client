@@ -72,11 +72,10 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
 	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
 
-	skipPermissioning := err == ErrNoPermissioning
-
-	if skipPermissioning {
-		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
-	} else if err != nil && !skipPermissioning {
+	if err != nil {
+		if err == ErrNoPermissioning {
+			return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
+		}
 		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
 	}
 

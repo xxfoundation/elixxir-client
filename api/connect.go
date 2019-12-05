@@ -125,8 +125,6 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout b
 		globals.Log.INFO.Println("SETTING CERTS")
 		creds = []byte(cert)
 	}
-	fmt.Println("tls is set to: ", rm.Tls)
-	fmt.Println("creds: ", creds)
 	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout)
 	if err != nil {
 		return err

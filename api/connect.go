@@ -122,7 +122,6 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout bool) error {
 	var creds []byte
 	if cert != "" && rm.Tls {
-		globals.Log.INFO.Println("SETTING CERTS")
 		creds = []byte(cert)
 	}
 	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout)

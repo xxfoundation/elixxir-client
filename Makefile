@@ -6,7 +6,7 @@ setup:
 update:
 	rm -rf vendor/
 	go mod vendor
-	GOFLAGS="" go get -u all
+	-GOFLAGS="" go get -u all
 
 build:
 	go build ./...
@@ -15,7 +15,7 @@ build:
 update_release:
 	GOFLAGS="" go get -u gitlab.com/elixxir/primitives@release
 	GOFLAGS="" go get -u gitlab.com/elixxir/crypto@release
-	GOFLAGS="" go get -u gitlab.com/elixxir/comms@release
+	GOFLAGS="" go get -u gitlab.com/elixxir/comms@XX-1690/PollNdf
 
 update_master:
 	GOFLAGS="" go get -u gitlab.com/elixxir/primitives@master

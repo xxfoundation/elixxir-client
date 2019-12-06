@@ -174,6 +174,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		return id.ZeroID, "", nil
 	}*/
 
+	if noTLS {
+		client.DisableTls()
+	}
+
 	// InitNetwork to gateways and reg server
 	err = client.InitNetwork()
 	if err != nil {

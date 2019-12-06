@@ -13,7 +13,7 @@ import (
 var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code = Unknown desc = Permissioning server does not have an ndf to give to client")
 
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
-func GetUpdatedNDF(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.NetworkDefinition, error) {
+func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.NetworkDefinition, error) {
 	//Hash the client's ndf for comparison with registration's ndf
 	hash := sha256.New()
 	ndfBytes := currentDef.Serialize()
@@ -29,7 +29,7 @@ func GetUpdatedNDF(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf
 	}
 
 	//Send the hash to registration
-	response, err := comms.SendGetUpdatedNDF(host, msg)
+	response, err := comms.RequestNdf(host, msg)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		if errMsg == noNDFErr.Error() {

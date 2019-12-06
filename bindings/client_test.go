@@ -58,7 +58,7 @@ func (i *MockRegistration) GetCurrentClientVersion() (string, error) {
 	return "0.1.0", nil
 }
 
-func (i *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+func (i *MockRegistration) PollNdf(clientNdfHash []byte) ([]byte, error) {
 	ndfJson, _ := json.Marshal(def)
 	return ndfJson, nil
 }

@@ -110,7 +110,7 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 	return nil
 }
 
-func (s *MockRegistration) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+func (s *MockRegistration) PollNdf(clientNdfHash []byte) ([]byte, error) {
 
 	ndfData := def
 

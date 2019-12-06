@@ -60,7 +60,7 @@ type storageProxy struct {
 // gets a message of the type that the registerer specified at registration
 // time.
 type Listener interface {
-	Hear(msg Message, isHeardElsewhere bool)
+	Hear(msg Message, isHeardElsewhere bool, i ...interface{})
 }
 
 // Translate a bindings listener to a switchboard listener

@@ -47,6 +47,12 @@ func (cl *Client) InitNetwork() error {
 	return AddGatewayHosts(cl.receptionManager, cl.ndf)
 }
 
+// DisableTls disables tls for communications
+func (cl *Client) DisableTls() {
+	globals.Log.INFO.Println("Running client without tls")
+	cl.receptionManager.Tls = false
+}
+
 func (cl *Client) setupPermissioning() error {
 	// Permissioning was found in ndf run corresponding code
 
@@ -58,7 +64,7 @@ func (cl *Client) setupPermissioning() error {
 	cl.registrationVersion = ver
 
 	//Request a new ndf from permissioning
-	def, err = io.GetUpdatedNDF(cl.ndf, cl.receptionManager.Comms)
+	def, err = io.PollNdf(cl.ndf, cl.receptionManager.Comms)
 	if err != nil {
 		return err
 	}
@@ -115,7 +121,7 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 
 func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout bool) error {
 	var creds []byte
-	if cert != "" {
+	if cert != "" && rm.Tls {
 		creds = []byte(cert)
 	}
 	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout)

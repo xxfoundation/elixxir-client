@@ -33,6 +33,8 @@ type ReceptionManager struct {
 	nextId   func() []byte
 	collator *Collator
 
+	//Flags if the network is using tls or note
+	Tls bool
 	// blockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
 	blockTransmissions bool // pass into receiver
@@ -57,6 +59,7 @@ func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
 		receivedMessages:   make(map[string]struct{}),
 		Comms:              &client.Comms{},
 		rekeyChan:          rekeyChan,
+		Tls:                true,
 	}
 
 	return cm

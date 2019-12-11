@@ -1,7 +1,6 @@
 package api
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -38,6 +37,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 
 	//Generate the cmix/e2e groups
 	cmixGrp, e2eGrp := generateGroups(cl.ndf)
+
 	//Generate client RSA keys
 	privateKeyRSA, publicKeyRSA, err := generateRsaKeys(privateKeyRSA)
 	if err != nil {
@@ -53,11 +53,11 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		return nil, err
 	}
 
-	// Initialized response from Registration Server
+	//Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
 	var salt []byte
 
-	// Handle registration
+	//Handle registration
 	if preCan {
 		// Either precanned registration for precanned users
 		cl.opStatus(globals.REG_PRECAN)
@@ -75,11 +75,14 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 			return id.ZeroID, err
 		}
 		salt, UID, usr, err = generateUserInformation(nick, publicKeyRSA)
+		if err != nil {
+			return id.ZeroID, err
+		}
 	}
 	//Set the registration secure state
 	cl.opStatus(globals.REG_SECURE_STORE)
 
-	// Set user email, create the user session and set the status to
+	//Set user email, create the user session and set the status to
 	// indicate permissioning is now complete
 	usr.Email = email
 	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,
@@ -129,15 +132,15 @@ func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
 }
 
 //generateGroups generates the cmix and e2e groups from the ndf
-func generateGroups(clientNdf *ndf.NetworkDefinition) (*cyclic.Group, *cyclic.Group) {
+func generateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 	largeIntBits := 16
 
 	//Generate the cmix group
-	cmixGrp := cyclic.NewGroup(
+	cmixGrp = cyclic.NewGroup(
 		large.NewIntFromString(clientNdf.CMIX.Prime, largeIntBits),
 		large.NewIntFromString(clientNdf.CMIX.Generator, largeIntBits))
 	//Generate the e2e group
-	e2eGrp := cyclic.NewGroup(
+	e2eGrp = cyclic.NewGroup(
 		large.NewIntFromString(clientNdf.E2E.Prime, largeIntBits),
 		large.NewIntFromString(clientNdf.E2E.Generator, largeIntBits))
 
@@ -150,7 +153,7 @@ func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.Publi
 	var err error
 	//Generate client RSA keys
 	if privateKeyRSA == nil {
-		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
+		privateKeyRSA, err = rsa.GenerateKey(csprng.NewSystemRNG(), rsa.DefaultRSABitLen)
 		if err != nil {
 			return nil, nil, errors.Errorf("unable to generate private key: %+v", err)
 		}
@@ -162,15 +165,15 @@ func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.Publi
 }
 
 //generateCmixKeys generates private and public keys within the cmix group
-func generateCmixKeys(cmixGrp *cyclic.Group) (*cyclic.Int, *cyclic.Int, error) {
+func generateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
 	//Generate the private key
 	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 	if err != nil {
 		return nil, nil, errors.Errorf("Could not generate cmix DH private key: %s", err.Error())
 	}
 	//Convert the keys into cyclic Ints and return
-	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
-	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
+	cmixPrivateKeyDH = cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
+	cmixPublicKeyDH = cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
 
 	return cmixPrivateKeyDH, cmixPublicKeyDH, nil
 }

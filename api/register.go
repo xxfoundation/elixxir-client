@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
 	"time"
 )
@@ -26,27 +27,27 @@ const SaltSize = 256
 // User ID.  Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
-
+	//Initialize these for conditionals below s.t. they're in scope past the conditional
 	var err error
 	var usr *user.User
 	var UID *id.User
 
+	//Set the status and make CMix keys array
 	cl.opStatus(globals.REG_KEYGEN)
-	//Generate the cmix and e2e groups
-	cmixGrp, e2eGrp := generateGroups(cl)
-	// Make CMIX keys array
 	nodeKeyMap := make(map[id.Node]user.NodeKeys)
-	///Generate the public key
-	publicKeyRSA, err := generateRsaKeys(privateKeyRSA)
+
+	//Generate the cmix/e2e groups
+	cmixGrp, e2eGrp := generateGroups(cl.ndf)
+	//Generate client RSA keys
+	privateKeyRSA, publicKeyRSA, err := generateRsaKeys(privateKeyRSA)
 	if err != nil {
 		return nil, err
 	}
-	//Generate cmix private and public keys
+	//Generate cmix and e2e keys
 	cmixPrivateKeyDH, cmixPublicKeyDH, err := generateCmixKeys(cmixGrp)
 	if err != nil {
 		return nil, err
 	}
-	//Generate e2e private and public keys
 	e2ePrivateKeyDH, e2ePublicKeyDH, err := generateE2eKeys(cmixGrp, e2eGrp)
 	if err != nil {
 		return nil, err
@@ -54,11 +55,11 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 
 	// Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
-
 	var salt []byte
 
-	// Handle precanned registration
+	// Handle registration
 	if preCan {
+		// Either precanned registration for precanned users
 		cl.opStatus(globals.REG_PRECAN)
 		globals.Log.INFO.Printf("Registering precanned user...")
 		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode, nick, nodeKeyMap)
@@ -67,45 +68,20 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 			return id.ZeroID, err
 		}
 	} else {
-		cl.opStatus(globals.REG_UID_GEN)
-		globals.Log.INFO.Printf("Registering dynamic user...")
-
-		// Generate salt for UserID
-		salt = make([]byte, SaltSize)
-		_, err = csprng.NewSystemRNG().Read(salt)
+		// Or registration with the permissioning server and generate user information
+		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, nick, publicKeyRSA)
 		if err != nil {
-			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
+			globals.Log.INFO.Printf(err.Error())
 			return id.ZeroID, err
 		}
-
-		// Generate UserID by hashing salt and public key
-		UID = registration.GenUserID(publicKeyRSA, salt)
-
-		// If Registration Server is specified, contact it
-		// Only if registrationCode is set
-		globals.Log.INFO.Println("Register: Contacting registration server")
-		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.opStatus(globals.REG_PERM)
-			regValidationSignature, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
-				return id.ZeroID, err
-			}
-		}
-		globals.Log.INFO.Println("Register: successfully passed Registration message")
-
-		if nick == "" {
-			nick = base64.StdEncoding.EncodeToString(UID[:])
-		}
-		usr = user.Users.NewUser(UID, nick)
-		user.Users.UpsertUser(usr)
+		salt, UID, usr, err = generateUserInformation(nick, publicKeyRSA)
 	}
-
+	//Set the registration secure state
 	cl.opStatus(globals.REG_SECURE_STORE)
 
+	// Set user email, create the user session and set the status to
+	// indicate permissioning is now complete
 	usr.Email = email
-
-	// Create the user session
 	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
@@ -129,38 +105,60 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	return UID, nil
 }
 
+//registerWithPermissioning servers as a helper function for RegisterWithPermissioning.
+// It sends the registration message containing the regCode to permissioning
+func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
+	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
+	//Set the opStatus and log registration
+	cl.opStatus(globals.REG_UID_GEN)
+	globals.Log.INFO.Printf("Registering dynamic user...")
+
+	// If Registration Server is specified, contact it
+	// Only if registrationCode is set
+	globals.Log.INFO.Println("Register: Contacting registration server")
+	if cl.ndf.Registration.Address != "" && registrationCode != "" {
+		cl.opStatus(globals.REG_PERM)
+		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+		if err != nil {
+			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
+		}
+	}
+	globals.Log.INFO.Println("Register: successfully passed Registration message")
+
+	return regValidSig, nil
+}
+
 //generateGroups generates the cmix and e2e groups from the ndf
-func generateGroups(cl *Client) (*cyclic.Group, *cyclic.Group) {
+func generateGroups(clientNdf *ndf.NetworkDefinition) (*cyclic.Group, *cyclic.Group) {
 	largeIntBits := 16
 
 	//Generate the cmix group
 	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits))
+		large.NewIntFromString(clientNdf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(clientNdf.CMIX.Generator, largeIntBits))
 	//Generate the e2e group
 	e2eGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits))
+		large.NewIntFromString(clientNdf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(clientNdf.E2E.Generator, largeIntBits))
 
 	return cmixGrp, e2eGrp
 }
 
 //generateRsaKeys generates a private key if the one passed in is nil
 // and a public key from said private key
-func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PublicKey,
-	error) {
+func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	var err error
-	// GENERATE CLIENT RSA KEYS
+	//Generate client RSA keys
 	if privateKeyRSA == nil {
 		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
 		if err != nil {
-			return nil, err
+			return nil, nil, errors.Errorf("unable to generate private key: %+v", err)
 		}
 	}
 	//Pull the public key from the private key
 	publicKeyRSA := privateKeyRSA.GetPublic()
 
-	return publicKeyRSA, nil
+	return privateKeyRSA, publicKeyRSA, nil
 }
 
 //generateCmixKeys generates private and public keys within the cmix group
@@ -191,9 +189,30 @@ func generateE2eKeys(cmixGrp *cyclic.Group, e2eGrp *cyclic.Group) (*cyclic.Int, 
 	return e2ePrivateKeyDH, e2ePublicKeyDH, nil
 }
 
+//generateUserInformation generates a user and their ID
+func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
+	// Generate salt for UserID
+	salt := make([]byte, SaltSize)
+	_, err := csprng.NewSystemRNG().Read(salt)
+	if err != nil {
+		return nil, nil, nil, errors.Errorf("Register: Unable to generate salt! %s", err)
+	}
+
+	// Generate UserID by hashing salt and public key
+	userId := registration.GenUserID(publicKeyRSA, salt)
+	if nickname == "" {
+		nickname = base64.StdEncoding.EncodeToString(userId[:])
+	}
+
+	usr := user.Users.NewUser(userId, nickname)
+	user.Users.UpsertUser(usr)
+
+	return salt, userId, usr, nil
+}
+
 // RegisterWithUDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and InitNetwork.
-// It will fail if the user has already registered with UDB
+//  User discovery.  Must be called after Register and InitNetwork.
+//  It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 
 	regState := cl.GetSession().GetRegState()
@@ -253,6 +272,7 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	return nil
 }
 
+//RegisterWithNodes registers the client with all the nodes within the ndf
 func (cl *Client) RegisterWithNodes() error {
 	cl.opStatus(globals.REG_NODE)
 	session := cl.GetSession()
@@ -331,7 +351,7 @@ func (cl *Client) RegisterWithNodes() error {
 	return nil
 }
 
-//registerWithNode registers a user. It serves as a helper for Register
+//registerWithNode registers a user. It serves as a helper for RegisterWithNodes
 func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,

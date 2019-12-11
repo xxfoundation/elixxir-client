@@ -28,51 +28,29 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
 
 	var err error
-	var u *user.User
+	var usr *user.User
 	var UID *id.User
 
 	cl.opStatus(globals.REG_KEYGEN)
-
-	largeIntBits := 16
-
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits))
-
-	e2eGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits))
-
+	//Generate the cmix and e2e groups
+	cmixGrp, e2eGrp := generateGroups(cl)
 	// Make CMIX keys array
-	nk := make(map[id.Node]user.NodeKeys)
-
-	// GENERATE CLIENT RSA KEYS
-	if privateKeyRSA == nil {
-		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	publicKeyRSA := privateKeyRSA.GetPublic()
-
-	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-
+	nodeKeyMap := make(map[id.Node]user.NodeKeys)
+	///Generate the public key
+	publicKeyRSA, err := generateRsaKeys(privateKeyRSA)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
+		return nil, err
 	}
-
-	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
-	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
-
-	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-
+	//Generate cmix private and public keys
+	cmixPrivateKeyDH, cmixPublicKeyDH, err := generateCmixKeys(cmixGrp)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
+		return nil, err
 	}
-
-	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
-	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
+	//Generate e2e private and public keys
+	e2ePrivateKeyDH, e2ePublicKeyDH, err := generateE2eKeys(cmixGrp, e2eGrp)
+	if err != nil {
+		return nil, err
+	}
 
 	// Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
@@ -83,7 +61,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	if preCan {
 		cl.opStatus(globals.REG_PRECAN)
 		globals.Log.INFO.Printf("Registering precanned user...")
-		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
+		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode, nick, nodeKeyMap)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
 			return id.ZeroID, err
@@ -116,22 +94,19 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		}
 		globals.Log.INFO.Println("Register: successfully passed Registration message")
 
-		var actualNick string
-		if nick != "" {
-			actualNick = nick
-		} else {
-			actualNick = base64.StdEncoding.EncodeToString(UID[:])
+		if nick == "" {
+			nick = base64.StdEncoding.EncodeToString(UID[:])
 		}
-		u = user.Users.NewUser(UID, actualNick)
-		user.Users.UpsertUser(u)
+		usr = user.Users.NewUser(UID, nick)
+		user.Users.UpsertUser(usr)
 	}
 
 	cl.opStatus(globals.REG_SECURE_STORE)
 
-	u.Email = email
+	usr.Email = email
 
 	// Create the user session
-	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
+	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,
 		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
 		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
 	cl.opStatus(globals.REG_SAVE)
@@ -145,15 +120,75 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 
 	// Store the user session
 	errStore := newSession.StoreSession()
-
 	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
-			"Permissioning Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
+		err = errors.Errorf(
+			"Permissioning Register: could not register due to failed session save: %s", errStore.Error())
 		return id.ZeroID, err
 	}
 	cl.session = newSession
 	return UID, nil
+}
+
+//generateGroups generates the cmix and e2e groups from the ndf
+func generateGroups(cl *Client) (*cyclic.Group, *cyclic.Group) {
+	largeIntBits := 16
+
+	//Generate the cmix group
+	cmixGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits))
+	//Generate the e2e group
+	e2eGrp := cyclic.NewGroup(
+		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits))
+
+	return cmixGrp, e2eGrp
+}
+
+//generateRsaKeys generates a private key if the one passed in is nil
+// and a public key from said private key
+func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PublicKey,
+	error) {
+	var err error
+	// GENERATE CLIENT RSA KEYS
+	if privateKeyRSA == nil {
+		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
+		if err != nil {
+			return nil, err
+		}
+	}
+	//Pull the public key from the private key
+	publicKeyRSA := privateKeyRSA.GetPublic()
+
+	return publicKeyRSA, nil
+}
+
+//generateCmixKeys generates private and public keys within the cmix group
+func generateCmixKeys(cmixGrp *cyclic.Group) (*cyclic.Int, *cyclic.Int, error) {
+	//Generate the private key
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
+	if err != nil {
+		return nil, nil, errors.Errorf("Could not generate cmix DH private key: %s", err.Error())
+	}
+	//Convert the keys into cyclic Ints and return
+	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
+	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
+
+	return cmixPrivateKeyDH, cmixPublicKeyDH, nil
+}
+
+//generateE2eKeys generates public and private keys used in e2e communications
+func generateE2eKeys(cmixGrp *cyclic.Group, e2eGrp *cyclic.Group) (*cyclic.Int, *cyclic.Int, error) {
+	//Generate the private key in group
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
+	if err != nil {
+		return nil, nil, errors.Errorf("Could not generate e2e DH private key: %s", err.Error())
+	}
+	//Convert the keys into cyclic Ints and return
+	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
+	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
+
+	return e2ePrivateKeyDH, e2ePublicKeyDH, nil
 }
 
 // RegisterWithUDB uses the account's email to register with the UDB for

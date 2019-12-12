@@ -215,7 +215,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
+		uid, err = client.RegisterUser(userId != 0, regCode, userNick,
 			userEmail, sessFilePassword, privKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User: %s",

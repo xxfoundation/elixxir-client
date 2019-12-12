@@ -57,9 +57,12 @@ func TestGenerateKeys(t *testing.T) {
 		t.Errorf("Bad N-val, expected: %v", expected_N)
 	}
 	//TODO: Add more checks here
+
 }
 
+//
 func TestGenerateCmixKeys(t *testing.T) {
+	//Test generateCmixKeys
 	cmixGrp, _ := generateGroups(def)
 
 	cmixPrivKey, _, err := generateCmixKeys(cmixGrp)
@@ -70,4 +73,22 @@ func TestGenerateCmixKeys(t *testing.T) {
 	if !csprng.InGroup(cmixPrivKey.Bytes(), cmixGrp.GetPBytes()) {
 		t.Errorf("Generated cmix private key is not in the cmix group!")
 	}
+
+}
+
+//
+func TestGenerateE2eKeys(t *testing.T) {
+	//Test generateCmixKeys
+	cmixGrp, e2eGrp := generateGroups(def)
+
+	//Test e2e key generation
+	e2ePrivKey, _, err := generateE2eKeys(cmixGrp, e2eGrp)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if !csprng.InGroup(e2ePrivKey.Bytes(), cmixGrp.GetPBytes()) {
+		t.Errorf("Generated cmix private key is not in the cmix group!")
+	}
+
 }

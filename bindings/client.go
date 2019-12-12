@@ -120,7 +120,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email,
+	UID, err := cl.client.RegisterUser(preCan, registrationCode, nick, email,
 		password, nil)
 
 	if err != nil {

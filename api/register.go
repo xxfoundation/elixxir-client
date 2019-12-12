@@ -97,156 +97,9 @@ func (cl *Client) RegisterUser(preCan bool, registrationCode, nick, email,
 	return UID, nil
 }
 
-//finalizeSession serves as a helper function in RegisterUser.
-// It creates a session from all the generated values from registering and stores said session
-func (cl *Client) finalizeSession(usr *user.User, nodeKeyMap map[id.Node]user.NodeKeys,
-	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
-	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
-	e2ePublicKeyDH, e2ePrivateKeyDH *cyclic.Int,
-	salt []byte,
-	cmixGrp, e2eGrp *cyclic.Group,
-	password string, regSignature []byte) error {
-
-	//Finalize session creation
-	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,
-		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regSignature)
-	cl.opStatus(globals.REG_SAVE)
-
-	//Set the registration state
-	err := newSession.SetRegState(user.PermissioningComplete)
-	if err != nil {
-		return errors.Wrap(err, "Permissioning Registration "+
-			"Failed")
-	}
-
-	//Store the user session
-	errStore := newSession.StoreSession()
-	if errStore != nil {
-		return errors.Errorf("Permissioning Register: could not register due to failed session save: %s", errStore.Error())
-	}
-
-	//Set the client session as the newly created session
-	cl.session = newSession
-
-	return nil
-}
-
-//registerWithPermissioning serves as a helper function for RegisterUser.
-// It sends the registration message containing the regCode to permissioning
-func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
-	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
-	//Set the opStatus and log registration
-	cl.opStatus(globals.REG_UID_GEN)
-	globals.Log.INFO.Printf("Registering dynamic user...")
-
-	// If Registration Server is specified, contact it
-	// Only if registrationCode is set
-	globals.Log.INFO.Println("Register: Contacting registration server")
-	if cl.ndf.Registration.Address != "" && registrationCode != "" {
-		cl.opStatus(globals.REG_PERM)
-		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-		if err != nil {
-			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
-		}
-	}
-	globals.Log.INFO.Println("Register: successfully passed Registration message")
-
-	return regValidSig, nil
-}
-
-//generateGroups serves as a helper function for RegisterUser.
-// It generates the cmix and e2e groups from the ndf
-func generateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
-	largeIntBits := 16
-
-	//Generate the cmix group
-	cmixGrp = cyclic.NewGroup(
-		large.NewIntFromString(clientNdf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(clientNdf.CMIX.Generator, largeIntBits))
-	//Generate the e2e group
-	e2eGrp = cyclic.NewGroup(
-		large.NewIntFromString(clientNdf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(clientNdf.E2E.Generator, largeIntBits))
-
-	return cmixGrp, e2eGrp
-}
-
-//generateRsaKeys serves as a helper function for RegisterUser.
-// It generates a private key if the one passed in is nil and a public key from said private key
-func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
-	var err error
-	//Generate client RSA keys
-	if privateKeyRSA == nil {
-		privateKeyRSA, err = rsa.GenerateKey(csprng.NewSystemRNG(), rsa.DefaultRSABitLen)
-		if err != nil {
-			return nil, nil, errors.Errorf("unable to generate private key: %+v", err)
-		}
-	}
-	//Pull the public key from the private key
-	publicKeyRSA := privateKeyRSA.GetPublic()
-
-	return privateKeyRSA, publicKeyRSA, nil
-}
-
-//generateCmixKeys serves as a helper function for RegisterUser.
-// It generates private and public keys within the cmix group
-func generateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
-	//Generate the private key
-	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-	if err != nil {
-		return nil, nil,
-			errors.Errorf("Could not generate cmix DH private key: %s", err.Error())
-	}
-	//Convert the keys into cyclic Ints and return
-	cmixPrivateKeyDH = cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
-	cmixPublicKeyDH = cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
-
-	return cmixPrivateKeyDH, cmixPublicKeyDH, nil
-}
-
-//generateE2eKeys serves as a helper function for RegisterUser.
-// It generates public and private keys used in e2e communications
-func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
-	//Generate the private key in group
-	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-	if err != nil {
-		return nil, nil,
-			errors.Errorf("Could not generate e2e DH private key: %s", err.Error())
-	}
-	//Convert the keys into cyclic Ints and return
-	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
-	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
-
-	return e2ePrivateKeyDH, e2ePublicKeyDH, nil
-}
-
-//generateUserInformation serves as a helper function for RegisterUser.
-// It generates a user and their ID
-func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
-	// Generate salt for UserID
-	salt := make([]byte, SaltSize)
-	_, err := csprng.NewSystemRNG().Read(salt)
-	if err != nil {
-		return nil, nil, nil,
-			errors.Errorf("Register: Unable to generate salt! %s", err)
-	}
-
-	// Generate UserID by hashing salt and public key
-	userId := registration.GenUserID(publicKeyRSA, salt)
-	if nickname == "" {
-		nickname = base64.StdEncoding.EncodeToString(userId[:])
-	}
-
-	usr := user.Users.NewUser(userId, nickname)
-	user.Users.UpsertUser(usr)
-
-	return salt, userId, usr, nil
-}
-
-// RegisterWithUDB uses the account's email to register with the UDB for
-//  User discovery.  Must be called after Register and InitNetwork.
-//  It will fail if the user has already registered with UDB
+//RegisterWithUDB uses the account's email to register with the UDB for
+// User discovery.  Must be called after Register and InitNetwork.
+// It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 
 	regState := cl.GetSession().GetRegState()
@@ -385,7 +238,8 @@ func (cl *Client) RegisterWithNodes() error {
 	return nil
 }
 
-//registerWithNode registers a user. It serves as a helper for RegisterWithNodes
+//registerWithNode serves as a helper for RegisterWithNodes
+// It registers a user with a specific in the client's ndf.
 func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
@@ -427,4 +281,151 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 			cmixPrivateKeyDH, receptionHash),
 	}
 	cl.session.PushNodeKey(nodeID, key)
+}
+
+//finalizeSession serves as a helper function in RegisterUser.
+// It creates a session from all the generated values from registering and stores said session
+func (cl *Client) finalizeSession(usr *user.User, nodeKeyMap map[id.Node]user.NodeKeys,
+	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
+	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
+	e2ePublicKeyDH, e2ePrivateKeyDH *cyclic.Int,
+	salt []byte,
+	cmixGrp, e2eGrp *cyclic.Group,
+	password string, regSignature []byte) error {
+
+	//Finalize session creation
+	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,
+		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
+		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regSignature)
+	cl.opStatus(globals.REG_SAVE)
+
+	//Set the registration state
+	err := newSession.SetRegState(user.PermissioningComplete)
+	if err != nil {
+		return errors.Wrap(err, "Permissioning Registration "+
+			"Failed")
+	}
+
+	//Store the user session
+	errStore := newSession.StoreSession()
+	if errStore != nil {
+		return errors.Errorf("Permissioning Register: could not register due to failed session save: %s", errStore.Error())
+	}
+
+	//Set the client session as the newly created session
+	cl.session = newSession
+
+	return nil
+}
+
+//registerWithPermissioning serves as a helper function for RegisterUser.
+// It sends the registration message containing the regCode to permissioning
+func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
+	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
+	//Set the opStatus and log registration
+	cl.opStatus(globals.REG_UID_GEN)
+	globals.Log.INFO.Printf("Registering dynamic user...")
+
+	// If Registration Server is specified, contact it
+	// Only if registrationCode is set
+	globals.Log.INFO.Println("Register: Contacting registration server")
+	if cl.ndf.Registration.Address != "" && registrationCode != "" {
+		cl.opStatus(globals.REG_PERM)
+		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+		if err != nil {
+			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
+		}
+	}
+	globals.Log.INFO.Println("Register: successfully passed Registration message")
+
+	return regValidSig, nil
+}
+
+//generateGroups serves as a helper function for RegisterUser.
+// It generates the cmix and e2e groups from the ndf
+func generateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
+	largeIntBits := 16
+
+	//Generate the cmix group
+	cmixGrp = cyclic.NewGroup(
+		large.NewIntFromString(clientNdf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(clientNdf.CMIX.Generator, largeIntBits))
+	//Generate the e2e group
+	e2eGrp = cyclic.NewGroup(
+		large.NewIntFromString(clientNdf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(clientNdf.E2E.Generator, largeIntBits))
+
+	return cmixGrp, e2eGrp
+}
+
+//generateRsaKeys serves as a helper function for RegisterUser.
+// It generates a private key if the one passed in is nil and a public key from said private key
+func generateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
+	var err error
+	//Generate client RSA keys
+	if privateKeyRSA == nil {
+		privateKeyRSA, err = rsa.GenerateKey(csprng.NewSystemRNG(), rsa.DefaultRSABitLen)
+		if err != nil {
+			return nil, nil, errors.Errorf("unable to generate private key: %+v", err)
+		}
+	}
+	//Pull the public key from the private key
+	publicKeyRSA := privateKeyRSA.GetPublic()
+
+	return privateKeyRSA, publicKeyRSA, nil
+}
+
+//generateCmixKeys serves as a helper function for RegisterUser.
+// It generates private and public keys within the cmix group
+func generateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
+	//Generate the private key
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
+	if err != nil {
+		return nil, nil,
+			errors.Errorf("Could not generate cmix DH private key: %s", err.Error())
+	}
+	//Convert the keys into cyclic Ints and return
+	cmixPrivateKeyDH = cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
+	cmixPublicKeyDH = cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
+
+	return cmixPrivateKeyDH, cmixPublicKeyDH, nil
+}
+
+//generateE2eKeys serves as a helper function for RegisterUser.
+// It generates public and private keys used in e2e communications
+func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
+	//Generate the private key in group
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
+	if err != nil {
+		return nil, nil,
+			errors.Errorf("Could not generate e2e DH private key: %s", err.Error())
+	}
+	//Convert the keys into cyclic Ints and return
+	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
+	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
+
+	return e2ePrivateKeyDH, e2ePublicKeyDH, nil
+}
+
+//generateUserInformation serves as a helper function for RegisterUser.
+// It generates a salt s.t. it can create a user and their ID
+func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
+	//Generate salt for UserID
+	salt := make([]byte, SaltSize)
+	_, err := csprng.NewSystemRNG().Read(salt)
+	if err != nil {
+		return nil, nil, nil,
+			errors.Errorf("Register: Unable to generate salt! %s", err)
+	}
+
+	//Generate UserID by hashing salt and public key
+	userId := registration.GenUserID(publicKeyRSA, salt)
+	if nickname == "" {
+		nickname = base64.StdEncoding.EncodeToString(userId[:])
+	}
+
+	usr := user.Users.NewUser(userId, nickname)
+	user.Users.UpsertUser(usr)
+
+	return salt, userId, usr, nil
 }

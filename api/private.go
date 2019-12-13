@@ -8,6 +8,7 @@ package api
 import (
 	"crypto"
 	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
@@ -335,4 +337,27 @@ func GenerateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey
 	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
 
 	return e2ePrivateKeyDH, e2ePublicKeyDH, nil
+}
+
+//generateUserInformation serves as a helper function for RegisterUser.
+// It generates a salt s.t. it can create a user and their ID
+func GenerateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
+	//Generate salt for UserID
+	salt := make([]byte, SaltSize)
+	_, err := csprng.NewSystemRNG().Read(salt)
+	if err != nil {
+		return nil, nil, nil,
+			errors.Errorf("Register: Unable to generate salt! %s", err)
+	}
+
+	//Generate UserID by hashing salt and public key
+	userId := registration.GenUserID(publicKeyRSA, salt)
+	if nickname == "" {
+		nickname = base64.StdEncoding.EncodeToString(userId[:])
+	}
+
+	usr := user.Users.NewUser(userId, nickname)
+	user.Users.UpsertUser(usr)
+
+	return salt, userId, usr, nil
 }

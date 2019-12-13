@@ -68,8 +68,8 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.RegisterUser(true, ValidRegCode,
-		"", "", "password", nil, nil, nil, nil, nil, nil, nil, nil)
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
+		"", "", "password", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -113,9 +113,14 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 
+	salt, uid, usr, err := GenerateUserInformation("", rsaPubKey)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
 	// Register precanned user with all gateways
-	regRes, err := client.RegisterUser(false, ValidRegCode, "", "",
-		"password", rsaPrivKey, rsaPubKey, cmixPrivKey, cmixPubKey, e2ePrivKey, e2ePubKey, cmixGrp, e2eGrp)
+	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode, "", "",
+		"password", rsaPrivKey, rsaPubKey, cmixPrivKey, cmixPubKey, e2ePrivKey, e2ePubKey, cmixGrp, e2eGrp,
+		salt, uid, usr)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -148,8 +153,8 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	}
 
 	// Register with invalid reg code
-	uid, err := client.RegisterUser(true, InvalidRegCode, "", "",
-		"password", nil, nil, nil, nil, nil, nil, nil, nil)
+	uid, err := client.RegisterWithPermissioning(true, InvalidRegCode, "", "",
+		"password", nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
@@ -178,7 +183,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.RegisterUser(true, ValidRegCode, "", "", "password", nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -221,8 +227,8 @@ func TestSend(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	userID, err := client.RegisterUser(true, ValidRegCode, "", "", "password",
-		rsaPrivKey, rsaPubKey, cmixPrivKey, cmixPubKey, e2ePrivKey, e2ePubKey, cmixGrp, e2eGrp)
+	userID, err := client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
+		rsaPrivKey, rsaPubKey, cmixPrivKey, cmixPubKey, e2ePrivKey, e2ePubKey, cmixGrp, e2eGrp, nil, nil, nil)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
@@ -309,8 +315,8 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Register with a valid registration code
-	_, err = client.RegisterUser(true, ValidRegCode, "", "", "password",
-		nil, nil, nil, nil, nil, nil, nil, nil)
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())

@@ -2,13 +2,11 @@ package api
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
@@ -20,16 +18,14 @@ import (
 
 const SaltSize = 256
 
-//RegisterUser registers the user and returns the User ID.
+//RegisterWithPermissioning registers the user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) RegisterUser(preCan bool, registrationCode, nick, email,
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
 	password string, privateKeyRSA *rsa.PrivateKey, rsaPubKey *rsa.PublicKey,
 	cmixPrivateKeyDH, cmixPublicKeyDH, e2ePrivateKey, e2ePublicKey *cyclic.Int,
-	cmixGrp, e2eGrp *cyclic.Group) (*id.User, error) {
+	cmixGrp, e2eGrp *cyclic.Group, salt []byte, UID *id.User, usr *user.User) (*id.User, error) {
 
 	var err error
-	var usr *user.User
-	var UID *id.User
 
 	//Set the status and make CMix keys array
 	cl.opStatus(globals.REG_KEYGEN)
@@ -37,7 +33,6 @@ func (cl *Client) RegisterUser(preCan bool, registrationCode, nick, email,
 
 	//Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
-	var salt []byte
 
 	//Handle registration
 	if preCan {
@@ -56,10 +51,6 @@ func (cl *Client) RegisterUser(preCan bool, registrationCode, nick, email,
 			globals.Log.INFO.Printf(err.Error())
 			return id.ZeroID, err
 		}
-		salt, UID, usr, err = generateUserInformation(nick, rsaPubKey)
-		if err != nil {
-			return id.ZeroID, err
-		}
 	}
 
 	//Set the registration secure state
@@ -67,7 +58,7 @@ func (cl *Client) RegisterUser(preCan bool, registrationCode, nick, email,
 
 	usr.Email = email
 
-	//Finalize session creation and store
+	//Finalize session creation and store the session
 	err = cl.finalizeSession(usr, nodeKeyMap,
 		rsaPubKey, privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKey, e2ePrivateKey,
 		salt, cmixGrp, e2eGrp, password, regValidationSignature)
@@ -264,14 +255,12 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	cl.session.PushNodeKey(nodeID, key)
 }
 
-//finalizeSession serves as a helper function in RegisterUser.
+//finalizeSession serves as a helper function for RegisterWithPermissioning.
 // It creates a session from all the generated values from registering and stores said session
 func (cl *Client) finalizeSession(usr *user.User, nodeKeyMap map[id.Node]user.NodeKeys,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
-	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
-	e2ePublicKeyDH, e2ePrivateKeyDH *cyclic.Int,
-	salt []byte,
-	cmixGrp, e2eGrp *cyclic.Group,
+	cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH, e2ePrivateKeyDH *cyclic.Int,
+	salt []byte, cmixGrp, e2eGrp *cyclic.Group,
 	password string, regSignature []byte) error {
 
 	//Finalize session creation
@@ -299,7 +288,7 @@ func (cl *Client) finalizeSession(usr *user.User, nodeKeyMap map[id.Node]user.No
 	return nil
 }
 
-//registerWithPermissioning serves as a helper function for RegisterUser.
+//registerWithPermissioning serves as a helper function for RegisterWithPermissioning.
 // It sends the registration message containing the regCode to permissioning
 func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
 	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
@@ -320,27 +309,4 @@ func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
 	globals.Log.INFO.Println("Register: successfully passed Registration message")
 
 	return regValidSig, nil
-}
-
-//generateUserInformation serves as a helper function for RegisterUser.
-// It generates a salt s.t. it can create a user and their ID
-func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
-	//Generate salt for UserID
-	salt := make([]byte, SaltSize)
-	_, err := csprng.NewSystemRNG().Read(salt)
-	if err != nil {
-		return nil, nil, nil,
-			errors.Errorf("Register: Unable to generate salt! %s", err)
-	}
-
-	//Generate UserID by hashing salt and public key
-	userId := registration.GenUserID(publicKeyRSA, salt)
-	if nickname == "" {
-		nickname = base64.StdEncoding.EncodeToString(userId[:])
-	}
-
-	usr := user.Users.NewUser(userId, nickname)
-	user.Users.UpsertUser(usr)
-
-	return salt, userId, usr, nil
 }

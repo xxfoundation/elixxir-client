@@ -231,16 +231,22 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			globals.Log.FATAL.Panicf("%+v", err)
 		}
 
+		salt, UID, usr, err := api.GenerateUserInformation(userNick, rsaPubKey)
+		if err != nil {
+			globals.Log.FATAL.Panicf("%+v", err)
+		}
+
 		//Attempt to register user with same keys until a success occurs
 		for errRegister := error(nil); errRegister != nil; {
-			uid, errRegister = client.RegisterUser(userId != 0, regCode, userNick,
+			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
 				userEmail, sessFilePassword, rsaPrivKey, rsaPubKey,
-				cmixPrivateKeyDH, cmixPublicKeyDH, e2ePrivateKey, e2ePublicKey, cmixGrp, e2eGrp)
+				cmixPrivateKeyDH, cmixPublicKeyDH, e2ePrivateKey, e2ePublicKey, cmixGrp, e2eGrp, salt, UID, usr)
 			if errRegister != nil {
 				globals.Log.FATAL.Panicf("Could Not Register User: %s",
 					errRegister.Error())
 			}
 		}
+
 		err = client.RegisterWithNodes()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s",

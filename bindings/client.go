@@ -14,6 +14,8 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
 	"math/big"
@@ -121,13 +123,42 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
 	UID, err := cl.client.RegisterUser(preCan, registrationCode, nick, email,
-		password, nil)
+		password,
+		nil, nil, nil, nil, nil, nil, nil, nil)
 
 	if err != nil {
 		return id.ZeroID[:], err
 	}
 
 	return UID[:], nil
+}
+
+func GenerateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
+	rsaPrivKey, rsaPubKey, err := api.GenerateRsaKeys(privateKeyRSA)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return rsaPrivKey, rsaPubKey, nil
+}
+
+func (cl *Client) GenerateCmixKeys() (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
+	cmix, _ := api.GenerateGroups(cl.client.GetNDF())
+	cmixPrivKey, cmixPubKey, err := api.GenerateCmixKeys(cmix)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return cmixPrivKey, cmixPubKey, nil
+}
+
+func (cl *Client) GenerateE2eKeys() (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
+	cmix, e2e := api.GenerateGroups(cl.client.GetNDF())
+	e2ePrivKey, e2ePubKey, err := api.GenerateE2eKeys(cmix, e2e)
+	if err != nil {
+		return nil, nil, err
+	}
+	return e2ePrivKey, e2ePubKey, nil
 }
 
 // Registers user with all nodes it has not been registered with.

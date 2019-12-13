@@ -18,8 +18,10 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 )
 
 const PermissioningAddrID = "Permissioning"
@@ -267,4 +269,70 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	rkm.AddKeys(partnerID, keys)
 
 	return nil
+}
+
+//GenerateGroups serves as a helper function for RegisterUser.
+// It generates the cmix and e2e groups from the ndf
+func GenerateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
+	largeIntBits := 16
+
+	//Generate the cmix group
+	cmixGrp = cyclic.NewGroup(
+		large.NewIntFromString(clientNdf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(clientNdf.CMIX.Generator, largeIntBits))
+	//Generate the e2e group
+	e2eGrp = cyclic.NewGroup(
+		large.NewIntFromString(clientNdf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(clientNdf.E2E.Generator, largeIntBits))
+
+	return cmixGrp, e2eGrp
+}
+
+//GenerateRsaKeys serves as a helper function for RegisterUser.
+// It generates a private key if the one passed in is nil and a public key from said private key
+func GenerateRsaKeys(rsaPrivKey *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
+	var err error
+	//Generate client RSA keys
+	if rsaPrivKey == nil {
+		rsaPrivKey, err = rsa.GenerateKey(csprng.NewSystemRNG(), rsa.DefaultRSABitLen)
+		if err != nil {
+			return nil, nil, errors.Errorf("Could not generate RSA keys: %+v", err)
+		}
+	}
+	//Pull the public key from the private key
+	publicKeyRSA := rsaPrivKey.GetPublic()
+
+	return rsaPrivKey, publicKeyRSA, nil
+}
+
+//GenerateCmixKeys serves as a helper function for RegisterUser.
+// It generates private and public keys within the cmix group
+func GenerateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
+	//Generate the private key
+	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
+	if err != nil {
+		return nil, nil,
+			errors.Errorf("Could not generate CMix DH keys: %+v", err)
+	}
+	//Convert the keys into cyclic Ints and return
+	cmixPrivateKeyDH = cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
+	cmixPublicKeyDH = cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
+
+	return cmixPrivateKeyDH, cmixPublicKeyDH, nil
+}
+
+//GenerateE2eKeys serves as a helper function for RegisterUser.
+// It generates public and private keys used in e2e communications
+func GenerateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
+	//Generate the private key in group
+	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
+	if err != nil {
+		return nil, nil,
+			errors.Errorf("Could not generate E2E DH keys: %s", err)
+	}
+	//Convert the keys into cyclic Ints and return
+	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
+	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
+
+	return e2ePrivateKeyDH, e2ePublicKeyDH, nil
 }

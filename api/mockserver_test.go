@@ -69,7 +69,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 
 	// Register precanned user with all gateways
 	regRes, err := client.RegisterUser(true, ValidRegCode,
-		"", "", "password", nil)
+		"", "", "password", nil, nil, nil, nil, nil, nil, nil, nil)
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -97,10 +97,25 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
+	rsaPrivKey, rsaPubKey, err := GenerateRsaKeys(nil)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	cmixGrp, e2eGrp := GenerateGroups(client.ndf)
+	cmixPrivKey, cmixPubKey, err := GenerateCmixKeys(cmixGrp)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	e2ePrivKey, e2ePubKey, err := GenerateE2eKeys(cmixGrp, e2eGrp)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
 
 	// Register precanned user with all gateways
 	regRes, err := client.RegisterUser(false, ValidRegCode, "", "",
-		"password", nil)
+		"password", rsaPrivKey, rsaPubKey, cmixPrivKey, cmixPubKey, e2ePrivKey, e2ePubKey, cmixGrp, e2eGrp)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -134,7 +149,7 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 
 	// Register with invalid reg code
 	uid, err := client.RegisterUser(true, InvalidRegCode, "", "",
-		"password", nil)
+		"password", nil, nil, nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
@@ -163,7 +178,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
 
 	// Register
-	_, err = client.RegisterUser(true, ValidRegCode, "", "", "password", nil)
+	_, err = client.RegisterUser(true, ValidRegCode, "", "", "password", nil, nil, nil, nil, nil, nil, nil, nil)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -189,9 +204,25 @@ func TestSend(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
+	rsaPrivKey, rsaPubKey, err := GenerateRsaKeys(nil)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	cmixGrp, e2eGrp := GenerateGroups(client.ndf)
+	cmixPrivKey, cmixPubKey, err := GenerateCmixKeys(cmixGrp)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	e2ePrivKey, e2ePubKey, err := GenerateE2eKeys(cmixGrp, e2eGrp)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
 	// Register with a valid registration code
 	userID, err := client.RegisterUser(true, ValidRegCode, "", "", "password",
-		nil)
+		rsaPrivKey, rsaPubKey, cmixPrivKey, cmixPubKey, e2ePrivKey, e2ePubKey, cmixGrp, e2eGrp)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
@@ -279,7 +310,7 @@ func TestLogout(t *testing.T) {
 
 	// Register with a valid registration code
 	_, err = client.RegisterUser(true, ValidRegCode, "", "", "password",
-		nil)
+		nil, nil, nil, nil, nil, nil, nil, nil)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())

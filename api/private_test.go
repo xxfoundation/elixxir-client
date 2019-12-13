@@ -22,7 +22,7 @@ func (c *CountingReader) Read(b []byte) (int, error) {
 
 //
 func TestGenerateKeys_NilPrivateKey(t *testing.T) {
-	privKey, pubKey, err := generateRsaKeys(nil)
+	privKey, pubKey, err := GenerateRsaKeys(nil)
 	if privKey == nil {
 		t.Errorf("Failed to generate private key when generateRsaKeys() is passed nil")
 	}
@@ -44,7 +44,7 @@ func TestGenerateKeys(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 	expected_N := privKey.N.Bytes()
-	privKey, pubKey, err := generateRsaKeys(privKey)
+	privKey, pubKey, err := GenerateRsaKeys(privKey)
 	if err != nil {
 		t.Errorf("Failecd to generate keys: %+v", err)
 	}
@@ -57,15 +57,13 @@ func TestGenerateKeys(t *testing.T) {
 		t.Errorf("Bad N-val, expected: %v", expected_N)
 	}
 	//TODO: Add more checks here
-
 }
 
 //
 func TestGenerateCmixKeys(t *testing.T) {
 	//Test generateCmixKeys
-	cmixGrp, _ := generateGroups(def)
-
-	cmixPrivKey, _, err := generateCmixKeys(cmixGrp)
+	cmixGrp, _ := GenerateGroups(def)
+	cmixPrivKey, _, err := GenerateCmixKeys(cmixGrp)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -79,10 +77,10 @@ func TestGenerateCmixKeys(t *testing.T) {
 //
 func TestGenerateE2eKeys(t *testing.T) {
 	//Test generateCmixKeys
-	cmixGrp, e2eGrp := generateGroups(def)
+	cmixGrp, e2eGrp := GenerateGroups(def)
 
 	//Test e2e key generation
-	e2ePrivKey, _, err := generateE2eKeys(cmixGrp, e2eGrp)
+	e2ePrivKey, _, err := GenerateE2eKeys(cmixGrp, e2eGrp)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}

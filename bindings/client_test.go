@@ -13,6 +13,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -116,7 +117,7 @@ func TestRegister(t *testing.T) {
 	}
 
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+		"", "", "", &api.RegisterInformation{})
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -150,7 +151,7 @@ func TestLoginLogout(t *testing.T) {
 	}
 
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+		"", "", "", &api.RegisterInformation{})
 	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
@@ -194,7 +195,7 @@ func TestListen(t *testing.T) {
 	}
 
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+		"", "", "", &api.RegisterInformation{})
 	_, err = client.Login(regRes, "")
 
 	if err != nil {
@@ -233,7 +234,7 @@ func TestStopListening(t *testing.T) {
 	}
 
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+		"", "", "", &api.RegisterInformation{})
 
 	_, err = client.Login(regRes, "")
 

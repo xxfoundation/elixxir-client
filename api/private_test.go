@@ -24,7 +24,7 @@ func (c *CountingReader) Read(b []byte) (int, error) {
 
 //Happy path: test it generates key when passed nil
 func TestGenerateKeys_NilPrivateKey(t *testing.T) {
-	privKey, pubKey, err := GenerateRsaKeys(nil)
+	privKey, pubKey, err := generateRsaKeys(nil)
 	if privKey == nil {
 		t.Errorf("Failed to generate private key when generateRsaKeys() is passed nil")
 	}
@@ -46,7 +46,7 @@ func TestGenerateKeys(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 	expected_N := privKey.N.Bytes()
-	privKey, pubKey, err := GenerateRsaKeys(privKey)
+	privKey, pubKey, err := generateRsaKeys(privKey)
 	if err != nil {
 		t.Errorf("Failecd to generate keys: %+v", err)
 	}
@@ -63,8 +63,8 @@ func TestGenerateKeys(t *testing.T) {
 //Tests GenerateCmixKeys cases
 func TestGenerateCmixKeys(t *testing.T) {
 	//Test generateCmixKeys
-	cmixGrp, _ := GenerateGroups(def)
-	cmixPrivKey, _, err := GenerateCmixKeys(cmixGrp)
+	cmixGrp, _ := generateGroups(def)
+	cmixPrivKey, _, err := generateCmixKeys(cmixGrp)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -73,7 +73,7 @@ func TestGenerateCmixKeys(t *testing.T) {
 		t.Errorf("Generated cmix private key is not in the cmix group!")
 	}
 	//Error case
-	_, _, err = GenerateCmixKeys(nil)
+	_, _, err = generateCmixKeys(nil)
 	if err == nil {
 		t.Errorf("Expected error case, should not pass nil into GenerateCmixKeys()")
 	}
@@ -83,10 +83,10 @@ func TestGenerateCmixKeys(t *testing.T) {
 //
 func TestGenerateE2eKeys(t *testing.T) {
 	//Test generateCmixKeys
-	cmixGrp, e2eGrp := GenerateGroups(def)
+	cmixGrp, e2eGrp := generateGroups(def)
 
 	//Test e2e key generation
-	e2ePrivKey, _, err := GenerateE2eKeys(cmixGrp, e2eGrp)
+	e2ePrivKey, _, err := generateE2eKeys(cmixGrp, e2eGrp)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -96,7 +96,7 @@ func TestGenerateE2eKeys(t *testing.T) {
 	}
 
 	//Error case
-	_, _, err = GenerateE2eKeys(nil, nil)
+	_, _, err = generateE2eKeys(nil, nil)
 	if err == nil {
 		t.Errorf("Expected error case, should not pass nil into GenerateE2eKeys()")
 	}
@@ -105,10 +105,10 @@ func TestGenerateE2eKeys(t *testing.T) {
 
 //Happy path: tests that it generates a user and puts in the registry
 func TestGenerateUserInformation_EmptyNick(t *testing.T) {
-	grp, _ := GenerateGroups(def)
+	grp, _ := generateGroups(def)
 	user.InitUserRegistry(grp)
-	_, pubkey, _ := GenerateRsaKeys(nil)
-	_, uid, usr, err := GenerateUserInformation("", pubkey)
+	_, pubkey, _ := generateRsaKeys(nil)
+	_, uid, usr, err := generateUserInformation("", pubkey)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -129,11 +129,11 @@ func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 
 //Happy path: test GenerateUser with a nickname and puts in registry
 func TestGenerateUserInformation(t *testing.T) {
-	grp, _ := GenerateGroups(def)
+	grp, _ := generateGroups(def)
 	user.InitUserRegistry(grp)
 	nickName := "test"
-	_, pubkey, _ := GenerateRsaKeys(nil)
-	_, uid, usr, err := GenerateUserInformation(nickName, pubkey)
+	_, pubkey, _ := generateRsaKeys(nil)
+	_, uid, usr, err := generateUserInformation(nickName, pubkey)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}

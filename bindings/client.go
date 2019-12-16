@@ -14,8 +14,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/csprng"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
 	"math/big"
@@ -118,44 +116,19 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string,
+	regInfo *api.RegisterInformation) ([]byte, error) {
+
 	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email, password,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email, password, regInfo)
 
 	if err != nil {
 		return id.ZeroID[:], err
 	}
 
 	return UID[:], nil
-}
-
-func GenerateRsaKeys(privateKeyRSA *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
-	rsaPrivKey, rsaPubKey, err := api.GenerateRsaKeys(privateKeyRSA)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return rsaPrivKey, rsaPubKey, nil
-}
-
-func GenerateCmixKeys(cmix *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
-	cmixPrivKey, cmixPubKey, err := api.GenerateCmixKeys(cmix)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cmixPrivKey, cmixPubKey, nil
-}
-
-func GenerateE2eKeys(cmix, e2e *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
-	e2ePrivKey, e2ePubKey, err := api.GenerateE2eKeys(cmix, e2e)
-	if err != nil {
-		return nil, nil, err
-	}
-	return e2ePrivKey, e2ePubKey, nil
 }
 
 // Registers user with all nodes it has not been registered with.

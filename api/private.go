@@ -28,6 +28,20 @@ import (
 
 const PermissioningAddrID = "Permissioning"
 
+type RegisterInformation struct {
+	rsaPrivateKey  *rsa.PrivateKey
+	rsaPublicKey   *rsa.PublicKey
+	cmixPrivateKey *cyclic.Int
+	cmixPublicKey  *cyclic.Int
+	e2ePrivateKey  *cyclic.Int
+	e2ePublicKey   *cyclic.Int
+	cmixGroup      *cyclic.Group
+	e2eGroup       *cyclic.Group
+	salt           []byte
+	UID            *id.User
+	usr            *user.User
+}
+
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
 func (cl *Client) precannedRegister(registrationCode, nick string,
@@ -273,9 +287,48 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	return nil
 }
 
+func (cl *Client) GenerateKeys(clientNdf *ndf.NetworkDefinition, rsaPrivKey *rsa.PrivateKey, nickname string) (*RegisterInformation, error) {
+	cmixGrp, e2eGrp := generateGroups(clientNdf)
+	privKey, pubKey, err := generateRsaKeys(rsaPrivKey)
+	if err != nil {
+		return nil, err
+	}
+
+	cmixPrivKey, cmixPubKey, err := generateCmixKeys(cmixGrp)
+	if err != nil {
+		return nil, err
+	}
+
+	e2ePrivKey, e2ePubKey, err := generateE2eKeys(cmixGrp, e2eGrp)
+	if err != nil {
+		return nil, err
+	}
+
+	salt, uid, usr, err := generateUserInformation(nickname, pubKey)
+	if err != nil {
+		return nil, err
+	}
+
+	regInfo := &RegisterInformation{
+		rsaPrivateKey:  privKey,
+		rsaPublicKey:   pubKey,
+		cmixPrivateKey: cmixPrivKey,
+		cmixPublicKey:  cmixPubKey,
+		e2ePrivateKey:  e2ePrivKey,
+		e2ePublicKey:   e2ePubKey,
+		cmixGroup:      cmixGrp,
+		e2eGroup:       e2eGrp,
+		salt:           salt,
+		usr:            usr,
+		UID:            uid,
+	}
+
+	return regInfo, nil
+}
+
 //GenerateGroups serves as a helper function for RegisterUser.
 // It generates the cmix and e2e groups from the ndf
-func GenerateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
+func generateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 	largeIntBits := 16
 
 	//Generate the cmix group
@@ -292,7 +345,7 @@ func GenerateGroups(clientNdf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.G
 
 //GenerateRsaKeys serves as a helper function for RegisterUser.
 // It generates a private key if the one passed in is nil and a public key from said private key
-func GenerateRsaKeys(rsaPrivKey *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
+func generateRsaKeys(rsaPrivKey *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKey, error) {
 	var err error
 	//Generate client RSA keys
 	if rsaPrivKey == nil {
@@ -309,7 +362,7 @@ func GenerateRsaKeys(rsaPrivKey *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKe
 
 //GenerateCmixKeys serves as a helper function for RegisterUser.
 // It generates private and public keys within the cmix group
-func GenerateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
+func generateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
 	if cmixGrp == nil {
 		return nil, nil, errors.New("Cannot have a nil CMix group")
 	}
@@ -329,7 +382,7 @@ func GenerateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH 
 
 //GenerateE2eKeys serves as a helper function for RegisterUser.
 // It generates public and private keys used in e2e communications
-func GenerateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
+func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
 	if cmixGrp == nil || e2eGrp == nil {
 		return nil, nil, errors.New("Cannot have a nil group")
 	}
@@ -348,7 +401,7 @@ func GenerateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey
 
 //generateUserInformation serves as a helper function for RegisterUser.
 // It generates a salt s.t. it can create a user and their ID
-func GenerateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
+func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
 	//Generate salt for UserID
 	salt := make([]byte, SaltSize)
 	_, err := csprng.NewSystemRNG().Read(salt)

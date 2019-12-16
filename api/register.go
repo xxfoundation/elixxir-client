@@ -21,10 +21,10 @@ const SaltSize = 256
 //RegisterWithPermissioning registers the user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
-	password string, privateKeyRSA *rsa.PrivateKey, rsaPubKey *rsa.PublicKey,
-	cmixPrivateKeyDH, cmixPublicKeyDH, e2ePrivateKey, e2ePublicKey *cyclic.Int,
-	cmixGrp, e2eGrp *cyclic.Group, salt []byte, UID *id.User, usr *user.User) (*id.User, error) {
+	password string, regInfo *RegisterInformation) (*id.User, error) {
 
+	usr := regInfo.usr
+	UID := regInfo.UID
 	var err error
 
 	//Set the status and make CMix keys array
@@ -46,7 +46,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		}
 	} else {
 		// Or register with the permissioning server and generate user information
-		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, nick, rsaPubKey)
+		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, nick, regInfo.rsaPublicKey)
 		if err != nil {
 			globals.Log.INFO.Printf(err.Error())
 			return id.ZeroID, err
@@ -57,11 +57,11 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	cl.opStatus(globals.REG_SECURE_STORE)
 
 	usr.Email = email
-
+	//Re-init in case pre-canned registration
+	regInfo.usr = usr
+	regInfo.UID = UID
 	//Finalize session creation and store the session
-	err = cl.finalizeSession(usr, nodeKeyMap,
-		rsaPubKey, privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKey, e2ePrivateKey,
-		salt, cmixGrp, e2eGrp, password, regValidationSignature)
+	err = cl.finalizeSession(nodeKeyMap, regInfo, password, regValidationSignature)
 	if err != nil {
 		return id.ZeroID, err
 	}
@@ -257,15 +257,14 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 
 //finalizeSession serves as a helper function for RegisterWithPermissioning.
 // It creates a session from all the generated values from registering and stores said session
-func (cl *Client) finalizeSession(usr *user.User, nodeKeyMap map[id.Node]user.NodeKeys,
-	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
-	cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH, e2ePrivateKeyDH *cyclic.Int,
-	salt []byte, cmixGrp, e2eGrp *cyclic.Group, password string, regSignature []byte) error {
+func (cl *Client) finalizeSession(nodeKeyMap map[id.Node]user.NodeKeys,
+	registrationInfo *RegisterInformation, password string, regSignature []byte) error {
 
 	//Finalize session creation
-	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,
-		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regSignature)
+	newSession := user.NewSession(cl.storage, registrationInfo.usr, nodeKeyMap, registrationInfo.rsaPublicKey,
+		registrationInfo.rsaPrivateKey, registrationInfo.cmixPublicKey, registrationInfo.cmixPrivateKey,
+		registrationInfo.e2ePublicKey, registrationInfo.e2ePrivateKey, registrationInfo.salt,
+		registrationInfo.cmixGroup, registrationInfo.e2eGroup, password, regSignature)
 	cl.opStatus(globals.REG_SAVE)
 
 	//Set the registration state

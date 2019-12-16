@@ -216,23 +216,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		//Generate keys for registration
-		rsaPrivKey, rsaPubKey, err := api.GenerateRsaKeys(privKey)
-		if err != nil {
-			globals.Log.FATAL.Panicf("%+v", err)
-		}
-		cmixGrp, e2eGrp := api.GenerateGroups(client.GetNDF())
-		cmixPrivateKeyDH, cmixPublicKeyDH, err := api.GenerateCmixKeys(cmixGrp)
-		if err != nil {
-			globals.Log.FATAL.Panicf("%+v", err)
-		}
-
-		e2ePrivateKey, e2ePublicKey, err := api.GenerateE2eKeys(cmixGrp, e2eGrp)
-		if err != nil {
-			globals.Log.FATAL.Panicf("%+v", err)
-		}
-
-		//Generate a user
-		salt, UID, usr, err := api.GenerateUserInformation(userNick, rsaPubKey)
+		regInfo, err := client.GenerateKeys(client.GetNDF(), privKey, userNick)
 		if err != nil {
 			globals.Log.FATAL.Panicf("%+v", err)
 		}
@@ -240,8 +224,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		//Attempt to register user with same keys until a success occurs
 		for errRegister := error(nil); errRegister != nil; {
 			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
-				userEmail, sessFilePassword, rsaPrivKey, rsaPubKey,
-				cmixPrivateKeyDH, cmixPublicKeyDH, e2ePrivateKey, e2ePublicKey, cmixGrp, e2eGrp, salt, UID, usr)
+				userEmail, sessFilePassword, regInfo)
 			if errRegister != nil {
 				globals.Log.FATAL.Panicf("Could Not Register User: %s",
 					errRegister.Error())

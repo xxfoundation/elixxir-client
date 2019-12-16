@@ -231,6 +231,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			globals.Log.FATAL.Panicf("%+v", err)
 		}
 
+		//Generate a user
 		salt, UID, usr, err := api.GenerateUserInformation(userNick, rsaPubKey)
 		if err != nil {
 			globals.Log.FATAL.Panicf("%+v", err)

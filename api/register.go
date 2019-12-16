@@ -260,8 +260,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 func (cl *Client) finalizeSession(usr *user.User, nodeKeyMap map[id.Node]user.NodeKeys,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH, e2ePrivateKeyDH *cyclic.Int,
-	salt []byte, cmixGrp, e2eGrp *cyclic.Group,
-	password string, regSignature []byte) error {
+	salt []byte, cmixGrp, e2eGrp *cyclic.Group, password string, regSignature []byte) error {
 
 	//Finalize session creation
 	newSession := user.NewSession(cl.storage, usr, nodeKeyMap, publicKeyRSA,

@@ -310,6 +310,10 @@ func GenerateRsaKeys(rsaPrivKey *rsa.PrivateKey) (*rsa.PrivateKey, *rsa.PublicKe
 //GenerateCmixKeys serves as a helper function for RegisterUser.
 // It generates private and public keys within the cmix group
 func GenerateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH *cyclic.Int, err error) {
+	if cmixGrp == nil {
+		return nil, nil, errors.New("Cannot have a nil CMix group")
+	}
+
 	//Generate the private key
 	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 	if err != nil {
@@ -326,6 +330,9 @@ func GenerateCmixKeys(cmixGrp *cyclic.Group) (cmixPrivateKeyDH, cmixPublicKeyDH 
 //GenerateE2eKeys serves as a helper function for RegisterUser.
 // It generates public and private keys used in e2e communications
 func GenerateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey *cyclic.Int, err error) {
+	if cmixGrp == nil || e2eGrp == nil {
+		return nil, nil, errors.New("Cannot have a nil group")
+	}
 	//Generate the private key in group
 	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
 	if err != nil {

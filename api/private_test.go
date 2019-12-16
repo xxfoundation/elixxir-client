@@ -2,8 +2,10 @@ package api
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	"reflect"
 	"testing"
 )
 
@@ -87,6 +89,43 @@ func TestGenerateE2eKeys(t *testing.T) {
 
 	if !csprng.InGroup(e2ePrivKey.Bytes(), cmixGrp.GetPBytes()) {
 		t.Errorf("Generated cmix private key is not in the cmix group!")
+	}
+}
+
+func TestGenerateUserInformation_EmptyNick(t *testing.T) {
+	grp, _ := GenerateGroups(def)
+	user.InitUserRegistry(grp)
+	_, pubkey, _ := GenerateRsaKeys(nil)
+	_, uid, usr, err := GenerateUserInformation("", pubkey)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+	retrievedUser, ok := user.Users.GetUser(uid)
+	if !ok {
+		t.Errorf("UserId not inserted into registry")
+	}
+
+	if !reflect.DeepEqual(usr, retrievedUser) {
+		t.Errorf("Did not retrieve correct user. \n\treceived: %v\n\texpected: %v", retrievedUser, usr)
+	}
+
+	if usr.Nick == "" {
+		t.Errorf("User's nickname should never be empty")
+	}
+
+}
+
+func TestGenerateUserInformation(t *testing.T) {
+	grp, _ := GenerateGroups(def)
+	user.InitUserRegistry(grp)
+	nickName := "test"
+	_, pubkey, _ := GenerateRsaKeys(nil)
+	_, _, usr, err := GenerateUserInformation(nickName, pubkey)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+	if usr.Nick != "nick" {
+		t.Errorf("User's nickname was overwrittenreceived: %v\n\texpected: %v", usr.Nick, nickName)
 	}
 
 }

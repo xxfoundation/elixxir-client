@@ -103,6 +103,7 @@ func TestGenerateE2eKeys(t *testing.T) {
 
 }
 
+//Happy path: tests that it generates a user and puts in the registry
 func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 	grp, _ := GenerateGroups(def)
 	user.InitUserRegistry(grp)
@@ -126,17 +127,27 @@ func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 
 }
 
+//Happy path: test GenerateUser with a nickname and puts in registry
 func TestGenerateUserInformation(t *testing.T) {
 	grp, _ := GenerateGroups(def)
 	user.InitUserRegistry(grp)
 	nickName := "test"
 	_, pubkey, _ := GenerateRsaKeys(nil)
-	_, _, usr, err := GenerateUserInformation(nickName, pubkey)
+	_, uid, usr, err := GenerateUserInformation(nickName, pubkey)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
-	if usr.Nick != "nick" {
-		t.Errorf("User's nickname was overwrittenreceived: %v\n\texpected: %v", usr.Nick, nickName)
+
+	retrievedUser, ok := user.Users.GetUser(uid)
+	if !ok {
+		t.Errorf("UserId not inserted into registry")
+	}
+	if !reflect.DeepEqual(usr, retrievedUser) {
+		t.Errorf("Did not retrieve correct user. \n\treceived: %v\n\texpected: %v", retrievedUser, usr)
+	}
+
+	if usr.Nick != nickName {
+		t.Errorf("User's nickname was overwritten\nreceived: %v\n\texpected: %v", usr.Nick, nickName)
 	}
 
 }

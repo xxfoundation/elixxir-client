@@ -22,7 +22,7 @@ func (c *CountingReader) Read(b []byte) (int, error) {
 	return len(b), nil
 }
 
-//
+//Happy path: test it generates key when passed nil
 func TestGenerateKeys_NilPrivateKey(t *testing.T) {
 	privKey, pubKey, err := GenerateRsaKeys(nil)
 	if privKey == nil {
@@ -37,7 +37,7 @@ func TestGenerateKeys_NilPrivateKey(t *testing.T) {
 	}
 }
 
-//
+//Tests it generates keys based on an existing privateKey
 func TestGenerateKeys(t *testing.T) {
 	notRand := &CountingReader{count: uint8(0)}
 
@@ -58,10 +58,9 @@ func TestGenerateKeys(t *testing.T) {
 		t.Logf("N: %v", pubKey.GetN().Bytes())
 		t.Errorf("Bad N-val, expected: %v", expected_N)
 	}
-	//TODO: Add more checks here
 }
 
-//
+//Tests GenerateCmixKeys cases
 func TestGenerateCmixKeys(t *testing.T) {
 	//Test generateCmixKeys
 	cmixGrp, _ := GenerateGroups(def)
@@ -72,6 +71,11 @@ func TestGenerateCmixKeys(t *testing.T) {
 
 	if !csprng.InGroup(cmixPrivKey.Bytes(), cmixGrp.GetPBytes()) {
 		t.Errorf("Generated cmix private key is not in the cmix group!")
+	}
+	//Error case
+	_, _, err = GenerateCmixKeys(nil)
+	if err == nil {
+		t.Errorf("Expected error case, should not pass nil into GenerateCmixKeys()")
 	}
 
 }
@@ -90,6 +94,13 @@ func TestGenerateE2eKeys(t *testing.T) {
 	if !csprng.InGroup(e2ePrivKey.Bytes(), cmixGrp.GetPBytes()) {
 		t.Errorf("Generated cmix private key is not in the cmix group!")
 	}
+
+	//Error case
+	_, _, err = GenerateE2eKeys(nil, nil)
+	if err == nil {
+		t.Errorf("Expected error case, should not pass nil into GenerateE2eKeys()")
+	}
+
 }
 
 func TestGenerateUserInformation_EmptyNick(t *testing.T) {

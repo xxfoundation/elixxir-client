@@ -21,14 +21,15 @@ const SaltSize = 256
 //RegisterWithPermissioning registers the user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
-	password string, regInfo *RegisterInformation) (*id.User, error) {
+	password string, regInfo *SessionInformation) (*id.User, error) {
 
+	//Check the regState is in proper state for registration
+	if cl.session.GetRegState() != user.KeyGenComplete {
+		return nil, errors.Errorf("Attempting to register before key generation!")
+	}
 	usr := regInfo.usr
-	UID := regInfo.UID
+	UID := regInfo.usrId
 	var err error
-
-	//Set the status and make CMix keys array
-	cl.opStatus(globals.REG_KEYGEN)
 	nodeKeyMap := make(map[id.Node]user.NodeKeys)
 
 	//Initialized response from Registration Server
@@ -59,7 +60,8 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 	usr.Email = email
 	//Re-init in case pre-canned registration
 	regInfo.usr = usr
-	regInfo.UID = UID
+	regInfo.usrId = UID
+
 	//Finalize session creation and store the session
 	err = cl.finalizeSession(nodeKeyMap, regInfo, password, regValidationSignature)
 	if err != nil {
@@ -258,7 +260,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 //finalizeSession serves as a helper function for RegisterWithPermissioning.
 // It creates a session from all the generated values from registering and stores said session
 func (cl *Client) finalizeSession(nodeKeyMap map[id.Node]user.NodeKeys,
-	registrationInfo *RegisterInformation, password string, regSignature []byte) error {
+	registrationInfo *SessionInformation, password string, regSignature []byte) error {
 
 	//Finalize session creation
 	newSession := user.NewSession(cl.storage, registrationInfo.usr, nodeKeyMap, registrationInfo.rsaPublicKey,
@@ -268,7 +270,11 @@ func (cl *Client) finalizeSession(nodeKeyMap map[id.Node]user.NodeKeys,
 	cl.opStatus(globals.REG_SAVE)
 
 	//Set the registration state
-	err := newSession.SetRegState(user.PermissioningComplete)
+	err := newSession.SetRegState(user.KeyGenComplete)
+	if err != nil {
+		return errors.New("Unable to set registration state")
+	}
+	err = newSession.SetRegState(user.PermissioningComplete)
 	if err != nil {
 		return errors.Wrap(err, "Permissioning Registration "+
 			"Failed")
@@ -282,7 +288,6 @@ func (cl *Client) finalizeSession(nodeKeyMap map[id.Node]user.NodeKeys,
 
 	//Set the client session as the newly created session
 	cl.session = newSession
-
 	return nil
 }
 

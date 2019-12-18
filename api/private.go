@@ -28,7 +28,7 @@ import (
 
 const PermissioningAddrID = "Permissioning"
 
-type RegisterInformation struct {
+type SessionInformation struct {
 	rsaPrivateKey  *rsa.PrivateKey
 	rsaPublicKey   *rsa.PublicKey
 	cmixPrivateKey *cyclic.Int
@@ -38,7 +38,7 @@ type RegisterInformation struct {
 	cmixGroup      *cyclic.Group
 	e2eGroup       *cyclic.Group
 	salt           []byte
-	UID            *id.User
+	usrId          *id.User
 	usr            *user.User
 }
 
@@ -103,6 +103,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	if !ok {
 		return nil, errors.New("Failed to find permissioning host")
 	}
+	fmt.Println("in reg, pub key ", publicKeyRSA)
 	response, err := cl.receptionManager.Comms.
 		SendRegistrationMessage(host,
 			&pb.UserRegistration{
@@ -287,29 +288,38 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	return nil
 }
 
-func (cl *Client) GenerateKeys(clientNdf *ndf.NetworkDefinition, rsaPrivKey *rsa.PrivateKey, nickname string) (*RegisterInformation, error) {
+//GenerateSessionInformation generates the keys and user information used in the session object
+func (cl *Client) GenerateSessionInformation(clientNdf *ndf.NetworkDefinition, rsaPrivKey *rsa.PrivateKey,
+	nickname string) (*SessionInformation, error) {
+	//Create an empty session for state tracking
+	cl.session = user.NewSession(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", nil)
+	//Set callback status to key gen
+	cl.opStatus(globals.REG_KEYGEN)
+
+	//Generate keys and other necessary session information
 	cmixGrp, e2eGrp := generateGroups(clientNdf)
 	privKey, pubKey, err := generateRsaKeys(rsaPrivKey)
 	if err != nil {
 		return nil, err
 	}
-
 	cmixPrivKey, cmixPubKey, err := generateCmixKeys(cmixGrp)
 	if err != nil {
 		return nil, err
 	}
-
 	e2ePrivKey, e2ePubKey, err := generateE2eKeys(cmixGrp, e2eGrp)
 	if err != nil {
 		return nil, err
 	}
 
+	//Set callback status to user generation & generate user
+	cl.opStatus(globals.REG_UID_GEN)
 	salt, uid, usr, err := generateUserInformation(nickname, pubKey)
 	if err != nil {
 		return nil, err
 	}
 
-	regInfo := &RegisterInformation{
+	//Wrap the information in the sessionInfo object
+	regInfo := &SessionInformation{
 		rsaPrivateKey:  privKey,
 		rsaPublicKey:   pubKey,
 		cmixPrivateKey: cmixPrivKey,
@@ -320,7 +330,13 @@ func (cl *Client) GenerateKeys(clientNdf *ndf.NetworkDefinition, rsaPrivKey *rsa
 		e2eGroup:       e2eGrp,
 		salt:           salt,
 		usr:            usr,
-		UID:            uid,
+		usrId:          uid,
+	}
+
+	//Set the regState to reflect that keyGen is complete
+	err = cl.session.SetRegState(user.KeyGenComplete)
+	if err != nil {
+		return nil, errors.Errorf("KeyGen failed")
 	}
 
 	return regInfo, nil

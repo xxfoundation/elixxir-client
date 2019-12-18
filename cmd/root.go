@@ -216,7 +216,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 
 		//Generate keys for registration
-		regInfo, err := client.GenerateKeys(client.GetNDF(), privKey, userNick)
+		regInfo, err := client.GenerateSessionInformation(client.GetNDF(), privKey, userNick)
 		if err != nil {
 			globals.Log.FATAL.Panicf("%+v", err)
 		}

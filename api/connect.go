@@ -105,7 +105,7 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	var errs error = nil
 	for i, gateway := range definition.Gateways {
 		gwID := id.NewNodeFromBytes(definition.Nodes[i].ID).NewGateway()
-		err := addHost(rm, gwID.String(), gateway.Address, gateway.TlsCertificate, false)
+		err := addHost(rm, gwID.String(), gateway.Address, gateway.TlsCertificate, false, true)
 		if err != nil {
 			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
 				gwID.String(), gateway.Address, err)
@@ -119,12 +119,12 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	return errs
 }
 
-func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout bool) error {
+func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout, enableAuth bool) error {
 	var creds []byte
 	if cert != "" && rm.Tls {
 		creds = []byte(cert)
 	}
-	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout)
+	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout, enableAuth)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout b
 func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
 		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
-			definition.Registration.TlsCertificate, false)
+			definition.Registration.TlsCertificate, false, true)
 		if err != nil {
 			return errors.New(fmt.Sprintf(
 				"Failed connecting to create host for permissioning: %+v", err))

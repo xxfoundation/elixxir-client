@@ -296,7 +296,6 @@ func (cl *Client) finalizeSession(nodeKeyMap map[id.Node]user.NodeKeys,
 func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
 	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
 	//Set the opStatus and log registration
-	cl.opStatus(globals.REG_UID_GEN)
 	globals.Log.INFO.Printf("Registering dynamic user...")
 
 	// If Registration Server is specified, contact it

@@ -43,9 +43,13 @@ func TestRegistrationGob(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	_, err = testClient.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", &RegisterInformation{})
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", &SessionInformation{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -81,9 +85,15 @@ func TestClient_Register(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	_, err = testClient.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// populate a gob in the store
 	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password",
-		&RegisterInformation{})
+		&SessionInformation{})
 	if err != nil {
 		t.Error(err)
 	}

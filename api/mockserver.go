@@ -298,7 +298,7 @@ func (s *MockPerm_NDF_ErrorCase) RegisterNode(ID []byte,
 	return nil
 }
 
-func (s *MockPerm_NDF_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+func (s *MockPerm_NDF_ErrorCase) PollNdf(clientNdfHash []byte) ([]byte, error) {
 	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
 	return nil, errors.New(errMsg)
 }

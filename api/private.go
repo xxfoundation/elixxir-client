@@ -70,20 +70,22 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 // It sends a registration message and returns the registration signature
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	connected, err := AddPermissioningHost(cl.commManager, cl.ndf)
+	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+
 	if err != nil {
+		if err == ErrNoPermissioning {
+			return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
+		}
 		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
 	}
-	if !connected {
-		return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
-	}
+
 	regValidationSignature := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
-	host, ok := cl.commManager.Comms.GetHost(PermissioningAddrID)
+	host, ok := cl.receptionManager.Comms.GetHost(PermissioningAddrID)
 	if !ok {
 		return nil, errors.New("Failed to find permissioning host")
 	}
-	response, err := cl.commManager.Comms.
+	response, err := cl.receptionManager.Comms.
 		SendRegistrationMessage(host,
 			&pb.UserRegistration{
 				RegistrationCode: registrationCode,
@@ -123,11 +125,11 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 	}
 
 	// Send signed public key and salt for UserID to Server
-	host, ok := cl.commManager.Comms.GetHost(gwID.String())
+	host, ok := cl.receptionManager.Comms.GetHost(gwID.String())
 	if !ok {
 		return nil, nil, errors.Errorf("Failed to find host with ID %s", gwID.String())
 	}
-	nonceResponse, err := cl.commManager.Comms.
+	nonceResponse, err := cl.receptionManager.Comms.
 		SendRequestNonceMessage(host,
 			&pb.NonceRequest{
 				Salt:            salt,
@@ -183,11 +185,11 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 			Signature: sig,
 		},
 	}
-	host, ok := cl.commManager.Comms.GetHost(gwID.String())
+	host, ok := cl.receptionManager.Comms.GetHost(gwID.String())
 	if !ok {
 		return errors.Errorf("Failed to find host with ID %s", gwID.String())
 	}
-	confirmResponse, err := cl.commManager.Comms.
+	confirmResponse, err := cl.receptionManager.Comms.
 		SendConfirmNonceMessage(host, msg)
 	if err != nil {
 		err := errors.New(fmt.Sprintf(

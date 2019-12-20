@@ -10,37 +10,66 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 )
 
+var ErrNoPermissioning = errors.New("No Permissioning In NDF")
+
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
 func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
-	if cl.ndf.Registration.Address != "" {
-		isConnected, err := AddPermissioningHost(cl.commManager, cl.ndf)
+	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+
+	if err != nil {
+		if err != ErrNoPermissioning {
+			// Permissioning has an error so stop running
+			return err
+		}
+		globals.Log.WARN.Print("Skipping connection to permissioning, most likely no permissioning information in NDF")
+	}
+
+	runPermissioning := err != ErrNoPermissioning
+
+	if runPermissioning {
+		err = cl.setupPermissioning()
 
 		if err != nil {
 			return err
 		}
-		if !isConnected {
-			err = errors.New("Couldn't connect to permissioning")
-			return err
-		}
-		//Get remote version and update
-		ver, err := cl.commManager.GetRemoteVersion()
-		if err != nil {
-			return err
-		}
-		cl.registrationVersion = ver
+	}
 
-		//Request a new ndf from
-		def, err = io.GetUpdatedNDF(cl.ndf, cl.commManager.Comms)
-		if err != nil {
-			return err
-		}
-		if def != nil {
-			cl.ndf = def
-		}
-	} else {
-		globals.Log.WARN.Println("Registration not defined, not contacted")
+	//build the topology
+	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
+	for i, node := range cl.ndf.Nodes {
+		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
+	}
+
+	cl.topology = connect.NewCircuit(nodeIDs)
+
+	return AddGatewayHosts(cl.receptionManager, cl.ndf)
+}
+
+// DisableTls disables tls for communications
+func (cl *Client) DisableTls() {
+	globals.Log.INFO.Println("Running client without tls")
+	cl.receptionManager.Tls = false
+}
+
+func (cl *Client) setupPermissioning() error {
+	// Permissioning was found in ndf run corresponding code
+
+	//Get remote version and update
+	ver, err := cl.receptionManager.GetRemoteVersion()
+	if err != nil {
+		return err
+	}
+	cl.registrationVersion = ver
+
+	//Request a new ndf from permissioning
+	def, err = io.PollNdf(cl.ndf, cl.receptionManager.Comms)
+	if err != nil {
+		return err
+	}
+	if def != nil {
+		cl.ndf = def
 	}
 
 	// Only check the version if we got a remote version
@@ -61,20 +90,13 @@ func (cl *Client) InitNetwork() error {
 			"access to the registration server?")
 	}
 
-	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
-	}
+	return nil
 
-	cl.topology = connect.NewCircuit(nodeIDs)
-
-	return AddGatewayHosts(cl.commManager, cl.ndf)
 }
 
 // Connects to gateways using tls filepaths to create credential information
 // for connection establishment
-func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error { // tear out
+func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if len(definition.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
@@ -82,55 +104,50 @@ func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	// connect to all gateways
 	var errs error = nil
 	for i, gateway := range definition.Gateways {
-
-		var gwCreds []byte
-
-		if gateway.TlsCertificate != "" {
-			gwCreds = []byte(gateway.TlsCertificate)
-		}
 		gwID := id.NewNodeFromBytes(definition.Nodes[i].ID).NewGateway()
-		gwAddr := gateway.Address
-
-		_, err := rm.Comms.AddHost(gwID.String(), gwAddr, gwCreds, false)
-		errs = handleError(errs, err, gwID.String(), gwAddr)
+		err := addHost(rm, gwID.String(), gateway.Address, gateway.TlsCertificate, false)
+		if err != nil {
+			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
+				gwID.String(), gateway.Address, err)
+			if errs != nil {
+				errs = err
+			} else {
+				errs = errors.Wrap(errs, err.Error())
+			}
+		}
 	}
 	return errs
 }
 
-func handleError(base, err error, id, addr string) error {
-	if err != nil {
-		err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
-			id, addr, err)
-		if base != nil {
-			base = errors.Wrap(base, err.Error())
-		} else {
-			base = err
-		}
+func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout bool) error {
+	var creds []byte
+	if cert != "" && rm.Tls {
+		creds = []byte(cert)
 	}
-	return base
+	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) (bool, error) { // this disappears, make host in simple call
+func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
-		var regCert []byte
-		if definition.Registration.TlsCertificate != "" {
-			regCert = []byte(definition.Registration.TlsCertificate)
-		}
-
-		_, err := rm.Comms.AddHost(PermissioningAddrID, definition.Registration.Address, regCert, false)
+		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
+			definition.Registration.TlsCertificate, false)
 		if err != nil {
-			return false, errors.New(fmt.Sprintf(
+			return errors.New(fmt.Sprintf(
 				"Failed connecting to create host for permissioning: %+v", err))
 		}
-		return true, nil
+		return nil
 	} else {
 		globals.Log.DEBUG.Printf("failed to connect to %v silently", definition.Registration.Address)
 		// Without an NDF, we can't connect to permissioning, but this isn't an
 		// error per se, because we should be phasing out permissioning at some
 		// point
-		return false, nil
+		return ErrNoPermissioning
 	}
 }

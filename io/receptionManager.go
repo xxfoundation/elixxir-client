@@ -33,6 +33,8 @@ type ReceptionManager struct {
 	nextId   func() []byte
 	collator *Collator
 
+	//Flags if the network is using tls or note
+	Tls bool
 	// blockTransmissions will use a mutex to prevent multiple threads from sending
 	// messages at the same time.
 	blockTransmissions bool // pass into receiver
@@ -57,6 +59,7 @@ func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
 		receivedMessages:   make(map[string]struct{}),
 		Comms:              &client.Comms{},
 		rekeyChan:          rekeyChan,
+		Tls:                true,
 	}
 
 	return cm
@@ -64,7 +67,7 @@ func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
 
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
-func (rm *ReceptionManager) GetRemoteVersion() (string, error) { // need this but make getremoteversion, handle versioning in client
+func (rm *ReceptionManager) GetRemoteVersion() (string, error) {
 	permissioningHost, ok := rm.Comms.GetHost(PermissioningAddrID)
 	if !ok {
 		return "", errors.Errorf("Failed to find permissioning host with id %s", PermissioningAddrID)

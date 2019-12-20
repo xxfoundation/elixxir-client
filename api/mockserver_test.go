@@ -174,86 +174,86 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	disconnectServers()
 }
 
-//func TestSend(t *testing.T) {
-//	// Initialize client with dummy storage
-//	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-//	client, err := NewClient(&storage, "hello", "", def)
-//	if err != nil {
-//		t.Errorf("Failed to initialize dummy client: %s", err.Error())
-//	}
-//
-//	// InitNetwork to gateways and reg server
-//	err = client.InitNetwork()
-//
-//	if err != nil {
-//		t.Errorf("Client failed of connect: %+v", err)
-//	}
-//
-//	// Register with a valid registration code
-//	userID, err := client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-//		nil)
-//
-//	if err != nil {
-//		t.Errorf("Register failed: %s", err.Error())
-//	}
-//
-//	err = client.RegisterWithNodes()
-//	if err != nil {
-//		t.Error(err)
-//	}
-//
-//	err = client.session.StoreSession()
-//	if err != nil {
-//		t.Errorf(err.Error())
-//	}
-//
-//	// Login to gateway
-//	_, err = client.Login("password")
-//
-//	if err != nil {
-//		t.Errorf("Login failed: %s", err.Error())
-//	}
-//
-//	cb := func(err error) {
-//		t.Log(err)
-//	}
-//
-//	err = client.StartMessageReceiver(cb)
-//
-//	if err != nil {
-//		t.Errorf("Could not start message reception: %+v", err)
-//	}
-//
-//	// Test send with invalid sender ID
-//	err = client.Send(
-//		APIMessage{
-//			SenderID:    id.NewUserFromUint(12, t),
-//			Payload:     []byte("test"),
-//			RecipientID: userID,
-//		},
-//	)
-//
-//	if err != nil {
-//		// TODO: would be nice to catch the sender but we
-//		// don't have the interface/mocking for that.
-//		t.Errorf("error on first message send: %+v", err)
-//	}
-//
-//	// Test send with valid inputs
-//	err = client.Send(APIMessage{SenderID: userID, Payload: []byte("test"),
-//		RecipientID: client.GetCurrentUser()})
-//
-//	if err != nil {
-//		t.Errorf("Error sending message: %v", err)
-//	}
-//
-//	err = client.Logout()
-//
-//	if err != nil {
-//		t.Errorf("Logout failed: %v", err)
-//	}
-//	disconnectServers()
-//}
+func TestSend(t *testing.T) {
+	// Initialize client with dummy storage
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def)
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
+
+	if err != nil {
+		t.Errorf("Client failed of connect: %+v", err)
+	}
+
+	// Register with a valid registration code
+	userID, err := client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
+		nil)
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = client.session.StoreSession()
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+
+	// Login to gateway
+	_, err = client.Login("password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	err = client.StartMessageReceiver(cb)
+
+	if err != nil {
+		t.Errorf("Could not start message reception: %+v", err)
+	}
+
+	// Test send with invalid sender ID
+	err = client.Send(
+		APIMessage{
+			SenderID:    id.NewUserFromUint(12, t),
+			Payload:     []byte("test"),
+			RecipientID: userID,
+		},
+	)
+
+	if err != nil {
+		// TODO: would be nice to catch the sender but we
+		// don't have the interface/mocking for that.
+		t.Errorf("error on first message send: %+v", err)
+	}
+
+	// Test send with valid inputs
+	err = client.Send(APIMessage{SenderID: userID, Payload: []byte("test"),
+		RecipientID: client.GetCurrentUser()})
+
+	if err != nil {
+		t.Errorf("Error sending message: %v", err)
+	}
+
+	err = client.Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+	disconnectServers()
+}
 
 func TestLogout(t *testing.T) {
 	// Initialize client with dummy storage

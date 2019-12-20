@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/gateway"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -58,7 +59,9 @@ func (i *MockRegistration) GetCurrentClientVersion() (string, error) {
 	return "0.1.0", nil
 }
 
-func (i *MockRegistration) PollNdf(clientNdfHash []byte) ([]byte, error) {
+func (i *MockRegistration) PollNdf(clientNdfHash []byte,
+	auth *connect.Auth) ([]byte,
+	error) {
 	ndfJson, _ := json.Marshal(def)
 	return ndfJson, nil
 }

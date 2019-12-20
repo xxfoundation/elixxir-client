@@ -255,75 +255,74 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 //	disconnectServers()
 //}
 
-// Commenting this out because its failing pipeline by messing with grep somehow?
-//func TestLogout(t *testing.T) {
-//	// Initialize client with dummy storage
-//	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-//	client, err := NewClient(&storage, "hello", "", def)
-//	if err != nil {
-//		t.Errorf("Failed to initialize dummy client: %s", err.Error())
-//	}
-//	// InitNetwork to gateways and reg server
-//	err = client.InitNetwork()
-//
-//	if err != nil {
-//		t.Errorf("Client failed of connect: %+v", err)
-//	}
-//
-//	// Logout before logging in should return an error
-//	err = client.Logout()
-//
-//	if err == nil {
-//		t.Errorf("Logout did not throw an error when called on a client that" +
-//			" is not currently logged in.")
-//	}
-//
-//	// Register with a valid registration code
-//	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-//		nil)
-//
-//	if err != nil {
-//		t.Errorf("Register failed: %s", err.Error())
-//	}
-//
-//	err = client.RegisterWithNodes()
-//	if err != nil {
-//		t.Error(err)
-//	}
-//
-//	// Login to gateway
-//	_, err = client.Login("password")
-//
-//	if err != nil {
-//		t.Errorf("Login failed: %s", err.Error())
-//	}
-//
-//	cb := func(err error) {
-//		t.Log(err)
-//	}
-//
-//	err = client.StartMessageReceiver(cb)
-//
-//	if err != nil {
-//		t.Errorf("Failed to start message reciever: %s", err.Error())
-//	}
-//
-//	err = client.Logout()
-//
-//	if err != nil {
-//		t.Errorf("Logout failed: %v", err)
-//	}
-//
-//	// Logout after logout has been called should return an error
-//	err = client.Logout()
-//
-//	if err == nil {
-//		t.Errorf("Logout did not throw an error when called on a client that" +
-//			" is not currently logged in.")
-//	}
-//
-//	disconnectServers()
-//}
+func TestLogout(t *testing.T) {
+	// Initialize client with dummy storage
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def)
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
+
+	if err != nil {
+		t.Errorf("Client failed of connect: %+v", err)
+	}
+
+	// Logout before logging in should return an error
+	err = client.Logout()
+
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
+
+	// Register with a valid registration code
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
+		nil)
+
+	if err != nil {
+		t.Errorf("Register failed: %s", err.Error())
+	}
+
+	err = client.RegisterWithNodes()
+	if err != nil {
+		t.Error(err)
+	}
+
+	// Login to gateway
+	_, err = client.Login("password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	err = client.StartMessageReceiver(cb)
+
+	if err != nil {
+		t.Errorf("Failed to start message reciever: %s", err.Error())
+	}
+
+	err = client.Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+
+	// Logout after logout has been called should return an error
+	err = client.Logout()
+
+	if err == nil {
+		t.Errorf("Logout did not throw an error when called on a client that" +
+			" is not currently logged in.")
+	}
+
+	disconnectServers()
+}
 
 // Handles initialization of mock registration server,
 // gateways used for registration and gateway used for session

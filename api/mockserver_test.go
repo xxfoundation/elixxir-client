@@ -66,14 +66,13 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
-	_, err = client.GenerateSessionInformation(def, nil, "")
+	err = client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "password", &SessionInformation{})
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -102,14 +101,13 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
-	regInfo, err := client.GenerateSessionInformation(def, nil, "")
+	err = client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode, "", "",
-		"password", regInfo)
+	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -141,14 +139,13 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 	//Generate keys s.t. reg status is prepped for registration
-	_, err = client.GenerateSessionInformation(def, nil, "")
+	err = client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	// Register with invalid reg code
-	uid, err := client.RegisterWithPermissioning(true, InvalidRegCode, "", "",
-		"password", &SessionInformation{})
+	uid, err := client.RegisterWithPermissioning(true, InvalidRegCode)
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
@@ -176,7 +173,7 @@ func TestRegister_InvalidRegState(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 	cmixGrp, e2eGrp := generateGroups(def)
-	salt, _, usr, err := generateUserInformation("", pubKey)
+	salt, _, usr, err := generateUserInformation(pubKey)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -186,11 +183,10 @@ func TestRegister_InvalidRegState(t *testing.T) {
 	}
 	cmixPrivKey, cmixPubKey, err := generateCmixKeys(cmixGrp)
 
-	client.session = user.NewSession(nil, usr, nil, pubKey, privKey, cmixPubKey, cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, "", nil)
+	client.session = user.NewSession(nil, usr, pubKey, privKey, cmixPubKey, cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, "")
 
 	//
-	_, err = client.RegisterWithPermissioning(false, ValidRegCode, "", "",
-		"password", &SessionInformation{rsaPublicKey: pubKey, usr: usr})
+	_, err = client.RegisterWithPermissioning(false, ValidRegCode)
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration state!")
 	}
@@ -215,14 +211,13 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	// ...
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
-	_, err = client.GenerateSessionInformation(def, nil, "")
+	err = client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	// Register
-	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-		&SessionInformation{})
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -248,11 +243,10 @@ func TestSend(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
-	reginfo, err := client.GenerateSessionInformation(def, nil, "")
+	err = client.GenerateKeys(nil, "password")
 
 	// Register with a valid registration code
-	userID, err := client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-		reginfo)
+	userID, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
@@ -338,14 +332,13 @@ func TestLogout(t *testing.T) {
 			" is not currently logged in.")
 	}
 
-	_, err = client.GenerateSessionInformation(def, nil, "")
+	err = client.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	// Register with a valid registration code
-	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-		&SessionInformation{})
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())

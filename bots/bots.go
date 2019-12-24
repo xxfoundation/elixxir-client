@@ -38,7 +38,7 @@ type nickReqListener struct{}
 // Nickname listener simply replies with message containing user's nick
 func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
 	m := msg.(*parse.Message)
-	nick := session.GetCurrentUser().Nick
+	nick := session.GetCurrentUser().Username
 	resp := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
 		Body:        []byte(nick),

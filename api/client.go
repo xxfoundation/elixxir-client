@@ -123,7 +123,7 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 }
 
 // LoadSession loads the session object for the UID
-func (cl *Client) Login(password string) (string, error) {
+func (cl *Client) Login(password string) (*id.User, error) {
 
 	var session user.Session
 	var err error
@@ -148,19 +148,19 @@ func (cl *Client) Login(password string) (string, error) {
 	<-done
 
 	if err != nil {
-		return "", errors.Wrap(err, "Login: Could not login")
+		return nil, errors.Wrap(err, "Login: Could not login")
 	}
 
 	if session == nil {
-		return "", errors.New("Unable to load session, no error reported")
+		return nil, errors.New("Unable to load session, no error reported")
 	}
-	if session.GetRegState() < user.PermissioningComplete {
-		return "", errors.New("Cannot log a user in which has not " +
+	if session.GetRegState() < user.KeyGenComplete {
+		return nil, errors.New("Cannot log a user in which has not " +
 			"completed registration ")
 	}
 
 	cl.session = session
-	return cl.session.GetCurrentUser().Nick, nil
+	return cl.session.GetCurrentUser().User, nil
 }
 
 // Logout closes the connection to the server at this time and does

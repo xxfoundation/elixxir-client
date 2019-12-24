@@ -73,6 +73,7 @@ type Session interface {
 	DeleteContact(*id.User) (string, error)
 	GetSessionLocation() uint8
 	LoadEncryptedSession(store globals.Storage) ([]byte, error)
+	RegisterPermissioningSignature(sig []byte) error
 }
 
 type NodeKeys struct {
@@ -82,7 +83,7 @@ type NodeKeys struct {
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
-	u *User, nk map[id.Node]NodeKeys,
+	u *User,
 	publicKeyRSA *rsa.PublicKey,
 	privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH *cyclic.Int,
@@ -91,29 +92,27 @@ func NewSession(store globals.Storage,
 	e2ePrivateKeyDH *cyclic.Int,
 	salt []byte,
 	cmixGrp, e2eGrp *cyclic.Group,
-	password string,
-	regSignature []byte) Session {
-	regState := NotStarted
+	password string) Session {
+	regState := uint32(KeyGenComplete)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		CurrentUser:            u,
-		Keys:                   nk,
-		RSAPublicKey:           publicKeyRSA,
-		RSAPrivateKey:          privateKeyRSA,
-		CMIXDHPublicKey:        cmixPublicKeyDH,
-		CMIXDHPrivateKey:       cmixPrivateKeyDH,
-		E2EDHPublicKey:         e2ePublicKeyDH,
-		E2EDHPrivateKey:        e2ePrivateKeyDH,
-		CmixGrp:                cmixGrp,
-		E2EGrp:                 e2eGrp,
-		InterfaceMap:           make(map[string]interface{}),
-		KeyMaps:                keyStore.NewStore(),
-		RekeyManager:           keyStore.NewRekeyManager(),
+		NodeKeys:         make(map[id.Node]NodeKeys),
+		CurrentUser:      u,
+		RSAPublicKey:     publicKeyRSA,
+		RSAPrivateKey:    privateKeyRSA,
+		CMIXDHPublicKey:  cmixPublicKeyDH,
+		CMIXDHPrivateKey: cmixPrivateKeyDH,
+		E2EDHPublicKey:   e2ePublicKeyDH,
+		E2EDHPrivateKey:  e2ePrivateKeyDH,
+		CmixGrp:          cmixGrp,
+		E2EGrp:           e2eGrp,
+		InterfaceMap:     make(map[string]interface{}),
+		KeyMaps:          keyStore.NewStore(),
+		RekeyManager:     keyStore.NewRekeyManager(),
 		store:                  store,
 		listeners:              switchboard.NewSwitchboard(),
 		quitReceptionRunner:    make(chan struct{}),
 		password:               password,
-		regValidationSignature: regSignature,
 		Salt:                   salt,
 		RegState:               &regState,
 		storageLocation:        globals.LocationA,
@@ -225,7 +224,7 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	Keys             map[id.Node]NodeKeys
+	NodeKeys         map[id.Node]NodeKeys
 	RSAPrivateKey    *rsa.PrivateKey
 	RSAPublicKey     *rsa.PublicKey
 	CMIXDHPrivateKey *cyclic.Int
@@ -292,6 +291,7 @@ func WriteToSession(replacement []byte, store globals.Storage) error {
 	return nil
 }
 
+
 //LoadEncryptedSession: gets the encrypted session file from storage
 // Returns it as a base64 encoded string
 func (s *SessionObj) LoadEncryptedSession(store globals.Storage) ([]byte, error) {
@@ -331,7 +331,7 @@ func (s *SessionObj) GetNodes() map[id.Node]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	nodes := make(map[id.Node]int, 0)
-	for node := range s.Keys {
+	for node := range s.NodeKeys {
 		nodes[node] = 1
 	}
 	return nodes
@@ -352,7 +352,7 @@ func (s *SessionObj) GetNodeKeys(topology *connect.Circuit) []NodeKeys {
 	keys := make([]NodeKeys, topology.Len())
 
 	for i := 0; i < topology.Len(); i++ {
-		keys[i] = s.Keys[*topology.GetNodeAtIndex(i)]
+		keys[i] = s.NodeKeys[*topology.GetNodeAtIndex(i)]
 	}
 
 	return keys
@@ -362,7 +362,21 @@ func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
-	s.Keys[*id] = key
+	s.NodeKeys[*id] = key
+}
+
+func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	err := s.SetRegState(PermissioningComplete)
+	if err != nil {
+		return errors.Wrap(err, "Could not store permissioning signature")
+	}
+
+	s.regValidationSignature = sig
+
+	return nil
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
@@ -427,9 +441,8 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			User:  s.CurrentUser.User,
-			Nick:  s.CurrentUser.Nick,
-			Email: s.CurrentUser.Email,
+			User:     s.CurrentUser.User,
+			Username: s.CurrentUser.Username,
 		}
 	}
 	return currentUser
@@ -454,8 +467,7 @@ func (s *SessionObj) ChangeUsername(username string) error {
 		return errors.New("Can only change username during " +
 			"PermissioningComplete registration state")
 	}
-	s.CurrentUser.Email = username
-	s.CurrentUser.Nick = username
+	s.CurrentUser.Username = username
 	return nil
 }
 
@@ -516,12 +528,7 @@ func (s *SessionObj) Immolate() error {
 		return err
 	}
 
-	// clear data stored in session
-	// Warning: be careful about immolating the memory backing the user ID
-	// because that may alias a key in the user maps
-	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
-	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
-	s.CurrentUser.Nick = ""
+	globals.Log.WARN.Println("Immolate not implemented, did nothing")
 
 	s.UnlockStorage()
 

@@ -13,7 +13,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -116,13 +115,12 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	err = client.client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "", &api.SessionInformation{})
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -155,13 +153,12 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	err = client.client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "", &api.SessionInformation{})
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
@@ -204,14 +201,13 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	err = client.client.GenerateKeys(nil, "1234")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "", &api.SessionInformation{})
-	_, err = client.Login(regRes, "")
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
+	_, err = client.Login(regRes, "1234")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
@@ -248,15 +244,14 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	err = client.client.GenerateKeys(nil, "1234")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "", &api.SessionInformation{})
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 
-	_, err = client.Login(regRes, "")
+	_, err = client.Login(regRes, "1234")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)

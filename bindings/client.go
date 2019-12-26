@@ -116,12 +116,13 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string,
+	regInfo *api.SessionInformation) ([]byte, error) {
+
 	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
 		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
 		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email,
-		password, nil)
+	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email, password, regInfo)
 
 	if err != nil {
 		return id.ZeroID[:], err

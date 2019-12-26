@@ -215,14 +215,23 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
-			userEmail, sessFilePassword, privKey)
+		//Generate keys for registration
+		regInfo, err := client.GenerateSessionInformation(client.GetNDF(), privKey, userNick)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not Register User: %s",
-				err.Error())
+			globals.Log.FATAL.Panicf("%+v", err)
 		}
 
-		err := client.RegisterWithNodes()
+		//Attempt to register user with same keys until a success occurs
+		for errRegister := error(nil); errRegister != nil; {
+			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
+				userEmail, sessFilePassword, regInfo)
+			if errRegister != nil {
+				globals.Log.FATAL.Panicf("Could Not Register User: %s",
+					errRegister.Error())
+			}
+		}
+
+		err = client.RegisterWithNodes()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s",
 				err.Error())

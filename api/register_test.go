@@ -31,9 +31,13 @@ func TestRegistrationGob(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	_, err = testClient.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", &SessionInformation{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -56,7 +60,7 @@ func TestRegistrationGob(t *testing.T) {
 	disconnectServers()
 }
 
-//Happy path for a non precan user
+//Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	//Make mock client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
@@ -69,8 +73,15 @@ func TestClient_Register(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	_, err = testClient.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password",
+		&SessionInformation{})
 	if err != nil {
 		t.Error(err)
 	}
@@ -92,6 +103,31 @@ func TestClient_Register(t *testing.T) {
 	//Probs can't do this as there is now a sense of randomness??
 	//VerifyRegisterGobKeys(Session, testClient.topology, t)
 	disconnectServers()
+}
+
+func VerifyRegisterGobUser(session user.Session, t *testing.T) {
+
+	expectedUser := id.NewUserFromUint(5, t)
+
+	if reflect.DeepEqual(session.GetCurrentUser().User, &expectedUser) {
+		t.Errorf("Incorrect User ID; \n   expected %q \n   recieved: %q",
+			expectedUser, session.GetCurrentUser().User)
+	}
+}
+
+func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
+	cmixGrp, _ := getGroups()
+	h := sha256.New()
+	h.Write([]byte(string(40005)))
+	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
+
+	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
+		expectedTransmissionBaseKey) != 0 {
+		t.Errorf("Transmission base key was %v, expected %v",
+			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
+			expectedTransmissionBaseKey.Text(16))
+	}
+
 }
 
 //Error path: Using a reg server that will cause an error
@@ -390,29 +426,4 @@ func TestClient_precannedRegister(t *testing.T) {
 
 	//Disconnect and shutdown servers
 	disconnectServers()
-}
-
-func VerifyRegisterGobUser(session user.Session, t *testing.T) {
-
-	expectedUser := id.NewUserFromUint(5, t)
-
-	if reflect.DeepEqual(session.GetCurrentUser().User, &expectedUser) {
-		t.Errorf("Incorrect User ID; \n   expected %q \n   recieved: %q",
-			expectedUser, session.GetCurrentUser().User)
-	}
-}
-
-func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
-	cmixGrp, _ := getGroups()
-	h := sha256.New()
-	h.Write([]byte(string(40005)))
-	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
-
-	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
-		expectedTransmissionBaseKey) != 0 {
-		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
-			expectedTransmissionBaseKey.Text(16))
-	}
-
 }

@@ -118,8 +118,13 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
+	regInfo, err := testClient.client.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	regRes, err := testClient.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+		"", "", "", regInfo)
 	if err != nil {
 		t.Errorf("Registration with permissioning failed: %s", err.Error())
 	}
@@ -216,8 +221,13 @@ func TestClient_ChangeUsername(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
+	regInfo, err := testClient.client.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode,
-		"", "", "")
+		"", "", "", regInfo)
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
@@ -245,8 +255,13 @@ func TestDeleteUsername_EmptyContactList(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
+	regInfo, err := testClient.client.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode,
-		"", "", "")
+		"", "", "", regInfo)
 	if len(regRes) == 0 {
 		t.Errorf("Invalid registration number received: %v", regRes)
 	}
@@ -273,8 +288,13 @@ func TestClient_GetRegState(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
+	regInfo, err := testClient.client.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// Register with a valid registration code
-	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
+	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password", regInfo)
 
 	if err != nil {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
@@ -317,8 +337,13 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
+	regInfo, err := testClient.client.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// Register with a valid registration code
-	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password")
+	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode, "", "", "password", regInfo)
 
 	if err != nil {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
@@ -397,14 +422,14 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	_, err = testClient.client.GenerateSessionInformation(def, nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, err := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "", &api.SessionInformation{})
-	loginRes, err2 := client.Login(regRes, "")
+	loginRes, err2 := testClient.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
 	}
@@ -444,14 +469,14 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	_, err = testClient.client.GenerateSessionInformation(def, nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, _ := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "", &api.SessionInformation{})
-	_, err = client.Login(regRes, "")
+	_, err = testClient.Login(regRes, "")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
@@ -486,12 +511,12 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	_, err = client.client.GenerateSessionInformation(def, nil, "")
+	_, err = testClient.client.GenerateSessionInformation(def, nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
+	regRes, _ := testClient.RegisterWithPermissioning(true, ValidRegCode,
 		"", "", "", &api.SessionInformation{})
 
 	_, err = testClient.Login(regRes, "")

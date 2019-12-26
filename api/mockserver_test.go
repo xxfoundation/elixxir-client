@@ -55,7 +55,6 @@ func TestMain(m *testing.M) {
 	os.Exit(testMainWrapper(m))
 }
 
-//TODO: Fix this test so it gives the right kind of message (unencrypted, encrypted or neither) Maybe 2 mocks?
 func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	// Initialize client with dummy storage
 	testDef := getNDF()
@@ -84,9 +83,14 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
+	regInfo, err := client.GenerateSessionInformation(def, nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// Register with a valid registration code
 	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-		nil)
+		regInfo)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())

@@ -99,7 +99,6 @@ func TestMain(m *testing.M) {
 
 // TestRegister smoke tests the registration functionality.
 func TestRegister(t *testing.T) {
-	fmt.Println(1)
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
@@ -107,20 +106,16 @@ func TestRegister(t *testing.T) {
 	dummyRegState := func(int) {
 		return
 	}
-	fmt.Println(2)
 	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
-	fmt.Println(3)
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
 	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err == nil {
 		t.Errorf("Registration duplicate did not fail")
 	}
-	fmt.Println(4)
-
 }
 
 // TestSearch smoke tests the search function

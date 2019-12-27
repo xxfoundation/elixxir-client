@@ -185,7 +185,7 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 	mIDs := make([]string, len(messageIDs.IDs))
 
 	// fixme: this could miss messages if the client has not seen them but
-	//  the gateway say them before a message the client has seen
+	// the gateway say them before a message the client has seen
 
 	// Loops through every new message and retrieves it
 	bufLoc := 0

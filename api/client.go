@@ -475,7 +475,6 @@ func (cl *Client) DeleteUser(u *id.User) (string, error) {
 	}
 
 	return v, nil
-
 }
 
 // Nickname lookup API
@@ -490,36 +489,6 @@ func (cl *Client) LookupNick(user *id.User,
 		}
 		cb.Callback(nick, err)
 	}()
-}
-
-//Message struct adherent to interface in bindings for data return from ParseMessage
-type ParsedMessage struct {
-	Typed   int32
-	Payload []byte
-}
-
-func (p ParsedMessage) GetSender() []byte {
-	return []byte{}
-}
-
-func (p ParsedMessage) GetPayload() []byte {
-	return p.Payload
-}
-
-func (p ParsedMessage) GetRecipient() []byte {
-	return []byte{}
-}
-
-func (p ParsedMessage) GetMessageType() int32 {
-	return p.Typed
-}
-
-func (p ParsedMessage) GetTimestampNano() int64 {
-	return 0
-}
-
-func (p ParsedMessage) GetTimestamp() int64 {
-	return 0
 }
 
 // Parses a passed message.  Allows a message to be aprsed using the interal parser

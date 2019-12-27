@@ -16,16 +16,19 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
 	"time"
 )
 
-var def *ndf.NetworkDefinition
-
 const InvalidClientVersion = "1.1.0"
+const BatchSize = 10
+
+var def *ndf.NetworkDefinition
 
 // APIMessage are an implementation of the interface in bindings and API
 // easy to use from Go
@@ -68,36 +71,88 @@ func (m APIMessage) Pack() []byte {
 }
 
 // Blank struct implementing ServerHandler interface for testing purposes (Passing to StartServer)
-type TestInterface struct {
+type GatewayHandler struct {
 	LastReceivedMessage pb.Slot
 }
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *TestInterface) GetMessage(userId *id.User,
+func (m *GatewayHandler) GetMessage(userId *id.User,
 	msgId, ipaddr string) (*pb.Slot, error) {
 	return &pb.Slot{}, nil
 }
 
 // Return any MessageIDs in the globals for this User
-func (m *TestInterface) CheckMessages(userId *id.User,
-	messageID, ipAddress string) ([]string, error) {
+func (m *GatewayHandler) CheckMessages(userId *id.User,
+	messageID, ipaddr string) ([]string, error) {
 	return make([]string, 0), nil
 }
 
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
-func (m *TestInterface) PutMessage(msg *pb.Slot, ipaddr string) error {
+func (m *GatewayHandler) PutMessage(msg *pb.Slot, ipaddr string) error {
 	m.LastReceivedMessage = *msg
 	return nil
 }
 
-func (m *TestInterface) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
+func (m *GatewayHandler) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
 		ClientSignedByServer: &pb.RSASignature{},
 	}
 
 	return regConfirmation, nil
+}
+
+// Pass-through for Registration Nonce Communication
+func (m *GatewayHandler) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
+	dh := getDHPubKey().Bytes()
+	return &pb.Nonce{
+		DHPubKey: dh,
+	}, nil
+}
+
+//Blank struct that has an error path f
+type GatewayHandlerMultipleMessages struct {
+	LastReceivedMessage []pb.Slot
+}
+
+func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
+	msgId, ipaddr string) (*pb.Slot, error) {
+	msg := []byte("Hello")
+	payload, err := e2e.Pad(msg, format.PayloadLen)
+	if err != nil {
+		fmt.Println("hello!")
+	}
+	return &pb.Slot{
+		PayloadA: payload,
+		PayloadB: payload,
+	}, nil
+}
+
+// Return any MessageIDs in the globals for this User
+func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.User,
+	messageID, ipaddr string) ([]string, error) {
+	msgs := []string{"a", "b", "c", "d", "e", "f", "g"}
+	return msgs, nil
+}
+
+// PutMessage adds a message to the outgoing queue and
+// calls SendBatch when it's size is the batch size
+func (m *GatewayHandlerMultipleMessages) PutMessage(msg *pb.Slot, ipaddr string) error {
+	for i := 0; i < BatchSize; i++ {
+		msg.Index = uint32(i)
+		m.LastReceivedMessage = append(m.LastReceivedMessage, *msg)
+	}
+	return nil
+}
+
+func (m *GatewayHandlerMultipleMessages) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
+	return nil, nil
+}
+
+// Pass-through for Registration Nonce Communication
+func (m *GatewayHandlerMultipleMessages) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
+	return nil, nil
 }
 
 // Blank struct implementing Registration Handler interface for testing purposes (Passing to StartServer)
@@ -174,14 +229,6 @@ func getDHPubKey() *cyclic.Int {
 	return cmixGrp.ExpG(dh, cmixGrp.NewMaxInt())
 }
 
-// Pass-through for Registration Nonce Communication
-func (m *TestInterface) RequestNonce(message *pb.NonceRequest, ipaddr string) (*pb.Nonce, error) {
-	dh := getDHPubKey().Bytes()
-	return &pb.Nonce{
-		DHPubKey: dh,
-	}, nil
-}
-
 // Mock dummy storage interface for testing.
 type DummyStorage struct {
 	LocationA string
@@ -251,7 +298,7 @@ func (s *MockPerm_NDF_ErrorCase) RegisterNode(ID []byte,
 	return nil
 }
 
-func (s *MockPerm_NDF_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
+func (s *MockPerm_NDF_ErrorCase) PollNdf(clientNdfHash []byte) ([]byte, error) {
 	errMsg := fmt.Sprintf("Permissioning server does not have an ndf to give to client")
 	return nil, errors.New(errMsg)
 }
@@ -274,7 +321,7 @@ func (s *MockPerm_CheckVersion_ErrorCase) RegisterNode(ID []byte,
 	return nil
 }
 func (s *MockPerm_CheckVersion_ErrorCase) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	ndfData := buildMockNDF()
+	ndfData := def
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }
@@ -296,7 +343,7 @@ func (s *MockPerm_CheckVersion_BadVersion) RegisterNode(ID []byte,
 }
 
 func (s *MockPerm_CheckVersion_BadVersion) GetUpdatedNDF(clientNdfHash []byte) ([]byte, error) {
-	ndfData := buildMockNDF()
+	ndfData := def
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }
@@ -308,4 +355,34 @@ func (s *MockPerm_CheckVersion_BadVersion) RegisterUser(registrationCode,
 
 func (s *MockPerm_CheckVersion_BadVersion) GetCurrentClientVersion() (version string, err error) {
 	return InvalidClientVersion, nil
+}
+
+//Message struct adherent to interface in bindings for data return from ParseMessage
+type ParsedMessage struct {
+	Typed   int32
+	Payload []byte
+}
+
+func (p ParsedMessage) GetSender() []byte {
+	return []byte{}
+}
+
+func (p ParsedMessage) GetPayload() []byte {
+	return p.Payload
+}
+
+func (p ParsedMessage) GetRecipient() []byte {
+	return []byte{}
+}
+
+func (p ParsedMessage) GetMessageType() int32 {
+	return p.Typed
+}
+
+func (p ParsedMessage) GetTimestampNano() int64 {
+	return 0
+}
+
+func (p ParsedMessage) GetTimestamp() int64 {
+	return 0
 }

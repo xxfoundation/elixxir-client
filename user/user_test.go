@@ -37,17 +37,17 @@ func TestUserRegistry(t *testing.T) {
 			t.Errorf("Couldn't get user %q corresponding to user %q",
 				*reg, *currentID)
 		}
-		if usr.Nick != DemoUserNicks[i] {
+		if usr.Username != DemoUserNicks[i] {
 			t.Errorf("Nickname incorrectly set. Expected: %v Actual: %v",
-				DemoUserNicks[i], usr.Nick)
+				DemoUserNicks[i], usr.Username)
 		}
 	}
 	// Test the NewUser function
 	newID := id.NewUserFromUint(2002, t)
 	usr := Users.NewUser(newID, "Will I am")
 
-	if usr.Nick != "Will I am" {
-		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Nick)
+	if usr.Username != "Will I am" {
+		t.Errorf("User name should be 'Will I am', but is %v instead", usr.Username)
 	}
 
 	// Test that UpsertUser successfully adds a user to the usermap
@@ -61,10 +61,10 @@ func TestUserRegistry(t *testing.T) {
 		t.Errorf("Upsert did not add the test user correctly. " +
 			"The ID was not found by GetUser.")
 	}
-	if newUsr.Nick != "Will I am" {
+	if newUsr.Username != "Will I am" {
 		t.Errorf("Upsert did not add the test user correctly. "+
 			"The set nickname was incorrect. Expected: Will I am, "+
-			"Actual: %v", newUsr.Nick)
+			"Actual: %v", newUsr.Username)
 	}
 
 	// Initialize group
@@ -89,7 +89,7 @@ func TestUserRegistry(t *testing.T) {
 
 	_, ok := Users.GetUser(id.NewUserFromUint(2, t))
 	if ok {
-		t.Errorf("User %v has not been deleted succesfully!", usr.Nick)
+		t.Errorf("User %v has not been deleted succesfully!", usr.Username)
 	}
 }
 

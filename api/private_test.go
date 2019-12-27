@@ -108,7 +108,7 @@ func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 	grp, _ := generateGroups(def)
 	user.InitUserRegistry(grp)
 	_, pubkey, _ := generateRsaKeys(nil)
-	_, uid, usr, err := generateUserInformation("", pubkey)
+	_, uid, usr, err := generateUserInformation(pubkey)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -121,8 +121,8 @@ func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 		t.Errorf("Did not retrieve correct user. \n\treceived: %v\n\texpected: %v", retrievedUser, usr)
 	}
 
-	if usr.Nick == "" {
-		t.Errorf("User's nickname should never be empty")
+	if usr.Username != "" {
+		t.Errorf("User's username should be initally")
 	}
 
 }
@@ -133,7 +133,8 @@ func TestGenerateUserInformation(t *testing.T) {
 	user.InitUserRegistry(grp)
 	nickName := "test"
 	_, pubkey, _ := generateRsaKeys(nil)
-	_, uid, usr, err := generateUserInformation(nickName, pubkey)
+	_, uid, usr, err := generateUserInformation(pubkey)
+	usr.Username = nickName
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
@@ -146,8 +147,8 @@ func TestGenerateUserInformation(t *testing.T) {
 		t.Errorf("Did not retrieve correct user. \n\treceived: %v\n\texpected: %v", retrievedUser, usr)
 	}
 
-	if usr.Nick != nickName {
-		t.Errorf("User's nickname was overwritten\nreceived: %v\n\texpected: %v", usr.Nick, nickName)
+	if usr.Username != nickName {
+		t.Errorf("User's nickname was overwritten\nreceived: %v\n\texpected: %v", usr.Username, nickName)
 	}
 
 }

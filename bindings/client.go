@@ -109,6 +109,14 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 	cl.client.SetOperationProgressCallback(rpc)
 }
 
+// Generate Keys generates the user identity for the network and stores it
+func (cl *Client) GenerateKeys(password string) error {
+
+	globals.Log.INFO.Printf("Binding call: GenerateKeys()\n" +
+		"  Password: ********")
+	return cl.client.GenerateKeys(nil, password)
+}
+
 // Registers user and returns the User ID bytes.
 // Returns null if registration fails and error
 // If preCan set to true, registration is attempted assuming a pre canned user
@@ -116,13 +124,12 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string,
-	regInfo *api.SessionInformation) ([]byte, error) {
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) ([]byte, error) {
 
 	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
-		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
-		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email, password, regInfo)
+		"   preCan: %v\n   registrationCode: %s\n  "+
+		"   Password: ********", preCan, registrationCode)
+	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -142,18 +149,31 @@ func (cl *Client) RegisterWithNodes() error {
 // Register with UDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB(timeoutMS int) error {
+func (cl *Client) RegisterWithUDB(username string, timeoutMS int) error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
-	return cl.client.RegisterWithUDB(time.Duration(timeoutMS) * time.Millisecond)
+	return cl.client.RegisterWithUDB(username, time.Duration(timeoutMS)*time.Millisecond)
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
-func (cl *Client) Login(UID []byte, password string) (string, error) {
+func (cl *Client) Login(UID []byte, password string) ([]byte, error) {
 	globals.Log.INFO.Printf("Binding call: Login()\n"+
 		"   UID: %v\n   Password: ********", UID)
-	return cl.client.Login(password)
+
+	uid, err := cl.client.Login(password)
+
+	if uid == nil {
+		return make([]byte, 0), err
+	}
+
+	return (*uid)[:], err
+}
+
+func (cl *Client) GetUsername() string {
+	globals.Log.INFO.Printf("Binding call: GetUsername()")
+
+	return cl.client.GetSession().GetCurrentUser().Username
 }
 
 type MessageReceiverCallback interface {

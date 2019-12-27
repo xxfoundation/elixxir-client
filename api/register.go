@@ -20,17 +20,15 @@ const SaltSize = 256
 
 //RegisterWithPermissioning registers the user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
-	password string, regInfo *SessionInformation) (*id.User, error) {
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.User, error) {
 
 	//Check the regState is in proper state for registration
 	if cl.session.GetRegState() != user.KeyGenComplete {
 		return nil, errors.Errorf("Attempting to register before key generation!")
 	}
-	usr := regInfo.usr
-	UID := regInfo.usrId
+	usr := cl.session.GetCurrentUser()
+	UID := usr.User
 	var err error
-	nodeKeyMap := make(map[id.Node]user.NodeKeys)
 
 	//Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
@@ -40,32 +38,50 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 		// Either perform a precanned registration for a precanned user
 		cl.opStatus(globals.REG_PRECAN)
 		globals.Log.INFO.Printf("Registering precanned user...")
-		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode, nick, nodeKeyMap)
+		var nodeKeyMap map[id.Node]user.NodeKeys
+		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
 			return id.ZeroID, err
 		}
+
+		//overwrite the user object
+		cl.session.(*user.SessionObj).CurrentUser = usr
+
+		//store the node keys
+		for n, k := range nodeKeyMap {
+			cl.session.PushNodeKey(&n, k)
+		}
+
+		//update the state
+		err := cl.session.SetRegState(user.PermissioningComplete)
+		if err != nil {
+			return nil, errors.Wrap(err, "Could not do precanned registration")
+		}
+
 	} else {
 		// Or register with the permissioning server and generate user information
-		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, nick, regInfo.rsaPublicKey)
+		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, cl.session.GetRSAPublicKey())
 		if err != nil {
 			globals.Log.INFO.Printf(err.Error())
 			return id.ZeroID, err
+		}
+		//update the session with the registration
+		err = cl.session.RegisterPermissioningSignature(regValidationSignature)
+
+		if err != nil {
+			return nil, err
 		}
 	}
 
 	//Set the registration secure state
 	cl.opStatus(globals.REG_SECURE_STORE)
 
-	usr.Email = email
-	//Re-init in case pre-canned registration
-	regInfo.usr = usr
-	regInfo.usrId = UID
+	//store the updated session
+	err = cl.session.StoreSession()
 
-	//Finalize session creation and store the session
-	err = cl.finalizeSession(nodeKeyMap, regInfo, password, regValidationSignature)
 	if err != nil {
-		return id.ZeroID, err
+		return nil, err
 	}
 
 	return UID, nil
@@ -74,7 +90,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick,
 //RegisterWithUDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
+func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error {
 
 	regState := cl.GetSession().GetRegState()
 
@@ -83,17 +99,20 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 			"state is not PermissioningComplete")
 	}
 
-	email := cl.session.GetCurrentUser().Email
-
 	var err error
 
-	if email != "" {
-		globals.Log.INFO.Printf("Registering user as %s with UDB", email)
+	if username != "" {
+		err := cl.session.ChangeUsername(username)
+		if err != nil {
+			return err
+		}
+
+		globals.Log.INFO.Printf("Registering user as %s with UDB", username)
 
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus, timeout)
+		err = bots.Register(valueType, username, publicKeyBytes, cl.opStatus, timeout)
 		if err == nil {
 			globals.Log.INFO.Printf("Registered with UDB!")
 		} else {
@@ -103,10 +122,6 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
 			"email found")
-	}
-
-	if err != nil {
-		return errors.Wrap(err, "Could not register with UDB")
 	}
 
 	//set the registration state
@@ -257,43 +272,9 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	cl.session.PushNodeKey(nodeID, key)
 }
 
-//finalizeSession serves as a helper function for RegisterWithPermissioning.
-// It creates a session from all the generated values from registering and stores said session
-func (cl *Client) finalizeSession(nodeKeyMap map[id.Node]user.NodeKeys,
-	registrationInfo *SessionInformation, password string, regSignature []byte) error {
-
-	//Finalize session creation
-	newSession := user.NewSession(cl.storage, registrationInfo.usr, nodeKeyMap, registrationInfo.rsaPublicKey,
-		registrationInfo.rsaPrivateKey, registrationInfo.cmixPublicKey, registrationInfo.cmixPrivateKey,
-		registrationInfo.e2ePublicKey, registrationInfo.e2ePrivateKey, registrationInfo.salt,
-		registrationInfo.cmixGroup, registrationInfo.e2eGroup, password, regSignature)
-	cl.opStatus(globals.REG_SAVE)
-
-	//Set the registration state
-	err := newSession.SetRegState(user.KeyGenComplete)
-	if err != nil {
-		return errors.New("Unable to set registration state")
-	}
-	err = newSession.SetRegState(user.PermissioningComplete)
-	if err != nil {
-		return errors.Wrap(err, "Permissioning Registration "+
-			"Failed")
-	}
-
-	//Store the user session
-	errStore := newSession.StoreSession()
-	if errStore != nil {
-		return errors.Errorf("Permissioning Register: could not register due to failed session save: %s", errStore.Error())
-	}
-
-	//Set the client session as the newly created session
-	cl.session = newSession
-	return nil
-}
-
 //registerWithPermissioning serves as a helper function for RegisterWithPermissioning.
 // It sends the registration message containing the regCode to permissioning
-func (cl *Client) registerWithPermissioning(registrationCode, nickname string,
+func (cl *Client) registerWithPermissioning(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
 	//Set the opStatus and log registration
 	globals.Log.INFO.Printf("Registering dynamic user...")

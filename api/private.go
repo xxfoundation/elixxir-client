@@ -8,7 +8,6 @@ package api
 import (
 	"crypto"
 	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
@@ -28,28 +27,15 @@ import (
 
 const PermissioningAddrID = "Permissioning"
 
-type SessionInformation struct {
-	rsaPrivateKey  *rsa.PrivateKey
-	rsaPublicKey   *rsa.PublicKey
-	cmixPrivateKey *cyclic.Int
-	cmixPublicKey  *cyclic.Int
-	e2ePrivateKey  *cyclic.Int
-	e2ePublicKey   *cyclic.Int
-	cmixGroup      *cyclic.Group
-	e2eGroup       *cyclic.Group
-	salt           []byte
-	usrId          *id.User
-	usr            *user.User
-}
-
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
-func (cl *Client) precannedRegister(registrationCode, nick string,
-	nk map[id.Node]user.NodeKeys) (*user.User, *id.User, map[id.Node]user.NodeKeys, error) {
+func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.User, map[id.Node]user.NodeKeys, error) {
 	var successLook bool
 	var UID *id.User
 	var u *user.User
 	var err error
+
+	nk := make(map[id.Node]user.NodeKeys)
 
 	UID, successLook = user.Users.LookupUser(registrationCode)
 
@@ -65,10 +51,6 @@ func (cl *Client) precannedRegister(registrationCode, nick string,
 	if !successGet {
 		err = errors.New("precannedRegister: could not register due to ID lookup failure")
 		return nil, nil, nil, err
-	}
-
-	if nick != "" {
-		u.Nick = nick
 	}
 
 	nodekeys, successKeys := user.Users.LookupKeys(u.User)
@@ -288,58 +270,39 @@ func (cl *Client) registerUserE2E(partnerID *id.User,
 	return nil
 }
 
-//GenerateSessionInformation generates the keys and user information used in the session object
-func (cl *Client) GenerateSessionInformation(clientNdf *ndf.NetworkDefinition, rsaPrivKey *rsa.PrivateKey,
-	nickname string) (*SessionInformation, error) {
-	//Create an empty session for state tracking
-	cl.session = user.NewSession(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, "", nil)
-	//Set callback status to key gen
+//GenerateKeys generates the keys and user information used in the session object
+func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
+	password string) error {
+
 	cl.opStatus(globals.REG_KEYGEN)
 
 	//Generate keys and other necessary session information
-	cmixGrp, e2eGrp := generateGroups(clientNdf)
+	cmixGrp, e2eGrp := generateGroups(cl.ndf)
 	privKey, pubKey, err := generateRsaKeys(rsaPrivKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cmixPrivKey, cmixPubKey, err := generateCmixKeys(cmixGrp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	e2ePrivKey, e2ePubKey, err := generateE2eKeys(cmixGrp, e2eGrp)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	//Set callback status to user generation & generate user
 	cl.opStatus(globals.REG_UID_GEN)
-	salt, uid, usr, err := generateUserInformation(nickname, pubKey)
+	salt, _, usr, err := generateUserInformation(pubKey)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	//Wrap the information in the sessionInfo object
-	regInfo := &SessionInformation{
-		rsaPrivateKey:  privKey,
-		rsaPublicKey:   pubKey,
-		cmixPrivateKey: cmixPrivKey,
-		cmixPublicKey:  cmixPubKey,
-		e2ePrivateKey:  e2ePrivKey,
-		e2ePublicKey:   e2ePubKey,
-		cmixGroup:      cmixGrp,
-		e2eGroup:       e2eGrp,
-		salt:           salt,
-		usr:            usr,
-		usrId:          uid,
-	}
+	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
+		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
 
-	//Set the regState to reflect that keyGen is complete
-	err = cl.session.SetRegState(user.KeyGenComplete)
-	if err != nil {
-		return nil, errors.Errorf("KeyGen failed")
-	}
-
-	return regInfo, nil
+	//store the session
+	return cl.session.StoreSession()
 }
 
 //GenerateGroups serves as a helper function for RegisterUser.
@@ -417,7 +380,7 @@ func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey
 
 //generateUserInformation serves as a helper function for RegisterUser.
 // It generates a salt s.t. it can create a user and their ID
-func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
+func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
 	//Generate salt for UserID
 	salt := make([]byte, SaltSize)
 	_, err := csprng.NewSystemRNG().Read(salt)
@@ -428,11 +391,8 @@ func generateUserInformation(nickname string, publicKeyRSA *rsa.PublicKey) ([]by
 
 	//Generate UserID by hashing salt and public key
 	userId := registration.GenUserID(publicKeyRSA, salt)
-	if nickname == "" {
-		nickname = base64.StdEncoding.EncodeToString(userId[:])
-	}
 
-	usr := user.Users.NewUser(userId, nickname)
+	usr := user.Users.NewUser(userId, "")
 	user.Users.UpsertUser(usr)
 
 	return salt, userId, usr, nil

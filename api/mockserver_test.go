@@ -66,10 +66,13 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
+	err = client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
 	// Register precanned user with all gateways
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "password", nil)
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	// Verify registration succeeds with valid precanned registration code
 	if err != nil {
@@ -98,9 +101,13 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
+	err = client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
 	// Register precanned user with all gateways
-	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode, "", "",
-		"password", nil)
+	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -131,16 +138,59 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
+	//Generate keys s.t. reg status is prepped for registration
+	err = client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
 	// Register with invalid reg code
-	uid, err := client.RegisterWithPermissioning(true, InvalidRegCode, "", "",
-		"password", nil)
+	uid, err := client.RegisterWithPermissioning(true, InvalidRegCode)
 	if err == nil {
 		t.Errorf("Registration worked with invalid registration code! UID: %v", uid)
 	}
 
 	//Disconnect and shutdown servers
 	disconnectServers()
+}
+
+//Test that not running generateKeys results in an error. Without running the aforementioned function,
+// the registration state should be invalid and it should not run
+func TestRegister_InvalidRegState(t *testing.T) {
+	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, "hello", "", def)
+	if err != nil {
+		t.Errorf("Failed to initialize dummy client: %s", err.Error())
+	}
+	// InitNetwork to gateways and reg server
+	err = client.InitNetwork()
+	if err != nil {
+		t.Errorf("Client failed of connect: %+v", err)
+	}
+	//Individually run the helper functions for GenerateKeys, put info into client
+	privKey, pubKey, err := generateRsaKeys(nil)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+	cmixGrp, e2eGrp := generateGroups(def)
+	salt, _, usr, err := generateUserInformation(pubKey)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+	e2ePrivKey, e2ePubKey, err := generateE2eKeys(cmixGrp, e2eGrp)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+	cmixPrivKey, cmixPubKey, err := generateCmixKeys(cmixGrp)
+
+	client.session = user.NewSession(nil, usr, pubKey, privKey, cmixPubKey, cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, "")
+
+	//
+	_, err = client.RegisterWithPermissioning(false, ValidRegCode)
+	if err == nil {
+		t.Errorf("Registration worked with invalid registration state!")
+	}
+
 }
 
 func TestRegister_DeletedUserReturnsErr(t *testing.T) {
@@ -161,9 +211,13 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	// ...
 	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
 	user.Users.DeleteUser(id.NewUserFromUint(5, t))
+	err = client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
 	// Register
-	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password", nil)
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode)
 	if err == nil {
 		t.Errorf("Registration worked with a deleted user: %s", err.Error())
 	}
@@ -189,9 +243,10 @@ func TestSend(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
+	err = client.GenerateKeys(nil, "password")
+
 	// Register with a valid registration code
-	userID, err := client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-		nil)
+	userID, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())
@@ -277,9 +332,13 @@ func TestLogout(t *testing.T) {
 			" is not currently logged in.")
 	}
 
+	err = client.GenerateKeys(nil, "password")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// Register with a valid registration code
-	_, err = client.RegisterWithPermissioning(true, ValidRegCode, "", "", "password",
-		nil)
+	_, err = client.RegisterWithPermissioning(true, ValidRegCode)
 
 	if err != nil {
 		t.Errorf("Register failed: %s", err.Error())

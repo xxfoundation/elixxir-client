@@ -34,18 +34,11 @@ func TestUserSession(t *testing.T) {
 	UID := uint64(65)
 
 	u.User = id.NewUserFromUint(UID, t)
-	u.Nick = "Mario"
+	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	keys := make(map[id.Node]NodeKeys)
-
 	nodeID := id.NewNodeFromUInt(1, t)
-
-	keys[*nodeID] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
 
 	topology := connect.NewCircuit([]*id.Node{nodeID})
 
@@ -64,16 +57,28 @@ func TestUserSession(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	ses := NewSession(storage,
+		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
+		"password")
+
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+	err := ses.RegisterPermissioningSignature(regSignature)
+	if err != nil {
+		t.Errorf("failure in setting register up for permissioning: %s",
+			err.Error())
+	}
+
+	ses.PushNodeKey(nodeID, NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	})
 
 	ses.SetLastMessageID("totally unique ID")
 
-	err := ses.StoreSession()
+	err = ses.StoreSession()
 
 	if err != nil {
 		t.Errorf("Session not stored correctly: %s", err.Error())
@@ -215,18 +220,11 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	UID := uint64(65)
 
 	u.User = id.NewUserFromUint(UID, t)
-	u.Nick = "Mario"
+	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	keys := make(map[id.Node]NodeKeys)
-
 	nodeID := id.NewNodeFromUInt(1, t)
-
-	keys[*nodeID] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -243,16 +241,28 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	ses := NewSession(storage,
+		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
+		"password")
+
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+	err := ses.RegisterPermissioningSignature(regSignature)
+	if err != nil {
+		t.Errorf("failure in setting register up for permissioning: %s",
+			err.Error())
+	}
+
+	ses.PushNodeKey(nodeID, NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	})
 
 	ses.StoreContactByValue("test", id.NewUserFromBytes([]byte("test")), []byte("test"))
 
-	_, err := ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
+	_, err = ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
 	if err != nil {
 		t.Errorf("Failed to delete contact: %+v", err)
 	}
@@ -263,16 +273,9 @@ func TestGetPubKey(t *testing.T) {
 	UID := id.NewUserFromUint(1, t)
 
 	u.User = UID
-	u.Nick = "Mario"
+	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	keys := make(map[id.Node]NodeKeys)
-
-	keys[*id.NewNodeFromUInt(1, t)] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
 
 	rng := rand.New(rand.NewSource(42))
 	privateKey, _ := rsa.GenerateKey(rng, 768)
@@ -286,12 +289,24 @@ func TestGetPubKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	ses := NewSession(nil,
+		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
+		"password")
+
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
-		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp,
-		e2eGrp, "password", regSignature)
+	err := ses.RegisterPermissioningSignature(regSignature)
+	if err != nil {
+		t.Errorf("failure in setting register up for permissioning: %s",
+			err.Error())
+	}
+
+	ses.PushNodeKey(id.NewNodeFromUInt(1, t), NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	})
 
 	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
@@ -308,19 +323,11 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	UID := uint64(65)
 
 	u.User = id.NewUserFromUint(UID, t)
-	u.Nick = "Mario"
+	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	keys := make(map[id.Node]NodeKeys)
-
 	nodeID := id.NewNodeFromUInt(1, t)
-
-	keys[*nodeID] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
-
 	// Storage
 	storage := &globals.RamStorage{}
 
@@ -334,13 +341,24 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	ses := NewSession(storage,
+		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
+		"password")
+
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	//Crate the session
-	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+	err := ses.RegisterPermissioningSignature(regSignature)
+	if err != nil {
+		t.Errorf("failure in setting register up for permissioning: %s",
+			err.Error())
+	}
+
+	ses.PushNodeKey(nodeID, NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	})
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -348,7 +366,7 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	if !ses.StorageIsEmpty() {
 		t.Errorf("session should be empty before a StoreSession call")
 	}
-	err := ses.StoreSession()
+	err = ses.StoreSession()
 	if err != nil {
 		t.Errorf("Failed to store session: %v", err)
 	}
@@ -369,18 +387,11 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 	UID := uint64(65)
 
 	u.User = id.NewUserFromUint(UID, t)
-	u.Nick = "Mario"
+	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	keys := make(map[id.Node]NodeKeys)
-
 	nodeID := id.NewNodeFromUInt(1, t)
-
-	keys[*nodeID] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -395,13 +406,24 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	ses := NewSession(storage,
+		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
+		"password")
+
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	//Crate the session
-	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+	err := ses.RegisterPermissioningSignature(regSignature)
+	if err != nil {
+		t.Errorf("failure in setting register up for permissioning: %s",
+			err.Error())
+	}
+
+	ses.PushNodeKey(nodeID, NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	})
 
 	ses.StoreContactByValue("value", id.NewUserFromBytes([]byte("test")), []byte("test"))
 
@@ -423,16 +445,9 @@ func TestGetPrivKey(t *testing.T) {
 	UID := id.NewUserFromUint(1, t)
 
 	u.User = UID
-	u.Nick = "Mario"
+	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	keys := make(map[id.Node]NodeKeys)
-
-	keys[*id.NewNodeFromUInt(1, t)] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
 
 	rng := rand.New(rand.NewSource(42))
 	privateKey, _ := rsa.GenerateKey(rng, 768)
@@ -446,12 +461,24 @@ func TestGetPrivKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
+	ses := NewSession(nil,
+		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
+		"password")
+
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	ses := NewSession(nil, u, keys, &publicKey, privateKey, publicKeyDH,
-		privateKeyDH, publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp,
-		e2eGrp, "password", regSignature)
+	err := ses.RegisterPermissioningSignature(regSignature)
+	if err != nil {
+		t.Errorf("failure in setting register up for permissioning: %s",
+			err.Error())
+	}
+
+	ses.PushNodeKey(id.NewNodeFromUInt(1, t), NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	})
 
 	privKey := ses.GetRSAPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {
@@ -462,15 +489,15 @@ func TestGetPrivKey(t *testing.T) {
 func TestBruntString(t *testing.T) {
 	// Generate a new user and record the pointer to the nick
 	u := new(User)
-	u.Nick = "Mario"
-	preBurnPointer := &u.Nick
+	u.Username = "Mario"
+	preBurnPointer := &u.Username
 
 	// Burn the string and record the pointer to the nick
-	u.Nick = burntString(len(u.Nick))
-	postBurnPointer := &u.Nick
+	u.Username = burntString(len(u.Username))
+	postBurnPointer := &u.Username
 
 	// Check the nick is not the same as before
-	if u.Nick == "Mario" {
+	if u.Username == "Mario" {
 		t.Errorf("String was not burnt")
 	}
 
@@ -519,8 +546,9 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 // Tests that AppendGarbledMessage properly appends an array of messages by
 // testing that the final buffer matches the values appended.
 func TestSessionObj_AppendGarbledMessage(t *testing.T) {
-	session := NewSession(nil, nil, nil, nil, nil, nil,
-		nil, nil, nil, nil, nil, nil, "", nil)
+	session := NewSession(nil, nil, nil, nil,
+		nil, nil, nil,
+		nil, nil, nil, nil, "")
 	msgs := GenerateTestMessages(10)
 
 	session.AppendGarbledMessage(msgs...)
@@ -535,8 +563,9 @@ func TestSessionObj_AppendGarbledMessage(t *testing.T) {
 // Tests that PopGarbledMessages returns the correct data and that the buffer
 // is cleared.
 func TestSessionObj_PopGarbledMessages(t *testing.T) {
-	session := NewSession(nil, nil, nil, nil, nil, nil,
-		nil, nil, nil, nil, nil, nil, "", nil)
+	session := NewSession(nil, nil, nil, nil,
+		nil, nil, nil,
+		nil, nil, nil, nil, "")
 	msgs := GenerateTestMessages(10)
 
 	session.(*SessionObj).garbledMessages = msgs

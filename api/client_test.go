@@ -43,21 +43,25 @@ func TestRegistrationGob(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	err = testClient.GenerateKeys(nil, "1234")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6")
 	if err != nil {
 		t.Error(err)
 	}
 
-	err = testClient.RegisterWithNodes()
+	err = testClient.session.StoreSession()
 	if err != nil {
 		t.Error(err)
 	}
 
 	// get the gob out of there again
 	Session, err := user.LoadSession(testClient.storage,
-		"password")
+		"1234")
 	if err != nil {
 		t.Error(err)
 	}
@@ -81,8 +85,14 @@ func TestClient_Register(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+
+	err = testClient.GenerateKeys(nil, "password")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
+	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6")
 	if err != nil {
 		t.Error(err)
 	}
@@ -241,13 +251,12 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
-	regSignature := make([]byte, 8)
 
-	myUser := &user.User{User: userID, Nick: "test"}
+	myUser := &user.User{User: userID, Username: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		myUser, &publicKeyRSA,
 		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
-		e2eGrp, "password", regSignature)
+		e2eGrp, "password")
 
 	testClient.session = session
 
@@ -334,13 +343,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	regSignature := make([]byte, 8)
-
-	myUser := &user.User{User: userID, Nick: "test"}
+	myUser := &user.User{User: userID, Username: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
-		e2eGrp, "password", regSignature)
+		myUser, &publicKeyRSA, privateKeyRSA, nil,
+		nil, myPubKeyCyclic, myPrivKeyCyclic,
+		make([]byte, 1), cmixGrp, e2eGrp, "password")
 
 	testClient.session = session
 
@@ -477,9 +484,7 @@ func TestClient_precannedRegister(t *testing.T) {
 		t.Error(err)
 	}
 
-	nk := make(map[id.Node]user.NodeKeys)
-
-	_, _, nk, err = testClient.precannedRegister("UAV6IWD6", "tony_johns", nk)
+	_, _, _, err = testClient.precannedRegister("UAV6IWD6")
 	if err != nil {
 		t.Errorf("Error during precannedRegister: %+v", err)
 	}

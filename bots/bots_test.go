@@ -64,18 +64,16 @@ var pubKey []byte
 
 func TestMain(m *testing.M) {
 	u := &user.User{
-		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
-		Nick: "Bernie",
+		User:     id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
+		Username: "Bernie",
 	}
 
 	cmixGrp, e2eGrp := getGroups()
 
-	regSignature := make([]byte, 8)
-
 	fakeSession := user.NewSession(&globals.RamStorage{},
-		u, nil, nil, nil, nil,
+		u, nil, nil, nil,
 		nil, nil, nil, nil,
-		cmixGrp, e2eGrp, "password", regSignature)
+		cmixGrp, e2eGrp, "password")
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,
 	}
@@ -101,7 +99,6 @@ func TestMain(m *testing.M) {
 
 // TestRegister smoke tests the registration functionality.
 func TestRegister(t *testing.T) {
-
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY COMPLETE %s", keyFingerprint)
 	registerResponseListener <- "REGISTRATION COMPLETE"
@@ -109,19 +106,16 @@ func TestRegister(t *testing.T) {
 	dummyRegState := func(int) {
 		return
 	}
-
 	err := Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err != nil {
 		t.Errorf("Registration failure: %s", err.Error())
 	}
-
 	// Send response messages from fake UDB in advance
 	pushKeyResponseListener <- fmt.Sprintf("PUSHKEY Failed: Could not push key %s becasue key already exists", keyFingerprint)
 	err = Register("EMAIL", "rick@elixxir.io", pubKey, dummyRegState, 30*time.Second)
 	if err == nil {
 		t.Errorf("Registration duplicate did not fail")
 	}
-
 }
 
 // TestSearch smoke tests the search function
@@ -174,7 +168,7 @@ func TestNicknameFunctions(t *testing.T) {
 		Sender: session.GetCurrentUser().User,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
-			Body:        []byte(session.GetCurrentUser().Nick),
+			Body:        []byte(session.GetCurrentUser().Username),
 		},
 		InferredType: parse.Unencrypted,
 		Receiver:     session.GetCurrentUser().User,
@@ -185,9 +179,9 @@ func TestNicknameFunctions(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error on LookupNick: %s", err.Error())
 	}
-	if nick != session.GetCurrentUser().Nick {
+	if nick != session.GetCurrentUser().Username {
 		t.Errorf("LookupNick returned wrong value. Expected %s,"+
-			" Got %s", session.GetCurrentUser().Nick, nick)
+			" Got %s", session.GetCurrentUser().Username, nick)
 	}
 }
 

@@ -208,64 +208,6 @@ func TestUserSession(t *testing.T) {
 	}
 }
 
-// GetContactByValue happy path
-func TestSessionObj_GetContactByValue(t *testing.T) {
-	// Generate all the values needed for a session
-	u := new(User)
-	// This is 65 so you can see the letter A in the gob if you need to make
-	// sure that the gob contains the user ID
-	UID := uint64(65)
-
-	u.User = id.NewUserFromUint(UID, t)
-	u.Nick = "Mario"
-
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	keys := make(map[id.Node]NodeKeys)
-
-	nodeID := id.NewNodeFromUInt(1, t)
-
-	keys[*nodeID] = NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	}
-
-	// Storage
-	storage := &globals.RamStorage{}
-
-	//Keys
-	rng := rand.New(rand.NewSource(42))
-	privateKey, _ := rsa.GenerateKey(rng, 768)
-	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
-	cmixGrp, e2eGrp := getGroups()
-	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
-	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
-	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
-	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
-
-	regSignature := make([]byte, 768)
-	rng.Read(regSignature)
-
-	//Crate the session
-	ses := NewSession(storage,
-		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
-		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
-
-	ses.StoreContactByValue("value", id.NewUserFromBytes([]byte("test")), []byte("test"))
-
-	observedUser, observedPk := ses.GetContactByValue("value")
-
-	if bytes.Compare([]byte("test"), observedPk) != 0 {
-		t.Errorf("Failed to retieve public key using GetContactByValue; "+
-			"Expected: %+v\n\tRecieved: %+v", privateKey.PublicKey.N.Bytes(), observedPk)
-	}
-
-	if !observedUser.Cmp(id.NewUserFromBytes([]byte("test"))) {
-		t.Errorf("Failed to retrieve user using GetContactByValue;"+
-			"Expected: %+v\n\tRecieved: %+v", u.User, observedUser)
-	}
-}
-
 func TestSessionObj_DeleteContact(t *testing.T) {
 	u := new(User)
 	// This is 65 so you can see the letter A in the gob if you need to make
@@ -308,21 +250,12 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
 
-	//Attempt to delete a non existant contanct
-	_, err := ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
-	if err == nil {
-		t.Errorf("Deleted a non existant contact: %+v", err)
-	}
-
-	//Store a contact then try deleting it
 	ses.StoreContactByValue("test", id.NewUserFromBytes([]byte("test")), []byte("test"))
-	_, err = ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
+
+	_, err := ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
 	if err != nil {
 		t.Errorf("Failed to delete contact: %+v", err)
 	}
-
-	ses.StoreContactByValue("value", u.User, privateKey.PublicKey.N.Bytes())
-
 }
 
 func TestGetPubKey(t *testing.T) {
@@ -425,6 +358,64 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 		t.Errorf("session should not be empty after a StoreSession call")
 	}
 
+}
+
+// GetContactByValue happy path
+func TestSessionObj_GetContactByValue(t *testing.T) {
+	// Generate all the values needed for a session
+	u := new(User)
+	// This is 65 so you can see the letter A in the gob if you need to make
+	// sure that the gob contains the user ID
+	UID := uint64(65)
+
+	u.User = id.NewUserFromUint(UID, t)
+	u.Nick = "Mario"
+
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
+
+	keys := make(map[id.Node]NodeKeys)
+
+	nodeID := id.NewNodeFromUInt(1, t)
+
+	keys[*nodeID] = NodeKeys{
+		TransmissionKey: grp.NewInt(2),
+		ReceptionKey:    grp.NewInt(2),
+	}
+
+	// Storage
+	storage := &globals.RamStorage{}
+
+	//Keys
+	rng := rand.New(rand.NewSource(42))
+	privateKey, _ := rsa.GenerateKey(rng, 768)
+	publicKey := rsa.PublicKey{PublicKey: privateKey.PublicKey}
+	cmixGrp, e2eGrp := getGroups()
+	privateKeyDH := cmixGrp.RandomCoprime(cmixGrp.NewInt(1))
+	publicKeyDH := cmixGrp.ExpG(privateKeyDH, cmixGrp.NewInt(1))
+	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
+	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
+
+	regSignature := make([]byte, 768)
+	rng.Read(regSignature)
+
+	//Crate the session
+	ses := NewSession(storage,
+		u, keys, &publicKey, privateKey, publicKeyDH, privateKeyDH,
+		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp, "password", regSignature)
+
+	ses.StoreContactByValue("value", id.NewUserFromBytes([]byte("test")), []byte("test"))
+
+	observedUser, observedPk := ses.GetContactByValue("value")
+
+	if bytes.Compare([]byte("test"), observedPk) != 0 {
+		t.Errorf("Failed to retieve public key using GetContactByValue; "+
+			"Expected: %+v\n\tRecieved: %+v", privateKey.PublicKey.N.Bytes(), observedPk)
+	}
+
+	if !observedUser.Cmp(id.NewUserFromBytes([]byte("test"))) {
+		t.Errorf("Failed to retrieve user using GetContactByValue;"+
+			"Expected: %+v\n\tRecieved: %+v", u.User, observedUser)
+	}
 }
 
 func TestGetPrivKey(t *testing.T) {

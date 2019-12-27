@@ -117,7 +117,6 @@ func (cl *Client) GenerateKeys(password string) error {
 	return cl.client.GenerateKeys(nil, password)
 }
 
-
 // Registers user and returns the User ID bytes.
 // Returns null if registration fails and error
 // If preCan set to true, registration is attempted assuming a pre canned user

@@ -30,7 +30,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 	UID := usr.User
 	var err error
 
-
 	//Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
 
@@ -50,7 +49,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		cl.session.(*user.SessionObj).CurrentUser = usr
 
 		//store the node keys
-		for n, k := range (nodeKeyMap) {
+		for n, k := range nodeKeyMap {
 			cl.session.PushNodeKey(&n, k)
 		}
 

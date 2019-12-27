@@ -96,30 +96,32 @@ func NewSession(store globals.Storage,
 	regState := uint32(KeyGenComplete)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		NodeKeys:         make(map[id.Node]NodeKeys),
-		CurrentUser:      u,
-		RSAPublicKey:     publicKeyRSA,
-		RSAPrivateKey:    privateKeyRSA,
-		CMIXDHPublicKey:  cmixPublicKeyDH,
-		CMIXDHPrivateKey: cmixPrivateKeyDH,
-		E2EDHPublicKey:   e2ePublicKeyDH,
-		E2EDHPrivateKey:  e2ePrivateKeyDH,
-		CmixGrp:          cmixGrp,
-		E2EGrp:           e2eGrp,
-		InterfaceMap:     make(map[string]interface{}),
-		KeyMaps:          keyStore.NewStore(),
-		RekeyManager:     keyStore.NewRekeyManager(),
-		store:                  store,
-		listeners:              switchboard.NewSwitchboard(),
-		quitReceptionRunner:    make(chan struct{}),
-		password:               password,
-		Salt:                   salt,
-		RegState:               &regState,
-		storageLocation:        globals.LocationA,
-		ContactsByValue:        make(map[string]SearchedUserRecord),
+		NodeKeys:            make(map[id.Node]NodeKeys),
+		CurrentUser:         u,
+		RSAPublicKey:        publicKeyRSA,
+		RSAPrivateKey:       privateKeyRSA,
+		CMIXDHPublicKey:     cmixPublicKeyDH,
+		CMIXDHPrivateKey:    cmixPrivateKeyDH,
+		E2EDHPublicKey:      e2ePublicKeyDH,
+		E2EDHPrivateKey:     e2ePrivateKeyDH,
+		CmixGrp:             cmixGrp,
+		E2EGrp:              e2eGrp,
+		InterfaceMap:        make(map[string]interface{}),
+		KeyMaps:             keyStore.NewStore(),
+		RekeyManager:        keyStore.NewRekeyManager(),
+		store:               store,
+		listeners:           switchboard.NewSwitchboard(),
+		quitReceptionRunner: make(chan struct{}),
+		password:            password,
+		Salt:                salt,
+		RegState:            &regState,
+		storageLocation:     globals.LocationA,
+		ContactsByValue:     make(map[string]SearchedUserRecord),
 	})
 }
 
+//LoadSession loads the encrypted session from the storage location and processes it
+// Returns a session object on success
 func LoadSession(store globals.Storage, password string) (Session, error) {
 	if store == nil {
 		err := errors.New("LoadSession: Local Storage not available")
@@ -191,6 +193,7 @@ func processSession(store globals.Storage, password string) (*SessionStorageWrap
 
 }
 
+//processSessionWrapper acts as a helper function for processSession
 func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
 
 	if sessionGob == nil || len(sessionGob) < 12 {
@@ -291,7 +294,6 @@ func WriteToSession(replacement []byte, store globals.Storage) error {
 	return nil
 }
 
-
 //LoadEncryptedSession: gets the encrypted session file from storage
 // Returns it as a base64 encoded string
 func (s *SessionObj) LoadEncryptedSession(store globals.Storage) ([]byte, error) {
@@ -365,6 +367,9 @@ func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
 	s.NodeKeys[*id] = key
 }
 
+//RegisterPermissioningSignature sets sessions registration signature and
+// sets the regState to reflect that registering with permissioning is complete
+// Returns an error if unable to set the regState
 func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
 	s.LockStorage()
 	defer s.UnlockStorage()

@@ -162,7 +162,7 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 
 	// Update the session object to version 2 if it is currently version 1
 	if wrappedSession.Version == 1 {
-		session = ConvertSessionV1toV2(session)
+		ConvertSessionV1toV2(&session)
 	}
 
 	return &session, nil
@@ -172,15 +172,13 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 // This conversion includes:
 //  1. Changing the RegState values to the new integer values (1 to 2000, and 2
 //     to 3000).
-func ConvertSessionV1toV2(s SessionObj) SessionObj {
+func ConvertSessionV1toV2(s *SessionObj) {
 	// Convert RegState to new values
 	if *s.RegState == 1 {
 		*s.RegState = 2000
 	} else if *s.RegState == 2 {
 		*s.RegState = 3000
 	}
-
-	return s
 }
 
 //processSession: gets the loadLocation and decrypted wrappedSession

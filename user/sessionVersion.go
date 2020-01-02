@@ -1,3 +1,3 @@
 package user
 
-const SessionVersion = 1
+const SessionVersion = 2

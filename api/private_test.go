@@ -1,3 +1,8 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2019 Privategrity Corporation                                    /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
 package api
 
 import (
@@ -80,7 +85,7 @@ func TestGenerateCmixKeys(t *testing.T) {
 
 }
 
-//
+//Happy/error path: Tests generation of e2e keys
 func TestGenerateE2eKeys(t *testing.T) {
 	//Test generateCmixKeys
 	cmixGrp, e2eGrp := generateGroups(def)

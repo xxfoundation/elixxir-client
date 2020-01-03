@@ -55,6 +55,7 @@ func TestFormatTextMessage(t *testing.T) {
 	t.Logf("message: %q", msg)
 }
 
+//Happy path
 func TestParsedMessage_GetSender(t *testing.T) {
 	pm := ParsedMessage{}
 	sndr := pm.GetSender()
@@ -64,6 +65,7 @@ func TestParsedMessage_GetSender(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParsedMessage_GetPayload(t *testing.T) {
 	pm := ParsedMessage{}
 	payload := []byte{0, 1, 2, 3}
@@ -75,6 +77,7 @@ func TestParsedMessage_GetPayload(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParsedMessage_GetRecipient(t *testing.T) {
 	pm := ParsedMessage{}
 	rcpt := pm.GetRecipient()
@@ -84,6 +87,7 @@ func TestParsedMessage_GetRecipient(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParsedMessage_GetMessageType(t *testing.T) {
 	pm := ParsedMessage{}
 	var typeTest int32
@@ -96,6 +100,7 @@ func TestParsedMessage_GetMessageType(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}

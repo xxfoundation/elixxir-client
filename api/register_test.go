@@ -10,6 +10,7 @@ import (
 	"testing"
 )
 
+//Test that a registered session may be stored & recovered
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
 	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
@@ -89,11 +90,11 @@ func TestClient_Register(t *testing.T) {
 
 	VerifyRegisterGobUser(Session, t)
 
-	//Probs can't do this as there is now a sense of randomness??
-	//VerifyRegisterGobKeys(Session, testClient.topology, t)
+	VerifyRegisterGobKeys(Session, testClient.topology, t)
 	disconnectServers()
 }
 
+//Verify the user from the session make in the registration above matches expected user
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 
 	expectedUser := id.NewUserFromUint(5, t)
@@ -104,6 +105,7 @@ func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 	}
 }
 
+//Verify that the keys from the session in the registration above match the expected keys
 func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
 	cmixGrp, _ := getGroups()
 	h := sha256.New()

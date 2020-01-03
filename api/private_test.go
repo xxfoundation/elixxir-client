@@ -80,7 +80,7 @@ func TestGenerateCmixKeys(t *testing.T) {
 
 }
 
-//
+//Happy/error path: Tests generation of e2e keys
 func TestGenerateE2eKeys(t *testing.T) {
 	//Test generateCmixKeys
 	cmixGrp, e2eGrp := generateGroups(def)

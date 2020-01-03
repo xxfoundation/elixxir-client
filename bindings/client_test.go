@@ -85,6 +85,7 @@ func TestNewClientNil(t *testing.T) {
 	}
 }
 
+//Happy path: tests creation of valid client
 func TestNewClient(t *testing.T) {
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 
@@ -101,6 +102,7 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
+//Happy Path: Register with permissioning
 func TestRegister(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
@@ -234,6 +236,7 @@ func TestDeleteUsername_EmptyContactList(t *testing.T) {
 		"Contact list should be empty")
 }
 
+//Happy path: Tests regState gets properly updated along the registration codepath
 func TestClient_GetRegState(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 

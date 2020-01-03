@@ -46,7 +46,9 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 	keyFP := fingerprint(publicKey)
 
 	regStatus(globals.UDB_REG_PUSHKEY)
-
+	fmt.Println("keyFp ", keyFP)
+	fmt.Println("udbId ", UdbID)
+	fmt.Println("pubLey ", publicKey)
 	// push key and error if it already exists
 	err = pushKey(UdbID, keyFP, publicKey)
 

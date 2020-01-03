@@ -269,7 +269,6 @@ func TestClient_GetRegState(t *testing.T) {
 	if err != nil {
 		t.Errorf("Register with nodes failed: %v", err.Error())
 	}
-
 }
 
 //Happy path: send unencrypted message

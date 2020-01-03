@@ -119,61 +119,6 @@ func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *t
 
 }
 
-/*
-//TODO: Fix this test
-//Error path: register with udb, but udb is not set up to return a message
-func TestClient_RegisterWithUDB_NoUDB(t *testing.T) {
-	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.InitNetwork()
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.GenerateKeys(nil, "password")
-	if err != nil {
-		t.Errorf("Failed to generate keys: %+v", err)
-	}
-
-	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.RegisterWithNodes()
-	if err != nil {
-		t.Error(err.Error())
-	}
-
-	// Login to gateway
-	_, err = testClient.Login("password")
-
-	if err != nil {
-		t.Errorf("Login failed: %s", err.Error())
-	}
-	cb := func(err error) {
-		t.Log(err)
-	}
-
-	err = testClient.StartMessageReceiver(cb)
-
-	if err != nil {
-		t.Errorf("Could not start message reception: %+v", err)
-	}
-
-	err = testClient.RegisterWithUDB("test", 1 * time.Second)
-	if err != nil {
-		return
-	}
-	t.Errorf("Expected error path: should not successfully register with udb")
-}
-*/
-
 // Verify that a valid precanned user can register
 func TestRegister_ValidRegParams___(t *testing.T) {
 	// Initialize client with dummy storage

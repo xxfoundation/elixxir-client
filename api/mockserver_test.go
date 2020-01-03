@@ -54,6 +54,7 @@ func TestMain(m *testing.M) {
 	os.Exit(testMainWrapper(m))
 }
 
+//Happy path: test message receiver stating up
 func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	// Initialize client with dummy storage
 	testDef := getNDF()
@@ -116,6 +117,9 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	}
 
 	err = client.StartMessageReceiver(cb)
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
 
 	time.Sleep(3 * time.Second)
 	for _, gw := range GWErrComms {

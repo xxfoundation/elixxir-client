@@ -462,8 +462,8 @@ func getNDF() *ndf.NetworkDefinition {
 }
 
 func startServers() {
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
+	//func StartRegistrationServer(id, localServer string, handler Handler, certPEMblock, keyPEMblock []byte) *Comms {
+	RegComms = registration.StartRegistrationServer( "testServer", def.Registration.Address, &RegHandler, nil, nil)
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways
@@ -474,8 +474,7 @@ func startServers() {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
+		GWComms[i] = gateway.StartGateway("testGateway", gw.Address, handler, nil, nil)
 	}
 }
 

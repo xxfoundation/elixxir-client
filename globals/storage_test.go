@@ -20,6 +20,11 @@ func TestInitStorage(t *testing.T) {
 
 	// Test DefaultStorage initialization without existing storage
 	storage := &DefaultStorage{}
+	//Check that storage is empty prior to any Save calls
+	if !storage.IsEmpty() {
+		t.Errorf("ds.IsEmpty failed to detect an empty storage")
+	}
+
 	storage.SetLocation(TestSaveLocA, TestSaveLocB)
 
 	// Test DS saveA
@@ -32,6 +37,10 @@ func TestInitStorage(t *testing.T) {
 	if !exists(TestSaveLocA) {
 		t.Errorf("ds.Save failed to create a save file A at: %v",
 			TestSaveLocA)
+	}
+	//Check that the storage is not empty after a saveA call
+	if storage.IsEmpty() {
+		t.Errorf("ds.IsEmpty failed to detect a non-empty storage")
 	}
 
 	// Test DS loadA

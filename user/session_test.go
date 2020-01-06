@@ -586,6 +586,45 @@ func TestSessionObj_PopGarbledMessages(t *testing.T) {
 
 }
 
+// Tests ConvertSessionV1toV2() by creating an empty session object and setting
+// the RegState to the version 1, running it through the function, and testing
+// that RegState has values that match version 2.
+func TestSessionObj_ConvertSessionV1toV2(t *testing.T) {
+	ses := SessionObj{}
+	number := uint32(0)
+	ses.RegState = &number
+
+	ConvertSessionV1toV2(&ses)
+
+	if *ses.RegState != 0 {
+		t.Errorf("ConvertSessionV1toV2() did not properly convert the "+
+			"session object's RegState\n\texpected: %v\n\treceived: %v",
+			0, *ses.RegState)
+	}
+
+	number = uint32(1)
+	ses.RegState = &number
+
+	ConvertSessionV1toV2(&ses)
+
+	if *ses.RegState != 2000 {
+		t.Errorf("ConvertSessionV1toV2() did not properly convert the "+
+			"session object's RegState\n\texpected: %v\n\treceived: %v",
+			2000, *ses.RegState)
+	}
+
+	number = uint32(2)
+	ses.RegState = &number
+
+	ConvertSessionV1toV2(&ses)
+
+	if *ses.RegState != 3000 {
+		t.Errorf("ConvertSessionV1toV2() did not properly convert the "+
+			"session object's RegState\n\texpected: %v\n\treceived: %v",
+			3000, *ses.RegState)
+	}
+}
+
 func GenerateTestMessages(size int) []*format.Message {
 	msgs := make([]*format.Message, size)
 

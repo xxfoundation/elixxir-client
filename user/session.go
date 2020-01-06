@@ -159,7 +159,26 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	// Set storage pointer
 	session.store = store
 	session.password = password
+
+	// Update the session object to version 2 if it is currently version 1
+	if wrappedSession.Version == 1 {
+		ConvertSessionV1toV2(&session)
+	}
+
 	return &session, nil
+}
+
+// ConvertSessionV1toV2 converts the session object from version 1 to version 2.
+// This conversion includes:
+//  1. Changing the RegState values to the new integer values (1 to 2000, and 2
+//     to 3000).
+func ConvertSessionV1toV2(s *SessionObj) {
+	// Convert RegState to new values
+	if *s.RegState == 1 {
+		*s.RegState = 2000
+	} else if *s.RegState == 2 {
+		*s.RegState = 3000
+	}
 }
 
 //processSession: gets the loadLocation and decrypted wrappedSession
@@ -458,7 +477,7 @@ func (s *SessionObj) GetRegState() uint32 {
 }
 
 func (s *SessionObj) SetRegState(rs uint32) error {
-	prevRs := rs - 1
+	prevRs := rs - 1000
 	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
 	if !b {
 		return errors.New("Could not increment registration state")

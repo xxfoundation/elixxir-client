@@ -9,19 +9,20 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 
 var session user.Session
-var topology *circuit.Circuit
+var topology *connect.Circuit
 var comms io.Communications
+var transmissionHost *connect.Host
 
 var rekeyTriggerList rekeyTriggerListener
 var rekeyList rekeyListener
@@ -87,7 +88,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool)
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications, t *circuit.Circuit, rekeyChan2 chan struct{}) {
+func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
@@ -251,7 +252,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 		// This ensures that the publicKey fits in a single message, which
 		// is sent with E2E encryption using a send Rekey, and without padding
 		return comms.SendMessageNoPartition(session, topology, partner, parse.E2E,
-			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)))
+			pubKeyCyclic.LeftpadBytes(uint64(format.ContentsLen)), transmissionHost)
 	case Rekey:
 		// Trigger the rekey channel
 		select {
@@ -266,7 +267,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
 			Body:        baseKeyHash,
 		})
-		return comms.SendMessage(session, topology, partner, parse.None, msg)
+		return comms.SendMessage(session, topology, partner, parse.None, msg, transmissionHost)
 	}
 	return nil
 }

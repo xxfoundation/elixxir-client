@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package globals
 
 import (
 	"github.com/pkg/errors"
@@ -78,4 +78,10 @@ func checkVersion(ours string, theirs string) (ok bool, err error) {
 			"Error parsing our version (%v)", ours)
 	}
 	return theirVersion.isCompatible(ourVersion), nil
+}
+
+// Utility method, returns whether the local version and remote version are
+// compatible
+func CheckVersion(ver string) (bool, error) { // again, version stuff, move to globals
+	return checkVersion(SEMVER, ver)
 }

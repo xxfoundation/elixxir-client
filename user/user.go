@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -94,12 +94,12 @@ func newRegistry(grp *cyclic.Group) Registry {
 	// Channels have been hardcoded to users starting with 31
 	for i := 0; i < len(DemoUserNicks); i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
-		uc[*currentID].Nick = DemoUserNicks[i]
+		uc[*currentID].Username = DemoUserNicks[i]
 	}
 
 	for i := 0; i < len(DemoChannelNames); i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
-		uc[*currentID].Nick = DemoChannelNames[i]
+		uc[*currentID].Username = DemoChannelNames[i]
 	}
 
 	// With an underlying UserMap data structure
@@ -111,9 +111,8 @@ func newRegistry(grp *cyclic.Group) Registry {
 
 // Struct representing a User in the system
 type User struct {
-	User  *id.User
-	Nick  string
-	Email string
+	User     *id.User
+	Username string
 }
 
 // DeepCopy performs a deep copy of a user and returns a pointer to the new copy
@@ -123,13 +122,13 @@ func (u *User) DeepCopy() *User {
 	}
 	nu := new(User)
 	nu.User = u.User
-	nu.Nick = u.Nick
+	nu.Username = u.Username
 	return nu
 }
 
 // NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id *id.User, nickname string) *User {
-	return &User{User: id, Nick: nickname}
+func (m *UserMap) NewUser(id *id.User, username string) *User {
+	return &User{User: id, Username: username}
 }
 
 // GetUser returns a user with the given ID from userCollection

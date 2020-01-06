@@ -17,9 +17,9 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -35,7 +35,7 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetNodeKeys(topology *circuit.Circuit) []NodeKeys
+	GetNodeKeys(topology *connect.Circuit) []NodeKeys
 	PushNodeKey(id *id.Node, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
@@ -73,6 +73,7 @@ type Session interface {
 	DeleteContact(*id.User) (string, error)
 	GetSessionLocation() uint8
 	LoadEncryptedSession(store globals.Storage) ([]byte, error)
+	RegisterPermissioningSignature(sig []byte) error
 }
 
 type NodeKeys struct {
@@ -82,7 +83,7 @@ type NodeKeys struct {
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
-	u *User, nk map[id.Node]NodeKeys,
+	u *User,
 	publicKeyRSA *rsa.PublicKey,
 	privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH *cyclic.Int,
@@ -91,38 +92,37 @@ func NewSession(store globals.Storage,
 	e2ePrivateKeyDH *cyclic.Int,
 	salt []byte,
 	cmixGrp, e2eGrp *cyclic.Group,
-	password string,
-	regSignature []byte) Session {
-	regState := NotStarted
+	password string) Session {
+	regState := uint32(KeyGenComplete)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		CurrentUser:            u,
-		Keys:                   nk,
-		RSAPublicKey:           publicKeyRSA,
-		RSAPrivateKey:          privateKeyRSA,
-		CMIXDHPublicKey:        cmixPublicKeyDH,
-		CMIXDHPrivateKey:       cmixPrivateKeyDH,
-		E2EDHPublicKey:         e2ePublicKeyDH,
-		E2EDHPrivateKey:        e2ePrivateKeyDH,
-		CmixGrp:                cmixGrp,
-		E2EGrp:                 e2eGrp,
-		InterfaceMap:           make(map[string]interface{}),
-		KeyMaps:                keyStore.NewStore(),
-		RekeyManager:           keyStore.NewRekeyManager(),
-		store:                  store,
-		listeners:              switchboard.NewSwitchboard(),
-		quitReceptionRunner:    make(chan struct{}),
-		password:               password,
-		regValidationSignature: regSignature,
-		Salt:                   salt,
-		RegState:               &regState,
-		storageLocation:        globals.LocationA,
-		ContactsByValue:        make(map[string]SearchedUserRecord),
+		NodeKeys:            make(map[id.Node]NodeKeys),
+		CurrentUser:         u,
+		RSAPublicKey:        publicKeyRSA,
+		RSAPrivateKey:       privateKeyRSA,
+		CMIXDHPublicKey:     cmixPublicKeyDH,
+		CMIXDHPrivateKey:    cmixPrivateKeyDH,
+		E2EDHPublicKey:      e2ePublicKeyDH,
+		E2EDHPrivateKey:     e2ePrivateKeyDH,
+		CmixGrp:             cmixGrp,
+		E2EGrp:              e2eGrp,
+		InterfaceMap:        make(map[string]interface{}),
+		KeyMaps:             keyStore.NewStore(),
+		RekeyManager:        keyStore.NewRekeyManager(),
+		store:               store,
+		listeners:           switchboard.NewSwitchboard(),
+		quitReceptionRunner: make(chan struct{}),
+		password:            password,
+		Salt:                salt,
+		RegState:            &regState,
+		storageLocation:     globals.LocationA,
+		ContactsByValue:     make(map[string]SearchedUserRecord),
 	})
 }
 
-func LoadSession(store globals.Storage,
-	password string) (Session, error) {
+//LoadSession loads the encrypted session from the storage location and processes it
+// Returns a session object on success
+func LoadSession(store globals.Storage, password string) (Session, error) {
 	if store == nil {
 		err := errors.New("LoadSession: Local Storage not available")
 		return nil, err
@@ -159,7 +159,26 @@ func LoadSession(store globals.Storage,
 	// Set storage pointer
 	session.store = store
 	session.password = password
+
+	// Update the session object to version 2 if it is currently version 1
+	if wrappedSession.Version == 1 {
+		ConvertSessionV1toV2(&session)
+	}
+
 	return &session, nil
+}
+
+// ConvertSessionV1toV2 converts the session object from version 1 to version 2.
+// This conversion includes:
+//  1. Changing the RegState values to the new integer values (1 to 2000, and 2
+//     to 3000).
+func ConvertSessionV1toV2(s *SessionObj) {
+	// Convert RegState to new values
+	if *s.RegState == 1 {
+		*s.RegState = 2000
+	} else if *s.RegState == 2 {
+		*s.RegState = 3000
+	}
 }
 
 //processSession: gets the loadLocation and decrypted wrappedSession
@@ -193,6 +212,7 @@ func processSession(store globals.Storage, password string) (*SessionStorageWrap
 
 }
 
+//processSessionWrapper acts as a helper function for processSession
 func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageWrapper, error) {
 
 	if sessionGob == nil || len(sessionGob) < 12 {
@@ -226,7 +246,7 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	Keys             map[id.Node]NodeKeys
+	NodeKeys         map[id.Node]NodeKeys
 	RSAPrivateKey    *rsa.PrivateKey
 	RSAPublicKey     *rsa.PublicKey
 	CMIXDHPrivateKey *cyclic.Int
@@ -332,7 +352,7 @@ func (s *SessionObj) GetNodes() map[id.Node]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	nodes := make(map[id.Node]int, 0)
-	for node := range s.Keys {
+	for node := range s.NodeKeys {
 		nodes[node] = 1
 	}
 	return nodes
@@ -346,14 +366,14 @@ func (s *SessionObj) GetSalt() []byte {
 	return salt
 }
 
-func (s *SessionObj) GetNodeKeys(topology *circuit.Circuit) []NodeKeys {
+func (s *SessionObj) GetNodeKeys(topology *connect.Circuit) []NodeKeys {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
 	keys := make([]NodeKeys, topology.Len())
 
 	for i := 0; i < topology.Len(); i++ {
-		keys[i] = s.Keys[*topology.GetNodeAtIndex(i)]
+		keys[i] = s.NodeKeys[*topology.GetNodeAtIndex(i)]
 	}
 
 	return keys
@@ -363,7 +383,24 @@ func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
-	s.Keys[*id] = key
+	s.NodeKeys[*id] = key
+}
+
+//RegisterPermissioningSignature sets sessions registration signature and
+// sets the regState to reflect that registering with permissioning is complete
+// Returns an error if unable to set the regState
+func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
+	s.LockStorage()
+	defer s.UnlockStorage()
+
+	err := s.SetRegState(PermissioningComplete)
+	if err != nil {
+		return errors.Wrap(err, "Could not store permissioning signature")
+	}
+
+	s.regValidationSignature = sig
+
+	return nil
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
@@ -428,9 +465,8 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 	if s.CurrentUser != nil {
 		// Explicit deep copy
 		currentUser = &User{
-			User:  s.CurrentUser.User,
-			Nick:  s.CurrentUser.Nick,
-			Email: s.CurrentUser.Email,
+			User:     s.CurrentUser.User,
+			Username: s.CurrentUser.Username,
 		}
 	}
 	return currentUser
@@ -441,7 +477,7 @@ func (s *SessionObj) GetRegState() uint32 {
 }
 
 func (s *SessionObj) SetRegState(rs uint32) error {
-	prevRs := rs - 1
+	prevRs := rs - 1000
 	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
 	if !b {
 		return errors.New("Could not increment registration state")
@@ -455,8 +491,7 @@ func (s *SessionObj) ChangeUsername(username string) error {
 		return errors.New("Can only change username during " +
 			"PermissioningComplete registration state")
 	}
-	s.CurrentUser.Email = username
-	s.CurrentUser.Nick = username
+	s.CurrentUser.Username = username
 	return nil
 }
 
@@ -517,12 +552,7 @@ func (s *SessionObj) Immolate() error {
 		return err
 	}
 
-	// clear data stored in session
-	// Warning: be careful about immolating the memory backing the user ID
-	// because that may alias a key in the user maps
-	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
-	s.CurrentUser.Nick = burntString(len(s.CurrentUser.Nick))
-	s.CurrentUser.Nick = ""
+	globals.Log.WARN.Println("Immolate not implemented, did nothing")
 
 	s.UnlockStorage()
 

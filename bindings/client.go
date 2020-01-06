@@ -7,19 +7,23 @@
 package bindings
 
 import (
+	"crypto/rand"
 	"github.com/pkg/errors"
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/primitives/id"
 	"io"
+	"math/big"
 	"strings"
 	"time"
 )
 
 type Client struct {
-	client *api.Client
+	client         *api.Client
+	statusCallback ConnectionStatusCallback
 }
 
 // Returns listener handle as a string.
@@ -61,8 +65,7 @@ func FormatTextMessage(message string) []byte {
 // loc is a string. If you're using DefaultStorage for your storage,
 // this would be the filename of the file that you're storing the user
 // session in.
-func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
-	csc ConnectionStatusCallback) (*Client, error) {
+func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*Client, error) {
 	globals.Log.INFO.Printf("Binding call: NewClient()")
 	if storage == nil {
 		return nil, errors.New("could not init client: Storage was nil")
@@ -72,20 +75,15 @@ func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
 
 	proxy := &storageProxy{boundStorage: storage}
 
-	conStatCallback := func(status uint32, TimeoutSeconds int) {
-		csc.Callback(int(status), TimeoutSeconds)
-	}
-
-	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf, conStatCallback)
+	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf)
 
 	return &Client{client: cl}, err
 }
 
-// DisableTLS makes the client run with tls disabled
-// Must be called before Connect
-func (cl *Client) DisableTLS() {
-	globals.Log.INFO.Printf("Binding call: DisableTLS()")
-	cl.client.DisableTLS()
+func NewClient_deprecated(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
+	csc ConnectionStatusCallback) (*Client, error) {
+
+	return &Client{client: nil, statusCallback: csc}, nil
 }
 
 func (cl *Client) EnableDebugLogs() {
@@ -97,9 +95,9 @@ func (cl *Client) EnableDebugLogs() {
 // Connects to gateways and registration server (if needed)
 // using tls filepaths to create credential information
 // for connection establishment
-func (cl *Client) Connect() error {
-	globals.Log.INFO.Printf("Binding call: Connect()")
-	return cl.client.Connect()
+func (cl *Client) InitNetwork() error {
+	globals.Log.INFO.Printf("Binding call: InitNetwork()")
+	return cl.client.InitNetwork()
 }
 
 // Sets a callback which receives a strings describing the current status of
@@ -111,6 +109,14 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 	cl.client.SetOperationProgressCallback(rpc)
 }
 
+// Generate Keys generates the user identity for the network and stores it
+func (cl *Client) GenerateKeys(password string) error {
+
+	globals.Log.INFO.Printf("Binding call: GenerateKeys()\n" +
+		"  Password: ********")
+	return cl.client.GenerateKeys(nil, password)
+}
+
 // Registers user and returns the User ID bytes.
 // Returns null if registration fails and error
 // If preCan set to true, registration is attempted assuming a pre canned user
@@ -118,12 +124,12 @@ func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback
 // registrationAddr is the address of the registration server
 // gwAddressesList is CSV of gateway addresses
 // grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email, password string) ([]byte, error) {
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) ([]byte, error) {
+
 	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
-		"   preCan: %v\n   registrationCode: %s\n   nick: %s\n   email: %s\n"+
-		"   Password: ********", preCan, registrationCode, nick, email)
-	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode, nick, email,
-		password, nil)
+		"   preCan: %v\n   registrationCode: %s\n  "+
+		"   Password: ********", preCan, registrationCode)
+	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode)
 
 	if err != nil {
 		return id.ZeroID[:], err
@@ -141,20 +147,33 @@ func (cl *Client) RegisterWithNodes() error {
 }
 
 // Register with UDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and Connect.
+// User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB(timeoutMS int) error {
+func (cl *Client) RegisterWithUDB(username string, timeoutMS int) error {
 	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
-	return cl.client.RegisterWithUDB(time.Duration(timeoutMS) * time.Millisecond)
+	return cl.client.RegisterWithUDB(username, time.Duration(timeoutMS)*time.Millisecond)
 }
 
 // Logs in the user based on User ID and returns the nickname of that user.
 // Returns an empty string and an error
 // UID is a uint64 BigEndian serialized into a byte slice
-func (cl *Client) Login(UID []byte, password string) (string, error) {
+func (cl *Client) Login(UID []byte, password string) ([]byte, error) {
 	globals.Log.INFO.Printf("Binding call: Login()\n"+
 		"   UID: %v\n   Password: ********", UID)
-	return cl.client.Login(password)
+
+	uid, err := cl.client.Login(password)
+
+	if uid == nil {
+		return make([]byte, 0), err
+	}
+
+	return (*uid)[:], err
+}
+
+func (cl *Client) GetUsername() string {
+	globals.Log.INFO.Printf("Binding call: GetUsername()")
+
+	return cl.client.GetSession().GetCurrentUser().Username
 }
 
 type MessageReceiverCallback interface {
@@ -166,6 +185,59 @@ type MessageReceiverCallback interface {
 func (cl *Client) StartMessageReceiver(mrc MessageReceiverCallback) error {
 	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
 	return cl.client.StartMessageReceiver(mrc.Callback)
+}
+
+func (cl *Client) StartMessageReceiver_deprecated() error {
+	receiverCallback := func(err error) {
+		cl.backoff(0)
+	}
+
+	err := cl.client.StartMessageReceiver(receiverCallback)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (cl *Client) backoff(backoffCount int) {
+	receiverCallback := func(err error) {
+		cl.backoff(backoffCount + 1)
+	}
+
+	// Compute backoff time
+	var delay time.Duration
+	var block = false
+	if backoffCount > 15 {
+		delay = time.Hour
+		block = true
+	}
+	wait := 2 ^ backoffCount
+	if wait > 180 {
+		wait = 180
+	}
+	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
+	delay = time.Second*time.Duration(wait) + time.Millisecond*time.Duration(jitter.Int64())
+
+	cl.statusCallback.Callback(0, int(delay.Seconds()))
+
+	// Start timer, or stop if max attempts reached
+	timer := time.NewTimer(delay)
+	if block {
+		timer.Stop()
+	}
+
+	select {
+	case <-timer.C:
+		backoffCount = 0
+	}
+
+	// attempt to start the message receiver
+	cl.statusCallback.Callback(1, 0)
+	err := cl.client.StartMessageReceiver(receiverCallback)
+	if err != nil {
+		cl.statusCallback.Callback(0, 0)
+	}
+	cl.statusCallback.Callback(2, 0)
 }
 
 // Overwrites the username in registration. Only succeeds if the client
@@ -248,7 +320,7 @@ func GetLocalVersion() string {
 // client release version returned here.
 func (cl *Client) GetRemoteVersion() string {
 	globals.Log.INFO.Printf("Binding call: GetRemoteVersion()\n")
-	return cl.client.GetRemoteVersion()
+	return cl.GetRemoteVersion()
 }
 
 // Turns off blocking transmission so multiple messages can be sent
@@ -352,15 +424,6 @@ func (cl *Client) GetSessionData() ([]byte, error) {
 	return cl.client.GetSessionData()
 }
 
-//Call to get the networking status of the client
-// 0 - Offline
-// 1 - Connecting
-// 2 - Connected
-func (cl *Client) GetNetworkStatus() int64 {
-	globals.Log.INFO.Printf("Binding call: GetNetworkStatus()")
-	return int64(cl.client.GetNetworkStatus())
-}
-
 //LoadEncryptedSession: Spits out the encrypted session file in text
 func (cl *Client) LoadEncryptedSession() (string, error) {
 	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")
@@ -371,4 +434,9 @@ func (cl *Client) LoadEncryptedSession() (string, error) {
 func (cl *Client) WriteToSession(replacement string, storage globals.Storage) error {
 	globals.Log.INFO.Printf("Binding call: WriteToSession")
 	return cl.client.WriteToSessionFile(replacement, storage)
+}
+
+func (cl *Client) InitListeners() error {
+	globals.Log.INFO.Printf("Binding call: InitListeners")
+	return cl.client.InitListeners()
 }

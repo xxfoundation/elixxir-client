@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -9,12 +9,12 @@ package crypto
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/circuit"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"golang.org/x/crypto/blake2b"
@@ -32,7 +32,7 @@ var session user.Session
 var serverPayloadAKey *cyclic.Int
 var serverPayloadBKey *cyclic.Int
 
-var topology *circuit.Circuit
+var topology *connect.Circuit
 
 func setup() {
 
@@ -53,15 +53,17 @@ func setup() {
 		nodeSlice = append(nodeSlice, nodeId)
 	}
 
-	topology = circuit.New(nodeSlice)
-
-	nkMap := make(map[id.Node]user.NodeKeys)
+	topology = connect.NewCircuit(nodeSlice)
 
 	tempKey := cmixGrp.NewInt(1)
 	serverPayloadAKey = cmixGrp.NewInt(1)
 	serverPayloadBKey = cmixGrp.NewInt(1)
 
 	h, _ := blake2b.New256(nil)
+
+	session = user.NewSession(nil, u, nil, nil,
+		nil, nil, nil,
+		nil, nil, cmixGrp, e2eGrp, "password")
 
 	for i := 0; i < numNodes; i++ {
 
@@ -77,13 +79,10 @@ func setup() {
 		cmix.NodeKeyGen(cmixGrp, h.Sum(nil), nk.TransmissionKey, tempKey)
 		cmixGrp.Mul(serverPayloadBKey, tempKey, serverPayloadBKey)
 
-		nkMap[*topology.GetNodeAtIndex(i)] = nk
+		session.PushNodeKey(topology.GetNodeAtIndex(i), nk)
+
 	}
 
-	regSignature := make([]byte, 8)
-
-	session = user.NewSession(nil, u, nkMap,
-		nil, nil, nil, nil, nil, nil, nil, cmixGrp, e2eGrp, "password", regSignature)
 }
 
 func TestMain(m *testing.M) {

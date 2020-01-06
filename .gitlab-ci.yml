@@ -10,7 +10,7 @@ variables:
   REPO_DIR: gitlab.com/elixxir
   REPO_NAME: client
   DOCKER_IMAGE: golang:1.13.4-buster
-  MIN_CODE_COVERAGE: "71"
+  MIN_CODE_COVERAGE: "76"
 
 before_script:
   ##

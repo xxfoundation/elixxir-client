@@ -63,7 +63,7 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 			Address: string(fmtAddress(GWErrorPort + i)),
 		}
 		testDef.Gateways = append(testDef.Gateways, gw)
-		GWErrComms[i] = gateway.StartGateway(gw.Address,
+		GWErrComms[i] = gateway.StartGateway("testGateway", gw.Address,
 			&GatewayHandlerMultipleMessages{}, nil, nil)
 
 	}

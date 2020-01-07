@@ -59,8 +59,8 @@ func TestMain(m *testing.M) {
 	user.InitUserRegistry(grp)
 	rng := csprng.NewSystemRNG()
 	u := &user.User{
-		User: id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
-		Nick: "Bernie",
+		User:     id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
+		Username: "Bernie",
 	}
 	myPrivKeyCyclicCMIX := grp.RandomCoprime(grp.NewMaxInt())
 	myPubKeyCyclicCMIX := grp.ExpG(myPrivKeyCyclicCMIX, grp.NewInt(1))
@@ -73,12 +73,10 @@ func TestMain(m *testing.M) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	regSignature := make([]byte, 8)
-
 	session := user.NewSession(&globals.RamStorage{},
-		u, nil, &publicKeyRSA, privateKeyRSA, myPubKeyCyclicCMIX,
+		u, &publicKeyRSA, privateKeyRSA, myPubKeyCyclicCMIX,
 		myPrivKeyCyclicCMIX, myPubKeyCyclicE2E, myPrivKeyCyclicE2E, make([]byte, 1),
-		grp, e2eGrp, "password", regSignature)
+		grp, e2eGrp, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
 		listener: ListenCh,

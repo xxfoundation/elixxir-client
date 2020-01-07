@@ -45,8 +45,7 @@ var noBlockingTransmission bool
 var rateLimiting uint32
 var showVer bool
 var registrationCode string
-var userEmail string
-var userNick string
+var username string
 var end2end bool
 var keyParams []string
 var ndfPath string
@@ -215,14 +214,22 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			}
 		}
 
-		uid, err = client.RegisterWithPermissioning(userId != 0, regCode, userNick,
-			userEmail, sessFilePassword, privKey)
+		//Generate keys for registration
+		err := client.GenerateKeys(privKey, sessFilePassword)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not Register User: %s",
-				err.Error())
+			globals.Log.FATAL.Panicf("%+v", err)
 		}
 
-		err := client.RegisterWithNodes()
+		//Attempt to register user with same keys until a success occurs
+		for errRegister := error(nil); errRegister != nil; {
+			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode)
+			if errRegister != nil {
+				globals.Log.FATAL.Panicf("Could Not Register User: %s",
+					errRegister.Error())
+			}
+		}
+
+		err = client.RegisterWithNodes()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s",
 				err.Error())
@@ -240,13 +247,13 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	nick, err := client.Login(sessFilePassword)
+	_, err = client.Login(sessFilePassword)
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
 
-	return uid, nick, client
+	return uid, client.GetSession().GetCurrentUser().Username, client
 }
 
 func setKeyParams(client *api.Client) {
@@ -299,7 +306,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool, i 
 		if !ok {
 			globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
 		} else {
-			senderNick = sender.Nick
+			senderNick = sender.Username
 		}
 		atomic.AddInt64(&l.MessagesReceived, 1)
 		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
@@ -328,9 +335,9 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...i
 		globals.Log.INFO.Printf("First message from sender %v", message.Sender)
 		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
 		user.Users.UpsertUser(u)
-		senderNick = u.Nick
+		senderNick = u.Username
 	} else {
-		senderNick = sender.Nick
+		senderNick = sender.Username
 	}
 	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
@@ -404,8 +411,8 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Log.INFO.Println("Logged In!")
 
-		if userEmail != "" {
-			err := client.RegisterWithUDB(2 * time.Minute)
+		if username != "" {
+			err := client.RegisterWithUDB(username, 2*time.Minute)
 			if err != nil {
 				jww.ERROR.Printf("Could not register with UDB: %+v", err)
 			}
@@ -440,7 +447,7 @@ var rootCmd = &cobra.Command{
 			recipientNick := ""
 			u, ok := user.Users.GetUser(recipientId)
 			if ok {
-				recipientNick = u.Nick
+				recipientNick = u.Username
 			}
 
 			// Handle sending to UDB
@@ -570,15 +577,10 @@ func init() {
 		"",
 		"Registration Code with the registration server")
 
-	rootCmd.PersistentFlags().StringVarP(&userEmail,
-		"email", "E",
+	rootCmd.PersistentFlags().StringVarP(&username,
+		"username", "E",
 		"",
-		"Email to register for User Discovery")
-
-	rootCmd.PersistentFlags().StringVar(&userNick,
-		"nick",
-		"Default",
-		"Nickname to register for User Discovery")
+		"Username to register for User Discovery")
 
 	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
 		"", "Passes a file path for loading a session.  "+

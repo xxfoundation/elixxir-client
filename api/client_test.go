@@ -7,7 +7,6 @@
 package api
 
 import (
-	"crypto/sha256"
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -15,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -31,105 +29,6 @@ import (
 )
 
 var TestKeySize = 768
-
-func TestRegistrationGob(t *testing.T) {
-	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.InitNetwork()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.RegisterWithNodes()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// get the gob out of there again
-	Session, err := user.LoadSession(testClient.storage,
-		"password")
-	if err != nil {
-		t.Error(err)
-	}
-
-	VerifyRegisterGobUser(Session, t)
-	VerifyRegisterGobKeys(Session, testClient.topology, t)
-
-	disconnectServers()
-}
-
-//Happy path for a non precen user
-func TestClient_Register(t *testing.T) {
-	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
-
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.InitNetwork()
-	if err != nil {
-		t.Error(err)
-	}
-	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6", "", "", "password", nil)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = testClient.RegisterWithNodes()
-	if err != nil {
-		t.Error(err)
-	}
-
-	// get the gob out of there again
-	Session, err := user.LoadSession(testClient.storage,
-		"password")
-	if err != nil {
-		t.Error(err)
-	}
-
-	VerifyRegisterGobUser(Session, t)
-
-	//Probs can't do this as there is now a sense of randomness??
-	//VerifyRegisterGobKeys(Session, testClient.topology, t)
-	disconnectServers()
-}
-
-func VerifyRegisterGobUser(session user.Session, t *testing.T) {
-
-	expectedUser := id.NewUserFromUint(5, t)
-
-	if reflect.DeepEqual(session.GetCurrentUser().User, &expectedUser) {
-		t.Errorf("Incorrect User ID; \n   expected %q \n   recieved: %q",
-			expectedUser, session.GetCurrentUser().User)
-	}
-}
-
-func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
-	cmixGrp, _ := getGroups()
-	h := sha256.New()
-	h.Write([]byte(string(40005)))
-	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
-
-	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
-		expectedTransmissionBaseKey) != 0 {
-		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
-			expectedTransmissionBaseKey.Text(16))
-	}
-
-}
 
 // Make sure that a formatted text message can deserialize to the text
 // message we would expect
@@ -156,6 +55,7 @@ func TestFormatTextMessage(t *testing.T) {
 	t.Logf("message: %q", msg)
 }
 
+//Happy path
 func TestParsedMessage_GetSender(t *testing.T) {
 	pm := ParsedMessage{}
 	sndr := pm.GetSender()
@@ -165,6 +65,7 @@ func TestParsedMessage_GetSender(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParsedMessage_GetPayload(t *testing.T) {
 	pm := ParsedMessage{}
 	payload := []byte{0, 1, 2, 3}
@@ -176,6 +77,7 @@ func TestParsedMessage_GetPayload(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParsedMessage_GetRecipient(t *testing.T) {
 	pm := ParsedMessage{}
 	rcpt := pm.GetRecipient()
@@ -185,6 +87,7 @@ func TestParsedMessage_GetRecipient(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParsedMessage_GetMessageType(t *testing.T) {
 	pm := ParsedMessage{}
 	var typeTest int32
@@ -197,6 +100,7 @@ func TestParsedMessage_GetMessageType(t *testing.T) {
 	}
 }
 
+//Happy path
 func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
@@ -241,13 +145,12 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
-	regSignature := make([]byte, 8)
 
-	myUser := &user.User{User: userID, Nick: "test"}
+	myUser := &user.User{User: userID, Username: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
+		myUser, &publicKeyRSA,
 		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
-		e2eGrp, "password", regSignature)
+		e2eGrp, "password")
 
 	testClient.session = session
 
@@ -334,13 +237,11 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	regSignature := make([]byte, 8)
-
-	myUser := &user.User{User: userID, Nick: "test"}
+	myUser := &user.User{User: userID, Username: "test"}
 	session := user.NewSession(testClient.storage,
-		myUser, make(map[id.Node]user.NodeKeys), &publicKeyRSA,
-		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
-		e2eGrp, "password", regSignature)
+		myUser, &publicKeyRSA, privateKeyRSA, nil,
+		nil, myPubKeyCyclic, myPrivKeyCyclic,
+		make([]byte, 1), cmixGrp, e2eGrp, "password")
 
 	testClient.session = session
 
@@ -477,9 +378,7 @@ func TestClient_precannedRegister(t *testing.T) {
 		t.Error(err)
 	}
 
-	nk := make(map[id.Node]user.NodeKeys)
-
-	_, _, nk, err = testClient.precannedRegister("UAV6IWD6", "tony_johns", nk)
+	_, _, _, err = testClient.precannedRegister("UAV6IWD6")
 	if err != nil {
 		t.Errorf("Error during precannedRegister: %+v", err)
 	}

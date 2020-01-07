@@ -1,18 +1,14 @@
 package api
 
 import (
-	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
@@ -22,144 +18,79 @@ import (
 
 const SaltSize = 256
 
-// RegisterWithPermissioning registers user with permissioning and returns the
-// User ID.  Returns an error if registration fails.
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode, nick, email,
-	password string, privateKeyRSA *rsa.PrivateKey) (*id.User, error) {
+//RegisterWithPermissioning registers the user and returns the User ID.
+// Returns an error if registration fails.
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.User, error) {
 
+	//Check the regState is in proper state for registration
+	if cl.session.GetRegState() != user.KeyGenComplete {
+		return nil, errors.Errorf("Attempting to register before key generation!")
+	}
+	usr := cl.session.GetCurrentUser()
+	UID := usr.User
 	var err error
-	var u *user.User
-	var UID *id.User
 
-	cl.opStatus(globals.REG_KEYGEN)
+	//Initialized response from Registration Server
+	regValidationSignature := make([]byte, 0)
 
-	largeIntBits := 16
+	//Handle registration
+	if preCan {
+		// Either perform a precanned registration for a precanned user
+		cl.opStatus(globals.REG_PRECAN)
+		globals.Log.INFO.Printf("Registering precanned user...")
+		var nodeKeyMap map[id.Node]user.NodeKeys
+		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode)
+		if err != nil {
+			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
+			return id.ZeroID, err
+		}
 
-	cmixGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.CMIX.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.CMIX.Generator, largeIntBits))
+		//overwrite the user object
+		cl.session.(*user.SessionObj).CurrentUser = usr
 
-	e2eGrp := cyclic.NewGroup(
-		large.NewIntFromString(cl.ndf.E2E.Prime, largeIntBits),
-		large.NewIntFromString(cl.ndf.E2E.Generator, largeIntBits))
+		//store the node keys
+		for n, k := range nodeKeyMap {
+			cl.session.PushNodeKey(&n, k)
+		}
 
-	// Make CMIX keys array
-	nk := make(map[id.Node]user.NodeKeys)
+		//update the state
+		err := cl.session.SetRegState(user.PermissioningComplete)
+		if err != nil {
+			return nil, errors.Wrap(err, "Could not do precanned registration")
+		}
 
-	// GENERATE CLIENT RSA KEYS
-	if privateKeyRSA == nil {
-		privateKeyRSA, err = rsa.GenerateKey(rand.Reader, rsa.DefaultRSABitLen)
+	} else {
+		// Or register with the permissioning server and generate user information
+		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, cl.session.GetRSAPublicKey())
+		if err != nil {
+			globals.Log.INFO.Printf(err.Error())
+			return id.ZeroID, err
+		}
+		//update the session with the registration
+		err = cl.session.RegisterPermissioningSignature(regValidationSignature)
+
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	publicKeyRSA := privateKeyRSA.GetPublic()
-
-	cmixPrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate cmix DH private key: %s", err.Error()))
-	}
-
-	cmixPrivateKeyDH := cmixGrp.NewIntFromBytes(cmixPrivKeyDHByte)
-	cmixPublicKeyDH := cmixGrp.ExpG(cmixPrivateKeyDH, cmixGrp.NewMaxInt())
-
-	e2ePrivKeyDHByte, err := csprng.GenerateInGroup(cmixGrp.GetPBytes(), 256, csprng.NewSystemRNG())
-
-	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Could not generate e2e DH private key: %s", err.Error()))
-	}
-
-	e2ePrivateKeyDH := e2eGrp.NewIntFromBytes(e2ePrivKeyDHByte)
-	e2ePublicKeyDH := e2eGrp.ExpG(e2ePrivateKeyDH, e2eGrp.NewMaxInt())
-
-	// Initialized response from Registration Server
-	regValidationSignature := make([]byte, 0)
-
-	var salt []byte
-
-	// Handle precanned registration
-	if preCan {
-		cl.opStatus(globals.REG_PRECAN)
-		globals.Log.INFO.Printf("Registering precanned user...")
-		u, UID, nk, err = cl.precannedRegister(registrationCode, nick, nk)
-		if err != nil {
-			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
-			return id.ZeroID, err
-		}
-	} else {
-		cl.opStatus(globals.REG_UID_GEN)
-		globals.Log.INFO.Printf("Registering dynamic user...")
-
-		// Generate salt for UserID
-		salt = make([]byte, SaltSize)
-		_, err = csprng.NewSystemRNG().Read(salt)
-		if err != nil {
-			globals.Log.ERROR.Printf("Register: Unable to generate salt! %s", err)
-			return id.ZeroID, err
-		}
-
-		// Generate UserID by hashing salt and public key
-		UID = registration.GenUserID(publicKeyRSA, salt)
-
-		// If Registration Server is specified, contact it
-		// Only if registrationCode is set
-		globals.Log.INFO.Println("Register: Contacting registration server")
-		if cl.ndf.Registration.Address != "" && registrationCode != "" {
-			cl.opStatus(globals.REG_PERM)
-			regValidationSignature, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-			if err != nil {
-				globals.Log.ERROR.Printf("Register: Unable to send registration message: %+v", err)
-				return id.ZeroID, err
-			}
-		}
-		globals.Log.INFO.Println("Register: successfully passed Registration message")
-
-		var actualNick string
-		if nick != "" {
-			actualNick = nick
-		} else {
-			actualNick = base64.StdEncoding.EncodeToString(UID[:])
-		}
-		u = user.Users.NewUser(UID, actualNick)
-		user.Users.UpsertUser(u)
-	}
-
+	//Set the registration secure state
 	cl.opStatus(globals.REG_SECURE_STORE)
 
-	u.Email = email
+	//store the updated session
+	err = cl.session.StoreSession()
 
-	// Create the user session
-	newSession := user.NewSession(cl.storage, u, nk, publicKeyRSA,
-		privateKeyRSA, cmixPublicKeyDH, cmixPrivateKeyDH, e2ePublicKeyDH,
-		e2ePrivateKeyDH, salt, cmixGrp, e2eGrp, password, regValidationSignature)
-	cl.opStatus(globals.REG_SAVE)
-
-	//set the registration state
-	err = newSession.SetRegState(user.PermissioningComplete)
 	if err != nil {
-		return id.ZeroID, errors.Wrap(err, "Permissioning Registration "+
-			"Failed")
+		return nil, err
 	}
 
-	// Store the user session
-	errStore := newSession.StoreSession()
-
-	if errStore != nil {
-		err = errors.New(fmt.Sprintf(
-			"Permissioning Register: could not register due to failed session save"+
-				": %s", errStore.Error()))
-		return id.ZeroID, err
-	}
-	cl.session = newSession
 	return UID, nil
 }
 
-// RegisterWithUDB uses the account's email to register with the UDB for
+//RegisterWithUDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
+func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error {
 
 	regState := cl.GetSession().GetRegState()
 
@@ -168,17 +99,20 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 			"state is not PermissioningComplete")
 	}
 
-	email := cl.session.GetCurrentUser().Email
-
 	var err error
 
-	if email != "" {
-		globals.Log.INFO.Printf("Registering user as %s with UDB", email)
+	if username != "" {
+		err := cl.session.ChangeUsername(username)
+		if err != nil {
+			return err
+		}
+
+		globals.Log.INFO.Printf("Registering user as %s with UDB", username)
 
 		valueType := "EMAIL"
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
-		err = bots.Register(valueType, email, publicKeyBytes, cl.opStatus, timeout)
+		err = bots.Register(valueType, username, publicKeyBytes, cl.opStatus, timeout)
 		if err == nil {
 			globals.Log.INFO.Printf("Registered with UDB!")
 		} else {
@@ -188,10 +122,6 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
 			"email found")
-	}
-
-	if err != nil {
-		return errors.Wrap(err, "Could not register with UDB")
 	}
 
 	//set the registration state
@@ -218,6 +148,7 @@ func (cl *Client) RegisterWithUDB(timeout time.Duration) error {
 	return nil
 }
 
+//RegisterWithNodes registers the client with all the nodes within the ndf
 func (cl *Client) RegisterWithNodes() error {
 	cl.opStatus(globals.REG_NODE)
 	session := cl.GetSession()
@@ -296,7 +227,8 @@ func (cl *Client) RegisterWithNodes() error {
 	return nil
 }
 
-//registerWithNode registers a user. It serves as a helper for Register
+//registerWithNode serves as a helper for RegisterWithNodes
+// It registers a user with a specific in the client's ndf.
 func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
@@ -338,4 +270,26 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 			cmixPrivateKeyDH, receptionHash),
 	}
 	cl.session.PushNodeKey(nodeID, key)
+}
+
+//registerWithPermissioning serves as a helper function for RegisterWithPermissioning.
+// It sends the registration message containing the regCode to permissioning
+func (cl *Client) registerWithPermissioning(registrationCode string,
+	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
+	//Set the opStatus and log registration
+	globals.Log.INFO.Printf("Registering dynamic user...")
+
+	// If Registration Server is specified, contact it
+	// Only if registrationCode is set
+	globals.Log.INFO.Println("Register: Contacting registration server")
+	if cl.ndf.Registration.Address != "" && registrationCode != "" {
+		cl.opStatus(globals.REG_PERM)
+		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+		if err != nil {
+			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
+		}
+	}
+	globals.Log.INFO.Println("Register: successfully passed Registration message")
+
+	return regValidSig, nil
 }

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2018 Privategrity Corporation                                   /
+// Copyright © 2019 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -55,13 +55,15 @@ func setup() {
 
 	topology = connect.NewCircuit(nodeSlice)
 
-	nkMap := make(map[id.Node]user.NodeKeys)
-
 	tempKey := cmixGrp.NewInt(1)
 	serverPayloadAKey = cmixGrp.NewInt(1)
 	serverPayloadBKey = cmixGrp.NewInt(1)
 
 	h, _ := blake2b.New256(nil)
+
+	session = user.NewSession(nil, u, nil, nil,
+		nil, nil, nil,
+		nil, nil, cmixGrp, e2eGrp, "password")
 
 	for i := 0; i < numNodes; i++ {
 
@@ -77,13 +79,10 @@ func setup() {
 		cmix.NodeKeyGen(cmixGrp, h.Sum(nil), nk.TransmissionKey, tempKey)
 		cmixGrp.Mul(serverPayloadBKey, tempKey, serverPayloadBKey)
 
-		nkMap[*topology.GetNodeAtIndex(i)] = nk
+		session.PushNodeKey(topology.GetNodeAtIndex(i), nk)
+
 	}
 
-	regSignature := make([]byte, 8)
-
-	session = user.NewSession(nil, u, nkMap,
-		nil, nil, nil, nil, nil, nil, nil, cmixGrp, e2eGrp, "password", regSignature)
 }
 
 func TestMain(m *testing.M) {

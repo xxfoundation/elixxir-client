@@ -16,6 +16,8 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/gateway"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -55,10 +57,12 @@ func (i *MockRegistration) RegisterNode(ID []byte, ServerAddr, ServerTlsCert,
 }
 
 func (i *MockRegistration) GetCurrentClientVersion() (string, error) {
-	return "0.1.0", nil
+	return globals.SEMVER, nil
 }
 
-func (i *MockRegistration) PollNdf(clientNdfHash []byte) ([]byte, error) {
+func (i *MockRegistration) PollNdf(clientNdfHash []byte,
+	auth *connect.Auth) ([]byte,
+	error) {
 	ndfJson, _ := json.Marshal(def)
 	return ndfJson, nil
 }
@@ -84,6 +88,7 @@ func TestNewClientNil(t *testing.T) {
 	}
 }
 
+//Happy path: tests creation of valid client
 func TestNewClient(t *testing.T) {
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 
@@ -100,6 +105,7 @@ func TestNewClient(t *testing.T) {
 	}
 }
 
+//Happy Path: Register with permissioning
 func TestRegister(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
@@ -115,8 +121,12 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+	err = client.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
@@ -134,6 +144,219 @@ func (*DummyReceptionCallback) Callback(error) {
 	return
 }
 
+//Error path: Changing username should panic before registration has happened
+func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
+	defer func() {
+		if r := recover(); r != nil {
+			return
+		}
+	}()
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.ChangeUsername("josh420")
+	if err == nil {
+		t.Error("Expected error path, should not be able to change username before" +
+			"regState PermissioningComplete")
+	}
+}
+
+//Happy path: should have no errors when changing username
+func TestClient_ChangeUsername(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode)
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+
+	err = testClient.ChangeUsername("josh420")
+	if err != nil {
+		t.Errorf("Unexpected error, should have changed username: %v", err)
+	}
+
+}
+
+//Error path: Have added no contacts, so deleting a contact should fail
+func TestDeleteUsername_EmptyContactList(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode)
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+	//Attempt to delete a contact from an empty contact list
+	_, err = testClient.DeleteContact([]byte("typo"))
+	if err != nil {
+		return
+	}
+	t.Errorf("Expected error path, but did not get error on deleting a contact." +
+		"Contact list should be empty")
+}
+
+//Happy path: Tests regState gets properly updated along the registration codepath
+func TestClient_GetRegState(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	// Register with a valid registration code
+	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode)
+
+	if err != nil {
+		t.Errorf("Register with permissioning failed: %s", err.Error())
+	}
+
+	if testClient.GetRegState() != int64(user.PermissioningComplete) {
+		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
+			user.PermissioningComplete, testClient.GetRegState())
+	}
+
+	err = testClient.RegisterWithNodes()
+	if err != nil {
+		t.Errorf("Register with nodes failed: %v", err.Error())
+	}
+}
+
+//Happy path: send unencrypted message
+func TestClient_Send(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.client.GenerateKeys(nil, "password")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	// Register with a valid registration code
+	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode)
+
+	if err != nil {
+		t.Errorf("Register with permissioning failed: %s", err.Error())
+	}
+
+	err = testClient.RegisterWithNodes()
+	if err != nil {
+		t.Errorf("Register with nodes failed: %v", err.Error())
+	}
+
+	// Login to gateway
+	_, err = testClient.Login(userID, "password")
+
+	if err != nil {
+		t.Errorf("Login failed: %s", err.Error())
+	}
+
+	err = testClient.StartMessageReceiver(&DummyReceptionCallback{})
+
+	if err != nil {
+		t.Errorf("Could not start message reception: %+v", err)
+	}
+
+	// Test send with invalid sender ID
+	err = testClient.Send(
+		mockMesssage{
+			Sender:    id.NewUserFromUint(12, t),
+			TypedBody: parse.TypedBody{Body: []byte("test")},
+			Receiver:  id.NewUserFromBytes(userID),
+		}, false)
+
+	if err != nil {
+		// TODO: would be nice to catch the sender but we
+		//  don't have the interface/mocking for that.
+		t.Errorf("error on first message send: %+v", err)
+	}
+
+	// Test send with valid inputs
+	err = testClient.Send(
+		mockMesssage{
+			Sender:    id.NewUserFromBytes(userID),
+			TypedBody: parse.TypedBody{Body: []byte("test")},
+			Receiver:  testClient.client.GetCurrentUser(),
+		}, false)
+
+	if err != nil {
+		t.Errorf("Error sending message: %v", err)
+	}
+
+	err = testClient.Logout()
+
+	if err != nil {
+		t.Errorf("Logout failed: %v", err)
+	}
+	disconnectServers()
+}
+
 func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
@@ -149,8 +372,12 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+	err = client.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	loginRes, err2 := client.Login(regRes, "")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
@@ -193,9 +420,13 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
-	_, err = client.Login(regRes, "")
+	err = client.client.GenerateKeys(nil, "1234")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
+	_, err = client.Login(regRes, "1234")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
@@ -233,10 +464,14 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode,
-		"", "", "")
+	err = client.client.GenerateKeys(nil, "1234")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
 
-	_, err = client.Login(regRes, "")
+	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
+
+	_, err = client.Login(regRes, "1234")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
@@ -335,7 +570,7 @@ func testMainWrapper(m *testing.M) int {
 
 	// Initialize permissioning server
 	pAddr := def.Registration.Address
-	RegComms = registration.StartRegistrationServer(pAddr, &RegHandler, nil, nil)
+	RegComms = registration.StartRegistrationServer("testRegServer", pAddr, &RegHandler, nil, nil)
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	//the ports used are colliding between tests in GoLand when running full suite, this is a dumb fix
@@ -347,7 +582,7 @@ func testMainWrapper(m *testing.M) int {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
+		GWComms[i] = gateway.StartGateway("testGateway", gw.Address,
 			gateway.NewImplementation(), nil, nil)
 	}
 
@@ -355,7 +590,7 @@ func testMainWrapper(m *testing.M) int {
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
+	RegComms = registration.StartRegistrationServer("testRegServer", def.Registration.Address,
 		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
@@ -473,4 +708,53 @@ func (d *DummyStorage) LoadA() []byte {
 
 func (d *DummyStorage) LoadB() []byte {
 	return d.StoreB
+}
+
+type mockMesssage struct {
+	parse.TypedBody
+	// The crypto type is inferred from the message's contents
+	InferredType parse.CryptoType
+	Sender       *id.User
+	Receiver     *id.User
+	Nonce        []byte
+	Timestamp    time.Time
+}
+
+// Returns the message's sender ID
+func (m mockMesssage) GetSender() []byte {
+	return m.Sender.Bytes()
+}
+
+// Returns the message payload
+// Parse this with protobuf/whatever according to the type of the message
+func (m mockMesssage) GetPayload() []byte {
+	return m.TypedBody.Body
+}
+
+// Returns the message's recipient ID
+func (m mockMesssage) GetRecipient() []byte {
+	return m.Receiver.Bytes()
+}
+
+// Returns the message's type
+func (m mockMesssage) GetMessageType() int32 {
+	return m.TypedBody.MessageType
+}
+
+// Returns the message's timestamp in seconds since unix epoc
+func (m mockMesssage) GetTimestamp() int64 {
+	return m.Timestamp.Unix()
+}
+
+// Returns the message's timestamp in ns since unix epoc
+func (m mockMesssage) GetTimestampNano() int64 {
+	return m.Timestamp.UnixNano()
+}
+
+func disconnectServers() {
+	for _, gw := range GWComms {
+		gw.DisconnectAll()
+
+	}
+	RegComms.DisconnectAll()
 }

@@ -186,6 +186,7 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 			Signature: sig,
 		},
 	}
+
 	host, ok := cl.receptionManager.Comms.GetHost(gwID.String())
 	if !ok {
 		return errors.Errorf("Failed to find host with ID %s", gwID.String())

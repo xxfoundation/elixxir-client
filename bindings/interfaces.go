@@ -60,7 +60,9 @@ type storageProxy struct {
 // gets a message of the type that the registerer specified at registration
 // time.
 type Listener interface {
-	Hear(msg Message, isHeardElsewhere bool, i ...interface{})
+	// This does not include the generic interfaces seen in the go implementation
+	// Those are used internally on the backend and cause errors if we try to port them
+	Hear(msg Message, isHeardElsewhere bool)
 }
 
 // Translate a bindings listener to a switchboard listener
@@ -72,7 +74,7 @@ type listenerProxy struct {
 
 func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
-	lp.proxy.Hear(msgInterface, isHeardElsewhere, i)
+	lp.proxy.Hear(msgInterface, isHeardElsewhere)
 }
 
 // Interface used to receive a callback on searching for a user

@@ -50,6 +50,7 @@ func (cl *Client) InitNetwork() error {
 // DisableTls disables tls for communications
 func (cl *Client) DisableTls() {
 	globals.Log.INFO.Println("Running client without tls")
+	cl.receptionManager.Comms.DisableAuth()
 	cl.receptionManager.Tls = false
 }
 

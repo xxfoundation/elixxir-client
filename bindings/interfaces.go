@@ -60,6 +60,8 @@ type storageProxy struct {
 // gets a message of the type that the registerer specified at registration
 // time.
 type Listener interface {
+	// This does not include the generic interfaces seen in the go implementation
+	// Those are used internally on the backend and cause errors if we try to port them
 	Hear(msg Message, isHeardElsewhere bool)
 }
 

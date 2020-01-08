@@ -56,7 +56,6 @@ var ExampleJSON = `{"Timestamp": "2019-06-04T20:48:48-07:00", "gateways": [{"Add
 //	}
 //}
 
-
 // Tests that VerifyNDF() panics when given the incorrect RSA public key.
 func TestVerifyNDF_ErrPublicKey(t *testing.T) {
 	// Generate RSA private key and fake RSA public key

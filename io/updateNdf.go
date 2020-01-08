@@ -40,7 +40,7 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 	}
 
 	//If there was no error and the response is nil, client's ndf is up-to-date
-	if response == nil {
+	if response == nil || response.Ndf == nil {
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")
 		return nil, nil
 	}

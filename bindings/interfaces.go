@@ -60,7 +60,7 @@ type storageProxy struct {
 // gets a message of the type that the registerer specified at registration
 // time.
 type Listener interface {
-	Hear(msg Message, isHeardElsewhere bool)
+	Hear(msg Message, isHeardElsewhere bool, i ...interface{})
 }
 
 // Translate a bindings listener to a switchboard listener
@@ -70,9 +70,9 @@ type listenerProxy struct {
 	proxy Listener
 }
 
-func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (lp *listenerProxy) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	msgInterface := &parse.BindingsMessageProxy{Proxy: msg.(*parse.Message)}
-	lp.proxy.Hear(msgInterface, isHeardElsewhere)
+	lp.proxy.Hear(msgInterface, isHeardElsewhere, i)
 }
 
 // Interface used to receive a callback on searching for a user

@@ -34,7 +34,7 @@ type rekeyTriggerListener struct {
 	err error
 }
 
-func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (l *rekeyTriggerListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	m := msg.(*parse.Message)
 	partner := m.GetRecipient()
 	globals.Log.DEBUG.Printf("Received RekeyTrigger message for user %v", *partner)
@@ -51,7 +51,7 @@ type rekeyListener struct {
 	err error
 }
 
-func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (l *rekeyListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	partnerPubKey := m.GetPayload()
@@ -73,7 +73,7 @@ type rekeyConfirmListener struct {
 	err error
 }
 
-func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	m := msg.(*parse.Message)
 	partner := m.GetSender()
 	baseKeyHash := m.GetPayload()

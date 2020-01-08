@@ -224,8 +224,8 @@ github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGr
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-gitlab.com/elixxir/comms v0.0.0-20200108001710-b5feabd13539 h1:LlC7HOZZhY+glXXSDImoOGGJkIN1nEvXWhQ+9gw17II=
-gitlab.com/elixxir/comms v0.0.0-20200108001710-b5feabd13539/go.mod h1:DblaR0msnWpNGzNK2fXvXbfGZQNPH4KPiBl4YkkGF4Y=
+gitlab.com/elixxir/comms v0.0.0-20200108181118-c0b7fae36425 h1:k3XivtPenqSFGDd+1UyFef8kpQVh1Wi9NPQwxHXElDo=
+gitlab.com/elixxir/comms v0.0.0-20200108181118-c0b7fae36425/go.mod h1:DblaR0msnWpNGzNK2fXvXbfGZQNPH4KPiBl4YkkGF4Y=
 gitlab.com/elixxir/crypto v0.0.0-20191121235352-86d305a9b253 h1:BqgqJ0mLANRjhAFLvGAcB5AWdgAnFZhsGx0qTk5G+3Y=
 gitlab.com/elixxir/crypto v0.0.0-20191121235352-86d305a9b253/go.mod h1:+46Zj/NE6JEkXExYnzdvvDokPpDbA+fJsRszvrezK9k=
 gitlab.com/elixxir/crypto v0.0.0-20200108005412-8159c60663f9 h1:MJ87g3yMIvA9MTDMojuqaw1tCxU6LIKzxMaH3oEiP4M=
@@ -233,8 +233,8 @@ gitlab.com/elixxir/crypto v0.0.0-20200108005412-8159c60663f9/go.mod h1:+46Zj/NE6
 gitlab.com/elixxir/primitives v0.0.0-20191028233752-882c08b8f095 h1:fnRh0PUwgy0qlWM7xMdk2w5MXh7gvQ0v/xyedn2gbcY=
 gitlab.com/elixxir/primitives v0.0.0-20191028233752-882c08b8f095/go.mod h1:+UiRRWzNpl/WoWUuQtJSoimfXImJAJ5lrrmg0pQKY3g=
 gitlab.com/elixxir/primitives v0.0.0-20200106183011-a68f1e6f188e/go.mod h1:g9v3S34ZUeqGRiOTV7esByK8a5TovJ3YgTv/328ny6w=
-gitlab.com/elixxir/primitives v0.0.0-20200107180006-ed32faae3625 h1:zkCgjA9/OkL0kgufYeK1nLJlLJZJY9ANJ8IEgd7B0eQ=
-gitlab.com/elixxir/primitives v0.0.0-20200107180006-ed32faae3625/go.mod h1:g9v3S34ZUeqGRiOTV7esByK8a5TovJ3YgTv/328ny6w=
+gitlab.com/elixxir/primitives v0.0.0-20200108174340-0922447aec92 h1:2+gzW9Fy2JIaKlirX+db4+X+Pip36Dt6Z5fC1XYF958=
+gitlab.com/elixxir/primitives v0.0.0-20200108174340-0922447aec92/go.mod h1:g9v3S34ZUeqGRiOTV7esByK8a5TovJ3YgTv/328ny6w=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.opencensus.io v0.21.0/go.mod h1:mSImk1erAIZhrmZN+AvHh14ztQfjbGwt4TtuofqLduU=
 go.opencensus.io v0.22.2/go.mod h1:yxeiOL68Rb0Xd1ddK5vPZ/oVn4vY4Ynel7k9FzqtOIw=

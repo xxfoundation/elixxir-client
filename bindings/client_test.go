@@ -402,7 +402,7 @@ func TestLoginLogout(t *testing.T) {
 
 type MockListener bool
 
-func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
+func (m *MockListener) Hear(msg Message, isHeardElsewhere bool, i ...interface{}) {
 	*m = true
 }
 
@@ -442,6 +442,7 @@ func TestListen(t *testing.T) {
 		Sender:   id.ZeroID,
 		Receiver: client.client.GetCurrentUser(),
 	})
+	time.Sleep(time.Second)
 	if !listener {
 		t.Error("Message not received")
 	}

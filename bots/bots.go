@@ -21,7 +21,7 @@ var UdbID *id.User
 
 type channelResponseListener chan string
 
-func (l *channelResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (l *channelResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	m := msg.(*parse.Message)
 	*l <- string(m.Body)
 }
@@ -36,7 +36,7 @@ var nicknameResponseListener channelResponseListener
 type nickReqListener struct{}
 
 // Nickname listener simply replies with message containing user's nick
-func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool) {
+func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	m := msg.(*parse.Message)
 	nick := session.GetCurrentUser().Username
 	resp := parse.Pack(&parse.TypedBody{

@@ -27,7 +27,6 @@ func (cl *Client) InitNetwork() error {
 	}
 
 	runPermissioning := err != ErrNoPermissioning
-
 	if runPermissioning {
 		err = cl.setupPermissioning()
 

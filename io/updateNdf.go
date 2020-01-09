@@ -23,13 +23,13 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 	//Put the hash in a message
 	msg := &mixmessages.NDFHash{Hash: ndfHash}
 
-	host, ok := comms.GetHost(PermissioningAddrID)
+	regHost, ok := comms.GetHost(PermissioningAddrID)
 	if !ok {
 		return nil, errors.New("Failed to find permissioning host")
 	}
-
+	globals.Log.FATAL.Printf("about to request ndf")
 	//Send the hash to registration
-	response, err := comms.RequestNdf(host, msg)
+	response, err := comms.RequestNdf(regHost, msg)
 	if err != nil {
 		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
 		if errMsg == noNDFErr.Error() {
@@ -44,8 +44,6 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")
 		return nil, nil
 	}
-
-	//FixMe: use verify instead? Probs need to add a signature to ndf, like in registration's getupdate?
 
 	globals.Log.INFO.Printf("Remote NDF: %s", string(response.Ndf))
 

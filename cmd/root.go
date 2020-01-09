@@ -196,7 +196,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			regCode = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		}
 
-		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
+		globals.Log.INFO.Printf("Building keys...")
 
 		var privKey *rsa.PrivateKey
 
@@ -220,8 +220,12 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 			globals.Log.FATAL.Panicf("%+v", err)
 		}
 
+		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
+
+		errRegister := fmt.Errorf("")
+		uid = client.GetCurrentUser()
 		//Attempt to register user with same keys until a success occurs
-		for errRegister := error(nil); errRegister != nil; {
+		for errRegister != nil {
 			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode)
 			if errRegister != nil {
 				globals.Log.FATAL.Panicf("Could Not Register User: %s",

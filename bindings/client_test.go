@@ -402,7 +402,7 @@ func TestLoginLogout(t *testing.T) {
 
 type MockListener bool
 
-func (m *MockListener) Hear(msg Message, isHeardElsewhere bool, i ...interface{}) {
+func (m *MockListener) Hear(msg Message, isHeardElsewhere bool) {
 	*m = true
 }
 

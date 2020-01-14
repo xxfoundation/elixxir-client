@@ -27,7 +27,6 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 	if !ok {
 		return nil, errors.New("Failed to find permissioning host")
 	}
-	globals.Log.FATAL.Printf("about to request ndf")
 	//Send the hash to registration
 	response, err := comms.RequestNdf(regHost, msg)
 	if err != nil {

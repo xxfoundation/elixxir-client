@@ -500,7 +500,7 @@ func getNDF() *ndf.NetworkDefinition {
 
 func startServers() {
 	//func StartRegistrationServer(id, localServer string, handler Handler, certPEMblock, keyPEMblock []byte) *Comms {
-	RegComms = registration.StartRegistrationServer( "testServer", def.Registration.Address, &RegHandler, nil, nil)
+	RegComms = registration.StartRegistrationServer("testServer", def.Registration.Address, &RegHandler, nil, nil)
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways

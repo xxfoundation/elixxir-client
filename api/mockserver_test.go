@@ -63,7 +63,7 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 			Address: string(fmtAddress(GWErrorPort + i)),
 		}
 		testDef.Gateways = append(testDef.Gateways, gw)
-		GWErrComms[i] = gateway.StartGateway(gw.Address,
+		GWErrComms[i] = gateway.StartGateway("testGateway", gw.Address,
 			&GatewayHandlerMultipleMessages{}, nil, nil)
 
 	}
@@ -499,8 +499,8 @@ func getNDF() *ndf.NetworkDefinition {
 }
 
 func startServers() {
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
-		&RegHandler, nil, nil)
+	//func StartRegistrationServer(id, localServer string, handler Handler, certPEMblock, keyPEMblock []byte) *Comms {
+	RegComms = registration.StartRegistrationServer("testServer", def.Registration.Address, &RegHandler, nil, nil)
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways
@@ -511,8 +511,7 @@ func startServers() {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
-			handler, nil, nil)
+		GWComms[i] = gateway.StartGateway("testGateway", gw.Address, handler, nil, nil)
 	}
 }
 

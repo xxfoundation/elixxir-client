@@ -21,7 +21,6 @@ const SaltSize = 256
 //RegisterWithPermissioning registers the user and returns the User ID.
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.User, error) {
-
 	//Check the regState is in proper state for registration
 	if cl.session.GetRegState() != user.KeyGenComplete {
 		return nil, errors.Errorf("Attempting to register before key generation!")
@@ -52,7 +51,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		for n, k := range nodeKeyMap {
 			cl.session.PushNodeKey(&n, k)
 		}
-
 		//update the state
 		err := cl.session.SetRegState(user.PermissioningComplete)
 		if err != nil {
@@ -166,7 +164,6 @@ func (cl *Client) RegisterWithNodes() error {
 
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
-
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
@@ -193,7 +190,6 @@ func (cl *Client) RegisterWithNodes() error {
 			}()
 		}
 	}
-
 	wg.Wait()
 	//See if the registration returned errors at all
 	var errs error
@@ -250,6 +246,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	if err != nil {
 		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
 		errorChan <- errors.New(errMsg)
+		return
 	}
 
 	// Load server DH pubkey
@@ -261,6 +258,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	if err != nil {
 		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
 		errorChan <- errors.New(errMsg)
+		return
 	}
 	nodeID := cl.topology.GetNodeAtIndex(index)
 	key := user.NodeKeys{
@@ -289,6 +287,7 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
 		}
 	}
+
 	globals.Log.INFO.Println("Register: successfully passed Registration message")
 
 	return regValidSig, nil

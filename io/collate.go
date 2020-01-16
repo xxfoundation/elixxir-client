@@ -9,6 +9,7 @@ package io
 import (
 	"crypto/sha256"
 	"fmt"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/format"
@@ -58,7 +59,8 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
 	err := timestamp.UnmarshalBinary(message.GetTimestamp()[:len(message.GetTimestamp())-1])
 
 	if err != nil {
-		globals.Log.WARN.Printf("Failed to parse timestamp for message: %v", message.GetTimestamp())
+		globals.Log.WARN.Printf("Failed to parse timestamp for message %v: %+v",
+			message.GetTimestamp(), errors.New(err.Error()))
 	}
 
 	partition, err := parse.ValidatePartition(payload)

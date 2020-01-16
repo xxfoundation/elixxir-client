@@ -80,6 +80,10 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 	var result *parse.Message
 	for i := range partitions {
 		fm := format.NewMessage()
+		now := time.Now()
+		nowBytes, _ := now.MarshalBinary()
+		nowBytes = append(nowBytes, make([]byte, format.TimestampLen-len(nowBytes))...)
+		fm.SetTimestamp(nowBytes)
 		fm.SetRecipient(id.NewUserFromUint(6, t))
 		fm.Contents.SetRightAligned(partitions[i])
 

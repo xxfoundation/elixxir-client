@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/gateway"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -59,7 +60,9 @@ func (i *MockRegistration) GetCurrentClientVersion() (string, error) {
 	return globals.SEMVER, nil
 }
 
-func (i *MockRegistration) PollNdf(clientNdfHash []byte) ([]byte, error) {
+func (i *MockRegistration) PollNdf(clientNdfHash []byte,
+	auth *connect.Auth) ([]byte,
+	error) {
 	ndfJson, _ := json.Marshal(def)
 	return ndfJson, nil
 }
@@ -439,6 +442,7 @@ func TestListen(t *testing.T) {
 		Sender:   id.ZeroID,
 		Receiver: client.client.GetCurrentUser(),
 	})
+	time.Sleep(time.Second)
 	if !listener {
 		t.Error("Message not received")
 	}
@@ -566,7 +570,7 @@ func testMainWrapper(m *testing.M) int {
 
 	// Initialize permissioning server
 	pAddr := def.Registration.Address
-	RegComms = registration.StartRegistrationServer(pAddr, &RegHandler, nil, nil)
+	RegComms = registration.StartRegistrationServer("testRegServer", pAddr, &RegHandler, nil, nil)
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	//the ports used are colliding between tests in GoLand when running full suite, this is a dumb fix
@@ -578,7 +582,7 @@ func testMainWrapper(m *testing.M) int {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway(gw.Address,
+		GWComms[i] = gateway.StartGateway("testGateway", gw.Address,
 			gateway.NewImplementation(), nil, nil)
 	}
 
@@ -586,7 +590,7 @@ func testMainWrapper(m *testing.M) int {
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
-	RegComms = registration.StartRegistrationServer(def.Registration.Address,
+	RegComms = registration.StartRegistrationServer("testRegServer", def.Registration.Address,
 		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {

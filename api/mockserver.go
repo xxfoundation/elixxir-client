@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -165,7 +166,7 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 	return nil
 }
 
-func (s *MockRegistration) PollNdf(clientNdfHash []byte) ([]byte, error) {
+func (s *MockRegistration) PollNdf(clientNdfHash []byte, auth *connect.Auth) ([]byte, error) {
 
 	ndfData := def
 

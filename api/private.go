@@ -85,7 +85,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 	if !ok {
 		return nil, errors.New("Failed to find permissioning host")
 	}
-	fmt.Println("in reg, pub key ", publicKeyRSA)
+
 	response, err := cl.receptionManager.Comms.
 		SendRegistrationMessage(host,
 			&pb.UserRegistration{
@@ -130,6 +130,7 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 	if !ok {
 		return nil, nil, errors.Errorf("Failed to find host with ID %s", gwID.String())
 	}
+
 	nonceResponse, err := cl.receptionManager.Comms.
 		SendRequestNonceMessage(host,
 			&pb.NonceRequest{
@@ -152,7 +153,6 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 		err := errors.New(fmt.Sprintf("requestNonce: nonceResponse error: %s", nonceResponse.Error))
 		return nil, nil, err
 	}
-
 	// Use Client keypair to sign Server nonce
 	return nonceResponse.Nonce, nonceResponse.DHPubKey, nil
 
@@ -301,7 +301,6 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 
 	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
 		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
-
 	//store the session
 	return cl.session.StoreSession()
 }

@@ -82,9 +82,8 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 					time.Sleep(5 * time.Second)
 				} else if !strings.Contains(err.Error(), "Could not find any message IDs for this user") {
 					go callback(err)
+					return
 				}
-
-				return
 			}
 			NumMessages += len(encryptedMessages)
 		case <-rm.rekeyChan:

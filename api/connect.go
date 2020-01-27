@@ -9,7 +9,6 @@ package api
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/comms/connect"
@@ -35,7 +34,7 @@ func (cl *Client) InitNetwork() error {
 
 	runPermissioning := err != ErrNoPermissioning
 	if runPermissioning {
-		jww.DEBUG.Printf("Setting up permissioning...")
+		globals.Log.DEBUG.Printf("Setting up permissioning...")
 		err = cl.setupPermissioning()
 
 		if err != nil {
@@ -97,7 +96,7 @@ func (cl *Client) setupPermissioning() error {
 			"access to the registration server?")
 	}
 
-	jww.DEBUG.Printf("Local version: %v; Remote version: %v",
+	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
 		globals.SEMVER, cl.GetRegistrationVersion())
 	return nil
 

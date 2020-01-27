@@ -1,8 +1,15 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package api
 
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/comms/connect"
@@ -53,9 +60,8 @@ func (cl *Client) DisableTls() {
 	cl.receptionManager.Tls = false
 }
 
+// Begin client version checks via registration server
 func (cl *Client) setupPermissioning() error {
-	// Permissioning was found in ndf run corresponding code
-
 	//Get remote version and update
 	ver, err := cl.receptionManager.GetRemoteVersion()
 	if err != nil {
@@ -80,9 +86,9 @@ func (cl *Client) setupPermissioning() error {
 			return err
 		}
 		if !ok {
-			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.GetRegistrationVersion()))
-			return err
+			return errors.Errorf("Couldn't connect to gateways: Versions"+
+				" incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.GetRegistrationVersion())
 		}
 	} else {
 		globals.Log.WARN.Printf("Not checking version from " +
@@ -90,6 +96,8 @@ func (cl *Client) setupPermissioning() error {
 			"access to the registration server?")
 	}
 
+	jww.DEBUG.Printf("Local version: %v; Remote version: %v",
+		globals.SEMVER, cl.GetRegistrationVersion())
 	return nil
 
 }

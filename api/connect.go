@@ -35,6 +35,7 @@ func (cl *Client) InitNetwork() error {
 
 	runPermissioning := err != ErrNoPermissioning
 	if runPermissioning {
+		jww.DEBUG.Printf("Setting up permissioning...")
 		err = cl.setupPermissioning()
 
 		if err != nil {

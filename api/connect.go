@@ -14,7 +14,7 @@ var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
-func (cl *Client) InitNetwork() error {
+func (cl *Client) InitNetwork(localNDF bool) error {
 	//InitNetwork to permissioning
 	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
 
@@ -27,8 +27,9 @@ func (cl *Client) InitNetwork() error {
 	}
 
 	runPermissioning := err != ErrNoPermissioning
+	globals.Log.INFO.Println("localNDF: ", localNDF)
 	if runPermissioning {
-		err = cl.setupPermissioning()
+		err = cl.setupPermissioning(localNDF)
 
 		if err != nil {
 			return err
@@ -53,7 +54,7 @@ func (cl *Client) DisableTls() {
 	cl.receptionManager.Tls = false
 }
 
-func (cl *Client) setupPermissioning() error {
+func (cl *Client) setupPermissioning(localNDF bool) error {
 	// Permissioning was found in ndf run corresponding code
 
 	//Get remote version and update
@@ -63,14 +64,17 @@ func (cl *Client) setupPermissioning() error {
 	}
 	cl.registrationVersion = ver
 
-	//Request a new ndf from permissioning
-	def, err = io.PollNdf(cl.ndf, cl.receptionManager.Comms)
-	if err != nil {
-		return err
+	if !localNDF {
+		//Request a new ndf from permissioning
+		def, err = io.PollNdf(cl.ndf, cl.receptionManager.Comms)
+		if err != nil {
+			return err
+		}
+		if def != nil {
+			cl.ndf = def
+		}
 	}
-	if def != nil {
-		cl.ndf = def
-	}
+
 
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning

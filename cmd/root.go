@@ -57,6 +57,7 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
+var localNDF bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -178,7 +179,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(localNDF)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
@@ -401,15 +402,18 @@ var rootCmd = &cobra.Command{
 		// Log the user in, for now using the first gateway specified
 		// This will also register the user email with UDB
 		globals.Log.INFO.Println("Logging in...")
-		cb := func(err error) {
-			globals.Log.ERROR.Print(err)
-		}
+
 		err := client.InitListeners()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
 
+		cb := func(err error) {
+			globals.Log.ERROR.Println(err.Error())
+		}
+
 		err = client.StartMessageReceiver(cb)
+
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
@@ -434,6 +438,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if destinationUserId == 0 && destinationUserIDBase64 == "" {
+			fmt.Println("replaced uid to: " + string(userId))
 			recipientId = userID
 		} else if destinationUserIDBase64 != "" {
 			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)
@@ -615,6 +620,11 @@ func init() {
 		"P",
 		"",
 		"Password to the session file")
+
+	rootCmd.PersistentFlags().BoolVar(&localNDF,
+		"localNDF",
+		false,
+		"The client soely uses the local NDF and does not poll for an external one")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

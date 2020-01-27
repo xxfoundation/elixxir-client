@@ -77,7 +77,7 @@ func checkVersion(ours string, theirs string) (ok bool, err error) {
 		return false, errors.Wrapf(err,
 			"Error parsing our version (%v)", ours)
 	}
-	return theirVersion.isCompatible(ourVersion), nil
+	return ourVersion.isCompatible(theirVersion), nil
 }
 
 // Utility method, returns whether the local version and remote version are

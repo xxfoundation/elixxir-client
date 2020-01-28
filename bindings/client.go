@@ -8,7 +8,7 @@ package bindings
 
 import (
 	"crypto/rand"
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"

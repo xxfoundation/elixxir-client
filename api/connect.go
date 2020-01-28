@@ -78,6 +78,9 @@ func (cl *Client) setupPermissioning() error {
 		cl.ndf = def
 	}
 
+	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
+		globals.SEMVER, cl.GetRegistrationVersion())
+
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.GetRegistrationVersion() != "" {
@@ -96,8 +99,6 @@ func (cl *Client) setupPermissioning() error {
 			"access to the registration server?")
 	}
 
-	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
-		globals.SEMVER, cl.GetRegistrationVersion())
 	return nil
 
 }

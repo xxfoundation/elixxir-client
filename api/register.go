@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package api
 
 import (
@@ -111,12 +117,10 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
 		err = bots.Register(valueType, username, publicKeyBytes, cl.opStatus, timeout)
-		if err == nil {
-			globals.Log.INFO.Printf("Registered with UDB!")
-		} else {
-			globals.Log.WARN.Printf("Could not register with UDB: %s", err)
+		if err != nil {
+			return errors.Errorf("Could not register with UDB: %s", err)
 		}
-
+		globals.Log.INFO.Printf("Registered with UDB!")
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
 			"email found")

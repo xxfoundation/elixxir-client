@@ -382,6 +382,10 @@ var rootCmd = &cobra.Command{
 		}
 
 		userID, _, client := sessionInitialization()
+		err := client.RegisterWithNodes()
+		if err != nil {
+			globals.Log.ERROR.Println(err)
+		}
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
 			setKeyParams(client)
@@ -404,7 +408,7 @@ var rootCmd = &cobra.Command{
 		cb := func(err error) {
 			globals.Log.ERROR.Print(err)
 		}
-		err := client.InitListeners()
+		err = client.InitListeners()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}

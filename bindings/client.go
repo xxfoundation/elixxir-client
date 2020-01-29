@@ -176,6 +176,12 @@ func (cl *Client) GetUsername() string {
 	return cl.client.GetSession().GetCurrentUser().Username
 }
 
+func (cl *Client) GetUserID() []byte {
+	globals.Log.INFO.Printf("Binding call: GetUserID()")
+
+	return cl.client.GetSession().GetCurrentUser().User[:]
+}
+
 type MessageReceiverCallback interface {
 	Callback(err error)
 }

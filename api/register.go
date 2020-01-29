@@ -168,6 +168,21 @@ func (cl *Client) RegisterWithNodes() error {
 
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
+	if len(regSignature) > 10 {
+		// Or register with the permissioning server and generate user information
+		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
+		if err != nil {
+			globals.Log.INFO.Printf(err.Error())
+			return err
+		}
+		//update the session with the registration
+		err = cl.session.RegisterPermissioningSignature(regSignature)
+
+		if err != nil {
+			return err
+		}
+	}
+
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 

@@ -170,7 +170,7 @@ func (cl *Client) RegisterWithNodes() error {
 	regSignature := session.GetRegistrationValidationSignature()
 	//Storage of the registration signature was broken in previous releases.
 	//get the signature again from permissioning if it is absent
-	if len(regSignature) > 10 {
+	if len(regSignature) < 10 {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
 		if err != nil {

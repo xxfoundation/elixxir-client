@@ -166,8 +166,10 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the user ID
 	UID := session.GetCurrentUser().User
 
-	//Load the registration signature
+
 	regSignature := session.GetRegistrationValidationSignature()
+	//Storage of the registration signature was broken in previous releases.
+	//get the signature again from permissioning if it is absent
 	if len(regSignature) > 10 {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
@@ -176,12 +178,17 @@ func (cl *Client) RegisterWithNodes() error {
 			return err
 		}
 		//update the session with the registration
-		err = cl.session.RegisterPermissioningSignature(regSignature)
+		//HACK HACK HACK
+		sesObj := cl.session.(*user.SessionObj)
+		sesObj.RegValidationSignature = regSignature
+		err = sesObj.StoreSession()
 
 		if err != nil {
 			return err
 		}
 	}
+
+	//Load the registration signature
 
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))

@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -96,7 +97,7 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	}
 
 	err = client.RegisterWithNodes()
-	if err != nil {
+	if err != nil && !strings.Contains(err.Error(), "No registration attempted, registration server not known") {
 		t.Error(err)
 	}
 

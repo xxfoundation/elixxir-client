@@ -304,14 +304,17 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	globals.Log.INFO.Printf("Registering dynamic user...")
 
 	// If Registration Server is specified, contact it
-	// Only if registrationCode is set
-	globals.Log.INFO.Println("Register: Contacting registration server")
-	if cl.ndf.Registration.Address != "" && registrationCode != "" {
+
+	if cl.ndf.Registration.Address != "" {
+		globals.Log.INFO.Println("Register: Registering with registration server")
 		cl.opStatus(globals.REG_PERM)
 		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
 		if err != nil {
 			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
 		}
+	} else {
+		globals.Log.INFO.Println("Register: No registration attempted, " +
+			"registration server not known")
 	}
 
 	globals.Log.INFO.Println("Register: successfully passed Registration message")

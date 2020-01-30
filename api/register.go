@@ -166,10 +166,12 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the user ID
 	UID := session.GetCurrentUser().User
 
-
+	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
+
 	//Storage of the registration signature was broken in previous releases.
 	//get the signature again from permissioning if it is absent
+	//FIX-ME: check the signature is properly structured instead of the magic number
 	if len(regSignature) < 10 {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
@@ -188,8 +190,7 @@ func (cl *Client) RegisterWithNodes() error {
 		}
 	}
 
-	//Load the registration signature
-
+	//make the wait group to wait for all node registrations to complete
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
@@ -303,18 +304,20 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	//Set the opStatus and log registration
 	globals.Log.INFO.Printf("Registering dynamic user...")
 
-	// If Registration Server is specified, contact it.  Otherwise return an error
-	if cl.ndf.Registration.Address != "" {
-		globals.Log.INFO.Println("Register: Registering with registration server")
-		cl.opStatus(globals.REG_PERM)
-		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-		if err != nil {
-			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
-		}
-	} else {
+	// If Registration Server is not specified return an error
+	if cl.ndf.Registration.Address == "" {
 		return nil, errors.New("No registration attempted, " +
 			"registration server not known")
 	}
+
+	// attempt to register with registration
+	globals.Log.INFO.Println("Register: Registering with registration server")
+	cl.opStatus(globals.REG_PERM)
+	regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+	if err != nil {
+		return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
+	}
+
 
 	globals.Log.INFO.Println("Register: successfully registered")
 

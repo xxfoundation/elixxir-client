@@ -8,7 +8,7 @@ package bindings
 
 import (
 	"crypto/rand"
-	"github.com/pkg/errors"
+	"errors"
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
@@ -174,6 +174,12 @@ func (cl *Client) GetUsername() string {
 	globals.Log.INFO.Printf("Binding call: GetUsername()")
 
 	return cl.client.GetSession().GetCurrentUser().Username
+}
+
+func (cl *Client) GetUserID() []byte {
+	globals.Log.INFO.Printf("Binding call: GetUserID()")
+
+	return cl.client.GetSession().GetCurrentUser().User[:]
 }
 
 type MessageReceiverCallback interface {

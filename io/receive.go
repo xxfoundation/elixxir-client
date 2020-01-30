@@ -80,9 +80,10 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 				if strings.Contains(err.Error(), "Client has exceeded communications rate limit") {
 					globals.Log.WARN.Printf("Rate limit excceded on gateway, pausing polling for 5 seconds")
 					time.Sleep(5 * time.Second)
+				} else if !strings.Contains(err.Error(), "Could not find any message IDs for this user") {
+					go callback(err)
+					return
 				}
-				go callback(err)
-				return
 			}
 			NumMessages += len(encryptedMessages)
 		case <-rm.rekeyChan:

@@ -303,8 +303,7 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	//Set the opStatus and log registration
 	globals.Log.INFO.Printf("Registering dynamic user...")
 
-	// If Registration Server is specified, contact it
-
+	// If Registration Server is specified, contact it.  Otherwise return an error
 	if cl.ndf.Registration.Address != "" {
 		globals.Log.INFO.Println("Register: Registering with registration server")
 		cl.opStatus(globals.REG_PERM)
@@ -313,11 +312,11 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
 		}
 	} else {
-		globals.Log.INFO.Println("Register: No registration attempted, " +
+		return nil, errors.New("No registration attempted, " +
 			"registration server not known")
 	}
 
-	globals.Log.INFO.Println("Register: successfully passed Registration message")
+	globals.Log.INFO.Println("Register: successfully registered")
 
 	return regValidSig, nil
 }

@@ -72,5 +72,5 @@ var packageTemplate = template.Must(template.New("").Parse(
 		"// {{ .Timestamp }}\n" +
 		"package globals\n\n" +
 		"const GITVERSION = `{{ .GITVER }}`\n" +
-		"const SEMVER = \"1.0.0\"\n" +
+		"const SEMVER = \"1.1.0\"\n" +
 		"const GLIDEDEPS = `{{ .GLIDEDEPS }}`\n"))

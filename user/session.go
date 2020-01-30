@@ -285,7 +285,7 @@ type SessionObj struct {
 	password string
 
 	//The validation signature provided by permissioning
-	regValidationSignature []byte
+	RegValidationSignature []byte
 
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
@@ -384,6 +384,8 @@ func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
 	defer s.UnlockStorage()
 
 	s.NodeKeys[*id] = key
+
+	return
 }
 
 //RegisterPermissioningSignature sets sessions registration signature and
@@ -397,9 +399,12 @@ func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
 		return errors.Wrap(err, "Could not store permissioning signature")
 	}
 
-	s.regValidationSignature = sig
+	s.RegValidationSignature = sig
 
-	return nil
+	//storing to ensure we never loose the signature
+	err = s.storeSession()
+
+	return err
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
@@ -447,7 +452,7 @@ func (s *SessionObj) GetCmixGroup() *cyclic.Group {
 func (s *SessionObj) GetRegistrationValidationSignature() []byte {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.regValidationSignature
+	return s.RegValidationSignature
 }
 
 func (s *SessionObj) GetE2EGroup() *cyclic.Group {

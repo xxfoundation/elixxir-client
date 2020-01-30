@@ -289,7 +289,7 @@ func TestGetPubKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(nil,
+	ses := NewSession(&globals.RamStorage{},
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -349,12 +349,6 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	err := ses.RegisterPermissioningSignature(regSignature)
-	if err != nil {
-		t.Errorf("failure in setting register up for permissioning: %s",
-			err.Error())
-	}
-
 	ses.PushNodeKey(nodeID, NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
@@ -364,9 +358,9 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 
 	//Test that the session is empty before the StoreSession call
 	if !ses.StorageIsEmpty() {
-		t.Errorf("session should be empty before a StoreSession call")
+		t.Errorf("session should be empty before the StoreSession call")
 	}
-	err = ses.StoreSession()
+	err := ses.StoreSession()
 	if err != nil {
 		t.Errorf("Failed to store session: %v", err)
 	}
@@ -461,7 +455,7 @@ func TestGetPrivKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(nil,
+	ses := NewSession(&globals.RamStorage{},
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")

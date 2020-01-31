@@ -115,6 +115,7 @@ func ConvertSessionV1toV2(inputWrappedSession *SessionStorageWrapper) (*SessionS
 	//port identical values over
 	sessionV2.NodeKeys = sessionV1.Keys
 	sessionV2.RSAPrivateKey = sessionV1.RSAPrivateKey
+	sessionV2.RSAPublicKey = sessionV1.RSAPublicKey
 	sessionV2.CMIXDHPrivateKey = sessionV1.CMIXDHPrivateKey
 	sessionV2.CMIXDHPublicKey = sessionV1.CMIXDHPublicKey
 	sessionV2.E2EDHPrivateKey = sessionV1.E2EDHPrivateKey

@@ -165,6 +165,10 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 		ConvertSessionV1toV2(&session)
 	}
 
+	if session.NodeKeys == nil {
+		session.NodeKeys = make(map[id.Node]NodeKeys)
+	}
+
 	return &session, nil
 }
 

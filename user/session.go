@@ -136,6 +136,7 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	for wrappedSession.Version != SessionVersion {
 		switch wrappedSession.Version {
 		case 1:
+			globals.Log.INFO.Println("Converting session file from V1 to V2")
 			wrappedSession, err = ConvertSessionV1toV2(wrappedSession)
 		default:
 		}
@@ -149,7 +150,6 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 
 	sessionBytes.Write(wrappedSession.Session)
 	dec := gob.NewDecoder(&sessionBytes)
-
 
 	session := SessionObj{}
 
@@ -171,11 +171,6 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	// Set storage pointer
 	session.store = store
 	session.password = password
-
-	// Update the session object to version 2 if it is currently version 1
-	if wrappedSession.Version == 1 {
-		ConvertSessionV1toV2(wrappedSession)
-	}
 
 	if session.NodeKeys == nil {
 		session.NodeKeys = make(map[id.Node]NodeKeys)

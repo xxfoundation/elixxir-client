@@ -86,7 +86,7 @@ build:
     - git remote remove origin
     - git remote add origin git@gitlab.com:elixxir/client.git
     - git tag $(release/client.linux64 -V | grep "Elixxir Client v"| cut -d ' ' -f3)
-    - git push -i $GIT_TAG_PRIV_KEY --tags
+    - git -i $GIT_TAG_PRIV_KEY push --tags
   artifacts:
     paths:
      - release/

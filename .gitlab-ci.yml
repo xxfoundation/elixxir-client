@@ -83,10 +83,9 @@ build:
     - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
     - release/client.linux64 --version
-    - git remote remove origin
-    - git remote add origin git@gitlab.com:elixxir/client.git
+    - git remote add origin_tags git@gitlab.com:elixxir/client.git
     - git tag $(release/client.linux64 -V | grep "Elixxir Client v"| cut -d ' ' -f3)
-    - GIT_SSH_COMMAND="ssh -i $GIT_TAG_PRIV_KEY" git push --tags
+    - GIT_SSH_COMMAND="ssh -i $GIT_TAG_PRIV_KEY" git push origin_tags --tags
   artifacts:
     paths:
      - release/

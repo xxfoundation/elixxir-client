@@ -84,7 +84,7 @@ build:
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
     - release/client.linux64 --version
     - git tag $(release/client.linux64 -V | grep "Elixxir Client v"| cut -d ' ' -f3) -f
-    - git push origin_tags --tags
+    - git push -f --tags
   artifacts:
     paths:
      - release/

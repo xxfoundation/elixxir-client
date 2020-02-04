@@ -205,6 +205,36 @@ func TestClient_ChangeUsername(t *testing.T) {
 
 }
 
+func TestClient_StorageIsEmpty(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode)
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+
+	if testClient.StorageIsEmpty() {
+		t.Errorf("Unexpected empty storage!")
+	}
+}
+
 //Error path: Have added no contacts, so deleting a contact should fail
 func TestDeleteUsername_EmptyContactList(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)

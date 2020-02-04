@@ -324,7 +324,7 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	// Test send with invalid sender ID
-	err = testClient.Send(
+	_, err = testClient.Send(
 		mockMesssage{
 			Sender:    id.NewUserFromUint(12, t),
 			TypedBody: parse.TypedBody{Body: []byte("test")},
@@ -338,7 +338,7 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	// Test send with valid inputs
-	err = testClient.Send(
+	_, err = testClient.Send(
 		mockMesssage{
 			Sender:    id.NewUserFromBytes(userID),
 			TypedBody: parse.TypedBody{Body: []byte("test")},

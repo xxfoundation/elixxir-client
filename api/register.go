@@ -170,20 +170,21 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
-	// Load certificate object
-	cert, err := tls.LoadCertificate(cl.ndf.Registration.TlsCertificate)
-	if err != nil {
-		return errors.Errorf("Failed to parse certificate: %+v", err)
+	var regPubKey *rsa.PublicKey
+	if cl.ndf.Registration.TlsCertificate != "" {
+		// Load certificate object
+		cert, err := tls.LoadCertificate(cl.ndf.Registration.TlsCertificate)
+		if err != nil {
+			return errors.Errorf("Failed to parse certificate: %+v", err)
+		}
+		//Extract public key from cert
+		regPubKey, err = tls.ExtractPublicKey(cert)
+		if err != nil {
+			return errors.Errorf("Failed to pull key from cert: %+v", err)
+		}
 	}
-
-	//Extract public key from cert
-	regPubKey, err := tls.ExtractPublicKey(cert)
-	if err != nil {
-		return errors.Errorf("Failed to pull key from cert: %+v", err)
-	}
-
-	//Storage of the registration signature was broken in previous releases.
-	//get the signature again from permissioning if it is absent
+	// Storage of the registration signature was broken in previous releases.
+	// get the signature again from permissioning if it is absent
 	if !rsa.IsValidSignature(regPubKey, regSignature) {
 
 		// Or register with the permissioning server and generate user information

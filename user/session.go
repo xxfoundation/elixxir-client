@@ -240,6 +240,8 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 }
 
 // Struct holding relevant session data
+// When adding to this structure, ALWAYS ALWAYS
+// consider if you want the data to be in the session file
 type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User

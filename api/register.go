@@ -170,7 +170,6 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
-<<<<<<< HEAD
 	var regPubKey *rsa.PublicKey
 	if cl.ndf.Registration.TlsCertificate != "" {
 		// Load certificate object

@@ -170,6 +170,7 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
+<<<<<<< HEAD
 	var regPubKey *rsa.PublicKey
 	if cl.ndf.Registration.TlsCertificate != "" {
 		// Load certificate object
@@ -185,8 +186,8 @@ func (cl *Client) RegisterWithNodes() error {
 	}
 	// Storage of the registration signature was broken in previous releases.
 	// get the signature again from permissioning if it is absent
-	if !rsa.IsValidSignature(regPubKey, regSignature) {
-
+	if !rsa.IsValidSignature(regPubKey, regSignature) && !(UID[0] == 0 &&
+		UID[1] == 0 && UID[2] == 0 && UID[4] < 20) {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
 		if err != nil {

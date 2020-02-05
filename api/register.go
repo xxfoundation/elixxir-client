@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/tls"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
 	"time"
@@ -169,10 +170,23 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
-	//Storage of the registration signature was broken in previous releases.
-	//get the signature again from permissioning if it is absent
-	//FIX-ME: check the signature is properly structured instead of the magic number
-	if len(regSignature) < 10 {
+	var regPubKey *rsa.PublicKey
+	if cl.ndf.Registration.TlsCertificate != "" {
+		// Load certificate object
+		cert, err := tls.LoadCertificate(cl.ndf.Registration.TlsCertificate)
+		if err != nil {
+			return errors.Errorf("Failed to parse certificate: %+v", err)
+		}
+		//Extract public key from cert
+		regPubKey, err = tls.ExtractPublicKey(cert)
+		if err != nil {
+			return errors.Errorf("Failed to pull key from cert: %+v", err)
+		}
+	}
+	// Storage of the registration signature was broken in previous releases.
+	// get the signature again from permissioning if it is absent
+	if !rsa.IsValidSignature(regPubKey, regSignature) && !(UID[0] == 0 &&
+		UID[1] == 0 && UID[2] == 0 && UID[4] < 20) {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
 		if err != nil {
@@ -317,7 +331,6 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	if err != nil {
 		return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
 	}
-
 
 	globals.Log.INFO.Println("Register: successfully registered")
 

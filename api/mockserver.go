@@ -149,7 +149,6 @@ func (s *MockRegistration) RegisterNode(ID []byte,
 func (s *MockRegistration) PollNdf(clientNdfHash []byte, auth *connect.Auth) ([]byte, error) {
 
 	ndfData := def
-	globals.Log.ERROR.Printf("def fuck: %+v", def)
 	ndfJson, _ := json.Marshal(ndfData)
 	return ndfJson, nil
 }

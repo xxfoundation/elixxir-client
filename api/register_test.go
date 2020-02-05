@@ -69,7 +69,7 @@ func TestClient_Register(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	t.Errorf("def: %+v", testClient.ndf)
+
 	err = testClient.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)

@@ -673,14 +673,11 @@ func TestConvertSessionV1toV2_Error(t *testing.T) {
 
 	_ = gob.NewEncoder(&sessionBuffer)
 
-
-	storageWrapper := &SessionStorageWrapper{Version: 1, Session:sessionBuffer.Bytes() }
+	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
 
 	_, err := ConvertSessionV1toV2(storageWrapper)
 	if err == nil {
 		t.Errorf("Failed conversion: %+v", err)
 	}
-
-
 
 }

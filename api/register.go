@@ -172,7 +172,8 @@ func (cl *Client) RegisterWithNodes() error {
 	//Storage of the registration signature was broken in previous releases.
 	//get the signature again from permissioning if it is absent
 	//FIX-ME: check the signature is properly structured instead of the magic number
-	if len(regSignature) < 10 {
+	if len(regSignature) < 10 && !(UID[0] == 0 && UID[1] == 0 &&
+		UID[2] == 0 && UID[4] < 20) {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
 		if err != nil {
@@ -317,7 +318,6 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	if err != nil {
 		return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
 	}
-
 
 	globals.Log.INFO.Println("Register: successfully registered")
 

@@ -76,6 +76,10 @@ type GatewayHandler struct {
 	LastReceivedMessage pb.Slot
 }
 
+func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]string, error) {
+	return nil, nil
+}
+
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
 func (m *GatewayHandler) GetMessage(userId *id.User,
@@ -128,6 +132,10 @@ func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
 		PayloadA: payload,
 		PayloadB: payload,
 	}, nil
+}
+
+func (m *GatewayHandlerMultipleMessages) PollForNotifications(auth *connect.Auth) ([]string, error) {
+	return nil, nil
 }
 
 // Return any MessageIDs in the globals for this User

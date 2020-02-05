@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/tls"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/elixxir/primitives/ndf"
 	"sync"
 	"time"
 )
@@ -170,19 +171,17 @@ func (cl *Client) RegisterWithNodes() error {
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
 
+	// Storage of the registration signature was broken in previous releases.
+	// get the signature again from permissioning if it is absent
 	var regPubKey *rsa.PublicKey
 	if cl.ndf.Registration.TlsCertificate != "" {
-		// Load certificate object
-		cert, err := tls.LoadCertificate(cl.ndf.Registration.TlsCertificate)
+		var err error
+		regPubKey, err = extractPublicKeyFromCert(cl.ndf)
 		if err != nil {
-			return errors.Errorf("Failed to parse certificate: %+v", err)
-		}
-		//Extract public key from cert
-		regPubKey, err = tls.ExtractPublicKey(cert)
-		if err != nil {
-			return errors.Errorf("Failed to pull key from cert: %+v", err)
+			return err
 		}
 	}
+
 	// Storage of the registration signature was broken in previous releases.
 	// get the signature again from permissioning if it is absent
 	if !rsa.IsValidSignature(regPubKey, regSignature) && !(UID[0] == 0 &&
@@ -335,4 +334,20 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	globals.Log.INFO.Println("Register: successfully registered")
 
 	return regValidSig, nil
+}
+
+func extractPublicKeyFromCert(definition *ndf.NetworkDefinition) (*rsa.PublicKey, error) {
+	// Load certificate object
+	cert, err := tls.LoadCertificate(definition.Registration.TlsCertificate)
+	if err != nil {
+		return nil, errors.Errorf("Failed to parse certificate: %+v", err)
+	}
+	//Extract public key from cert
+	regPubKey, err := tls.ExtractPublicKey(cert)
+	if err != nil {
+		return nil, errors.Errorf("Failed to pull key from cert: %+v", err)
+	}
+
+	return regPubKey, nil
+
 }

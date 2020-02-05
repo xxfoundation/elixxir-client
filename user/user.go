@@ -113,6 +113,7 @@ func newRegistry(grp *cyclic.Group) Registry {
 type User struct {
 	User     *id.User
 	Username string
+	Precan   bool
 }
 
 // DeepCopy performs a deep copy of a user and returns a pointer to the new copy

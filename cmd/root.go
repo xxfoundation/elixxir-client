@@ -467,7 +467,7 @@ var rootCmd = &cobra.Command{
 				wireOut := api.FormatTextMessage(message)
 
 				for i := uint(0); i < messageCnt; i++ {
-					fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+					fmt.Printf("Sending Message to %s, %v: %s\n", base64.StdEncoding.EncodeToString(recipientId.Bytes()),
 						recipientNick, message)
 					if i != 0 {
 						time.Sleep(1 * time.Second)

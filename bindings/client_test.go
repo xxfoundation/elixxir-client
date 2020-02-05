@@ -121,7 +121,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = client.client.GenerateKeys(nil, "")
+	err = client.GenerateKeys("")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}

@@ -9,6 +9,7 @@ package user
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -631,4 +632,32 @@ func GenerateTestMessages(size int) []*format.Message {
 	}
 
 	return msgs
+}
+
+// Smoke test
+func TestConvertSessionV1toV2(t *testing.T) {
+	u := new(User)
+	UID := id.NewUserFromUint(1, t)
+
+	u.User = UID
+	u.Username = "Bernie"
+
+	session := NewSession(nil, u, nil, nil,
+		nil, nil, nil,
+		nil, nil, nil, nil, "")
+	var sessionBuffer bytes.Buffer
+
+	enc := gob.NewEncoder(&sessionBuffer)
+
+	err := enc.Encode(session)
+	if err != nil {
+		t.Errorf("Failed to getSessionData: %+v", err)
+	}
+
+	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
+	_, err = ConvertSessionV1toV2(storageWrapper)
+	if err != nil {
+		t.Errorf("Failed conversion: %+v", err)
+	}
+
 }

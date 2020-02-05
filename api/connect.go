@@ -22,7 +22,7 @@ var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 // credential information for connection establishment
 func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
-	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+	err := addPermissioningHost(cl.receptionManager, cl.ndf)
 
 	if err != nil {
 		if err != ErrNoPermissioning {
@@ -45,16 +45,16 @@ func (cl *Client) InitNetwork() error {
 	// InitNetwork to nodes
 	cl.topology = BuildNodeTopology(cl.ndf)
 
-	err = AddNotificationBotHost(cl.receptionManager, cl.ndf)
+	err = addNotificationBotHost(cl.receptionManager, cl.ndf)
 	if err != nil {
 		return errors.Errorf("Failed to connect to notification bot at %+v", cl.ndf)
 	}
 
-	return AddGatewayHosts(cl.receptionManager, cl.ndf)
+	return addGatewayHosts(cl.receptionManager, cl.ndf)
 }
 
 // AddNotificationBotHost adds notification bot as a host within the reception manager
-func AddNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 
 	err := addHost(rm, id.NOTIFICATION_BOT, definition.Notification.Address,
 		definition.Notification.TlsCertificate, false, false)
@@ -129,7 +129,7 @@ func (cl *Client) setupPermissioning() error {
 
 // Connects to gateways using tls filepaths to create credential information
 // for connection establishment
-func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if len(definition.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
@@ -167,7 +167,7 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout, 
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
 		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
 			definition.Registration.TlsCertificate, false, false)

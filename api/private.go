@@ -70,7 +70,7 @@ func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.Us
 // It sends a registration message and returns the registration signature
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+	err := addPermissioningHost(cl.receptionManager, cl.ndf)
 
 	if err != nil {
 		if err == ErrNoPermissioning {

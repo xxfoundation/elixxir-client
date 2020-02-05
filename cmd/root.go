@@ -383,6 +383,10 @@ var rootCmd = &cobra.Command{
 		}
 
 		userID, _, client := sessionInitialization()
+		err := client.RegisterWithNodes()
+		if err != nil {
+			globals.Log.ERROR.Println(err)
+		}
 		// Set Key parameters if defined
 		if len(keyParams) == 5 {
 			setKeyParams(client)
@@ -402,15 +406,15 @@ var rootCmd = &cobra.Command{
 		// Log the user in, for now using the first gateway specified
 		// This will also register the user email with UDB
 		globals.Log.INFO.Println("Logging in...")
+		cb := func(err error) {
+			globals.Log.ERROR.Print(err)
+		}
 
-		err := client.InitListeners()
+		err = client.InitListeners()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
 
-		cb := func(err error) {
-			globals.Log.ERROR.Println(err.Error())
-		}
 
 		err = client.StartMessageReceiver(cb)
 
@@ -438,7 +442,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if destinationUserId == 0 && destinationUserIDBase64 == "" {
-			fmt.Println("replaced uid to: " + string(userId))
+			globals.Log.INFO.Println("replaced uid to: " + string(userId))
 			recipientId = userID
 		} else if destinationUserIDBase64 != "" {
 			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)

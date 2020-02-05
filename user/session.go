@@ -133,6 +133,18 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 		return nil, err
 	}
 
+	for wrappedSession.Version != SessionVersion {
+		switch wrappedSession.Version {
+		case 1:
+			globals.Log.INFO.Println("Converting session file from V1 to V2")
+			wrappedSession, err = ConvertSessionV1toV2(wrappedSession)
+		default:
+		}
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	//extract teh session from the wrapper
 	var sessionBytes bytes.Buffer
 
@@ -160,25 +172,11 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	session.store = store
 	session.password = password
 
-	// Update the session object to version 2 if it is currently version 1
-	if wrappedSession.Version == 1 {
-		ConvertSessionV1toV2(&session)
+	if session.NodeKeys == nil {
+		session.NodeKeys = make(map[id.Node]NodeKeys)
 	}
 
 	return &session, nil
-}
-
-// ConvertSessionV1toV2 converts the session object from version 1 to version 2.
-// This conversion includes:
-//  1. Changing the RegState values to the new integer values (1 to 2000, and 2
-//     to 3000).
-func ConvertSessionV1toV2(s *SessionObj) {
-	// Convert RegState to new values
-	if *s.RegState == 1 {
-		*s.RegState = 2000
-	} else if *s.RegState == 2 {
-		*s.RegState = 3000
-	}
 }
 
 //processSession: gets the loadLocation and decrypted wrappedSession
@@ -242,6 +240,8 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 }
 
 // Struct holding relevant session data
+// When adding to this structure, ALWAYS ALWAYS
+// consider if you want the data to be in the session file
 type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
@@ -285,7 +285,7 @@ type SessionObj struct {
 	password string
 
 	//The validation signature provided by permissioning
-	regValidationSignature []byte
+	RegValidationSignature []byte
 
 	// Buffer of messages that cannot be decrypted
 	garbledMessages []*format.Message
@@ -384,6 +384,8 @@ func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
 	defer s.UnlockStorage()
 
 	s.NodeKeys[*id] = key
+
+	return
 }
 
 //RegisterPermissioningSignature sets sessions registration signature and
@@ -397,9 +399,12 @@ func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
 		return errors.Wrap(err, "Could not store permissioning signature")
 	}
 
-	s.regValidationSignature = sig
+	s.RegValidationSignature = sig
 
-	return nil
+	//storing to ensure we never loose the signature
+	err = s.storeSession()
+
+	return err
 }
 
 func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
@@ -447,7 +452,7 @@ func (s *SessionObj) GetCmixGroup() *cyclic.Group {
 func (s *SessionObj) GetRegistrationValidationSignature() []byte {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	return s.regValidationSignature
+	return s.RegValidationSignature
 }
 
 func (s *SessionObj) GetE2EGroup() *cyclic.Group {

@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package api
 
 import (
@@ -11,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/tls"
 	"gitlab.com/elixxir/primitives/id"
 	"sync"
 	"time"
@@ -111,12 +118,10 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 
 		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
 		err = bots.Register(valueType, username, publicKeyBytes, cl.opStatus, timeout)
-		if err == nil {
-			globals.Log.INFO.Printf("Registered with UDB!")
-		} else {
-			globals.Log.WARN.Printf("Could not register with UDB: %s", err)
+		if err != nil {
+			return errors.Errorf("Could not register with UDB: %s", err)
 		}
-
+		globals.Log.INFO.Printf("Registered with UDB!")
 	} else {
 		globals.Log.INFO.Printf("Not registering with UDB because no " +
 			"email found")
@@ -164,6 +169,42 @@ func (cl *Client) RegisterWithNodes() error {
 
 	//Load the registration signature
 	regSignature := session.GetRegistrationValidationSignature()
+
+	var regPubKey *rsa.PublicKey
+	if cl.ndf.Registration.TlsCertificate != "" {
+		// Load certificate object
+		cert, err := tls.LoadCertificate(cl.ndf.Registration.TlsCertificate)
+		if err != nil {
+			return errors.Errorf("Failed to parse certificate: %+v", err)
+		}
+		//Extract public key from cert
+		regPubKey, err = tls.ExtractPublicKey(cert)
+		if err != nil {
+			return errors.Errorf("Failed to pull key from cert: %+v", err)
+		}
+	}
+	// Storage of the registration signature was broken in previous releases.
+	// get the signature again from permissioning if it is absent
+	if !rsa.IsValidSignature(regPubKey, regSignature) && !(UID[0] == 0 &&
+		UID[1] == 0 && UID[2] == 0 && UID[4] < 20) {
+		// Or register with the permissioning server and generate user information
+		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
+		if err != nil {
+			globals.Log.INFO.Printf(err.Error())
+			return err
+		}
+		//update the session with the registration
+		//HACK HACK HACK
+		sesObj := cl.session.(*user.SessionObj)
+		sesObj.RegValidationSignature = regSignature
+		err = sesObj.StoreSession()
+
+		if err != nil {
+			return err
+		}
+	}
+
+	//make the wait group to wait for all node registrations to complete
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
@@ -277,18 +318,21 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	//Set the opStatus and log registration
 	globals.Log.INFO.Printf("Registering dynamic user...")
 
-	// If Registration Server is specified, contact it
-	// Only if registrationCode is set
-	globals.Log.INFO.Println("Register: Contacting registration server")
-	if cl.ndf.Registration.Address != "" && registrationCode != "" {
-		cl.opStatus(globals.REG_PERM)
-		regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-		if err != nil {
-			return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
-		}
+	// If Registration Server is not specified return an error
+	if cl.ndf.Registration.Address == "" {
+		return nil, errors.New("No registration attempted, " +
+			"registration server not known")
 	}
 
-	globals.Log.INFO.Println("Register: successfully passed Registration message")
+	// attempt to register with registration
+	globals.Log.INFO.Println("Register: Registering with registration server")
+	cl.opStatus(globals.REG_PERM)
+	regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
+	if err != nil {
+		return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
+	}
+
+	globals.Log.INFO.Println("Register: successfully registered")
 
 	return regValidSig, nil
 }

@@ -9,6 +9,7 @@ package user
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -289,7 +290,7 @@ func TestGetPubKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(nil,
+	ses := NewSession(&globals.RamStorage{},
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -349,12 +350,6 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	err := ses.RegisterPermissioningSignature(regSignature)
-	if err != nil {
-		t.Errorf("failure in setting register up for permissioning: %s",
-			err.Error())
-	}
-
 	ses.PushNodeKey(nodeID, NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
@@ -364,9 +359,9 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 
 	//Test that the session is empty before the StoreSession call
 	if !ses.StorageIsEmpty() {
-		t.Errorf("session should be empty before a StoreSession call")
+		t.Errorf("session should be empty before the StoreSession call")
 	}
-	err = ses.StoreSession()
+	err := ses.StoreSession()
 	if err != nil {
 		t.Errorf("Failed to store session: %v", err)
 	}
@@ -461,7 +456,7 @@ func TestGetPrivKey(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(nil,
+	ses := NewSession(&globals.RamStorage{},
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -586,7 +581,7 @@ func TestSessionObj_PopGarbledMessages(t *testing.T) {
 
 }
 
-// Tests ConvertSessionV1toV2() by creating an empty session object and setting
+/*// Tests ConvertSessionV1toV2() by creating an empty session object and setting
 // the RegState to the version 1, running it through the function, and testing
 // that RegState has values that match version 2.
 func TestSessionObj_ConvertSessionV1toV2(t *testing.T) {
@@ -623,7 +618,7 @@ func TestSessionObj_ConvertSessionV1toV2(t *testing.T) {
 			"session object's RegState\n\texpected: %v\n\treceived: %v",
 			3000, *ses.RegState)
 	}
-}
+}*/
 
 func GenerateTestMessages(size int) []*format.Message {
 	msgs := make([]*format.Message, size)
@@ -637,4 +632,32 @@ func GenerateTestMessages(size int) []*format.Message {
 	}
 
 	return msgs
+}
+
+// Smoke test
+func TestConvertSessionV1toV2(t *testing.T) {
+	u := new(User)
+	UID := id.NewUserFromUint(1, t)
+
+	u.User = UID
+	u.Username = "Bernie"
+
+	session := NewSession(nil, u, nil, nil,
+		nil, nil, nil,
+		nil, nil, nil, nil, "")
+	var sessionBuffer bytes.Buffer
+
+	enc := gob.NewEncoder(&sessionBuffer)
+
+	err := enc.Encode(session)
+	if err != nil {
+		t.Errorf("Failed to getSessionData: %+v", err)
+	}
+
+	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
+	_, err = ConvertSessionV1toV2(storageWrapper)
+	if err != nil {
+		t.Errorf("Failed conversion: %+v", err)
+	}
+
 }

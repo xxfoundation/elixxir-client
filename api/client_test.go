@@ -100,6 +100,29 @@ func TestParsedMessage_GetMessageType(t *testing.T) {
 	}
 }
 
+// Error path
+func TestNewClient_Panic(t *testing.T) {
+	defer func() {
+		if e := recover(); e != nil {
+
+		}
+
+	}()
+	// Arbitrary invalid interface
+	var i rsa.PublicKey
+	// Passed into NewTestClient call to cause a panic
+	NewTestClient(&globals.RamStorage{}, "", "", def, i, send)
+	t.Errorf("Failed to detect a bad interface passed in")
+}
+
+// Happy path
+func TestNewClient(t *testing.T) {
+	_, err := NewTestClient(&globals.RamStorage{}, "", "", def, t, send)
+	if err != nil {
+		t.Errorf("Expected happy path, received error: %+v", err)
+	}
+}
+
 //Happy path
 func TestParse(t *testing.T) {
 	ms := parse.Message{}

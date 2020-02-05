@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package api
 
 import (
@@ -29,6 +35,7 @@ func (cl *Client) InitNetwork(localNDF bool) error {
 	runPermissioning := err != ErrNoPermissioning
 	globals.Log.INFO.Println("localNDF: ", localNDF)
 	if runPermissioning {
+		globals.Log.DEBUG.Printf("Setting up permissioning...")
 		err = cl.setupPermissioning(localNDF)
 
 		if err != nil {
@@ -54,8 +61,8 @@ func (cl *Client) DisableTls() {
 	cl.receptionManager.Tls = false
 }
 
+// Begin client version checks via registration server
 func (cl *Client) setupPermissioning(localNDF bool) error {
-	// Permissioning was found in ndf run corresponding code
 
 	//Get remote version and update
 	ver, err := cl.receptionManager.GetRemoteVersion()
@@ -75,6 +82,8 @@ func (cl *Client) setupPermissioning(localNDF bool) error {
 		}
 	}
 
+	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
+		globals.SEMVER, cl.GetRegistrationVersion())
 
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
@@ -84,9 +93,9 @@ func (cl *Client) setupPermissioning(localNDF bool) error {
 			return err
 		}
 		if !ok {
-			err = errors.New(fmt.Sprintf("Couldn't connect to gateways: Versions incompatible; Local version: %v; remote version: %v", globals.SEMVER,
-				cl.GetRegistrationVersion()))
-			return err
+			return errors.Errorf("Couldn't connect to gateways: Versions"+
+				" incompatible; Local version: %v; remote version: %v", globals.SEMVER,
+				cl.GetRegistrationVersion())
 		}
 	} else {
 		globals.Log.WARN.Printf("Not checking version from " +

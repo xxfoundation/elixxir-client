@@ -42,15 +42,39 @@ func (cl *Client) InitNetwork() error {
 		}
 	}
 
+	// InitNetwork to nodes
+	cl.topology = BuildNodeTopology(cl.ndf)
+
+	err = AddNotificationBotHost(cl.receptionManager, cl.ndf)
+	if err != nil {
+		return errors.Errorf("Failed to connect to notification bot at %+v", cl.ndf)
+	}
+
+	return AddGatewayHosts(cl.receptionManager, cl.ndf)
+}
+
+// AddNotificationBotHost adds notification bot as a host within the reception manager
+func AddNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+
+	err := addHost(rm, id.NOTIFICATION_BOT, definition.Notification.Address,
+		definition.Notification.TlsCertificate, false, false)
+	if err != nil {
+		return errors.Errorf("Failed to connect to notification bot at %+v",
+			definition.Notification.Address)
+	}
+	return nil
+}
+
+// BuildNodeTopology is a helper function which goes through the ndf and
+// builds a circuit for all the node's in the definition
+func BuildNodeTopology(definition *ndf.NetworkDefinition) *connect.Circuit {
 	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
+	nodeIDs := make([]*id.Node, len(definition.Nodes))
+	for i, node := range definition.Nodes {
 		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
 	}
 
-	cl.topology = connect.NewCircuit(nodeIDs)
-
-	return AddGatewayHosts(cl.receptionManager, cl.ndf)
+	return connect.NewCircuit(nodeIDs)
 }
 
 // DisableTls disables tls for communications

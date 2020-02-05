@@ -318,7 +318,6 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 		return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
 	}
 
-
 	globals.Log.INFO.Println("Register: successfully registered")
 
 	return regValidSig, nil

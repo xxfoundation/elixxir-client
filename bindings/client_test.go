@@ -121,7 +121,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = client.client.GenerateKeys(nil, "")
+	err = client.GenerateKeys("")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
@@ -203,6 +203,36 @@ func TestClient_ChangeUsername(t *testing.T) {
 		t.Errorf("Unexpected error, should have changed username: %v", err)
 	}
 
+}
+
+func TestClient_StorageIsEmpty(t *testing.T) {
+	ndfStr, pubKey := getNDFJSONStr(def, t)
+
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+
+	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to marshal group JSON: %s", err)
+	}
+
+	err = testClient.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = testClient.client.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	regRes, err := testClient.RegisterWithPermissioning(false, ValidRegCode)
+	if len(regRes) == 0 {
+		t.Errorf("Invalid registration number received: %v", regRes)
+	}
+
+	if testClient.StorageIsEmpty() {
+		t.Errorf("Unexpected empty storage!")
+	}
 }
 
 //Error path: Have added no contacts, so deleting a contact should fail
@@ -324,7 +354,7 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	// Test send with invalid sender ID
-	err = testClient.Send(
+	_, err = testClient.Send(
 		mockMesssage{
 			Sender:    id.NewUserFromUint(12, t),
 			TypedBody: parse.TypedBody{Body: []byte("test")},
@@ -338,7 +368,7 @@ func TestClient_Send(t *testing.T) {
 	}
 
 	// Test send with valid inputs
-	err = testClient.Send(
+	_, err = testClient.Send(
 		mockMesssage{
 			Sender:    id.NewUserFromBytes(userID),
 			TypedBody: parse.TypedBody{Body: []byte("test")},

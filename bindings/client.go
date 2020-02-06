@@ -277,7 +277,7 @@ func (cl *Client) StorageIsEmpty() bool {
 // or not.  If true, and there is no keying relationship with the user specified
 // in the message object, then it will return an error.  If using precanned
 // users encryption must be set to false.
-func (cl *Client) Send(m Message, encrypt bool) error {
+func (cl *Client) Send(m Message, encrypt bool) (int64, error) {
 	globals.Log.INFO.Printf("Binding call: Send()\n"+
 		"Sender: %v\n"+
 		"Payload: %v\n"+
@@ -295,7 +295,7 @@ func (cl *Client) Send(m Message, encrypt bool) error {
 		cryptoType = parse.Unencrypted
 	}
 
-	return cl.client.Send(&parse.Message{
+	return time.Now().UnixNano(), cl.client.Send(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: m.GetMessageType(),
 			Body:        m.GetPayload(),

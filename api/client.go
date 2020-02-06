@@ -304,7 +304,7 @@ func (cl *Client) InitListeners() error {
 // Logs in user and sets session on client object
 // returns the nickname or error if login fails
 func (cl *Client) StartMessageReceiver(callback func(error)) error {
-	pollWaitTimeMillis := 100 * time.Millisecond
+	pollWaitTimeMillis := 500 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
 	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()

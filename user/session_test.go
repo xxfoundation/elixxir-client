@@ -9,6 +9,7 @@ package user
 import (
 	"bytes"
 	"crypto/sha256"
+	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -580,7 +581,7 @@ func TestSessionObj_PopGarbledMessages(t *testing.T) {
 
 }
 
-// Tests ConvertSessionV1toV2() by creating an empty session object and setting
+/*// Tests ConvertSessionV1toV2() by creating an empty session object and setting
 // the RegState to the version 1, running it through the function, and testing
 // that RegState has values that match version 2.
 func TestSessionObj_ConvertSessionV1toV2(t *testing.T) {
@@ -617,7 +618,7 @@ func TestSessionObj_ConvertSessionV1toV2(t *testing.T) {
 			"session object's RegState\n\texpected: %v\n\treceived: %v",
 			3000, *ses.RegState)
 	}
-}
+}*/
 
 func GenerateTestMessages(size int) []*format.Message {
 	msgs := make([]*format.Message, size)
@@ -631,4 +632,52 @@ func GenerateTestMessages(size int) []*format.Message {
 	}
 
 	return msgs
+}
+
+// Happy path
+func TestConvertSessionV1toV2(t *testing.T) {
+	u := new(User)
+	UID := id.NewUserFromUint(1, t)
+
+	u.User = UID
+	u.Username = "Bernie"
+
+	session := NewSession(nil, u, nil, nil,
+		nil, nil, nil,
+		nil, nil, nil, nil, "")
+	var sessionBuffer bytes.Buffer
+
+	enc := gob.NewEncoder(&sessionBuffer)
+
+	err := enc.Encode(session)
+	if err != nil {
+		t.Errorf("Failed to getSessionData: %+v", err)
+	}
+
+	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
+	newSession, err := ConvertSessionV1toV2(storageWrapper)
+	if err != nil {
+		t.Errorf("Failed conversion: %+v", err)
+	}
+
+	if newSession.Version != SessionVersion {
+		t.Errorf("ConvertSessionV1toV2 should modify version number")
+	}
+
+}
+
+// Error path: Pass in an improper session
+func TestConvertSessionV1toV2_Error(t *testing.T) {
+	// Pass in an improper session
+	var sessionBuffer bytes.Buffer
+
+	_ = gob.NewEncoder(&sessionBuffer)
+
+	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
+
+	_, err := ConvertSessionV1toV2(storageWrapper)
+	if err == nil {
+		t.Errorf("Failed conversion: %+v", err)
+	}
+
 }

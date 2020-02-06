@@ -39,6 +39,8 @@ stages:
 setup:
   stage: setup
   image: $DOCKER_IMAGE
+  except:
+    - tags
   script:
     - go mod vendor -v
     - go build ./...
@@ -50,6 +52,8 @@ setup:
 test:
   stage: test
   image: $DOCKER_IMAGE
+  except:
+    - tags
   script:
     - GO111MODULE=off go get -u github.com/haya14busa/goverage
     - apt-get update
@@ -75,6 +79,8 @@ test:
 build:
   stage: build
   image: $DOCKER_IMAGE
+  except:
+    - tags
   script:
     - mkdir -p release
     - go generate cmd/version.go
@@ -91,8 +97,7 @@ build:
 tag:
     stage: tag
     only:
-        refs:
-            - master
+        - master
     image: $DOCKER_IMAGE
     script:
         - git remote add origin_tags git@gitlab.com:elixxir/client.git || true
@@ -101,6 +106,8 @@ tag:
 
 #bindings:
 #  stage: build
+#  except:
+#    - tags
 #  tags: 
 #    - ios
 #  script:

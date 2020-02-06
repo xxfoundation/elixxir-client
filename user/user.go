@@ -125,6 +125,7 @@ func (u *User) DeepCopy() *User {
 	nu := new(User)
 	nu.User = u.User
 	nu.Username = u.Username
+	nu.Precan = u.Precan
 	return nu
 }
 

@@ -32,6 +32,7 @@ stages:
   - setup
   - test
   - build
+  - tag
   - trigger_integration
   - trigger_release_integration
 

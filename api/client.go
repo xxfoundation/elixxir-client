@@ -623,7 +623,7 @@ func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
 
 // UnregisterForNotifications sends a message to notification bot indicating it
 // no longer wants to be registered for notifications
-func (cl *Client) UnregisterForNotifications(notificationToken []byte) error {
+func (cl *Client) UnregisterForNotifications() error {
 	// Pull the host from the manage
 	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(id.NOTIFICATION_BOT)
 	if !ok {
@@ -631,10 +631,7 @@ func (cl *Client) UnregisterForNotifications(notificationToken []byte) error {
 	}
 
 	// Send the unregister message
-	_, err := cl.receptionManager.Comms.UnregisterForNotifications(notificationBotHost,
-		&mixmessages.NotificationToken{
-			Token: notificationToken,
-		})
+	_, err := cl.receptionManager.Comms.UnregisterForNotifications(notificationBotHost)
 	if err != nil {
 		err := errors.Errorf(
 			"RegisterForNotifications: Unable to register for notifications! %s", err)

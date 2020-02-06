@@ -601,9 +601,7 @@ func TestClient_UnregisterForNotifications(t *testing.T) {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
 
-	token := make([]byte, 32)
-
-	err = client.UnregisterForNotifications(token)
+	err = client.UnregisterForNotifications()
 	if err != nil {
 		t.Errorf("Expected happy path, received error: %+v", err)
 	}

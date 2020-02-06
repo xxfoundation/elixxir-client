@@ -455,6 +455,6 @@ func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
 
 // UnregisterForNotifications sends a message to notification bot indicating it
 // no longer wants to be registered for notifications
-func (cl *Client) UnregisterForNotifications(notificationToken []byte) error {
-	return cl.client.UnregisterForNotifications(notificationToken)
+func (cl *Client) UnregisterForNotifications() error {
+	return cl.client.UnregisterForNotifications()
 }

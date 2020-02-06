@@ -65,7 +65,7 @@ func (rkmb *ReceptionKeyManagerBuffer) GobEncode() ([]byte, error) {
 	var bufferSlice []*KeyManager
 
 	for i := 0; i < len(rkmb.managers); i++ {
-		j := ((rkmb.loc + i) % len(rkmb.managers))
+		j := (rkmb.loc + i) % len(rkmb.managers)
 		if rkmb.managers[j] != nil {
 			bufferSlice = append(bufferSlice, rkmb.managers[j])
 		}
@@ -119,7 +119,7 @@ func (rkmb *ReceptionKeyManagerBuffer) GobDecode(in []byte) error {
 	rkmb.loc = anon.Loc
 
 	for i := 0; i < len(anon.Managers); i++ {
-		j := ((anon.Loc + i) % len(rkmb.managers))
+		j := (anon.Loc + i) % len(rkmb.managers)
 		rkmb.managers[j] = anon.Managers[i]
 	}
 

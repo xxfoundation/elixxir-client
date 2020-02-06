@@ -57,7 +57,6 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
-var localNDF bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -179,7 +178,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork(localNDF)
+	err = client.InitNetwork()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
@@ -624,11 +623,6 @@ func init() {
 		"P",
 		"",
 		"Password to the session file")
-
-	rootCmd.PersistentFlags().BoolVar(&localNDF,
-		"localNDF",
-		false,
-		"The client soely uses the local NDF and does not poll for an external one")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

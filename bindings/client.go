@@ -97,7 +97,7 @@ func (cl *Client) EnableDebugLogs() {
 // for connection establishment
 func (cl *Client) InitNetwork() error {
 	globals.Log.INFO.Printf("Binding call: InitNetwork()")
-	return cl.client.InitNetwork(false)
+	return cl.client.InitNetwork()
 }
 
 // Sets a callback which receives a strings describing the current status of

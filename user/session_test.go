@@ -634,7 +634,7 @@ func GenerateTestMessages(size int) []*format.Message {
 	return msgs
 }
 
-// Smoke test
+// Happy path
 func TestConvertSessionV1toV2(t *testing.T) {
 	u := new(User)
 	UID := id.NewUserFromUint(1, t)
@@ -655,8 +655,28 @@ func TestConvertSessionV1toV2(t *testing.T) {
 	}
 
 	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
-	_, err = ConvertSessionV1toV2(storageWrapper)
+	newSession, err := ConvertSessionV1toV2(storageWrapper)
 	if err != nil {
+		t.Errorf("Failed conversion: %+v", err)
+	}
+
+	if newSession.Version != SessionVersion {
+		t.Errorf("ConvertSessionV1toV2 should modify version number")
+	}
+
+}
+
+// Error path: Pass in an improper session
+func TestConvertSessionV1toV2_Error(t *testing.T) {
+	// Pass in an improper session
+	var sessionBuffer bytes.Buffer
+
+	_ = gob.NewEncoder(&sessionBuffer)
+
+	storageWrapper := &SessionStorageWrapper{Version: 1, Session: sessionBuffer.Bytes()}
+
+	_, err := ConvertSessionV1toV2(storageWrapper)
+	if err == nil {
 		t.Errorf("Failed conversion: %+v", err)
 	}
 

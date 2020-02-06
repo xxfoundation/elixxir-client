@@ -57,55 +57,56 @@ func newRegistry(grp *cyclic.Group) Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
-	uc := make(map[id.User]*User)
-	ul := make(map[string]*id.User)
+	userUserIdMap := make(map[id.User]*User)
+	userRegCodeMap := make(map[string]*id.User)
 	nk := make(map[id.User]*NodeKeys)
 
 	// Deterministically create NumDemoUsers users
 	// TODO Replace this with real user registration/discovery
 	for i := uint64(1); i <= NumDemoUsers; i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, i})
-		t := new(User)
-		k := new(NodeKeys)
+		newUsr := new(User)
+		nodeKey := new(NodeKeys)
 
 		// Generate user parameters
-		t.User = currentID
+		newUsr.User = currentID
+		newUsr.Precan = true
 		currentID.RegistrationCode()
 		// TODO We need a better way to generate base/recursive keys
 		h := sha256.New()
 		h.Write([]byte(string(40000 + i)))
-		k.TransmissionKey = grp.NewIntFromBytes(h.Sum(nil))
+		nodeKey.TransmissionKey = grp.NewIntFromBytes(h.Sum(nil))
 		h = sha256.New()
 		h.Write([]byte(string(60000 + i)))
-		k.ReceptionKey = grp.NewIntFromBytes(h.Sum(nil))
+		nodeKey.ReceptionKey = grp.NewIntFromBytes(h.Sum(nil))
 
 		// Add user to collection and lookup table
-		uc[*t.User] = t
+		userUserIdMap[*newUsr.User] = newUsr
 		// Detect collisions in the registration code
-		if _, ok := ul[t.User.RegistrationCode()]; ok {
+		if _, ok := userRegCodeMap[newUsr.User.RegistrationCode()]; ok {
 			globals.Log.ERROR.Printf(
 				"Collision in demo user list creation at %v. "+
 					"Please fix ASAP (include more bits to the reg code.", i)
 		}
-		ul[t.User.RegistrationCode()] = t.User
-		nk[*t.User] = k
+		userRegCodeMap[newUsr.User.RegistrationCode()] = newUsr.User
+		nk[*newUsr.User] = nodeKey
 	}
 
 	// Channels have been hardcoded to users starting with 31
 	for i := 0; i < len(DemoUserNicks); i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
-		uc[*currentID].Username = DemoUserNicks[i]
+		userUserIdMap[*currentID].Username = DemoUserNicks[i]
 	}
 
 	for i := 0; i < len(DemoChannelNames); i++ {
 		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
-		uc[*currentID].Username = DemoChannelNames[i]
+		userUserIdMap[*currentID].Username = DemoChannelNames[i]
 	}
 
 	// With an underlying UserMap data structure
-	return Registry(&UserMap{userCollection: uc,
+	return Registry(&UserMap{userCollection: userUserIdMap,
 		idCounter:  uint64(NumDemoUsers),
-		userLookup: ul,
+		userLookup: userRegCodeMap,
 		keysLookup: nk})
 }
 
@@ -113,6 +114,7 @@ func newRegistry(grp *cyclic.Group) Registry {
 type User struct {
 	User     *id.User
 	Username string
+	Precan   bool
 }
 
 // DeepCopy performs a deep copy of a user and returns a pointer to the new copy

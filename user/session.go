@@ -471,6 +471,7 @@ func (s *SessionObj) GetCurrentUser() (currentUser *User) {
 		currentUser = &User{
 			User:     s.CurrentUser.User,
 			Username: s.CurrentUser.Username,
+			Precan:   s.CurrentUser.Precan,
 		}
 	}
 	return currentUser

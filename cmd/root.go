@@ -177,7 +177,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		client.DisableTls()
 	}
 
-	// InitNetwork to gateways and reg server
+	// InitNetwork to gateways, notificationBot and reg server
 	err = client.InitNetwork()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)

@@ -441,7 +441,6 @@ var rootCmd = &cobra.Command{
 		}
 
 		if destinationUserId == 0 && destinationUserIDBase64 == "" {
-			globals.Log.INFO.Println("replaced uid to: " + string(userId))
 			recipientId = userID
 		} else if destinationUserIDBase64 != "" {
 			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)

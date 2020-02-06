@@ -184,7 +184,7 @@ func (cl *Client) RegisterWithNodes() error {
 
 	// Storage of the registration signature was broken in previous releases.
 	// get the signature again from permissioning if it is absent
-	if !rsa.IsValidSignature(regPubKey, regSignature) && !usr.Precan {
+	if !usr.Precan && !rsa.IsValidSignature(regPubKey, regSignature) {
 		// Or register with the permissioning server and generate user information
 		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
 		if err != nil {
@@ -335,6 +335,7 @@ func (cl *Client) registerWithPermissioning(registrationCode string,
 	return regValidSig, nil
 }
 
+// extractPublicKeyFromCert is a utility function which pulls out the public key from a certificate
 func extractPublicKeyFromCert(definition *ndf.NetworkDefinition) (*rsa.PublicKey, error) {
 	// Load certificate object
 	cert, err := tls.LoadCertificate(definition.Registration.TlsCertificate)

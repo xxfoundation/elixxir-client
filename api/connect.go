@@ -33,6 +33,7 @@ func (cl *Client) InitNetwork() error {
 	}
 
 	runPermissioning := err != ErrNoPermissioning
+
 	if runPermissioning {
 		globals.Log.DEBUG.Printf("Setting up permissioning...")
 		err = cl.setupPermissioning()
@@ -62,6 +63,7 @@ func (cl *Client) DisableTls() {
 
 // Begin client version checks via registration server
 func (cl *Client) setupPermissioning() error {
+
 	//Get remote version and update
 	ver, err := cl.receptionManager.GetRemoteVersion()
 	if err != nil {
@@ -77,6 +79,7 @@ func (cl *Client) setupPermissioning() error {
 	if def != nil {
 		cl.ndf = def
 	}
+
 
 	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
 		globals.SEMVER, cl.GetRegistrationVersion())

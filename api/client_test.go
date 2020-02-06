@@ -396,7 +396,7 @@ func TestClient_precannedRegister(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.InitNetwork()
+	err = testClient.InitNetwork(false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -419,7 +419,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.InitNetwork()
+	err = testClient.InitNetwork(false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -451,7 +451,7 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.InitNetwork()
+	err = testClient.InitNetwork(false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -479,7 +479,7 @@ func TestClient_confirmNonce(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.InitNetwork()
+	err = testClient.InitNetwork(false)
 	if err != nil {
 		t.Error(err)
 	}

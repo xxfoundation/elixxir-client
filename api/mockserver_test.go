@@ -78,7 +78,7 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -138,7 +138,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -171,7 +171,7 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -201,7 +201,7 @@ func TestRegister_InvalidRegState(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
 	}
@@ -240,7 +240,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -275,7 +275,7 @@ func TestSend(t *testing.T) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
@@ -356,7 +356,7 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)

@@ -23,7 +23,7 @@ func TestRegistrationGob(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.InitNetwork()
+	err = testClient.InitNetwork(false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -65,7 +65,7 @@ func TestClient_Register(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.InitNetwork()
+	err = testClient.InitNetwork(false)
 	if err != nil {
 		t.Error(err)
 	}
@@ -136,7 +136,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 	}
 
 	// InitNetwork to gateways and reg server
-	err = client.InitNetwork()
+	err = client.InitNetwork(false)
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)

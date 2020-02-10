@@ -9,6 +9,7 @@ import (
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/ndf"
 	"strings"
+	"time"
 )
 
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
@@ -33,6 +34,7 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 	if err != nil {
 		for err != nil && strings.Contains(err.Error(), ndf.NO_NDF) {
 			globals.Log.INFO.Printf("Failed to get an ndf, possibly not ready yet. Retying now...")
+			time.Sleep(50*time.Millisecond)
 			response, err = comms.RequestNdf(regHost, msg)
 		}
 		// If it is not an issue with no ndf, return the error up the stack

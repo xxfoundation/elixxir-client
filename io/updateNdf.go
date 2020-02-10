@@ -8,9 +8,8 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/ndf"
+	"strings"
 )
-
-var noNDFErr = errors.New("Failed to get ndf from permissioning: rpc error: code = Unknown desc = Permissioning server does not have an ndf to give to client")
 
 //GetUpdatedNDF: Connects to the permissioning server to get the updated NDF from it
 func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.NetworkDefinition, error) {
@@ -28,14 +27,12 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 		return nil, errors.New("Failed to find permissioning host")
 	}
 	//Send the hash to registration
+
 	response, err := comms.RequestNdf(regHost, msg)
 	if err != nil {
-		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
-		if errMsg == noNDFErr.Error() {
-			globals.Log.WARN.Println("Continuing without an updated NDF")
-			return nil, nil
+		for err != nil && strings.Contains(err.Error(), ndf.NO_NDF) {
+			response, err = comms.RequestNdf(regHost, msg)
 		}
-		return nil, errors.New(errMsg)
 	}
 
 	//If there was no error and the response is nil, client's ndf is up-to-date

@@ -30,7 +30,8 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 
 	response, err := comms.RequestNdf(regHost, msg)
 	if err != nil {
-		for err != nil && strings.Contains(err.Error(), ndf.NO_NDF) {
+		for err != nil || strings.Contains(err.Error(), ndf.NO_NDF) {
+			globals.Log.INFO.Printf("Failed to get an ndf, possibly not ready yet. Retying now...")
 			response, err = comms.RequestNdf(regHost, msg)
 		}
 	}

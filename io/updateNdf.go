@@ -30,11 +30,15 @@ func PollNdf(currentDef *ndf.NetworkDefinition, comms *client.Comms) (*ndf.Netwo
 
 	response, err := comms.RequestNdf(regHost, msg)
 	// Retry until we no longer receive an error from
-	for err != nil && strings.Contains(err.Error(), ndf.NO_NDF) {
-		globals.Log.INFO.Printf("Failed to get an ndf, possibly not ready yet. Retying now...")
-		response, err = comms.RequestNdf(regHost, msg)
+	if err != nil {
+		for err != nil && strings.Contains(err.Error(), ndf.NO_NDF) {
+			globals.Log.INFO.Printf("Failed to get an ndf, possibly not ready yet. Retying now...")
+			response, err = comms.RequestNdf(regHost, msg)
+		}
+		// If it is not an issue with no ndf, return the error up the stack
+		errMsg := fmt.Sprintf("Failed to get ndf from permissioning: %v", err)
+		return nil, errors.New(errMsg)
 	}
-
 	//If there was no error and the response is nil, client's ndf is up-to-date
 	if response == nil || response.Ndf == nil {
 		globals.Log.DEBUG.Printf("Client NDF up-to-date")

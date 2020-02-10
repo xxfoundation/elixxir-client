@@ -6,7 +6,7 @@ require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.3.3
 	github.com/google/go-cmp v0.4.0 // indirect
-	github.com/gopherjs/gopherjs v0.0.0-20191106031601-ce3c9ade29de // indirect
+	github.com/gopherjs/gopherjs v0.0.0-20200209183636-89e6cbcd0b6d // indirect
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/assertions v1.0.1 // indirect
@@ -16,9 +16,10 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.6.2
-	gitlab.com/elixxir/comms v0.0.0-20200206234845-5888084a9a0c
+	gitlab.com/elixxir/comms v0.0.0-20200207001605-3b6328b48ed1
 	gitlab.com/elixxir/crypto v0.0.0-20200206203107-b8926242da23
-	gitlab.com/elixxir/primitives v0.0.0-20200204190335-4d9fa02de847
-	golang.org/x/crypto v0.0.0-20200206161412-a0c6ece9d31a
+	gitlab.com/elixxir/primitives v0.0.0-20200210205543-5c55c1f6949f
+	golang.org/x/crypto v0.0.0-20200210191831-6ca56c2f2e2b
+	google.golang.org/genproto v0.0.0-20200210034751-acff78025515 // indirect
 	gopkg.in/ini.v1 v1.52.0 // indirect
 )

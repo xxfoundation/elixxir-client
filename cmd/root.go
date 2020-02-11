@@ -408,12 +408,14 @@ var rootCmd = &cobra.Command{
 		cb := func(err error) {
 			globals.Log.ERROR.Print(err)
 		}
+
 		err = client.InitListeners()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
 
 		err = client.StartMessageReceiver(cb)
+
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
@@ -466,7 +468,7 @@ var rootCmd = &cobra.Command{
 				wireOut := api.FormatTextMessage(message)
 
 				for i := uint(0); i < messageCnt; i++ {
-					fmt.Printf("Sending Message to %d, %v: %s\n", destinationUserId,
+					fmt.Printf("Sending Message to %s, %v: %s\n", base64.StdEncoding.EncodeToString(recipientId.Bytes()),
 						recipientNick, message)
 					if i != 0 {
 						time.Sleep(1 * time.Second)

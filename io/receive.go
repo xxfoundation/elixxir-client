@@ -48,16 +48,16 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 	var encryptedMessages []*format.Message
 
 	globals.Log.DEBUG.Printf("Gateway Polling for Message Reception Begun")
+	receptionTicker := time.NewTicker(delay)
 
 	for {
-		// TODO: replace timer with ticker
-		timerDelay := time.NewTimer(delay)
+
 		NumChecks++
 		select {
 		case <-quit:
 			globals.Log.DEBUG.Printf("Stopped message receiver\n")
 			return
-		case <-timerDelay.C:
+		case <-receptionTicker.C:
 
 			//check if a report on the polling status is due, report to logs if
 			//it is
@@ -72,7 +72,6 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 			NumChecks++
 
 			var err error
-
 			encryptedMessages, err = rm.receiveMessagesFromGateway(session, &pollingMessage, receptionHost)
 
 			if err != nil {

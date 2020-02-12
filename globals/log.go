@@ -8,6 +8,7 @@ package globals
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -22,25 +23,31 @@ var Log = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo, os.Stdout,
 // verbose turns on debug logging, setting the log path to nil
 // uses std out.
 func InitLog(verbose bool, logPath string) {
-	Log = jww.NewNotepad(jww.LevelError, jww.LevelInfo, os.Stdout,
-		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
-	// If verbose flag set then log more info for debugging
+	logLevel := jww.LevelInfo
+	logFlags := (log.Ldate | log.Ltime)
+	stdOut := io.Writer(os.Stdout)
+	logFile := ioutil.Discard
+
+	// If the verbose flag is set, print all logs and
+	// print microseconds as well
 	if verbose {
-		Log.SetLogThreshold(jww.LevelDebug)
-		Log.SetStdoutThreshold(jww.LevelDebug)
-		Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
-	} else {
-		Log.SetLogThreshold(jww.LevelInfo)
-		Log.SetStdoutThreshold(jww.LevelInfo)
+		logLevel = jww.LevelDebug
+		logFlags = (log.Ldate | log.Ltime | log.Lmicroseconds)
 	}
-	if logPath != "" || logPath == "-" {
+	// If the logpath is empty or not set to - (stdout),
+	// set up the log file and do not log to stdout
+	if logPath != "" && logPath != "-" {
 		// Create log file, overwrites if existing
-		logFile, err := os.Create(logPath)
+		lF, err := os.Create(logPath)
 		if err != nil {
-			Log.WARN.Println("Invalid or missing log path," +
-				" default path used.")
+			jww.WARN.Println("Invalid or missing log path," +
+				" stdout used.")
 		} else {
-			Log.SetLogOutput(logFile)
+			logFile = io.Writer(lF)
+			stdOut = ioutil.Discard
 		}
 	}
+
+	Log = jww.NewNotepad(logLevel, logLevel, stdOut, logFile,
+		"CLIENT", logFlags)
 }

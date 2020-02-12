@@ -96,7 +96,7 @@ func (cl *Client) setupPermissioning() error {
 	cl.registrationVersion = ver
 
 	//Request a new ndf from permissioning
-	def, err = cl.receptionManager.Comms.ProtoComms.PollNdf(cl.ndf)
+	def, err = cl.receptionManager.Comms.PollNdf(cl.ndf)
 	if err != nil {
 		return err
 	}

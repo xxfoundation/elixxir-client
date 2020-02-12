@@ -32,12 +32,15 @@ stages:
   - setup
   - test
   - build
+  - tag
   - trigger_integration
   - trigger_release_integration
 
 setup:
   stage: setup
   image: $DOCKER_IMAGE
+  except:
+    - tags
   script:
     - go mod vendor -v
     - go build ./...
@@ -49,6 +52,8 @@ setup:
 test:
   stage: test
   image: $DOCKER_IMAGE
+  except:
+    - tags
   script:
     - GO111MODULE=off go get -u github.com/haya14busa/goverage
     - apt-get update
@@ -74,6 +79,8 @@ test:
 build:
   stage: build
   image: $DOCKER_IMAGE
+  except:
+    - tags
   script:
     - mkdir -p release
     - go generate cmd/version.go
@@ -83,15 +90,24 @@ build:
     - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
     - release/client.linux64 --version
-    - git remote add origin_tags git@gitlab.com:elixxir/client.git || true
-    - git tag $(release/client.linux64 -V | grep "Elixxir Client v"| cut -d ' ' -f3) -f
-    - git push origin_tags -f --tags
   artifacts:
     paths:
      - release/
+    
+tag:
+    stage: tag
+    only:
+        - master
+    image: $DOCKER_IMAGE
+    script:
+        - git remote add origin_tags git@gitlab.com:elixxir/client.git || true
+        - git tag $(release/client.linux64 -V | grep "Elixxir Client v"| cut -d ' ' -f3) -f
+        - git push origin_tags -f --tags
 
 #bindings:
 #  stage: build
+#  except:
+#    - tags
 #  tags: 
 #    - ios
 #  script:

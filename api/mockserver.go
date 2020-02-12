@@ -262,6 +262,7 @@ type GatewayHandler struct {
 }
 
 func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]string, error) {
+
 	return nil, nil
 }
 

@@ -26,7 +26,6 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/primitives/utils"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -374,8 +373,15 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		if viper.Get("verbose") != nil {
+			verbose = viper.GetBool("verbose")
+		}
+		var logPath string = ""
+		if viper.Get("logPath") != nil {
+			logPath = viper.GetString("logPath")
+		}
+		globals.InitLog(verbose, logPath)
 		// Main client run function
-
 		if showVer {
 			printVersion()
 			return
@@ -413,7 +419,6 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
-
 
 		err = client.StartMessageReceiver(cb)
 
@@ -563,7 +568,7 @@ func init() {
 	// There is one init in each sub command. Do not put variable declarations
 	// here, and ensure all the Flags are of the *P variety, unless there's a
 	// very good reason not to have them as local params to sub command."
-	cobra.OnInitialize(initConfig, initLog)
+	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
@@ -665,28 +670,3 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {}
-
-// initLog initializes logging thresholds and the log path.
-func initLog() {
-	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelInfo, os.Stdout,
-		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
-	// If verbose flag set then log more info for debugging
-	if verbose || viper.GetBool("verbose") {
-		globals.Log.SetLogThreshold(jww.LevelDebug)
-		globals.Log.SetStdoutThreshold(jww.LevelDebug)
-		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
-	} else {
-		globals.Log.SetLogThreshold(jww.LevelInfo)
-		globals.Log.SetStdoutThreshold(jww.LevelInfo)
-	}
-	if viper.Get("logPath") != nil {
-		// Create log file, overwrites if existing
-		logPath := viper.GetString("logPath")
-		logFile, err := os.Create(logPath)
-		if err != nil {
-			globals.Log.WARN.Println("Invalid or missing log path, default path used.")
-		} else {
-			globals.Log.SetLogOutput(logFile)
-		}
-	}
-}

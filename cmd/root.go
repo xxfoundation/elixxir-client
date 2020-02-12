@@ -244,14 +244,9 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Registered as user (userID, the global) %v", userId)
 		globals.Log.INFO.Printf("Successfully registered user %s!", userbase64)
 
-	} else {
-		// hack for session persisting with cmd line
-		// doesn't support non pre canned users
-		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
-		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	_, err = client.Login(sessFilePassword)
+	uid, err = client.Login(sessFilePassword)
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)

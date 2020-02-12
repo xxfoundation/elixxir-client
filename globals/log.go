@@ -38,7 +38,8 @@ func InitLog(verbose bool, logPath string) *jww.Notepad {
 	// set up the log file and do not log to stdout
 	if logPath != "" && logPath != "-" {
 		// Create log file, overwrites if existing
-		lF, err := os.Create(logPath)
+		lF, err := os.OpenFile(logPath,
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
 			Log.WARN.Println("Invalid or missing log path," +
 				" stdout used.")

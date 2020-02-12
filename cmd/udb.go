@@ -7,9 +7,8 @@
 package cmd
 
 import (
-	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/primitives/id"
 	"strings"
 	"time"
@@ -19,11 +18,11 @@ type callbackSearch struct{}
 
 func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
 	if err != nil {
-		fmt.Printf("UDB search failed: %v\n", err.Error())
+		globals.Log.INFO.Printf("UDB search failed: %v\n", err.Error())
 	} else if len(pubKey) == 0 {
-		fmt.Printf("Public Key returned is empty\n")
+		globals.Log.INFO.Printf("Public Key returned is empty\n")
 	} else {
-		fmt.Printf("UDB search successful. Returned user %v\n",
+		globals.Log.INFO.Printf("UDB search successful. Returned user %v\n",
 			*id.NewUserFromBytes(userID))
 	}
 }
@@ -35,7 +34,7 @@ func parseUdbMessage(msg string, client *api.Client) {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
-		jww.ERROR.Printf("UDB command must have at least three arguments!")
+		globals.Log.ERROR.Printf("UDB command must have at least three arguments!")
 	}
 	// The first arg is the command
 	// the second is the valueType
@@ -45,8 +44,8 @@ func parseUdbMessage(msg string, client *api.Client) {
 	if strings.EqualFold(keyword, "SEARCH") {
 		client.SearchForUser(args[2], searchCallback, 2*time.Minute)
 	} else if strings.EqualFold(keyword, "REGISTER") {
-		jww.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
+		globals.Log.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
 	} else {
-		jww.ERROR.Printf("UDB command not recognized!")
+		globals.Log.ERROR.Printf("UDB command not recognized!")
 	}
 }

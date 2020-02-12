@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -74,7 +73,7 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 	case *testing.B:
 		break
 	default:
-		jww.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
+		globals.Log.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
 	}
 	return newClient(s, locA, locB, ndfJSON, sendFunc)
 }

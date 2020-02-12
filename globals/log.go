@@ -22,7 +22,7 @@ var Log = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo, os.Stdout,
 // InitLog initializes logging thresholds and the log path.
 // verbose turns on debug logging, setting the log path to nil
 // uses std out.
-func InitLog(verbose bool, logPath string) {
+func InitLog(verbose bool, logPath string) *jww.Notepad {
 	logLevel := jww.LevelInfo
 	logFlags := (log.Ldate | log.Ltime)
 	stdOut := io.Writer(os.Stdout)
@@ -40,7 +40,7 @@ func InitLog(verbose bool, logPath string) {
 		// Create log file, overwrites if existing
 		lF, err := os.Create(logPath)
 		if err != nil {
-			jww.WARN.Println("Invalid or missing log path," +
+			Log.WARN.Println("Invalid or missing log path," +
 				" stdout used.")
 		} else {
 			logFile = io.Writer(lF)
@@ -48,6 +48,6 @@ func InitLog(verbose bool, logPath string) {
 		}
 	}
 
-	Log = jww.NewNotepad(logLevel, logLevel, stdOut, logFile,
+	return jww.NewNotepad(logLevel, logLevel, stdOut, logFile,
 		"CLIENT", logFlags)
 }

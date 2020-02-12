@@ -380,7 +380,7 @@ var rootCmd = &cobra.Command{
 		if viper.Get("logPath") != nil {
 			logPath = viper.GetString("logPath")
 		}
-		globals.InitLog(verbose, logPath)
+		globals.Log = globals.InitLog(verbose, logPath)
 		// Main client run function
 		if showVer {
 			printVersion()

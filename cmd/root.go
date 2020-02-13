@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/bots"
@@ -26,7 +25,6 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/primitives/utils"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -57,6 +55,7 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
+var logPath string = ""
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -343,9 +342,12 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...i
 	} else {
 		senderNick = sender.Username
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
+	logMsg := fmt.Sprintf("Message from %v, %v Received: %s\n",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
-		senderNick, result.Message, message.Timestamp.String())
+		senderNick, result.Message)
+	globals.Log.INFO.Printf("%s -- Timestamp: %s\n", logMsg,
+		message.Timestamp.String())
+	fmt.Printf(logMsg)
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }
@@ -374,8 +376,14 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		if !verbose && viper.Get("verbose") != nil {
+			verbose = viper.GetBool("verbose")
+		}
+		if logPath == "" && viper.Get("logPath") != nil {
+			logPath = viper.GetString("logPath")
+		}
+		globals.Log = globals.InitLog(verbose, logPath)
 		// Main client run function
-
 		if showVer {
 			printVersion()
 			return
@@ -414,7 +422,6 @@ var rootCmd = &cobra.Command{
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
 
-
 		err = client.StartMessageReceiver(cb)
 
 		if err != nil {
@@ -425,7 +432,7 @@ var rootCmd = &cobra.Command{
 		if username != "" {
 			err := client.RegisterWithUDB(username, 2*time.Minute)
 			if err != nil {
-				jww.ERROR.Printf("Could not register with UDB: %+v", err)
+				globals.Log.ERROR.Printf("%+v", err)
 			}
 		}
 
@@ -469,8 +476,15 @@ var rootCmd = &cobra.Command{
 				wireOut := api.FormatTextMessage(message)
 
 				for i := uint(0); i < messageCnt; i++ {
-					fmt.Printf("Sending Message to %s, %v: %s\n", base64.StdEncoding.EncodeToString(recipientId.Bytes()),
+					logMsg := fmt.Sprintf(
+						"Sending Message to "+
+							"%s, %v: %s\n",
+						large.NewIntFromBytes(
+							recipientId[:]).Text(
+							10),
 						recipientNick, message)
+					globals.Log.INFO.Printf(logMsg)
+					fmt.Printf(logMsg)
 					if i != 0 {
 						time.Sleep(1 * time.Second)
 					}
@@ -563,7 +577,7 @@ func init() {
 	// There is one init in each sub command. Do not put variable declarations
 	// here, and ensure all the Flags are of the *P variety, unless there's a
 	// very good reason not to have them as local params to sub command."
-	cobra.OnInitialize(initConfig, initLog)
+	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
@@ -655,6 +669,9 @@ func init() {
 	rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
 		"Sets the email to search for to find a user with user discovery")
 
+	rootCmd.Flags().StringVarP(&logPath, "log", "l", "",
+		"Print logs to specified log file, not stdout")
+
 	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
 		"t", 45, "The number of seconds to wait for "+
 			"'waitForMessages' messages to arrive")
@@ -665,28 +682,3 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {}
-
-// initLog initializes logging thresholds and the log path.
-func initLog() {
-	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelInfo, os.Stdout,
-		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
-	// If verbose flag set then log more info for debugging
-	if verbose || viper.GetBool("verbose") {
-		globals.Log.SetLogThreshold(jww.LevelDebug)
-		globals.Log.SetStdoutThreshold(jww.LevelDebug)
-		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
-	} else {
-		globals.Log.SetLogThreshold(jww.LevelInfo)
-		globals.Log.SetStdoutThreshold(jww.LevelInfo)
-	}
-	if viper.Get("logPath") != nil {
-		// Create log file, overwrites if existing
-		logPath := viper.GetString("logPath")
-		logFile, err := os.Create(logPath)
-		if err != nil {
-			globals.Log.WARN.Println("Invalid or missing log path, default path used.")
-		} else {
-			globals.Log.SetLogOutput(logFile)
-		}
-	}
-}

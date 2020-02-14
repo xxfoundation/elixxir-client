@@ -103,7 +103,7 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager = io.NewReceptionManager(cl.rekeyChan)
+	cl.receptionManager = io.NewReceptionManager(cl.rekeyChan, nil, nil, nil)
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
 

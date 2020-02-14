@@ -36,7 +36,7 @@ import (
 
 var verbose bool
 var userId uint64
-var sourcePublicKeyPath string
+var privateKeyPath string
 var destinationUserId uint64
 var destinationUserIDBase64 string
 var message string
@@ -57,6 +57,7 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
+var regWithNB bool
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -200,17 +201,16 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		var privKey *rsa.PrivateKey
 
-		if sourcePublicKeyPath != "" {
-			pubKeyBytes, err := utils.ReadFile(sourcePublicKeyPath)
+		if privateKeyPath != "" {
+			privateKeyBytes, err := utils.ReadFile(privateKeyPath)
 			if err != nil {
-				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
-					"path %s: %+v", sourcePublicKeyPath, err)
+				globals.Log.FATAL.Panicf("Could not load user private key PEM from "+
+					"path %s: %+v", privateKeyPath, err)
 			}
 
-			privKey, err = rsa.LoadPrivateKeyFromPem(pubKeyBytes)
+			privKey, err = rsa.LoadPrivateKeyFromPem(privateKeyBytes)
 			if err != nil {
-				globals.Log.FATAL.Panicf("Could not public key from "+
-					"PEM: %+v", err)
+				globals.Log.FATAL.Panicf("Could not load private key from PEM bytes: %+v", err)
 			}
 		}
 
@@ -532,6 +532,14 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		if regWithNB {
+			token := "foIh7-NdlksspjDwT8O5kT:APA91bEQUCFeAadkIE-T3fHqAIIYwZm8lks0wQRIp5oh0qtMtjHcPjQhVZ3IDntZlv7PYAcHvDeu_7ncI8GcAlKama7YjzSLO9MgtAjxZMFivVfzQb-BD-6u0-MrJNR6XoOB9YX059ZB"
+			err = client.RegisterForNotifications([]byte(token))
+			if err != nil {
+				globals.Log.FATAL.Printf("failed to register for notifications: %+v", err)
+			}
+		}
+
 		//Logout
 		err = client.Logout()
 
@@ -630,6 +638,9 @@ func init() {
 	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
 		"Show the server version information.")
 
+	rootCmd.Flags().BoolVarP(&regWithNB, "nbRegistration", "x", false,
+		"Register user with notification bot")
+
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 
@@ -640,7 +651,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
 		"Set to ignore tls. Connections will fail if the network requires tls. For debugging")
 
-	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "privateKey", "",
+	rootCmd.Flags().StringVar(&privateKeyPath, "privateKey", "",
 		"The path for a PEM encoded private key which will be used "+
 			"to create the user")
 

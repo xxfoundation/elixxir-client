@@ -11,6 +11,7 @@ package io
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
 	"sync"
@@ -50,14 +51,20 @@ type ReceptionManager struct {
 	rekeyChan chan struct{}
 }
 
-func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
+func NewReceptionManager(rekeyChan chan struct{}, privKey, pubKey, salt []byte) *ReceptionManager {
+	comms, err := client.NewClientComms("client", pubKey, privKey, salt)
+	if comms == nil {
+		globals.Log.ERROR.Printf("Failed to get client comms using constructor: %+v", err)
+		comms = &client.Comms{}
+	}
+
 	cm := &ReceptionManager{
 		nextId:             parse.IDCounter(),
 		collator:           NewCollator(),
 		blockTransmissions: true,
 		transmitDelay:      1000 * time.Millisecond,
 		receivedMessages:   make(map[string]struct{}),
-		Comms:              &client.Comms{},
+		Comms:              comms,
 		rekeyChan:          rekeyChan,
 		Tls:                true,
 	}

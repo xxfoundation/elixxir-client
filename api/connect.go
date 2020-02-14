@@ -58,7 +58,7 @@ func (cl *Client) InitNetwork() error {
 func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 
 	err := addHost(rm, id.NOTIFICATION_BOT, definition.Notification.Address,
-		definition.Notification.TlsCertificate, false, false)
+		definition.Notification.TlsCertificate, false, true)
 	if err != nil {
 		return errors.Errorf("Failed to connect to notification bot at %+v",
 			definition.Notification.Address)

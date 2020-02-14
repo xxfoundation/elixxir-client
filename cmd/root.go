@@ -229,7 +229,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		//Attempt to register user with same keys until a success occurs
 		for errRegister != nil {
 			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode)
-			if errRegister != nil    {
+			if errRegister != nil {
 				globals.Log.FATAL.Panicf("Could Not Register User: %s",
 					errRegister.Error())
 			}
@@ -256,10 +256,9 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	if !precanned {
 		// If we are sending to a non precanned user we retrieve the uid from the session returned by client.login
 		uid, err = client.Login(sessFilePassword)
-	}else{
+	} else {
 		_, err = client.Login(sessFilePassword)
 	}
-
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
@@ -421,7 +420,6 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
-
 
 		err = client.StartMessageReceiver(cb)
 

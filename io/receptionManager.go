@@ -51,8 +51,8 @@ type ReceptionManager struct {
 	rekeyChan chan struct{}
 }
 
-func NewReceptionManager(rekeyChan chan struct{}, privKey, pubKey, salt []byte) *ReceptionManager {
-	comms, err := client.NewClientComms("client", pubKey, privKey, salt)
+func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) *ReceptionManager {
+	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if comms == nil {
 		globals.Log.ERROR.Printf("Failed to get client comms using constructor: %+v", err)
 		comms = &client.Comms{}

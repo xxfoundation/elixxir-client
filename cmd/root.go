@@ -256,7 +256,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
-
 	return uid, client.GetSession().GetCurrentUser().Username, client
 }
 

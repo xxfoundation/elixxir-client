@@ -52,7 +52,6 @@ type ReceptionManager struct {
 
 // Build a new reception manager object using inputted key fields
 func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
-	// If there is no private key, use an empty comms object
 	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")

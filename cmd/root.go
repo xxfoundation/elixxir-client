@@ -637,7 +637,7 @@ func init() {
 		"Show the server version information.")
 
 	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
-		"Register user with notification bot")
+		"Token to register user with notification bot")
 
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")

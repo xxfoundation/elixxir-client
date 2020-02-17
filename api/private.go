@@ -303,9 +303,8 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
 		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
 
-	globals.Log.ERROR.Println("~~~~")
-	globals.Log.ERROR.Println()
-	newRm := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(), rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
+	newRm := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+		rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
 	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	cl.receptionManager = newRm
 	//store the session

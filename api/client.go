@@ -160,6 +160,12 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	}
 
 	cl.session = session
+	newRm := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
+		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
+		cl.session.GetSalt())
+	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	cl.receptionManager = newRm
 	return cl.session.GetCurrentUser().User, nil
 }
 

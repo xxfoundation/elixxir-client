@@ -57,7 +57,7 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
-var regWithNB bool
+var notificationToken string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -531,9 +531,8 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		if regWithNB {
-			token := "foIh7-NdlksspjDwT8O5kT:APA91bEQUCFeAadkIE-T3fHqAIIYwZm8lks0wQRIp5oh0qtMtjHcPjQhVZ3IDntZlv7PYAcHvDeu_7ncI8GcAlKama7YjzSLO9MgtAjxZMFivVfzQb-BD-6u0-MrJNR6XoOB9YX059ZB"
-			err = client.RegisterForNotifications([]byte(token))
+		if notificationToken != "" {
+			err = client.RegisterForNotifications([]byte(notificationToken))
 			if err != nil {
 				globals.Log.FATAL.Printf("failed to register for notifications: %+v", err)
 			}
@@ -637,7 +636,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
 		"Show the server version information.")
 
-	rootCmd.Flags().BoolVarP(&regWithNB, "nbRegistration", "x", false,
+	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
 		"Register user with notification bot")
 
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,

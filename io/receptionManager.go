@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/elixxir/comms/connect"
 	"sync"
 	"time"
 )
@@ -53,18 +52,10 @@ type ReceptionManager struct {
 
 // Build a new reception manager object using inputted key fields
 func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
-	var comms *client.Comms
-	var err error
 	// If there is no private key, use an empty comms object
-	if privKey == nil {
-		comms = &client.Comms{
-			ProtoComms: &connect.ProtoComms{},
-		}
-	} else {
-		comms, err = client.NewClientComms(uid, pubKey, privKey, salt)
-		if err != nil {
-			return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
-		}
+	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
 	}
 
 	cm := &ReceptionManager{

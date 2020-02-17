@@ -11,9 +11,9 @@ package io
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/comms/connect"
 	"sync"
 	"time"
 )
@@ -51,11 +51,20 @@ type ReceptionManager struct {
 	rekeyChan chan struct{}
 }
 
-func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) *ReceptionManager {
-	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
-	if comms == nil {
-		globals.Log.ERROR.Printf("Failed to get client comms using constructor: %+v", err)
-		comms = &client.Comms{}
+// Build a new reception manager object using inputted key fields
+func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
+	var comms *client.Comms
+	var err error
+	// If there is no private key, use an empty comms object
+	if privKey == nil {
+		comms = &client.Comms{
+			ProtoComms: &connect.ProtoComms{},
+		}
+	} else {
+		comms, err = client.NewClientComms(uid, pubKey, privKey, salt)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
+		}
 	}
 
 	cm := &ReceptionManager{
@@ -69,7 +78,7 @@ func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, s
 		Tls:                true,
 	}
 
-	return cm
+	return cm, nil
 }
 
 // Connects to the permissioning server, if we know about it, to get the latest

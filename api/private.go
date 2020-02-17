@@ -303,8 +303,11 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
 		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
 
-	newRm := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
 		rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create new reception manager")
+	}
 	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	cl.receptionManager = newRm
 	//store the session

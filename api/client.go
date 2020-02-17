@@ -103,7 +103,10 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create reception manager")
+	}
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
 
@@ -160,10 +163,13 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	}
 
 	cl.session = session
-	newRm := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
 		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
 		cl.session.GetSalt())
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create new reception manager")
+	}
 	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	cl.receptionManager = newRm
 	return cl.session.GetCurrentUser().User, nil

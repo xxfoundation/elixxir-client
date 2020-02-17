@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -301,6 +302,14 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 
 	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
 		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
+
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+		rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create new reception manager")
+	}
+	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	cl.receptionManager = newRm
 	//store the session
 	return cl.session.StoreSession()
 }

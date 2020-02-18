@@ -167,7 +167,7 @@ func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
 	if ctx == nil {
 		if rt == RekeyTrigger {
 			privKeyCyclic = e2egrp.RandomCoprime(e2egrp.NewInt(1))
-			fmt.Println("Private key actual: ", privKeyCyclic.Text(16))
+			globals.Log.DEBUG.Println("Private key actual: ", privKeyCyclic.Text(16))
 			pubKeyCyclic = e2egrp.ExpG(privKeyCyclic, e2egrp.NewInt(1))
 			// Get Current Partner Public Key from RekeyKeys
 			partnerPubKeyCyclic = keys.CurrPubKey

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,6 @@ var message string
 var sessionFile string
 var noBlockingTransmission bool
 var rateLimiting uint32
-var showVer bool
 var registrationCode string
 var username string
 var end2end bool
@@ -384,11 +383,6 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Log = globals.InitLog(verbose, logPath)
 		// Main client run function
-		if showVer {
-			printVersion()
-			return
-		}
-
 		userID, _, client := sessionInitialization()
 		err := client.RegisterWithNodes()
 		if err != nil {
@@ -642,9 +636,6 @@ func init() {
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"ID to send message to")
-	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
-		"Show the server version information.")
-
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 

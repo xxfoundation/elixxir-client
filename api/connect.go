@@ -80,7 +80,6 @@ func (cl *Client) setupPermissioning() error {
 		cl.ndf = def
 	}
 
-
 	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
 		globals.SEMVER, cl.GetRegistrationVersion())
 

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -70,7 +71,7 @@ func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.Us
 // It sends a registration message and returns the registration signature
 func (cl *Client) sendRegistrationMessage(registrationCode string,
 	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+	err := addPermissioningHost(cl.receptionManager, cl.ndf)
 
 	if err != nil {
 		if err == ErrNoPermissioning {
@@ -301,6 +302,14 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 
 	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
 		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
+
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+		rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
+	if err != nil {
+		return errors.Wrap(err, "Failed to create new reception manager")
+	}
+	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	cl.receptionManager = newRm
 	//store the session
 	return cl.session.StoreSession()
 }

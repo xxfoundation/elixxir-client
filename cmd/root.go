@@ -34,7 +34,7 @@ import (
 
 var verbose bool
 var userId uint64
-var sourcePublicKeyPath string
+var privateKeyPath string
 var destinationUserId uint64
 var destinationUserIDBase64 string
 var message string
@@ -55,6 +55,7 @@ var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
 var logPath string = ""
+var notificationToken string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -175,7 +176,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		client.DisableTls()
 	}
 
-	// InitNetwork to gateways and reg server
+	// InitNetwork to gateways, notificationBot and reg server
 	err = client.InitNetwork()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
@@ -198,17 +199,16 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		var privKey *rsa.PrivateKey
 
-		if sourcePublicKeyPath != "" {
-			pubKeyBytes, err := utils.ReadFile(sourcePublicKeyPath)
+		if privateKeyPath != "" {
+			privateKeyBytes, err := utils.ReadFile(privateKeyPath)
 			if err != nil {
-				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
-					"path %s: %+v", sourcePublicKeyPath, err)
+				globals.Log.FATAL.Panicf("Could not load user private key PEM from "+
+					"path %s: %+v", privateKeyPath, err)
 			}
 
-			privKey, err = rsa.LoadPrivateKeyFromPem(pubKeyBytes)
+			privKey, err = rsa.LoadPrivateKeyFromPem(privateKeyBytes)
 			if err != nil {
-				globals.Log.FATAL.Panicf("Could not public key from "+
-					"PEM: %+v", err)
+				globals.Log.FATAL.Panicf("Could not load private key from PEM bytes: %+v", err)
 			}
 		}
 
@@ -254,7 +254,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
-
 	return uid, client.GetSession().GetCurrentUser().Username, client
 }
 
@@ -541,6 +540,13 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		if notificationToken != "" {
+			err = client.RegisterForNotifications([]byte(notificationToken))
+			if err != nil {
+				globals.Log.FATAL.Printf("failed to register for notifications: %+v", err)
+			}
+		}
+
 		//Logout
 		err = client.Logout()
 
@@ -636,6 +642,10 @@ func init() {
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"ID to send message to")
+
+	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
+		"Token to register user with notification bot")
+
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 
@@ -646,7 +656,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
 		"Set to ignore tls. Connections will fail if the network requires tls. For debugging")
 
-	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "privateKey", "",
+	rootCmd.Flags().StringVar(&privateKeyPath, "privateKey", "",
 		"The path for a PEM encoded private key which will be used "+
 			"to create the user")
 

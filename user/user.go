@@ -19,7 +19,7 @@ var Users Registry
 const NumDemoUsers = 40
 
 var DemoUserNicks = []string{"David", "Payments", "UDB", "Jim", "Ben", "Steph",
-	"Rick", "Jake", "Spencer", "Stephanie", "Mario", "Jono", "Amanda",
+	"Rick", "Jake", "Niamh", "Stephanie", "Mario", "Jono", "Amanda",
 	"Margaux", "Kevin", "Bruno", "Konstantino", "Bernardo", "Tigran",
 	"Kate", "Will", "Katie", "Bryan"}
 var DemoChannelNames = []string{"#General", "#Engineering", "#Lunch",

@@ -54,6 +54,7 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
+var precanned = false
 var logPath string = ""
 var notificationToken string
 
@@ -192,6 +193,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		regCode := registrationCode
 		// If precanned user, use generated code instead
 		if userId != 0 {
+			precanned = true
 			regCode = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		}
 
@@ -249,7 +251,12 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	_, err = client.Login(sessFilePassword)
+	if !precanned {
+		// If we are sending to a non precanned user we retrieve the uid from the session returned by client.login
+		uid, err = client.Login(sessFilePassword)
+	} else {
+		_, err = client.Login(sessFilePassword)
+	}
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)

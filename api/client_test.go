@@ -702,8 +702,8 @@ func TestClient_LogoutTimeout(t *testing.T) {
 // Test that if we logout we can logback in.
 func TestClient_LogoutAndLoginAgain(t *testing.T){
 	//Initialize a client
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	tc, _ := NewClient(&d, "", "", def)
+	storage := globals.RamStorage{}
+	tc, initialId := NewClient(&storage, "", "", def)
 
 	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
 
@@ -736,10 +736,16 @@ func TestClient_LogoutAndLoginAgain(t *testing.T){
 	}
 
 	//Redefine client with old session files and attempt to login.
-	tc, _ = NewClient(&d, "", "", def)
+	tc, newId := NewClient(&storage, "", "", def)
 	_, err = tc.Login("")
 	if err != nil{
 		t.Logf("Login failed %+v", err)
 		t.Fail()
 	}
+
+	if newId != initialId{
+		t.Logf("Failed to log user back in to original session")
+		t.Fail()
+	}
+
 }

@@ -10,6 +10,7 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -356,7 +357,7 @@ func TestSend(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	storage := globals.RamStorage{}
 	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())

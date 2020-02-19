@@ -607,7 +607,7 @@ func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) 
 	return nil
 }
 
-// Turns off the messageReceiver and clears out the client, so we c an effectively shut everything down.
+// Turns off the messageReceiver and clears out the client values, so we can effectively shut everything down.
 func (cl *Client) ShutDown(duration time.Duration) error{
 	timer := time.NewTimer(duration)
 	select {

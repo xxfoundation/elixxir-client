@@ -48,11 +48,10 @@ type ReceptionManager struct {
 	sendLock sync.Mutex
 
 	rekeyChan chan struct{}
-	killChan chan bool
 }
 
 // Build a new reception manager object using inputted key fields
-func NewReceptionManager(rekeyChan chan struct{}, killChan chan bool,uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
+func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
 	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
@@ -66,7 +65,6 @@ func NewReceptionManager(rekeyChan chan struct{}, killChan chan bool,uid string,
 		receivedMessages:   make(map[string]struct{}),
 		Comms:              comms,
 		rekeyChan:          rekeyChan,
-		killChan:			killChan,
 		Tls:                true,
 	}
 

@@ -561,17 +561,143 @@ func TestClient_GetCommManager(t *testing.T) {
 	}
 }
 
+// Test that client.Shutcown clears out all the expected variables and stops the message reciever.
+func TestClient_ShutDownHappyPath(t *testing.T) {
+	//Initialize a client
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, "", "", def)
 
-func TestClient_ShutDown(t *testing.T) {
-	tc, _ := NewClient(&globals.RamStorage{}, "", "", def)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, tc.killChan, "kk", nil, nil, nil)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
 
-	cb := func(err error) {
+	err := tc.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = tc.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+
+	//Start Message reciever
+	callBack := func(err error) {
 		t.Log(err)
 	}
 
-	tc.StartMessageReceiver(cb)
+	err = tc.StartMessageReceiver(callBack)
+	if err != nil {
+		t.Logf("Failed to start message reciever %+v", err)
+		t.Fail()
+	}
+
+	//Introduce a delay to allow things to startup and run
 	time.Sleep(1 * time.Second)
-	tc.ShutDown()
+
+	err = tc.ShutDown(2*time.Second)
+	if err != nil {
+		t.Logf("Timeout occured failed to shutdown %+v", err)
+		t.Fail()
+	}
+
+	//Check everything that should be nil is nil
+	if tc.session != nil{
+		t.Logf("Session should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.registrationVersion != ""{
+		t.Logf("RegistrationVerison should be set to empty string on shutdown")
+		t.Fail()
+	}
+	if tc.receptionManager != nil{
+		t.Logf("ReceptionManager should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.topology != nil{
+		t.Logf("Topology should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.opStatus != nil{
+		t.Logf("OPstatus should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.rekeyChan != nil{
+		t.Logf("rekeyChan should be set to nil on shutdown")
+		t.Fail()
+	}
+
+	//Test that the things that should not be nil are not nil
+	if tc.ndf == nil{
+		t.Logf("NDF should not be set to nil")
+		t.Fail()
+	}
+	if tc.storage == nil{
+		t.Logf("Storage should not be set to nil")
+		t.Fail()
+	}
+}
+
+//Test that the client shutdown will timeout when it fails to shutdown
+func TestClient_ShutDownTimeout(t *testing.T) {
+	//Initialize a client
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, "", "", def)
+
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+
+	err := tc.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = tc.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+
+
+	// we s
+	err = tc.ShutDown(1* time.Second)
+	if err == nil {
+		t.Logf("Timeout out should have occured")
+		t.Fail()
+	}
+
+	//Check everything that should be nil is nil
+	if tc.session == nil{
+		t.Logf("Session should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.registrationVersion == ""{
+		t.Logf("RegistrationVerison should not be set to empty string on shutdown timeout")
+		t.Fail()
+	}
+	if tc.receptionManager == nil{
+		t.Logf("ReceptionManager should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.topology == nil{
+		t.Logf("Topology should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.opStatus == nil{
+		t.Logf("OPstatus should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.rekeyChan == nil{
+		t.Logf("rekeyChan should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+
+	//Test that the things that should not be nil are not nil
+	if tc.ndf == nil{
+		t.Logf("NDF should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.storage == nil{
+		t.Logf("Storage should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
 
 }

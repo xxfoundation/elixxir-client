@@ -52,6 +52,11 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 
 	for {
 
+		killReciever := <- rm.killChan;
+		if killReciever{
+			break
+		}
+
 		NumChecks++
 		select {
 		case <-quit:

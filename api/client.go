@@ -45,6 +45,7 @@ type Client struct {
 	topology            *connect.Circuit
 	opStatus            OperationProgressCallback
 	rekeyChan           chan struct{}
+	killChan			chan bool
 	registrationVersion string
 
 	// Pointer to a send function, which allows testing to override the default
@@ -102,7 +103,7 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, cl.killChan,"client", nil, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create reception manager")
 	}
@@ -120,6 +121,8 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	}
 
 	cl.rekeyChan = make(chan struct{}, 1)
+	cl.killChan = make(chan bool)
+	cl.killChan <- false
 
 	return cl, nil
 }
@@ -162,7 +165,7 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	}
 
 	cl.session = session
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.killChan, cl.session.GetCurrentUser().User.String(),
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
 		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
 		cl.session.GetSalt())
@@ -605,4 +608,16 @@ func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) 
 	}
 
 	return nil
+}
+
+func (cl *Client) ShutDown(){
+	cl.session = nil
+	cl.receptionManager = nil
+	cl.topology = nil
+	cl.opStatus = nil
+	cl.rekeyChan = nil
+	cl.registrationVersion = ""
+	// This sends the kill signal to receptionManager
+	//cl.killChan <- false
+	close(cl.session.GetQuitChan())
 }

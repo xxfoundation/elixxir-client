@@ -560,3 +560,18 @@ func TestClient_GetCommManager(t *testing.T) {
 		t.Error("Received session not the same as the real session")
 	}
 }
+
+
+func TestClient_ShutDown(t *testing.T) {
+	tc, _ := NewClient(&globals.RamStorage{}, "", "", def)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, tc.killChan, "kk", nil, nil, nil)
+
+	cb := func(err error) {
+		t.Log(err)
+	}
+
+	tc.StartMessageReceiver(cb)
+	time.Sleep(1 * time.Second)
+	tc.ShutDown()
+
+}

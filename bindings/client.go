@@ -317,7 +317,7 @@ func (cl *Client) SendNoTimestamp(m Message, encrypt bool) error {
 // from RAM
 func (cl *Client) Logout() error {
 	globals.Log.INFO.Printf("Binding call: Logout()\n")
-	return cl.client.Logout()
+	return cl.client.Logout(100 * time.Millisecond)
 }
 
 // Get the version string from the locally built client repository

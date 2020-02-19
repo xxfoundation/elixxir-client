@@ -657,7 +657,7 @@ func TestClient_ShutDownTimeout(t *testing.T) {
 
 
 
-	// we s
+	// Because we never initiated startMessageReceiver this should timeout.
 	err = tc.ShutDown(1* time.Second)
 	if err == nil {
 		t.Logf("Timeout out should have occured")

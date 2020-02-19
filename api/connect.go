@@ -22,7 +22,7 @@ var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 // credential information for connection establishment
 func (cl *Client) InitNetwork() error {
 	//InitNetwork to permissioning
-	err := AddPermissioningHost(cl.receptionManager, cl.ndf)
+	err := addPermissioningHost(cl.receptionManager, cl.ndf)
 
 	if err != nil {
 		if err != ErrNoPermissioning {
@@ -43,15 +43,39 @@ func (cl *Client) InitNetwork() error {
 		}
 	}
 
+	// InitNetwork to nodes
+	cl.topology = BuildNodeTopology(cl.ndf)
+
+	err = addNotificationBotHost(cl.receptionManager, cl.ndf)
+	if err != nil {
+		return errors.Errorf("Failed to connect to notification bot at %+v", cl.ndf)
+	}
+
+	return addGatewayHosts(cl.receptionManager, cl.ndf)
+}
+
+// AddNotificationBotHost adds notification bot as a host within the reception manager
+func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+
+	err := addHost(rm, id.NOTIFICATION_BOT, definition.Notification.Address,
+		definition.Notification.TlsCertificate, false, true)
+	if err != nil {
+		return errors.Errorf("Failed to connect to notification bot at %+v",
+			definition.Notification.Address)
+	}
+	return nil
+}
+
+// BuildNodeTopology is a helper function which goes through the ndf and
+// builds a circuit for all the node's in the definition
+func BuildNodeTopology(definition *ndf.NetworkDefinition) *connect.Circuit {
 	//build the topology
-	nodeIDs := make([]*id.Node, len(cl.ndf.Nodes))
-	for i, node := range cl.ndf.Nodes {
+	nodeIDs := make([]*id.Node, len(definition.Nodes))
+	for i, node := range definition.Nodes {
 		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
 	}
 
-	cl.topology = connect.NewCircuit(nodeIDs)
-
-	return AddGatewayHosts(cl.receptionManager, cl.ndf)
+	return connect.NewCircuit(nodeIDs)
 }
 
 // DisableTls disables tls for communications
@@ -72,14 +96,13 @@ func (cl *Client) setupPermissioning() error {
 	cl.registrationVersion = ver
 
 	//Request a new ndf from permissioning
-	def, err = io.PollNdf(cl.ndf, cl.receptionManager.Comms)
+	def, err = cl.receptionManager.Comms.RetrieveNdf(cl.ndf)
 	if err != nil {
 		return err
 	}
 	if def != nil {
 		cl.ndf = def
 	}
-
 
 	globals.Log.DEBUG.Printf("Local version: %v; Remote version: %v",
 		globals.SEMVER, cl.GetRegistrationVersion())
@@ -108,7 +131,7 @@ func (cl *Client) setupPermissioning() error {
 
 // Connects to gateways using tls filepaths to create credential information
 // for connection establishment
-func AddGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if len(definition.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
@@ -146,7 +169,7 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout, 
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func AddPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
 		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
 			definition.Registration.TlsCertificate, false, false)

@@ -453,3 +453,15 @@ func (cl *Client) InitListeners() error {
 	globals.Log.INFO.Printf("Binding call: InitListeners")
 	return cl.client.InitListeners()
 }
+
+// RegisterForNotifications sends a message to notification bot indicating it
+// is registering for notifications
+func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
+	return cl.client.RegisterForNotifications(notificationToken)
+}
+
+// UnregisterForNotifications sends a message to notification bot indicating it
+// no longer wants to be registered for notifications
+func (cl *Client) UnregisterForNotifications() error {
+	return cl.client.UnregisterForNotifications()
+}

@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -74,7 +73,7 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 	case *testing.B:
 		break
 	default:
-		jww.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
+		globals.Log.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
 	}
 	return newClient(s, locA, locB, ndfJSON, sendFunc)
 }
@@ -103,7 +102,10 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager = io.NewReceptionManager(cl.rekeyChan)
+	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create reception manager")
+	}
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
 
@@ -160,6 +162,15 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	}
 
 	cl.session = session
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
+		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
+		cl.session.GetSalt())
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create new reception manager")
+	}
+	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	cl.receptionManager = newRm
 	return cl.session.GetCurrentUser().User, nil
 }
 

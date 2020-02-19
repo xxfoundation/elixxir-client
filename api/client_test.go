@@ -559,5 +559,4 @@ func TestClient_GetCommManager(t *testing.T) {
 	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.receptionManager) {
 		t.Error("Received session not the same as the real session")
 	}
-
 }

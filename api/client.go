@@ -102,7 +102,7 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan,"client", nil, nil, nil)
+	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create reception manager")
 	}
@@ -608,13 +608,13 @@ func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) 
 }
 
 // Turns off the messageReceiver and clears out the client values, so we can effectively shut everything down.
-func (cl *Client) ShutDown(duration time.Duration) error{
+func (cl *Client) ShutDown(duration time.Duration) error {
 	timer := time.NewTimer(duration)
 	select {
-		// This sends the kill signal to receptionManager in a blocking manner or times out if it fails
-		case cl.session.GetQuitChan() <- struct{}{}:
-		case <- timer.C:
-			return errors.Errorf("Could not shutdown MessageReceiever do to time out of %s", duration)
+	// This sends the kill signal to receptionManager in a blocking manner or times out if it fails
+	case cl.session.GetQuitChan() <- struct{}{}:
+	case <-timer.C:
+		return errors.Errorf("Could not shutdown MessageReceiever do to time out of %s", duration)
 	}
 
 	cl.session = nil

@@ -562,7 +562,7 @@ func TestClient_GetCommManager(t *testing.T) {
 }
 
 // Test that client.Shutcown clears out all the expected variables and stops the message reciever.
-func TestClient_ShutDownHappyPath(t *testing.T) {
+func TestClient_LogoutHappyPath(t *testing.T) {
 	//Initialize a client
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	tc, _ := NewClient(&d, "", "", def)
@@ -593,7 +593,7 @@ func TestClient_ShutDownHappyPath(t *testing.T) {
 	//Introduce a delay to allow things to startup and run
 	time.Sleep(1 * time.Second)
 
-	err = tc.ShutDown(2 * time.Second)
+	err = tc.Logout(2 * time.Second)
 	if err != nil {
 		t.Logf("Timeout occured failed to shutdown %+v", err)
 		t.Fail()
@@ -637,7 +637,7 @@ func TestClient_ShutDownHappyPath(t *testing.T) {
 }
 
 //Test that the client shutdown will timeout when it fails to shutdown
-func TestClient_ShutDownTimeout(t *testing.T) {
+func TestClient_LogoutTimeout(t *testing.T) {
 	//Initialize a client
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	tc, _ := NewClient(&d, "", "", def)
@@ -655,7 +655,7 @@ func TestClient_ShutDownTimeout(t *testing.T) {
 	}
 
 	// Because we never initiated startMessageReceiver this should timeout.
-	err = tc.ShutDown(1 * time.Second)
+	err = tc.Logout(1 * time.Second)
 	if err == nil {
 		t.Logf("Timeout out should have occured")
 		t.Fail()
@@ -697,4 +697,49 @@ func TestClient_ShutDownTimeout(t *testing.T) {
 		t.Fail()
 	}
 
+}
+
+// Test that if we logout we can logback in.
+func TestClient_LogoutAndLoginAgain(t *testing.T){
+	//Initialize a client
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, "", "", def)
+
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+
+	err := tc.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = tc.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	//Start Message receiver
+	callBack := func(err error) {
+		t.Log(err)
+	}
+
+	err = tc.StartMessageReceiver(callBack)
+	if err != nil {
+		t.Logf("Failed to start message reciever %+v", err)
+		t.Fail()
+	}
+
+	// Because we never initiated startMessageReceiver this should timeout.
+	err = tc.Logout(1 * time.Second)
+	if err != nil {
+		t.Logf("Timeout out should have not occured. %+v", err)
+		t.Fail()
+	}
+
+	//Redefine client with old session files and attempt to login.
+	tc, _ = NewClient(&d, "", "", def)
+	_, err = tc.Login("")
+	if err != nil{
+		t.Logf("Login failed %+v", err)
+		t.Fail()
+	}
 }

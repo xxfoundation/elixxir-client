@@ -346,7 +346,7 @@ func TestSend(t *testing.T) {
 		t.Errorf("Error sending message: %v", err)
 	}
 
-	err = client.Logout()
+	err = client.Logout(1* time.Second)
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
@@ -369,7 +369,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Logout before logging in should return an error
-	err = client.Logout()
+	err = client.Logout(1 * time.Second)
 
 	if err == nil {
 		t.Errorf("Logout did not throw an error when called on a client that" +
@@ -410,14 +410,14 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Failed to start message reciever: %s", err.Error())
 	}
 
-	err = client.Logout()
+	err = client.Logout(1 * time.Second)
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
 	}
 
 	// Logout after logout has been called should return an error
-	err = client.Logout()
+	err = client.Logout(1 * time.Second)
 
 	if err == nil {
 		t.Errorf("Logout did not throw an error when called on a client that" +

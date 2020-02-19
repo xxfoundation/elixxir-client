@@ -174,11 +174,11 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	return cl.session.GetCurrentUser().User, nil
 }
 
-// Logout closes the connection to the server at this time and does
+// Logout closes the connection to the server and the messageReceiver and clears out the client values,
+// so we can effectively shut everything down.  at this time and does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory.
-// fixme: blocks forever is message reciever
-func (cl *Client) Logout() error {
+func (cl *Client) Logout(timeoutDuration time.Duration) error {
 	if cl.session == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
 		globals.Log.ERROR.Printf(err.Error())
@@ -186,9 +186,14 @@ func (cl *Client) Logout() error {
 	}
 
 	// Stop reception runner goroutine
-	close(cl.session.GetQuitChan())
-
-	cl.receptionManager.Comms.DisconnectAll()
+	timer := time.NewTimer(timeoutDuration)
+	select {
+	// This sends the kill signal to receptionManager in a blocking manner or times out if it fails
+	case cl.session.GetQuitChan() <- struct{}{}:
+		cl.receptionManager.Comms.DisconnectAll()
+	case <-timer.C:
+		return errors.Errorf("Could not shutdown MessageReceiever do to time out of %s", timeoutDuration)
+	}
 
 	errStore := cl.session.StoreSession()
 
@@ -208,6 +213,13 @@ func (cl *Client) Logout() error {
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
+
+	cl.session = nil
+	cl.receptionManager = nil
+	cl.topology = nil
+	cl.opStatus = nil
+	cl.rekeyChan = nil
+	cl.registrationVersion = ""
 
 	return nil
 }
@@ -604,24 +616,5 @@ func (cl *Client) WriteToSessionFile(replacement string, store globals.Storage) 
 		return errMsg
 	}
 
-	return nil
-}
-
-// Turns off the messageReceiver and clears out the client values, so we can effectively shut everything down.
-func (cl *Client) ShutDown(duration time.Duration) error {
-	timer := time.NewTimer(duration)
-	select {
-	// This sends the kill signal to receptionManager in a blocking manner or times out if it fails
-	case cl.session.GetQuitChan() <- struct{}{}:
-	case <-timer.C:
-		return errors.Errorf("Could not shutdown MessageReceiever do to time out of %s", duration)
-	}
-
-	cl.session = nil
-	cl.receptionManager = nil
-	cl.topology = nil
-	cl.opStatus = nil
-	cl.rekeyChan = nil
-	cl.registrationVersion = ""
 	return nil
 }

@@ -306,6 +306,13 @@ func (cl *Client) Send(m Message, encrypt bool) (int64, error) {
 	})
 }
 
+//a version of the send function which does not return a timestamp for use
+//on iOS
+func (cl *Client) SendNoTimestamp(m Message, encrypt bool) error {
+	_, err := cl.Send(m, encrypt)
+	return err
+}
+
 // Logs the user out, saving the state for the system and clearing all data
 // from RAM
 func (cl *Client) Logout() error {

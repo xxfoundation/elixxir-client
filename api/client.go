@@ -192,7 +192,7 @@ func (cl *Client) Logout(timeoutDuration time.Duration) error {
 	case cl.session.GetQuitChan() <- struct{}{}:
 		cl.receptionManager.Comms.DisconnectAll()
 	case <-timer.C:
-		return errors.Errorf("Could not shutdown MessageReceiever do to time out of %s", timeoutDuration)
+		return errors.Errorf("Could not shutdown MessageReceiever due to time out of %s", timeoutDuration)
 	}
 
 	errStore := cl.session.StoreSession()

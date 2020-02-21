@@ -560,3 +560,192 @@ func TestClient_GetCommManager(t *testing.T) {
 		t.Error("Received session not the same as the real session")
 	}
 }
+
+// Test that client.Shutcown clears out all the expected variables and stops the message reciever.
+func TestClient_LogoutHappyPath(t *testing.T) {
+	//Initialize a client
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, "", "", def)
+
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+
+	err := tc.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = tc.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	//Start Message reciever
+	callBack := func(err error) {
+		t.Log(err)
+	}
+
+	err = tc.StartMessageReceiver(callBack)
+	if err != nil {
+		t.Logf("Failed to start message reciever %+v", err)
+		t.Fail()
+	}
+
+	//Introduce a delay to allow things to startup and run
+	time.Sleep(1 * time.Second)
+
+	err = tc.Logout(500 * time.Millisecond)
+	if err != nil {
+		t.Logf("Timeout occured failed to shutdown %+v", err)
+		t.Fail()
+	}
+
+	//Check everything that should be nil is nil
+	if tc.session != nil {
+		t.Logf("Session should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.registrationVersion != "" {
+		t.Logf("RegistrationVerison should be set to empty string on shutdown")
+		t.Fail()
+	}
+	if tc.receptionManager != nil {
+		t.Logf("ReceptionManager should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.topology != nil {
+		t.Logf("Topology should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.opStatus != nil {
+		t.Logf("OPstatus should be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.rekeyChan != nil {
+		t.Logf("rekeyChan should be set to nil on shutdown")
+		t.Fail()
+	}
+
+	//Test that the things that should not be nil are not nil
+	if tc.ndf == nil {
+		t.Logf("NDF should not be set to nil")
+		t.Fail()
+	}
+	if tc.storage == nil {
+		t.Logf("Storage should not be set to nil")
+		t.Fail()
+	}
+}
+
+//Test that the client shutdown will timeout when it fails to shutdown
+func TestClient_LogoutTimeout(t *testing.T) {
+	//Initialize a client
+	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, "", "", def)
+
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+
+	err := tc.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = tc.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	// Because we never initiated startMessageReceiver this should timeout.
+	err = tc.Logout(500 * time.Millisecond)
+	if err == nil {
+		t.Logf("Timeout out should have occured")
+		t.Fail()
+	}
+
+	//Check everything that should be nil is nil
+	if tc.session == nil {
+		t.Logf("Session should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.registrationVersion == "" {
+		t.Logf("RegistrationVerison should not be set to empty string on shutdown timeout")
+		t.Fail()
+	}
+	if tc.receptionManager == nil {
+		t.Logf("ReceptionManager should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.topology == nil {
+		t.Logf("Topology should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.opStatus == nil {
+		t.Logf("OPstatus should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.rekeyChan == nil {
+		t.Logf("rekeyChan should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+
+	//Test that the things that should not be nil are not nil
+	if tc.ndf == nil {
+		t.Logf("NDF should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+	if tc.storage == nil {
+		t.Logf("Storage should not be set to nil on shutdown timeout")
+		t.Fail()
+	}
+
+}
+
+// Test that if we logout we can logback in.
+func TestClient_LogoutAndLoginAgain(t *testing.T){
+	//Initialize a client
+	storage := globals.RamStorage{}
+	tc, initialId := NewClient(&storage, "", "", def)
+
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+
+	err := tc.InitNetwork()
+	if err != nil {
+		t.Errorf("Could not connect: %+v", err)
+	}
+
+	err = tc.GenerateKeys(nil, "")
+	if err != nil {
+		t.Errorf("Could not generate Keys: %+v", err)
+	}
+
+	//Start Message receiver
+	callBack := func(err error) {
+		t.Log(err)
+	}
+
+	err = tc.StartMessageReceiver(callBack)
+	if err != nil {
+		t.Logf("Failed to start message reciever %+v", err)
+		t.Fail()
+	}
+
+	// Because we never initiated startMessageReceiver this should timeout.
+	err = tc.Logout(500 * time.Millisecond)
+	if err != nil {
+		t.Logf("Timeout out should have not occured. %+v", err)
+		t.Fail()
+	}
+
+	//Redefine client with old session files and attempt to login.
+	tc, newId := NewClient(&storage, "", "", def)
+	_, err = tc.Login("")
+	if err != nil{
+		t.Logf("Login failed %+v", err)
+		t.Fail()
+	}
+
+	if newId != initialId{
+		t.Logf("Failed to log user back in to original session")
+		t.Fail()
+	}
+
+}

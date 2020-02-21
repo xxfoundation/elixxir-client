@@ -593,7 +593,7 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 	//Introduce a delay to allow things to startup and run
 	time.Sleep(1 * time.Second)
 
-	err = tc.Logout(100 * time.Millisecond)
+	err = tc.Logout(500 * time.millisecond)
 	if err != nil {
 		t.Logf("Timeout occured failed to shutdown %+v", err)
 		t.Fail()
@@ -655,7 +655,7 @@ func TestClient_LogoutTimeout(t *testing.T) {
 	}
 
 	// Because we never initiated startMessageReceiver this should timeout.
-	err = tc.Logout(100 * time.Millisecond)
+	err = tc.Logout(500 * time.millisecond)
 	if err == nil {
 		t.Logf("Timeout out should have occured")
 		t.Fail()
@@ -729,7 +729,7 @@ func TestClient_LogoutAndLoginAgain(t *testing.T){
 	}
 
 	// Because we never initiated startMessageReceiver this should timeout.
-	err = tc.Logout(100 * time.Millisecond)
+	err = tc.Logout(500 * time.millisecond)
 	if err != nil {
 		t.Logf("Timeout out should have not occured. %+v", err)
 		t.Fail()

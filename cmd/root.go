@@ -555,7 +555,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		//Logout
-		err = client.Logout(100 * time.Millisecond)
+		err = client.Logout(500 * time.millisecond)
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())

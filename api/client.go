@@ -175,7 +175,7 @@ func (cl *Client) Login(password string) (*id.User, error) {
 }
 
 // Logout closes the connection to the server and the messageReceiver and clears out the client values,
-// so we can effectively shut everything down.  at this time and does
+// so we can effectively shut everything down.  at this time it does
 // nothing with the user id. In the future this will release resources
 // and safely release any sensitive memory. Recommended time out is 500ms.
 func (cl *Client) Logout(timeoutDuration time.Duration) error {

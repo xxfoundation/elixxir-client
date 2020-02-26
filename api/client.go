@@ -218,8 +218,6 @@ func (cl *Client) Logout(timeoutDuration time.Duration) error {
 	cl.session = nil
 	cl.receptionManager = nil
 	cl.topology = nil
-	cl.opStatus = nil
-	cl.rekeyChan = nil
 	cl.registrationVersion = ""
 
 	return nil

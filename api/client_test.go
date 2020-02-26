@@ -616,14 +616,7 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 		t.Logf("Topology should be set to nil on shutdown")
 		t.Fail()
 	}
-	if tc.opStatus != nil {
-		t.Logf("OPstatus should be set to nil on shutdown")
-		t.Fail()
-	}
-	if tc.rekeyChan != nil {
-		t.Logf("rekeyChan should be set to nil on shutdown")
-		t.Fail()
-	}
+
 
 	//Test that the things that should not be nil are not nil
 	if tc.ndf == nil {
@@ -632,6 +625,14 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 	}
 	if tc.storage == nil {
 		t.Logf("Storage should not be set to nil")
+		t.Fail()
+	}
+	if tc.opStatus == nil {
+		t.Logf("OPstatus should not be set to nil on shutdown")
+		t.Fail()
+	}
+	if tc.rekeyChan == nil {
+		t.Logf("rekeyChan should not be set to nil on shutdown")
 		t.Fail()
 	}
 }

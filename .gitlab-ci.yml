@@ -102,23 +102,23 @@ tag:
         - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
         - git push origin_tags -f --tags
 
-#bindings:
-#  stage: build
-#  except:
-#    - tags
-#  tags: 
-#    - ios
-#  script:
+bindings:
+  stage: build
+  except:
+    - tags
+  tags: 
+    - ios
+  script:
 #    - GO111MODULE=off go get golang.org/x/mobile/cmd/gomobile
 #    - GO111MODULE=off go get gitlab.com/elixxir/client
-#    - GO111MODULE=off gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
-#    - GO111MODULE=off gomobile bind -target ios gitlab.com/elixxir/client/bindings
-#    - zip -r iOS.zip Bindings.framework
-#  artifacts:
-#    paths:
-#      - iOS.zip
-#      - bindings.aar
-#      - bindings-sources.jar
+    - GO111MODULE=off gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - GO111MODULE=off gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    - zip -r iOS.zip Bindings.framework
+  artifacts:
+    paths:
+      - iOS.zip
+      - bindings.aar
+      - bindings-sources.jar
 
 trigger_integration:
   stage: trigger_integration

@@ -111,7 +111,9 @@ bindings:
   script:
     - go get -u golang.org/x/mobile/cmd/gomobile
     - go get -u golang.org/x/mobile/bind
-    - GO111MODULE=off go get -u gitlab.com/elixxir/client
+    - rm -rf $HOME/go/src/gitlab.com/elixxir/client/
+    - mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
+    - cp -r * $HOME/go/src/gitlab.com/elixxir/client/
     - GO111MODULE=off gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
     - GO111MODULE=off gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - zip -r iOS.zip Bindings.framework

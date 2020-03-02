@@ -109,9 +109,9 @@ bindings:
   tags: 
     - ios
   script:
-    - go get golang.org/x/mobile/cmd/gomobile
-    - go get golang.org/x/mobile/bind
-#    - GO111MODULE=off go get gitlab.com/elixxir/client
+    - go get -u golang.org/x/mobile/cmd/gomobile
+    - go get -u golang.org/x/mobile/bind
+    - GO111MODULE=off go get -u gitlab.com/elixxir/client
     - GO111MODULE=off gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
     - GO111MODULE=off gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - zip -r iOS.zip Bindings.framework

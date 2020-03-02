@@ -112,8 +112,8 @@ bindings:
     - go get golang.org/x/mobile/cmd/gomobile
     - go get golang.org/x/mobile/bind
 #    - GO111MODULE=off go get gitlab.com/elixxir/client
-    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
-    - gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    - GO111MODULE=off gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - GO111MODULE=off gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - zip -r iOS.zip Bindings.framework
   artifacts:
     paths:

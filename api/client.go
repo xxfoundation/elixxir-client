@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -15,7 +15,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -74,7 +73,7 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 	case *testing.B:
 		break
 	default:
-		jww.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
+		globals.Log.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
 	}
 	return newClient(s, locA, locB, ndfJSON, sendFunc)
 }
@@ -103,7 +102,10 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager = io.NewReceptionManager(cl.rekeyChan)
+	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create reception manager")
+	}
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
 
@@ -160,27 +162,41 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	}
 
 	cl.session = session
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
+		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
+		cl.session.GetSalt())
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to create new reception manager")
+	}
+	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	cl.receptionManager = newRm
 	return cl.session.GetCurrentUser().User, nil
 }
 
-// Logout closes the connection to the server at this time and does
+// Logout closes the connection to the server and the messageReceiver and clears out the client values,
+// so we can effectively shut everything down.  at this time it does
 // nothing with the user id. In the future this will release resources
-// and safely release any sensitive memory.
-// fixme: blocks forever is message reciever
-func (cl *Client) Logout() error {
+// and safely release any sensitive memory. Recommended time out is 500ms.
+func (cl *Client) Logout(timeoutDuration time.Duration) error {
 	if cl.session == nil {
 		err := errors.New("Logout: Cannot Logout when you are not logged in")
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
 
-	// Stop reception runner goroutine
-	close(cl.session.GetQuitChan())
+	// Here using a select statement and the fact that making cl.sess.GetQuitChan is blocking, we can detect when
+	// killing the reception manager is taking too long and we use the time out to stop the attempt and return an error.
+	timer := time.NewTimer(timeoutDuration)
+	select {
+	case cl.session.GetQuitChan() <- struct{}{}:
+		cl.receptionManager.Comms.DisconnectAll()
+	case <-timer.C:
+		return errors.Errorf("Message receiver shut down timed out after %s ms", timeoutDuration)
+	}
 
-	cl.receptionManager.Comms.DisconnectAll()
-
+	// Store the user session files before logging out
 	errStore := cl.session.StoreSession()
-
 	if errStore != nil {
 		err := errors.New(fmt.Sprintf("Logout: Store Failed: %s" +
 			errStore.Error()))
@@ -188,15 +204,21 @@ func (cl *Client) Logout() error {
 		return err
 	}
 
+	// Clear all keys from ram
 	errImmolate := cl.session.Immolate()
 	cl.session = nil
-
 	if errImmolate != nil {
 		err := errors.New(fmt.Sprintf("Logout: Immolation Failed: %s" +
 			errImmolate.Error()))
 		globals.Log.ERROR.Printf(err.Error())
 		return err
 	}
+
+	// Here we clear away all state in the client struct that should not be persistent
+	cl.session = nil
+	cl.receptionManager = nil
+	cl.topology = nil
+	cl.registrationVersion = ""
 
 	return nil
 }

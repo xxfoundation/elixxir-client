@@ -306,11 +306,18 @@ func (cl *Client) Send(m Message, encrypt bool) (int64, error) {
 	})
 }
 
+//a version of the send function which does not return a timestamp for use
+//on iOS
+func (cl *Client) SendNoTimestamp(m Message, encrypt bool) error {
+	_, err := cl.Send(m, encrypt)
+	return err
+}
+
 // Logs the user out, saving the state for the system and clearing all data
 // from RAM
 func (cl *Client) Logout() error {
 	globals.Log.INFO.Printf("Binding call: Logout()\n")
-	return cl.client.Logout()
+	return cl.client.Logout(500 * time.Millisecond)
 }
 
 // Get the version string from the locally built client repository
@@ -445,4 +452,16 @@ func (cl *Client) WriteToSession(replacement string, storage globals.Storage) er
 func (cl *Client) InitListeners() error {
 	globals.Log.INFO.Printf("Binding call: InitListeners")
 	return cl.client.InitListeners()
+}
+
+// RegisterForNotifications sends a message to notification bot indicating it
+// is registering for notifications
+func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
+	return cl.client.RegisterForNotifications(notificationToken)
+}
+
+// UnregisterForNotifications sends a message to notification bot indicating it
+// no longer wants to be registered for notifications
+func (cl *Client) UnregisterForNotifications() error {
+	return cl.client.UnregisterForNotifications()
 }

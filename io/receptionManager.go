@@ -50,19 +50,25 @@ type ReceptionManager struct {
 	rekeyChan chan struct{}
 }
 
-func NewReceptionManager(rekeyChan chan struct{}) *ReceptionManager {
+// Build a new reception manager object using inputted key fields
+func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
+	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
+	}
+
 	cm := &ReceptionManager{
 		nextId:             parse.IDCounter(),
 		collator:           NewCollator(),
 		blockTransmissions: true,
 		transmitDelay:      1000 * time.Millisecond,
 		receivedMessages:   make(map[string]struct{}),
-		Comms:              &client.Comms{},
+		Comms:              comms,
 		rekeyChan:          rekeyChan,
 		Tls:                true,
 	}
 
-	return cm
+	return cm, nil
 }
 
 // Connects to the permissioning server, if we know about it, to get the latest

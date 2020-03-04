@@ -10,9 +10,11 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/notificationBot"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
@@ -28,10 +30,12 @@ const RegPort = 5000
 const GWErrorPort = 7800
 const GWsStartPort = 7900
 const PermErrorServerPort = 4000
+const NotificationBotPort = 6500
+const NotificationErrorPort = 6600
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.Comms
-var NDFErrorReg = MockPerm_NDF_ErrorCase{}
+var NDFErrorReg = MockPermNdfErrorCase{}
 var ErrorDef *ndf.NetworkDefinition
 
 const ValidRegCode = "UAV6IWD6"
@@ -44,6 +48,9 @@ var RegGWHandlers [3]*GatewayHandler = [NumGWs]*GatewayHandler{
 }
 var GWComms [NumGWs]*gateway.Comms
 var GWErrComms [NumGWs]*gateway.Comms
+
+var NotificationBotHandler = MockNotificationHandler{}
+var NotificationBotComms *notificationBot.Comms
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
@@ -340,7 +347,7 @@ func TestSend(t *testing.T) {
 		t.Errorf("Error sending message: %v", err)
 	}
 
-	err = client.Logout()
+	err = client.Logout(100* time.Millisecond)
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
@@ -350,7 +357,7 @@ func TestSend(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	storage := globals.RamStorage{}
 	client, err := NewClient(&storage, "hello", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -363,7 +370,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	// Logout before logging in should return an error
-	err = client.Logout()
+	err = client.Logout(500 * time.Millisecond)
 
 	if err == nil {
 		t.Errorf("Logout did not throw an error when called on a client that" +
@@ -404,14 +411,14 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Failed to start message reciever: %s", err.Error())
 	}
 
-	err = client.Logout()
+	err = client.Logout(500 * time.Millisecond)
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
 	}
 
 	// Logout after logout has been called should return an error
-	err = client.Logout()
+	err = client.Logout(500 * time.Millisecond)
 
 	if err == nil {
 		t.Errorf("Logout did not throw an error when called on a client that" +
@@ -435,6 +442,10 @@ func testMainWrapper(m *testing.M) int {
 		Address: fmtAddress(PermErrorServerPort),
 	}
 
+	def.Notification = ndf.Notification{
+		Address: fmtAddress(NotificationBotPort),
+	}
+
 	for i := 0; i < NumNodes; i++ {
 		nIdBytes := make([]byte, id.NodeIdLen)
 		nIdBytes[0] = byte(i)
@@ -456,6 +467,7 @@ func testWrapperShutdown() {
 
 	}
 	RegComms.Shutdown()
+	NotificationBotComms.Shutdown()
 }
 
 func fmtAddress(port int) string { return fmt.Sprintf("localhost:%d", port) }
@@ -514,6 +526,9 @@ func startServers() {
 		def.Gateways = append(def.Gateways, gw)
 		GWComms[i] = gateway.StartGateway("testGateway", gw.Address, handler, nil, nil)
 	}
+
+	NotificationBotComms = notificationBot.StartNotificationBot(id.NOTIFICATION_BOT, def.Notification.Address, &NotificationBotHandler, nil, nil)
+
 }
 
 func disconnectServers() {
@@ -522,4 +537,5 @@ func disconnectServers() {
 
 	}
 	RegComms.DisconnectAll()
+	NotificationBotComms.DisconnectAll()
 }

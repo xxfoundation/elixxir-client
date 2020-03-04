@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
-	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/bots"
@@ -26,7 +25,6 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/primitives/utils"
 	"io/ioutil"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -36,14 +34,13 @@ import (
 
 var verbose bool
 var userId uint64
-var sourcePublicKeyPath string
+var privateKeyPath string
 var destinationUserId uint64
 var destinationUserIDBase64 string
 var message string
 var sessionFile string
 var noBlockingTransmission bool
 var rateLimiting uint32
-var showVer bool
 var registrationCode string
 var username string
 var end2end bool
@@ -57,6 +54,9 @@ var searchForUser string
 var waitForMessages uint
 var messageTimeout uint
 var messageCnt uint
+var precanned = false
+var logPath string = ""
+var notificationToken string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -177,7 +177,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		client.DisableTls()
 	}
 
-	// InitNetwork to gateways and reg server
+	// InitNetwork to gateways, notificationBot and reg server
 	err = client.InitNetwork()
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
@@ -193,6 +193,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		regCode := registrationCode
 		// If precanned user, use generated code instead
 		if userId != 0 {
+			precanned = true
 			regCode = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
 		}
 
@@ -200,17 +201,16 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 
 		var privKey *rsa.PrivateKey
 
-		if sourcePublicKeyPath != "" {
-			pubKeyBytes, err := utils.ReadFile(sourcePublicKeyPath)
+		if privateKeyPath != "" {
+			privateKeyBytes, err := utils.ReadFile(privateKeyPath)
 			if err != nil {
-				globals.Log.FATAL.Panicf("Could not load user public key PEM from "+
-					"path %s: %+v", sourcePublicKeyPath, err)
+				globals.Log.FATAL.Panicf("Could not load user private key PEM from "+
+					"path %s: %+v", privateKeyPath, err)
 			}
 
-			privKey, err = rsa.LoadPrivateKeyFromPem(pubKeyBytes)
+			privKey, err = rsa.LoadPrivateKeyFromPem(privateKeyBytes)
 			if err != nil {
-				globals.Log.FATAL.Panicf("Could not public key from "+
-					"PEM: %+v", err)
+				globals.Log.FATAL.Panicf("Could not load private key from PEM bytes: %+v", err)
 			}
 		}
 
@@ -251,12 +251,16 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
-	_, err = client.Login(sessFilePassword)
+	if !precanned {
+		// If we are sending to a non precanned user we retrieve the uid from the session returned by client.login
+		uid, err = client.Login(sessFilePassword)
+	} else {
+		_, err = client.Login(sessFilePassword)
+	}
 
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
-
 	return uid, client.GetSession().GetCurrentUser().Username, client
 }
 
@@ -343,9 +347,12 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...i
 	} else {
 		senderNick = sender.Username
 	}
-	fmt.Printf("Message from %v, %v Received: %s\n Timestamp: %s",
+	logMsg := fmt.Sprintf("Message from %v, %v Received: %s\n",
 		large.NewIntFromBytes(message.Sender[:]).Text(10),
-		senderNick, result.Message, message.Timestamp.String())
+		senderNick, result.Message)
+	globals.Log.INFO.Printf("%s -- Timestamp: %s\n", logMsg,
+		message.Timestamp.String())
+	fmt.Printf(logMsg)
 
 	atomic.AddInt64(&l.MessagesReceived, 1)
 }
@@ -374,13 +381,14 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		// Main client run function
-
-		if showVer {
-			printVersion()
-			return
+		if !verbose && viper.Get("verbose") != nil {
+			verbose = viper.GetBool("verbose")
 		}
-
+		if logPath == "" && viper.Get("logPath") != nil {
+			logPath = viper.GetString("logPath")
+		}
+		globals.Log = globals.InitLog(verbose, logPath)
+		// Main client run function
 		userID, _, client := sessionInitialization()
 		err := client.RegisterWithNodes()
 		if err != nil {
@@ -414,7 +422,6 @@ var rootCmd = &cobra.Command{
 			globals.Log.FATAL.Panicf("Could not initialize receivers: %s\n", err)
 		}
 
-
 		err = client.StartMessageReceiver(cb)
 
 		if err != nil {
@@ -425,7 +432,7 @@ var rootCmd = &cobra.Command{
 		if username != "" {
 			err := client.RegisterWithUDB(username, 2*time.Minute)
 			if err != nil {
-				jww.ERROR.Printf("Could not register with UDB: %+v", err)
+				globals.Log.ERROR.Printf("%+v", err)
 			}
 		}
 
@@ -469,8 +476,15 @@ var rootCmd = &cobra.Command{
 				wireOut := api.FormatTextMessage(message)
 
 				for i := uint(0); i < messageCnt; i++ {
-					fmt.Printf("Sending Message to %s, %v: %s\n", base64.StdEncoding.EncodeToString(recipientId.Bytes()),
+					logMsg := fmt.Sprintf(
+						"Sending Message to "+
+							"%s, %v: %s\n",
+						large.NewIntFromBytes(
+							recipientId[:]).Text(
+							10),
 						recipientNick, message)
+					globals.Log.INFO.Printf(logMsg)
+					fmt.Printf(logMsg)
 					if i != 0 {
 						time.Sleep(1 * time.Second)
 					}
@@ -533,8 +547,15 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
+		if notificationToken != "" {
+			err = client.RegisterForNotifications([]byte(notificationToken))
+			if err != nil {
+				globals.Log.FATAL.Printf("failed to register for notifications: %+v", err)
+			}
+		}
+
 		//Logout
-		err = client.Logout()
+		err = client.Logout(500 * time.Millisecond)
 
 		if err != nil {
 			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
@@ -563,7 +584,7 @@ func init() {
 	// There is one init in each sub command. Do not put variable declarations
 	// here, and ensure all the Flags are of the *P variety, unless there's a
 	// very good reason not to have them as local params to sub command."
-	cobra.OnInitialize(initConfig, initLog)
+	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
@@ -628,8 +649,9 @@ func init() {
 	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
 	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
 		"ID to send message to")
-	rootCmd.Flags().BoolVarP(&showVer, "version", "V", false,
-		"Show the server version information.")
+
+	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
+		"Token to register user with notification bot")
 
 	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
 		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
@@ -641,7 +663,7 @@ func init() {
 	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
 		"Set to ignore tls. Connections will fail if the network requires tls. For debugging")
 
-	rootCmd.Flags().StringVar(&sourcePublicKeyPath, "privateKey", "",
+	rootCmd.Flags().StringVar(&privateKeyPath, "privateKey", "",
 		"The path for a PEM encoded private key which will be used "+
 			"to create the user")
 
@@ -655,6 +677,9 @@ func init() {
 	rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
 		"Sets the email to search for to find a user with user discovery")
 
+	rootCmd.Flags().StringVarP(&logPath, "log", "l", "",
+		"Print logs to specified log file, not stdout")
+
 	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
 		"t", 45, "The number of seconds to wait for "+
 			"'waitForMessages' messages to arrive")
@@ -665,28 +690,3 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {}
-
-// initLog initializes logging thresholds and the log path.
-func initLog() {
-	globals.Log = jww.NewNotepad(jww.LevelError, jww.LevelInfo, os.Stdout,
-		ioutil.Discard, "CLIENT", log.Ldate|log.Ltime)
-	// If verbose flag set then log more info for debugging
-	if verbose || viper.GetBool("verbose") {
-		globals.Log.SetLogThreshold(jww.LevelDebug)
-		globals.Log.SetStdoutThreshold(jww.LevelDebug)
-		globals.Log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
-	} else {
-		globals.Log.SetLogThreshold(jww.LevelInfo)
-		globals.Log.SetStdoutThreshold(jww.LevelInfo)
-	}
-	if viper.Get("logPath") != nil {
-		// Create log file, overwrites if existing
-		logPath := viper.GetString("logPath")
-		logFile, err := os.Create(logPath)
-		if err != nil {
-			globals.Log.WARN.Println("Invalid or missing log path, default path used.")
-		} else {
-			globals.Log.SetLogOutput(logFile)
-		}
-	}
-}

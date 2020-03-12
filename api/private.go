@@ -308,7 +308,10 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 	if err != nil {
 		return errors.Wrap(err, "Failed to create new reception manager")
 	}
-	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	if cl.receptionManager != nil {
+		// Use the old comms manager if it exists
+		newRm.Comms.Manager = cl.receptionManager.Comms.Manager
+	}
 	cl.receptionManager = newRm
 	//store the session
 	return cl.session.StoreSession()

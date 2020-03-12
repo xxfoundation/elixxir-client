@@ -20,9 +20,18 @@ var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 
 // Checks version and connects to gateways using TLS filepaths to create
 // credential information for connection establishment
+// Call this before logging in!
 func (cl *Client) InitNetwork() error {
+	var err error
+	if cl.receptionManager == nil {
+		cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+		if err != nil {
+			return errors.Wrap(err, "Failed to create reception manager")
+		}
+	}
+
 	//InitNetwork to permissioning
-	err := addPermissioningHost(cl.receptionManager, cl.ndf)
+	err = addPermissioningHost(cl.receptionManager, cl.ndf)
 
 	if err != nil {
 		if err != ErrNoPermissioning {

@@ -72,16 +72,17 @@ func TestClient_RegisterForNotifications(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to load private key: %+v", err)
 	}
-	err = client.GenerateKeys(privKey, "test")
-	if err != nil {
-		t.Errorf("Failed to properly set up keys: %+v", err)
-	}
 
 	// InitNetwork to gateways and reg server
 	err = client.InitNetwork()
 
 	if err != nil {
 		t.Errorf("Client failed of connect: %+v", err)
+	}
+
+	err = client.GenerateKeys(privKey, "test")
+	if err != nil {
+		t.Errorf("Failed to properly set up keys: %+v", err)
 	}
 
 	token := make([]byte, 32)
@@ -111,7 +112,6 @@ func TestClient_UnregisterForNotifications(t *testing.T) {
 		t.Errorf("Failed to properly set up keys: %+v", err)
 		return
 	}
-
 	// InitNetwork to gateways and reg server
 	err = client.InitNetwork()
 

@@ -158,8 +158,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		client.DisableBlockingTransmission()
 	}
 
-	client.SetRateLimiting(rateLimiting)
-
 	// Handle parsing gateway addresses from the config file
 
 	//REVIEWER NOTE: Possibly need to remove/rearrange this,
@@ -182,6 +180,8 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not call connect on client: %+v", err)
 	}
+
+	client.SetRateLimiting(rateLimiting)
 
 	// Holds the User ID
 	var uid *id.User

@@ -26,6 +26,7 @@ before_script:
   - chmod 700 ~/.ssh
   - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
   - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
+  - export PATH=$HOME/go/bin:$PATH
   - export GOPRIVATE=gitlab.com/elixxir/*
 
 stages:

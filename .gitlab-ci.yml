@@ -26,7 +26,10 @@ before_script:
   - chmod 700 ~/.ssh
   - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
   - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
-  - export GOFLAGS=-mod=vendor
+  - export PATH=$HOME/go/bin:$PATH
+  - export GOPRIVATE=gitlab.com/elixxir/*
+  - go get -u github.com/ory/go-acc
+
 
 stages:
   - setup
@@ -55,14 +58,13 @@ test:
   except:
     - tags
   script:
-    - GO111MODULE=off go get -u github.com/haya14busa/goverage
     - apt-get update
     - apt-get install bc -y
 
     - mkdir -p testdata
 
     # Test coverage
-    - goverage -coverprofile=testdata/coverage.out -v ./... 2>&1 | grep -v "no packages being tested depend on"
+    - go-acc --covermode atomic --output testdata/coverage.out ./... -- -v
     # Exclude some specific packages and files
     - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go | grep -v main.go > testdata/coverage-real.out
     - go tool cover -func=testdata/coverage-real.out

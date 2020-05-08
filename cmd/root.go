@@ -114,7 +114,6 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
-
 	} else {
 
 		var sessionA, sessionB string
@@ -430,11 +429,14 @@ var rootCmd = &cobra.Command{
 		}
 		globals.Log.INFO.Println("Logged In!")
 		globals.Log.INFO.Printf("session prior to udb reg: %v", client.GetSession())
-		if username != "" && !utils.FileExists(sessionFile) {
-			err := client.RegisterWithUDB(username, 2*time.Minute)
-			if err != nil {
-				globals.Log.ERROR.Printf("%+v", err)
-			}
+
+		// todo: since this is in the root cmd, would checking the regstate directly really be bad?
+		//  It's correct that it should be an error state for RegisterWithUDB, however for this, it's start up code
+		if username != "" && client.GetSession().GetRegState() == user.PermissioningComplete  {
+				err := client.RegisterWithUDB(username, 2*time.Minute)
+				if err != nil {
+					globals.Log.ERROR.Printf("%+v", err)
+				}
 		}
 
 		cryptoType := parse.Unencrypted

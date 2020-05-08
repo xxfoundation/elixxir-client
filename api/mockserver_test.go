@@ -347,7 +347,7 @@ func TestSend(t *testing.T) {
 		t.Errorf("Error sending message: %v", err)
 	}
 
-	err = client.Logout(100* time.Millisecond)
+	err = client.Logout(100 * time.Millisecond)
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)

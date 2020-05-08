@@ -315,7 +315,7 @@ func (cl *Client) InitListeners() error {
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.receptionManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, cl.rekeyChan)
+	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, transmissionHost, cl.rekeyChan)
 	return nil
 }
 

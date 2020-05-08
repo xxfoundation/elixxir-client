@@ -88,7 +88,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool,
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, rekeyChan2 chan struct{}) {
+func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, host *connect.Host, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
@@ -97,6 +97,8 @@ func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, rekeyCha
 	session = s
 	topology = t
 	comms = m
+	transmissionHost = host
+
 	rekeyChan = rekeyChan2
 	l := session.GetSwitchboard()
 

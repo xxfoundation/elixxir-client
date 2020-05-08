@@ -114,6 +114,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		}
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
+
 	} else {
 
 		var sessionA, sessionB string
@@ -428,8 +429,8 @@ var rootCmd = &cobra.Command{
 			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
 		}
 		globals.Log.INFO.Println("Logged In!")
-
-		if username != "" {
+		globals.Log.INFO.Printf("session prior to udb reg: %v", client.GetSession())
+		if username != "" && !utils.FileExists(sessionFile) {
 			err := client.RegisterWithUDB(username, 2*time.Minute)
 			if err != nil {
 				globals.Log.ERROR.Printf("%+v", err)
@@ -515,9 +516,16 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Wait up to 45s to receive a message
 			lastCnt := int64(0)
-			for end, timeout := false, time.After(45*time.Second); !end; {
+			ticker := time.Tick(1 * time.Second)
+			for end, timeout := false, time.After(50*time.Second); !end; {
 				numMsgReceived := atomic.LoadInt64(&text.MessagesReceived)
-				if numMsgReceived == int64(waitForMessages) {
+
+				select {
+				case <-ticker:
+					globals.Log.INFO.Printf("Messages recieved: %v\n\tMessages needed: %v", numMsgReceived, waitForMessages)
+				}
+
+				if numMsgReceived >= int64(waitForMessages) {
 					end = true
 				}
 				if numMsgReceived != lastCnt {

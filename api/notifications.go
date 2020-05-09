@@ -10,7 +10,7 @@ import (
 // is registering for notifications
 func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
 	// Pull the host from the manage
-	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(id.NOTIFICATION_BOT)
+	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(&id.NotificationBot)
 	if !ok {
 		return errors.New("Failed to retrieve host for notification bot")
 	}
@@ -34,7 +34,7 @@ func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
 // no longer wants to be registered for notifications
 func (cl *Client) UnregisterForNotifications() error {
 	// Pull the host from the manage
-	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(id.NOTIFICATION_BOT)
+	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(&id.NotificationBot)
 	if !ok {
 		return errors.New("Failed to retrieve host for notification bot")
 	}

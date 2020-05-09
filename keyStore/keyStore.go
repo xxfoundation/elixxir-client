@@ -18,12 +18,12 @@ type keyManMap sync.Map
 type inKeyMap sync.Map
 
 // Stores a KeyManager entry for given user
-func (m *keyManMap) Store(user *id.User, km *KeyManager) {
+func (m *keyManMap) Store(user *id.ID, km *KeyManager) {
 	(*sync.Map)(m).Store(*user, km)
 }
 
 // Loads a KeyManager entry for given user
-func (m *keyManMap) Load(user *id.User) *KeyManager {
+func (m *keyManMap) Load(user *id.ID) *KeyManager {
 	val, ok := (*sync.Map)(m).Load(*user)
 	if !ok {
 		return nil
@@ -33,7 +33,7 @@ func (m *keyManMap) Load(user *id.User) *KeyManager {
 }
 
 // Deletes a KeyManager entry for given user
-func (m *keyManMap) Delete(user *id.User) {
+func (m *keyManMap) Delete(user *id.ID) {
 	(*sync.Map)(m).Delete(*user)
 }
 
@@ -50,10 +50,10 @@ func (m *keyManMap) values() []*KeyManager {
 
 // Internal helper function to get a list of all keys
 // contained in a KeyManMap
-func (m *keyManMap) keys() []id.User {
-	keyList := make([]id.User, 0)
+func (m *keyManMap) keys() []id.ID {
+	keyList := make([]id.ID, 0)
 	(*sync.Map)(m).Range(func(key, value interface{}) bool {
-		keyList = append(keyList, key.(id.User))
+		keyList = append(keyList, key.(id.ID))
 		return true
 	})
 	return keyList
@@ -114,7 +114,7 @@ type KeyStore struct {
 	params *KeyParams
 
 	// Transmission Keys map
-	// Maps id.User to *KeyManager
+	// Maps id.ID to *KeyManager
 	sendKeyManagers *keyManMap
 
 	// Reception Keys map
@@ -122,7 +122,7 @@ type KeyStore struct {
 	receptionKeys *inKeyMap
 
 	// Reception Key Managers map
-	recvKeyManagers map[id.User]*ReceptionKeyManagerBuffer
+	recvKeyManagers map[id.ID]*ReceptionKeyManagerBuffer
 
 	lock sync.Mutex
 }
@@ -140,11 +140,11 @@ func NewStore() *KeyStore {
 	}
 	ks.sendKeyManagers = new(keyManMap)
 	ks.receptionKeys = new(inKeyMap)
-	ks.recvKeyManagers = make(map[id.User]*ReceptionKeyManagerBuffer)
+	ks.recvKeyManagers = make(map[id.ID]*ReceptionKeyManagerBuffer)
 	return ks
 }
 
-func (ks *KeyStore) DeleteContactKeys(id *id.User) error {
+func (ks *KeyStore) DeleteContactKeys(id *id.ID) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 
@@ -177,18 +177,18 @@ func (ks *KeyStore) AddSendManager(km *KeyManager) {
 
 // Get a Send KeyManager from respective map in KeyStore
 // based on partner ID
-func (ks *KeyStore) GetSendManager(partner *id.User) *KeyManager {
+func (ks *KeyStore) GetSendManager(partner *id.ID) *KeyManager {
 	return ks.sendKeyManagers.Load(partner)
 }
 
 // GetPartners returns the list of partners we have keys for
-func (ks *KeyStore) GetPartners() []id.User {
+func (ks *KeyStore) GetPartners() []id.ID {
 	return ks.sendKeyManagers.keys()
 }
 
 // Delete a Send KeyManager from respective map in KeyStore
 // based on partner ID
-func (ks *KeyStore) DeleteSendManager(partner *id.User) {
+func (ks *KeyStore) DeleteSendManager(partner *id.ID) {
 	ks.sendKeyManagers.Delete(partner)
 }
 
@@ -225,14 +225,14 @@ func (ks *KeyStore) AddRecvManager(km *KeyManager) {
 
 // Gets the Key manager at the current location on the ReceptionKeyManagerBuffer
 // based on partner ID
-func (ks *KeyStore) GetRecvManager(partner *id.User) *KeyManager {
+func (ks *KeyStore) GetRecvManager(partner *id.ID) *KeyManager {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	return ks.recvKeyManagers[*partner].getCurrentReceptionKeyManager()
 }
 
 // Delete a Receive KeyManager based on partner ID from respective map in KeyStore
-func (ks *KeyStore) DeleteRecvManager(partner *id.User) {
+func (ks *KeyStore) DeleteRecvManager(partner *id.ID) {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
 	delete(ks.recvKeyManagers, *partner)
@@ -316,7 +316,7 @@ func (ks *KeyStore) GobDecode(in []byte) error {
 // ReconstructKeys loops through all key managers and
 // calls GenerateKeys on each of them, in order to rebuild
 // the key maps
-func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.User) {
+func (ks *KeyStore) ReconstructKeys(grp *cyclic.Group, userID *id.ID) {
 
 	kmList := ks.sendKeyManagers.values()
 	for _, km := range kmList {

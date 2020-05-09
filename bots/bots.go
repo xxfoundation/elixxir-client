@@ -17,7 +17,7 @@ var comms io.Communications
 var transmissionHost *connect.Host
 
 // UdbID is the ID of the user discovery bot, which is always 3
-var UdbID *id.User
+var UdbID *id.ID
 
 type channelResponseListener chan string
 
@@ -50,7 +50,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ..
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *id.User, host *connect.Host) {
+func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *id.ID, host *connect.Host) {
 	UdbID = udbID
 
 	// FIXME: these all need to be used in non-blocking threads if we are
@@ -78,22 +78,22 @@ func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *
 		&registerResponseListener)
 	l.Register(UdbID, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
 		&searchResponseListener)
-	l.Register(id.ZeroID,
+	l.Register(&id.ZeroUser,
 		int32(cmixproto.Type_NICKNAME_REQUEST), &nicknameRequestListener)
-	l.Register(id.ZeroID,
+	l.Register(&id.ZeroUser,
 		int32(cmixproto.Type_NICKNAME_RESPONSE), &nicknameResponseListener)
 }
 
 // sendCommand sends a command to the udb. This doesn't block.
 // Callers that need to wait on a response should implement waiting with a
 // listener.
-func sendCommand(botID *id.User, command []byte) error {
+func sendCommand(botID *id.ID, command []byte) error {
 	return comms.SendMessage(session, topology, botID,
 		parse.Unencrypted, command, transmissionHost)
 }
 
 // Nickname Lookup function
-func LookupNick(user *id.User) (string, error) {
+func LookupNick(user *id.ID) (string, error) {
 	globals.Log.DEBUG.Printf("Sending nickname request to user %v", *user)
 	msg := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),

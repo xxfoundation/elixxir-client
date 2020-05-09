@@ -9,6 +9,7 @@ package cmd
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
@@ -68,7 +69,7 @@ func Execute() {
 	}
 }
 
-func sessionInitialization() (*id.User, string, *api.Client) {
+func sessionInitialization() (*id.ID, string, *api.Client) {
 	var err error
 	register := false
 
@@ -110,7 +111,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize Ram Storage: %s\n",
 				err.Error())
-			return id.ZeroID, "", nil
+			return &id.ZeroUser, "", nil
 		}
 		globals.Log.INFO.Println("Initialized Ram Storage")
 		register = true
@@ -140,14 +141,14 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 				//Fail if any other error is received
 				globals.Log.ERROR.Printf("Error with file paths: %s %s",
 					err1, err2)
-				return id.ZeroID, "", nil
+				return &id.ZeroUser, "", nil
 			}
 		}
 		//Initialize client with OS Storage
 		client, err = api.NewClient(nil, sessionA, sessionB, ndfJSON)
 		if err != nil {
 			globals.Log.ERROR.Printf("Could Not Initialize OS Storage: %s\n", err.Error())
-			return id.ZeroID, "", nil
+			return &id.ZeroUser, "", nil
 		}
 		globals.Log.INFO.Println("Initialized OS Storage")
 
@@ -168,7 +169,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		// No gateways in config file or passed via command line
 		globals.Log.ERROR.Printf("Error: No gateway specified! Add to" +
 			" configuration file or pass via command line using -g!\n")
-		return id.ZeroID, "", nil
+		return &id.ZeroUser, "", nil
 	}*/
 
 	if noTLS {
@@ -184,7 +185,7 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	client.SetRateLimiting(rateLimiting)
 
 	// Holds the User ID
-	var uid *id.User
+	var uid *id.ID
 
 	// Register a new user if requested
 	if register {
@@ -194,7 +195,10 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 		// If precanned user, use generated code instead
 		if userId != 0 {
 			precanned = true
-			regCode = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId}).RegistrationCode()
+			uid := new(id.ID)
+			binary.BigEndian.PutUint64(uid[:], userId)
+			uid.SetType(id.User)
+			regCode = user.RegistrationCode(uid)
 		}
 
 		globals.Log.INFO.Printf("Building keys...")
@@ -247,7 +251,9 @@ func sessionInitialization() (*id.User, string, *api.Client) {
 	} else {
 		// hack for session persisting with cmd line
 		// doesn't support non pre canned users
-		uid = id.NewUserFromUints(&[4]uint64{0, 0, 0, userId})
+		uid := new(id.ID)
+		binary.BigEndian.PutUint64(uid[:], userId)
+		uid.SetType(id.User)
 		globals.Log.INFO.Printf("Skipped Registration, user: %v", uid)
 	}
 
@@ -403,11 +409,11 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		client.Listen(id.ZeroID, int32(cmixproto.Type_TEXT_MESSAGE),
+		client.Listen(&id.ZeroUser, int32(cmixproto.Type_TEXT_MESSAGE),
 			&text)
 		// All other messages
 		fallback := FallbackListener{}
-		client.Listen(id.ZeroID, int32(cmixproto.Type_NO_TYPE),
+		client.Listen(&id.ZeroUser, int32(cmixproto.Type_NO_TYPE),
 			&fallback)
 
 		// Log the user in, for now using the first gateway specified
@@ -441,7 +447,7 @@ var rootCmd = &cobra.Command{
 			cryptoType = parse.E2E
 		}
 
-		var recipientId *id.User
+		var recipientId *id.ID
 
 		if destinationUserId != 0 && destinationUserIDBase64 != "" {
 			globals.Log.FATAL.Panicf("Two destiantions set for the message, can only have one")
@@ -454,10 +460,15 @@ var rootCmd = &cobra.Command{
 			if err != nil {
 				globals.Log.FATAL.Panic("Could not decode the destination user ID")
 			}
-			recipientId = id.NewUserFromBytes(recipientIdBytes)
-
+			recipientId, err = id.Unmarshal(recipientIdBytes)
+			if err != nil {
+				// Destination user ID must be 33 bytes and include the id type
+				globals.Log.FATAL.Panicf("Could not unmarshal destination user ID: %v", err)
+			}
 		} else {
-			recipientId = id.NewUserFromUints(&[4]uint64{0, 0, 0, destinationUserId})
+			recipientId = new(id.ID)
+			binary.BigEndian.PutUint64(recipientId[:], destinationUserId)
+			recipientId.SetType(id.User)
 		}
 
 		if message != "" {
@@ -566,7 +577,7 @@ var rootCmd = &cobra.Command{
 }
 
 func isValidUser(usr []byte) bool {
-	if len(usr) != id.UserLen {
+	if len(usr) != id.ArrIDLen {
 		return false
 	}
 	for _, b := range usr {

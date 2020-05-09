@@ -24,11 +24,11 @@ import (
 	"time"
 )
 
-const SaltSize = 256
+const SaltSize = 32
 
 //RegisterWithPermissioning registers the user and returns the User ID.
 // Returns an error if registration fails.
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.User, error) {
+func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.ID, error) {
 	//Check the regState is in proper state for registration
 	if cl.session.GetRegState() != user.KeyGenComplete {
 		return nil, errors.Errorf("Attempting to register before key generation!")
@@ -45,11 +45,11 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		// Either perform a precanned registration for a precanned user
 		cl.opStatus(globals.REG_PRECAN)
 		globals.Log.INFO.Printf("Registering precanned user...")
-		var nodeKeyMap map[id.Node]user.NodeKeys
+		var nodeKeyMap map[id.ID]user.NodeKeys
 		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode)
 		if err != nil {
 			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
-			return id.ZeroID, err
+			return &id.ZeroUser, err
 		}
 
 		//overwrite the user object
@@ -70,7 +70,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, cl.session.GetRSAPublicKey())
 		if err != nil {
 			globals.Log.INFO.Printf(err.Error())
-			return id.ZeroID, err
+			return &id.ZeroUser, err
 		}
 		//update the session with the registration
 		err = cl.session.RegisterPermissioningSignature(regValidationSignature)
@@ -217,9 +217,12 @@ func (cl *Client) RegisterWithNodes() error {
 
 	for i := range cl.ndf.Gateways {
 		localI := i
-		nodeID := *id.NewNodeFromBytes(cl.ndf.Nodes[i].ID)
+		nodeID, err := id.Unmarshal(cl.ndf.Nodes[i].ID)
+		if err != nil {
+			panic(err)
+		}
 		//Register with node if the node has not been registered with already
-		if _, ok := registeredNodes[nodeID]; !ok {
+		if _, ok := registeredNodes[*nodeID]; !ok {
 			wg.Add(1)
 			newRegistrations = true
 			go func() {
@@ -264,12 +267,16 @@ func (cl *Client) RegisterWithNodes() error {
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
-func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.User,
+func (cl *Client) registerWithNode(index int, salt, registrationValidationSignature []byte, UID *id.ID,
 	publicKeyRSA *rsa.PublicKey, privateKeyRSA *rsa.PrivateKey,
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
 	cmixGrp *cyclic.Group, errorChan chan error) {
 
-	gatewayID := id.NewNodeFromBytes(cl.ndf.Nodes[index].ID).NewGateway()
+	gatewayID, err := id.Unmarshal(cl.ndf.Nodes[index].ID)
+	if err != nil {
+		globals.Log.ERROR.Panic(err)
+	}
+	gatewayID.SetType(id.Gateway)
 
 	// Initialise blake2b hash for transmission keys and sha256 for reception
 	// keys

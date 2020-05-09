@@ -22,8 +22,8 @@ func TestRekeyManager_Ctx(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 	rkm := NewRekeyManager()
 
 	val := &RekeyContext{
@@ -70,8 +70,8 @@ func TestRekeyManager_Keys(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 	rkm := NewRekeyManager()
 
 	val := &RekeyKeys{

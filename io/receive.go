@@ -113,7 +113,7 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 }
 
 func handleE2EReceiving(session user.Session,
-	message *format.Message) (*id.User, bool, error) {
+	message *format.Message) (*id.ID, bool, error) {
 	keyFingerprint := message.GetKeyFP()
 
 	// Lookup reception key
@@ -249,11 +249,11 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 }
 
 func (rm *ReceptionManager) decryptMessages(session user.Session,
-	encryptedMessages []*format.Message) ([]*format.Message, []*id.User,
+	encryptedMessages []*format.Message) ([]*format.Message, []*id.ID,
 	[]*format.Message) {
 
 	messages := make([]*format.Message, len(encryptedMessages))
-	senders := make([]*id.User, len(encryptedMessages))
+	senders := make([]*id.ID, len(encryptedMessages))
 	messagesSendersLoc := 0
 
 	garbledMessages := make([]*format.Message, len(encryptedMessages))
@@ -263,7 +263,7 @@ func (rm *ReceptionManager) decryptMessages(session user.Session,
 		var err error = nil
 		var rekey bool
 		var unpadded []byte
-		var sender *id.User
+		var sender *id.ID
 		garbled := false
 
 		// If message is E2E, handle decryption
@@ -275,7 +275,7 @@ func (rm *ReceptionManager) decryptMessages(session user.Session,
 			}
 
 			keyFP := msg.AssociatedData.GetKeyFP()
-			sender = id.NewUserFromBytes(keyFP[:])
+			sender, err = id.Unmarshal(keyFP[:])
 		} else {
 			sender, rekey, err = handleE2EReceiving(session, msg)
 

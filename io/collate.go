@@ -47,16 +47,20 @@ func NewCollator() *Collator {
 // TODO this takes too many types. i should split it up.
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
-func (mb *Collator) AddMessage(message *format.Message, sender *id.User,
+func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 	timeout time.Duration) *parse.Message {
 
 	payload := message.Contents.GetRightAligned()
-	recipient := message.GetRecipient()
+	recipient, err := message.GetRecipient()
+	// Is this the right way to handle the error? It should never happen, right?
+	if err != nil {
+		globals.Log.ERROR.Panic(err)
+	}
 
 	//get the time
 	timestamp := time.Time{}
 
-	err := timestamp.UnmarshalBinary(message.GetTimestamp()[:len(message.GetTimestamp())-1])
+	err = timestamp.UnmarshalBinary(message.GetTimestamp()[:len(message.GetTimestamp())-1])
 
 	if err != nil {
 		globals.Log.WARN.Printf("Failed to parse timestamp for message %v: %+v",

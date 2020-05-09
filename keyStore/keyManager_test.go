@@ -47,7 +47,7 @@ func initGroup() *cyclic.Group {
 func TestKeyManager_New(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, nil, nil,
 		partner, true, 12, 10, 10)
@@ -63,7 +63,7 @@ func TestKeyManager_GetBaseKey(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, privKey, pubKey,
 		partner, true, 12, 10, 10)
@@ -83,7 +83,7 @@ func TestKeyManager_GetPrivKey(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, privKey, pubKey,
 		partner, true, 12, 10, 10)
@@ -103,7 +103,7 @@ func TestKeyManager_GetPubKey(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, privKey, pubKey,
 		partner, true, 12, 10, 10)
@@ -123,7 +123,7 @@ func TestKeyManager_GetPartner(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, privKey, pubKey,
 		partner, true, 12, 10, 10)
@@ -141,7 +141,7 @@ func TestKeyManager_GetPartner(t *testing.T) {
 func TestKeyManager_Rekey(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, nil, nil,
 		partner, true, 12, 10, 10)
@@ -166,7 +166,7 @@ func TestKeyManager_Rekey(t *testing.T) {
 func TestKeyManager_Purge(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, nil, nil,
 		partner, true, 12, 10, 10)
@@ -198,7 +198,7 @@ func TestKeyManager_Purge(t *testing.T) {
 func TestKeyManager_UpdateRecvState(t *testing.T) {
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	km := NewManager(baseKey, nil, nil,
 		partner, false, 12, 10, 10)
@@ -230,8 +230,8 @@ func TestKeyManager_UpdateRecvState(t *testing.T) {
 func TestKeyManager_GenerateKeys(t *testing.T) {
 	grp := initGroup()
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	ks := NewStore()
 	kmSend := NewManager(baseKey, nil, nil,
@@ -291,8 +291,8 @@ func TestKeyManager_GenerateKeys(t *testing.T) {
 func TestKeyManager_Destroy(t *testing.T) {
 	grp := initGroup()
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	ks := NewStore()
 	km := NewManager(baseKey, nil, nil,
@@ -365,7 +365,7 @@ func TestKeyManager_GobSimple(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	var byteBuf bytes.Buffer
 
@@ -471,8 +471,8 @@ func TestKeyManager_Gob(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	ks := NewStore()
 	km := NewManager(baseKey, privKey, pubKey,

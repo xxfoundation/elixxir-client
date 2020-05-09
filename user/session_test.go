@@ -34,14 +34,14 @@ func TestUserSession(t *testing.T) {
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	u.User = id.NewUserFromUint(UID, t)
+	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	nodeID := id.NewNodeFromUInt(1, t)
+	nodeID := id.NewIdFromUInt(1, id.Node, t)
 
-	topology := connect.NewCircuit([]*id.Node{nodeID})
+	topology := connect.NewCircuit([]*id.ID{nodeID})
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -220,12 +220,12 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	u.User = id.NewUserFromUint(UID, t)
+	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	nodeID := id.NewNodeFromUInt(1, t)
+	nodeID := id.NewIdFromUInt(1, id.Node, t)
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -261,9 +261,11 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 		ReceptionKey:    grp.NewInt(2),
 	})
 
-	ses.StoreContactByValue("test", id.NewUserFromBytes([]byte("test")), []byte("test"))
+	testContact := id.NewIdFromBytes([]byte("test"), t)
+	testContact.SetType(id.User)
+	ses.StoreContactByValue("test", testContact, []byte("test"))
 
-	_, err = ses.DeleteContact(id.NewUserFromBytes([]byte("test")))
+	_, err = ses.DeleteContact(testContact)
 	if err != nil {
 		t.Errorf("Failed to delete contact: %+v", err)
 	}
@@ -271,7 +273,7 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 
 func TestGetPubKey(t *testing.T) {
 	u := new(User)
-	UID := id.NewUserFromUint(1, t)
+	UID := id.NewIdFromUInt(1, id.User, t)
 
 	u.User = UID
 	u.Username = "Mario"
@@ -304,7 +306,7 @@ func TestGetPubKey(t *testing.T) {
 			err.Error())
 	}
 
-	ses.PushNodeKey(id.NewNodeFromUInt(1, t), NodeKeys{
+	ses.PushNodeKey(id.NewIdFromUInt(1, id.Node, t), NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
 	})
@@ -323,12 +325,12 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	u.User = id.NewUserFromUint(UID, t)
+	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	nodeID := id.NewNodeFromUInt(1, t)
+	nodeID := id.NewIdFromUInt(1, id.Node, t)
 	// Storage
 	storage := &globals.RamStorage{}
 
@@ -381,12 +383,12 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 	// sure that the gob contains the user ID
 	UID := uint64(65)
 
-	u.User = id.NewUserFromUint(UID, t)
+	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
 	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
-	nodeID := id.NewNodeFromUInt(1, t)
+	nodeID := id.NewIdFromUInt(1, id.Node, t)
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -420,7 +422,9 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 		ReceptionKey:    grp.NewInt(2),
 	})
 
-	ses.StoreContactByValue("value", id.NewUserFromBytes([]byte("test")), []byte("test"))
+	userId := id.NewIdFromBytes([]byte("test"), t)
+
+	ses.StoreContactByValue("value", userId, []byte("test"))
 
 	observedUser, observedPk := ses.GetContactByValue("value")
 
@@ -429,7 +433,7 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 			"Expected: %+v\n\tRecieved: %+v", privateKey.PublicKey.N.Bytes(), observedPk)
 	}
 
-	if !observedUser.Cmp(id.NewUserFromBytes([]byte("test"))) {
+	if !observedUser.Cmp(userId) {
 		t.Errorf("Failed to retrieve user using GetContactByValue;"+
 			"Expected: %+v\n\tRecieved: %+v", u.User, observedUser)
 	}
@@ -437,7 +441,7 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 
 func TestGetPrivKey(t *testing.T) {
 	u := new(User)
-	UID := id.NewUserFromUint(1, t)
+	UID := id.NewIdFromUInt(1, id.User, t)
 
 	u.User = UID
 	u.Username = "Mario"
@@ -470,7 +474,7 @@ func TestGetPrivKey(t *testing.T) {
 			err.Error())
 	}
 
-	ses.PushNodeKey(id.NewNodeFromUInt(1, t), NodeKeys{
+	ses.PushNodeKey(id.NewIdFromUInt(1, id.Node, t), NodeKeys{
 		TransmissionKey: grp.NewInt(2),
 		ReceptionKey:    grp.NewInt(2),
 	})
@@ -637,7 +641,7 @@ func GenerateTestMessages(size int) []*format.Message {
 // Happy path
 func TestConvertSessionV1toV2(t *testing.T) {
 	u := new(User)
-	UID := id.NewUserFromUint(1, t)
+	UID := id.NewIdFromUInt(1, id.Node, t)
 
 	u.User = UID
 	u.Username = "Bernie"

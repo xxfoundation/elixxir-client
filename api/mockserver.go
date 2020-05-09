@@ -37,15 +37,15 @@ const BatchSize = 10
 // easy to use from Go
 type APIMessage struct {
 	Payload     []byte
-	SenderID    *id.User
-	RecipientID *id.User
+	SenderID    *id.ID
+	RecipientID *id.ID
 }
 
-func (m APIMessage) GetSender() *id.User {
+func (m APIMessage) GetSender() *id.ID {
 	return m.SenderID
 }
 
-func (m APIMessage) GetRecipient() *id.User {
+func (m APIMessage) GetRecipient() *id.ID {
 	return m.RecipientID
 }
 
@@ -276,13 +276,13 @@ func (m *GatewayHandler) Poll(*pb.GatewayPoll) (*pb.GatewayPollResponse, error) 
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *GatewayHandler) GetMessage(userId *id.User,
+func (m *GatewayHandler) GetMessage(userId *id.ID,
 	msgId, ipaddr string) (*pb.Slot, error) {
 	return &pb.Slot{}, nil
 }
 
 // Return any MessageIDs in the globals for this User
-func (m *GatewayHandler) CheckMessages(userId *id.User,
+func (m *GatewayHandler) CheckMessages(userId *id.ID,
 	messageID, ipAddress string) ([]string, error) {
 	return make([]string, 0), nil
 }
@@ -315,7 +315,7 @@ type GatewayHandlerMultipleMessages struct {
 	LastReceivedMessage []pb.Slot
 }
 
-func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
+func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.ID,
 	msgId, ipaddr string) (*pb.Slot, error) {
 	msg := []byte("Hello")
 	payload, err := e2e.Pad(msg, format.PayloadLen)
@@ -337,7 +337,7 @@ func (s *GatewayHandlerMultipleMessages) Poll(*pb.GatewayPoll) (*pb.GatewayPollR
 }
 
 // Return any MessageIDs in the globals for this User
-func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.User,
+func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.ID,
 	messageID, ipaddr string) ([]string, error) {
 	msgs := []string{"a", "b", "c", "d", "e", "f", "g"}
 	return msgs, nil

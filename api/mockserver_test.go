@@ -38,7 +38,7 @@ var RegComms *registration.Comms
 var NDFErrorReg = MockPermNdfErrorCase{}
 var ErrorDef *ndf.NetworkDefinition
 
-const ValidRegCode = "UAV6IWD6"
+const ValidRegCode = "WTROXJ33"
 const InvalidRegCode = "INVALID_REG_CODE_"
 
 var RegGWHandlers [3]*GatewayHandler = [NumGWs]*GatewayHandler{
@@ -71,7 +71,8 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 			Address: string(fmtAddress(GWErrorPort + i)),
 		}
 		testDef.Gateways = append(testDef.Gateways, gw)
-		GWErrComms[i] = gateway.StartGateway("testGateway", gw.Address,
+		gwID := id.NewIdFromString("testGateway", id.Gateway, t)
+		GWErrComms[i] = gateway.StartGateway(gwID, gw.Address,
 			&GatewayHandlerMultipleMessages{}, nil, nil)
 
 	}
@@ -163,7 +164,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
 
-	if *regRes == *id.ZeroID {
+	if *regRes == *&id.ZeroUser {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
 	disconnectServers()
@@ -254,8 +255,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	}
 
 	// ...
-	tempUser, _ := user.Users.GetUser(id.NewUserFromUint(5, t))
-	user.Users.DeleteUser(id.NewUserFromUint(5, t))
+	tempUser, _ := user.Users.GetUser(id.NewIdFromUInt(1, id.User, t))
+	user.Users.DeleteUser(id.NewIdFromUInt(5, id.User, t))
 	err = client.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
@@ -327,7 +328,7 @@ func TestSend(t *testing.T) {
 	// Test send with invalid sender ID
 	err = client.Send(
 		APIMessage{
-			SenderID:    id.NewUserFromUint(12, t),
+			SenderID:    id.NewIdFromUInt(12, id.User, t),
 			Payload:     []byte("test"),
 			RecipientID: userID,
 		},
@@ -347,7 +348,7 @@ func TestSend(t *testing.T) {
 		t.Errorf("Error sending message: %v", err)
 	}
 
-	err = client.Logout(100* time.Millisecond)
+	err = client.Logout(100 * time.Millisecond)
 
 	if err != nil {
 		t.Errorf("Logout failed: %v", err)
@@ -447,10 +448,11 @@ func testMainWrapper(m *testing.M) int {
 	}
 
 	for i := 0; i < NumNodes; i++ {
-		nIdBytes := make([]byte, id.NodeIdLen)
-		nIdBytes[0] = byte(i)
+		nId := new(id.ID)
+		nId[0] = byte(i)
+		nId.SetType(id.Node)
 		n := ndf.Node{
-			ID: nIdBytes,
+			ID: nId[:],
 		}
 		def.Nodes = append(def.Nodes, n)
 		ErrorDef.Nodes = append(ErrorDef.Nodes, n)
@@ -512,8 +514,10 @@ func getNDF() *ndf.NetworkDefinition {
 }
 
 func startServers() {
-	//func StartRegistrationServer(id, localServer string, handler Handler, certPEMblock, keyPEMblock []byte) *Comms {
-	RegComms = registration.StartRegistrationServer("testServer", def.Registration.Address, &RegHandler, nil, nil)
+	regId := new(id.ID)
+	copy(regId[:], "testServer")
+	regId.SetType(id.Node)
+	RegComms = registration.StartRegistrationServer(regId, def.Registration.Address, &RegHandler, nil, nil)
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways
@@ -524,10 +528,13 @@ func startServers() {
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway("testGateway", gw.Address, handler, nil, nil)
+		gwID := new(id.ID)
+		copy(regId[:], "testGateway")
+		regId.SetType(id.Gateway)
+		GWComms[i] = gateway.StartGateway(gwID, gw.Address, handler, nil, nil)
 	}
 
-	NotificationBotComms = notificationBot.StartNotificationBot(id.NOTIFICATION_BOT, def.Notification.Address, &NotificationBotHandler, nil, nil)
+	NotificationBotComms = notificationBot.StartNotificationBot(&id.NotificationBot, def.Notification.Address, &NotificationBotHandler, nil, nil)
 
 }
 

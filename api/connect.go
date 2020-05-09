@@ -24,7 +24,10 @@ var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 func (cl *Client) InitNetwork() error {
 	var err error
 	if cl.receptionManager == nil {
-		cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
+		uid := new(id.ID)
+		copy(uid[:], "client")
+		uid.SetType(id.User)
+		cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, uid, nil, nil, nil)
 		if err != nil {
 			return errors.Wrap(err, "Failed to create reception manager")
 		}
@@ -66,7 +69,7 @@ func (cl *Client) InitNetwork() error {
 // AddNotificationBotHost adds notification bot as a host within the reception manager
 func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 
-	err := addHost(rm, id.NOTIFICATION_BOT, definition.Notification.Address,
+	err := addHost(rm, &id.NotificationBot, definition.Notification.Address,
 		definition.Notification.TlsCertificate, false, true)
 	if err != nil {
 		return errors.Errorf("Failed to connect to notification bot at %+v",
@@ -79,9 +82,13 @@ func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefi
 // builds a circuit for all the node's in the definition
 func BuildNodeTopology(definition *ndf.NetworkDefinition) *connect.Circuit {
 	//build the topology
-	nodeIDs := make([]*id.Node, len(definition.Nodes))
+	nodeIDs := make([]*id.ID, len(definition.Nodes))
+	var err error
 	for i, node := range definition.Nodes {
-		nodeIDs[i] = id.NewNodeFromBytes(node.ID)
+		nodeIDs[i], err = id.Unmarshal(node.ID)
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return connect.NewCircuit(nodeIDs)
@@ -148,8 +155,12 @@ func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	// connect to all gateways
 	var errs error = nil
 	for i, gateway := range definition.Gateways {
-		gwID := id.NewNodeFromBytes(definition.Nodes[i].ID).NewGateway()
-		err := addHost(rm, gwID.String(), gateway.Address, gateway.TlsCertificate, false, false)
+		gwID, err := id.Unmarshal(definition.Nodes[i].ID)
+		if err != nil {
+			globals.Log.ERROR.Panic(err)
+		}
+		gwID.SetType(id.Gateway)
+		err = addHost(rm, gwID, gateway.Address, gateway.TlsCertificate, false, false)
 		if err != nil {
 			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",
 				gwID.String(), gateway.Address, err)
@@ -163,7 +174,7 @@ func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	return errs
 }
 
-func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout, enableAuth bool) error {
+func addHost(rm *io.ReceptionManager, id *id.ID, address, cert string, disableTimeout, enableAuth bool) error {
 	var creds []byte
 	if cert != "" && rm.Tls {
 		creds = []byte(cert)
@@ -180,7 +191,7 @@ func addHost(rm *io.ReceptionManager, id, address, cert string, disableTimeout, 
 // to permissioning is needed
 func addPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
-		err := addHost(rm, PermissioningAddrID, definition.Registration.Address,
+		err := addHost(rm, &id.Permissioning, definition.Registration.Address,
 			definition.Registration.TlsCertificate, false, false)
 		if err != nil {
 			return errors.New(fmt.Sprintf(

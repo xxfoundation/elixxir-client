@@ -4,7 +4,7 @@ go 1.13
 
 require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
-	github.com/golang/protobuf v1.4.0
+	github.com/golang/protobuf v1.4.1
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.9.1
@@ -15,9 +15,9 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.6.2
-	gitlab.com/elixxir/comms v0.0.0-20200415204952-6d63dd94a0ea
-	gitlab.com/elixxir/crypto v0.0.0-20200410231849-90e859940f5d
-	gitlab.com/elixxir/primitives v0.0.0-20200410231944-a57d71d577c9
-	golang.org/x/crypto v0.0.0-20200323165209-0ec3e9974c59
+	gitlab.com/elixxir/comms v0.0.0-20200505183321-919cc2af795a
+	gitlab.com/elixxir/crypto v0.0.0-20200504184505-e210a219cbd9
+	gitlab.com/elixxir/primitives v0.0.0-20200504203122-2adfdf770891
+	golang.org/x/crypto v0.0.0-20200429183012-4b2356b1ed79
 	gopkg.in/ini.v1 v1.52.0 // indirect
 )

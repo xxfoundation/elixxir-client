@@ -13,11 +13,10 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/primitives/id"
 	"sync"
 	"time"
 )
-
-const PermissioningAddrID = "Permissioning"
 
 type ConnAddr string
 
@@ -51,7 +50,7 @@ type ReceptionManager struct {
 }
 
 // Build a new reception manager object using inputted key fields
-func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
+func NewReceptionManager(rekeyChan chan struct{}, uid *id.ID, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
 	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
@@ -74,9 +73,9 @@ func NewReceptionManager(rekeyChan chan struct{}, uid string, privKey, pubKey, s
 // Connects to the permissioning server, if we know about it, to get the latest
 // version from it
 func (rm *ReceptionManager) GetRemoteVersion() (string, error) {
-	permissioningHost, ok := rm.Comms.GetHost(PermissioningAddrID)
+	permissioningHost, ok := rm.Comms.GetHost(&id.Permissioning)
 	if !ok {
-		return "", errors.Errorf("Failed to find permissioning host with id %s", PermissioningAddrID)
+		return "", errors.Errorf("Failed to find permissioning host with id %s", id.Permissioning)
 	}
 	registrationVersion, err := rm.Comms.
 		SendGetCurrentClientVersionMessage(permissioningHost)

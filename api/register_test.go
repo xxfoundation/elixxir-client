@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/primitives/id"
-	"reflect"
 	"testing"
 )
 
@@ -33,7 +32,7 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6")
+	_, err = testClient.RegisterWithPermissioning(true, "WTROXJ33")
 	if err != nil {
 		t.Error(err)
 	}
@@ -76,7 +75,7 @@ func TestClient_Register(t *testing.T) {
 	}
 
 	// populate a gob in the store
-	_, err = testClient.RegisterWithPermissioning(true, "UAV6IWD6")
+	_, err = testClient.RegisterWithPermissioning(true, "WTROXJ33")
 	if err != nil {
 		t.Error(err)
 	}
@@ -102,10 +101,10 @@ func TestClient_Register(t *testing.T) {
 //Verify the user from the session make in the registration above matches expected user
 func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 
-	expectedUser := id.NewUserFromUint(5, t)
+	expectedUser := id.NewIdFromUInt(5, id.User, t)
 
-	if reflect.DeepEqual(session.GetCurrentUser().User, &expectedUser) {
-		t.Errorf("Incorrect User ID; \n   expected %q \n   recieved: %q",
+	if !session.GetCurrentUser().User.Cmp(expectedUser) {
+		t.Errorf("Incorrect User ID; \n   expected: %q \n   recieved: %q",
 			expectedUser, session.GetCurrentUser().User)
 	}
 }
@@ -153,7 +152,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
 
-	if *regRes == *id.ZeroID {
+	if *regRes == *&id.ZeroUser {
 		t.Errorf("Invalid registration number received: %+v", *regRes)
 	}
 	err = client.RegisterWithNodes()

@@ -164,7 +164,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 		t.Errorf("Registration failed: %s", err.Error())
 	}
 
-	if *regRes == *&id.ZeroUser {
+	if regRes.Cmp(&id.ZeroUser) {
 		t.Errorf("Invalid registration number received: %v", *regRes)
 	}
 	disconnectServers()

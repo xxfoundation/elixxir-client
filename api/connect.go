@@ -155,7 +155,7 @@ func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	// connect to all gateways
 	var errs error = nil
 	for i, gateway := range definition.Gateways {
-		gwID, err := id.Unmarshal(definition.Nodes[i].ID)
+		gwID, err := id.Unmarshal(definition.Gateways[i].ID)
 		if err != nil {
 			globals.Log.ERROR.Panic(err)
 		}

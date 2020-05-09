@@ -141,7 +141,7 @@ type MockRegistration struct {
 	//LastReceivedMessage pb.CmixMessage
 }
 
-func (s *MockRegistration) RegisterNode(ID []byte,
+func (s *MockRegistration) RegisterNode(ID *id.ID,
 	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
 	return nil
 }
@@ -328,7 +328,7 @@ func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.ID,
 	}, nil
 }
 
-func (m *GatewayHandlerMultipleMessages) PollForNotifications(auth *connect.Auth) ([]string, error) {
+func (m *GatewayHandlerMultipleMessages) PollForNotifications(auth *connect.Auth) ([]*id.ID, error) {
 	return nil, nil
 }
 

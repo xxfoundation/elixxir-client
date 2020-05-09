@@ -265,7 +265,7 @@ type GatewayHandler struct {
 	LastReceivedMessage pb.Slot
 }
 
-func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]string, error) {
+func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]*id.ID, error) {
 
 	return nil, nil
 }

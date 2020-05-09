@@ -90,7 +90,7 @@ func TestMain(m *testing.M) {
 	rekeyChan2 := make(chan struct{}, 50)
 	nodeID := new(id.ID)
 	nodeID.SetType(id.Node)
-	InitRekey(session, fakeComm, connect.NewCircuit([]*id.ID{nodeID}), rekeyChan2)
+	InitRekey(session, fakeComm, connect.NewCircuit([]*id.ID{nodeID}), nil, rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey

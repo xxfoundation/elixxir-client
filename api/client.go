@@ -323,7 +323,7 @@ func (cl *Client) InitListeners() error {
 	}
 	bots.InitBots(cl.session, cl.receptionManager, cl.topology, udbID, transmissionHost)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, cl.rekeyChan)
+	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, transmissionHost, cl.rekeyChan)
 	return nil
 }
 

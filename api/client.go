@@ -333,11 +333,10 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	pollWaitTimeMillis := 500 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	receptionGateway, err := id.Unmarshal(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID)
+	receptionGateway, err := id.Unmarshal(cl.ndf.Gateways[len(cl.ndf.Gateways)-1].ID)
 	if err != nil {
 		return err
 	}
-	receptionGateway.SetType(id.Gateway)
 	receptionHost, ok := cl.receptionManager.Comms.GetHost(receptionGateway)
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
@@ -361,7 +360,7 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 
 // Default send function, can be overridden for testing
 func (cl *Client) Send(message parse.MessageInterface) error {
-	transmitGateway, err := id.Unmarshal(cl.ndf.Nodes[0].ID)
+	transmitGateway, err := id.Unmarshal(cl.ndf.Gateways[0].ID)
 	if err != nil {
 		return err
 	}

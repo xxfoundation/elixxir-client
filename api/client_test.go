@@ -462,7 +462,7 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Errorf("Unable to generate salt! %s", err)
 	}
 
-	gwID, err := id.Unmarshal(testClient.ndf.Nodes[0].ID)
+	gwID, err := id.Unmarshal(testClient.ndf.Gateways[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -489,7 +489,7 @@ func TestClient_confirmNonce(t *testing.T) {
 	}
 	rng := csprng.NewSystemRNG()
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
-	gwID, err := id.Unmarshal(testClient.ndf.Nodes[0].ID)
+	gwID, err := id.Unmarshal(testClient.ndf.Gateways[0].ID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -56,7 +56,10 @@ func (cl *Client) InitNetwork() error {
 	}
 
 	// InitNetwork to nodes
-	cl.topology = BuildNodeTopology(cl.ndf)
+	cl.topology, err = BuildNodeTopology(cl.ndf)
+	if err != nil {
+		return err
+	}
 
 	err = addNotificationBotHost(cl.receptionManager, cl.ndf)
 	if err != nil {
@@ -80,18 +83,18 @@ func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefi
 
 // BuildNodeTopology is a helper function which goes through the ndf and
 // builds a circuit for all the node's in the definition
-func BuildNodeTopology(definition *ndf.NetworkDefinition) *connect.Circuit {
+func BuildNodeTopology(definition *ndf.NetworkDefinition) (*connect.Circuit, error) {
 	//build the topology
 	nodeIDs := make([]*id.ID, len(definition.Nodes))
 	var err error
 	for i, node := range definition.Nodes {
 		nodeIDs[i], err = id.Unmarshal(node.ID)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 
-	return connect.NewCircuit(nodeIDs)
+	return connect.NewCircuit(nodeIDs), nil
 }
 
 // DisableTls disables tls for communications
@@ -157,7 +160,14 @@ func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	for i, gateway := range definition.Gateways {
 		gwID, err := id.Unmarshal(definition.Gateways[i].ID)
 		if err != nil {
-			globals.Log.ERROR.Panic(err)
+			err = errors.Errorf("Failed to unmarshal gateway ID %s at index %v: %+v",
+				definition.Gateways[i].ID, i, err)
+			if errs != nil {
+				errs = err
+			} else {
+				errs = errors.Wrap(errs, err.Error())
+			}
+			continue
 		}
 		gwID.SetType(id.Gateway)
 		err = addHost(rm, gwID, gateway.Address, gateway.TlsCertificate, false, false)

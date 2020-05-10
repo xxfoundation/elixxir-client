@@ -67,11 +67,12 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	// Initialize client with dummy storage
 	testDef := getNDF()
 	for i := 0; i < NumNodes; i++ {
+		gwID := id.NewIdFromString("testGateway", id.Gateway, t)
 		gw := ndf.Gateway{
 			Address: string(fmtAddress(GWErrorPort + i)),
+			ID:      gwID.Marshal(),
 		}
 		testDef.Gateways = append(testDef.Gateways, gw)
-		gwID := id.NewIdFromString("testGateway", id.Gateway, t)
 		GWErrComms[i] = gateway.StartGateway(gwID, gw.Address,
 			&GatewayHandlerMultipleMessages{}, nil, nil)
 
@@ -255,7 +256,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	}
 
 	// ...
-	tempUser, _ := user.Users.GetUser(id.NewIdFromUInt(1, id.User, t))
+	tempUser, _ := user.Users.GetUser(id.NewIdFromUInt(5, id.User, t))
 	user.Users.DeleteUser(id.NewIdFromUInt(5, id.User, t))
 	err = client.GenerateKeys(nil, "")
 	if err != nil {
@@ -516,21 +517,22 @@ func getNDF() *ndf.NetworkDefinition {
 func startServers() {
 	regId := new(id.ID)
 	copy(regId[:], "testServer")
-	regId.SetType(id.Node)
+	regId.SetType(id.Generic)
 	RegComms = registration.StartRegistrationServer(regId, def.Registration.Address, &RegHandler, nil, nil)
 	def.Gateways = make([]ndf.Gateway, 0)
 
 	//Start up gateways
 	for i, handler := range RegGWHandlers {
 
+		gwID := new(id.ID)
+		copy(gwID[:], "testGateway")
+		gwID.SetType(id.Gateway)
 		gw := ndf.Gateway{
 			Address: fmtAddress(GWsStartPort + i),
+			ID:      gwID.Marshal(),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		gwID := new(id.ID)
-		copy(regId[:], "testGateway")
-		regId.SetType(id.Gateway)
 		GWComms[i] = gateway.StartGateway(gwID, gw.Address, handler, nil, nil)
 	}
 

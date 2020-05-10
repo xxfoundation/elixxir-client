@@ -621,15 +621,16 @@ func testMainWrapper(m *testing.M) int {
 	//the ports used are colliding between tests in GoLand when running full suite, this is a dumb fix
 	bump := rand.Intn(10) * 10
 	for i := 0; i < NumGWs; i++ {
+		gwId := new(id.ID)
+		copy(gwId[:], "testGateway")
+		gwId.SetType(id.Gateway)
 
 		gw := ndf.Gateway{
+			ID:      gwId.Marshal(),
 			Address: fmtAddress(GWsStartPort + i + bump),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		gwId := new(id.ID)
-		copy(gwId[:], "testGateway")
-		gwId.SetType(id.Gateway)
 		GWComms[i] = gateway.StartGateway(gwId, gw.Address,
 			gateway.NewImplementation(), nil, nil)
 	}

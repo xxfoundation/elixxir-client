@@ -272,7 +272,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 	cmixPublicKeyDH, cmixPrivateKeyDH *cyclic.Int,
 	cmixGrp *cyclic.Group, errorChan chan error) {
 
-	gatewayID, err := id.Unmarshal(cl.ndf.Nodes[index].ID)
+	gatewayID, err := id.Unmarshal(cl.ndf.Gateways[index].ID)
 	if err != nil {
 		globals.Log.ERROR.Panic(err)
 	}

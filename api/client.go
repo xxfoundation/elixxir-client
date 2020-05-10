@@ -306,11 +306,10 @@ var sessionFileError = errors.New("Session file cannot be loaded and " +
 	"is possibly corrupt. Please contact support@xxmessenger.io")
 
 func (cl *Client) InitListeners() error {
-	transmitGateway, err := id.Unmarshal(cl.ndf.Nodes[0].ID)
+	transmitGateway, err := id.Unmarshal(cl.ndf.Gateways[0].ID)
 	if err != nil {
 		return err
 	}
-	transmitGateway.SetType(id.Gateway)
 	transmissionHost, ok := cl.receptionManager.Comms.GetHost(transmitGateway)
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")

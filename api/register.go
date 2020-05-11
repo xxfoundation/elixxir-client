@@ -219,7 +219,7 @@ func (cl *Client) RegisterWithNodes() error {
 		localI := i
 		nodeID, err := id.Unmarshal(cl.ndf.Nodes[i].ID)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		//Register with node if the node has not been registered with already
 		if _, ok := registeredNodes[*nodeID]; !ok {

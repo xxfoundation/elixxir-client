@@ -538,6 +538,12 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		return err
 	}
 
+	partner, err := id.Unmarshal(s.Partner)
+	if err != nil {
+		return err
+	}
+	km.partner = partner
+
 	// Convert decoded bytes and put into key manager structure
 	km.baseKey = new(cyclic.Int)
 	err = km.baseKey.GobDecode(s.BaseKey)
@@ -566,10 +572,6 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		km.sendOrRecv = false
 	}
 
-	km.partner, err = id.Unmarshal(s.Partner)
-	if err != nil {
-		return err
-	}
 	km.sendState = new(uint64)
 	*km.sendState = binary.BigEndian.Uint64(s.State)
 	km.ttl = binary.BigEndian.Uint16(s.TTL)

@@ -169,7 +169,6 @@ func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 			}
 			continue
 		}
-		gwID.SetType(id.Gateway)
 		err = addHost(rm, gwID, gateway.Address, gateway.TlsCertificate, false, false)
 		if err != nil {
 			err = errors.Errorf("Failed to create host for gateway %s at %s: %+v",

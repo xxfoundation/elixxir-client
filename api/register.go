@@ -274,9 +274,9 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 
 	gatewayID, err := id.Unmarshal(cl.ndf.Gateways[index].ID)
 	if err != nil {
-		globals.Log.ERROR.Panic(err)
+		errorChan <- err
+		return
 	}
-	gatewayID.SetType(id.Gateway)
 
 	// Initialise blake2b hash for transmission keys and sha256 for reception
 	// keys

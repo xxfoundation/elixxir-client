@@ -100,8 +100,11 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
-					assembledMessage := rm.collator.AddMessage(decryptedMessages[i],
+					assembledMessage, err := rm.collator.AddMessage(decryptedMessages[i],
 						senders[i], time.Minute)
+					if err != nil {
+						go callback(err)
+					}
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
 						broadcastMessageReception(assembledMessage, session.GetSwitchboard())

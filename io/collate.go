@@ -48,13 +48,12 @@ func NewCollator() *Collator {
 // This method returns a byte slice with the assembled message if it's
 // received a completed message.
 func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
-	timeout time.Duration) *parse.Message {
+	timeout time.Duration) (*parse.Message, error) {
 
 	payload := message.Contents.GetRightAligned()
 	recipient, err := message.GetRecipient()
-	// Is this the right way to handle the error? It should never happen, right?
 	if err != nil {
-		globals.Log.ERROR.Panic(err)
+		return nil, err
 	}
 
 	//get the time
@@ -69,15 +68,16 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 
 	partition, err := parse.ValidatePartition(payload)
 
-	if err == nil {
+	if err != nil {
+		return nil, errors.WithMessage(err, "Received an invalid partition: ")
+	} else {
 		if partition.MaxIndex == 0 {
 			//this is the only part of the message. we should take the fast
 			//path and skip putting it in the map
 			typedBody, err := parse.Parse(partition.Body)
 			// Log an error if the message is malformed and return nothing
 			if err != nil {
-				globals.Log.ERROR.Printf("Malformed message received")
-				return nil
+				return nil, errors.WithMessage(err, "Malformed message received")
 			}
 
 			msg := parse.Message{
@@ -88,7 +88,7 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 				Timestamp:    timestamp,
 			}
 
-			return &msg
+			return &msg, nil
 		} else {
 			// assemble the map key into a new chunk of memory
 			var key PendingMessageKey
@@ -99,6 +99,7 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 			copy(key[:], keyHash[:PendingMessageKeyLen])
 
 			mb.mux.Lock()
+			defer mb.mux.Unlock()
 			message, ok := mb.pendingMessages[key]
 			if !ok {
 				// this is a multi-part message we haven't seen before.
@@ -117,11 +118,11 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 				// TODO vary timeout depending on number of messages?
 				time.AfterFunc(timeout, func() {
 					mb.mux.Lock()
+					defer mb.mux.Unlock()
 					_, ok := mb.pendingMessages[key]
 					if ok {
 						delete(mb.pendingMessages, key)
 					}
-					mb.mux.Unlock()
 				})
 			} else {
 				// append to array for this key
@@ -133,17 +134,13 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 				fullMsg, err := parse.Assemble(message.parts)
 				if err != nil {
 					delete(mb.pendingMessages, key)
-					mb.mux.Unlock()
-					globals.Log.ERROR.Printf("Malformed message: Padding error, %v", err.Error())
-					return nil
+					return nil, errors.WithMessage(err, "Malformed message: padding error, ")
 				}
 				typedBody, err := parse.Parse(fullMsg)
 				// Log an error if the message is malformed and return nothing
 				if err != nil {
 					delete(mb.pendingMessages, key)
-					mb.mux.Unlock()
-					globals.Log.ERROR.Printf("Malformed message Received")
-					return nil
+					return nil, errors.WithMessage(err, "Malformed message received")
 				}
 
 				msg := parse.Message{
@@ -155,16 +152,13 @@ func (mb *Collator) AddMessage(message *format.Message, sender *id.ID,
 				}
 
 				delete(mb.pendingMessages, key)
-				mb.mux.Unlock()
-				return &msg
+				return &msg, nil
+			} else {
+				// need more parts
+				return nil, nil
 			}
-			mb.mux.Unlock()
 		}
-	} else {
-		globals.Log.ERROR.Printf("Received an invalid partition: %v\n", err.Error())
 	}
-	globals.Log.DEBUG.Printf("Message collator: %v", mb.dump())
-	return nil
 }
 
 // Debug: dump all messages that are currently in the map

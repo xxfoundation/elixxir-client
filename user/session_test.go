@@ -261,8 +261,7 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 		ReceptionKey:    grp.NewInt(2),
 	})
 
-	testContact := id.NewIdFromBytes([]byte("test"), t)
-	testContact.SetType(id.User)
+	testContact := id.NewIdFromString("test", id.User, t)
 	ses.StoreContactByValue("test", testContact, []byte("test"))
 
 	_, err = ses.DeleteContact(testContact)

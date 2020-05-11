@@ -47,7 +47,10 @@ func TestCollator_AddMessage(t *testing.T) {
 			fm.SetRecipient(id.NewIdFromUInt(6, id.User, t))
 			fm.Contents.SetRightAligned(partitions[j])
 
-			result = collator.AddMessage(fm, uid, time.Minute)
+			result, err = collator.AddMessage(fm, uid, time.Minute)
+			if err != nil {
+				t.Fatal(err)
+			}
 		}
 
 		typedBody, err := parse.Parse(bodies[i])
@@ -87,7 +90,10 @@ func TestCollator_AddMessage_Timeout(t *testing.T) {
 		fm.SetRecipient(id.NewIdFromUInt(6, id.User, t))
 		fm.Contents.SetRightAligned(partitions[i])
 
-		result = collator.AddMessage(fm, uid, 80*time.Millisecond)
+		result, err = collator.AddMessage(fm, uid, 80*time.Millisecond)
+		if err != nil {
+			t.Fatal(err)
+		}
 		if result != nil {
 			t.Error("Got a result from collator when it should be timing out" +
 				" submessages")

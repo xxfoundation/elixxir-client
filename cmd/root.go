@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/bots"
@@ -388,6 +389,8 @@ var rootCmd = &cobra.Command{
 			logPath = viper.GetString("logPath")
 		}
 		globals.Log = globals.InitLog(verbose, logPath)
+		// Disable stdout output
+		jww.SetStdoutOutput(ioutil.Discard)
 		// Main client run function
 		userID, _, client := sessionInitialization()
 		err := client.RegisterWithNodes()
@@ -432,11 +435,11 @@ var rootCmd = &cobra.Command{
 
 		// todo: since this is in the root cmd, would checking the regstate directly really be bad?
 		//  It's correct that it should be an error state for RegisterWithUDB, however for this, it's start up code
-		if username != "" && client.GetSession().GetRegState() == user.PermissioningComplete  {
-				err := client.RegisterWithUDB(username, 2*time.Minute)
-				if err != nil {
-					globals.Log.ERROR.Printf("%+v", err)
-				}
+		if username != "" && client.GetSession().GetRegState() == user.PermissioningComplete {
+			err := client.RegisterWithUDB(username, 2*time.Minute)
+			if err != nil {
+				globals.Log.ERROR.Printf("%+v", err)
+			}
 		}
 
 		cryptoType := parse.Unencrypted

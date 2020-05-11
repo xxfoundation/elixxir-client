@@ -16,9 +16,6 @@ var topology *connect.Circuit
 var comms io.Communications
 var transmissionHost *connect.Host
 
-// UdbID is the ID of the user discovery bot, which is always 3
-var UdbID *id.ID
-
 type channelResponseListener chan string
 
 func (l *channelResponseListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
@@ -50,9 +47,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ..
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *id.ID, host *connect.Host) {
-	UdbID = udbID
-
+func InitBots(s user.Session, m io.Communications, top *connect.Circuit, host *connect.Host) {
 	// FIXME: these all need to be used in non-blocking threads if we are
 	// going to do it this way...
 	msgBufSize := 100
@@ -70,13 +65,13 @@ func InitBots(s user.Session, m io.Communications, top *connect.Circuit, udbID *
 
 	l := session.GetSwitchboard()
 
-	l.Register(UdbID, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
+	l.Register(&id.UDB, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
 		&pushKeyResponseListener)
-	l.Register(UdbID, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
+	l.Register(&id.UDB, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
 		&getKeyResponseListener)
-	l.Register(UdbID, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
+	l.Register(&id.UDB, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
 		&registerResponseListener)
-	l.Register(UdbID, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
+	l.Register(&id.UDB, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
 		&searchResponseListener)
 	l.Register(&id.ZeroUser,
 		int32(cmixproto.Type_NICKNAME_REQUEST), &nicknameRequestListener)

@@ -15,7 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
@@ -483,7 +482,7 @@ var rootCmd = &cobra.Command{
 			}
 
 			// Handle sending to UDB
-			if *recipientId == *bots.UdbID {
+			if recipientId.Cmp(&id.UDB) {
 				parseUdbMessage(message, client)
 			} else {
 				// Handle sending to any other destination

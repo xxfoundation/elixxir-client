@@ -46,7 +46,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 
 	regStatus(globals.UDB_REG_PUSHKEY)
 	// push key and error if it already exists
-	err = pushKey(UdbID, keyFP, publicKey)
+	err = pushKey(keyFP, publicKey)
 
 	if err != nil {
 		return errors.Wrap(err, "Could not PUSHKEY")
@@ -84,7 +84,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 
 	// Send register command
 	// Send register command
-	err = sendCommand(UdbID, msgBody)
+	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
 		return errors.Wrap(err, "Could not Push User")
 	}
@@ -133,7 +133,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 		MessageType: int32(cmixproto.Type_UDB_SEARCH),
 		Body:        []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
-	err = sendCommand(UdbID, msgBody)
+	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -172,7 +172,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 		MessageType: int32(cmixproto.Type_UDB_GET_KEY),
 		Body:        []byte(keyFP),
 	})
-	err = sendCommand(UdbID, msgBody)
+	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -257,14 +257,14 @@ func parseGetKey(msg string) []byte {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID *id.ID, keyFP string, publicKey []byte) error {
+func pushKey(keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
-	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
+	globals.Log.DEBUG.Printf("Running pushkey for %v, %v, %v", id.UDB, keyFP,
 		publicKeyString)
 
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 
-	return sendCommand(udbID, parse.Pack(&parse.TypedBody{
+	return sendCommand(&id.UDB, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
 		Body:        []byte(pushKeyMsg),
 	}))

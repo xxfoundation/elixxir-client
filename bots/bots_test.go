@@ -85,9 +85,7 @@ func TestMain(m *testing.M) {
 	nodeID.SetType(id.Node)
 	topology := connect.NewCircuit([]*id.ID{nodeID})
 
-	botID := new(id.ID)
-	copy(botID[:], "testid")
-	InitBots(fakeSession, fakeComm, topology, botID, &h)
+	InitBots(fakeSession, fakeComm, topology, &h)
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots

@@ -316,11 +316,7 @@ func (cl *Client) InitListeners() error {
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	udbID, err := id.Unmarshal(cl.ndf.UDB.ID)
-	if err != nil {
-		return err
-	}
-	bots.InitBots(cl.session, cl.receptionManager, cl.topology, udbID, transmissionHost)
+	bots.InitBots(cl.session, cl.receptionManager, cl.topology, transmissionHost)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, transmissionHost, cl.rekeyChan)
 	return nil

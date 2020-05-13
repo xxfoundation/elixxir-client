@@ -160,8 +160,8 @@ gitlab.com/elixxir/crypto v0.0.0-20200504184505-e210a219cbd9/go.mod h1:QFHKOPIsc
 gitlab.com/elixxir/primitives v0.0.0-20200429161225-0baf426936d7/go.mod h1:w4DuFgnCQZbBpBCFMAwG232qOQY5ALKOUBzCQihtNqI=
 gitlab.com/elixxir/primitives v0.0.0-20200506184657-93da24058321 h1:PmWhTBaB124zAdU54phPZjcAxdI+kRLxRIOdi4H+Gxs=
 gitlab.com/elixxir/primitives v0.0.0-20200506184657-93da24058321/go.mod h1:w4DuFgnCQZbBpBCFMAwG232qOQY5ALKOUBzCQihtNqI=
-gitlab.com/elixxir/primitives v0.0.0-20200510221418-b069d509885c h1:tHfC6P2hb5YjhHBDCxmBEkgCWr28L4EJNeU1Y0t90ZI=
-gitlab.com/elixxir/primitives v0.0.0-20200510221418-b069d509885c/go.mod h1:w4DuFgnCQZbBpBCFMAwG232qOQY5ALKOUBzCQihtNqI=
+gitlab.com/elixxir/primitives v0.0.0-20200511202032-081f195abcf4 h1:jA/vYwqhAVCiGZy/fuHLMbOCkIC1uBxonTjWiHU/1Mk=
+gitlab.com/elixxir/primitives v0.0.0-20200511202032-081f195abcf4/go.mod h1:w4DuFgnCQZbBpBCFMAwG232qOQY5ALKOUBzCQihtNqI=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/multierr v1.1.0/go.mod h1:wR5kodmAFQ0UK8QlbwjlSNy0Z68gJhDJUG5sjR94q/0=

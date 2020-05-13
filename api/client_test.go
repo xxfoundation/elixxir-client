@@ -617,7 +617,6 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 		t.Fail()
 	}
 
-
 	//Test that the things that should not be nil are not nil
 	if tc.ndf == nil {
 		t.Logf("NDF should not be set to nil")
@@ -701,7 +700,7 @@ func TestClient_LogoutTimeout(t *testing.T) {
 }
 
 // Test that if we logout we can logback in.
-func TestClient_LogoutAndLoginAgain(t *testing.T){
+func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	//Initialize a client
 	storage := globals.RamStorage{}
 	tc, initialId := NewClient(&storage, "", "", def)
@@ -738,13 +737,18 @@ func TestClient_LogoutAndLoginAgain(t *testing.T){
 
 	//Redefine client with old session files and attempt to login.
 	tc, newId := NewClient(&storage, "", "", def)
+	err = tc.InitNetwork()
+	if err != nil {
+		t.Fatalf("InitNetwork should have succeeded when creating second client %v", err)
+	}
+
 	_, err = tc.Login("")
-	if err != nil{
+	if err != nil {
 		t.Logf("Login failed %+v", err)
 		t.Fail()
 	}
 
-	if newId != initialId{
+	if newId != initialId {
 		t.Logf("Failed to log user back in to original session")
 		t.Fail()
 	}

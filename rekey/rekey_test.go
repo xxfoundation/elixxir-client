@@ -83,7 +83,7 @@ func TestMain(m *testing.M) {
 	}
 
 	rekeyChan2 := make(chan struct{}, 50)
-	InitRekey(session, fakeComm, connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), rekeyChan2)
+	InitRekey(session, fakeComm, connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), nil, rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey

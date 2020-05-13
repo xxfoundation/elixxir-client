@@ -102,10 +102,6 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 
 	cl := new(Client)
 	cl.storage = store
-	cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, "client", nil, nil, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "Failed to create reception manager")
-	}
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
 
@@ -319,7 +315,7 @@ func (cl *Client) InitListeners() error {
 	// Initialize UDB and nickname "bot" stuff here
 	bots.InitBots(cl.session, cl.receptionManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, cl.rekeyChan)
+	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, transmissionHost, cl.rekeyChan)
 	return nil
 }
 

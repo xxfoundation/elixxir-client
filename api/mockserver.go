@@ -153,6 +153,10 @@ func (s *MockRegistration) PollNdf(clientNdfHash []byte, auth *connect.Auth) ([]
 	return ndfJson, nil
 }
 
+func (s *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth) (*pb.PermissionPollResponse, error) {
+	return nil, nil
+}
+
 // Registers a user and returns a signed public key
 func (s *MockRegistration) RegisterUser(registrationCode,
 	key string) (hash []byte, err error) {
@@ -266,6 +270,10 @@ func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]string, err
 	return nil, nil
 }
 
+func (m *GatewayHandler) Poll(*pb.GatewayPoll) (*pb.GatewayPollResponse, error) {
+	return nil, nil
+}
+
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
 func (m *GatewayHandler) GetMessage(userId *id.User,
@@ -321,6 +329,10 @@ func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
 }
 
 func (m *GatewayHandlerMultipleMessages) PollForNotifications(auth *connect.Auth) ([]string, error) {
+	return nil, nil
+}
+
+func (s *GatewayHandlerMultipleMessages) Poll(*pb.GatewayPoll) (*pb.GatewayPollResponse, error) {
 	return nil, nil
 }
 

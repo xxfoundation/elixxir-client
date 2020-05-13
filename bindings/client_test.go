@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/comms/gateway"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
@@ -65,6 +66,10 @@ func (i *MockRegistration) PollNdf(clientNdfHash []byte,
 	error) {
 	ndfJson, _ := json.Marshal(def)
 	return ndfJson, nil
+}
+
+func (i *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth) (*pb.PermissionPollResponse, error) {
+	return nil, nil
 }
 
 // Setups general testing params and calls test wrapper

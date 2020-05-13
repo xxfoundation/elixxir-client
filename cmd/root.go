@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/spf13/cobra"
+	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
@@ -393,6 +394,8 @@ var rootCmd = &cobra.Command{
 			logPath = viper.GetString("logPath")
 		}
 		globals.Log = globals.InitLog(verbose, logPath)
+		// Disable stdout output
+		jww.SetStdoutOutput(ioutil.Discard)
 		// Main client run function
 		userID, _, client := sessionInitialization()
 		err := client.RegisterWithNodes()

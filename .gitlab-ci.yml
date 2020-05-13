@@ -1,15 +1,9 @@
 # From: https://about.gitlab.com/2017/09/21/how-to-create-ci-cd-pipeline-with-autodeploy-to-kubernetes-using-gitlab-and-helm/
 
-cache:
-  untracked: true
-  key: "$CI_BUILD_REF_NAME"
-  paths:
-    - vendor/
-
 variables:
   REPO_DIR: gitlab.com/elixxir
   REPO_NAME: client
-  DOCKER_IMAGE: golang:1.13.4-buster
+  DOCKER_IMAGE: elixxirlabs/cuda-go:latest
   MIN_CODE_COVERAGE: "74"
 
 before_script:
@@ -28,29 +22,13 @@ before_script:
   - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
   - export PATH=$HOME/go/bin:$PATH
   - export GOPRIVATE=gitlab.com/elixxir/*
-  - go get -u github.com/ory/go-acc
 
 
 stages:
-  - setup
   - test
   - build
-  - tag
   - trigger_integration
   - trigger_release_integration
-
-setup:
-  stage: setup
-  image: $DOCKER_IMAGE
-  except:
-    - tags
-  script:
-    - go mod vendor -v
-    - go build ./...
-    - go mod tidy
-  artifacts:
-    paths:
-     - vendor/
 
 test:
   stage: test
@@ -58,9 +36,10 @@ test:
   except:
     - tags
   script:
-    - apt-get update
-    - apt-get install bc -y
-
+    - git clean -ffdx
+    - go mod vendor -v
+    - go build ./...
+    - go mod tidy
     - mkdir -p testdata
 
     # Test coverage
@@ -76,6 +55,7 @@ test:
     - (if [ "$CODE_CHECK" == "1" ]; then echo "Minimum coverage of $MIN_CODE_COVERAGE succeeded"; else echo "Minimum coverage of $MIN_CODE_COVERAGE failed"; exit 1; fi);
   artifacts:
     paths:
+      - vendor/
       - testdata/
 
 build:
@@ -93,9 +73,9 @@ build:
   artifacts:
     paths:
      - release/
-    
+
 tag:
-    stage: tag
+    stage: trigger_integration
     only:
         - master
     image: $DOCKER_IMAGE
@@ -108,7 +88,7 @@ bindings:
   stage: build
   except:
     - tags
-  tags: 
+  tags:
     - ios
   script:
     - go get -u golang.org/x/mobile/cmd/gomobile
@@ -134,7 +114,7 @@ trigger_integration:
     - "curl -X POST -F token=e34aa19ef1530e579c5d590873d3c6 -F ref=master https://gitlab.com/api/v4/projects/5615854/trigger/pipeline"
   only:
     - master
-    
+
 trigger_release_integration:
   stage: trigger_release_integration
   script:

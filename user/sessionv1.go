@@ -20,7 +20,7 @@ type SessionObjV1 struct {
 	// Currently authenticated user
 	CurrentUser *UserV1
 
-	Keys             map[id.Node]NodeKeys
+	Keys             map[id.ID]NodeKeys
 	RSAPrivateKey    *rsa.PrivateKey
 	RSAPublicKey     *rsa.PublicKey
 	CMIXDHPrivateKey *cyclic.Int
@@ -73,7 +73,7 @@ type SessionObjV1 struct {
 
 // Struct representing a User in the system
 type UserV1 struct {
-	User  *id.User
+	User  *id.ID
 	Nick  string
 	Email string
 }

@@ -18,8 +18,8 @@ func TestMessage_Hash(t *testing.T) {
 	m := Message{}
 	m.MessageType = 0
 	m.Body = []byte{0, 0}
-	m.Sender = id.ZeroID
-	m.Receiver = id.ZeroID
+	m.Sender = &id.ZeroUser
+	m.Receiver = &id.ZeroUser
 	m.Nonce = []byte{0, 0}
 
 	baseHash := m.Hash()
@@ -44,7 +44,7 @@ func TestMessage_Hash(t *testing.T) {
 
 	m.Body = []byte{0, 0}
 
-	newID := id.NewUserFromUint(1, t)
+	newID := id.NewIdFromUInt(1, id.User, t)
 	oldID := m.Sender
 	m.Sender = newID
 

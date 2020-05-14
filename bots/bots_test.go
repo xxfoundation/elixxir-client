@@ -9,6 +9,7 @@ package bots
 
 import (
 	"encoding/base64"
+	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -36,7 +37,7 @@ type dummyMessaging struct {
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
 	topology *connect.Circuit,
-	recipientID *id.User,
+	recipientID *id.ID,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	jww.INFO.Printf("Sending: %s", string(message))
@@ -46,7 +47,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 	topology *connect.Circuit,
-	recipientID *id.User,
+	recipientID *id.ID,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	jww.INFO.Printf("Sending: %s", string(message))
@@ -64,9 +65,11 @@ var pubKey []byte
 
 func TestMain(m *testing.M) {
 	u := &user.User{
-		User:     id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
+		User:     new(id.ID),
 		Username: "Bernie",
 	}
+	binary.BigEndian.PutUint64(u.User[:], 18)
+	u.User.SetType(id.User)
 
 	cmixGrp, e2eGrp := getGroups()
 
@@ -78,9 +81,11 @@ func TestMain(m *testing.M) {
 		listener: ListenCh,
 	}
 	h := connect.Host{}
-	topology := connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))})
+	nodeID := new(id.ID)
+	nodeID.SetType(id.Node)
+	topology := connect.NewCircuit([]*id.ID{nodeID})
 
-	InitBots(fakeSession, fakeComm, topology, id.NewUserFromBytes([]byte("testid")), &h)
+	InitBots(fakeSession, fakeComm, topology, &h)
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots
@@ -121,9 +126,14 @@ func TestRegister(t *testing.T) {
 // TestSearch smoke tests the search function
 func TestSearch(t *testing.T) {
 	publicKeyString := base64.StdEncoding.EncodeToString(pubKey)
+	//uid := id.NewIdFromUInt(26, id.User, t)
+	//serRetUid := base64.StdEncoding.EncodeToString(uid[:])
+	//result, _ := base64.StdEncoding.DecodeString(serRetUid)
+	//t.Fatal(serRetUid)
+	//t.Fatal(len(result))
 
 	// Send response messages from fake UDB in advance
-	searchResponseListener <- "blah@elixxir.io FOUND UR69db14ZyicpZVqJ1HFC5rk9UZ8817aV6+VHmrJpGc= AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABo= 8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
+	searchResponseListener <- "blah@elixxir.io FOUND UR69db14ZyicpZVqJ1HFC5rk9UZ8817aV6+VHmrJpGc= AAAAAAAAABoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD 8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
 	getKeyResponseListener <- fmt.Sprintf("GETKEY %s %s", keyFingerprint,
 		publicKeyString)
 
@@ -136,8 +146,8 @@ func TestSearch(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error on Search: %s", err.Error())
 	}
-	if *searchedUser != *id.NewUserFromUint(26, t) {
-		t.Errorf("Search did not return user ID 26! returned %v", string(searchedUser.Bytes()))
+	if !searchedUser.Cmp(id.NewIdFromUInt(26, id.User, t)) {
+		t.Errorf("Search did not return user ID 26! returned %s", searchedUser)
 	}
 	//Test the timeout capabilities
 	searchedUser, _, err = Search("EMAIL", "blah@elixxir.io", dummySearchState, 1*time.Millisecond)
@@ -190,7 +200,7 @@ type errorMessaging struct{}
 // SendMessage that just errors out
 func (e *errorMessaging) SendMessage(sess user.Session,
 	topology *connect.Circuit,
-	recipientID *id.User,
+	recipientID *id.ID,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	return errors.New("This is an error")
@@ -199,7 +209,7 @@ func (e *errorMessaging) SendMessage(sess user.Session,
 // SendMessage no partition that just errors out
 func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 	topology *connect.Circuit,
-	recipientID *id.User,
+	recipientID *id.ID,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	return errors.New("This is an error")

@@ -29,51 +29,51 @@ func (k *RekeyKeys) RotateKeysIfReady() {
 }
 
 type RekeyManager struct {
-	Ctxs map[id.User]*RekeyContext
-	Keys map[id.User]*RekeyKeys
+	Ctxs map[id.ID]*RekeyContext
+	Keys map[id.ID]*RekeyKeys
 	lock sync.Mutex
 }
 
 func NewRekeyManager() *RekeyManager {
 	return &RekeyManager{
-		Ctxs: make(map[id.User]*RekeyContext),
-		Keys: make(map[id.User]*RekeyKeys),
+		Ctxs: make(map[id.ID]*RekeyContext),
+		Keys: make(map[id.ID]*RekeyKeys),
 	}
 }
 
-func (rkm *RekeyManager) AddCtx(partner *id.User,
+func (rkm *RekeyManager) AddCtx(partner *id.ID,
 	ctx *RekeyContext) {
 	rkm.lock.Lock()
 	defer rkm.lock.Unlock()
 	rkm.Ctxs[*partner] = ctx
 }
 
-func (rkm *RekeyManager) GetCtx(partner *id.User) *RekeyContext {
+func (rkm *RekeyManager) GetCtx(partner *id.ID) *RekeyContext {
 	rkm.lock.Lock()
 	defer rkm.lock.Unlock()
 	return rkm.Ctxs[*partner]
 }
 
-func (rkm *RekeyManager) DeleteCtx(partner *id.User) {
+func (rkm *RekeyManager) DeleteCtx(partner *id.ID) {
 	rkm.lock.Lock()
 	defer rkm.lock.Unlock()
 	delete(rkm.Ctxs, *partner)
 }
 
-func (rkm *RekeyManager) AddKeys(partner *id.User,
+func (rkm *RekeyManager) AddKeys(partner *id.ID,
 	keys *RekeyKeys) {
 	rkm.lock.Lock()
 	defer rkm.lock.Unlock()
 	rkm.Keys[*partner] = keys
 }
 
-func (rkm *RekeyManager) GetKeys(partner *id.User) *RekeyKeys {
+func (rkm *RekeyManager) GetKeys(partner *id.ID) *RekeyKeys {
 	rkm.lock.Lock()
 	defer rkm.lock.Unlock()
 	return rkm.Keys[*partner]
 }
 
-func (rkm *RekeyManager) DeleteKeys(partner *id.User) {
+func (rkm *RekeyManager) DeleteKeys(partner *id.ID) {
 	rkm.lock.Lock()
 	defer rkm.lock.Unlock()
 	delete(rkm.Keys, *partner)

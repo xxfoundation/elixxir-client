@@ -128,8 +128,8 @@ func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
 	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
-	ms.Receiver = id.ZeroID
-	ms.Sender = id.ZeroID
+	ms.Receiver = &id.ZeroUser
+	ms.Sender = &id.ZeroUser
 
 	messagePacked := ms.Pack()
 
@@ -158,8 +158,8 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	rng := csprng.NewSystemRNG()
 	cmixGrp, e2eGrp := getGroups()
-	userID := id.NewUserFromUint(18, t)
-	partner := id.NewUserFromUint(14, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	myPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 	myPubKeyCyclic := e2eGrp.ExpG(myPrivKeyCyclic, e2eGrp.NewMaxInt())
@@ -247,8 +247,8 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	}
 
 	cmixGrp, e2eGrp := getGroups()
-	userID := id.NewUserFromUint(18, t)
-	partner := id.NewUserFromUint(14, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
 
 	rng := csprng.NewSystemRNG()
 	myPrivKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
@@ -401,7 +401,7 @@ func TestClient_precannedRegister(t *testing.T) {
 		t.Error(err)
 	}
 
-	_, _, _, err = testClient.precannedRegister("UAV6IWD6")
+	_, _, _, err = testClient.precannedRegister("WTROXJ33")
 	if err != nil {
 		t.Errorf("Error during precannedRegister: %+v", err)
 	}
@@ -428,7 +428,7 @@ func TestClient_sendRegistrationMessage(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	_, err = testClient.sendRegistrationMessage("UAV6IWD6", &publicKeyRSA)
+	_, err = testClient.sendRegistrationMessage("WTROXJ33", &publicKeyRSA)
 	if err != nil {
 		t.Errorf("Error during sendRegistrationMessage: %+v", err)
 	}
@@ -462,7 +462,11 @@ func TestClient_requestNonce(t *testing.T) {
 		t.Errorf("Unable to generate salt! %s", err)
 	}
 
-	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
+	gwID, err := id.Unmarshal(testClient.ndf.Gateways[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gwID.SetType(id.Gateway)
 	_, _, err = testClient.requestNonce(salt, []byte("test"), publicKeyDH, &publicKeyRSA, privateKeyRSA, gwID)
 	if err != nil {
 		t.Errorf("Error during requestNonce: %+v", err)
@@ -485,7 +489,11 @@ func TestClient_confirmNonce(t *testing.T) {
 	}
 	rng := csprng.NewSystemRNG()
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
-	gwID := id.NewNodeFromBytes(testClient.ndf.Nodes[0].ID).NewGateway()
+	gwID, err := id.Unmarshal(testClient.ndf.Gateways[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gwID.SetType(id.Gateway)
 	err = testClient.confirmNonce([]byte("user"), []byte("test"), privateKeyRSA, gwID)
 	if err != nil {
 		t.Errorf("Error during confirmNonce: %+v", err)
@@ -567,7 +575,8 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	tc, _ := NewClient(&d, "", "", def)
 
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+	uid := id.NewIdFromString("kk", id.User, t)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
 
 	err := tc.InitNetwork()
 	if err != nil {
@@ -642,7 +651,8 @@ func TestClient_LogoutTimeout(t *testing.T) {
 	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
 	tc, _ := NewClient(&d, "", "", def)
 
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+	uid := id.NewIdFromString("kk", id.User, t)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
 
 	err := tc.InitNetwork()
 	if err != nil {
@@ -705,7 +715,8 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	storage := globals.RamStorage{}
 	tc, initialId := NewClient(&storage, "", "", def)
 
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, "kk", nil, nil, nil)
+	uid := id.NewIdFromString("kk", id.User, t)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
 
 	err := tc.InitNetwork()
 	if err != nil {

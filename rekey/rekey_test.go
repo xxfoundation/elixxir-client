@@ -2,6 +2,7 @@ package rekey
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
@@ -31,7 +32,7 @@ type dummyMessaging struct {
 // SendMessage to the server
 func (d *dummyMessaging) SendMessage(sess user.Session,
 	topology *connect.Circuit,
-	recipientID *id.User,
+	recipientID *id.ID,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	d.listener <- message
@@ -41,7 +42,7 @@ func (d *dummyMessaging) SendMessage(sess user.Session,
 // SendMessage without partitions to the server
 func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 	topology *connect.Circuit,
-	recipientID *id.User,
+	recipientID *id.ID,
 	cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	d.listener <- message
@@ -59,14 +60,18 @@ func TestMain(m *testing.M) {
 	user.InitUserRegistry(grp)
 	rng := csprng.NewSystemRNG()
 	u := &user.User{
-		User:     id.NewUserFromUints(&[4]uint64{0, 0, 0, 18}),
+		User:     new(id.ID),
 		Username: "Bernie",
 	}
+	binary.BigEndian.PutUint64(u.User[:], 18)
+	u.User.SetType(id.User)
 	myPrivKeyCyclicCMIX := grp.RandomCoprime(grp.NewMaxInt())
 	myPubKeyCyclicCMIX := grp.ExpG(myPrivKeyCyclicCMIX, grp.NewInt(1))
 	myPrivKeyCyclicE2E := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 	myPubKeyCyclicE2E := e2eGrp.ExpG(myPrivKeyCyclicE2E, e2eGrp.NewInt(1))
-	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := new(id.ID)
+	binary.BigEndian.PutUint64(partnerID[:], 12)
+	partnerID.SetType(id.User)
 
 	partnerPubKeyCyclic := e2eGrp.RandomCoprime(e2eGrp.NewMaxInt())
 
@@ -83,7 +88,9 @@ func TestMain(m *testing.M) {
 	}
 
 	rekeyChan2 := make(chan struct{}, 50)
-	InitRekey(session, fakeComm, connect.NewCircuit([]*id.Node{id.NewNodeFromBytes(make([]byte, id.NodeIdLen))}), nil, rekeyChan2)
+	nodeID := new(id.ID)
+	nodeID.SetType(id.Node)
+	InitRekey(session, fakeComm, connect.NewCircuit([]*id.ID{nodeID}), nil, rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey
@@ -129,7 +136,9 @@ func TestMain(m *testing.M) {
 
 // Test RekeyTrigger
 func TestRekeyTrigger(t *testing.T) {
-	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := new(id.ID)
+	binary.BigEndian.PutUint64(partnerID[:], 12)
+	partnerID.SetType(id.User)
 	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
 	// Test receiving a RekeyTrigger message
@@ -185,7 +194,9 @@ func TestRekeyTrigger(t *testing.T) {
 
 // Test RekeyConfirm
 func TestRekeyConfirm(t *testing.T) {
-	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := new(id.ID)
+	binary.BigEndian.PutUint64(partnerID[:], 12)
+	partnerID.SetType(id.User)
 	rekeyCtx := session.GetRekeyManager().GetCtx(partnerID)
 	baseKey := rekeyCtx.BaseKey
 	// Test receiving a RekeyConfirm message with wrong H(baseKey)
@@ -253,7 +264,9 @@ func TestRekeyConfirm(t *testing.T) {
 
 // Test Rekey
 func TestRekey(t *testing.T) {
-	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := new(id.ID)
+	binary.BigEndian.PutUint64(partnerID[:], 12)
+	partnerID.SetType(id.User)
 	km := session.GetKeyStore().GetSendManager(partnerID)
 	// Generate new partner public key
 	_, grp := getGroups()
@@ -312,7 +325,9 @@ func TestRekey(t *testing.T) {
 
 // Test Rekey errors
 func TestRekey_Errors(t *testing.T) {
-	partnerID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 12})
+	partnerID := new(id.ID)
+	binary.BigEndian.PutUint64(partnerID[:], 12)
+	partnerID.SetType(id.User)
 	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
 	// Delete RekeyKeys so that RekeyTrigger and rekey error out

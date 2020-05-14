@@ -34,7 +34,7 @@ type KeyManager struct {
 	pubKey *cyclic.Int
 
 	// Designates end-to-end partner
-	partner *id.User
+	partner *id.ID
 
 	// True if key manager tracks send keys, false if receive keys
 	sendOrRecv bool
@@ -76,7 +76,7 @@ type KeyManager struct {
 // All internal states are forced to 0 for safety purposes
 func NewManager(baseKey *cyclic.Int,
 	privKey *cyclic.Int, pubKey *cyclic.Int,
-	partner *id.User, sendOrRecv bool,
+	partner *id.ID, sendOrRecv bool,
 	numKeys uint32, ttl uint16, numReKeys uint16) *KeyManager {
 
 	km := new(KeyManager)
@@ -117,7 +117,7 @@ func (km *KeyManager) GetPubKey() *cyclic.Int {
 }
 
 // Get the partner ID from the Key Manager
-func (km *KeyManager) GetPartner() *id.User {
+func (km *KeyManager) GetPartner() *id.ID {
 	return km.partner
 }
 
@@ -263,7 +263,7 @@ func (km *KeyManager) checkRecvStateBit(rekey bool, keyNum uint32) bool {
 // E2E relationship is established, and also to generate all previously
 // unused keys based on KeyManager state, when reloading an user session
 // The function returns modifications that need to be independently made to the keystore.
-func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.User) []*E2EKey {
+func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.ID) []*E2EKey {
 	var recE2EKeys []*E2EKey
 
 	if km.sendOrRecv {
@@ -538,6 +538,12 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		return err
 	}
 
+	partner, err := id.Unmarshal(s.Partner)
+	if err != nil {
+		return err
+	}
+	km.partner = partner
+
 	// Convert decoded bytes and put into key manager structure
 	km.baseKey = new(cyclic.Int)
 	err = km.baseKey.GobDecode(s.BaseKey)
@@ -566,7 +572,6 @@ func (km *KeyManager) GobDecode(in []byte) error {
 		km.sendOrRecv = false
 	}
 
-	km.partner = id.NewUserFromBytes(s.Partner)
 	km.sendState = new(uint64)
 	*km.sendState = binary.BigEndian.Uint64(s.State)
 	km.ttl = binary.BigEndian.Uint16(s.TTL)

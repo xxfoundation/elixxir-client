@@ -110,10 +110,10 @@ func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, host *co
 	//  messages that have a type that includes the outer type if that's not
 	//  possible
 	// in short, switchboard should be the package that includes outer
-	l.Register(id.ZeroID,
+	l.Register(&id.ZeroUser,
 		int32(cmixproto.Type_NO_TYPE),
 		&rekeyList)
-	l.Register(id.ZeroID,
+	l.Register(&id.ZeroUser,
 		int32(cmixproto.Type_REKEY_CONFIRM),
 		&rekeyConfirmList)
 }
@@ -127,7 +127,7 @@ const (
 	RekeyConfirm
 )
 
-func rekeyProcess(rt rekeyType, partner *id.User, data []byte) error {
+func rekeyProcess(rt rekeyType, partner *id.ID, data []byte) error {
 	rkm := session.GetRekeyManager()
 	e2egrp := session.GetE2EGroup()
 

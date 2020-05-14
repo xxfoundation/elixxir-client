@@ -24,16 +24,16 @@ func TestUserRegistry(t *testing.T) {
 	}
 	// Test the integration of the LookupUser, UserHash and GetUser functions
 	for i := 0; i < len(DemoUserNicks); i++ {
-		currentID := id.NewUserFromUint(uint64(i+1), t)
-		reg, ok := Users.LookupUser(currentID.RegistrationCode())
+		currentID := id.NewIdFromUInt(uint64(i+1), id.User, t)
+		reg, ok := Users.LookupUser(RegistrationCode(currentID))
 		if !ok {
 			t.Errorf("Couldn't lookup user %q with code %v", *currentID,
-				currentID.RegistrationCode())
+				RegistrationCode(currentID))
 		}
 		usr, ok := Users.GetUser(reg)
 		if !ok {
-			t.Logf("Reg codes of both: %v, %v", reg.RegistrationCode(),
-				currentID.RegistrationCode())
+			t.Logf("Reg codes of both: %v, %v", RegistrationCode(reg),
+				RegistrationCode(currentID))
 			t.Errorf("Couldn't get user %q corresponding to user %q",
 				*reg, *currentID)
 		}
@@ -43,7 +43,7 @@ func TestUserRegistry(t *testing.T) {
 		}
 	}
 	// Test the NewUser function
-	newID := id.NewUserFromUint(2002, t)
+	newID := id.NewIdFromUInt(2002, id.User, t)
 	usr := Users.NewUser(newID, "Will I am")
 
 	if usr.Username != "Will I am" {
@@ -71,7 +71,7 @@ func TestUserRegistry(t *testing.T) {
 	grp := InitGroup()
 
 	// Test LookupKeys
-	keys, suc := Users.LookupKeys(id.NewUserFromUint(1, t))
+	keys, suc := Users.LookupKeys(id.NewIdFromUInt(1, id.User, t))
 	if !suc {
 		t.Errorf("LookupKeys failed to find a valid user.")
 	}
@@ -85,9 +85,9 @@ func TestUserRegistry(t *testing.T) {
 	}
 
 	// Test delete user
-	Users.DeleteUser(id.NewUserFromUint(2, t))
+	Users.DeleteUser(id.NewIdFromUInt(2, id.User, t))
 
-	_, ok := Users.GetUser(id.NewUserFromUint(2, t))
+	_, ok := Users.GetUser(id.NewIdFromUInt(2, id.User, t))
 	if ok {
 		t.Errorf("User %v has not been deleted succesfully!", usr.Username)
 	}
@@ -97,8 +97,8 @@ func TestUserRegistry(t *testing.T) {
 // the first several users
 func TestPrintRegCodes(t *testing.T) {
 	for i := 1; i <= NumDemoUsers; i++ {
-		currentID := id.NewUserFromUint(uint64(i), t)
-		t.Logf("%v:\t%v", i, currentID.RegistrationCode())
+		currentID := id.NewIdFromUInt(uint64(i), id.User, t)
+		t.Logf("%v:\t%v", i, RegistrationCode(currentID))
 	}
 }
 

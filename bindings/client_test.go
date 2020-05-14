@@ -36,7 +36,7 @@ const NumNodes = 3
 const NumGWs = NumNodes
 const GWsStartPort = 7950
 const RegPort = 5100
-const ValidRegCode = "UAV6IWD6"
+const ValidRegCode = "WTROXJ33"
 
 var RegHandler = MockRegistration{}
 var RegComms *registration.Comms
@@ -52,7 +52,7 @@ func (i *MockRegistration) RegisterUser(registrationCode, test string) (hash []b
 	return nil, nil
 }
 
-func (i *MockRegistration) RegisterNode(ID []byte, ServerAddr, ServerTlsCert,
+func (i *MockRegistration) RegisterNode(ID *id.ID, ServerAddr, ServerTlsCert,
 	GatewayAddr, GatewayTlsCert, RegistrationCode string) error {
 	return nil
 }
@@ -358,12 +358,14 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Could not start message reception: %+v", err)
 	}
 
+	receiverID := id.NewIdFromBytes(userID, t)
+	receiverID.SetType(id.User)
 	// Test send with invalid sender ID
 	_, err = testClient.Send(
 		mockMesssage{
-			Sender:    id.NewUserFromUint(12, t),
+			Sender:    id.NewIdFromUInt(12, id.User, t),
 			TypedBody: parse.TypedBody{Body: []byte("test")},
-			Receiver:  id.NewUserFromBytes(userID),
+			Receiver:  receiverID,
 		}, false)
 
 	if err != nil {
@@ -375,7 +377,7 @@ func TestClient_Send(t *testing.T) {
 	// Test send with valid inputs
 	_, err = testClient.Send(
 		mockMesssage{
-			Sender:    id.NewUserFromBytes(userID),
+			Sender:    id.NewIdFromBytes(userID, t),
 			TypedBody: parse.TypedBody{Body: []byte("test")},
 			Receiver:  testClient.client.GetCurrentUser(),
 		}, false)
@@ -468,13 +470,13 @@ func TestListen(t *testing.T) {
 	}
 
 	listener := MockListener(false)
-	client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	client.Listen(id.ZeroUser[:], int32(cmixproto.Type_NO_TYPE), &listener)
 	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
 		},
-		Sender:   id.ZeroID,
+		Sender:   &id.ZeroUser,
 		Receiver: client.client.GetCurrentUser(),
 	})
 	time.Sleep(time.Second)
@@ -513,15 +515,18 @@ func TestStopListening(t *testing.T) {
 	}
 
 	listener := MockListener(false)
-	handle := client.Listen(id.ZeroID[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	handle, err := client.Listen(id.ZeroUser[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	if err != nil {
+		t.Fatal(err)
+	}
 	client.StopListening(handle)
 	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
 			Body:        []byte("stuff"),
 		},
-		Sender:   id.ZeroID,
-		Receiver: id.ZeroID,
+		Sender:   &id.ZeroUser,
+		Receiver: &id.ZeroUser,
 	})
 	if listener {
 		t.Error("Message was received after we stopped listening for it")
@@ -551,8 +556,8 @@ func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
 	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
-	ms.Receiver = id.ZeroID
-	ms.Sender = id.ZeroID
+	ms.Receiver = &id.ZeroUser
+	ms.Sender = &id.ZeroUser
 
 	messagePacked := ms.Pack()
 
@@ -604,20 +609,29 @@ func testMainWrapper(m *testing.M) int {
 	def = getNDF()
 
 	// Initialize permissioning server
+	// TODO(nan) We shouldn't need to start registration servers twice, right?
 	pAddr := def.Registration.Address
-	RegComms = registration.StartRegistrationServer("testRegServer", pAddr, &RegHandler, nil, nil)
+	regId := new(id.ID)
+	copy(regId[:], "testRegServer")
+	regId.SetType(id.Generic)
+	RegComms = registration.StartRegistrationServer(regId, pAddr,
+		&RegHandler, nil, nil)
 
 	// Start mock gateways used by registration and defer their shutdown (may not be needed)
 	//the ports used are colliding between tests in GoLand when running full suite, this is a dumb fix
 	bump := rand.Intn(10) * 10
 	for i := 0; i < NumGWs; i++ {
+		gwId := new(id.ID)
+		copy(gwId[:], "testGateway")
+		gwId.SetType(id.Gateway)
 
 		gw := ndf.Gateway{
+			ID:      gwId.Marshal(),
 			Address: fmtAddress(GWsStartPort + i + bump),
 		}
 
 		def.Gateways = append(def.Gateways, gw)
-		GWComms[i] = gateway.StartGateway("testGateway", gw.Address,
+		GWComms[i] = gateway.StartGateway(gwId, gw.Address,
 			gateway.NewImplementation(), nil, nil)
 	}
 
@@ -625,14 +639,15 @@ func testMainWrapper(m *testing.M) int {
 	def.Registration = ndf.Registration{
 		Address: fmtAddress(RegPort),
 	}
-	RegComms = registration.StartRegistrationServer("testRegServer", def.Registration.Address,
+	RegComms = registration.StartRegistrationServer(regId, def.Registration.Address,
 		&RegHandler, nil, nil)
 
 	for i := 0; i < NumNodes; i++ {
-		nIdBytes := make([]byte, id.NodeIdLen)
-		nIdBytes[0] = byte(i)
+		nId := new(id.ID)
+		nId[0] = byte(i)
+		nId.SetType(id.Node)
 		n := ndf.Node{
-			ID: nIdBytes,
+			ID: nId[:],
 		}
 		def.Nodes = append(def.Nodes, n)
 	}
@@ -749,8 +764,8 @@ type mockMesssage struct {
 	parse.TypedBody
 	// The crypto type is inferred from the message's contents
 	InferredType parse.CryptoType
-	Sender       *id.User
-	Receiver     *id.User
+	Sender       *id.ID
+	Receiver     *id.ID
 	Nonce        []byte
 	Timestamp    time.Time
 }

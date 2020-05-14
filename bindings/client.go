@@ -35,12 +35,15 @@ type Client struct {
 // messages sent from all users.
 // If you pass the zero type (just zero) to Listen() you will hear messages of
 // all types.
-func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener) string {
-	typedUserId := id.NewUserFromBytes(userId)
+func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener) (string, error) {
+	typedUserId, err := id.Unmarshal(userId)
+	if err != nil {
+		return "", err
+	}
 
 	listener := &listenerProxy{proxy: newListener}
 
-	return cl.client.Listen(typedUserId, messageType, listener)
+	return cl.client.Listen(typedUserId, messageType, listener), nil
 }
 
 // Pass the listener handle that Listen() returned to delete the listener
@@ -132,7 +135,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode)
 
 	if err != nil {
-		return id.ZeroID[:], err
+		return id.ZeroUser[:], err
 	}
 
 	return UID[:], nil
@@ -285,8 +288,14 @@ func (cl *Client) Send(m Message, encrypt bool) (int64, error) {
 		"MessageTye: %v", m.GetSender(), m.GetPayload(),
 		m.GetRecipient(), m.GetMessageType())
 
-	sender := id.NewUserFromBytes(m.GetSender())
-	recipient := id.NewUserFromBytes(m.GetRecipient())
+	sender, err := id.Unmarshal(m.GetSender())
+	if err != nil {
+		return 0, err
+	}
+	recipient, err := id.Unmarshal(m.GetRecipient())
+	if err != nil {
+		return 0, err
+	}
 
 	var cryptoType parse.CryptoType
 	if encrypt {
@@ -370,7 +379,10 @@ func (cl *Client) SearchForUser(username string,
 func (cl *Client) DeleteContact(uid []byte) (string, error) {
 	globals.Log.INFO.Printf("Binding call: DeleteContact()\n"+
 		"   uid: %v\n", uid)
-	u := id.NewUserFromBytes(uid)
+	u, err := id.Unmarshal(uid)
+	if err != nil {
+		return "", err
+	}
 
 	return cl.client.DeleteUser(u)
 }
@@ -379,10 +391,14 @@ func (cl *Client) DeleteContact(uid []byte) (string, error) {
 // Non-blocking, once the API call completes, the callback function
 // passed as argument is called
 func (cl *Client) LookupNick(user []byte,
-	cb NickLookupCallback) {
+	cb NickLookupCallback) error {
 	proxy := &nickCallbackProxy{cb}
-	userID := id.NewUserFromBytes(user)
+	userID, err := id.Unmarshal(user)
+	if err != nil {
+		return err
+	}
 	cl.client.LookupNick(userID, proxy)
+	return nil
 }
 
 // Parses a passed message.  Allows a message to be parsed using the internal parser

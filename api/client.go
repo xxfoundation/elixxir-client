@@ -308,6 +308,8 @@ var sessionFileError = errors.New("Session file cannot be loaded and " +
 func (cl *Client) InitListeners() error {
 	transmitGateway, err := id.Unmarshal(cl.ndf.Gateways[0].ID)
 	if err != nil {
+		globals.Log.DEBUG.Printf("%s: Gateways are: %+v", err.Error(),
+			cl.ndf.Gateways)
 		return err
 	}
 	transmissionHost, ok := cl.receptionManager.Comms.GetHost(transmitGateway)

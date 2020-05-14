@@ -153,6 +153,8 @@ gitlab.com/elixxir/comms v0.0.0-20200513205425-e2f1a300e61b h1:Qw79tx+dZdvwMUGye
 gitlab.com/elixxir/comms v0.0.0-20200513205425-e2f1a300e61b/go.mod h1:+RnENZCq2ca+Z/16CVUgzWUcuSLYJ7Q0L0zaBTbmOCQ=
 gitlab.com/elixxir/comms v0.0.0-20200514181639-cd222a164c83 h1:Pwweg9BoY7j9Hr7fyV+T0xWBwqGHrUgqS5SPzup41OQ=
 gitlab.com/elixxir/comms v0.0.0-20200514181639-cd222a164c83/go.mod h1:+RnENZCq2ca+Z/16CVUgzWUcuSLYJ7Q0L0zaBTbmOCQ=
+gitlab.com/elixxir/comms v0.0.0-20200514191231-70cadf8a289a h1:jj+w+kluD7sZlMI95eXNATdW8LTLqOac8ZsaaeK6pm4=
+gitlab.com/elixxir/comms v0.0.0-20200514191231-70cadf8a289a/go.mod h1:vHVjjP1JhHw6F9Rf7QPRHnrhBxxBpO4gWD1EGFUxNe0=
 gitlab.com/elixxir/crypto v0.0.0-20200410231849-90e859940f5d h1:+g7tGMO3g20Su3pdTJg30n5XhEGZ3avEd4ccN33CtdU=
 gitlab.com/elixxir/crypto v0.0.0-20200410231849-90e859940f5d/go.mod h1:QPClJr3F90ejz6iHaCZuhexytd6PP97dDnt93iRCTDo=
 gitlab.com/elixxir/crypto v0.0.0-20200513163659-38b6079db0b2 h1:dqWdpifXovXXk2egHeh3FQFqB3IlcIurL+A+ziFFbU0=

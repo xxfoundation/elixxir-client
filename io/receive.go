@@ -278,7 +278,7 @@ func (rm *ReceptionManager) decryptMessages(session user.Session,
 			}
 
 			keyFP := msg.AssociatedData.GetKeyFP()
-			sender, err = id.Unmarshal(keyFP[:])
+			sender, err = makeUserID(keyFP[:])
 		} else {
 			sender, rekey, err = handleE2EReceiving(session, msg)
 
@@ -312,6 +312,17 @@ func broadcastMessageReception(message *parse.Message,
 	listeners *switchboard.Switchboard) {
 
 	listeners.Speak(message)
+}
+
+// Put a sender ID in a byte slice and set its type to user
+func makeUserID(senderID []byte) (*id.ID, error) {
+	senderIDBytes := make([]byte, id.ArrIDLen)
+	copy(senderIDBytes, senderID[:])
+	userID, err := id.Unmarshal(senderIDBytes)
+	if userID != nil {
+		userID.SetType(id.User)
+	}
+	return userID, err
 }
 
 // skipErrChecker checks checks if the error is fatal or should be ignored

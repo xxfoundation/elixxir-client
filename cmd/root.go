@@ -227,10 +227,10 @@ func sessionInitialization() (*id.ID, string, *api.Client) {
 		globals.Log.INFO.Printf("Attempting to register with code %s...", regCode)
 
 		errRegister := fmt.Errorf("")
-		uid = client.GetCurrentUser()
+
 		//Attempt to register user with same keys until a success occurs
 		for errRegister != nil {
-			_, errRegister = client.RegisterWithPermissioning(userId != 0, regCode)
+			_, errRegister = client.RegisterWithPermissioning(precanned, regCode)
 			if errRegister != nil {
 				globals.Log.FATAL.Panicf("Could Not Register User: %s",
 					errRegister.Error())
@@ -242,6 +242,8 @@ func sessionInitialization() (*id.ID, string, *api.Client) {
 			globals.Log.FATAL.Panicf("Could Not Register User with nodes: %s",
 				err.Error())
 		}
+
+		uid = client.GetCurrentUser()
 
 		userbase64 := base64.StdEncoding.EncodeToString(uid[:])
 		globals.Log.INFO.Printf("Registered as user (uid, the var) %v", uid)

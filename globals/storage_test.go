@@ -132,3 +132,13 @@ func TestRamStorage_GetLocation(t *testing.T) {
 			a, b)
 	}
 }
+
+func Test_dsLoadHelper_LocError(t *testing.T) {
+	testLoc := "~a/test"
+
+	result := dsLoadHelper(testLoc)
+
+	if result != nil {
+		t.Errorf("dsLoadHelper() did not error on invalid path.")
+	}
+}

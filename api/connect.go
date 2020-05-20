@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/elixxir/primitives/version"
 )
 
 var ErrNoPermissioning = errors.New("No Permissioning In NDF")
@@ -127,10 +128,19 @@ func (cl *Client) setupPermissioning() error {
 	// Only check the version if we got a remote version
 	// The remote version won't have been populated if we didn't connect to permissioning
 	if cl.GetRegistrationVersion() != "" {
-		ok, err := globals.CheckVersion(cl.GetRegistrationVersion())
+		// Parse client version
+		clientVersion, err := version.ParseVersion(globals.SEMVER)
 		if err != nil {
 			return err
 		}
+
+		// Parse the permissioning version
+		regVersion, err := version.ParseVersion(cl.GetRegistrationVersion())
+		if err != nil {
+			return err
+		}
+
+		ok := version.IsCompatible(regVersion, clientVersion)
 		if !ok {
 			return errors.Errorf("Couldn't connect to gateways: Versions"+
 				" incompatible; Local version: %v; remote version: %v", globals.SEMVER,

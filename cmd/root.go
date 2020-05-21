@@ -20,7 +20,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -324,7 +323,7 @@ func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool, i 
 		}
 		atomic.AddInt64(&l.MessagesReceived, 1)
 		globals.Log.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
-			message.MessageType, *message.Sender, senderNick,
+			message.MessageType, printIDNice(message.Sender), senderNick,
 			string(message.Body))
 	}
 }
@@ -346,7 +345,7 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...i
 	sender, ok := user.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
-		globals.Log.INFO.Printf("First message from sender %v", message.Sender)
+		globals.Log.INFO.Printf("First message from sender %v", printIDNice(message.Sender))
 		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
 		user.Users.UpsertUser(u)
 		senderNick = u.Username
@@ -354,7 +353,7 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...i
 		senderNick = sender.Username
 	}
 	logMsg := fmt.Sprintf("Message from %v, %v Received: %s\n",
-		large.NewIntFromBytes(message.Sender[:]).Text(10),
+		printIDNice(message.Sender),
 		senderNick, result.Message)
 	globals.Log.INFO.Printf("%s -- Timestamp: %s\n", logMsg,
 		message.Timestamp.String())
@@ -494,10 +493,7 @@ var rootCmd = &cobra.Command{
 				for i := uint(0); i < messageCnt; i++ {
 					logMsg := fmt.Sprintf(
 						"Sending Message to "+
-							"%s, %v: %s\n",
-						large.NewIntFromBytes(
-							recipientId[:]).Text(
-							10),
+							"%s, %v: %s\n", printIDNice(recipientId),
 						recipientNick, message)
 					globals.Log.INFO.Printf(logMsg)
 					fmt.Printf(logMsg)
@@ -561,10 +557,9 @@ var rootCmd = &cobra.Command{
 
 		if searchForUser != "" {
 			foundUser := <-udbLister.(*userSearcher).foundUserChan
-			if isValidUser(foundUser) {
-				userIDBase64 := base64.StdEncoding.EncodeToString(foundUser)
+			if isValid, uid := isValidUser(foundUser); isValid {
 				globals.Log.INFO.Printf("Found User %s at ID: %s",
-					searchForUser, userIDBase64)
+					searchForUser, printIDNice(uid))
 			} else {
 				globals.Log.INFO.Printf("Found User %s is invalid", searchForUser)
 			}
@@ -588,16 +583,21 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func isValidUser(usr []byte) bool {
+func isValidUser(usr []byte) (bool, *id.ID) {
 	if len(usr) != id.ArrIDLen {
-		return false
+		return false, nil
 	}
 	for _, b := range usr {
 		if b != 0 {
-			return true
+			uid, err := id.Unmarshal(usr)
+			if err != nil {
+				globals.Log.WARN.Printf("Could not unmarshal user: %s", err)
+				return false, nil
+			}
+			return true, uid
 		}
 	}
-	return false
+	return false, nil
 }
 
 // init is the initialization function for Cobra which defines commands
@@ -713,3 +713,34 @@ func init() {
 
 // initConfig reads in config file and ENV variables if set.
 func initConfig() {}
+
+// returns a simple numerical id if the user is a precanned user, otherwise
+// returns the normal string of the userID
+func printIDNice(uid *id.ID) string {
+
+	for index, puid := range precannedIDList {
+		if uid.Cmp(puid) {
+			return strconv.Itoa(index + 1)
+		}
+	}
+
+	return uid.String()
+}
+
+// build a list of precanned ids to use for comparision for nicer user id output
+var precannedIDList = buildPrecannedIDList()
+
+func buildPrecannedIDList() []*id.ID {
+
+	idList := make([]*id.ID, 40)
+
+	for i := 0; i < 40; i++ {
+		uid := new(id.ID)
+		binary.BigEndian.PutUint64(uid[:], uint64(i+1))
+		uid.SetType(id.User)
+		idList[i] = uid
+	}
+
+	return idList
+}
+

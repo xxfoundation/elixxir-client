@@ -156,10 +156,12 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77/go.mod h1:aYKd//L2LvnjZzWKhF00oedf4jCCReLcmhLdhm1A27Q=
-gitlab.com/elixxir/comms v0.0.0-20200520215736-db39aae8eb3e h1:pP7MhGSakgFCN79mgwx1bWk34XELkEqzVWNZNNmHllU=
-gitlab.com/elixxir/comms v0.0.0-20200520215736-db39aae8eb3e/go.mod h1:PFirP15sS8f7JUwRZJhppKME4ibyV8v3f3ylUpDsI+g=
+gitlab.com/elixxir/comms v0.0.0-20200522201009-4c6813e5d1d8 h1:dHEserTd3qerOXbRYdty22ekxgsrdtJ96cCkuvzJPjg=
+gitlab.com/elixxir/comms v0.0.0-20200522201009-4c6813e5d1d8/go.mod h1:gxIqKUlQ55BoTHVkWOAIKEaAR04D70MQ0JoJUM60/ng=
+gitlab.com/elixxir/crypto v0.0.0-20200518174417-c70257faa82f/go.mod h1:Bph8ZM+wbR59QULCJ0eILvBR7rk88LJ5JLJlCpVrMuQ=
 gitlab.com/elixxir/crypto v0.0.0-20200520215729-26e50fb2df79 h1:uPtsiEVnilBvwUepxuX82nlus151ihnr1ScN8R/TjvY=
 gitlab.com/elixxir/crypto v0.0.0-20200520215729-26e50fb2df79/go.mod h1:OSJ4beQGIqzSqCxKsAaI5aFDjy4Kzac2ouH/7uloqCg=
+gitlab.com/elixxir/primitives v0.0.0-20200515202141-16fa8236f167/go.mod h1:NsZHznGRfO5GM0tNIU3wM3XPnbF3Cp+JGG4mEWUebEU=
 gitlab.com/elixxir/primitives v0.0.0-20200519221140-05816cf1a567 h1:vMiRIiQT0vb8NXEA+cULdnExGlaQxjKhkt6jzdn3SZw=
 gitlab.com/elixxir/primitives v0.0.0-20200519221140-05816cf1a567/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=
 go.etcd.io/bbolt v1.3.2/go.mod h1:IbVyRI1SCnLcuJnV2u8VeU0CEYM7e686BmAb1XKL+uU=
@@ -197,6 +199,8 @@ golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5h
 golang.org/x/sys v0.0.0-20190412213103-97732733099d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20191005200804-aed5e4c7ecf9/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200509044756-6aff5f38e54f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20200513112337-417ce2331b5c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20200519105757-fe76b779f299 h1:DYfZAGf2WMFjMxbgTjaC+2HC7NkNAQs+6Q8b9WEB/F4=
 golang.org/x/sys v0.0.0-20200519105757-fe76b779f299/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
@@ -248,6 +252,7 @@ gopkg.in/yaml.v2 v2.0.0-20170812160011-eb3733d160e7/go.mod h1:JAlM8MvJe8wmxCU4Bl
 gopkg.in/yaml.v2 v2.2.1/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.2.4/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
+gopkg.in/yaml.v2 v2.2.8/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.3.0 h1:clyUAQHOM3G0M3f5vQj7LuJrETvjVot3Z5el9nffUtU=
 gopkg.in/yaml.v2 v2.3.0/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 honnef.co/go/tools v0.0.0-20190102054323-c2f93a96b099/go.mod h1:rf3lG4BRIbNafJWhAfAdb/ePZxsR/4RtNHQocxwk9r4=

@@ -153,7 +153,7 @@ func (s *MockRegistration) PollNdf(clientNdfHash []byte, auth *connect.Auth) ([]
 	return ndfJson, nil
 }
 
-func (s *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth) (*pb.PermissionPollResponse, error) {
+func (s *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth, string) (*pb.PermissionPollResponse, error) {
 	return nil, nil
 }
 

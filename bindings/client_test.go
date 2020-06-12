@@ -72,6 +72,10 @@ func (i *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth, string) (*
 	return nil, nil
 }
 
+func (i *MockRegistration) CheckRegistration(msg *pb.RegisteredNodeCheck) (*pb.RegisteredNodeConfirmation, error) {
+	return nil, nil
+}
+
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
 	os.Exit(testMainWrapper(m))

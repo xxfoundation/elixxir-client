@@ -167,6 +167,10 @@ func (s *MockRegistration) GetCurrentClientVersion() (version string, err error)
 	return globals.SEMVER, nil
 }
 
+func (i *MockRegistration) CheckRegistration(msg *pb.RegisteredNodeCheck) (*pb.RegisteredNodeConfirmation, error) {
+	return nil, nil
+}
+
 //registration handler for getUpdatedNDF error case
 type MockPermNdfErrorCase struct {
 }

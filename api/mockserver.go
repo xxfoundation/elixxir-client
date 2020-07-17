@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -22,6 +21,8 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/comms/messages"
 	"sync"
 	"time"
 )
@@ -300,7 +301,7 @@ func (m *GatewayHandler) PutMessage(msg *pb.Slot, ipaddr string) error {
 
 func (m *GatewayHandler) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
-		ClientSignedByServer: &pb.RSASignature{},
+		ClientSignedByServer: &messages.RSASignature{},
 	}
 
 	return regConfirmation, nil

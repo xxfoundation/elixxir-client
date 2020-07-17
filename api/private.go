@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/crypto/xx"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/xx_network/comms/messages"
 )
 
 const PermissioningAddrID = "Permissioning"
@@ -137,11 +138,11 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 			&pb.NonceRequest{
 				Salt:            salt,
 				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(publicKeyRSA)),
-				ClientSignedByServer: &pb.RSASignature{
+				ClientSignedByServer: &messages.RSASignature{
 					Signature: regHash,
 				},
 				ClientDHPubKey: publicKeyDH.Bytes(),
-				RequestSignature: &pb.RSASignature{
+				RequestSignature: &messages.RSASignature{
 					Signature: signed,
 				},
 			}) // TODO: modify this to return server DH
@@ -183,7 +184,7 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 	// TODO: This returns a receipt that can be used to speed up registration
 	msg := &pb.RequestRegistrationConfirmation{
 		UserID: UID,
-		NonceSignedByClient: &pb.RSASignature{
+		NonceSignedByClient: &messages.RSASignature{
 			Signature: sig,
 		},
 	}

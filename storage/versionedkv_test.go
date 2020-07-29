@@ -2,7 +2,7 @@ package storage
 
 import (
 	"bytes"
-	"github.com/pkg/errors"
+	"gitlab.com/elixxir/ekv"
 	"reflect"
 	"testing"
 	"time"
@@ -22,11 +22,7 @@ func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
 		Data:      []byte("original text"),
 	}
 
-	marshalled, err := original.Marshal()
-	if err != nil {
-		// Should never happen
-		t.Fatal(err)
-	}
+	marshalled := original.Marshal()
 
 	unmarshalled := VersionedObject{}
 	err = unmarshalled.Unmarshal(marshalled)
@@ -41,40 +37,9 @@ func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
 	t.Logf("%+v", unmarshalled)
 }
 
-type DummyKV map[string][]byte
-
-// Sets the value if there's no serialization error
-func (d DummyKV) Set(key string, objectToStore Marshaller) error {
-	ser, err := objectToStore.Marshal()
-	if err != nil {
-		return err
-	} else {
-		d[key] = ser
-		return nil
-	}
-}
-
-func (d DummyKV) Get(key string, loadIntoThisObject Unmarshaller) error {
-	data, ok := d[key]
-	if !ok {
-		return errors.New("object not found")
-	} else {
-		return loadIntoThisObject.Unmarshal(data)
-	}
-}
-
-// These aren't used in tests, so there's no need to implement them
-func (d DummyKV) SetInterface(key string, objectToStore interface{}) error {
-	return errors.New("unimplemented")
-}
-
-func (d DummyKV) GetInterface(key string) (interface{}, error) {
-	return nil, errors.New("unimplemented")
-}
-
 // VersionedKV Get should call the upgrade function when it's available
 func TestVersionedKV_Get_Err(t *testing.T) {
-	kv := make(DummyKV)
+	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	key := MakeKeyPrefix("test", 0) + "12345"
 	result, err := vkv.Get(key)
@@ -89,7 +54,7 @@ func TestVersionedKV_Get_Err(t *testing.T) {
 // Test versioned KV upgrade path
 func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(DummyKV)
+	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	key := MakeKeyPrefix("test", 0) + "12345"
 	now := time.Now()
@@ -103,7 +68,7 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 		Timestamp: nowText,
 		Data:      []byte("not upgraded"),
 	}
-	originalSerialized, err := original.Marshal()
+	originalSerialized := original.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +86,7 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 // Test Get without upgrade path
 func TestVersionedKV_Get(t *testing.T) {
 	// Set up a dummy KV with the required data
-	kv := make(DummyKV)
+	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	originalVersion := uint64(1)
 	key := MakeKeyPrefix("test", originalVersion) + "12345"
@@ -136,7 +101,7 @@ func TestVersionedKV_Get(t *testing.T) {
 		Timestamp: nowText,
 		Data:      []byte("not upgraded"),
 	}
-	originalSerialized, err := original.Marshal()
+	originalSerialized := original.Marshal()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -153,7 +118,7 @@ func TestVersionedKV_Get(t *testing.T) {
 
 // Test that Set puts data in the store
 func TestVersionedKV_Set(t *testing.T) {
-	kv := make(DummyKV)
+	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	originalVersion := uint64(1)
 	key := MakeKeyPrefix("test", originalVersion) + "12345"

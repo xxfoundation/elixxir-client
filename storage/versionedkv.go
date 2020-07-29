@@ -15,22 +15,29 @@ func MakeKeyPrefix(dataType string, version uint64) string {
 	return dataType + strconv.FormatUint(version, 10) + ";"
 }
 
+// Implementers can be serialized automatically with a KeyValue
 type Marshaller interface {
 	Marshal() ([]byte, error)
 }
 
+// Things implementing this interface can be get with a KeyValue
 type Unmarshaller interface {
 	Unmarshal([]byte) error
 }
 
+// Objects implementing this can be used for versioned storage
 type KeyValue interface {
+	// Upsert an object into the storage with the specified key
 	Set(key string, objectToStore Marshaller) error
+	// Load data into an object from the storage with the specified key
 	Get(key string, loadIntoThisObject Unmarshaller) error
-	// Are these useful?
+	// Use this to set objects that can be marshalled with MarshalJSON
 	SetInterface(key string, objectToStore interface{}) error
+	// Use this to get objects that can be unmarshalled with UnmarshalJSON
 	GetInterface(key string) (interface{}, error)
 }
 
+// The VersionedKeyValue uses VersionedObjects to keep track of versioning and time of storage
 type VersionedObject struct {
 	// Used to determine version upgrade, if any
 	Version uint64
@@ -42,23 +49,28 @@ type VersionedObject struct {
 	Data []byte
 }
 
+// Unmarshal deserializes a VersionedObject from a byte slice. It's used to make these storable in a KeyValue.
+// VersionedObject exports all fields and they have simple types, so json.Unmarshal works fine.
 func (v *VersionedObject) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, v)
 }
 
+// Marshal serializes a VersionedObject into a byte slice. It's used to make these storable in a KeyValue.
+// VersionedObject exports all fields and they have simple types, so json.Marshal works fine.
 func (v *VersionedObject) Marshal() ([]byte, error) {
 	return json.Marshal(v)
 }
 
+// Upgrade functions must be of this type
 type upgrade func(key string, oldObject *VersionedObject) (*VersionedObject, error)
 
-// VersionedKV
+// VersionedKV stores versioned data and upgrade functions
 type VersionedKV struct {
 	upgradeTable map[string]upgrade
 	data         KeyValue
 }
 
-// Create a versioned key/value store backed by data
+// Create a versioned key/value store backed by something implementing KeyValue
 func NewVersionedKV(data KeyValue) *VersionedKV {
 	newKV := new(VersionedKV)
 	// Add new upgrade functions to this upgrade table
@@ -70,7 +82,7 @@ func NewVersionedKV(data KeyValue) *VersionedKV {
 	newKV.upgradeTable[MakeKeyPrefix("test", 0)] = func(key string, oldObject *VersionedObject) (*VersionedObject, error) {
 		return &VersionedObject{
 			Version: 1,
-			// Unsure if upgrade functions should always change timestamp to time.Now
+			// Upgrade functions don't need to update the timestamp
 			Timestamp: oldObject.Timestamp,
 			Data:      []byte("this object was upgraded from v0 to v1"),
 		}, nil

@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
@@ -32,6 +33,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	goio "io"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -40,6 +42,7 @@ import (
 type Client struct {
 	storage             globals.Storage
 	session             user.Session
+	sessionV2           *storage.Session
 	receptionManager    *io.ReceptionManager
 	ndf                 *ndf.NetworkDefinition
 	topology            *connect.Circuit
@@ -141,6 +144,13 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 		session, err = user.LoadSession(cl.storage, password)
 		done <- struct{}{}
 	}()
+
+	// TODO: FIX ME
+	// While the old session is still valid, we are using the LocA storage to initialize the session
+	locA, _ := cl.storage.GetLocation()
+	newSession, err := storage.Init(filepath.Dir(locA), password)
+
+	cl.sessionV2 = newSession
 
 	//wait for session file loading to complete
 	<-done

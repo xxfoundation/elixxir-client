@@ -7,7 +7,8 @@ import (
 	"time"
 )
 
-func TestSessionStorage(t *testing.T) {
+// Smoke test for session object init/set/get methods
+func TestSession_Smoke(t *testing.T) {
 	err := os.RemoveAll(".session_testdir")
 	if err != nil {
 		t.Errorf(err.Error())

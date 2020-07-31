@@ -15,13 +15,13 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/comms/connect"
 	"time"
 )
 
@@ -31,7 +31,7 @@ import (
 // TODO This method would be cleaner if it took a parse.Message (particularly
 // w.r.t. generating message IDs for multi-part messages.)
 func (rm *ReceptionManager) SendMessage(session user.Session, topology *connect.Circuit,
-	recipientID *id.User, cryptoType parse.CryptoType,
+	recipientID *id.ID, cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	// FIXME: We should really bring the plaintext parts of the NewMessage logic
 	// into this module, then have an EncryptedMessage type that is sent to/from
@@ -77,7 +77,7 @@ func (rm *ReceptionManager) SendMessage(session user.Session, topology *connect.
 // This function will be needed for example to send a Rekey
 // message, where a new public key will take up the whole message
 func (rm *ReceptionManager) SendMessageNoPartition(session user.Session,
-	topology *connect.Circuit, recipientID *id.User, cryptoType parse.CryptoType,
+	topology *connect.Circuit, recipientID *id.ID, cryptoType parse.CryptoType,
 	message []byte, transmissionHost *connect.Host) error {
 	size := len(message)
 	if size > format.TotalLen {
@@ -132,14 +132,14 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 		}
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
-		message.SetKeyFP(*format.NewFingerprint(session.GetCurrentUser().User.Bytes()))
+		message.SetKeyFP(*format.NewFingerprint(session.GetCurrentUser().User.Marshal()[:32]))
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
 	encMsg, kmacs := crypto.CMIXEncrypt(session, topology, salt, message)
 
 	msgPacket := &pb.Slot{
-		SenderID: session.GetCurrentUser().User.Bytes(),
+		SenderID: session.GetCurrentUser().User.Marshal(),
 		PayloadA: encMsg.GetPayloadA(),
 		PayloadB: encMsg.GetPayloadB(),
 		Salt:     salt,
@@ -152,7 +152,10 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 func handleE2ESending(session user.Session,
 	message *format.Message,
 	rekey bool) {
-	recipientID := message.GetRecipient()
+	recipientID, err := message.GetRecipient()
+	if err != nil {
+		globals.Log.ERROR.Panic(err)
+	}
 
 	var key *keyStore.E2EKey
 	var action keyStore.Action

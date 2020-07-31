@@ -23,7 +23,6 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -31,6 +30,7 @@ import (
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/xx_network/comms/connect"
 	goio "io"
 	"strings"
 	"testing"
@@ -121,7 +121,7 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 }
 
 // LoadSession loads the session object for the UID
-func (cl *Client) Login(password string) (*id.User, error) {
+func (cl *Client) Login(password string) (*id.ID, error) {
 
 	var session user.Session
 	var err error
@@ -158,7 +158,7 @@ func (cl *Client) Login(password string) (*id.User, error) {
 	}
 
 	cl.session = session
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
 		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
 		cl.session.GetSalt())
@@ -306,14 +306,19 @@ var sessionFileError = errors.New("Session file cannot be loaded and " +
 	"is possibly corrupt. Please contact support@xxmessenger.io")
 
 func (cl *Client) InitListeners() error {
-	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	transmissionHost, ok := cl.receptionManager.Comms.GetHost(transmitGateway.String())
+	transmitGateway, err := id.Unmarshal(cl.ndf.Gateways[0].ID)
+	if err != nil {
+		globals.Log.DEBUG.Printf("%s: Gateways are: %+v", err.Error(),
+			cl.ndf.Gateways)
+		return err
+	}
+	transmissionHost, ok := cl.receptionManager.Comms.GetHost(transmitGateway)
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.receptionManager, cl.topology, id.NewUserFromBytes(cl.ndf.UDB.ID), transmissionHost)
+	bots.InitBots(cl.session, cl.receptionManager, cl.topology, transmissionHost)
 	// Initialize Rekey listeners
 	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, transmissionHost, cl.rekeyChan)
 	return nil
@@ -325,8 +330,11 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 	pollWaitTimeMillis := 500 * time.Millisecond
 	// TODO Don't start the message receiver if it's already started.
 	// Should be a pretty rare occurrence except perhaps for mobile.
-	receptionGateway := id.NewNodeFromBytes(cl.ndf.Nodes[len(cl.ndf.Nodes)-1].ID).NewGateway()
-	receptionHost, ok := cl.receptionManager.Comms.GetHost(receptionGateway.String())
+	receptionGateway, err := id.Unmarshal(cl.ndf.Gateways[len(cl.ndf.Gateways)-1].ID)
+	if err != nil {
+		return err
+	}
+	receptionHost, ok := cl.receptionManager.Comms.GetHost(receptionGateway)
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
@@ -349,8 +357,12 @@ func (cl *Client) StartMessageReceiver(callback func(error)) error {
 
 // Default send function, can be overridden for testing
 func (cl *Client) Send(message parse.MessageInterface) error {
-	transmitGateway := id.NewNodeFromBytes(cl.ndf.Nodes[0].ID).NewGateway()
-	host, ok := cl.receptionManager.Comms.GetHost(transmitGateway.String())
+	transmitGateway, err := id.Unmarshal(cl.ndf.Gateways[0].ID)
+	if err != nil {
+		return err
+	}
+	transmitGateway.SetType(id.Gateway)
+	host, ok := cl.receptionManager.Comms.GetHost(transmitGateway)
 	if !ok {
 		return errors.New("Failed to retrieve host for transmission")
 	}
@@ -377,7 +389,7 @@ func (cl *Client) SetRateLimiting(limit uint32) {
 	cl.receptionManager.SetRateLimit(time.Duration(limit) * time.Millisecond)
 }
 
-func (cl *Client) Listen(user *id.User, messageType int32, newListener switchboard.Listener) string {
+func (cl *Client) Listen(user *id.ID, messageType int32, newListener switchboard.Listener) string {
 	listenerId := cl.session.GetSwitchboard().
 		Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
@@ -393,7 +405,7 @@ func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
 	return cl.session.GetSwitchboard()
 }
 
-func (cl *Client) GetCurrentUser() *id.User {
+func (cl *Client) GetCurrentUser() *id.ID {
 	return cl.session.GetCurrentUser().User
 }
 
@@ -467,7 +479,7 @@ type NickLookupCallback interface {
 	Callback(nick string, err error)
 }
 
-func (cl *Client) DeleteUser(u *id.User) (string, error) {
+func (cl *Client) DeleteUser(u *id.ID) (string, error) {
 
 	//delete from session
 	v, err1 := cl.session.DeleteContact(u)
@@ -499,7 +511,7 @@ func (cl *Client) DeleteUser(u *id.User) (string, error) {
 // Nickname lookup API
 // Non-blocking, once the API call completes, the callback function
 // passed as argument is called
-func (cl *Client) LookupNick(user *id.User,
+func (cl *Client) LookupNick(user *id.ID,
 	cb NickLookupCallback) {
 	go func() {
 		nick, err := bots.LookupNick(user)

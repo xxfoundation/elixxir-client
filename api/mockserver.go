@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -22,6 +21,8 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/comms/messages"
 	"sync"
 	"time"
 )
@@ -37,15 +38,15 @@ const BatchSize = 10
 // easy to use from Go
 type APIMessage struct {
 	Payload     []byte
-	SenderID    *id.User
-	RecipientID *id.User
+	SenderID    *id.ID
+	RecipientID *id.ID
 }
 
-func (m APIMessage) GetSender() *id.User {
+func (m APIMessage) GetSender() *id.ID {
 	return m.SenderID
 }
 
-func (m APIMessage) GetRecipient() *id.User {
+func (m APIMessage) GetRecipient() *id.ID {
 	return m.RecipientID
 }
 
@@ -141,7 +142,7 @@ type MockRegistration struct {
 	//LastReceivedMessage pb.CmixMessage
 }
 
-func (s *MockRegistration) RegisterNode(ID []byte,
+func (s *MockRegistration) RegisterNode(ID *id.ID,
 	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
 	return nil
 }
@@ -153,7 +154,7 @@ func (s *MockRegistration) PollNdf(clientNdfHash []byte, auth *connect.Auth) ([]
 	return ndfJson, nil
 }
 
-func (s *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth) (*pb.PermissionPollResponse, error) {
+func (s *MockRegistration) Poll(*pb.PermissioningPoll, *connect.Auth, string) (*pb.PermissionPollResponse, error) {
 	return nil, nil
 }
 
@@ -165,6 +166,10 @@ func (s *MockRegistration) RegisterUser(registrationCode,
 
 func (s *MockRegistration) GetCurrentClientVersion() (version string, err error) {
 	return globals.SEMVER, nil
+}
+
+func (i *MockRegistration) CheckRegistration(msg *pb.RegisteredNodeCheck) (*pb.RegisteredNodeConfirmation, error) {
+	return nil, nil
 }
 
 //registration handler for getUpdatedNDF error case
@@ -265,7 +270,7 @@ type GatewayHandler struct {
 	LastReceivedMessage pb.Slot
 }
 
-func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]string, error) {
+func (m *GatewayHandler) PollForNotifications(auth *connect.Auth) ([]*id.ID, error) {
 
 	return nil, nil
 }
@@ -276,13 +281,13 @@ func (m *GatewayHandler) Poll(*pb.GatewayPoll) (*pb.GatewayPollResponse, error) 
 
 // Returns message contents for MessageID, or a null/randomized message
 // if that ID does not exist of the same size as a regular message
-func (m *GatewayHandler) GetMessage(userId *id.User,
+func (m *GatewayHandler) GetMessage(userId *id.ID,
 	msgId, ipaddr string) (*pb.Slot, error) {
 	return &pb.Slot{}, nil
 }
 
 // Return any MessageIDs in the globals for this User
-func (m *GatewayHandler) CheckMessages(userId *id.User,
+func (m *GatewayHandler) CheckMessages(userId *id.ID,
 	messageID, ipAddress string) ([]string, error) {
 	return make([]string, 0), nil
 }
@@ -296,7 +301,7 @@ func (m *GatewayHandler) PutMessage(msg *pb.Slot, ipaddr string) error {
 
 func (m *GatewayHandler) ConfirmNonce(message *pb.RequestRegistrationConfirmation, ipaddr string) (*pb.RegistrationConfirmation, error) {
 	regConfirmation := &pb.RegistrationConfirmation{
-		ClientSignedByServer: &pb.RSASignature{},
+		ClientSignedByServer: &messages.RSASignature{},
 	}
 
 	return regConfirmation, nil
@@ -315,7 +320,7 @@ type GatewayHandlerMultipleMessages struct {
 	LastReceivedMessage []pb.Slot
 }
 
-func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
+func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.ID,
 	msgId, ipaddr string) (*pb.Slot, error) {
 	msg := []byte("Hello")
 	payload, err := e2e.Pad(msg, format.PayloadLen)
@@ -328,7 +333,7 @@ func (m *GatewayHandlerMultipleMessages) GetMessage(userId *id.User,
 	}, nil
 }
 
-func (m *GatewayHandlerMultipleMessages) PollForNotifications(auth *connect.Auth) ([]string, error) {
+func (m *GatewayHandlerMultipleMessages) PollForNotifications(auth *connect.Auth) ([]*id.ID, error) {
 	return nil, nil
 }
 
@@ -337,7 +342,7 @@ func (s *GatewayHandlerMultipleMessages) Poll(*pb.GatewayPoll) (*pb.GatewayPollR
 }
 
 // Return any MessageIDs in the globals for this User
-func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.User,
+func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.ID,
 	messageID, ipaddr string) ([]string, error) {
 	msgs := []string{"a", "b", "c", "d", "e", "f", "g"}
 	return msgs, nil

@@ -8,8 +8,8 @@ package crypto
 
 import (
 	"bytes"
+	"encoding/binary"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/comms/connect"
 	"golang.org/x/crypto/blake2b"
 	"os"
 	"testing"
@@ -40,16 +41,21 @@ func setup() {
 
 	user.InitUserRegistry(cmixGrp)
 
-	UID := id.NewUserFromUints(&[4]uint64{0, 0, 0, 18})
-	u, _ := user.Users.GetUser(UID)
+	UID := new(id.ID)
+	binary.BigEndian.PutUint64(UID[:], 18)
+	UID.SetType(id.User)
+	u, ok := user.Users.GetUser(UID)
+	if !ok {
+		panic("Didn't get user 18 from registry")
+	}
 
-	var nodeSlice []*id.Node
+	var nodeSlice []*id.ID
 
 	//build topology
 	for i := 0; i < numNodes; i++ {
-		nodeBytes := make([]byte, id.NodeIdLen)
-		nodeBytes[0] = byte(i)
-		nodeId := id.NewNodeFromBytes(nodeBytes)
+		nodeId := new(id.ID)
+		nodeId[0] = byte(i)
+		nodeId.SetType(id.Node)
 		nodeSlice = append(nodeSlice, nodeId)
 	}
 
@@ -93,8 +99,8 @@ func TestMain(m *testing.M) {
 func TestFullEncryptDecrypt(t *testing.T) {
 	cmixGrp, e2eGrp := getGroups()
 
-	sender := id.NewUserFromUint(38, t)
-	recipient := id.NewUserFromUint(29, t)
+	sender := id.NewIdFromUInt(38, id.User, t)
+	recipient := id.NewIdFromUInt(29, id.User, t)
 	msg := format.NewMessage()
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an" +
@@ -141,9 +147,14 @@ func TestFullEncryptDecrypt(t *testing.T) {
 		t.Errorf("E2EDecrypt returned error: %v", err.Error())
 	}
 
-	if *decMsg.GetRecipient() != *recipient {
+	decryptedRecipient, err := decMsg.GetRecipient()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !decryptedRecipient.Cmp(recipient) {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
-			decMsg.GetRecipient(), sender)
+			decryptedRecipient, sender)
 	}
 	if !bytes.Equal(decMsg.Contents.GetRightAligned(), msgPayload) {
 		t.Errorf("Decrypted payload differed from expected: Got %q, "+
@@ -155,8 +166,8 @@ func TestFullEncryptDecrypt(t *testing.T) {
 // to be sent occupies the whole payload structure, i.e. 256 bytes
 func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 	cmixGrp, e2eGrp := getGroups()
-	sender := id.NewUserFromUint(38, t)
-	recipient := id.NewUserFromUint(29, t)
+	sender := id.NewIdFromUInt(38, id.User, t)
+	recipient := id.NewIdFromUInt(29, id.User, t)
 	msg := format.NewMessage()
 	msg.SetRecipient(recipient)
 	msgPayload := []byte(
@@ -212,9 +223,14 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 		t.Errorf("E2EDecryptUnsafe returned error: %v", err.Error())
 	}
 
-	if *decMsg.GetRecipient() != *recipient {
+	decryptedRecipient, err := decMsg.GetRecipient()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !decryptedRecipient.Cmp(recipient) {
 		t.Errorf("Recipient differed from expected: Got %q, expected %q",
-			decMsg.GetRecipient(), sender)
+			decryptedRecipient, sender)
 	}
 	if !bytes.Equal(decMsg.Contents.Get(), msgPayload[:format.ContentsLen]) {
 		t.Errorf("Decrypted payload differed from expected: Got %q, "+
@@ -225,7 +241,7 @@ func TestFullEncryptDecrypt_Unsafe(t *testing.T) {
 // Test that E2EEncrypt panics if the payload is too big (can't be padded)
 func TestE2EEncrypt_Panic(t *testing.T) {
 	_, e2eGrp := getGroups()
-	recipient := id.NewUserFromUint(29, t)
+	recipient := id.NewIdFromUInt(29, id.User, t)
 	msg := format.NewMessage()
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an" +
@@ -258,7 +274,7 @@ func TestE2EEncrypt_Panic(t *testing.T) {
 // Test that E2EDecrypt and E2EDecryptUnsafe handle errors correctly
 func TestE2EDecrypt_Errors(t *testing.T) {
 	_, e2eGrp := getGroups()
-	recipient := id.NewUserFromUint(29, t)
+	recipient := id.NewIdFromUInt(29, id.User, t)
 	msg := format.NewMessage()
 	msg.SetRecipient(recipient)
 	msgPayload := []byte("help me, i'm stuck in an EnterpriseTextLabelDescriptorSetPipelineStateFactoryBeanFactory ")

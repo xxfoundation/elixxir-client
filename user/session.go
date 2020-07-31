@@ -17,12 +17,12 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
-	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/xx_network/comms/connect"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -36,7 +36,7 @@ var ErrQuery = errors.New("element not in map")
 type Session interface {
 	GetCurrentUser() (currentUser *User)
 	GetNodeKeys(topology *connect.Circuit) []NodeKeys
-	PushNodeKey(id *id.Node, key NodeKeys)
+	PushNodeKey(id *id.ID, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
 	GetCMIXDHPrivateKey() *cyclic.Int
@@ -60,7 +60,7 @@ type Session interface {
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
 	GetRegistrationValidationSignature() []byte
-	GetNodes() map[id.Node]int
+	GetNodes() map[id.ID]int
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
 	GetSalt() []byte
@@ -68,9 +68,9 @@ type Session interface {
 	GetRegState() uint32
 	ChangeUsername(string) error
 	StorageIsEmpty() bool
-	GetContactByValue(string) (*id.User, []byte)
-	StoreContactByValue(string, *id.User, []byte)
-	DeleteContact(*id.User) (string, error)
+	GetContactByValue(string) (*id.ID, []byte)
+	StoreContactByValue(string, *id.ID, []byte)
+	DeleteContact(*id.ID) (string, error)
 	GetSessionLocation() uint8
 	LoadEncryptedSession(store globals.Storage) ([]byte, error)
 	RegisterPermissioningSignature(sig []byte) error
@@ -96,7 +96,7 @@ func NewSession(store globals.Storage,
 	regState := uint32(KeyGenComplete)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		NodeKeys:            make(map[id.Node]NodeKeys),
+		NodeKeys:            make(map[id.ID]NodeKeys),
 		CurrentUser:         u,
 		RSAPublicKey:        publicKeyRSA,
 		RSAPrivateKey:       privateKeyRSA,
@@ -173,7 +173,7 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	session.password = password
 
 	if session.NodeKeys == nil {
-		session.NodeKeys = make(map[id.Node]NodeKeys)
+		session.NodeKeys = make(map[id.ID]NodeKeys)
 	}
 
 	return &session, nil
@@ -246,7 +246,7 @@ type SessionObj struct {
 	// Currently authenticated user
 	CurrentUser *User
 
-	NodeKeys         map[id.Node]NodeKeys
+	NodeKeys         map[id.ID]NodeKeys
 	RSAPrivateKey    *rsa.PrivateKey
 	RSAPublicKey     *rsa.PublicKey
 	CMIXDHPrivateKey *cyclic.Int
@@ -325,7 +325,7 @@ func (s *SessionObj) LoadEncryptedSession(store globals.Storage) ([]byte, error)
 }
 
 type SearchedUserRecord struct {
-	Id id.User
+	Id id.ID
 	Pk []byte
 }
 
@@ -348,10 +348,10 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.UnlockStorage()
 }
 
-func (s *SessionObj) GetNodes() map[id.Node]int {
+func (s *SessionObj) GetNodes() map[id.ID]int {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	nodes := make(map[id.Node]int, 0)
+	nodes := make(map[id.ID]int, 0)
 	for node := range s.NodeKeys {
 		nodes[node] = 1
 	}
@@ -379,7 +379,7 @@ func (s *SessionObj) GetNodeKeys(topology *connect.Circuit) []NodeKeys {
 	return keys
 }
 
-func (s *SessionObj) PushNodeKey(id *id.Node, key NodeKeys) {
+func (s *SessionObj) PushNodeKey(id *id.ID, key NodeKeys) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 
@@ -731,7 +731,7 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	return tempBuffer
 }
 
-func (s *SessionObj) GetContactByValue(v string) (*id.User, []byte) {
+func (s *SessionObj) GetContactByValue(v string) (*id.ID, []byte) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	u, ok := s.ContactsByValue[v]
@@ -741,7 +741,7 @@ func (s *SessionObj) GetContactByValue(v string) (*id.User, []byte) {
 	return &(u.Id), u.Pk
 }
 
-func (s *SessionObj) StoreContactByValue(v string, uid *id.User, pk []byte) {
+func (s *SessionObj) StoreContactByValue(v string, uid *id.ID, pk []byte) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	u, ok := s.ContactsByValue[v]
@@ -756,7 +756,7 @@ func (s *SessionObj) StoreContactByValue(v string, uid *id.User, pk []byte) {
 	}
 }
 
-func (s *SessionObj) DeleteContact(uid *id.User) (string, error) {
+func (s *SessionObj) DeleteContact(uid *id.ID) (string, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
 

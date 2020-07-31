@@ -46,7 +46,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 
 	regStatus(globals.UDB_REG_PUSHKEY)
 	// push key and error if it already exists
-	err = pushKey(UdbID, keyFP, publicKey)
+	err = pushKey(keyFP, publicKey)
 
 	if err != nil {
 		return errors.Wrap(err, "Could not PUSHKEY")
@@ -84,7 +84,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 
 	// Send register command
 	// Send register command
-	err = sendCommand(UdbID, msgBody)
+	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
 		return errors.Wrap(err, "Could not Push User")
 	}
@@ -114,7 +114,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string, searchStatus func(int), timeout time.Duration) (*id.User, []byte, error) {
+func Search(valueType, value string, searchStatus func(int), timeout time.Duration) (*id.ID, []byte, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 
 	searchTimeout := time.NewTimer(timeout)
@@ -133,7 +133,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 		MessageType: int32(cmixproto.Type_UDB_SEARCH),
 		Body:        []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
-	err = sendCommand(UdbID, msgBody)
+	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -160,9 +160,9 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	}
 
 	// While search returns more than 1 result, we only process the first
-	cMixUID, keyFP := parseSearch(response)
-	if *cMixUID == *id.ZeroID {
-		return nil, nil, fmt.Errorf("%s", keyFP)
+	cMixUID, keyFP, err := parseSearch(response)
+	if err != nil {
+		return nil, nil, err
 	}
 
 	searchStatus(globals.UDB_SEARCH_GETKEY)
@@ -172,7 +172,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 		MessageType: int32(cmixproto.Type_UDB_GET_KEY),
 		Body:        []byte(keyFP),
 	})
-	err = sendCommand(UdbID, msgBody)
+	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -221,20 +221,23 @@ func hashAndEncode(s string) (string, error) {
 
 // parseSearch parses the responses from SEARCH. It returns the user's id and
 // the user's public key fingerprint
-func parseSearch(msg string) (*id.User, string) {
+func parseSearch(msg string) (*id.ID, string, error) {
 	globals.Log.DEBUG.Printf("Parsing search response: %v", msg)
 	resParts := strings.Split(msg, " ")
 	if len(resParts) != 5 {
-		return id.ZeroID, fmt.Sprintf("Invalid response from search: %s", msg)
+		return &id.ZeroUser, "", errors.WithMessagef(errors.New("Invalid response from search"), ": %s", msg)
 	}
 
 	cMixUIDBytes, err := base64.StdEncoding.DecodeString(resParts[3])
 	if err != nil {
-		return id.ZeroID, fmt.Sprintf("Couldn't parse search cMix UID: %s", msg)
+		return &id.ZeroUser, "", errors.WithMessagef(errors.New("Couldn't parse search cMix UID"), ": %s", msg)
 	}
-	cMixUID := id.NewUserFromBytes(cMixUIDBytes)
+	cMixUID, err := id.Unmarshal(cMixUIDBytes)
+	if err != nil {
+		return &id.ZeroUser, "", err
+	}
 
-	return cMixUID, resParts[4]
+	return cMixUID, resParts[4], nil
 }
 
 // parseGetKey parses the responses from GETKEY. It returns the
@@ -254,14 +257,14 @@ func parseGetKey(msg string) []byte {
 }
 
 // pushKey uploads the users' public key
-func pushKey(udbID *id.User, keyFP string, publicKey []byte) error {
+func pushKey(keyFP string, publicKey []byte) error {
 	publicKeyString := base64.StdEncoding.EncodeToString(publicKey)
-	globals.Log.DEBUG.Printf("Running pushkey for %q, %v, %v", *udbID, keyFP,
+	globals.Log.DEBUG.Printf("Running pushkey for %v, %v, %v", id.UDB, keyFP,
 		publicKeyString)
 
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 
-	return sendCommand(udbID, parse.Pack(&parse.TypedBody{
+	return sendCommand(&id.UDB, parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
 		Body:        []byte(pushKeyMsg),
 	}))

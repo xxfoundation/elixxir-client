@@ -9,12 +9,12 @@ package crypto
 import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/comms/connect"
 )
 
 // CMIX Encrypt performs the encryption

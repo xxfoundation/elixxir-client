@@ -21,8 +21,8 @@ type Message struct {
 	TypedBody
 	// The crypto type is inferred from the message's contents
 	InferredType CryptoType
-	Sender       *id.User
-	Receiver     *id.User
+	Sender       *id.ID
+	Receiver     *id.ID
 	Nonce        []byte
 	Timestamp    time.Time
 }
@@ -46,12 +46,12 @@ func (ct CryptoType) String() string {
 type MessageInterface interface {
 	// Returns the message's sender ID
 	// (uint64) BigEndian serialized into a byte slice
-	GetSender() *id.User
+	GetSender() *id.ID
 	// Returns the message payload, without packed type
 	GetPayload() []byte
 	// Returns the message's recipient ID
 	// (uint64) BigEndian serialized into a byte slice
-	GetRecipient() *id.User
+	GetRecipient() *id.ID
 	// Return the message's inner type
 	GetMessageType() int32
 	// Returns the message's outer type
@@ -81,11 +81,11 @@ func (m Message) Hash() MessageHash {
 	return mh
 }
 
-func (m *Message) GetSender() *id.User {
+func (m *Message) GetSender() *id.ID {
 	return m.Sender
 }
 
-func (m *Message) GetRecipient() *id.User {
+func (m *Message) GetRecipient() *id.ID {
 	return m.Receiver
 }
 

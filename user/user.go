@@ -8,6 +8,7 @@ package user
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/id"
@@ -31,25 +32,25 @@ func InitUserRegistry(grp *cyclic.Group) {
 
 // Interface for User Registry operations
 type Registry interface {
-	NewUser(id *id.User, nickname string) *User
-	DeleteUser(id *id.User)
-	GetUser(id *id.User) (user *User, ok bool)
+	NewUser(id *id.ID, nickname string) *User
+	DeleteUser(id *id.ID)
+	GetUser(id *id.ID) (user *User, ok bool)
 	UpsertUser(user *User)
 	CountUsers() int
-	LookupUser(hid string) (uid *id.User, ok bool)
-	LookupKeys(uid *id.User) (*NodeKeys, bool)
+	LookupUser(hid string) (uid *id.ID, ok bool)
+	LookupKeys(uid *id.ID) (*NodeKeys, bool)
 }
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
-	userCollection map[id.User]*User
+	userCollection map[id.ID]*User
 	// Increments sequentially for User.ID values
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	// Key type is string because keys must implement == and []byte doesn't
-	userLookup map[string]*id.User
+	userLookup map[string]*id.ID
 	//Temporary placed to store the keys for each user
-	keysLookup map[id.User]*NodeKeys
+	keysLookup map[id.ID]*NodeKeys
 }
 
 // newRegistry creates a new Registry interface
@@ -57,21 +58,22 @@ func newRegistry(grp *cyclic.Group) Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
-	userUserIdMap := make(map[id.User]*User)
-	userRegCodeMap := make(map[string]*id.User)
-	nk := make(map[id.User]*NodeKeys)
+	userUserIdMap := make(map[id.ID]*User)
+	userRegCodeMap := make(map[string]*id.ID)
+	nk := make(map[id.ID]*NodeKeys)
 
 	// Deterministically create NumDemoUsers users
 	// TODO Replace this with real user registration/discovery
 	for i := uint64(1); i <= NumDemoUsers; i++ {
-		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, i})
+		currentID := new(id.ID)
+		binary.BigEndian.PutUint64(currentID[:], i)
+		currentID.SetType(id.User)
 		newUsr := new(User)
 		nodeKey := new(NodeKeys)
 
 		// Generate user parameters
 		newUsr.User = currentID
 		newUsr.Precan = true
-		currentID.RegistrationCode()
 		// TODO We need a better way to generate base/recursive keys
 		h := sha256.New()
 		h.Write([]byte(string(40000 + i)))
@@ -83,23 +85,27 @@ func newRegistry(grp *cyclic.Group) Registry {
 		// Add user to collection and lookup table
 		userUserIdMap[*newUsr.User] = newUsr
 		// Detect collisions in the registration code
-		if _, ok := userRegCodeMap[newUsr.User.RegistrationCode()]; ok {
+		if _, ok := userRegCodeMap[RegistrationCode(newUsr.User)]; ok {
 			globals.Log.ERROR.Printf(
 				"Collision in demo user list creation at %v. "+
 					"Please fix ASAP (include more bits to the reg code.", i)
 		}
-		userRegCodeMap[newUsr.User.RegistrationCode()] = newUsr.User
+		userRegCodeMap[RegistrationCode(newUsr.User)] = newUsr.User
 		nk[*newUsr.User] = nodeKey
 	}
 
 	// Channels have been hardcoded to users starting with 31
 	for i := 0; i < len(DemoUserNicks); i++ {
-		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 1})
+		currentID := new(id.ID)
+		binary.BigEndian.PutUint64(currentID[:], uint64(i)+1)
+		currentID.SetType(id.User)
 		userUserIdMap[*currentID].Username = DemoUserNicks[i]
 	}
 
 	for i := 0; i < len(DemoChannelNames); i++ {
-		currentID := id.NewUserFromUints(&[4]uint64{0, 0, 0, uint64(i) + 31})
+		currentID := new(id.ID)
+		binary.BigEndian.PutUint64(currentID[:], uint64(i)+31)
+		currentID.SetType(id.User)
 		userUserIdMap[*currentID].Username = DemoChannelNames[i]
 	}
 
@@ -112,7 +118,7 @@ func newRegistry(grp *cyclic.Group) Registry {
 
 // Struct representing a User in the system
 type User struct {
-	User     *id.User
+	User     *id.ID
 	Username string
 	Precan   bool
 }
@@ -130,20 +136,20 @@ func (u *User) DeepCopy() *User {
 }
 
 // NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id *id.User, username string) *User {
+func (m *UserMap) NewUser(id *id.ID, username string) *User {
 	return &User{User: id, Username: username}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id *id.User) (user *User, ok bool) {
+func (m *UserMap) GetUser(id *id.ID) (user *User, ok bool) {
 	user, ok = m.userCollection[*id]
 	user = user.DeepCopy()
 	return
 }
 
 // DeleteContactKeys deletes a user with the given ID from userCollection.
-func (m *UserMap) DeleteUser(id *id.User) {
+func (m *UserMap) DeleteUser(id *id.ID) {
 	// If key does not exist, do nothing
 	delete(m.userCollection, *id)
 }
@@ -160,13 +166,13 @@ func (m *UserMap) CountUsers() int {
 }
 
 // LookupUser returns the user id corresponding to the demo registration code
-func (m *UserMap) LookupUser(hid string) (*id.User, bool) {
+func (m *UserMap) LookupUser(hid string) (*id.ID, bool) {
 	uid, ok := m.userLookup[hid]
 	return uid, ok
 }
 
 // LookupKeys returns the keys for the given user from the temporary key map
-func (m *UserMap) LookupKeys(uid *id.User) (*NodeKeys, bool) {
+func (m *UserMap) LookupKeys(uid *id.ID) (*NodeKeys, bool) {
 	nk, t := m.keysLookup[*uid]
 	return nk, t
 }

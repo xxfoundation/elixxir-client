@@ -22,8 +22,12 @@ func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
 	} else if len(pubKey) == 0 {
 		globals.Log.INFO.Printf("Public Key returned is empty\n")
 	} else {
+		userID, err := id.Unmarshal(userID)
+		if err != nil {
+			globals.Log.ERROR.Printf("Malformed user ID from successful UDB search: %v", err)
+		}
 		globals.Log.INFO.Printf("UDB search successful. Returned user %v\n",
-			*id.NewUserFromBytes(userID))
+			userID)
 	}
 }
 

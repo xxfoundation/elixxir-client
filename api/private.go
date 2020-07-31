@@ -20,23 +20,24 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/elixxir/crypto/xx"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/xx_network/comms/messages"
 )
 
 const PermissioningAddrID = "Permissioning"
 
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
-func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.User, map[id.Node]user.NodeKeys, error) {
+func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.ID, map[id.ID]user.NodeKeys, error) {
 	var successLook bool
-	var UID *id.User
+	var UID *id.ID
 	var u *user.User
 	var err error
 
-	nk := make(map[id.Node]user.NodeKeys)
+	nk := make(map[id.ID]user.NodeKeys)
 
 	UID, successLook = user.Users.LookupUser(registrationCode)
 
@@ -82,7 +83,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 
 	regValidationSignature := make([]byte, 0)
 	// Send registration code and public key to RegistrationServer
-	host, ok := cl.receptionManager.Comms.GetHost(PermissioningAddrID)
+	host, ok := cl.receptionManager.Comms.GetHost(&id.Permissioning)
 	if !ok {
 		return nil, errors.New("Failed to find permissioning host")
 	}
@@ -110,7 +111,7 @@ func (cl *Client) sendRegistrationMessage(registrationCode string,
 // Returns nonce if successful
 func (cl *Client) requestNonce(salt, regHash []byte,
 	publicKeyDH *cyclic.Int, publicKeyRSA *rsa.PublicKey,
-	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) ([]byte, []byte, error) {
+	privateKeyRSA *rsa.PrivateKey, gwID *id.ID) ([]byte, []byte, error) {
 	dhPub := publicKeyDH.Bytes()
 	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
@@ -127,7 +128,7 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 	}
 
 	// Send signed public key and salt for UserID to Server
-	host, ok := cl.receptionManager.Comms.GetHost(gwID.String())
+	host, ok := cl.receptionManager.Comms.GetHost(gwID)
 	if !ok {
 		return nil, nil, errors.Errorf("Failed to find host with ID %s", gwID.String())
 	}
@@ -137,11 +138,11 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 			&pb.NonceRequest{
 				Salt:            salt,
 				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(publicKeyRSA)),
-				ClientSignedByServer: &pb.RSASignature{
+				ClientSignedByServer: &messages.RSASignature{
 					Signature: regHash,
 				},
 				ClientDHPubKey: publicKeyDH.Bytes(),
-				RequestSignature: &pb.RSASignature{
+				RequestSignature: &messages.RSASignature{
 					Signature: signed,
 				},
 			}) // TODO: modify this to return server DH
@@ -163,7 +164,7 @@ func (cl *Client) requestNonce(salt, regHash []byte,
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
 func (cl *Client) confirmNonce(UID, nonce []byte,
-	privateKeyRSA *rsa.PrivateKey, gwID *id.Gateway) error {
+	privateKeyRSA *rsa.PrivateKey, gwID *id.ID) error {
 	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = sha
@@ -183,12 +184,12 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 	// TODO: This returns a receipt that can be used to speed up registration
 	msg := &pb.RequestRegistrationConfirmation{
 		UserID: UID,
-		NonceSignedByClient: &pb.RSASignature{
+		NonceSignedByClient: &messages.RSASignature{
 			Signature: sig,
 		},
 	}
 
-	host, ok := cl.receptionManager.Comms.GetHost(gwID.String())
+	host, ok := cl.receptionManager.Comms.GetHost(gwID)
 	if !ok {
 		return errors.Errorf("Failed to find host with ID %s", gwID.String())
 	}
@@ -207,7 +208,7 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 	return nil
 }
 
-func (cl *Client) registerUserE2E(partnerID *id.User,
+func (cl *Client) registerUserE2E(partnerID *id.ID,
 	partnerPubKey []byte) error {
 
 	// Check that the returned user is valid
@@ -303,7 +304,7 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
 		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
 
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User.String(),
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
 		rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
 	if err != nil {
 		return errors.Wrap(err, "Failed to create new reception manager")
@@ -392,7 +393,7 @@ func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey
 
 //generateUserInformation serves as a helper function for RegisterUser.
 // It generates a salt s.t. it can create a user and their ID
-func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *user.User, error) {
+func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.ID, *user.User, error) {
 	//Generate salt for UserID
 	salt := make([]byte, SaltSize)
 	_, err := csprng.NewSystemRNG().Read(salt)
@@ -402,7 +403,10 @@ func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.User, *us
 	}
 
 	//Generate UserID by hashing salt and public key
-	userId := registration.GenUserID(publicKeyRSA, salt)
+	userId, err := xx.NewID(publicKeyRSA, salt, id.User)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
 	usr := user.Users.NewUser(userId, "")
 	user.Users.UpsertUser(usr)

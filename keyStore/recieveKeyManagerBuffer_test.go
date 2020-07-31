@@ -13,8 +13,8 @@ func TestPush(t *testing.T) {
 
 	grp := initGroup()
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	//Generate twice the amount of keymanagers so we can test the circularness of the buffer as well
 	kmArray := []KeyManager{}
@@ -110,8 +110,8 @@ func TestReceptionKeyManagerBuffer_Gob(t *testing.T) {
 	aBuffer := NewReceptionKeyManagerBuffer()
 	grp := initGroup()
 	baseKey := grp.NewInt(57)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	newKm := *NewManager(baseKey, nil,
 		nil, partner,

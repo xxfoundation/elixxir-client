@@ -14,12 +14,12 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/comms/connect"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/xx_network/comms/connect"
 	"strings"
 	"time"
 )
@@ -100,8 +100,11 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 			if decryptedMessages != nil {
 				for i := range decryptedMessages {
 					// TODO Handle messages that do not need partitioning
-					assembledMessage := rm.collator.AddMessage(decryptedMessages[i],
+					assembledMessage, err := rm.collator.AddMessage(decryptedMessages[i],
 						senders[i], time.Minute)
+					if err != nil {
+						go callback(err)
+					}
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
 						broadcastMessageReception(assembledMessage, session.GetSwitchboard())
@@ -113,7 +116,7 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 }
 
 func handleE2EReceiving(session user.Session,
-	message *format.Message) (*id.User, bool, error) {
+	message *format.Message) (*id.ID, bool, error) {
 	keyFingerprint := message.GetKeyFP()
 
 	// Lookup reception key
@@ -249,11 +252,11 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 }
 
 func (rm *ReceptionManager) decryptMessages(session user.Session,
-	encryptedMessages []*format.Message) ([]*format.Message, []*id.User,
+	encryptedMessages []*format.Message) ([]*format.Message, []*id.ID,
 	[]*format.Message) {
 
 	messages := make([]*format.Message, len(encryptedMessages))
-	senders := make([]*id.User, len(encryptedMessages))
+	senders := make([]*id.ID, len(encryptedMessages))
 	messagesSendersLoc := 0
 
 	garbledMessages := make([]*format.Message, len(encryptedMessages))
@@ -263,7 +266,7 @@ func (rm *ReceptionManager) decryptMessages(session user.Session,
 		var err error = nil
 		var rekey bool
 		var unpadded []byte
-		var sender *id.User
+		var sender *id.ID
 		garbled := false
 
 		// If message is E2E, handle decryption
@@ -275,7 +278,7 @@ func (rm *ReceptionManager) decryptMessages(session user.Session,
 			}
 
 			keyFP := msg.AssociatedData.GetKeyFP()
-			sender = id.NewUserFromBytes(keyFP[:])
+			sender, err = makeUserID(keyFP[:])
 		} else {
 			sender, rekey, err = handleE2EReceiving(session, msg)
 
@@ -309,6 +312,17 @@ func broadcastMessageReception(message *parse.Message,
 	listeners *switchboard.Switchboard) {
 
 	listeners.Speak(message)
+}
+
+// Put a sender ID in a byte slice and set its type to user
+func makeUserID(senderID []byte) (*id.ID, error) {
+	senderIDBytes := make([]byte, id.ArrIDLen)
+	copy(senderIDBytes, senderID[:])
+	userID, err := id.Unmarshal(senderIDBytes)
+	if userID != nil {
+		userID.SetType(id.User)
+	}
+	return userID, err
 }
 
 // skipErrChecker checks checks if the error is fatal or should be ignored

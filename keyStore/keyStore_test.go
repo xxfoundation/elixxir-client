@@ -40,8 +40,8 @@ func TestKeyStore_Gob(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	ks := NewStore()
 	km := NewManager(baseKey, privKey, pubKey,
@@ -126,8 +126,8 @@ func TestKeyStore_DeleteContactKeys(t *testing.T) {
 	baseKey := grp.NewInt(57)
 	privKey := grp.NewInt(5)
 	pubKey := grp.NewInt(42)
-	partner := id.NewUserFromUint(14, t)
-	userID := id.NewUserFromUint(18, t)
+	partner := id.NewIdFromUInt(14, id.User, t)
+	userID := id.NewIdFromUInt(18, id.User, t)
 
 	ks := NewStore()
 	km := NewManager(baseKey, privKey, pubKey,

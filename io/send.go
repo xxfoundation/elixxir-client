@@ -16,9 +16,11 @@ import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/xx_network/comms/connect"
@@ -138,6 +140,7 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
 	encMsg, kmacs := crypto.CMIXEncrypt(session, topology, salt, message)
 
+	// Construct slot message
 	msgPacket := &pb.Slot{
 		SenderID: session.GetCurrentUser().User.Marshal(),
 		PayloadA: encMsg.GetPayloadA(),
@@ -146,7 +149,42 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 		KMACs:    kmacs,
 	}
 
-	return rm.Comms.SendPutMessage(transmitGateway, msgPacket)
+	// Retrieve the base key for the zeroeth node
+	nodeKeys := session.GetNodeKeys(topology)
+	nk := nodeKeys[0]
+
+	clientGatewayKey := cmix.GenerateClientGatewayKey(nk.TransmissionKey)
+	// Hash the clientGatewayKey and the the slot's salt
+	h, _ := hash.NewCMixHash()
+	h.Write(clientGatewayKey)
+	h.Write(msgPacket.Salt)
+	hashed := h.Sum(nil)
+	h.Reset()
+
+	// Construct the gateway message
+	msg := &pb.GatewaySlot{
+		Message: msgPacket,
+		RoundID: 0,
+	}
+
+	// Hash the gatewaySlotDigest and the above hashed data
+	gatewaySlotDigest := network.GenerateSlotDigest(msg)
+	h.Write(hashed)
+	h.Write(gatewaySlotDigest)
+
+	// Place the hashed data as the message's MAC
+	msg.MAC = h.Sum(nil)
+	// Send the message
+	gwSlotResp, err := rm.Comms.SendPutMessage(transmitGateway, msg)
+	if err != nil {
+		return err
+	}
+
+	if !gwSlotResp.Accepted {
+		return errors.Errorf("Message was refused!")
+	}
+
+	return err
 }
 
 func handleE2ESending(session user.Session,

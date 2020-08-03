@@ -59,7 +59,6 @@ func (cl *Client) InitNetwork() error {
 	if err != nil {
 		return err
 	}
-
 	err = addNotificationBotHost(cl.receptionManager, cl.ndf)
 	if err != nil {
 		return errors.Errorf("Failed to connect to notification bot at %+v", cl.ndf)

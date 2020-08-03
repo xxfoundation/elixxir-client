@@ -10,7 +10,6 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -80,8 +79,8 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 
 	testDef.Nodes = def.Nodes
 
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", testDef)
+	storage := DummyStorage{LocationA: ".ekv-messagereceiver-multiple", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-messagereceiver-multiple", "", testDef)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
@@ -140,8 +139,8 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 
 func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def)
+	storage := DummyStorage{LocationA: ".ekv-validprecanned0return", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-validprecanned0return", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
@@ -174,8 +173,8 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 // Verify that registering with an invalid registration code will fail
 func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def)
+	storage := DummyStorage{LocationA: ".ekv-invalidprecanerr", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-invalidprecanerr", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
@@ -204,8 +203,8 @@ func TestRegister_InvalidPrecannedRegCodeReturnsError(t *testing.T) {
 //Test that not running generateKeys results in an error. Without running the aforementioned function,
 // the registration state should be invalid and it should not run
 func TestRegister_InvalidRegState(t *testing.T) {
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def)
+	storage := DummyStorage{LocationA: ".ekv-invalidregstate", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-invalidregstate", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
@@ -242,8 +241,8 @@ func TestRegister_InvalidRegState(t *testing.T) {
 
 func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def)
+	storage := DummyStorage{LocationA: ".ekv-deleteusererr", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-deleteusererr", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
@@ -277,8 +276,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 
 func TestSend(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def)
+	storage := DummyStorage{LocationA: ".ekv-sendtest", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-sendtest", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}
@@ -359,8 +358,8 @@ func TestSend(t *testing.T) {
 
 func TestLogout(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := globals.RamStorage{}
-	client, err := NewClient(&storage, "hello", "", def)
+	storage := DummyStorage{LocationA: ".ekv-logout", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-logout", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}

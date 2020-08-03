@@ -86,12 +86,12 @@ func TestNewClientNil(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	_, err := NewClient(nil, "", "", ndfStr, pubKey)
+	_, err := NewClient(nil, ".ekv-bindings-newclientnil", "", ndfStr, pubKey)
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, nil) input!")
 	}
 
-	_, err = NewClient(nil, "", "", "", "hello")
+	_, err = NewClient(nil, ".ekv-bindings-newclientnil2", "", "", "hello")
 	if err == nil {
 		t.Errorf("NewClient returned nil on invalid (nil, 'hello') input!")
 	}
@@ -103,7 +103,7 @@ func TestNewClient(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	client, err := NewClient(&d, ".ekv-bindings-testnewclient", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("NewClient returned error: %v", err)
 	} else if client == nil {
@@ -119,8 +119,8 @@ func TestRegister(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	d := DummyStorage{LocationA: ".ekv-bindings-testreg", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, ".ekv-bindings-testreg", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -162,9 +162,9 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 	}()
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	d := DummyStorage{LocationA: ".ekv-bindings-changeusername-err", StoreA: []byte{'a', 'b', 'c'}}
 
-	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, ".ekv-bindings-changeusername-err", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -185,9 +185,9 @@ func TestClient_ChangeUsername_ErrorPath(t *testing.T) {
 func TestClient_ChangeUsername(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	d := DummyStorage{LocationA: ".ekv-bindings-changeuser", StoreA: []byte{'a', 'b', 'c'}}
 
-	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, ".ekv-bindings-changeuser", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -217,9 +217,9 @@ func TestClient_ChangeUsername(t *testing.T) {
 func TestClient_StorageIsEmpty(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	d := DummyStorage{LocationA: ".ekv-bindings-emptystorage", StoreA: []byte{'a', 'b', 'c'}}
 
-	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, ".ekv-bindings-emptystorage", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -248,9 +248,9 @@ func TestClient_StorageIsEmpty(t *testing.T) {
 func TestDeleteUsername_EmptyContactList(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
+	d := DummyStorage{LocationA: ".ekv-bindings-emptycontacts", StoreA: []byte{'a', 'b', 'c'}}
 
-	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	testClient, err := NewClient(&d, ".ekv-bindings-emptycontacts", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -282,8 +282,8 @@ func TestDeleteUsername_EmptyContactList(t *testing.T) {
 func TestClient_GetRegState(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	d := DummyStorage{LocationA: ".ekv-bindings-getregstate", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&d, ".ekv-bindings-getregstate", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
 	}
@@ -320,8 +320,8 @@ func TestClient_GetRegState(t *testing.T) {
 func TestClient_Send(t *testing.T) {
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	testClient, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	d := DummyStorage{LocationA: ".ekv-bindings-send", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&d, ".ekv-bindings-send", "", ndfStr, pubKey)
 
 	if err != nil {
 		t.Errorf("Failed to marshal group JSON: %s", err)
@@ -402,8 +402,8 @@ func TestLoginLogout(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	d := DummyStorage{LocationA: ".ekv-bindings-loginlogout", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, ".ekv-bindings-loginlogout", "", ndfStr, pubKey)
 	if err != nil {
 		t.Errorf("Error starting client: %+v", err)
 	}
@@ -413,13 +413,13 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = client.client.GenerateKeys(nil, "")
+	err = client.client.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
-	loginRes, err2 := client.Login(regRes, "")
+	loginRes, err2 := client.Login(regRes, "password")
 	if err2 != nil {
 		t.Errorf("Login failed: %s", err2.Error())
 	}
@@ -452,8 +452,8 @@ func TestListen(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	d := DummyStorage{LocationA: ".ekv-testlisten", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, ".ekv-testlisten", "", ndfStr, pubKey)
 	// InitNetwork to gateway
 	err = client.InitNetwork()
 
@@ -461,13 +461,13 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = client.client.GenerateKeys(nil, "1234")
+	err = client.client.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
-	_, err = client.Login(regRes, "1234")
+	_, err = client.Login(regRes, "password")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)
@@ -496,23 +496,26 @@ func TestStopListening(t *testing.T) {
 
 	ndfStr, pubKey := getNDFJSONStr(def, t)
 
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&d, "hello", "", ndfStr, pubKey)
+	d := DummyStorage{LocationA: ".ekv-teststoplistening", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&d, ".ekv-teststoplistening", "", ndfStr, pubKey)
+	if err != nil {
+		t.Errorf("Failed to create client: %+v", err)
+	}
+
 	// InitNetwork to gateway
 	err = client.InitNetwork()
-
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = client.client.GenerateKeys(nil, "1234")
+	err = client.client.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 
-	_, err = client.Login(regRes, "1234")
+	_, err = client.Login(regRes, "password")
 
 	if err != nil {
 		t.Errorf("Could not log in: %+v", err)

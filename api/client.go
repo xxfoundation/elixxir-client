@@ -33,7 +33,6 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	goio "io"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -145,13 +144,6 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 		done <- struct{}{}
 	}()
 
-	// TODO: FIX ME
-	// While the old session is still valid, we are using the LocA storage to initialize the session
-	locA, _ := cl.storage.GetLocation()
-	newSession, err := storage.Init(filepath.Dir(locA), password)
-
-	cl.sessionV2 = newSession
-
 	//wait for session file loading to complete
 	<-done
 
@@ -168,6 +160,16 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	}
 
 	cl.session = session
+
+	// TODO: FIX ME
+	// While the old session is still valid, we are using the LocA storage to initialize the session
+	locA, _ := cl.storage.GetLocation()
+	newSession, err := storage.Init(locA, password)
+	if err != nil {
+		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
+	}
+	cl.sessionV2 = newSession
+
 	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
 		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),

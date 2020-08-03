@@ -17,7 +17,7 @@ import (
 //Test that a registered session may be stored & recovered
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-registergob", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -58,7 +58,7 @@ func TestRegistrationGob(t *testing.T) {
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-clientregister", "", def)
 
 	if err != nil {
 		t.Error(err)
@@ -129,7 +129,7 @@ func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *t
 func TestRegister_ValidRegParams___(t *testing.T) {
 	// Initialize client with dummy storage
 	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, "hello", "", def)
+	client, err := NewClient(&storage, ".ekv-validregparams", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}

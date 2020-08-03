@@ -111,13 +111,13 @@ func TestNewClient_Panic(t *testing.T) {
 	// Arbitrary invalid interface
 	var i rsa.PublicKey
 	// Passed into NewTestClient call to cause a panic
-	NewTestClient(&globals.RamStorage{}, "", "", def, i, send)
+	NewTestClient(&globals.RamStorage{}, ".ekv-testnewclientpanic", "", def, i, send)
 	t.Errorf("Failed to detect a bad interface passed in")
 }
 
 // Happy path
 func TestNewClient(t *testing.T) {
-	_, err := NewTestClient(&globals.RamStorage{}, "", "", def, t, send)
+	_, err := NewTestClient(&globals.RamStorage{}, ".ekv-testnewclient", "", def, t, send)
 	if err != nil {
 		t.Errorf("Expected happy path, received error: %+v", err)
 	}
@@ -151,7 +151,7 @@ func TestParse(t *testing.T) {
 
 // Test that registerUserE2E correctly creates keys and adds them to maps
 func TestRegisterUserE2E(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-testrege2e", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -241,7 +241,7 @@ func TestRegisterUserE2E(t *testing.T) {
 
 // Test all keys created with registerUserE2E match what is expected
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-testrege2e-allkeys", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -390,7 +390,7 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 // Test happy path for precannedRegister
 func TestClient_precannedRegister(t *testing.T) {
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-testclient-precannedreg", "", def)
 
 	if err != nil {
 		t.Error(err)
@@ -414,7 +414,7 @@ func TestClient_precannedRegister(t *testing.T) {
 func TestClient_sendRegistrationMessage(t *testing.T) {
 
 	//Start client
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-sendregmsg", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -446,7 +446,7 @@ func TestClient_requestNonce(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-reqnonce", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -478,7 +478,7 @@ func TestClient_requestNonce(t *testing.T) {
 // Test happy path for confirmNonce
 func TestClient_confirmNonce(t *testing.T) {
 
-	testClient, err := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-confirmnonce", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -546,7 +546,7 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 func TestClient_GetSession(t *testing.T) {
 
 	//Start client
-	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, _ := NewClient(&globals.RamStorage{}, ".ekv-getsession", "", def)
 
 	testClient.session = &user.SessionObj{}
 
@@ -560,7 +560,7 @@ func TestClient_GetSession(t *testing.T) {
 func TestClient_GetCommManager(t *testing.T) {
 
 	//Start client
-	testClient, _ := NewClient(&globals.RamStorage{}, "", "", def)
+	testClient, _ := NewClient(&globals.RamStorage{}, ".ekv-getcommmanager", "", def)
 
 	testClient.receptionManager = &io.ReceptionManager{}
 
@@ -572,8 +572,8 @@ func TestClient_GetCommManager(t *testing.T) {
 // Test that client.Shutcown clears out all the expected variables and stops the message reciever.
 func TestClient_LogoutHappyPath(t *testing.T) {
 	//Initialize a client
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	tc, _ := NewClient(&d, "", "", def)
+	d := DummyStorage{LocationA: ".ekv-logouthappypath", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, ".ekv-logouthappypath", "", def)
 
 	uid := id.NewIdFromString("kk", id.User, t)
 	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
@@ -648,8 +648,8 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 //Test that the client shutdown will timeout when it fails to shutdown
 func TestClient_LogoutTimeout(t *testing.T) {
 	//Initialize a client
-	d := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	tc, _ := NewClient(&d, "", "", def)
+	d := DummyStorage{LocationA: ".ekv-logouttimeout", StoreA: []byte{'a', 'b', 'c'}}
+	tc, _ := NewClient(&d, ".ekv-logouttimeout", "", def)
 
 	uid := id.NewIdFromString("kk", id.User, t)
 	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
@@ -712,18 +712,21 @@ func TestClient_LogoutTimeout(t *testing.T) {
 // Test that if we logout we can logback in.
 func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	//Initialize a client
-	storage := globals.RamStorage{}
-	tc, initialId := NewClient(&storage, "", "", def)
+	storage := &DummyStorage{LocationA: ".ekv-logoutlogin", StoreA: []byte{'a', 'b', 'c'}}
+	tc, err := NewClient(storage, ".ekv-logoutlogin", "", def)
+	if err != nil {
+		t.Errorf("Failed to create new client: %+v", err)
+	}
 
 	uid := id.NewIdFromString("kk", id.User, t)
 	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
 
-	err := tc.InitNetwork()
+	err = tc.InitNetwork()
 	if err != nil {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
-	err = tc.GenerateKeys(nil, "")
+	err = tc.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
@@ -747,20 +750,18 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	}
 
 	//Redefine client with old session files and attempt to login.
-	tc, newId := NewClient(&storage, "", "", def)
+	tc, err = NewClient(storage, ".ekv-logoutlogin", "", def)
+	if err != nil {
+		t.Errorf("Failed second client initialization: %+v", err)
+	}
 	err = tc.InitNetwork()
 	if err != nil {
 		t.Fatalf("InitNetwork should have succeeded when creating second client %v", err)
 	}
 
-	_, err = tc.Login("")
+	_, err = tc.Login("password")
 	if err != nil {
 		t.Logf("Login failed %+v", err)
-		t.Fail()
-	}
-
-	if newId != initialId {
-		t.Logf("Failed to log user back in to original session")
 		t.Fail()
 	}
 

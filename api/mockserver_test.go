@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/comms/registration"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/xx_network/comms/connect"
 	"os"
 	"strings"
 	"testing"
@@ -325,6 +326,14 @@ func TestSend(t *testing.T) {
 		t.Errorf("Could not start message reception: %+v", err)
 	}
 
+	var nodeIds [][]byte
+	for _, nodes := range client.ndf.Nodes {
+		nodeIds = append(nodeIds, nodes.ID)
+	}
+
+	idlist, _ := id.NewIDListFromBytes(nodeIds)
+
+	client.topology = connect.NewCircuit(idlist)
 	// Test send with invalid sender ID
 	err = client.Send(
 		APIMessage{
@@ -457,7 +466,8 @@ func testMainWrapper(m *testing.M) int {
 		def.Nodes = append(def.Nodes, n)
 		ErrorDef.Nodes = append(ErrorDef.Nodes, n)
 	}
-	startServers()
+
+	startServers(m)
 	defer testWrapperShutdown()
 	return m.Run()
 }
@@ -513,7 +523,7 @@ func getNDF() *ndf.NetworkDefinition {
 	}
 }
 
-func startServers() {
+func startServers(m *testing.M) {
 	regId := new(id.ID)
 	copy(regId[:], "testServer")
 	regId.SetType(id.Generic)

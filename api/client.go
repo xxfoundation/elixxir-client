@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
@@ -40,6 +41,7 @@ import (
 type Client struct {
 	storage             globals.Storage
 	session             user.Session
+	sessionV2           *storage.Session
 	receptionManager    *io.ReceptionManager
 	ndf                 *ndf.NetworkDefinition
 	topology            *connect.Circuit
@@ -158,6 +160,16 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	}
 
 	cl.session = session
+
+	// TODO: FIX ME
+	// While the old session is still valid, we are using the LocA storage to initialize the session
+	locA, _ := cl.storage.GetLocation()
+	newSession, err := storage.Init(locA, password)
+	if err != nil {
+		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
+	}
+	cl.sessionV2 = newSession
+
 	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
 		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),

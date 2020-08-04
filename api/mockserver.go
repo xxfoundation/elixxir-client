@@ -297,7 +297,7 @@ func (m *GatewayHandler) CheckMessages(userId *id.ID,
 func (m *GatewayHandler) PutMessage(msg *pb.GatewaySlot, ipaddr string) (*pb.GatewaySlotResponse, error) {
 	m.LastReceivedMessage = *msg.Message
 	return &pb.GatewaySlotResponse{
-		Accepted:true,
+		Accepted: true,
 	}, nil
 }
 

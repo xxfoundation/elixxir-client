@@ -191,6 +191,8 @@ gitlab.com/xx_network/comms v0.0.0-20200804220001-9fe1915fc1e4/go.mod h1:IfKnpyT
 gitlab.com/xx_network/comms v0.0.0-20200804220700-a5a9bd64204a/go.mod h1:lEN1TYUL8+ZYdxfS22rvoQ+vqwRke/XJMmPdAqwn2CM=
 gitlab.com/xx_network/comms v0.0.0-20200804220834-2245aa9f062c h1:qYaBgQso2SjIdSfBCGKbXfB8s7iSwhdUi01MphMDSbY=
 gitlab.com/xx_network/comms v0.0.0-20200804220834-2245aa9f062c/go.mod h1:+OLUqzVm3l0HtS/NxvrPsf+HCVFrDXGNrKDaMY3ojNI=
+gitlab.com/xx_network/comms v0.0.0-20200804221726-40511219ec58 h1:rm9/JQ4kYKKqbY9JSP3fjL0KFnXGNxIEb9X7erGntJQ=
+gitlab.com/xx_network/comms v0.0.0-20200804221726-40511219ec58/go.mod h1:QnDpgkyn+XcdNv5GSXVEZUD217bhtfhRKxJ81jQIAnE=
 gitlab.com/xx_network/primitives v0.0.0-20200803231956-9b192c57ea7c/go.mod h1:wtdCMr7DPePz9qwctNoAUzZtbOSHSedcK++3Df3psjA=
 gitlab.com/xx_network/primitives v0.0.0-20200804183002-f99f7a7284da h1:CCVslUwNC7Ul7NG5nu3ThGTSVUt1TxNRX+47f5TUwnk=
 gitlab.com/xx_network/primitives v0.0.0-20200804183002-f99f7a7284da/go.mod h1:OK9xevzWCaPO7b1wiluVJGk7R5ZsuC7pHY5hteZFQug=

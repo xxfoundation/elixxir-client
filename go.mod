@@ -19,7 +19,7 @@ require (
 	gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4
 	gitlab.com/elixxir/ekv v0.0.0-20200729182028-159355ea5842
 	gitlab.com/elixxir/primitives v0.0.0-20200804182913-788f47bded40
-	gitlab.com/xx_network/comms v0.0.0-20200804220834-2245aa9f062c
+	gitlab.com/xx_network/comms v0.0.0-20200804221726-40511219ec58
 	gitlab.com/xx_network/primitives v0.0.0-20200804183002-f99f7a7284da
 	golang.org/x/crypto v0.0.0-20200709230013-948cd5f35899
 	gopkg.in/ini.v1 v1.52.0 // indirect

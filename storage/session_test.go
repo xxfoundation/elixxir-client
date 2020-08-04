@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import (
@@ -42,5 +48,40 @@ func TestSession_Smoke(t *testing.T) {
 	if bytes.Compare(o.Data, []byte("test")) != 0 {
 		t.Errorf("Failed to get data")
 	}
+}
 
+// Happy path for getting/setting LastMessageID
+func TestSession_GetSetLastMessageId(t *testing.T) {
+	testId := "testLastMessageId"
+
+	err := os.RemoveAll(".session_testdir")
+	if err != nil {
+		t.Errorf(err.Error())
+	}
+	s, err := Init(".session_testdir", "test")
+	if err != nil {
+		t.Log(s)
+		t.Errorf("failed to init: %+v", err)
+	}
+
+	ts, err := time.Now().MarshalText()
+	if err != nil {
+		t.Errorf("Failed to martial time for object")
+	}
+	err = s.SetLastMessageId(&VersionedObject{
+		Version:   0,
+		Timestamp: ts,
+		Data:      []byte(testId),
+	})
+	if err != nil {
+		t.Errorf("Failed to set LastMessageId: %+v", err)
+	}
+	o, err := s.GetLastMessageId()
+	if err != nil {
+		t.Errorf("Failed to get LastMessageId")
+	}
+
+	if testId != o {
+		t.Errorf("Failed to get LastMessageID, Got %s Expected %s", o, testId)
+	}
 }

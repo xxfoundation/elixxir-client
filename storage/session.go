@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import "gitlab.com/elixxir/ekv"
@@ -24,4 +30,15 @@ func (s *Session) Get(key string) (*VersionedObject, error) {
 
 func (s *Session) Set(key string, object *VersionedObject) error {
 	return s.kv.Set(key, object)
+}
+
+// Obtain the LastMessageID from the Session
+func (s *Session) GetLastMessageId() (string, error) {
+	v, err := s.kv.Get("LastMessageID")
+	return string(v.Data), err
+}
+
+// Set the LastMessageID in the Session
+func (s *Session) SetLastMessageId(object *VersionedObject) error {
+	return s.kv.Set("LastMessageID", object)
 }

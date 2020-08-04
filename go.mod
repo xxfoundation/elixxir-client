@@ -26,6 +26,5 @@ require (
 )
 
 replace (
-	gitlab.com/xx_network/collections/ring => gitlab.com/xx_network/collections/ring.git v0.0.1
 	google.golang.org/grpc => github.com/grpc/grpc-go v1.27.1
 )

@@ -15,8 +15,10 @@ func TestSession_Smoke(t *testing.T) {
 	}
 	s, err := Init(".session_testdir", "test")
 	if err != nil {
+		t.Log(s)
 		t.Errorf("failed to init: %+v", err)
 	}
+
 	ts, err := time.Now().MarshalText()
 	if err != nil {
 		t.Errorf("Failed to martial time for object")
@@ -36,7 +38,7 @@ func TestSession_Smoke(t *testing.T) {
 	if o == nil {
 		t.Errorf("Got nil return from get")
 	}
-	t.Log(o)
+
 	if bytes.Compare(o.Data, []byte("test")) != 0 {
 		t.Errorf("Failed to get data")
 	}

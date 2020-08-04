@@ -1,6 +1,8 @@
 package storage
 
-import "gitlab.com/elixxir/ekv"
+import (
+	"gitlab.com/elixxir/ekv"
+)
 
 type Session struct {
 	kv *VersionedKV

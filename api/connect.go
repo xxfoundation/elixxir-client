@@ -11,10 +11,10 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 )
 
 var ErrNoPermissioning = errors.New("No Permissioning In NDF")

@@ -11,7 +11,7 @@ import (
 	"encoding/binary"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Globally instantiated Registry

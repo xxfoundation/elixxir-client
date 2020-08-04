@@ -3,7 +3,7 @@ package api
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // RegisterForNotifications sends a message to notification bot indicating it

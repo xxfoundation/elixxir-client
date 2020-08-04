@@ -7,7 +7,7 @@
 package parse
 
 import (
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 	"time"

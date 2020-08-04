@@ -8,7 +8,7 @@ package parse
 
 import (
 	"crypto/sha256"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 

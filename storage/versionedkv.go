@@ -113,6 +113,11 @@ func (v *VersionedKV) Get(key string) (*VersionedObject, error) {
 	return &result, nil
 }
 
+// Delete removes a given key from the data store
+func (v *VersionedKV) Delete(key string) error {
+	return v.data.Delete(key)
+}
+
 // Set upserts new data into the storage
 // When calling this, you are responsible for prefixing the key with the correct
 // type and version! Call MakeKeyPrefix() to do so.

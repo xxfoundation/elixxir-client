@@ -11,7 +11,6 @@ import (
 	"crypto/sha256"
 	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -45,7 +44,7 @@ func TestUserSession(t *testing.T) {
 	topology := connect.NewCircuit([]*id.ID{nodeID})
 
 	// Storage
-	ramStorage := &globals.RamStorage{}
+	storage := &globals.RamStorage{}
 
 	rng := rand.New(rand.NewSource(42))
 	privateKey, _ := rsa.GenerateKey(rng, 768)
@@ -59,7 +58,7 @@ func TestUserSession(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(ramStorage,
+	ses := NewSession(storage,
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -90,7 +89,7 @@ func TestUserSession(t *testing.T) {
 
 	//TODO: write test which validates the immolation
 
-	ses, err = LoadSession(ramStorage, "password")
+	ses, err = LoadSession(storage, "password")
 
 	if err != nil {
 		t.Errorf("Unable to login with valid user: %v",
@@ -202,14 +201,14 @@ func TestUserSession(t *testing.T) {
 	h := sha256.New()
 	h.Write([]byte(string(20000)))
 	randBytes := h.Sum(nil)
-	ramStorage.SaveA(randBytes)
-	ramStorage.SaveB(randBytes)
+	storage.SaveA(randBytes)
+	storage.SaveB(randBytes)
 
 	defer func() {
 		recover()
 	}()
 
-	_, err = LoadSession(ramStorage, "password")
+	_, err = LoadSession(storage, "password")
 	if err == nil {
 		t.Errorf("LoadSession should error on bad decrypt!")
 	}
@@ -229,7 +228,7 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	nodeID := id.NewIdFromUInt(1, id.Node, t)
 
 	// Storage
-	ramStorage := &globals.RamStorage{}
+	storage := &globals.RamStorage{}
 
 	rng := rand.New(rand.NewSource(42))
 	privateKey, _ := rsa.GenerateKey(rng, 768)
@@ -243,7 +242,7 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(ramStorage,
+	ses := NewSession(storage,
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -263,13 +262,7 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	})
 
 	testContact := id.NewIdFromString("test", id.User, t)
-	err = ses.StoreContactByValue("test", &storage.SearchedUserRecord{
-		Id: *testContact,
-		Pk: []byte("test"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	ses.StoreContactByValue("test", testContact, []byte("test"))
 
 	_, err = ses.DeleteContact(testContact)
 	if err != nil {
@@ -338,7 +331,7 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 
 	nodeID := id.NewIdFromUInt(1, id.Node, t)
 	// Storage
-	ramStorage := &globals.RamStorage{}
+	storage := &globals.RamStorage{}
 
 	//Keys
 	rng := rand.New(rand.NewSource(42))
@@ -350,7 +343,7 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(ramStorage,
+	ses := NewSession(storage,
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -397,7 +390,7 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 	nodeID := id.NewIdFromUInt(1, id.Node, t)
 
 	// Storage
-	ramStorage := &globals.RamStorage{}
+	storage := &globals.RamStorage{}
 
 	//Keys
 	rng := rand.New(rand.NewSource(42))
@@ -409,7 +402,7 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 	privateKeyDHE2E := e2eGrp.RandomCoprime(e2eGrp.NewInt(1))
 	publicKeyDHE2E := e2eGrp.ExpG(privateKeyDHE2E, e2eGrp.NewInt(1))
 
-	ses := NewSession(ramStorage,
+	ses := NewSession(storage,
 		u, &publicKey, privateKey, publicKeyDH, privateKeyDH,
 		publicKeyDHE2E, privateKeyDHE2E, make([]byte, 1), cmixGrp, e2eGrp,
 		"password")
@@ -430,27 +423,18 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 
 	userId := id.NewIdFromBytes([]byte("test"), t)
 
-	err = ses.StoreContactByValue("value", &storage.SearchedUserRecord{
-		Id: *userId,
-		Pk: []byte("test"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	ses.StoreContactByValue("value", userId, []byte("test"))
 
-	observed, err := ses.GetContactByValue("value")
-	if err != nil {
-		t.Fatal(err)
-	}
+	observedUser, observedPk := ses.GetContactByValue("value")
 
-	if bytes.Compare([]byte("test"), observed.Pk) != 0 {
+	if bytes.Compare([]byte("test"), observedPk) != 0 {
 		t.Errorf("Failed to retieve public key using GetContactByValue; "+
-			"Expected: %+v\n\tRecieved: %+v", privateKey.PublicKey.N.Bytes(), observed.Pk)
+			"Expected: %+v\n\tRecieved: %+v", privateKey.PublicKey.N.Bytes(), observedPk)
 	}
 
-	if !observed.Id.Cmp(userId) {
+	if !observedUser.Cmp(userId) {
 		t.Errorf("Failed to retrieve user using GetContactByValue;"+
-			"Expected: %+v\n\tRecieved: %+v", u.User, observed.Id)
+			"Expected: %+v\n\tRecieved: %+v", u.User, observedUser)
 	}
 }
 

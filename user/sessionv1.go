@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
@@ -69,7 +68,7 @@ type SessionObjV1 struct {
 
 	storageLocation uint8
 
-	ContactsByValue map[string]storage.SearchedUserRecord
+	ContactsByValue map[string]SearchedUserRecord
 }
 
 // Struct representing a User in the system
@@ -130,15 +129,7 @@ func ConvertSessionV1toV2(inputWrappedSession *SessionStorageWrapper) (*SessionS
 	sessionV2.RekeyManager = sessionV1.RekeyManager
 	sessionV2.RegValidationSignature = sessionV1.regValidationSignature
 	sessionV2.RegState = sessionV1.RegState
-
-	// store contacts in the new storage
-	for k, v := range sessionV1.ContactsByValue {
-		// TODO Init ekv store before doing this
-		err := sessionV2.StoreContactByValue(k, &v)
-		if err != nil {
-			return nil, err
-		}
-	}
+	sessionV2.ContactsByValue = sessionV1.ContactsByValue
 
 	//re encode the session
 	var sessionBuffer bytes.Buffer

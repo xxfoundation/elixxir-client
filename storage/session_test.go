@@ -64,15 +64,7 @@ func TestSession_GetSetLastMessageId(t *testing.T) {
 		t.Errorf("failed to init: %+v", err)
 	}
 
-	ts, err := time.Now().MarshalText()
-	if err != nil {
-		t.Errorf("Failed to martial time for object")
-	}
-	err = s.SetLastMessageId(&VersionedObject{
-		Version:   0,
-		Timestamp: ts,
-		Data:      []byte(testId),
-	})
+	err = s.SetLastMessageId(testId)
 	if err != nil {
 		t.Errorf("Failed to set LastMessageId: %+v", err)
 	}

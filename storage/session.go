@@ -6,7 +6,10 @@
 
 package storage
 
-import "gitlab.com/elixxir/ekv"
+import (
+	"gitlab.com/elixxir/ekv"
+	"time"
+)
 
 type Session struct {
 	kv *VersionedKV
@@ -39,6 +42,14 @@ func (s *Session) GetLastMessageId() (string, error) {
 }
 
 // Set the LastMessageID in the Session
-func (s *Session) SetLastMessageId(object *VersionedObject) error {
-	return s.kv.Set("LastMessageID", object)
+func (s *Session) SetLastMessageId(id string) error {
+	ts, err := time.Now().MarshalText()
+	if err != nil {
+		return err
+	}
+	vo := &VersionedObject{
+		Timestamp: ts,
+		Data:      []byte(id),
+	}
+	return s.kv.Set("LastMessageID", vo)
 }

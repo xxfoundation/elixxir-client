@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ var ErrorDef *ndf.NetworkDefinition
 const ValidRegCode = "WTROXJ33"
 const InvalidRegCode = "INVALID_REG_CODE_"
 
-var RegGWHandlers [3]*GatewayHandler = [NumGWs]*GatewayHandler{
+var RegGWHandlers = [NumGWs]*GatewayHandler{
 	{LastReceivedMessage: pb.Slot{}},
 	{LastReceivedMessage: pb.Slot{}},
 	{LastReceivedMessage: pb.Slot{}},
@@ -58,7 +58,6 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
-
 	os.Exit(testMainWrapper(m))
 }
 

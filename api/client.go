@@ -168,8 +168,6 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	}
 	cl.sessionV2 = io.SessionV2
 
-	// fixme fully remove the below
-	//if session.GetRegState() < user.KeyGenComplete {
 	regState, err := io.SessionV2.GetRegState()
 	if err != nil {
 		return nil, errors.Wrap(err, "Login: Could not login")

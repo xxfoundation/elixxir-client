@@ -442,9 +442,6 @@ var rootCmd = &cobra.Command{
 
 		// todo: since this is in the root cmd, would checking the regstate directly really be bad?
 		//  It's correct that it should be an error state for RegisterWithUDB, however for this, it's start up code
-		// fixme fully remove the below
-		//if username != "" && client.GetSession().GetRegState() == user.PermissioningComplete {
-
 		regState, err := io.SessionV2.GetRegState()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not retrieve registration state: %v", err)

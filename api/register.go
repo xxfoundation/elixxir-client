@@ -31,8 +31,6 @@ const SaltSize = 32
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.ID, error) {
 	//Check the regState is in proper state for registration
-	// fixme fully remove the below
-	//if cl.session.GetRegState() != user.KeyGenComplete {
 	regState, err := io.SessionV2.GetRegState()
 	if err != nil {
 		return nil, err
@@ -71,11 +69,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		if err != nil {
 			return &id.ZeroUser, err
 		}
-		// fixme fully remove the below
-		//err := cl.session.SetRegState(user.PermissioningComplete)
-		//if err != nil {
-		//	return nil, errors.Wrap(err, "Could not do precanned registration")
-		//}
 
 	} else {
 		// Or register with the permissioning server and generate user information
@@ -94,8 +87,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		if err != nil {
 			return nil, err
 		}
-		// fixme fully remove the below
-		//err = cl.session.RegisterPermissioningSignature(regValidationSignature)
 
 	}
 
@@ -116,9 +107,6 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error {
-	// fixme fully remove the below
-
-	//regState := cl.GetSession().GetRegState()
 	regState, err := io.SessionV2.GetRegState()
 	if err != nil {
 		return err
@@ -152,9 +140,6 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 
 	//set the registration state
 	err = io.SessionV2.SetRegState(user.UDBComplete)
-	// fixme fully remove the below
-	//err = cl.session.SetRegState(user.UDBComplete)
-
 	if err != nil {
 		return errors.Wrap(err, "UDB Registration Failed")
 	}

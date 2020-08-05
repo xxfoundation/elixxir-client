@@ -178,8 +178,6 @@ func (cl *Client) RegisterWithNodes() error {
 	UID := session.GetCurrentUser().User
 	usr := session.GetCurrentUser()
 	//Load the registration signature
-	// fixme: remove the bewow commented code
-	//regSignature := cl.session.GetRegistrationValidationSignature()
 	regSignature, err := io.SessionV2.GetRegValidationSig()
 	if err != nil {
 		return err
@@ -208,8 +206,6 @@ func (cl *Client) RegisterWithNodes() error {
 		//update the session with the registration
 		//HACK HACK HACK
 		sesObj := cl.session.(*user.SessionObj)
-		// fixme: remove the commented code
-		//sesObj.RegValidationSignature = regSignature
 		err = io.SessionV2.SetRegValidationSig(regSignature)
 		if err != nil {
 			return err

@@ -9,7 +9,6 @@
 package storage
 
 import (
-	"fmt"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/ekv"
 	"testing"
@@ -30,7 +29,7 @@ func Init(baseDir, password string) (*Session, error) {
 			kv: NewVersionedKV(fs),
 		}
 	}
-	fmt.Printf("key val: %v\n", s.kv)
+
 	return s, err
 }
 

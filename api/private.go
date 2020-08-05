@@ -22,9 +22,9 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/xx"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 )
 
 const PermissioningAddrID = "Permissioning"

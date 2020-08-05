@@ -23,10 +23,10 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"math/rand"
 	"os"
 	"reflect"
@@ -850,7 +850,7 @@ func (m *GatewayHandler) CheckMessages(userId *id.ID,
 func (m *GatewayHandler) PutMessage(msg *pb.GatewaySlot, ipaddr string) (*pb.GatewaySlotResponse, error) {
 	m.LastReceivedMessage = *msg.Message
 	return &pb.GatewaySlotResponse{
-		Accepted:true,
+		Accepted: true,
 	}, nil
 }
 

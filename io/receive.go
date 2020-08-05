@@ -17,9 +17,9 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
 	"strings"
 	"time"
 )

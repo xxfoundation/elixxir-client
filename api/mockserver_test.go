@@ -10,6 +10,8 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -58,6 +60,7 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
+	io.SessionV2, _ = storage.Init(".ekvapi", "test")
 	os.Exit(testMainWrapper(m))
 }
 

@@ -441,7 +441,7 @@ type SearchCallback interface {
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback, timeout time.Duration) {
 	//see if the user has been searched before, if it has, return it
-	contact, err := io.SessionV2.GetContact(emailAddress)
+	contact, err := cl.sessionV2.GetContact(emailAddress)
 
 	// if we successfully got the contact, return it.
 	// errors can include the email address not existing,
@@ -462,7 +462,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 				return
 			}
 			//store the user so future lookups can find it
-			io.SessionV2.SetContact(emailAddress, contact)
+			err = cl.sessionV2.SetContact(emailAddress, contact)
 
 			// If there is something in the channel then send it; otherwise,
 			// skip over it

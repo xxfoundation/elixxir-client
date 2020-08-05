@@ -27,6 +27,8 @@ localdev_*
 *.class
 *.aar
 *.jar
-# Ignore test output
+# Ignore test output related to ekv
 .ekv*
 .*test*
+*.1
+*.2

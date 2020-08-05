@@ -126,11 +126,6 @@ func TestRegister(t *testing.T) {
 // TestSearch smoke tests the search function
 func TestSearch(t *testing.T) {
 	publicKeyString := base64.StdEncoding.EncodeToString(pubKey)
-	//uid := id.NewIdFromUInt(26, id.User, t)
-	//serRetUid := base64.StdEncoding.EncodeToString(uid[:])
-	//result, _ := base64.StdEncoding.DecodeString(serRetUid)
-	//t.Fatal(serRetUid)
-	//t.Fatal(len(result))
 
 	// Send response messages from fake UDB in advance
 	searchResponseListener <- "blah@elixxir.io FOUND UR69db14ZyicpZVqJ1HFC5rk9UZ8817aV6+VHmrJpGc= AAAAAAAAABoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD 8oKh7TYG4KxQcBAymoXPBHSD/uga9pX3Mn/jKhvcD8M="
@@ -141,16 +136,19 @@ func TestSearch(t *testing.T) {
 		return
 	}
 
-	searchedUser, _, err := Search("EMAIL", "blah@elixxir.io",
+	searchedUser, err := Search("EMAIL", "blah@elixxir.io",
 		dummySearchState, 30*time.Second)
 	if err != nil {
-		t.Errorf("Error on Search: %s", err.Error())
+		t.Fatalf("Error on Search: %s", err.Error())
 	}
-	if !searchedUser.Cmp(id.NewIdFromUInt(26, id.User, t)) {
+	if !searchedUser.Id.Cmp(id.NewIdFromUInt(26, id.User, t)) {
 		t.Errorf("Search did not return user ID 26! returned %s", searchedUser)
 	}
 	//Test the timeout capabilities
-	searchedUser, _, err = Search("EMAIL", "blah@elixxir.io", dummySearchState, 1*time.Millisecond)
+	searchedUser, err = Search("EMAIL", "blah@elixxir.io", dummySearchState, 1*time.Millisecond)
+	if err == nil {
+		t.Fatal("udb search timeout should have caused error")
+	}
 	if strings.Compare(err.Error(), "UDB search timeout exceeded on user lookup") != 0 {
 		t.Errorf("error: %v", err)
 	}

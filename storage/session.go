@@ -38,7 +38,10 @@ func (s *Session) Set(key string, object *VersionedObject) error {
 // Obtain the LastMessageID from the Session
 func (s *Session) GetLastMessageId() (string, error) {
 	v, err := s.kv.Get("LastMessageID")
-	return string(v.Data), err
+	if v == nil || err != nil {
+		return "", nil
+	}
+	return string(v.Data), nil
 }
 
 // Set the LastMessageID in the Session

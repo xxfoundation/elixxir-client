@@ -174,8 +174,15 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 	pollingMessage *pb.ClientRequest, receiveGateway *connect.Host) ([]*format.Message, error) {
 	// Get the last message ID received
 	var err error
+
+	// FIXME: Cleanup after user.Session is removed and replaced.
+	if SessionV2 == nil {
+		globals.Log.WARN.Printf("SessionV2 is nil")
+		return nil, errors.New("SessionV2 is nil")
+	}
 	pollingMessage.LastMessageID, err = SessionV2.GetLastMessageId()
 	if err != nil {
+		globals.Log.WARN.Printf("Could not get LastMessageID: %+v", err)
 		return nil, err
 	}
 	// FIXME: dont do this over an over

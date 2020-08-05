@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
@@ -68,8 +69,8 @@ type Session interface {
 	GetRegState() uint32
 	ChangeUsername(string) error
 	StorageIsEmpty() bool
-	GetContactByValue(string) (*id.ID, []byte)
-	StoreContactByValue(string, *id.ID, []byte)
+	GetContactByValue(string) (*storage.SearchedUserRecord, error)
+	StoreContactByValue(string, *storage.SearchedUserRecord) error
 	DeleteContact(*id.ID) (string, error)
 	GetSessionLocation() uint8
 	LoadEncryptedSession(store globals.Storage) ([]byte, error)
@@ -116,7 +117,6 @@ func NewSession(store globals.Storage,
 		Salt:                salt,
 		RegState:            &regState,
 		storageLocation:     globals.LocationA,
-		ContactsByValue:     make(map[string]SearchedUserRecord),
 	})
 }
 
@@ -284,6 +284,9 @@ type SessionObj struct {
 	// The password used to encrypt this session when saved
 	password string
 
+	// KV-based storage. Put new items in here, rather than gob encoding
+	kvSession storage.Session
+
 	//The validation signature provided by permissioning
 	RegValidationSignature []byte
 
@@ -293,8 +296,6 @@ type SessionObj struct {
 	RegState *uint32
 
 	storageLocation uint8
-
-	ContactsByValue map[string]SearchedUserRecord
 }
 
 //WriteToSession: Writes to the location where session is being stored the arbitrary replacement string
@@ -322,11 +323,6 @@ func (s *SessionObj) LoadEncryptedSession(store globals.Storage) ([]byte, error)
 	}
 	encryptedSession := encrypt(sessionData.Session, s.password)
 	return encryptedSession, nil
-}
-
-type SearchedUserRecord struct {
-	Id id.ID
-	Pk []byte
 }
 
 func (s *SessionObj) GetLastMessageID() string {
@@ -731,50 +727,20 @@ func (s *SessionObj) PopGarbledMessages() []*format.Message {
 	return tempBuffer
 }
 
-func (s *SessionObj) GetContactByValue(v string) (*id.ID, []byte) {
+func (s *SessionObj) GetContactByValue(v string) (*storage.SearchedUserRecord, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	u, ok := s.ContactsByValue[v]
-	if !ok {
-		return nil, nil
-	}
-	return &(u.Id), u.Pk
+	return s.kvSession.GetContact(v)
 }
 
-func (s *SessionObj) StoreContactByValue(v string, uid *id.ID, pk []byte) {
+func (s *SessionObj) StoreContactByValue(v string, contact *storage.SearchedUserRecord) error {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	u, ok := s.ContactsByValue[v]
-	if ok {
-		globals.Log.WARN.Printf("Attempted to store over extant "+
-			"user value: %s; before: %v, new: %v", v, u.Id, *uid)
-	} else {
-		s.ContactsByValue[v] = SearchedUserRecord{
-			Id: *uid,
-			Pk: pk,
-		}
-	}
+	return s.kvSession.SetContact(v, contact)
 }
 
 func (s *SessionObj) DeleteContact(uid *id.ID) (string, error) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-
-	for v, u := range s.ContactsByValue {
-		if u.Id.Cmp(uid) {
-			delete(s.ContactsByValue, v)
-			_, ok := s.ContactsByValue[v]
-			if ok {
-				return "", errors.Errorf("Failed to delete user: %+v", u)
-			} else {
-				return v, nil
-			}
-		}
-	}
-
-	return "", errors.Errorf("No user found in usermap with userid: %s",
-		uid)
-
+	panic("unimplemented")
 }
 
 func (s *SessionObj) GetSessionLocation() uint8 {

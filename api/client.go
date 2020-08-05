@@ -33,6 +33,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	goio "io"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -164,7 +165,8 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	// TODO: FIX ME
 	// While the old session is still valid, we are using the LocA storage to initialize the session
 	locA, _ := cl.storage.GetLocation()
-	io.SessionV2, err = storage.Init(locA, password)
+	dirname := filepath.Dir(locA)
+	io.SessionV2, err = storage.Init(dirname, password)
 	if err != nil {
 		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
 	}

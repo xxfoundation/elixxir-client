@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -25,6 +26,9 @@ import (
 )
 
 const reportDuration = 30 * time.Second
+
+// TODO: REMOVE ME DEAR GOD
+var SessionV2 *storage.Session
 
 var errE2ENotFound = errors.New("E2EKey for matching fingerprint not found, can't process message")
 
@@ -39,7 +43,6 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 		UserID: session.GetCurrentUser().User.Bytes(),
 	}
 	quit := session.GetQuitChan()
-
 	NumChecks := 0
 	NumMessages := 0
 
@@ -170,7 +173,18 @@ func handleE2EReceiving(session user.Session,
 func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 	pollingMessage *pb.ClientRequest, receiveGateway *connect.Host) ([]*format.Message, error) {
 	// Get the last message ID received
-	pollingMessage.LastMessageID = session.GetLastMessageID()
+	var err error
+
+	// FIXME: Cleanup after user.Session is removed and replaced.
+	if SessionV2 == nil {
+		globals.Log.WARN.Printf("SessionV2 is nil")
+		return nil, errors.New("SessionV2 is nil")
+	}
+	pollingMessage.LastMessageID, err = SessionV2.GetLastMessageId()
+	if err != nil {
+		globals.Log.WARN.Printf("Could not get LastMessageID: %+v", err)
+		return nil, err
+	}
 	// FIXME: dont do this over an over
 
 	// Gets a list of mssages that are newer than the last one recieved
@@ -231,7 +245,7 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 			}
 		}
 	}
-	// record that the messages were recieved so they are not re-retrieved
+	// record that the messages were received so they are not re-retrieved
 	if bufLoc > 0 {
 		for i := 0; i < bufLoc; i++ {
 			globals.Log.INFO.Printf(
@@ -240,7 +254,10 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 			rm.receivedMessages[mIDs[i]] = struct{}{}
 			rm.recievedMesageLock.Unlock()
 		}
-		session.SetLastMessageID(mIDs[bufLoc-1])
+		err = SessionV2.SetLastMessageId(mIDs[bufLoc-1])
+		if err != nil {
+			return nil, err
+		}
 		err = session.StoreSession()
 		if err != nil {
 			globals.Log.ERROR.Printf("Could not store session "+

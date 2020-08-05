@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -588,7 +588,7 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	//Start Message reciever
+	//Start Message receiver
 	callBack := func(err error) {
 		t.Log(err)
 	}

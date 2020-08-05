@@ -15,7 +15,9 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -81,6 +83,7 @@ func (i *MockRegistration) CheckRegistration(msg *pb.RegisteredNodeCheck) (*pb.R
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
+	io.SessionV2, _ = storage.Init(".ekvbindings", "test")
 	os.Exit(testMainWrapper(m))
 }
 

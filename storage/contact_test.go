@@ -1,7 +1,6 @@
 package storage
 
 import (
-	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/id"
 	"reflect"
@@ -13,9 +12,9 @@ func TestSession_Contact(t *testing.T) {
 	store := make(ekv.Memstore)
 	session := &Session{NewVersionedKV(store)}
 
-	expectedRecord := &user.SearchedUserRecord{
-		Id: *id.NewIdFromUInt(24601, id.User, t),
-		Pk: []byte("not a real public key"),
+	expectedRecord := &Contact{
+		Id:        id.NewIdFromUInt(24601, id.User, t),
+		PublicKey: []byte("not a real public key"),
 	}
 
 	name := "niamh@elixxir.io"

@@ -3,16 +3,16 @@ package storage
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/primitives/id"
 	"time"
 )
 
 const currentContactVersion = 0
 
-func (s *Session) GetContact(name string) (*user.SearchedUserRecord, error) {
+func (s *Session) GetContact(name string) (*Contact, error) {
 	// Make key
 	// If upgrading version, may need to add logic to update version number in key prefix
-	key := MakeKeyPrefix("SearchedUserRecord", currentContactVersion) + name
+	key := MakeKeyPrefix("Contact", currentContactVersion) + name
 
 	obj, err := s.Get(key)
 	if err != nil {
@@ -24,18 +24,18 @@ func (s *Session) GetContact(name string) (*user.SearchedUserRecord, error) {
 	}
 
 	// deserialize
-	var contact user.SearchedUserRecord
+	var contact Contact
 	err = json.Unmarshal(obj.Data, &contact)
 	return &contact, err
 }
 
-func (s *Session) SetContact(name string, record *user.SearchedUserRecord) error {
+func (s *Session) SetContact(name string, record *Contact) error {
 	now, err := time.Now().MarshalText()
 	if err != nil {
 		return err
 	}
 
-	key := MakeKeyPrefix("SearchedUserRecord", currentContactVersion) + name
+	key := MakeKeyPrefix("Contact", currentContactVersion) + name
 	var data []byte
 	data, err = json.Marshal(record)
 	if err != nil {
@@ -47,4 +47,9 @@ func (s *Session) SetContact(name string, record *user.SearchedUserRecord) error
 		Data:      data,
 	}
 	return s.Set(key, &obj)
+}
+
+type Contact struct {
+	Id        *id.ID
+	PublicKey []byte
 }

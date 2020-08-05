@@ -7,13 +7,11 @@ package storage
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/ekv"
 	"testing"
 )
 
 func TestSession_RegState(t *testing.T) {
-	store := make(ekv.Memstore)
-	testSession := &Session{NewVersionedKV(store)}
+	testSession := InitTestingSession(t)
 
 	expectedVal := int64(42)
 	err := testSession.SetRegState(expectedVal)
@@ -35,8 +33,7 @@ func TestSession_RegState(t *testing.T) {
 }
 
 func TestSession_RegValidation(t *testing.T) {
-	store := make(ekv.Memstore)
-	testSession := &Session{NewVersionedKV(store)}
+	testSession := InitTestingSession(t)
 
 	expectedVal := []byte("testData")
 

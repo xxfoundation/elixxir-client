@@ -155,10 +155,6 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	if session == nil {
 		return nil, errors.New("Unable to load session, no error reported")
 	}
-	if session.GetRegState() < user.KeyGenComplete {
-		return nil, errors.New("Cannot log a user in which has not " +
-			"completed registration ")
-	}
 
 	cl.session = session
 
@@ -171,6 +167,17 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
 	}
 	cl.sessionV2 = io.SessionV2
+
+	// fixme fully remove the below
+	//if session.GetRegState() < user.KeyGenComplete {
+	regState, err := io.SessionV2.GetRegState()
+	if err != nil {
+		return nil, errors.Wrap(err, "Login: Could not login")
+	}
+	if regState < user.KeyGenComplete {
+		return nil, errors.New("Cannot log a user in which has not " +
+			"completed registration ")
+	}
 
 	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
@@ -596,6 +603,12 @@ func SetLogOutput(w goio.Writer) {
 // own risk
 func (cl *Client) GetSession() user.Session {
 	return cl.session
+}
+
+// GetSession returns the session object for external access.  Access at yourx
+// own risk
+func (cl *Client) GetSessionV2() *storage.Session {
+	return cl.sessionV2
 }
 
 // ReceptionManager returns the comm manager object for external access.  Access

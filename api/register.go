@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
@@ -30,12 +31,18 @@ const SaltSize = 32
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.ID, error) {
 	//Check the regState is in proper state for registration
-	if cl.session.GetRegState() != user.KeyGenComplete {
+	// fixme fully remove the below
+	//if cl.session.GetRegState() != user.KeyGenComplete {
+	regState, err := io.SessionV2.GetRegState()
+	if err != nil {
+		return nil, err
+	}
+
+	if regState != user.KeyGenComplete {
 		return nil, errors.Errorf("Attempting to register before key generation!")
 	}
 	usr := cl.session.GetCurrentUser()
 	UID := usr.User
-	var err error
 
 	//Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
@@ -60,10 +67,15 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 			cl.session.PushNodeKey(&n, k)
 		}
 		//update the state
-		err := cl.session.SetRegState(user.PermissioningComplete)
+		err = io.SessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
-			return nil, errors.Wrap(err, "Could not do precanned registration")
+			return &id.ZeroUser, err
 		}
+		// fixme fully remove the below
+		//err := cl.session.SetRegState(user.PermissioningComplete)
+		//if err != nil {
+		//	return nil, errors.Wrap(err, "Could not do precanned registration")
+		//}
 
 	} else {
 		// Or register with the permissioning server and generate user information
@@ -73,11 +85,18 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 			return &id.ZeroUser, err
 		}
 		//update the session with the registration
-		err = cl.session.RegisterPermissioningSignature(regValidationSignature)
-
+		err = io.SessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
 			return nil, err
 		}
+
+		err = io.SessionV2.SetRegValidationSig(regValidationSignature)
+		if err != nil {
+			return nil, err
+		}
+		// fixme fully remove the below
+		//err = cl.session.RegisterPermissioningSignature(regValidationSignature)
+
 	}
 
 	//Set the registration secure state
@@ -97,15 +116,18 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error {
+	// fixme fully remove the below
 
-	regState := cl.GetSession().GetRegState()
+	//regState := cl.GetSession().GetRegState()
+	regState, err := io.SessionV2.GetRegState()
+	if err != nil {
+		return err
+	}
 
 	if regState != user.PermissioningComplete {
 		return errors.New("Cannot register with UDB when registration " +
 			"state is not PermissioningComplete")
 	}
-
-	var err error
 
 	if username != "" {
 		err := cl.session.ChangeUsername(username)
@@ -129,7 +151,9 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 	}
 
 	//set the registration state
-	err = cl.session.SetRegState(user.UDBComplete)
+	err = io.SessionV2.SetRegState(user.UDBComplete)
+	// fixme fully remove the below
+	//err = cl.session.SetRegState(user.UDBComplete)
 
 	if err != nil {
 		return errors.Wrap(err, "UDB Registration Failed")
@@ -169,7 +193,12 @@ func (cl *Client) RegisterWithNodes() error {
 	UID := session.GetCurrentUser().User
 	usr := session.GetCurrentUser()
 	//Load the registration signature
-	regSignature := session.GetRegistrationValidationSignature()
+	// fixme: remove the bewow commented code
+	//regSignature := cl.session.GetRegistrationValidationSignature()
+	regSignature, err := io.SessionV2.GetRegValidationSig()
+	if err != nil {
+		return err
+	}
 
 	// Storage of the registration signature was broken in previous releases.
 	// get the signature again from permissioning if it is absent
@@ -194,7 +223,13 @@ func (cl *Client) RegisterWithNodes() error {
 		//update the session with the registration
 		//HACK HACK HACK
 		sesObj := cl.session.(*user.SessionObj)
-		sesObj.RegValidationSignature = regSignature
+		// fixme: remove the commented code
+		//sesObj.RegValidationSignature = regSignature
+		err = io.SessionV2.SetRegValidationSig(regSignature)
+		if err != nil {
+			return err
+		}
+
 		err = sesObj.StoreSession()
 
 		if err != nil {

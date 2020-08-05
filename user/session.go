@@ -394,15 +394,17 @@ func (s *SessionObj) PushNodeKey(id *id.ID, key NodeKeys) {
 func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	err := s.SetRegState(PermissioningComplete)
-	if err != nil {
-		return errors.Wrap(err, "Could not store permissioning signature")
-	}
 
-	s.RegValidationSignature = sig
+	// fixme remove the below
+	//err := s.SetRegState(PermissioningComplete)
+	//if err != nil {
+	//	return errors.Wrap(err, "Could not store permissioning signature")
+	//}
+	//
+	//s.RegValidationSignature = sig
 
 	//storing to ensure we never loose the signature
-	err = s.storeSession()
+	err := s.storeSession()
 
 	return err
 }

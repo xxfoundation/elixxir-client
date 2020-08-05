@@ -11,7 +11,7 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/storage"
+	clientStorage "gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/connect"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -60,7 +61,7 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
-	io.SessionV2, _ = storage.Init(".ekvapi", "test")
+	io.SessionV2, _ = clientStorage.Init(".ekvapi", "test")
 	os.Exit(testMainWrapper(m))
 }
 
@@ -81,8 +82,8 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	}
 
 	testDef.Nodes = def.Nodes
-
-	storage := DummyStorage{LocationA: ".ekv-messagereceiver-multiple", StoreA: []byte{'a', 'b', 'c'}}
+	locA := ".ekv-messagereceiver-multiple"
+	storage := DummyStorage{LocationA: locA, StoreA: []byte{'a', 'b', 'c'}}
 	client, err := NewClient(&storage, ".ekv-messagereceiver-multiple", "", testDef)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
@@ -99,6 +100,9 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+	dirname := filepath.Dir(locA)
+
+	io.SessionV2, err = clientStorage.Init(dirname, "password")
 
 	// Register with a valid registration code
 	_, err = client.RegisterWithPermissioning(true, ValidRegCode)

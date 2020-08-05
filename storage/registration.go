@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var currentVersion = uint64(0)
+var currentRegistrationVersion = uint64(0)
 
 // SetRegValidationSig builds the versioned object and sets it in the key-value store
 func (s *Session) SetRegValidationSig(newVal []byte) error {
@@ -25,13 +25,13 @@ func (s *Session) SetRegValidationSig(newVal []byte) error {
 
 	// Construct the versioned object
 	vo := &VersionedObject{
-		Version:   currentVersion,
+		Version:   currentRegistrationVersion,
 		Timestamp: nowText,
 		Data:      newVal,
 	}
 
 	// Construct the key and place in the key-value store
-	key := MakeKeyPrefix("RegValidationSig", currentVersion)
+	key := MakeKeyPrefix("RegValidationSig", currentRegistrationVersion)
 
 	return s.kv.Set(key, vo)
 }
@@ -39,7 +39,7 @@ func (s *Session) SetRegValidationSig(newVal []byte) error {
 // GetRegValidationSig pulls the versioned object by the key and parses
 // it into the requested registration signature
 func (s *Session) GetRegValidationSig() ([]byte, error) {
-	key := MakeKeyPrefix("RegValidationSig", currentVersion)
+	key := MakeKeyPrefix("RegValidationSig", currentRegistrationVersion)
 
 	// Pull the object from the key-value store
 	voData, err := s.kv.Get(key)
@@ -47,9 +47,9 @@ func (s *Session) GetRegValidationSig() ([]byte, error) {
 		return nil, err
 	}
 
-	if voData.Version != currentVersion {
+	if voData.Version != currentRegistrationVersion {
 		globals.Log.WARN.Printf("Session.GetRegValidationSig: got unexpected version %v, expected version %v",
-			voData.Version, currentVersion)
+			voData.Version, currentRegistrationVersion)
 	}
 
 	return voData.Data, nil
@@ -63,7 +63,7 @@ func (s *Session) SetRegState(newVal int64) error {
 		return err
 	}
 
-	key := MakeKeyPrefix("RegState", currentVersion)
+	key := MakeKeyPrefix("RegState", currentRegistrationVersion)
 
 	var data []byte
 	data, err = json.Marshal(newVal)
@@ -72,7 +72,7 @@ func (s *Session) SetRegState(newVal int64) error {
 	}
 
 	obj := VersionedObject{
-		Version:   currentVersion,
+		Version:   currentRegistrationVersion,
 		Timestamp: now,
 		Data:      data,
 	}
@@ -84,7 +84,7 @@ func (s *Session) SetRegState(newVal int64) error {
 // it into the requested registration signature
 func (s *Session) GetRegState() (int64, error) {
 	// Construct the key from the
-	key := MakeKeyPrefix("RegState", currentVersion)
+	key := MakeKeyPrefix("RegState", currentRegistrationVersion)
 
 	// Pull the object from the key-value store
 	voData, err := s.kv.Get(key)
@@ -92,9 +92,9 @@ func (s *Session) GetRegState() (int64, error) {
 		return 0, err
 	}
 
-	if voData.Version != currentVersion {
+	if voData.Version != currentRegistrationVersion {
 		globals.Log.WARN.Printf("Session.GetRegState: got unexpected version %v, expected version %v",
-			voData.Version, currentVersion)
+			voData.Version, currentRegistrationVersion)
 	}
 
 	var data int64

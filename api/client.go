@@ -170,7 +170,12 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	cl.sessionV2 = io.SessionV2
 
 	regState, err := io.SessionV2.GetRegState()
+	// fixme !
 	if err != nil && os.IsNotExist(err) {
+		io.SessionV2.SetRegState(user.KeyGenComplete)
+		regState, _ = io.SessionV2.GetRegState()
+
+	} else if err != nil {
 		return nil, errors.Wrap(err, "Login: Could not login: Could not get regState")
 	}
 

@@ -60,7 +60,6 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
-	fmt.Printf("\n\n\n\n\n\nindeed\n\n\n")
 	io.SessionV2, _ = clientStorage.Init(".ekvapi", "test")
 	os.Exit(testMainWrapper(m))
 }

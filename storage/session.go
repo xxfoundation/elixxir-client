@@ -74,8 +74,10 @@ func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
 	key := "NodeKeys"
 	var nodeKeys map[string]user.NodeKeys
 
+	// Attempt to locate the keys map
 	v, err := s.kv.Get(key)
 	if err != nil {
+		// If the map doesn't exist, initialize it
 		ts, err := time.Now().MarshalText()
 		if err != nil {
 			return nil, err
@@ -94,9 +96,12 @@ func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		// Return newly-initialized map
 		return nodeKeys, nil
 	}
 
+	// If the map exists, return it
 	err = json.Unmarshal(v.Data, &nodeKeys)
 	return nodeKeys, err
 }
@@ -108,6 +113,7 @@ func (s *Session) GetNodeKeys(topology *connect.Circuit) ([]user.NodeKeys, error
 		return nil, err
 	}
 
+	// Build a list of NodeKeys from the map
 	keys := make([]user.NodeKeys, topology.Len())
 	for i := 0; i < topology.Len(); i++ {
 		keys[i] = nodeKeys[topology.GetNodeAtIndex(i).String()]

@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import (
@@ -30,20 +36,14 @@ func (s *Session) GetContact(name string) (*Contact, error) {
 }
 
 func (s *Session) SetContact(name string, record *Contact) error {
-	now, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
-
 	key := MakeKeyPrefix("Contact", currentContactVersion) + name
-	var data []byte
-	data, err = json.Marshal(record)
+	data, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
 	obj := VersionedObject{
 		Version:   currentContactVersion,
-		Timestamp: now,
+		Timestamp: time.Now(),
 		Data:      data,
 	}
 	return s.Set(key, &obj)

@@ -52,12 +52,8 @@ func (s *Session) GetLastMessageId() (string, error) {
 
 // Set the LastMessageID in the Session
 func (s *Session) SetLastMessageId(id string) error {
-	ts, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
 	vo := &VersionedObject{
-		Timestamp: ts,
+		Timestamp: time.Now(),
 		Data:      []byte(id),
 	}
 	return s.kv.Set("LastMessageID", vo)

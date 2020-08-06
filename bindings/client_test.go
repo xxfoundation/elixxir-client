@@ -141,6 +141,8 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
+
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	if err != nil {
 		t.Errorf("Registration failed: %s", err.Error())
@@ -303,6 +305,7 @@ func TestClient_GetRegState(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode)
@@ -311,10 +314,13 @@ func TestClient_GetRegState(t *testing.T) {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
 	}
 
-	if testClient.GetRegState() != int64(user.PermissioningComplete) {
+	regState, _ := io.SessionV2.GetRegState()
+	if regState != int64(user.PermissioningComplete) {
 		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
 			user.PermissioningComplete, testClient.GetRegState())
 	}
+
+	io.SessionV2.SetRegValidationSig([]byte("test"))
 
 	err = testClient.RegisterWithNodes()
 	if err != nil {

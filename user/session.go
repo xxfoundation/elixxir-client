@@ -493,11 +493,8 @@ func (s *SessionObj) SetRegState(rs uint32) error {
 }
 
 func (s *SessionObj) ChangeUsername(username string) error {
-	b := s.GetRegState()
-	if b != PermissioningComplete {
-		return errors.New("Can only change username during " +
-			"PermissioningComplete registration state")
-	}
+
+
 	s.CurrentUser.Username = username
 	return nil
 }

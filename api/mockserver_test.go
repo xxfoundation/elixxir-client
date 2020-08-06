@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/connect"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -61,6 +60,7 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
+	fmt.Printf("\n\n\n\n\n\nindeed\n\n\n")
 	io.SessionV2, _ = clientStorage.Init(".ekvapi", "test")
 	os.Exit(testMainWrapper(m))
 }
@@ -100,9 +100,8 @@ func TestClient_StartMessageReceiver_MultipleMessages(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
-	dirname := filepath.Dir(locA)
 
-	io.SessionV2, err = clientStorage.Init(dirname, "password")
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	_, err = client.RegisterWithPermissioning(true, ValidRegCode)
@@ -162,7 +161,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
-
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	// Register precanned user with all gateways
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
@@ -297,7 +296,7 @@ func TestSend(t *testing.T) {
 	}
 
 	err = client.GenerateKeys(nil, "password")
-
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	// Register with a valid registration code
 	userID, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
@@ -397,6 +396,8 @@ func TestLogout(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	_, err = client.RegisterWithPermissioning(true, ValidRegCode)

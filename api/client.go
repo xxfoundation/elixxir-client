@@ -33,6 +33,7 @@ import (
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	goio "io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -169,9 +170,10 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	cl.sessionV2 = io.SessionV2
 
 	regState, err := io.SessionV2.GetRegState()
-	if err != nil {
-		return nil, errors.Wrap(err, "Login: Could not login")
+	if err != nil && os.IsNotExist(err)  {
+		return nil, errors.Wrap(err, "Login: Could not login: Could not get regState")
 	}
+
 	if regState < user.KeyGenComplete {
 		return nil, errors.New("Cannot log a user in which has not " +
 			"completed registration ")

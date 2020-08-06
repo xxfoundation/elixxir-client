@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/crypto/tls"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/ndf"
+	"os"
 	"sync"
 	"time"
 )
@@ -64,6 +65,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		for n, k := range nodeKeyMap {
 			cl.session.PushNodeKey(&n, k)
 		}
+
 		//update the state
 		err = io.SessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
@@ -179,8 +181,8 @@ func (cl *Client) RegisterWithNodes() error {
 	usr := session.GetCurrentUser()
 	//Load the registration signature
 	regSignature, err := io.SessionV2.GetRegValidationSig()
-	if err != nil {
-		return err
+	if err != nil && !os.IsNotExist(err){
+		return errors.Errorf("Failed to get registration signature: %v", err)
 	}
 
 	// Storage of the registration signature was broken in previous releases.

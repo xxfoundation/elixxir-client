@@ -2,7 +2,7 @@ package storage
 
 import (
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 )

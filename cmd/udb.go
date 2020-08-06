@@ -9,7 +9,7 @@ package cmd
 import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"strings"
 	"time"
 )

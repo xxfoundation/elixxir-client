@@ -3,7 +3,7 @@ package storage
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 

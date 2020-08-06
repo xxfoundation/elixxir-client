@@ -3,7 +3,7 @@ package keyStore
 import (
 	"bytes"
 	"encoding/gob"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/gob"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
 

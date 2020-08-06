@@ -2,7 +2,7 @@ package user
 
 import (
 	"encoding/base32"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
 )
 

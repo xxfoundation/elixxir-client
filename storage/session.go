@@ -10,11 +10,11 @@ package storage
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
 	"testing"
 	"time"
 )
@@ -70,13 +70,33 @@ func (s *Session) SetLastMessageId(id string) error {
 }
 
 // Helper for obtaining NodeKeys map
-func (s *Session) getNodeKeys() (map[id.ID]user.NodeKeys, error) {
-	v, err := s.kv.Get("NodeKeys")
+func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
+	key := "NodeKeys"
+	var nodeKeys map[string]user.NodeKeys
+
+	v, err := s.kv.Get(key)
 	if err != nil {
-		return nil, err
+		ts, err := time.Now().MarshalText()
+		if err != nil {
+			return nil, err
+		}
+
+		nodeKeys = make(map[string]user.NodeKeys)
+		data, err := json.Marshal(nodeKeys)
+		if err != nil {
+			return nil, err
+		}
+		vo := &VersionedObject{
+			Timestamp: ts,
+			Data:      data,
+		}
+		err = s.kv.Set(key, vo)
+		if err != nil {
+			return nil, err
+		}
+		return nodeKeys, nil
 	}
 
-	var nodeKeys map[id.ID]user.NodeKeys
 	err = json.Unmarshal(v.Data, &nodeKeys)
 	return nodeKeys, err
 }
@@ -90,7 +110,7 @@ func (s *Session) GetNodeKeys(topology *connect.Circuit) ([]user.NodeKeys, error
 
 	keys := make([]user.NodeKeys, topology.Len())
 	for i := 0; i < topology.Len(); i++ {
-		keys[i] = nodeKeys[*topology.GetNodeAtIndex(i)]
+		keys[i] = nodeKeys[topology.GetNodeAtIndex(i).String()]
 	}
 
 	return keys, nil
@@ -105,7 +125,7 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	}
 
 	// Set new value inside of map
-	nodeKeys[*id] = key
+	nodeKeys[id.String()] = key
 
 	// Marshal the map
 	pushValue, err := json.Marshal(nodeKeys)

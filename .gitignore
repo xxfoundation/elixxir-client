@@ -32,3 +32,5 @@ localdev_*
 .*test*
 *.1
 *.2
+# Ignore temp files
+*.bak

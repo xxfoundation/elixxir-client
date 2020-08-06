@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
@@ -22,9 +23,9 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/xx"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 )
 
 const PermissioningAddrID = "Permissioning"
@@ -208,16 +209,15 @@ func (cl *Client) confirmNonce(UID, nonce []byte,
 	return nil
 }
 
-func (cl *Client) registerUserE2E(partnerID *id.ID,
-	partnerPubKey []byte) error {
+func (cl *Client) registerUserE2E(partner *storage.Contact) error {
 
 	// Check that the returned user is valid
-	if partnerKeyStore := cl.session.GetKeyStore().GetSendManager(partnerID); partnerKeyStore != nil {
+	if partnerKeyStore := cl.session.GetKeyStore().GetSendManager(partner.Id); partnerKeyStore != nil {
 		return errors.New(fmt.Sprintf("UDB searched failed for %v because user has "+
-			"been searched for before", partnerID))
+			"been searched for before", partner.Id))
 	}
 
-	if cl.session.GetCurrentUser().User.Cmp(partnerID) {
+	if cl.session.GetCurrentUser().User.Cmp(partner.Id) {
 		return errors.New("cannot search for yourself on UDB")
 	}
 
@@ -228,11 +228,11 @@ func (cl *Client) registerUserE2E(partnerID *id.ID,
 	// Create user private key and partner public key
 	// in the group
 	privKeyCyclic := cl.session.GetE2EDHPrivateKey()
-	partnerPubKeyCyclic := grp.NewIntFromBytes(partnerPubKey)
+	publicKeyCyclic := grp.NewIntFromBytes(partner.PublicKey)
 
 	// Generate baseKey
 	baseKey, _ := diffieHellman.CreateDHSessionKey(
-		partnerPubKeyCyclic,
+		publicKeyCyclic,
 		privKeyCyclic,
 		grp)
 
@@ -243,7 +243,7 @@ func (cl *Client) registerUserE2E(partnerID *id.ID,
 
 	// Create Send KeyManager
 	km := keyStore.NewManager(baseKey, privKeyCyclic,
-		partnerPubKeyCyclic, partnerID, true,
+		publicKeyCyclic, partner.Id, true,
 		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Send Keys
@@ -252,7 +252,7 @@ func (cl *Client) registerUserE2E(partnerID *id.ID,
 
 	// Create Receive KeyManager
 	km = keyStore.NewManager(baseKey, privKeyCyclic,
-		partnerPubKeyCyclic, partnerID, false,
+		publicKeyCyclic, partner.Id, false,
 		numKeys, keysTTL, params.NumRekeys)
 
 	// Generate Receive Keys
@@ -265,10 +265,10 @@ func (cl *Client) registerUserE2E(partnerID *id.ID,
 
 	keys := &keyStore.RekeyKeys{
 		CurrPrivKey: privKeyCyclic,
-		CurrPubKey:  partnerPubKeyCyclic,
+		CurrPubKey:  publicKeyCyclic,
 	}
 
-	rkm.AddKeys(partnerID, keys)
+	rkm.AddKeys(partner.Id, keys)
 
 	return nil
 }

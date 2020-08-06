@@ -28,10 +28,10 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/tls"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	goio "io"
 	"os"
 	"path/filepath"
@@ -448,30 +448,28 @@ type SearchCallback interface {
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback, timeout time.Duration) {
 	//see if the user has been searched before, if it has, return it
-	uid, pk := cl.session.GetContactByValue(emailAddress)
+	contact, err := cl.sessionV2.GetContact(emailAddress)
 
-	if uid != nil {
-		cb.Callback(uid.Bytes(), pk, nil)
+	// if we successfully got the contact, return it.
+	// errors can include the email address not existing,
+	// so errors from the GetContact call are ignored
+	if contact != nil && err == nil {
+		cb.Callback(contact.Id.Bytes(), contact.PublicKey, nil)
+		return
 	}
 
 	valueType := "EMAIL"
 	go func() {
-		uid, pubKey, err := bots.Search(valueType, emailAddress, cl.opStatus, timeout)
-		if err == nil && uid != nil && pubKey != nil {
+		contact, err := bots.Search(valueType, emailAddress, cl.opStatus, timeout)
+		if err == nil && contact.Id != nil && contact.PublicKey != nil {
 			cl.opStatus(globals.UDB_SEARCH_BUILD_CREDS)
-			err = cl.registerUserE2E(uid, pubKey)
+			err = cl.registerUserE2E(contact)
 			if err != nil {
-				cb.Callback(uid[:], pubKey, err)
+				cb.Callback(contact.Id.Bytes(), contact.PublicKey, err)
 				return
 			}
 			//store the user so future lookups can find it
-			cl.session.StoreContactByValue(emailAddress, uid, pubKey)
-
-			err = cl.session.StoreSession()
-			if err != nil {
-				cb.Callback(uid[:], pubKey, err)
-				return
-			}
+			err = cl.sessionV2.SetContact(emailAddress, contact)
 
 			// If there is something in the channel then send it; otherwise,
 			// skip over it
@@ -480,7 +478,7 @@ func (cl *Client) SearchForUser(emailAddress string,
 			default:
 			}
 
-			cb.Callback(uid[:], pubKey, err)
+			cb.Callback(contact.Id.Bytes(), contact.PublicKey, err)
 
 		} else {
 			if err == nil {

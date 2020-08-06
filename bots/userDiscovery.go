@@ -16,8 +16,9 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"strings"
 	"time"
 )
@@ -38,7 +39,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 	if valueType == "EMAIL" {
 		value, err = hashAndEncode(strings.ToLower(value))
 		if err != nil {
-			return fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
+			return fmt.Errorf("could not hash and encode email %s: %+v", value, err)
 		}
 	}
 
@@ -114,7 +115,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 // Search returns a userID and public key based on the search criteria
 // it accepts a valueType of EMAIL and value of an e-mail address, and
 // returns a map of userid -> public key
-func Search(valueType, value string, searchStatus func(int), timeout time.Duration) (*id.ID, []byte, error) {
+func Search(valueType, value string, searchStatus func(int), timeout time.Duration) (*storage.Contact, error) {
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 
 	searchTimeout := time.NewTimer(timeout)
@@ -123,7 +124,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	if valueType == "EMAIL" {
 		value, err = hashAndEncode(strings.ToLower(value))
 		if err != nil {
-			return nil, nil, fmt.Errorf("Could not hash and encode email %s: %+v", value, err)
+			return nil, fmt.Errorf("could not hash and encode email %s: %+v", value, err)
 		}
 	}
 
@@ -135,7 +136,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	})
 	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var response string
@@ -149,20 +150,20 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 		case response = <-searchResponseListener:
 			empty := fmt.Sprintf("SEARCH %s NOTFOUND", value)
 			if response == empty {
-				return nil, nil, nil
+				return nil, nil
 			}
 			if strings.Contains(response, value) {
 				found = true
 			}
 		case <-searchTimeout.C:
-			return nil, nil, errors.New("UDB search timeout exceeded on user lookup")
+			return nil, errors.New("UDB search timeout exceeded on user lookup")
 		}
 	}
 
 	// While search returns more than 1 result, we only process the first
 	cMixUID, keyFP, err := parseSearch(response)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	searchStatus(globals.UDB_SEARCH_GETKEY)
@@ -174,7 +175,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	})
 	err = sendCommand(&id.UDB, msgBody)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// wait for the response to searching for the key against the timeout.
@@ -187,13 +188,16 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 				found = true
 			}
 		case <-searchTimeout.C:
-			return nil, nil, errors.New("UDB search timeout exceeded on key lookup")
+			return nil, errors.New("UDB search timeout exceeded on key lookup")
 		}
 	}
 
 	publicKey := parseGetKey(response)
 
-	return cMixUID, publicKey, nil
+	return &storage.Contact{
+		Id:        cMixUID,
+		PublicKey: publicKey,
+	}, nil
 }
 
 func hashAndEncode(s string) (string, error) {

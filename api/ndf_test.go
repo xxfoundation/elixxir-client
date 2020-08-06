@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/ndf"
+	"gitlab.com/xx_network/primitives/ndf"
 	"reflect"
 	"testing"
 )

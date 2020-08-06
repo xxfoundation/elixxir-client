@@ -9,7 +9,9 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/ekv"
+	"testing"
 	"time"
 )
 
@@ -61,4 +63,23 @@ func (s *Session) SetLastMessageId(id string) error {
 		Data:      []byte(id),
 	}
 	return s.kv.Set("LastMessageID", vo)
+}
+
+// Initializes a Session object wrapped around a MemStore object.
+// FOR TESTING ONLY
+func InitTestingSession(i interface{}) *Session {
+	switch i.(type) {
+	case *testing.T:
+		break
+	case *testing.M:
+		break
+	case *testing.B:
+		break
+	default:
+		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
+	}
+
+	store := make(ekv.Memstore)
+	return &Session{NewVersionedKV(store)}
+
 }

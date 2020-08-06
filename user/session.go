@@ -20,9 +20,9 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -394,15 +394,17 @@ func (s *SessionObj) PushNodeKey(id *id.ID, key NodeKeys) {
 func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
 	s.LockStorage()
 	defer s.UnlockStorage()
-	err := s.SetRegState(PermissioningComplete)
-	if err != nil {
-		return errors.Wrap(err, "Could not store permissioning signature")
-	}
 
-	s.RegValidationSignature = sig
+	// fixme remove the below
+	//err := s.SetRegState(PermissioningComplete)
+	//if err != nil {
+	//	return errors.Wrap(err, "Could not store permissioning signature")
+	//}
+	//
+	//s.RegValidationSignature = sig
 
 	//storing to ensure we never loose the signature
-	err = s.storeSession()
+	err := s.storeSession()
 
 	return err
 }
@@ -491,11 +493,7 @@ func (s *SessionObj) SetRegState(rs uint32) error {
 }
 
 func (s *SessionObj) ChangeUsername(username string) error {
-	b := s.GetRegState()
-	if b != PermissioningComplete {
-		return errors.New("Can only change username during " +
-			"PermissioningComplete registration state")
-	}
+
 	s.CurrentUser.Username = username
 	return nil
 }

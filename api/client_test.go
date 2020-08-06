@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -22,7 +23,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 	"time"
@@ -177,7 +178,13 @@ func TestRegisterUserE2E(t *testing.T) {
 
 	testClient.session = session
 
-	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
+	err = testClient.registerUserE2E(&storage.Contact{
+		Id:        partner,
+		PublicKey: partnerPubKeyCyclic.Bytes(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Confirm we can get all types of keys
 	km := session.GetKeyStore().GetSendManager(partner)
@@ -243,7 +250,7 @@ func TestRegisterUserE2E(t *testing.T) {
 func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-testrege2e-allkeys", "", def)
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 
 	cmixGrp, e2eGrp := getGroups()
@@ -268,7 +275,13 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 
 	testClient.session = session
 
-	testClient.registerUserE2E(partner, partnerPubKeyCyclic.Bytes())
+	err = testClient.registerUserE2E(&storage.Contact{
+		Id:        partner,
+		PublicKey: partnerPubKeyCyclic.Bytes(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Generate all keys and confirm they all match
 	keyParams := testClient.GetKeyParams()
@@ -712,8 +725,8 @@ func TestClient_LogoutTimeout(t *testing.T) {
 // Test that if we logout we can logback in.
 func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	//Initialize a client
-	storage := &DummyStorage{LocationA: ".ekv-logoutlogin", StoreA: []byte{'a', 'b', 'c'}}
-	tc, err := NewClient(storage, ".ekv-logoutlogin", "", def)
+	dummyStorage := &DummyStorage{LocationA: ".ekv-logoutlogin", StoreA: []byte{'a', 'b', 'c'}}
+	tc, err := NewClient(dummyStorage, ".ekv-logoutlogin", "", def)
 	if err != nil {
 		t.Errorf("Failed to create new client: %+v", err)
 	}
@@ -750,7 +763,7 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	}
 
 	//Redefine client with old session files and attempt to login.
-	tc, err = NewClient(storage, ".ekv-logoutlogin", "", def)
+	tc, err = NewClient(dummyStorage, ".ekv-logoutlogin", "", def)
 	if err != nil {
 		t.Errorf("Failed second client initialization: %+v", err)
 	}
@@ -758,6 +771,8 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	if err != nil {
 		t.Fatalf("InitNetwork should have succeeded when creating second client %v", err)
 	}
+
+	io.SessionV2.SetRegState(user.PermissioningComplete)
 
 	_, err = tc.Login("password")
 	if err != nil {

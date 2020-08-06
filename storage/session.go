@@ -11,9 +11,11 @@ package storage
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/xx_network/comms/connect"
+	"testing"
 	"time"
 )
 
@@ -121,4 +123,23 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 		Data:      pushValue,
 	}
 	return s.kv.Set("NodeKeys", vo)
+}
+
+// Initializes a Session object wrapped around a MemStore object.
+// FOR TESTING ONLY
+func InitTestingSession(i interface{}) *Session {
+	switch i.(type) {
+	case *testing.T:
+		break
+	case *testing.M:
+		break
+	case *testing.B:
+		break
+	default:
+		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
+	}
+
+	store := make(ekv.Memstore)
+	return &Session{NewVersionedKV(store)}
+
 }

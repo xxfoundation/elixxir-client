@@ -25,10 +25,10 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"math/rand"
 	"os"
 	"reflect"
@@ -140,6 +140,8 @@ func TestRegister(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	if err != nil {
@@ -303,6 +305,7 @@ func TestClient_GetRegState(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode)
@@ -311,10 +314,13 @@ func TestClient_GetRegState(t *testing.T) {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
 	}
 
-	if testClient.GetRegState() != int64(user.PermissioningComplete) {
+	regState, _ := io.SessionV2.GetRegState()
+	if regState != int64(user.PermissioningComplete) {
 		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
 			user.PermissioningComplete, testClient.GetRegState())
 	}
+
+	io.SessionV2.SetRegValidationSig([]byte("test"))
 
 	err = testClient.RegisterWithNodes()
 	if err != nil {
@@ -342,6 +348,8 @@ func TestClient_Send(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode)
@@ -424,6 +432,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	loginRes, err2 := client.Login(regRes, "password")
 	if err2 != nil {
@@ -472,6 +481,7 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 	_, err = client.Login(regRes, "password")
 
@@ -519,6 +529,7 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	_, err = client.Login(regRes, "password")

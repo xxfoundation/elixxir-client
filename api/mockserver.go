@@ -19,10 +19,10 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/id"
-	"gitlab.com/elixxir/primitives/ndf"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"time"
 )
@@ -353,7 +353,6 @@ func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.ID,
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
 func (m *GatewayHandlerMultipleMessages) PutMessage(msg *pb.GatewaySlot, ipaddr string) (*pb.GatewaySlotResponse, error) {
-	fmt.Printf("multiMessages\n\n\n")
 	for i := 0; i < BatchSize; i++ {
 		msg.Message.Index = uint32(i)
 		m.LastReceivedMessage = append(m.LastReceivedMessage, *msg.Message)

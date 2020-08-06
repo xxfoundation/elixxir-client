@@ -8,9 +8,10 @@ package api
 import (
 	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/primitives/id"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
 
@@ -30,6 +31,8 @@ func TestRegistrationGob(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
+
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// populate a gob in the store
 	_, err = testClient.RegisterWithPermissioning(true, "WTROXJ33")
@@ -74,6 +77,8 @@ func TestClient_Register(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	// fixme please (and all other places where this call is above RegisterWithPermissioning in tests)
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	// populate a gob in the store
 	_, err = testClient.RegisterWithPermissioning(true, "WTROXJ33")
 	if err != nil {
@@ -146,6 +151,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	// Register precanned user with all gateways
 	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode)
 	if err != nil {

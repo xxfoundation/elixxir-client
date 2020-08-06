@@ -494,7 +494,6 @@ func (s *SessionObj) SetRegState(rs uint32) error {
 
 func (s *SessionObj) ChangeUsername(username string) error {
 
-
 	s.CurrentUser.Username = username
 	return nil
 }

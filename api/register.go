@@ -19,9 +19,9 @@ import (
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/crypto/tls"
-	"os"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"os"
 	"sync"
 	"time"
 )
@@ -181,7 +181,7 @@ func (cl *Client) RegisterWithNodes() error {
 	usr := session.GetCurrentUser()
 	//Load the registration signature
 	regSignature, err := io.SessionV2.GetRegValidationSig()
-	if err != nil && !os.IsNotExist(err){
+	if err != nil && !os.IsNotExist(err) {
 		return errors.Errorf("Failed to get registration signature: %v", err)
 	}
 

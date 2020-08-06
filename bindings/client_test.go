@@ -349,6 +349,8 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
+
 	// Register with a valid registration code
 	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode)
 
@@ -430,6 +432,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	loginRes, err2 := client.Login(regRes, "password")
 	if err2 != nil {
@@ -478,6 +481,7 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 	_, err = client.Login(regRes, "password")
 
@@ -525,6 +529,7 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
+	io.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	_, err = client.Login(regRes, "password")

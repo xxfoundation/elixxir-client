@@ -83,6 +83,7 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 	return newClient(s, locA, locB, ndfJSON, sendFunc)
 }
 
+// setStorage is a helper to initialize the new session storage
 func (cl *Client) setStorage(locA, password string) error {
 	// TODO: FIX ME
 	// While the old session is still valid, we are using the LocA storage to initialize the session
@@ -91,10 +92,18 @@ func (cl *Client) setStorage(locA, password string) error {
 	var err error
 	io.SessionV2, err = storage.Init(dirname, password)
 	if err != nil {
-		return errors.Wrap(err, "Login: could not initialize v2 storage")
+		return errors.Wrapf(err, "could not initialize v2 "+
+			"storage at %s", locA)
 	}
 	clientcrypto.SessionV2 = io.SessionV2
 	cl.sessionV2 = io.SessionV2
+
+	// FIXME: Client storage must have regstate set
+	_, err = cl.sessionV2.GetRegState()
+	if os.IsNotExist(err) {
+		cl.sessionV2.SetRegState(user.KeyGenComplete)
+	}
+
 	return nil
 }
 
@@ -181,16 +190,12 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	}
 
 	regState, err := cl.sessionV2.GetRegState()
-	// fixme !
-	if err != nil && os.IsNotExist(err) {
-		io.SessionV2.SetRegState(user.KeyGenComplete)
-		regState, _ = io.SessionV2.GetRegState()
-
-	} else if err != nil {
-		return nil, errors.Wrap(err, "Login: Could not login: Could not get regState")
+	if err != nil {
+		return nil, errors.Wrap(err,
+			"Login: Could not login: Could not get regState")
 	}
 
-	if regState < user.KeyGenComplete {
+	if regState <= user.KeyGenComplete {
 		return nil, errors.New("Cannot log a user in which has not " +
 			"completed registration ")
 	}
@@ -619,7 +624,7 @@ func (cl *Client) GetSession() user.Session {
 	return cl.session
 }
 
-// GetSession returns the session object for external access.  Access at yourx
+// GetSessionV2 returns the session object for external access.  Access at yourx
 // own risk
 func (cl *Client) GetSessionV2() *storage.Session {
 	return cl.sessionV2

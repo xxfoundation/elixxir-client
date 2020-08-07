@@ -70,8 +70,8 @@ func (s *Session) SetLastMessageId(id string) error {
 	return s.kv.Set("LastMessageID", vo)
 }
 
-// Helper for obtaining NodeKeys map
-func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
+// GetNodeKeys returns all keys
+func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 	key := "NodeKeys"
 	var nodeKeys map[string]user.NodeKeys
 
@@ -116,9 +116,10 @@ func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
 	return nodeKeys, err
 }
 
-// Obtain NodeKeys from the Session
-func (s *Session) GetNodeKeys(topology *connect.Circuit) ([]user.NodeKeys, error) {
-	nodeKeys, err := s.getNodeKeys()
+// GetNodeKeysFromCircuit obtains NodeKeys for a given circuit
+func (s *Session) GetNodeKeysFromCircuit(topology *connect.Circuit) (
+	[]user.NodeKeys, error) {
+	nodeKeys, err := s.GetNodeKeys()
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +136,7 @@ func (s *Session) GetNodeKeys(topology *connect.Circuit) ([]user.NodeKeys, error
 // Set NodeKeys in the Session
 func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	// Obtain NodeKeys map
-	nodeKeys, err := s.getNodeKeys()
+	nodeKeys, err := s.GetNodeKeys()
 	if err != nil {
 		return err
 	}

@@ -102,7 +102,7 @@ func TestSession_GetPushNodeKeys(t *testing.T) {
 	}
 
 	circ := connect.NewCircuit([]*id.ID{testId, testId2})
-	results, err := s.GetNodeKeys(circ)
+	results, err := s.GetNodeKeysFromCircuit(circ)
 
 	if len(results) != 2 {
 		t.Errorf("Returned unexpected number of node keys: %d", len(results))

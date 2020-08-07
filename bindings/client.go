@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
-	clientIo "gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
@@ -257,7 +256,7 @@ func (cl *Client) backoff(backoffCount int) {
 func (cl *Client) ChangeUsername(un string) error {
 	globals.Log.INFO.Printf("Binding call: ChangeUsername()\n"+
 		"   username: %s", un)
-	regState, err := clientIo.SessionV2.GetRegState()
+	regState, err := cl.client.GetSessionV2().GetRegState()
 	if err != nil {
 		return errors.New(fmt.Sprintf("Could not get reg state: %v", err))
 	}

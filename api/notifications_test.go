@@ -61,8 +61,8 @@ jR+QSAa9eEozCngV6LUagC0YYWDZ
 // Happy path
 func TestClient_RegisterForNotifications(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: ".ekv-registernotifications", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, ".ekv-registernotifications", "", def)
+	storage := DummyStorage{LocationA: ".ekv-registernotifications/a", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-registernotifications/a", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 		return
@@ -96,8 +96,8 @@ func TestClient_RegisterForNotifications(t *testing.T) {
 // Happy path
 func TestClient_UnregisterForNotifications(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: ".ekv-unregisternotifications", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, ".ekv-unregisternotifications", "", def)
+	storage := DummyStorage{LocationA: ".ekv-unregisternotifications/a", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-unregisternotifications/a", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}

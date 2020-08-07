@@ -27,7 +27,7 @@ var SessionV2 *storage.Session
 func CMIXEncrypt(session user.Session, topology *connect.Circuit, salt []byte,
 	msg *format.Message) (*format.Message, [][]byte) {
 	// Generate the encryption key
-	nodeKeys, err := SessionV2.GetNodeKeys(topology)
+	nodeKeys, err := SessionV2.GetNodeKeysFromCircuit(topology)
 	if err != nil {
 		globals.Log.FATAL.Panicf("could not get nodeKeys: %+v", err)
 	}

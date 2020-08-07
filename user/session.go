@@ -57,7 +57,6 @@ type Session interface {
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
 	GetRegistrationValidationSignature() []byte
-	GetNodes() map[id.ID]int
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
 	GetSalt() []byte
@@ -343,16 +342,6 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.LockStorage()
 	s.LastMessageID = id
 	s.UnlockStorage()
-}
-
-func (s *SessionObj) GetNodes() map[id.ID]int {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	nodes := make(map[id.ID]int, 0)
-	for node := range s.NodeKeys {
-		nodes[node] = 1
-	}
-	return nodes
 }
 
 func (s *SessionObj) GetSalt() []byte {

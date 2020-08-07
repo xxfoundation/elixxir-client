@@ -96,7 +96,8 @@ func (d *DummyStorage) SetLocation(lA, lB string) error {
 }
 
 func (d *DummyStorage) GetLocation() (string, string) {
-	//return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
+	fmt.Printf("LOCATION LOCATION LOCATION: %s,%s\n\n", d.LocationA,
+		d.LocationB)
 	return d.LocationA, d.LocationB
 }
 

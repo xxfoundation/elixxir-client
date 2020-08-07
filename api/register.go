@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"os"
 	"sync"
 	"time"
 )
@@ -30,12 +31,16 @@ const SaltSize = 32
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.ID, error) {
 	//Check the regState is in proper state for registration
-	if cl.session.GetRegState() != user.KeyGenComplete {
+	regState, err := cl.sessionV2.GetRegState()
+	if err != nil {
+		return nil, err
+	}
+
+	if regState != user.KeyGenComplete {
 		return nil, errors.Errorf("Attempting to register before key generation!")
 	}
 	usr := cl.session.GetCurrentUser()
 	UID := usr.User
-	var err error
 
 	//Initialized response from Registration Server
 	regValidationSignature := make([]byte, 0)
@@ -57,12 +62,13 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 
 		//store the node keys
 		for n, k := range nodeKeyMap {
-			cl.session.PushNodeKey(&n, k)
+			cl.sessionV2.PushNodeKey(&n, k)
 		}
+
 		//update the state
-		err := cl.session.SetRegState(user.PermissioningComplete)
+		err = cl.sessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
-			return nil, errors.Wrap(err, "Could not do precanned registration")
+			return &id.ZeroUser, err
 		}
 
 	} else {
@@ -73,11 +79,16 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 			return &id.ZeroUser, err
 		}
 		//update the session with the registration
-		err = cl.session.RegisterPermissioningSignature(regValidationSignature)
-
+		err = cl.sessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
 			return nil, err
 		}
+
+		err = cl.sessionV2.SetRegValidationSig(regValidationSignature)
+		if err != nil {
+			return nil, err
+		}
+
 	}
 
 	//Set the registration secure state
@@ -97,15 +108,15 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error {
-
-	regState := cl.GetSession().GetRegState()
+	regState, err := cl.sessionV2.GetRegState()
+	if err != nil {
+		return err
+	}
 
 	if regState != user.PermissioningComplete {
 		return errors.New("Cannot register with UDB when registration " +
 			"state is not PermissioningComplete")
 	}
-
-	var err error
 
 	if username != "" {
 		err := cl.session.ChangeUsername(username)
@@ -129,8 +140,7 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 	}
 
 	//set the registration state
-	err = cl.session.SetRegState(user.UDBComplete)
-
+	err = cl.sessionV2.SetRegState(user.UDBComplete)
 	if err != nil {
 		return errors.Wrap(err, "UDB Registration Failed")
 	}
@@ -169,7 +179,10 @@ func (cl *Client) RegisterWithNodes() error {
 	UID := session.GetCurrentUser().User
 	usr := session.GetCurrentUser()
 	//Load the registration signature
-	regSignature := session.GetRegistrationValidationSignature()
+	regSignature, err := cl.sessionV2.GetRegValidationSig()
+	if err != nil && !os.IsNotExist(err) {
+		return errors.Errorf("Failed to get registration signature: %v", err)
+	}
 
 	// Storage of the registration signature was broken in previous releases.
 	// get the signature again from permissioning if it is absent
@@ -194,7 +207,11 @@ func (cl *Client) RegisterWithNodes() error {
 		//update the session with the registration
 		//HACK HACK HACK
 		sesObj := cl.session.(*user.SessionObj)
-		sesObj.RegValidationSignature = regSignature
+		err = cl.sessionV2.SetRegValidationSig(regSignature)
+		if err != nil {
+			return err
+		}
+
 		err = sesObj.StoreSession()
 
 		if err != nil {
@@ -206,8 +223,10 @@ func (cl *Client) RegisterWithNodes() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
-	//Get the registered node keys
-	registeredNodes := session.GetNodes()
+	registeredNodes, err := cl.sessionV2.GetNodeKeys()
+	if err != nil {
+		return err
+	}
 
 	salt := session.GetSalt()
 
@@ -219,10 +238,10 @@ func (cl *Client) RegisterWithNodes() error {
 		localI := i
 		nodeID, err := id.Unmarshal(cl.ndf.Nodes[i].ID)
 		if err != nil {
-			return err
+			return nil
 		}
 		//Register with node if the node has not been registered with already
-		if _, ok := registeredNodes[*nodeID]; !ok {
+		if _, ok := registeredNodes[nodeID.String()]; !ok {
 			wg.Add(1)
 			newRegistrations = true
 			go func() {
@@ -313,7 +332,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 			cmixPrivateKeyDH, receptionHash),
 	}
-	cl.session.PushNodeKey(nodeID, key)
+	cl.sessionV2.PushNodeKey(nodeID, key)
 }
 
 //registerWithPermissioning serves as a helper function for RegisterWithPermissioning.

@@ -9,10 +9,12 @@ package bindings
 import (
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
@@ -254,6 +256,14 @@ func (cl *Client) backoff(backoffCount int) {
 func (cl *Client) ChangeUsername(un string) error {
 	globals.Log.INFO.Printf("Binding call: ChangeUsername()\n"+
 		"   username: %s", un)
+	regState, err := cl.client.GetSessionV2().GetRegState()
+	if err != nil {
+		return errors.New(fmt.Sprintf("Could not get reg state: %v", err))
+	}
+	if regState != user.PermissioningComplete {
+		return errors.New("Can only change username during " +
+			"PermissioningComplete registration state")
+	}
 	return cl.client.GetSession().ChangeUsername(un)
 }
 

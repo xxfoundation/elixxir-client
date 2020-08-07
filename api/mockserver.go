@@ -96,7 +96,8 @@ func (d *DummyStorage) SetLocation(lA, lB string) error {
 }
 
 func (d *DummyStorage) GetLocation() (string, string) {
-	//return fmt.Sprintf("%s,%s", d.LocationA, d.LocationB)
+	fmt.Printf("LOCATION LOCATION LOCATION: %s,%s\n\n", d.LocationA,
+		d.LocationB)
 	return d.LocationA, d.LocationB
 }
 
@@ -353,7 +354,6 @@ func (m *GatewayHandlerMultipleMessages) CheckMessages(userId *id.ID,
 // PutMessage adds a message to the outgoing queue and
 // calls SendBatch when it's size is the batch size
 func (m *GatewayHandlerMultipleMessages) PutMessage(msg *pb.GatewaySlot, ipaddr string) (*pb.GatewaySlotResponse, error) {
-	fmt.Printf("multiMessages\n\n\n")
 	for i := 0; i < BatchSize; i++ {
 		msg.Message.Index = uint32(i)
 		m.LastReceivedMessage = append(m.LastReceivedMessage, *msg.Message)

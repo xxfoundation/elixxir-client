@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
+	clientcrypto "gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
@@ -33,6 +34,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	goio "io"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -79,6 +81,30 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 		globals.Log.FATAL.Panicf("GenerateId is restricted to testing only. Got %T", i)
 	}
 	return newClient(s, locA, locB, ndfJSON, sendFunc)
+}
+
+// setStorage is a helper to initialize the new session storage
+func (cl *Client) setStorage(locA, password string) error {
+	// TODO: FIX ME
+	// While the old session is still valid, we are using the LocA storage to initialize the session
+	dirname := filepath.Dir(locA)
+	//FIXME: We need to accept the user's password here!
+	var err error
+	io.SessionV2, err = storage.Init(dirname, password)
+	if err != nil {
+		return errors.Wrapf(err, "could not initialize v2 "+
+			"storage at %s", locA)
+	}
+	clientcrypto.SessionV2 = io.SessionV2
+	cl.sessionV2 = io.SessionV2
+
+	// FIXME: Client storage must have regstate set
+	_, err = cl.sessionV2.GetRegState()
+	if os.IsNotExist(err) {
+		cl.sessionV2.SetRegState(user.KeyGenComplete)
+	}
+
+	return nil
 }
 
 // Creates a new Client using the storage mechanism provided.
@@ -155,22 +181,24 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	if session == nil {
 		return nil, errors.New("Unable to load session, no error reported")
 	}
-	if session.GetRegState() < user.KeyGenComplete {
+
+	cl.session = session
+	locA, _ := cl.storage.GetLocation()
+	err = cl.setStorage(locA, password)
+	if err != nil {
+		return nil, err
+	}
+
+	regState, err := cl.sessionV2.GetRegState()
+	if err != nil {
+		return nil, errors.Wrap(err,
+			"Login: Could not login: Could not get regState")
+	}
+
+	if regState <= user.KeyGenComplete {
 		return nil, errors.New("Cannot log a user in which has not " +
 			"completed registration ")
 	}
-
-	cl.session = session
-
-	// TODO: FIX ME
-	// While the old session is still valid, we are using the LocA storage to initialize the session
-	locA, _ := cl.storage.GetLocation()
-	dirname := filepath.Dir(locA)
-	io.SessionV2, err = storage.Init(dirname, password)
-	if err != nil {
-		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
-	}
-	cl.sessionV2 = io.SessionV2
 
 	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
 		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
@@ -594,6 +622,12 @@ func SetLogOutput(w goio.Writer) {
 // own risk
 func (cl *Client) GetSession() user.Session {
 	return cl.session
+}
+
+// GetSessionV2 returns the session object for external access.  Access at yourx
+// own risk
+func (cl *Client) GetSessionV2() *storage.Session {
+	return cl.sessionV2
 }
 
 // ReceptionManager returns the comm manager object for external access.  Access

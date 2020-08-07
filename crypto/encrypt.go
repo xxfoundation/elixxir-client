@@ -8,6 +8,7 @@ package crypto
 
 import (
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -17,16 +18,23 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 )
 
+// TODO: REMOVE ME
+var SessionV2 *storage.Session
+
 // CMIX Encrypt performs the encryption
 // of the msg to a team of nodes
 // It returns a new msg
 func CMIXEncrypt(session user.Session, topology *connect.Circuit, salt []byte,
 	msg *format.Message) (*format.Message, [][]byte) {
 	// Generate the encryption key
-	nodeKeys := session.GetNodeKeys(topology)
+	nodeKeys, err := SessionV2.GetNodeKeysFromCircuit(topology)
+	if err != nil {
+		globals.Log.FATAL.Panicf("could not get nodeKeys: %+v", err)
+	}
 
 	baseKeys := make([]*cyclic.Int, len(nodeKeys))
 	for i, key := range nodeKeys {
+		globals.Log.WARN.Printf("NodeKey for %d: %v", i, key.TransmissionKey)
 		baseKeys[i] = key.TransmissionKey
 	}
 

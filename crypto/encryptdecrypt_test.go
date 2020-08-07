@@ -9,6 +9,8 @@ package crypto
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
@@ -71,6 +73,8 @@ func setup() {
 		nil, nil, nil,
 		nil, nil, cmixGrp, e2eGrp, "password")
 
+	SessionV2, _ = storage.Init(".ekvcryptotest", "password")
+
 	for i := 0; i < numNodes; i++ {
 
 		nk := user.NodeKeys{}
@@ -85,7 +89,9 @@ func setup() {
 		cmix.NodeKeyGen(cmixGrp, h.Sum(nil), nk.TransmissionKey, tempKey)
 		cmixGrp.Mul(serverPayloadBKey, tempKey, serverPayloadBKey)
 
-		session.PushNodeKey(topology.GetNodeAtIndex(i), nk)
+		SessionV2.PushNodeKey(topology.GetNodeAtIndex(i), nk)
+		fmt.Printf("Saved NodeKey: %s, %v", topology.GetNodeAtIndex(i),
+			nk.TransmissionKey)
 
 	}
 

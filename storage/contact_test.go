@@ -16,7 +16,7 @@ import (
 // Show that all fields of a searched user record get stored
 func TestSession_Contact(t *testing.T) {
 	store := make(ekv.Memstore)
-	session := &Session{NewVersionedKV(store)}
+	session := &Session{kv: NewVersionedKV(store)}
 
 	expectedRecord := &Contact{
 		Id:        id.NewIdFromUInt(24601, id.User, t),

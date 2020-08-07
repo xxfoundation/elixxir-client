@@ -50,7 +50,7 @@ func (s *Session) Set(key string, object *VersionedObject) error {
 
 // Obtain the LastMessageID from the Session
 func (s *Session) GetLastMessageId() (string, error) {
-	v, err := s.kv.Get("LastMessageID")
+	v, err := s.Get("LastMessageID")
 	if v == nil || err != nil {
 		return "", nil
 	}
@@ -67,7 +67,7 @@ func (s *Session) SetLastMessageId(id string) error {
 		Timestamp: ts,
 		Data:      []byte(id),
 	}
-	return s.kv.Set("LastMessageID", vo)
+	return s.Set("LastMessageID", vo)
 }
 
 // GetNodeKeys returns all keys
@@ -76,7 +76,7 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 	var nodeKeys map[string]user.NodeKeys
 
 	// Attempt to locate the keys map
-	v, err := s.kv.Get(key)
+	v, err := s.Get(key)
 	if err != nil {
 		// If the map doesn't exist, initialize it
 		ts, err := time.Now().MarshalText()
@@ -98,7 +98,7 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 			Timestamp: ts,
 			Data:      nodeKeysBuffer.Bytes(),
 		}
-		err = s.kv.Set(key, vo)
+		err = s.Set(key, vo)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +162,7 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 		Timestamp: ts,
 		Data:      nodeKeysBuffer.Bytes(),
 	}
-	return s.kv.Set("NodeKeys", vo)
+	return s.Set("NodeKeys", vo)
 }
 
 // Initializes a Session object wrapped around a MemStore object.

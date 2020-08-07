@@ -16,13 +16,15 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"sync"
 	"testing"
 	"time"
 )
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv *VersionedKV
+	kv  *VersionedKV
+	mux sync.Mutex
 }
 
 // Initialize a new Session object
@@ -137,6 +139,10 @@ func (s *Session) GetNodeKeysFromCircuit(topology *connect.Circuit) (
 
 // Set NodeKeys in the Session
 func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
+	// Thread-safety
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
 	// Obtain NodeKeys map
 	nodeKeys, err := s.GetNodeKeys()
 	if err != nil {
@@ -180,6 +186,6 @@ func InitTestingSession(i interface{}) *Session {
 	}
 
 	store := make(ekv.Memstore)
-	return &Session{NewVersionedKV(store)}
+	return &Session{kv: NewVersionedKV(store)}
 
 }

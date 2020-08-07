@@ -129,7 +129,7 @@ func (s *Session) GetNodeKeysFromCircuit(topology *connect.Circuit) (
 	for i := 0; i < topology.Len(); i++ {
 		nid := topology.GetNodeAtIndex(i)
 		keys[i] = nodeKeys[nid.String()]
-		globals.Log.INFO.Printf("Read NodeKey: %s: %v", nid, key)
+		globals.Log.INFO.Printf("Read NodeKey: %s: %v", nid, keys[i])
 	}
 
 	return keys, nil

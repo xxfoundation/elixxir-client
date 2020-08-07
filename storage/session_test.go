@@ -106,5 +106,14 @@ func TestSession_GetPushNodeKeys(t *testing.T) {
 
 	if len(results) != 2 {
 		t.Errorf("Returned unexpected number of node keys: %d", len(results))
+		return
+	}
+	if results[0].TransmissionKey.Cmp(testInt) != 0 {
+		t.Errorf("Returned invalid transmission key: %s, Expected: %s", results[0].TransmissionKey.Text(10),
+			testInt.Text(10))
+	}
+	if results[0].ReceptionKey.Cmp(testInt) != 0 {
+		t.Errorf("Returned invalid reception key: %s, Expected: %s", results[0].TransmissionKey.Text(10),
+			testInt.Text(10))
 	}
 }

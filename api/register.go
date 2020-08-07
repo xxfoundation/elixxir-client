@@ -63,7 +63,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 
 		//store the node keys
 		for n, k := range nodeKeyMap {
-			cl.session.PushNodeKey(&n, k)
+			cl.sessionV2.PushNodeKey(&n, k)
 		}
 
 		//update the state
@@ -331,7 +331,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 			cmixPrivateKeyDH, receptionHash),
 	}
-	cl.session.PushNodeKey(nodeID, key)
+	cl.sessionV2.PushNodeKey(nodeID, key)
 }
 
 //registerWithPermissioning serves as a helper function for RegisterWithPermissioning.

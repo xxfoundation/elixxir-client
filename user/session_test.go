@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
@@ -26,7 +25,6 @@ import (
 // surrounding the User struct and the Registry interface
 func TestUserSession(t *testing.T) {
 
-	test := 11
 	pass := 0
 
 	u := new(User)
@@ -36,12 +34,6 @@ func TestUserSession(t *testing.T) {
 
 	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
-
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	nodeID := id.NewIdFromUInt(1, id.Node, t)
-
-	topology := connect.NewCircuit([]*id.ID{nodeID})
 
 	// Storage
 	storage := &globals.RamStorage{}
@@ -71,11 +63,6 @@ func TestUserSession(t *testing.T) {
 		t.Errorf("failure in setting register up for permissioning: %s",
 			err.Error())
 	}
-
-	ses.PushNodeKey(nodeID, NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	})
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -112,41 +99,6 @@ func TestUserSession(t *testing.T) {
 			" SetLastMessageID!")
 	} else {
 		pass++
-	}
-
-	if ses.GetNodeKeys(topology) == nil {
-		t.Errorf("Keys not set correctly!")
-	} else {
-
-		test += len(ses.GetNodeKeys(topology))
-
-		for i := 0; i < len(ses.GetNodeKeys(topology)); i++ {
-			orig := privateKey.PrivateKey
-			sesPriv := ses.GetRSAPrivateKey().PrivateKey
-			if !reflect.DeepEqual(*ses.GetRSAPublicKey(), publicKey) {
-				t.Errorf("Error: Public key not set correctly!")
-			} else if sesPriv.E != orig.E {
-				t.Errorf("Error: Private key not set correctly E!  \nExpected: %+v\nreceived: %+v",
-					orig.E, sesPriv.E)
-			} else if sesPriv.D.Cmp(orig.D) != 0 {
-				t.Errorf("Error: Private key not set correctly D!  \nExpected: %+v\nreceived: %+v",
-					orig.D, sesPriv.D)
-			} else if sesPriv.N.Cmp(orig.N) != 0 {
-				t.Errorf("Error: Private key not set correctly N!  \nExpected: %+v\nreceived: %+v",
-					orig.N, sesPriv.N)
-			} else if !reflect.DeepEqual(sesPriv.Primes, orig.Primes) {
-				t.Errorf("Error: Private key not set correctly PRIMES!  \nExpected: %+v\nreceived: %+v",
-					orig, sesPriv)
-			} else if ses.GetNodeKeys(topology)[i].ReceptionKey.Cmp(grp.
-				NewInt(2)) != 0 {
-				t.Errorf("Reception key not set correct!")
-			} else if ses.GetNodeKeys(topology)[i].TransmissionKey.Cmp(
-				grp.NewInt(2)) != 0 {
-				t.Errorf("Transmission key not set correctly!")
-			}
-
-			pass++
-		}
 	}
 
 	//TODO: FIX THIS?
@@ -223,10 +175,6 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	nodeID := id.NewIdFromUInt(1, id.Node, t)
-
 	// Storage
 	storage := &globals.RamStorage{}
 
@@ -256,11 +204,6 @@ func TestSessionObj_DeleteContact(t *testing.T) {
 			err.Error())
 	}
 
-	ses.PushNodeKey(nodeID, NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	})
-
 	testContact := id.NewIdFromString("test", id.User, t)
 	ses.StoreContactByValue("test", testContact, []byte("test"))
 
@@ -276,8 +219,6 @@ func TestGetPubKey(t *testing.T) {
 
 	u.User = UID
 	u.Username = "Mario"
-
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
 	rng := rand.New(rand.NewSource(42))
 	privateKey, _ := rsa.GenerateKey(rng, 768)
@@ -305,11 +246,6 @@ func TestGetPubKey(t *testing.T) {
 			err.Error())
 	}
 
-	ses.PushNodeKey(id.NewIdFromUInt(1, id.Node, t), NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	})
-
 	pubKey := *ses.GetRSAPublicKey()
 	if !reflect.DeepEqual(pubKey, publicKey) {
 		t.Errorf("Public key not returned correctly!")
@@ -327,9 +263,6 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	nodeID := id.NewIdFromUInt(1, id.Node, t)
 	// Storage
 	storage := &globals.RamStorage{}
 
@@ -350,11 +283,6 @@ func TestSessionObj_StorageIsEmpty(t *testing.T) {
 
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
-
-	ses.PushNodeKey(nodeID, NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	})
 
 	ses.SetLastMessageID("totally unique ID")
 
@@ -385,10 +313,6 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 	u.User = id.NewIdFromUInt(UID, id.User, t)
 	u.Username = "Mario"
 
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
-
-	nodeID := id.NewIdFromUInt(1, id.Node, t)
-
 	// Storage
 	storage := &globals.RamStorage{}
 
@@ -416,11 +340,6 @@ func TestSessionObj_GetContactByValue(t *testing.T) {
 			err.Error())
 	}
 
-	ses.PushNodeKey(nodeID, NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	})
-
 	userId := id.NewIdFromBytes([]byte("test"), t)
 
 	ses.StoreContactByValue("value", userId, []byte("test"))
@@ -444,8 +363,6 @@ func TestGetPrivKey(t *testing.T) {
 
 	u.User = UID
 	u.Username = "Mario"
-
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 
 	rng := rand.New(rand.NewSource(42))
 	privateKey, _ := rsa.GenerateKey(rng, 768)
@@ -472,11 +389,6 @@ func TestGetPrivKey(t *testing.T) {
 		t.Errorf("failure in setting register up for permissioning: %s",
 			err.Error())
 	}
-
-	ses.PushNodeKey(id.NewIdFromUInt(1, id.Node, t), NodeKeys{
-		TransmissionKey: grp.NewInt(2),
-		ReceptionKey:    grp.NewInt(2),
-	})
 
 	privKey := ses.GetRSAPrivateKey()
 	if !reflect.DeepEqual(*privKey, *privateKey) {

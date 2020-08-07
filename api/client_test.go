@@ -596,6 +596,9 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 		t.Errorf("Could not connect: %+v", err)
 	}
 
+	tc.sessionV2, err = storage.Init(".ekv-logouthappypath", "password")
+	io.SessionV2 = tc.sessionV2
+
 	err = tc.GenerateKeys(nil, "")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)

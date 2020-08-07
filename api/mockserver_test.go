@@ -11,8 +11,9 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/io"
-	clientStorage "gitlab.com/elixxir/client/storage"
+	//clientStorage "gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
+	//"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/notificationBot"
@@ -60,7 +61,6 @@ func TestMain(m *testing.M) {
 	// Set logging params
 	jww.SetLogThreshold(jww.LevelTrace)
 	jww.SetStdoutThreshold(jww.LevelTrace)
-	io.SessionV2, _ = clientStorage.Init(".ekvapi", "test")
 	os.Exit(testMainWrapper(m))
 }
 

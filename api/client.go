@@ -17,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/cmixproto"
+	clientcrypto "gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
@@ -109,6 +110,17 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
 
+	// TODO: FIX ME
+	// While the old session is still valid, we are using the LocA storage to initialize the session
+	dirname := filepath.Dir(locA)
+	//FIXME: We need to accept the user's password here!
+	io.SessionV2, err = storage.Init(dirname, "DUMMYPASSWORDFIXME")
+	if err != nil {
+		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
+	}
+	clientcrypto.SessionV2 = io.SessionV2
+	cl.sessionV2 = io.SessionV2
+
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
@@ -159,17 +171,7 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 
 	cl.session = session
 
-	// TODO: FIX ME
-	// While the old session is still valid, we are using the LocA storage to initialize the session
-	locA, _ := cl.storage.GetLocation()
-	dirname := filepath.Dir(locA)
-	io.SessionV2, err = storage.Init(dirname, password)
-	if err != nil {
-		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
-	}
-	cl.sessionV2 = io.SessionV2
-
-	regState, err := io.SessionV2.GetRegState()
+	regState, err := cl.sessionV2.GetRegState()
 	// fixme !
 	if err != nil && os.IsNotExist(err) {
 		io.SessionV2.SetRegState(user.KeyGenComplete)

@@ -6,11 +6,9 @@
 package api
 
 import (
-	"crypto/sha256"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
@@ -53,7 +51,6 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	VerifyRegisterGobUser(Session, t)
-	VerifyRegisterGobKeys(Session, testClient.topology, t)
 
 	disconnectServers()
 }
@@ -99,7 +96,6 @@ func TestClient_Register(t *testing.T) {
 
 	VerifyRegisterGobUser(Session, t)
 
-	VerifyRegisterGobKeys(Session, testClient.topology, t)
 	disconnectServers()
 }
 
@@ -112,22 +108,6 @@ func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 		t.Errorf("Incorrect User ID; \n   expected: %q \n   recieved: %q",
 			expectedUser, session.GetCurrentUser().User)
 	}
-}
-
-//Verify that the keys from the session in the registration above match the expected keys
-func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
-	cmixGrp, _ := getGroups()
-	h := sha256.New()
-	h.Write([]byte(string(40005)))
-	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
-
-	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
-		expectedTransmissionBaseKey) != 0 {
-		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
-			expectedTransmissionBaseKey.Text(16))
-	}
-
 }
 
 // Verify that a valid precanned user can register

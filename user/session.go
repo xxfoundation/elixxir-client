@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -142,7 +142,7 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 		}
 	}
 
-	//extract teh session from the wrapper
+	//extract the session from the wrapper
 	var sessionBytes bytes.Buffer
 
 	sessionBytes.Write(wrappedSession.Session)

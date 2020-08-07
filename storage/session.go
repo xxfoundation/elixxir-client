@@ -9,7 +9,8 @@
 package storage
 
 import (
-	"encoding/json"
+	"bytes"
+	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/ekv"
@@ -83,14 +84,19 @@ func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
 			return nil, err
 		}
 
+		// Encode the new map
 		nodeKeys = make(map[string]user.NodeKeys)
-		data, err := json.Marshal(nodeKeys)
+		var nodeKeysBuffer bytes.Buffer
+		enc := gob.NewEncoder(&nodeKeysBuffer)
+		err = enc.Encode(nodeKeys)
 		if err != nil {
 			return nil, err
 		}
+
+		// Store the new map
 		vo := &VersionedObject{
 			Timestamp: ts,
-			Data:      data,
+			Data:      nodeKeysBuffer.Bytes(),
 		}
 		err = s.kv.Set(key, vo)
 		if err != nil {
@@ -101,8 +107,12 @@ func (s *Session) getNodeKeys() (map[string]user.NodeKeys, error) {
 		return nodeKeys, nil
 	}
 
-	// If the map exists, return it
-	err = json.Unmarshal(v.Data, &nodeKeys)
+	// If the map exists, decode and return it
+	var nodeKeyBuffer bytes.Buffer
+	nodeKeyBuffer.Write(v.Data)
+	dec := gob.NewDecoder(&nodeKeyBuffer)
+	err = dec.Decode(&nodeKeys)
+
 	return nodeKeys, err
 }
 
@@ -133,11 +143,10 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	// Set new value inside of map
 	nodeKeys[id.String()] = key
 
-	// Marshal the map
-	pushValue, err := json.Marshal(nodeKeys)
-	if err != nil {
-		return err
-	}
+	// Encode the map
+	var nodeKeysBuffer bytes.Buffer
+	enc := gob.NewEncoder(&nodeKeysBuffer)
+	err = enc.Encode(nodeKeys)
 
 	// Insert the map back into the Session
 	ts, err := time.Now().MarshalText()
@@ -146,7 +155,7 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	}
 	vo := &VersionedObject{
 		Timestamp: ts,
-		Data:      pushValue,
+		Data:      nodeKeysBuffer.Bytes(),
 	}
 	return s.kv.Set("NodeKeys", vo)
 }

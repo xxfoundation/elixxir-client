@@ -35,7 +35,7 @@ func initTest(t *testing.T) *Session {
 func TestSession_Smoke(t *testing.T) {
 	s := initTest(t)
 
-	err = s.Set("testkey", &VersionedObject{
+	err := s.Set("testkey", &VersionedObject{
 		Version:   0,
 		Timestamp: time.Now(),
 		Data:      []byte("test"),

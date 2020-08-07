@@ -75,13 +75,9 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 
 	// Attempt to locate the keys map
 	v, err := s.Get(key)
-	if err != nil {
-		// If the map doesn't exist, initialize it
-		ts, err := time.Now().MarshalText()
-		if err != nil {
-			return nil, err
-		}
 
+	// If the map doesn't exist, initialize it
+	if err != nil {
 		// Encode the new map
 		nodeKeys = make(map[string]user.NodeKeys)
 		var nodeKeysBuffer bytes.Buffer
@@ -93,7 +89,7 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 
 		// Store the new map
 		vo := &VersionedObject{
-			Timestamp: ts,
+			Timestamp: time.Now(),
 			Data:      nodeKeysBuffer.Bytes(),
 		}
 		err = s.Set(key, vo)
@@ -156,12 +152,8 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	err = enc.Encode(nodeKeys)
 
 	// Insert the map back into the Session
-	ts, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
 	vo := &VersionedObject{
-		Timestamp: ts,
+		Timestamp: time.Now(),
 		Data:      nodeKeysBuffer.Bytes(),
 	}
 	return s.Set("NodeKeys", vo)

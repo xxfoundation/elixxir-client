@@ -127,7 +127,9 @@ func (s *Session) GetNodeKeysFromCircuit(topology *connect.Circuit) (
 	// Build a list of NodeKeys from the map
 	keys := make([]user.NodeKeys, topology.Len())
 	for i := 0; i < topology.Len(); i++ {
-		keys[i] = nodeKeys[topology.GetNodeAtIndex(i).String()]
+		nid := topology.GetNodeAtIndex(i)
+		keys[i] = nodeKeys[nid.String()]
+		globals.Log.INFO.Printf("Read NodeKey: %s: %v", nid, key)
 	}
 
 	return keys, nil
@@ -143,6 +145,8 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 
 	// Set new value inside of map
 	nodeKeys[id.String()] = key
+
+	globals.Log.INFO.Printf("Adding NodeKey: %s: %v", id.String(), key)
 
 	// Encode the map
 	var nodeKeysBuffer bytes.Buffer

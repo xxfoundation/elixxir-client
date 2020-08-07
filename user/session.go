@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -21,7 +21,6 @@ import (
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"sync"
@@ -35,8 +34,6 @@ var ErrQuery = errors.New("element not in map")
 // Interface for User Session operations
 type Session interface {
 	GetCurrentUser() (currentUser *User)
-	GetNodeKeys(topology *connect.Circuit) []NodeKeys
-	PushNodeKey(id *id.ID, key NodeKeys)
 	GetRSAPrivateKey() *rsa.PrivateKey
 	GetRSAPublicKey() *rsa.PublicKey
 	GetCMIXDHPrivateKey() *cyclic.Int
@@ -60,7 +57,6 @@ type Session interface {
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
 	GetRegistrationValidationSignature() []byte
-	GetNodes() map[id.ID]int
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
 	GetSalt() []byte
@@ -145,7 +141,7 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 		}
 	}
 
-	//extract teh session from the wrapper
+	//extract the session from the wrapper
 	var sessionBytes bytes.Buffer
 
 	sessionBytes.Write(wrappedSession.Session)
@@ -348,44 +344,12 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.UnlockStorage()
 }
 
-func (s *SessionObj) GetNodes() map[id.ID]int {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	nodes := make(map[id.ID]int, 0)
-	for node := range s.NodeKeys {
-		nodes[node] = 1
-	}
-	return nodes
-}
-
 func (s *SessionObj) GetSalt() []byte {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	salt := make([]byte, len(s.Salt))
 	copy(salt, s.Salt)
 	return salt
-}
-
-func (s *SessionObj) GetNodeKeys(topology *connect.Circuit) []NodeKeys {
-	s.LockStorage()
-	defer s.UnlockStorage()
-
-	keys := make([]NodeKeys, topology.Len())
-
-	for i := 0; i < topology.Len(); i++ {
-		keys[i] = s.NodeKeys[*topology.GetNodeAtIndex(i)]
-	}
-
-	return keys
-}
-
-func (s *SessionObj) PushNodeKey(id *id.ID, key NodeKeys) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-
-	s.NodeKeys[*id] = key
-
-	return
 }
 
 //RegisterPermissioningSignature sets sessions registration signature and

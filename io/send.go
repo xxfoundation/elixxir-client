@@ -150,7 +150,11 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 	}
 
 	// Retrieve the base key for the zeroeth node
-	nodeKeys := session.GetNodeKeys(topology)
+	nodeKeys, err := SessionV2.GetNodeKeysFromCircuit(topology)
+	if err != nil {
+		globals.Log.ERROR.Printf("could not get nodeKeys: %+v", err)
+		return err
+	}
 	nk := nodeKeys[0]
 
 	clientGatewayKey := cmix.GenerateClientGatewayKey(nk.TransmissionKey)

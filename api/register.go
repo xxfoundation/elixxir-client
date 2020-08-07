@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/bots"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
@@ -32,7 +31,7 @@ const SaltSize = 32
 // Returns an error if registration fails.
 func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.ID, error) {
 	//Check the regState is in proper state for registration
-	regState, err := io.SessionV2.GetRegState()
+	regState, err := cl.sessionV2.GetRegState()
 	if err != nil {
 		return nil, err
 	}
@@ -63,11 +62,11 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 
 		//store the node keys
 		for n, k := range nodeKeyMap {
-			cl.session.PushNodeKey(&n, k)
+			cl.sessionV2.PushNodeKey(&n, k)
 		}
 
 		//update the state
-		err = io.SessionV2.SetRegState(user.PermissioningComplete)
+		err = cl.sessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
 			return &id.ZeroUser, err
 		}
@@ -80,12 +79,12 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 			return &id.ZeroUser, err
 		}
 		//update the session with the registration
-		err = io.SessionV2.SetRegState(user.PermissioningComplete)
+		err = cl.sessionV2.SetRegState(user.PermissioningComplete)
 		if err != nil {
 			return nil, err
 		}
 
-		err = io.SessionV2.SetRegValidationSig(regValidationSignature)
+		err = cl.sessionV2.SetRegValidationSig(regValidationSignature)
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +108,7 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
 func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error {
-	regState, err := io.SessionV2.GetRegState()
+	regState, err := cl.sessionV2.GetRegState()
 	if err != nil {
 		return err
 	}
@@ -141,7 +140,7 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 	}
 
 	//set the registration state
-	err = io.SessionV2.SetRegState(user.UDBComplete)
+	err = cl.sessionV2.SetRegState(user.UDBComplete)
 	if err != nil {
 		return errors.Wrap(err, "UDB Registration Failed")
 	}
@@ -180,7 +179,7 @@ func (cl *Client) RegisterWithNodes() error {
 	UID := session.GetCurrentUser().User
 	usr := session.GetCurrentUser()
 	//Load the registration signature
-	regSignature, err := io.SessionV2.GetRegValidationSig()
+	regSignature, err := cl.sessionV2.GetRegValidationSig()
 	if err != nil && !os.IsNotExist(err) {
 		return errors.Errorf("Failed to get registration signature: %v", err)
 	}
@@ -208,7 +207,7 @@ func (cl *Client) RegisterWithNodes() error {
 		//update the session with the registration
 		//HACK HACK HACK
 		sesObj := cl.session.(*user.SessionObj)
-		err = io.SessionV2.SetRegValidationSig(regSignature)
+		err = cl.sessionV2.SetRegValidationSig(regSignature)
 		if err != nil {
 			return err
 		}
@@ -224,8 +223,10 @@ func (cl *Client) RegisterWithNodes() error {
 	var wg sync.WaitGroup
 	errChan := make(chan error, len(cl.ndf.Gateways))
 
-	//Get the registered node keys
-	registeredNodes := session.GetNodes()
+	registeredNodes, err := cl.sessionV2.GetNodeKeys()
+	if err != nil {
+		return err
+	}
 
 	salt := session.GetSalt()
 
@@ -237,10 +238,10 @@ func (cl *Client) RegisterWithNodes() error {
 		localI := i
 		nodeID, err := id.Unmarshal(cl.ndf.Nodes[i].ID)
 		if err != nil {
-			return err
+			return nil
 		}
 		//Register with node if the node has not been registered with already
-		if _, ok := registeredNodes[*nodeID]; !ok {
+		if _, ok := registeredNodes[nodeID.String()]; !ok {
 			wg.Add(1)
 			newRegistrations = true
 			go func() {
@@ -331,7 +332,7 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 		ReceptionKey: registration.GenerateBaseKey(cmixGrp, serverPubDH,
 			cmixPrivateKeyDH, receptionHash),
 	}
-	cl.session.PushNodeKey(nodeID, key)
+	cl.sessionV2.PushNodeKey(nodeID, key)
 }
 
 //registerWithPermissioning serves as a helper function for RegisterWithPermissioning.

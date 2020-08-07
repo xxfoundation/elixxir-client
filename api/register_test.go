@@ -6,11 +6,8 @@
 package api
 
 import (
-	"crypto/sha256"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/user"
-	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
@@ -18,7 +15,8 @@ import (
 //Test that a registered session may be stored & recovered
 func TestRegistrationGob(t *testing.T) {
 	// Get a Client
-	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-registergob", "", def)
+	storage := DummyStorage{LocationA: ".ekv-registergob/a", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&storage, ".ekv-registergob/a", "", def)
 	if err != nil {
 		t.Error(err)
 	}
@@ -53,7 +51,6 @@ func TestRegistrationGob(t *testing.T) {
 	}
 
 	VerifyRegisterGobUser(Session, t)
-	VerifyRegisterGobKeys(Session, testClient.topology, t)
 
 	disconnectServers()
 }
@@ -61,7 +58,8 @@ func TestRegistrationGob(t *testing.T) {
 //Happy path for a non precen user
 func TestClient_Register(t *testing.T) {
 	//Make mock client
-	testClient, err := NewClient(&globals.RamStorage{}, ".ekv-clientregister", "", def)
+	storage := DummyStorage{LocationA: ".ekv-clientregister/a", StoreA: []byte{'a', 'b', 'c'}}
+	testClient, err := NewClient(&storage, ".ekv-clientregister/a", "", def)
 
 	if err != nil {
 		t.Error(err)
@@ -78,7 +76,7 @@ func TestClient_Register(t *testing.T) {
 	}
 
 	// fixme please (and all other places where this call is above RegisterWithPermissioning in tests)
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	testClient.sessionV2.SetRegState(user.KeyGenComplete)
 	// populate a gob in the store
 	_, err = testClient.RegisterWithPermissioning(true, "WTROXJ33")
 	if err != nil {
@@ -99,7 +97,6 @@ func TestClient_Register(t *testing.T) {
 
 	VerifyRegisterGobUser(Session, t)
 
-	VerifyRegisterGobKeys(Session, testClient.topology, t)
 	disconnectServers()
 }
 
@@ -114,27 +111,11 @@ func VerifyRegisterGobUser(session user.Session, t *testing.T) {
 	}
 }
 
-//Verify that the keys from the session in the registration above match the expected keys
-func VerifyRegisterGobKeys(session user.Session, topology *connect.Circuit, t *testing.T) {
-	cmixGrp, _ := getGroups()
-	h := sha256.New()
-	h.Write([]byte(string(40005)))
-	expectedTransmissionBaseKey := cmixGrp.NewIntFromBytes(h.Sum(nil))
-
-	if session.GetNodeKeys(topology)[0].TransmissionKey.Cmp(
-		expectedTransmissionBaseKey) != 0 {
-		t.Errorf("Transmission base key was %v, expected %v",
-			session.GetNodeKeys(topology)[0].TransmissionKey.Text(16),
-			expectedTransmissionBaseKey.Text(16))
-	}
-
-}
-
 // Verify that a valid precanned user can register
 func TestRegister_ValidRegParams___(t *testing.T) {
 	// Initialize client with dummy storage
-	storage := DummyStorage{LocationA: "Blah", StoreA: []byte{'a', 'b', 'c'}}
-	client, err := NewClient(&storage, ".ekv-validregparams", "", def)
+	storage := DummyStorage{LocationA: ".ekv-validregparams/a", StoreA: []byte{'a', 'b', 'c'}}
+	client, err := NewClient(&storage, ".ekv-validregparams/a", "", def)
 	if err != nil {
 		t.Errorf("Failed to initialize dummy client: %s", err.Error())
 	}

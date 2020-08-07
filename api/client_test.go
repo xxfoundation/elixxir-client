@@ -775,8 +775,6 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 		t.Fatalf("InitNetwork should have succeeded when creating second client %v", err)
 	}
 
-	io.SessionV2.SetRegState(user.PermissioningComplete)
-
 	_, err = tc.Login("password")
 	if err != nil {
 		t.Logf("Login failed %+v", err)

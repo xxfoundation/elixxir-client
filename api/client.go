@@ -83,6 +83,21 @@ func NewTestClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDef
 	return newClient(s, locA, locB, ndfJSON, sendFunc)
 }
 
+func (cl *Client) setStorage(locA, password string) error {
+	// TODO: FIX ME
+	// While the old session is still valid, we are using the LocA storage to initialize the session
+	dirname := filepath.Dir(locA)
+	//FIXME: We need to accept the user's password here!
+	var err error
+	io.SessionV2, err = storage.Init(dirname, password)
+	if err != nil {
+		return errors.Wrap(err, "Login: could not initialize v2 storage")
+	}
+	clientcrypto.SessionV2 = io.SessionV2
+	cl.sessionV2 = io.SessionV2
+	return nil
+}
+
 // Creates a new Client using the storage mechanism provided.
 // If none is provided, a default storage using OS file access
 // is created
@@ -109,17 +124,6 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	cl.storage = store
 	cl.ndf = ndfJSON
 	cl.sendFunc = sendFunc
-
-	// TODO: FIX ME
-	// While the old session is still valid, we are using the LocA storage to initialize the session
-	dirname := filepath.Dir(locA)
-	//FIXME: We need to accept the user's password here!
-	io.SessionV2, err = storage.Init(dirname, "DUMMYPASSWORDFIXME")
-	if err != nil {
-		return nil, errors.Wrap(err, "Login: could not initialize v2 storage")
-	}
-	clientcrypto.SessionV2 = io.SessionV2
-	cl.sessionV2 = io.SessionV2
 
 	//Create the cmix group and init the registry
 	cmixGrp := cyclic.NewGroup(
@@ -170,6 +174,11 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	}
 
 	cl.session = session
+	locA, _ := cl.storage.GetLocation()
+	err = cl.setStorage(locA, password)
+	if err != nil {
+		return nil, err
+	}
 
 	regState, err := cl.sessionV2.GetRegState()
 	// fixme !

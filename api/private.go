@@ -314,6 +314,13 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 		newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	}
 	cl.receptionManager = newRm
+
+	locA, _ := cl.storage.GetLocation()
+	err = cl.setStorage(locA, password)
+	if err != nil {
+		return err
+	}
+
 	//store the session
 	return cl.session.StoreSession()
 }

@@ -1,7 +1,7 @@
 package api
 
 import (
-	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"testing"
 )
 

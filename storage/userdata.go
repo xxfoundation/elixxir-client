@@ -51,12 +51,16 @@ type UserData struct {
 
 const currentUserDataVersion = 0
 
-func makeUserDataKey(userID *id.ID) string {
-	return MakeKeyPrefix("UserData", currentUserDataVersion) + userID.String()
+func makeUserDataKey() string {
+	return MakeKeyPrefix("UserData", currentUserDataVersion)
 }
 
-func (s *Session) GetUserData(userID *id.ID) (*UserData, error) {
-	obj, err := s.Get(makeUserDataKey(userID))
+func (s *Session) GetUserData() (*UserData, error) {
+	if s.userData != nil {
+		// We already got this and don't need to get it again
+		return s.userData, nil
+	}
+	obj, err := s.Get(makeUserDataKey())
 	if err != nil {
 		return nil, err
 	}
@@ -69,11 +73,15 @@ func (s *Session) GetUserData(userID *id.ID) (*UserData, error) {
 	if err != nil {
 		return nil, err
 	}
+	s.userData = &result
 	return &result, nil
 }
 
 // Make changes to the user data after getting it, then
 // commit those changes to the ekv store using this
+// I haven't added a mutex to the user data because it's only
+// created once. If you add modification to the user data structure,
+// please
 func (s *Session) CommitUserData(data *UserData) error {
 	// Serialize the data
 	var userDataBuffer bytes.Buffer
@@ -88,5 +96,5 @@ func (s *Session) CommitUserData(data *UserData) error {
 		Timestamp: time.Now(),
 		Data:      userDataBuffer.Bytes(),
 	}
-	return s.Set(makeUserDataKey(data.ThisUser.User), obj)
+	return s.Set(makeUserDataKey(), obj)
 }

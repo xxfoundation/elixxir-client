@@ -46,7 +46,7 @@ func TestSession_CommitUserData(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	retrievedData, err := session.GetUserData(expectedData.ThisUser.User)
+	retrievedData, err := session.GetUserData()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,8 +79,8 @@ func TestSession_CommitUserData(t *testing.T) {
 	if !reflect.DeepEqual(retrievedData.E2EGrp, expectedData.E2EGrp) {
 		t.Error("e2e groups didn't match")
 	}
-	if !reflect.DeepEqual(retrievedData.RSAPrivateKey, expectedData.RSAPrivateKey) {
-		t.Error("rsa keys don't match")
+	if retrievedData.RSAPrivateKey.D.Cmp(expectedData.RSAPrivateKey.D) != 0 {
+		t.Error("rsa D doesn't match")
 	}
 	if !bytes.Equal(retrievedData.Salt, expectedData.Salt) {
 		t.Error("salts don't match")

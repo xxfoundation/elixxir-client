@@ -23,8 +23,9 @@ import (
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv  *VersionedKV
-	mux sync.Mutex
+	kv       *VersionedKV
+	userData *UserData
+	mux      sync.Mutex
 }
 
 // Initialize a new Session object

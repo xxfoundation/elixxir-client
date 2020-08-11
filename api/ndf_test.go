@@ -11,7 +11,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"fmt"
-	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/ndf"
 	"reflect"
 	"testing"

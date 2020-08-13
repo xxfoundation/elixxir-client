@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/ring"
 )
 
 const ReceptionKeyManagerBufferLength = 5
@@ -18,8 +19,11 @@ func NewReceptionKeyManagerBuffer() *ReceptionKeyManagerBuffer {
 }
 
 type ReceptionKeyManagerBuffer struct {
-	managers [ReceptionKeyManagerBufferLength]*KeyManager
-	loc      int
+	managers ring.Buff
+}
+
+type ReceptionKeyManagerBufferDisk struct {
+	managers ring.Buff
 }
 
 // Push takes in a new keymanager obj, and adds it into our circular buffer of keymanagers,

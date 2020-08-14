@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/primitives/utils"
@@ -198,7 +199,7 @@ func sessionInitialization() (*id.ID, string, *api.Client) {
 			uid := new(id.ID)
 			binary.BigEndian.PutUint64(uid[:], userId)
 			uid.SetType(id.User)
-			regCode = user.RegistrationCode(uid)
+			regCode = userRegistry.RegistrationCode(uid)
 		}
 
 		globals.Log.INFO.Printf("Building keys...")
@@ -269,7 +270,7 @@ func sessionInitialization() (*id.ID, string, *api.Client) {
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not login: %v", err)
 	}
-	return uid, client.GetSession().GetCurrentUser().Username, client
+	return uid, client.GetUsername(), client
 }
 
 func setKeyParams(client *api.Client) {
@@ -317,7 +318,7 @@ type FallbackListener struct {
 func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	if !isHeardElsewhere {
 		message := item.(*parse.Message)
-		sender, ok := user.Users.GetUser(message.Sender)
+		sender, ok := userRegistry.Users.GetUser(message.Sender)
 		var senderNick string
 		if !ok {
 			globals.Log.ERROR.Printf("Couldn't get sender %v", message.Sender)
@@ -345,12 +346,12 @@ func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...i
 			err.Error())
 	}
 
-	sender, ok := user.Users.GetUser(message.Sender)
+	sender, ok := userRegistry.Users.GetUser(message.Sender)
 	var senderNick string
 	if !ok {
 		globals.Log.INFO.Printf("First message from sender %v", printIDNice(message.Sender))
-		u := user.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
-		user.Users.UpsertUser(u)
+		u := userRegistry.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
+		userRegistry.Users.UpsertUser(u)
 		senderNick = u.Username
 	} else {
 		senderNick = sender.Username
@@ -486,7 +487,7 @@ var rootCmd = &cobra.Command{
 		if message != "" {
 			// Get the recipient's nick
 			recipientNick := ""
-			u, ok := user.Users.GetUser(recipientId)
+			u, ok := userRegistry.Users.GetUser(recipientId)
 			if ok {
 				recipientNick = u.Username
 			}

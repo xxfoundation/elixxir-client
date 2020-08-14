@@ -39,8 +39,14 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 	if session == nil {
 		globals.Log.FATAL.Panicf("No user session available")
 	}
+
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		globals.Log.FATAL.Panicf("No user data available: %+v", err)
+	}
+
 	pollingMessage := pb.ClientRequest{
-		UserID: session.GetCurrentUser().User.Bytes(),
+		UserID: userData.ThisUser.User.Bytes(),
 	}
 	quit := session.GetQuitChan()
 	NumChecks := 0
@@ -120,6 +126,13 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 
 func handleE2EReceiving(session user.Session,
 	message *format.Message) (*id.ID, bool, error) {
+
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		return nil, false, fmt.Errorf("Could not get user data: %+v",
+			err)
+	}
+
 	keyFingerprint := message.GetKeyFP()
 
 	// Lookup reception key
@@ -138,11 +151,12 @@ func handleE2EReceiving(session user.Session,
 	sender := recpKey.GetManager().GetPartner()
 
 	globals.Log.DEBUG.Printf("E2E decrypting message")
-	var err error
 	if rekey {
-		err = crypto.E2EDecryptUnsafe(session.GetE2EGroup(), recpKey.GetKey(), message)
+		err = crypto.E2EDecryptUnsafe(userData.E2EGrp, recpKey.GetKey(),
+			message)
 	} else {
-		err = crypto.E2EDecrypt(session.GetE2EGroup(), recpKey.GetKey(), message)
+		err = crypto.E2EDecrypt(userData.E2EGrp, recpKey.GetKey(),
+			message)
 	}
 
 	if err != nil {
@@ -163,7 +177,7 @@ func handleE2EReceiving(session user.Session,
 				Body:        partnerPubKey,
 			},
 			InferredType: parse.Rekey,
-			Receiver:     session.GetCurrentUser().User,
+			Receiver:     userData.ThisUser.User,
 		}
 		go session.GetSwitchboard().Speak(rekeyMsg)
 	}
@@ -180,6 +194,12 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 		globals.Log.WARN.Printf("SessionV2 is nil")
 		return nil, errors.New("SessionV2 is nil")
 	}
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		globals.Log.WARN.Printf("Could not get UserData: %+v", err)
+		return nil, err
+	}
+
 	pollingMessage.LastMessageID, err = SessionV2.GetLastMessageId()
 	if err != nil {
 		globals.Log.WARN.Printf("Could not get LastMessageID: %+v", err)
@@ -218,8 +238,7 @@ func (rm *ReceptionManager) receiveMessagesFromGateway(session user.Session,
 			// So, we should retrieve it from the gateway.
 			newMessage, err := rm.Comms.SendGetMessage(receiveGateway,
 				&pb.ClientRequest{
-					UserID: session.GetCurrentUser().User.
-						Bytes(),
+					UserID:        userData.ThisUser.User.Bytes(),
 					LastMessageID: messageID,
 				})
 			if err != nil {

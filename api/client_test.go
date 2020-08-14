@@ -170,13 +170,26 @@ func TestRegisterUserE2E(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	myUser := &user.User{User: userID, Username: "test"}
-	session := user.NewSession(testClient.storage,
-		myUser, &publicKeyRSA,
-		privateKeyRSA, nil, nil, myPubKeyCyclic, myPrivKeyCyclic, make([]byte, 1), cmixGrp,
-		e2eGrp, "password")
+	myUser := &storage.User{User: userID, Username: "test"}
+	session := user.NewSession(testClient.storage, "password")
+
+	userData := &storage.UserData{
+		ThisUser:         myUser,
+		RSAPrivateKey:    privateKeyRSA,
+		RSAPublicKey:     &publicKeyRSA,
+		CMIXDHPrivateKey: nil,
+		CMIXDHPublicKey:  nil,
+		E2EDHPrivateKey:  myPrivKeyCyclic,
+		E2EDHPublicKey:   myPubKeyCyclic,
+		CmixGrp:          cmixGrp,
+		E2EGrp:           e2eGrp,
+		Salt:             make([]byte, 1),
+	}
+	sessionV2 := storage.InitTestingSession(t)
+	sessionV2.CommitUserData(userData)
 
 	testClient.session = session
+	testClient.sessionV2 = sessionV2
 
 	err = testClient.registerUserE2E(&storage.Contact{
 		Id:        partner,
@@ -267,13 +280,26 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	myUser := &user.User{User: userID, Username: "test"}
-	session := user.NewSession(testClient.storage,
-		myUser, &publicKeyRSA, privateKeyRSA, nil,
-		nil, myPubKeyCyclic, myPrivKeyCyclic,
-		make([]byte, 1), cmixGrp, e2eGrp, "password")
+	myUser := &storage.User{User: userID, Username: "test"}
+	session := user.NewSession(testClient.storage, "password")
+
+	userData := &storage.UserData{
+		ThisUser:         myUser,
+		RSAPrivateKey:    privateKeyRSA,
+		RSAPublicKey:     &publicKeyRSA,
+		CMIXDHPrivateKey: nil,
+		CMIXDHPublicKey:  nil,
+		E2EDHPrivateKey:  myPrivKeyCyclic,
+		E2EDHPublicKey:   myPubKeyCyclic,
+		CmixGrp:          cmixGrp,
+		E2EGrp:           e2eGrp,
+		Salt:             make([]byte, 1),
+	}
+	sessionV2 := storage.InitTestingSession(t)
+	sessionV2.CommitUserData(userData)
 
 	testClient.session = session
+	testClient.sessionV2 = sessionV2
 
 	err = testClient.registerUserE2E(&storage.Contact{
 		Id:        partner,

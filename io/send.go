@@ -115,6 +115,12 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 	cryptoType parse.CryptoType,
 	message *format.Message,
 	rekey bool, transmitGateway *connect.Host) error {
+
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		return err
+	}
+
 	// Enable transmission blocking if enabled
 	if rm.blockTransmissions {
 		rm.sendLock.Lock()
@@ -123,6 +129,8 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 			rm.sendLock.Unlock()
 		}()
 	}
+
+	uid := userData.ThisUser.User
 
 	// Check message type
 	if cryptoType == parse.E2E {
@@ -134,7 +142,8 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 		}
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
-		message.SetKeyFP(*format.NewFingerprint(session.GetCurrentUser().User.Marshal()[:32]))
+		fp := format.NewFingerprint(uid.Marshal()[:32])
+		message.SetKeyFP(*fp)
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
@@ -142,7 +151,7 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 
 	// Construct slot message
 	msgPacket := &pb.Slot{
-		SenderID: session.GetCurrentUser().User.Marshal(),
+		SenderID: uid.Marshal(),
 		PayloadA: encMsg.GetPayloadA(),
 		PayloadB: encMsg.GetPayloadB(),
 		Salt:     salt,
@@ -199,6 +208,11 @@ func handleE2ESending(session user.Session,
 		globals.Log.ERROR.Panic(err)
 	}
 
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		globals.Log.FATAL.Panicf("Couldn't get userData: %+v ", err)
+	}
+
 	var key *keyStore.E2EKey
 	var action keyStore.Action
 	// Get KeyManager for this partner
@@ -246,7 +260,7 @@ func handleE2ESending(session user.Session,
 	if action == keyStore.Rekey {
 		// Send RekeyTrigger message to switchboard
 		rekeyMsg := &parse.Message{
-			Sender: session.GetCurrentUser().User,
+			Sender: userData.ThisUser.User,
 			TypedBody: parse.TypedBody{
 				MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 				Body:        []byte{},
@@ -259,12 +273,12 @@ func handleE2ESending(session user.Session,
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
 	if rekey {
-		crypto.E2EEncryptUnsafe(session.GetE2EGroup(),
+		crypto.E2EEncryptUnsafe(userData.E2EGrp,
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)
 	} else {
-		crypto.E2EEncrypt(session.GetE2EGroup(),
+		crypto.E2EEncrypt(userData.E2EGrp,
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)

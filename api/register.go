@@ -39,7 +39,11 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 	if regState != user.KeyGenComplete {
 		return nil, errors.Errorf("Attempting to register before key generation!")
 	}
-	usr := cl.session.GetCurrentUser()
+	userData, err := cl.sessionV2.GetUserData()
+	if err != nil {
+		return nil, err
+	}
+	usr := userData.ThisUser
 	UID := usr.User
 
 	//Initialized response from Registration Server
@@ -58,7 +62,9 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 		}
 
 		//overwrite the user object
-		cl.session.(*user.SessionObj).CurrentUser = usr
+		usr.Precan = true
+		userData.ThisUser = usr
+		cl.sessionV2.CommitUserData(userData)
 
 		//store the node keys
 		for n, k := range nodeKeyMap {
@@ -73,7 +79,9 @@ func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string
 
 	} else {
 		// Or register with the permissioning server and generate user information
-		regValidationSignature, err = cl.registerWithPermissioning(registrationCode, cl.session.GetRSAPublicKey())
+		regValidationSignature, err = cl.registerWithPermissioning(
+			registrationCode,
+			userData.RSAPublicKey)
 		if err != nil {
 			globals.Log.INFO.Printf(err.Error())
 			return &id.ZeroUser, err
@@ -112,6 +120,10 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 	if err != nil {
 		return err
 	}
+	userData, err := cl.sessionV2.GetUserData()
+	if err != nil {
+		return err
+	}
 
 	if regState != user.PermissioningComplete {
 		return errors.New("Cannot register with UDB when registration " +
@@ -119,16 +131,14 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 	}
 
 	if username != "" {
-		err := cl.session.ChangeUsername(username)
-		if err != nil {
-			return err
-		}
+		userData.ThisUser.Username = username
+		cl.sessionV2.CommitUserData(userData)
 
 		globals.Log.INFO.Printf("Registering user as %s with UDB", username)
 
 		valueType := "EMAIL"
 
-		publicKeyBytes := cl.session.GetE2EDHPublicKey().Bytes()
+		publicKeyBytes := userData.E2EDHPublicKey.Bytes()
 		err = bots.Register(valueType, username, publicKeyBytes, cl.opStatus, timeout)
 		if err != nil {
 			return errors.Errorf("Could not register with UDB: %s", err)
@@ -164,24 +174,31 @@ func (cl *Client) RegisterWithUDB(username string, timeout time.Duration) error 
 
 //RegisterWithNodes registers the client with all the nodes within the ndf
 func (cl *Client) RegisterWithNodes() error {
+
+	userData, err := cl.sessionV2.GetUserData()
+	if err != nil {
+		return err
+	}
+
 	cl.opStatus(globals.REG_NODE)
 	session := cl.GetSession()
 	//Load Cmix keys & group
-	cmixDHPrivKey := session.GetCMIXDHPrivateKey()
-	cmixDHPubKey := session.GetCMIXDHPublicKey()
-	cmixGrp := session.GetCmixGroup()
+	cmixDHPrivKey := userData.CMIXDHPrivateKey
+	cmixDHPubKey := userData.CMIXDHPublicKey
+	cmixGrp := userData.CmixGrp
 
 	//Load the rsa keys
-	rsaPubKey := session.GetRSAPublicKey()
-	rsaPrivKey := session.GetRSAPrivateKey()
+	rsaPubKey := userData.RSAPublicKey
+	rsaPrivKey := userData.RSAPrivateKey
 
 	//Load the user ID
-	UID := session.GetCurrentUser().User
-	usr := session.GetCurrentUser()
+	UID := userData.ThisUser.User
+	usr := userData.ThisUser
 	//Load the registration signature
 	regSignature, err := cl.sessionV2.GetRegValidationSig()
 	if err != nil && !os.IsNotExist(err) {
-		return errors.Errorf("Failed to get registration signature: %v", err)
+		return errors.Errorf("Failed to get registration signature: %v",
+			err)
 	}
 
 	// Storage of the registration signature was broken in previous releases.
@@ -199,7 +216,7 @@ func (cl *Client) RegisterWithNodes() error {
 	// get the signature again from permissioning if it is absent
 	if !usr.Precan && !rsa.IsValidSignature(regPubKey, regSignature) {
 		// Or register with the permissioning server and generate user information
-		regSignature, err := cl.registerWithPermissioning("", cl.session.GetRSAPublicKey())
+		regSignature, err := cl.registerWithPermissioning("", userData.RSAPublicKey)
 		if err != nil {
 			globals.Log.INFO.Printf(err.Error())
 			return err
@@ -228,7 +245,7 @@ func (cl *Client) RegisterWithNodes() error {
 		return err
 	}
 
-	salt := session.GetSalt()
+	salt := userData.Salt
 
 	// This variable keeps track of whether there were new registrations
 	// required, thus requiring the state file to be saved again

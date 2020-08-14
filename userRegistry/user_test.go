@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package user
+package userRegistry
 
 import (
 	"crypto/sha256"

@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
@@ -12,6 +13,7 @@ import (
 )
 
 var session user.Session
+var sessionV2 storage.Session
 var topology *connect.Circuit
 var comms io.Communications
 var transmissionHost *connect.Host
@@ -30,12 +32,14 @@ var searchResponseListener channelResponseListener
 var nicknameResponseListener channelResponseListener
 
 // Nickname request listener
-type nickReqListener struct{}
+type nickReqListener struct {
+	MyNick string
+}
 
 // Nickname listener simply replies with message containing user's nick
 func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
 	m := msg.(*parse.Message)
-	nick := session.GetCurrentUser().Username
+	nick := l.MyNick
 	resp := parse.Pack(&parse.TypedBody{
 		MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
 		Body:        []byte(nick),
@@ -47,7 +51,15 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ..
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, m io.Communications, top *connect.Circuit, host *connect.Host) {
+func InitBots(s user.Session, s2 storage.Session, m io.Communications, top *connect.Circuit, host *connect.Host) {
+
+	userData, err := s2.GetUserData()
+	if err != nil {
+		globals.Log.FATAL.Panicf("Could not load userdata: %+v", err)
+	}
+
+	userNick := userData.ThisUser.Username
+
 	// FIXME: these all need to be used in non-blocking threads if we are
 	// going to do it this way...
 	msgBufSize := 100
@@ -55,10 +67,13 @@ func InitBots(s user.Session, m io.Communications, top *connect.Circuit, host *c
 	getKeyResponseListener = make(channelResponseListener, msgBufSize)
 	registerResponseListener = make(channelResponseListener, msgBufSize)
 	searchResponseListener = make(channelResponseListener, msgBufSize)
-	nicknameRequestListener = nickReqListener{}
+	nicknameRequestListener = nickReqListener{
+		MyNick: userNick,
+	}
 	nicknameResponseListener = make(channelResponseListener, msgBufSize)
 
 	session = s
+	sessionV2 = s2
 	topology = top
 	comms = m
 	transmissionHost = host

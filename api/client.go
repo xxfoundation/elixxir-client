@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/client/rekey"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -138,7 +139,7 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString(cl.ndf.CMIX.Prime, 16),
 		large.NewIntFromString(cl.ndf.CMIX.Generator, 16))
-	user.InitUserRegistry(cmixGrp)
+	userRegistry.InitUserRegistry(cmixGrp)
 
 	cl.opStatus = func(int) {
 		return
@@ -194,22 +195,28 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 		return nil, errors.Wrap(err,
 			"Login: Could not login: Could not get regState")
 	}
+	userData, err := cl.sessionV2.GetUserData()
+	if err != nil {
+		return nil, errors.Wrap(err,
+			"Login: Could not login: Could not get userData")
+	}
 
 	if regState <= user.KeyGenComplete {
 		return nil, errors.New("Cannot log a user in which has not " +
 			"completed registration ")
 	}
 
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
-		rsa.CreatePrivateKeyPem(cl.session.GetRSAPrivateKey()),
-		rsa.CreatePublicKeyPem(cl.session.GetRSAPublicKey()),
-		cl.session.GetSalt())
+	newRm, err := io.NewReceptionManager(cl.rekeyChan,
+		userData.ThisUser.User,
+		rsa.CreatePrivateKeyPem(userData.RSAPrivateKey),
+		rsa.CreatePublicKeyPem(userData.RSAPublicKey),
+		userData.Salt)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create new reception manager")
 	}
 	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	cl.receptionManager = newRm
-	return cl.session.GetCurrentUser().User, nil
+	return userData.ThisUser.User, nil
 }
 
 // Logout closes the connection to the server and the messageReceiver and clears out the client values,
@@ -360,9 +367,11 @@ func (cl *Client) InitListeners() error {
 	}
 
 	// Initialize UDB and nickname "bot" stuff here
-	bots.InitBots(cl.session, cl.receptionManager, cl.topology, transmissionHost)
+	bots.InitBots(cl.session, *cl.sessionV2, cl.receptionManager,
+		cl.topology, transmissionHost)
 	// Initialize Rekey listeners
-	rekey.InitRekey(cl.session, cl.receptionManager, cl.topology, transmissionHost, cl.rekeyChan)
+	rekey.InitRekey(cl.session, *cl.sessionV2, cl.receptionManager,
+		cl.topology, transmissionHost, cl.rekeyChan)
 	return nil
 }
 
@@ -447,8 +456,26 @@ func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
 	return cl.session.GetSwitchboard()
 }
 
+func (cl *Client) GetUsername() string {
+	userData, _ := cl.sessionV2.GetUserData()
+	return userData.ThisUser.Username
+}
+
 func (cl *Client) GetCurrentUser() *id.ID {
-	return cl.session.GetCurrentUser().User
+	userData, _ := cl.sessionV2.GetUserData()
+	return userData.ThisUser.User
+}
+
+// FIXME: This is not exactly thread safe but is unlikely
+// to cause issues as username is not changed after
+// registration. Needs serious design considerations.
+func (cl *Client) ChangeUsername(username string) error {
+	userData, err := cl.sessionV2.GetUserData()
+	if err != nil {
+		return err
+	}
+	userData.ThisUser.Username = username
+	return cl.sessionV2.CommitUserData(userData)
 }
 
 func (cl *Client) GetKeyParams() *keyStore.KeyParams {

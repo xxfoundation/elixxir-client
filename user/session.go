@@ -56,6 +56,8 @@ type Session interface {
 	GetSessionLocation() uint8
 	LoadEncryptedSession(store globals.Storage) ([]byte, error)
 	RegisterPermissioningSignature(sig []byte) error
+	SetE2EGrp(g *cyclic.Group)
+	SetUser(u *id.ID)
 }
 
 type NodeKeys struct {
@@ -121,6 +123,10 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	}
 
 	session.storageLocation = loadLocation
+
+	// Reconstruct Key maps
+	session.KeyMaps.ReconstructKeys(session.E2EGrp,
+		session.CurrentUser)
 
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
@@ -207,6 +213,10 @@ type SessionObj struct {
 	// E2E KeyStore
 	KeyMaps *keyStore.KeyStore
 
+	// do not touch until removing session, neeeded for keystores
+	E2EGrp      *cyclic.Group
+	CurrentUser *id.ID
+
 	// Rekey Manager
 	RekeyManager *keyStore.RekeyManager
 
@@ -252,6 +262,14 @@ func WriteToSession(replacement []byte, store globals.Storage) error {
 	}
 
 	return nil
+}
+
+func (s *SessionObj) SetE2EGrp(g *cyclic.Group) {
+	s.E2EGrp = g
+}
+
+func (s *SessionObj) SetUser(u *id.ID) {
+	s.CurrentUser = u
 }
 
 //LoadEncryptedSession: gets the encrypted session file from storage

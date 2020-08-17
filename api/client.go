@@ -216,6 +216,8 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 	}
 	newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	cl.receptionManager = newRm
+	cl.session.SetE2EGrp(userData.E2EGrp)
+	cl.session.SetUser(userData.ThisUser.User)
 	return userData.ThisUser.User, nil
 }
 
@@ -514,6 +516,15 @@ func (cl *Client) SearchForUser(emailAddress string,
 			err = cl.registerUserE2E(contact)
 			if err != nil {
 				cb.Callback(contact.Id.Bytes(), contact.PublicKey, err)
+				return
+			}
+
+			// FIXME: remove this once key manager is moved to new
+			//        session
+			err = cl.session.StoreSession()
+			if err != nil {
+				cb.Callback(contact.Id.Bytes(),
+					contact.PublicKey, err)
 				return
 			}
 			//store the user so future lookups can find it

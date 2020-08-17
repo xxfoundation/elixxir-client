@@ -346,6 +346,9 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 	}
 	cl.receptionManager = newRm
 
+	cl.session.SetE2EGrp(userData.E2EGrp)
+	cl.session.SetUser(userData.ThisUser.User)
+
 	//store the session
 	return cl.session.StoreSession()
 }

@@ -11,9 +11,9 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/io"
-	//clientStorage "gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/comms/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/notificationBot"
@@ -234,8 +234,22 @@ func TestRegister_InvalidRegState(t *testing.T) {
 	}
 	cmixPrivKey, cmixPubKey, err := generateCmixKeys(cmixGrp)
 
-	client.session = user.NewSession(nil, usr, pubKey, privKey, cmixPubKey, cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, "")
+	client.session = user.NewSession(nil, "password")
 	client.sessionV2, _ = storage.Init(".ekv-invalidregstate", "password")
+
+	userData := &storage.UserData{
+		ThisUser:         usr,
+		RSAPrivateKey:    privKey,
+		RSAPublicKey:     pubKey,
+		CMIXDHPrivateKey: cmixPrivKey,
+		CMIXDHPublicKey:  cmixPubKey,
+		E2EDHPrivateKey:  e2ePrivKey,
+		E2EDHPublicKey:   e2ePubKey,
+		CmixGrp:          cmixGrp,
+		E2EGrp:           e2eGrp,
+		Salt:             salt,
+	}
+	client.sessionV2.CommitUserData(userData)
 
 	//
 	_, err = client.RegisterWithPermissioning(false, ValidRegCode)
@@ -261,8 +275,8 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	}
 
 	// ...
-	tempUser, _ := user.Users.GetUser(id.NewIdFromUInt(5, id.User, t))
-	user.Users.DeleteUser(id.NewIdFromUInt(5, id.User, t))
+	tempUser, _ := userRegistry.Users.GetUser(id.NewIdFromUInt(5, id.User, t))
+	userRegistry.Users.DeleteUser(id.NewIdFromUInt(5, id.User, t))
 	err = client.GenerateKeys(nil, "password")
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
@@ -275,7 +289,7 @@ func TestRegister_DeletedUserReturnsErr(t *testing.T) {
 	}
 
 	// ...
-	user.Users.UpsertUser(tempUser)
+	userRegistry.Users.UpsertUser(tempUser)
 	//Disconnect and shutdown servers
 	disconnectServers()
 }

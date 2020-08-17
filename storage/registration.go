@@ -15,18 +15,10 @@ var currentRegistrationVersion = uint64(0)
 
 // SetRegValidationSig builds the versioned object and sets it in the key-value store
 func (s *Session) SetRegValidationSig(newVal []byte) error {
-	// Get the time for the versioned object
-	now := time.Now()
-	nowText, err := now.MarshalText()
-	if err != nil {
-		//Should never happen
-		return err
-	}
-
 	// Construct the versioned object
 	vo := &VersionedObject{
 		Version:   currentRegistrationVersion,
-		Timestamp: nowText,
+		Timestamp: time.Now(),
 		Data:      newVal,
 	}
 
@@ -58,22 +50,16 @@ func (s *Session) GetRegValidationSig() ([]byte, error) {
 // SetRegState uses the SetInterface method to place the regstate into
 // the key-value store
 func (s *Session) SetRegState(newVal int64) error {
-	now, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
-
 	key := MakeKeyPrefix("RegState", currentRegistrationVersion)
 
-	var data []byte
-	data, err = json.Marshal(newVal)
+	data, err := json.Marshal(newVal)
 	if err != nil {
 		return err
 	}
 
 	obj := VersionedObject{
 		Version:   currentRegistrationVersion,
-		Timestamp: now,
+		Timestamp: time.Now(),
 		Data:      data,
 	}
 

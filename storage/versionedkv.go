@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import (
@@ -6,6 +12,7 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // MakeKeyPrefix provides a helper with a data type and a version
@@ -24,9 +31,8 @@ type VersionedObject struct {
 	// Used to determine version upgrade, if any
 	Version uint64
 
-	// Marshal to/from time.Time using Time.MarshalText and
-	// Time.UnmarshalText
-	Timestamp []byte
+	// Set when this object is written
+	Timestamp time.Time
 
 	// Serialized version of original object
 	Data []byte

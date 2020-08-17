@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import (
@@ -10,22 +16,16 @@ import (
 
 // Shows that all fields can be serialized/deserialized correctly using json
 func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
-	sometime, err := time.Date(1, 2, 3, 4, 5, 6, 7, time.UTC).MarshalText()
-	if err != nil {
-		// Should never happen
-		t.Fatal(err)
-	}
-
 	original := VersionedObject{
 		Version:   8,
-		Timestamp: sometime,
+		Timestamp: time.Date(1, 2, 3, 4, 5, 6, 7, time.UTC),
 		Data:      []byte("original text"),
 	}
 
 	marshalled := original.Marshal()
 
 	unmarshalled := VersionedObject{}
-	err = unmarshalled.Unmarshal(marshalled)
+	err := unmarshalled.Unmarshal(marshalled)
 	if err != nil {
 		// Should never happen
 		t.Fatal(err)
@@ -57,21 +57,12 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	key := MakeKeyPrefix("test", 0) + "12345"
-	now := time.Now()
-	nowText, err := now.MarshalText()
-	if err != nil {
-		//Should never happen
-		t.Fatal(err)
-	}
 	original := VersionedObject{
 		Version:   0,
-		Timestamp: nowText,
+		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	originalSerialized := original.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
 	kv[key] = originalSerialized
 
 	result, err := vkv.Get(key)
@@ -90,21 +81,12 @@ func TestVersionedKV_Get(t *testing.T) {
 	vkv := NewVersionedKV(kv)
 	originalVersion := uint64(1)
 	key := MakeKeyPrefix("test", originalVersion) + "12345"
-	now := time.Now()
-	nowText, err := now.MarshalText()
-	if err != nil {
-		//Should never happen
-		t.Fatal(err)
-	}
 	original := VersionedObject{
 		Version:   originalVersion,
-		Timestamp: nowText,
+		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	originalSerialized := original.Marshal()
-	if err != nil {
-		t.Fatal(err)
-	}
 	kv[key] = originalSerialized
 
 	result, err := vkv.Get(key)
@@ -122,18 +104,12 @@ func TestVersionedKV_Set(t *testing.T) {
 	vkv := NewVersionedKV(kv)
 	originalVersion := uint64(1)
 	key := MakeKeyPrefix("test", originalVersion) + "12345"
-	now := time.Now()
-	nowText, err := now.MarshalText()
-	if err != nil {
-		//Should never happen
-		t.Fatal(err)
-	}
 	original := VersionedObject{
 		Version:   originalVersion,
-		Timestamp: nowText,
+		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	err = vkv.Set(key, &original)
+	err := vkv.Set(key, &original)
 	if err != nil {
 		t.Fatal(err)
 	}

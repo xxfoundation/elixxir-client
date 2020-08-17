@@ -7,6 +7,7 @@ package api
 
 import (
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
@@ -38,19 +39,9 @@ func TestRegistrationGob(t *testing.T) {
 		t.Error(err)
 	}
 
-	err = testClient.session.StoreSession()
-	if err != nil {
-		t.Error(err)
-	}
+	userData, _ := testClient.sessionV2.GetUserData()
 
-	// get the gob out of there again
-	Session, err := user.LoadSession(testClient.storage,
-		"1234")
-	if err != nil {
-		t.Error(err)
-	}
-
-	VerifyRegisterGobUser(Session, t)
+	VerifyRegisterGobUser(userData.ThisUser, t)
 
 	disconnectServers()
 }
@@ -88,26 +79,21 @@ func TestClient_Register(t *testing.T) {
 		t.Error(err)
 	}
 
-	// get the gob out of there again
-	Session, err := user.LoadSession(testClient.storage,
-		"password")
-	if err != nil {
-		t.Error(err)
-	}
+	userData, _ := testClient.sessionV2.GetUserData()
 
-	VerifyRegisterGobUser(Session, t)
+	VerifyRegisterGobUser(userData.ThisUser, t)
 
 	disconnectServers()
 }
 
 //Verify the user from the session make in the registration above matches expected user
-func VerifyRegisterGobUser(session user.Session, t *testing.T) {
+func VerifyRegisterGobUser(curUser *storage.User, t *testing.T) {
 
 	expectedUser := id.NewIdFromUInt(5, id.User, t)
 
-	if !session.GetCurrentUser().User.Cmp(expectedUser) {
+	if !curUser.User.Cmp(expectedUser) {
 		t.Errorf("Incorrect User ID; \n   expected: %q \n   recieved: %q",
-			expectedUser, session.GetCurrentUser().User)
+			expectedUser, curUser.User)
 	}
 }
 

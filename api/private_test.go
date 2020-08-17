@@ -7,7 +7,7 @@ package api
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"reflect"
@@ -111,13 +111,13 @@ func TestGenerateE2eKeys(t *testing.T) {
 //Happy path: tests that it generates a user and puts in the registry
 func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 	grp, _ := generateGroups(def)
-	user.InitUserRegistry(grp)
+	userRegistry.InitUserRegistry(grp)
 	_, pubkey, _ := generateRsaKeys(nil)
 	_, uid, usr, err := generateUserInformation(pubkey)
 	if err != nil {
 		t.Errorf("%+v", err)
 	}
-	retrievedUser, ok := user.Users.GetUser(uid)
+	retrievedUser, ok := userRegistry.Users.GetUser(uid)
 	if !ok {
 		t.Errorf("UserId not inserted into registry")
 	}
@@ -135,7 +135,7 @@ func TestGenerateUserInformation_EmptyNick(t *testing.T) {
 //Happy path: test GenerateUser with a nickname and puts in registry
 func TestGenerateUserInformation(t *testing.T) {
 	grp, _ := generateGroups(def)
-	user.InitUserRegistry(grp)
+	userRegistry.InitUserRegistry(grp)
 	nickName := "test"
 	_, pubkey, _ := generateRsaKeys(nil)
 	_, uid, usr, err := generateUserInformation(pubkey)
@@ -144,7 +144,7 @@ func TestGenerateUserInformation(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 
-	retrievedUser, ok := user.Users.GetUser(uid)
+	retrievedUser, ok := userRegistry.Users.GetUser(uid)
 	if !ok {
 		t.Errorf("UserId not inserted into registry")
 	}

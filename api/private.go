@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -32,15 +33,15 @@ const PermissioningAddrID = "Permissioning"
 
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
-func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.ID, map[id.ID]user.NodeKeys, error) {
+func (cl *Client) precannedRegister(registrationCode string) (*storage.User, *id.ID, map[id.ID]user.NodeKeys, error) {
 	var successLook bool
 	var UID *id.ID
-	var u *user.User
+	var u *storage.User
 	var err error
 
 	nk := make(map[id.ID]user.NodeKeys)
 
-	UID, successLook = user.Users.LookupUser(registrationCode)
+	UID, successLook = userRegistry.Users.LookupUser(registrationCode)
 
 	globals.Log.DEBUG.Printf("UID: %+v, success: %+v", UID, successLook)
 
@@ -49,14 +50,14 @@ func (cl *Client) precannedRegister(registrationCode string) (*user.User, *id.ID
 	}
 
 	var successGet bool
-	u, successGet = user.Users.GetUser(UID)
+	u, successGet = userRegistry.Users.GetUser(UID)
 
 	if !successGet {
 		err = errors.New("precannedRegister: could not register due to ID lookup failure")
 		return nil, nil, nil, err
 	}
 
-	nodekeys, successKeys := user.Users.LookupKeys(u.User)
+	nodekeys, successKeys := userRegistry.Users.LookupKeys(u.User)
 
 	if !successKeys {
 		err = errors.New("precannedRegister: could not register due to missing user keys")
@@ -217,17 +218,22 @@ func (cl *Client) registerUserE2E(partner *storage.Contact) error {
 			"been searched for before", partner.Id))
 	}
 
-	if cl.session.GetCurrentUser().User.Cmp(partner.Id) {
+	userData, err := cl.sessionV2.GetUserData()
+	if err != nil {
+		return err
+	}
+
+	if userData.ThisUser.User.Cmp(partner.Id) {
 		return errors.New("cannot search for yourself on UDB")
 	}
 
 	// Get needed variables from session
-	grp := cl.session.GetE2EGroup()
-	userID := cl.session.GetCurrentUser().User
+	grp := userData.E2EGrp
+	userID := userData.ThisUser.User
 
 	// Create user private key and partner public key
 	// in the group
-	privKeyCyclic := cl.session.GetE2EDHPrivateKey()
+	privKeyCyclic := userData.E2EDHPrivateKey
 	publicKeyCyclic := grp.NewIntFromBytes(partner.PublicKey)
 
 	// Generate baseKey
@@ -301,25 +307,44 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 		return err
 	}
 
-	cl.session = user.NewSession(cl.storage, usr, pubKey, privKey, cmixPubKey,
-		cmixPrivKey, e2ePubKey, e2ePrivKey, salt, cmixGrp, e2eGrp, password)
-
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.session.GetCurrentUser().User,
-		rsa.CreatePrivateKeyPem(privKey), rsa.CreatePublicKeyPem(pubKey), salt)
+	cl.session = user.NewSession(cl.storage, password)
+	locA, _ := cl.storage.GetLocation()
+	err = cl.setStorage(locA, password)
 	if err != nil {
-		return errors.Wrap(err, "Failed to create new reception manager")
+		return err
+	}
+
+	userData := &storage.UserData{
+		ThisUser: &storage.User{
+			User:     usr.User,
+			Username: usr.Username,
+			Precan:   usr.Precan,
+		},
+		RSAPrivateKey:    privKey,
+		RSAPublicKey:     pubKey,
+		CMIXDHPrivateKey: cmixPrivKey,
+		CMIXDHPublicKey:  cmixPubKey,
+		E2EDHPrivateKey:  e2ePrivKey,
+		E2EDHPublicKey:   e2ePubKey,
+		CmixGrp:          cmixGrp,
+		E2EGrp:           e2eGrp,
+		Salt:             salt,
+	}
+	cl.sessionV2.CommitUserData(userData)
+
+	newRm, err := io.NewReceptionManager(cl.rekeyChan,
+		usr.User,
+		rsa.CreatePrivateKeyPem(privKey),
+		rsa.CreatePublicKeyPem(pubKey),
+		salt)
+	if err != nil {
+		return errors.Wrap(err, "Couldn't create reception manager")
 	}
 	if cl.receptionManager != nil {
 		// Use the old comms manager if it exists
 		newRm.Comms.Manager = cl.receptionManager.Comms.Manager
 	}
 	cl.receptionManager = newRm
-
-	locA, _ := cl.storage.GetLocation()
-	err = cl.setStorage(locA, password)
-	if err != nil {
-		return err
-	}
 
 	//store the session
 	return cl.session.StoreSession()
@@ -400,7 +425,8 @@ func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey
 
 //generateUserInformation serves as a helper function for RegisterUser.
 // It generates a salt s.t. it can create a user and their ID
-func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.ID, *user.User, error) {
+func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.ID,
+	*storage.User, error) {
 	//Generate salt for UserID
 	salt := make([]byte, SaltSize)
 	_, err := csprng.NewSystemRNG().Read(salt)
@@ -415,8 +441,8 @@ func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.ID, *user
 		return nil, nil, nil, err
 	}
 
-	usr := user.Users.NewUser(userId, "")
-	user.Users.UpsertUser(usr)
+	usr := userRegistry.Users.NewUser(userId, "")
+	userRegistry.Users.UpsertUser(usr)
 
 	return salt, userId, usr, nil
 }

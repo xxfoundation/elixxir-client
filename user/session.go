@@ -18,7 +18,6 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/primitives/id"
@@ -33,17 +32,6 @@ var ErrQuery = errors.New("element not in map")
 
 // Interface for User Session operations
 type Session interface {
-	GetCurrentUser() (currentUser *User)
-	GetRSAPrivateKey() *rsa.PrivateKey
-	GetRSAPublicKey() *rsa.PublicKey
-	GetCMIXDHPrivateKey() *cyclic.Int
-	GetCMIXDHPublicKey() *cyclic.Int
-	GetE2EDHPrivateKey() *cyclic.Int
-	GetE2EDHPublicKey() *cyclic.Int
-	GetCmixGroup() *cyclic.Group
-	GetE2EGroup() *cyclic.Group
-	GetLastMessageID() string
-	SetLastMessageID(id string)
 	StoreSession() error
 	Immolate() error
 	UpsertMap(key string, element interface{}) error
@@ -59,10 +47,8 @@ type Session interface {
 	GetRegistrationValidationSignature() []byte
 	AppendGarbledMessage(messages ...*format.Message)
 	PopGarbledMessages() []*format.Message
-	GetSalt() []byte
 	SetRegState(rs uint32) error
 	GetRegState() uint32
-	ChangeUsername(string) error
 	StorageIsEmpty() bool
 	GetContactByValue(string) (*id.ID, []byte)
 	StoreContactByValue(string, *id.ID, []byte)
@@ -79,29 +65,10 @@ type NodeKeys struct {
 
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
-	u *User,
-	publicKeyRSA *rsa.PublicKey,
-	privateKeyRSA *rsa.PrivateKey,
-	cmixPublicKeyDH *cyclic.Int,
-	cmixPrivateKeyDH *cyclic.Int,
-	e2ePublicKeyDH *cyclic.Int,
-	e2ePrivateKeyDH *cyclic.Int,
-	salt []byte,
-	cmixGrp, e2eGrp *cyclic.Group,
 	password string) Session {
 	regState := uint32(KeyGenComplete)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		NodeKeys:            make(map[id.ID]NodeKeys),
-		CurrentUser:         u,
-		RSAPublicKey:        publicKeyRSA,
-		RSAPrivateKey:       privateKeyRSA,
-		CMIXDHPublicKey:     cmixPublicKeyDH,
-		CMIXDHPrivateKey:    cmixPrivateKeyDH,
-		E2EDHPublicKey:      e2ePublicKeyDH,
-		E2EDHPrivateKey:     e2ePrivateKeyDH,
-		CmixGrp:             cmixGrp,
-		E2EGrp:              e2eGrp,
 		InterfaceMap:        make(map[string]interface{}),
 		KeyMaps:             keyStore.NewStore(),
 		RekeyManager:        keyStore.NewRekeyManager(),
@@ -109,7 +76,6 @@ func NewSession(store globals.Storage,
 		listeners:           switchboard.NewSwitchboard(),
 		quitReceptionRunner: make(chan struct{}),
 		password:            password,
-		Salt:                salt,
 		RegState:            &regState,
 		storageLocation:     globals.LocationA,
 		ContactsByValue:     make(map[string]SearchedUserRecord),
@@ -156,9 +122,6 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 
 	session.storageLocation = loadLocation
 
-	// Reconstruct Key maps
-	session.KeyMaps.ReconstructKeys(session.E2EGrp,
-		session.CurrentUser.User)
 	// Create switchboard
 	session.listeners = switchboard.NewSwitchboard()
 	// Create quit channel for reception runner
@@ -167,10 +130,6 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	// Set storage pointer
 	session.store = store
 	session.password = password
-
-	if session.NodeKeys == nil {
-		session.NodeKeys = make(map[id.ID]NodeKeys)
-	}
 
 	return &session, nil
 }
@@ -239,20 +198,6 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 // When adding to this structure, ALWAYS ALWAYS
 // consider if you want the data to be in the session file
 type SessionObj struct {
-	// Currently authenticated user
-	CurrentUser *User
-
-	NodeKeys         map[id.ID]NodeKeys
-	RSAPrivateKey    *rsa.PrivateKey
-	RSAPublicKey     *rsa.PublicKey
-	CMIXDHPrivateKey *cyclic.Int
-	CMIXDHPublicKey  *cyclic.Int
-	E2EDHPrivateKey  *cyclic.Int
-	E2EDHPublicKey   *cyclic.Int
-	CmixGrp          *cyclic.Group
-	E2EGrp           *cyclic.Group
-	Salt             []byte
-
 	// Last received message ID. Check messages after this on the gateway.
 	LastMessageID string
 
@@ -325,13 +270,6 @@ type SearchedUserRecord struct {
 	Pk []byte
 }
 
-func (s *SessionObj) GetLastMessageID() string {
-	s.LockStorage()
-	defer s.UnlockStorage()
-
-	return s.LastMessageID
-}
-
 func (s *SessionObj) StorageIsEmpty() bool {
 	s.LockStorage()
 	defer s.UnlockStorage()
@@ -342,14 +280,6 @@ func (s *SessionObj) SetLastMessageID(id string) {
 	s.LockStorage()
 	s.LastMessageID = id
 	s.UnlockStorage()
-}
-
-func (s *SessionObj) GetSalt() []byte {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	salt := make([]byte, len(s.Salt))
-	copy(salt, s.Salt)
-	return salt
 }
 
 //RegisterPermissioningSignature sets sessions registration signature and
@@ -373,74 +303,10 @@ func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
 	return err
 }
 
-func (s *SessionObj) GetRSAPrivateKey() *rsa.PrivateKey {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.RSAPrivateKey
-}
-
-func (s *SessionObj) GetRSAPublicKey() *rsa.PublicKey {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.RSAPublicKey
-}
-
-func (s *SessionObj) GetCMIXDHPrivateKey() *cyclic.Int {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.CMIXDHPrivateKey
-}
-
-func (s *SessionObj) GetCMIXDHPublicKey() *cyclic.Int {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.CMIXDHPublicKey
-}
-
-func (s *SessionObj) GetE2EDHPrivateKey() *cyclic.Int {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.E2EDHPrivateKey
-}
-
-func (s *SessionObj) GetE2EDHPublicKey() *cyclic.Int {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.E2EDHPublicKey
-}
-
-func (s *SessionObj) GetCmixGroup() *cyclic.Group {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.CmixGrp
-}
-
 func (s *SessionObj) GetRegistrationValidationSignature() []byte {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.RegValidationSignature
-}
-
-func (s *SessionObj) GetE2EGroup() *cyclic.Group {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.E2EGrp
-}
-
-// Return a copy of the current user
-func (s *SessionObj) GetCurrentUser() (currentUser *User) {
-	// This is where it deadlocks
-	s.LockStorage()
-	defer s.UnlockStorage()
-	if s.CurrentUser != nil {
-		// Explicit deep copy
-		currentUser = &User{
-			User:     s.CurrentUser.User,
-			Username: s.CurrentUser.Username,
-			Precan:   s.CurrentUser.Precan,
-		}
-	}
-	return currentUser
 }
 
 func (s *SessionObj) GetRegState() uint32 {
@@ -453,12 +319,6 @@ func (s *SessionObj) SetRegState(rs uint32) error {
 	if !b {
 		return errors.New("Could not increment registration state")
 	}
-	return nil
-}
-
-func (s *SessionObj) ChangeUsername(username string) error {
-
-	s.CurrentUser.Username = username
 	return nil
 }
 

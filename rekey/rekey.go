@@ -8,6 +8,7 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -20,6 +21,7 @@ import (
 )
 
 var session user.Session
+var sessionV2 storage.Session
 var topology *connect.Circuit
 var comms io.Communications
 var transmissionHost *connect.Host
@@ -88,13 +90,15 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool,
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, host *connect.Host, rekeyChan2 chan struct{}) {
+func InitRekey(s user.Session, s2 storage.Session, m io.Communications,
+	t *connect.Circuit, host *connect.Host, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}
 	rekeyList = rekeyListener{}
 	rekeyConfirmList = rekeyConfirmListener{}
 
 	session = s
+	sessionV2 = s2
 	topology = t
 	comms = m
 	transmissionHost = host
@@ -102,7 +106,12 @@ func InitRekey(s user.Session, m io.Communications, t *connect.Circuit, host *co
 	rekeyChan = rekeyChan2
 	l := session.GetSwitchboard()
 
-	l.Register(s.GetCurrentUser().User,
+	userData, err := s2.GetUserData()
+	if err != nil {
+		globals.Log.FATAL.Panicf("could not load user data: %+v", err)
+	}
+
+	l.Register(userData.ThisUser.User,
 		int32(cmixproto.Type_REKEY_TRIGGER),
 		&rekeyTriggerList)
 	// TODO(nen) Wouldn't it be possible to register these listeners based
@@ -129,7 +138,12 @@ const (
 
 func rekeyProcess(rt rekeyType, partner *id.ID, data []byte) error {
 	rkm := session.GetRekeyManager()
-	e2egrp := session.GetE2EGroup()
+	userData, err := sessionV2.GetUserData()
+	if err != nil {
+		return fmt.Errorf("could not load user data: %+v", err)
+	}
+
+	e2egrp := userData.E2EGrp
 
 	// Error handling according to Rekey Message Type
 	var ctx *keyStore.RekeyContext
@@ -215,7 +229,7 @@ func rekeyProcess(rt rekeyType, partner *id.ID, data []byte) error {
 			partner, false,
 			numKeys, keysTTL, params.NumRekeys)
 		// Generate Receive Keys
-		e2ekeys := km.GenerateKeys(e2egrp, session.GetCurrentUser().User)
+		e2ekeys := km.GenerateKeys(e2egrp, userData.ThisUser.User)
 		session.GetKeyStore().AddRecvManager(km)
 		session.GetKeyStore().AddReceiveKeysByFingerprint(e2ekeys)
 
@@ -235,7 +249,7 @@ func rekeyProcess(rt rekeyType, partner *id.ID, data []byte) error {
 				partner, true,
 				numKeys, keysTTL, params.NumRekeys)
 			// Generate Send Keys
-			km.GenerateKeys(e2egrp, session.GetCurrentUser().User)
+			km.GenerateKeys(e2egrp, userData.ThisUser.User)
 			session.GetKeyStore().AddSendManager(km)
 			// Remove RekeyContext
 			rkm.DeleteCtx(partner)

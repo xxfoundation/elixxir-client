@@ -52,7 +52,7 @@ type UserData struct {
 const currentUserDataVersion = 0
 
 func makeUserDataKey() string {
-	return MakeKeyPrefix("UserData", currentUserDataVersion)
+	return "UserData"
 }
 
 func (s *Session) GetUserData() (*UserData, error) {

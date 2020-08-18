@@ -13,7 +13,8 @@ import (
 
 var currentRegistrationVersion = uint64(0)
 
-// SetRegValidationSig builds the versioned object and sets it in the key-value store
+// SetRegValidationSig builds the versioned object and sets it in the
+// key-value store
 func (s *Session) SetRegValidationSig(newVal []byte) error {
 	// Construct the versioned object
 	vo := &VersionedObject{
@@ -23,7 +24,7 @@ func (s *Session) SetRegValidationSig(newVal []byte) error {
 	}
 
 	// Construct the key and place in the key-value store
-	key := MakeKeyPrefix("RegValidationSig", currentRegistrationVersion)
+	key := "RegValidationSig"
 
 	return s.kv.Set(key, vo)
 }
@@ -31,7 +32,7 @@ func (s *Session) SetRegValidationSig(newVal []byte) error {
 // GetRegValidationSig pulls the versioned object by the key and parses
 // it into the requested registration signature
 func (s *Session) GetRegValidationSig() ([]byte, error) {
-	key := MakeKeyPrefix("RegValidationSig", currentRegistrationVersion)
+	key := "RegValidationSig"
 
 	// Pull the object from the key-value store
 	voData, err := s.kv.Get(key)
@@ -40,7 +41,8 @@ func (s *Session) GetRegValidationSig() ([]byte, error) {
 	}
 
 	if voData.Version != currentRegistrationVersion {
-		globals.Log.WARN.Printf("Session.GetRegValidationSig: got unexpected version %v, expected version %v",
+		globals.Log.WARN.Printf("Session.GetRegValidationSig: got "+
+			"unexpected version %v, expected version %v",
 			voData.Version, currentRegistrationVersion)
 	}
 
@@ -50,7 +52,7 @@ func (s *Session) GetRegValidationSig() ([]byte, error) {
 // SetRegState uses the SetInterface method to place the regstate into
 // the key-value store
 func (s *Session) SetRegState(newVal int64) error {
-	key := MakeKeyPrefix("RegState", currentRegistrationVersion)
+	key := "RegState"
 
 	data, err := json.Marshal(newVal)
 	if err != nil {
@@ -70,7 +72,7 @@ func (s *Session) SetRegState(newVal int64) error {
 // it into the requested registration signature
 func (s *Session) GetRegState() (int64, error) {
 	// Construct the key from the
-	key := MakeKeyPrefix("RegState", currentRegistrationVersion)
+	key := "RegState"
 
 	// Pull the object from the key-value store
 	voData, err := s.kv.Get(key)
@@ -79,7 +81,8 @@ func (s *Session) GetRegState() (int64, error) {
 	}
 
 	if voData.Version != currentRegistrationVersion {
-		globals.Log.WARN.Printf("Session.GetRegState: got unexpected version %v, expected version %v",
+		globals.Log.WARN.Printf("Session.GetRegState: got unexpected "+
+			"version %v, expected version %v",
 			voData.Version, currentRegistrationVersion)
 	}
 

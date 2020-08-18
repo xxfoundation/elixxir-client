@@ -24,10 +24,8 @@ func (pr *ProcessingRounds) Processing(id id.Round) {
 func (pr *ProcessingRounds) IsProcessing(id id.Round) bool {
 	pr.RLock()
 	defer pr.RUnlock()
-	if _, ok := pr.rounds[id]; ok {
-		return true
-	}
-	return false
+	_, ok := pr.rounds[id]
+	return ok
 }
 
 // Remove a round from the processing list

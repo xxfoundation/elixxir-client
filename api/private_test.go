@@ -9,7 +9,7 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
-	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"reflect"
 	"testing"
 )

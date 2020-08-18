@@ -15,10 +15,15 @@ import (
 
 const currentContactVersion = 0
 
+// Contact holds the public key and ID of a given contact.
+type Contact struct {
+	Id        *id.ID
+	PublicKey []byte
+}
+
+// GetContact reads contact information from disk
 func (s *Session) GetContact(name string) (*Contact, error) {
-	// Make key
-	// If upgrading version, may need to add logic to update version number in key prefix
-	key := MakeKeyPrefix("Contact", currentContactVersion) + name
+	key := MakeKeyWithPrefix("Contact", name)
 
 	obj, err := s.Get(key)
 	if err != nil {
@@ -26,7 +31,9 @@ func (s *Session) GetContact(name string) (*Contact, error) {
 	}
 	// Correctly implemented upgrade should always change the version number to what's current
 	if obj.Version != currentContactVersion {
-		globals.Log.WARN.Printf("Session.GetContact: got unexpected version %v, expected version %v", obj.Version, currentContactVersion)
+		globals.Log.WARN.Printf("Session.GetContact: got unexpected "+
+			"version %v, expected version %v", obj.Version,
+			currentContactVersion)
 	}
 
 	// deserialize
@@ -35,8 +42,9 @@ func (s *Session) GetContact(name string) (*Contact, error) {
 	return &contact, err
 }
 
+// SetContact saves contact information to disk.
 func (s *Session) SetContact(name string, record *Contact) error {
-	key := MakeKeyPrefix("Contact", currentContactVersion) + name
+	key := MakeKeyWithPrefix("Contact", name)
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
@@ -47,9 +55,4 @@ func (s *Session) SetContact(name string, record *Contact) error {
 		Data:      data,
 	}
 	return s.Set(key, &obj)
-}
-
-type Contact struct {
-	Id        *id.ID
-	PublicKey []byte
 }

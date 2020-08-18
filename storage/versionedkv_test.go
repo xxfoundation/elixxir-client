@@ -32,7 +32,7 @@ func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
 	}
 
 	if !reflect.DeepEqual(original, unmarshalled) {
-		t.Error("Original and serialized/deserialized objects not equal")
+		t.Error("Original and deserialized objects not equal")
 	}
 	t.Logf("%+v", unmarshalled)
 }
@@ -41,13 +41,15 @@ func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
 func TestVersionedKV_Get_Err(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
-	key := MakeKeyPrefix("test", 0) + "12345"
+	key := MakeKeyWithPrefix("test", "12345")
 	result, err := vkv.Get(key)
 	if err == nil {
-		t.Error("Getting a key that didn't exist should have returned an error")
+		t.Error("Getting a key that didn't exist should have" +
+			" returned an error")
 	}
 	if result != nil {
-		t.Error("Getting a key that didn't exist shouldn't have returned data")
+		t.Error("Getting a key that didn't exist shouldn't " +
+			"have returned data")
 	}
 }
 
@@ -56,7 +58,7 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
-	key := MakeKeyPrefix("test", 0) + "12345"
+	key := MakeKeyWithPrefix("test", "12345")
 	original := VersionedObject{
 		Version:   0,
 		Timestamp: time.Now(),
@@ -67,10 +69,13 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 
 	result, err := vkv.Get(key)
 	if err != nil {
-		t.Fatalf("Error getting something that should have been in: %v", err)
+		t.Fatalf("Error getting something that should have been in: %v",
+			err)
 	}
-	if !bytes.Equal(result.Data, []byte("this object was upgraded from v0 to v1")) {
-		t.Errorf("upgrade should have overwritten data. result data: %q", result.Data)
+	if !bytes.Equal(result.Data,
+		[]byte("this object was upgraded from v0 to v1")) {
+		t.Errorf("upgrade should have overwritten data."+
+			" result data: %q", result.Data)
 	}
 }
 
@@ -80,7 +85,7 @@ func TestVersionedKV_Get(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	originalVersion := uint64(1)
-	key := MakeKeyPrefix("test", originalVersion) + "12345"
+	key := MakeKeyWithPrefix("test", "12345")
 	original := VersionedObject{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
@@ -91,10 +96,12 @@ func TestVersionedKV_Get(t *testing.T) {
 
 	result, err := vkv.Get(key)
 	if err != nil {
-		t.Fatalf("Error getting something that should have been in: %v", err)
+		t.Fatalf("Error getting something that should have been in: %v",
+			err)
 	}
 	if !bytes.Equal(result.Data, []byte("not upgraded")) {
-		t.Errorf("upgrade should not have overwritten data. result data: %q", result.Data)
+		t.Errorf("upgrade should not have overwritten data."+
+			" result data: %q", result.Data)
 	}
 }
 
@@ -103,7 +110,7 @@ func TestVersionedKV_Set(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewVersionedKV(kv)
 	originalVersion := uint64(1)
-	key := MakeKeyPrefix("test", originalVersion) + "12345"
+	key := MakeKeyWithPrefix("test", "12345")
 	original := VersionedObject{
 		Version:   originalVersion,
 		Timestamp: time.Now(),

@@ -10,11 +10,12 @@ import (
 // Struct with a lock so we can manage it with concurrent threads
 type ProcessingRounds struct {
 	rounds map[id.Round]struct{}
+	sync.Map
 	sync.RWMutex
 }
 
-// Insert a round to the list of processing rounds
-func (pr *ProcessingRounds) Processing(id id.Round) {
+// Add a round to the list of processing rounds
+func (pr *ProcessingRounds) Add(id id.Round) {
 	pr.Lock()
 	defer pr.Unlock()
 	pr.rounds[id] = struct{}{}
@@ -29,7 +30,7 @@ func (pr *ProcessingRounds) IsProcessing(id id.Round) bool {
 }
 
 // Remove a round from the processing list
-func (pr *ProcessingRounds) Done(id id.Round) {
+func (pr *ProcessingRounds) Remove(id id.Round) {
 	pr.Lock()
 	defer pr.Unlock()
 	delete(pr.rounds, id)

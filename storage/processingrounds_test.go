@@ -8,9 +8,9 @@ import (
 )
 
 // Test that the Processing function inserts the round properly
-func TestProcessingRounds_Processing(t *testing.T) {
+func TestProcessingRounds_Add(t *testing.T) {
 	pr := ProcessingRounds{rounds: make(map[id.Round]struct{})}
-	pr.Processing(id.Round(10))
+	pr.Add(id.Round(10))
 	if _, ok := pr.rounds[10]; !ok {
 		t.Errorf("Could not find round 10 after it was inserted into the map")
 	}
@@ -26,10 +26,10 @@ func TestProcessingRounds_IsProcessing(t *testing.T) {
 }
 
 // Test that the Done function removes the processing round
-func TestProcessingRounds_Done(t *testing.T) {
+func TestProcessingRounds_Remove(t *testing.T) {
 	pr := ProcessingRounds{rounds: make(map[id.Round]struct{})}
 	pr.rounds[id.Round(10)] = struct{}{}
-	pr.Done(id.Round(10))
+	pr.Remove(id.Round(10))
 	if _, ok := pr.rounds[id.Round(10)]; ok {
 		t.Errorf("Round 10 was not removed from processing list when calling Done")
 	}

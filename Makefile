@@ -21,7 +21,7 @@ build:
 
 update_release:
 	GOFLAGS="" go get -u gitlab.com/elixxir/primitives@release
-	GOFLAGS="" go get -u gitlab.com/elixxir/crypto@ben/newE2E
+	GOFLAGS="" go get -u gitlab.com/elixxir/crypto@Optimus/e2e
 	GOFLAGS="" go get -u gitlab.com/elixxir/comms@release
 	GOFLAGS="" go get -u gitlab.com/xx_network/comms@release
 	GOFLAGS="" go get -u gitlab.com/xx_network/primitives@release	

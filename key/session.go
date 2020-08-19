@@ -2,6 +2,7 @@ package key
 
 import (
 	"encoding/json"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -288,7 +289,7 @@ func (s *Session) useReKey(keynum uint32) error {
 }
 
 // generates keys from the base data stored in the session object.
-// required fields: partnerPubKey, confirmed, manager, grp
+// required fields: partnerPubKey, manager
 // myPrivKey, baseKey, keyState, and ReKeyState will be
 // created/calculated if not present
 // if keyState is not present lastKey will be ignored and set to zero
@@ -297,9 +298,18 @@ func (s *Session) generateKeys() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	//if not private key is present, generate one
+	/*check required fields*/
+	if s.partnerPubKey == nil {
+		return errors.New("Session must have a partner public key")
+	}
+
+	if s.manager == nil {
+		return errors.New("Session must have a manager")
+	}
+
+	/*generate optional fields if not present*/
 	if s.myPrivKey == nil {
-		s.myPrivKey, diffieHellman
+		s.myPrivKey, diffieHellman.
 	}
 
 	return nil

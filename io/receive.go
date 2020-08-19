@@ -48,7 +48,7 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 	pollingMessage := pb.ClientRequest{
 		UserID: userData.ThisUser.User.Bytes(),
 	}
-	quit := session.GetQuitChan()
+	quit := rm.quitChan
 	NumChecks := 0
 	NumMessages := 0
 
@@ -95,7 +95,7 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 			}
 			NumMessages += len(encryptedMessages)
 		case <-rm.rekeyChan:
-			encryptedMessages = session.PopGarbledMessages()
+			encryptedMessages = rm.PopGarbledMessages()
 		}
 
 		if len(encryptedMessages) != 0 {
@@ -103,7 +103,7 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 			decryptedMessages, senders, garbledMessages := rm.decryptMessages(session, encryptedMessages)
 
 			if len(garbledMessages) != 0 {
-				session.AppendGarbledMessage(garbledMessages...)
+				rm.AppendGarbledMessage(garbledMessages...)
 			}
 
 			if decryptedMessages != nil {
@@ -116,7 +116,9 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 					}
 					if assembledMessage != nil {
 						// we got a fully assembled message. let's broadcast it
-						broadcastMessageReception(assembledMessage, session.GetSwitchboard())
+						broadcastMessageReception(
+							assembledMessage,
+							rm.switchboard)
 					}
 				}
 			}
@@ -124,7 +126,8 @@ func (rm *ReceptionManager) MessageReceiver(session user.Session, delay time.Dur
 	}
 }
 
-func handleE2EReceiving(session user.Session,
+// FIXME: put all key and external object into context var or other solution.
+func handleE2EReceiving(session user.Session, switchb *switchboard.Switchboard,
 	message *format.Message) (*id.ID, bool, error) {
 
 	userData, err := SessionV2.GetUserData()
@@ -179,7 +182,7 @@ func handleE2EReceiving(session user.Session,
 			InferredType: parse.Rekey,
 			Receiver:     userData.ThisUser.User,
 		}
-		go session.GetSwitchboard().Speak(rekeyMsg)
+		go switchb.Speak(rekeyMsg)
 	}
 	return sender, rekey, err
 }
@@ -316,7 +319,8 @@ func (rm *ReceptionManager) decryptMessages(session user.Session,
 			keyFP := msg.AssociatedData.GetKeyFP()
 			sender, err = makeUserID(keyFP[:])
 		} else {
-			sender, rekey, err = handleE2EReceiving(session, msg)
+			sender, rekey, err = handleE2EReceiving(session,
+				rm.switchboard, msg)
 
 			if err == errE2ENotFound {
 				garbled = true

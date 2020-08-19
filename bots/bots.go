@@ -51,7 +51,8 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ..
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, s2 storage.Session, m io.Communications, top *connect.Circuit, host *connect.Host) {
+func InitBots(s user.Session, s2 storage.Session, m io.Communications,
+	top *connect.Circuit, host *connect.Host) {
 
 	userData, err := s2.GetUserData()
 	if err != nil {
@@ -78,7 +79,7 @@ func InitBots(s user.Session, s2 storage.Session, m io.Communications, top *conn
 	comms = m
 	transmissionHost = host
 
-	l := session.GetSwitchboard()
+	l := m.GetSwitchboard()
 
 	l.Register(&id.UDB, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
 		&pushKeyResponseListener)

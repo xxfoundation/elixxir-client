@@ -330,13 +330,20 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 		E2EGrp:           e2eGrp,
 		Salt:             salt,
 	}
-	cl.sessionV2.CommitUserData(userData)
+	err = cl.sessionV2.CommitUserData(userData)
+	if err != nil {
+		return err
+	}
+	err = cl.sessionV2.SetRegState(user.KeyGenComplete)
+	if err != nil {
+		return err
+	}
 
-	newRm, err := io.NewReceptionManager(cl.rekeyChan,
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.quitChan,
 		usr.User,
 		rsa.CreatePrivateKeyPem(privKey),
 		rsa.CreatePublicKeyPem(pubKey),
-		salt)
+		salt, cl.switchboard)
 	if err != nil {
 		return errors.Wrap(err, "Couldn't create reception manager")
 	}

@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -134,7 +135,7 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 
 	// Check message type
 	if cryptoType == parse.E2E {
-		handleE2ESending(session, message, rekey)
+		handleE2ESending(session, rm.switchboard, message, rekey)
 	} else {
 		padded, err := e2e.Pad(message.Contents.GetRightAligned(), format.ContentsLen)
 		if err != nil {
@@ -200,7 +201,8 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 	return err
 }
 
-func handleE2ESending(session user.Session,
+// FIXME: hand off all keys via a context variable or other solution.
+func handleE2ESending(session user.Session, switchb *switchboard.Switchboard,
 	message *format.Message,
 	rekey bool) {
 	recipientID, err := message.GetRecipient()
@@ -268,7 +270,7 @@ func handleE2ESending(session user.Session,
 			InferredType: parse.None,
 			Receiver:     recipientID,
 		}
-		go session.GetSwitchboard().Speak(rekeyMsg)
+		go switchb.Speak(rekeyMsg)
 	}
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"os"
@@ -28,7 +29,8 @@ import (
 var ListenCh chan []byte
 
 type dummyMessaging struct {
-	listener chan []byte
+	listener    chan []byte
+	switchboard *switchboard.Switchboard
 }
 
 // SendMessage to the server
@@ -54,6 +56,11 @@ func (d *dummyMessaging) SendMessageNoPartition(sess user.Session,
 // MessageReceiver thread to get new messages
 func (d *dummyMessaging) MessageReceiver(session user.Session,
 	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
+}
+
+// GetSwitchboard to access switchboard
+func (d *dummyMessaging) GetSwitchboard() *switchboard.Switchboard {
+	return d.switchboard
 }
 
 func TestMain(m *testing.M) {
@@ -83,7 +90,8 @@ func TestMain(m *testing.M) {
 	session := user.NewSession(&globals.RamStorage{}, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
-		listener: ListenCh,
+		listener:    ListenCh,
+		switchboard: switchboard.NewSwitchboard(),
 	}
 
 	sessionV2 := storage.InitTestingSession(m)
@@ -167,7 +175,7 @@ func TestRekeyTrigger(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     partnerID,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Check no error occurred in rekeytrigger processing
 	if rekeyTriggerList.err != nil {
@@ -200,7 +208,7 @@ func TestRekeyTrigger(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     partnerID,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check that error occurred in rekeytrigger for repeated message
 	if rekeyTriggerList.err == nil {
@@ -226,7 +234,7 @@ func TestRekeyConfirm(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check that error occurred in RekeyConfirm when hash is wrong
 	if rekeyConfirmList.err == nil {
@@ -245,7 +253,7 @@ func TestRekeyConfirm(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check no error occurred in rekeyConfirm processing
 	if rekeyConfirmList.err != nil {
@@ -271,7 +279,7 @@ func TestRekeyConfirm(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check that error occurred in RekeyConfirm for repeated message
 	if rekeyConfirmList.err == nil {
@@ -300,7 +308,7 @@ func TestRekey(t *testing.T) {
 		InferredType: parse.Rekey,
 		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Check no error occurred in rekey processing
 	if rekeyList.err != nil {
@@ -361,7 +369,7 @@ func TestRekey_Errors(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     partnerID,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Check error occurred on RekeyTrigger
 	if rekeyTriggerList.err == nil {
@@ -378,7 +386,7 @@ func TestRekey_Errors(t *testing.T) {
 		InferredType: parse.Rekey,
 		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check error occurred on Rekey
 	if rekeyList.err == nil {

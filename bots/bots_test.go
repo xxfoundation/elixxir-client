@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"os"
@@ -32,7 +33,8 @@ import (
 var ListenCh chan *format.Message
 
 type dummyMessaging struct {
-	listener chan *format.Message
+	listener    chan *format.Message
+	switchboard *switchboard.Switchboard
 }
 
 // SendMessage to the server
@@ -60,6 +62,11 @@ func (d *dummyMessaging) MessageReceiver(session user.Session,
 	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
+// MessageReceiver thread to get new messages
+func (d *dummyMessaging) GetSwitchboard() *switchboard.Switchboard {
+	return d.switchboard
+}
+
 var pubKeyBits string
 var keyFingerprint string
 var pubKey []byte
@@ -85,7 +92,8 @@ func TestMain(m *testing.M) {
 		E2EGrp:  e2eGrp,
 	})
 	fakeComm := &dummyMessaging{
-		listener: ListenCh,
+		listener:    ListenCh,
+		switchboard: switchboard.NewSwitchboard(),
 	}
 	h := connect.Host{}
 	nodeID := new(id.ID)
@@ -177,7 +185,7 @@ func TestNicknameFunctions(t *testing.T) {
 		InferredType: parse.Unencrypted,
 		Receiver:     curUser,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Test nickname lookup
 
@@ -191,7 +199,7 @@ func TestNicknameFunctions(t *testing.T) {
 		InferredType: parse.Unencrypted,
 		Receiver:     curUser,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	// AFter sending the message, perform the lookup to read it
 	nick, err := LookupNick(curUser)
 	if err != nil {
@@ -226,6 +234,10 @@ func (e *errorMessaging) SendMessageNoPartition(sess user.Session,
 // MessageReceiver thread to get new messages
 func (e *errorMessaging) MessageReceiver(session user.Session,
 	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
+}
+
+func (e *errorMessaging) GetSwitchboard() *switchboard.Switchboard {
+	return nil
 }
 
 // Test LookupNick returns error on sending problem

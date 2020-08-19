@@ -47,10 +47,12 @@ type Client struct {
 	session             user.Session
 	sessionV2           *storage.Session
 	receptionManager    *io.ReceptionManager
+	switchboard         *switchboard.Switchboard
 	ndf                 *ndf.NetworkDefinition
 	topology            *connect.Circuit
 	opStatus            OperationProgressCallback
 	rekeyChan           chan struct{}
+	quitChan            chan struct{}
 	registrationVersion string
 
 	// Pointer to a send function, which allows testing to override the default
@@ -145,7 +147,10 @@ func newClient(s globals.Storage, locA, locB string, ndfJSON *ndf.NetworkDefinit
 		return
 	}
 
+	cl.switchboard = switchboard.NewSwitchboard()
+
 	cl.rekeyChan = make(chan struct{}, 1)
+	cl.quitChan = make(chan struct{}) // Blocking is intentional
 
 	return cl, nil
 }
@@ -206,11 +211,11 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 			"completed registration ")
 	}
 
-	newRm, err := io.NewReceptionManager(cl.rekeyChan,
+	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.quitChan,
 		userData.ThisUser.User,
 		rsa.CreatePrivateKeyPem(userData.RSAPrivateKey),
 		rsa.CreatePublicKeyPem(userData.RSAPublicKey),
-		userData.Salt)
+		userData.Salt, cl.switchboard)
 	if err != nil {
 		return nil, errors.Wrap(err, "Failed to create new reception manager")
 	}
@@ -232,11 +237,13 @@ func (cl *Client) Logout(timeoutDuration time.Duration) error {
 		return err
 	}
 
-	// Here using a select statement and the fact that making cl.sess.GetQuitChan is blocking, we can detect when
-	// killing the reception manager is taking too long and we use the time out to stop the attempt and return an error.
+	// Here using a select statement and the fact that making
+	// cl.ReceptionQuitChan is blocking, we can detect when
+	// killing the reception manager is taking too long and we use
+	// the time out to stop the attempt and return an error.
 	timer := time.NewTimer(timeoutDuration)
 	select {
-	case cl.session.GetQuitChan() <- struct{}{}:
+	case cl.quitChan <- struct{}{}:
 		cl.receptionManager.Comms.DisconnectAll()
 	case <-timer.C:
 		return errors.Errorf("Message receiver shut down timed out after %s ms", timeoutDuration)
@@ -443,7 +450,7 @@ func (cl *Client) SetRateLimiting(limit uint32) {
 }
 
 func (cl *Client) Listen(user *id.ID, messageType int32, newListener switchboard.Listener) string {
-	listenerId := cl.session.GetSwitchboard().
+	listenerId := cl.GetSwitchboard().
 		Register(user, messageType, newListener)
 	globals.Log.INFO.Printf("Listening now: user %v, message type %v, id %v",
 		user, messageType, listenerId)
@@ -451,11 +458,11 @@ func (cl *Client) Listen(user *id.ID, messageType int32, newListener switchboard
 }
 
 func (cl *Client) StopListening(listenerHandle string) {
-	cl.session.GetSwitchboard().Unregister(listenerHandle)
+	cl.GetSwitchboard().Unregister(listenerHandle)
 }
 
 func (cl *Client) GetSwitchboard() *switchboard.Switchboard {
-	return cl.session.GetSwitchboard()
+	return cl.switchboard
 }
 
 func (cl *Client) GetUsername() string {
@@ -560,13 +567,16 @@ type NickLookupCallback interface {
 func (cl *Client) DeleteUser(u *id.ID) (string, error) {
 
 	//delete from session
-	v, err1 := cl.session.DeleteContact(u)
+	// FIXME: I believe this used to return the user name of the deleted
+	// user and the way we are calling this won't work since it is based on
+	// user name and not User ID.
+	err1 := cl.sessionV2.DeleteContact(u.String())
 
 	//delete from keystore
 	err2 := cl.session.GetKeyStore().DeleteContactKeys(u)
 
 	if err1 == nil && err2 == nil {
-		return v, nil
+		return "", nil
 	}
 
 	if err1 != nil && err2 == nil {
@@ -574,7 +584,7 @@ func (cl *Client) DeleteUser(u *id.ID) (string, error) {
 	}
 
 	if err1 == nil && err2 != nil {
-		return v, errors.Wrap(err2, "Failed to remove from key store")
+		return "", errors.Wrap(err2, "Failed to remove from key store")
 	}
 
 	if err1 != nil && err2 != nil {
@@ -582,7 +592,8 @@ func (cl *Client) DeleteUser(u *id.ID) (string, error) {
 			"Failed to remove from key store and value store")
 	}
 
-	return v, nil
+	// FIXME: Return user name deleted
+	return "", nil
 
 }
 

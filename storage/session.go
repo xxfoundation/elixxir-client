@@ -51,6 +51,11 @@ func (s *Session) Set(key string, object *VersionedObject) error {
 	return s.kv.Set(key, object)
 }
 
+// Delete a value in the session
+func (s *Session) Delete(key string) error {
+	return s.kv.Delete(key)
+}
+
 // Obtain the LastMessageID from the Session
 func (s *Session) GetLastMessageId() (string, error) {
 	v, err := s.Get("LastMessageID")

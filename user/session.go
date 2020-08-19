@@ -18,12 +18,9 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"sync"
-	"sync/atomic"
 	"time"
 )
 
@@ -34,28 +31,14 @@ var ErrQuery = errors.New("element not in map")
 type Session interface {
 	StoreSession() error
 	Immolate() error
-	UpsertMap(key string, element interface{}) error
-	QueryMap(key string) (interface{}, error)
-	DeleteMap(key string) error
 	GetKeyStore() *keyStore.KeyStore
 	GetRekeyManager() *keyStore.RekeyManager
-	GetSwitchboard() *switchboard.Switchboard
-	GetQuitChan() chan struct{}
 	LockStorage()
 	UnlockStorage()
 	GetSessionData() ([]byte, error)
-	GetRegistrationValidationSignature() []byte
-	AppendGarbledMessage(messages ...*format.Message)
-	PopGarbledMessages() []*format.Message
-	SetRegState(rs uint32) error
-	GetRegState() uint32
 	StorageIsEmpty() bool
-	GetContactByValue(string) (*id.ID, []byte)
-	StoreContactByValue(string, *id.ID, []byte)
-	DeleteContact(*id.ID) (string, error)
 	GetSessionLocation() uint8
 	LoadEncryptedSession(store globals.Storage) ([]byte, error)
-	RegisterPermissioningSignature(sig []byte) error
 	SetE2EGrp(g *cyclic.Group)
 	SetUser(u *id.ID)
 }
@@ -68,19 +51,13 @@ type NodeKeys struct {
 // Creates a new Session interface for registration
 func NewSession(store globals.Storage,
 	password string) Session {
-	regState := uint32(KeyGenComplete)
 	// With an underlying Session data structure
 	return Session(&SessionObj{
-		InterfaceMap:        make(map[string]interface{}),
-		KeyMaps:             keyStore.NewStore(),
-		RekeyManager:        keyStore.NewRekeyManager(),
-		store:               store,
-		listeners:           switchboard.NewSwitchboard(),
-		quitReceptionRunner: make(chan struct{}),
-		password:            password,
-		RegState:            &regState,
-		storageLocation:     globals.LocationA,
-		ContactsByValue:     make(map[string]SearchedUserRecord),
+		KeyMaps:         keyStore.NewStore(),
+		RekeyManager:    keyStore.NewRekeyManager(),
+		store:           store,
+		password:        password,
+		storageLocation: globals.LocationA,
 	})
 }
 
@@ -127,11 +104,6 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	// Reconstruct Key maps
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
 		session.CurrentUser)
-
-	// Create switchboard
-	session.listeners = switchboard.NewSwitchboard()
-	// Create quit channel for reception runner
-	session.quitReceptionRunner = make(chan struct{})
 
 	// Set storage pointer
 	session.store = store
@@ -204,12 +176,6 @@ func processSessionWrapper(sessionGob []byte, password string) (*SessionStorageW
 // When adding to this structure, ALWAYS ALWAYS
 // consider if you want the data to be in the session file
 type SessionObj struct {
-	// Last received message ID. Check messages after this on the gateway.
-	LastMessageID string
-
-	//Interface map for random data storage
-	InterfaceMap map[string]interface{}
-
 	// E2E KeyStore
 	KeyMaps *keyStore.KeyStore
 
@@ -224,28 +190,12 @@ type SessionObj struct {
 	// Local pointer to storage of this session
 	store globals.Storage
 
-	// Switchboard
-	listeners *switchboard.Switchboard
-
-	// Quit channel for message reception runner
-	quitReceptionRunner chan struct{}
-
 	lock sync.Mutex
 
 	// The password used to encrypt this session when saved
 	password string
 
-	//The validation signature provided by permissioning
-	RegValidationSignature []byte
-
-	// Buffer of messages that cannot be decrypted
-	garbledMessages []*format.Message
-
-	RegState *uint32
-
 	storageLocation uint8
-
-	ContactsByValue map[string]SearchedUserRecord
 }
 
 //WriteToSession: Writes to the location where session is being stored the arbitrary replacement string
@@ -292,52 +242,6 @@ func (s *SessionObj) StorageIsEmpty() bool {
 	s.LockStorage()
 	defer s.UnlockStorage()
 	return s.store.IsEmpty()
-}
-
-func (s *SessionObj) SetLastMessageID(id string) {
-	s.LockStorage()
-	s.LastMessageID = id
-	s.UnlockStorage()
-}
-
-//RegisterPermissioningSignature sets sessions registration signature and
-// sets the regState to reflect that registering with permissioning is complete
-// Returns an error if unable to set the regState
-func (s *SessionObj) RegisterPermissioningSignature(sig []byte) error {
-	s.LockStorage()
-	defer s.UnlockStorage()
-
-	// fixme remove the below
-	//err := s.SetRegState(PermissioningComplete)
-	//if err != nil {
-	//	return errors.Wrap(err, "Could not store permissioning signature")
-	//}
-	//
-	//s.RegValidationSignature = sig
-
-	//storing to ensure we never loose the signature
-	err := s.storeSession()
-
-	return err
-}
-
-func (s *SessionObj) GetRegistrationValidationSignature() []byte {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	return s.RegValidationSignature
-}
-
-func (s *SessionObj) GetRegState() uint32 {
-	return atomic.LoadUint32(s.RegState)
-}
-
-func (s *SessionObj) SetRegState(rs uint32) error {
-	prevRs := rs - 1000
-	b := atomic.CompareAndSwapUint32(s.RegState, prevRs, rs)
-	if !b {
-		return errors.New("Could not increment registration state")
-	}
-	return nil
 }
 
 type SessionStorageWrapper struct {
@@ -404,36 +308,6 @@ func (s *SessionObj) Immolate() error {
 	return nil
 }
 
-//Upserts an element into the interface map and saves the session object
-func (s *SessionObj) UpsertMap(key string, element interface{}) error {
-	s.LockStorage()
-	s.InterfaceMap[key] = element
-	err := s.storeSession()
-	s.UnlockStorage()
-	return err
-}
-
-//Pulls an element from the interface in the map
-func (s *SessionObj) QueryMap(key string) (interface{}, error) {
-	var err error
-	s.LockStorage()
-	element, ok := s.InterfaceMap[key]
-	if !ok {
-		err = ErrQuery
-		element = nil
-	}
-	s.UnlockStorage()
-	return element, err
-}
-
-func (s *SessionObj) DeleteMap(key string) error {
-	s.LockStorage()
-	delete(s.InterfaceMap, key)
-	err := s.storeSession()
-	s.UnlockStorage()
-	return err
-}
-
 func (s *SessionObj) GetSessionData() ([]byte, error) {
 	s.LockStorage()
 	defer s.UnlockStorage()
@@ -446,14 +320,6 @@ func (s *SessionObj) GetKeyStore() *keyStore.KeyStore {
 
 func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
 	return s.RekeyManager
-}
-
-func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
-	return s.listeners
-}
-
-func (s *SessionObj) GetQuitChan() chan struct{} {
-	return s.quitReceptionRunner
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {
@@ -554,67 +420,6 @@ func decrypt(data []byte, password string) ([]byte, error) {
 		return nil, errors.Wrap(err, "Cannot decrypt with password!")
 	}
 	return plaintext, nil
-}
-
-// AppendGarbledMessage appends a message or messages to the garbled message
-// buffer.
-// FIXME: improve performance of adding items to the buffer
-func (s *SessionObj) AppendGarbledMessage(messages ...*format.Message) {
-	s.garbledMessages = append(s.garbledMessages, messages...)
-}
-
-// PopGarbledMessages returns the content of the garbled message buffer and
-// deletes its contents.
-func (s *SessionObj) PopGarbledMessages() []*format.Message {
-	tempBuffer := s.garbledMessages
-	s.garbledMessages = []*format.Message{}
-	return tempBuffer
-}
-
-func (s *SessionObj) GetContactByValue(v string) (*id.ID, []byte) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	u, ok := s.ContactsByValue[v]
-	if !ok {
-		return nil, nil
-	}
-	return &(u.Id), u.Pk
-}
-
-func (s *SessionObj) StoreContactByValue(v string, uid *id.ID, pk []byte) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-	u, ok := s.ContactsByValue[v]
-	if ok {
-		globals.Log.WARN.Printf("Attempted to store over extant "+
-			"user value: %s; before: %v, new: %v", v, u.Id, *uid)
-	} else {
-		s.ContactsByValue[v] = SearchedUserRecord{
-			Id: *uid,
-			Pk: pk,
-		}
-	}
-}
-
-func (s *SessionObj) DeleteContact(uid *id.ID) (string, error) {
-	s.LockStorage()
-	defer s.UnlockStorage()
-
-	for v, u := range s.ContactsByValue {
-		if u.Id.Cmp(uid) {
-			delete(s.ContactsByValue, v)
-			_, ok := s.ContactsByValue[v]
-			if ok {
-				return "", errors.Errorf("Failed to delete user: %+v", u)
-			} else {
-				return v, nil
-			}
-		}
-	}
-
-	return "", errors.Errorf("No user found in usermap with userid: %s",
-		uid)
-
 }
 
 func (s *SessionObj) GetSessionLocation() uint8 {

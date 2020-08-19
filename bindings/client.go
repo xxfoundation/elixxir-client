@@ -273,7 +273,11 @@ func (cl *Client) ChangeUsername(un string) error {
 //	2 - UDBComplete
 func (cl *Client) GetRegState() int64 {
 	globals.Log.INFO.Printf("Binding call: GetRegState()")
-	return int64(cl.client.GetSession().GetRegState())
+	regState, err := cl.client.GetSessionV2().GetRegState()
+	if err != nil {
+		globals.Log.ERROR.Printf("GetRegState(): %+v", err)
+	}
+	return int64(regState)
 }
 
 // Registers user with all nodes it has not been registered with.

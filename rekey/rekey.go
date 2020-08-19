@@ -104,7 +104,7 @@ func InitRekey(s user.Session, s2 storage.Session, m io.Communications,
 	transmissionHost = host
 
 	rekeyChan = rekeyChan2
-	l := session.GetSwitchboard()
+	l := m.GetSwitchboard()
 
 	userData, err := s2.GetUserData()
 	if err != nil {

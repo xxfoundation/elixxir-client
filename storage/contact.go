@@ -56,3 +56,9 @@ func (s *Session) SetContact(name string, record *Contact) error {
 	}
 	return s.Set(key, &obj)
 }
+
+// DeleteContact removes the contact from disk
+func (s *Session) DeleteContact(name string) error {
+	key := MakeKeyWithPrefix("Contact", name)
+	return s.Delete(key)
+}

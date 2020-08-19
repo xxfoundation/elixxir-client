@@ -26,6 +26,10 @@ type Session struct {
 	kv       *VersionedKV
 	userData *UserData
 	mux      sync.Mutex
+
+	// Contacts controls
+	contacts    map[string]*Contact
+	contactsLck sync.Mutex
 }
 
 // Initialize a new Session object
@@ -37,6 +41,8 @@ func Init(baseDir, password string) (*Session, error) {
 			kv: NewVersionedKV(fs),
 		}
 	}
+
+	s.loadAllContacts()
 
 	return s, err
 }

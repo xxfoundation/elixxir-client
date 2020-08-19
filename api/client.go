@@ -505,7 +505,7 @@ type SearchCallback interface {
 func (cl *Client) SearchForUser(emailAddress string,
 	cb SearchCallback, timeout time.Duration) {
 	//see if the user has been searched before, if it has, return it
-	contact, err := cl.sessionV2.GetContact(emailAddress)
+	contact, err := cl.sessionV2.GetContactByEmail(emailAddress)
 
 	// if we successfully got the contact, return it.
 	// errors can include the email address not existing,
@@ -535,7 +535,8 @@ func (cl *Client) SearchForUser(emailAddress string,
 				return
 			}
 			//store the user so future lookups can find it
-			err = cl.sessionV2.SetContact(emailAddress, contact)
+			err = cl.sessionV2.SetContactByEmail(emailAddress,
+				contact)
 
 			// If there is something in the channel then send it; otherwise,
 			// skip over it
@@ -570,30 +571,35 @@ func (cl *Client) DeleteUser(u *id.ID) (string, error) {
 	// FIXME: I believe this used to return the user name of the deleted
 	// user and the way we are calling this won't work since it is based on
 	// user name and not User ID.
-	err1 := cl.sessionV2.DeleteContact(u.String())
+	user := cl.sessionV2.GetContactByID(u)
+	err1 := cl.sessionV2.DeleteContactByID(u)
+
+	email := ""
+	if user != nil {
+		email = user.Email
+	}
 
 	//delete from keystore
 	err2 := cl.session.GetKeyStore().DeleteContactKeys(u)
 
 	if err1 == nil && err2 == nil {
-		return "", nil
+		return email, nil
 	}
 
 	if err1 != nil && err2 == nil {
-		return "", errors.Wrap(err1, "Failed to remove from value store")
+		return email, errors.Wrap(err1, "Failed to remove from value store")
 	}
 
 	if err1 == nil && err2 != nil {
-		return "", errors.Wrap(err2, "Failed to remove from key store")
+		return email, errors.Wrap(err2, "Failed to remove from key store")
 	}
 
 	if err1 != nil && err2 != nil {
-		return "", errors.Wrap(fmt.Errorf("%s\n%s", err1, err2),
+		return email, errors.Wrap(fmt.Errorf("%s\n%s", err1, err2),
 			"Failed to remove from key store and value store")
 	}
 
-	// FIXME: Return user name deleted
-	return "", nil
+	return email, nil
 
 }
 

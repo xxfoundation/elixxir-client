@@ -1,37 +1,139 @@
 package key
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/xx_network/primitives/id"
 	"sync"
+	jww "github.com/spf13/jwalterweatherman"
+	"time"
 )
 
-type SessionBuff struct {
+const maxUnconfirmed uint = 3
+const currentSessionBuffVersion = 0
+
+type sessionBuff struct {
+	manager *Manager
+
 	sessions    []*Session
 	sessionByID map[SessionID]*Session
+
+	keyPrefix string
 
 	mux sync.RWMutex
 }
 
-type SessionBuffDisk struct {
-	sessions []SessionID
+func NewSessionBuff(manager *Manager, keyPrefix string) *sessionBuff {
+	return &sessionBuff{
+		manager:     manager,
+		sessions:    make([]*Session, 0),
+		sessionByID: make(map[SessionID]*Session),
+		mux:         sync.RWMutex{},
+		keyPrefix:   keyPrefix,
+	}
 }
 
-func NewSessionBuff(n int, deletion func(session *Session)) *SessionBuff { return &SessionBuff{} }
+func LoadSessionBuff(manager *Manager, keyPrefix string, partnerID *id.ID) (*sessionBuff, error) {
+	sb := &sessionBuff{
+		manager:     manager,
+		sessionByID: make(map[SessionID]*Session),
+		mux:         sync.RWMutex{},
+	}
+
+	key := makeSessionBuffKey(keyPrefix, partnerID)
+
+	obj, err := manager.ctx.kv.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	err = sb.unmarshal(obj.Data)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return sb, nil
+}
+
+func (sb *sessionBuff) save() error {
+	key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
+
+	now, err := time.Now().MarshalText()
+	if err != nil {
+		return err
+	}
+
+	data, err := sb.marshal()
+	if err != nil {
+		return err
+	}
+
+	obj := storage.VersionedObject{
+		Version:   currentSessionBuffVersion,
+		Timestamp: now,
+		Data:      data,
+	}
+
+	return sb.manager.ctx.kv.Set(key, &obj)
+}
 
 //ekv functions
-func (sb *SessionBuff) Marshal() ([]byte, error) { return nil, nil }
-func (sb *SessionBuff) Unmarshal([]byte) error   { return nil }
+func (sb *sessionBuff) marshal() ([]byte, error) {
+	sessions := make([]SessionID, len(sb.sessions))
 
-func (sb *SessionBuff) AddSession(s *Session) {
+	index := 0
+	for sid := range sb.sessionByID {
+		sessions[index] = sid
+		index++
+	}
+
+	return json.Marshal(&sessions)
+}
+
+func (sb *sessionBuff) unmarshal(b []byte) error {
+	var sessions []SessionID
+
+	err := json.Unmarshal(b, &sessions)
+
+	if err != nil {
+		return err
+	}
+
+	sb.sessions = make([]*Session, len(sessions))
+
+	//load all the sessions
+	for _, sid := range sessions {
+		key := makeSessionKey(sid)
+		session, err := loadSession(sb.manager, key)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to load session %s for %s: %s",
+				key, sb.manager.partner, err.Error())
+		}
+		sb.addSession(session)
+	}
+
+	return nil
+}
+
+func (sb *sessionBuff) AddSession(s *Session) error {
 	sb.mux.Lock()
 	defer sb.mux.Unlock()
+
+	sb.addSession(s)
+	return sb.save()
+}
+
+func (sb *sessionBuff) addSession(s *Session) {
 
 	sb.sessions = append([]*Session{s}, sb.sessions...)
 	sb.sessionByID[s.GetID()] = s
 	return
 }
 
-func (sb *SessionBuff) GetNewest() *Session {
+func (sb *sessionBuff) GetNewest() *Session {
 	sb.mux.RLock()
 	defer sb.mux.RUnlock()
 	if len(sb.sessions) == 0 {
@@ -41,7 +143,7 @@ func (sb *SessionBuff) GetNewest() *Session {
 }
 
 // returns the session which is most likely to be successful for sending
-func (sb *SessionBuff) GetSessionForSending() *Session {
+func (sb *sessionBuff) GetSessionForSending() *Session {
 	sb.mux.RLock()
 	defer sb.mux.RUnlock()
 	if len(sb.sessions) == 0 {
@@ -79,7 +181,7 @@ func (sb *SessionBuff) GetSessionForSending() *Session {
 	return nil
 }
 
-func (sb *SessionBuff) GetNewestConfirmed() *Session {
+func (sb *sessionBuff) GetNewestConfirmed() *Session {
 	sb.mux.RLock()
 	defer sb.mux.RUnlock()
 	if len(sb.sessions) == 0 {
@@ -97,7 +199,7 @@ func (sb *SessionBuff) GetNewestConfirmed() *Session {
 	return nil
 }
 
-func (sb *SessionBuff) GetByID(id SessionID) *Session {
+func (sb *sessionBuff) GetByID(id SessionID) *Session {
 	sb.mux.RLock()
 	defer sb.mux.RUnlock()
 	return sb.sessionByID[id]
@@ -106,7 +208,7 @@ func (sb *SessionBuff) GetByID(id SessionID) *Session {
 // sets the passed session ID as confirmed. Call "GetSessionRotation" after
 // to get any sessions that are to be deleted and then "DeleteSession" to
 // remove them
-func (sb *SessionBuff) Confirm(id SessionID) error {
+func (sb *sessionBuff) Confirm(id SessionID) error {
 	sb.mux.Lock()
 	defer sb.mux.Unlock()
 	s, ok := sb.sessionByID[id]
@@ -114,16 +216,44 @@ func (sb *SessionBuff) Confirm(id SessionID) error {
 		return errors.Errorf("Could not confirm session %s, does not exist", s.GetID())
 	}
 
-	s.confirm()
-	return nil
+	err := s.confirm()
+	if err != nil {
+		jww.FATAL.Panicf("Failed to confirm session "+
+			"%s for %s: %s", s.GetID(), sb.manager.partner, err.Error())
+	}
+
+	return sb.clean()
 }
 
-func (sb *SessionBuff) Clean() error {
+func (sb *sessionBuff) clean() error {
+
+	numConfirmed := uint(0)
+
+	var newSessions []*Session
+
+	for _, s := range sb.sessions {
+		if s.IsConfirmed() {
+			numConfirmed++
+			//if the number of newer confirmed is sufficient, delete the confirmed
+			if numConfirmed > maxUnconfirmed {
+				delete(sb.sessionByID, s.GetID())
+				err := s.Delete()
+				if err != nil {
+					jww.FATAL.Panicf("Failed to delete session store "+
+						"%s for %s: %s", s.GetID(), sb.manager.partner, err.Error())
+				}
+
+				break
+			}
+		}
+		newSessions = append(newSessions, s)
+	}
+
+	sb.sessions = newSessions
+
+	return sb.save()
 }
-}
-//find the sessions position in the session buffer
-loc := -1
-for i, sBuf := range sb.sessions{
-if sBuf==s{
-loc = i
+
+func makeSessionBuffKey(keyPrefix string, partnerID *id.ID) string {
+	return keyPrefix + "sessionBuffer" + base64.StdEncoding.EncodeToString(partnerID.Marshal())
 }

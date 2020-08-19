@@ -20,15 +20,15 @@ const (
 	numReKeys uint16  = 64
 )
 
-type Params struct {
+type SessionParams struct {
 	MinKeys   uint16
 	MaxKeys   uint16
 	NumRekeys uint16
 	e2e.TTLParams
 }
 
-func GetDefaultParams() Params {
-	return Params{
+func GetDefaultSessionParams() SessionParams {
+	return SessionParams{
 		MinKeys:   minKeys,
 		MaxKeys:   maxKeys,
 		NumRekeys: numReKeys,

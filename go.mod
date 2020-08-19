@@ -6,29 +6,24 @@ require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.4.2
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
-	github.com/mitchellh/mapstructure v1.3.3 // indirect
-	github.com/pelletier/go-toml v1.8.0 // indirect
+	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/smartystreets/assertions v1.0.1 // indirect
-	github.com/spf13/afero v1.3.4 // indirect
+	github.com/spf13/afero v1.2.2 // indirect
 	github.com/spf13/cast v1.3.1 // indirect
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.7.1
-	gitlab.com/elixxir/comms v0.0.0-20200813225502-e879259ca741
-	gitlab.com/elixxir/crypto v0.0.0-20200819213855-8d13b999bd00
-	gitlab.com/elixxir/ekv v0.1.1
-	gitlab.com/elixxir/primitives v0.0.0-20200812191102-31c01f08b4dc
-	gitlab.com/xx_network/comms v0.0.0-20200818182121-732dd75b1947
+	github.com/spf13/viper v1.6.2
+	gitlab.com/elixxir/comms v0.0.0-20200810165153-3039323b5656
+	gitlab.com/elixxir/crypto v0.0.0-20200806211835-b8ce4472f399
+	gitlab.com/elixxir/ekv v0.0.0-20200729182028-159355ea5842
+	gitlab.com/elixxir/primitives v0.0.0-20200805174810-86b366d1dd2d
+	gitlab.com/xx_network/comms v0.0.0-20200806235452-3a82720833ba
 	gitlab.com/xx_network/crypto v0.0.0-20200806235322-ede3c15881ce
-	gitlab.com/xx_network/primitives v0.0.0-20200812183720-516a65a4a9b2
-	gitlab.com/xx_network/ring v0.0.2
+	gitlab.com/xx_network/primitives v0.0.0-20200804183002-f99f7a7284da
 	golang.org/x/crypto v0.0.0-20200728195943-123391ffb6de
-	golang.org/x/net v0.0.0-20200813134508-3edf25e44fcc // indirect
-	golang.org/x/sys v0.0.0-20200819171115-d785dc25833f // indirect
-	google.golang.org/genproto v0.0.0-20200815001618-f69a88009b70 // indirect
-	gopkg.in/ini.v1 v1.60.0 // indirect
+	gopkg.in/ini.v1 v1.52.0 // indirect
 )
 
 replace google.golang.org/grpc => github.com/grpc/grpc-go v1.27.1

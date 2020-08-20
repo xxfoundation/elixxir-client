@@ -119,7 +119,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	globals.Log.DEBUG.Printf("Running search for %v, %v", valueType, value)
 
 	searchTimeout := time.NewTimer(timeout)
-
+	email := value
 	var err error
 	if valueType == "EMAIL" {
 		value, err = hashAndEncode(strings.ToLower(value))
@@ -197,6 +197,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	return &storage.Contact{
 		Id:        cMixUID,
 		PublicKey: publicKey,
+		Email:     email,
 	}, nil
 }
 

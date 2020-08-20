@@ -106,12 +106,8 @@ func ConvertSessionV1toV2(inputWrappedSession *SessionStorageWrapper) (*SessionS
 		*sessionV1.RegState = 3000
 	}
 
-	sessionV2.InterfaceMap = sessionV1.InterfaceMap
 	sessionV2.KeyMaps = sessionV1.KeyMaps
 	sessionV2.RekeyManager = sessionV1.RekeyManager
-	sessionV2.RegValidationSignature = sessionV1.regValidationSignature
-	sessionV2.RegState = sessionV1.RegState
-	sessionV2.ContactsByValue = sessionV1.ContactsByValue
 
 	//re encode the session
 	var sessionBuffer bytes.Buffer

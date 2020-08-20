@@ -9,6 +9,7 @@ package io
 import (
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -30,4 +31,8 @@ type Communications interface {
 	// MessageReceiver thread to get new messages
 	MessageReceiver(session user.Session, delay time.Duration,
 		receptionHost *connect.Host, callback func(error))
+
+	// GetSwitchboard returns the active switchboard for local message
+	// listening.
+	GetSwitchboard() *switchboard.Switchboard
 }

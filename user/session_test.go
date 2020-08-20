@@ -11,9 +11,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
-	"reflect"
 	"testing"
 )
 
@@ -33,13 +31,7 @@ func TestUserSession(t *testing.T) {
 	regSignature := make([]byte, 768)
 	rng.Read(regSignature)
 
-	err := ses.RegisterPermissioningSignature(regSignature)
-	if err != nil {
-		t.Errorf("failure in setting register up for permissioning: %s",
-			err.Error())
-	}
-
-	err = ses.StoreSession()
+	err := ses.StoreSession()
 
 	if err != nil {
 		t.Errorf("Session not stored correctly: %s", err.Error())
@@ -56,34 +48,6 @@ func TestUserSession(t *testing.T) {
 			err.Error())
 	} else {
 		pass++
-	}
-
-	err = ses.UpsertMap("test", 5)
-
-	if err != nil {
-		t.Errorf("Could not store in session map interface: %s",
-			err.Error())
-	}
-
-	element, err := ses.QueryMap("test")
-
-	if err != nil {
-		t.Errorf("Could not read element in session map "+
-			"interface: %s", err.Error())
-	}
-
-	if element.(int) != 5 {
-		t.Errorf("Could not read element in session map "+
-			"interface: Expected: 5, Recieved: %v", element)
-	}
-
-	ses.DeleteMap("test")
-
-	_, err = ses.QueryMap("test")
-
-	if err == nil {
-		t.Errorf("Could not delete element in session map " +
-			"interface")
 	}
 
 	//Logout
@@ -179,96 +143,4 @@ func getGroups() (*cyclic.Group, *cyclic.Group) {
 
 	return cmixGrp, e2eGrp
 
-}
-
-// Tests that AppendGarbledMessage properly appends an array of messages by
-// testing that the final buffer matches the values appended.
-func TestSessionObj_AppendGarbledMessage(t *testing.T) {
-	session := NewSession(nil, "")
-	msgs := GenerateTestMessages(10)
-
-	session.AppendGarbledMessage(msgs...)
-
-	if !reflect.DeepEqual(msgs, session.(*SessionObj).garbledMessages) {
-		t.Errorf("AppendGarbledMessage() did not append the correct values"+
-			"\n\texpected: %v\n\trecieved: %v",
-			msgs, session.(*SessionObj).garbledMessages)
-	}
-}
-
-// Tests that PopGarbledMessages returns the correct data and that the buffer
-// is cleared.
-func TestSessionObj_PopGarbledMessages(t *testing.T) {
-	session := NewSession(nil, "")
-	msgs := GenerateTestMessages(10)
-
-	session.(*SessionObj).garbledMessages = msgs
-
-	poppedMsgs := session.PopGarbledMessages()
-
-	if !reflect.DeepEqual(msgs, poppedMsgs) {
-		t.Errorf("PopGarbledMessages() did not pop the correct values"+
-			"\n\texpected: %v\n\trecieved: %v",
-			msgs, poppedMsgs)
-	}
-
-	if !reflect.DeepEqual([]*format.Message{}, session.(*SessionObj).garbledMessages) {
-		t.Errorf("PopGarbledMessages() did not remove the values from the buffer"+
-			"\n\texpected: %#v\n\trecieved: %#v",
-			[]*format.Message{}, session.(*SessionObj).garbledMessages)
-	}
-
-}
-
-/*// Tests ConvertSessionV1toV2() by creating an empty session object and setting
-// the RegState to the version 1, running it through the function, and testing
-// that RegState has values that match version 2.
-func TestSessionObj_ConvertSessionV1toV2(t *testing.T) {
-	ses := SessionObj{}
-	number := uint32(0)
-	ses.RegState = &number
-
-	ConvertSessionV1toV2(&ses)
-
-	if *ses.RegState != 0 {
-		t.Errorf("ConvertSessionV1toV2() did not properly convert the "+
-			"session object's RegState\n\texpected: %v\n\treceived: %v",
-			0, *ses.RegState)
-	}
-
-	number = uint32(1)
-	ses.RegState = &number
-
-	ConvertSessionV1toV2(&ses)
-
-	if *ses.RegState != 2000 {
-		t.Errorf("ConvertSessionV1toV2() did not properly convert the "+
-			"session object's RegState\n\texpected: %v\n\treceived: %v",
-			2000, *ses.RegState)
-	}
-
-	number = uint32(2)
-	ses.RegState = &number
-
-	ConvertSessionV1toV2(&ses)
-
-	if *ses.RegState != 3000 {
-		t.Errorf("ConvertSessionV1toV2() did not properly convert the "+
-			"session object's RegState\n\texpected: %v\n\treceived: %v",
-			3000, *ses.RegState)
-	}
-}*/
-
-func GenerateTestMessages(size int) []*format.Message {
-	msgs := make([]*format.Message, size)
-
-	for i := 0; i < size; i++ {
-		msgs[i] = format.NewMessage()
-		payloadBytes := make([]byte, format.PayloadLen)
-		payloadBytes[0] = byte(i)
-		msgs[i].SetPayloadA(payloadBytes)
-		msgs[i].SetPayloadB(payloadBytes)
-	}
-
-	return msgs
 }

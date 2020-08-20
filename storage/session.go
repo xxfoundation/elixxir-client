@@ -26,6 +26,10 @@ type Session struct {
 	kv       *VersionedKV
 	userData *UserData
 	mux      sync.Mutex
+
+	// Contacts controls
+	contacts    map[string]*Contact
+	contactsLck sync.Mutex
 }
 
 // Initialize a new Session object
@@ -38,6 +42,8 @@ func Init(baseDir, password string) (*Session, error) {
 		}
 	}
 
+	s.loadAllContacts()
+
 	return s, err
 }
 
@@ -49,6 +55,11 @@ func (s *Session) Get(key string) (*VersionedObject, error) {
 // Set a value in the session
 func (s *Session) Set(key string, object *VersionedObject) error {
 	return s.kv.Set(key, object)
+}
+
+// Delete a value in the session
+func (s *Session) Delete(key string) error {
+	return s.kv.Delete(key)
 }
 
 // Obtain the LastMessageID from the Session

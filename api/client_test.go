@@ -615,7 +615,9 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 	tc, _ := NewClient(&d, ".ekv-logouthappypath/a", "", def)
 
 	uid := id.NewIdFromString("kk", id.User, t)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan,
+		tc.quitChan,
+		uid, nil, nil, nil, tc.switchboard)
 
 	err := tc.InitNetwork()
 	if err != nil {
@@ -691,7 +693,8 @@ func TestClient_LogoutTimeout(t *testing.T) {
 	tc, _ := NewClient(&d, ".ekv-logouttimeout/a", "", def)
 
 	uid := id.NewIdFromString("kk", id.User, t)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan,
+		tc.quitChan, uid, nil, nil, nil, tc.switchboard)
 
 	err := tc.InitNetwork()
 	if err != nil {
@@ -758,7 +761,8 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	}
 
 	uid := id.NewIdFromString("kk", id.User, t)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan, uid, nil, nil, nil)
+	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan,
+		tc.quitChan, uid, nil, nil, nil, tc.switchboard)
 
 	err = tc.InitNetwork()
 	if err != nil {

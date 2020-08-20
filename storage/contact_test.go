@@ -17,6 +17,7 @@ import (
 func TestSession_Contact(t *testing.T) {
 	store := make(ekv.Memstore)
 	session := &Session{kv: NewVersionedKV(store)}
+	session.loadAllContacts()
 
 	expectedRecord := &Contact{
 		Id:        id.NewIdFromUInt(24601, id.User, t),
@@ -24,11 +25,11 @@ func TestSession_Contact(t *testing.T) {
 	}
 
 	name := "niamh@elixxir.io"
-	err := session.SetContact(name, expectedRecord)
+	err := session.SetContactByEmail(name, expectedRecord)
 	if err != nil {
 		t.Fatal(err)
 	}
-	retrievedRecord, err := session.GetContact(name)
+	retrievedRecord, err := session.GetContactByEmail(name)
 	if err != nil {
 		t.Fatal(err)
 	}

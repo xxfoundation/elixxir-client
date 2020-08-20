@@ -113,25 +113,19 @@ type KeyStore struct {
 	// Key generation parameters
 	params *KeyParams
 
+	// Transmission Keys map
+	// Maps id.ID to *KeyManager
+	sendKeyManagers *keyManMap
+
 	// Reception Keys map
 	// Maps format.Fingerprint to *E2EKey
-	fingerprintToKey map[format.Fingerprint]*E2EKey
+	receptionKeys *inKeyMap
 
 	// Reception Key Managers map
-	KeyManagers map[id.ID]*KeyManagerBuffer
+	recvKeyManagers map[id.ID]*ReceptionKeyManagerBuffer
 
 	lock sync.Mutex
 }
-
-//storage version
-type KeyStoreDisk struct {
-	// Key generation parameters
-	params *KeyParams
-
-	contacts []id.ID
-}
-
-
 
 func NewStore() *KeyStore {
 	ks := new(KeyStore)

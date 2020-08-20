@@ -7,7 +7,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/e2e"
+	//"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync/atomic"
@@ -274,9 +274,9 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.ID) []*E2EKey {
 		numGenSendReKeys := uint(km.numReKeys - usedSendReKeys)
 
 		// Generate numGenSendKeys send keys
-		sendKeys := e2e.DeriveKeys(grp, km.baseKey, userID, numGenSendKeys)
+		sendKeys := make([]*cyclic.Int, numGenSendKeys)
 		// Generate numGenSendReKeys send reKeys
-		sendReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, userID, numGenSendReKeys)
+		sendReKeys := make([]*cyclic.Int, numGenSendReKeys)
 
 		// Create Send Keys Stack on keyManager
 		km.sendKeys = NewKeyStack()
@@ -306,9 +306,9 @@ func (km *KeyManager) GenerateKeys(grp *cyclic.Group, userID *id.ID) []*E2EKey {
 		// For receiving keys, generate all, and then only add to the map
 		// the unused ones based on recvStates
 		// Generate numKeys recv keys
-		recvKeys := e2e.DeriveKeys(grp, km.baseKey, km.partner, uint(km.numKeys))
+		recvKeys := make([]*cyclic.Int, 5)
 		// Generate numReKeys recv reKeys
-		recvReKeys := e2e.DeriveEmergencyKeys(grp, km.baseKey, km.partner, uint(km.numReKeys))
+		recvReKeys := make([]*cyclic.Int, 5)
 
 		// Create Receive E2E Keys and put them into the E2eKeys obbj to return into the parent
 		// Skip keys that were already used as per recvStates

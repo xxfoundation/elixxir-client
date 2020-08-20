@@ -115,7 +115,7 @@ func (v *VersionedKV) Get(key string) (*VersionedObject, error) {
 
 // Delete removes a given key from the data store
 func (v *VersionedKV) Delete(key string) error {
-	return v.data.Delete(key)
+	return nil
 }
 
 // Set upserts new data into the storage

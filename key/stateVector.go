@@ -109,6 +109,10 @@ func (sv *stateVector) Used(keynum uint32) bool {
 	sv.mux.RLock()
 	defer sv.mux.RUnlock()
 
+	return sv.used(keynum)
+}
+
+func (sv *stateVector) used(keynum uint32) bool {
 	block := keynum / 64
 	pos := keynum % 64
 
@@ -136,6 +140,38 @@ func (sv *stateVector) Next() (uint32, error) {
 
 func (sv *stateVector) GetNumKeys() uint32 {
 	return sv.numkeys
+}
+
+//returns a list of unused keys
+func (sv *stateVector) GetUnusedKeyNums() []uint32 {
+	sv.mux.RLock()
+	defer sv.mux.RUnlock()
+
+	keyNums := make([]uint32, sv.numAvalible)
+
+	for keyNum := sv.firstAvailable; keyNum < sv.numkeys; keyNum++ {
+		if !sv.used(keyNum) {
+			keyNums[keyNum-sv.firstAvailable] = keyNum
+		}
+	}
+
+	return keyNums
+}
+
+//returns a list of used keys
+func (sv *stateVector) GetUsedKeyNums() []uint32 {
+	sv.mux.RLock()
+	defer sv.mux.RUnlock()
+
+	keyNums := make([]uint32, sv.numkeys-sv.numAvalible)
+
+	for keyNum := sv.firstAvailable; keyNum < sv.numkeys; keyNum++ {
+		if sv.used(keyNum) {
+			keyNums[keyNum-sv.firstAvailable] = keyNum
+		}
+	}
+
+	return keyNums
 }
 
 // finds the next used state and sets that as firstAvailable. This does not

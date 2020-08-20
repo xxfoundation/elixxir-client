@@ -6,7 +6,7 @@ import "testing"
 
 // Test that the GetDefaultParams function returns the right default data
 func Test_GetDefaultParams(t *testing.T) {
-	p := GetDefaultParams()
+	p := GetDefaultSessionParams()
 	if p.MinKeys != minKeys {
 		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MinKeys, minKeys)
 	}
@@ -17,7 +17,7 @@ func Test_GetDefaultParams(t *testing.T) {
 		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.NumRekeys, numReKeys)
 	}
 	if p.TTLScalar != ttlScalar {
-		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.TTLScalar, ttlScalar)
+		t.Errorf("MinKeys mismatch\r\tGot: %v\r\tExpected: %v", p.TTLScalar, ttlScalar)
 	}
 	if p.MinNumKeys != threshold {
 		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MinNumKeys, threshold)

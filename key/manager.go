@@ -26,7 +26,7 @@ func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
 	m.send = NewSessionBuff(m, "send")
 	m.receive = NewSessionBuff(m, "receive")
 
-	sendSession, err := newSession(m, myPrivKey, partnerPubKey, sendParams, true)
+	sendSession, err := newSession(m, myPrivKey, partnerPubKey, sendParams, Send)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to create the send session")
@@ -38,7 +38,7 @@ func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
 			"Failed to add the send session to buffer")
 	}
 
-	receiveSession, err := newSession(m, myPrivKey, partnerPubKey, receiveParams, true)
+	receiveSession, err := newSession(m, myPrivKey, partnerPubKey, receiveParams, Receive)
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to create the receive session")
@@ -92,7 +92,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 	myPrivKey := m.send.GetNewestConfirmed().GetMyPrivKey()
 
 	//create the session
-	session, err := newSession(m, myPrivKey, partnerPubKey, params, true)
+	session, err := newSession(m, myPrivKey, partnerPubKey, params, Receive)
 
 	if err != nil {
 		return err
@@ -116,7 +116,7 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) er
 	//find the latest public key from the other party
 	partnerPubKey := m.receive.GetNewestConfirmed().partnerPubKey
 
-	session, err := newSession(m, myPrivKey, partnerPubKey, params, false)
+	session, err := newSession(m, myPrivKey, partnerPubKey, params, Send)
 	if err != nil {
 		return err
 	}

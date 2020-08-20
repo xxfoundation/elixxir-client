@@ -1,5 +1,7 @@
 package key
 
+import "fmt"
+
 type Status uint8
 
 const (
@@ -19,5 +21,7 @@ func (a Status) String() string {
 		return "Empty"
 	case RekeyEmpty:
 		return "Rekey Empty"
+	default:
+		return fmt.Sprintf("Unknown: %v", int(a))
 	}
 }

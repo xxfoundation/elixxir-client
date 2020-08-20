@@ -3,15 +3,20 @@ package key
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/diffieHellman"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"sync"
 	"time"
 )
 
 const currentSessionVersion = 0
+const keyEKVPrefix = "KEY"
+const reKeyEKVPrefix = "REKEY"
 
 type Session struct {
 	//pointer to manager
@@ -28,6 +33,9 @@ type Session struct {
 	myPrivKey *cyclic.Int
 	// Partner Public Key
 	partnerPubKey *cyclic.Int
+
+	//denotes if keys have been generated before
+	generated bool
 
 	//denotes if the other party has confirmed this key
 	confirmed bool
@@ -70,6 +78,7 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.I
 		myPrivKey:     myPrivKey,
 		partnerPubKey: partnerPubKey,
 		confirmed:     t == Receive,
+		generated:     false,
 	}
 
 	err := session.generateKeys()
@@ -102,6 +111,8 @@ func loadSession(manager *Manager, key string) (*Session, error) {
 		return nil, err
 	}
 
+	session.generated = true
+
 	return &session, nil
 }
 
@@ -132,8 +143,8 @@ func (s *Session) Delete() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	s.manager.ctx.fa.remove(s.keys)
-	s.manager.ctx.fa.remove(s.reKeys)
+	//s.manager.ctx.fa.remove(s.keys)
+	//s.manager.ctx.fa.remove(s.reKeys)
 
 	return s.manager.ctx.kv.Delete(makeSessionKey(s.GetID()))
 }
@@ -219,21 +230,21 @@ func (s *Session) unmarshal(b []byte) error {
 // Pops the first unused key, skipping any which are denoted as used. The status
 // is returned to check if a rekey is nessessary
 func (s *Session) PopKey() (*Key, error) {
-	keynum, err := s.keyState.Next()
+	/*keynum, err := s.keyState.Next()
 	if err != nil {
 		return nil, err
-	}
+	}*/
 
-	return s.keys[keynum], nil
+	return nil, nil
 }
 
 // Pops the first unused rekey, skipping any which are denoted as used
 func (s *Session) PopReKey() (*Key, error) {
-	keynum, err := s.reKeyState.Next()
+	/*keynum, err := s.reKeyState.Next()
 	if err != nil {
 		return nil, err
-	}
-	return s.reKeys[keynum], nil
+	}*/
+	return nil, nil
 }
 
 // returns the state of the session, which denotes if the Session is active,
@@ -298,7 +309,7 @@ func (s *Session) generateKeys() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	/*check required fields*/
+	//check required fields
 	if s.partnerPubKey == nil {
 		return errors.New("Session must have a partner public key")
 	}
@@ -307,10 +318,56 @@ func (s *Session) generateKeys() error {
 		return errors.New("Session must have a manager")
 	}
 
-	/*generate optional fields if not present*/
+	//generate optional fields if not present
+	grp := s.manager.ctx.grp
 	if s.myPrivKey == nil {
-		s.myPrivKey, diffieHellman.
+		rng := csprng.NewSystemRNG()
+		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
 	}
+
+	if s.baseKey == nil {
+		s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	}
+
+	// generate key definitions if this is the first instantiation of the
+	// session
+	if !s.generated {
+		//generate ttl and keying info
+		keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
+			s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
+
+		s.ttl = uint32(keysTTL)
+
+		s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
+		s.reKeyState = newStateVector(s.manager.ctx, reKeyEKVPrefix, uint32(s.params.NumRekeys))
+	}
+
+	// add the key and rekey fingerprints to the fingerprint map if in receiving
+	// mode
+	if s.t == Receive {
+		//generate key
+		keyNums := s.keyState.GetUnusedKeyNums()
+
+		keys := make([]*Key, len(keyNums))
+		for i, keyNum := range keyNums {
+			keys[i] = newKey(s, parse.E2E, keyNum)
+		}
+
+		//register keys
+		s.manager.ctx.fa.add(keys)
+
+		//generate rekeys
+		reKeyNums := s.reKeyState.GetUnusedKeyNums()
+		rekeys := make([]*Key, len(reKeyNums))
+		for i, rekeyNum := range reKeyNums {
+			rekeys[i] = newKey(s, parse.Rekey, rekeyNum)
+		}
+
+		//register rekeys
+		s.manager.ctx.fa.add(rekeys)
+	}
+
+	s.generated = true
 
 	return nil
 }

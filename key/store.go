@@ -3,12 +3,12 @@ package key
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
-	jww "github.com/spf13/jwalterweatherman"
 	"time"
 )
 

@@ -64,6 +64,11 @@ func TestKey_EncryptDecrypt_Key(t *testing.T) {
 			t.Errorf("contents in the decrypted payload does not match: "+
 				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
 		}
+
+		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
+			t.Errorf("timestamp in the decrypted payload does not match: "+
+				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
+		}
 	}
 
 }
@@ -117,6 +122,11 @@ func TestKey_EncryptDecrypt_ReKey(t *testing.T) {
 		if !bytes.Equal(resultMsg.Contents.Get(), msg.Contents.Get()) {
 			t.Errorf("contents in the decrypted payload does not match: "+
 				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
+		}
+
+		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
+			t.Errorf("timestamp in the decrypted payload does not match: "+
+				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
 		}
 	}
 
@@ -172,6 +182,11 @@ func TestKey_EncryptDecrypt_Key_Unsafe(t *testing.T) {
 			t.Errorf("contents in the decrypted payload does not match: "+
 				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
 		}
+
+		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
+			t.Errorf("timestamp in the decrypted payload does not match: "+
+				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
+		}
 	}
 }
 
@@ -224,6 +239,11 @@ func TestKey_EncryptDecrypt_ReKey_Unsafe(t *testing.T) {
 		if !bytes.Equal(resultMsg.Contents.Get(), msg.Contents.Get()) {
 			t.Errorf("contents in the decrypted payload does not match: "+
 				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
+		}
+
+		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
+			t.Errorf("timestamp in the decrypted payload does not match: "+
+				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
 		}
 	}
 

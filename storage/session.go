@@ -40,6 +40,15 @@ func Init(baseDir, password string) (*Session, error) {
 	return s, err
 }
 
+// a storage session with a memory backed for testing
+func InitMem(t *testing.T) *Session {
+	if t == nil {
+		panic("cannot use a memstore not for testing")
+	}
+	store := make(ekv.Memstore)
+	return &Session{kv: NewVersionedKV(store)}
+}
+
 // Get an object from the session
 func (s *Session) Get(key string) (*VersionedObject, error) {
 	return s.kv.Get(key)

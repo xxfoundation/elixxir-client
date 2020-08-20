@@ -2,7 +2,6 @@ package key
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/csprng"
@@ -34,9 +33,6 @@ type Session struct {
 	// Partner Public Key
 	partnerPubKey *cyclic.Int
 
-	//denotes if keys have been generated before
-	generated bool
-
 	//denotes if the other party has confirmed this key
 	confirmed bool
 
@@ -56,6 +52,9 @@ type Session struct {
 
 type SessionDisk struct {
 	params SessionParams
+
+	//session type
+	t uint8
 
 	// Underlying key
 	BaseKey []byte
@@ -78,15 +77,11 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.I
 		myPrivKey:     myPrivKey,
 		partnerPubKey: partnerPubKey,
 		confirmed:     t == Receive,
-		generated:     false,
 	}
 
-	err := session.generateKeys()
-	if err != nil {
-		return nil, err
-	}
+	session.generate()
 
-	err = session.save()
+	err := session.save()
 	if err != nil {
 		return nil, err
 	}
@@ -110,8 +105,6 @@ func loadSession(manager *Manager, key string) (*Session, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	session.generated = true
 
 	return &session, nil
 }
@@ -143,36 +136,31 @@ func (s *Session) Delete() error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	//s.manager.ctx.fa.remove(s.keys)
-	//s.manager.ctx.fa.remove(s.reKeys)
+	s.manager.ctx.fa.remove(s.getUnusedKeys())
+	s.manager.ctx.fa.remove(s.getUnusedReKeys())
 
 	return s.manager.ctx.kv.Delete(makeSessionKey(s.GetID()))
 }
 
 //Gets the base key.
 func (s *Session) GetBaseKey() *cyclic.Int {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
 	// no lock is needed because this cannot be edited
 	return s.baseKey.DeepCopy()
 }
 
 func (s *Session) GetMyPrivKey() *cyclic.Int {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
 	// no lock is needed because this cannot be edited
 	return s.myPrivKey.DeepCopy()
 }
 
 func (s *Session) GetPartnerPubKey() *cyclic.Int {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
 	// no lock is needed because this cannot be edited
 	return s.partnerPubKey.DeepCopy()
 }
 
 //Blake2B hash of base key used for storage
 func (s *Session) GetID() SessionID {
+	// no lock is needed because this cannot be edited
 	sid := SessionID{}
 	h, _ := hash.NewCMixHash()
 	h.Write(s.baseKey.Bytes())
@@ -185,6 +173,7 @@ func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
 	sd.params = s.params
+	sd.t = uint8(s.t)
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
@@ -206,6 +195,7 @@ func (s *Session) unmarshal(b []byte) error {
 	grp := s.manager.ctx.grp
 
 	s.params = sd.params
+	s.t = SessionType(sd.t)
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
@@ -223,35 +213,41 @@ func (s *Session) unmarshal(b []byte) error {
 		return err
 	}
 
-	return s.generateKeys()
+	if s.t == Receive {
+		//register keys
+		s.manager.ctx.fa.add(s.getUnusedKeys())
+
+		//register rekeys
+		s.manager.ctx.fa.add(s.getUnusedReKeys())
+	}
+
+	return nil
 }
 
 //key usage
 // Pops the first unused key, skipping any which are denoted as used. The status
 // is returned to check if a rekey is nessessary
 func (s *Session) PopKey() (*Key, error) {
-	/*keynum, err := s.keyState.Next()
+	keyNum, err := s.keyState.Next()
 	if err != nil {
 		return nil, err
-	}*/
+	}
 
-	return nil, nil
+	return newKey(s, parse.E2E, keyNum), nil
 }
 
 // Pops the first unused rekey, skipping any which are denoted as used
 func (s *Session) PopReKey() (*Key, error) {
-	/*keynum, err := s.reKeyState.Next()
+	keyNum, err := s.reKeyState.Next()
 	if err != nil {
 		return nil, err
-	}*/
-	return nil, nil
+	}
+	return newKey(s, parse.Rekey, keyNum), nil
 }
 
 // returns the state of the session, which denotes if the Session is active,
 // functional but in need of a rekey, empty of send key, or empty of rekeys
 func (s *Session) Status() Status {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
 	if s.reKeyState.GetNumKeys() == 0 {
 		return RekeyEmpty
 	} else if s.keyState.GetNumKeys() == 0 {
@@ -266,8 +262,6 @@ func (s *Session) Status() Status {
 // returns the state of the session, which denotes if the Session is active,
 // functional but in need of a rekey, empty of send key, or empty of rekeys
 func (s *Session) IsReKeyNeeded() bool {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
 	return s.keyState.GetNumAvailable() == s.ttl
 }
 
@@ -300,74 +294,61 @@ func (s *Session) useReKey(keynum uint32) error {
 }
 
 // generates keys from the base data stored in the session object.
-// required fields: partnerPubKey, manager
-// myPrivKey, baseKey, keyState, and ReKeyState will be
-// created/calculated if not present
-// if keyState is not present lastKey will be ignored and set to zero
-// if ReKeyState is not present lastReKey will be ignored and set to zero
-func (s *Session) generateKeys() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	//check required fields
-	if s.partnerPubKey == nil {
-		return errors.New("Session must have a partner public key")
-	}
-
-	if s.manager == nil {
-		return errors.New("Session must have a manager")
-	}
-
-	//generate optional fields if not present
+// myPrivKey will be generated if not present
+func (s *Session) generate() {
 	grp := s.manager.ctx.grp
+
+	//generate public key if it is not present
 	if s.myPrivKey == nil {
-		rng := csprng.NewSystemRNG()
-		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
+		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
+			csprng.NewSystemRNG())
 	}
 
-	if s.baseKey == nil {
-		s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
-	}
+	// compute the base key
+	s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
 
-	// generate key definitions if this is the first instantiation of the
-	// session
-	if !s.generated {
-		//generate ttl and keying info
-		keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
-			s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
+	//generate ttl and keying info
+	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
+		s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
 
-		s.ttl = uint32(keysTTL)
+	s.ttl = uint32(keysTTL)
 
-		s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
-		s.reKeyState = newStateVector(s.manager.ctx, reKeyEKVPrefix, uint32(s.params.NumRekeys))
-	}
+	//create the new state vectors. This will cause disk operations storing them
 
-	// add the key and rekey fingerprints to the fingerprint map if in receiving
-	// mode
+	s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
+	s.reKeyState = newStateVector(s.manager.ctx, reKeyEKVPrefix, uint32(s.params.NumRekeys))
+
+	//register keys for reception if this is a reception session
 	if s.t == Receive {
-		//generate key
-		keyNums := s.keyState.GetUnusedKeyNums()
-
-		keys := make([]*Key, len(keyNums))
-		for i, keyNum := range keyNums {
-			keys[i] = newKey(s, parse.E2E, keyNum)
-		}
-
 		//register keys
-		s.manager.ctx.fa.add(keys)
 
-		//generate rekeys
-		reKeyNums := s.reKeyState.GetUnusedKeyNums()
-		rekeys := make([]*Key, len(reKeyNums))
-		for i, rekeyNum := range reKeyNums {
-			rekeys[i] = newKey(s, parse.Rekey, rekeyNum)
-		}
+		s.manager.ctx.fa.add(s.getUnusedKeys())
 
 		//register rekeys
-		s.manager.ctx.fa.add(rekeys)
+		s.manager.ctx.fa.add(s.getUnusedReKeys())
+	}
+}
+
+//returns key objects for all unused keys
+func (s *Session) getUnusedKeys() []*Key {
+	keyNums := s.keyState.GetUnusedKeyNums()
+
+	keys := make([]*Key, len(keyNums))
+	for i, keyNum := range keyNums {
+		keys[i] = newKey(s, parse.E2E, keyNum)
 	}
 
-	s.generated = true
+	return keys
+}
 
-	return nil
+//returns rekey objects for all unused rekeys
+func (s *Session) getUnusedReKeys() []*Key {
+	reKeyNums := s.reKeyState.GetUnusedKeyNums()
+
+	rekeys := make([]*Key, len(reKeyNums))
+	for i, rekeyNum := range reKeyNums {
+		rekeys[i] = newKey(s, parse.Rekey, rekeyNum)
+	}
+
+	return rekeys
 }

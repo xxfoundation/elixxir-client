@@ -116,7 +116,7 @@ func (sv *stateVector) used(keynum uint32) bool {
 	block := keynum / 64
 	pos := keynum % 64
 
-	sv.vect[block] |= 1 << pos
+	sv.vect[block] &= 1 << pos
 
 	return (sv.vect[block]>>pos)&1 == 1
 }

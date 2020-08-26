@@ -216,7 +216,7 @@ func (s *Session) unmarshal(b []byte) error {
 // Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
 func (s *Session) PopKey() (*Key, error) {
-	if s.keyState.numkeys-s.keyState.numAvalible <= uint32(s.params.NumRekeys) {
+	if s.keyState.numkeys-s.keyState.numAvailable <= uint32(s.params.NumRekeys) {
 		return nil, errors.New("no more keys left, remaining reserved " +
 			"for rekey")
 	}
@@ -240,7 +240,7 @@ func (s *Session) PopReKey() (*Key, error) {
 // returns the state of the session, which denotes if the Session is active,
 // functional but in need of a rekey, empty of send key, or empty of rekeys
 func (s *Session) Status() Status {
-	if s.keyState.numkeys-s.keyState.numAvalible <= uint32(s.params.NumRekeys) {
+	if s.keyState.numkeys-s.keyState.numAvailable <= uint32(s.params.NumRekeys) {
 		return RekeyEmpty
 	} else if s.keyState.GetNumKeys() == 0 {
 		return Empty

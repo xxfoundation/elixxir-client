@@ -2,7 +2,6 @@ package key
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -20,11 +19,10 @@ import (
 func Test_newKey(t *testing.T) {
 	expectedKey := &Key{
 		session: getSession(t),
-		outer:   parse.CryptoType(rand.Int31n(int32(parse.E2E))),
 		keyNum:  rand.Uint32(),
 	}
 
-	testKey := newKey(expectedKey.session, expectedKey.outer, expectedKey.keyNum)
+	testKey := newKey(expectedKey.session, expectedKey.keyNum)
 
 	if !reflect.DeepEqual(expectedKey, testKey) {
 		t.Errorf("newKey() did not produce the expected Key."+
@@ -35,8 +33,7 @@ func Test_newKey(t *testing.T) {
 
 // Happy path of Key.GetSession().
 func TestKey_GetSession(t *testing.T) {
-	k := newKey(getSession(t), parse.CryptoType(rand.Int31n(int32(parse.E2E))),
-		rand.Uint32())
+	k := newKey(getSession(t), rand.Uint32())
 
 	testSession := k.GetSession()
 
@@ -50,42 +47,22 @@ func TestKey_GetSession(t *testing.T) {
 	}
 }
 
-// Happy path of Key.GetCryptoType().
-func TestKey_GetCryptoType(t *testing.T) {
-	k := newKey(getSession(t), parse.CryptoType(rand.Int31n(int32(parse.E2E))),
-		rand.Uint32())
-
-	testCryptoType := k.GetCryptoType()
-
-	if !reflect.DeepEqual(k.outer, testCryptoType) {
-
-		if !reflect.DeepEqual(k.outer, testCryptoType) {
-			t.Errorf("GetCryptoType() did not produce the expected CryptoType."+
-				"\n\texpected: %v\n\treceived: %v",
-				k.outer, testCryptoType)
-		}
-	}
-}
-
 // Happy path of Key.Fingerprint().
 func TestKey_Fingerprint(t *testing.T) {
-	k := newKey(getSession(t), 0, rand.Uint32())
+	k := newKey(getSession(t), rand.Uint32())
 
 	// Generate test and expected fingerprints
 	testFingerprint := getFingerprint()
 	testData := []struct {
-		outer      parse.CryptoType
 		testFP     *format.Fingerprint
 		expectedFP format.Fingerprint
 	}{
-		{0, testFingerprint, *testFingerprint},
-		{parse.E2E, nil, e2e.DeriveKeyFingerprint(k.session.baseKey, k.keyNum)},
-		{parse.Rekey, nil, e2e.DeriveReKeyFingerprint(k.session.baseKey, k.keyNum)},
+		{testFingerprint, *testFingerprint},
+		{nil, e2e.DeriveKeyFingerprint(k.session.baseKey, k.keyNum)},
 	}
 
 	// Test cases
 	for _, data := range testData {
-		k.outer = data.outer
 		k.fp = data.testFP
 		testFP := k.Fingerprint()
 
@@ -95,20 +72,6 @@ func TestKey_Fingerprint(t *testing.T) {
 				data.expectedFP, testFP)
 		}
 	}
-}
-
-// Tests that Key.Fingerprint() panics when Key.outer is invalid.
-func TestKey_Fingerprint_Panic(t *testing.T) {
-
-	k := &Key{getSession(t), nil, parse.Unencrypted, rand.Uint32()}
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("Fingerprint() did not panic when key.outer (value of %s) "+
-				"is invalid.", k.outer)
-		}
-	}()
-	_ = k.Fingerprint()
 }
 
 func TestKey_EncryptDecrypt(t *testing.T) {
@@ -169,77 +132,37 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 	}
 }
 
-
-// Happy path of Key.denoteUse().
+// Happy path of Key.denoteUse()
 func TestKey_denoteUse(t *testing.T) {
-	k := newKey(getSession(t), 0, uint32(rand.Int31n(31)))
+	keyNum := uint32(rand.Int31n(31))
 
-	// Generate test CryptoType values
-	testData := []parse.CryptoType{parse.E2E, parse.Rekey}
+	k := newKey(getSession(t), keyNum)
 
-	// Test cases
-	for _, outer := range testData {
-		k.outer = outer
-		err := k.denoteUse()
-		if err != nil {
-			t.Errorf("denoteUse() produced an unexpected error."+
-				"\n\texpected: %v\n\treceived: %v", nil, err)
-		}
+	err := k.denoteUse()
+	if err != nil {
+		t.Errorf("denoteUse() produced an unexpected error."+
+			"\n\texpected: %v\n\treceived: %v", nil, err)
 	}
-}
 
-// Tests that Key.denoteUse() panics for invalid values of Key.outer.
-func TestKey_denoteUse_Panic(t *testing.T) {
-	k := newKey(getSession(t), parse.Unencrypted, uint32(rand.Int31n(31)))
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("denoteUse() did not panic when key.outer (value of %s) "+
-				"is invalid.", k.outer)
-		}
-	}()
-
-	_ = k.denoteUse()
+	if !k.session.keyState.Used(keyNum) {
+		t.Errorf("denoteUse() did not use the key")
+	}
 }
 
 // Happy path of generateKey().
 func TestKey_generateKey(t *testing.T) {
-	k := newKey(getSession(t), 0, rand.Uint32())
+	k := newKey(getSession(t), rand.Uint32())
 
 	// Generate test CryptoType values and expected keys
-	testData := []struct {
-		outer       parse.CryptoType
-		expectedKey e2e.Key
-	}{
-		{parse.E2E, e2e.DeriveKey(k.session.baseKey, k.keyNum)},
-		{parse.Rekey, e2e.DeriveReKey(k.session.baseKey, k.keyNum)},
+	expectedKey := e2e.DeriveKey(k.session.baseKey, k.keyNum)
+	testKey := k.generateKey()
+
+	if !reflect.DeepEqual(expectedKey, testKey) {
+		t.Errorf("generateKey() did not produce the expected e2e key."+
+			"\n\texpected: %v\n\treceived: %v",
+			expectedKey, testKey)
 	}
 
-	// Test cases
-	for _, data := range testData {
-		k.outer = data.outer
-		testKey := k.generateKey()
-
-		if !reflect.DeepEqual(data.expectedKey, testKey) {
-			t.Errorf("generateKey() did not produce the expected e2e key."+
-				"\n\texpected: %v\n\treceived: %v",
-				data.expectedKey, testKey)
-		}
-	}
-}
-
-// Tests that generateKey() panics for invalid values of Key.outer.
-func TestKey_generateKey_Panic(t *testing.T) {
-	k := newKey(getSession(t), parse.Unencrypted, rand.Uint32())
-
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("generateKey() did not panic when key.outer (value of %s) "+
-				"is invalid.", k.outer)
-		}
-	}()
-
-	_ = k.generateKey()
 }
 
 func getGroup() *cyclic.Group {
@@ -280,7 +203,6 @@ func getSession(t *testing.T) *Session {
 	}
 
 	keyState := newStateVector(ctx, "keyState", rand.Uint32())
-	reKeyState := newStateVector(ctx, "reKeyState", rand.Uint32())
 
 	return &Session{
 		manager: &Manager{
@@ -288,14 +210,13 @@ func getSession(t *testing.T) *Session {
 		},
 		baseKey:    baseKey,
 		keyState:   keyState,
-		reKeyState: reKeyState,
 	}
 }
 
 func getFingerprint() *format.Fingerprint {
 	rand.Seed(time.Now().UnixNano())
-	fp := make([]byte, format.KeyFPLen)
-	rand.Read(fp)
+	fp := format.Fingerprint{}
+	rand.Read(fp[:])
 
-	return format.NewFingerprint(fp)
+	return &fp
 }

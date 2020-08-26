@@ -56,10 +56,7 @@ func LoadStore(grp *cyclic.Group, kv *storage.Session) (*Store, error) {
 }
 
 func (s *Store) save() error {
-	now, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
+	now := time.Now()
 
 	data, err := s.marshal()
 	if err != nil {

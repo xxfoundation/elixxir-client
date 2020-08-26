@@ -38,7 +38,13 @@ func CMIXEncrypt(session user.Session, topology *connect.Circuit, salt []byte,
 		baseKeys[i] = key.TransmissionKey
 	}
 
-	ecrMsg := cmix.ClientEncrypt(session.GetCmixGroup(), msg, salt, baseKeys)
+	userData, err := SessionV2.GetUserData()
+
+	if err != nil {
+		globals.Log.FATAL.Panicf("could not get userData: %+v", err)
+	}
+
+	ecrMsg := cmix.ClientEncrypt(userData.CmixGrp, msg, salt, baseKeys)
 
 	h, err := hash.NewCMixHash()
 	if err != nil {

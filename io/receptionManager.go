@@ -13,6 +13,8 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/comms/client"
+	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
@@ -46,14 +48,24 @@ type ReceptionManager struct {
 
 	sendLock sync.Mutex
 
+	// Buffer of messages that cannot be decrypted
+	garbledMessages []*format.Message
+	garbleLck       sync.Mutex
+
+	switchboard *switchboard.Switchboard
+
 	rekeyChan chan struct{}
+	quitChan  chan struct{}
 }
 
 // Build a new reception manager object using inputted key fields
-func NewReceptionManager(rekeyChan chan struct{}, uid *id.ID, privKey, pubKey, salt []byte) (*ReceptionManager, error) {
+func NewReceptionManager(rekeyChan, quitChan chan struct{}, uid *id.ID,
+	privKey, pubKey, salt []byte, switchb *switchboard.Switchboard) (
+	*ReceptionManager, error) {
 	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to get client comms using constructor: %+v")
+		return nil, errors.Wrap(err,
+			"Failed to get client comms using constructor: %+v")
 	}
 
 	cm := &ReceptionManager{
@@ -64,6 +76,9 @@ func NewReceptionManager(rekeyChan chan struct{}, uid *id.ID, privKey, pubKey, s
 		receivedMessages:   make(map[string]struct{}),
 		Comms:              comms,
 		rekeyChan:          rekeyChan,
+		quitChan:           quitChan,
+		garbledMessages:    make([]*format.Message, 0),
+		switchboard:        switchb,
 		Tls:                true,
 	}
 
@@ -91,4 +106,27 @@ func (rm *ReceptionManager) DisableBlockingTransmission() { // flag passed into 
 
 func (rm *ReceptionManager) SetRateLimit(delay time.Duration) { // pass into received
 	rm.transmitDelay = delay
+}
+
+// AppendGarbledMessage appends a message or messages to the garbled message
+// buffer.
+func (rm *ReceptionManager) AppendGarbledMessage(messages ...*format.Message) {
+	rm.garbleLck.Lock()
+	rm.garbledMessages = append(rm.garbledMessages, messages...)
+	rm.garbleLck.Unlock()
+}
+
+// PopGarbledMessages returns the content of the garbled message buffer and
+// deletes its contents.
+func (rm *ReceptionManager) PopGarbledMessages() []*format.Message {
+	rm.garbleLck.Lock()
+	defer rm.garbleLck.Unlock()
+	tempBuffer := rm.garbledMessages
+	rm.garbledMessages = []*format.Message{}
+	return tempBuffer
+}
+
+// GetSwitchboard returns the active switchboard for this reception manager
+func (rm *ReceptionManager) GetSwitchboard() *switchboard.Switchboard {
+	return rm.switchboard
 }

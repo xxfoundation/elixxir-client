@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -115,6 +116,12 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 	cryptoType parse.CryptoType,
 	message *format.Message,
 	rekey bool, transmitGateway *connect.Host) error {
+
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		return err
+	}
+
 	// Enable transmission blocking if enabled
 	if rm.blockTransmissions {
 		rm.sendLock.Lock()
@@ -124,9 +131,11 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 		}()
 	}
 
+	uid := userData.ThisUser.User
+
 	// Check message type
 	if cryptoType == parse.E2E {
-		handleE2ESending(session, message, rekey)
+		handleE2ESending(session, rm.switchboard, message, rekey)
 	} else {
 		padded, err := e2e.Pad(message.Contents.GetRightAligned(), format.ContentsLen)
 		if err != nil {
@@ -134,7 +143,8 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 		}
 		message.Contents.Set(padded)
 		e2e.SetUnencrypted(message)
-		message.SetKeyFP(*format.NewFingerprint(session.GetCurrentUser().User.Marshal()[:32]))
+		fp := format.NewFingerprint(uid.Marshal()[:32])
+		message.SetKeyFP(*fp)
 	}
 	// CMIX Encryption
 	salt := cmix.NewSalt(csprng.Source(&csprng.SystemRNG{}), 32)
@@ -142,7 +152,7 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 
 	// Construct slot message
 	msgPacket := &pb.Slot{
-		SenderID: session.GetCurrentUser().User.Marshal(),
+		SenderID: uid.Marshal(),
 		PayloadA: encMsg.GetPayloadA(),
 		PayloadB: encMsg.GetPayloadB(),
 		Salt:     salt,
@@ -191,12 +201,18 @@ func (rm *ReceptionManager) send(session user.Session, topology *connect.Circuit
 	return err
 }
 
-func handleE2ESending(session user.Session,
+// FIXME: hand off all keys via a context variable or other solution.
+func handleE2ESending(session user.Session, switchb *switchboard.Switchboard,
 	message *format.Message,
 	rekey bool) {
 	recipientID, err := message.GetRecipient()
 	if err != nil {
 		globals.Log.ERROR.Panic(err)
+	}
+
+	userData, err := SessionV2.GetUserData()
+	if err != nil {
+		globals.Log.FATAL.Panicf("Couldn't get userData: %+v ", err)
 	}
 
 	var key *keyStore.E2EKey
@@ -246,7 +262,7 @@ func handleE2ESending(session user.Session,
 	if action == keyStore.Rekey {
 		// Send RekeyTrigger message to switchboard
 		rekeyMsg := &parse.Message{
-			Sender: session.GetCurrentUser().User,
+			Sender: userData.ThisUser.User,
 			TypedBody: parse.TypedBody{
 				MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 				Body:        []byte{},
@@ -254,17 +270,17 @@ func handleE2ESending(session user.Session,
 			InferredType: parse.None,
 			Receiver:     recipientID,
 		}
-		go session.GetSwitchboard().Speak(rekeyMsg)
+		go switchb.Speak(rekeyMsg)
 	}
 
 	globals.Log.DEBUG.Printf("E2E encrypting message")
 	if rekey {
-		crypto.E2EEncryptUnsafe(session.GetE2EGroup(),
+		crypto.E2EEncryptUnsafe(userData.E2EGrp,
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)
 	} else {
-		crypto.E2EEncrypt(session.GetE2EGroup(),
+		crypto.E2EEncrypt(userData.E2EGrp,
 			key.GetKey(),
 			key.KeyFingerprint(),
 			message)

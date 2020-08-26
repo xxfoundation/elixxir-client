@@ -35,13 +35,9 @@ func initTest(t *testing.T) *Session {
 func TestSession_Smoke(t *testing.T) {
 	s := initTest(t)
 
-	ts, err := time.Now().MarshalText()
-	if err != nil {
-		t.Errorf("Failed to martial time for object")
-	}
-	err = s.Set("testkey", &VersionedObject{
+	err := s.Set("testkey", &VersionedObject{
 		Version:   0,
-		Timestamp: ts,
+		Timestamp: time.Now(),
 		Data:      []byte("test"),
 	})
 	if err != nil {

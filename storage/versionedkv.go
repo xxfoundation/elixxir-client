@@ -1,21 +1,25 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import (
 	"encoding/json"
 	"fmt"
 	"gitlab.com/elixxir/ekv"
-	"strconv"
 	"strings"
+	"time"
 )
 
-// MakeKeyPrefix provides a helper with a data type and a version
-// TODO: We might need a separator string here, or a fixed number of
-//       digits available to the version string
-//  Otherwise version 10 could be mistaken for version 1! Bad news
-//  For now, let's hope a semicolon won't be part of the rest of the key
-//  It's not in base64, so maybe it will be fine
-func MakeKeyPrefix(dataType string, version uint64) string {
-	return dataType + strconv.FormatUint(version, 10) + ";"
+const prefixKeySeparator = ":"
+
+// MakeKeyWithPrefix creates a key for a type of data with a unique
+// identifier using a globally defined separator character.
+func MakeKeyWithPrefix(dataType string, uniqueID string) string {
+	return fmt.Sprintf("%s%s%s", dataType, prefixKeySeparator, uniqueID)
 }
 
 // VersionedObject is used by VersionedKeyValue to keep track of
@@ -24,9 +28,8 @@ type VersionedObject struct {
 	// Used to determine version upgrade, if any
 	Version uint64
 
-	// Marshal to/from time.Time using Time.MarshalText and
-	// Time.UnmarshalText
-	Timestamp []byte
+	// Set when this object is written
+	Timestamp time.Time
 
 	// Serialized version of original object
 	Data []byte
@@ -76,14 +79,18 @@ func NewVersionedKV(data ekv.KeyValue) *VersionedKV {
 	// should always make the key prefix before calling Set, and if they
 	// want the upgraded data persisted they should call Set with the
 	// upgraded data.
-	newKV.upgradeTable[MakeKeyPrefix("test", 0)] = func(key string,
+	newKV.upgradeTable[MakeKeyWithPrefix("test", "")] = func(key string,
 		oldObject *VersionedObject) (*VersionedObject, error) {
+		if oldObject.Version == 1 {
+			return oldObject, nil
+		}
 		return &VersionedObject{
 			Version: 1,
-			// Upgrade functions don't need to update the timestamp
+			// Upgrade functions don't need to update
+			// the timestamp
 			Timestamp: oldObject.Timestamp,
-			Data: []byte("this object was upgraded from v0" +
-				" to v1"),
+			Data: []byte("this object was upgraded from" +
+				" v0 to v1"),
 		}, nil
 	}
 	newKV.data = data
@@ -120,7 +127,7 @@ func (v *VersionedKV) Delete(key string) error {
 
 // Set upserts new data into the storage
 // When calling this, you are responsible for prefixing the key with the correct
-// type and version! Call MakeKeyPrefix() to do so.
+// type optionally unique id! Call MakeKeyWithPrefix() to do so.
 func (v *VersionedKV) Set(key string, object *VersionedObject) error {
 	return v.data.Set(key, object)
 }

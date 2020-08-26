@@ -61,10 +61,7 @@ func LoadSessionBuff(manager *Manager, keyPrefix string, partnerID *id.ID) (*ses
 func (sb *sessionBuff) save() error {
 	key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
 
-	now, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
+	now := time.Now()
 
 	data, err := sb.marshal()
 	if err != nil {

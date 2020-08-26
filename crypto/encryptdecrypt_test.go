@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -41,12 +42,12 @@ func setup() {
 
 	cmixGrp, e2eGrp := getGroups()
 
-	user.InitUserRegistry(cmixGrp)
+	userRegistry.InitUserRegistry(cmixGrp)
 
 	UID := new(id.ID)
 	binary.BigEndian.PutUint64(UID[:], 18)
 	UID.SetType(id.User)
-	u, ok := user.Users.GetUser(UID)
+	u, ok := userRegistry.Users.GetUser(UID)
 	if !ok {
 		panic("Didn't get user 18 from registry")
 	}
@@ -69,11 +70,16 @@ func setup() {
 
 	h, _ := blake2b.New256(nil)
 
-	session = user.NewSession(nil, u, nil, nil,
-		nil, nil, nil,
-		nil, nil, cmixGrp, e2eGrp, "password")
+	session = user.NewSession(nil, "password")
 
 	SessionV2, _ = storage.Init(".ekvcryptotest", "password")
+
+	userData := &storage.UserData{
+		ThisUser: u,
+		CmixGrp:  cmixGrp,
+		E2EGrp:   e2eGrp,
+	}
+	SessionV2.CommitUserData(userData)
 
 	for i := 0; i < numNodes; i++ {
 

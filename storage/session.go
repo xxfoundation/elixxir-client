@@ -23,8 +23,13 @@ import (
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv  *VersionedKV
-	mux sync.Mutex
+	kv       *VersionedKV
+	userData *UserData
+	mux      sync.Mutex
+
+	// Contacts controls
+	contacts    map[string]*Contact
+	contactsLck sync.Mutex
 }
 
 // Initialize a new Session object
@@ -36,6 +41,8 @@ func Init(baseDir, password string) (*Session, error) {
 			kv: NewVersionedKV(fs),
 		}
 	}
+
+	s.loadAllContacts()
 
 	return s, err
 }
@@ -59,7 +66,7 @@ func (s *Session) Set(key string, object *VersionedObject) error {
 	return s.kv.Set(key, object)
 }
 
-// Deletes a value in the session
+// Delete a value in the session
 func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key)
 }
@@ -75,12 +82,8 @@ func (s *Session) GetLastMessageId() (string, error) {
 
 // Set the LastMessageID in the Session
 func (s *Session) SetLastMessageId(id string) error {
-	ts, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
 	vo := &VersionedObject{
-		Timestamp: ts,
+		Timestamp: time.Now(),
 		Data:      []byte(id),
 	}
 	return s.Set("LastMessageID", vo)
@@ -93,13 +96,9 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 
 	// Attempt to locate the keys map
 	v, err := s.Get(key)
-	if err != nil {
-		// If the map doesn't exist, initialize it
-		ts, err := time.Now().MarshalText()
-		if err != nil {
-			return nil, err
-		}
 
+	// If the map doesn't exist, initialize it
+	if err != nil {
 		// Encode the new map
 		nodeKeys = make(map[string]user.NodeKeys)
 		var nodeKeysBuffer bytes.Buffer
@@ -111,7 +110,7 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 
 		// Store the new map
 		vo := &VersionedObject{
-			Timestamp: ts,
+			Timestamp: time.Now(),
 			Data:      nodeKeysBuffer.Bytes(),
 		}
 		err = s.Set(key, vo)
@@ -174,12 +173,8 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	err = enc.Encode(nodeKeys)
 
 	// Insert the map back into the Session
-	ts, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
 	vo := &VersionedObject{
-		Timestamp: ts,
+		Timestamp: time.Now(),
 		Data:      nodeKeysBuffer.Bytes(),
 	}
 	return s.Set("NodeKeys", vo)

@@ -178,13 +178,13 @@ func (cl *Client) Login(UID []byte, password string) ([]byte, error) {
 func (cl *Client) GetUsername() string {
 	globals.Log.INFO.Printf("Binding call: GetUsername()")
 
-	return cl.client.GetSession().GetCurrentUser().Username
+	return cl.client.GetUsername()
 }
 
 func (cl *Client) GetUserID() []byte {
 	globals.Log.INFO.Printf("Binding call: GetUserID()")
 
-	return cl.client.GetSession().GetCurrentUser().User[:]
+	return cl.client.GetCurrentUser().Bytes()
 }
 
 type MessageReceiverCallback interface {
@@ -264,7 +264,7 @@ func (cl *Client) ChangeUsername(un string) error {
 		return errors.New("Can only change username during " +
 			"PermissioningComplete registration state")
 	}
-	return cl.client.GetSession().ChangeUsername(un)
+	return cl.client.ChangeUsername(un)
 }
 
 // gets the curent registration status.  they cane be:
@@ -273,7 +273,11 @@ func (cl *Client) ChangeUsername(un string) error {
 //	2 - UDBComplete
 func (cl *Client) GetRegState() int64 {
 	globals.Log.INFO.Printf("Binding call: GetRegState()")
-	return int64(cl.client.GetSession().GetRegState())
+	regState, err := cl.client.GetSessionV2().GetRegState()
+	if err != nil {
+		globals.Log.ERROR.Printf("GetRegState(): %+v", err)
+	}
+	return int64(regState)
 }
 
 // Registers user with all nodes it has not been registered with.

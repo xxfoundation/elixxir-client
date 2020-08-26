@@ -1,4 +1,4 @@
-package user
+package userRegistry
 
 import (
 	"encoding/base32"

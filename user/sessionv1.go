@@ -106,30 +106,8 @@ func ConvertSessionV1toV2(inputWrappedSession *SessionStorageWrapper) (*SessionS
 		*sessionV1.RegState = 3000
 	}
 
-	//convert the user object
-	sessionV2.CurrentUser = &User{
-		User:     sessionV1.CurrentUser.User,
-		Username: sessionV1.CurrentUser.Email,
-	}
-
-	//port identical values over
-	sessionV2.NodeKeys = sessionV1.Keys
-	sessionV2.RSAPrivateKey = sessionV1.RSAPrivateKey
-	sessionV2.RSAPublicKey = sessionV1.RSAPublicKey
-	sessionV2.CMIXDHPrivateKey = sessionV1.CMIXDHPrivateKey
-	sessionV2.CMIXDHPublicKey = sessionV1.CMIXDHPublicKey
-	sessionV2.E2EDHPrivateKey = sessionV1.E2EDHPrivateKey
-	sessionV2.E2EDHPublicKey = sessionV1.E2EDHPublicKey
-	sessionV2.CmixGrp = sessionV1.CmixGrp
-	sessionV2.E2EGrp = sessionV1.E2EGrp
-	sessionV2.Salt = sessionV1.Salt
-	sessionV2.LastMessageID = sessionV1.LastMessageID
-	sessionV2.InterfaceMap = sessionV1.InterfaceMap
 	sessionV2.KeyMaps = sessionV1.KeyMaps
 	sessionV2.RekeyManager = sessionV1.RekeyManager
-	sessionV2.RegValidationSignature = sessionV1.regValidationSignature
-	sessionV2.RegState = sessionV1.RegState
-	sessionV2.ContactsByValue = sessionV1.ContactsByValue
 
 	//re encode the session
 	var sessionBuffer bytes.Buffer

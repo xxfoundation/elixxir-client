@@ -25,10 +25,14 @@ var ErrNoPermissioning = errors.New("No Permissioning In NDF")
 func (cl *Client) InitNetwork() error {
 	var err error
 	if cl.receptionManager == nil {
-		// Start reception manager with a dummy user, so we can connect to things
-		cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan, &id.DummyUser, nil, nil, nil)
+		// Start reception manager with a dummy user,
+		// so we can connect to things
+		cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan,
+			cl.quitChan, &id.DummyUser, nil, nil, nil,
+			cl.switchboard)
 		if err != nil {
-			return errors.Wrap(err, "Failed to create reception manager")
+			return errors.Wrap(err,
+				"Failed to create reception manager")
 		}
 	}
 

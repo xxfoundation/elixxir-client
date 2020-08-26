@@ -4,12 +4,14 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package user
+package userRegistry
 
 import (
 	"crypto/sha256"
 	"encoding/binary"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -32,25 +34,25 @@ func InitUserRegistry(grp *cyclic.Group) {
 
 // Interface for User Registry operations
 type Registry interface {
-	NewUser(id *id.ID, nickname string) *User
+	NewUser(id *id.ID, nickname string) *storage.User
 	DeleteUser(id *id.ID)
-	GetUser(id *id.ID) (user *User, ok bool)
-	UpsertUser(user *User)
+	GetUser(id *id.ID) (user *storage.User, ok bool)
+	UpsertUser(user *storage.User)
 	CountUsers() int
 	LookupUser(hid string) (uid *id.ID, ok bool)
-	LookupKeys(uid *id.ID) (*NodeKeys, bool)
+	LookupKeys(uid *id.ID) (*user.NodeKeys, bool)
 }
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
-	userCollection map[id.ID]*User
+	userCollection map[id.ID]*storage.User
 	// Increments sequentially for User.ID values
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
 	// Key type is string because keys must implement == and []byte doesn't
 	userLookup map[string]*id.ID
 	//Temporary placed to store the keys for each user
-	keysLookup map[id.ID]*NodeKeys
+	keysLookup map[id.ID]*user.NodeKeys
 }
 
 // newRegistry creates a new Registry interface
@@ -58,9 +60,9 @@ func newRegistry(grp *cyclic.Group) Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
-	userUserIdMap := make(map[id.ID]*User)
+	userUserIdMap := make(map[id.ID]*storage.User)
 	userRegCodeMap := make(map[string]*id.ID)
-	nk := make(map[id.ID]*NodeKeys)
+	nk := make(map[id.ID]*user.NodeKeys)
 
 	// Deterministically create NumDemoUsers users
 	// TODO Replace this with real user registration/discovery
@@ -68,8 +70,8 @@ func newRegistry(grp *cyclic.Group) Registry {
 		currentID := new(id.ID)
 		binary.BigEndian.PutUint64(currentID[:], i)
 		currentID.SetType(id.User)
-		newUsr := new(User)
-		nodeKey := new(NodeKeys)
+		newUsr := new(storage.User)
+		nodeKey := new(user.NodeKeys)
 
 		// Generate user parameters
 		newUsr.User = currentID
@@ -116,33 +118,14 @@ func newRegistry(grp *cyclic.Group) Registry {
 		keysLookup: nk})
 }
 
-// Struct representing a User in the system
-type User struct {
-	User     *id.ID
-	Username string
-	Precan   bool
-}
-
-// DeepCopy performs a deep copy of a user and returns a pointer to the new copy
-func (u *User) DeepCopy() *User {
-	if u == nil {
-		return nil
-	}
-	nu := new(User)
-	nu.User = u.User
-	nu.Username = u.Username
-	nu.Precan = u.Precan
-	return nu
-}
-
 // NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id *id.ID, username string) *User {
-	return &User{User: id, Username: username}
+func (m *UserMap) NewUser(id *id.ID, username string) *storage.User {
+	return &storage.User{User: id, Username: username}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id *id.ID) (user *User, ok bool) {
+func (m *UserMap) GetUser(id *id.ID) (user *storage.User, ok bool) {
 	user, ok = m.userCollection[*id]
 	user = user.DeepCopy()
 	return
@@ -156,7 +139,7 @@ func (m *UserMap) DeleteUser(id *id.ID) {
 
 // UpsertUser inserts given user into userCollection or update the user if it
 // already exists (Upsert operation).
-func (m *UserMap) UpsertUser(user *User) {
+func (m *UserMap) UpsertUser(user *storage.User) {
 	m.userCollection[*user.User] = user
 }
 
@@ -172,7 +155,7 @@ func (m *UserMap) LookupUser(hid string) (*id.ID, bool) {
 }
 
 // LookupKeys returns the keys for the given user from the temporary key map
-func (m *UserMap) LookupKeys(uid *id.ID) (*NodeKeys, bool) {
+func (m *UserMap) LookupKeys(uid *id.ID) (*user.NodeKeys, bool) {
 	nk, t := m.keysLookup[*uid]
 	return nk, t
 }

@@ -109,10 +109,7 @@ func loadSession(manager *Manager, key string) (*Session, error) {
 func (s *Session) save() error {
 	key := makeSessionKey(s.GetID())
 
-	now, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
+	now := time.Now()
 
 	data, err := s.marshal()
 	if err != nil {

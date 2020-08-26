@@ -8,13 +8,16 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -26,7 +29,8 @@ import (
 var ListenCh chan []byte
 
 type dummyMessaging struct {
-	listener chan []byte
+	listener    chan []byte
+	switchboard *switchboard.Switchboard
 }
 
 // SendMessage to the server
@@ -54,12 +58,17 @@ func (d *dummyMessaging) MessageReceiver(session user.Session,
 	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
+// GetSwitchboard to access switchboard
+func (d *dummyMessaging) GetSwitchboard() *switchboard.Switchboard {
+	return d.switchboard
+}
+
 func TestMain(m *testing.M) {
 
 	grp, e2eGrp := getGroups()
-	user.InitUserRegistry(grp)
+	userRegistry.InitUserRegistry(grp)
 	rng := csprng.NewSystemRNG()
-	u := &user.User{
+	u := &storage.User{
 		User:     new(id.ID),
 		Username: "Bernie",
 	}
@@ -78,19 +87,33 @@ func TestMain(m *testing.M) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, 768)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	session := user.NewSession(&globals.RamStorage{},
-		u, &publicKeyRSA, privateKeyRSA, myPubKeyCyclicCMIX,
-		myPrivKeyCyclicCMIX, myPubKeyCyclicE2E, myPrivKeyCyclicE2E, make([]byte, 1),
-		grp, e2eGrp, "password")
+	session := user.NewSession(&globals.RamStorage{}, "password")
 	ListenCh = make(chan []byte, 100)
 	fakeComm := &dummyMessaging{
-		listener: ListenCh,
+		listener:    ListenCh,
+		switchboard: switchboard.NewSwitchboard(),
 	}
+
+	sessionV2 := storage.InitTestingSession(m)
+
+	userData := &storage.UserData{
+		ThisUser:         u,
+		RSAPrivateKey:    privateKeyRSA,
+		RSAPublicKey:     &publicKeyRSA,
+		CMIXDHPrivateKey: myPrivKeyCyclicCMIX,
+		CMIXDHPublicKey:  myPubKeyCyclicCMIX,
+		E2EDHPrivateKey:  myPrivKeyCyclicE2E,
+		E2EDHPublicKey:   myPubKeyCyclicE2E,
+		CmixGrp:          grp,
+		E2EGrp:           e2eGrp,
+		Salt:             make([]byte, 1),
+	}
+	sessionV2.CommitUserData(userData)
 
 	rekeyChan2 := make(chan struct{}, 50)
 	nodeID := new(id.ID)
 	nodeID.SetType(id.Node)
-	InitRekey(session, fakeComm, connect.NewCircuit([]*id.ID{nodeID}), nil, rekeyChan2)
+	InitRekey(session, *sessionV2, fakeComm, connect.NewCircuit([]*id.ID{nodeID}), nil, rekeyChan2)
 
 	// Create E2E relationship with partner
 	// Generate baseKey
@@ -140,10 +163,11 @@ func TestRekeyTrigger(t *testing.T) {
 	binary.BigEndian.PutUint64(partnerID[:], 12)
 	partnerID.SetType(id.User)
 	km := session.GetKeyStore().GetRecvManager(partnerID)
+	userData, _ := sessionV2.GetUserData()
 	partnerPubKey := km.GetPubKey()
 	// Test receiving a RekeyTrigger message
 	msg := &parse.Message{
-		Sender: session.GetCurrentUser().User,
+		Sender: userData.ThisUser.User,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
@@ -151,7 +175,7 @@ func TestRekeyTrigger(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     partnerID,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Check no error occurred in rekeytrigger processing
 	if rekeyTriggerList.err != nil {
@@ -160,7 +184,7 @@ func TestRekeyTrigger(t *testing.T) {
 	// Get new PubKey from Rekey message and confirm value matches
 	// with PubKey created from privKey in Rekey Context
 	value := <-ListenCh
-	grpE2E := session.GetE2EGroup()
+	grpE2E := userData.E2EGrp
 	actualPubKey := grpE2E.NewIntFromBytes(value)
 	privKey := session.GetRekeyManager().GetCtx(partnerID).PrivKey
 	fmt.Println("privKey: ", privKey.Text(16))
@@ -176,7 +200,7 @@ func TestRekeyTrigger(t *testing.T) {
 
 	// Check that trying to send another rekeyTrigger message returns an error
 	msg = &parse.Message{
-		Sender: session.GetCurrentUser().User,
+		Sender: userData.ThisUser.User,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
@@ -184,7 +208,7 @@ func TestRekeyTrigger(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     partnerID,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check that error occurred in rekeytrigger for repeated message
 	if rekeyTriggerList.err == nil {
@@ -199,6 +223,7 @@ func TestRekeyConfirm(t *testing.T) {
 	partnerID.SetType(id.User)
 	rekeyCtx := session.GetRekeyManager().GetCtx(partnerID)
 	baseKey := rekeyCtx.BaseKey
+	userData, _ := sessionV2.GetUserData()
 	// Test receiving a RekeyConfirm message with wrong H(baseKey)
 	msg := &parse.Message{
 		Sender: partnerID,
@@ -207,9 +232,9 @@ func TestRekeyConfirm(t *testing.T) {
 			Body:        baseKey.Bytes(),
 		},
 		InferredType: parse.None,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check that error occurred in RekeyConfirm when hash is wrong
 	if rekeyConfirmList.err == nil {
@@ -226,9 +251,9 @@ func TestRekeyConfirm(t *testing.T) {
 			Body:        h.Sum(nil),
 		},
 		InferredType: parse.None,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check no error occurred in rekeyConfirm processing
 	if rekeyConfirmList.err != nil {
@@ -237,7 +262,7 @@ func TestRekeyConfirm(t *testing.T) {
 
 	// Confirm that user Private key in Send Key Manager
 	// differs from the one stored in session
-	if session.GetE2EDHPrivateKey().GetLargeInt().Cmp(
+	if userData.E2EDHPrivateKey.GetLargeInt().Cmp(
 		session.GetKeyStore().GetSendManager(partnerID).
 			GetPrivKey().GetLargeInt()) == 0 {
 		t.Errorf("PrivateKey remained unchanged after Outgoing Rekey!")
@@ -252,9 +277,9 @@ func TestRekeyConfirm(t *testing.T) {
 			Body:        h.Sum(nil),
 		},
 		InferredType: parse.None,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check that error occurred in RekeyConfirm for repeated message
 	if rekeyConfirmList.err == nil {
@@ -268,6 +293,7 @@ func TestRekey(t *testing.T) {
 	binary.BigEndian.PutUint64(partnerID[:], 12)
 	partnerID.SetType(id.User)
 	km := session.GetKeyStore().GetSendManager(partnerID)
+	userData, _ := sessionV2.GetUserData()
 	// Generate new partner public key
 	_, grp := getGroups()
 	privKey := grp.RandomCoprime(grp.NewMaxInt())
@@ -280,7 +306,7 @@ func TestRekey(t *testing.T) {
 			Body:        pubKey.Bytes(),
 		},
 		InferredType: parse.Rekey,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     userData.ThisUser.User,
 	}
 	session.GetSwitchboard().Speak(msg)
 
@@ -307,14 +333,14 @@ func TestRekey(t *testing.T) {
 	// Confirm that keys rotated properly in RekeyManager
 	rkm := session.GetRekeyManager()
 	keys := rkm.GetKeys(partnerID)
-	if keys.CurrPubKey.GetLargeInt().Cmp(session.GetE2EDHPublicKey().GetLargeInt()) == 0 {
+	if keys.CurrPubKey.GetLargeInt().Cmp(userData.E2EDHPublicKey.GetLargeInt()) == 0 {
 		t.Errorf("Own publicKey didn't update properly after both parties rekeys")
 
 	}
 	if keys.CurrPrivKey.GetLargeInt().
-		Cmp(session.GetE2EDHPrivateKey().GetLargeInt()) == 0 {
+		Cmp(userData.E2EDHPrivateKey.GetLargeInt()) == 0 {
 		t.Errorf("Own PrivateKey didn't update properly after both parties rekeys")
-		t.Errorf("%s\n%s", keys.CurrPrivKey.GetLargeInt().Text(16), session.GetE2EDHPrivateKey().GetLargeInt().Text(16))
+		t.Errorf("%s\n%s", keys.CurrPrivKey.GetLargeInt().Text(16), userData.E2EDHPrivateKey.GetLargeInt().Text(16))
 	}
 
 	if keys.CurrPubKey.GetLargeInt().
@@ -331,10 +357,11 @@ func TestRekey_Errors(t *testing.T) {
 	km := session.GetKeyStore().GetRecvManager(partnerID)
 	partnerPubKey := km.GetPubKey()
 	// Delete RekeyKeys so that RekeyTrigger and rekey error out
+	userData, _ := sessionV2.GetUserData()
 	session.GetRekeyManager().DeleteKeys(partnerID)
 	// Test receiving a RekeyTrigger message
 	msg := &parse.Message{
-		Sender: session.GetCurrentUser().User,
+		Sender: userData.ThisUser.User,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
@@ -342,7 +369,7 @@ func TestRekey_Errors(t *testing.T) {
 		InferredType: parse.None,
 		Receiver:     partnerID,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Check error occurred on RekeyTrigger
 	if rekeyTriggerList.err == nil {
@@ -357,9 +384,9 @@ func TestRekey_Errors(t *testing.T) {
 			Body:        []byte{},
 		},
 		InferredType: parse.Rekey,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     userData.ThisUser.User,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	time.Sleep(time.Second)
 	// Check error occurred on Rekey
 	if rekeyList.err == nil {

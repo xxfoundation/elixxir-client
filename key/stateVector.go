@@ -67,10 +67,7 @@ func loadStateVector(ctx *context, key string) (*stateVector, error) {
 }
 
 func (sv *stateVector) save() error {
-	now, err := time.Now().MarshalText()
-	if err != nil {
-		return err
-	}
+	now := time.Now()
 
 	data, err := sv.marshal()
 	if err != nil {

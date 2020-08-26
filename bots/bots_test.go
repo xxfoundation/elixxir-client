@@ -16,10 +16,12 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"os"
@@ -31,7 +33,8 @@ import (
 var ListenCh chan *format.Message
 
 type dummyMessaging struct {
-	listener chan *format.Message
+	listener    chan *format.Message
+	switchboard *switchboard.Switchboard
 }
 
 // SendMessage to the server
@@ -59,12 +62,17 @@ func (d *dummyMessaging) MessageReceiver(session user.Session,
 	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
+// MessageReceiver thread to get new messages
+func (d *dummyMessaging) GetSwitchboard() *switchboard.Switchboard {
+	return d.switchboard
+}
+
 var pubKeyBits string
 var keyFingerprint string
 var pubKey []byte
 
 func TestMain(m *testing.M) {
-	u := &user.User{
+	u := &storage.User{
 		User:     new(id.ID),
 		Username: "Bernie",
 	}
@@ -73,19 +81,26 @@ func TestMain(m *testing.M) {
 
 	cmixGrp, e2eGrp := getGroups()
 
-	fakeSession := user.NewSession(&globals.RamStorage{},
-		u, nil, nil, nil,
-		nil, nil, nil, nil,
-		cmixGrp, e2eGrp, "password")
+	fakeSession := user.NewSession(&globals.RamStorage{}, "password")
+	fakeSession2 := storage.InitTestingSession(m)
+	fakeSession2.CommitUserData(&storage.UserData{
+		ThisUser: &storage.User{
+			User:     u.User,
+			Username: u.Username,
+		},
+		CmixGrp: cmixGrp,
+		E2EGrp:  e2eGrp,
+	})
 	fakeComm := &dummyMessaging{
-		listener: ListenCh,
+		listener:    ListenCh,
+		switchboard: switchboard.NewSwitchboard(),
 	}
 	h := connect.Host{}
 	nodeID := new(id.ID)
 	nodeID.SetType(id.Node)
 	topology := connect.NewCircuit([]*id.ID{nodeID})
 
-	InitBots(fakeSession, fakeComm, topology, &h)
+	InitBots(fakeSession, *fakeSession2, fakeComm, topology, &h)
 
 	// Make the reception channels buffered for this test
 	// which overwrites the channels registered in InitBots
@@ -158,38 +173,41 @@ func TestSearch(t *testing.T) {
 // Test LookupNick function
 func TestNicknameFunctions(t *testing.T) {
 	// Test receiving a nickname request
+	userData, _ := sessionV2.GetUserData()
+	curUser := userData.ThisUser.User
+
 	msg := &parse.Message{
-		Sender: session.GetCurrentUser().User,
+		Sender: curUser,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NICKNAME_REQUEST),
 			Body:        []byte{},
 		},
 		InferredType: parse.Unencrypted,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     curUser,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 
 	// Test nickname lookup
 
 	// send response to switchboard
 	msg = &parse.Message{
-		Sender: session.GetCurrentUser().User,
+		Sender: curUser,
 		TypedBody: parse.TypedBody{
 			MessageType: int32(cmixproto.Type_NICKNAME_RESPONSE),
-			Body:        []byte(session.GetCurrentUser().Username),
+			Body:        []byte(userData.ThisUser.Username),
 		},
 		InferredType: parse.Unencrypted,
-		Receiver:     session.GetCurrentUser().User,
+		Receiver:     curUser,
 	}
-	session.GetSwitchboard().Speak(msg)
+	comms.GetSwitchboard().Speak(msg)
 	// AFter sending the message, perform the lookup to read it
-	nick, err := LookupNick(session.GetCurrentUser().User)
+	nick, err := LookupNick(curUser)
 	if err != nil {
 		t.Errorf("Error on LookupNick: %s", err.Error())
 	}
-	if nick != session.GetCurrentUser().Username {
+	if nick != userData.ThisUser.Username {
 		t.Errorf("LookupNick returned wrong value. Expected %s,"+
-			" Got %s", session.GetCurrentUser().Username, nick)
+			" Got %s", userData.ThisUser.Username, nick)
 	}
 }
 
@@ -218,11 +236,16 @@ func (e *errorMessaging) MessageReceiver(session user.Session,
 	delay time.Duration, transmissionHost *connect.Host, callback func(error)) {
 }
 
+func (e *errorMessaging) GetSwitchboard() *switchboard.Switchboard {
+	return nil
+}
+
 // Test LookupNick returns error on sending problem
 func TestLookupNick_error(t *testing.T) {
+	userData, _ := sessionV2.GetUserData()
 	// Replace comms with errorMessaging
 	comms = &errorMessaging{}
-	_, err := LookupNick(session.GetCurrentUser().User)
+	_, err := LookupNick(userData.ThisUser.User)
 	if err == nil {
 		t.Errorf("LookupNick should have returned an error")
 	}

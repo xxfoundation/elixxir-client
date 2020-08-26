@@ -2,7 +2,7 @@ package key
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/parse"
+	"errors"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -42,9 +42,6 @@ type Session struct {
 	// Received Keys dirty bits
 	// Each bit represents a single Key
 	keyState *stateVector
-	// Received ReKeys dirty bits
-	// Each bit represents a single ReKey
-	reKeyState *stateVector
 
 	//mutex
 	mux sync.RWMutex
@@ -137,7 +134,6 @@ func (s *Session) Delete() error {
 	defer s.mux.Unlock()
 
 	s.manager.ctx.fa.remove(s.getUnusedKeys())
-	s.manager.ctx.fa.remove(s.getUnusedReKeys())
 
 	return s.manager.ctx.kv.Delete(makeSessionKey(s.GetID()))
 }
@@ -208,47 +204,43 @@ func (s *Session) unmarshal(b []byte) error {
 		return err
 	}
 
-	s.reKeyState, err = loadStateVector(s.manager.ctx, makeStateVectorKey("reKeyStates", sid))
-	if err != nil {
-		return err
-	}
-
 	if s.t == Receive {
 		//register keys
 		s.manager.ctx.fa.add(s.getUnusedKeys())
-
-		//register rekeys
-		s.manager.ctx.fa.add(s.getUnusedReKeys())
 	}
 
 	return nil
 }
 
 //key usage
-// Pops the first unused key, skipping any which are denoted as used. The status
-// is returned to check if a rekey is nessessary
+// Pops the first unused key, skipping any which are denoted as used.
+// will return if the remaining keys are designated as rekeys
 func (s *Session) PopKey() (*Key, error) {
+	if s.keyState.numkeys-s.keyState.numAvalible <= uint32(s.params.NumRekeys) {
+		return nil, errors.New("no more keys left, remaining reserved " +
+			"for rekey")
+	}
 	keyNum, err := s.keyState.Next()
 	if err != nil {
 		return nil, err
 	}
 
-	return newKey(s, parse.E2E, keyNum), nil
+	return newKey(s, keyNum), nil
 }
 
-// Pops the first unused rekey, skipping any which are denoted as used
 func (s *Session) PopReKey() (*Key, error) {
-	keyNum, err := s.reKeyState.Next()
+	keyNum, err := s.keyState.Next()
 	if err != nil {
 		return nil, err
 	}
-	return newKey(s, parse.Rekey, keyNum), nil
+
+	return newKey(s, keyNum), nil
 }
 
 // returns the state of the session, which denotes if the Session is active,
 // functional but in need of a rekey, empty of send key, or empty of rekeys
 func (s *Session) Status() Status {
-	if s.reKeyState.GetNumKeys() == 0 {
+	if s.keyState.numkeys-s.keyState.numAvalible <= uint32(s.params.NumRekeys) {
 		return RekeyEmpty
 	} else if s.keyState.GetNumKeys() == 0 {
 		return Empty
@@ -289,10 +281,6 @@ func (s *Session) useKey(keynum uint32) error {
 	return s.keyState.Use(keynum)
 }
 
-func (s *Session) useReKey(keynum uint32) error {
-	return s.reKeyState.Use(keynum)
-}
-
 // generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
 func (s *Session) generate() {
@@ -311,21 +299,21 @@ func (s *Session) generate() {
 	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
 		s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
 
+	//ensure that enough keys are remaining to rekey
+	if numKeys-uint32(keysTTL) < uint32(s.params.NumRekeys) {
+		numKeys = uint32(keysTTL + s.params.NumRekeys)
+	}
+
 	s.ttl = uint32(keysTTL)
 
 	//create the new state vectors. This will cause disk operations storing them
 
 	s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
-	s.reKeyState = newStateVector(s.manager.ctx, reKeyEKVPrefix, uint32(s.params.NumRekeys))
 
 	//register keys for reception if this is a reception session
 	if s.t == Receive {
 		//register keys
-
 		s.manager.ctx.fa.add(s.getUnusedKeys())
-
-		//register rekeys
-		s.manager.ctx.fa.add(s.getUnusedReKeys())
 	}
 }
 
@@ -335,20 +323,8 @@ func (s *Session) getUnusedKeys() []*Key {
 
 	keys := make([]*Key, len(keyNums))
 	for i, keyNum := range keyNums {
-		keys[i] = newKey(s, parse.E2E, keyNum)
+		keys[i] = newKey(s, keyNum)
 	}
 
 	return keys
-}
-
-//returns rekey objects for all unused rekeys
-func (s *Session) getUnusedReKeys() []*Key {
-	reKeyNums := s.reKeyState.GetUnusedKeyNums()
-
-	rekeys := make([]*Key, len(reKeyNums))
-	for i, rekeyNum := range reKeyNums {
-		rekeys[i] = newKey(s, parse.Rekey, rekeyNum)
-	}
-
-	return rekeys
 }

@@ -106,7 +106,7 @@ func NewSession(store globals.Storage,
 		KeyMaps:             keyStore.NewStore(),
 		RekeyManager:        keyStore.NewRekeyManager(),
 		store:               store,
-		listeners:           switchboard.NewSwitchboard(),
+		listeners:           switchboard.New(),
 		quitReceptionRunner: make(chan struct{}),
 		password:            password,
 		Salt:                salt,
@@ -160,7 +160,7 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
 		session.CurrentUser.User)
 	// Create switchboard
-	session.listeners = switchboard.NewSwitchboard()
+	session.listeners = switchboard.New()
 	// Create quit channel for reception runner
 	session.quitReceptionRunner = make(chan struct{})
 

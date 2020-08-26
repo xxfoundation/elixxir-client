@@ -2,7 +2,6 @@ package key
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -14,7 +13,7 @@ import (
 	"time"
 )
 
-func TestKey_EncryptDecrypt_Key(t *testing.T) {
+func TestKey_EncryptDecrypt(t *testing.T) {
 
 	const numTests = 100
 
@@ -33,15 +32,15 @@ func TestKey_EncryptDecrypt_Key(t *testing.T) {
 		}
 
 		//create the keys
-		k := newKey(s, parse.E2E, prng.Uint32())
+		k := newKey(s, prng.Uint32())
 
 		//make the message to be encrypted
-		msg := format.NewMessage()
+		msg := format.NewMessage(grp.GetP().ByteLen())
 
 		//set the contents
-		contents := make([]byte, format.ContentsLen-format.PadMinLen)
+		contents := make([]byte, msg.ContentsSize())
 		prng.Read(contents)
-		msg.Contents.SetRightAligned(contents)
+		msg.SetContents(contents)
 
 		//set the timestamp
 		now := time.Now()
@@ -50,7 +49,7 @@ func TestKey_EncryptDecrypt_Key(t *testing.T) {
 		msg.SetTimestamp(extendedNowBytes)
 
 		//Encrypt
-		ecrMsg := k.Encrypt(*msg)
+		ecrMsg := k.Encrypt(msg)
 
 		if !reflect.DeepEqual(k.Fingerprint(), ecrMsg.GetKeyFP()) {
 			t.Errorf("Fingerprint in the ecrypted payload is wrong: "+
@@ -60,127 +59,9 @@ func TestKey_EncryptDecrypt_Key(t *testing.T) {
 		//Decrypt
 		resultMsg, _ := k.Decrypt(ecrMsg)
 
-		if !bytes.Equal(resultMsg.Contents.Get(), msg.Contents.Get()) {
+		if !bytes.Equal(resultMsg.GetContents(), msg.GetContents()) {
 			t.Errorf("contents in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
-		}
-
-		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
-			t.Errorf("timestamp in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
-		}
-	}
-
-}
-
-func TestKey_EncryptDecrypt_ReKey(t *testing.T) {
-
-	const numTests = 100
-
-	grp := getGroup()
-	rng := csprng.NewSystemRNG()
-	prng := rand.New(rand.NewSource(42))
-
-	for i := 0; i < numTests; i++ {
-		//generate the baseKey and session
-		privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
-		publicKey := dh.GeneratePublicKey(privateKey, grp)
-		baseKey := dh.GenerateSessionKey(privateKey, publicKey, grp)
-
-		s := &Session{
-			baseKey: baseKey,
-		}
-
-		//create the keys
-		k := newKey(s, parse.Rekey, prng.Uint32())
-
-		//make the message to be encrypted
-		msg := format.NewMessage()
-
-		//set the contents
-		contents := make([]byte, format.ContentsLen-format.PadMinLen)
-		prng.Read(contents)
-		msg.Contents.SetRightAligned(contents)
-
-		//set the timestamp
-		now := time.Now()
-		nowBytes, _ := now.MarshalBinary()
-		extendedNowBytes := append(nowBytes, 0)
-		msg.SetTimestamp(extendedNowBytes)
-
-		//Encrypt
-		ecrMsg := k.Encrypt(*msg)
-
-		if !reflect.DeepEqual(k.Fingerprint(), ecrMsg.GetKeyFP()) {
-			t.Errorf("Fingerprint in the ecrypted payload is wrong: "+
-				"Expected: %+v, Recieved: %+v", k.Fingerprint(), ecrMsg.GetKeyFP())
-		}
-
-		//Decrypt
-		resultMsg, _ := k.Decrypt(ecrMsg)
-
-		if !bytes.Equal(resultMsg.Contents.Get(), msg.Contents.Get()) {
-			t.Errorf("contents in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
-		}
-
-		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
-			t.Errorf("timestamp in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
-		}
-	}
-
-}
-
-func TestKey_EncryptDecrypt_Key_Unsafe(t *testing.T) {
-
-	const numTests = 100
-
-	grp := getGroup()
-	rng := csprng.NewSystemRNG()
-	prng := rand.New(rand.NewSource(42))
-
-	for i := 0; i < numTests; i++ {
-		//generate the baseKey and session
-		privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
-		publicKey := dh.GeneratePublicKey(privateKey, grp)
-		baseKey := dh.GenerateSessionKey(privateKey, publicKey, grp)
-
-		s := &Session{
-			baseKey: baseKey,
-		}
-
-		//create the keys
-		k := newKey(s, parse.E2E, 1)
-
-		//make the message to be encrypted
-		msg := format.NewMessage()
-
-		//set the contents
-		contents := make([]byte, format.ContentsLen)
-		prng.Read(contents)
-		msg.Contents.Set(contents)
-
-		//set the timestamp
-		now := time.Now()
-		nowBytes, _ := now.MarshalBinary()
-		extendedNowBytes := append(nowBytes, 0)
-		msg.SetTimestamp(extendedNowBytes)
-
-		//Encrypt
-		ecrMsg := k.EncryptUnsafe(*msg)
-
-		if !reflect.DeepEqual(k.Fingerprint(), ecrMsg.GetKeyFP()) {
-			t.Errorf("Fingerprint in the ecrypted payload is wrong: "+
-				"Expected: %+v, Recieved: %+v", k.Fingerprint(), ecrMsg.GetKeyFP())
-		}
-
-		//Decrypt
-		resultMsg, _ := k.DecryptUnsafe(ecrMsg)
-
-		if !bytes.Equal(resultMsg.Contents.Get(), msg.Contents.Get()) {
-			t.Errorf("contents in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
+				"Expected: %v, Recieved: %v", msg.GetContents(), resultMsg.GetContents())
 		}
 
 		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
@@ -190,64 +71,6 @@ func TestKey_EncryptDecrypt_Key_Unsafe(t *testing.T) {
 	}
 }
 
-func TestKey_EncryptDecrypt_ReKey_Unsafe(t *testing.T) {
-
-	const numTests = 100
-
-	grp := getGroup()
-	rng := csprng.NewSystemRNG()
-	prng := rand.New(rand.NewSource(42))
-
-	for i := 0; i < numTests; i++ {
-		//generate the baseKey and session
-		privateKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)
-		publicKey := dh.GeneratePublicKey(privateKey, grp)
-		baseKey := dh.GenerateSessionKey(privateKey, publicKey, grp)
-
-		s := &Session{
-			baseKey: baseKey,
-		}
-
-		//create the keys
-		k := newKey(s, parse.E2E, 1)
-
-		//make the message to be encrypted
-		msg := format.NewMessage()
-
-		//set the contents
-		contents := make([]byte, format.ContentsLen)
-		prng.Read(contents)
-		msg.Contents.Set(contents)
-
-		//set the timestamp
-		now := time.Now()
-		nowBytes, _ := now.MarshalBinary()
-		extendedNowBytes := append(nowBytes, 0)
-		msg.SetTimestamp(extendedNowBytes)
-
-		//Encrypt
-		ecrMsg := k.EncryptUnsafe(*msg)
-
-		if !reflect.DeepEqual(k.Fingerprint(), ecrMsg.GetKeyFP()) {
-			t.Errorf("Fingerprint in the ecrypted payload is wrong: "+
-				"Expected: %+v, Recieved: %+v", k.Fingerprint(), ecrMsg.GetKeyFP())
-		}
-
-		//Decrypt
-		resultMsg, _ := k.DecryptUnsafe(ecrMsg)
-
-		if !bytes.Equal(resultMsg.Contents.Get(), msg.Contents.Get()) {
-			t.Errorf("contents in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.Contents.Get(), resultMsg.Contents.Get())
-		}
-
-		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
-			t.Errorf("timestamp in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
-		}
-	}
-
-}
 
 func getGroup() *cyclic.Group {
 	e2eGrp := cyclic.NewGroup(

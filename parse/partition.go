@@ -11,13 +11,13 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/primitives/format"
 	"math"
 	"sync"
 )
 
 func getMaxMessageLength() int {
-	return format.ContentsLen - format.PadMinLen
+	//fix-me: THIS IS A HACK SO IT COMPILES, THIS IS BROKEN
+	return 3192 / 8
 }
 
 // TODO is there a better way to generate unique message IDs locally?
@@ -131,7 +131,8 @@ func makePartition(maxLength int, body []byte, id []byte, i byte,
 func Assemble(partitions [][]byte) ([]byte, error) {
 	// this will allocate a bit more capacity than needed but not so much that
 	// it breaks the bank
-	result := make([]byte, 0, int(format.ContentsLen-format.PadMinLen)*
+	// fix-me: BROKEN DUE TO MAX_MESSAGE_LENGTH
+	result := make([]byte, 0, getMaxMessageLength()*
 		len(partitions))
 
 	for i := range partitions {

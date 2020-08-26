@@ -1,7 +1,6 @@
 package key
 
 import (
-	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/csprng"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -58,21 +57,9 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 		t.Errorf("keystates not generated")
 	}
 
-	if s.reKeyState == nil {
-		t.Errorf("reKeyStates not generated")
-	}
-
 	//verify keys were registered in the fingerprintMap
 	for keyNum := uint32(0); keyNum < s.keyState.numkeys; keyNum++ {
-		key := newKey(s, parse.E2E, keyNum)
-		if _, ok := fps.toKey[key.Fingerprint()]; !ok {
-			t.Errorf("key %v not in fingerprint map", keyNum)
-		}
-	}
-
-	//verify rekeys were registered in the fingerprintMap
-	for keyNum := uint32(0); keyNum < s.reKeyState.numkeys; keyNum++ {
-		key := newKey(s, parse.Rekey, keyNum)
+		key := newKey(s, keyNum)
 		if _, ok := fps.toKey[key.Fingerprint()]; !ok {
 			t.Errorf("key %v not in fingerprint map", keyNum)
 		}
@@ -132,21 +119,9 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 		t.Errorf("keystates not generated")
 	}
 
-	if s.reKeyState == nil {
-		t.Errorf("reKeyStates not generated")
-	}
-
 	//verify keys were not registered in the fingerprintMap
 	for keyNum := uint32(0); keyNum < s.keyState.numkeys; keyNum++ {
-		key := newKey(s, parse.E2E, keyNum)
-		if _, ok := fps.toKey[key.Fingerprint()]; ok {
-			t.Errorf("key %v in fingerprint map", keyNum)
-		}
-	}
-
-	//verify rekeys were not registered in the fingerprintMap
-	for keyNum := uint32(0); keyNum < s.reKeyState.numkeys; keyNum++ {
-		key := newKey(s, parse.Rekey, keyNum)
+		key := newKey(s, keyNum)
 		if _, ok := fps.toKey[key.Fingerprint()]; ok {
 			t.Errorf("key %v in fingerprint map", keyNum)
 		}

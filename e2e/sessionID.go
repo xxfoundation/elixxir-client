@@ -1,4 +1,4 @@
-package key
+package e2e
 
 import "encoding/base64"
 

@@ -1,4 +1,4 @@
-package key
+package e2e
 
 // Testing file for the status.go functions
 

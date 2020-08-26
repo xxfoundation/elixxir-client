@@ -1,4 +1,4 @@
-package key
+package e2e
 
 import (
 	"encoding/json"
@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 )
+
+const currentStateVectorVersion = 0
 
 type stateVector struct {
 	ctx *context
@@ -75,7 +77,7 @@ func (sv *stateVector) save() error {
 	}
 
 	obj := storage.VersionedObject{
-		Version:   currentSessionVersion,
+		Version:   currentStateVectorVersion,
 		Timestamp: now,
 		Data:      data,
 	}

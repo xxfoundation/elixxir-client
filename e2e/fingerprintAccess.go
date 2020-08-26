@@ -1,4 +1,4 @@
-package key
+package e2e
 
 type fingerprintAccess interface {
 	// Receives a list of fingerprints to add. Overrides on collision.

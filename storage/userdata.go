@@ -9,6 +9,7 @@ package storage
 import (
 	"bytes"
 	"encoding/gob"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -91,7 +92,7 @@ func (s *Session) CommitUserData(data *UserData) error {
 		return err
 	}
 
-	obj := &VersionedObject{
+	obj := &versioned.Object{
 		Version:   currentUserDataVersion,
 		Timestamp: time.Now(),
 		Data:      userDataBuffer.Bytes(),

@@ -2,8 +2,10 @@ package e2e
 
 import (
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/ekv"
 	"testing"
 )
 
@@ -19,7 +21,7 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  storage.InitMem(t),
+		kv:  versioned.NewKV(make(ekv.Memstore)),
 	}
 
 	//build the session
@@ -80,7 +82,7 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  storage.InitMem(t),
+		kv:  versioned.NewKV(make(ekv.Memstore)),
 	}
 
 	//build the session

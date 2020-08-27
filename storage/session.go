@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
@@ -23,7 +24,7 @@ import (
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv       *VersionedKV
+	kv       *versioned.KV
 	userData *UserData
 	mux      sync.Mutex
 
@@ -38,7 +39,7 @@ func Init(baseDir, password string) (*Session, error) {
 	var s *Session
 	if err == nil {
 		s = &Session{
-			kv: NewVersionedKV(fs),
+			kv: versioned.NewKV(fs),
 		}
 	}
 
@@ -53,16 +54,16 @@ func InitMem(t *testing.T) *Session {
 		panic("cannot use a memstore not for testing")
 	}
 	store := make(ekv.Memstore)
-	return &Session{kv: NewVersionedKV(store)}
+	return &Session{kv: versioned.NewKV(store)}
 }
 
 // Get an object from the session
-func (s *Session) Get(key string) (*VersionedObject, error) {
+func (s *Session) Get(key string) (*versioned.Object, error) {
 	return s.kv.Get(key)
 }
 
 // Set a value in the session
-func (s *Session) Set(key string, object *VersionedObject) error {
+func (s *Session) Set(key string, object *versioned.Object) error {
 	return s.kv.Set(key, object)
 }
 
@@ -82,7 +83,7 @@ func (s *Session) GetLastMessageId() (string, error) {
 
 // Set the LastMessageID in the Session
 func (s *Session) SetLastMessageId(id string) error {
-	vo := &VersionedObject{
+	vo := &versioned.Object{
 		Timestamp: time.Now(),
 		Data:      []byte(id),
 	}
@@ -109,7 +110,7 @@ func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
 		}
 
 		// Store the new map
-		vo := &VersionedObject{
+		vo := &versioned.Object{
 			Timestamp: time.Now(),
 			Data:      nodeKeysBuffer.Bytes(),
 		}
@@ -173,7 +174,7 @@ func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
 	err = enc.Encode(nodeKeys)
 
 	// Insert the map back into the Session
-	vo := &VersionedObject{
+	vo := &versioned.Object{
 		Timestamp: time.Now(),
 		Data:      nodeKeysBuffer.Bytes(),
 	}
@@ -195,6 +196,6 @@ func InitTestingSession(i interface{}) *Session {
 	}
 
 	store := make(ekv.Memstore)
-	return &Session{kv: NewVersionedKV(store)}
+	return &Session{kv: versioned.NewKV(store)}
 
 }

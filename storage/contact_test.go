@@ -7,6 +7,7 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -16,7 +17,7 @@ import (
 // Show that all fields of a searched user record get stored
 func TestSession_Contact(t *testing.T) {
 	store := make(ekv.Memstore)
-	session := &Session{kv: NewVersionedKV(store)}
+	session := &Session{kv: versioned.NewKV(store)}
 	session.loadAllContacts()
 
 	expectedRecord := &Contact{

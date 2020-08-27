@@ -3,7 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"sync"
 	"time"
 )
@@ -76,7 +76,7 @@ func (sv *stateVector) save() error {
 		return err
 	}
 
-	obj := storage.VersionedObject{
+	obj := versioned.Object{
 		Version:   currentStateVectorVersion,
 		Timestamp: now,
 		Data:      data,

@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package storage
+package versioned
 
 import (
 	"encoding/json"
@@ -22,10 +22,10 @@ func MakeKeyWithPrefix(dataType string, uniqueID string) string {
 	return fmt.Sprintf("%s%s%s", dataType, prefixKeySeparator, uniqueID)
 }
 
-// VersionedObject is used by VersionedKeyValue to keep track of
+// Object is used by VersionedKeyValue to keep track of
 // versioning and time of storage
-type VersionedObject struct {
-	// Used to determine version upgrade, if any
+type Object struct {
+	// Used to determine version Upgrade, if any
 	Version uint64
 
 	// Set when this object is written
@@ -35,19 +35,19 @@ type VersionedObject struct {
 	Data []byte
 }
 
-// Unmarshal deserializes a VersionedObject from a byte slice. It's used to
+// Unmarshal deserializes a Object from a byte slice. It's used to
 // make these storable in a KeyValue.
-// VersionedObject exports all fields and they have simple types, so
+// Object exports all fields and they have simple types, so
 // json.Unmarshal works fine.
-func (v *VersionedObject) Unmarshal(data []byte) error {
+func (v *Object) Unmarshal(data []byte) error {
 	return json.Unmarshal(data, v)
 }
 
-// Marshal serializes a VersionedObject into a byte slice. It's used to
+// Marshal serializes a Object into a byte slice. It's used to
 // make these storable in a KeyValue.
-// VersionedObject exports all fields and they have simple types, so
+// Object exports all fields and they have simple types, so
 // json.Marshal works fine.
-func (v *VersionedObject) Marshal() []byte {
+func (v *Object) Marshal() []byte {
 	d, err := json.Marshal(v)
 	// Not being to marshal this simple object means something is really
 	// wrong
@@ -58,33 +58,33 @@ func (v *VersionedObject) Marshal() []byte {
 }
 
 // Upgrade functions must be of this type
-type upgrade func(key string, oldObject *VersionedObject) (*VersionedObject,
+type Upgrade func(key string, oldObject *Object) (*Object,
 	error)
 
-// VersionedKV stores versioned data and upgrade functions
-type VersionedKV struct {
-	upgradeTable map[string]upgrade
+// KV stores versioned data and Upgrade functions
+type KV struct {
+	upgradeTable map[string]Upgrade
 	data         ekv.KeyValue
 }
 
 // Create a versioned key/value store backed by something implementing KeyValue
-func NewVersionedKV(data ekv.KeyValue) *VersionedKV {
-	newKV := new(VersionedKV)
-	// Add new upgrade functions to this upgrade table
-	newKV.upgradeTable = make(map[string]upgrade)
-	// All upgrade functions should upgrade to the latest version. You can
-	// call older upgrade functions if you need to. Upgrade functions don't
+func NewKV(data ekv.KeyValue) *KV {
+	newKV := new(KV)
+	// Add new Upgrade functions to this Upgrade table
+	newKV.upgradeTable = make(map[string]Upgrade)
+	// All Upgrade functions should Upgrade to the latest version. You can
+	// call older Upgrade functions if you need to. Upgrade functions don't
 	// change the key or store the upgraded version of the data in the
 	// key/value store. There's no mechanism built in for this -- users
 	// should always make the key prefix before calling Set, and if they
 	// want the upgraded data persisted they should call Set with the
 	// upgraded data.
 	newKV.upgradeTable[MakeKeyWithPrefix("test", "")] = func(key string,
-		oldObject *VersionedObject) (*VersionedObject, error) {
+		oldObject *Object) (*Object, error) {
 		if oldObject.Version == 1 {
 			return oldObject, nil
 		}
-		return &VersionedObject{
+		return &Object{
 			Version: 1,
 			// Upgrade functions don't need to update
 			// the timestamp
@@ -99,18 +99,18 @@ func NewVersionedKV(data ekv.KeyValue) *VersionedKV {
 
 // Get gets and upgrades data stored in the key/value store
 // Make sure to inspect the version returned in the versioned object
-func (v *VersionedKV) Get(key string) (*VersionedObject, error) {
+func (v *KV) Get(key string) (*Object, error) {
 	// Get raw data
-	result := VersionedObject{}
+	result := Object{}
 	err := v.data.Get(key, &result)
 	if err != nil {
 		return nil, err
 	}
 	// If the key starts with a version tag that we can find in the table,
-	// we should call that function to upgrade it
+	// we should call that function to Upgrade it
 	for version, upgrade := range v.upgradeTable {
 		if strings.HasPrefix(key, version) {
-			// We should run this upgrade function
+			// We should run this Upgrade function
 			// The user of this function must update the key
 			// based on the version returned in this
 			// versioned object!
@@ -121,13 +121,13 @@ func (v *VersionedKV) Get(key string) (*VersionedObject, error) {
 }
 
 // Delete removes a given key from the data store
-func (v *VersionedKV) Delete(key string) error {
+func (v *KV) Delete(key string) error {
 	return nil
 }
 
 // Set upserts new data into the storage
 // When calling this, you are responsible for prefixing the key with the correct
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
-func (v *VersionedKV) Set(key string, object *VersionedObject) error {
+func (v *KV) Set(key string, object *Object) error {
 	return v.data.Set(key, object)
 }

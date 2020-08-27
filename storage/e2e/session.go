@@ -3,7 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"errors"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -116,7 +116,7 @@ func (s *Session) save() error {
 		return err
 	}
 
-	obj := storage.VersionedObject{
+	obj := versioned.Object{
 		Version:   currentSessionVersion,
 		Timestamp: now,
 		Data:      data,

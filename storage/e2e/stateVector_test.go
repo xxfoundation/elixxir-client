@@ -3,6 +3,8 @@ package e2e
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/ekv"
 	"math/bits"
 	"reflect"
 	"testing"
@@ -23,7 +25,7 @@ func TestStateVector_GetNumAvailable(t *testing.T) {
 
 func TestStateVector_GetNumKeys(t *testing.T) {
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 32
 	sv := newStateVector(&ctx, "key", numKeys)
@@ -41,7 +43,7 @@ func TestStateVector_Next(t *testing.T) {
 	expectedFirstAvail := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
 	sv := newStateVector(&ctx, "key", numKeys)
@@ -94,7 +96,7 @@ func TestStateVector_Use(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
 	sv := newStateVector(&ctx, "key", numKeys)
@@ -130,7 +132,7 @@ func TestStateVector_Used(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
 	sv := newStateVector(&ctx, "key", numKeys)
@@ -158,7 +160,7 @@ func TestStateVector_GetUsedKeyNums(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
 	sv := newStateVector(&ctx, "key", numKeys)
@@ -179,7 +181,7 @@ func TestStateVector_GetUnusedKeyNums(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
 	sv := newStateVector(&ctx, "key", numKeys)
@@ -203,7 +205,7 @@ func TestLoadStateVector(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 	const numKeys = 1000
 	ctx := context{
-		kv: storage.InitMem(t),
+		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	sv := newStateVector(&ctx, "key", numKeys)
 	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff, 0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff, 0xffffffffffffffff, 0xfffffff7ffffffff}

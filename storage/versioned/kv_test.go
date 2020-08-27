@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package storage
+package versioned
 
 import (
 	"bytes"
@@ -16,7 +16,7 @@ import (
 
 // Shows that all fields can be serialized/deserialized correctly using json
 func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
-	original := VersionedObject{
+	original := Object{
 		Version:   8,
 		Timestamp: time.Date(1, 2, 3, 4, 5, 6, 7, time.UTC),
 		Data:      []byte("original text"),
@@ -24,7 +24,7 @@ func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
 
 	marshalled := original.Marshal()
 
-	unmarshalled := VersionedObject{}
+	unmarshalled := Object{}
 	err := unmarshalled.Unmarshal(marshalled)
 	if err != nil {
 		// Should never happen
@@ -37,10 +37,10 @@ func TestVersionedObject_MarshalUnmarshal(t *testing.T) {
 	t.Logf("%+v", unmarshalled)
 }
 
-// VersionedKV Get should call the upgrade function when it's available
+// KV Get should call the Upgrade function when it's available
 func TestVersionedKV_Get_Err(t *testing.T) {
 	kv := make(ekv.Memstore)
-	vkv := NewVersionedKV(kv)
+	vkv := NewKV(kv)
 	key := MakeKeyWithPrefix("test", "12345")
 	result, err := vkv.Get(key)
 	if err == nil {
@@ -53,13 +53,13 @@ func TestVersionedKV_Get_Err(t *testing.T) {
 	}
 }
 
-// Test versioned KV upgrade path
+// Test versioned KV Upgrade path
 func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
-	vkv := NewVersionedKV(kv)
+	vkv := NewKV(kv)
 	key := MakeKeyWithPrefix("test", "12345")
-	original := VersionedObject{
+	original := Object{
 		Version:   0,
 		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
@@ -74,19 +74,19 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	}
 	if !bytes.Equal(result.Data,
 		[]byte("this object was upgraded from v0 to v1")) {
-		t.Errorf("upgrade should have overwritten data."+
+		t.Errorf("Upgrade should have overwritten data."+
 			" result data: %q", result.Data)
 	}
 }
 
-// Test Get without upgrade path
+// Test Get without Upgrade path
 func TestVersionedKV_Get(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
-	vkv := NewVersionedKV(kv)
+	vkv := NewKV(kv)
 	originalVersion := uint64(1)
 	key := MakeKeyWithPrefix("test", "12345")
-	original := VersionedObject{
+	original := Object{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
@@ -100,7 +100,7 @@ func TestVersionedKV_Get(t *testing.T) {
 			err)
 	}
 	if !bytes.Equal(result.Data, []byte("not upgraded")) {
-		t.Errorf("upgrade should not have overwritten data."+
+		t.Errorf("Upgrade should not have overwritten data."+
 			" result data: %q", result.Data)
 	}
 }
@@ -108,10 +108,10 @@ func TestVersionedKV_Get(t *testing.T) {
 // Test that Set puts data in the store
 func TestVersionedKV_Set(t *testing.T) {
 	kv := make(ekv.Memstore)
-	vkv := NewVersionedKV(kv)
+	vkv := NewKV(kv)
 	originalVersion := uint64(1)
 	key := MakeKeyWithPrefix("test", "12345")
-	original := VersionedObject{
+	original := Object{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),

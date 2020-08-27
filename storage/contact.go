@@ -9,6 +9,7 @@ package storage
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -42,7 +43,7 @@ func (s *Session) saveContacts() error {
 	if err != nil {
 		return err
 	}
-	obj := VersionedObject{
+	obj := versioned.Object{
 		Version:   currentContactVersion,
 		Timestamp: time.Now(),
 		Data:      data,
@@ -59,7 +60,7 @@ func (s *Session) updateContact(record *Contact) error {
 
 // GetContactByEmail reads contact information from disk
 func (s *Session) GetContactByEmail(email string) (*Contact, error) {
-	key := MakeKeyWithPrefix("Contact", email)
+	key := versioned.MakeKeyWithPrefix("Contact", email)
 
 	obj, err := s.Get(key)
 	if err != nil {
@@ -85,12 +86,12 @@ func (s *Session) SetContactByEmail(email string, record *Contact) error {
 		return err
 	}
 
-	key := MakeKeyWithPrefix("Contact", email)
+	key := versioned.MakeKeyWithPrefix("Contact", email)
 	data, err := json.Marshal(record)
 	if err != nil {
 		return err
 	}
-	obj := VersionedObject{
+	obj := versioned.Object{
 		Version:   currentContactVersion,
 		Timestamp: time.Now(),
 		Data:      data,
@@ -122,6 +123,6 @@ func (s *Session) DeleteContactByID(ID *id.ID) error {
 		return err
 	}
 
-	key := MakeKeyWithPrefix("Contact", record.Email)
+	key := versioned.MakeKeyWithPrefix("Contact", record.Email)
 	return s.Delete(key)
 }

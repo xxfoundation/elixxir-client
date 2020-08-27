@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -12,7 +12,7 @@ import (
 	"time"
 )
 
-const storeKey = "keyStore"
+const storeKey = "e2eKeyStore"
 const currentStoreVersion = 0
 
 type Store struct {
@@ -24,7 +24,7 @@ type Store struct {
 	context
 }
 
-func NewStore(grp *cyclic.Group, kv *storage.Session) *Store {
+func NewStore(grp *cyclic.Group, kv *versioned.KV) *Store {
 	fingerprints := newFingerprints()
 	return &Store{
 		managers:     make(map[id.ID]*Manager),
@@ -38,7 +38,7 @@ func NewStore(grp *cyclic.Group, kv *storage.Session) *Store {
 
 }
 
-func LoadStore(grp *cyclic.Group, kv *storage.Session) (*Store, error) {
+func LoadStore(grp *cyclic.Group, kv *versioned.KV) (*Store, error) {
 	s := NewStore(grp, kv)
 
 	obj, err := kv.Get(storeKey)
@@ -63,7 +63,7 @@ func (s *Store) save() error {
 		return err
 	}
 
-	obj := storage.VersionedObject{
+	obj := versioned.Object{
 		Version:   currentStoreVersion,
 		Timestamp: now,
 		Data:      data,

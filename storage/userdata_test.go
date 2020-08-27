@@ -2,6 +2,7 @@ package storage
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/signature/rsa"
@@ -40,7 +41,7 @@ func TestSession_CommitUserData(t *testing.T) {
 
 	// Create a session backed by memory
 	store := make(ekv.Memstore)
-	vkv := NewVersionedKV(store)
+	vkv := versioned.NewKV(store)
 	session := Session{kv: vkv}
 	err = session.CommitUserData(expectedData)
 	if err != nil {

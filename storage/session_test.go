@@ -8,6 +8,7 @@ package storage
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
@@ -35,7 +36,7 @@ func initTest(t *testing.T) *Session {
 func TestSession_Smoke(t *testing.T) {
 	s := initTest(t)
 
-	err := s.Set("testkey", &VersionedObject{
+	err := s.Set("testkey", &versioned.Object{
 		Version:   0,
 		Timestamp: time.Now(),
 		Data:      []byte("test"),

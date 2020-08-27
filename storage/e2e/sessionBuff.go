@@ -4,10 +4,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
-	jww "github.com/spf13/jwalterweatherman"
 	"time"
 )
 
@@ -68,7 +68,7 @@ func (sb *sessionBuff) save() error {
 		return err
 	}
 
-	obj := storage.VersionedObject{
+	obj := versioned.Object{
 		Version:   currentSessionBuffVersion,
 		Timestamp: now,
 		Data:      data,

@@ -1,7 +1,7 @@
 package e2e
 
 import (
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 )
 
@@ -10,5 +10,5 @@ type context struct {
 
 	grp *cyclic.Group
 
-	kv *storage.Session
+	kv *versioned.KV
 }

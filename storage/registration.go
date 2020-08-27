@@ -8,6 +8,7 @@ package storage
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"time"
 )
 
@@ -17,7 +18,7 @@ var currentRegistrationVersion = uint64(0)
 // key-value store
 func (s *Session) SetRegValidationSig(newVal []byte) error {
 	// Construct the versioned object
-	vo := &VersionedObject{
+	vo := &versioned.Object{
 		Version:   currentRegistrationVersion,
 		Timestamp: time.Now(),
 		Data:      newVal,
@@ -59,7 +60,7 @@ func (s *Session) SetRegState(newVal int64) error {
 		return err
 	}
 
-	obj := VersionedObject{
+	obj := versioned.Object{
 		Version:   currentRegistrationVersion,
 		Timestamp: time.Now(),
 		Data:      data,

@@ -20,8 +20,8 @@ build:
 	go mod tidy
 
 update_release:
-	GOFLAGS="" go get -u gitlab.com/elixxir/primitives@ben/newSwitchboard
-	GOFLAGS="" go get -u gitlab.com/elixxir/crypto@Optimus-E2E
+	GOFLAGS="" go get -u gitlab.com/elixxir/primitives@peppa/newClient
+	GOFLAGS="" go get -u gitlab.com/elixxir/crypto@peppa/newClient
 	GOFLAGS="" go get -u gitlab.com/xx_network/crypto@release
 	GOFLAGS="" go get -u gitlab.com/elixxir/comms@release
 	GOFLAGS="" go get -u gitlab.com/xx_network/comms@release

@@ -304,7 +304,6 @@ func (s *Session) generate() {
 	s.ttl = uint32(keysTTL)
 
 	//create the new state vectors. This will cause disk operations storing them
-
 	s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
 
 	//register keys for reception if this is a reception session

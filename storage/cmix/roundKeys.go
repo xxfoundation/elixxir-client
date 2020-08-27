@@ -1,6 +1,7 @@
 package cmix
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -11,9 +12,14 @@ import (
 type RoundKeys []*cyclic.Int
 
 // Encrypts the given message for CMIX
-// Panics if the passed message format
+// Panics if the passed message is not sized correctly for the group
 func (rk RoundKeys) Encrypt(grp *cyclic.Group, msg format.Message,
-	salt []byte) (format.Message, [][]byte, error) {
+	salt []byte) (format.Message, [][]byte) {
+
+	if msg.GetPrimeByteLen() != grp.GetP().ByteLen() {
+		jww.FATAL.Panicf("Cannot encrypt message whose size does not " +
+			"align with the size of the prime")
+	}
 
 	ecrMsg := cmix.ClientEncrypt(grp, msg, salt, rk)
 

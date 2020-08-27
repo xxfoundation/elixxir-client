@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/ekv"
@@ -31,6 +32,9 @@ type Session struct {
 	// Contacts controls
 	contacts    map[string]*Contact
 	contactsLck sync.Mutex
+
+	//keystores
+	cmixKeys cmix.Store
 }
 
 // Initialize a new Session object

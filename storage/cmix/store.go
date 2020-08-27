@@ -3,7 +3,6 @@ package cmix
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/comms/connect"
@@ -13,10 +12,15 @@ import (
 )
 
 const currentStoreVersion = 0
+const currentKeyStoreVersion = 0
 const storeKey = "cmixKeyStore"
+const pubKeyKey = "cmixDhPubKey"
+const privKeyKey = "cmixDhPrivKey"
 
 type Store struct {
-	nodes map[id.ID]*key
+	nodes        map[id.ID]*key
+	dhPrivateKey *cyclic.Int
+	dhPublicKey  *cyclic.Int
 
 	kv *versioned.KV
 
@@ -24,16 +28,34 @@ type Store struct {
 }
 
 // returns a new cmix storage object
-func NewStore(kv *versioned.KV) *Store {
-	return &Store{
-		nodes: make(map[id.ID]*key),
-		kv:    kv,
+func NewStore(kv *versioned.KV, pub, priv *cyclic.Int) (*Store, error) {
+	s := &Store{
+		nodes:        make(map[id.ID]*key),
+		dhPrivateKey: priv,
+		dhPublicKey:  priv,
+		kv:           kv,
 	}
+
+	err := storeDhKey(kv, pub, pubKeyKey)
+	if err != nil {
+		return nil,
+			errors.WithMessage(err, "Failed to store cmix DH public key")
+	}
+
+	err = storeDhKey(kv, priv, privKeyKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to store cmix DH private key")
+	}
+
+	return s, s.save()
 }
 
 // loads the cmix storage object
 func LoadStore(kv *versioned.KV) (*Store, error) {
-	s := NewStore(kv)
+	s := &Store{
+		nodes: make(map[id.ID]*key),
+		kv:    kv,
+	}
 
 	obj, err := kv.Get(storeKey)
 	if err != nil {
@@ -148,12 +170,52 @@ func (s *Store) unmarshal(b []byte) error {
 	}
 
 	for _, nid := range nodes {
-		k, err := loadKey(s.s, &nid)
+		k, err := loadKey(s.kv, &nid)
 		if err != nil {
 			return errors.WithMessagef(err, "could not load node key for %s", &nid)
 		}
 		s.nodes[nid] = k
 	}
 
+	s.dhPrivateKey, err = loadDhKey(s.kv, privKeyKey)
+	if err != nil {
+		return errors.WithMessage(err,
+			"Failed to load cmix DH private key")
+	}
+
+	s.dhPublicKey, err = loadDhKey(s.kv, pubKeyKey)
+	if err != nil {
+		return errors.WithMessage(err,
+			"Failed to load cmix DH public key")
+	}
+
 	return nil
+}
+
+func storeDhKey(kv *versioned.KV, dh *cyclic.Int, key string) error {
+	now := time.Now()
+
+	data, err := dh.GobEncode()
+	if err != nil {
+		return err
+	}
+
+	obj := versioned.Object{
+		Version:   currentKeyVersion,
+		Timestamp: now,
+		Data:      data,
+	}
+
+	return kv.Set(key, &obj)
+}
+
+func loadDhKey(kv *versioned.KV, key string) (*cyclic.Int, error) {
+	vo, err := kv.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	dhKey := &cyclic.Int{}
+
+	return dhKey, dhKey.GobDecode(vo.Data)
 }

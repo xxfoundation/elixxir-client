@@ -3,6 +3,7 @@ package e2e
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 )
 
@@ -52,14 +53,14 @@ func (k *Key) Encrypt(msg format.Message) format.Message {
 	msg.SetTimestamp(encryptTimestamp(fp, key, msg.GetTimestamp()[:15]))
 
 	// encrypt the payload
-	//encPayload := e2e.Crypt(key, fp, msg.GetSecretPayload())
-	//msg.SetSecretPayload(encPayload)
+	encPayload := e2e.Crypt(key, fp, msg.GetSecretPayload())
+	msg.SetSecretPayload(encPayload)
 
 	// create the MAC
 	// MAC is HMAC(key, ciphertext)
 	// Currently, the MAC doesn't include any of the associated data
-	//MAC := hash.CreateHMAC(encPayload, key[:])
-	//msg.SetMac(MAC)
+	MAC := hash.CreateHMAC(encPayload, key[:])
+	msg.SetMac(MAC)
 
 	return msg
 }
@@ -85,10 +86,10 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 	msg.SetTimestamp(decryptedTimestamp)
 
 	// Decrypt the payload
-	//decryptedPayload := e2e.Crypt(key, fp, msg.GetSecretPayload())
+	decryptedPayload := e2e.Crypt(key, fp, msg.GetSecretPayload())
 
 	//put the decrypted payload back in the message
-	//msg.SetSecretPayload(decryptedPayload)
+	msg.SetSecretPayload(decryptedPayload)
 
 	return msg, nil
 }

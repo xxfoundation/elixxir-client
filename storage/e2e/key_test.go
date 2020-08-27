@@ -1,6 +1,7 @@
 package e2e
 
 import (
+	"bytes"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -74,7 +75,6 @@ func TestKey_Fingerprint(t *testing.T) {
 	}
 }
 
-/*
 func TestKey_EncryptDecrypt(t *testing.T) {
 
 	const numTests = 100
@@ -132,8 +132,6 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 		}
 	}
 }
-
-*/
 
 // Happy path of Key.denoteUse()
 func TestKey_denoteUse(t *testing.T) {

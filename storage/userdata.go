@@ -11,7 +11,7 @@ import (
 	"encoding/gob"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/signature/rsa"
+	//"gitlab.com/elixxir/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -38,9 +38,9 @@ func (u *User) DeepCopy() *User {
 // This whole struct is serialized/deserialized all together
 type UserData struct {
 	// Fields
-	ThisUser         *User
-	RSAPrivateKey    *rsa.PrivateKey
-	RSAPublicKey     *rsa.PublicKey
+	ThisUser *User
+	//RSAPrivateKey    *rsa.PrivateKey
+	//RSAPublicKey     *rsa.PublicKey
 	CMIXDHPrivateKey *cyclic.Int
 	CMIXDHPublicKey  *cyclic.Int
 	E2EDHPrivateKey  *cyclic.Int

@@ -34,7 +34,7 @@ type stateVectorDisk struct {
 	Numkeys        uint32
 }
 
-func newStateVector(ctx *context, key string, numkeys uint32) *stateVector {
+func newStateVector(ctx *context, key string, numkeys uint32) (*stateVector, error) {
 	numBlocks := (numkeys + 63) / 64
 
 	sv := &stateVector{
@@ -46,7 +46,7 @@ func newStateVector(ctx *context, key string, numkeys uint32) *stateVector {
 		numkeys:        numkeys,
 	}
 
-	return sv
+	return sv, sv.save()
 }
 
 func loadStateVector(ctx *context, key string) (*stateVector, error) {

@@ -3,6 +3,7 @@ package e2e
 import (
 	"encoding/json"
 	"errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -15,7 +16,6 @@ import (
 
 const currentSessionVersion = 0
 const keyEKVPrefix = "KEY"
-const reKeyEKVPrefix = "REKEY"
 
 type Session struct {
 	//pointer to manager
@@ -47,11 +47,14 @@ type Session struct {
 	mux sync.RWMutex
 }
 
+// As this is serialized by json, any field that should be serialized
+// must be exported
+// Utility struct to write part of session data to disk
 type SessionDisk struct {
-	params SessionParams
+	Params SessionParams
 
 	//session type
-	t uint8
+	Type uint8
 
 	// Underlying key
 	BaseKey []byte
@@ -62,6 +65,9 @@ type SessionDisk struct {
 
 	//denotes if the other party has confirmed this key
 	Confirmed bool
+
+	// Number of keys usable before rekey
+	TTL uint32
 }
 
 /*CONSTRUCTORS*/
@@ -76,9 +82,12 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.I
 		confirmed:     t == Receive,
 	}
 
-	session.generate()
+	err := session.generate()
+	if err != nil {
+		return nil, err
+	}
 
-	err := session.save()
+	err = session.save()
 	if err != nil {
 		return nil, err
 	}
@@ -86,7 +95,7 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.I
 	return session, nil
 }
 
-//Generator which creates all keys and structures
+// Load session and state vector from kv and populate runtime fields
 func loadSession(manager *Manager, key string) (*Session, error) {
 
 	session := Session{
@@ -101,6 +110,18 @@ func loadSession(manager *Manager, key string) (*Session, error) {
 	err = session.unmarshal(obj.Data)
 	if err != nil {
 		return nil, err
+	}
+
+	statesKey := makeStateVectorKey(keyEKVPrefix, session.GetID())
+
+	session.keyState, err = loadStateVector(manager.ctx, statesKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if session.t == Receive {
+		// register key fingerprints
+		manager.ctx.fa.add(session.getUnusedKeys())
 	}
 
 	return &session, nil
@@ -126,13 +147,27 @@ func (s *Session) save() error {
 }
 
 /*METHODS*/
-func (s *Session) Delete() error {
+// Remove all unused key fingerprints
+// Delete this session and its key states from the storage
+func (s *Session) Delete() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	s.manager.ctx.fa.remove(s.getUnusedKeys())
 
-	return s.manager.ctx.kv.Delete(makeSessionKey(s.GetID()))
+	stateVectorKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
+	stateVectorErr := s.manager.ctx.kv.Delete(stateVectorKey)
+	sessionKey := makeSessionKey(s.GetID())
+	sessionErr := s.manager.ctx.kv.Delete(sessionKey)
+
+	if stateVectorErr != nil && sessionErr != nil {
+		jww.ERROR.Printf("Error deleting state vector with key %v: %v", stateVectorKey, stateVectorErr.Error())
+		jww.ERROR.Panicf("Error deleting session with key %v: %v", sessionKey, sessionErr)
+	} else if sessionErr != nil {
+		jww.ERROR.Panicf("Error deleting session with key %v: %v", sessionKey, sessionErr)
+	} else if stateVectorErr != nil {
+		jww.ERROR.Panicf("Error deleting state vector with key %v: %v", stateVectorKey, stateVectorErr.Error())
+	}
 }
 
 //Gets the base key.
@@ -165,12 +200,13 @@ func (s *Session) GetID() SessionID {
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
-	sd.params = s.params
-	sd.t = uint8(s.t)
+	sd.Params = s.params
+	sd.Type = uint8(s.t)
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
 	sd.Confirmed = s.confirmed
+	sd.TTL = s.ttl
 
 	return json.Marshal(&sd)
 }
@@ -187,24 +223,13 @@ func (s *Session) unmarshal(b []byte) error {
 
 	grp := s.manager.ctx.grp
 
-	s.params = sd.params
-	s.t = SessionType(sd.t)
+	s.params = sd.Params
+	s.t = SessionType(sd.Type)
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 	s.confirmed = sd.Confirmed
-
-	sid := s.GetID()
-
-	s.keyState, err = loadStateVector(s.manager.ctx, makeStateVectorKey("keyStates", sid))
-	if err != nil {
-		return err
-	}
-
-	if s.t == Receive {
-		//register keys
-		s.manager.ctx.fa.add(s.getUnusedKeys())
-	}
+	s.ttl = sd.TTL
 
 	return nil
 }
@@ -213,7 +238,7 @@ func (s *Session) unmarshal(b []byte) error {
 // Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
 func (s *Session) PopKey() (*Key, error) {
-	if s.keyState.numkeys-s.keyState.numAvailable <= uint32(s.params.NumRekeys) {
+	if s.keyState.GetNumAvailable() <= uint32(s.params.NumRekeys) {
 		return nil, errors.New("no more keys left, remaining reserved " +
 			"for rekey")
 	}
@@ -280,10 +305,10 @@ func (s *Session) useKey(keynum uint32) error {
 
 // generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
-func (s *Session) generate() {
+func (s *Session) generate() error {
 	grp := s.manager.ctx.grp
 
-	//generate public key if it is not present
+	//generate private key if it is not present
 	if s.myPrivKey == nil {
 		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
 			csprng.NewSystemRNG())
@@ -305,13 +330,20 @@ func (s *Session) generate() {
 
 	//create the new state vectors. This will cause disk operations storing them
 
-	s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
+	// To generate the state vector key correctly,
+	// basekey must be computed as the session ID is the hash of basekey
+	var err error
+	s.keyState, err = newStateVector(s.manager.ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), numKeys)
+	if err != nil {
+		return err
+	}
 
 	//register keys for reception if this is a reception session
 	if s.t == Receive {
 		//register keys
 		s.manager.ctx.fa.add(s.getUnusedKeys())
 	}
+	return nil
 }
 
 //returns key objects for all unused keys

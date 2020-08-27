@@ -234,11 +234,7 @@ func (sb *sessionBuff) clean() error {
 			//if the number of newer confirmed is sufficient, delete the confirmed
 			if numConfirmed > maxUnconfirmed {
 				delete(sb.sessionByID, s.GetID())
-				err := s.Delete()
-				if err != nil {
-					jww.FATAL.Panicf("Failed to delete session store "+
-						"%s for %s: %s", s.GetID(), sb.manager.partner, err.Error())
-				}
+				s.Delete()
 
 				break
 			}

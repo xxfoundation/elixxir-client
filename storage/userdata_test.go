@@ -1,19 +1,7 @@
 package storage
 
-import (
-	"bytes"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
-	"gitlab.com/elixxir/crypto/signature/rsa"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
-	"reflect"
-	"testing"
-)
-
 // Test committing/retrieving userdata struct
+/*
 func TestSession_CommitUserData(t *testing.T) {
 	rsaPrivateKey, err := rsa.GenerateKey(rand.New(rand.NewSource(0)), 64)
 	if err != nil {
@@ -87,3 +75,5 @@ func TestSession_CommitUserData(t *testing.T) {
 		t.Error("salts don't match")
 	}
 }
+
+*/

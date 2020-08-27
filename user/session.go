@@ -18,9 +18,9 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/primitives/format"
+	//"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/switchboard"
-	"gitlab.com/xx_network/crypto/signature/rsa"
+	//"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"sync"
@@ -108,9 +108,9 @@ func LoadSession(store globals.Storage, password string) (Session, error) {
 	session.KeyMaps.ReconstructKeys(session.E2EGrp,
 		session.CurrentUser)
 	// Create switchboard
-	session.listeners = switchboard.New()
+	//session.listeners = switchboard.New()
 	// Create quit channel for reception runner
-	session.quitReceptionRunner = make(chan struct{})
+	//session.quitReceptionRunner = make(chan struct{})
 
 	// Set storage pointer
 	session.store = store
@@ -330,11 +330,13 @@ func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
 }
 
 func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
-	return s.listeners
+	panic("temporarily indisposed")
+	//return s.listeners
 }
 
 func (s *SessionObj) GetQuitChan() chan struct{} {
-	return s.quitReceptionRunner
+	panic("temporarily indisposed")
+	//return s.quitReceptionRunner
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {

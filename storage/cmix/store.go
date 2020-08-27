@@ -77,8 +77,7 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	nodekey := &key{k: k}
-	err := nodekey.save(s.kv, nid)
+	nodekey, err := NewKey(s.kv, k, nid)
 	if err != nil {
 		return err
 	}

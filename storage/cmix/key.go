@@ -10,7 +10,20 @@ import (
 const currentKeyVersion = 0
 
 type key struct {
-	k *cyclic.Int
+	kv *versioned.KV
+	k  *cyclic.Int
+
+	storeKey string
+}
+
+func NewKey(kv *versioned.KV, k *cyclic.Int, id *id.ID) (*key, error) {
+	newKey := &key{
+		kv:       kv,
+		k:        k,
+		storeKey: keyKey(id),
+	}
+
+	return newKey, newKey.save()
 }
 
 // loads the key for the given node id from the versioned keystore
@@ -34,7 +47,7 @@ func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 }
 
 // saves the key as the key for the given node ID in the passed keystore
-func (k *key) save(kv *versioned.KV, id *id.ID) error {
+func (k *key) save() error {
 	now := time.Now()
 
 	data, err := k.marshal()
@@ -48,9 +61,7 @@ func (k *key) save(kv *versioned.KV, id *id.ID) error {
 		Data:      data,
 	}
 
-	key := keyKey(id)
-
-	return kv.Set(key, &obj)
+	return k.kv.Set(k.storeKey, &obj)
 }
 
 // deletes the key from the versioned keystore

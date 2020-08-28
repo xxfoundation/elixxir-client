@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
@@ -72,7 +73,7 @@ var keyFingerprint string
 var pubKey []byte
 
 func TestMain(m *testing.M) {
-	u := &storage.User{
+	u := &user2.User{
 		User:     new(id.ID),
 		Username: "Bernie",
 	}
@@ -83,8 +84,8 @@ func TestMain(m *testing.M) {
 
 	fakeSession := user.NewSession(&globals.RamStorage{}, "password")
 	fakeSession2 := storage.InitTestingSession(m)
-	fakeSession2.CommitUserData(&storage.UserData{
-		ThisUser: &storage.User{
+	fakeSession2.CommitUserData(&user2.UserData{
+		ThisUser: &user2.User{
 			User:     u.User,
 			Username: u.Username,
 		},

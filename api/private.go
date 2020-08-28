@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/userRegistry"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -33,10 +34,10 @@ const PermissioningAddrID = "Permissioning"
 
 // precannedRegister is a helper function for Register
 // It handles the precanned registration case
-func (cl *Client) precannedRegister(registrationCode string) (*storage.User, *id.ID, map[id.ID]user.NodeKeys, error) {
+func (cl *Client) precannedRegister(registrationCode string) (*user2.User, *id.ID, map[id.ID]user.NodeKeys, error) {
 	var successLook bool
 	var UID *id.ID
-	var u *storage.User
+	var u *user2.User
 	var err error
 
 	nk := make(map[id.ID]user.NodeKeys)
@@ -314,8 +315,8 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 		return err
 	}
 
-	userData := &storage.UserData{
-		ThisUser: &storage.User{
+	userData := &user2.UserData{
+		ThisUser: &user2.User{
 			User:     usr.User,
 			Username: usr.Username,
 			Precan:   usr.Precan,
@@ -436,7 +437,7 @@ func generateE2eKeys(cmixGrp, e2eGrp *cyclic.Group) (e2ePrivateKey, e2ePublicKey
 //generateUserInformation serves as a helper function for RegisterUser.
 // It generates a salt s.t. it can create a user and their ID
 func generateUserInformation(publicKeyRSA *rsa.PublicKey) ([]byte, *id.ID,
-	*storage.User, error) {
+	*user2.User, error) {
 	//Generate salt for UserID
 	salt := make([]byte, SaltSize)
 	_, err := csprng.NewSystemRNG().Read(salt)

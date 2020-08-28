@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -170,10 +171,10 @@ func TestRegisterUserE2E(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	myUser := &storage.User{User: userID, Username: "test"}
+	myUser := &user2.User{User: userID, Username: "test"}
 	session := user.NewSession(testClient.storage, "password")
 
-	userData := &storage.UserData{
+	userData := &user2.UserData{
 		ThisUser:         myUser,
 		RSAPrivateKey:    privateKeyRSA,
 		RSAPublicKey:     &publicKeyRSA,
@@ -280,10 +281,10 @@ func TestRegisterUserE2E_CheckAllKeys(t *testing.T) {
 	privateKeyRSA, _ := rsa.GenerateKey(rng, TestKeySize)
 	publicKeyRSA := rsa.PublicKey{PublicKey: privateKeyRSA.PublicKey}
 
-	myUser := &storage.User{User: userID, Username: "test"}
+	myUser := &user2.User{User: userID, Username: "test"}
 	session := user.NewSession(testClient.storage, "password")
 
-	userData := &storage.UserData{
+	userData := &user2.UserData{
 		ThisUser:         myUser,
 		RSAPrivateKey:    privateKeyRSA,
 		RSAPublicKey:     &publicKeyRSA,

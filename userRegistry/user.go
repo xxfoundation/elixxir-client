@@ -10,7 +10,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
@@ -34,10 +34,10 @@ func InitUserRegistry(grp *cyclic.Group) {
 
 // Interface for User Registry operations
 type Registry interface {
-	NewUser(id *id.ID, nickname string) *storage.User
+	NewUser(id *id.ID, nickname string) *user2.User
 	DeleteUser(id *id.ID)
-	GetUser(id *id.ID) (user *storage.User, ok bool)
-	UpsertUser(user *storage.User)
+	GetUser(id *id.ID) (user *user2.User, ok bool)
+	UpsertUser(user *user2.User)
 	CountUsers() int
 	LookupUser(hid string) (uid *id.ID, ok bool)
 	LookupKeys(uid *id.ID) (*user.NodeKeys, bool)
@@ -45,7 +45,7 @@ type Registry interface {
 
 type UserMap struct {
 	// Map acting as the User Registry containing User -> ID mapping
-	userCollection map[id.ID]*storage.User
+	userCollection map[id.ID]*user2.User
 	// Increments sequentially for User.ID values
 	idCounter uint64
 	// Temporary map acting as a lookup table for demo user registration codes
@@ -60,7 +60,7 @@ func newRegistry(grp *cyclic.Group) Registry {
 	if len(DemoChannelNames) > 10 || len(DemoUserNicks) > 30 {
 		globals.Log.ERROR.Print("Not enough demo users have been hardcoded.")
 	}
-	userUserIdMap := make(map[id.ID]*storage.User)
+	userUserIdMap := make(map[id.ID]*user2.User)
 	userRegCodeMap := make(map[string]*id.ID)
 	nk := make(map[id.ID]*user.NodeKeys)
 
@@ -70,7 +70,7 @@ func newRegistry(grp *cyclic.Group) Registry {
 		currentID := new(id.ID)
 		binary.BigEndian.PutUint64(currentID[:], i)
 		currentID.SetType(id.User)
-		newUsr := new(storage.User)
+		newUsr := new(user2.User)
 		nodeKey := new(user.NodeKeys)
 
 		// Generate user parameters
@@ -119,13 +119,13 @@ func newRegistry(grp *cyclic.Group) Registry {
 }
 
 // NewUser creates a new User object with default fields and given address.
-func (m *UserMap) NewUser(id *id.ID, username string) *storage.User {
-	return &storage.User{User: id, Username: username}
+func (m *UserMap) NewUser(id *id.ID, username string) *user2.User {
+	return &user2.User{User: id, Username: username}
 }
 
 // GetUser returns a user with the given ID from userCollection
 // and a boolean for whether the user exists
-func (m *UserMap) GetUser(id *id.ID) (user *storage.User, ok bool) {
+func (m *UserMap) GetUser(id *id.ID) (user *user2.User, ok bool) {
 	user, ok = m.userCollection[*id]
 	user = user.DeepCopy()
 	return
@@ -139,7 +139,7 @@ func (m *UserMap) DeleteUser(id *id.ID) {
 
 // UpsertUser inserts given user into userCollection or update the user if it
 // already exists (Upsert operation).
-func (m *UserMap) UpsertUser(user *storage.User) {
+func (m *UserMap) UpsertUser(user *user2.User) {
 	m.userCollection[*user.User] = user
 }
 

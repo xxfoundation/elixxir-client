@@ -18,9 +18,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/crypto/cyclic"
-	//"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/switchboard"
-	//"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"sync"
@@ -330,13 +328,11 @@ func (s *SessionObj) GetRekeyManager() *keyStore.RekeyManager {
 }
 
 func (s *SessionObj) GetSwitchboard() *switchboard.Switchboard {
-	panic("temporarily indisposed")
-	//return s.listeners
+	return nil //s.listeners
 }
 
 func (s *SessionObj) GetQuitChan() chan struct{} {
-	panic("temporarily indisposed")
-	//return s.quitReceptionRunner
+	return nil //s.quitReceptionRunner
 }
 
 func (s *SessionObj) getSessionData() ([]byte, error) {

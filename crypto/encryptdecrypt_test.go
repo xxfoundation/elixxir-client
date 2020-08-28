@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/userRegistry"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -74,7 +75,7 @@ func setup() {
 
 	SessionV2, _ = storage.Init(".ekvcryptotest", "password")
 
-	userData := &storage.UserData{
+	userData := &user2.UserData{
 		ThisUser: u,
 		CmixGrp:  cmixGrp,
 		E2EGrp:   e2eGrp,

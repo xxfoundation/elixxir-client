@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
-	"errors"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
@@ -335,7 +335,7 @@ func (s *Session) generate() error {
 	var err error
 	s.keyState, err = newStateVector(s.manager.ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), numKeys)
 	if err != nil {
-		return err
+		return errors.WithMessage(err, "Failed key generation")
 	}
 
 	//register keys for reception if this is a reception session
@@ -343,6 +343,7 @@ func (s *Session) generate() error {
 		//register keys
 		s.manager.ctx.fa.add(s.getUnusedKeys())
 	}
+
 	return nil
 }
 

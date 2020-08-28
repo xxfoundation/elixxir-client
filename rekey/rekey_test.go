@@ -9,6 +9,7 @@ import (
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/crypto/csprng"
@@ -68,7 +69,7 @@ func TestMain(m *testing.M) {
 	grp, e2eGrp := getGroups()
 	userRegistry.InitUserRegistry(grp)
 	rng := csprng.NewSystemRNG()
-	u := &storage.User{
+	u := &user2.User{
 		User:     new(id.ID),
 		Username: "Bernie",
 	}
@@ -96,7 +97,7 @@ func TestMain(m *testing.M) {
 
 	sessionV2 := storage.InitTestingSession(m)
 
-	userData := &storage.UserData{
+	userData := &user2.UserData{
 		ThisUser:         u,
 		RSAPrivateKey:    privateKeyRSA,
 		RSAPublicKey:     &publicKeyRSA,

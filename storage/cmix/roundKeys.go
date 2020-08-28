@@ -1,28 +1,42 @@
 package cmix
 
 import (
-	"gitlab.com/elixxir/client/globals"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
 )
 
-type RoundKeys []*cyclic.Int
+type RoundKeys struct {
+	keys []*key
+	g    *cyclic.Group
+}
 
 // Encrypts the given message for CMIX
-// Panics if the passed message format
-func (rk RoundKeys) Encrypt(grp *cyclic.Group, msg format.Message,
-	salt []byte) (format.Message, [][]byte, error) {
+// Panics if the passed message is not sized correctly for the group
+func (rk *RoundKeys) Encrypt(msg format.Message,
+	salt []byte) (format.Message, [][]byte) {
 
-	ecrMsg := cmix.ClientEncrypt(grp, msg, salt, rk)
+	if msg.GetPrimeByteLen() != rk.g.GetP().ByteLen() {
+		jww.FATAL.Panicf("Cannot encrypt message whose size does not " +
+			"align with the size of the prime")
+	}
+
+	keys := make([]*cyclic.Int, len(rk.keys))
+
+	for i, k := range rk.keys {
+		keys[i] = k.Get()
+	}
+
+	ecrMsg := cmix.ClientEncrypt(rk.g, msg, salt, keys)
 
 	h, err := hash.NewCMixHash()
 	if err != nil {
-		globals.Log.ERROR.Printf("Cound not get hash for KMAC generation: %+v", h)
+		jww.FATAL.Panicf("Cound not get hash for KMAC generation: %+v", h)
 	}
 
-	KMAC := cmix.GenerateKMACs(salt, rk, h)
+	KMAC := cmix.GenerateKMACs(salt, keys, h)
 
 	return ecrMsg, KMAC
 }

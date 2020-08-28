@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package cmix
 
 import (
@@ -39,7 +45,7 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, er
 	s := &Store{
 		nodes:        make(map[id.ID]*key),
 		dhPrivateKey: priv,
-		dhPublicKey:  priv,
+		dhPublicKey:  pub,
 		grp:          grp,
 		kv:           kv,
 	}
@@ -188,7 +194,7 @@ func (s *Store) marshal() ([]byte, error) {
 	nodes := make([]id.ID, len(s.nodes))
 
 	index := 0
-	for nid, _ := range s.nodes {
+	for nid := range s.nodes {
 		nodes[index] = nid
 	}
 

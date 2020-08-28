@@ -36,6 +36,8 @@ func (u *User) SetUsername(username string) error {
 		return errors.WithMessage(err, "Failed to store the username")
 	}
 
+	u.username = username
+
 	return nil
 }
 

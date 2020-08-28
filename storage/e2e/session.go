@@ -34,7 +34,7 @@ type Session struct {
 	partnerPubKey *cyclic.Int
 
 	//denotes if the other party has confirmed this key
-	confirmed bool
+	confirmStatus Confirmation
 
 	// Value of the counter at which a rekey is triggered
 	ttl uint32
@@ -61,7 +61,7 @@ type SessionDisk struct {
 	PartnerPubKey []byte
 
 	//denotes if the other party has confirmed this key
-	Confirmed bool
+	Confirmation uint8
 }
 
 /*CONSTRUCTORS*/

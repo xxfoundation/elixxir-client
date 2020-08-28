@@ -112,23 +112,24 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 // partner and a mew private key for the user
 // passing in a private key is optional. a private key will be generated if
 // none is passed
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) error {
+func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) (*Session, error) {
 	//find the latest public key from the other party
 	partnerPubKey := m.receive.GetNewestConfirmed().partnerPubKey
 
 	session, err := newSession(m, myPrivKey, partnerPubKey, params, Send)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	//add the session to the buffer
 	err = m.send.AddSession(session)
 	if err != nil {
 		//delete the session if it failed to add to the buffer
-		err = session.Delete()
+		_ = session.Delete()
+		return nil, err
 	}
 
-	return err
+	return session, nil
 }
 
 // gets the session buffer for message reception

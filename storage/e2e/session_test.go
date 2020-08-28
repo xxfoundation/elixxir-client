@@ -331,7 +331,149 @@ func TestSession_PopKey_Error(t *testing.T) {
 	t.Log(err)
 }
 
-// PopRekey
+// PopRekey should return the next key
+// There's no boundary, except for the number of keynums in the state vector
+func TestSession_PopReKey(t *testing.T) {
+	s, _ := makeTestSession(t)
+	key, err := s.PopReKey()
+	if err != nil {
+		t.Fatal("PopKey should have returned an error")
+	}
+	if key == nil {
+		t.Error("Key should be non-nil")
+	}
+	if key.session != s {
+		t.Error("Key should record it belongs to this session")
+	}
+	// PopReKey should return the first available key
+	if key.keyNum != 0 {
+		t.Error("First key popped should have keynum 0")
+	}
+}
+
+// PopRekey should not return the next key if there are no more keys available
+// in the state vector
+func TestSession_PopReKey_Err(t *testing.T) {
+	s, ctx := makeTestSession(t)
+	// Construct a specific state vector that will quickly run out of keys
+	var err error
+	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = s.PopReKey()
+	if err == nil {
+		t.Fatal("PopReKey should have returned an error")
+	}
+}
+
+// Simple test that shows the base key can get got
+func TestSession_GetBaseKey(t *testing.T) {
+	s, _ := makeTestSession(t)
+	baseKey := s.GetBaseKey()
+	if baseKey.Cmp(s.baseKey) != 0 {
+		t.Errorf("expected %v, got %v", baseKey.Text(16), s.baseKey.Text(16))
+	}
+}
+
+// Smoke test for GetID
+func TestSession_GetID(t *testing.T) {
+	s, _ := makeTestSession(t)
+	id := s.GetID()
+	if len(id.Bytes()) == 0 {
+		t.Error("Zero length for session ID!")
+	}
+}
+
+// Smoke test for GetPartnerPubKey
+func TestSession_GetPartnerPubKey(t *testing.T) {
+	s, _ := makeTestSession(t)
+	partnerPubKey := s.GetPartnerPubKey()
+	if partnerPubKey.Cmp(s.partnerPubKey) != 0 {
+		t.Errorf("expected %v, got %v", partnerPubKey.Text(16), s.partnerPubKey.Text(16))
+	}
+}
+
+// Smoke test for GetMyPrivKey
+func TestSession_GetMyPrivKey(t *testing.T) {
+	s, _ := makeTestSession(t)
+	myPrivKey := s.GetMyPrivKey()
+	if myPrivKey.Cmp(s.myPrivKey) != 0 {
+		t.Errorf("expected %v, got %v", myPrivKey.Text(16), s.myPrivKey.Text(16))
+	}
+}
+
+// Shows that IsConfirmed returns whether the session is confirmed
+func TestSession_IsConfirmed(t *testing.T) {
+	s, _ := makeTestSession(t)
+	s.confirmed = false
+	if s.IsConfirmed() {
+		t.Error("s was confirmed when it shouldn't have been")
+	}
+	s.confirmed = true
+	if !s.IsConfirmed() {
+		t.Error("s wasn't confirmed when it should have been")
+	}
+}
+
+// IsReKeyNeeded only returns true once, when the number of keys available is
+// equal to the TTL. If it returned true after the TTL, it could result in
+// additional, unnecessary rekeys.
+func TestSession_IsReKeyNeeded(t *testing.T) {
+	s, _ := makeTestSession(t)
+	s.keyState.numAvailable = s.ttl
+	if !s.IsReKeyNeeded() {
+		t.Error("Rekey should be needed if the number available is the TTL")
+	}
+	s.keyState.numAvailable = s.ttl + 1
+	if s.IsReKeyNeeded() {
+		t.Error("Rekey shouldn't be needed in this case")
+	}
+	s.keyState.numAvailable = s.ttl - 1
+	if s.IsReKeyNeeded() {
+		t.Error("Rekey shouldn't be needed in this case")
+	}
+}
+
+// Shows that Status can result in all possible statuses
+func TestSession_Status(t *testing.T) {
+	s, ctx := makeTestSession(t)
+	var err error
+	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 500)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.keyState.numAvailable = 0
+	if s.Status() != RekeyEmpty {
+		t.Error("status should have been rekey empty with no keys left")
+	}
+	s.keyState.numAvailable = 1
+	if s.Status() != Empty {
+		t.Error("Status should have been empty")
+	}
+	// Passing the ttl should result in a rekey being needed
+	s.keyState.numAvailable = s.keyState.numkeys - s.ttl
+	if s.Status() != RekeyNeeded {
+		t.Error("Just past the ttl, rekey should be needed")
+	}
+	s.keyState.numAvailable = s.keyState.numkeys
+	if s.Status() != Active {
+		t.Error("If all keys available, session should be active")
+	}
+}
+
+// After a Confirm call, confirmed should be true
+func TestConfirm(t *testing.T) {
+	s, _ := makeTestSession(t)
+	s.confirmed = false
+	err := s.confirm()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.confirmed {
+		t.Error("Should be confirmed after confirming")
+	}
+}
 
 // Make a default test session with some things populated
 func makeTestSession(t *testing.T) (*Session, *context) {

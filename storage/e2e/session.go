@@ -262,11 +262,11 @@ func (s *Session) PopReKey() (*Key, error) {
 // returns the state of the session, which denotes if the Session is active,
 // functional but in need of a rekey, empty of send key, or empty of rekeys
 func (s *Session) Status() Status {
-	if s.keyState.numkeys-s.keyState.numAvailable <= uint32(s.params.NumRekeys) {
+	if s.keyState.GetNumAvailable() == 0 {
 		return RekeyEmpty
-	} else if s.keyState.GetNumKeys() == 0 {
+	} else if s.keyState.GetNumAvailable() <= uint32(s.params.NumRekeys) {
 		return Empty
-	} else if s.keyState.GetNumKeys() >= s.ttl {
+	} else if s.keyState.GetNumAvailable() <= s.keyState.GetNumKeys()-s.ttl {
 		return RekeyNeeded
 	} else {
 		return Active

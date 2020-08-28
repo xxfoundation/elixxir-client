@@ -31,8 +31,8 @@ func (s *Single) IsRunning() bool {
 }
 
 // returns the read only channel it will send the stop signal on
-func (s *Single) Sigal() bool {
-	return atomic.LoadUint32(s.running) == 1
+func (s *Single) Quit() <-chan struct{} {
+	return s.quit
 }
 
 // returns the name of the thread. This is designed to be

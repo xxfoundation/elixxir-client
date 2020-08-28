@@ -108,9 +108,8 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) error {
 	return s.save()
 }
 
-// removes the key from the cmix storage object. Saves an updates node list to
-//
-func (s *Store) Remove(nid *id.ID, k *cyclic.Int) error {
+// Remove a Node key from the nodes map and save
+func (s *Store) Remove(nid *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -126,7 +125,7 @@ func (s *Store) Remove(nid *id.ID, k *cyclic.Int) error {
 
 	delete(s.nodes, *nid)
 
-	return nil
+	return s.save()
 }
 
 //Returns a RoundKeys for the topology and a list of nodes it did not have a key for

@@ -36,7 +36,6 @@ type Session struct {
 	user *user.User
 
 	loaded bool
-
 }
 
 // Initialize a new Session object

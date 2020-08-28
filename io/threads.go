@@ -1,5 +1,5 @@
 ////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
+// Copyright © 2020 Privategrity Corporation                                   /
 //                                                                             /
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
@@ -30,7 +30,7 @@ func (c ChanStop) Close(timeout time.Duration) {
 	select {
 	case <-timer:
 		jww.ERROR.Printf("goroutine failed to Close: %s", c.name)
-	case <- c.quit:
+	case <-c.quit:
 		return
 	}
 }
@@ -39,13 +39,12 @@ func (c ChanStop) Close(timeout time.Duration) {
 // structure
 func StartTrackNetwork(ctx *context.Context) Stoppable {
 	stopper := ChanStop{
-		name: "TrackNetwork"
+		name: "TrackNetwork",
 		quit: make(chan bool),
 	}
 	go TrackNetwork(ctx, stopper.quit)
 	return stopper
 }
-
 
 // TrackNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
@@ -96,7 +95,7 @@ func trackNetwork(ctx) {
 
 func StartProcessHistoricalRounds(ctx *context.Context) Stoppable {
 	stopper := ChanStop{
-		name: "ProcessHistoricalRounds"
+		name: "ProcessHistoricalRounds",
 		quit: make(chan bool),
 	}
 	go ProcessHistoricalRounds(ctx, stopper.quit)
@@ -165,7 +164,7 @@ func MessageReceiver(ctx *context.Context, messagesCh chan ClientMessage,
 		select {
 		case <-quitCh:
 			done = true
-		case m := <- messagesCh:
+		case m := <-messagesCh:
 			ReceiveMessage(ctx, m) // defined elsewhere...
 		}
 	}
@@ -173,7 +172,7 @@ func MessageReceiver(ctx *context.Context, messagesCh chan ClientMessage,
 
 func StartNodeKeyExchange(ctx *context.Context) {
 	keyCh := ctx.GetNetwork().GetNodeKeysCh()
-	for i := 0; i < ctx.GetNumNodeKeyExchangers(); i ++ {
+	for i := 0; i < ctx.GetNumNodeKeyExchangers(); i++ {
 		// quitCh created for each thread, add to multistop
 		quitCh := make(chan bool)
 		go ExchangeNodeKeys(ctx, keyCh, quitCh)
@@ -188,7 +187,7 @@ func ExchangeNodeKeys(ctx *context.Context, keyCh chan node.ID, quitCh chan bool
 		select {
 		case <-quitCh:
 			done = true
-		case nid := <- keyCh:
+		case nid := <-keyCh:
 			nodekey := RegisterNode(ctx, nid) // defined elsewhere...
 			ctx.GetStorage().SetNodeKey(nid, nodekey)
 		}
@@ -197,7 +196,7 @@ func ExchangeNodeKeys(ctx *context.Context, keyCh chan node.ID, quitCh chan bool
 
 func StartNodeRemover(ctx *context.Context) {
 	remCh := ctx.GetNetwork().GetNodeRemCh()
-	for i := 0; i < ctx.GetNumNodeRemovers(); i ++ {
+	for i := 0; i < ctx.GetNumNodeRemovers(); i++ {
 		// quitCh created for each thread, add to multistop
 		quitCh := make(chan bool)
 		go RemoveNode(ctx, remCh, quitCh)
@@ -212,9 +211,8 @@ func RemoveNode(ctx *context.Context, remCh chan node.ID, quitCh chan bool) {
 		select {
 		case <-quitCh:
 			done = true
-		case nid := <- keyCh:
+		case nid := <-keyCh:
 			ctx.GetStorage().RemoveNodeKey(nid)
 		}
 	}
 }
-

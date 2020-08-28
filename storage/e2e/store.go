@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -13,7 +19,6 @@ import (
 	"sync"
 	"time"
 )
-
 
 const currentStoreVersion = 0
 const storeKey = "e2eKeyStore"
@@ -277,4 +282,3 @@ func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, error) {
 
 	return key, nil
 }
-

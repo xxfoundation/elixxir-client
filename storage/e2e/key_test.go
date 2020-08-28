@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -208,8 +214,8 @@ func getSession(t *testing.T) *Session {
 		manager: &Manager{
 			ctx: ctx,
 		},
-		baseKey:    baseKey,
-		keyState:   keyState,
+		baseKey:  baseKey,
+		keyState: keyState,
 	}
 }
 

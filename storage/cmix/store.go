@@ -148,14 +148,16 @@ func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 		}
 	}
 
+	// Handle missing keys case
+	if len(missingNodes) > 0 {
+		return nil, missingNodes
+	}
+
 	rk := &RoundKeys{
 		keys: keys,
 		g:    s.grp,
 	}
 
-	if len(missingNodes) > 0 {
-		return nil, missingNodes
-	}
 	return rk, missingNodes
 }
 

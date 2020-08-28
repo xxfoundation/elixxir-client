@@ -2,7 +2,6 @@ package e2e
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"math/bits"
@@ -28,7 +27,10 @@ func TestStateVector_GetNumKeys(t *testing.T) {
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 32
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// GetNumKeys should always be the same as numKeys
 	if sv.GetNumKeys() != numKeys {
@@ -46,7 +48,10 @@ func TestStateVector_Next(t *testing.T) {
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Set all bits to dirty to start
 	for i := range sv.vect {
@@ -80,7 +85,7 @@ func TestStateVector_Next(t *testing.T) {
 	}
 
 	// One more call should cause an error
-	_, err := sv.Next()
+	_, err = sv.Next()
 	if err == nil {
 		t.Error("Calling Next() after all keys have been found should result in error, as firstAvailable is more than numKeys")
 	}
@@ -99,7 +104,10 @@ func TestStateVector_Use(t *testing.T) {
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Expected vector states as bits are set
 	var expectedVect [][]uint64
@@ -135,7 +143,10 @@ func TestStateVector_Used(t *testing.T) {
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sv.vect = []uint64{0, 0, 0x20800, 0, 0x100000000000, 0x10000000000, 0x1000000000, 0, 0, 0, 0, 0x200000000000000, 0, 0x2000081000000000, 0, 0x800000000}
 
 	for i := uint32(0); i < numKeys; i++ {
@@ -163,7 +174,10 @@ func TestStateVector_GetUsedKeyNums(t *testing.T) {
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sv.vect = []uint64{0, 0, 0x20800, 0, 0x100000000000, 0x10000000000, 0x1000000000, 0, 0, 0, 0, 0x200000000000000, 0, 0x2000081000000000, 0, 0x800000000}
 	sv.numAvailable = uint32(numKeys - len(keyNums))
 
@@ -184,7 +198,10 @@ func TestStateVector_GetUnusedKeyNums(t *testing.T) {
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
 	const numKeys = 1000
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff, 0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff, 0xffffffffffffffff, 0xfffffff7ffffffff}
 	sv.numAvailable = uint32(len(keyNums))
 	sv.firstAvailable = keyNums[0]
@@ -207,12 +224,15 @@ func TestLoadStateVector(t *testing.T) {
 	ctx := context{
 		kv: versioned.NewKV(make(ekv.Memstore)),
 	}
-	sv := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(&ctx, "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
 	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff, 0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff, 0xffffffffffffffff, 0xfffffff7ffffffff}
 	sv.numAvailable = uint32(len(keyNums))
 	sv.firstAvailable = keyNums[0]
 
-	err := sv.save()
+	err = sv.save()
 	if err != nil {
 		t.Fatal(err)
 	}

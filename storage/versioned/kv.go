@@ -122,7 +122,7 @@ func (v *KV) Get(key string) (*Object, error) {
 
 // Delete removes a given key from the data store
 func (v *KV) Delete(key string) error {
-	return nil
+	return v.data.Delete(key)
 }
 
 // Set upserts new data into the storage

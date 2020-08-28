@@ -8,12 +8,13 @@ package e2e
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
 	"reflect"
@@ -193,6 +194,9 @@ func getGroup() *cyclic.Group {
 }
 
 func getSession(t *testing.T) *Session {
+	if t == nil {
+		panic("getSession is a testing function and should be called from a test")
+	}
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 
@@ -205,10 +209,13 @@ func getSession(t *testing.T) *Session {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  storage.InitMem(t),
+		kv:  versioned.NewKV(make(ekv.Memstore)),
 	}
 
-	keyState := newStateVector(ctx, "keyState", rand.Uint32())
+	keyState, err := newStateVector(ctx, "keyState", rand.Uint32())
+	if err != nil {
+		panic(err)
+	}
 
 	return &Session{
 		manager: &Manager{

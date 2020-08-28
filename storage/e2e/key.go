@@ -73,9 +73,9 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 	key := k.generateKey()
 
 	// Verify the MAC is correct
-	if !hash.VerifyHMAC(msg.GetSecretPayload(), msg.GetMac(), key[:]) {
-		return format.Message{}, errors.New("HMAC verification failed for E2E message")
-	}
+	//if !hash.VerifyHMAC(msg.GetSecretPayload(), msg.GetMac(), key[:]) {
+	//	return format.Message{}, errors.New("HMAC verification failed for E2E message")
+	//}
 
 	//decrypt the timestamp
 	decryptedTimestamp, err := decryptTimestamp(fp, key, msg.GetTimestamp())

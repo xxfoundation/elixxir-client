@@ -102,7 +102,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 	err = m.receive.AddSession(session)
 	if err != nil {
 		//delete the session if it failed to add to the buffer
-		err = session.Delete()
+		session.Delete()
 	}
 
 	return err
@@ -125,7 +125,7 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) (*
 	err = m.send.AddSession(session)
 	if err != nil {
 		//delete the session if it failed to add to the buffer
-		_ = session.Delete()
+		session.Delete()
 		return nil, err
 	}
 

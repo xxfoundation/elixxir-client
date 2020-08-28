@@ -129,6 +129,7 @@ func (s *Store) Remove(nid *id.ID) error {
 }
 
 //Returns a RoundKeys for the topology and a list of nodes it did not have a key for
+// If there are missing keys, returns nil RoundKeys
 func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
@@ -152,6 +153,9 @@ func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 		g:    s.grp,
 	}
 
+	if len(missingNodes) > 0 {
+		return nil, missingNodes
+	}
 	return rk, missingNodes
 }
 

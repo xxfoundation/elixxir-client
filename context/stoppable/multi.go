@@ -10,23 +10,21 @@ import (
 type Multi struct {
 	stoppables []Stoppable
 	name       string
-	running    *uint32
-	errors     []error
+	running    uint32
 	mux        sync.RWMutex
 }
 
 //returns a new multi stoppable
 func NewMulti(name string) *Multi {
-	running := uint32(1)
 	return &Multi{
 		name:    name,
-		running: &running,
+		running: 1,
 	}
 }
 
 // returns true if the thread is still running
 func (m *Multi) IsRunning() bool {
-	return atomic.LoadUint32(m.running) == 1
+	return atomic.LoadUint32(&m.running) == 1
 }
 
 // adds the given stoppable to the list of stoppables
@@ -79,7 +77,7 @@ func (m *Multi) Close(timeout time.Duration) error {
 
 	wg.Wait()
 
-	atomic.StoreUint32(m.running, 0)
+	atomic.StoreUint32(&m.running, 0)
 
 	if numErrors > 0 {
 		return errors.Errorf("MultiStopper %s failed to close "+

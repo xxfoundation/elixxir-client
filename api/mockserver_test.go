@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/io"
 	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/comms/gateway"
@@ -237,7 +238,7 @@ func TestRegister_InvalidRegState(t *testing.T) {
 	client.session = user.NewSession(nil, "password")
 	client.sessionV2, _ = storage.Init(".ekv-invalidregstate", "password")
 
-	userData := &storage.UserData{
+	userData := &user2.UserData{
 		ThisUser:         usr,
 		RSAPrivateKey:    privKey,
 		RSAPublicKey:     pubKey,

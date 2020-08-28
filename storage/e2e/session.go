@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
-	"errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -76,9 +76,12 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.I
 		confirmed:     t == Receive,
 	}
 
-	session.generate()
+	err := session.generate()
+	if err != nil {
+		return nil, err
+	}
 
-	err := session.save()
+	err = session.save()
 	if err != nil {
 		return nil, err
 	}
@@ -280,7 +283,7 @@ func (s *Session) useKey(keynum uint32) error {
 
 // generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
-func (s *Session) generate() {
+func (s *Session) generate() error {
 	grp := s.manager.ctx.grp
 
 	//generate public key if it is not present
@@ -304,13 +307,19 @@ func (s *Session) generate() {
 	s.ttl = uint32(keysTTL)
 
 	//create the new state vectors. This will cause disk operations storing them
-	s.keyState = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
+	var err error
+	s.keyState, err = newStateVector(s.manager.ctx, keyEKVPrefix, numKeys)
+	if err != nil {
+		return errors.WithMessage(err, "Failed key generation")
+	}
 
 	//register keys for reception if this is a reception session
 	if s.t == Receive {
 		//register keys
 		s.manager.ctx.fa.add(s.getUnusedKeys())
 	}
+
+	return nil
 }
 
 //returns key objects for all unused keys

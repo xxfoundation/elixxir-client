@@ -83,11 +83,13 @@ func TestRoundKeys_Encrypt_Consistency(t *testing.T) {
 
 	prng := rand.New(rand.NewSource(42))
 
-	rk := RoundKeys(make([]*cyclic.Int, numKeys))
+	keys := make([]*key, numKeys)
 
 	for i := 0; i < numKeys; i++ {
 		keyBytes, _ := csprng.GenerateInGroup(cmixGrp.GetPBytes(), cmixGrp.GetP().ByteLen(), prng)
-		rk[i] = cmixGrp.NewIntFromBytes(keyBytes)
+		keys[i] = &key{
+			k: cmixGrp.NewIntFromBytes(keyBytes),
+		}
 	}
 
 	salt := make([]byte, 32)
@@ -98,7 +100,12 @@ func TestRoundKeys_Encrypt_Consistency(t *testing.T) {
 	prng.Read(contents)
 	msg.SetContents(contents)
 
-	encMsg, kmacs := rk.Encrypt(cmixGrp, msg, salt)
+	rk := RoundKeys{
+		keys: keys,
+		g:    cmixGrp,
+	}
+
+	encMsg, kmacs := rk.Encrypt(msg, salt)
 
 	if !bytes.Equal(encMsg.GetData(), expectedPayload) {
 		t.Errorf("Encrypted messages do not match")

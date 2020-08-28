@@ -7,7 +7,7 @@ package api
 
 import (
 	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/storage"
+	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
@@ -87,7 +87,7 @@ func TestClient_Register(t *testing.T) {
 }
 
 //Verify the user from the session make in the registration above matches expected user
-func VerifyRegisterGobUser(curUser *storage.User, t *testing.T) {
+func VerifyRegisterGobUser(curUser *user2.User, t *testing.T) {
 
 	expectedUser := id.NewIdFromUInt(5, id.User, t)
 

@@ -3,8 +3,10 @@ package cmix
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -12,15 +14,17 @@ import (
 )
 
 const currentStoreVersion = 0
-const currentKeyStoreVersion = 0
 const storeKey = "cmixKeyStore"
 const pubKeyKey = "cmixDhPubKey"
 const privKeyKey = "cmixDhPrivKey"
+const grpKey = "cmixGroupKey"
 
 type Store struct {
 	nodes        map[id.ID]*key
 	dhPrivateKey *cyclic.Int
 	dhPublicKey  *cyclic.Int
+
+	grp *cyclic.Group
 
 	kv *versioned.KV
 
@@ -28,23 +32,35 @@ type Store struct {
 }
 
 // returns a new cmix storage object
-func NewStore(kv *versioned.KV, pub, priv *cyclic.Int) (*Store, error) {
+func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, error) {
+	//generate public key
+	pub := diffieHellman.GeneratePublicKey(priv, grp)
+
 	s := &Store{
 		nodes:        make(map[id.ID]*key),
 		dhPrivateKey: priv,
 		dhPublicKey:  priv,
+		grp:          grp,
 		kv:           kv,
 	}
 
-	err := storeDhKey(kv, pub, pubKeyKey)
+	err := utility.StoreCyclicKey(kv, pub, pubKeyKey)
 	if err != nil {
 		return nil,
-			errors.WithMessage(err, "Failed to store cmix DH public key")
+			errors.WithMessage(err,
+				"Failed to store cmix DH public key")
 	}
 
-	err = storeDhKey(kv, priv, privKeyKey)
+	err = utility.StoreCyclicKey(kv, priv, privKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to store cmix DH private key")
+		return nil, errors.WithMessage(err,
+			"Failed to store cmix DH private key")
+	}
+
+	err = utility.StoreGroup(kv, grp, grpKey)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to store cmix group")
 	}
 
 	return s, s.save()
@@ -108,13 +124,13 @@ func (s *Store) Remove(nid *id.ID, k *cyclic.Int) error {
 }
 
 //Returns a RoundKeys for the topology and a list of nodes it did not have a key for
-func (s *Store) GetRoundKeys(topology *connect.Circuit) (RoundKeys, []*id.ID) {
+func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 
 	var missingNodes []*id.ID
 
-	rk := RoundKeys(make([]*cyclic.Int, topology.Len()))
+	keys := make([]*key, topology.Len())
 
 	for i := 0; i < topology.Len(); i++ {
 		nid := topology.GetNodeAtIndex(i)
@@ -122,11 +138,31 @@ func (s *Store) GetRoundKeys(topology *connect.Circuit) (RoundKeys, []*id.ID) {
 		if !ok {
 			missingNodes = append(missingNodes, nid)
 		} else {
-			rk[i] = k.k
+			keys[i] = k
 		}
 	}
 
+	rk := &RoundKeys{
+		keys: keys,
+		g:    s.grp,
+	}
+
 	return rk, missingNodes
+}
+
+//Returns the diffie hellman private key
+func (s *Store) GetDHPrivateKey() *cyclic.Int {
+	return s.dhPrivateKey
+}
+
+//Returns the diffie hellman public key
+func (s *Store) GetDHPublicKey() *cyclic.Int {
+	return s.dhPublicKey
+}
+
+//Returns the cyclic group used for cmix
+func (s *Store) GetGroup() *cyclic.Group {
+	return s.grp
 }
 
 // stores the cmix store
@@ -176,45 +212,23 @@ func (s *Store) unmarshal(b []byte) error {
 		s.nodes[nid] = k
 	}
 
-	s.dhPrivateKey, err = loadDhKey(s.kv, privKeyKey)
+	s.dhPrivateKey, err = utility.LoadCyclicKey(s.kv, privKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to load cmix DH private key")
 	}
 
-	s.dhPublicKey, err = loadDhKey(s.kv, pubKeyKey)
+	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err,
 			"Failed to load cmix DH public key")
 	}
 
+	s.grp, err = utility.LoadGroup(s.kv, grpKey)
+	if err != nil {
+		return errors.WithMessage(err,
+			"Failed to load cmix group")
+	}
+
 	return nil
-}
-
-func storeDhKey(kv *versioned.KV, dh *cyclic.Int, key string) error {
-	now := time.Now()
-
-	data, err := dh.GobEncode()
-	if err != nil {
-		return err
-	}
-
-	obj := versioned.Object{
-		Version:   currentKeyVersion,
-		Timestamp: now,
-		Data:      data,
-	}
-
-	return kv.Set(key, &obj)
-}
-
-func loadDhKey(kv *versioned.KV, key string) (*cyclic.Int, error) {
-	vo, err := kv.Get(key)
-	if err != nil {
-		return nil, err
-	}
-
-	dhKey := &cyclic.Int{}
-
-	return dhKey, dhKey.GobDecode(vo.Data)
 }

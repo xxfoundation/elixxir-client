@@ -26,6 +26,11 @@ func NewKey(kv *versioned.KV, k *cyclic.Int, id *id.ID) (*key, error) {
 	return newKey, newKey.save()
 }
 
+// returns the cyclic key
+func (k *key) Get() *cyclic.Int {
+	return k.k
+}
+
 // loads the key for the given node id from the versioned keystore
 func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 	k := &key{}

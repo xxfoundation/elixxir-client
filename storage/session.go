@@ -9,56 +9,141 @@
 package storage
 
 import (
-	"bytes"
-	"encoding/gob"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/storage/cmix"
+	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/client/user"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"testing"
-	"time"
 )
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv       *versioned.KV
-	userData *UserData
-	mux      sync.Mutex
+	kv  *versioned.KV
+	mux sync.RWMutex
 
-	// Contacts controls
-	contacts    map[string]*Contact
-	contactsLck sync.Mutex
+	regStatus RegistrationStatus
 
-	//keystores
-	cmixKeys cmix.Store
+	//sub-stores
+	e2e  *e2e.Store
+	cmix *cmix.Store
+	user *user.User
+
+	loaded bool
+
 }
 
 // Initialize a new Session object
 func Init(baseDir, password string) (*Session, error) {
 	fs, err := ekv.NewFilestore(baseDir, password)
 	var s *Session
-	if err == nil {
-		s = &Session{
-			kv: versioned.NewKV(fs),
-		}
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to create storage session")
 	}
 
-	s.loadAllContacts()
+	s = &Session{
+		kv:     versioned.NewKV(fs),
+		loaded: false,
+	}
 
-	return s, err
+	err = s.loadOrCreateRegStatus()
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to load or create registration status")
+	}
+
+	return s, nil
 }
 
-// a storage session with a memory backed for testing
-func InitMem(t *testing.T) *Session {
-	if t == nil {
-		panic("cannot use a memstore not for testing")
+// Creates new UserData in the session
+func (s *Session) Create(uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
+	isPrecanned bool, cmixDHPrivKey, e2eDHPrivKey *cyclic.Int, cmixGrp,
+	e2eGrp *cyclic.Group) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	if s.loaded {
+		return errors.New("Cannot create a session which already has one loaded")
 	}
-	store := make(ekv.Memstore)
-	return &Session{kv: versioned.NewKV(store)}
+
+	var err error
+
+	s.user, err = user.NewUser(s.kv, uid, salt, rsaKey, isPrecanned)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to create Session due "+
+			"to failed user creation")
+	}
+
+	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, cmixDHPrivKey)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to create Session due "+
+			"to failed cmix keystore creation")
+	}
+
+	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to create Session due "+
+			"to failed e2e keystore creation")
+	}
+
+	s.loaded = true
+	return nil
+}
+
+// Loads existing user data into the session
+func (s *Session) Load() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	if s.loaded {
+		return errors.New("Cannot load a session which already has one loaded")
+	}
+
+	var err error
+
+	s.user, err = user.LoadUser(s.kv)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to load Session due "+
+			"to failure to load user")
+	}
+
+	s.cmix, err = cmix.LoadStore(s.kv)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to load Session due "+
+			"to failure to load cmix keystore")
+	}
+
+	s.e2e, err = e2e.LoadStore(s.kv)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to load Session due "+
+			"to failure to load e2e keystore")
+	}
+
+	s.loaded = true
+	return nil
+}
+
+func (s *Session) User() *user.User {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.user
+}
+
+func (s *Session) Cmix() *cmix.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.cmix
+}
+
+func (s *Session) E2e() *e2e.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.e2e
 }
 
 // Get an object from the session
@@ -74,115 +159,6 @@ func (s *Session) Set(key string, object *versioned.Object) error {
 // Delete a value in the session
 func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key)
-}
-
-// Obtain the LastMessageID from the Session
-func (s *Session) GetLastMessageId() (string, error) {
-	v, err := s.Get("LastMessageID")
-	if v == nil || err != nil {
-		return "", nil
-	}
-	return string(v.Data), nil
-}
-
-// Set the LastMessageID in the Session
-func (s *Session) SetLastMessageId(id string) error {
-	vo := &versioned.Object{
-		Timestamp: time.Now(),
-		Data:      []byte(id),
-	}
-	return s.Set("LastMessageID", vo)
-}
-
-// GetNodeKeys returns all keys
-func (s *Session) GetNodeKeys() (map[string]user.NodeKeys, error) {
-	key := "NodeKeys"
-	var nodeKeys map[string]user.NodeKeys
-
-	// Attempt to locate the keys map
-	v, err := s.Get(key)
-
-	// If the map doesn't exist, initialize it
-	if err != nil {
-		// Encode the new map
-		nodeKeys = make(map[string]user.NodeKeys)
-		var nodeKeysBuffer bytes.Buffer
-		enc := gob.NewEncoder(&nodeKeysBuffer)
-		err = enc.Encode(nodeKeys)
-		if err != nil {
-			return nil, err
-		}
-
-		// Store the new map
-		vo := &versioned.Object{
-			Timestamp: time.Now(),
-			Data:      nodeKeysBuffer.Bytes(),
-		}
-		err = s.Set(key, vo)
-		if err != nil {
-			return nil, err
-		}
-
-		// Return newly-initialized map
-		return nodeKeys, nil
-	}
-
-	// If the map exists, decode and return it
-	var nodeKeyBuffer bytes.Buffer
-	nodeKeyBuffer.Write(v.Data)
-	dec := gob.NewDecoder(&nodeKeyBuffer)
-	err = dec.Decode(&nodeKeys)
-
-	return nodeKeys, err
-}
-
-// GetNodeKeysFromCircuit obtains NodeKeys for a given circuit
-func (s *Session) GetNodeKeysFromCircuit(topology *connect.Circuit) (
-	[]user.NodeKeys, error) {
-	nodeKeys, err := s.GetNodeKeys()
-	if err != nil {
-		return nil, err
-	}
-
-	// Build a list of NodeKeys from the map
-	keys := make([]user.NodeKeys, topology.Len())
-	for i := 0; i < topology.Len(); i++ {
-		nid := topology.GetNodeAtIndex(i)
-		keys[i] = nodeKeys[nid.String()]
-		globals.Log.INFO.Printf("Read NodeKey: %s: %v", nid, keys[i])
-	}
-
-	return keys, nil
-}
-
-// Set NodeKeys in the Session
-func (s *Session) PushNodeKey(id *id.ID, key user.NodeKeys) error {
-	// Thread-safety
-	s.mux.Lock()
-	defer s.mux.Unlock()
-
-	// Obtain NodeKeys map
-	nodeKeys, err := s.GetNodeKeys()
-	if err != nil {
-		return err
-	}
-
-	// Set new value inside of map
-	nodeKeys[id.String()] = key
-
-	globals.Log.INFO.Printf("Adding NodeKey: %s: %v", id.String(), key)
-
-	// Encode the map
-	var nodeKeysBuffer bytes.Buffer
-	enc := gob.NewEncoder(&nodeKeysBuffer)
-	err = enc.Encode(nodeKeys)
-
-	// Insert the map back into the Session
-	vo := &versioned.Object{
-		Timestamp: time.Now(),
-		Data:      nodeKeysBuffer.Bytes(),
-	}
-	return s.Set("NodeKeys", vo)
 }
 
 // Initializes a Session object wrapped around a MemStore object.

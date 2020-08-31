@@ -34,6 +34,11 @@ type Session struct {
 	myPrivKey *cyclic.Int
 	// Partner Public Key
 	partnerPubKey *cyclic.Int
+	// ID of the session which triggered this sessions creation.
+	// Shares a partner public key if a send session, shares a myPrivateKey
+	// if a receive session
+	trigger SessionID
+
 
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
@@ -64,6 +69,8 @@ type SessionDisk struct {
 	MyPrivKey []byte
 	// Partner Public Key
 	PartnerPubKey []byte
+	// ID of the session which triggered this sessions creation.
+	Trigger []byte
 
 	//denotes if the other party has confirmed this key
 	Confirmation uint8
@@ -74,7 +81,9 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 //Generator which creates all keys and structures
-func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.Int, params SessionParams, t SessionType) *Session {
+func newSession(manager *Manager, myPrivKey *cyclic.Int,
+	partnerPubKey *cyclic.Int, params SessionParams, t SessionType,
+	trigger SessionID) *Session {
 
 	confirmation := Unconfirmed
 	if t == Receive {
@@ -89,6 +98,7 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.I
 		myPrivKey:         myPrivKey,
 		partnerPubKey:     partnerPubKey,
 		negotiationStatus: confirmation,
+		trigger:           trigger,
 	}
 
 	session.generate()
@@ -210,6 +220,7 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
+	sd.Trigger = s.trigger[:]
 
 	// assume in progress confirmations and session creations have failed on
 	// reset, therefore do not store their pending progress

@@ -110,6 +110,5 @@ message RekeyTrigger {
     // PublicKey used in the registration
     bytes publicKey = 1;
     bytes SessionID = 2;
-
-
+    bool newSession = 3;
 }

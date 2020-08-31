@@ -17,14 +17,18 @@ type key struct {
 	storeKey string
 }
 
-func NewKey(kv *versioned.KV, k *cyclic.Int, id *id.ID) (*key, error) {
-	newKey := &key{
+func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID) *key {
+	nk := &key{
 		kv:       kv,
 		k:        k,
 		storeKey: keyKey(id),
 	}
 
-	return newKey, newKey.save()
+	if err := nk.save(); err != nil {
+		jww.FATAL.Panicf("Failed to make nodeKey for %s: %s", id, err)
+	}
+
+	return nk
 }
 
 // returns the cyclic key

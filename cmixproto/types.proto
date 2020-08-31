@@ -109,7 +109,6 @@ enum Type {
 message RekeyTrigger {
     // PublicKey used in the registration
     bytes publicKey = 1;
+    // ID of the session used to create this session
     bytes SessionID = 2;
-
-
 }

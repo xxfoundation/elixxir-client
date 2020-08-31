@@ -1,15 +1,18 @@
 package keyExchange
 
 import (
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/utility"
 	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
-	jww "github.com/spf13/jwalterweatherman"
 	"time"
 )
 
@@ -32,7 +35,8 @@ func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
 	// replace itself, then create the session
 	case e2e.NewSessionTriggered:
 		//create the session, pass a nil private key to generate a new one
-		negotiatingSession = manager.NewSendSession(nil, e2e.GetDefaultSessionParams())
+		negotiatingSession = manager.NewSendSession(nil,
+			e2e.GetDefaultSessionParams(), session.GetID())
 		//move the state of the triggering session forward
 		session.SetNegotiationStatus(e2e.NewSessionCreated)
 	// If the session has not successfully negotiated, redo its negotiation
@@ -60,11 +64,23 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 	pubKey := diffieHellman.GeneratePublicKey(session.GetMyPrivKey(),
 		e2eStore.GetGroup())
 
+	//build the payload
+	payload, err := proto.Marshal(&cmixproto.RekeyTrigger{
+		PublicKey: pubKey.Bytes(),
+		SessionID: session.GetTrigger().Bytes(),
+	})
+
+	//If the payload cannot be marshaled, panic
+	if err != nil {
+		jww.FATAL.Printf("Failed to marshal payload for Key "+
+			"Negotation with %s", session.GetPartner())
+	}
+
 	//send session
-	m := context.Message{
+	m := message.Message{
 		Recipient:   session.GetPartner(),
-		Payload:     pubKey.Bytes(),
-		MessageType: 42,
+		Payload:     payload,
+		MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
 	}
 
 	//send the message under the key exchange

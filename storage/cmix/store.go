@@ -100,13 +100,10 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	nodekey, err := NewKey(s.kv, k, nid)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to make nodeKey for %s: %s", nid, err)
-	}
+	nodekey := newKey(s.kv, k, nid)
 
 	s.nodes[*nid] = nodekey
-	if err = s.save(); err != nil {
+	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save nodeKey list for %s: %s", nid, err)
 	}
 }

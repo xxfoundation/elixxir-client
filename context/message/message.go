@@ -1,4 +1,4 @@
-package context
+package message
 
 import "gitlab.com/xx_network/primitives/id"
 

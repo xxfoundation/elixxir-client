@@ -28,11 +28,11 @@ func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
 	m.send = NewSessionBuff(m, "send")
 	m.receive = NewSessionBuff(m, "receive")
 
-	sendSession := newSession(m, myPrivKey, partnerPubKey, sendParams, Send)
+	sendSession := newSession(m, myPrivKey, partnerPubKey, sendParams, Send, SessionID{})
 
 	m.send.AddSession(sendSession)
 
-	receiveSession := newSession(m, myPrivKey, partnerPubKey, receiveParams, Receive)
+	receiveSession := newSession(m, myPrivKey, partnerPubKey, receiveParams, Receive, SessionID{})
 
 	m.receive.AddSession(receiveSession)
 
@@ -73,12 +73,12 @@ func (m *Manager) GetPartnerID() *id.ID {
 
 // creates a new receive session using the latest private key this user has sent
 // and the new public key received from the partner.
-func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams) *Session {
+func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams, trigger SessionID) *Session {
 	//find your last confirmed private key
 	myPrivKey := m.send.GetNewestRekeyableSession().GetMyPrivKey()
 
 	//create the session
-	session := newSession(m, myPrivKey, partnerPubKey, params, Receive)
+	session := newSession(m, myPrivKey, partnerPubKey, params, Receive, trigger)
 
 	//add the session to the buffer
 	m.receive.AddSession(session)
@@ -90,12 +90,12 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 // partner and a mew private key for the user
 // passing in a private key is optional. a private key will be generated if
 // none is passed
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) *Session {
+func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams, trigger SessionID) *Session {
 	//find the latest public key from the other party
 	partnerPubKey := m.receive.GetNewestRekeyableSession().partnerPubKey
 
 	//create the session
-	session := newSession(m, myPrivKey, partnerPubKey, params, Send)
+	session := newSession(m, myPrivKey, partnerPubKey, params, Send, trigger)
 
 	//add the session to the send session buffer and return
 	m.send.AddSession(session)

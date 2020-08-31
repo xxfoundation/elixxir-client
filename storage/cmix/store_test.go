@@ -81,6 +81,30 @@ func TestLoadStore(t *testing.T) {
 	}
 }
 
+// Happy path
+func TestStore_GetRoundKeys(t *testing.T) {
+	// Set up the circuit
+	numIds := 10
+	nodeIds := make([]*id.ID, numIds)
+	for i := 0; i < numIds; i++ {
+		nodeIds[i] = id.NewIdFromUInt(uint64(i)+1, id.Node, t)
+		key := testStore.grp.NewInt(int64(i) + 1)
+		testStore.Add(nodeIds[i], key)
+
+		// This is wack but it cleans up after the test
+		defer testStore.Remove(nodeIds[i])
+	}
+
+	circuit := connect.NewCircuit(nodeIds)
+	result, missing := testStore.GetRoundKeys(circuit)
+	if len(missing) != 0 {
+		t.Errorf("Expected to have no missing keys, got %d", len(missing))
+	}
+	if result == nil || len(result.keys) != numIds {
+		t.Errorf("Expected to have %d node keys", numIds)
+	}
+}
+
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
 	// Set up the circuit
@@ -93,6 +117,9 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 		// Only add every other node so there are missing nodes
 		if i%2 == 0 {
 			testStore.Add(nodeIds[i], key)
+
+			// This is wack but it cleans up after the test
+			defer testStore.Remove(nodeIds[i])
 		}
 	}
 

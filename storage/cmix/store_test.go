@@ -18,6 +18,8 @@ import (
 	"testing"
 )
 
+// Most of these tests use the same Store
+// So keep that in mind when designing tests
 var testStore *Store
 
 // Main testing function
@@ -43,31 +45,44 @@ func TestStore_AddRemove(t *testing.T) {
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
 
-	err := testStore.Add(nodeId, key)
-	if err != nil {
-		t.Errorf("Unable to add node key: %+v", err)
-		return
-	}
+	testStore.Add(nodeId, key)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
 		t.Errorf("Failed to add node key")
 		return
 	}
 
-	err = testStore.Remove(nodeId)
-	if err != nil {
-		t.Errorf("Unable to remove node key: %+v", err)
-		return
-	}
+	testStore.Remove(nodeId)
 	if _, exists := testStore.nodes[*nodeId]; exists {
 		t.Errorf("Failed to remove node key")
 		return
 	}
 }
 
+// Happy path
+func TestLoadStore(t *testing.T) {
+	// Add a test node key
+	nodeId := id.NewIdFromString("test", id.Node, t)
+	key := testStore.grp.NewInt(5)
+	testStore.Add(nodeId, key)
+
+	// Load the store and check its attributes
+	store, err := LoadStore(testStore.kv)
+	if err != nil {
+		t.Errorf("Unable to load store: %+v", err)
+	}
+	if store.GetDHPublicKey().Cmp(testStore.GetDHPublicKey()) != 0 {
+		t.Errorf("LoadStore failed to load public key")
+	}
+	if store.GetDHPrivateKey().Cmp(testStore.GetDHPrivateKey()) != 0 {
+		t.Errorf("LoadStore failed to load public key")
+	}
+	if len(store.nodes) != len(testStore.nodes) {
+		t.Errorf("LoadStore failed to load node keys")
+	}
+}
+
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
-	var err error
-
 	// Set up the circuit
 	numIds := 10
 	nodeIds := make([]*id.ID, numIds)
@@ -77,10 +92,7 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 
 		// Only add every other node so there are missing nodes
 		if i%2 == 0 {
-			err = testStore.Add(nodeIds[i], key)
-			if err != nil {
-				t.Errorf("Unable to add node key: %+v", err)
-			}
+			testStore.Add(nodeIds[i], key)
 		}
 	}
 
@@ -112,10 +124,10 @@ func TestNewStore(t *testing.T) {
 	if store.nodes == nil {
 		t.Errorf("Failed to initialize nodes")
 	}
-	if store.dhPrivateKey == nil || store.dhPrivateKey.Cmp(priv) != 0 {
+	if store.GetDHPrivateKey() == nil || store.GetDHPrivateKey().Cmp(priv) != 0 {
 		t.Errorf("Failed to set store.dhPrivateKey correctly")
 	}
-	if store.dhPublicKey == nil || store.dhPublicKey.Cmp(pub) != 0 {
+	if store.GetDHPublicKey() == nil || store.GetDHPublicKey().Cmp(pub) != 0 {
 		t.Errorf("Failed to set store.dhPublicKey correctly")
 	}
 	if store.grp == nil {

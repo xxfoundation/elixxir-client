@@ -196,6 +196,11 @@ func (s *Session) GetPartnerPubKey() *cyclic.Int {
 	return s.partnerPubKey.DeepCopy()
 }
 
+func (s *Session) GetTrigger() SessionID {
+	// no lock is needed because this cannot be edited
+	return s.trigger
+}
+
 //Blake2B hash of base key used for storage
 func (s *Session) GetID() SessionID {
 	// no lock is needed because this cannot be edited
@@ -256,6 +261,8 @@ func (s *Session) unmarshal(b []byte) error {
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 	s.negotiationStatus = Negotiation(sd.Confirmation)
 	s.ttl = sd.TTL
+	copy(s.trigger[:], sd.Trigger)
+
 
 	statesKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
 	s.keyState, err = loadStateVector(s.manager.ctx, statesKey)

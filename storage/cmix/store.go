@@ -102,7 +102,6 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 
 	nodekey := newKey(s.kv, k, nid)
 
-
 	s.nodes[*nid] = nodekey
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save nodeKey list for %s: %s", nid, err)

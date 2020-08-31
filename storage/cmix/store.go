@@ -17,6 +17,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 const currentStoreVersion = 0
@@ -95,37 +96,38 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 
 // adds the key for a round to the cmix storage object. Saves the updated list
 // of nodes and the key to disk
-func (s *Store) Add(nid *id.ID, k *cyclic.Int) error {
+func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	nodekey, err := NewKey(s.kv, k, nid)
 	if err != nil {
-		return err
+		jww.FATAL.Panicf("Failed to make nodeKey for %s: %s", nid, err)
 	}
 
 	s.nodes[*nid] = nodekey
-	return s.save()
+	if err = s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to save nodeKey list for %s: %s", nid, err)
+	}
 }
 
 // Remove a Node key from the nodes map and save
-func (s *Store) Remove(nid *id.ID) error {
+func (s *Store) Remove(nid *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	nodekey, ok := s.nodes[*nid]
 	if !ok {
-		return errors.New("Cannot remove, no key with given ID found")
+		return
 	}
 
-	err := nodekey.delete(s.kv, nid)
-	if err != nil {
-		return err
-	}
+	nodekey.delete(s.kv, nid)
 
 	delete(s.nodes, *nid)
 
-	return s.save()
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed    make nodeKey for %s: %s", nid, err)
+	}
 }
 
 //Returns a RoundKeys for the topology and a list of nodes it did not have a key for

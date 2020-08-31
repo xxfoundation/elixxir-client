@@ -127,19 +127,20 @@ func (s *Store) save() error {
 }
 
 func (s *Store) AddPartner(partnerID *id.ID, myPrivKey *cyclic.Int,
-	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) error {
+	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	m, err := newManager(&s.context, partnerID, myPrivKey, partnerPubKey, sendParams, receiveParams)
-
-	if err != nil {
-		return err
-	}
+	m := newManager(&s.context, partnerID, myPrivKey, partnerPubKey, sendParams, receiveParams)
 
 	s.managers[*partnerID] = m
 
-	return s.save()
+	if err := s.save(); err != nil {
+		jww.FATAL.Printf("Failed to add Parter %s: Save of store "+
+			"failed: %s", partnerID, err)
+	}
+
+	return
 }
 
 func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
@@ -272,11 +273,7 @@ func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, error) {
 
 	delete(f.toKey, fingerprint)
 
-	err := key.denoteUse()
-
-	if err != nil {
-		return nil, err
-	}
+	key.denoteUse()
 
 	key.fp = &fingerprint
 

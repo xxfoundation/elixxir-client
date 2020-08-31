@@ -35,10 +35,7 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	}
 
 	//run the generate command
-	err := s.generate()
-	if err != nil {
-		t.Fatal(err)
-	}
+	s.generate()
 
 	//check that it generated a private key
 	if s.myPrivKey == nil {
@@ -100,10 +97,7 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	}
 
 	//run the generate command
-	err := s.generate()
-	if err != nil {
-		t.Fatal(err)
-	}
+	s.generate()
 
 	//check that it generated a private key
 	if s.myPrivKey.Cmp(myPrivKey) != 0 {
@@ -141,11 +135,9 @@ func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession(t)
 	// Make a new session with the variables we got from makeTestSession
-	sessionB, err := newSession(sessionA.manager, sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.params, sessionA.t)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = cmpSerializedFields(sessionA, sessionB)
+	sessionB := newSession(sessionA.manager, sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.params, sessionA.t)
+
+	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {
 		t.Error(err)
 	}
@@ -239,7 +231,7 @@ func TestSession_Serialization(t *testing.T) {
 // compare fields also represented in SessionDisk
 // fields not represented in SessionDisk shouldn't be expected to be populated by Unmarshal
 func cmpSerializedFields(a *Session, b *Session) error {
-	if a.confirmed != b.confirmed {
+	if a.negotiationStatus != b.negotiationStatus {
 		return errors.New("confirmed differed")
 	}
 	if a.t != b.t {
@@ -406,11 +398,11 @@ func TestSession_GetMyPrivKey(t *testing.T) {
 // Shows that IsConfirmed returns whether the session is confirmed
 func TestSession_IsConfirmed(t *testing.T) {
 	s, _ := makeTestSession(t)
-	s.confirmed = false
+	s.negotiationStatus = Unconfirmed
 	if s.IsConfirmed() {
 		t.Error("s was confirmed when it shouldn't have been")
 	}
-	s.confirmed = true
+	s.negotiationStatus = Confirmed
 	if !s.IsConfirmed() {
 		t.Error("s wasn't confirmed when it should have been")
 	}
@@ -500,9 +492,9 @@ func makeTestSession(t *testing.T) (*Session, *context) {
 		manager: &Manager{
 			ctx: ctx,
 		},
-		t:         Receive,
-		confirmed: true,
-		ttl:       5,
+		t:                 Receive,
+		negotiationStatus: Confirmed,
+		ttl:               5,
 	}
 	var err error
 	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 1024)

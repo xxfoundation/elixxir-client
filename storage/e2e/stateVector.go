@@ -2,10 +2,12 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"sync"
 	"time"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 const currentStateVectorVersion = 0
@@ -85,7 +87,7 @@ func (sv *stateVector) save() error {
 	return sv.ctx.kv.Set(sv.key, &obj)
 }
 
-func (sv *stateVector) Use(keynum uint32) error {
+func (sv *stateVector) Use(keynum uint32) {
 	sv.mux.Lock()
 	defer sv.mux.Unlock()
 
@@ -100,7 +102,9 @@ func (sv *stateVector) Use(keynum uint32) error {
 
 	sv.numAvailable--
 
-	return sv.save()
+	if err := sv.save(); err != nil {
+		jww.FATAL.Printf("Failed to save %s on Use(): %s", sv, err)
+	}
 }
 
 func (sv *stateVector) GetNumAvailable() uint32 {
@@ -136,7 +140,11 @@ func (sv *stateVector) Next() (uint32, error) {
 	sv.nextAvailable()
 	sv.numAvailable--
 
-	return next, sv.save()
+	if err := sv.save(); err != nil {
+		jww.FATAL.Printf("Failed to save %s on Next(): %s", sv, err)
+	}
+
+	return next, nil
 
 }
 
@@ -175,6 +183,12 @@ func (sv *stateVector) GetUsedKeyNums() []uint32 {
 
 	return keyNums
 }
+
+//Adheres to the stringer interface
+func (sv *stateVector) String() string {
+	return fmt.Sprintf("stateVector: %s", sv.key)
+}
+
 
 // finds the next used state and sets that as firstAvailable. This does not
 // execute a store and a store must be executed after.

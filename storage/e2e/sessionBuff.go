@@ -121,16 +121,21 @@ func (sb *sessionBuff) unmarshal(b []byte) error {
 	return nil
 }
 
-func (sb *sessionBuff) AddSession(s *Session) error {
+func (sb *sessionBuff) AddSession(s *Session) {
 	sb.mux.Lock()
 	defer sb.mux.Unlock()
 
 	sb.addSession(s)
-	return sb.save()
+	if err := sb.save(); err != nil {
+		key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
+		jww.FATAL.Printf("Failed to save Session Buffer %s after "+
+			"adding session %s: %s", key, s, err)
+	}
+
+	return
 }
 
 func (sb *sessionBuff) addSession(s *Session) {
-
 	sb.sessions = append([]*Session{s}, sb.sessions...)
 	sb.sessionByID[s.GetID()] = s
 	return
@@ -147,9 +152,9 @@ func (sb *sessionBuff) GetNewest() *Session {
 
 // returns the session which is most likely to be successful for sending
 func (sb *sessionBuff) GetSessionForSending() *Session {
-	sb.mux.RLock()
-	defer sb.mux.RUnlock()
-	if len(sb.sessions) == 0 {
+	//dont need to take the lock due to the use of a copy of the buffer
+	sessions := sb.getInternalBufferShallowCopy()
+	if len(sessions) == 0 {
 		return nil
 	}
 
@@ -157,9 +162,9 @@ func (sb *sessionBuff) GetSessionForSending() *Session {
 	var unconfirmedActive []*Session
 	var unconfirmedRekey []*Session
 
-	for _, s := range sb.sessions {
+	for _, s := range sessions {
 		status := s.Status()
-		confirmed := s.confirmed
+		confirmed := s.IsConfirmed()
 		if status == Active && confirmed {
 			//always return the first confirmed active, happy path
 			return s
@@ -184,21 +189,38 @@ func (sb *sessionBuff) GetSessionForSending() *Session {
 	return nil
 }
 
-func (sb *sessionBuff) GetNewestConfirmed() *Session {
-	sb.mux.RLock()
-	defer sb.mux.RUnlock()
-	if len(sb.sessions) == 0 {
+// returns a list of session that need rekeys. Nil instances mean a new rekey
+// from scratch
+func (sb *sessionBuff) TriggerNegotiation() []*Session {
+	//dont need to take the lock due to the use of a copy of the buffer
+	sessions := sb.getInternalBufferShallowCopy()
+	var instructions []*Session
+	for _, ses := range sessions {
+		if ses.triggerNegotiation() {
+			instructions = append(instructions, ses)
+		}
+	}
+	return instructions
+}
+
+// returns the newest session which can be used to start a key negotiation
+func (sb *sessionBuff) GetNewestRekeyableSession() *Session {
+	//dont need to take the lock due to the use of a copy of the buffer
+	sessions := sb.getInternalBufferShallowCopy()
+
+	if len(sessions) == 0 {
 		return nil
 	}
 
 	for _, s := range sb.sessions {
-		status := s.Status()
-		confirmed := s.confirmed
-		if status != RekeyEmpty && confirmed {
+		// This looks like it might not be thread safe, I think it is because
+		// the failure mode is it skips to a lower key to rekey with, which is
+		// always valid. It isn't clear it can fail though because we are
+		// accessing the data in the same order it would be written (i think)
+		if s.Status() != RekeyEmpty && s.IsConfirmed() {
 			return s
 		}
 	}
-
 	return nil
 }
 
@@ -219,20 +241,28 @@ func (sb *sessionBuff) Confirm(id SessionID) error {
 		return errors.Errorf("Could not confirm session %s, does not exist", s.GetID())
 	}
 
-	err := s.confirm()
-	if err != nil {
-		jww.FATAL.Panicf("Failed to confirm session "+
-			"%s for %s: %s", s.GetID(), sb.manager.partner, err.Error())
-	}
+	s.SetNegotiationStatus(Confirmed)
 
-	return sb.clean()
+	sb.clean()
+
+	return nil
 }
 
-func (sb *sessionBuff) clean() error {
+// adding or removing a session is always done via replacing the entire
+// slice, this allow us to copy the slice under the read lock and do the
+// rest of the work while not taking the lock
+func (sb *sessionBuff) getInternalBufferShallowCopy() []*Session {
+	sb.mux.RLock()
+	defer sb.mux.RUnlock()
+	return sb.sessions
+}
+
+func (sb *sessionBuff) clean() {
 
 	numConfirmed := uint(0)
 
 	var newSessions []*Session
+	editsMade := false
 
 	for _, s := range sb.sessions {
 		if s.IsConfirmed() {
@@ -241,16 +271,23 @@ func (sb *sessionBuff) clean() error {
 			if numConfirmed > maxUnconfirmed {
 				delete(sb.sessionByID, s.GetID())
 				s.Delete()
-
-				break
+				editsMade = true
+				continue
 			}
 		}
 		newSessions = append(newSessions, s)
 	}
 
-	sb.sessions = newSessions
+	//only do the update and save if changes occured
+	if editsMade {
+		sb.sessions = newSessions
 
-	return sb.save()
+		if err := sb.save(); err != nil {
+			key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
+			jww.FATAL.Printf("Failed to save Session Buffer %s after "+
+				"clean: %s", key, err)
+		}
+	}
 }
 
 func makeSessionBuffKey(keyPrefix string, partnerID *id.ID) string {

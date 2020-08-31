@@ -95,8 +95,8 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 }
 
 // Sets the key as used
-func (k *Key) denoteUse() error {
-	return k.session.useKey(k.keyNum)
+func (k *Key) denoteUse() {
+	k.session.useKey(k.keyNum)
 }
 
 // Generates the key and returns it

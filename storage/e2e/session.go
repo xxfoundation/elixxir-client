@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -10,6 +11,7 @@ import (
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
 )
@@ -34,7 +36,7 @@ type Session struct {
 	partnerPubKey *cyclic.Int
 
 	//denotes if the other party has confirmed this key
-	confirmStatus Confirmation
+	negotiationStatus Negotiation
 
 	// Value of the counter at which a rekey is triggered
 	ttl uint32
@@ -72,27 +74,32 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 //Generator which creates all keys and structures
-func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.Int, params SessionParams, t SessionType) (*Session, error) {
+func newSession(manager *Manager, myPrivKey *cyclic.Int, partnerPubKey *cyclic.Int, params SessionParams, t SessionType) *Session {
+
+	confirmation := Unconfirmed
+	if t == Receive {
+		confirmation = Confirmed
+	}
+
+
 	session := &Session{
-		params:        params,
-		manager:       manager,
-		t:             t,
-		myPrivKey:     myPrivKey,
-		partnerPubKey: partnerPubKey,
-		confirmed:     t == Receive,
+		params:            params,
+		manager:           manager,
+		t:                 t,
+		myPrivKey:         myPrivKey,
+		partnerPubKey:     partnerPubKey,
+		negotiationStatus: confirmation,
 	}
 
-	err := session.generate()
+	session.generate()
+
+	err := session.save()
 	if err != nil {
-		return nil, err
+		jww.FATAL.Printf("Failed to make new session for Partner %s: %s",
+			manager.partner, err)
 	}
 
-	err = session.save()
-	if err != nil {
-		return nil, err
-	}
-
-	return session, nil
+	return session
 }
 
 // Load session and state vector from kv and populate runtime fields
@@ -189,6 +196,11 @@ func (s *Session) GetID() SessionID {
 	return sid
 }
 
+// returns the ID of the partner for this session
+func (s *Session) GetPartner() *id.ID {
+	return s.manager.partner
+}
+
 //ekv functions
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
@@ -198,7 +210,17 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
-	sd.Confirmed = s.confirmed
+
+	// assume in progress confirmations and session creations have failed on
+	// reset, therefore do not store their pending progress
+	if s.negotiationStatus == Sending {
+		sd.Confirmation = uint8(Unconfirmed)
+	} else if s.negotiationStatus == NewSessionTriggered {
+		sd.Confirmation = uint8(Confirmed)
+	} else {
+		sd.Confirmation = uint8(s.negotiationStatus)
+	}
+
 	sd.TTL = s.ttl
 
 	return json.Marshal(&sd)
@@ -221,7 +243,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
-	s.confirmed = sd.Confirmed
+	s.negotiationStatus = Negotiation(sd.Confirmation)
 	s.ttl = sd.TTL
 
 	statesKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
@@ -262,50 +284,160 @@ func (s *Session) PopReKey() (*Key, error) {
 // returns the state of the session, which denotes if the Session is active,
 // functional but in need of a rekey, empty of send key, or empty of rekeys
 func (s *Session) Status() Status {
-	if s.keyState.GetNumAvailable() == 0 {
+	// copy the num available so it stays consistent as this function does its
+	// checks
+	numAvailable := s.keyState.GetNumAvailable()
+
+	if numAvailable == 0 {
 		return RekeyEmpty
-	} else if s.keyState.GetNumAvailable() <= uint32(s.params.NumRekeys) {
+	} else if numAvailable <= uint32(s.params.NumRekeys) {
 		return Empty
-	} else if s.keyState.GetNumAvailable() <= s.keyState.GetNumKeys()-s.ttl {
+		// do not need to make a copy of getNumKeys becasue it is static and
+		// only used once
+	} else if numAvailable <= s.keyState.GetNumKeys()-s.ttl {
 		return RekeyNeeded
 	} else {
 		return Active
 	}
 }
 
-// returns the state of the session, which denotes if the Session is active,
-// functional but in need of a rekey, empty of send key, or empty of rekeys
-func (s *Session) IsReKeyNeeded() bool {
-	return s.keyState.GetNumAvailable() == s.ttl
+// Sets the negotiation status, this tracks the state of the key negotiation,
+// only certain movements are allowed
+//   Unconfirmed <--> Sending --> Sent --> Confirmed <--> NewSessionTriggered --> NewSessionCreated
+//
+// Saves the session unless the status is sending so that on reload the rekey
+// will be redone if it was in the process of sending
+
+// Moving from Unconfirmed to Sending and from Confirmed to NewSessionTriggered
+// is handled by  Session.triggerNegotiation() which is called by the
+// Manager as part of Manager.TriggerNegotiations() and will be rejected
+// from this function
+
+var legalStateChanges = [][]bool{
+	{false, false, false, false, false, false},
+	{true, false, true, true, false, false},
+	{false, false, false, true, false, false},
+	{false, false, false, false, false, false},
+	{false, false, false, true, false, true},
+	{false, false, false, false, false, false},
+}
+
+func (s *Session) SetNegotiationStatus(status Negotiation) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	//only allow the correct state changes to propagate
+	if !legalStateChanges[s.negotiationStatus][status] {
+		jww.FATAL.Panicf("Negotiation status change from %s to %s "+
+			"is not valid", s.negotiationStatus, status)
+	}
+
+	// the states of Sending and NewSessionTriggered are not saved to disk when
+	// moved from Unconfirmed or Confirmed respectively so the actions are
+	// re-triggered if there is a crash and reload. As a result, a save when
+	// reverting states is unnecessary
+	save := !((s.negotiationStatus == Sending && status == Unconfirmed) ||
+		(s.negotiationStatus == NewSessionTriggered && status == Confirmed))
+
+	//change the state
+	s.negotiationStatus = status
+
+	//save the status if appropriate
+	if save {
+		if err := s.save(); err != nil {
+			jww.FATAL.Printf("Failed to save Session %s when moving from %s to %s")
+		}
+	}
+}
+
+// This function, in a mostly thread safe manner, checks if the session needs a
+// negotiation, returns if it does while updating the session to denote the
+// negotiation was triggered
+// WARNING: This function relies on proper action by the caller for data safety.
+// When triggering the creation of a new session (the first case) it does not
+// store to disk the fact that it has triggered the session. This is because
+// every session should only trigger one other session and in the event that
+// session trigger does not resolve before a crash, by not storing it the
+// trigger will automatically happen again when reloading after the crash.
+// In order to ensure the session creation is not triggered again after the
+// reload, it is the responsibility of the caller to call
+// Session.SetConfirmationStatus(NewSessionCreated) .
+func (s *Session) triggerNegotiation() bool {
+	// Due to the fact that a read lock cannot be transitioned to a
+	// write lock, the state checks need to happen a second time because it
+	// is possible for another thread to take the read lock and update the
+	// state between this thread releasing it and regaining it again. In this
+	// case, such double locking is preferable because the majority of the time,
+	// the checked cases will turn out to be false.
+	s.mux.RLock()
+	//trigger a rekey to create a new session
+	if s.keyState.GetNumAvailable() >= s.ttl && s.negotiationStatus == Confirmed {
+		s.mux.RUnlock()
+		s.mux.Lock()
+		if s.keyState.GetNumAvailable() >= s.ttl && s.negotiationStatus == Confirmed {
+			s.negotiationStatus = NewSessionTriggered
+			// no save is make after the update because we do not want this state
+			// saved to disk. The caller will shortly execute the operation,
+			// and then move to the next state. If a crash occurs before, by not
+			// storing this state this operation will be repeated after reload
+			// The save function has been modified so if another call causes a
+			// save, "NewSessionTriggerd" will be overwritten with "Confirmed"
+			// in the saved data.
+			s.mux.Unlock()
+			return true
+		} else {
+			s.mux.Unlock()
+			return false
+		}
+		// retrigger this sessions negotiation
+	} else if s.negotiationStatus == Unconfirmed {
+		s.mux.RUnlock()
+		s.mux.Lock()
+		if s.negotiationStatus == Unconfirmed {
+			s.negotiationStatus = Sending
+			// no save is make after the update because we do not want this state
+			// saved to disk. The caller will shortly execute the operation,
+			// and then move to the next state. If a crash occurs before, by not
+			// storing this state this operation will be repeated after reload
+			// The save function has been modified so if another call causes a
+			// save, "Sending" will be overwritten with "Unconfirmed"
+			// in the saved data.
+			s.mux.Unlock()
+			return true
+		} else {
+			s.mux.Unlock()
+			return false
+		}
+	}
+	s.mux.RUnlock()
+	return true
+}
+
+// checks if the session has been confirmed
+func (s *Session) ConfirmationStatus() Negotiation {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.negotiationStatus
 }
 
 // checks if the session has been confirmed
 func (s *Session) IsConfirmed() bool {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.confirmed
+	c := s.ConfirmationStatus()
+	return c >= Confirmed
+}
+
+func (s *Session) String() string {
+	return fmt.Sprintf("{Partner: %s, ID: %s}",
+		s.manager.partner, s.GetID())
 }
 
 /*PRIVATE*/
-
-// Sets the confirm bool. this is set when the partner is certain to share the
-// session. It should be called immediately for receive keys and only on rekey
-// confirmation for send keys. Confirmation can only be made by the sessionBuffer
-// because it is used to keep track of active sessions for rekey as well
-func (s *Session) confirm() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	s.confirmed = true
-	return s.save()
-}
-
-func (s *Session) useKey(keynum uint32) error {
-	return s.keyState.Use(keynum)
+func (s *Session) useKey(keynum uint32) {
+	s.keyState.Use(keynum)
 }
 
 // generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
-func (s *Session) generate() error {
+func (s *Session) generate() {
 	grp := s.manager.ctx.grp
 
 	//generate private key if it is not present
@@ -335,7 +467,7 @@ func (s *Session) generate() error {
 	var err error
 	s.keyState, err = newStateVector(s.manager.ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), numKeys)
 	if err != nil {
-		return errors.WithMessage(err, "Failed key generation")
+		jww.FATAL.Printf("Failed key generation: %s", err)
 	}
 
 	//register keys for reception if this is a reception session
@@ -343,8 +475,6 @@ func (s *Session) generate() error {
 		//register keys
 		s.manager.ctx.fa.add(s.getUnusedKeys())
 	}
-
-	return nil
 }
 
 //returns key objects for all unused keys

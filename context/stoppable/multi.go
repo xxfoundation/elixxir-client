@@ -1,7 +1,9 @@
 package stoppable
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -65,10 +67,10 @@ func (m *Multi) Close(timeout time.Duration) error {
 
 	wg := &sync.WaitGroup{}
 
-	for _, stopable := range m.stoppables {
+	for _, stoppable := range m.stoppables {
 		wg.Add(1)
 		go func() {
-			if stopable.Close(timeout) != nil {
+			if stoppable.Close(timeout) != nil {
 				atomic.AddUint32(&numErrors, 1)
 			}
 			wg.Done()
@@ -80,8 +82,10 @@ func (m *Multi) Close(timeout time.Duration) error {
 	atomic.StoreUint32(&m.running, 0)
 
 	if numErrors > 0 {
-		return errors.Errorf("MultiStopper %s failed to close "+
+		errStr := fmt.Sprintf("MultiStopper %s failed to close "+
 			"%v/%v stoppers", m.name, numErrors, len(m.stoppables))
+		jww.ERROR.Println(errStr)
+		return errors.New(errStr)
 	}
 
 	return nil

@@ -1,6 +1,7 @@
 package cmix
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
@@ -70,9 +71,11 @@ func (k *key) save() error {
 }
 
 // deletes the key from the versioned keystore
-func (k *key) delete(kv *versioned.KV, id *id.ID) error {
+func (k *key) delete(kv *versioned.KV, id *id.ID) {
 	key := keyKey(id)
-	return kv.Delete(key)
+	if err := kv.Delete(key); err != nil {
+		jww.FATAL.Panicf("Failed to delete key %s: %s", k, err)
+	}
 }
 
 // makes a binary representation of the given key in the keystore
@@ -84,6 +87,12 @@ func (k *key) marshal() ([]byte, error) {
 func (k *key) unmarshal(b []byte) error {
 	k.k = &cyclic.Int{}
 	return k.k.GobDecode(b)
+}
+
+// Adheres to the stringer interface
+func (k *key) String() string {
+	return k.storeKey
+
 }
 
 // generates the key used in the keystore for the given key

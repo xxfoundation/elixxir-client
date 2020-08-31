@@ -124,10 +124,7 @@ func TestStateVector_Use(t *testing.T) {
 
 	for numCalls := range keyNums {
 		// These calls to Use won't set nextAvailable, because the first keyNum set
-		err := sv.Use(keyNums[numCalls])
-		if err != nil {
-			t.Fatal(err)
-		}
+		sv.Use(keyNums[numCalls])
 		if !reflect.DeepEqual(expectedVect[numCalls], sv.vect) {
 			t.Errorf("sv.vect differed from expected at index %v", numCalls)
 			fmt.Println(sv.vect)

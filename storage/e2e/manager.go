@@ -2,8 +2,10 @@ package e2e
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type Manager struct {
@@ -17,7 +19,7 @@ type Manager struct {
 
 // create the manager and its first send and receive sessions
 func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
-	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) (*Manager, error) {
+	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) *Manager {
 	m := &Manager{
 		ctx:     ctx,
 		partner: partnerID,
@@ -26,31 +28,15 @@ func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
 	m.send = NewSessionBuff(m, "send")
 	m.receive = NewSessionBuff(m, "receive")
 
-	sendSession, err := newSession(m, myPrivKey, partnerPubKey, sendParams, Send)
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to create the send session")
-	}
+	sendSession := newSession(m, myPrivKey, partnerPubKey, sendParams, Send)
 
-	err = m.send.AddSession(sendSession)
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to add the send session to buffer")
-	}
+	m.send.AddSession(sendSession)
 
-	receiveSession, err := newSession(m, myPrivKey, partnerPubKey, receiveParams, Receive)
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to create the receive session")
-	}
+	receiveSession := newSession(m, myPrivKey, partnerPubKey, receiveParams, Receive)
 
-	err = m.receive.AddSession(receiveSession)
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to add the receive session to buffer")
-	}
+	m.receive.AddSession(receiveSession)
 
-	return m, nil
+	return m
 }
 
 //loads a manager and all buffers and sessions from disk
@@ -87,57 +73,57 @@ func (m *Manager) GetPartnerID() *id.ID {
 
 // creates a new receive session using the latest private key this user has sent
 // and the new public key received from the partner.
-func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams) error {
+func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams) *Session {
 	//find your last confirmed private key
-	myPrivKey := m.send.GetNewestConfirmed().GetMyPrivKey()
+	myPrivKey := m.send.GetNewestRekeyableSession().GetMyPrivKey()
 
 	//create the session
-	session, err := newSession(m, myPrivKey, partnerPubKey, params, Receive)
-
-	if err != nil {
-		return err
-	}
+	session := newSession(m, myPrivKey, partnerPubKey, params, Receive)
 
 	//add the session to the buffer
-	err = m.receive.AddSession(session)
-	if err != nil {
-		//delete the session if it failed to add to the buffer
-		session.Delete()
-	}
+	m.receive.AddSession(session)
 
-	return err
+	return session
 }
 
 // creates a new receive session using the latest public key received from the
 // partner and a mew private key for the user
 // passing in a private key is optional. a private key will be generated if
 // none is passed
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) (*Session, error) {
+func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) *Session {
 	//find the latest public key from the other party
-	partnerPubKey := m.receive.GetNewestConfirmed().partnerPubKey
+	partnerPubKey := m.receive.GetNewestRekeyableSession().partnerPubKey
 
-	session, err := newSession(m, myPrivKey, partnerPubKey, params, Send)
-	if err != nil {
-		return nil, err
-	}
+	//create the session
+	session := newSession(m, myPrivKey, partnerPubKey, params, Send)
 
-	//add the session to the buffer
-	err = m.send.AddSession(session)
-	if err != nil {
-		//delete the session if it failed to add to the buffer
-		session.Delete()
-		return nil, err
-	}
+	//add the session to the send session buffer and return
+	m.send.AddSession(session)
 
-	return session, nil
+	return session
 }
 
-// gets the session buffer for message reception
-func (m *Manager) GetSendingSession() *Session {
-	return m.send.GetSessionForSending()
+// gets the correct session to send with depending on the type of send
+func (m *Manager) GetSendingSession(st params.SendType) *Session {
+	switch st {
+	case params.Standard:
+		return m.send.GetSessionForSending()
+	case params.KeyExchange:
+		return m.send.GetNewestRekeyableSession()
+	default:
+		jww.ERROR.Printf("Cannot get session for invalid Send Type: %s",
+			st)
+	}
+
+	return nil
 }
 
 // Confirms a send session is known about by the partner
 func (m *Manager) Confirm(sid SessionID) error {
 	return m.send.Confirm(sid)
+}
+
+// returns a list of key exchange operations if any are necessary
+func (m *Manager) TriggerNegotiations() []*Session {
+	return m.send.TriggerNegotiation()
 }

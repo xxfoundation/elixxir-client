@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -38,7 +44,6 @@ type Session struct {
 	// Shares a partner public key if a send session, shares a myPrivateKey
 	// if a receive session
 	trigger SessionID
-
 
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
@@ -89,7 +94,6 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int,
 	if t == Receive {
 		confirmation = Confirmed
 	}
-
 
 	session := &Session{
 		params:            params,
@@ -263,13 +267,11 @@ func (s *Session) unmarshal(b []byte) error {
 	s.ttl = sd.TTL
 	copy(s.trigger[:], sd.Trigger)
 
-
 	statesKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
 	s.keyState, err = loadStateVector(s.manager.ctx, statesKey)
 	if err != nil {
 		return err
 	}
-
 
 	return nil
 }

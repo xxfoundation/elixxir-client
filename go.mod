@@ -24,6 +24,7 @@ require (
 	gitlab.com/xx_network/primitives v0.0.0-20200812183720-516a65a4a9b2
 	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sys v0.0.0-20200828194041-157a740278f4 // indirect
+	google.golang.org/protobuf v1.25.0
 	gopkg.in/ini.v1 v1.52.0 // indirect
 )
 

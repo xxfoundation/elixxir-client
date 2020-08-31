@@ -1,3 +1,9 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package keyExchange
 
 import (
@@ -133,4 +139,3 @@ func trackNegotiationResult(resultsCh chan ds.EventReturn, numResults int, sessi
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
 }
-

@@ -1,13 +1,19 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"sync"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 const currentStateVectorVersion = 0
@@ -188,7 +194,6 @@ func (sv *stateVector) GetUsedKeyNums() []uint32 {
 func (sv *stateVector) String() string {
 	return fmt.Sprintf("stateVector: %s", sv.key)
 }
-
 
 // finds the next used state and sets that as firstAvailable. This does not
 // execute a store and a store must be executed after.

@@ -9,6 +9,7 @@ package cmix
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -17,7 +18,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 const currentStoreVersion = 0

@@ -13,9 +13,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
@@ -493,7 +493,7 @@ func TestListen(t *testing.T) {
 	}
 
 	listener := MockListener(false)
-	client.Listen(id.ZeroUser[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	client.Listen(id.ZeroUser[:], int32(keyExchange.Type_NO_TYPE), &listener)
 	client.client.GetSwitchboard().Speak(&parse.Message{
 		TypedBody: parse.TypedBody{
 			MessageType: 0,
@@ -542,7 +542,7 @@ func TestStopListening(t *testing.T) {
 	}
 
 	listener := MockListener(false)
-	handle, err := client.Listen(id.ZeroUser[:], int32(cmixproto.Type_NO_TYPE), &listener)
+	handle, err := client.Listen(id.ZeroUser[:], int32(keyExchange.Type_NO_TYPE), &listener)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -582,7 +582,7 @@ func TestSetLogOutput(t *testing.T) {
 func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
-	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
+	ms.MessageType = int32(keyExchange.Type_NO_TYPE)
 	ms.Receiver = &id.ZeroUser
 	ms.Sender = &id.ZeroUser
 

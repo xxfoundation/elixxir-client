@@ -2,6 +2,7 @@ package user
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"time"
 )
@@ -29,13 +30,13 @@ func (u *User) loadRegistrationValidationSignature() {
 
 // Sets the Registration Validation Signature if it is not set and stores it in
 // the ekv
-func (u *User) SetRegistrationValidationSignature(b []byte) error {
+func (u *User) SetRegistrationValidationSignature(b []byte) {
 	u.rvsMux.Lock()
 	defer u.rvsMux.Unlock()
 
 	//check if the signature already exists
 	if u.regValidationSig != nil {
-		return errors.New("cannot overwrite existing Registration Validation Signature")
+		jww.FATAL.Panicf("cannot overwrite existing Registration Validation Signature")
 	}
 
 	obj := &versioned.Object{
@@ -46,11 +47,9 @@ func (u *User) SetRegistrationValidationSignature(b []byte) error {
 
 	err := u.kv.Set(regValidationSigKey, obj)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to store the "+
-			"Registration Validation Signature")
+		jww.FATAL.Panicf("Failed to store the Registration Validation "+
+			"Signature: %s", err)
 	}
 
 	u.regValidationSig = b
-
-	return nil
 }

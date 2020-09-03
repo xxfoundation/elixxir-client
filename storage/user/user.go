@@ -24,11 +24,7 @@ type User struct {
 func NewUser(kv *versioned.KV, uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
 	isPrecanned bool) (*User, error) {
 
-	ci, err := newCryptographicIdentity(uid, salt, rsaKey, isPrecanned, kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create user "+
-			"due to failure to create cryptographic identity")
-	}
+	ci := newCryptographicIdentity(uid, salt, rsaKey, isPrecanned, kv)
 
 	return &User{ci: ci, kv: kv}, nil
 }

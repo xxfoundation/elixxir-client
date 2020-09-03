@@ -13,8 +13,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/hash"
@@ -77,7 +77,7 @@ func Register(valueType, value string, publicKey []byte, regStatus func(int), ti
 
 	//send the user information to udb
 	msgBody := parse.Pack(&parse.TypedBody{
-		MessageType: int32(cmixproto.Type_UDB_REGISTER),
+		MessageType: int32(keyExchange.Type_UDB_REGISTER),
 		Body:        []byte(fmt.Sprintf("%s %s %s", valueType, value, keyFP)),
 	})
 
@@ -131,7 +131,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 	searchStatus(globals.UDB_SEARCH_LOOK)
 
 	msgBody := parse.Pack(&parse.TypedBody{
-		MessageType: int32(cmixproto.Type_UDB_SEARCH),
+		MessageType: int32(keyExchange.Type_UDB_SEARCH),
 		Body:        []byte(fmt.Sprintf("%s %s", valueType, value)),
 	})
 	err = sendCommand(&id.UDB, msgBody)
@@ -170,7 +170,7 @@ func Search(valueType, value string, searchStatus func(int), timeout time.Durati
 
 	// Get the full key and decode it
 	msgBody = parse.Pack(&parse.TypedBody{
-		MessageType: int32(cmixproto.Type_UDB_GET_KEY),
+		MessageType: int32(keyExchange.Type_UDB_GET_KEY),
 		Body:        []byte(keyFP),
 	})
 	err = sendCommand(&id.UDB, msgBody)
@@ -270,7 +270,7 @@ func pushKey(keyFP string, publicKey []byte) error {
 	pushKeyMsg := fmt.Sprintf("%s %s", keyFP, publicKeyString)
 
 	return sendCommand(&id.UDB, parse.Pack(&parse.TypedBody{
-		MessageType: int32(cmixproto.Type_UDB_PUSH_KEY),
+		MessageType: int32(keyExchange.Type_UDB_PUSH_KEY),
 		Body:        []byte(pushKeyMsg),
 	}))
 }

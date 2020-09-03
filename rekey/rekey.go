@@ -3,9 +3,9 @@ package rekey
 import (
 	"bytes"
 	"fmt"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
@@ -112,7 +112,7 @@ func InitRekey(s user.Session, s2 storage.Session, m io.Communications,
 	}
 
 	l.Register(userData.ThisUser.User,
-		int32(cmixproto.Type_REKEY_TRIGGER),
+		int32(keyExchange.Type_REKEY_TRIGGER),
 		&rekeyTriggerList)
 	// TODO(nen) Wouldn't it be possible to register these listeners based
 	//  solely on the inner type? maybe the switchboard can rebroadcast
@@ -120,10 +120,10 @@ func InitRekey(s user.Session, s2 storage.Session, m io.Communications,
 	//  possible
 	// in short, switchboard should be the package that includes outer
 	l.Register(&id.ZeroUser,
-		int32(cmixproto.Type_NO_TYPE),
+		int32(keyExchange.Type_NO_TYPE),
 		&rekeyList)
 	l.Register(&id.ZeroUser,
-		int32(cmixproto.Type_REKEY_CONFIRM),
+		int32(keyExchange.Type_REKEY_CONFIRM),
 		&rekeyConfirmList)
 }
 
@@ -280,7 +280,7 @@ func rekeyProcess(rt rekeyType, partner *id.ID, data []byte) error {
 		h.Write(ctx.BaseKey.Bytes())
 		baseKeyHash := h.Sum(nil)
 		msg := parse.Pack(&parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
+			MessageType: int32(keyExchange.Type_REKEY_CONFIRM),
 			Body:        baseKeyHash,
 		})
 		return comms.SendMessage(session, topology, partner, parse.None, msg, transmissionHost)

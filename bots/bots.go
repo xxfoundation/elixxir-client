@@ -4,6 +4,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
@@ -81,13 +82,13 @@ func InitBots(s user.Session, s2 storage.Session, m io.Communications,
 
 	l := m.GetSwitchboard()
 
-	l.Register(&id.UDB, int32(cmixproto.Type_UDB_PUSH_KEY_RESPONSE),
+	l.Register(&id.UDB, int32(keyExchange.Type_UDB_PUSH_KEY_RESPONSE),
 		&pushKeyResponseListener)
-	l.Register(&id.UDB, int32(cmixproto.Type_UDB_GET_KEY_RESPONSE),
+	l.Register(&id.UDB, int32(keyExchange.Type_UDB_GET_KEY_RESPONSE),
 		&getKeyResponseListener)
-	l.Register(&id.UDB, int32(cmixproto.Type_UDB_REGISTER_RESPONSE),
+	l.Register(&id.UDB, int32(keyExchange.Type_UDB_REGISTER_RESPONSE),
 		&registerResponseListener)
-	l.Register(&id.UDB, int32(cmixproto.Type_UDB_SEARCH_RESPONSE),
+	l.Register(&id.UDB, int32(keyExchange.Type_UDB_SEARCH_RESPONSE),
 		&searchResponseListener)
 	l.Register(&id.ZeroUser,
 		int32(cmixproto.Type_NICKNAME_REQUEST), &nicknameRequestListener)

@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"os"
 	"time"
 )
 
@@ -55,18 +54,32 @@ func (rs RegistrationStatus) marshalBinary() []byte {
 	return b
 }
 
-// loads the registration status from disk. If the status cannot be found, it
-// defaults to Not Started
-func (s *Session) loadOrCreateRegStatus() error {
+// creates a new registration status and stores it
+func (s *Session) newRegStatus() error {
+	s.regStatus = NotStarted
+
+	now := time.Now()
+
+	obj := versioned.Object{
+		Version:   currentRegistrationStatusVersion,
+		Timestamp: now,
+		Data:      s.regStatus.marshalBinary(),
+	}
+
+	err := s.Set(registrationStatusKey, &obj)
+	if err != nil {
+		return errors.WithMessagef(err, "Failed to store new "+
+			"registration status")
+	}
+
+	return nil
+}
+
+// loads registration status from disk.
+func (s *Session) loadRegStatus() error {
 	obj, err := s.Get(registrationStatusKey)
 	if err != nil {
-		if os.IsNotExist(err) {
-			// set at not started but do not save until it is updated
-			s.regStatus = NotStarted
-			return nil
-		} else {
-			return errors.WithMessagef(err, "Failed to load registration status")
-		}
+		return errors.WithMessage(err, "Failed to load registration status")
 	}
 	s.regStatus = regStatusUnmarshalBinary(obj.Data)
 	return nil

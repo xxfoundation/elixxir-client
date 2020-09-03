@@ -43,21 +43,13 @@ func TestStore_AddRemove(t *testing.T) {
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
 
-	err := testStore.Add(nodeId, key)
-	if err != nil {
-		t.Errorf("Unable to add node key: %+v", err)
-		return
-	}
+	testStore.Add(nodeId, key)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
 		t.Errorf("Failed to add node key")
 		return
 	}
 
-	err = testStore.Remove(nodeId)
-	if err != nil {
-		t.Errorf("Unable to remove node key: %+v", err)
-		return
-	}
+	testStore.Remove(nodeId)
 	if _, exists := testStore.nodes[*nodeId]; exists {
 		t.Errorf("Failed to remove node key")
 		return
@@ -66,8 +58,6 @@ func TestStore_AddRemove(t *testing.T) {
 
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
-	var err error
-
 	// Set up the circuit
 	numIds := 10
 	nodeIds := make([]*id.ID, numIds)
@@ -77,10 +67,7 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 
 		// Only add every other node so there are missing nodes
 		if i%2 == 0 {
-			err = testStore.Add(nodeIds[i], key)
-			if err != nil {
-				t.Errorf("Unable to add node key: %+v", err)
-			}
+			testStore.Add(nodeIds[i], key)
 		}
 	}
 

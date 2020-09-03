@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
@@ -170,7 +170,7 @@ func TestRekeyTrigger(t *testing.T) {
 	msg := &parse.Message{
 		Sender: userData.ThisUser.User,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
+			MessageType: int32(keyExchange.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
 		},
 		InferredType: parse.None,
@@ -203,7 +203,7 @@ func TestRekeyTrigger(t *testing.T) {
 	msg = &parse.Message{
 		Sender: userData.ThisUser.User,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
+			MessageType: int32(keyExchange.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
 		},
 		InferredType: parse.None,
@@ -229,7 +229,7 @@ func TestRekeyConfirm(t *testing.T) {
 	msg := &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
+			MessageType: int32(keyExchange.Type_REKEY_CONFIRM),
 			Body:        baseKey.Bytes(),
 		},
 		InferredType: parse.None,
@@ -248,7 +248,7 @@ func TestRekeyConfirm(t *testing.T) {
 	msg = &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
+			MessageType: int32(keyExchange.Type_REKEY_CONFIRM),
 			Body:        h.Sum(nil),
 		},
 		InferredType: parse.None,
@@ -274,7 +274,7 @@ func TestRekeyConfirm(t *testing.T) {
 	msg = &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_CONFIRM),
+			MessageType: int32(keyExchange.Type_REKEY_CONFIRM),
 			Body:        h.Sum(nil),
 		},
 		InferredType: parse.None,
@@ -303,7 +303,7 @@ func TestRekey(t *testing.T) {
 	msg := &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_NO_TYPE),
+			MessageType: int32(keyExchange.Type_NO_TYPE),
 			Body:        pubKey.Bytes(),
 		},
 		InferredType: parse.Rekey,
@@ -364,7 +364,7 @@ func TestRekey_Errors(t *testing.T) {
 	msg := &parse.Message{
 		Sender: userData.ThisUser.User,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
+			MessageType: int32(keyExchange.Type_REKEY_TRIGGER),
 			Body:        partnerPubKey.Bytes(),
 		},
 		InferredType: parse.None,
@@ -381,7 +381,7 @@ func TestRekey_Errors(t *testing.T) {
 	msg = &parse.Message{
 		Sender: partnerID,
 		TypedBody: parse.TypedBody{
-			MessageType: int32(cmixproto.Type_NO_TYPE),
+			MessageType: int32(keyExchange.Type_NO_TYPE),
 			Body:        []byte{},
 		},
 		InferredType: parse.Rekey,

@@ -9,9 +9,9 @@ package io
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
@@ -264,7 +264,7 @@ func handleE2ESending(session user.Session, switchb *switchboard.Switchboard,
 		rekeyMsg := &parse.Message{
 			Sender: userData.ThisUser.User,
 			TypedBody: parse.TypedBody{
-				MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
+				MessageType: int32(keyExchange.Type_REKEY_TRIGGER),
 				Body:        []byte{},
 			},
 			InferredType: parse.None,

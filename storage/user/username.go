@@ -2,6 +2,7 @@ package user
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"time"
 )
@@ -33,7 +34,7 @@ func (u *User) SetUsername(username string) error {
 
 	err := u.kv.Set(usernameKey, obj)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to store the username")
+		jww.FATAL.Panicf("Failed to store the username: %s", err)
 	}
 
 	u.username = username

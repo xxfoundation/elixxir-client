@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/storage/cmix"
+	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -31,15 +32,14 @@ type Session struct {
 	regStatus RegistrationStatus
 
 	//sub-stores
-	e2e  *e2e.Store
-	cmix *cmix.Store
-	user *user.User
-
-	loaded bool
+	e2e           *e2e.Store
+	cmix          *cmix.Store
+	user          *user.User
+	conversations *conversation.Store
 }
 
 // Initialize a new Session object
-func Init(baseDir, password string) (*Session, error) {
+func initStore(baseDir, password string) (*Session, error) {
 	fs, err := ekv.NewFilestore(baseDir, password)
 	var s *Session
 	if err != nil {
@@ -49,82 +49,77 @@ func Init(baseDir, password string) (*Session, error) {
 
 	s = &Session{
 		kv:     versioned.NewKV(fs),
-		loaded: false,
-	}
-
-	err = s.loadOrCreateRegStatus()
-	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to load or create registration status")
 	}
 
 	return s, nil
 }
 
 // Creates new UserData in the session
-func (s *Session) Create(uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
+func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
 	isPrecanned bool, cmixDHPrivKey, e2eDHPrivKey *cyclic.Int, cmixGrp,
-	e2eGrp *cyclic.Group) error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	if s.loaded {
-		return errors.New("Cannot create a session which already has one loaded")
+	e2eGrp *cyclic.Group) (*Session, error) {
+
+	s, err := initStore(baseDir, password)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	var err error
+	err = s.newRegStatus()
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Create new session")
+	}
 
 	s.user, err = user.NewUser(s.kv, uid, salt, rsaKey, isPrecanned)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to create Session due "+
-			"to failed user creation")
+		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
 	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, cmixDHPrivKey)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to create Session due "+
-			"to failed cmix keystore creation")
+		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
 	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to create Session due "+
-			"to failed e2e keystore creation")
+		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.loaded = true
-	return nil
+	s.conversations = conversation.NewStore(s.kv)
+
+	return s, nil
 }
 
 // Loads existing user data into the session
-func (s *Session) Load() error {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	if s.loaded {
-		return errors.New("Cannot load a session which already has one loaded")
+func Load(baseDir, password string) (*Session, error) {
+	s, err := initStore(baseDir, password)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	var err error
+	err = s.loadRegStatus()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load Session")
+	}
 
 	s.user, err = user.LoadUser(s.kv)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load Session due "+
-			"to failure to load user")
+		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
 	s.cmix, err = cmix.LoadStore(s.kv)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load Session due "+
-			"to failure to load cmix keystore")
+		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
 	s.e2e, err = e2e.LoadStore(s.kv)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to load Session due "+
-			"to failure to load e2e keystore")
+		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.loaded = true
-	return nil
+	s.conversations = conversation.NewStore(s.kv)
+
+	return s, nil
 }
 
 func (s *Session) User() *user.User {
@@ -143,6 +138,12 @@ func (s *Session) E2e() *e2e.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.e2e
+}
+
+func (s *Session) Conversations() *conversation.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.conversations
 }
 
 // Get an object from the session

@@ -39,7 +39,6 @@ type Session struct {
 	// if a receive session
 	trigger SessionID
 
-
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
 
@@ -81,15 +80,13 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 //Generator which creates all keys and structures
-func newSession(manager *Manager, myPrivKey *cyclic.Int,
-	partnerPubKey *cyclic.Int, params SessionParams, t SessionType,
-	trigger SessionID) *Session {
+func newSession(manager *Manager, myPrivKey, partnerPubKey, baseKey *cyclic.Int,
+	params SessionParams, t SessionType, trigger SessionID) *Session {
 
 	confirmation := Unconfirmed
 	if t == Receive {
 		confirmation = Confirmed
 	}
-
 
 	session := &Session{
 		params:            params,
@@ -97,6 +94,7 @@ func newSession(manager *Manager, myPrivKey *cyclic.Int,
 		t:                 t,
 		myPrivKey:         myPrivKey,
 		partnerPubKey:     partnerPubKey,
+		baseKey:           baseKey,
 		negotiationStatus: confirmation,
 		trigger:           trigger,
 	}
@@ -201,14 +199,19 @@ func (s *Session) GetTrigger() SessionID {
 	return s.trigger
 }
 
-//Blake2B hash of base key used for storage
-func (s *Session) GetID() SessionID {
+//underlying definition of session id
+func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 	// no lock is needed because this cannot be edited
 	sid := SessionID{}
 	h, _ := hash.NewCMixHash()
-	h.Write(s.baseKey.Bytes())
+	h.Write(baseKey.Bytes())
 	copy(sid[:], h.Sum(nil))
 	return sid
+}
+
+//Blake2B hash of base key used for storage
+func (s *Session) GetID() SessionID {
+	return getSessionIDFromBaseKey(s.baseKey)
 }
 
 // returns the ID of the partner for this session
@@ -263,13 +266,11 @@ func (s *Session) unmarshal(b []byte) error {
 	s.ttl = sd.TTL
 	copy(s.trigger[:], sd.Trigger)
 
-
 	statesKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
 	s.keyState, err = loadStateVector(s.manager.ctx, statesKey)
 	if err != nil {
 		return err
 	}
-
 
 	return nil
 }
@@ -322,6 +323,7 @@ func (s *Session) Status() Status {
 // Sets the negotiation status, this tracks the state of the key negotiation,
 // only certain movements are allowed
 //   Unconfirmed <--> Sending --> Sent --> Confirmed <--> NewSessionTriggered --> NewSessionCreated
+//				  -------------->
 //
 // Saves the session unless the status is sending so that on reload the rekey
 // will be redone if it was in the process of sending
@@ -335,7 +337,7 @@ var legalStateChanges = [][]bool{
 	{false, false, false, false, false, false},
 	{true, false, true, true, false, false},
 	{false, false, false, true, false, false},
-	{false, false, false, false, false, false},
+	{false, false, false, false, true, false},
 	{false, false, false, true, false, true},
 	{false, false, false, false, false, false},
 }
@@ -431,7 +433,7 @@ func (s *Session) triggerNegotiation() bool {
 }
 
 // checks if the session has been confirmed
-func (s *Session) ConfirmationStatus() Negotiation {
+func (s *Session) NegotiationStatus() Negotiation {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.negotiationStatus
@@ -439,7 +441,7 @@ func (s *Session) ConfirmationStatus() Negotiation {
 
 // checks if the session has been confirmed
 func (s *Session) IsConfirmed() bool {
-	c := s.ConfirmationStatus()
+	c := s.NegotiationStatus()
 	return c >= Confirmed
 }
 
@@ -464,8 +466,10 @@ func (s *Session) generate() {
 			csprng.NewSystemRNG())
 	}
 
-	// compute the base key
-	s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	// compute the base key if it is not already there
+	if s.baseKey != nil {
+		s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
+	}
 
 	//generate ttl and keying info
 	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),

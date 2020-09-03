@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -21,13 +22,7 @@ type CryptographicIdentity struct {
 }
 
 func newCryptographicIdentity(uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
-	isPrecanned bool, kv *versioned.KV) (*CryptographicIdentity, error) {
-
-	_, err := kv.Get(cryptographicIdentityKey)
-	if err == nil {
-		return nil, errors.New("cannot create cryptographic identity " +
-			"when one already exists")
-	}
+	isPrecanned bool, kv *versioned.KV) *CryptographicIdentity {
 
 	ci := &CryptographicIdentity{
 		userID:      uid,
@@ -36,7 +31,12 @@ func newCryptographicIdentity(uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
 		isPrecanned: isPrecanned,
 	}
 
-	return ci, ci.save(kv)
+	if err := ci.save(kv); err != nil {
+		jww.FATAL.Panicf("Failed to store the new Cryptographic"+
+			" Identity: %s", err)
+	}
+
+	return ci
 }
 
 func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {

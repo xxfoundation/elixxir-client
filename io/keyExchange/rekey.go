@@ -4,7 +4,6 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
@@ -30,7 +29,7 @@ func CheckKeyExchanges(ctx *context.Context, manager *e2e.Manager) {
 // session while the latter on an extand
 func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
 	var negotiatingSession *e2e.Session
-	switch session.ConfirmationStatus() {
+	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
 	// replace itself, then create the session
 	case e2e.NewSessionTriggered:
@@ -44,7 +43,7 @@ func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
 		negotiatingSession = session
 	default:
 		jww.FATAL.Panicf("Session %s provided invalid e2e "+
-			"negotiating status: %s", session, session.ConfirmationStatus())
+			"negotiating status: %s", session, session.NegotiationStatus())
 	}
 
 	// send the rekey notification to the partner
@@ -65,22 +64,22 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 		e2eStore.GetGroup())
 
 	//build the payload
-	payload, err := proto.Marshal(&cmixproto.RekeyTrigger{
+	payload, err := proto.Marshal(&RekeyTrigger{
 		PublicKey: pubKey.Bytes(),
-		SessionID: session.GetTrigger().Bytes(),
+		SessionID: session.GetTrigger().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic
 	if err != nil {
 		jww.FATAL.Printf("Failed to marshal payload for Key "+
-			"Negotation with %s", session.GetPartner())
+			"Negotation Trigger with %s", session.GetPartner())
 	}
 
 	//send session
-	m := message.Message{
+	m := message.Send{
 		Recipient:   session.GetPartner(),
 		Payload:     payload,
-		MessageType: int32(cmixproto.Type_REKEY_TRIGGER),
+		MessageType: message.KeyExchangeTrigger,
 	}
 
 	//send the message under the key exchange
@@ -108,23 +107,18 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 			states.COMPLETED, states.FAILED)
 	}
 
-	//Start the thread which will handle the outcome of the send
-	go trackNegotiationResult(sendResults, len(rounds), session)
-}
-
-func trackNegotiationResult(resultsCh chan ds.EventReturn, numResults int, session *e2e.Session) {
-	success, numTimeOut, numRoundFail := utility.TrackResults(resultsCh, numResults)
+	//Wait until the result tracking responds
+	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
 
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner cannot read the result. Log the error and set
 	// the session as unconfirmed so it will re-trigger the negotiation
 	if !success {
-		jww.ERROR.Printf("Key Negotiation for %s failed to "+
-			"transmit %v/%v paritions: %v round failures, %v timeouts",
-			session, numRoundFail+numTimeOut, numResults, numRoundFail,
-			numTimeOut)
 		session.SetNegotiationStatus(e2e.Unconfirmed)
-		return
+		return errors.Errorf("Key Negotiation for %s failed to "+
+			"transmit %v/%v paritions: %v round failures, %v timeouts",
+			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
+			numTimeOut)
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
@@ -132,5 +126,8 @@ func trackNegotiationResult(resultsCh chan ds.EventReturn, numResults int, sessi
 	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
+
+	return nil
 }
+
 

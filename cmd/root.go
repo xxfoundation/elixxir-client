@@ -19,6 +19,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/userRegistry"
@@ -414,11 +415,11 @@ var rootCmd = &cobra.Command{
 		// the integration test
 		// Normal text messages
 		text := TextListener{}
-		client.Listen(&id.ZeroUser, int32(cmixproto.Type_TEXT_MESSAGE),
+		client.Listen(&id.ZeroUser, int32(keyExchange.Type_TEXT_MESSAGE),
 			&text)
 		// All other messages
 		fallback := FallbackListener{}
-		client.Listen(&id.ZeroUser, int32(cmixproto.Type_NO_TYPE),
+		client.Listen(&id.ZeroUser, int32(keyExchange.Type_NO_TYPE),
 			&fallback)
 
 		// Log the user in, for now using the first gateway specified
@@ -513,7 +514,7 @@ var rootCmd = &cobra.Command{
 					err := client.Send(&parse.Message{
 						Sender: userID,
 						TypedBody: parse.TypedBody{
-							MessageType: int32(cmixproto.Type_TEXT_MESSAGE),
+							MessageType: int32(keyExchange.Type_TEXT_MESSAGE),
 							Body:        wireOut,
 						},
 						InferredType: cryptoType,

@@ -372,7 +372,7 @@ func TestSession_GetBaseKey(t *testing.T) {
 func TestSession_GetID(t *testing.T) {
 	s, _ := makeTestSession(t)
 	id := s.GetID()
-	if len(id.Bytes()) == 0 {
+	if len(id.Marshal()) == 0 {
 		t.Error("Zero length for session ID!")
 	}
 }

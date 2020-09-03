@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
@@ -129,7 +130,7 @@ func TestNewClient(t *testing.T) {
 func TestParse(t *testing.T) {
 	ms := parse.Message{}
 	ms.Body = []byte{0, 1, 2}
-	ms.MessageType = int32(cmixproto.Type_NO_TYPE)
+	ms.MessageType = int32(keyExchange.Type_NO_TYPE)
 	ms.Receiver = &id.ZeroUser
 	ms.Sender = &id.ZeroUser
 

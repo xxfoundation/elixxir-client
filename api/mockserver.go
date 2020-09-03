@@ -11,8 +11,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/io/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -55,7 +55,7 @@ func (m APIMessage) GetPayload() []byte {
 }
 
 func (m APIMessage) GetMessageType() int32 {
-	return int32(cmixproto.Type_NO_TYPE)
+	return int32(keyExchange.Type_NO_TYPE)
 }
 
 func (m APIMessage) GetCryptoType() parse.CryptoType {

@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	jww "github.com/spf13/jwalterweatherman"
+	dh "gitlab.com/elixxir/crypto/diffieHellman"
 )
 
 type Manager struct {
@@ -28,11 +29,13 @@ func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
 	m.send = NewSessionBuff(m, "send")
 	m.receive = NewSessionBuff(m, "receive")
 
-	sendSession := newSession(m, myPrivKey, partnerPubKey, sendParams, Send, SessionID{})
+	sendSession := newSession(m, myPrivKey, partnerPubKey, nil,
+		sendParams, Send, SessionID{})
 
 	m.send.AddSession(sendSession)
 
-	receiveSession := newSession(m, myPrivKey, partnerPubKey, receiveParams, Receive, SessionID{})
+	receiveSession := newSession(m, myPrivKey, partnerPubKey, nil,
+		receiveParams, Receive, SessionID{})
 
 	m.receive.AddSession(receiveSession)
 
@@ -73,17 +76,28 @@ func (m *Manager) GetPartnerID() *id.ID {
 
 // creates a new receive session using the latest private key this user has sent
 // and the new public key received from the partner.
-func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams, trigger SessionID) *Session {
-	//find your last confirmed private key
-	myPrivKey := m.send.GetNewestRekeyableSession().GetMyPrivKey()
+// If the session already exists, it will not be overwritten and the extant
+// session will be returned, with the bool set to true denoting a duplicate.
+// This is so duplicate key exchange triggering can be supported
+func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams,
+	trigger *Session) (*Session, bool) {
 
-	//create the session
-	session := newSession(m, myPrivKey, partnerPubKey, params, Receive, trigger)
+	//check if the session already exists
+	baseKey := dh.GenerateSessionKey(trigger.myPrivKey, partnerPubKey, m.ctx.grp)
+	sessionID := getSessionIDFromBaseKey(baseKey)
+
+	if s := m.receive.GetByID(sessionID); s != nil {
+		return s, true
+	}
+
+	//create the session but do not save
+	session := newSession(m, trigger.myPrivKey, partnerPubKey, baseKey, params, Receive,
+		trigger.GetID())
 
 	//add the session to the buffer
 	m.receive.AddSession(session)
 
-	return session
+	return session, false
 }
 
 // creates a new receive session using the latest public key received from the
@@ -95,7 +109,8 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams, tr
 	partnerPubKey := m.receive.GetNewestRekeyableSession().partnerPubKey
 
 	//create the session
-	session := newSession(m, myPrivKey, partnerPubKey, params, Send, trigger)
+	session := newSession(m, myPrivKey, partnerPubKey, nil,
+		params, Send, trigger)
 
 	//add the session to the send session buffer and return
 	m.send.AddSession(session)
@@ -104,7 +119,7 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams, tr
 }
 
 // gets the correct session to send with depending on the type of send
-func (m *Manager) GetSendingSession(st params.SendType) *Session {
+func (m *Manager) GetSessionForSending(st params.SendType) *Session {
 	switch st {
 	case params.Standard:
 		return m.send.GetSessionForSending()
@@ -116,6 +131,16 @@ func (m *Manager) GetSendingSession(st params.SendType) *Session {
 	}
 
 	return nil
+}
+
+// gets the send session of the passed ID. Returns nil if no session is found
+func (m *Manager) GetSendSession(sessionID SessionID) *Session {
+	return m.send.GetByID(sessionID)
+}
+
+// gets the receive session of the passed ID. Returns nil if no session is found
+func (m *Manager) GetReceiveSession(sessionID SessionID) *Session {
+	return m.receive.GetByID(sessionID)
 }
 
 // Confirms a send session is known about by the partner

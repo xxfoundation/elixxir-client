@@ -173,6 +173,8 @@ gitlab.com/elixxir/comms v0.0.0-20200827193018-c0911a1a1ec0 h1:C0P5VqrgGcTuV9kCi
 gitlab.com/elixxir/comms v0.0.0-20200827193018-c0911a1a1ec0/go.mod h1:HW3Ige10aeJeyb2fcQ/YOBPiyzY/4jHau1Cj6/1WBHc=
 gitlab.com/elixxir/comms v0.0.0-20200828220824-6e9c8abca9bc h1:+Plp0oXKNTvHUZkoYusFyLELlyXgAKn3O5I3389xv+A=
 gitlab.com/elixxir/comms v0.0.0-20200828220824-6e9c8abca9bc/go.mod h1:HW3Ige10aeJeyb2fcQ/YOBPiyzY/4jHau1Cj6/1WBHc=
+gitlab.com/elixxir/comms v0.0.0-20200903181126-c92d7a304999 h1:fxrqseawjJ2q6Z3NZyYLKAqld1+ECsDkrgJdmIieivM=
+gitlab.com/elixxir/comms v0.0.0-20200903181126-c92d7a304999/go.mod h1:HW3Ige10aeJeyb2fcQ/YOBPiyzY/4jHau1Cj6/1WBHc=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4 h1:28ftZDeYEko7xptCZzeFWS1Iam95dj46TWFVVlKmw6A=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4/go.mod h1:ucm9SFKJo+K0N2GwRRpaNr+tKXMIOVWzmyUD0SbOu2c=
 gitlab.com/elixxir/crypto v0.0.0-20200805174804-bdf909f2a16d/go.mod h1:cu6uNoANVLV0J6HyTL6KqVtVyh9SHU1RjJhytYlsbVQ=
@@ -213,6 +215,8 @@ gitlab.com/elixxir/primitives v0.0.0-20200826021242-53c364245a52 h1:J+T7B6EurXrA
 gitlab.com/elixxir/primitives v0.0.0-20200826021242-53c364245a52/go.mod h1:kNp47yPqja2lHSiS4DddTvFpB/4D9dB2YKnw5c+LJCE=
 gitlab.com/elixxir/primitives v0.0.0-20200827170420-5d50351f99b4 h1:Vb8N4164sSk3qCtTiXieTXio3Lh9Rc2ObDE1eZgXcMk=
 gitlab.com/elixxir/primitives v0.0.0-20200827170420-5d50351f99b4/go.mod h1:kNp47yPqja2lHSiS4DddTvFpB/4D9dB2YKnw5c+LJCE=
+gitlab.com/elixxir/primitives v0.0.0-20200903205243-b85e399e398e h1:Oak5+ZoRZi2GS7G67Oh6on5Dm4/6PU7g05zfRblk0ik=
+gitlab.com/elixxir/primitives v0.0.0-20200903205243-b85e399e398e/go.mod h1:kNp47yPqja2lHSiS4DddTvFpB/4D9dB2YKnw5c+LJCE=
 gitlab.com/xx_network/comms v0.0.0-20200805174823-841427dd5023/go.mod h1:owEcxTRl7gsoM8c3RQ5KAm5GstxrJp5tn+6JfQ4z5Hw=
 gitlab.com/xx_network/comms v0.0.0-20200806235452-3a82720833ba h1:7nozLSNBX0CfP53DDiDNLJx9obhYGfGf5na0/c9rMso=
 gitlab.com/xx_network/comms v0.0.0-20200806235452-3a82720833ba/go.mod h1:idLzPGYig57XE7xuU93OlIF9s6NgSJj7OArQvsd5DjY=

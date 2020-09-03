@@ -15,10 +15,10 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.6.2
-	gitlab.com/elixxir/comms v0.0.0-20200828220824-6e9c8abca9bc
+	gitlab.com/elixxir/comms v0.0.0-20200903181126-c92d7a304999
 	gitlab.com/elixxir/crypto v0.0.0-20200827170914-14227f20900c
 	gitlab.com/elixxir/ekv v0.1.1
-	gitlab.com/elixxir/primitives v0.0.0-20200827170420-5d50351f99b4
+	gitlab.com/elixxir/primitives v0.0.0-20200903205243-b85e399e398e
 	gitlab.com/xx_network/comms v0.0.0-20200825213037-f58fa7c0a641
 	gitlab.com/xx_network/crypto v0.0.0-20200812183430-c77a5281c686
 	gitlab.com/xx_network/primitives v0.0.0-20200812183720-516a65a4a9b2

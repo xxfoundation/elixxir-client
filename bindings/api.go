@@ -25,6 +25,8 @@ import (
 // memory and stored as securely as possible using the memguard library.
 // NewClient will block until the client has completed registration with
 // the network permissioning server.
+//
+// Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte) (Client, error) {
 	// TODO: This should wrap the bindings ClientImpl, when available.
 	return api.NewClient(network, storageDir, password)

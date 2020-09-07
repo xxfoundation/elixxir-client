@@ -40,15 +40,20 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 			"length is %v, received %v", p.maxSize, len(payload))
 	}
 
+	//Get the ID of the sent message
 	_, messageID := p.ctx.Session.Conversations().Get(recipient).GetNextSendID()
 
+	// get the number of parts of the message. This equates to just a linear
+	// equation
 	numParts := uint8((len(payload) + p.deltaFirstPart + p.partContentsSize - 1) / p.partContentsSize)
 	parts := make([][]byte, numParts)
 
+	//Create the first message part
 	var sub []byte
 	sub, payload = splitPayload(payload, p.firstContentsSize)
-	parts[0] = newFirstMessagePart(mt, messageID, 0, numParts, timestamp, sub).Bytes()
+	parts[0] = newFirstMessagePart(mt, messageID, numParts, timestamp, sub).Bytes()
 
+	//create all subsiquent message parts
 	for i := uint8(1); i < numParts; i++ {
 		sub, payload = splitPayload(payload, p.partContentsSize)
 		parts[i] = newMessagePart(messageID, i, sub).Bytes()
@@ -58,19 +63,11 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 }
 
 func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
-	contents []byte) (message.Receive, bool, error) {
-	//if it is a raw message, there is nothing to do
-	if isRaw(contents) {
-		return message.Receive{
-			Payload:     contents,
-			MessageType: message.Raw,
-			Sender:      sender,
-			Timestamp:   time.Time{},
-			Encryption:  e,
-		}, true, nil
-	}
+	contents []byte) (message.Receive, bool) {
 
+	//If it is the first message in a set, handle it as so
 	if isFirst(contents) {
+		//decode the message structure
 		fm := FirstMessagePartFromBytes(contents)
 		timestamp, err := fm.GetTimestamp()
 		if err != nil {
@@ -79,29 +76,22 @@ func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
 				fm.Timestamp, err)
 		}
 
+		//Handle the message ID
 		messageID := p.ctx.Session.Conversations().Get(sender).
 			ProcessReceivedMessageID(fm.GetID())
 
-		m, ok := p.ctx.Session.Partition().AddFirst(sender, fm.GetType(),
+		//Return the
+		return p.ctx.Session.Partition().AddFirst(sender, fm.GetType(),
 			messageID, fm.GetPart(), fm.GetNumParts(), timestamp,
-			fm.GetContents())
-		if ok {
-			return m, true, nil
-		} else {
-			return message.Receive{}, false, nil
-		}
+			fm.GetSizedContents())
+		//If it is a subsiquent message part, handle it as so
 	} else {
 		mp := MessagePartFromBytes(contents)
 		messageID := p.ctx.Session.Conversations().Get(sender).
 			ProcessReceivedMessageID(mp.GetID())
 
-		m, ok := p.ctx.Session.Partition().Add(sender, messageID, mp.GetPart(),
-			mp.GetContents())
-		if ok {
-			return m, true, nil
-		} else {
-			return message.Receive{}, false, nil
-		}
+		return p.ctx.Session.Partition().Add(sender, messageID, mp.GetPart(),
+			mp.GetSizedContents())
 	}
 }
 
@@ -110,10 +100,6 @@ func splitPayload(payload []byte, length int) ([]byte, []byte) {
 		return payload, payload
 	}
 	return payload[:length], payload[length:]
-}
-
-func isRaw(payload []byte) bool {
-	return payload[0]&0b10000000 == 0
 }
 
 func isFirst(payload []byte) bool {

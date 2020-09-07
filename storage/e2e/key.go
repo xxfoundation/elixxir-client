@@ -74,7 +74,6 @@ func (k *Key) Decrypt(msg format.Message) (format.Message, error) {
 		return format.Message{}, errors.New("HMAC verification failed for E2E message")
 	}
 
-
 	// Decrypt the payload
 	decryptedPayload := e2eCrypto.Crypt(key, fp, msg.GetContents())
 

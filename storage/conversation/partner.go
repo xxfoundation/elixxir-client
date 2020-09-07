@@ -14,7 +14,7 @@ import (
 
 const conversationKeyPrefix = "conversation"
 const currentConversationVersion = 0
-const maxTruncatedID = math.MaxUint32 / 2
+const maxTruncatedID = math.MaxUint32
 const bottomRegion = maxTruncatedID / 4
 const topRegion = bottomRegion * 3
 
@@ -82,7 +82,7 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 		high = c.numReceivedRevolutions - 1
 	}
 
-	return (uint64(high) << 31) | uint64(mid)
+	return (uint64(high) << 32) | uint64(mid)
 }
 
 func cmp(a, b uint32) int {

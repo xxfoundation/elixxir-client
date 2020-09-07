@@ -126,12 +126,12 @@ func (s *Store) save() error {
 	return s.kv.Set(storeKey, &obj)
 }
 
-func (s *Store) AddPartner(partnerID *id.ID, myPrivKey *cyclic.Int,
+func (s *Store) AddPartner(partnerID *id.ID,
 	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	m := newManager(&s.context, partnerID, myPrivKey, partnerPubKey, sendParams, receiveParams)
+	m := newManager(&s.context, partnerID, s.dhPrivateKey, partnerPubKey, sendParams, receiveParams)
 
 	s.managers[*partnerID] = m
 

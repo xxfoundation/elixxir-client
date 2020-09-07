@@ -110,12 +110,6 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 		prng.Read(contents)
 		msg.SetContents(contents)
 
-		// set the timestamp
-		now := time.Now()
-		nowBytes, _ := now.MarshalBinary()
-		extendedNowBytes := append(nowBytes, 0)
-		msg.SetTimestamp(extendedNowBytes)
-
 		// Encrypt
 		ecrMsg := k.Encrypt(msg)
 
@@ -131,11 +125,6 @@ func TestKey_EncryptDecrypt(t *testing.T) {
 			t.Errorf("contents in the decrypted payload does not match: "+
 				"Expected: %v, Recieved: %v", msg.GetContents(), resultMsg.GetContents())
 		}
-
-		if !bytes.Equal(resultMsg.GetTimestamp(), msg.GetTimestamp()) {
-			t.Errorf("timestamp in the decrypted payload does not match: "+
-				"Expected: %v, Recieved: %v", msg.GetTimestamp(), resultMsg.GetTimestamp())
-		}
 	}
 }
 
@@ -145,11 +134,7 @@ func TestKey_denoteUse(t *testing.T) {
 
 	k := newKey(getSession(t), keyNum)
 
-	err := k.denoteUse()
-	if err != nil {
-		t.Errorf("denoteUse() produced an unexpected error."+
-			"\n\texpected: %v\n\treceived: %v", nil, err)
-	}
+	k.denoteUse()
 
 	if !k.session.keyState.Used(keyNum) {
 		t.Errorf("denoteUse() did not use the key")

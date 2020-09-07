@@ -14,7 +14,8 @@ import (
 
 const conversationKeyPrefix = "conversation"
 const currentConversationVersion = 0
-const bottomRegion = math.MaxUint32 / 4
+const maxTruncatedID = math.MaxUint32 / 2
+const bottomRegion = maxTruncatedID / 4
 const topRegion = bottomRegion * 3
 
 type Conversation struct {
@@ -62,7 +63,7 @@ func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 
 // Finds the full 64 bit message ID and updates the internal last message ID if
 // the new ID is newer
-func (c *Conversation) ProcessReceivedMessageID(mid uint32, timestamp time.Time) uint64 {
+func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	var high uint32
@@ -81,7 +82,7 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32, timestamp time.Time)
 		high = c.numReceivedRevolutions - 1
 	}
 
-	return (uint64(high) << 16) | uint64(mid)
+	return (uint64(high) << 31) | uint64(mid)
 }
 
 func cmp(a, b uint32) int {
@@ -102,8 +103,8 @@ func (c *Conversation) GetNextSendID() (uint64, uint32) {
 		jww.FATAL.Panicf("Failed to save after incrementing the sendID: "+
 			"%s", err)
 	}
-	defer c.mux.Unlock()
-	return old, uint32(old & 0x00000000FFFFFFFF)
+	c.mux.Unlock()
+	return old, uint32(old & 0x000000007FFFFFFF)
 }
 
 func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {

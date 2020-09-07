@@ -1,0 +1,66 @@
+package partition
+
+import (
+	"crypto/md5"
+	"encoding/binary"
+	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/id"
+	"sync"
+	"time"
+)
+
+type multiPartID [16]byte
+
+type Store struct {
+	multiparts map[multiPartID]*multiPartMessage
+	mux        sync.Mutex
+	kv         *versioned.KV
+}
+
+func New(kv *versioned.KV) *Store {
+	return &Store{
+		multiparts: make(map[multiPartID]*multiPartMessage),
+		kv:         kv,
+	}
+}
+
+func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
+	partNum uint8, numParts uint8, timestamp time.Time,
+	part []byte) (message.Receive, bool) {
+
+	mpm := s.load(partner, messageID)
+
+	mpm.AddFirst(mt, numParts, numParts, timestamp, part)
+
+	return mpm.IsComplete()
+}
+
+func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
+	part []byte) (message.Receive, bool) {
+
+	mpm := s.load(partner, messageID)
+
+	mpm.Add(partNum, part)
+
+	return mpm.IsComplete()
+}
+
+func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
+	mpID := getMultiPartID(partner, messageID)
+	s.mux.Lock()
+	mpm, ok := s.multiparts[mpID]
+	if !ok {
+		mpm = loadOrCreateMultiPartMessage(partner, messageID, s.kv)
+		s.multiparts[mpID] = mpm
+	}
+	s.mux.Unlock()
+
+	return mpm
+}
+
+func getMultiPartID(partner *id.ID, messageID uint64) multiPartID {
+	b := make([]byte, 8)
+	binary.BigEndian.PutUint64(b, messageID)
+	return md5.Sum(append(partner[:], b...))
+}

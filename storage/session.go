@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/elixxir/client/storage/partition"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -36,6 +37,7 @@ type Session struct {
 	cmix          *cmix.Store
 	user          *user.User
 	conversations *conversation.Store
+	partition     *partition.Store
 }
 
 // Initialize a new Session object
@@ -86,6 +88,7 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 	}
 
 	s.conversations = conversation.NewStore(s.kv)
+	s.partition = partition.New(s.kv)
 
 	return s, nil
 }
@@ -118,6 +121,7 @@ func Load(baseDir, password string) (*Session, error) {
 	}
 
 	s.conversations = conversation.NewStore(s.kv)
+	s.partition = partition.New(s.kv)
 
 	return s, nil
 }
@@ -144,6 +148,12 @@ func (s *Session) Conversations() *conversation.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.conversations
+}
+
+func (s *Session) Partition() *partition.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.partition
 }
 
 // Get an object from the session

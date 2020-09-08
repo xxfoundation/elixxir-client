@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package network
 
 import (
 	"gitlab.com/elixxir/client/parse"

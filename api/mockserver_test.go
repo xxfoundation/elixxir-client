@@ -10,7 +10,7 @@ package api
 import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
 	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
@@ -161,7 +161,7 @@ func TestRegister_ValidPrecannedRegCodeReturnsZeroID(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 	// Register precanned user with all gateways
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
@@ -311,7 +311,7 @@ func TestSend(t *testing.T) {
 	}
 
 	err = client.GenerateKeys(nil, "password")
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 	// Register with a valid registration code
 	userID, err := client.RegisterWithPermissioning(true, ValidRegCode)
 
@@ -412,7 +412,7 @@ func TestLogout(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	_, err = client.RegisterWithPermissioning(true, ValidRegCode)

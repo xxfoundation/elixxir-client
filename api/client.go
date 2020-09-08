@@ -19,7 +19,7 @@ import (
 	"gitlab.com/elixxir/client/cmixproto"
 	clientcrypto "gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/rekey"
@@ -46,7 +46,7 @@ type Client struct {
 	storage             globals.Storage
 	session             user.Session
 	sessionV2           *storage.Session
-	receptionManager    *io.ReceptionManager
+	receptionManager    *network.ReceptionManager
 	switchboard         *switchboard.Switchboard
 	ndf                 *ndf.NetworkDefinition
 	topology            *connect.Circuit
@@ -61,7 +61,7 @@ type Client struct {
 }
 
 // Type that defines what the default and any testing send functions should look like
-type sender func(message parse.MessageInterface, rm *io.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error
+type sender func(message parse.MessageInterface, rm *network.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error
 
 //used to report the state of registration
 type OperationProgressCallback func(int)
@@ -93,13 +93,13 @@ func (cl *Client) setStorage(locA, password string) error {
 	dirname := filepath.Dir(locA)
 	//FIXME: We need to accept the user's password here!
 	var err error
-	io.SessionV2, err = storage.Init(dirname, password)
+	network.SessionV2, err = storage.Init(dirname, password)
 	if err != nil {
 		return errors.Wrapf(err, "could not initialize v2 "+
 			"storage at %s", locA)
 	}
-	clientcrypto.SessionV2 = io.SessionV2
-	cl.sessionV2 = io.SessionV2
+	clientcrypto.SessionV2 = network.SessionV2
+	cl.sessionV2 = network.SessionV2
 
 	// FIXME: Client storage must have regstate set
 	_, err = cl.sessionV2.GetRegState()
@@ -211,7 +211,7 @@ func (cl *Client) Login(password string) (*id.ID, error) {
 			"completed registration ")
 	}
 
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.quitChan,
+	newRm, err := network.NewReceptionManager(cl.rekeyChan, cl.quitChan,
 		userData.ThisUser.User,
 		rsa.CreatePrivateKeyPem(userData.RSAPrivateKey),
 		rsa.CreatePublicKeyPem(userData.RSAPublicKey),
@@ -431,7 +431,7 @@ func (cl *Client) Send(message parse.MessageInterface) error {
 }
 
 // Send prepares and sends a message to the cMix network
-func send(message parse.MessageInterface, rm *io.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error {
+func send(message parse.MessageInterface, rm *network.ReceptionManager, session user.Session, topology *connect.Circuit, host *connect.Host) error {
 	recipientID := message.GetRecipient()
 	cryptoType := message.GetCryptoType()
 	return rm.SendMessage(session, topology, recipientID, cryptoType, message.Pack(), host)
@@ -687,7 +687,7 @@ func (cl *Client) GetSessionV2() *storage.Session {
 
 // ReceptionManager returns the comm manager object for external access.  Access
 // at your own risk
-func (cl *Client) GetCommManager() *io.ReceptionManager {
+func (cl *Client) GetCommManager() *network.ReceptionManager {
 	return cl.receptionManager
 }
 

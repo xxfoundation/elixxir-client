@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -27,7 +27,7 @@ func (cl *Client) InitNetwork() error {
 	if cl.receptionManager == nil {
 		// Start reception manager with a dummy user,
 		// so we can connect to things
-		cl.receptionManager, err = io.NewReceptionManager(cl.rekeyChan,
+		cl.receptionManager, err = network.NewReceptionManager(cl.rekeyChan,
 			cl.quitChan, &id.DummyUser, nil, nil, nil,
 			cl.switchboard)
 		if err != nil {
@@ -72,7 +72,7 @@ func (cl *Client) InitNetwork() error {
 }
 
 // AddNotificationBotHost adds notification bot as a host within the reception manager
-func addNotificationBotHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addNotificationBotHost(rm *network.ReceptionManager, definition *ndf.NetworkDefinition) error {
 
 	err := addHost(rm, &id.NotificationBot, definition.Notification.Address,
 		definition.Notification.TlsCertificate, false, true)
@@ -161,7 +161,7 @@ func (cl *Client) setupPermissioning() error {
 
 // Connects to gateways using tls filepaths to create credential information
 // for connection establishment
-func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addGatewayHosts(rm *network.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if len(definition.Gateways) < 1 {
 		return errors.New("could not connect due to invalid number of nodes")
 	}
@@ -194,7 +194,7 @@ func addGatewayHosts(rm *io.ReceptionManager, definition *ndf.NetworkDefinition)
 	return errs
 }
 
-func addHost(rm *io.ReceptionManager, id *id.ID, address, cert string, disableTimeout, enableAuth bool) error {
+func addHost(rm *network.ReceptionManager, id *id.ID, address, cert string, disableTimeout, enableAuth bool) error {
 	var creds []byte
 	if cert != "" && rm.Tls {
 		creds = []byte(cert)
@@ -209,7 +209,7 @@ func addHost(rm *io.ReceptionManager, id *id.ID, address, cert string, disableTi
 // There's currently no need to keep connected to permissioning constantly,
 // so we have functions to connect to and disconnect from it when a connection
 // to permissioning is needed
-func addPermissioningHost(rm *io.ReceptionManager, definition *ndf.NetworkDefinition) error {
+func addPermissioningHost(rm *network.ReceptionManager, definition *ndf.NetworkDefinition) error {
 	if definition.Registration.Address != "" {
 		err := addHost(rm, &id.Permissioning, definition.Registration.Address,
 			definition.Registration.TlsCertificate, false, false)

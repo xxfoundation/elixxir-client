@@ -4,14 +4,14 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package network
 
 import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"

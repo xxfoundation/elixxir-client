@@ -6,7 +6,7 @@
 package api
 
 import (
-	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/network"
 	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/xx_network/primitives/id"
@@ -31,7 +31,7 @@ func TestRegistrationGob(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// populate a gob in the store
 	_, err = testClient.RegisterWithPermissioning(true, "WTROXJ33")
@@ -118,7 +118,7 @@ func TestRegister_ValidRegParams___(t *testing.T) {
 		t.Errorf("%+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 	// Register precanned user with all gateways
 	regRes, err := client.RegisterWithPermissioning(false, ValidRegCode)
 	if err != nil {

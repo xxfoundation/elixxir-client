@@ -3,8 +3,8 @@ package bots
 import (
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
@@ -16,7 +16,7 @@ import (
 var session user.Session
 var sessionV2 storage.Session
 var topology *connect.Circuit
-var comms io.Communications
+var comms network.Communications
 var transmissionHost *connect.Host
 
 type channelResponseListener chan string
@@ -52,7 +52,7 @@ func (l *nickReqListener) Hear(msg switchboard.Item, isHeardElsewhere bool, i ..
 var nicknameRequestListener nickReqListener
 
 // InitBots is called internally by the Login API
-func InitBots(s user.Session, s2 storage.Session, m io.Communications,
+func InitBots(s user.Session, s2 storage.Session, m network.Communications,
 	top *connect.Circuit, host *connect.Host) {
 
 	userData, err := s2.GetUserData()

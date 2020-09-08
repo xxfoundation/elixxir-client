@@ -7,7 +7,7 @@
 // Package io asynchronous sending functionality. This is managed by an outgoing
 // messages channel and managed by the sender thread kicked off during
 // initialization.
-package io
+package network
 
 import (
 	"github.com/pkg/errors"

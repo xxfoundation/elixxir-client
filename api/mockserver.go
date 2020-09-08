@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"

@@ -10,8 +10,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
@@ -603,7 +603,7 @@ func TestClient_GetCommManager(t *testing.T) {
 	//Start client
 	testClient, _ := NewClient(&globals.RamStorage{}, ".ekv-getcommmanager/a", "", def)
 
-	testClient.receptionManager = &io.ReceptionManager{}
+	testClient.receptionManager = &network.ReceptionManager{}
 
 	if !reflect.DeepEqual(testClient.GetCommManager(), testClient.receptionManager) {
 		t.Error("Received session not the same as the real session")
@@ -617,7 +617,7 @@ func TestClient_LogoutHappyPath(t *testing.T) {
 	tc, _ := NewClient(&d, ".ekv-logouthappypath/a", "", def)
 
 	uid := id.NewIdFromString("kk", id.User, t)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan,
+	tc.receptionManager, _ = network.NewReceptionManager(tc.rekeyChan,
 		tc.quitChan,
 		uid, nil, nil, nil, tc.switchboard)
 
@@ -695,7 +695,7 @@ func TestClient_LogoutTimeout(t *testing.T) {
 	tc, _ := NewClient(&d, ".ekv-logouttimeout/a", "", def)
 
 	uid := id.NewIdFromString("kk", id.User, t)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan,
+	tc.receptionManager, _ = network.NewReceptionManager(tc.rekeyChan,
 		tc.quitChan, uid, nil, nil, nil, tc.switchboard)
 
 	err := tc.InitNetwork()
@@ -763,7 +763,7 @@ func TestClient_LogoutAndLoginAgain(t *testing.T) {
 	}
 
 	uid := id.NewIdFromString("kk", id.User, t)
-	tc.receptionManager, _ = io.NewReceptionManager(tc.rekeyChan,
+	tc.receptionManager, _ = network.NewReceptionManager(tc.rekeyChan,
 		tc.quitChan, uid, nil, nil, nil, tc.switchboard)
 
 	err = tc.InitNetwork()

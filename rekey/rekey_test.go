@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"

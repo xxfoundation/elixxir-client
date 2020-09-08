@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
@@ -23,7 +23,7 @@ import (
 var session user.Session
 var sessionV2 storage.Session
 var topology *connect.Circuit
-var comms io.Communications
+var comms network.Communications
 var transmissionHost *connect.Host
 
 var rekeyTriggerList rekeyTriggerListener
@@ -90,7 +90,7 @@ func (l *rekeyConfirmListener) Hear(msg switchboard.Item, isHeardElsewhere bool,
 }
 
 // InitRekey is called internally by the Login API
-func InitRekey(s user.Session, s2 storage.Session, m io.Communications,
+func InitRekey(s user.Session, s2 storage.Session, m network.Communications,
 	t *connect.Circuit, host *connect.Host, rekeyChan2 chan struct{}) {
 
 	rekeyTriggerList = rekeyTriggerListener{}

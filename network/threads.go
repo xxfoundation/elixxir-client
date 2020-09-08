@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package network
 
 // threads.go handles all the long running network processing threads in client
 

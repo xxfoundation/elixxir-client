@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/keyStore"
 	"gitlab.com/elixxir/client/storage"
 	user2 "gitlab.com/elixxir/client/storage/user"
@@ -340,7 +340,7 @@ func (cl *Client) GenerateKeys(rsaPrivKey *rsa.PrivateKey,
 		return err
 	}
 
-	newRm, err := io.NewReceptionManager(cl.rekeyChan, cl.quitChan,
+	newRm, err := network.NewReceptionManager(cl.rekeyChan, cl.quitChan,
 		usr.User,
 		rsa.CreatePrivateKeyPem(privKey),
 		rsa.CreatePublicKeyPem(pubKey),

@@ -14,6 +14,4 @@ type NetworkManager interface {
 	SendUnsafe(m message.Send) ([]id.Round, error)
 	SendCMIX(message format.Message) (id.Round, error)
 	GetInstance() *network.Instance
-	Stoppable() stoppable.Stoppable
 }
-

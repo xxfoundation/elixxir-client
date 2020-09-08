@@ -21,6 +21,13 @@ type CryptographicIdentity struct {
 	isPrecanned bool
 }
 
+type ciDisk struct {
+	UserID      *id.ID
+	Salt        []byte
+	RsaKey      *rsa.PrivateKey
+	IsPrecanned bool
+}
+
 func newCryptographicIdentity(uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
 	isPrecanned bool, kv *versioned.KV) *CryptographicIdentity {
 
@@ -47,18 +54,35 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 	}
 
 	var resultBuffer bytes.Buffer
-	var result *CryptographicIdentity
+	result := &CryptographicIdentity{}
+	decodable := &ciDisk{}
+
 	resultBuffer.Write(obj.Data)
 	dec := gob.NewDecoder(&resultBuffer)
-	err = dec.Decode(result)
+	err = dec.Decode(decodable)
+
+	if decodable != nil {
+		result.isPrecanned = decodable.IsPrecanned
+		result.rsaKey = decodable.RsaKey
+		result.salt = decodable.Salt
+		result.userID = decodable.UserID
+	}
 
 	return result, err
 }
 
 func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 	var userDataBuffer bytes.Buffer
+
+	encodable := &ciDisk{
+		UserID:      ci.userID,
+		Salt:        ci.salt,
+		RsaKey:      ci.rsaKey,
+		IsPrecanned: ci.isPrecanned,
+	}
+
 	enc := gob.NewEncoder(&userDataBuffer)
-	err := enc.Encode(ci)
+	err := enc.Encode(encodable)
 	if err != nil {
 		return err
 	}

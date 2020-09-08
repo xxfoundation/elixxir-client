@@ -15,10 +15,9 @@ import (
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/comms/client"
-	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
+	"gitlab.com/xx_network/primitives/ndf"
 	"time"
 )
 
@@ -37,21 +36,35 @@ type Manager struct {
 	//contains the health tracker which keeps track of if from the client's
 	//perspective, the network is in good condition
 	health *health.Tracker
+
+	//contains the network instance
+	instance *network.Instance
 }
 
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(ctx *context.Context, uid *id.ID, privKey, pubKey,
-	salt []byte) (*Manager, error) {
+	salt []byte, partial *ndf.NetworkDefinition) (*Manager, error) {
+
+	//start comms
 	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "failed to create"+
+			" client network manager")
+	}
+
+	//start network instance
+	instance, err := network.NewInstance(comms.ProtoComms, partial, nil, nil)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to create"+
+			" client network manager")
 	}
 
 	cm := &Manager{
-		Comms:   comms,
-		Context: ctx,
-		runners: stoppable.NewMulti("network.Manager"),
-		health:  health.Init(ctx, 5*time.Second),
+		Comms:    comms,
+		Context:  ctx,
+		runners:  stoppable.NewMulti("network.Manager"),
+		health:   health.Init(ctx, 5*time.Second),
+		instance: instance,
 	}
 
 	return cm, nil
@@ -98,4 +111,8 @@ func (m *Manager) StopRunners(timeout time.Duration) error {
 
 func (m *Manager) GetHealthTracker() context.HealthTracker {
 	return m.health
+}
+
+func (m *Manager) GetInstance() *network.Instance {
+	return m.instance
 }

@@ -2,27 +2,68 @@ package utility
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/format"
 	"math/rand"
+	"os"
 	"reflect"
 	"testing"
 	"time"
 )
 
+type testHandler struct {
+	messages map[string][]byte
+}
+
+func (th *testHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
+	mBytes := m.([]byte)
+	th.messages[key] = mBytes
+	return nil
+}
+
+func (th *testHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
+	m, ok := th.messages[key]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return m, nil
+}
+
+func (th *testHandler) DeleteMessage(kv *versioned.KV, key string) error {
+	_, ok := th.messages[key]
+	if !ok {
+		return os.ErrNotExist
+	}
+	delete(th.messages, key)
+	return nil
+}
+
+func (th *testHandler) HashMessage(m interface{}) MessageHash {
+	mBytes := m.([]byte)
+	// Sum returns a array that is the exact same size as the MessageHash and Go
+	// apparently automatically casts it
+	return md5.Sum(mBytes)
+}
+
+func newTestHandler() *testHandler {
+	return &testHandler{messages: make(map[string][]byte)}
+}
+
 // Tests happy path of NewMessageBuffer.
 func TestNewMessageBuffer(t *testing.T) {
 	// Set up expected value
+	th := newTestHandler()
 	expectedMB := &MessageBuffer{
-		messages:           make(map[messageHash]struct{}),
-		processingMessages: make(map[messageHash]struct{}),
+		messages:           make(map[MessageHash]struct{}),
+		processingMessages: make(map[MessageHash]struct{}),
+		handler:            th,
 		kv:                 versioned.NewKV(make(ekv.Memstore)),
 		key:                "testKey",
 	}
 
-	testMB, err := NewMessageBuffer(expectedMB.kv, expectedMB.key)
+	testMB, err := NewMessageBuffer(expectedMB.kv, th, expectedMB.key)
 	if err != nil {
 		t.Errorf("NewMessageBuffer() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
@@ -36,10 +77,12 @@ func TestNewMessageBuffer(t *testing.T) {
 
 // Tests happy path of TestLoadMessageBuffer.
 func TestLoadMessageBuffer(t *testing.T) {
+	th := newTestHandler()
 	// Set up expected value
 	expectedMB := &MessageBuffer{
-		messages:           make(map[messageHash]struct{}),
-		processingMessages: make(map[messageHash]struct{}),
+		messages:           make(map[MessageHash]struct{}),
+		processingMessages: make(map[MessageHash]struct{}),
+		handler:            th,
 		kv:                 versioned.NewKV(make(ekv.Memstore)),
 		key:                "testKey",
 	}
@@ -49,13 +92,13 @@ func TestLoadMessageBuffer(t *testing.T) {
 		t.Fatalf("Error saving MessageBuffer: %v", err)
 	}
 
-	testMB, err := LoadMessageBuffer(expectedMB.kv, expectedMB.key)
+	testMB, err := LoadMessageBuffer(expectedMB.kv, th, expectedMB.key)
 
 	// Move all the messages into one map to match the output
 	for mh := range expectedMB.processingMessages {
 		expectedMB.messages[mh] = struct{}{}
 	}
-	expectedMB.processingMessages = make(map[messageHash]struct{})
+	expectedMB.processingMessages = make(map[MessageHash]struct{})
 
 	if err != nil {
 		t.Errorf("LoadMessageBuffer() returned an error."+
@@ -72,7 +115,8 @@ func TestLoadMessageBuffer(t *testing.T) {
 func TestMessageBuffer_save_NewMB(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	key := "testKey"
-	mb, err := NewMessageBuffer(kv, key)
+
+	mb, err := NewMessageBuffer(kv, newTestHandler(), key)
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -88,12 +132,12 @@ func TestMessageBuffer_save_NewMB(t *testing.T) {
 			"\n\terror: %v", key, err)
 	}
 
-	var messageArr []messageHash
+	var messageArr []MessageHash
 	err = json.Unmarshal(obj.Data, &messageArr)
-	if !reflect.DeepEqual([]messageHash{}, messageArr) {
+	if !reflect.DeepEqual([]MessageHash{}, messageArr) {
 		t.Errorf("save() returned versioned object with incorrect data."+
 			"\n\texpected: %#v\n\treceived: %#v",
-			[]messageHash{}, messageArr)
+			[]MessageHash{}, messageArr)
 	}
 }
 
@@ -101,7 +145,7 @@ func TestMessageBuffer_save_NewMB(t *testing.T) {
 func TestMessageBuffer_save(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	key := "testKey"
-	mb, err := NewMessageBuffer(kv, key)
+	mb, err := NewMessageBuffer(kv, newTestHandler(), key)
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -119,7 +163,7 @@ func TestMessageBuffer_save(t *testing.T) {
 			"\n\terror: %v", key, err)
 	}
 
-	var messageArr []messageHash
+	var messageArr []MessageHash
 	err = json.Unmarshal(obj.Data, &messageArr)
 	if !cmpMessageHash(expectedMH, messageArr) {
 		t.Errorf("save() returned versioned object with incorrect data."+
@@ -131,7 +175,7 @@ func TestMessageBuffer_save(t *testing.T) {
 // Tests happy path of MessageBuffer.Add().
 func TestMessageBuffer_Add(t *testing.T) {
 	// Create new MessageBuffer and fill with messages
-	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), newTestHandler(), "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -161,7 +205,7 @@ func TestMessageBuffer_Add(t *testing.T) {
 // Tests happy path of MessageBuffer.Next().
 func TestMessageBuffer_Next(t *testing.T) {
 	// Create new MessageBuffer and fill with messages
-	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), newTestHandler(), "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -173,10 +217,11 @@ func TestMessageBuffer_Next(t *testing.T) {
 	for m, exists := testMB.Next(); exists; m, exists = testMB.Next() {
 		foundMsg := false
 		for i := range testMsgs {
-			if bytes.Equal(testMsgs[i].Marshal(), m.Marshal()) {
+			mBytes := m.([]byte)
+			if bytes.Equal(testMsgs[i], mBytes) {
 				foundMsg = true
 				testMsgs[i] = testMsgs[len(testMsgs)-1]
-				testMsgs[len(testMsgs)-1] = format.Message{}
+				testMsgs[len(testMsgs)-1] = []byte{}
 				testMsgs = testMsgs[:len(testMsgs)-1]
 				break
 			}
@@ -188,39 +233,11 @@ func TestMessageBuffer_Next(t *testing.T) {
 	}
 }
 
-func Test_saveMessage(t *testing.T) {
-	// Set up test values
-	kv := versioned.NewKV(make(ekv.Memstore))
-	subKey := "testKey"
-	testMsgs, _ := makeTestMessages(1)
-	mh := hashMessage(testMsgs[0])
-	key := makeStoredMessageKey(subKey, mh)
-
-	// Save message
-	err := saveMessage(kv, testMsgs[0], key)
-	if err != nil {
-		t.Errorf("saveMessage() returned an error."+
-			"\n\texpected: %v\n\trecieved: %v", nil, err)
-	}
-
-	// Try to get message
-	obj, err := kv.Get(key)
-	if err != nil {
-		t.Errorf("Get() returned an error."+
-			"\n\texpected: %v\n\trecieved: %v", nil, err)
-	}
-
-	if !bytes.Equal(testMsgs[0].Marshal(), obj.Data) {
-		t.Errorf("saveMessage() returned versioned object with incorrect data."+
-			"\n\texpected: %v\n\treceived: %v",
-			testMsgs[0], obj.Data)
-	}
-}
-
 // Tests happy path of MessageBuffer.Succeeded().
 func TestMessageBuffer_Succeeded(t *testing.T) {
+	th := newTestHandler()
 	// Create new MessageBuffer and fill with message
-	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), th, "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -234,8 +251,8 @@ func TestMessageBuffer_Succeeded(t *testing.T) {
 
 	testMB.Succeeded(m)
 
-	_, exists1 := testMB.messages[hashMessage(m)]
-	_, exists2 := testMB.processingMessages[hashMessage(m)]
+	_, exists1 := testMB.messages[th.HashMessage(m)]
+	_, exists2 := testMB.processingMessages[th.HashMessage(m)]
 	if exists1 || exists2 {
 		t.Errorf("Succeeded() did not remove the message from the buffer."+
 			"\n\tbuffer: %+v", testMB)
@@ -244,8 +261,9 @@ func TestMessageBuffer_Succeeded(t *testing.T) {
 
 // Tests happy path of MessageBuffer.Failed().
 func TestMessageBuffer_Failed(t *testing.T) {
+	th := newTestHandler()
 	// Create new MessageBuffer and fill with message
-	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), th, "testKey")
 	if err != nil {
 		t.Fatalf("Failed to create new MessageBuffer: %v", err)
 	}
@@ -259,8 +277,8 @@ func TestMessageBuffer_Failed(t *testing.T) {
 
 	testMB.Failed(m)
 
-	_, exists1 := testMB.messages[hashMessage(m)]
-	_, exists2 := testMB.processingMessages[hashMessage(m)]
+	_, exists1 := testMB.messages[th.HashMessage(m)]
+	_, exists2 := testMB.processingMessages[th.HashMessage(m)]
 	if !exists1 || exists2 {
 		t.Errorf("Failed() did not move the message back into the \"not "+
 			"processed\" state.\n\tbuffer: %+v", testMB)
@@ -268,13 +286,13 @@ func TestMessageBuffer_Failed(t *testing.T) {
 }
 
 // addTestMessages adds random messages to the buffer.
-func addTestMessages(mb *MessageBuffer, n int) []messageHash {
+func addTestMessages(mb *MessageBuffer, n int) []MessageHash {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	msgs := make([]messageHash, n)
+	msgs := make([]MessageHash, n)
 	for i := 0; i < n; i++ {
 		keyData := make([]byte, 16)
 		prng.Read(keyData)
-		mh := messageHash{}
+		mh := MessageHash{}
 		copy(mh[:], keyData)
 
 		if i%10 == 0 {
@@ -288,9 +306,9 @@ func addTestMessages(mb *MessageBuffer, n int) []messageHash {
 	return msgs
 }
 
-// cmpMessageHash compares two slices of messageHash to see if they have the
+// cmpMessageHash compares two slices of MessageHash to see if they have the
 // exact same elements in any order.
-func cmpMessageHash(arrA, arrB []messageHash) bool {
+func cmpMessageHash(arrA, arrB []MessageHash) bool {
 	if len(arrA) != len(arrB) {
 		return false
 	}
@@ -311,18 +329,14 @@ func cmpMessageHash(arrA, arrB []messageHash) bool {
 
 // makeTestMessages creates a list of messages with random data and the expected
 // map after they are added to the buffer.
-func makeTestMessages(n int) ([]format.Message, map[messageHash]struct{}) {
+func makeTestMessages(n int) ([][]byte, map[MessageHash]struct{}) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	mh := map[messageHash]struct{}{}
-	msgs := make([]format.Message, n)
+	mh := map[MessageHash]struct{}{}
+	msgs := make([][]byte, n)
 	for i := range msgs {
-		msgs[i] = format.NewMessage(128)
-		payload := make([]byte, 128)
-		prng.Read(payload)
-		msgs[i].SetPayloadA(payload)
-		prng.Read(payload)
-		msgs[i].SetPayloadB(payload)
-		mh[hashMessage(msgs[i])] = struct{}{}
+		msgs[i] = make([]byte, 256)
+		prng.Read(msgs[i])
+		mh[md5.Sum(msgs[i])] = struct{}{}
 	}
 
 	return msgs, mh

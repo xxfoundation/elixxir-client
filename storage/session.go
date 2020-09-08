@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/partition"
 	"gitlab.com/elixxir/client/storage/user"
+	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/ekv"
@@ -33,11 +34,12 @@ type Session struct {
 	regStatus RegistrationStatus
 
 	//sub-stores
-	e2e           *e2e.Store
-	cmix          *cmix.Store
-	user          *user.User
-	conversations *conversation.Store
-	partition     *partition.Store
+	e2e              *e2e.Store
+	cmix             *cmix.Store
+	user             *user.User
+	conversations    *conversation.Store
+	partition        *partition.Store
+	criticalMessages *utility.MessageBuffer
 }
 
 // Initialize a new Session object
@@ -87,6 +89,11 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
+	s.criticalMessages, err = utility.NewMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create session")
+	}
+
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
@@ -120,6 +127,11 @@ func Load(baseDir, password string) (*Session, error) {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
+	s.criticalMessages, err = utility.LoadMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load session")
+	}
+
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
@@ -142,6 +154,12 @@ func (s *Session) E2e() *e2e.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.e2e
+}
+
+func (s *Session) GetCriticalMessages() *utility.MessageBuffer {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.criticalMessages
 }
 
 func (s *Session) Conversations() *conversation.Store {

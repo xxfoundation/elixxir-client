@@ -7,9 +7,12 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/context/utility"
 	"gitlab.com/elixxir/client/storage/e2e"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/elixxir/primitives/states"
+	"time"
 )
 
 func handleTrigger(ctx *context.Context, request message.Receive) {
@@ -83,6 +86,35 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	cmixParams := params.GetDefaultCMIX()
 
 	rounds, err := ctx.Manager.SendE2E(m, e2eParams, cmixParams)
+
+	//Register the event for all rounds
+	sendResults := make(chan ds.EventReturn, len(rounds))
+	roundEvents := ctx.Manager.GetInstance().GetRoundEvents()
+	for _, r := range rounds {
+		roundEvents.AddRoundEventChan(r, sendResults, 1*time.Minute,
+			states.COMPLETED, states.FAILED)
+	}
+
+	//Wait until the result tracking responds
+	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
+
+	// If a single partition of the Key Negotiation request does not
+	// transmit, the partner will not be able to read the confirmation. If
+	// such a failure occurs
+	if !success {
+		session.SetNegotiationStatus(e2e.Unconfirmed)
+		return errors.Errorf("Key Negotiation for %s failed to "+
+			"transmit %v/%v paritions: %v round failures, %v timeouts",
+			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
+			numTimeOut)
+	}
+
+	// otherwise, the transmission is a success and this should be denoted
+	// in the session and the log
+	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
+		session)
+	session.SetNegotiationStatus(e2e.Sent)
+
 
 }
 

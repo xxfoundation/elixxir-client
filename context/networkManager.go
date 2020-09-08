@@ -16,3 +16,4 @@ type NetworkManager interface {
 	GetInstance() *network.Instance
 	Stoppable() stoppable.Stoppable
 }
+

@@ -95,3 +95,7 @@ func (m *Manager) StopRunners(timeout time.Duration) error {
 	m.runners = stoppable.NewMulti("network.Manager")
 	return err
 }
+
+func (m *Manager) GetHealthTracker() context.HealthTracker {
+	return m.health
+}

@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// Test normal function and errors for User's SetUsername function
 func TestUser_SetUsername(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
@@ -39,6 +40,7 @@ func TestUser_SetUsername(t *testing.T) {
 	}
 }
 
+// Test functionality of User's GetUsername function
 func TestUser_GetUsername(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
@@ -63,6 +65,7 @@ func TestUser_GetUsername(t *testing.T) {
 	}
 }
 
+// Test the loadUsername helper function
 func TestUser_loadUsername(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)

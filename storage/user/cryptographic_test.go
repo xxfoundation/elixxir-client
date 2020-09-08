@@ -10,6 +10,7 @@ import (
 	"testing"
 )
 
+// Test for NewCryptographicIdentity function
 func TestNewCryptographicIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -21,6 +22,7 @@ func TestNewCryptographicIdentity(t *testing.T) {
 	}
 }
 
+// Test loading cryptographic identity from KV store
 func TestLoadCryptographicIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -40,6 +42,7 @@ func TestLoadCryptographicIdentity(t *testing.T) {
 	}
 }
 
+// Happy path for GetRSA function
 func TestCryptographicIdentity_GetRSA(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -53,6 +56,7 @@ func TestCryptographicIdentity_GetRSA(t *testing.T) {
 	}
 }
 
+// Happy path for GetSalt function
 func TestCryptographicIdentity_GetSalt(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -63,6 +67,7 @@ func TestCryptographicIdentity_GetSalt(t *testing.T) {
 	}
 }
 
+// Happy path for GetUserID function
 func TestCryptographicIdentity_GetUserID(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("zezima", id.User, t)
@@ -72,6 +77,7 @@ func TestCryptographicIdentity_GetUserID(t *testing.T) {
 	}
 }
 
+// Happy path for IsPrecanned functions
 func TestCryptographicIdentity_IsPrecanned(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("zezima", id.User, t)

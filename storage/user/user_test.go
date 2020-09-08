@@ -9,6 +9,7 @@ import (
 	"testing"
 )
 
+// Test loading user from a KV store
 func TestLoadUser(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	_, err := LoadUser(kv)
@@ -30,6 +31,7 @@ func TestLoadUser(t *testing.T) {
 	}
 }
 
+// Test NewUser function
 func TestNewUser(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
@@ -39,6 +41,7 @@ func TestNewUser(t *testing.T) {
 	}
 }
 
+// Test GetCryptographicIdentity function from user
 func TestUser_GetCryptographicIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)

@@ -10,6 +10,7 @@ import (
 	"time"
 )
 
+// Test User GetRegistrationValidationSignature function
 func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
@@ -31,6 +32,7 @@ func TestUser_GetRegistrationValidationSignature(t *testing.T) {
 	}
 }
 
+// Test SetRegistrationValidationSignature setter
 func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
@@ -56,6 +58,7 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 	}
 }
 
+// Test loading registrationValidationSignature from the KV store
 func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)

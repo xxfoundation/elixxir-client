@@ -9,6 +9,7 @@ package network
 import (
 	"fmt"
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/crypto"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/network/keyExchange"
@@ -25,9 +26,9 @@ import (
 	"time"
 )
 
-// Receive is called by a MessageReceiver routine whenever a new CMIX message
-// is available.
-func Receive(ctx *Context, m *CMIXMessage) {
+// ReceiveMessage is called by a MessageReceiver routine whenever a new CMIX
+// message is available.
+func ReceiveMessage(ctx *Context, m *CMIXMessage) {
 	decrypted, err := decrypt(ctx, m) // Returns MessagePart
 	if err != nil {
 		// Add to error/garbled messages list
@@ -44,30 +45,32 @@ func Receive(ctx *Context, m *CMIXMessage) {
 
 // StartMessageReceivers starts a worker pool of message receivers, which listen
 // on a channel for messages and run them through processing.
-func StartMessageReceivers(ctx *context.Context) Stoppable {
+func StartMessageReceivers(ctx *context.Context) stoppable.Stoppable {
 	// We assume receivers channel is set up elsewhere, but note that this
 	// would also be a reasonable place under assumption of 1 call to
 	// message receivers (would also make sense to .Close it instead of
 	// using quit channel, which somewhat simplifies for loop later.
+	stoppers := stoppable.NewMulti("MessageReceivers")
 	receiverCh := ctx.GetNetwork().GetMessageReceiverCh()
 	for i := 0; i < ctx.GetNumReceivers(); i++ {
-		// quitCh created for each thread, add to multistop
-		quitCh := make(chan bool)
-		go MessageReceiver(ctx, messagesCh, quitCh)
+		stopper := stoppable.NewSingle("MessageReceiver" + i)
+		go MessageReceiver(ctx, messagesCh, stopper.Quit())
+		stoppers.Add(stopper)
 	}
-
-	// Return multistoppable
+	return stoppers
 }
 
+// MessageReceiver waits until quit signal or there is a message
+// available on the messages channel.
 func MessageReceiver(ctx *context.Context, messagesCh chan ClientMessage,
-	quitCh chan bool) {
+	quitCh <-chan struct{}) {
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
 		case m := <-messagesCh:
-			ReceiveMessage(ctx, m) // defined elsewhere...
+			ReceiveMessage(ctx, m)
 		}
 	}
 }

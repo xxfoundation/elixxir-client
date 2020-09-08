@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -31,11 +32,15 @@ type Manager struct {
 	Context *context.Context
 
 	// runners are the Network goroutines that handle reception
-	runners stoppable.Multi
+	runners *stoppable.Multi
+
+	//contains the health tracker which keeps track of if from the client's
+	//perspective, the network is in good condition
+	health *health.Tracker
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(context *context.Context, uid *id.ID, privKey, pubKey,
+func NewManager(ctx *context.Context, uid *id.ID, privKey, pubKey,
 	salt []byte) (*Manager, error) {
 	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
 	if err != nil {
@@ -46,6 +51,7 @@ func NewManager(context *context.Context, uid *id.ID, privKey, pubKey,
 		Comms:   comms,
 		Context: ctx,
 		runners: stoppable.NewMulti("network.Manager"),
+		health:  health.Init(ctx, 5*time.Second),
 	}
 
 	return cm, nil
@@ -69,7 +75,7 @@ func (m *Manager) GetRemoteVersion() (string, error) {
 
 // StartRunners kicks off all network reception goroutines ("threads").
 func (m *Manager) StartRunners() error {
-	if len(m.runners) != 0 {
+	if m.runners.IsRunning() {
 		return errors.Errorf("network routines are already running")
 	}
 
@@ -77,6 +83,9 @@ func (m *Manager) StartRunners() error {
 	m.runners.Add(StartTrackNetwork(m.Context))
 	// Message reception
 	m.runners.Add(StartMessageReceivers(m.Context))
+	// health tracker
+	m.health.Start()
+	m.runners.Add(m.health)
 
 }
 

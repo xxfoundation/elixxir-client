@@ -19,6 +19,7 @@ package network
 
 import (
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/stoppable"
 )
 
 // GetUpdates polls the network for updates.
@@ -27,18 +28,15 @@ func (m *Manager) GetUpdates() (*network.Instance, error) {
 }
 
 // StartTrackNetwork starts a single TrackNetwork thread and returns a stoppable
-func StartTrackNetwork(ctx *context.Context) Stoppable {
-	stopper := ChanStop{
-		name: "TrackNetwork",
-		quit: make(chan bool),
-	}
-	go TrackNetwork(ctx, stopper.quit)
+func StartTrackNetwork(ctx *context.Context) stoppable.Stoppable {
+	stopper := stoppable.NewSingle("TrackNetwork")
+	go TrackNetwork(ctx, stopper.Quit())
 	return stopper
 }
 
 // TrackNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func TrackNetwork(ctx *context.Context, quitCh chan bool) {
+func TrackNetwork(ctx *context.Context, quitCh <-chan struct{}) {
 	ticker := timer.NewTicker(ctx.GetTrackNetworkPeriod())
 	done := false
 	for !done {
@@ -51,7 +49,7 @@ func TrackNetwork(ctx *context.Context, quitCh chan bool) {
 	}
 }
 
-func trackNetwork(ctx) {
+func trackNetwork(ctx *context.Context) {
 	gateway, err := ctx.Session.GetNodeKeys().GetGatewayForSending()
 	if err != nil {
 		//...

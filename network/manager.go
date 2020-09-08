@@ -12,6 +12,7 @@ package network
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/switchboard"
@@ -28,6 +29,9 @@ type Manager struct {
 	Comms *client.Comms
 	// Context contains all of the keying info used to send messages
 	Context *context.Context
+
+	// runners are the Network goroutines that handle reception
+	runners stoppable.Multi
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -41,6 +45,7 @@ func NewManager(context *context.Context, uid *id.ID, privKey, pubKey,
 	cm := &Manager{
 		Comms:   comms,
 		Context: ctx,
+		runners: stoppable.NewMulti("network.Manager"),
 	}
 
 	return cm, nil
@@ -60,4 +65,24 @@ func (m *Manager) GetRemoteVersion() (string, error) {
 		return "", err
 	}
 	return registrationVersion.Version, nil
+}
+
+// StartRunners kicks off all network reception goroutines ("threads").
+func (m *Manager) StartRunners() error {
+	if len(m.runners) != 0 {
+		return errors.Errorf("network routines are already running")
+	}
+
+	// Start the Network Tracker
+	m.runners.Add(StartTrackNetwork(m.Context))
+	// Message reception
+	m.runners.Add(StartMessageReceivers(m.Context))
+
+}
+
+// StopRunners stops all the reception goroutines
+func (m *Manager) StopRunners(timeout time.Duration) error {
+	err := m.runners.Close(timeout)
+	m.runners = stoppable.NewMulti("network.Manager")
+	return err
 }

@@ -27,91 +27,6 @@ import (
 
 const SaltSize = 32
 
-//RegisterWithPermissioning registers the user and returns the User ID.
-// Returns an error if registration fails.
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) (*id.ID, error) {
-	//Check the regState is in proper state for registration
-	regState, err := cl.sessionV2.GetRegState()
-	if err != nil {
-		return nil, err
-	}
-
-	if regState != user.KeyGenComplete {
-		return nil, errors.Errorf("Attempting to register before key generation!")
-	}
-	userData, err := cl.sessionV2.GetUserData()
-	if err != nil {
-		return nil, err
-	}
-	usr := userData.ThisUser
-	UID := usr.User
-
-	//Initialized response from Registration Server
-	regValidationSignature := make([]byte, 0)
-
-	//Handle registration
-	if preCan {
-		// Either perform a precanned registration for a precanned user
-		cl.opStatus(globals.REG_PRECAN)
-		globals.Log.INFO.Printf("Registering precanned user...")
-		var nodeKeyMap map[id.ID]user.NodeKeys
-		usr, UID, nodeKeyMap, err = cl.precannedRegister(registrationCode)
-		if err != nil {
-			globals.Log.ERROR.Printf("Unable to complete precanned registration: %+v", err)
-			return &id.ZeroUser, err
-		}
-
-		//overwrite the user object
-		usr.Precan = true
-		userData.ThisUser = usr
-		cl.sessionV2.CommitUserData(userData)
-
-		//store the node keys
-		for n, k := range nodeKeyMap {
-			cl.sessionV2.PushNodeKey(&n, k)
-		}
-
-		//update the state
-		err = cl.sessionV2.SetRegState(user.PermissioningComplete)
-		if err != nil {
-			return &id.ZeroUser, err
-		}
-
-	} else {
-		// Or register with the permissioning server and generate user information
-		regValidationSignature, err = cl.registerWithPermissioning(
-			registrationCode,
-			userData.RSAPublicKey)
-		if err != nil {
-			globals.Log.INFO.Printf(err.Error())
-			return &id.ZeroUser, err
-		}
-		//update the session with the registration
-		err = cl.sessionV2.SetRegState(user.PermissioningComplete)
-		if err != nil {
-			return nil, err
-		}
-
-		err = cl.sessionV2.SetRegValidationSig(regValidationSignature)
-		if err != nil {
-			return nil, err
-		}
-
-	}
-
-	//Set the registration secure state
-	cl.opStatus(globals.REG_SECURE_STORE)
-
-	//store the updated session
-	err = cl.session.StoreSession()
-
-	if err != nil {
-		return nil, err
-	}
-
-	return UID, nil
-}
-
 //RegisterWithUDB uses the account's email to register with the UDB for
 // User discovery.  Must be called after Register and InitNetwork.
 // It will fail if the user has already registered with UDB
@@ -350,32 +265,6 @@ func (cl *Client) registerWithNode(index int, salt, registrationValidationSignat
 			cmixPrivateKeyDH, receptionHash),
 	}
 	cl.sessionV2.PushNodeKey(nodeID, key)
-}
-
-//registerWithPermissioning serves as a helper function for RegisterWithPermissioning.
-// It sends the registration message containing the regCode to permissioning
-func (cl *Client) registerWithPermissioning(registrationCode string,
-	publicKeyRSA *rsa.PublicKey) (regValidSig []byte, err error) {
-	//Set the opStatus and log registration
-	globals.Log.INFO.Printf("Registering dynamic user...")
-
-	// If Registration Server is not specified return an error
-	if cl.ndf.Registration.Address == "" {
-		return nil, errors.New("No registration attempted, " +
-			"registration server not known")
-	}
-
-	// attempt to register with registration
-	globals.Log.INFO.Println("Register: Registering with registration server")
-	cl.opStatus(globals.REG_PERM)
-	regValidSig, err = cl.sendRegistrationMessage(registrationCode, publicKeyRSA)
-	if err != nil {
-		return nil, errors.Errorf("Register: Unable to send registration message: %+v", err)
-	}
-
-	globals.Log.INFO.Println("Register: successfully registered")
-
-	return regValidSig, nil
 }
 
 // extractPublicKeyFromCert is a utility function which pulls out the public key from a certificate

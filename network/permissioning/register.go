@@ -11,7 +11,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-//RegisterWithPermissioning registers the user and returns the User ID.
+//RegisterWithPermissioning registers the user with optional registration code
 // Returns an error if registration fails.
 func RegisterWithPermissioning(ctx context.Context, comms client.Comms, registrationCode string) error {
 	instance := ctx.Manager.GetInstance()
@@ -25,7 +25,7 @@ func RegisterWithPermissioning(ctx context.Context, comms client.Comms, registra
 
 	userData := ctx.Session.User()
 
-	// Register with the permissioning server and generate user information
+	// Register with the permissioning server
 	regValidationSignature, err := sendRegistrationMessage(comms,
 		registrationCode,
 		userData.GetCryptographicIdentity().GetRSA().GetPublic())

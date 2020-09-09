@@ -111,7 +111,7 @@ func (c *Conversation) GetNextSendID() (uint64, uint32) {
 			"%s", err)
 	}
 	c.mux.Unlock()
-	return old, uint32(old & 0x000000007FFFFFFF)
+	return old, uint32(old & 0x00000000FFFFFFFF)
 }
 
 func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {

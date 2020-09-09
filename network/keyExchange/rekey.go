@@ -92,7 +92,7 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
 	cmixParams := params.GetDefaultCMIX()
-	cmixParams.Retries = 20
+	cmixParams.RoundTries = 20
 
 	rounds, err := ctx.Manager.SendE2E(m, e2eParams, cmixParams)
 	// If the send fails, returns the error so it can be handled. The caller

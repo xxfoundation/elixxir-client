@@ -39,14 +39,25 @@ type Manager struct {
 
 	//contains the network instance
 	instance *network.Instance
+
+	//channels
+	nodeRegistration chan *id.ID
+
+	//local pointer to user ID because it is used often
+	uid *id.ID
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(ctx *context.Context, uid *id.ID, privKey, pubKey,
-	salt []byte, partial *ndf.NetworkDefinition) (*Manager, error) {
+func NewManager(ctx *context.Context) (*Manager, error) {
 
 	//start comms
-	comms, err := client.NewClientComms(uid, pubKey, privKey, salt)
+	//get the user from storage
+	user := ctx.Session.User()
+	cryptoUser := user.GetCryptographicIdentity()
+
+	comms, err := client.NewClientComms(cryptoUser.GetUserID(),
+		cryptoUser.GetRSA().GetPublic(), cryptoUser.GetRSA(),
+		cryptoUser.GetSalt())
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
@@ -65,6 +76,7 @@ func NewManager(ctx *context.Context, uid *id.ID, privKey, pubKey,
 		runners:  stoppable.NewMulti("network.Manager"),
 		health:   health.Init(ctx, 5*time.Second),
 		instance: instance,
+		uid:      cryptoUser.GetUserID(),
 	}
 
 	return cm, nil

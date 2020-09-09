@@ -121,6 +121,12 @@ func (m *Manager) StartRunners() error {
 
 }
 
+// GetRunners returns the network goroutines such that they can be named
+// and stopped.
+func (m *Manager) GetRunners() stoppable.Stoppable {
+	return m.runners
+}
+
 // StopRunners stops all the reception goroutines
 func (m *Manager) StopRunners(timeout time.Duration) error {
 	err := m.runners.Close(timeout)
@@ -128,10 +134,12 @@ func (m *Manager) StopRunners(timeout time.Duration) error {
 	return err
 }
 
+// GetHealthTracker returns the health tracker
 func (m *Manager) GetHealthTracker() context.HealthTracker {
 	return m.health
 }
 
+// GetInstance returns the network instance object (ndf state)
 func (m *Manager) GetInstance() *network.Instance {
 	return m.instance
 }

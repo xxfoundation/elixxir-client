@@ -222,7 +222,11 @@ func (s *Session) GetID() SessionID {
 
 // returns the ID of the partner for this session
 func (s *Session) GetPartner() *id.ID {
-	return s.manager.partner
+	if s.manager != nil {
+		return s.manager.partner
+	} else {
+		return nil
+	}
 }
 
 //ekv functions
@@ -365,12 +369,13 @@ func (s *Session) SetNegotiationStatus(status Negotiation) {
 		(s.negotiationStatus == NewSessionTriggered && status == Confirmed))
 
 	//change the state
+	oldStatus := s.negotiationStatus
 	s.negotiationStatus = status
 
 	//save the status if appropriate
 	if save {
 		if err := s.save(); err != nil {
-			jww.FATAL.Printf("Failed to save Session %s when moving from %s to %s")
+			jww.FATAL.Printf("Failed to save Session %s when moving from %s to %s", s, oldStatus, status)
 		}
 	}
 }
@@ -395,18 +400,19 @@ func (s *Session) triggerNegotiation() bool {
 	// case, such double locking is preferable because the majority of the time,
 	// the checked cases will turn out to be false.
 	s.mux.RLock()
-	//trigger a rekey to create a new session
-	if s.keyState.GetNumAvailable() >= s.ttl && s.negotiationStatus == Confirmed {
+	// If we've used more keys than the TTL, it's time for a rekey
+	if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
 		s.mux.RUnlock()
 		s.mux.Lock()
-		if s.keyState.GetNumAvailable() >= s.ttl && s.negotiationStatus == Confirmed {
+		if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
+			//trigger a rekey to create a new session
 			s.negotiationStatus = NewSessionTriggered
 			// no save is make after the update because we do not want this state
 			// saved to disk. The caller will shortly execute the operation,
 			// and then move to the next state. If a crash occurs before, by not
 			// storing this state this operation will be repeated after reload
 			// The save function has been modified so if another call causes a
-			// save, "NewSessionTriggerd" will be overwritten with "Confirmed"
+			// save, "NewSessionTriggered" will be overwritten with "Confirmed"
 			// in the saved data.
 			s.mux.Unlock()
 			return true
@@ -414,13 +420,13 @@ func (s *Session) triggerNegotiation() bool {
 			s.mux.Unlock()
 			return false
 		}
-		// retrigger this sessions negotiation
 	} else if s.negotiationStatus == Unconfirmed {
+		// retrigger this sessions negotiation
 		s.mux.RUnlock()
 		s.mux.Lock()
 		if s.negotiationStatus == Unconfirmed {
 			s.negotiationStatus = Sending
-			// no save is make after the update because we do not want this state
+			// no save is made after the update because we do not want this state
 			// saved to disk. The caller will shortly execute the operation,
 			// and then move to the next state. If a crash occurs before, by not
 			// storing this state this operation will be repeated after reload
@@ -452,8 +458,13 @@ func (s *Session) IsConfirmed() bool {
 }
 
 func (s *Session) String() string {
-	return fmt.Sprintf("{Partner: %s, ID: %s}",
-		s.manager.partner, s.GetID())
+	partner := s.GetPartner()
+	if partner != nil {
+		return fmt.Sprintf("{Partner: %s, ID: %s}",
+			partner, s.GetID())
+	} else {
+		return fmt.Sprintf("{Partner: nil, ID: %s}", s.GetID())
+	}
 }
 
 /*PRIVATE*/
@@ -473,7 +484,7 @@ func (s *Session) generate() {
 	}
 
 	// compute the base key if it is not already there
-	if s.baseKey != nil {
+	if s.baseKey == nil {
 		s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
 	}
 

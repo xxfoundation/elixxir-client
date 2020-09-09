@@ -18,8 +18,8 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/cmixproto"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/user"
 	"gitlab.com/elixxir/client/userRegistry"
@@ -444,7 +444,7 @@ var rootCmd = &cobra.Command{
 
 		// todo: since this is in the root cmd, would checking the regstate directly really be bad?
 		//  It's correct that it should be an error state for RegisterWithUDB, however for this, it's start up code
-		regState, err := io.SessionV2.GetRegState()
+		regState, err := network.SessionV2.GetRegState()
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not retrieve registration state: %v", err)
 		}

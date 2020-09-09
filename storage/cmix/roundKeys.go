@@ -40,3 +40,15 @@ func (rk *RoundKeys) Encrypt(msg format.Message,
 
 	return ecrMsg, KMAC
 }
+
+func (rk *RoundKeys) MakeClientGatewayKey(salt, digest []byte) []byte {
+	clientGatewayKey := cmix.GenerateClientGatewayKey(rk.keys[0].k)
+	h, _ := hash.NewCMixHash()
+	h.Write(clientGatewayKey)
+	h.Write(salt)
+	hashed := h.Sum(nil)
+	h.Reset()
+	h.Write(hashed)
+	h.Write(digest)
+	return h.Sum(nil)
+}

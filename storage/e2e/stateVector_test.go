@@ -22,6 +22,20 @@ func TestStateVector_GetNumAvailable(t *testing.T) {
 	}
 }
 
+// Shows that GetNumUsed returns the number of slots used in the state vector
+func TestStateVector_GetNumUsed(t *testing.T) {
+	const numAvailable = 23
+	const numKeys = 50
+	sv := &stateVector{
+		numkeys:      numKeys,
+		numAvailable: numAvailable,
+	}
+
+	if sv.GetNumUsed() != numKeys-numAvailable {
+		t.Errorf("Expected %v used, got %v", numKeys-numAvailable, sv.GetNumUsed())
+	}
+}
+
 func TestStateVector_GetNumKeys(t *testing.T) {
 	ctx := context{
 		kv: versioned.NewKV(make(ekv.Memstore)),

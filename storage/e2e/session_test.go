@@ -6,7 +6,10 @@ import (
 	"gitlab.com/elixxir/crypto/csprng"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
+	"reflect"
 	"testing"
+	"time"
 )
 
 func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
@@ -135,7 +138,7 @@ func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession(t)
 	// Make a new session with the variables we got from makeTestSession
-	sessionB := newSession(sessionA.manager, sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.params, sessionA.t)
+	sessionB := newSession(sessionA.manager, sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey, sessionA.params, sessionA.t, sessionA.GetID())
 
 	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {
@@ -408,25 +411,6 @@ func TestSession_IsConfirmed(t *testing.T) {
 	}
 }
 
-// IsReKeyNeeded only returns true once, when the number of keys available is
-// equal to the TTL. If it returned true after the TTL, it could result in
-// additional, unnecessary rekeys.
-func TestSession_IsReKeyNeeded(t *testing.T) {
-	s, _ := makeTestSession(t)
-	s.keyState.numAvailable = s.ttl
-	if !s.IsReKeyNeeded() {
-		t.Error("Rekey should be needed if the number available is the TTL")
-	}
-	s.keyState.numAvailable = s.ttl + 1
-	if s.IsReKeyNeeded() {
-		t.Error("Rekey shouldn't be needed in this case")
-	}
-	s.keyState.numAvailable = s.ttl - 1
-	if s.IsReKeyNeeded() {
-		t.Error("Rekey shouldn't be needed in this case")
-	}
-}
-
 // Shows that Status can result in all possible statuses
 func TestSession_Status(t *testing.T) {
 	s, ctx := makeTestSession(t)
@@ -454,16 +438,151 @@ func TestSession_Status(t *testing.T) {
 	}
 }
 
-// After a Confirm call, confirmed should be true
-func TestConfirm(t *testing.T) {
-	s, _ := makeTestSession(t)
-	s.confirmed = false
-	err := s.confirm()
+// Tests that state transitions as documented don't cause panics
+// Tests that the session saves or doesn't save when appropriate
+func TestSession_SetNegotiationStatus(t *testing.T) {
+	s, ctx := makeTestSession(t)
+	//	Normal paths: SetNegotiationStatus should not fail
+	// Use timestamps to determine whether a save has occurred
+	s.negotiationStatus = Sending
+	now := time.Now()
+	time.Sleep(time.Millisecond)
+	s.SetNegotiationStatus(Sent)
+	if s.negotiationStatus != Sent {
+		t.Error("SetNegotiationStatus didn't set the negotiation status")
+	}
+	object, err := ctx.kv.Get(makeSessionKey(s.GetID()))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !s.confirmed {
-		t.Error("Should be confirmed after confirming")
+	if !object.Timestamp.After(now) {
+		t.Error("save didn't occur after switching Sending to Sent")
+	}
+
+	now = time.Now()
+	time.Sleep(time.Millisecond)
+	s.SetNegotiationStatus(Confirmed)
+	if s.negotiationStatus != Confirmed {
+		t.Error("SetNegotiationStatus didn't set the negotiation status")
+	}
+	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !object.Timestamp.After(now) {
+		t.Error("save didn't occur after switching Sent to Confirmed")
+	}
+
+	now = time.Now()
+	time.Sleep(time.Millisecond)
+	s.negotiationStatus = NewSessionTriggered
+	s.SetNegotiationStatus(NewSessionCreated)
+	if s.negotiationStatus != NewSessionCreated {
+		t.Error("SetNegotiationStatus didn't set the negotiation status")
+	}
+	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !object.Timestamp.After(now) {
+		t.Error("save didn't occur after switching Sent to Confirmed")
+	}
+
+	// Reverting paths: SetNegotiationStatus should not fail, and a save should not take place
+	time.Sleep(time.Millisecond)
+	now = time.Now()
+	time.Sleep(time.Millisecond)
+	s.negotiationStatus = Sending
+	s.SetNegotiationStatus(Unconfirmed)
+	if s.negotiationStatus != Unconfirmed {
+		t.Error("SetNegotiationStatus didn't set the negotiation status")
+	}
+	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !object.Timestamp.Before(now) {
+		t.Error("save occurred after switching Sent to Confirmed")
+	}
+
+	s.negotiationStatus = NewSessionTriggered
+	s.SetNegotiationStatus(Confirmed)
+	if s.negotiationStatus != Confirmed {
+		t.Error("SetNegotiationStatus didn't set the negotiation status")
+	}
+	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !object.Timestamp.Before(now) {
+		t.Error("save occurred after switching Sent to Confirmed")
+	}
+}
+
+// Tests that TriggerNegotiation makes only valid state transitions
+func TestSession_TriggerNegotiation(t *testing.T) {
+	s, _ := makeTestSession(t)
+	// Set up num keys used to be > ttl: should trigger negotiation
+	s.keyState.numAvailable = 50
+	s.keyState.numkeys = 100
+	s.ttl = 49
+	s.negotiationStatus = Confirmed
+
+	if !s.triggerNegotiation() {
+		t.Error("trigger negotiation unexpectedly failed")
+	}
+	if s.negotiationStatus != NewSessionTriggered {
+		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
+	}
+
+	// Set up num keys used to be = ttl: should trigger negotiation
+	s.ttl = 50
+	s.negotiationStatus = Confirmed
+
+	if !s.triggerNegotiation() {
+		t.Error("trigger negotiation unexpectedly failed")
+	}
+	if s.negotiationStatus != NewSessionTriggered {
+		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
+	}
+
+	// Set up num keys used to be < ttl: shouldn't trigger negotiation
+	s.ttl = 51
+	s.negotiationStatus = Confirmed
+
+	if !s.triggerNegotiation() {
+		t.Error("trigger negotiation unexpectedly failed")
+	}
+	if s.negotiationStatus != Confirmed {
+		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
+	}
+
+	// Test other case: trigger sending	confirmation message on unconfirmed session
+	s.negotiationStatus = Unconfirmed
+	if !s.triggerNegotiation() {
+		t.Error("trigger negotiation unexpectedly failed")
+	}
+	if s.negotiationStatus != Sending {
+		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
+	}
+}
+
+// Shows that String doesn't cause errors or panics
+// Also can be used to examine or change output of String()
+func TestSession_String(t *testing.T) {
+	s, _ := makeTestSession(t)
+	t.Log(s.String())
+	s.manager.partner = id.NewIdFromUInt(80, id.User, t)
+	t.Log(s.String())
+}
+
+// Shows that GetTrigger gets the trigger we set
+func TestSession_GetTrigger(t *testing.T) {
+	s, _ := makeTestSession(t)
+	thisTrigger := s.GetID()
+	s.trigger = thisTrigger
+	if !reflect.DeepEqual(s.GetTrigger(), thisTrigger) {
+		t.Error("Trigger different from expected")
 	}
 }
 

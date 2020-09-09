@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package io
+package network
 
 // threads.go handles all the long running network processing threads in client
 
@@ -32,64 +32,6 @@ func (c ChanStop) Close(timeout time.Duration) {
 		jww.ERROR.Printf("goroutine failed to Close: %s", c.name)
 	case <-c.quit:
 		return
-	}
-}
-
-// StartTrackNetwork starts a single TrackNetwork thread and returns a stoppable
-// structure
-func StartTrackNetwork(ctx *context.Context) Stoppable {
-	stopper := ChanStop{
-		name: "TrackNetwork",
-		quit: make(chan bool),
-	}
-	go TrackNetwork(ctx, stopper.quit)
-	return stopper
-}
-
-// TrackNetwork polls the network to get updated on the state of nodes, the
-// round status, and informs the client when messages can be retrieved.
-func TrackNetwork(ctx *context.Context, quitCh chan bool) {
-	ticker := timer.NewTicker(ctx.GetTrackNetworkPeriod())
-	done := false
-	for !done {
-		select {
-		case <-quitCh:
-			done = true
-		case <-ticker:
-			trackNetwork(ctx)
-		}
-	}
-}
-
-func trackNetwork(ctx) {
-	gateway, err := ctx.Session.GetNodeKeys().GetGatewayForSending()
-	if err != nil {
-		//...
-	}
-
-	network := ctx.GetNetwork()
-	ndf, err := network.PollNDF(ctx, gateway)
-	if err != nil {
-		// ....
-	}
-
-	newNodes, removedNodes := network.UpdateNDF(ndf)
-	for _, n := range newNodes {
-		network.addNodeCh <- n
-	}
-	for _, n := range removedNodes {
-		network.removeNodeCh <- n
-	}
-
-	rounds, err = network.UpdateRounds(ctx, ndf)
-	if err != nil {
-		// ...
-	}
-
-	err = rounds.GetKnownRound().MaskedRange(gateway,
-		network.CheckRoundsFunction)
-	if err != nil {
-		// ...
 	}
 }
 
@@ -140,34 +82,6 @@ func processHistoricalRounds(ctx *context.Context, rids []RoundID) []*RoundInfo 
 	gw := network.GetGateway()
 	ris := gw.GetHistoricalRounds(ctx.GetRoundList())
 	return ris
-}
-
-func StartMessageReceivers(ctx *context.Context) Stoppable {
-	// We assume receivers channel is set up elsewhere, but note that this
-	// would also be a reasonable place under assumption of 1 call to
-	// message receivers (would also make sense to .Close it instead of
-	// using quit channel, which somewhat simplifies for loop later.
-	receiverCh := ctx.GetNetwork().GetMessageReceiverCh()
-	for i := 0; i < ctx.GetNumReceivers(); i++ {
-		// quitCh created for each thread, add to multistop
-		quitCh := make(chan bool)
-		go MessageReceiver(ctx, messagesCh, quitCh)
-	}
-
-	// Return multistoppable
-}
-
-func MessageReceiver(ctx *context.Context, messagesCh chan ClientMessage,
-	quitCh chan bool) {
-	done := false
-	for !done {
-		select {
-		case <-quitCh:
-			done = true
-		case m := <-messagesCh:
-			ReceiveMessage(ctx, m) // defined elsewhere...
-		}
-	}
 }
 
 func StartNodeKeyExchange(ctx *context.Context) {

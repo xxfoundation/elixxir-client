@@ -115,7 +115,6 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
 
-
 }
 
 func unmarshalKeyExchangeTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,

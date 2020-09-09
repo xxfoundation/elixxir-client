@@ -30,8 +30,5 @@ func Init(ctx *context.Context) stoppable.Stoppable {
 				ctx.Session.request.Sender
 			}
 		}
-		()
-	}
+	}()
 }
-
-

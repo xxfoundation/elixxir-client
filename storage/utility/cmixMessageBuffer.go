@@ -11,7 +11,8 @@ const currentCmixMessageVersion = 0
 
 type cmixMessageHandler struct{}
 
-// saveMessage saves the message as a versioned object.
+// SaveMessage saves the message as a versioned object at the specified key
+// in the key value store.
 func (cmh *cmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
 	msg := m.(format.Message)
 
@@ -26,7 +27,9 @@ func (cmh *cmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key 
 	return kv.Set(key, &obj)
 }
 
-// loadMessage loads the message with the specified key.
+// LoadMessage returns the message with the specified key from the key value
+// store. An empty message and error are returned if the message could not be
+// retrieved.
 func (cmh *cmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
 	// Load the versioned object
 	vo, err := kv.Get(key)
@@ -35,23 +38,24 @@ func (cmh *cmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (interf
 	}
 
 	// Create message from data
-	return format.Unmarshal(vo.Data), err
+	return format.Unmarshal(vo.Data), nil
 }
 
-// DeleteMessage deletes the message with the specified key.
+// DeleteMessage deletes the message with the specified key from the key value
+// store.
 func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
 	return kv.Delete(key)
 }
 
-// hashMessage generates a hash of the message.
+// HashMessage generates a hash of the message.
 func (cmh *cmixMessageHandler) HashMessage(m interface{}) MessageHash {
 	msg := m.(format.Message)
-	// Create message from data
+
 	return md5.Sum(msg.Marshal())
 }
 
 // CmixMessageBuffer wraps the message buffer to store and load raw cmix
-// messages
+// messages.
 type CmixMessageBuffer struct {
 	mb *MessageBuffer
 }

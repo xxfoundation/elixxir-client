@@ -14,8 +14,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/io"
-	"gitlab.com/elixxir/client/io/keyExchange"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/user"
@@ -83,7 +83,7 @@ func (i *MockRegistration) CheckRegistration(msg *pb.RegisteredNodeCheck) (*pb.R
 
 // Setups general testing params and calls test wrapper
 func TestMain(m *testing.M) {
-	io.SessionV2, _ = storage.Init(".ekvbindings/a", "test")
+	network.SessionV2, _ = storage.Init(".ekvbindings/a", "test")
 	os.Exit(testMainWrapper(m))
 }
 
@@ -141,7 +141,7 @@ func TestRegister(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	if err != nil {
@@ -308,7 +308,7 @@ func TestClient_GetRegState(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	_, err = testClient.RegisterWithPermissioning(true, ValidRegCode)
@@ -317,13 +317,13 @@ func TestClient_GetRegState(t *testing.T) {
 		t.Errorf("Register with permissioning failed: %s", err.Error())
 	}
 
-	regState, _ := io.SessionV2.GetRegState()
+	regState, _ := network.SessionV2.GetRegState()
 	if regState != int64(user.PermissioningComplete) {
 		t.Errorf("Unexpected reg state: Expected PermissioningComplete (%d), recieved: %d",
 			user.PermissioningComplete, testClient.GetRegState())
 	}
 
-	io.SessionV2.SetRegValidationSig([]byte("test"))
+	network.SessionV2.SetRegValidationSig([]byte("test"))
 
 	err = testClient.RegisterWithNodes()
 	if err != nil {
@@ -352,7 +352,7 @@ func TestClient_Send(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 
 	// Register with a valid registration code
 	userID, err := testClient.RegisterWithPermissioning(true, ValidRegCode)
@@ -435,7 +435,7 @@ func TestLoginLogout(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, err := client.RegisterWithPermissioning(true, ValidRegCode)
 	loginRes, err2 := client.Login(regRes, "password")
 	if err2 != nil {
@@ -484,7 +484,7 @@ func TestListen(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 	_, err = client.Login(regRes, "password")
 
@@ -532,7 +532,7 @@ func TestStopListening(t *testing.T) {
 		t.Errorf("Could not generate Keys: %+v", err)
 	}
 
-	io.SessionV2.SetRegState(user.KeyGenComplete)
+	network.SessionV2.SetRegState(user.KeyGenComplete)
 	regRes, _ := client.RegisterWithPermissioning(true, ValidRegCode)
 
 	_, err = client.Login(regRes, "password")

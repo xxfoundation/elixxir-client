@@ -113,6 +113,8 @@ func (m *Manager) StartRunners() error {
 	// Node Updates
 	m.runners.Add(StartNodeKeyExchange(m.Context)) // Adding/Keys
 	m.runners.Add(StartNodeRemover(m.Context))     // Removing
+	// Round history processing
+	m.runners.Add(StartProcessHistoricalRounds(m.Context))
 	// health tracker
 	m.health.Start()
 	m.runners.Add(m.health)

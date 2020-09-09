@@ -119,6 +119,12 @@ func (sv *stateVector) GetNumAvailable() uint32 {
 	return sv.numAvailable
 }
 
+func (sv *stateVector) GetNumUsed() uint32 {
+	sv.mux.RLock()
+	defer sv.mux.RUnlock()
+	return sv.numkeys - sv.numAvailable
+}
+
 func (sv *stateVector) Used(keynum uint32) bool {
 	sv.mux.RLock()
 	defer sv.mux.RUnlock()

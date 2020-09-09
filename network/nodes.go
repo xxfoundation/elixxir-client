@@ -20,18 +20,22 @@ import (
 	"time"
 )
 
-func StartNodeKeyExchange(ctx *context.Context) {
+// StartNodeKeyExchange kicks off a worker pool of node key exchange routines
+func StartNodeKeyExchange(ctx *context.Context) stoppable.Stopable {
+	stoppers := stoppable.NewMulti("NodeKeyExchangers")
 	keyCh := ctx.GetNetwork().GetNodeKeysCh()
 	for i := 0; i < ctx.GetNumNodeKeyExchangers(); i++ {
-		// quitCh created for each thread, add to multistop
-		quitCh := make(chan bool)
-		go ExchangeNodeKeys(ctx, keyCh, quitCh)
+		stopper := stoppable.NewSingle("NodeKeyExchange" + i)
+		go ExchangeNodeKeys(ctx, keyCh, stopper.Quit())
+		stoppers.Add(stopper)
 	}
-
-	// return multistoppable
+	return stoppers
 }
 
-func ExchangeNodeKeys(ctx *context.Context, keyCh chan node.ID, quitCh chan bool) {
+// ExchangeNodeKeys adds a given node to a client and stores the keys
+// exchanged between the client and the node.
+func ExchangeNodeKeys(ctx *context.Context, keyCh chan node.ID,
+	quitCh <-chan struct{}) {
 	done := false
 	for !done {
 		select {
@@ -44,18 +48,21 @@ func ExchangeNodeKeys(ctx *context.Context, keyCh chan node.ID, quitCh chan bool
 	}
 }
 
-func StartNodeRemover(ctx *context.Context) {
+// StartNodeRemover starts node remover worker pool
+func StartNodeRemover(ctx *context.Context) stoppable.Stoppable {
+	stoppers := stoppable.NewMulti("NodeKeyExchangers")
 	remCh := ctx.GetNetwork().GetNodeRemCh()
 	for i := 0; i < ctx.GetNumNodeRemovers(); i++ {
-		// quitCh created for each thread, add to multistop
-		quitCh := make(chan bool)
+		stopper := stoppable.NewSingle("NodeKeyExchange" + i)
 		go RemoveNode(ctx, remCh, quitCh)
+		stoppers.Add(stopper)
 	}
-
-	// return multistoppable
+	return stoppers
 }
 
-func RemoveNode(ctx *context.Context, remCh chan node.ID, quitCh chan bool) {
+// RemoveNode removes node ids from the client, deleting their keys.
+func RemoveNode(ctx *context.Context, remCh chan node.ID,
+	quitCh <-chan struct{}) {
 	done := false
 	for !done {
 		select {

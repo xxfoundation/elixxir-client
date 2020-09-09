@@ -39,7 +39,8 @@ type Session struct {
 	user             *user.User
 	conversations    *conversation.Store
 	partition        *partition.Store
-	criticalMessages *utility.MessageBuffer
+	criticalMessages *utility.E2eMessageBuffer
+	garbledMessages  *utility.CmixMessageBuffer
 }
 
 // Initialize a new Session object
@@ -52,7 +53,7 @@ func initStore(baseDir, password string) (*Session, error) {
 	}
 
 	s = &Session{
-		kv:     versioned.NewKV(fs),
+		kv: versioned.NewKV(fs),
 	}
 
 	return s, nil
@@ -89,7 +90,12 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.criticalMessages, err = utility.NewMessageBuffer(s.kv, criticalMessagesKey)
+	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create session")
+	}
+
+	s.garbledMessages, err = utility.NewCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
@@ -127,7 +133,12 @@ func Load(baseDir, password string) (*Session, error) {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.criticalMessages, err = utility.LoadMessageBuffer(s.kv, criticalMessagesKey)
+	s.criticalMessages, err = utility.LoadE2eMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load session")
+	}
+
+	s.garbledMessages, err = utility.LoadCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
@@ -156,10 +167,16 @@ func (s *Session) E2e() *e2e.Store {
 	return s.e2e
 }
 
-func (s *Session) GetCriticalMessages() *utility.MessageBuffer {
+func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.criticalMessages
+}
+
+func (s *Session) GetGarbledMessages() *utility.CmixMessageBuffer {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.garbledMessages
 }
 
 func (s *Session) Conversations() *conversation.Store {

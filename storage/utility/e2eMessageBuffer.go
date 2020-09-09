@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -19,14 +21,14 @@ type e2eMessage struct {
 	MessageType uint32
 }
 
-// saveMessage saves the message as a versioned object.
+// SaveMessage saves the e2eMessage as a versioned object at the specified key
+// in the key value store.
 func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
 	msg := m.(e2eMessage)
 
 	b, err := json.Marshal(&msg)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to marshal e2e message for "+
-			"storage: %s", err)
+		jww.FATAL.Panicf("Failed to marshal e2e message for storage: %s", err)
 	}
 
 	// Create versioned object
@@ -40,7 +42,9 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key s
 	return kv.Set(key, &obj)
 }
 
-// loadMessage loads the message with the specified key.
+// LoadMessage returns the e2eMessage with the specified key from the key value
+// store. An empty message and error are returned if the message could not be
+// retrieved.
 func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
 	// Load the versioned object
 	vo, err := kv.Get(key)
@@ -48,22 +52,22 @@ func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interfa
 		return nil, err
 	}
 
+	// Unmarshal data into e2eMessage
 	msg := e2eMessage{}
-
 	if err := json.Unmarshal(vo.Data, &msg); err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal e2e message for "+
-			"storage: %s", err)
+		jww.FATAL.Panicf("Failed to unmarshal e2e message for storage: %s", err)
 	}
-	// Create message from data
+
 	return msg, err
 }
 
-// DeleteMessage deletes the message with the specified key.
+// DeleteMessage deletes the message with the specified key from the key value
+// store.
 func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
 	return kv.Delete(key)
 }
 
-// hashMessage generates a hash of the message.
+// HashMessage generates a hash of the e2eMessage.
 func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
 	msg := m.(e2eMessage)
 
@@ -75,6 +79,60 @@ func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
 	binary.BigEndian.PutUint32(mtBytes, msg.MessageType)
 	digest = append(digest, mtBytes...)
 
-	// Create message from data
 	return md5.Sum(digest)
+}
+
+// E2eMessageBuffer wraps the message buffer to store and load raw e2eMessages.
+type E2eMessageBuffer struct {
+	mb *MessageBuffer
+}
+
+func NewE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
+	mb, err := NewMessageBuffer(kv, &e2eMessageHandler{}, key)
+	if err != nil {
+		return nil, err
+	}
+
+	return &E2eMessageBuffer{mb: mb}, nil
+}
+
+func LoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, error) {
+	mb, err := LoadMessageBuffer(kv, &e2eMessageHandler{}, key)
+	if err != nil {
+		return nil, err
+	}
+
+	return &E2eMessageBuffer{mb: mb}, nil
+}
+
+func (emb *E2eMessageBuffer) Add(m message.Send) {
+	e2eMsg := e2eMessage{
+		Recipient:   m.Recipient.Marshal(),
+		Payload:     m.Payload,
+		MessageType: uint32(m.MessageType),
+	}
+
+	emb.mb.Add(e2eMsg)
+}
+
+func (emb *E2eMessageBuffer) Next() (message.Send, bool) {
+	m, ok := emb.mb.Next()
+	if !ok {
+		return message.Send{}, false
+	}
+
+	msg := m.(e2eMessage)
+	recipient, err := id.Unmarshal(msg.Recipient)
+	if err != nil {
+		jww.FATAL.Panicf("Error unmarshaling recipient: %v", err)
+	}
+	return message.Send{recipient, msg.Payload, message.Type(msg.MessageType)}, true
+}
+
+func (emb *E2eMessageBuffer) Succeeded(m message.Send) {
+	emb.mb.Succeeded(e2eMessage{m.Recipient.Marshal(), m.Payload, uint32(m.MessageType)})
+}
+
+func (emb *E2eMessageBuffer) Failed(m message.Send) {
+	emb.mb.Failed(e2eMessage{m.Recipient.Marshal(), m.Payload, uint32(m.MessageType)})
 }

@@ -9,7 +9,8 @@ import (
 	"time"
 )
 
-// MessageHash stores the key for each message stored in the buffer.
+// MessageHash stores the hash of a message, which is used as the key for each
+// message stored in the buffer.
 type MessageHash [16]byte
 
 // Sub key used in building keys for saving the message to the key value store
@@ -18,12 +19,22 @@ const messageSubKey = "bufferedMessage"
 // Version of the file saved to the key value store
 const currentMessageBufferVersion = 0
 
-// Message interface used to handle the passed in message type so this can be
-// used at diffrent layers of the stack
+// MessageHandler interface used to handle the passed in message type so the
+// buffer can be used at different layers of the stack.
 type MessageHandler interface {
+	// SaveMessage saves the message as a versioned object at the specified key
+	// in the key value store.
 	SaveMessage(kv *versioned.KV, m interface{}, key string) error
+
+	// LoadMessage returns the message with the specified key from the key value
+	// store.
 	LoadMessage(kv *versioned.KV, key string) (interface{}, error)
+
+	// DeleteMessage deletes the message with the specified key from the key
+	// value store.
 	DeleteMessage(kv *versioned.KV, key string) error
+
+	// HashMessage generates a hash of the message.
 	HashMessage(m interface{}) MessageHash
 }
 
@@ -37,18 +48,16 @@ type MessageBuffer struct {
 	messages           map[MessageHash]struct{}
 	processingMessages map[MessageHash]struct{}
 	kv                 *versioned.KV
-
-	handler MessageHandler
-
+	handler            MessageHandler
 	key                string
 	mux                sync.RWMutex
-
 }
 
 // NewMessageBuffer creates a new empty buffer and saves it to the passed in key
 // value store at the specified key. An error is returned on an unsuccessful
 // save.
-func NewMessageBuffer(kv *versioned.KV, handler MessageHandler, key string) (*MessageBuffer, error) {
+func NewMessageBuffer(kv *versioned.KV, handler MessageHandler,
+	key string) (*MessageBuffer, error) {
 	// Create new empty buffer
 	mb := &MessageBuffer{
 		messages:           make(map[MessageHash]struct{}),
@@ -67,7 +76,8 @@ func NewMessageBuffer(kv *versioned.KV, handler MessageHandler, key string) (*Me
 
 // LoadMessageBuffer loads an existing message buffer from the key value store
 // into memory at the given key. Returns an error if buffer cannot be loaded.
-func LoadMessageBuffer(kv *versioned.KV, handler MessageHandler, key string) (*MessageBuffer, error) {
+func LoadMessageBuffer(kv *versioned.KV, handler MessageHandler,
+	key string) (*MessageBuffer, error) {
 	// Create new empty buffer
 	mb := &MessageBuffer{
 		messages:           make(map[MessageHash]struct{}),
@@ -228,13 +238,18 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
 
+	// Remove message from buffer
 	delete(mb.processingMessages, h)
 
-	if err := mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h)); err != nil {
+	// Remove message from key value store
+	err := mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))
+	if err != nil {
 		jww.FATAL.Fatalf("Failed to save: %v", err)
 	}
 
-	if err := mb.save(); err != nil {
+	// Save modified buffer to key value store
+	err = mb.save()
+	if err != nil {
 		jww.FATAL.Fatalf("Failed to save: %v", err)
 	}
 }
@@ -255,9 +270,6 @@ func (mb *MessageBuffer) Failed(m interface{}) {
 }
 
 /*
-// saveMessage saves the message as a versioned object.
-
-
 // loadMessage loads the message with the specified key.
 func loadMessage(kv *versioned.KV, key string) (format.Message, error) {
 	// Load the versioned object
@@ -277,6 +289,7 @@ func hashMessage(m format.Message) MessageHash {
 	return md5.Sum(m.Marshal())
 }
 */
+
 // makeStoredMessageKey generates a new key for the message based on its has.
 func makeStoredMessageKey(key string, h MessageHash) string {
 	return key + messageSubKey + string(h[:])

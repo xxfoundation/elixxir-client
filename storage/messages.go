@@ -1,3 +1,6 @@
 package storage
 
-const criticalMessagesKey = "CriticalMessages"
+const (
+	criticalMessagesKey = "CriticalMessages"
+	garbledMessagesKey  = "GarbledMessages"
+)

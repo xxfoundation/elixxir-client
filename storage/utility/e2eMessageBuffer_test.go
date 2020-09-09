@@ -1,28 +1,29 @@
 package utility
 
 import (
-	"bytes"
+	"encoding/json"
+	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
 	"time"
 )
 
-// Test happy path of cmixMessageHandler.SaveMessage().
-func TestCmixMessageHandler_SaveMessage(t *testing.T) {
+// Test happy path of e2eMessageHandler.SaveMessage().
+func TestE2EMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
-	cmh := &cmixMessageHandler{}
+	emg := &e2eMessageHandler{}
 	kv := versioned.NewKV(make(ekv.Memstore))
-	testMsgs, _ := makeTestCmixMessages(10)
+	testMsgs, _ := makeTestE2EMessages(10, t)
 
 	for _, msg := range testMsgs {
-		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
+		key := makeStoredMessageKey("testKey", emg.HashMessage(msg))
 
 		// Save message
-		err := cmh.SaveMessage(kv, msg, key)
+		err := emg.SaveMessage(kv, msg, key)
 		if err != nil {
 			t.Errorf("SaveMessage() returned an error."+
 				"\n\texpected: %v\n\trecieved: %v", nil, err)
@@ -35,20 +36,24 @@ func TestCmixMessageHandler_SaveMessage(t *testing.T) {
 		}
 
 		// Test if message retrieved matches expected
-		if !bytes.Equal(msg.Marshal(), obj.Data) {
+		testMsg := &e2eMessage{}
+		if err := json.Unmarshal(obj.Data, testMsg); err != nil {
+			t.Errorf("Failed to unmarshal message: %v", err)
+		}
+		if !reflect.DeepEqual(msg, *testMsg) {
 			t.Errorf("SaveMessage() returned versioned object with incorrect data."+
 				"\n\texpected: %v\n\treceived: %v",
-				msg, obj.Data)
+				msg, *testMsg)
 		}
 	}
 }
 
-// Test happy path of cmixMessageHandler.LoadMessage().
-func TestCmixMessageHandler_LoadMessage(t *testing.T) {
+// Test happy path of e2eMessageHandler.LoadMessage().
+func TestE2EMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
-	cmh := &cmixMessageHandler{}
+	cmh := &e2eMessageHandler{}
 	kv := versioned.NewKV(make(ekv.Memstore))
-	testMsgs, _ := makeTestCmixMessages(10)
+	testMsgs, _ := makeTestE2EMessages(10, t)
 
 	for _, msg := range testMsgs {
 		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
@@ -74,15 +79,15 @@ func TestCmixMessageHandler_LoadMessage(t *testing.T) {
 	}
 }
 
-// Smoke test of cmixMessageHandler.
-func TestCmixMessageBuffer_Smoke(t *testing.T) {
+// Smoke test of e2eMessageHandler.
+func TestE2EMessageHandler_Smoke(t *testing.T) {
 	// Set up test messages
-	testMsgs, _ := makeTestCmixMessages(2)
+	_, testMsgs := makeTestE2EMessages(2, t)
 
 	// Create new buffer
-	cmb, err := NewCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
+	cmb, err := NewE2eMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
 	if err != nil {
-		t.Errorf("NewCmixMessageBuffer() returned an error."+
+		t.Errorf("NewE2eMessageBuffer() returned an error."+
 			"\n\texpected: %v\n\trecieved: %v", nil, err)
 	}
 
@@ -131,7 +136,6 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 	if exists {
 		t.Error("Next() found a message in the buffer when it should be empty.")
 	}
-	cmb.Succeeded(msg)
 
 	if len(cmb.mb.messages) != 0 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
@@ -140,22 +144,25 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 
 }
 
-// makeTestCmixMessages creates a list of messages with random data and the
+// makeTestE2EMessages creates a list of messages with random data and the
 // expected map after they are added to the buffer.
-func makeTestCmixMessages(n int) ([]format.Message, map[MessageHash]struct{}) {
-	cmh := &cmixMessageHandler{}
+func makeTestE2EMessages(n int, t *testing.T) ([]e2eMessage, []message.Send) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	mh := map[MessageHash]struct{}{}
-	msgs := make([]format.Message, n)
+	msgs := make([]e2eMessage, n)
+	send := make([]message.Send, n)
 	for i := range msgs {
-		msgs[i] = format.NewMessage(128)
-		payload := make([]byte, 128)
-		prng.Read(payload)
-		msgs[i].SetPayloadA(payload)
-		prng.Read(payload)
-		msgs[i].SetPayloadB(payload)
-		mh[cmh.HashMessage(msgs[i])] = struct{}{}
+		rngBytes := make([]byte, 128)
+		prng.Read(rngBytes)
+		msgs[i].Recipient = rngBytes
+		prng.Read(rngBytes)
+		msgs[i].Payload = rngBytes
+		prng.Read(rngBytes)
+		msgs[i].MessageType = uint32(rngBytes[0])
+
+		send[i].Recipient = id.NewIdFromString(string(msgs[i].Recipient), id.User, t)
+		send[i].Payload = msgs[i].Payload
+		send[i].MessageType = message.Type(msgs[i].MessageType)
 	}
 
-	return msgs, mh
+	return msgs, send
 }

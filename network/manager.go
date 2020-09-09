@@ -110,10 +110,21 @@ func (m *Manager) StartRunners() error {
 	m.runners.Add(StartTrackNetwork(m.Context))
 	// Message reception
 	m.runners.Add(StartMessageReceivers(m.Context))
+	// Node Updates
+	m.runners.Add(StartNodeKeyExchange(m.Context)) // Adding/Keys
+	m.runners.Add(StartNodeRemover(m.Context))     // Removing
+	// Round history processing
+	m.runners.Add(StartProcessHistoricalRounds(m.Context))
 	// health tracker
 	m.health.Start()
 	m.runners.Add(m.health)
 
+}
+
+// GetRunners returns the network goroutines such that they can be named
+// and stopped.
+func (m *Manager) GetRunners() stoppable.Stoppable {
+	return m.runners
 }
 
 // StopRunners stops all the reception goroutines
@@ -123,10 +134,12 @@ func (m *Manager) StopRunners(timeout time.Duration) error {
 	return err
 }
 
+// GetHealthTracker returns the health tracker
 func (m *Manager) GetHealthTracker() context.HealthTracker {
 	return m.health
 }
 
+// GetInstance returns the network instance object (ndf state)
 func (m *Manager) GetInstance() *network.Instance {
 	return m.instance
 }

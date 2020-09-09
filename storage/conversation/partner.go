@@ -77,6 +77,13 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 		}
 		high = c.numReceivedRevolutions
 	case 0:
+		if mid > c.lastReceivedID {
+			c.lastReceivedID = mid
+			if err := c.save(); err != nil {
+				jww.FATAL.Panicf("Failed to save after updating Last "+
+					"Received ID in a conversation: %s", err)
+			}
+		}
 		high = c.numReceivedRevolutions
 	case -1:
 		high = c.numReceivedRevolutions - 1

@@ -20,6 +20,8 @@ package network
 import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/comms/network"
+	"time"
 )
 
 // GetUpdates polls the network for updates.
@@ -37,13 +39,13 @@ func StartTrackNetwork(ctx *context.Context) stoppable.Stoppable {
 // TrackNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
 func TrackNetwork(ctx *context.Context, quitCh <-chan struct{}) {
-	ticker := timer.NewTicker(ctx.GetTrackNetworkPeriod())
+	ticker := time.NewTicker(ctx.GetTrackNetworkPeriod())
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
-		case <-ticker:
+		case <-ticker.C:
 			trackNetwork(ctx)
 		}
 	}

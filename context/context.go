@@ -3,6 +3,7 @@ package context
 import (
 	"gitlab.com/elixxir/client/context/switchboard"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
 type Context struct {
@@ -12,4 +13,6 @@ type Context struct {
 	// this interface allows it to be mocked for easy testing without the
 	// loop
 	Manager NetworkManager
+	//generic RNG for client
+	Rng *fastRNG.StreamGenerator
 }

@@ -110,6 +110,9 @@ func (m *Manager) StartRunners() error {
 	m.runners.Add(StartTrackNetwork(m.Context))
 	// Message reception
 	m.runners.Add(StartMessageReceivers(m.Context))
+	// Node Updates
+	m.runners.Add(StartNodeKeyExchange(m.Context)) // Adding/Keys
+	m.runners.Add(StartNodeRemover(m.Context))     // Removing
 	// health tracker
 	m.health.Start()
 	m.runners.Add(m.health)

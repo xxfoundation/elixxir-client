@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"time"
@@ -50,13 +51,14 @@ type Manager struct {
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(ctx *context.Context) (*Manager, error) {
 
-	//start comms
 	//get the user from storage
 	user := ctx.Session.User()
 	cryptoUser := user.GetCryptographicIdentity()
 
+	//start comms
 	comms, err := client.NewClientComms(cryptoUser.GetUserID(),
-		cryptoUser.GetRSA().GetPublic(), cryptoUser.GetRSA(),
+		rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic()),
+		rsa.CreatePrivateKeyPem(cryptoUser.GetRSA()),
 		cryptoUser.GetSalt())
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+

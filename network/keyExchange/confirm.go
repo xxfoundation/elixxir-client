@@ -1,1 +1,84 @@
 package keyExchange
+
+import (
+	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/context/stoppable"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage/e2e"
+)
+
+func startConfirm(ctx *context.Context, c chan message.Receive,
+	stop *stoppable.Single) {
+	for true {
+		select {
+		case <-stop.Quit():
+			return
+		case confirmation := <-c:
+			handleConfirm(ctx, confirmation)
+		}
+	}
+}
+
+func handleConfirm(ctx *context.Context, confirmation message.Receive) {
+	//ensure the message was encrypted properly
+	if confirmation.Encryption != message.E2E {
+		jww.ERROR.Printf("Received non-e2e encrypted Key Exchange "+
+			"confirm from partner %s", confirmation.Sender)
+		return
+	}
+
+	//Get the partner
+	partner, err := ctx.Session.E2e().GetPartner(confirmation.Sender)
+	if err != nil {
+		jww.ERROR.Printf("Received Key Exchange Confirmation with unknown "+
+			"partner %s", confirmation.Sender)
+		return
+	}
+
+	//unmarshal the payload
+	confimedSessionID, err := unmarshalConfirm(confirmation.Payload)
+	if err != nil {
+		jww.ERROR.Printf("Failed to unmarshal Key Exchange Trigger with "+
+			"partner %s: %s", confirmation.Sender, err)
+		return
+	}
+
+	//get the confirmed session
+	confirmedSession := partner.GetSendSession(confimedSessionID)
+	if confirmedSession == nil {
+		jww.ERROR.Printf("Failed to find confirmed session %s from "+
+			"partner %s: %s", confimedSessionID, confirmation.Sender, err)
+		return
+	}
+
+	// Attempt to confirm the session. if this fails just print to the log.
+	// This is expected sometimes because some errors cases can cause multiple
+	// sends. For example if the sending device runs out of battery after it
+	// sends but before it records the send it will resend on reload
+	if err := confirmedSession.TrySetNegotiationStatus(e2e.Confirmed); err != nil {
+		jww.WARN.Printf("Failed to set the negotiation status for the "+
+			"confirmation of session %s from partner %s. This is expected in "+
+			"some edge cases but could be a sign of an issue if it percists: %s",
+			confirmedSession, partner.GetPartnerID(), err)
+	}
+}
+
+func unmarshalConfirm(payload []byte) (e2e.SessionID, error) {
+
+	msg := &RekeyConfirm{}
+	if err := proto.Unmarshal(payload, msg); err != nil {
+		return e2e.SessionID{}, errors.Errorf("Failed to "+
+			"unmarshal payload: %s", err)
+	}
+
+	confimedSessionID := e2e.SessionID{}
+	if err := confimedSessionID.Unmarshal(msg.SessionID); err != nil {
+		return e2e.SessionID{}, errors.Errorf("Failed to unmarshal"+
+			" sessionID: %s", err)
+	}
+
+	return confimedSessionID, nil
+}

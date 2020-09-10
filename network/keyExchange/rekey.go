@@ -24,8 +24,7 @@ import (
 func CheckKeyExchanges(ctx *context.Context, manager *e2e.Manager) {
 	sessions := manager.TriggerNegotiations()
 	for _, ses := range sessions {
-		locakSes := ses
-		go trigger(ctx, manager, locakSes)
+		go trigger(ctx, manager, ses)
 	}
 }
 

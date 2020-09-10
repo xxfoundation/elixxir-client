@@ -52,7 +52,7 @@ func (s *Single) Close(timeout time.Duration) error {
 			jww.ERROR.Printf("Stopper for %s failed to stop after "+
 				"timeout of %s", s.name, timeout)
 			err = errors.Errorf("%s failed to close", s.name)
-		case <-s.quit:
+		case s.quit <- struct{}{}:
 		}
 	})
 	return err

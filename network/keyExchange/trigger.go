@@ -16,17 +16,17 @@ import (
 	"time"
 )
 
-func startTrigger(ctx *context.Context, triggerChan chan message.Receive, stop stoppable.Single) {
+func startTrigger(ctx *context.Context, c chan message.Receive,
+	stop *stoppable.Single) {
 	for true {
 		select {
 		case <-stop.Quit():
 			return
-		case request := <-triggerChan:
+		case request := <-c:
 			handleTrigger(ctx, request)
 		}
 	}
 }
-
 
 func handleTrigger(ctx *context.Context, request message.Receive) {
 	//ensure the message was encrypted properly
@@ -45,7 +45,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, err := unmarshalKeyExchangeTrigger(
+	oldSessionID, PartnerPublicKey, err := unmarshalTrigger(
 		ctx.Session.E2e().GetGroup(), request.Payload)
 	if err != nil {
 		jww.ERROR.Printf("Failed to unmarshal Key Exchange Trigger with "+
@@ -57,7 +57,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	oldSession := partner.GetSendSession(oldSessionID)
 	if oldSession == nil {
 		jww.ERROR.Printf("Failed to find parent session %s for Key "+
-			"Exchange Trigger from partner %s: %s", oldSession, request.Sender,
+			"Exchange Trigger from partner %s: %s", oldSessionID, request.Sender,
 			err)
 		return
 	}
@@ -135,7 +135,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 		newSession)
 }
 
-func unmarshalKeyExchangeTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,
+func unmarshalTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,
 	*cyclic.Int, error) {
 
 	msg := &RekeyTrigger{}

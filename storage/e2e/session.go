@@ -353,11 +353,17 @@ var legalStateChanges = [][]bool{
 }
 
 func (s *Session) SetNegotiationStatus(status Negotiation) {
+	if err := s.TrySetNegotiationStatus(status); err != nil {
+		jww.FATAL.Panicf("Failed to set Negotiation status: %s", err)
+	}
+}
+
+func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	//only allow the correct state changes to propagate
 	if !legalStateChanges[s.negotiationStatus][status] {
-		jww.FATAL.Panicf("Negotiation status change from %s to %s "+
+		return errors.Errorf("Negotiation status change from %s to %s "+
 			"is not valid", s.negotiationStatus, status)
 	}
 
@@ -375,10 +381,13 @@ func (s *Session) SetNegotiationStatus(status Negotiation) {
 	//save the status if appropriate
 	if save {
 		if err := s.save(); err != nil {
-			jww.FATAL.Printf("Failed to save Session %s when moving from %s to %s", s, oldStatus, status)
+			jww.FATAL.Panicf("Failed to save Session %s when moving from %s to %s", s, oldStatus, status)
 		}
 	}
+
+	return nil
 }
+
 
 // This function, in a mostly thread safe manner, checks if the session needs a
 // negotiation, returns if it does while updating the session to denote the

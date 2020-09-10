@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/keyStore"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
 	user2 "gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/user"
@@ -69,44 +69,6 @@ func (cl *Client) precannedRegister(registrationCode string) (*user2.User, *id.I
 		nk[*cl.topology.GetNodeAtIndex(i)] = *nodekeys
 	}
 	return u, UID, nk, nil
-}
-
-// sendRegistrationMessage is a helper for the Register function
-// It sends a registration message and returns the registration signature
-func (cl *Client) sendRegistrationMessage(registrationCode string,
-	publicKeyRSA *rsa.PublicKey) ([]byte, error) {
-	err := addPermissioningHost(cl.receptionManager, cl.ndf)
-
-	if err != nil {
-		if err == ErrNoPermissioning {
-			return nil, errors.New("Didn't connect to permissioning to send registration message. Check the NDF")
-		}
-		return nil, errors.Wrap(err, "Couldn't connect to permissioning to send registration message")
-	}
-
-	regValidationSignature := make([]byte, 0)
-	// Send registration code and public key to RegistrationServer
-	host, ok := cl.receptionManager.Comms.GetHost(&id.Permissioning)
-	if !ok {
-		return nil, errors.New("Failed to find permissioning host")
-	}
-
-	response, err := cl.receptionManager.Comms.
-		SendRegistrationMessage(host,
-			&pb.UserRegistration{
-				RegistrationCode: registrationCode,
-				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKeyRSA)),
-			})
-	if err != nil {
-		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Registration Server!")
-		return nil, err
-	}
-	if response.Error != "" {
-		return nil, errors.Wrapf(err, "sendRegistrationMessage: error handling message: %s", response.Error)
-	}
-	regValidationSignature = response.ClientSignedByServer.Signature
-	// Disconnect from regServer here since it will not be needed
-	return regValidationSignature, nil
 }
 
 // requestNonce is a helper for the Register function

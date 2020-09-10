@@ -15,23 +15,12 @@ const keyExchangeTriggerName = "KeyExchangeTrigger"
 func Init(ctx *context.Context) stoppable.Stoppable {
 
 	//register the rekey request thread
-	rekeyRequestCh := make(chan message.Receive, 10)
+	rekeyRequestCh := make(chan message.Receive, 100)
 	ctx.Switchboard.RegisterChannel(keyExchangeTriggerName, &id.ID{},
 		message.KeyExchangeTrigger, rekeyRequestCh)
 
 	triggerStop := stoppable.NewSingle(keyExchangeTriggerName)
 
-	go func() {
-		for true {
-			select {
-			case <-triggerStop.Quit():
-				return
-			case request := <-rekeyRequestCh:
-				ctx.Session.request.Sender
-			}
-		}
-		()
-	}
 }
 
 

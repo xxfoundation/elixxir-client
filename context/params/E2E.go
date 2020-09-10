@@ -4,10 +4,13 @@ import "fmt"
 
 type E2E struct {
 	Type SendType
+	CMIX
 }
 
 func GetDefaultE2E() E2E {
-	return E2E{Type: Standard}
+	return E2E{Type: Standard,
+		CMIX: GetDefaultCMIX(),
+	}
 }
 
 type SendType uint8

@@ -12,11 +12,13 @@ import (
 	"time"
 )
 
-const conversationKeyPrefix = "conversation"
-const currentConversationVersion = 0
-const maxTruncatedID = math.MaxUint32
-const bottomRegion = maxTruncatedID / 4
-const topRegion = bottomRegion * 3
+const (
+	conversationKeyPrefix      = "conversation"
+	currentConversationVersion = 0
+	maxTruncatedID             = math.MaxUint32
+	bottomRegion               = maxTruncatedID / 4
+	topRegion                  = bottomRegion * 3
+)
 
 type Conversation struct {
 	// Public & stored data
@@ -37,7 +39,8 @@ type conversationDisk struct {
 	NextSendID             uint64
 }
 
-// Returns the Conversation if it can be found, otherwise returns a new partner
+// LoadOrMakeConversation returns the Conversation if it can be found, otherwise
+// returns a new partner.
 func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 
 	c, err := loadConversation(kv, partner)
@@ -61,11 +64,12 @@ func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 	return c
 }
 
-// Finds the full 64 bit message ID and updates the internal last message ID if
-// the new ID is newer
+// ProcessReceivedMessageID finds the full 64-bit message ID and updates the
+// internal last message ID if the new ID is newer.
 func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 	c.mux.Lock()
 	defer c.mux.Unlock()
+
 	var high uint32
 	switch cmp(c.lastReceivedID, mid) {
 	case 1:
@@ -101,14 +105,14 @@ func cmp(a, b uint32) int {
 	return 0
 }
 
-//returns the next sendID in both full and truncated formats
+// GetNextSendID returns the next sendID in both full and truncated formats.
 func (c *Conversation) GetNextSendID() (uint64, uint32) {
 	c.mux.Lock()
 	old := c.nextSentID
 	c.nextSentID++
 	if err := c.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save after incrementing the sendID: "+
-			"%s", err)
+		jww.FATAL.Panicf("Failed to save after incrementing the sendID: %s",
+			err)
 	}
 	c.mux.Unlock()
 	return old, uint32(old & 0x00000000FFFFFFFF)

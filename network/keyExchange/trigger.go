@@ -1,6 +1,7 @@
 package keyExchange
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -15,42 +16,46 @@ import (
 	"time"
 )
 
-func handleTrigger(ctx *context.Context, request message.Receive) {
+const (
+	errBadTrigger = "non-e2e trigger from partner %s"
+	errUnknown    = "unknown trigger from partner %s"
+)
+
+func handleTrigger(ctx *context.Context, request message.Receive) error {
 	//ensure the message was encrypted properly
 	if request.Encryption != message.E2E {
-		jww.ERROR.Printf("Received non-e2e encrypted Key Exchange "+
-			"Trigger from partner %s", request.Sender)
-		return
+		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
+		jww.ERROR.Printf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	//Get the partner
 	partner, err := ctx.Session.E2e().GetPartner(request.Sender)
 	if err != nil {
-		jww.ERROR.Printf("Received Key Exchange Trigger with unknown "+
-			"partner %s", request.Sender)
-		return
+		errMsg := fmt.Sprintf(errUnknown, request.Sender)
+		jww.ERROR.Printf(errMsg)
+		return errors.New(errMsg)
 	}
 
 	//unmarshal the message
 	oldSessionID, PartnerPublicKey, err := unmarshalKeyExchangeTrigger(
 		ctx.Session.E2e().GetGroup(), request.Payload)
 	if err != nil {
-		jww.ERROR.Printf("Failed to unmarshal Key Exchange Trigger with "+
-			"partner %s: %s", request.Sender, err)
-		return
+		jww.ERROR.Printf("could not unmarshal partner %s: %s",
+			request.Sender, err)
+		return err
 	}
 
 	//get the old session which triggered the exchange
 	oldSession := partner.GetSendSession(oldSessionID)
 	if oldSession == nil {
-		jww.ERROR.Printf("Failed to find parent session %s for Key "+
-			"Exchange Trigger from partner %s: %s", oldSession, request.Sender,
-			err)
-		return
+		jww.ERROR.Printf("no session %s for partner %s: %s",
+			oldSession, request.Sender, err)
+		return err
 	}
 
 	//create the new session
-	newSession, duplicate := partner.NewReceiveSession(PartnerPublicKey,
+	session, duplicate := partner.NewReceiveSession(PartnerPublicKey,
 		e2e.GetDefaultSessionParams(), oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
@@ -59,24 +64,24 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	if duplicate {
 		jww.INFO.Printf("New session from Key Exchange Trigger to "+
 			"create session %s for partner %s is a duplicate, request ignored",
-			newSession.GetID(), request.Sender)
+			session.GetID(), request.Sender)
 	}
 
 	//Send the Confirmation Message
 	//build the payload
 	payload, err := proto.Marshal(&RekeyConfirm{
-		SessionID: newSession.GetTrigger().Marshal(),
+		SessionID: session.GetTrigger().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic
 	if err != nil {
-		jww.FATAL.Printf("Failed to marshal payload for Key "+
-			"Negotation Confirmation with %s", newSession.GetPartner())
+		jww.FATAL.Panicf("Failed to marshal payload for Key "+
+			"Negotation Confirmation with %s", session.GetPartner())
 	}
 
 	//build the message
 	m := message.Send{
-		Recipient:   newSession.GetPartner(),
+		Recipient:   session.GetPartner(),
 		Payload:     payload,
 		MessageType: message.KeyExchangeConfirm,
 	}
@@ -115,7 +120,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
 
-
+	return nil
 }
 
 func unmarshalKeyExchangeTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,

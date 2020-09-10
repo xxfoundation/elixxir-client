@@ -1,12 +1,9 @@
 package keyExchange
 
 import (
-	"github.com/golang/protobuf/proto"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/stoppable"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -26,12 +23,12 @@ func Init(ctx *context.Context) stoppable.Stoppable {
 			select {
 			case <-triggerStop.Quit():
 				return
-			case request := <-rekeyRequestCh:
-				ctx.Session.request.Sender
+				//			case request := <-rekeyRequestCh:
+				//				return
+				//ctx.Session.request.Sender
 			}
 		}
-		()
-	}
+	}()
+
+	return triggerStop
 }
-
-

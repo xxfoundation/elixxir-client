@@ -14,6 +14,7 @@ type Multi struct {
 	name       string
 	running    uint32
 	mux        sync.RWMutex
+	once       sync.Once
 }
 
 //returns a new multi stoppable
@@ -56,37 +57,37 @@ func (m *Multi) Name() string {
 // closes all child stoppers. It does not return their errors and assumes they
 // print them to the log
 func (m *Multi) Close(timeout time.Duration) error {
-	if !m.IsRunning() {
-		return nil
-	}
+	var err error
+	m.once.Do(
+		func() {
+			atomic.StoreUint32(&m.running, 0)
 
-	m.mux.Lock()
-	defer m.mux.Unlock()
+			numErrors := uint32(0)
 
-	numErrors := uint32(0)
+			wg := &sync.WaitGroup{}
 
-	wg := &sync.WaitGroup{}
-
-	for _, stoppable := range m.stoppables {
-		wg.Add(1)
-		go func() {
-			if stoppable.Close(timeout) != nil {
-				atomic.AddUint32(&numErrors, 1)
+			m.mux.Lock()
+			for _, stoppable := range m.stoppables {
+				wg.Add(1)
+				go func() {
+					if stoppable.Close(timeout) != nil {
+						atomic.AddUint32(&numErrors, 1)
+					}
+					wg.Done()
+				}()
 			}
-			wg.Done()
-		}()
-	}
+			m.mux.Unlock()
 
-	wg.Wait()
+			wg.Wait()
 
-	atomic.StoreUint32(&m.running, 0)
+			if numErrors > 0 {
+				errStr := fmt.Sprintf("MultiStopper %s failed to close "+
+					"%v/%v stoppers", m.name, numErrors, len(m.stoppables))
+				jww.ERROR.Println(errStr)
+				err = errors.New(errStr)
+			}
+		})
 
-	if numErrors > 0 {
-		errStr := fmt.Sprintf("MultiStopper %s failed to close "+
-			"%v/%v stoppers", m.name, numErrors, len(m.stoppables))
-		jww.ERROR.Println(errStr)
-		return errors.New(errStr)
-	}
+	return err
 
-	return nil
 }

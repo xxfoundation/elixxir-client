@@ -82,6 +82,10 @@ func (cmb *CmixMessageBuffer) Add(m format.Message) {
 	cmb.mb.Add(m)
 }
 
+func (cmb *CmixMessageBuffer) AddProcessing(m format.Message) {
+	cmb.mb.AddProcessing(m)
+}
+
 func (cmb *CmixMessageBuffer) Next() (format.Message, bool) {
 	m, ok := cmb.mb.Next()
 	if !ok {

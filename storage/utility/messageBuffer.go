@@ -197,6 +197,36 @@ func (mb *MessageBuffer) Add(m interface{}) {
 	}
 }
 
+// Add adds a message to the buffer in "processing" state.
+func (mb *MessageBuffer) AddProcessing(m interface{}) {
+	h := mb.handler.HashMessage(m)
+
+	mb.mux.Lock()
+	defer mb.mux.Unlock()
+
+	// Ensure message does not already exist in buffer
+	_, exists1 := mb.messages[h]
+	_, exists2 := mb.processingMessages[h]
+	if exists1 || exists2 {
+		return
+	}
+
+	// Save message as versioned object
+	err := mb.handler.SaveMessage(mb.kv, m, makeStoredMessageKey(mb.key, h))
+	if err != nil {
+		jww.FATAL.Panicf("Error saving message: %v", err)
+	}
+
+	// Add message to the buffer
+	mb.processingMessages[h] = struct{}{}
+
+	// Save buffer
+	err = mb.save()
+	if err != nil {
+		jww.FATAL.Panicf("Error whilse saving buffer: %v", err)
+	}
+}
+
 // Next gets the next message from the buffer whose state is "not processing".
 // The returned messages are moved to the processing state. If there are no
 // messages remaining, then false is returned.

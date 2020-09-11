@@ -21,6 +21,7 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/comms/network"
+	"time"
 )
 
 // GetUpdates polls the network for updates.

@@ -3,6 +3,7 @@ package stoppable
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -13,6 +14,7 @@ type Single struct {
 	name    string
 	quit    chan struct{}
 	running uint32
+	once    sync.Once
 }
 
 //returns a new single stoppable
@@ -41,18 +43,17 @@ func (s *Single) Name() string {
 
 // Close signals thread to time out and closes if it is still running.
 func (s *Single) Close(timeout time.Duration) error {
-	if !s.IsRunning() {
-		return nil
-	}
-	defer atomic.StoreUint32(&s.running, 0)
-	timer := time.NewTimer(timeout)
-	select {
-	case <-timer.C:
-		jww.ERROR.Printf("Stopper for %s failed to stop after "+
-			"timeout of %s", s.name, timeout)
-		return errors.Errorf("%s failed to close", s.name)
-	case <-s.quit:
-
-		return nil
-	}
+	var err error
+	s.once.Do(func() {
+		atomic.StoreUint32(&s.running, 0)
+		timer := time.NewTimer(timeout)
+		select {
+		case <-timer.C:
+			jww.ERROR.Printf("Stopper for %s failed to stop after "+
+				"timeout of %s", s.name, timeout)
+			err = errors.Errorf("%s failed to close", s.name)
+		case s.quit <- struct{}{}:
+		}
+	})
+	return err
 }

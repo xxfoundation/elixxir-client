@@ -72,8 +72,8 @@ func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		remainingTime := param.Timeout - elapsed
 
 		//find the best round to send to, excluding roudn which have been attempted
-		//bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
-		bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime)
+		bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
+		//bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime)
 		topology, firstNode := buildToplogy(bestRound.Topology)
 
 		//get they keys for the round, reject if any nodes do not have

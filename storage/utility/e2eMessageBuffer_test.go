@@ -3,6 +3,7 @@ package utility
 import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -92,15 +93,15 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 	}
 
 	// Add two messages
-	cmb.Add(testMsgs[0])
-	cmb.Add(testMsgs[1])
+	cmb.Add(testMsgs[0], params.E2E{})
+	cmb.Add(testMsgs[1], params.E2E{})
 
 	if len(cmb.mb.messages) != 2 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
 			2, len(cmb.mb.messages))
 	}
 
-	msg, exists := cmb.Next()
+	msg, _, exists := cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
@@ -111,7 +112,7 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 			1, len(cmb.mb.messages))
 	}
 
-	msg, exists = cmb.Next()
+	msg, _, exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
@@ -126,13 +127,13 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 			1, len(cmb.mb.messages))
 	}
 
-	msg, exists = cmb.Next()
+	msg, _, exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
 	cmb.Succeeded(msg)
 
-	msg, exists = cmb.Next()
+	msg, _, exists = cmb.Next()
 	if exists {
 		t.Error("Next() found a message in the buffer when it should be empty.")
 	}

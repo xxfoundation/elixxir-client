@@ -13,6 +13,6 @@ type Context struct {
 	// this interface allows it to be mocked for easy testing without the
 	// loop
 	Manager NetworkManager
-
+	//generic RNG for client
 	Rng *fastRNG.StreamGenerator
 }

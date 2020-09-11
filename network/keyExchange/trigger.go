@@ -7,6 +7,7 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/context/utility"
 	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -14,6 +15,18 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"time"
 )
+
+func startTrigger(ctx *context.Context, c chan message.Receive,
+	stop *stoppable.Single) {
+	for true {
+		select {
+		case <-stop.Quit():
+			return
+		case request := <-c:
+			handleTrigger(ctx, request)
+		}
+	}
+}
 
 func handleTrigger(ctx *context.Context, request message.Receive) {
 	//ensure the message was encrypted properly
@@ -32,7 +45,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, err := unmarshalKeyExchangeTrigger(
+	oldSessionID, PartnerPublicKey, err := unmarshalTrigger(
 		ctx.Session.E2e().GetGroup(), request.Payload)
 	if err != nil {
 		jww.ERROR.Printf("Failed to unmarshal Key Exchange Trigger with "+
@@ -44,7 +57,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	oldSession := partner.GetSendSession(oldSessionID)
 	if oldSession == nil {
 		jww.ERROR.Printf("Failed to find parent session %s for Key "+
-			"Exchange Trigger from partner %s: %s", oldSession, request.Sender,
+			"Exchange Trigger from partner %s: %s", oldSessionID, request.Sender,
 			err)
 		return
 	}
@@ -83,9 +96,12 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 
 	//send the message under the key exchange
 	e2eParams := params.GetDefaultE2E()
-	cmixParams := params.GetDefaultCMIX()
 
-	rounds, err := ctx.Manager.SendE2E(m, e2eParams, cmixParams)
+	// store in critical messages buffer first to ensure it is resent if the
+	// send fails
+	ctx.Session.GetCriticalMessages().AddProcessing(m, e2eParams)
+
+	rounds, err := ctx.Manager.SendE2E(m, e2eParams)
 
 	//Register the event for all rounds
 	sendResults := make(chan ds.EventReturn, len(rounds))
@@ -102,22 +118,24 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
 	if !success {
-		session.SetNegotiationStatus(e2e.Unconfirmed)
-		return errors.Errorf("Key Negotiation for %s failed to "+
+		jww.ERROR.Printf("Key Negotiation for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
-			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
+			newSession, numRoundFail+numTimeOut, len(rounds), numRoundFail,
 			numTimeOut)
+		newSession.SetNegotiationStatus(e2e.Unconfirmed)
+		ctx.Session.GetCriticalMessages().Failed(m)
+		return
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
+	newSession.SetNegotiationStatus(e2e.Sent)
+	ctx.Session.GetCriticalMessages().Succeeded(m)
 	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
-		session)
-	session.SetNegotiationStatus(e2e.Sent)
-
+		newSession)
 }
 
-func unmarshalKeyExchangeTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,
+func unmarshalTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,
 	*cyclic.Int, error) {
 
 	msg := &RekeyTrigger{}

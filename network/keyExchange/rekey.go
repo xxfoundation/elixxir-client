@@ -24,8 +24,7 @@ import (
 func CheckKeyExchanges(ctx *context.Context, manager *e2e.Manager) {
 	sessions := manager.TriggerNegotiations()
 	for _, ses := range sessions {
-		locakSes := ses
-		go trigger(ctx, manager, locakSes)
+		go trigger(ctx, manager, ses)
 	}
 }
 
@@ -91,10 +90,8 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 	//send the message under the key exchange
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
-	cmixParams := params.GetDefaultCMIX()
-	cmixParams.RoundTries = 20
 
-	rounds, err := ctx.Manager.SendE2E(m, e2eParams, cmixParams)
+	rounds, err := ctx.Manager.SendE2E(m, e2eParams)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will
 	// be triggered next time a key is used

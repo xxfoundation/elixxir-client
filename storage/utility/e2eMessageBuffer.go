@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -19,6 +20,7 @@ type e2eMessage struct {
 	Recipient   []byte
 	Payload     []byte
 	MessageType uint32
+	Params      params.E2E
 }
 
 // SaveMessage saves the e2eMessage as a versioned object at the specified key
@@ -68,6 +70,8 @@ func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV, key string) error 
 }
 
 // HashMessage generates a hash of the e2eMessage.
+// Do not include the params in the hash so it is not needed to resubmit the
+// message into succeeded or failed
 func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
 	msg := m.(e2eMessage)
 
@@ -105,20 +109,32 @@ func LoadE2eMessageBuffer(kv *versioned.KV, key string) (*E2eMessageBuffer, erro
 	return &E2eMessageBuffer{mb: mb}, nil
 }
 
-func (emb *E2eMessageBuffer) Add(m message.Send) {
+func (emb *E2eMessageBuffer) Add(m message.Send, p params.E2E) {
 	e2eMsg := e2eMessage{
 		Recipient:   m.Recipient.Marshal(),
 		Payload:     m.Payload,
 		MessageType: uint32(m.MessageType),
+		Params:      p,
 	}
 
 	emb.mb.Add(e2eMsg)
 }
 
-func (emb *E2eMessageBuffer) Next() (message.Send, bool) {
+func (emb *E2eMessageBuffer) AddProcessing(m message.Send, p params.E2E) {
+	e2eMsg := e2eMessage{
+		Recipient:   m.Recipient.Marshal(),
+		Payload:     m.Payload,
+		MessageType: uint32(m.MessageType),
+		Params:      p,
+	}
+
+	emb.mb.AddProcessing(e2eMsg)
+}
+
+func (emb *E2eMessageBuffer) Next() (message.Send, params.E2E, bool) {
 	m, ok := emb.mb.Next()
 	if !ok {
-		return message.Send{}, false
+		return message.Send{}, params.E2E{}, false
 	}
 
 	msg := m.(e2eMessage)
@@ -126,13 +142,16 @@ func (emb *E2eMessageBuffer) Next() (message.Send, bool) {
 	if err != nil {
 		jww.FATAL.Panicf("Error unmarshaling recipient: %v", err)
 	}
-	return message.Send{recipient, msg.Payload, message.Type(msg.MessageType)}, true
+	return message.Send{recipient, msg.Payload,
+		message.Type(msg.MessageType)}, msg.Params, true
 }
 
 func (emb *E2eMessageBuffer) Succeeded(m message.Send) {
-	emb.mb.Succeeded(e2eMessage{m.Recipient.Marshal(), m.Payload, uint32(m.MessageType)})
+	emb.mb.Succeeded(e2eMessage{m.Recipient.Marshal(),
+		m.Payload, uint32(m.MessageType), params.E2E{}})
 }
 
 func (emb *E2eMessageBuffer) Failed(m message.Send) {
-	emb.mb.Failed(e2eMessage{m.Recipient.Marshal(), m.Payload, uint32(m.MessageType)})
+	emb.mb.Failed(e2eMessage{m.Recipient.Marshal(),
+		m.Payload, uint32(m.MessageType), params.E2E{}})
 }

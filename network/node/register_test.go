@@ -25,13 +25,13 @@ type MockNetworkManager struct {
 	instance *network.Instance
 }
 
-func (nm *MockNetworkManager) SendE2E(m message.Send, e2eP params.E2E, cmixP params.CMIX) ([]id.Round, error) {
+func (nm *MockNetworkManager) SendE2E(m message.Send, p params.E2E) ([]id.Round, error) {
 	return nil, nil
 }
-func (nm *MockNetworkManager) SendUnsafe(m message.Send) ([]id.Round, error) {
+func (nm *MockNetworkManager) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {
 	return nil, nil
 }
-func (nm *MockNetworkManager) SendCMIX(message format.Message) (id.Round, error) {
+func (nm *MockNetworkManager) SendCMIX(message format.Message, p params.CMIX) (id.Round, error) {
 	return id.Round(0), nil
 }
 func (nm *MockNetworkManager) GetInstance() *network.Instance {

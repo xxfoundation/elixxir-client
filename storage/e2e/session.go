@@ -388,7 +388,6 @@ func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 	return nil
 }
 
-
 // This function, in a mostly thread safe manner, checks if the session needs a
 // negotiation, returns if it does while updating the session to denote the
 // negotiation was triggered

@@ -47,12 +47,11 @@ func (s *Single) Close(timeout time.Duration) error {
 	defer atomic.StoreUint32(&s.running, 0)
 	timer := time.NewTimer(timeout)
 	select {
+	case s.quit <- struct{}{}:
+		return nil
 	case <-timer.C:
 		jww.ERROR.Printf("Stopper for %s failed to stop after "+
 			"timeout of %s", s.name, timeout)
 		return errors.Errorf("%s failed to close", s.name)
-	case <-s.quit:
-
-		return nil
 	}
 }

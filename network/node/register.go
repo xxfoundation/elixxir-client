@@ -7,10 +7,9 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
-	"github.com/spf13/jwalterweatherman"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -50,23 +49,23 @@ func RegisterNodes(ctx context.Context, comms RegisterNodeCommsInterface,
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := ctx.Session.User()
 	regSignature := u.GetRegistrationValidationSignature()
-	userCryptographicIdentity := u.GetCryptographicIdentity()
-	ctx.Session.Cmix()
+	uci := u.GetCryptographicIdentity()
+	cmix := ctx.Session.Cmix()
 
 	rng := ctx.Rng.GetStream()
 	interval := time.Duration(500) * time.Millisecond
+	t := time.NewTicker(interval)
 	for true {
 		select {
 		case <-stop.Quit():
+			t.Stop()
 			return
 		case gw := <-c:
-			err := registerWithNode(comms, gw, regSignature, userCryptographicIdentity,
-				ctx.Session.Cmix(), rng)
+			err := registerWithNode(comms, gw, regSignature, uci, cmix, rng)
 			if err != nil {
-				jwalterweatherman.ERROR.Printf("Failed")
+				jww.ERROR.Printf("Failed to register node: %+v", err)
 			}
-		default:
-			time.Sleep(interval)
+		case <-t.C:
 		}
 	}
 
@@ -75,7 +74,7 @@ func RegisterNodes(ctx context.Context, comms RegisterNodeCommsInterface,
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
 func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway, regSig []byte,
-	userCryptographicIdentity *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) error {
+	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) error {
 	gw := ngw.Gateway
 	gatewayID, err := id.Unmarshal(gw.ID)
 	if err != nil {
@@ -90,8 +89,9 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 	}
 
 	var transmissionKey *cyclic.Int
-	if userCryptographicIdentity.IsPrecanned() {
-		userNum := binary.BigEndian.Uint64(userCryptographicIdentity.GetUserID().Bytes())
+	// TODO: should move this to a precanned user initialization
+	if uci.IsPrecanned() {
+		userNum := binary.BigEndian.Uint64(uci.GetUserID().Bytes())
 		h := sha256.New()
 		h.Reset()
 		h.Write([]byte(string(40000 + userNum)))
@@ -102,7 +102,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
-		nonce, dhPub, err := requestNonce(comms, gatewayID, regSig, userCryptographicIdentity, store, rng)
+		nonce, dhPub, err := requestNonce(comms, gatewayID, regSig, uci, store, rng)
 		if err != nil {
 			return errors.Errorf("Failed to request nonce: %+v", err)
 		}
@@ -111,9 +111,9 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
 
 		// Confirm received nonce
-		globals.Log.INFO.Println("Register: Confirming received nonce")
-		err = confirmNonce(comms, userCryptographicIdentity.GetUserID().Bytes(),
-			nonce, userCryptographicIdentity.GetRSA(), gatewayID)
+		jww.INFO.Println("Register: Confirming received nonce")
+		err = confirmNonce(comms, uci.GetUserID().Bytes(),
+			nonce, uci.GetRSA(), gatewayID)
 		if err != nil {
 			errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
 			return errors.New(errMsg)
@@ -128,7 +128,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 }
 
 func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
-	userCryptographicIdentity *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
+	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
 	dhPub := store.GetDHPublicKey().Bytes()
 	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
@@ -138,13 +138,13 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	data := h.Sum(nil)
 
 	// Sign DH pubkey
-	signed, err := rsa.Sign(rng, userCryptographicIdentity.GetRSA(), sha, data, opts)
+	clientSig, err := rsa.Sign(rng, uci.GetRSA(), sha, data, opts)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	// Request nonce message from gateway
-	globals.Log.INFO.Printf("Register: Requesting nonce from gateway %v",
+	jww.INFO.Printf("Register: Requesting nonce from gateway %v",
 		gwId.Bytes())
 
 	host, ok := comms.GetHost(gwId)
@@ -153,14 +153,14 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	}
 	nonceResponse, err := comms.SendRequestNonceMessage(host,
 		&pb.NonceRequest{
-			Salt:            userCryptographicIdentity.GetSalt(),
-			ClientRSAPubKey: string(rsa.CreatePublicKeyPem(userCryptographicIdentity.GetRSA().GetPublic())),
+			Salt:            uci.GetSalt(),
+			ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetRSA().GetPublic())),
 			ClientSignedByServer: &messages.RSASignature{
 				Signature: regHash,
 			},
 			ClientDHPubKey: dhPub,
 			RequestSignature: &messages.RSASignature{
-				Signature: signed,
+				Signature: clientSig,
 			},
 		})
 
@@ -191,7 +191,7 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 	// Hash nonce & sign
 	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, data, opts)
 	if err != nil {
-		globals.Log.ERROR.Printf(
+		jww.ERROR.Printf(
 			"Register: Unable to sign nonce! %s", err)
 		return err
 	}

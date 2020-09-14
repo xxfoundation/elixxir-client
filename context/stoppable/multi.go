@@ -17,7 +17,7 @@ type Multi struct {
 	once       sync.Once
 }
 
-//returns a new multi stoppable
+// NewMulti returns a new multi stoppable.
 func NewMulti(name string) *Multi {
 	return &Multi{
 		name:    name,
@@ -25,20 +25,20 @@ func NewMulti(name string) *Multi {
 	}
 }
 
-// returns true if the thread is still running
+// IsRunning returns true if the thread is still running.
 func (m *Multi) IsRunning() bool {
 	return atomic.LoadUint32(&m.running) == 1
 }
 
-// adds the given stoppable to the list of stoppables
+// Add adds the given stoppable to the list of stoppables.
 func (m *Multi) Add(stoppable Stoppable) {
 	m.mux.Lock()
 	m.stoppables = append(m.stoppables, stoppable)
 	m.mux.Unlock()
 }
 
-// returns the name of the multi stoppable and the names of all stoppables it
-// contains
+// Name returns the name of the multi stoppable and the names of all stoppables
+// it contains.
 func (m *Multi) Name() string {
 	m.mux.RLock()
 	names := m.name + ": {"
@@ -54,8 +54,8 @@ func (m *Multi) Name() string {
 	return names
 }
 
-// closes all child stoppers. It does not return their errors and assumes they
-// print them to the log
+// Close closes all child stoppers. It does not return their errors and assumes
+// they print them to the log.
 func (m *Multi) Close(timeout time.Duration) error {
 	var err error
 	m.once.Do(
@@ -63,18 +63,17 @@ func (m *Multi) Close(timeout time.Duration) error {
 			atomic.StoreUint32(&m.running, 0)
 
 			numErrors := uint32(0)
-
 			wg := &sync.WaitGroup{}
 
 			m.mux.Lock()
 			for _, stoppable := range m.stoppables {
 				wg.Add(1)
-				go func() {
+				go func(stoppable Stoppable) {
 					if stoppable.Close(timeout) != nil {
 						atomic.AddUint32(&numErrors, 1)
 					}
 					wg.Done()
-				}()
+				}(stoppable)
 			}
 			m.mux.Unlock()
 
@@ -89,5 +88,4 @@ func (m *Multi) Close(timeout time.Duration) error {
 		})
 
 	return err
-
 }

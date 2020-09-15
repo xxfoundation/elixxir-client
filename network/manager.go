@@ -18,7 +18,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/ndf"
+	//	"gitlab.com/xx_network/primitives/ndf"
 	"time"
 )
 
@@ -66,7 +66,9 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 	}
 
 	//start network instance
-	instance, err := network.NewInstance(comms.ProtoComms, partial, nil, nil)
+	// TODO: Need to parse/retrieve the ntework string and load it
+	// from the context storage session!
+	instance, err := network.NewInstance(comms.ProtoComms, nil, nil, nil)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
@@ -119,6 +121,7 @@ func (m *Manager) StartRunners() error {
 	m.health.Start()
 	m.runners.Add(m.health)
 
+	return nil
 }
 
 // GetRunners returns the network goroutines such that they can be named

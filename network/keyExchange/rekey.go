@@ -132,5 +132,3 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 
 	return nil
 }
-
-

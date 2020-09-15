@@ -9,9 +9,9 @@ package network
 import (
 	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/csprng"
@@ -19,7 +19,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // SendE2E sends an end-to-end payload to the provided recipient with
@@ -32,7 +31,6 @@ func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E, cmixP params.CMIX) 
 		return nil, errors.New("Cannot send e2e message when the " +
 			"network is not healthy")
 	}
-
 
 	return nil, nil
 }
@@ -75,6 +73,7 @@ func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//find the best round to send to, excluding roudn which have been attempted
 		bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
+		//bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime)
 		topology, firstNode := buildToplogy(bestRound.Topology)
 
 		//get they keys for the round, reject if any nodes do not have
@@ -143,12 +142,11 @@ func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 }
 
 func buildToplogy(nodes [][]byte) (*connect.Circuit, *id.ID) {
-	idList := make([]*id.ID, len(nodes))
-	for i, n := range nodes {
+	//idList := make([]*id.ID, len(nodes))
+	// for i, n := range nodes {
 
-	}
-
+	// }
+	return nil, nil
 }
 
 func handleMissingNodeKeys(nodes []*id.ID) {}
-

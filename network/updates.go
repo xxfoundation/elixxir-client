@@ -21,7 +21,7 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/comms/network"
-	"time"
+	//	"time"
 )
 
 // GetUpdates polls the network for updates.
@@ -39,46 +39,46 @@ func StartTrackNetwork(ctx *context.Context) stoppable.Stoppable {
 // TrackNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
 func TrackNetwork(ctx *context.Context, quitCh <-chan struct{}) {
-	ticker := time.NewTicker(ctx.GetTrackNetworkPeriod())
+	// ticker := timer.NewTicker(ctx.GetTrackNetworkPeriod())
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
-		case <-ticker.C:
-			trackNetwork(ctx)
+			// case <-ticker:
+			// 	trackNetwork(ctx)
 		}
 	}
 }
 
 func trackNetwork(ctx *context.Context) {
-	gateway, err := ctx.Session.GetNodeKeys().GetGatewayForSending()
-	if err != nil {
-		//...
-	}
+	// gateway, err := ctx.Session.GetNodeKeys().GetGatewayForSending()
+	// if err != nil {
+	// 	//...
+	// }
 
-	network := ctx.GetNetwork()
-	ndf, err := network.PollNDF(ctx, gateway)
-	if err != nil {
-		// ....
-	}
+	// network := ctx.GetNetwork()
+	// ndf, err := network.PollNDF(ctx, gateway)
+	// if err != nil {
+	// 	// ....
+	// }
 
-	newNodes, removedNodes := network.UpdateNDF(ndf)
-	for _, n := range newNodes {
-		network.addNodeCh <- n
-	}
-	for _, n := range removedNodes {
-		network.removeNodeCh <- n
-	}
+	// newNodes, removedNodes := network.UpdateNDF(ndf)
+	// for _, n := range newNodes {
+	// 	network.addNodeCh <- n
+	// }
+	// for _, n := range removedNodes {
+	// 	network.removeNodeCh <- n
+	// }
 
-	rounds, err = network.UpdateRounds(ctx, ndf)
-	if err != nil {
-		// ...
-	}
+	// rounds, err = network.UpdateRounds(ctx, ndf)
+	// if err != nil {
+	// 	// ...
+	// }
 
-	err = rounds.GetKnownRound().MaskedRange(gateway,
-		network.CheckRoundsFunction)
-	if err != nil {
-		// ...
-	}
+	// err = rounds.GetKnownRound().MaskedRange(gateway,
+	// 	network.CheckRoundsFunction)
+	// if err != nil {
+	// 	// ...
+	// }
 }

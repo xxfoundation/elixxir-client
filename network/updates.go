@@ -18,58 +18,103 @@ package network
 //   - receive.go for message handling
 
 import (
+	"encoding/binary"
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/comms/network"
-	//	"time"
+	"gitlab.com/xx_network/primitives/ndf"
+	"io"
+	"math"
+	"time"
 )
 
-// GetUpdates polls the network for updates.
-func (m *Manager) GetUpdates() (*network.Instance, error) {
-	return nil, nil
+// ReadUint32 reads an integer from an io.Reader (which should be a CSPRNG)
+func ReadUint32(rng io.Reader) uint32 {
+	var rndBytes [4]byte
+	i, err := rng.Read(rndBytes[:])
+	if i != 4 || err != nil {
+		panic(fmt.Sprintf("cannot read from rng: %+v", err))
+	}
+	return binary.BigEndian.Uint32(rndBytes[:])
+}
+
+// ReadRangeUint32 reduces an integer from 0, MaxUint32 to the range start, end
+func ReadRangeUint32(start, end uint32, rng io.Reader) uint32 {
+	size := end - start
+	// note we could just do the part inside the () here, but then extra
+	// can == size which means a little bit of range is wastes, either
+	// choice seems negligible so we went with the "more correct"
+	extra := (math.MaxUint32%size + 1) % size
+	limit := math.MaxUint32 - extra
+	// Loop until we read something inside the limit
+	for {
+		res := ReadUint32(rng)
+		if res > limit {
+			continue
+		}
+		return (res % size) + start
+	}
 }
 
 // StartTrackNetwork starts a single TrackNetwork thread and returns a stoppable
-func StartTrackNetwork(ctx *context.Context) stoppable.Stoppable {
+func StartTrackNetwork(ctx *context.Context, net *Manager) stoppable.Stoppable {
 	stopper := stoppable.NewSingle("TrackNetwork")
-	go TrackNetwork(ctx, stopper.Quit())
+	go TrackNetwork(ctx, net, stopper.Quit())
 	return stopper
 }
 
 // TrackNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func TrackNetwork(ctx *context.Context, quitCh <-chan struct{}) {
-	// ticker := timer.NewTicker(ctx.GetTrackNetworkPeriod())
+func TrackNetwork(ctx *context.Context, network *Manager,
+	quitCh <-chan struct{}) {
+	ticker := time.NewTicker(ctx.GetTrackNetworkPeriod())
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
-			// case <-ticker:
-			// 	trackNetwork(ctx)
+		case <-ticker:
+			trackNetwork(ctx, network)
 		}
 	}
 }
 
-func trackNetwork(ctx *context.Context) {
-	// gateway, err := ctx.Session.GetNodeKeys().GetGatewayForSending()
-	// if err != nil {
-	// 	//...
-	// }
+func trackNetwork(ctx *context.Context, network *Manager) {
+	instance := ctx.Manager.GetInstance()
+	comms := network.Comms
+	ndf := instance.GetPartialNdf().Get()
+	rng := ctx.Rng
 
-	// network := ctx.GetNetwork()
-	// ndf, err := network.PollNDF(ctx, gateway)
-	// if err != nil {
-	// 	// ....
-	// }
+	// Get a random gateway
+	gateways := ndf.Gateways
+	gwID := gateways[ReadRangeUint32(0, len(gateways), rng)].GetGatewayId()
+	gwHost, ok := comms.GetHost(gwHost)
+	if !ok {
+		jww.ERROR.Printf("could not get host for gateway %s", gwID)
+		return
+	}
 
-	// newNodes, removedNodes := network.UpdateNDF(ndf)
-	// for _, n := range newNodes {
-	// 	network.addNodeCh <- n
-	// }
-	// for _, n := range removedNodes {
-	// 	network.removeNodeCh <- n
-	// }
+	// Poll for the new NDF
+	pollReq := pb.GatewayPoll{
+		NDFHash:       instance.GetPartialNdf().GetHash(),
+		LastRound:     instance.GetLastRoundID(),
+		LastMessageID: nil,
+	}
+	pollResp, err := comms.SendPoll(gwHost)
+	if err != nil {
+		jww.ERROR.Printf(err)
+	}
+	newNDF := pollResp.NDF
+	lastRoundInfo := pollResp.RoundInfo
+	roundUpdates := pollResp.Updates
+	newMessageIDs := pollRespon.NewMessageIDs
+
+	// ---- NODE EVENTS ----
+	// NOTE: this updates the structure AND sends events over the node
+	//       update channels
+	instance.UpdatePartialNdf(newNDF)
+
+	// ---- Round Processing -----
 
 	// rounds, err = network.UpdateRounds(ctx, ndf)
 	// if err != nil {

@@ -109,7 +109,7 @@ func (m *Manager) StartRunners() error {
 	}
 
 	// Start the Network Tracker
-	m.runners.Add(StartTrackNetwork(m.Context))
+	m.runners.Add(StartTrackNetwork(m.Context, m))
 	// Message reception
 	m.runners.Add(StartMessageReceivers(m.Context))
 	// Node Updates

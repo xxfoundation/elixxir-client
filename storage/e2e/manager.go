@@ -7,16 +7,21 @@
 package e2e
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 )
 
+const managerPrefix = "Manager{partner:%s}"
+
 type Manager struct {
 	ctx *context
+	kv  *versioned.KV
 
 	partner *id.ID
 
@@ -25,10 +30,14 @@ type Manager struct {
 }
 
 // create the manager and its first send and receive sessions
-func newManager(ctx *context, partnerID *id.ID, myPrivKey *cyclic.Int,
+func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey *cyclic.Int,
 	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) *Manager {
+
+	kv = kv.Prefix(fmt.Sprintf(managerPrefix, partnerID))
+
 	m := &Manager{
 		ctx:     ctx,
+		kv:      kv,
 		partner: partnerID,
 	}
 

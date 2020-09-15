@@ -27,9 +27,4 @@ func (sid SessionID) Unmarshal(b []byte) error {
 }
 
 
-//builds the
-func makeSessionKey(sid SessionID) string {
-	return sid.String()
-}
-
 

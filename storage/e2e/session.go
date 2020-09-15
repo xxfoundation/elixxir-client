@@ -23,11 +23,14 @@ import (
 )
 
 const currentSessionVersion = 0
-const keyEKVPrefix = "KEY"
+const sessionPrefix = "session{ID:%s}"
+const sessionKey = "session"
 
 type Session struct {
 	//pointer to manager
 	manager *Manager
+	//prefixed kv
+	kv *versioned.KV
 	//params
 	params SessionParams
 
@@ -86,8 +89,9 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 //Generator which creates all keys and structures
-func newSession(manager *Manager, myPrivKey, partnerPubKey, baseKey *cyclic.Int,
-	params SessionParams, t SessionType, trigger SessionID) *Session {
+func newSession(manager *Manager, myPrivKey, partnerPubKey,
+	baseKey *cyclic.Int, params SessionParams, t SessionType,
+	trigger SessionID) *Session {
 
 	confirmation := Unconfirmed
 	if t == Receive {
@@ -105,7 +109,7 @@ func newSession(manager *Manager, myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 		trigger:           trigger,
 	}
 
-	session.generate()
+	session.kv = session.generate(manager.kv)
 
 	err := session.save()
 	if err != nil {
@@ -117,13 +121,14 @@ func newSession(manager *Manager, myPrivKey, partnerPubKey, baseKey *cyclic.Int,
 }
 
 // Load session and state vector from kv and populate runtime fields
-func loadSession(manager *Manager, key string) (*Session, error) {
+func loadSession(manager *Manager, kv *versioned.KV) (*Session, error) {
 
 	session := Session{
 		manager: manager,
+		kv:      kv,
 	}
 
-	obj, err := manager.ctx.kv.Get(key)
+	obj, err := kv.Get(sessionKey)
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +147,6 @@ func loadSession(manager *Manager, key string) (*Session, error) {
 }
 
 func (s *Session) save() error {
-	key := makeSessionKey(s.GetID())
 
 	now := time.Now()
 
@@ -157,7 +161,7 @@ func (s *Session) save() error {
 		Data:      data,
 	}
 
-	return s.manager.ctx.kv.Set(key, &obj)
+	return s.kv.Set(sessionKey, &obj)
 }
 
 /*METHODS*/
@@ -169,10 +173,8 @@ func (s *Session) Delete() {
 
 	s.manager.ctx.fa.remove(s.getUnusedKeys())
 
-	stateVectorKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
-	stateVectorErr := s.manager.ctx.kv.Delete(stateVectorKey)
-	sessionKey := makeSessionKey(s.GetID())
-	sessionErr := s.manager.ctx.kv.Delete(sessionKey)
+	stateVectorErr := s.keyState.Delete()
+	sessionErr := s.kv.Delete(sessionKey)
 
 	if stateVectorErr != nil && sessionErr != nil {
 		jww.ERROR.Printf("Error deleting state vector with key %v: %v", stateVectorKey, stateVectorErr.Error())
@@ -276,8 +278,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.ttl = sd.TTL
 	copy(s.trigger[:], sd.Trigger)
 
-	statesKey := makeStateVectorKey(keyEKVPrefix, s.GetID())
-	s.keyState, err = loadStateVector(s.manager.ctx, statesKey)
+	s.keyState, err = loadStateVector(s.kv, "")
 	if err != nil {
 		return err
 	}
@@ -482,7 +483,7 @@ func (s *Session) useKey(keynum uint32) {
 
 // generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
-func (s *Session) generate() {
+func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	grp := s.manager.ctx.grp
 
 	//generate private key if it is not present
@@ -495,6 +496,8 @@ func (s *Session) generate() {
 	if s.baseKey == nil {
 		s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
 	}
+
+	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
 
 	//generate ttl and keying info
 	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
@@ -512,7 +515,7 @@ func (s *Session) generate() {
 	// To generate the state vector key correctly,
 	// basekey must be computed as the session ID is the hash of basekey
 	var err error
-	s.keyState, err = newStateVector(s.manager.ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), numKeys)
+	s.keyState, err = newStateVector(kv, "", numKeys)
 	if err != nil {
 		jww.FATAL.Printf("Failed key generation: %s", err)
 	}
@@ -522,6 +525,8 @@ func (s *Session) generate() {
 		//register keys
 		s.manager.ctx.fa.add(s.getUnusedKeys())
 	}
+
+	return kv
 }
 
 //returns key objects for all unused keys
@@ -534,4 +539,9 @@ func (s *Session) getUnusedKeys() []*Key {
 	}
 
 	return keys
+}
+
+//builds the
+func makeSessionPrefix(sid SessionID) string {
+	return fmt.Sprintf(sessionPrefix, sid)
 }

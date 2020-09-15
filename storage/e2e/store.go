@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -21,10 +22,11 @@ import (
 )
 
 const currentStoreVersion = 0
-const storeKey = "e2eKeyStore"
-const pubKeyKey = "e2eDhPubKey"
-const privKeyKey = "e2eDhPrivKey"
-const grpKey = "e2eGroupKey"
+const packagePrefix = "e2eSession"
+const storeKey = "Store"
+const pubKeyKey = "DhPubKey"
+const privKeyKey = "DhPrivKey"
+const grpKey = "Group"
 
 type Store struct {
 	managers map[id.ID]*Manager
@@ -34,14 +36,18 @@ type Store struct {
 	dhPublicKey  *cyclic.Int
 	grp          *cyclic.Group
 
+	kv *versioned.KV
+
 	fingerprints
 
 	context
 }
 
-func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, error) {
+func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int, rng *fastRNG.StreamGenerator) (*Store, error) {
 	//generate public key
 	pub := diffieHellman.GeneratePublicKey(priv, grp)
+
+	kv = kv.Prefix(packagePrefix)
 
 	fingerprints := newFingerprints()
 	s := &Store{
@@ -52,10 +58,12 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, er
 		dhPublicKey:  pub,
 		grp:          grp,
 
+		kv: kv,
+
 		context: context{
 			fa:  &fingerprints,
 			grp: grp,
-			kv:  kv,
+			rng: rng,
 		},
 	}
 
@@ -81,15 +89,18 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, er
 	return s, s.save()
 }
 
-func LoadStore(kv *versioned.KV) (*Store, error) {
+func LoadStore(kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Store, error) {
 	fingerprints := newFingerprints()
+	kv = kv.Prefix(packagePrefix)
 	s := &Store{
 		managers:     make(map[id.ID]*Manager),
 		fingerprints: fingerprints,
 
+		kv: kv,
+
 		context: context{
-			fa: &fingerprints,
-			kv: kv,
+			fa:  &fingerprints,
+			rng: rng,
 		},
 	}
 
@@ -126,12 +137,12 @@ func (s *Store) save() error {
 	return s.kv.Set(storeKey, &obj)
 }
 
-func (s *Store) AddPartner(partnerID *id.ID,
-	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) {
+func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
+	sendParams, receiveParams SessionParams) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	m := newManager(&s.context, partnerID, s.dhPrivateKey, partnerPubKey, sendParams, receiveParams)
+	m := newManager(&s.context, s.kv, partnerID, s.dhPrivateKey, partnerPubKey, sendParams, receiveParams)
 
 	s.managers[*partnerID] = m
 

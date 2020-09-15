@@ -17,9 +17,10 @@ import (
 )
 
 const currentStateVectorVersion = 0
+const stateVectorKey = "stateVector"
 
 type stateVector struct {
-	ctx *context
+	kv  *versioned.KV
 	key string
 
 	// Bitfield for key states
@@ -42,13 +43,13 @@ type stateVectorDisk struct {
 	Numkeys        uint32
 }
 
-func newStateVector(ctx *context, key string, numkeys uint32) (*stateVector, error) {
+func newStateVector(kv *versioned.KV, key string, numkeys uint32) (*stateVector, error) {
 	numBlocks := (numkeys + 63) / 64
 
 	sv := &stateVector{
-		ctx:            ctx,
+		kv:             kv,
 		vect:           make([]uint64, numBlocks),
-		key:            key,
+		key:            stateVectorKey + key,
 		firstAvailable: 0,
 		numAvailable:   numkeys,
 		numkeys:        numkeys,
@@ -57,13 +58,13 @@ func newStateVector(ctx *context, key string, numkeys uint32) (*stateVector, err
 	return sv, sv.save()
 }
 
-func loadStateVector(ctx *context, key string) (*stateVector, error) {
+func loadStateVector(kv *versioned.KV, key string) (*stateVector, error) {
 	sv := &stateVector{
-		ctx: ctx,
-		key: key,
+		kv:  kv,
+		key: stateVectorKey + key,
 	}
 
-	obj, err := ctx.kv.Get(key)
+	obj, err := kv.Get(sv.key)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +91,7 @@ func (sv *stateVector) save() error {
 		Data:      data,
 	}
 
-	return sv.ctx.kv.Set(sv.key, &obj)
+	return sv.kv.Set(sv.key, &obj)
 }
 
 func (sv *stateVector) Use(keynum uint32) {
@@ -201,6 +202,12 @@ func (sv *stateVector) String() string {
 	return fmt.Sprintf("stateVector: %s", sv.key)
 }
 
+//Deletes the state vector from storage
+func (sv *stateVector) Delete() error {
+	return sv.kv.Delete(sv.key)
+}
+
+
 // finds the next used state and sets that as firstAvailable. This does not
 // execute a store and a store must be executed after.
 func (sv *stateVector) nextAvailable() {
@@ -246,8 +253,4 @@ func (sv *stateVector) unmarshal(b []byte) error {
 	sv.vect = svd.Vect
 
 	return nil
-}
-
-func makeStateVectorKey(prefix string, sid SessionID) string {
-	return sid.String() + prefix
 }

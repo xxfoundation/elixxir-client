@@ -8,8 +8,8 @@ import (
 	"time"
 )
 
-// Single allows stopping a single goroutine using a channel
-// adheres to the stoppable interface
+// Single allows stopping a single goroutine using a channel.
+// It adheres to the stoppable interface.
 type Single struct {
 	name    string
 	quit    chan struct{}
@@ -17,7 +17,7 @@ type Single struct {
 	once    sync.Once
 }
 
-//returns a new single stoppable
+// NewSingle returns a new single stoppable.
 func NewSingle(name string) *Single {
 	return &Single{
 		name:    name,
@@ -26,22 +26,22 @@ func NewSingle(name string) *Single {
 	}
 }
 
-// returns true if the thread is still running
+// IsRunning returns true if the thread is still running.
 func (s *Single) IsRunning() bool {
 	return atomic.LoadUint32(&s.running) == 1
 }
 
-// returns the read only channel it will send the stop signal on
-func (s *Single) Quit() <-chan struct{} {
+// Quit returns the read only channel it will send the stop signal on.
+func (s *Single) Quit() chan<- struct{} {
 	return s.quit
 }
 
-// returns the name of the thread. This is designed to be
+// Name returns the name of the thread. This is designed to be
 func (s *Single) Name() string {
 	return s.name
 }
 
-// Close signals thread to time out and closes if it is still running.
+// Close signals the thread to time out and closes if it is still running.
 func (s *Single) Close(timeout time.Duration) error {
 	var err error
 	s.once.Do(func() {

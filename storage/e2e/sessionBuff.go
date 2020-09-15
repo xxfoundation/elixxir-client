@@ -7,7 +7,6 @@
 package e2e
 
 import (
-	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -23,34 +22,36 @@ const currentSessionBuffVersion = 0
 type sessionBuff struct {
 	manager *Manager
 
+	kv *versioned.KV
+
 	sessions    []*Session
 	sessionByID map[SessionID]*Session
 
-	keyPrefix string
+	key string
 
 	mux sync.RWMutex
 }
 
-func NewSessionBuff(manager *Manager, keyPrefix string) *sessionBuff {
+func NewSessionBuff(manager *Manager, key string) *sessionBuff {
 	return &sessionBuff{
 		manager:     manager,
 		sessions:    make([]*Session, 0),
 		sessionByID: make(map[SessionID]*Session),
 		mux:         sync.RWMutex{},
-		keyPrefix:   keyPrefix,
+		key:         key,
 	}
 }
 
-func LoadSessionBuff(manager *Manager, keyPrefix string, partnerID *id.ID) (*sessionBuff, error) {
+func LoadSessionBuff(manager *Manager, key string, partnerID *id.ID) (*sessionBuff, error) {
 	sb := &sessionBuff{
 		manager:     manager,
 		sessionByID: make(map[SessionID]*Session),
 		mux:         sync.RWMutex{},
 	}
 
-	key := makeSessionBuffKey(keyPrefix, partnerID)
+	key = makeSessionBuffKey(key)
 
-	obj, err := manager.ctx.kv.Get(key)
+	obj, err := manager.kv.Get(key)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,7 @@ func LoadSessionBuff(manager *Manager, keyPrefix string, partnerID *id.ID) (*ses
 }
 
 func (sb *sessionBuff) save() error {
-	key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
+	key := makeSessionBuffKey(sb.key)
 
 	now := time.Now()
 
@@ -80,7 +81,7 @@ func (sb *sessionBuff) save() error {
 		Data:      data,
 	}
 
-	return sb.manager.ctx.kv.Set(key, &obj)
+	return sb.kv.Set(key, &obj)
 }
 
 //ekv functions
@@ -109,11 +110,11 @@ func (sb *sessionBuff) unmarshal(b []byte) error {
 
 	//load all the sessions
 	for _, sid := range sessions {
-		key := makeSessionKey(sid)
-		session, err := loadSession(sb.manager, key)
+		sessionKV := sb.kv.Prefix(makeSessionPrefix(sid))
+		session, err := loadSession(sb.manager, sessionKV)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load session %s for %s: %s",
-				key, sb.manager.partner, err.Error())
+				makeSessionPrefix(sid), sb.manager.partner, err.Error())
 		}
 		sb.addSession(session)
 	}
@@ -127,7 +128,7 @@ func (sb *sessionBuff) AddSession(s *Session) {
 
 	sb.addSession(s)
 	if err := sb.save(); err != nil {
-		key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
+		key := makeSessionBuffKey(sb.key, sb.manager.partner)
 		jww.FATAL.Printf("Failed to save Session Buffer %s after "+
 			"adding session %s: %s", key, s, err)
 	}
@@ -283,13 +284,13 @@ func (sb *sessionBuff) clean() {
 		sb.sessions = newSessions
 
 		if err := sb.save(); err != nil {
-			key := makeSessionBuffKey(sb.keyPrefix, sb.manager.partner)
+			key := makeSessionBuffKey(sb.key)
 			jww.FATAL.Printf("Failed to save Session Buffer %s after "+
 				"clean: %s", key, err)
 		}
 	}
 }
 
-func makeSessionBuffKey(keyPrefix string, partnerID *id.ID) string {
-	return keyPrefix + "sessionBuffer" + base64.StdEncoding.EncodeToString(partnerID.Marshal())
+func makeSessionBuffKey(key string) string {
+	return "sessionBuffer" + key
 }

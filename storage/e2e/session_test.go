@@ -165,7 +165,7 @@ func TestSession_Load(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Load another, hopefully identical session from the storage
-	sessionB, err := loadSession(sessionA.manager, versioned.NewKV(make(ekv.Memstore)))
+	sessionB, err := loadSession(sessionA.manager, sessionA.kv)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -223,6 +223,7 @@ func TestSession_Serialization(t *testing.T) {
 
 	sDeserialized := &Session{
 		manager: &Manager{ctx: ctx},
+		kv:      s.kv,
 	}
 	err = sDeserialized.unmarshal(sSerialized)
 	if err != nil {

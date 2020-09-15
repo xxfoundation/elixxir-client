@@ -215,7 +215,9 @@ func TestLoadStateVector(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 	const numKeys = 1000
 
-	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	sv, err := newStateVector(kv, "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -227,7 +229,7 @@ func TestLoadStateVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv2, err := loadStateVector(versioned.NewKV(make(ekv.Memstore)), "key")
+	sv2, err := loadStateVector(kv, "key")
 	if err != nil {
 		t.Fatal(err)
 	}

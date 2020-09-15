@@ -27,6 +27,9 @@ import (
 	"testing"
 )
 
+// Number of rounds to store in the CheckedRound buffer
+const checkRoundsMaxSize = 1000000 / 64
+
 // Session object, backed by encrypted filestore
 type Session struct {
 	kv  *versioned.KV
@@ -42,6 +45,7 @@ type Session struct {
 	partition        *partition.Store
 	criticalMessages *utility.E2eMessageBuffer
 	garbledMessages  *utility.CmixMessageBuffer
+	checkedRounds    *utility.KnownRounds
 }
 
 // Initialize a new Session object
@@ -101,6 +105,11 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
+	s.checkedRounds, err = utility.NewKnownRounds(s.kv, checkedRoundsKey, checkRoundsMaxSize)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create session")
+	}
+
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
@@ -144,6 +153,11 @@ func Load(baseDir, password string) (*Session, error) {
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
 
+	s.checkedRounds, err = utility.LoadKnownRounds(s.kv, checkedRoundsKey, checkRoundsMaxSize)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load session")
+	}
+
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
@@ -178,6 +192,12 @@ func (s *Session) GetGarbledMessages() *utility.CmixMessageBuffer {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.garbledMessages
+}
+
+func (s *Session) GetCheckedRounds() *utility.KnownRounds {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.checkedRounds
 }
 
 func (s *Session) Conversations() *conversation.Store {

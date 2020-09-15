@@ -6,20 +6,13 @@
 
 package storage
 
-import (
-	"bytes"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"os"
-	"testing"
-	"time"
-)
-
+/*
 func initTest(t *testing.T) *Session {
 	err := os.RemoveAll(".session_testdir")
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	s, err := Init(".session_testdir", "test")
+	s, err := New(".session_testdir", "test")
 	if err != nil {
 		t.Log(s)
 		t.Errorf("failed to init: %+v", err)
@@ -50,4 +43,4 @@ func TestSession_Smoke(t *testing.T) {
 	if bytes.Compare(o.Data, []byte("test")) != 0 {
 		t.Errorf("Failed to get data")
 	}
-}
+}*/

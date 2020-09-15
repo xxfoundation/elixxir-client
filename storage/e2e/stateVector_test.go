@@ -37,11 +37,8 @@ func TestStateVector_GetNumUsed(t *testing.T) {
 }
 
 func TestStateVector_GetNumKeys(t *testing.T) {
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
 	const numKeys = 32
-	sv, err := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,11 +55,8 @@ func TestStateVector_Next(t *testing.T) {
 	// Expected results: all keynums, and beyond the last key
 	expectedFirstAvail := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
 	const numKeys = 1000
-	sv, err := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,11 +108,8 @@ func TestStateVector_Use(t *testing.T) {
 	// These keyNums will be set to dirty with Use
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
 	const numKeys = 1000
-	sv, err := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -150,11 +141,8 @@ func TestStateVector_Used(t *testing.T) {
 	// These keyNums should be used
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
 	const numKeys = 1000
-	sv, err := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -181,11 +169,8 @@ func TestStateVector_GetUsedKeyNums(t *testing.T) {
 	// These keyNums should be used
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
 	const numKeys = 1000
-	sv, err := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -205,11 +190,8 @@ func TestStateVector_GetUnusedKeyNums(t *testing.T) {
 	// These keyNums should not be used
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
 	const numKeys = 1000
-	sv, err := newStateVector(&ctx, "key", numKeys)
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -232,14 +214,19 @@ func TestStateVector_GetUnusedKeyNums(t *testing.T) {
 func TestLoadStateVector(t *testing.T) {
 	keyNums := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
 	const numKeys = 1000
-	ctx := context{
-		kv: versioned.NewKV(make(ekv.Memstore)),
-	}
-	sv, err := newStateVector(&ctx, "key", numKeys)
+
+	kv := versioned.NewKV(make(ekv.Memstore))
+
+	sv, err := newStateVector(kv, "key", numKeys)
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff, 0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff, 0xffffffffffffffff, 0xfffffff7ffffffff}
+	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff,
+		0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff,
+		0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff,
+		0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff,
+		0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff,
+		0xffffffffffffffff, 0xfffffff7ffffffff}
 	sv.numAvailable = uint32(len(keyNums))
 	sv.firstAvailable = keyNums[0]
 
@@ -247,7 +234,7 @@ func TestLoadStateVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv2, err := loadStateVector(&ctx, "key")
+	sv2, err := loadStateVector(kv, "key")
 	if err != nil {
 		t.Fatal(err)
 	}

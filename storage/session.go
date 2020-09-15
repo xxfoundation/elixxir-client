@@ -20,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/large"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
@@ -67,7 +68,7 @@ func initStore(baseDir, password string) (*Session, error) {
 // Creates new UserData in the session
 func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
 	isPrecanned bool, cmixDHPrivKey, e2eDHPrivKey *cyclic.Int, cmixGrp,
-	e2eGrp *cyclic.Group) (*Session, error) {
+	e2eGrp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
@@ -90,7 +91,7 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey)
+	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
@@ -117,7 +118,7 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 }
 
 // Loads existing user data into the session
-func Load(baseDir, password string) (*Session, error) {
+func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, error) {
 	s, err := initStore(baseDir, password)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
@@ -138,7 +139,7 @@ func Load(baseDir, password string) (*Session, error) {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.e2e, err = e2e.LoadStore(s.kv)
+	s.e2e, err = e2e.LoadStore(s.kv, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}

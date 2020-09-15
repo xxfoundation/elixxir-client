@@ -128,7 +128,7 @@ func (sb *sessionBuff) AddSession(s *Session) {
 
 	sb.addSession(s)
 	if err := sb.save(); err != nil {
-		key := makeSessionBuffKey(sb.key, sb.manager.partner)
+		key := makeSessionBuffKey(sb.key)
 		jww.FATAL.Printf("Failed to save Session Buffer %s after "+
 			"adding session %s: %s", key, s, err)
 	}

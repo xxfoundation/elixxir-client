@@ -65,7 +65,6 @@ func NewKV(data ekv.KeyValue) *KV {
 	root.data = data
 
 	newKV.r = &root
-	newKV.prefix = PrefixSeparator
 
 	return &newKV
 }

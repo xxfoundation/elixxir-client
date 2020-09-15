@@ -42,7 +42,7 @@ type Manager struct {
 	instance *network.Instance
 
 	//channels
-	nodeRegistration chan *id.ID
+	nodeRegistration chan network.NodeGateway
 
 	//local pointer to user ID because it is used often
 	uid *id.ID

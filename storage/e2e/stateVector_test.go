@@ -221,7 +221,12 @@ func TestLoadStateVector(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff, 0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff, 0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff, 0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff, 0xffffffffffffffff, 0xfffffff7ffffffff}
+	sv.vect = []uint64{0xffffffffffffffff, 0xffffffffffffffff,
+		0xfffffffffffdf7ff, 0xffffffffffffffff, 0xffffefffffffffff,
+		0xfffffeffffffffff, 0xffffffefffffffff, 0xffffffffffffffff,
+		0xffffffffffffffff, 0xffffffffffffffff, 0xffffffffffffffff,
+		0xfdffffffffffffff, 0xffffffffffffffff, 0xdffff7efffffffff,
+		0xffffffffffffffff, 0xfffffff7ffffffff}
 	sv.numAvailable = uint32(len(keyNums))
 	sv.firstAvailable = keyNums[0]
 

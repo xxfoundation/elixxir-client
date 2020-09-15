@@ -196,7 +196,12 @@ func addHost(rm *io.ReceptionManager, id *id.ID, address, cert string, disableTi
 	if cert != "" && rm.Tls {
 		creds = []byte(cert)
 	}
-	_, err := rm.Comms.AddHost(id, address, creds, disableTimeout, enableAuth)
+	params := connect.GetDefaultHostParams()
+	if disableTimeout {
+		params.MaxRetries = 0
+	}
+	params.AuthEnabled = enableAuth
+	_, err := rm.Comms.AddHost(id, address, creds, params)
 	if err != nil {
 		return err
 	}

@@ -194,10 +194,9 @@ func getSession(t *testing.T) *Session {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  versioned.NewKV(make(ekv.Memstore)),
 	}
 
-	keyState, err := newStateVector(ctx, "keyState", rand.Uint32())
+	keyState, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "keyState", rand.Uint32())
 	if err != nil {
 		panic(err)
 	}

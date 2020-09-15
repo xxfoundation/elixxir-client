@@ -12,7 +12,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -489,8 +488,10 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 
 	//generate private key if it is not present
 	if s.myPrivKey == nil {
+		stream := s.manager.ctx.rng.GetStream()
 		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
-			csprng.NewSystemRNG())
+			stream)
+		stream.Close()
 	}
 
 	// compute the base key if it is not already there

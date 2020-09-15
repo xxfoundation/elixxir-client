@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/csprng"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
@@ -24,7 +25,7 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  versioned.NewKV(make(ekv.Memstore)),
+		rng: fastRNG.NewStreamGenerator(1, 0, csprng.NewSystemRNG),
 	}
 
 	//build the session
@@ -38,7 +39,7 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	}
 
 	//run the generate command
-	s.generate()
+	s.generate(versioned.NewKV(make(ekv.Memstore)))
 
 	//check that it generated a private key
 	if s.myPrivKey == nil {
@@ -85,7 +86,6 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  versioned.NewKV(make(ekv.Memstore)),
 	}
 
 	//build the session
@@ -100,7 +100,7 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	}
 
 	//run the generate command
-	s.generate()
+	s.generate(versioned.NewKV(make(ekv.Memstore)))
 
 	//check that it generated a private key
 	if s.myPrivKey.Cmp(myPrivKey) != 0 {
@@ -165,7 +165,7 @@ func TestSession_Load(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Load another, hopefully identical session from the storage
-	sessionB, err := loadSession(sessionA.manager, makeSessionKey(sessionA.GetID()))
+	sessionB, err := loadSession(sessionA.manager, versioned.NewKV(make(ekv.Memstore)))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,11 +296,11 @@ func TestSession_Delete(t *testing.T) {
 	s.Delete()
 
 	// Getting the keys that should have been stored should now result in an error
-	_, err = s.manager.ctx.kv.Get(makeStateVectorKey(keyEKVPrefix, s.GetID()))
+	_, err = s.kv.Get(stateVectorKey)
 	if err == nil {
 		t.Error("State vector was gettable")
 	}
-	_, err = s.manager.ctx.kv.Get(makeSessionKey(s.GetID()))
+	_, err = s.kv.Get(sessionKey)
 	if err == nil {
 		t.Error("Session was gettable")
 	}
@@ -312,10 +312,10 @@ func TestSession_Delete(t *testing.T) {
 // that will also get caught by the other error first. So it's only practical
 // to test the one error.
 func TestSession_PopKey_Error(t *testing.T) {
-	s, ctx := makeTestSession(t)
+	s, _ := makeTestSession(t)
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 0)
+	s.keyState, err = newStateVector(s.kv, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -349,10 +349,10 @@ func TestSession_PopReKey(t *testing.T) {
 // PopRekey should not return the next key if there are no more keys available
 // in the state vector
 func TestSession_PopReKey_Err(t *testing.T) {
-	s, ctx := makeTestSession(t)
+	s, _ := makeTestSession(t)
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
-	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 0)
+	s.keyState, err = newStateVector(s.kv, "", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -413,9 +413,9 @@ func TestSession_IsConfirmed(t *testing.T) {
 
 // Shows that Status can result in all possible statuses
 func TestSession_Status(t *testing.T) {
-	s, ctx := makeTestSession(t)
+	s, _ := makeTestSession(t)
 	var err error
-	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 500)
+	s.keyState, err = newStateVector(s.kv, "", 500)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestSession_Status(t *testing.T) {
 // Tests that state transitions as documented don't cause panics
 // Tests that the session saves or doesn't save when appropriate
 func TestSession_SetNegotiationStatus(t *testing.T) {
-	s, ctx := makeTestSession(t)
+	s, _ := makeTestSession(t)
 	//	Normal paths: SetNegotiationStatus should not fail
 	// Use timestamps to determine whether a save has occurred
 	s.negotiationStatus = Sending
@@ -451,7 +451,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Sent {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err := ctx.kv.Get(makeSessionKey(s.GetID()))
+	object, err := s.kv.Get(sessionKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,7 +465,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	object, err = s.kv.Get(sessionKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +480,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != NewSessionCreated {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	object, err = s.kv.Get(sessionKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,7 +497,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Unconfirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	object, err = s.kv.Get(sessionKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -510,7 +510,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = ctx.kv.Get(makeSessionKey(s.GetID()))
+	object, err = s.kv.Get(sessionKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -600,8 +600,9 @@ func makeTestSession(t *testing.T) (*Session, *context) {
 	ctx := &context{
 		fa:  &fps,
 		grp: grp,
-		kv:  versioned.NewKV(make(ekv.Memstore)),
 	}
+
+	kv := versioned.NewKV(make(ekv.Memstore))
 
 	s := &Session{
 		baseKey:       baseKey,
@@ -610,13 +611,16 @@ func makeTestSession(t *testing.T) (*Session, *context) {
 		params:        GetDefaultSessionParams(),
 		manager: &Manager{
 			ctx: ctx,
+			kv:  kv,
 		},
+		kv:                kv,
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		ttl:               5,
 	}
 	var err error
-	s.keyState, err = newStateVector(ctx, makeStateVectorKey(keyEKVPrefix, s.GetID()), 1024)
+	s.keyState, err = newStateVector(s.kv,
+		"", 1024)
 	if err != nil {
 		panic(err)
 	}

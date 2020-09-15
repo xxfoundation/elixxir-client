@@ -122,14 +122,12 @@ func handleTrigger(ctx *context.Context, request message.Receive) {
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
 			newSession, numRoundFail+numTimeOut, len(rounds), numRoundFail,
 			numTimeOut)
-		newSession.SetNegotiationStatus(e2e.Unconfirmed)
 		ctx.Session.GetCriticalMessages().Failed(m)
 		return
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
-	newSession.SetNegotiationStatus(e2e.Sent)
 	ctx.Session.GetCriticalMessages().Succeeded(m)
 	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
 		newSession)
@@ -150,6 +148,8 @@ func unmarshalTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,
 			" sessionID: %s", err)
 	}
 
+	// checking it is inside the group is necessary because otherwise the
+	// creation of the cyclic int will crash below
 	if !grp.BytesInside(msg.PublicKey) {
 		return e2e.SessionID{}, nil, errors.Errorf("Public key not in e2e group; PublicKey %v",
 			msg.PublicKey)

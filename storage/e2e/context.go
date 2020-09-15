@@ -1,8 +1,8 @@
 package e2e
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 )
 
 type context struct {
@@ -10,5 +10,5 @@ type context struct {
 
 	grp *cyclic.Group
 
-	kv *versioned.KV
+	rng *fastRNG.StreamGenerator
 }

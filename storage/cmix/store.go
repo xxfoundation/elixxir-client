@@ -175,6 +175,14 @@ func (s *Store) GetGroup() *cyclic.Group {
 	return s.grp
 }
 
+func (s *Store) IsRegistered(nid *id.ID) bool {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	_, ok := s.nodes[*nid]
+	return ok
+}
+
 // stores the cmix store
 func (s *Store) save() error {
 	now := time.Now()

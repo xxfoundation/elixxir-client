@@ -7,7 +7,6 @@ import (
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -53,7 +52,7 @@ func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		//keying relationships
 		roundKeys, missingKeys := m.Context.Session.Cmix().GetRoundKeys(topology)
 		if len(missingKeys) > 0 {
-			go handleMissingNodeKeys(missingKeys)
+			go handleMissingNodeKeys(m.instance, m.nodeRegistration, missingKeys)
 			continue
 		}
 
@@ -68,7 +67,10 @@ func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//encrypt the message
 		salt := make([]byte, 32)
-		_, err := csprng.NewSystemRNG().Read(salt)
+		stream := m.Context.Rng.GetStream()
+		_, err = stream.Read(salt)
+		stream.Close()
+
 		if err != nil {
 			return 0, errors.WithMessage(err, "Failed to generate "+
 				"salt, this should never happen")
@@ -127,4 +129,18 @@ func buildToplogy(nodes [][]byte) (*connect.Circuit, error) {
 
 }
 
-func handleMissingNodeKeys(nodes []*id.ID) {}
+func handleMissingNodeKeys(instance *network.Instance, newNodeChan chan network.NodeGateway, nodes []*id.ID) {
+	for _, n := range nodes {
+		ng, err := instance.GetNodeAndGateway(n)
+		if err != nil {
+			jww.ERROR.Printf("Node contained in round cannot be found: %s", err)
+			continue
+		}
+		select {
+		case newNodeChan <- ng:
+		default:
+			jww.ERROR.Printf("Failed to send node registration for %s", n)
+		}
+
+	}
+}

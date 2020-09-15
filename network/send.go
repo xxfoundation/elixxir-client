@@ -24,7 +24,6 @@ func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E, cmixP params.CMIX) 
 			"network is not healthy")
 	}
 
-
 	return nil, nil
 }
 
@@ -36,6 +35,4 @@ func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E, cmixP params.CMIX) 
 func (m *Manager) SendUnsafe(msg message.Send) ([]id.Round, error) {
 	return nil, nil
 }
-
-
 

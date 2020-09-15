@@ -8,9 +8,9 @@ package api
 
 import (
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/switchboard"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/context/switchboard"
 	"gitlab.com/xx_network/primitives/ndf"
 
 	"github.com/pkg/errors"

@@ -74,4 +74,3 @@ func (m messagePart) GetContentsLength() int {
 func (m messagePart) Bytes() []byte {
 	return m.Data
 }
-

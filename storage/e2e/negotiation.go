@@ -3,7 +3,7 @@ package e2e
 import "fmt"
 
 // Fix-me: this solution is incompatible with offline sending, when that is
-// added, a session which has not been confirmed will never trigger the
+// added, a session which has not been confirmed will never partnerSource the
 // creation of new session, the Unconfirmed->Confirmed and
 // Confirmed->NewSessionCreated most likely need to be two separate enums
 // tracked separately

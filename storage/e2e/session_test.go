@@ -523,45 +523,45 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 // Tests that TriggerNegotiation makes only valid state transitions
 func TestSession_TriggerNegotiation(t *testing.T) {
 	s, _ := makeTestSession(t)
-	// Set up num keys used to be > ttl: should trigger negotiation
+	// Set up num keys used to be > ttl: should partnerSource negotiation
 	s.keyState.numAvailable = 50
 	s.keyState.numkeys = 100
 	s.ttl = 49
 	s.negotiationStatus = Confirmed
 
 	if !s.triggerNegotiation() {
-		t.Error("trigger negotiation unexpectedly failed")
+		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != NewSessionTriggered {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
 	}
 
-	// Set up num keys used to be = ttl: should trigger negotiation
+	// Set up num keys used to be = ttl: should partnerSource negotiation
 	s.ttl = 50
 	s.negotiationStatus = Confirmed
 
 	if !s.triggerNegotiation() {
-		t.Error("trigger negotiation unexpectedly failed")
+		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != NewSessionTriggered {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
 	}
 
-	// Set up num keys used to be < ttl: shouldn't trigger negotiation
+	// Set up num keys used to be < ttl: shouldn't partnerSource negotiation
 	s.ttl = 51
 	s.negotiationStatus = Confirmed
 
 	if !s.triggerNegotiation() {
-		t.Error("trigger negotiation unexpectedly failed")
+		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != Confirmed {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
 	}
 
-	// Test other case: trigger sending	confirmation message on unconfirmed session
+	// Test other case: partnerSource sending	confirmation message on unconfirmed session
 	s.negotiationStatus = Unconfirmed
 	if !s.triggerNegotiation() {
-		t.Error("trigger negotiation unexpectedly failed")
+		t.Error("partnerSource negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != Sending {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
@@ -577,12 +577,12 @@ func TestSession_String(t *testing.T) {
 	t.Log(s.String())
 }
 
-// Shows that GetTrigger gets the trigger we set
+// Shows that GetSource gets the partnerSource we set
 func TestSession_GetTrigger(t *testing.T) {
 	s, _ := makeTestSession(t)
 	thisTrigger := s.GetID()
-	s.trigger = thisTrigger
-	if !reflect.DeepEqual(s.GetTrigger(), thisTrigger) {
+	s.partnerSource = thisTrigger
+	if !reflect.DeepEqual(s.GetSource(), thisTrigger) {
 		t.Error("Trigger different from expected")
 	}
 }

@@ -51,7 +51,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) error {
 	}
 
 	//unmarshal the message
-	oldSessionID, PartnerPublicKey, err := unmarshalTrigger(
+	oldSessionID, PartnerPublicKey, err := unmarshalSource(
 		ctx.Session.E2e().GetGroup(), request.Payload)
 	if err != nil {
 		jww.ERROR.Printf("could not unmarshal partner %s: %s",
@@ -83,7 +83,7 @@ func handleTrigger(ctx *context.Context, request message.Receive) error {
 	//Send the Confirmation Message
 	//build the payload
 	payload, err := proto.Marshal(&RekeyConfirm{
-		SessionID: session.GetTrigger().Marshal(),
+		SessionID: session.GetSource().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic
@@ -125,10 +125,10 @@ func handleTrigger(ctx *context.Context, request message.Receive) error {
 	if !success {
 		jww.ERROR.Printf("Key Negotiation for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
-			newSession, numRoundFail+numTimeOut, len(rounds), numRoundFail,
+			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
 			numTimeOut)
 		ctx.Session.GetCriticalMessages().Failed(m)
-		return
+		return nil
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
@@ -136,12 +136,11 @@ func handleTrigger(ctx *context.Context, request message.Receive) error {
 	ctx.Session.GetCriticalMessages().Succeeded(m)
 	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
 		session)
-	session.SetNegotiationStatus(e2e.Sent)
 
 	return nil
 }
 
-func unmarshalTrigger(grp *cyclic.Group, payload []byte) (e2e.SessionID,
+func unmarshalSource(grp *cyclic.Group, payload []byte) (e2e.SessionID,
 	*cyclic.Int, error) {
 
 	msg := &RekeyTrigger{}

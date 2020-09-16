@@ -52,7 +52,7 @@ func (i *MockRegistration) RegisterUser(registrationCode, test string) (hash []b
 	return nil, nil
 }
 
-func (i *MockRegistration) RegisterNode(ID *id.ID, ServerAddr, ServerTlsCert,
+func (i *MockRegistration) RegisterNode(salt []byte, ServerAddr, ServerTlsCert,
 	GatewayAddr, GatewayTlsCert, RegistrationCode string) error {
 	return nil
 }

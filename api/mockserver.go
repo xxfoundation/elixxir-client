@@ -142,7 +142,7 @@ type MockRegistration struct {
 	//LastReceivedMessage pb.CmixMessage
 }
 
-func (s *MockRegistration) RegisterNode(ID *id.ID,
+func (s *MockRegistration) RegisterNode(salt []byte,
 	NodeTLSCert, GatewayTLSCert, RegistrationCode, Addr, Addr2 string) error {
 	return nil
 }

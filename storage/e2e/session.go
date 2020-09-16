@@ -42,10 +42,10 @@ type Session struct {
 	myPrivKey *cyclic.Int
 	// Partner Public Key
 	partnerPubKey *cyclic.Int
-	// ID of the session which triggered this sessions creation.
-	// Shares a partner public key if a send session, shares a myPrivateKey
-	// if a receive session
-	trigger SessionID
+	// ID of the session which teh partner public key comes from for this
+	// sessions creation.  Shares a partner public key if a send session,
+	// shares a myPrivateKey if a receive session
+	partnerSource SessionID
 
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
@@ -105,7 +105,7 @@ func newSession(manager *Manager, myPrivKey, partnerPubKey,
 		partnerPubKey:     partnerPubKey,
 		baseKey:           baseKey,
 		negotiationStatus: confirmation,
-		trigger:           trigger,
+		partnerSource:     trigger,
 	}
 
 	session.kv = session.generate(manager.kv)
@@ -201,9 +201,9 @@ func (s *Session) GetPartnerPubKey() *cyclic.Int {
 	return s.partnerPubKey.DeepCopy()
 }
 
-func (s *Session) GetTrigger() SessionID {
+func (s *Session) GetSource() SessionID {
 	// no lock is needed because this cannot be edited
-	return s.trigger
+	return s.partnerSource
 }
 
 //underlying definition of session id
@@ -239,7 +239,7 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
-	sd.Trigger = s.trigger[:]
+	sd.Trigger = s.partnerSource[:]
 
 	// assume in progress confirmations and session creations have failed on
 	// reset, therefore do not store their pending progress
@@ -275,7 +275,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 	s.negotiationStatus = Negotiation(sd.Confirmation)
 	s.ttl = sd.TTL
-	copy(s.trigger[:], sd.Trigger)
+	copy(s.partnerSource[:], sd.Trigger)
 
 	s.keyState, err = loadStateVector(s.kv, "")
 	if err != nil {
@@ -394,9 +394,9 @@ func (s *Session) TrySetNegotiationStatus(status Negotiation) error {
 // WARNING: This function relies on proper action by the caller for data safety.
 // When triggering the creation of a new session (the first case) it does not
 // store to disk the fact that it has triggered the session. This is because
-// every session should only trigger one other session and in the event that
-// session trigger does not resolve before a crash, by not storing it the
-// trigger will automatically happen again when reloading after the crash.
+// every session should only partnerSource one other session and in the event that
+// session partnerSource does not resolve before a crash, by not storing it the
+// partnerSource will automatically happen again when reloading after the crash.
 // In order to ensure the session creation is not triggered again after the
 // reload, it is the responsibility of the caller to call
 // Session.SetConfirmationStatus(NewSessionCreated) .
@@ -413,7 +413,7 @@ func (s *Session) triggerNegotiation() bool {
 		s.mux.RUnlock()
 		s.mux.Lock()
 		if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
-			//trigger a rekey to create a new session
+			//partnerSource a rekey to create a new session
 			s.negotiationStatus = NewSessionTriggered
 			// no save is make after the update because we do not want this state
 			// saved to disk. The caller will shortly execute the operation,

@@ -40,7 +40,7 @@ func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
 	case e2e.NewSessionTriggered:
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil,
-			e2e.GetDefaultSessionParams(), session.GetID())
+			e2e.GetDefaultSessionParams())
 		//move the state of the triggering session forward
 		session.SetNegotiationStatus(e2e.NewSessionCreated)
 	// If the session has not successfully negotiated, redo its negotiation
@@ -71,7 +71,7 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 	//build the payload
 	payload, err := proto.Marshal(&RekeyTrigger{
 		PublicKey: pubKey.Bytes(),
-		SessionID: session.GetTrigger().Marshal(),
+		SessionID: session.GetSource().Marshal(),
 	})
 
 	//If the payload cannot be marshaled, panic

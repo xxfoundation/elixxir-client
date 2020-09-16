@@ -95,10 +95,10 @@ func (m *Manager) GetPartnerID() *id.ID {
 // session will be returned, with the bool set to true denoting a duplicate.
 // This is so duplicate key exchange triggering can be supported
 func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams,
-	trigger *Session) (*Session, bool) {
+	source *Session) (*Session, bool) {
 
 	//check if the session already exists
-	baseKey := dh.GenerateSessionKey(trigger.myPrivKey, partnerPubKey, m.ctx.grp)
+	baseKey := dh.GenerateSessionKey(source.myPrivKey, partnerPubKey, m.ctx.grp)
 	sessionID := getSessionIDFromBaseKey(baseKey)
 
 	if s := m.receive.GetByID(sessionID); s != nil {
@@ -106,8 +106,8 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 	}
 
 	//create the session but do not save
-	session := newSession(m, trigger.myPrivKey, partnerPubKey, baseKey, params, Receive,
-		trigger.GetID())
+	session := newSession(m, source.myPrivKey, partnerPubKey, baseKey, params, Receive,
+		source.GetID())
 
 	//add the session to the buffer
 	m.receive.AddSession(session)
@@ -119,13 +119,13 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 // partner and a mew private key for the user
 // passing in a private key is optional. a private key will be generated if
 // none is passed
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams, trigger SessionID) *Session {
+func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) *Session {
 	//find the latest public key from the other party
-	partnerPubKey := m.receive.GetNewestRekeyableSession().partnerPubKey
+	sourceSession := m.receive.GetNewestRekeyableSession()
 
 	//create the session
-	session := newSession(m, myPrivKey, partnerPubKey, nil,
-		params, Send, trigger)
+	session := newSession(m, myPrivKey, sourceSession.partnerPubKey, nil,
+		params, Send, sourceSession.GetID())
 
 	//add the session to the send session buffer and return
 	m.send.AddSession(session)

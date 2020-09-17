@@ -32,7 +32,7 @@ func (s *Single) IsRunning() bool {
 }
 
 // Quit returns the read only channel it will send the stop signal on.
-func (s *Single) Quit() <-chan struct{} {
+func (s *Single) Quit() chan<- struct{} {
 	return s.quit
 }
 

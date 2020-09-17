@@ -12,6 +12,7 @@ package network
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/comms/client"
@@ -19,6 +20,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	//	"gitlab.com/xx_network/primitives/ndf"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"time"
 )
 
@@ -43,6 +45,11 @@ type Manager struct {
 
 	//channels
 	nodeRegistration chan network.NodeGateway
+	roundUpdate      chan *pb.RoundInfo
+	historicalLookup chan id.Round
+
+	// Processing rounds
+	Processing *ProcessingRounds
 
 	//local pointer to user ID because it is used often
 	uid *id.ID
@@ -74,13 +81,20 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 			" client network manager")
 	}
 
+	opts := params.GetDefaultNetwork()
+
 	cm := &Manager{
-		Comms:    comms,
-		Context:  ctx,
-		runners:  stoppable.NewMulti("network.Manager"),
-		health:   health.Init(ctx, 5*time.Second),
-		instance: instance,
-		uid:      cryptoUser.GetUserID(),
+		Comms:            comms,
+		Context:          ctx,
+		runners:          stoppable.NewMulti("network.Manager"),
+		health:           health.Init(ctx, 5*time.Second),
+		instance:         instance,
+		uid:              cryptoUser.GetUserID(),
+		Processing:       NewProcessingRounds(),
+		roundUpdate:      make(chan *pb.RoundInfo, opts.NumWorkers),
+		historicalLookup: make(chan id.Round, opts.NumWorkers),
+		nodeRegistration: make(chan network.NodeGateway,
+			opts.NumWorkers),
 	}
 
 	return cm, nil
@@ -111,12 +125,12 @@ func (m *Manager) StartRunners() error {
 	// Start the Network Tracker
 	m.runners.Add(StartTrackNetwork(m.Context, m))
 	// Message reception
-	m.runners.Add(StartMessageReceivers(m.Context))
+	m.runners.Add(StartMessageReceivers(m.Context, m))
 	// Node Updates
-	m.runners.Add(StartNodeKeyExchange(m.Context)) // Adding/Keys
-	m.runners.Add(StartNodeRemover(m.Context))     // Removing
+	m.runners.Add(StartNodeKeyExchange(m.Context, m)) // Adding/Keys
+	m.runners.Add(StartNodeRemover(m.Context))        // Removing
 	// Round history processing
-	m.runners.Add(StartProcessHistoricalRounds(m.Context))
+	m.runners.Add(StartProcessHistoricalRounds(m.Context, m))
 	// health tracker
 	m.health.Start()
 	m.runners.Add(m.health)
@@ -145,4 +159,20 @@ func (m *Manager) GetHealthTracker() context.HealthTracker {
 // GetInstance returns the network instance object (ndf state)
 func (m *Manager) GetInstance() *network.Instance {
 	return m.instance
+}
+
+// GetNodeRegistrationCh returns node registration channel for node
+// events.
+func (m *Manager) GetNodeRegistrationCh() chan network.NodeGateway {
+	return m.nodeRegistration
+}
+
+// GetRoundUpdateCh returns the network managers round update channel
+func (m *Manager) GetRoundUpdateCh() chan *pb.RoundInfo {
+	return m.roundUpdate
+}
+
+// GetHistoricalLookupCh returns the historical round lookup channel
+func (m *Manager) GetHistoricalLookupCh() chan id.Round {
+	return m.historicalLookup
 }

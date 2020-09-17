@@ -14,6 +14,13 @@ type ProcessingRounds struct {
 	sync.RWMutex
 }
 
+// NewProcessingRounds returns a processing rounds object
+func NewProcessingRounds() *ProcessingRounds {
+	return &ProcessingRounds{
+		rounds: make(map[id.Round]struct{}),
+	}
+}
+
 // Add a round to the list of processing rounds
 func (pr *ProcessingRounds) Add(id id.Round) {
 	pr.Lock()

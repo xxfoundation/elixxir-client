@@ -7,56 +7,61 @@
 package network
 
 import (
+	"fmt"
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
+	//jww "github.com/spf13/jwalterweatherman"
 )
 
-// ReceiveMessage is called by a MessageReceiver routine whenever a new CMIX
-// message is available.
-func ReceiveMessage(ctx *context.Context, m *format.Message) {
-	// decrypted, err := decrypt(ctx, m) // Returns MessagePart
-	// if err != nil {
-	// 	// Add to error/garbled messages list
-	// 	jww.WARN.Errorf("Could not decode message: %+v", err)
-	// 	ctx.GetGarbledMesssages().Add(m)
-	// }
-
-	// // Reconstruct the partitioned message
-	// completeMsg := constructMessageFromPartition(ctx, decrypted) // Returns ClientMessage
-	// if completeMsg != nil {
-	// 	ctx.GetSwitchBoard().Say(completeMsg)
-	// }
+// ReceiveMessages is called by a MessageReceiver routine whenever new CMIX
+// messages are available at a gateway.
+func ReceiveMessages(ctx *context.Context, roundInfo *pb.RoundInfo) {
+	msgs := getMessagesFromGateway(ctx, roundInfo)
+	for _, m := range msgs {
+		receiveMessage(ctx, m)
+	}
 }
 
 // StartMessageReceivers starts a worker pool of message receivers, which listen
-// on a channel for messages and run them through processing.
-func StartMessageReceivers(ctx *context.Context) stoppable.Stoppable {
-	// We assume receivers channel is set up elsewhere, but note that this
-	// would also be a reasonable place under assumption of 1 call to
-	// message receivers (would also make sense to .Close it instead of
-	// using quit channel, which somewhat simplifies for loop later.
+// on a channel for rounds in which to check for messages and run them through
+// processing.
+func StartMessageReceivers(ctx *context.Context,
+	network *Manager) stoppable.Stoppable {
 	stoppers := stoppable.NewMulti("MessageReceivers")
-	// receiverCh := ctx.GetNetwork().GetMessageReceiverCh()
-	// for i := 0; i < ctx.GetNumReceivers(); i++ {
-	// 	stopper := stoppable.NewSingle("MessageReceiver" + i)
-	// 	go MessageReceiver(ctx, messagesCh, stopper.Quit())
-	// 	stoppers.Add(stopper)
-	// }
+	opts := params.GetDefaultNetwork()
+	receiverCh := network.GetRoundUpdateCh()
+	for i := 0; i < opts.NumWorkers; i++ {
+		stopper := stoppable.NewSingle(
+			fmt.Sprintf("MessageReceiver%d", i))
+		go MessageReceiver(ctx, receiverCh, stopper.Quit())
+		stoppers.Add(stopper)
+	}
 	return stoppers
 }
 
-// MessageReceiver waits until quit signal or there is a message
-// available on the messages channel.
-func MessageReceiver(ctx *context.Context, messagesCh chan format.Message,
+// MessageReceiver waits until quit signal or there is a round available
+// for which to check for messages available on the round updates channel.
+func MessageReceiver(ctx *context.Context, updatesCh chan *pb.RoundInfo,
 	quitCh <-chan struct{}) {
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
-			// case m := <-messagesCh:
-			// 	ReceiveMessage(ctx, m)
+		case round := <-updatesCh:
+			ReceiveMessages(ctx, round)
 		}
 	}
+}
+
+func getMessagesFromGateway(ctx *context.Context,
+	roundInfo *pb.RoundInfo) []format.Message {
+	return nil
+}
+
+func receiveMessage(ctx *context.Context, msg format.Message) {
+	// do stuff
 }

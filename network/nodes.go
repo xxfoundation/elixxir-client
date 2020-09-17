@@ -20,16 +20,20 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	//	"sync"
 	//	"time"
+	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // StartNodeKeyExchange kicks off a worker pool of node key exchange routines
-func StartNodeKeyExchange(ctx *context.Context) stoppable.Stoppable {
+func StartNodeKeyExchange(ctx *context.Context,
+	network *Manager) stoppable.Stoppable {
 	stoppers := stoppable.NewMulti("NodeKeyExchangers")
-	numWorkers := params.GetDefaultNodeKeys().WorkerPoolSize
-	keyCh := make(chan network.NodeGateway, numWorkers)
+	numWorkers := params.GetDefaultNetwork().NumWorkers
+	keyCh := network.GetNodeRegistrationCh()
 	ctx.Manager.GetInstance().SetAddNodeChan(keyCh)
-	for i := 0; i < ctx.GetNumNodeKeyExchangers(); i++ {
-		stopper := stoppable.NewSingle("NodeKeyExchange" + i)
+	for i := 0; i < numWorkers; i++ {
+		stopper := stoppable.NewSingle(
+			fmt.Sprintf("NodeKeyExchange%d", i))
 		go ExchangeNodeKeys(ctx, keyCh, stopper.Quit())
 		stoppers.Add(stopper)
 	}
@@ -60,9 +64,10 @@ func StartNodeRemover(ctx *context.Context) stoppable.Stoppable {
 	numWorkers := params.GetDefaultNodeKeys().WorkerPoolSize
 	remCh := make(chan *id.ID, numWorkers)
 	ctx.Manager.GetInstance().SetRemoveNodeChan(remCh)
-	for i := 0; i < ctx.GetNumNodeRemovers(); i++ {
-		stopper := stoppable.NewSingle("RemoveNode" + i)
-		go RemoveNode(ctx, remCh, quitCh)
+	for i := uint(0); i < numWorkers; i++ {
+		stopper := stoppable.NewSingle(
+			fmt.Sprintf("RemoveNode%d", i))
+		go RemoveNode(ctx, remCh, stopper.Quit())
 		stoppers.Add(stopper)
 	}
 	return stoppers

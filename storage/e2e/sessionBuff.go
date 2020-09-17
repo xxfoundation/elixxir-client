@@ -29,7 +29,8 @@ type sessionBuff struct {
 
 	key string
 
-	mux sync.RWMutex
+	mux     sync.RWMutex
+	sendMux sync.Mutex
 }
 
 func NewSessionBuff(manager *Manager, key string) *sessionBuff {
@@ -151,13 +152,22 @@ func (sb *sessionBuff) GetNewest() *Session {
 	return sb.sessions[0]
 }
 
-// returns the session which is most likely to be successful for sending
-func (sb *sessionBuff) GetSessionForSending() *Session {
-	//dont need to take the lock due to the use of a copy of the buffer
-	sessions := sb.getInternalBufferShallowCopy()
-	if len(sessions) == 0 {
-		return nil
+// returns the key  which is most likely to be successful for sending
+func (sb *sessionBuff) getKeyForSending() (*Key, error) {
+	sb.sendMux.Lock()
+	defer sb.sendMux.Unlock()
+	s := sb.getSessionForSending()
+	if s == nil {
+		return nil, errors.New("Failed to find a session for sending")
 	}
+
+	return s.PopKey()
+}
+
+
+// returns the session which is most likely to be successful for sending
+func (sb *sessionBuff) getSessionForSending() *Session {
+	sessions := sb.sessions
 
 	var confirmedRekey []*Session
 	var unconfirmedActive []*Session
@@ -204,8 +214,20 @@ func (sb *sessionBuff) TriggerNegotiation() []*Session {
 	return instructions
 }
 
+// returns the key  which is most likely to be successful for sending
+func (sb *sessionBuff) getKeyForRekey() (*Key, error) {
+	sb.sendMux.Lock()
+	defer sb.sendMux.Unlock()
+	s := sb.getNewestRekeyableSession()
+	if s == nil {
+		return nil, errors.New("Failed to find a session for rekeying")
+	}
+
+	return s.PopReKey()
+}
+
 // returns the newest session which can be used to start a key negotiation
-func (sb *sessionBuff) GetNewestRekeyableSession() *Session {
+func (sb *sessionBuff) getNewestRekeyableSession() *Session {
 	//dont need to take the lock due to the use of a copy of the buffer
 	sessions := sb.getInternalBufferShallowCopy()
 

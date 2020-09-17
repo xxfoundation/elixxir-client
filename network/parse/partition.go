@@ -17,10 +17,10 @@ type Partitioner struct {
 	partContentsSize  int
 	deltaFirstPart    int
 	maxSize           int
-	ctx               context.Context
+	ctx               *context.Context
 }
 
-func NewPartitioner(messageSize int, ctx context.Context) Partitioner {
+func NewPartitioner(messageSize int, ctx *context.Context) Partitioner {
 	p := Partitioner{
 		baseMessageSize:   messageSize,
 		firstContentsSize: messageSize - firstHeaderLen,

@@ -168,7 +168,7 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 }
 
 //Pops a key for use based upon its fingerprint
-func (s *Store) PopKey(f format.Fingerprint) (*Key, error) {
+func (s *Store) PopKey(f format.Fingerprint) (*Key, bool) {
 	return s.fingerprints.Pop(f)
 }
 
@@ -272,14 +272,14 @@ func (f *fingerprints) remove(keys []*Key) {
 	}
 }
 
-func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, error) {
+func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, bool) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
 
 	key, ok := f.toKey[fingerprint]
 
 	if !ok {
-		return nil, errors.New("Key could not be found")
+		return nil, false
 	}
 
 	delete(f.toKey, fingerprint)
@@ -288,5 +288,5 @@ func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, error) {
 
 	key.fp = &fingerprint
 
-	return key, nil
+	return key, true
 }

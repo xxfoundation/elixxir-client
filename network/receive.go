@@ -18,7 +18,8 @@ import (
 
 // ReceiveMessages is called by a MessageReceiver routine whenever new CMIX
 // messages are available at a gateway.
-func ReceiveMessages(ctx *context.Context, roundInfo *pb.RoundInfo) {
+func ReceiveMessages(ctx *context.Context, roundInfo *pb.RoundInfo,
+	network *Manager) {
 	msgs := getMessagesFromGateway(ctx, roundInfo)
 	for _, m := range msgs {
 		receiveMessage(ctx, m)
@@ -44,24 +45,60 @@ func StartMessageReceivers(ctx *context.Context,
 
 // MessageReceiver waits until quit signal or there is a round available
 // for which to check for messages available on the round updates channel.
-func MessageReceiver(ctx *context.Context, updatesCh chan *pb.RoundInfo,
-	quitCh <-chan struct{}) {
+func MessageReceiver(ctx *context.Context, network *Manager,
+	updatesCh chan *pb.RoundInfo, quitCh <-chan struct{}) {
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
 		case round := <-updatesCh:
-			ReceiveMessages(ctx, round)
+			ReceiveMessages(ctx, round, network)
 		}
 	}
 }
 
 func getMessagesFromGateway(ctx *context.Context,
-	roundInfo *pb.RoundInfo) []format.Message {
-	return nil
+	roundInfo *pb.RoundInfo, network *Manager) []*pb.Slot {
+	comms := network.Comms
+	roundTop := roundInfo.GetTopology()
+	lastNode := id.NewIdFromBytes(roundTop[len(roundTop-1)])
+	lastGw := lastNode.SetType(id.Gateway)
+	gwHost := comms.GetHost(lastGw)
+
+	user := ctx.Session.User().GetCryptographicIdentity()
+	userID := user.GetUserID().Bytes()
+
+	// First get message id list
+	msgReq := pb.GetMessages{
+		ClientID: userID,
+		RoundID:  roundInfo.ID,
+	}
+	msgResp, err := comms.RequestMessages(gwHost, msgReq)
+	if err != nil {
+		jww.ERROR.Printf(err.Error())
+		return nil
+	}
+
+	if !msgResp.GetHasRound() {
+		jww.ERROR.Printf("host %s does not have roundID: %d",
+			gwHost, roundInfo.ID)
+		return nil
+	}
+
+	msgs := msgResp.GetMessages()
+
+	if msgs == nil || len(msgs) == 0 {
+		jww.ERROR.Printf("host %s has no messages for client %s "+
+			" in round %d", gwHost, user, roundInfo.ID)
+		return nil
+	}
+
+	return msgs
+
 }
 
-func receiveMessage(ctx *context.Context, msg format.Message) {
-	// do stuff
+func receiveMessage(ctx *context.Context, msg *pb.Slot) {
+	// We've done all the networking, now process the message
+
 }

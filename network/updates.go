@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/primitives/knownRounds"
 	//"gitlab.com/elixxir/comms/network"
 	//"gitlab.com/xx_network/primitives/ndf"
 	"fmt"
@@ -80,12 +81,12 @@ func TrackNetwork(ctx *context.Context, network *Manager,
 		case <-quitCh:
 			done = true
 		case <-ticker.C:
-			trackNetwork(ctx, network)
+			trackNetwork(ctx, network, opts.MaxCheckCnt)
 		}
 	}
 }
 
-func trackNetwork(ctx *context.Context, network *Manager) {
+func trackNetwork(ctx *context.Context, network *Manager, maxCheckCnt int) {
 	instance := ctx.Manager.GetInstance()
 	comms := network.Comms
 	ndf := instance.GetPartialNdf().Get()
@@ -121,38 +122,35 @@ func trackNetwork(ctx *context.Context, network *Manager) {
 		return
 	}
 	newNDF := pollResp.PartialNDF
-	lastRoundInfo := pollResp.LastRound
+	lastTrackedRound := id.Round(pollResp.LastTrackedRound)
 	roundUpdates := pollResp.Updates
-	// This is likely unused in favor of new API
-	//newMessageIDs := pollResp.NewMessageIDs
+	gwRoundsState := &knownRounds.KnownRounds{}
+	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
+	if err != nil {
+		jww.ERROR.Printf(err.Error())
+		return
+	}
 
 	// ---- NODE EVENTS ----
 	// NOTE: this updates the structure AND sends events over the node
 	//       update channels
 	instance.UpdatePartialNdf(newNDF)
+	instance.UpdateRounds(roundUpdates)
 
 	// ---- Round Processing -----
 	checkedRounds := sess.GetCheckedRounds()
 	roundChecker := getRoundChecker(ctx, network, roundUpdates)
-	checkedRounds.RangeUnchecked(id.Round(lastRoundInfo.ID), roundChecker)
-
-	// FIXME: Seems odd/like a race condition to do this here, but this is
-	// spec. Fix this to either eliminate race condition or not make it
-	// weird. This is tied to if a round is processing. It appears that
-	// if it is processing OR already checked is the state we care about,
-	// because we really want to know if we should look it up and process,
-	// and that could be done via storage inside range Unchecked?
-	for _, ri := range roundUpdates {
-		checkedRounds.Check(id.Round(ri.ID))
-	}
+	checkedRounds.Forward(lastTrackedRound)
+	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
+		maxCheckCnt)
 }
 
 // getRoundChecker passes a context and the round infos received by the
 // gateway to the funky round checker api to update round state.
 // The returned function passes round event objects over the context
 // to the rest of the message handlers for getting messages.
-func getRoundChecker(ctx *context.Context, network *Manager,
-	roundInfos []*pb.RoundInfo) func(roundID id.Round) bool {
+func getRoundChecker(ctx *context.Context,
+	network *Manager) func(roundID id.Round) bool {
 	return func(roundID id.Round) bool {
 		//sess := ctx.Session
 		processing := network.Processing
@@ -175,20 +173,15 @@ func getRoundChecker(ctx *context.Context, network *Manager,
 		// TODO: Bloom filter lookup -- return true when we don't have
 		// Go get the round from the round infos, if it exists
 
-		// For now, if we have the round in th round updates,
-		// process it, otherwise call historical rounds code
-		// to go find it if possible.
-		for _, ri := range roundInfos {
-			rID := id.Round(ri.ID)
-			if rID == roundID {
-				// Send to get message processor
-				network.GetRoundUpdateCh() <- ri
-				return false
-			}
+		instance := network.GetInstance()
+		ri, err := instance.GetRound(roundID)
+		if err != nil {
+			// If we didn't find it, send to historical
+			// rounds processor
+			network.GetHistoricalLookupCh() <- roundID
+		} else {
+			network.GetRoundUpdateCh() <- ri
 		}
-
-		// If we didn't find it, send to historical rounds processor
-		network.GetHistoricalLookupCh() <- roundID
 
 		return false
 	}

@@ -9,12 +9,11 @@ package e2e
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/xx_network/primitives/id"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -121,7 +120,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 // none is passed
 func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) *Session {
 	//find the latest public key from the other party
-	sourceSession := m.receive.GetNewestRekeyableSession()
+	sourceSession := m.receive.getNewestRekeyableSession()
 
 	//create the session
 	session := newSession(m, myPrivKey, sourceSession.partnerPubKey, nil,
@@ -134,19 +133,19 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) *S
 }
 
 // gets the correct session to send with depending on the type of send
-func (m *Manager) GetSessionForSending(st params.SendType) *Session {
+func (m *Manager) GetKeyForSending(st params.SendType) (*Key, error) {
 	switch st {
 	case params.Standard:
-		return m.send.GetSessionForSending()
+		return m.send.getKeyForSending()
 	case params.KeyExchange:
-		return m.send.GetNewestRekeyableSession()
+		return m.send.getKeyForRekey()
 	default:
-		jww.ERROR.Printf("Cannot get session for invalid Send Type: %s",
-			st)
 	}
 
-	return nil
+	return nil, errors.Errorf("Cannot get session for invalid "+
+		"Send Type: %s", st)
 }
+
 
 // gets the send session of the passed ID. Returns nil if no session is found
 func (m *Manager) GetSendSession(sessionID SessionID) *Session {

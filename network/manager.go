@@ -14,8 +14,10 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/health"
+	"gitlab.com/elixxir/client/network/parse"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	//	"gitlab.com/xx_network/primitives/ndf"
@@ -40,6 +42,9 @@ type Manager struct {
 
 	//contains the network instance
 	instance *network.Instance
+
+	//Partitioner
+	partitioner parse.Partitioner
 
 	//channels
 	nodeRegistration chan network.NodeGateway
@@ -74,13 +79,16 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 			" client network manager")
 	}
 
+	msgSize := format.NewMessage(ctx.Session.Cmix().GetGroup().GetP().ByteLen()).ContentsSize()
+
 	cm := &Manager{
-		Comms:    comms,
-		Context:  ctx,
-		runners:  stoppable.NewMulti("network.Manager"),
-		health:   health.Init(ctx, 5*time.Second),
-		instance: instance,
-		uid:      cryptoUser.GetUserID(),
+		Comms:       comms,
+		Context:     ctx,
+		runners:     stoppable.NewMulti("network.Manager"),
+		health:      health.Init(ctx, 5*time.Second),
+		instance:    instance,
+		uid:         cryptoUser.GetUserID(),
+		partitioner: parse.NewPartitioner(msgSize, ctx),
 	}
 
 	return cm, nil

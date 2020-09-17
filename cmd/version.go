@@ -16,7 +16,7 @@ import (
 )
 
 // Change this value to set the version for this build
-const currentVersion = "1.4.0"
+const currentVersion = "1.5.0"
 
 func printVersion() {
 	fmt.Printf("Elixxir Client v%s -- %s\n\n", globals.SEMVER, globals.GITVERSION)

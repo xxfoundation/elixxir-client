@@ -9,9 +9,12 @@ package network
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/network/parse"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	//jww "github.com/spf13/jwalterweatherman"
 )
@@ -80,6 +83,10 @@ func getMessagesFromGateway(ctx *context.Context,
 		return nil
 	}
 
+	// If no error, then we have checked the round and finished processing
+	ctx.Session.GetCheckedRounds.Check(roundInfo.ID)
+	network.Processing.Done(roundInfo.ID)
+
 	if !msgResp.GetHasRound() {
 		jww.ERROR.Printf("host %s does not have roundID: %d",
 			gwHost, roundInfo.ID)
@@ -98,7 +105,54 @@ func getMessagesFromGateway(ctx *context.Context,
 
 }
 
-func receiveMessage(ctx *context.Context, msg *pb.Slot) {
+func receiveMessage(ctx *context.Context, rawMsg *pb.Slot) {
 	// We've done all the networking, now process the message
+	msg := format.NewMessage()
+	msg.SetPayloadA(rawMsg.GetPayloadA())
+	msg.SetPayloadB(rawMsg.GetPayloadB())
+	fingerprint := msg.GetKeyFP()
 
+	sess := ctx.Session
+	e2eKS := sess.GetE2e()
+	partitioner := sess.GetPartition()
+
+	var sender *id.ID
+	var unencrypted *format.Message
+	var encTy message.EncryptionType
+
+	key, isE2E := e2eKS.PopKey(fingerprint)
+	if key != nil && isE2E {
+		// Decrypt encrypted message
+		unencrypted, err := key.Decrypt(msg)
+		// set sender only if decryption worked
+		// otherwise don't so it gets sent to garbled message
+		if err != nil {
+			jww.ERROR.Printf(err.Error())
+		} else {
+			sender = key.Session.GetPartner()
+		}
+		encTy = message.E2E
+	} else {
+		// SendUnsafe Message?
+		isUnencrypted, sender := e2e.IsUnencrypted(msg)
+		if isUnencrypted {
+			unencrypted = msg
+		}
+		encTy = message.None
+	}
+
+	// Save off garbled messages
+	if unencrypted == nil || sender == nil {
+		jww.ERROR.Printf("garbled message: %s", msg)
+		sess.GetGarbledMessages().Add(msg)
+		return
+	}
+
+	// Process the decrypted/unencrypted message partition, to see if
+	// we get a full message
+	xxMsg, ok := partitioner.HandlePartition(sender, encTy, unencrypted)
+	// Share completed message on switchboard
+	if ok && xxMsg != nil {
+		ct.Switchboard.Speak(xxMsg)
+	}
 }

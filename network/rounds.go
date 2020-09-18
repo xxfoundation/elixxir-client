@@ -53,7 +53,14 @@ func ProcessHistoricalRounds(ctx *context.Context, network *Manager,
 		}
 
 		roundInfos := processHistoricalRounds(ctx, rounds)
-		for _, ri := range roundInfos {
+		for i := range rounds {
+			if roundInfos[i] == nil {
+				jww.ERROR.Printf("could not check "+
+					"historical round %d", rounds[i])
+				newRounds = append(newRounds, rounds[i])
+				network.Processing.Done(rounds[i])
+				continue
+			}
 			network.GetRoundUpdateCh() <- ri
 		}
 	}

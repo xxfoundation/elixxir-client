@@ -16,9 +16,9 @@ import (
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/parse"
+	"gitlab.com/elixxir/client/network/rounds"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	//	"gitlab.com/xx_network/primitives/ndf"
@@ -54,7 +54,7 @@ type Manager struct {
 	historicalLookup chan id.Round
 
 	// Processing rounds
-	Processing *ProcessingRounds
+	Processing *rounds.processing
 
 	//local pointer to user ID because it is used often
 	uid *id.ID
@@ -96,7 +96,7 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 		instance:         instance,
 		uid:              cryptoUser.GetUserID(),
 		partitioner:      parse.NewPartitioner(msgSize, ctx),
-		Processing:       NewProcessingRounds(),
+		Processing:       rounds.NewProcessingRounds(),
 		roundUpdate:      make(chan *pb.RoundInfo, opts.NumWorkers),
 		historicalLookup: make(chan id.Round, opts.NumWorkers),
 		nodeRegistration: make(chan network.NodeGateway,
@@ -129,7 +129,7 @@ func (m *Manager) StartRunners() error {
 	}
 
 	// Start the Network Tracker
-	m.runners.Add(StartTrackNetwork(m.Context, m))
+	m.runners.Add(rounds.StartTrackNetwork(m.Context, m))
 	// Message reception
 	m.runners.Add(StartMessageReceivers(m.Context, m))
 	// Node Updates

@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
 )
@@ -38,16 +37,17 @@ func NewSessionBuff(manager *Manager, key string) *sessionBuff {
 		manager:     manager,
 		sessions:    make([]*Session, 0),
 		sessionByID: make(map[SessionID]*Session),
-		mux:         sync.RWMutex{},
 		key:         key,
+		kv:          manager.kv,
 	}
 }
 
-func LoadSessionBuff(manager *Manager, key string, partnerID *id.ID) (*sessionBuff, error) {
+func LoadSessionBuff(manager *Manager, key string) (*sessionBuff, error) {
 	sb := &sessionBuff{
 		manager:     manager,
 		sessionByID: make(map[SessionID]*Session),
-		mux:         sync.RWMutex{},
+		key:         key,
+		kv:          manager.kv,
 	}
 
 	key = makeSessionBuffKey(key)
@@ -106,8 +106,6 @@ func (sb *sessionBuff) unmarshal(b []byte) error {
 	if err != nil {
 		return err
 	}
-
-	sb.sessions = make([]*Session, len(sessions))
 
 	//load all the sessions
 	for _, sid := range sessions {
@@ -213,7 +211,7 @@ func (sb *sessionBuff) TriggerNegotiation() []*Session {
 	return instructions
 }
 
-// returns the key  which is most likely to be successful for sending
+// returns a key which should be used for rekeying
 func (sb *sessionBuff) getKeyForRekey() (*Key, error) {
 	sb.sendMux.Lock()
 	defer sb.sendMux.Unlock()
@@ -260,7 +258,7 @@ func (sb *sessionBuff) Confirm(id SessionID) error {
 	defer sb.mux.Unlock()
 	s, ok := sb.sessionByID[id]
 	if !ok {
-		return errors.Errorf("Could not confirm session %s, does not exist", s.GetID())
+		return errors.Errorf("Could not confirm session %s, does not exist", id)
 	}
 
 	s.SetNegotiationStatus(Confirmed)

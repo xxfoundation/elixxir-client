@@ -65,14 +65,14 @@ func loadManager(ctx *context, partnerID *id.ID) (*Manager, error) {
 
 	var err error
 
-	m.send, err = LoadSessionBuff(m, "send", partnerID)
+	m.send, err = LoadSessionBuff(m, "send")
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to load partner key manager due to failure to "+
 				"load the send session buffer")
 	}
 
-	m.receive, err = LoadSessionBuff(m, "receive", partnerID)
+	m.receive, err = LoadSessionBuff(m, "receive")
 	if err != nil {
 		return nil, errors.WithMessage(err,
 			"Failed to load partner key manager due to failure to "+

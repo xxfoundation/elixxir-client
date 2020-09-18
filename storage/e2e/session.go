@@ -449,7 +449,7 @@ func (s *Session) triggerNegotiation() bool {
 		}
 	}
 	s.mux.RUnlock()
-	return true
+	return false
 }
 
 // checks if the session has been confirmed

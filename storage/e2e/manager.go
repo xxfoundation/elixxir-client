@@ -146,7 +146,6 @@ func (m *Manager) GetKeyForSending(st params.SendType) (*Key, error) {
 		"Send Type: %s", st)
 }
 
-
 // gets the send session of the passed ID. Returns nil if no session is found
 func (m *Manager) GetSendSession(sessionID SessionID) *Session {
 	return m.send.GetByID(sessionID)

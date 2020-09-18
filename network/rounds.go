@@ -8,57 +8,66 @@ package network
 
 import (
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	//	"time"
+	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // StartProcessHistoricalRounds starts a worker for processing round
 // history.
-func StartProcessHistoricalRounds(ctx *context.Context) stoppable.Stoppable {
+func StartProcessHistoricalRounds(ctx *context.Context,
+	network *Manager) stoppable.Stoppable {
 	stopper := stoppable.NewSingle("ProcessHistoricalRounds")
-	go ProcessHistoricalRounds(ctx, stopper.Quit())
+	go ProcessHistoricalRounds(ctx, network, stopper.Quit())
 	return stopper
 }
 
 // ProcessHistoricalRounds analyzes round history to see if this Client
 // needs to check for messages at any of the gateways which completed
 // those rounds.
-func ProcessHistoricalRounds(ctx *context.Context, quitCh <-chan struct{}) {
-	// ticker := time.NewTicker(ctx.GetTrackNetworkPeriod())
-	// var rounds []RoundID
+func ProcessHistoricalRounds(ctx *context.Context, network *Manager,
+	quitCh <-chan struct{}) {
+	opts := params.GetDefaultNetwork()
+	ticker := time.NewTicker(opts.TrackNetworkPeriod)
+	var rounds []id.Round
 	done := false
 	for !done {
-		//shouldProcess := false
+		shouldProcess := false
 		select {
 		case <-quitCh:
 			done = true
-			// case <-ticker:
-			// 	if len(rounds) > 0 {
-			// 		shouldProcess = true
-			// 	}
-			// case rid := <-ctx.GetHistoricalRoundsCh():
-			// 	rounds = append(rounds, rid)
-			// 	if len(rounds) > ctx.GetSendSize() {
-			// 		shouldProcess = true
-			// 	}
-			// }
-			// if !shouldProcess {
-			// 	continue
-			// }
+		case <-ticker.C:
+			if len(rounds) > 0 {
+				shouldProcess = true
+			}
+		case rid := <-network.GetHistoricalLookupCh():
+			rounds = append(rounds, rid)
+			if len(rounds) > opts.MaxHistoricalRounds {
+				shouldProcess = true
+			}
+		}
+		if !shouldProcess {
+			continue
+		}
 
-			// var roundInfos []*RoundInfo
-			// roundInfos = processHistoricalRounds(ctx, rounds)
-			// rounds := make([]RoundID)
-			// for _, ri := range roundInfos {
-			// 	ctx.GetMessagesCh() <- ri
-			// }
+		roundInfos := processHistoricalRounds(ctx, rounds)
+		for i := range rounds {
+			if roundInfos[i] == nil {
+				jww.ERROR.Printf("could not check "+
+					"historical round %d", rounds[i])
+				newRounds = append(newRounds, rounds[i])
+				network.Processing.Done(rounds[i])
+				continue
+			}
+			network.GetRoundUpdateCh() <- ri
 		}
 	}
 }
 
 func processHistoricalRounds(ctx *context.Context,
-	rids []uint64) []*pb.RoundInfo {
+	rids []id.Round) []*pb.RoundInfo {
 	// for loop over rids?
 	// network := ctx.GetNetwork()
 	// gw := network.GetGateway()

@@ -164,7 +164,6 @@ func (sb *sessionBuff) getKeyForSending() (*Key, error) {
 	return s.PopKey()
 }
 
-
 // returns the session which is most likely to be successful for sending
 func (sb *sessionBuff) getSessionForSending() *Session {
 	sessions := sb.sessions

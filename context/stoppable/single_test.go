@@ -37,7 +37,7 @@ func TestSingle_Quit(t *testing.T) {
 
 	go func() {
 		time.Sleep(150 * time.Nanosecond)
-		single.Quit() <- struct{}{}
+		single.quit <- struct{}{}
 	}()
 
 	timer := time.NewTimer(2 * time.Millisecond)

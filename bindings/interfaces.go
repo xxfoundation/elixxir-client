@@ -7,7 +7,6 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/parse"
 	"gitlab.com/elixxir/primitives/switchboard"
 )
 

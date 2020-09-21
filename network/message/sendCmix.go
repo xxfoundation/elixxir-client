@@ -1,4 +1,4 @@
-package network
+package message
 
 import (
 	"github.com/golang-collections/collections/set"
@@ -17,7 +17,7 @@ import (
 // recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
-func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+func (m *rounds.Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
 	if !m.health.IsRunning() {
 		return 0, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
@@ -28,7 +28,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 // Internal send e2e which bypasses the network check, for use in SendE2E and
 // SendUnsafe which do their own network checks
-func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+func (m *rounds.Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
 
 	timeStart := time.Now()
 	attempted := set.New()

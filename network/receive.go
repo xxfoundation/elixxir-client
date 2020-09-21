@@ -12,17 +12,19 @@ import (
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
-	"gitlab.com/elixxir/client/network/parse"
+	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
+
 	//jww "github.com/spf13/jwalterweatherman"
 )
 
 // ReceiveMessages is called by a MessageReceiver routine whenever new CMIX
 // messages are available at a gateway.
 func ReceiveMessages(ctx *context.Context, roundInfo *pb.RoundInfo,
-	network *Manager) {
+	network *rounds.Manager) {
 	msgs := getMessagesFromGateway(ctx, roundInfo)
 	for _, m := range msgs {
 		receiveMessage(ctx, m)
@@ -33,7 +35,7 @@ func ReceiveMessages(ctx *context.Context, roundInfo *pb.RoundInfo,
 // on a channel for rounds in which to check for messages and run them through
 // processing.
 func StartMessageReceivers(ctx *context.Context,
-	network *Manager) stoppable.Stoppable {
+	network *rounds.Manager) stoppable.Stoppable {
 	stoppers := stoppable.NewMulti("MessageReceivers")
 	opts := params.GetDefaultNetwork()
 	receiverCh := network.GetRoundUpdateCh()
@@ -48,7 +50,7 @@ func StartMessageReceivers(ctx *context.Context,
 
 // MessageReceiver waits until quit signal or there is a round available
 // for which to check for messages available on the round updates channel.
-func MessageReceiver(ctx *context.Context, network *Manager,
+func MessageReceiver(ctx *context.Context, network *rounds.Manager,
 	updatesCh chan *pb.RoundInfo, quitCh <-chan struct{}) {
 	done := false
 	for !done {
@@ -61,49 +63,6 @@ func MessageReceiver(ctx *context.Context, network *Manager,
 	}
 }
 
-func getMessagesFromGateway(ctx *context.Context,
-	roundInfo *pb.RoundInfo, network *Manager) []*pb.Slot {
-	comms := network.Comms
-	roundTop := roundInfo.GetTopology()
-	lastNode := id.NewIdFromBytes(roundTop[len(roundTop-1)])
-	lastGw := lastNode.SetType(id.Gateway)
-	gwHost := comms.GetHost(lastGw)
-
-	user := ctx.Session.User().GetCryptographicIdentity()
-	userID := user.GetUserID().Bytes()
-
-	// First get message id list
-	msgReq := pb.GetMessages{
-		ClientID: userID,
-		RoundID:  roundInfo.ID,
-	}
-	msgResp, err := comms.RequestMessages(gwHost, msgReq)
-	if err != nil {
-		jww.ERROR.Printf(err.Error())
-		return nil
-	}
-
-	// If no error, then we have checked the round and finished processing
-	ctx.Session.GetCheckedRounds.Check(roundInfo.ID)
-	network.Processing.Done(roundInfo.ID)
-
-	if !msgResp.GetHasRound() {
-		jww.ERROR.Printf("host %s does not have roundID: %d",
-			gwHost, roundInfo.ID)
-		return nil
-	}
-
-	msgs := msgResp.GetMessages()
-
-	if msgs == nil || len(msgs) == 0 {
-		jww.ERROR.Printf("host %s has no messages for client %s "+
-			" in round %d", gwHost, user, roundInfo.ID)
-		return nil
-	}
-
-	return msgs
-
-}
 
 func receiveMessage(ctx *context.Context, rawMsg *pb.Slot) {
 	// We've done all the networking, now process the message

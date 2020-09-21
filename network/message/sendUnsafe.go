@@ -1,4 +1,4 @@
-package network
+package message
 
 import (
 	"github.com/pkg/errors"
@@ -17,7 +17,7 @@ import (
 // of the message were sent or an error if it fails.
 // NOTE: Do not use this function unless you know what you are doing.
 // This function always produces an error message in client logging.
-func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
+func (m *rounds.Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
 	if !m.health.IsRunning() {
 		return nil, errors.New("cannot send unsafe message when the " +
 			"network is not healthy")
@@ -30,7 +30,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	return m.sendUnsafe(msg, param)
 }
 
-func (m *Manager) sendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
+func (m *rounds.Manager) sendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
 
 	//timestamp the message
 	ts := time.Now()

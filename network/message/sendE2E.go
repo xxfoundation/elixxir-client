@@ -4,7 +4,7 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
-package network
+package message
 
 import (
 	"github.com/pkg/errors"
@@ -19,7 +19,7 @@ import (
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
-func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E) (
+func (m *rounds.Manager) SendE2E(msg message.Send, e2eP params.E2E) (
 	[]id.Round, error) {
 
 	if !m.health.IsRunning() {
@@ -30,7 +30,7 @@ func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E) (
 	return m.sendE2E(msg, e2eP)
 }
 
-func (m *Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
+func (m *rounds.Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
 
 	//timestamp the message
 	ts := time.Now()

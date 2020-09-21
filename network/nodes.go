@@ -13,6 +13,8 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/network/rounds"
+
 	//	"gitlab.com/elixxir/comms/client"
 	//	"gitlab.com/elixxir/primitives/format"
 	//	"gitlab.com/elixxir/primitives/switchboard"
@@ -26,7 +28,7 @@ import (
 
 // StartNodeKeyExchange kicks off a worker pool of node key exchange routines
 func StartNodeKeyExchange(ctx *context.Context,
-	network *Manager) stoppable.Stoppable {
+	network *rounds.Manager) stoppable.Stoppable {
 	stoppers := stoppable.NewMulti("NodeKeyExchangers")
 	numWorkers := params.GetDefaultNetwork().NumWorkers
 	keyCh := network.GetNodeRegistrationCh()

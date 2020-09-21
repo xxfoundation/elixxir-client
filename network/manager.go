@@ -21,6 +21,8 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
+
 	//	"gitlab.com/xx_network/primitives/ndf"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"time"
@@ -31,9 +33,11 @@ import (
 // functions used by the client.
 type Manager struct {
 	// Comms pointer to send/recv messages
-	Comms *client.Comms
+	comms *client.Comms
 	// Context contains all of the keying info used to send messages
-	Context *context.Context
+	context *context.Context
+
+	param params.Network
 
 	// runners are the Network goroutines that handle reception
 	runners *stoppable.Multi
@@ -45,23 +49,18 @@ type Manager struct {
 	//contains the network instance
 	instance *network.Instance
 
-	//Partitioner
-	partitioner parse.Partitioner
+	//sub-managers
+	round *rounds.Manager
 
 	//channels
 	nodeRegistration chan network.NodeGateway
-	roundUpdate      chan *pb.RoundInfo
-	historicalLookup chan id.Round
-
-	// Processing rounds
-	Processing *rounds.processing
 
 	//local pointer to user ID because it is used often
 	uid *id.ID
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(ctx *context.Context) (*Manager, error) {
+func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDefinition) (*Manager, error) {
 
 	//get the user from storage
 	user := ctx.Session.User()
@@ -80,27 +79,21 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 	//start network instance
 	// TODO: Need to parse/retrieve the ntework string and load it
 	// from the context storage session!
-	instance, err := network.NewInstance(comms.ProtoComms, nil, nil, nil)
+	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
 	}
 
-	opts := params.GetDefaultNetwork()
-
 	cm := &Manager{
-		Comms:            comms,
-		Context:          ctx,
-		runners:          stoppable.NewMulti("network.Manager"),
-		health:           health.Init(ctx, 5*time.Second),
-		instance:         instance,
-		uid:              cryptoUser.GetUserID(),
-		partitioner:      parse.NewPartitioner(msgSize, ctx),
-		Processing:       rounds.NewProcessingRounds(),
-		roundUpdate:      make(chan *pb.RoundInfo, opts.NumWorkers),
-		historicalLookup: make(chan id.Round, opts.NumWorkers),
-		nodeRegistration: make(chan network.NodeGateway,
-			opts.NumWorkers),
+		comms:    comms,
+		context:  ctx,
+		param:    params,
+		runners:  stoppable.NewMulti("network.Manager"),
+		health:   health.Init(ctx, 5*time.Second),
+		instance: instance,
+		uid:      cryptoUser.GetUserID(),
+
 	}
 
 	return cm, nil
@@ -109,12 +102,12 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 // GetRemoteVersion contacts the permissioning server and returns the current
 // supported client version.
 func (m *Manager) GetRemoteVersion() (string, error) {
-	permissioningHost, ok := m.Comms.GetHost(&id.Permissioning)
+	permissioningHost, ok := m.comms.GetHost(&id.Permissioning)
 	if !ok {
 		return "", errors.Errorf("no permissioning host with id %s",
 			id.Permissioning)
 	}
-	registrationVersion, err := m.Comms.SendGetCurrentClientVersionMessage(
+	registrationVersion, err := m.comms.SendGetCurrentClientVersionMessage(
 		permissioningHost)
 	if err != nil {
 		return "", err
@@ -129,14 +122,17 @@ func (m *Manager) StartRunners() error {
 	}
 
 	// Start the Network Tracker
-	m.runners.Add(rounds.StartTrackNetwork(m.Context, m))
+	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
+	go m.trackNetwork(trackNetworkStopper.Quit())
+	m.runners.Add(trackNetworkStopper)
+
 	// Message reception
 	m.runners.Add(StartMessageReceivers(m.Context, m))
 	// Node Updates
 	m.runners.Add(StartNodeKeyExchange(m.Context, m)) // Adding/Keys
 	m.runners.Add(StartNodeRemover(m.Context))        // Removing
 	// Round history processing
-	m.runners.Add(StartProcessHistoricalRounds(m.Context, m))
+	m.runners.Add(rounds.StartProcessHistoricalRounds(m.Context, m))
 	// health tracker
 	m.health.Start()
 	m.runners.Add(m.health)
@@ -163,13 +159,13 @@ func (m *Manager) GetHealthTracker() context.HealthTracker {
 }
 
 // GetInstance returns the network instance object (ndf state)
-func (m *Manager) GetInstance() *network.Instance {
+func (m *Manager) GetInstance() *rounds.Instance {
 	return m.instance
 }
 
 // GetNodeRegistrationCh returns node registration channel for node
 // events.
-func (m *Manager) GetNodeRegistrationCh() chan network.NodeGateway {
+func (m *Manager) GetNodeRegistrationCh() chan rounds.NodeGateway {
 	return m.nodeRegistration
 }
 

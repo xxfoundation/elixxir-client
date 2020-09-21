@@ -15,14 +15,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/cmixproto"
-	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/network/keyExchange"
-	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/client/user"
-	"gitlab.com/elixxir/client/userRegistry"
 	"gitlab.com/elixxir/primitives/switchboard"
 	"gitlab.com/elixxir/primitives/utils"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -397,199 +389,18 @@ var rootCmd = &cobra.Command{
 		if logPath == "" && viper.Get("logPath") != nil {
 			logPath = viper.GetString("logPath")
 		}
-		globals.Log = globals.InitLog(verbose, logPath)
 		// Disable stdout output
 		jww.SetStdoutOutput(ioutil.Discard)
-		// Main client run function
-		userID, _, client := sessionInitialization()
-		err := client.RegisterWithNodes()
+		// Use log file
+		logOutput, err := os.OpenFile(logPath,
+			os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			globals.Log.ERROR.Println(err)
+			panic(err.Error())
 		}
-		// Set Key parameters if defined
-		if len(keyParams) == 5 {
-			setKeyParams(client)
+		jww.SetLogOutput(logOutput)
+		if verbose {
+			jww.SetLogThreshold(verbose)
 		}
-
-		// Set up the listeners for both of the types the client needs for
-		// the integration test
-		// Normal text messages
-		text := TextListener{}
-		client.Listen(&id.ZeroUser, int32(keyExchange.Type_TEXT_MESSAGE),
-			&text)
-		// All other messages
-		fallback := FallbackListener{}
-		client.Listen(&id.ZeroUser, int32(keyExchange.Type_NO_TYPE),
-			&fallback)
-
-		// Log the user in, for now using the first gateway specified
-		// This will also register the user email with UDB
-		globals.Log.INFO.Println("Logging in...")
-		cb := func(err error) {
-			globals.Log.ERROR.Print(err)
-		}
-
-		err = client.InitListeners()
-		if err != nil {
-			globals.Log.FATAL.Panicf("Could not initialize receivers: %+v\n", err)
-		}
-
-		err = client.StartMessageReceiver(cb)
-
-		if err != nil {
-			globals.Log.FATAL.Panicf("Could Not start message reciever: %s\n", err)
-		}
-		globals.Log.INFO.Println("Logged In!")
-		globals.Log.INFO.Printf("session prior to udb reg: %v", client.GetSession())
-
-		// todo: since this is in the root cmd, would checking the regstate directly really be bad?
-		//  It's correct that it should be an error state for RegisterWithUDB, however for this, it's start up code
-		regState, err := network.SessionV2.GetRegState()
-		if err != nil {
-			globals.Log.FATAL.Panicf("Could not retrieve registration state: %v", err)
-		}
-
-		if username != "" && regState == user.PermissioningComplete {
-			err := client.RegisterWithUDB(username, 2*time.Minute)
-			if err != nil {
-				globals.Log.ERROR.Printf("%+v", err)
-			}
-		}
-
-		cryptoType := parse.Unencrypted
-		if end2end {
-			cryptoType = parse.E2E
-		}
-
-		var recipientId *id.ID
-
-		if destinationUserId != 0 && destinationUserIDBase64 != "" {
-			globals.Log.FATAL.Panicf("Two destiantions set for the message, can only have one")
-		}
-
-		if destinationUserId == 0 && destinationUserIDBase64 == "" {
-			recipientId = userID
-		} else if destinationUserIDBase64 != "" {
-			recipientIdBytes, err := base64.StdEncoding.DecodeString(destinationUserIDBase64)
-			if err != nil {
-				globals.Log.FATAL.Panic("Could not decode the destination user ID")
-			}
-			recipientId, err = id.Unmarshal(recipientIdBytes)
-			if err != nil {
-				// Destination user ID must be 33 bytes and include the id type
-				globals.Log.FATAL.Panicf("Could not unmarshal destination user ID: %v", err)
-			}
-		} else {
-			recipientId = new(id.ID)
-			binary.BigEndian.PutUint64(recipientId[:], destinationUserId)
-			recipientId.SetType(id.User)
-		}
-
-		if message != "" {
-			// Get the recipient's nick
-			recipientNick := ""
-			u, ok := userRegistry.Users.GetUser(recipientId)
-			if ok {
-				recipientNick = u.Username
-			}
-
-			// Handle sending to UDB
-			if recipientId.Cmp(&id.UDB) {
-				parseUdbMessage(message, client)
-			} else {
-				// Handle sending to any other destination
-				wireOut := api.FormatTextMessage(message)
-
-				for i := uint(0); i < messageCnt; i++ {
-					logMsg := fmt.Sprintf(
-						"Sending Message to "+
-							"%s, %v: %s\n", printIDNice(recipientId),
-						recipientNick, message)
-					globals.Log.INFO.Printf(logMsg)
-					fmt.Printf(logMsg)
-					if i != 0 {
-						time.Sleep(1 * time.Second)
-					}
-					// Send the message
-					err := client.Send(&parse.Message{
-						Sender: userID,
-						TypedBody: parse.TypedBody{
-							MessageType: int32(keyExchange.Type_TEXT_MESSAGE),
-							Body:        wireOut,
-						},
-						InferredType: cryptoType,
-						Receiver:     recipientId,
-					})
-					if err != nil {
-						globals.Log.ERROR.Printf("Error sending message: %+v", err)
-					}
-				}
-			}
-		}
-
-		var udbLister api.SearchCallback
-
-		if searchForUser != "" {
-			udbLister = newUserSearcher()
-			client.SearchForUser(searchForUser, udbLister, 2*time.Minute)
-		}
-
-		if message != "" {
-			// Wait up to 45s to receive a message
-			lastCnt := int64(0)
-			ticker := time.Tick(1 * time.Second)
-			for end, timeout := false, time.After(50*time.Second); !end; {
-				numMsgReceived := atomic.LoadInt64(&text.MessagesReceived)
-
-				select {
-				case <-ticker:
-					globals.Log.INFO.Printf("Messages recieved: %v\n\tMessages needed: %v", numMsgReceived, waitForMessages)
-				}
-
-				if numMsgReceived >= int64(waitForMessages) {
-					end = true
-				}
-				if numMsgReceived != lastCnt {
-					lastCnt = numMsgReceived
-					timeout = time.After(45 * time.Second)
-				}
-
-				select {
-				case <-timeout:
-					fmt.Printf("Timing out client, %v/%v "+
-						"message(s) been received\n",
-						numMsgReceived, waitForMessages)
-					end = true
-				default:
-				}
-			}
-		}
-
-		if searchForUser != "" {
-			foundUser := <-udbLister.(*userSearcher).foundUserChan
-			if isValid, uid := isValidUser(foundUser); isValid {
-				globals.Log.INFO.Printf("Found User %s at ID: %s",
-					searchForUser, printIDNice(uid))
-			} else {
-				globals.Log.INFO.Printf("Found User %s is invalid", searchForUser)
-			}
-		}
-
-		if notificationToken != "" {
-			err = client.RegisterForNotifications([]byte(notificationToken))
-			if err != nil {
-				globals.Log.FATAL.Printf("failed to register for notifications: %+v", err)
-			}
-		}
-
-		//Logout
-		err = client.Logout(500 * time.Millisecond)
-
-		if err != nil {
-			globals.Log.ERROR.Printf("Could not logout: %s\n", err.Error())
-			return
-		}
-
 	},
 }
 

@@ -108,7 +108,7 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	}
 }
 
-// Remove a Node key from the nodes map and save
+// Done a Node key from the nodes map and save
 func (s *Store) Remove(nid *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()

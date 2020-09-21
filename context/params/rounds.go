@@ -12,6 +12,8 @@ type Rounds struct {
 	// maximum period of time a pending historical round query will wait before
 	// it si transmitted
 	HistoricalRoundsPeriod time.Duration
+	// number of worker threads for retreiving messages from gateways
+	NumMessageRetrievalWorkers uint
 
 	//Length of historical rounds channel buffer
 	HistoricalRoundsBufferLen uint
@@ -21,9 +23,10 @@ type Rounds struct {
 
 func GetDefaultRounds() Rounds {
 	return Rounds{
-		MaxAttemptsCheckingARound: 5,
-		MaxHistoricalRounds:       100,
-		HistoricalRoundsPeriod:    100 * time.Millisecond,
+		MaxAttemptsCheckingARound:  5,
+		MaxHistoricalRounds:        100,
+		HistoricalRoundsPeriod:     100 * time.Millisecond,
+		NumMessageRetrievalWorkers: 8,
 
 		HistoricalRoundsBufferLen: 1000,
 		LookupRoundsBufferLen:     2000,

@@ -264,7 +264,7 @@ type TextMessage struct {
 	Message string `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`
 	// Timestamp (Unix time in seconds)
 	// You can use this to display the time when the other user sent the message
-	// TODO Remove this when all messages have timestamps
+	// TODO Done this when all messages have timestamps
 	Time                 int64    `protobuf:"varint,4,opt,name=time,proto3" json:"time,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`

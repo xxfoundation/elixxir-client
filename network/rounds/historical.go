@@ -30,12 +30,13 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 	rng := m.rngGen.GetStream()
 	var rounds []uint64
 
-	for {
+	done := false
+	for !done {
 		shouldProcess := false
 		select {
 		case <-quitCh:
 			rng.Close()
-			break
+			done = true
 		case <-ticker.C:
 			if len(rounds) > 0 {
 				shouldProcess = true
@@ -74,7 +75,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 					"historical round %d", rounds[i])
 				continue
 			}
-			m.p.Remove(id.Round(rounds[i]))
+			m.p.Done(id.Round(rounds[i]))
 			m.lookupRoundMessages <- roundInfo
 		}
 	}

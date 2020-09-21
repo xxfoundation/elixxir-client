@@ -65,8 +65,8 @@ func (pr *processing) Fail(id id.Round) {
 	}
 }
 
-// Remove a round from the processing list
-func (pr *processing) Remove(id id.Round) {
+// Done a round from the processing list
+func (pr *processing) Done(id id.Round) {
 	pr.Lock()
 	defer pr.Unlock()
 	delete(pr.rounds, id)

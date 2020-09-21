@@ -3,7 +3,7 @@ package rounds
 // Testing functions for Processing Round structure
 
 import (
-	"gitlab.com/elixxir/client/vendor/gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"testing"
 )
 
@@ -29,7 +29,7 @@ func TestProcessingRounds_IsProcessing(t *testing.T) {
 func TestProcessingRounds_Remove(t *testing.T) {
 	pr := processing{rounds: make(map[id.Round]struct{})}
 	pr.rounds[id.Round(10)] = struct{}{}
-	pr.Remove(id.Round(10))
+	pr.Done(id.Round(10))
 	if _, ok := pr.rounds[id.Round(10)]; ok {
 		t.Errorf("Round 10 was not removed from processing list when calling Done")
 	}

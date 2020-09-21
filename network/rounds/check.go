@@ -16,7 +16,7 @@ func (m *Manager) Checker(roundID id.Round, instance *network.Instance) bool {
 		return false
 	}
 	if count == m.params.MaxAttemptsCheckingARound {
-		m.p.Remove(roundID)
+		m.p.Done(roundID)
 		return true
 	}
 	// FIXME: Spec has us SETTING processing, but not REMOVING it
@@ -25,7 +25,7 @@ func (m *Manager) Checker(roundID id.Round, instance *network.Instance) bool {
 	// a state that lives with the round info as soon as we know
 	// about it that gets updated at different parts...not clear
 	// needs to be thought through.
-	//defer processing.Remove(roundID)
+	//defer processing.Done(roundID)
 
 	// TODO: Bloom filter lookup -- return true when we don't have
 	// Go get the round from the round infos, if it exists

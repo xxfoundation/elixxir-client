@@ -172,6 +172,11 @@ func (s *Store) PopKey(f format.Fingerprint) (*Key, bool) {
 	return s.fingerprints.Pop(f)
 }
 
+//Key exists for a key fingerprint
+func (s *Store) CheckKey(f format.Fingerprint) bool {
+	return s.fingerprints.Check(f)
+}
+
 //Returns the diffie hellman private key
 func (s *Store) GetDHPrivateKey() *cyclic.Int {
 	return s.dhPrivateKey
@@ -271,6 +276,15 @@ func (f *fingerprints) remove(keys []*Key) {
 		delete(f.toKey, k.Fingerprint())
 	}
 }
+
+func (f *fingerprints) Check(fingerprint format.Fingerprint) bool {
+	f.mux.RLock()
+	defer f.mux.RUnlock()
+
+	_, ok := f.toKey[fingerprint]
+	return ok
+}
+
 
 func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, bool) {
 	f.mux.Lock()

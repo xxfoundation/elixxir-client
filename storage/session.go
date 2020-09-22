@@ -45,7 +45,7 @@ type Session struct {
 	conversations    *conversation.Store
 	partition        *partition.Store
 	criticalMessages *utility.E2eMessageBuffer
-	garbledMessages  *utility.CmixMessageBuffer
+	garbledMessages  *utility.MeteredCmixMessageBuffer
 	checkedRounds    *utility.KnownRounds
 }
 
@@ -101,7 +101,7 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.garbledMessages, err = utility.NewCmixMessageBuffer(s.kv, garbledMessagesKey)
+	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
@@ -149,7 +149,7 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
 
-	s.garbledMessages, err = utility.LoadCmixMessageBuffer(s.kv, garbledMessagesKey)
+	s.garbledMessages, err = utility.LoadMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
@@ -189,7 +189,7 @@ func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {
 	return s.criticalMessages
 }
 
-func (s *Session) GetGarbledMessages() *utility.CmixMessageBuffer {
+func (s *Session) GetGarbledMessages() *utility.MeteredCmixMessageBuffer {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.garbledMessages

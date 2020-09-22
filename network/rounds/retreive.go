@@ -37,7 +37,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 		}
 	}
-
 }
 
 func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
@@ -56,7 +55,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	msgReq := &pb.GetMessages{
 		ClientID: m.Uid.Marshal(),
 		//TODO: fix this, should not be a byte slice
-		//RoundID:  uint64(rid),
+		RoundID: uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
 	// Fail the round if an error occurs so it can be tried again later

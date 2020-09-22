@@ -13,22 +13,10 @@ import (
 	"time"
 )
 
-// SendCMIX sends a "raw" CMIX message payload to the provided
-// recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
-// Returns the round ID of the round the payload was sent or an error
-// if it fails.
-func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
-	if !m.Health.IsRunning() {
-		return 0, errors.New("Cannot send cmix message when the " +
-			"network is not healthy")
-	}
-
-	return m.sendCMIX(msg, param)
-}
 
 // Internal send e2e which bypasses the network check, for use in SendE2E and
 // SendUnsafe which do their own network checks
-func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
 
 	timeStart := time.Now()
 	attempted := set.New()

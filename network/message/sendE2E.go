@@ -17,21 +17,7 @@ import (
 	"time"
 )
 
-// SendE2E sends an end-to-end payload to the provided recipient with
-// the provided msgType. Returns the list of rounds in which parts of
-// the message were sent or an error if it fails.
-func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E) (
-	[]id.Round, error) {
-
-	if !m.Health.IsRunning() {
-		return nil, errors.New("Cannot send e2e message when the " +
-			"network is not healthy")
-	}
-
-	return m.sendE2E(msg, e2eP)
-}
-
-func (m *Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
+func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
 
 	//timestamp the message
 	ts := time.Now()
@@ -75,7 +61,7 @@ func (m *Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], err = m.sendCMIX(msgEnc, param.CMIX)
+			roundIds[i], err = m.SendCMIX(msgEnc, param.CMIX)
 			if err != nil {
 				errCh <- err
 			}
@@ -83,6 +69,9 @@ func (m *Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 		}(i)
 	}
 
+	// while waiting check if any rekeys need to happen and trigger them. This
+	// can happen now because the key popping happens in this thread,
+	// only the sending is parallelized
 	keyExchange.CheckKeyExchanges(m.Context, partner)
 
 	wg.Wait()

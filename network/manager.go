@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/node"
 	"gitlab.com/elixxir/client/network/permissioning"
@@ -140,10 +141,13 @@ func (m *manager) startRunners() error {
 	m.runners.Add(trackNetworkStopper)
 
 	// Message reception
-	m.runners.Add(m.message.StartMessageReceptionWorkerPool())
+	m.runners.Add(m.message.StartProcessies())
 
 	// Round processing
 	m.runners.Add(m.round.StartProcessors())
+
+	// Key exchange
+	m.runners.Add(keyExchange.Start(m.Context))
 
 	return nil
 }

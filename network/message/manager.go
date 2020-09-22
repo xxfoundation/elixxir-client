@@ -17,6 +17,7 @@ type Manager struct {
 
 	messageReception chan Bundle
 	nodeRegistration chan network.NodeGateway
+	networkIsHealthy chan bool
 }
 
 func NewManager(internal internal.Internal, param params.Messages,
@@ -26,6 +27,7 @@ func NewManager(internal internal.Internal, param params.Messages,
 		param:            param,
 		partitioner:      parse.NewPartitioner(dummyMessage.ContentsSize(), internal.Session),
 		messageReception: make(chan Bundle, param.MessageReceptionBuffLen),
+		networkIsHealthy: make(chan bool, 1),
 		nodeRegistration: nodeRegistration,
 	}
 	m.Internal = internal
@@ -38,7 +40,7 @@ func (m *Manager) GetMessageReceptionChannel() chan<- Bundle {
 }
 
 //Starts all worker pool
-func (m *Manager) StartMessageReceptionWorkerPool() stoppable.Stoppable {
+func (m *Manager) StartProcessies() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
 	for i := uint(0); i < m.param.MessageReceptionWorkerPoolSize; i++ {
@@ -46,6 +48,10 @@ func (m *Manager) StartMessageReceptionWorkerPool() stoppable.Stoppable {
 		go m.processMessages(stop.Quit())
 		multi.Add(stop)
 	}
+
+	critStop := stoppable.NewSingle("Critical Messages Handler")
+	go m.processCriticalMessages(critStop.Quit())
+	m.Health.AddChannel(m.networkIsHealthy)
 
 	return multi
 }

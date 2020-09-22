@@ -142,7 +142,7 @@ func (mcmb *MeteredCmixMessageBuffer) Next() (format.Message, uint, time.Time, b
 	return msfFormat, rtnCnt, msg.Timestamp, true
 }
 
-func (mcmb *MeteredCmixMessageBuffer) Succeeded(m format.Message) {
+func (mcmb *MeteredCmixMessageBuffer) Remove(m format.Message) {
 	mcmb.mb.Succeeded(m)
 }
 

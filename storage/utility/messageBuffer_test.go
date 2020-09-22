@@ -233,7 +233,7 @@ func TestMessageBuffer_Next(t *testing.T) {
 	}
 }
 
-// Tests happy path of MessageBuffer.Succeeded().
+// Tests happy path of MessageBuffer.Remove().
 func TestMessageBuffer_Succeeded(t *testing.T) {
 	th := newTestHandler()
 	// Create new MessageBuffer and fill with message
@@ -254,7 +254,7 @@ func TestMessageBuffer_Succeeded(t *testing.T) {
 	_, exists1 := testMB.messages[th.HashMessage(m)]
 	_, exists2 := testMB.processingMessages[th.HashMessage(m)]
 	if exists1 || exists2 {
-		t.Errorf("Succeeded() did not remove the message from the buffer."+
+		t.Errorf("Remove() did not remove the message from the buffer."+
 			"\n\tbuffer: %+v", testMB)
 	}
 }

@@ -139,7 +139,7 @@ func (m *manager) StartRunners() error {
 	m.runners.Add(m.round.StartProcessors())
 
 	// Key exchange
-	m.runners.Add(keyExchange.Start(m.Context))
+	m.runners.Add(keyExchange.Start(m.Context, m.message.GetTriggerGarbledCheckChannel()))
 
 	return nil
 }

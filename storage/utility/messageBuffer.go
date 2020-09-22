@@ -261,7 +261,7 @@ func next(msgMap map[MessageHash]struct{}) MessageHash {
 	return MessageHash{}
 }
 
-// Succeeded sets a messaged as processed and removed it from the buffer.
+// Remove sets a messaged as processed and removed it from the buffer.
 func (mb *MessageBuffer) Succeeded(m interface{}) {
 	h := mb.handler.HashMessage(m)
 

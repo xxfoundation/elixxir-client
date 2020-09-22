@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -19,10 +20,10 @@ import (
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
-func (m *rounds.Manager) SendE2E(msg message.Send, e2eP params.E2E) (
+func (m *Manager) SendE2E(msg message.Send, e2eP params.E2E) (
 	[]id.Round, error) {
 
-	if !m.health.IsRunning() {
+	if !m.Health.IsRunning() {
 		return nil, errors.New("Cannot send e2e message when the " +
 			"network is not healthy")
 	}
@@ -30,7 +31,7 @@ func (m *rounds.Manager) SendE2E(msg message.Send, e2eP params.E2E) (
 	return m.sendE2E(msg, e2eP)
 }
 
-func (m *rounds.Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
+func (m *Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
 
 	//timestamp the message
 	ts := time.Now()
@@ -47,7 +48,7 @@ func (m *rounds.Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round
 	errCh := make(chan error, len(partitions))
 
 	// get the key manager for the partner
-	partner, err := m.Context.Session.E2e().GetPartner(msg.Recipient)
+	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Could not send End to End encrypted "+
 			"message, no relationship found with %s", partner)
@@ -57,7 +58,7 @@ func (m *rounds.Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round
 
 	for i, p := range partitions {
 		//create the cmix message
-		msgCmix := format.NewMessage(m.Context.Session.Cmix().GetGroup().GetP().ByteLen())
+		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
 
 		//get a key to end to end encrypt
@@ -81,6 +82,8 @@ func (m *rounds.Manager) sendE2E(msg message.Send, param params.E2E) ([]id.Round
 			wg.Done()
 		}(i)
 	}
+
+	keyExchange.CheckKeyExchanges(m.Context, partner)
 
 	wg.Wait()
 

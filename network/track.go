@@ -36,9 +36,9 @@ type trackNetworkComms interface {
 
 // TrackNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *Manager) trackNetwork(quitCh <-chan struct{}) {
+func (m *manager) trackNetwork(quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
-	rng := m.context.Rng.GetStream()
+	rng := m.Rng.GetStream()
 
 	for {
 		select {
@@ -46,14 +46,14 @@ func (m *Manager) trackNetwork(quitCh <-chan struct{}) {
 			rng.Close()
 			break
 		case <-ticker.C:
-			m.track(rng, m.comms)
+			m.track(rng, m.Comms)
 		}
 	}
 }
 
-func (m *Manager) track(rng csprng.Source, comms trackNetworkComms) {
+func (m *manager) track(rng csprng.Source, comms trackNetworkComms) {
 
-	gwHost, err := gateway.Get(m.instance.GetPartialNdf().Get(), comms, rng)
+	gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comms, rng)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
 			"data: %s", err)
@@ -62,9 +62,9 @@ func (m *Manager) track(rng csprng.Source, comms trackNetworkComms) {
 	// Poll for the new NDF
 	pollReq := pb.GatewayPoll{
 		Partial: &pb.NDFHash{
-			Hash: m.instance.GetPartialNdf().GetHash(),
+			Hash: m.Instance.GetPartialNdf().GetHash(),
 		},
-		LastUpdate: uint64(m.instance.GetLastUpdateID()),
+		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
 	}
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
@@ -86,12 +86,12 @@ func (m *Manager) track(rng csprng.Source, comms trackNetworkComms) {
 	// ---- NODE EVENTS ----
 	// NOTE: this updates the structure AND sends events over the node
 	//       update channels
-	err = m.instance.UpdatePartialNdf(newNDF)
+	err = m.Instance.UpdatePartialNdf(newNDF)
 	if err != nil {
 		jww.ERROR.Printf(err.Error())
 		return
 	}
-	err = m.instance.RoundUpdates(roundUpdates)
+	err = m.Instance.RoundUpdates(roundUpdates)
 	if err != nil {
 		jww.ERROR.Printf(err.Error())
 		return
@@ -100,13 +100,13 @@ func (m *Manager) track(rng csprng.Source, comms trackNetworkComms) {
 	// ---- Round Processing -----
 	//build the round checker
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid, m.instance)
+		return m.round.Checker(rid)
 	}
 
 	//check rounds
-	checkedRounds := m.context.Session.GetCheckedRounds()
+	checkedRounds := m.Session.GetCheckedRounds()
 	checkedRounds.Forward(lastTrackedRound)
 	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
-		int(m.param.MaxCheckCheckedRounds))
+		int(m.param.MaxCheckedRounds))
 }
 

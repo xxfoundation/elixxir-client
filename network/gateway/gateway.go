@@ -20,7 +20,7 @@ func Get(ndf *ndf.NetworkDefinition, hg HostGetter, rng io.Reader) (*connect.Hos
 	// Get a random gateway
 	gateways := ndf.Gateways
 	gwIdx := ReadRangeUint32(0, uint32(len(gateways)), rng)
-	gwID, err := gateways[gwIdx].GetGatewayId()
+	gwID, err := id.Unmarshal(gateways[gwIdx].ID)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to get Gateway")
 	}

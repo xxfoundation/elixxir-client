@@ -17,8 +17,8 @@ import (
 // recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
-func (m *rounds.Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
-	if !m.health.IsRunning() {
+func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+	if !m.Health.IsRunning() {
 		return 0, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
 	}
@@ -28,7 +28,7 @@ func (m *rounds.Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Rou
 
 // Internal send e2e which bypasses the network check, for use in SendE2E and
 // SendUnsafe which do their own network checks
-func (m *rounds.Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+func (m *Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
 
 	timeStart := time.Now()
 	attempted := set.New()
@@ -41,7 +41,7 @@ func (m *rounds.Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Rou
 		remainingTime := param.Timeout - elapsed
 
 		//find the best round to send to, excluding roudn which have been attempted
-		bestRound, _ := m.instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
+		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
 		topology, err := buildToplogy(bestRound.Topology)
 		if err == nil {
 			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
@@ -50,9 +50,9 @@ func (m *rounds.Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Rou
 
 		//get they keys for the round, reject if any nodes do not have
 		//keying relationships
-		roundKeys, missingKeys := m.Context.Session.Cmix().GetRoundKeys(topology)
+		roundKeys, missingKeys := m.Session.Cmix().GetRoundKeys(topology)
 		if len(missingKeys) > 0 {
-			go handleMissingNodeKeys(m.instance, m.nodeRegistration, missingKeys)
+			go handleMissingNodeKeys(m.Instance, m.nodeRegistration, missingKeys)
 			continue
 		}
 
@@ -67,7 +67,7 @@ func (m *rounds.Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Rou
 
 		//encrypt the message
 		salt := make([]byte, 32)
-		stream := m.Context.Rng.GetStream()
+		stream := m.Rng.GetStream()
 		_, err = stream.Read(salt)
 		stream.Close()
 
@@ -80,7 +80,7 @@ func (m *rounds.Manager) sendCMIX(msg format.Message, param params.CMIX) (id.Rou
 
 		//build the message payload
 		msgPacket := &mixmessages.Slot{
-			SenderID: m.uid.Bytes(),
+			SenderID: m.Uid.Bytes(),
 			PayloadA: encMsg.GetPayloadA(),
 			PayloadB: encMsg.GetPayloadB(),
 			Salt:     salt,

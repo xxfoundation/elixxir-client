@@ -1,7 +1,6 @@
 package rounds
 
 import (
-	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -9,7 +8,7 @@ import (
 // gateway to the funky round checker api to update round state.
 // The returned function passes round event objects over the context
 // to the rest of the message handlers for getting messages.
-func (m *Manager) Checker(roundID id.Round, instance *network.Instance) bool {
+func (m *Manager) Checker(roundID id.Round) bool {
 	// Set round to processing, if we can
 	processing, count := m.p.Process(roundID)
 	if !processing {
@@ -30,7 +29,7 @@ func (m *Manager) Checker(roundID id.Round, instance *network.Instance) bool {
 	// TODO: Bloom filter lookup -- return true when we don't have
 	// Go get the round from the round infos, if it exists
 
-	ri, err := instance.GetRound(roundID)
+	ri, err := m.Instance.GetRound(roundID)
 	if err != nil {
 		// If we didn't find it, send to historical
 		// rounds processor

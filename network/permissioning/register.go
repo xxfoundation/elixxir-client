@@ -14,9 +14,9 @@ type RegistrationMessageSender interface {
 	GetHost(*id.ID) (*connect.Host, bool)
 }
 
-//RegisterWithPermissioning registers the user with optional registration code
+//Register registers the user with optional registration code
 // Returns an error if registration fails.
-func RegisterWithPermissioning(comms RegistrationMessageSender, publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
+func Register(comms RegistrationMessageSender, publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
 	// Send registration code and public key to RegistrationServer
 	host, ok := comms.GetHost(&id.Permissioning)
 	if !ok {

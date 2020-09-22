@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/client"
@@ -19,31 +20,26 @@ type Manager struct {
 
 	p *processing
 
-	comms    *client.Comms
-	instance *network.Instance
-	rngGen   *fastRNG.StreamGenerator
-	session  *storage.Session
+	internal.Internal
 
 	historicalRounds    chan id.Round
 	lookupRoundMessages chan *mixmessages.RoundInfo
-	messageBundles      chan message.Bundle
+	messageBundles      chan<- message.Bundle
 }
 
-func New(comms *client.Comms, instance *network.Instance, session *storage.Session,
-	rngGen *fastRNG.StreamGenerator, bundles chan message.Bundle,
-	params params.Rounds) (*Manager, error) {
-	return &Manager{
+func NewManager(internal internal.Internal, params params.Rounds,
+	bundles chan<- message.Bundle) *Manager {
+	m := &Manager{
 		params:   params,
 		p:        newProcessingRounds(),
-		comms:    comms,
-		instance: instance,
-		rngGen:   rngGen,
-		session:  session,
 
 		historicalRounds:    make(chan id.Round, params.HistoricalRoundsBufferLen),
 		lookupRoundMessages: make(chan *mixmessages.RoundInfo, params.LookupRoundsBufferLen),
 		messageBundles:      bundles,
-	}, nil
+	}
+
+	m.Internal = internal
+	return m
 }
 
 func (m *Manager) StartProcessors() stoppable.Stoppable {
@@ -52,13 +48,13 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 
 	//start the historical rounds thread
 	historicalRoundsStopper := stoppable.NewSingle("ProcessHistoricalRounds")
-	go m.processHistoricalRounds(m.comms, historicalRoundsStopper.Quit())
+	go m.processHistoricalRounds(m.Comms, historicalRoundsStopper.Quit())
 	multi.Add(historicalRoundsStopper)
 
 	//start the message retrieval worker pool
 	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
 		stopper := stoppable.NewSingle(fmt.Sprintf("Messager Retriever %v", i))
-		go m.processMessageRetrieval(m.comms, stopper.Quit())
+		go m.processMessageRetrieval(m.Comms, stopper.Quit())
 		multi.Add(stopper)
 	}
 

@@ -53,12 +53,9 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 			"to request from")
 	}
 
-	user := m.session.User().GetCryptographicIdentity()
-	userID := user.GetUserID().Bytes()
-
 	// send the request
 	msgReq := &pb.GetMessages{
-		ClientID: userID,
+		ClientID: m.Uid.Marshal(),
 		RoundID:  uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
@@ -82,7 +79,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		jww.WARN.Printf("host %s has no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicitive of a problem if it is consistant", gwHost,
-			user.GetUserID(), rid)
+			m.Uid, rid)
 		return message.Bundle{}, nil
 	}
 
@@ -91,13 +88,13 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		Round:    rid,
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
-			m.session.GetCheckedRounds().Check(rid)
+			m.Session.GetCheckedRounds().Check(rid)
 			m.p.Done(rid)
 		},
 	}
 
 	for i, slot := range msgs {
-		msg := format.NewMessage(m.session.E2e().GetGroup().GetP().ByteLen())
+		msg := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msg.SetPayloadA(slot.PayloadA)
 		msg.SetPayloadB(slot.PayloadB)
 		bundle.Messages[i] = msg

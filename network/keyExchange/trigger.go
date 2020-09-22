@@ -23,18 +23,23 @@ const (
 )
 
 func startTrigger(ctx *context.Context, c chan message.Receive,
-	stop *stoppable.Single) {
+	stop *stoppable.Single, garbledMessageTrigger chan<- struct{}) {
 	for true {
 		select {
 		case <-stop.Quit():
 			return
 		case request := <-c:
-			handleTrigger(ctx, request)
+			err := handleTrigger(ctx, request, garbledMessageTrigger)
+			if err != nil {
+				jww.ERROR.Printf("Failed to handle rekey trigger: %s",
+					err)
+			}
 		}
 	}
 }
 
-func handleTrigger(ctx *context.Context, request message.Receive) error {
+func handleTrigger(ctx *context.Context, request message.Receive,
+	garbledMessageTrigger chan<- struct{}) error {
 	//ensure the message was encrypted properly
 	if request.Encryption != message.E2E {
 		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
@@ -78,6 +83,14 @@ func handleTrigger(ctx *context.Context, request message.Receive) error {
 		jww.INFO.Printf("New session from Key Exchange Trigger to "+
 			"create session %s for partner %s is a duplicate, request ignored",
 			session.GetID(), request.Sender)
+	} else {
+		//if the session is new, attempt to trigger garbled message processing
+		//if there is contention, skip
+		select {
+		case garbledMessageTrigger <- struct{}{}:
+		default:
+			jww.WARN.Println("Failed to trigger garbled messages")
+		}
 	}
 
 	//Send the Confirmation Message

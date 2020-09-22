@@ -33,10 +33,6 @@ import (
 // Manager implements the NetworkManager interface inside context. It
 // controls access to network resources and implements all of the communications
 // functions used by the client.
-type Manager struct {
-	m manager
-}
-
 type manager struct {
 	// parameters of the network
 	param params.Network
@@ -53,7 +49,7 @@ type manager struct {
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDefinition) (*Manager, error) {
+func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDefinition) (context.NetworkManager, error) {
 
 	//get the user from storage
 	user := ctx.Session.User()
@@ -97,18 +93,18 @@ func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDef
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)
 	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel())
 
-	return &Manager{m: m}, nil
+	return &m, nil
 }
 
 // GetRemoteVersion contacts the permissioning server and returns the current
 // supported client version.
-func (m *Manager) GetRemoteVersion() (string, error) {
-	permissioningHost, ok := m.m.Comms.GetHost(&id.Permissioning)
+func (m *manager) GetRemoteVersion() (string, error) {
+	permissioningHost, ok := m.Comms.GetHost(&id.Permissioning)
 	if !ok {
 		return "", errors.Errorf("no permissioning host with id %s",
 			id.Permissioning)
 	}
-	registrationVersion, err := m.m.Comms.SendGetCurrentClientVersionMessage(
+	registrationVersion, err := m.Comms.SendGetCurrentClientVersionMessage(
 		permissioningHost)
 	if err != nil {
 		return "", err
@@ -116,12 +112,8 @@ func (m *Manager) GetRemoteVersion() (string, error) {
 	return registrationVersion.Version, nil
 }
 
-func (m *Manager) StartRunners() error {
-	return m.m.startRunners()
-}
-
 // StartRunners kicks off all network reception goroutines ("threads").
-func (m *manager) startRunners() error {
+func (m *manager) StartRunners() error {
 	if m.runners.IsRunning() {
 		return errors.Errorf("network routines are already running")
 	}
@@ -152,34 +144,23 @@ func (m *manager) startRunners() error {
 	return nil
 }
 
-func (m *Manager) RegisterWithPermissioning(registrationCode string) ([]byte, error) {
-	pubKey := m.m.Session.User().GetCryptographicIdentity().GetRSA().GetPublic()
-	return permissioning.Register(m.m.Comms, pubKey, registrationCode)
-}
-
-// GetRunners returns the network goroutines such that they can be named
-// and stopped.
-func (m *Manager) GetRunners() stoppable.Stoppable {
-	return m.m.runners
+func (m *manager) RegisterWithPermissioning(registrationCode string) ([]byte, error) {
+	pubKey := m.Session.User().GetCryptographicIdentity().GetRSA().GetPublic()
+	return permissioning.Register(m.Comms, pubKey, registrationCode)
 }
 
 // StopRunners stops all the reception goroutines
-func (m *Manager) GetStoppable() stoppable.Stoppable {
-	return m.m.runners
+func (m *manager) GetStoppable() stoppable.Stoppable {
+	return m.runners
 }
 
 // GetHealthTracker returns the health tracker
-func (m *Manager) GetHealthTracker() context.HealthTracker {
-	return m.m.Health
+func (m *manager) GetHealthTracker() context.HealthTracker {
+	return m.Health
 }
 
 // GetInstance returns the network instance object (ndf state)
-func (m *Manager) GetInstance() *network.Instance {
-	return m.m.Instance
+func (m *manager) GetInstance() *network.Instance {
+	return m.Instance
 }
 
-// GetNodeRegistrationCh returns node registration channel for node
-// events.
-func (m *Manager) GetNodeRegistrationCh() chan network.NodeGateway {
-	return m.m.NodeRegistration
-}

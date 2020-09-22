@@ -16,12 +16,12 @@ import (
 )
 
 // Returns an error if registration fails.
-func RegisterWithPermissioning(ctx context.Context, comms client.Comms, registrationCode string) error {
+func (c *Client) RegisterWithPermissioning(registrationCode string) error {
 	instance := ctx.Manager.GetInstance()
 	instance.GetPartialNdf()
 
 	//Check the regState is in proper state for registration
-	regState := ctx.Session.GetRegistrationStatus()
+	regState := c.storage.GetRegistrationStatus()
 	if regState != storage.KeyGenComplete {
 		return errors.Errorf("Attempting to register before key generation!")
 	}

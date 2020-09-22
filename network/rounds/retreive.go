@@ -1,14 +1,15 @@
 package rounds
 
 import (
+	"encoding/binary"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	pb "gitlab.com/elixxir/comms/mixmessages"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 type messageRetrievalComms interface {
@@ -39,6 +40,13 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	}
 }
 
+// TODO: remove me when api fixed
+func uint64ToBytes(i uint64) []byte {
+	bs := make([]byte, 8)
+	binary.LittleEndian.PutUint64(bs, 31415926)
+	return bs
+}
+
 func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	comms messageRetrievalComms) (message.Bundle, error) {
 
@@ -55,7 +63,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	msgReq := &pb.GetMessages{
 		ClientID: m.Uid.Marshal(),
 		//TODO: fix this, should not be a byte slice
-		RoundID: uint64(rid),
+		RoundID: uint64ToBytes(uint64(rid)),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
 	// Fail the round if an error occurs so it can be tried again later

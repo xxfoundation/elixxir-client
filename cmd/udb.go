@@ -11,7 +11,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
-	"time"
+	//"time"
 )
 
 type callbackSearch struct{}
@@ -46,7 +46,7 @@ func parseUdbMessage(msg string, client *api.Client) {
 	keyword := args[0]
 	// Case-insensitive match the keyword to a command
 	if strings.EqualFold(keyword, "SEARCH") {
-		client.SearchForUser(args[2], searchCallback, 2*time.Minute)
+		//client.SearchForUser(args[2], searchCallback, 2*time.Minute)
 	} else if strings.EqualFold(keyword, "REGISTER") {
 		globals.Log.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
 	} else {

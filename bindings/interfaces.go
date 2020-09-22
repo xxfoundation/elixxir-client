@@ -7,7 +7,8 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/primitives/switchboard"
+	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/context/stoppable"
 )
 
 // Client is defined inside the api package. At minimum, it implements all of
@@ -84,13 +85,13 @@ type Client interface {
 
 	// GetUser returns the current user Identity for this client. This
 	// can be serialized into a byte stream for out-of-band sharing.
-	GetUser() (Contact, error)
+	GetUser() (api.Contact, error)
 	// MakeContact creates a contact from a byte stream (i.e., unmarshal's a
 	// Contact object), allowing out-of-band import of identities.
-	MakeContact(contactBytes []byte) (Contact, error)
+	MakeContact(contactBytes []byte) (api.Contact, error)
 	// GetContact returns a Contact object for the given user id, or
 	// an error
-	GetContact(uid []byte) (Contact, error)
+	GetContact(uid []byte) (api.Contact, error)
 
 	// ----- User Discovery -----
 
@@ -109,7 +110,7 @@ type Client interface {
 	// so this user can send messages to the desired recipient Contact.
 	// To receive confirmation from the remote user, clients must
 	// register a listener to do that.
-	CreateAuthenticatedChannel(recipient Contact, payload []byte) error
+	CreateAuthenticatedChannel(recipient api.Contact, payload []byte) error
 	// RegierAuthEventsHandler registers a callback interface for channel
 	// authentication events.
 	RegisterAuthEventsHandler(hdlr AuthEventHandler)
@@ -120,39 +121,11 @@ type Client interface {
 	// and returns an object for checking state and stopping those threads.
 	// Call this when returning from sleep and close when going back to
 	// sleep.
-	StartNetworkRunner() NetworkRunner
+	StartNetworkRunner() stoppable.Stoppable
 
 	// RegisterRoundEventsHandler registers a callback interface for round
 	// events.
 	RegisterRoundEventsHandler(hdlr RoundEventHandler)
-}
-
-// Message is a message received from the cMix network in the clear
-// or that has been decrypted using established E2E keys.
-type Message interface {
-	// Returns the message's sender ID, if available
-	GetSender() []byte
-	// Returns the message payload/contents
-	// Parse this with protobuf/whatever according to the message type
-	GetPayload() []byte
-	// Returns the message's recipient ID
-	// This is usually your userID but could be an ephemeral/group ID
-	GetRecipient() []byte
-	// Returns the message's type
-	GetMessageType() int32
-	// Returns the message's timestamp in seconds since unix epoc
-	GetTimestamp() int64
-	// Returns the message's timestamp in ns since unix epoc
-	GetTimestampNano() int64
-}
-
-// RoundEvent contains event information for a given round.
-// TODO: This is a half-baked interface and will be filled out later.
-type RoundEvent interface {
-	// GetID returns the round ID for this round.
-	GetID() int
-	// GetStatus returns the status of this round.
-	GetStatus() int
 }
 
 // ContactList contains a list of contacts
@@ -160,28 +133,7 @@ type ContactList interface {
 	// GetLen returns the number of contacts in the list
 	GetLen() int
 	// GetContact returns the contact at index i
-	GetContact(i int) Contact
-}
-
-// Contact contains the contacts information. Note that this object
-// is a copy of the contact at the time it was generated, so api users
-// cannot rely on this object being updated once it has been received.
-type Contact interface {
-	// GetID returns the user ID for this user.
-	GetID() []byte
-	// GetPublicKey returns the publickey bytes for this user.
-	GetPublicKey() []byte
-	// GetSalt returns the salt used to initiate an authenticated channel
-	GetSalt() []byte
-	// IsAuthenticated returns true if an authenticated channel exists for
-	// this user so we can begin to send messages.
-	IsAuthenticated() bool
-	// IsConfirmed returns true if the user has confirmed the authenticated
-	// channel on their end.
-	IsConfirmed() bool
-	// Marshal creates a serialized representation of a contact for
-	// out-of-band contact exchange.
-	Marshal() ([]byte, error)
+	GetContact(i int) api.Contact
 }
 
 // ----- Callback interfaces -----
@@ -192,7 +144,7 @@ type Contact interface {
 // time.
 type Listener interface {
 	// Hear is called to receive a message in the UI
-	Hear(msg Message)
+	Hear(msg api.Message)
 }
 
 // AuthEventHandler handles authentication requests initiated by
@@ -202,13 +154,30 @@ type AuthEventHandler interface {
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. Payload is typically empty but
 	// may include a small introductory message.
-	HandleConfirmation(contact Contact, payload []byte)
+	HandleConfirmation(contact api.Contact, payload []byte)
 	// HandleRequest handles AuthEvents received before
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. It should prompt the user to accept
 	// the channel creation "request" and, if approved,
 	// call CreateAuthenticatedChannel for this Contact.
-	HandleRequest(contact Contact, payload []byte)
+	HandleRequest(contact api.Contact, payload []byte)
+}
+
+// RoundList contains a list of contacts
+type RoundList interface {
+	// GetLen returns the number of contacts in the list
+	GetLen() int
+	// GetRoundID returns the round ID at index i
+	GetRoundID(i int) int
+}
+
+// RoundEvent contains event information for a given round.
+// TODO: This is a half-baked interface and will be filled out later.
+type RoundEvent interface {
+	// GetID returns the round ID for this round.
+	GetID() int
+	// GetStatus returns the status of this round.
+	GetStatus() int
 }
 
 // RoundEventHandler handles round events happening on the cMix network.

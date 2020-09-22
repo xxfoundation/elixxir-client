@@ -7,23 +7,24 @@
 package health
 
 import (
-	"gitlab.com/elixxir/comms/network"
+	//	"gitlab.com/elixxir/comms/network"
 	"testing"
+	"time"
 )
 
 func TestNewTracker(t *testing.T) {
-	tracker := NewTracker()
-	hbChan := tracker.heartbeat
+	tracker := newTracker(1 * time.Second)
+	//hbChan := tracker.heartbeat
 	counter := 0
 
-	positiveHb := network.Heartbeat{
-		HasWaitingRound: true,
-		IsRoundComplete: true,
-	}
-	negativeHb := network.Heartbeat{
-		HasWaitingRound: false,
-		IsRoundComplete: false,
-	}
+	// positiveHb := network.Heartbeat{
+	// 	HasWaitingRound: true,
+	// 	IsRoundComplete: true,
+	// }
+	// negativeHb := network.Heartbeat{
+	// 	HasWaitingRound: false,
+	// 	IsRoundComplete: false,
+	// }
 
 	listenChan := make(chan bool)
 	listenFunc := func(isHealthy bool) {
@@ -37,7 +38,7 @@ func TestNewTracker(t *testing.T) {
 		}
 	}()
 
-	quit := make(chan bool)
+	quit := make(chan struct{})
 	go tracker.start(quit)
 
 }

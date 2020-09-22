@@ -6,6 +6,11 @@
 
 package api
 
+import (
+	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
+)
+
 // Contact implements the Contact interface defined in bindings/interfaces.go,
 type Contact struct {
 	ID            id.ID
@@ -22,7 +27,7 @@ func (c Contact) GetID() []byte {
 
 // GetPublicKey returns the publickey bytes for this user.
 func (c Contact) GetPublicKey() []byte {
-	return c.PubKey.Bytes()
+	return rsa.CreatePublicKeyPem(&c.PubKey)
 }
 
 // GetSalt returns the salt used to initiate an authenticated channel

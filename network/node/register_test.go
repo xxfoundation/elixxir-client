@@ -41,6 +41,18 @@ func (nm *MockNetworkManager) GetHealthTracker() context.HealthTracker {
 	return nil
 }
 
+func (nm *MockNetworkManager) GetRemoteVersion() (string, error) {
+	return "", nil
+}
+
+func (nm *MockNetworkManager) GetStoppable() stoppable.Stoppable {
+	return nil
+}
+
+func (nm *MockNetworkManager) RegisterWithPermissioning(string) ([]byte, error) {
+	return nil, nil
+}
+
 // Mock client comms object
 type MockClientComms struct {
 	request chan bool

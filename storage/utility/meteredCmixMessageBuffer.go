@@ -53,7 +53,7 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (int
 	}
 
 	msg := &meteredCmixMessage{}
-	err := json.Unmarshal(vo.Data, msg)
+	err = json.Unmarshal(vo.Data, msg)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to unmarshal "+
 			"metered cmix message")

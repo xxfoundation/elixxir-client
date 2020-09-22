@@ -8,17 +8,14 @@ package api
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/network/permissioning"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
 )
 
 // Returns an error if registration fails.
 func (c *Client) RegisterWithPermissioning(registrationCode string) error {
-	instance := ctx.Manager.GetInstance()
-	instance.GetPartialNdf()
+	ctx := c.ctx
+	netman := ctx.Manager
 
 	//Check the regState is in proper state for registration
 	regState := c.storage.GetRegistrationStatus()
@@ -29,8 +26,8 @@ func (c *Client) RegisterWithPermissioning(registrationCode string) error {
 	userData := ctx.Session.User()
 
 	// Register with the permissioning server and generate user information
-	regValidationSignature, err := permissioning.RegisterWithPermissioning(&comms,
-		userData.GetCryptographicIdentity().GetRSA().GetPublic(), registrationCode)
+	regValidationSignature, err := netman.RegisterWithPermissioning(
+		registrationCode)
 	if err != nil {
 		globals.Log.INFO.Printf(err.Error())
 		return err

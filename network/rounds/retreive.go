@@ -4,7 +4,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -56,14 +55,15 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	// send the request
 	msgReq := &pb.GetMessages{
 		ClientID: m.Uid.Marshal(),
-		RoundID:  uint64(rid),
+		//TODO: fix this, should not be a byte slice
+		//RoundID:  uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
 		m.p.Fail(id.Round(roundInfo.ID))
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
-			"request messages from %s for round %s", gwHost.GetId(), rid)
+			"request messages from %s for round %d", gwHost.GetId(), rid)
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {

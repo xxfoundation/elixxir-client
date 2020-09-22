@@ -2,16 +2,11 @@ package rounds
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
-	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -57,5 +52,5 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 		go m.processMessageRetrieval(m.Comms, stopper.Quit())
 		multi.Add(stopper)
 	}
-
+	return multi
 }

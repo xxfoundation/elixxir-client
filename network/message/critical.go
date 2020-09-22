@@ -1,12 +1,10 @@
 package message
 
 import (
-	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context/utility"
-	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 	"time"
@@ -32,7 +30,7 @@ func (m *Manager) criticalMessages() {
 	for msg, param, has := critMsgs.Next(); has; msg, param, has = critMsgs.Next() {
 		go func(msg message.Send, param params.E2E) {
 			//send the message
-			rounds, err := m.sendE2E(msg, param)
+			rounds, err := m.SendE2E(msg, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {

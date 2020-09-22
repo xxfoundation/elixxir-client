@@ -3,8 +3,8 @@ package parse
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -17,16 +17,16 @@ type Partitioner struct {
 	partContentsSize  int
 	deltaFirstPart    int
 	maxSize           int
-	ctx               *context.Context
+	session           *storage.Session
 }
 
-func NewPartitioner(messageSize int, ctx *context.Context) Partitioner {
+func NewPartitioner(messageSize int, session *storage.Session) Partitioner {
 	p := Partitioner{
 		baseMessageSize:   messageSize,
 		firstContentsSize: messageSize - firstHeaderLen,
 		partContentsSize:  messageSize - headerLen,
 		deltaFirstPart:    firstHeaderLen - headerLen,
-		ctx:               ctx,
+		session:           session,
 	}
 	p.maxSize = p.firstContentsSize + (MaxMessageParts-1)*p.partContentsSize
 	return p
@@ -41,7 +41,7 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 	}
 
 	//Get the ID of the sent message
-	_, messageID := p.ctx.Session.Conversations().Get(recipient).GetNextSendID()
+	_, messageID := p.session.Conversations().Get(recipient).GetNextSendID()
 
 	// get the number of parts of the message. This equates to just a linear
 	// equation
@@ -77,20 +77,20 @@ func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
 		}
 
 		//Handle the message ID
-		messageID := p.ctx.Session.Conversations().Get(sender).
+		messageID := p.session.Conversations().Get(sender).
 			ProcessReceivedMessageID(fm.GetID())
 
 		//Return the
-		return p.ctx.Session.Partition().AddFirst(sender, fm.GetType(),
+		return p.session.Partition().AddFirst(sender, fm.GetType(),
 			messageID, fm.GetPart(), fm.GetNumParts(), timestamp,
 			fm.GetSizedContents())
 		//If it is a subsiquent message part, handle it as so
 	} else {
 		mp := MessagePartFromBytes(contents)
-		messageID := p.ctx.Session.Conversations().Get(sender).
+		messageID := p.session.Conversations().Get(sender).
 			ProcessReceivedMessageID(mp.GetID())
 
-		return p.ctx.Session.Partition().Add(sender, messageID, mp.GetPart(),
+		return p.session.Partition().Add(sender, messageID, mp.GetPart(),
 			mp.GetSizedContents())
 	}
 }

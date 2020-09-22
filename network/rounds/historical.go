@@ -27,7 +27,7 @@ type historicalRoundsComms interface {
 func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.params.HistoricalRoundsPeriod)
 
-	rng := m.rngGen.GetStream()
+	rng := m.Rng.GetStream()
 	var rounds []uint64
 
 	done := false
@@ -51,7 +51,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			continue
 		}
 
-		gwHost, err := gateway.Get(m.instance.GetPartialNdf().Get(), comm, rng)
+		gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comm, rng)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
 				"data: %s", err)

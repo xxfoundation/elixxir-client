@@ -56,7 +56,7 @@ func TestRegisterWithPermissioning(t *testing.T) {
 	}
 
 	regCode := "flooble doodle"
-	sig, err := RegisterWithPermissioning(&sender, key.GetPublic(), regCode)
+	sig, err := Register(&sender, key.GetPublic(), regCode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -80,18 +80,18 @@ func TestRegisterWithPermissioning(t *testing.T) {
 }
 
 // Shows that returning an error from GetHost results in an error from
-// RegisterWithPermissioning
+// Register
 func TestRegisterWithPermissioning_GetHostErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = false
-	_, err := RegisterWithPermissioning(&sender, nil, "")
+	_, err := Register(&sender, nil, "")
 	if err == nil {
 		t.Error("no error if getHost fails")
 	}
 }
 
 // Shows that returning an error from the permissioning server results in an
-// error from RegisterWithPermissioning
+// error from Register
 func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	key, err := rsa.GenerateKey(rng, 256)
@@ -101,14 +101,14 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
 	sender.errInReply = "failure occurred on permissioning"
-	_, err = RegisterWithPermissioning(&sender, key.GetPublic(), "")
+	_, err = Register(&sender, key.GetPublic(), "")
 	if err == nil {
 		t.Error("no error if registration fails on permissioning")
 	}
 }
 
 // Shows that returning an error from the RPC (e.g. context deadline exceeded)
-// results in an error from RegisterWithPermissioning
+// results in an error from Register
 func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	key, err := rsa.GenerateKey(rng, 256)
@@ -118,7 +118,7 @@ func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
 	sender.errSendRegistration = errors.New("connection problem")
-	_, err = RegisterWithPermissioning(&sender, key.GetPublic(), "")
+	_, err = Register(&sender, key.GetPublic(), "")
 	if err == nil {
 		t.Error("no error if e.g. context deadline exceeded")
 	}

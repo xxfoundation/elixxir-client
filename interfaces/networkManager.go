@@ -1,9 +1,9 @@
-package context
+package interfaces
 
 import (
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -18,8 +18,5 @@ type NetworkManager interface {
 	GetStoppable() stoppable.Stoppable
 }
 
-type HealthTracker interface {
-	AddChannel(chan bool)
-	AddFunc(f func(bool))
-	IsHealthy() bool
-}
+//for use in key exchange which needs to be callable inside of network
+type SendE2E func(m message.Send, p params.E2E) ([]id.Round, error)

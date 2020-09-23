@@ -11,15 +11,15 @@ package network
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
-	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/node"
 	"gitlab.com/elixxir/client/network/rounds"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
@@ -51,7 +51,7 @@ type manager struct {
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	rng *fastRNG.StreamGenerator, comms *client.Comms,
-	params params.Network, ndf *ndf.NetworkDefinition) (context.NetworkManager, error) {
+	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
 	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
@@ -62,8 +62,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	//create manager object
 	m := manager{
-		param:    params,
-		runners:  stoppable.NewMulti("network.Manager"),
+		param:   params,
+		runners: stoppable.NewMulti("network.Manager"),
 	}
 
 	m.Internal = internal.Internal{
@@ -95,7 +95,8 @@ func (m *manager) StartRunners() error {
 	m.runners.Add(m.Health)
 
 	// Node Updates
-	m.runners.Add(node.StartRegistration(m.Instance, m.Session, m.Rng, m.Comms, m.NodeRegistration)) // Adding/Keys
+	m.runners.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,
+		m.Comms, m.NodeRegistration)) // Adding/Keys
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
 
@@ -111,7 +112,8 @@ func (m *manager) StartRunners() error {
 	m.runners.Add(m.round.StartProcessors())
 
 	// Key exchange
-	m.runners.Add(keyExchange.Start(m.Switchboard, m.Session, m, m.message.GetTriggerGarbledCheckChannel()))
+	m.runners.Add(keyExchange.Start(m.Switchboard, m.Session, m,
+		m.message.GetTriggerGarbledCheckChannel()))
 
 	return nil
 }
@@ -122,7 +124,7 @@ func (m *manager) GetStoppable() stoppable.Stoppable {
 }
 
 // GetHealthTracker returns the health tracker
-func (m *manager) GetHealthTracker() context.HealthTracker {
+func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 	return m.Health
 }
 

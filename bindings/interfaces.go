@@ -8,7 +8,7 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/stoppable"
 )
 
 // Client is defined inside the api package. At minimum, it implements all of

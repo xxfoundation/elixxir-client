@@ -3,7 +3,7 @@ package switchboard
 import (
 	"github.com/golang-collections/collections/set"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 )
@@ -135,7 +135,7 @@ func (sw *Switchboard) Speak(item message.Receive) {
 	//Execute hear on all matched listeners in a new goroutine
 	matches.Do(func(i interface{}) {
 		r := i.(Listener)
-		go Hear(item)
+		go r.Hear(item)
 	})
 
 	// print to log if nothing was heard

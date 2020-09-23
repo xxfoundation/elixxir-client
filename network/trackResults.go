@@ -1,4 +1,4 @@
-package utility
+package network
 
 import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"

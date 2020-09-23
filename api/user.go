@@ -7,6 +7,7 @@
 package api
 
 import (
+	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -80,3 +81,30 @@ func createNewUser(rng csprng.Source, cmix, e2e *cyclic.Group) user {
 }
 
 // TODO: Add precanned user code structures here.
+// creates a precanned user
+func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.Group) user {
+	// DH Keygen
+	// FIXME: Why 256 bits? -- this is spec but not explained, it has
+	// to do with optimizing operations on one side and still preserves
+	// decent security -- cite this. Why valid for BOTH e2e and cmix?
+	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, rng)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	// Salt, UID, etc gen
+	salt := make([]byte, SaltSize)
+
+	userID := id.ID{}
+	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
+	userID.SetType(id.User)
+
+	return user{
+		UID:         &userID,
+		Salt:        salt,
+		RSAKey:      &rsa.PrivateKey{},
+		CMixKey:     cmix.NewInt(1),
+		E2EKey:      e2e.NewIntFromBytes(e2eKeyBytes),
+		IsPrecanned: true,
+	}
+}

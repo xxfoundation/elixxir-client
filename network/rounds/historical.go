@@ -28,7 +28,8 @@ type historicalRoundsComms interface {
 // Waits to request many rounds at a time or for a timeout to trigger
 func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-chan struct{}) {
 
-	timer := make(chan time.Time)
+	timerCh := make(<-chan time.Time)
+	hasTimer := false
 
 	rng := m.Rng.GetStream()
 	var rounds []uint64
@@ -42,7 +43,8 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			rng.Close()
 			done = true
 		// if the timer elapses process rounds to ensure the delay isn't too long
-		case <-ticker.C:
+		case <-timerCh:
+			hasTimer = false
 			if len(rounds) > 0 {
 				shouldProcess = true
 			}
@@ -51,6 +53,8 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			rounds = append(rounds, uint64(rid))
 			if len(rounds) > int(m.params.MaxHistoricalRounds) {
 				shouldProcess = true
+			} else if !hasTimer {
+				timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			}
 		}
 		if !shouldProcess {

@@ -5,23 +5,21 @@ import (
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 )
 
-// client.Comms should implement this interface
-type RegistrationMessageSender interface {
-	SendRegistrationMessage(host *connect.Host, message *pb.UserRegistration) (*pb.UserRegistrationConfirmation, error)
-	GetHost(*id.ID) (*connect.Host, bool)
+func (perm *Permissioning) Register(publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
+	return register(perm.comms, perm.host, publicKey, registrationCode)
 }
 
-//Register registers the user with optional registration code
+// client.Comms should implement this interface
+type registrationMessageSender interface {
+	SendRegistrationMessage(host *connect.Host, message *pb.UserRegistration) (*pb.UserRegistrationConfirmation, error)
+}
+
+//register registers the user with optional registration code
 // Returns an error if registration fails.
-func Register(comms RegistrationMessageSender, publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
-	// Send registration code and public key to RegistrationServer
-	host, ok := comms.GetHost(&id.Permissioning)
-	if !ok {
-		return nil, errors.New("Failed to find permissioning host")
-	}
+func register(comms registrationMessageSender, host *connect.Host,
+	publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
 
 	response, err := comms.
 		SendRegistrationMessage(host,

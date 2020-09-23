@@ -31,7 +31,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	wg := sync.WaitGroup{}
 
 	for i, p := range partitions {
-		msgCmix := format.NewMessage(m.Context.Session.Cmix().GetGroup().GetP().ByteLen())
+		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
 		e2e.SetUnencrypted(msgCmix, msg.Recipient)
 		wg.Add(1)

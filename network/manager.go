@@ -19,15 +19,12 @@ import (
 	"gitlab.com/elixxir/client/network/keyExchange"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/network/node"
-	"gitlab.com/elixxir/client/network/permissioning"
 	"gitlab.com/elixxir/client/network/rounds"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 
 	"time"
@@ -87,22 +84,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	return &m, nil
 }
 
-// GetRemoteVersion contacts the permissioning server and returns the current
-// supported client version.
-func (m *manager) GetRemoteVersion() (string, error) {
-	permissioningHost, ok := m.Comms.GetHost(&id.Permissioning)
-	if !ok {
-		return "", errors.Errorf("no permissioning host with id %s",
-			id.Permissioning)
-	}
-	registrationVersion, err := m.Comms.SendGetCurrentClientVersionMessage(
-		permissioningHost)
-	if err != nil {
-		return "", err
-	}
-	return registrationVersion.Version, nil
-}
-
 // StartRunners kicks off all network reception goroutines ("threads").
 func (m *manager) StartRunners() error {
 	if m.runners.IsRunning() {
@@ -114,7 +95,7 @@ func (m *manager) StartRunners() error {
 	m.runners.Add(m.Health)
 
 	// Node Updates
-	m.runners.Add(node.StartRegistration(m.Context, m.Comms, m.NodeRegistration)) // Adding/Keys
+	m.runners.Add(node.StartRegistration(m.Instance, m.Session, m.Rng, m.Comms, m.NodeRegistration)) // Adding/Keys
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
 
@@ -130,14 +111,9 @@ func (m *manager) StartRunners() error {
 	m.runners.Add(m.round.StartProcessors())
 
 	// Key exchange
-	m.runners.Add(keyExchange.Start(m.Context, m.message.GetTriggerGarbledCheckChannel()))
+	m.runners.Add(keyExchange.Start(m.Switchboard, m.Session, m, m.message.GetTriggerGarbledCheckChannel()))
 
 	return nil
-}
-
-func (m *manager) RegisterWithPermissioning(registrationCode string) ([]byte, error) {
-	pubKey := m.Session.User().GetCryptographicIdentity().GetRSA().GetPublic()
-	return permissioning.Register(m.Comms, pubKey, registrationCode)
 }
 
 // StopRunners stops all the reception goroutines

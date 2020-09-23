@@ -19,14 +19,15 @@ import (
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Number of rounds to store in the CheckedRound buffer
@@ -214,6 +215,25 @@ func (s *Session) Partition() *partition.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.partition
+}
+
+// SetNDF stores a network definition json file
+func (s *Session) SetNDF(ndfJSON string) error {
+	return s.Set("NetworkDefinition",
+		&versioned.Object{
+			Version:   uint64(1),
+			Data:      []byte(ndfJSON),
+			Timestamp: time.Now(),
+		})
+}
+
+// Returns the stored network definition json file
+func (s *Session) GetNDF() (string, error) {
+	ndf, err := s.Get("NetworkDefinition")
+	if err != nil {
+		return "", err
+	}
+	return string(ndf.Data), nil
 }
 
 // Get an object from the session

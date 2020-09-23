@@ -24,6 +24,7 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
 	"time"
@@ -37,7 +38,9 @@ type Session struct {
 	kv  *versioned.KV
 	mux sync.RWMutex
 
+	//memoized data
 	regStatus RegistrationStatus
+	baseNdf   *ndf.NetworkDefinition
 
 	//sub-stores
 	e2e              *e2e.Store

@@ -6,6 +6,8 @@ import (
 	"sync"
 )
 
+const conversationKeyPrefix = "conversation"
+
 type Store struct {
 	loadedConversations map[id.ID]*Conversation
 	kv                  *versioned.KV
@@ -14,6 +16,7 @@ type Store struct {
 
 //Returns a new conversation store made off of the KV
 func NewStore(kv *versioned.KV) *Store {
+	kv = kv.Prefix(conversationKeyPrefix)
 	return &Store{
 		loadedConversations: make(map[id.ID]*Conversation),
 		kv:                  kv,

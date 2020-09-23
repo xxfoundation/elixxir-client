@@ -15,6 +15,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
+//interface to increase east of testing of historical rounds
 type historicalRoundsComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	RequestHistoricalRounds(host *connect.Host,
@@ -24,8 +25,10 @@ type historicalRoundsComms interface {
 // ProcessHistoricalRounds analyzes round history to see if this Client
 // needs to check for messages at any of the gateways which completed
 // those rounds.
+// Waits to request many rounds at a time or for a timeout to trigger
 func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-chan struct{}) {
-	ticker := time.NewTicker(m.params.HistoricalRoundsPeriod)
+
+	timer := make(chan time.Time)
 
 	rng := m.Rng.GetStream()
 	var rounds []uint64
@@ -33,14 +36,17 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 	done := false
 	for !done {
 		shouldProcess := false
+		// wait for a quit or new round to check
 		select {
 		case <-quitCh:
 			rng.Close()
 			done = true
+		// if the timer elapses process rounds to ensure the delay isn't too long
 		case <-ticker.C:
 			if len(rounds) > 0 {
 				shouldProcess = true
 			}
+		// get new round to lookup and force a lookup if
 		case rid := <-m.historicalRounds:
 			rounds = append(rounds, uint64(rid))
 			if len(rounds) > int(m.params.MaxHistoricalRounds) {

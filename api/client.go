@@ -26,6 +26,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"time"
 )
 
 type Client struct {
@@ -45,6 +46,10 @@ type Client struct {
 	network interfaces.NetworkManager
 	//object used to register and communicate with permissioning
 	permissioning *permissioning.Permissioning
+
+	//contains stopables for all running threads
+	runner *stoppable.Multi
+	status *statusTracker
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -146,6 +151,8 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 		rng:         rngStreamGen,
 		comms:       nil,
 		network:     nil,
+		runner:      stoppable.NewMulti("client"),
+		status:      newStatusTracker(),
 	}
 
 	//get the user from session
@@ -207,20 +214,58 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 //	 - Message Handling Worker Group (/network/message/reception.go)
 //		Decrypts and partitions messages when signals via the Switchboard
 //	 - Health Tracker (/network/health)
-func (c *Client) StartNetworkFollower() (stoppable.Stoppable, error) {
+//		Via the network instance tracks the state of the network
+//	 -
+func (c *Client) StartNetworkFollower() error {
 	jww.INFO.Printf("StartNetworkFollower()")
-	multi := stoppable.NewMulti("client")
+
+	err := c.status.toStarting()
+	if err != nil {
+		return errors.WithMessage(err, "Failed to Start the Network Follower")
+	}
 
 	stopFollow, err := c.network.Follow()
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to start following "+
+		return errors.WithMessage(err, "Failed to start following "+
 			"the network")
 	}
-	multi.Add(stopFollow)
+	c.runner.Add(stopFollow)
 	// Key exchange
-	multi.Add(keyExchange.Start(c.switchboard, c.storage, c.network))
-	return multi, nil
+	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network))
+
+	err = c.status.toRunning()
+	if err != nil {
+		return errors.WithMessage(err, "Failed to Start the Network Follower")
+	}
+
+	return nil
 }
+
+// stops the network follower if it is running.
+// if the network follower is running nad this fails, the client object will
+// most likely be in an unrecoverable state and need to be trashed.
+func (c *Client) StopNetworkFollower(timeout time.Duration) error {
+	err := c.status.toStopping()
+	if err != nil {
+		return errors.WithMessage(err, "Failed to Stop the Network Follower")
+	}
+	err = c.runner.Close(timeout)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to Stop the Network Follower")
+	}
+	c.runner = stoppable.NewMulti("client")
+	err = c.status.toStopped()
+	if err != nil {
+		return errors.WithMessage(err, "Failed to Stop the Network Follower")
+	}
+	return nil
+}
+
+//gets the state of the network follower
+func (c *Client) NetworkFollowerStatus() Status {
+	return c.status.get()
+}
+
 
 
 

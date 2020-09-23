@@ -12,7 +12,7 @@ const keyExchangeTriggerName = "KeyExchangeTrigger"
 const keyExchangeConfirmName = "KeyExchangeConfirm"
 const keyExchangeMulti = "KeyExchange"
 
-func Start(ctx *context.Context) stoppable.Stoppable {
+func Start(ctx *context.Context, garbledMessageTrigger chan<- struct{}) stoppable.Stoppable {
 
 	// register the rekey trigger thread
 	triggerCh := make(chan message.Receive, 100)
@@ -28,7 +28,7 @@ func Start(ctx *context.Context) stoppable.Stoppable {
 		})
 
 	// start the trigger thread
-	go startTrigger(ctx, triggerCh, triggerStop)
+	go startTrigger(ctx, triggerCh, triggerStop, garbledMessageTrigger)
 
 	//register the rekey confirm thread
 	confirmCh := make(chan message.Receive, 100)

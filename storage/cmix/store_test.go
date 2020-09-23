@@ -40,7 +40,7 @@ func TestMain(m *testing.M) {
 	os.Exit(runFunc())
 }
 
-// Happy path Add/Remove test
+// Happy path Add/Done test
 func TestStore_AddRemove(t *testing.T) {
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)

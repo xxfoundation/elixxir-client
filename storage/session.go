@@ -19,13 +19,15 @@ import (
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
+	"time"
 )
 
 // Number of rounds to store in the CheckedRound buffer
@@ -36,7 +38,9 @@ type Session struct {
 	kv  *versioned.KV
 	mux sync.RWMutex
 
+	//memoized data
 	regStatus RegistrationStatus
+	baseNdf   *ndf.NetworkDefinition
 
 	//sub-stores
 	e2e              *e2e.Store
@@ -45,7 +49,7 @@ type Session struct {
 	conversations    *conversation.Store
 	partition        *partition.Store
 	criticalMessages *utility.E2eMessageBuffer
-	garbledMessages  *utility.CmixMessageBuffer
+	garbledMessages  *utility.MeteredCmixMessageBuffer
 	checkedRounds    *utility.KnownRounds
 }
 
@@ -101,7 +105,7 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.garbledMessages, err = utility.NewCmixMessageBuffer(s.kv, garbledMessagesKey)
+	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
@@ -149,7 +153,7 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
 
-	s.garbledMessages, err = utility.LoadCmixMessageBuffer(s.kv, garbledMessagesKey)
+	s.garbledMessages, err = utility.LoadMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
@@ -189,7 +193,7 @@ func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {
 	return s.criticalMessages
 }
 
-func (s *Session) GetGarbledMessages() *utility.CmixMessageBuffer {
+func (s *Session) GetGarbledMessages() *utility.MeteredCmixMessageBuffer {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.garbledMessages
@@ -211,6 +215,25 @@ func (s *Session) Partition() *partition.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.partition
+}
+
+// SetNDF stores a network definition json file
+func (s *Session) SetNDF(ndfJSON string) error {
+	return s.Set("NetworkDefinition",
+		&versioned.Object{
+			Version:   uint64(1),
+			Data:      []byte(ndfJSON),
+			Timestamp: time.Now(),
+		})
+}
+
+// Returns the stored network definition json file
+func (s *Session) GetNDF() (string, error) {
+	ndf, err := s.Get("NetworkDefinition")
+	if err != nil {
+		return "", err
+	}
+	return string(ndf.Data), nil
 }
 
 // Get an object from the session

@@ -15,53 +15,41 @@ import (
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/network/health"
-	"gitlab.com/elixxir/client/network/parse"
+	"gitlab.com/elixxir/client/network/internal"
+	"gitlab.com/elixxir/client/network/keyExchange"
+	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/network/node"
+	"gitlab.com/elixxir/client/network/permissioning"
 	"gitlab.com/elixxir/client/network/rounds"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	//	"gitlab.com/xx_network/primitives/ndf"
-	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/xx_network/primitives/ndf"
+
 	"time"
 )
 
 // Manager implements the NetworkManager interface inside context. It
 // controls access to network resources and implements all of the communications
 // functions used by the client.
-type Manager struct {
-	// Comms pointer to send/recv messages
-	Comms *client.Comms
-	// Context contains all of the keying info used to send messages
-	Context *context.Context
+type manager struct {
+	// parameters of the network
+	param params.Network
+
+	//Shared data with all sub managers
+	internal.Internal
 
 	// runners are the Network goroutines that handle reception
 	runners *stoppable.Multi
 
-	//contains the health tracker which keeps track of if from the client's
-	//perspective, the network is in good condition
-	health *health.Tracker
-
-	//contains the network instance
-	instance *network.Instance
-
-	//Partitioner
-	partitioner parse.Partitioner
-
-	//channels
-	nodeRegistration chan network.NodeGateway
-	roundUpdate      chan *pb.RoundInfo
-	historicalLookup chan id.Round
-
-	// Processing rounds
-	Processing *rounds.processing
-
-	//local pointer to user ID because it is used often
-	uid *id.ID
+	//sub-managers
+	round   *rounds.Manager
+	message *message.Manager
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(ctx *context.Context) (*Manager, error) {
+func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDefinition) (context.NetworkManager, error) {
 
 	//get the user from storage
 	user := ctx.Session.User()
@@ -80,35 +68,37 @@ func NewManager(ctx *context.Context) (*Manager, error) {
 	//start network instance
 	// TODO: Need to parse/retrieve the ntework string and load it
 	// from the context storage session!
-	instance, err := network.NewInstance(comms.ProtoComms, nil, nil, nil)
+	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
 	}
 
-	opts := params.GetDefaultNetwork()
-
-	cm := &Manager{
-		Comms:            comms,
-		Context:          ctx,
-		runners:          stoppable.NewMulti("network.Manager"),
-		health:           health.Init(ctx, 5*time.Second),
-		instance:         instance,
-		uid:              cryptoUser.GetUserID(),
-		partitioner:      parse.NewPartitioner(msgSize, ctx),
-		Processing:       rounds.NewProcessingRounds(),
-		roundUpdate:      make(chan *pb.RoundInfo, opts.NumWorkers),
-		historicalLookup: make(chan id.Round, opts.NumWorkers),
-		nodeRegistration: make(chan network.NodeGateway,
-			opts.NumWorkers),
+	//create manager object
+	m := manager{
+		param:    params,
+		runners:  stoppable.NewMulti("network.Manager"),
 	}
 
-	return cm, nil
+	m.Internal = internal.Internal{
+		Comms:            comms,
+		Health:           health.Init(ctx, 5*time.Second),
+		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
+		Instance:         instance,
+	}
+
+	m.Internal.Context = ctx
+
+	//create sub managers
+	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)
+	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel())
+
+	return &m, nil
 }
 
 // GetRemoteVersion contacts the permissioning server and returns the current
 // supported client version.
-func (m *Manager) GetRemoteVersion() (string, error) {
+func (m *manager) GetRemoteVersion() (string, error) {
 	permissioningHost, ok := m.Comms.GetHost(&id.Permissioning)
 	if !ok {
 		return "", errors.Errorf("no permissioning host with id %s",
@@ -123,62 +113,54 @@ func (m *Manager) GetRemoteVersion() (string, error) {
 }
 
 // StartRunners kicks off all network reception goroutines ("threads").
-func (m *Manager) StartRunners() error {
+func (m *manager) StartRunners() error {
 	if m.runners.IsRunning() {
 		return errors.Errorf("network routines are already running")
 	}
 
-	// Start the Network Tracker
-	m.runners.Add(rounds.StartTrackNetwork(m.Context, m))
-	// Message reception
-	m.runners.Add(StartMessageReceivers(m.Context, m))
-	// Node Updates
-	m.runners.Add(StartNodeKeyExchange(m.Context, m)) // Adding/Keys
-	m.runners.Add(StartNodeRemover(m.Context))        // Removing
-	// Round history processing
-	m.runners.Add(StartProcessHistoricalRounds(m.Context, m))
 	// health tracker
-	m.health.Start()
-	m.runners.Add(m.health)
+	m.Health.Start()
+	m.runners.Add(m.Health)
+
+	// Node Updates
+	m.runners.Add(node.StartRegistration(m.Context, m.Comms, m.NodeRegistration)) // Adding/Keys
+	//TODO-remover
+	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
+
+	// Start the Network Tracker
+	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
+	go m.trackNetwork(trackNetworkStopper.Quit())
+	m.runners.Add(trackNetworkStopper)
+
+	// Message reception
+	m.runners.Add(m.message.StartProcessies())
+
+	// Round processing
+	m.runners.Add(m.round.StartProcessors())
+
+	// Key exchange
+	m.runners.Add(keyExchange.Start(m.Context, m.message.GetTriggerGarbledCheckChannel()))
 
 	return nil
 }
 
-// GetRunners returns the network goroutines such that they can be named
-// and stopped.
-func (m *Manager) GetRunners() stoppable.Stoppable {
-	return m.runners
+func (m *manager) RegisterWithPermissioning(registrationCode string) ([]byte, error) {
+	pubKey := m.Session.User().GetCryptographicIdentity().GetRSA().GetPublic()
+	return permissioning.Register(m.Comms, pubKey, registrationCode)
 }
 
 // StopRunners stops all the reception goroutines
-func (m *Manager) StopRunners(timeout time.Duration) error {
-	err := m.runners.Close(timeout)
-	m.runners = stoppable.NewMulti("network.Manager")
-	return err
+func (m *manager) GetStoppable() stoppable.Stoppable {
+	return m.runners
 }
 
 // GetHealthTracker returns the health tracker
-func (m *Manager) GetHealthTracker() context.HealthTracker {
-	return m.health
+func (m *manager) GetHealthTracker() context.HealthTracker {
+	return m.Health
 }
 
 // GetInstance returns the network instance object (ndf state)
-func (m *Manager) GetInstance() *network.Instance {
-	return m.instance
+func (m *manager) GetInstance() *network.Instance {
+	return m.Instance
 }
 
-// GetNodeRegistrationCh returns node registration channel for node
-// events.
-func (m *Manager) GetNodeRegistrationCh() chan network.NodeGateway {
-	return m.nodeRegistration
-}
-
-// GetRoundUpdateCh returns the network managers round update channel
-func (m *Manager) GetRoundUpdateCh() chan *pb.RoundInfo {
-	return m.roundUpdate
-}
-
-// GetHistoricalLookupCh returns the historical round lookup channel
-func (m *Manager) GetHistoricalLookupCh() chan id.Round {
-	return m.historicalLookup
-}

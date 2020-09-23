@@ -164,7 +164,7 @@ func (s *Session) save() error {
 }
 
 /*METHODS*/
-// Remove all unused key fingerprints
+// Done all unused key fingerprints
 // Delete this session and its key states from the storage
 func (s *Session) Delete() {
 	s.mux.Lock()

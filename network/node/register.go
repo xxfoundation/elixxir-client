@@ -33,19 +33,19 @@ type RegisterNodeCommsInterface interface {
 		message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error)
 }
 
-func StartRegistration(ctx context.Context, comms RegisterNodeCommsInterface) stoppable.Stoppable {
+func StartRegistration(ctx *context.Context, comms RegisterNodeCommsInterface,
+	c chan network.NodeGateway) stoppable.Stoppable {
 	stop := stoppable.NewSingle("NodeRegistration")
 	instance := ctx.Manager.GetInstance()
 
-	c := make(chan network.NodeGateway, 100)
 	instance.SetAddGatewayChan(c)
 
-	go RegisterNodes(ctx, comms, stop, c)
+	go registerNodes(ctx, comms, stop, c)
 
 	return stop
 }
 
-func RegisterNodes(ctx context.Context, comms RegisterNodeCommsInterface,
+func registerNodes(ctx *context.Context, comms RegisterNodeCommsInterface,
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := ctx.Session.User()
 	regSignature := u.GetRegistrationValidationSignature()

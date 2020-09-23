@@ -20,11 +20,12 @@ import (
 	"time"
 )
 
+const prefix = "cmix"
 const currentStoreVersion = 0
-const storeKey = "cmixKeyStore"
-const pubKeyKey = "cmixDhPubKey"
-const privKeyKey = "cmixDhPrivKey"
-const grpKey = "cmixGroupKey"
+const storeKey = "KeyStore"
+const pubKeyKey = "DhPubKey"
+const privKeyKey = "DhPrivKey"
+const grpKey = "GroupKey"
 
 type Store struct {
 	nodes        map[id.ID]*key
@@ -42,6 +43,7 @@ type Store struct {
 func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, error) {
 	//generate public key
 	pub := diffieHellman.GeneratePublicKey(priv, grp)
+	kv = kv.Prefix(prefix)
 
 	s := &Store{
 		nodes:        make(map[id.ID]*key),
@@ -75,6 +77,7 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, er
 
 // loads the cmix storage object
 func LoadStore(kv *versioned.KV) (*Store, error) {
+	kv = kv.Prefix(prefix)
 	s := &Store{
 		nodes: make(map[id.ID]*key),
 		kv:    kv,
@@ -108,7 +111,7 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	}
 }
 
-// Remove a Node key from the nodes map and save
+// Done a Node key from the nodes map and save
 func (s *Store) Remove(nid *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()

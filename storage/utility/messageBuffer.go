@@ -261,17 +261,17 @@ func next(msgMap map[MessageHash]struct{}) MessageHash {
 	return MessageHash{}
 }
 
-// Succeeded sets a messaged as processed and removed it from the buffer.
+// Remove sets a messaged as processed and removed it from the buffer.
 func (mb *MessageBuffer) Succeeded(m interface{}) {
 	h := mb.handler.HashMessage(m)
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
 
-	// Remove message from buffer
+	// Done message from buffer
 	delete(mb.processingMessages, h)
 
-	// Remove message from key value store
+	// Done message from key value store
 	err := mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 	if err != nil {
 		jww.FATAL.Fatalf("Failed to save: %v", err)
@@ -292,7 +292,7 @@ func (mb *MessageBuffer) Failed(m interface{}) {
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
 
-	// Remove from "processing" state
+	// Done from "processing" state
 	delete(mb.processingMessages, h)
 
 	// Add to "not processed" state

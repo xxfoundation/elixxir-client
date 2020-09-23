@@ -40,5 +40,4 @@ func TestNewTracker(t *testing.T) {
 
 	quit := make(chan struct{})
 	go tracker.start(quit)
-
 }

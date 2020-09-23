@@ -11,7 +11,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/primitives/utils"
 )
 
@@ -19,8 +19,8 @@ import (
 const currentVersion = "1.4.0"
 
 func printVersion() {
-	fmt.Printf("Elixxir Client v%s -- %s\n\n", globals.SEMVER, globals.GITVERSION)
-	fmt.Printf("Dependencies:\n\n%s\n", globals.DEPENDENCIES)
+	fmt.Printf("Elixxir Client v%s -- %s\n\n", api.SEMVER, api.GITVERSION)
+	fmt.Printf("Dependencies:\n\n%s\n", api.DEPENDENCIES)
 }
 
 func init() {

@@ -4,25 +4,25 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 )
 
-func startConfirm(ctx *context.Context, c chan message.Receive,
+func startConfirm(sess *storage.Session, c chan message.Receive,
 	stop *stoppable.Single) {
 	for true {
 		select {
 		case <-stop.Quit():
 			return
 		case confirmation := <-c:
-			handleConfirm(ctx, confirmation)
+			handleConfirm(sess, confirmation)
 		}
 	}
 }
 
-func handleConfirm(ctx *context.Context, confirmation message.Receive) {
+func handleConfirm(sess *storage.Session, confirmation message.Receive) {
 	//ensure the message was encrypted properly
 	if confirmation.Encryption != message.E2E {
 		jww.ERROR.Printf("Received non-e2e encrypted Key Exchange "+
@@ -31,7 +31,7 @@ func handleConfirm(ctx *context.Context, confirmation message.Receive) {
 	}
 
 	//Get the partner
-	partner, err := ctx.Session.E2e().GetPartner(confirmation.Sender)
+	partner, err := sess.E2e().GetPartner(confirmation.Sender)
 	if err != nil {
 		jww.ERROR.Printf("Received Key Exchange Confirmation with unknown "+
 			"partner %s", confirmation.Sender)

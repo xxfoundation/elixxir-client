@@ -15,8 +15,6 @@ type NetworkManager interface {
 	SendCMIX(message format.Message, p params.CMIX) (id.Round, error)
 	GetInstance() *network.Instance
 	GetHealthTracker() HealthTracker
-	RegisterWithPermissioning(string) ([]byte, error)
-	GetRemoteVersion() (string, error)
 	GetStoppable() stoppable.Stoppable
 }
 

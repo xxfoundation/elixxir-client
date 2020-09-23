@@ -42,8 +42,11 @@ func (m *Manager) GetMessageReceptionChannel() chan<- Bundle {
 }
 
 //Gets the channel to send received messages on
-func (m *Manager) GetTriggerGarbledCheckChannel() chan<- struct{} {
-	return m.triggerGarbled
+func (m *Manager) CheckGarbledMessages() {
+	select {
+	case m.triggerGarbled <- struct{}{}:
+	default:
+	}
 }
 
 //Starts all worker pool

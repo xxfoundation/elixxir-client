@@ -15,7 +15,8 @@ type NetworkManager interface {
 	SendCMIX(message format.Message, p params.CMIX) (id.Round, error)
 	GetInstance() *network.Instance
 	GetHealthTracker() HealthTracker
-	GetStoppable() stoppable.Stoppable
+	Follow() (stoppable.Stoppable, error)
+	CheckGarbledMessages()
 }
 
 //for use in key exchange which needs to be callable inside of network

@@ -11,6 +11,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/permissioning"
 	"gitlab.com/elixxir/client/stoppable"
@@ -50,13 +51,13 @@ type Client struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(defJSON, storageDir string, password []byte) (*Client, error) {
+func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) (*Client, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
-	def, err := parseNDF(defJSON)
+	def, err := parseNDF(ndfJSON)
 	if err != nil {
 		return nil, err
 	}
@@ -75,6 +76,9 @@ func NewClient(defJSON, storageDir string, password []byte) (*Client, error) {
 
 	// Save NDF to be used in the future
 	storageSess.SetBaseNDF(def)
+
+	//store the registration code for later use
+	storageSess.SetRegCode(registrationCode)
 
 	//execute the rest of the loading as normal
 	return loadClient(storageSess, rngStreamGen)
@@ -187,18 +191,38 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 	return c, nil
 }
 
-
-
-
 // ----- Client Functions -----
+// StartNetworkFollower kicks off the tracking of the network. It starts
+// long running network client threads and returns an object for checking
+// state and stopping those threads.
+// Call this when returning from sleep and close when going back to
+// sleep.
+// Threads Started:
+//   - Network Follower (/network/follow.go)
+//   	tracks the network events and hands them off to workers for handling
+//   - Historical Round Retrieval (/network/rounds/historical.go)
+//		Retrieves data about rounds which are too old to be stored by the client
+//	 - Message Retrieval Worker Group (/network/rounds/retreive.go)
+//		Requests all messages in a given round from the gateway of the last node
+//	 - Message Handling Worker Group (/network/message/reception.go)
+//		Decrypts and partitions messages when signals via the Switchboard
+//	 - Health Tracker (/network/health)
+func (c *Client) StartNetworkFollower() (stoppable.Stoppable, error) {
+	jww.INFO.Printf("StartNetworkFollower()")
+	multi := stoppable.NewMulti("client")
 
-// RegisterListener registers a listener callback function that is called
-// every time a new message matches the specified parameters.
-func (c *Client) RegisterListenerCb(uid id.ID, msgType int, username string,
-	listenerCb func(msg Message)) {
-	jww.INFO.Printf("RegisterListener(%s, %d, %s, func())", uid, msgType,
-		username)
+	stopFollow, err := c.network.Follow()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to start following "+
+			"the network")
+	}
+	multi.Add(stopFollow)
+	// Key exchange
+	multi.Add(keyExchange.Start(c.switchboard, c.storage, c.network))
+	return multi, nil
 }
+
+
 
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
@@ -229,6 +253,14 @@ func (c *Client) SendUnsafe(payload []byte, recipient id.ID, msgType int) ([]int
 func (c *Client) SendCMIX(payload []byte, recipient id.ID) (int, error) {
 	jww.INFO.Printf("SendCMIX(%s, %s)", payload, recipient)
 	return 0, nil
+}
+
+// RegisterListener registers a listener callback function that is called
+// every time a new message matches the specified parameters.
+func (c *Client) RegisterListenerCb(uid id.ID, msgType int, username string,
+	listenerCb func(msg Message)) {
+	jww.INFO.Printf("RegisterListener(%s, %d, %s, func())", uid, msgType,
+		username)
 }
 
 // RegisterForNotifications allows a client to register for push
@@ -393,15 +425,6 @@ func (c *Client) RegisterAuthConfirmationCb(cb func(contact Contact,
 func (c *Client) RegisterAuthRequestCb(cb func(contact Contact,
 	payload []byte)) {
 	jww.INFO.Printf("RegisterAuthRequestCb(...)")
-}
-
-// StartNetworkRunner kicks off the longrunning network client threads
-// and returns an object for checking state and stopping those threads.
-// Call this when returning from sleep and close when going back to
-// sleep.
-func (c *Client) StartNetworkRunner() stoppable.Stoppable {
-	jww.INFO.Printf("StartNetworkRunner()")
-	return nil
 }
 
 // RegisterRoundEventsCb registers a callback for round

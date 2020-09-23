@@ -14,10 +14,16 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/context"
+	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/context/switchboard"
+	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
@@ -36,32 +42,68 @@ type Client struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(network, storageDir string, password []byte) (*Client, error) {
+func NewClient(netJSON, storageDir string, password []byte) (*Client, error) {
 	if clientStorageExists(storageDir) {
 		return nil, errors.Errorf("client already exists at %s",
 			storageDir)
 	}
 
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
+
 	// Parse the NDF
-	//ndf, err := parseNDF(network)
-	//if err != nil {
-	//	return nil, err
-	//}
+	ndf, err := parseNDF(netJSON)
+	if err != nil {
+		return nil, err
+	}
+	cmixGrp, e2eGrp := decodeGroups(ndf)
+
+	user := createNewUser(rngStream, cmixGrp, e2eGrp)
 
 	// Create Storage
+	passwordStr := string(password)
+	storageSess, err := storage.New(storageDir, passwordStr,
+		user.UID, user.Salt, user.RSAKey, user.IsPrecanned,
+		user.CMixKey, user.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
 
-	// Create network, context, switchboard
+	// Save NDF to be used in the future
+	err = storageSess.SetNDF(netJSON)
+	if err != nil {
+		return nil, err
+	}
 
-	// Generate Keys
+	// Set up a new context
+	ctx := &context.Context{
+		Session:     storageSess,
+		Switchboard: switchboard.New(),
+		Rng:         rngStreamGen,
+		Manager:     nil,
+	}
 
-	// Register with network
+	// Initialize network and link it to context
+	netman, err := network.NewManager(ctx, params.GetDefaultNetwork(), ndf)
+	if err != nil {
+		return nil, err
+	}
+	ctx.Manager = netman
 
 	client := &Client{
-		storage:     nil,
-		ctx:         nil,
-		switchboard: nil,
-		network:     nil,
+		storage:     storageSess,
+		ctx:         ctx,
+		switchboard: ctx.Switchboard,
+		network:     netman,
 	}
+
+	// Now register with network, note that regCode is no longer required
+	err = client.RegisterWithPermissioning("")
+	if err != nil {
+		return nil, err
+	}
+
 	return client, nil
 }
 
@@ -72,16 +114,47 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 			storageDir)
 	}
 
-	// Load Storage
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
-	// Load and create network, context, switchboard
+	// Load Storage
+	passwordStr := string(password)
+	storageSess, err := storage.Load(storageDir, passwordStr, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
+
+	netJSON, err := storageSess.GetNDF()
+	if err != nil {
+		return nil, err
+	}
+	ndf, err := parseNDF(string(netJSON))
+	if err != nil {
+		return nil, err
+	}
+
+	// Set up a new context
+	ctx := &context.Context{
+		Session:     storageSess,
+		Switchboard: switchboard.New(),
+		Rng:         rngStreamGen,
+		Manager:     nil,
+	}
+
+	// Initialize network and link it to context
+	netman, err := network.NewManager(ctx, params.GetDefaultNetwork(), ndf)
+	if err != nil {
+		return nil, err
+	}
+	ctx.Manager = netman
 
 	client := &Client{
-		storage:     nil,
-		ctx:         nil,
-		switchboard: nil,
-		network:     nil,
+		storage:     storageSess,
+		ctx:         ctx,
+		switchboard: ctx.Switchboard,
+		network:     netman,
 	}
+
 	return client, nil
 }
 
@@ -371,4 +444,20 @@ func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	}
 
 	return ndf, nil
+}
+
+// decodeGroups returns the e2e and cmix groups from the ndf
+func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
+	largeIntBits := 16
+
+	//Generate the cmix group
+	cmixGrp = cyclic.NewGroup(
+		large.NewIntFromString(ndf.CMIX.Prime, largeIntBits),
+		large.NewIntFromString(ndf.CMIX.Generator, largeIntBits))
+	//Generate the e2e group
+	e2eGrp = cyclic.NewGroup(
+		large.NewIntFromString(ndf.E2E.Prime, largeIntBits),
+		large.NewIntFromString(ndf.E2E.Generator, largeIntBits))
+
+	return cmixGrp, e2eGrp
 }

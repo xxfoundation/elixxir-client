@@ -13,7 +13,6 @@ import (
 	"time"
 )
 
-
 // Internal send e2e which bypasses the network check, for use in SendE2E and
 // SendUnsafe which do their own network checks
 func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {

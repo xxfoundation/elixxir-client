@@ -145,7 +145,6 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
 	m := newManager(&s.context, s.kv, partnerID, s.dhPrivateKey, partnerPubKey, sendParams, receiveParams)
 
 	s.managers[*partnerID] = m
-
 	if err := s.save(); err != nil {
 		jww.FATAL.Printf("Failed to add Parter %s: Save of store "+
 			"failed: %s", partnerID, err)
@@ -284,7 +283,6 @@ func (f *fingerprints) Check(fingerprint format.Fingerprint) bool {
 	_, ok := f.toKey[fingerprint]
 	return ok
 }
-
 
 func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, bool) {
 	f.mux.Lock()

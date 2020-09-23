@@ -7,12 +7,12 @@
 package rounds
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 type historicalRoundsComms interface {

@@ -81,7 +81,7 @@ func (t *Tracker) Start() {
 			"is already running")
 	}
 
-	go t.start(t.Quit())
+	//go t.start(t.Quit())
 }
 
 // Long-running thread used to monitor and report on network health

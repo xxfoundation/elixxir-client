@@ -25,8 +25,8 @@ type Manager struct {
 func NewManager(internal internal.Internal, params params.Rounds,
 	bundles chan<- message.Bundle) *Manager {
 	m := &Manager{
-		params:   params,
-		p:        newProcessingRounds(),
+		params: params,
+		p:      newProcessingRounds(),
 
 		historicalRounds:    make(chan id.Round, params.HistoricalRoundsBufferLen),
 		lookupRoundMessages: make(chan *mixmessages.RoundInfo, params.LookupRoundsBufferLen),

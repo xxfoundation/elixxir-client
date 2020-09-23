@@ -65,8 +65,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	//create manager object
 	m := manager{
-		param:    params,
-		runners:  stoppable.NewMulti("network.Manager"),
+		param:   params,
+		runners: stoppable.NewMulti("network.Manager"),
 	}
 
 	m.Internal = internal.Internal{

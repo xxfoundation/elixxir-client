@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/large"
@@ -96,11 +97,6 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 	}
 
 	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey, rng)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
-	}
-
-	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
@@ -297,5 +293,18 @@ func InitTestingSession(i interface{}) *Session {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
 	}
 	s.cmix = cmix
+
+	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2),
+		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))
+	if err != nil {
+		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
+	}
+	s.e2e = e2eStore
+
+	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy critical messages: %+v", err)
+	}
+
 	return s
 }

@@ -13,7 +13,6 @@ import (
 )
 
 const (
-	conversationKeyPrefix      = "conversation"
 	currentConversationVersion = 0
 	maxTruncatedID             = math.MaxUint32
 	bottomRegion               = maxTruncatedID / 4
@@ -182,5 +181,5 @@ func (c *Conversation) marshal() ([]byte, error) {
 }
 
 func makeConversationKey(partner *id.ID) string {
-	return conversationKeyPrefix + ":" + partner.String()
+	return partner.String()
 }

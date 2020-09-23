@@ -10,7 +10,6 @@ package health
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"sync"
@@ -32,10 +31,10 @@ type Tracker struct {
 }
 
 // Creates a single HealthTracker thread, starts it, and returns a tracker and a stoppable
-func Init(ctx *context.Context, timeout time.Duration) *Tracker {
+func Init(instance *network.Instance, timeout time.Duration) *Tracker {
 
 	tracker := newTracker(timeout)
-	ctx.Manager.GetInstance().SetNetworkHealthChan(tracker.heartbeat)
+	instance.SetNetworkHealthChan(tracker.heartbeat)
 
 	return tracker
 }

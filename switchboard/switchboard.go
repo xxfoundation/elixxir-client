@@ -135,7 +135,7 @@ func (sw *Switchboard) Speak(item message.Receive) {
 	//Execute hear on all matched listeners in a new goroutine
 	matches.Do(func(i interface{}) {
 		r := i.(Listener)
-		go r.Hear(item)
+		go Hear(item)
 	})
 
 	// print to log if nothing was heard

@@ -1,8 +1,8 @@
 package context
 
 import (
-	"gitlab.com/elixxir/client/context/switchboard"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/crypto/fastRNG"
 )
 

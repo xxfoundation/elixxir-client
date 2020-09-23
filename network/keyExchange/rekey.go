@@ -10,21 +10,25 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
 	"gitlab.com/elixxir/client/context/message"
 	"gitlab.com/elixxir/client/context/params"
 	"gitlab.com/elixxir/client/context/utility"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
-func CheckKeyExchanges(ctx *context.Context, manager *e2e.Manager) {
+type SendE2E func(msg message.Send, param params.E2E) ([]id.Round, error)
+
+func CheckKeyExchanges(instance *network.Instance, sendE2E SendE2E, sess *storage.Session, manager *e2e.Manager) {
 	sessions := manager.TriggerNegotiations()
-	for _, ses := range sessions {
-		go trigger(ctx, manager, ses)
+	for _, session := range sessions {
+		go trigger(instance, sendE2E, sess, manager, session)
 	}
 }
 
@@ -32,7 +36,7 @@ func CheckKeyExchanges(ctx *context.Context, manager *e2e.Manager) {
 // session and negotiation, or resenting a negotiation for an already created
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extand
-func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
+func trigger(instance *network.Instance, sendE2E SendE2E, sess *storage.Session, manager *e2e.Manager, session *e2e.Session) {
 	var negotiatingSession *e2e.Session
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
@@ -52,7 +56,7 @@ func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
 	}
 
 	// send the rekey notification to the partner
-	err := negotiate(ctx, negotiatingSession)
+	err := negotiate(instance, sendE2E, sess, negotiatingSession)
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
@@ -61,8 +65,8 @@ func trigger(ctx *context.Context, manager *e2e.Manager, session *e2e.Session) {
 	}
 }
 
-func negotiate(ctx *context.Context, session *e2e.Session) error {
-	e2eStore := ctx.Session.E2e()
+func negotiate(instance *network.Instance, sendE2E SendE2E, sess *storage.Session, session *e2e.Session) error {
+	e2eStore := sess.E2e()
 
 	//generate public key
 	pubKey := diffieHellman.GeneratePublicKey(session.GetMyPrivKey(),
@@ -91,7 +95,7 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
 
-	rounds, err := ctx.Manager.SendE2E(m, e2eParams)
+	rounds, err := sendE2E(m, e2eParams)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will
 	// be triggered next time a key is used
@@ -104,7 +108,7 @@ func negotiate(ctx *context.Context, session *e2e.Session) error {
 	sendResults := make(chan ds.EventReturn, len(rounds))
 
 	//Register the event for all rounds
-	roundEvents := ctx.Manager.GetInstance().GetRoundEvents()
+	roundEvents := instance.GetRoundEvents()
 	for _, r := range rounds {
 		roundEvents.AddRoundEventChan(r, sendResults, 1*time.Minute,
 			states.COMPLETED, states.FAILED)

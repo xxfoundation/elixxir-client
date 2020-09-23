@@ -21,8 +21,11 @@ import (
 	"gitlab.com/elixxir/client/network/node"
 	"gitlab.com/elixxir/client/network/permissioning"
 	"gitlab.com/elixxir/client/network/rounds"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -49,25 +52,11 @@ type manager struct {
 }
 
 // NewManager builds a new reception manager object using inputted key fields
-func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDefinition) (context.NetworkManager, error) {
-
-	//get the user from storage
-	user := ctx.Session.User()
-	cryptoUser := user.GetCryptographicIdentity()
-
-	//start comms
-	comms, err := client.NewClientComms(cryptoUser.GetUserID(),
-		rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic()),
-		rsa.CreatePrivateKeyPem(cryptoUser.GetRSA()),
-		cryptoUser.GetSalt())
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to create"+
-			" client network manager")
-	}
+func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
+	rng *fastRNG.StreamGenerator, comms *client.Comms,
+	params params.Network, ndf *ndf.NetworkDefinition) (context.NetworkManager, error) {
 
 	//start network instance
-	// TODO: Need to parse/retrieve the ntework string and load it
-	// from the context storage session!
 	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
@@ -81,13 +70,15 @@ func NewManager(ctx *context.Context, params params.Network, ndf *ndf.NetworkDef
 	}
 
 	m.Internal = internal.Internal{
+		Session:          session,
+		Switchboard:      switchboard,
+		Rng:              rng,
 		Comms:            comms,
-		Health:           health.Init(ctx, 5*time.Second),
+		Health:           health.Init(instance, 5*time.Second),
 		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
+		Uid:              session.User().GetCryptographicIdentity().GetUserID(),
 	}
-
-	m.Internal.Context = ctx
 
 	//create sub managers
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)

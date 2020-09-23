@@ -43,7 +43,7 @@ func (m *Multi) Name() string {
 	m.mux.RLock()
 	names := m.name + ": {"
 	for _, s := range m.stoppables {
-		names += s.Name() + ", "
+		names += Name() + ", "
 	}
 	if len(m.stoppables) > 0 {
 		names = names[:len(names)-2]
@@ -69,7 +69,7 @@ func (m *Multi) Close(timeout time.Duration) error {
 			for _, stoppable := range m.stoppables {
 				wg.Add(1)
 				go func(stoppable Stoppable) {
-					if stoppable.Close(timeout) != nil {
+					if Close(timeout) != nil {
 						atomic.AddUint32(&numErrors, 1)
 					}
 					wg.Done()

@@ -5,11 +5,10 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
-	"gitlab.com/elixxir/client/context/utility"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -23,14 +22,14 @@ const (
 	errUnknown    = "unknown trigger from partner %s"
 )
 
-func startTrigger(sess *storage.Session, net context.NetworkManager, c chan message.Receive,
-	stop *stoppable.Single, garbledMessageTrigger chan<- struct{}) {
+func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
+	c chan message.Receive, quitCh <-chan struct{}) {
 	for true {
 		select {
-		case <-stop.Quit():
+		case <-quitCh:
 			return
 		case request := <-c:
-			err := handleTrigger(sess, net, request, garbledMessageTrigger)
+			err := handleTrigger(sess, net, request)
 			if err != nil {
 				jww.ERROR.Printf("Failed to handle rekey trigger: %s",
 					err)
@@ -39,8 +38,8 @@ func startTrigger(sess *storage.Session, net context.NetworkManager, c chan mess
 	}
 }
 
-func handleTrigger(sess *storage.Session, net context.NetworkManager, request message.Receive,
-	garbledMessageTrigger chan<- struct{}) error {
+func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
+	request message.Receive) error {
 	//ensure the message was encrypted properly
 	if request.Encryption != message.E2E {
 		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
@@ -86,13 +85,9 @@ func handleTrigger(sess *storage.Session, net context.NetworkManager, request me
 			"create session %s for partner %s is a duplicate, request ignored",
 			session.GetID(), request.Sender)
 	} else {
-		//if the session is new, attempt to trigger garbled message processing
-		//if there is contention, skip
-		select {
-		case garbledMessageTrigger <- struct{}{}:
-		default:
-			jww.WARN.Println("Failed to trigger garbled messages")
-		}
+		// if the session is new, attempt to trigger garbled message processing
+		// automatically skips if there is contention
+		net.CheckGarbledMessages()
 	}
 
 	//Send the Confirmation Message

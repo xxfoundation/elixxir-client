@@ -7,113 +7,121 @@
 package api
 
 import (
-	"bufio"
-	"crypto"
-	"crypto/sha256"
-	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
-	"gitlab.com/elixxir/client/context/switchboard"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/permissioning"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"strings"
 )
 
 type Client struct {
+	//generic RNG for client
+	rng *fastRNG.StreamGenerator
+	// the storage session securely stores data to disk and memoizes as is
+	// appropriate
 	storage     *storage.Session
-	ctx         *context.Context
+	//the switchboard is used for inter-process signaling about received messages
 	switchboard *switchboard.Switchboard
-	network     context.NetworkManager
+	//object used for communications
+	comms *client.Comms
+
+	// note that the manager has a pointer to the context in many cases, but
+	// this interface allows it to be mocked for easy testing without the
+	// loop
+	network interfaces.NetworkManager
+	//object used to register and communicate with permissioning
+	permissioning *permissioning.Permissioning
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(netJSON, storageDir string, password []byte) (*Client, error) {
-	if clientStorageExists(storageDir) {
-		return nil, errors.Errorf("client already exists at %s",
-			storageDir)
-	}
-
+func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) (*Client, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
-	ndf, err := parseNDF(netJSON)
+	def, err := parseNDF(ndfJSON)
 	if err != nil {
 		return nil, err
 	}
-	cmixGrp, e2eGrp := decodeGroups(ndf)
+	cmixGrp, e2eGrp := decodeGroups(def)
 
-	user := createNewUser(rngStream, cmixGrp, e2eGrp)
+	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
 
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr,
-		user.UID, user.Salt, user.RSAKey, user.IsPrecanned,
-		user.CMixKey, user.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
+		protoUser.UID, protoUser.Salt, protoUser.RSAKey, protoUser.IsPrecanned,
+		protoUser.CMixKey, protoUser.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
 
 	// Save NDF to be used in the future
-	err = storageSess.SetNDF(netJSON)
-	if err != nil {
-		return nil, err
-	}
+	storageSess.SetBaseNDF(def)
 
-	// Set up a new context
-	ctx := &context.Context{
-		Session:     storageSess,
-		Switchboard: switchboard.New(),
-		Rng:         rngStreamGen,
-		Manager:     nil,
-	}
+	//store the registration code for later use
+	storageSess.SetRegCode(registrationCode)
 
-	// Initialize network and link it to context
-	netman, err := network.NewManager(ctx, params.GetDefaultNetwork(), ndf)
-	if err != nil {
-		return nil, err
-	}
-	ctx.Manager = netman
-
-	client := &Client{
-		storage:     storageSess,
-		ctx:         ctx,
-		switchboard: ctx.Switchboard,
-		network:     netman,
-	}
-
-	// Now register with network, note that regCode is no longer required
-	err = client.RegisterWithPermissioning("")
-	if err != nil {
-		return nil, err
-	}
-
-	return client, nil
+	//execute the rest of the loading as normal
+	return loadClient(storageSess, rngStreamGen)
 }
+
+// NewPrecannedClient creates an insecure user with predetermined keys with nodes
+// It creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information
+// at a later date.
+func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) (*Client, error) {
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
+
+	// Parse the NDF
+	def, err := parseNDF(defJSON)
+	if err != nil {
+		return nil, err
+	}
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
+
+	// Create Storage
+	passwordStr := string(password)
+	storageSess, err := storage.New(storageDir, passwordStr,
+		protoUser.UID, protoUser.Salt, protoUser.RSAKey, protoUser.IsPrecanned,
+		protoUser.CMixKey, protoUser.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save NDF to be used in the future
+	storageSess.SetBaseNDF(def)
+
+	//execute the rest of the loading as normal
+	return loadClient(storageSess, rngStreamGen)
+}
+
 
 // LoadClient initalizes a client object from existing storage.
 func LoadClient(storageDir string, password []byte) (*Client, error) {
-	if !clientStorageExists(storageDir) {
-		return nil, errors.Errorf("client does not exist at %s",
-			storageDir)
-	}
-
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
@@ -124,49 +132,97 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 		return nil, err
 	}
 
-	netJSON, err := storageSess.GetNDF()
-	if err != nil {
-		return nil, err
-	}
-	ndf, err := parseNDF(string(netJSON))
-	if err != nil {
-		return nil, err
-	}
+	//execute the rest of the loading as normal
+	return loadClient(storageSess, rngStreamGen)
+}
+
+// LoadClient initalizes a client object from existing storage.
+func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator) (c *Client, err error) {
 
 	// Set up a new context
-	ctx := &context.Context{
-		Session:     storageSess,
-		Switchboard: switchboard.New(),
-		Rng:         rngStreamGen,
-		Manager:     nil,
+	c = &Client{
+		storage:     session,
+		switchboard: switchboard.New(),
+		rng:         rngStreamGen,
+		comms:       nil,
+		network:     nil,
+	}
+
+	//get the user from session
+	user := c.storage.User()
+	cryptoUser := user.GetCryptographicIdentity()
+
+	//start comms
+	c.comms, err = client.NewClientComms(cryptoUser.GetUserID(),
+		rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic()),
+		rsa.CreatePrivateKeyPem(cryptoUser.GetRSA()),
+		cryptoUser.GetSalt())
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to load client")
+	}
+
+	//get the NDF to pass into permissioning and the network manager
+	def := session.GetBaseNDF()
+
+	//initialize permissioning
+	c.permissioning, err = permissioning.Init(c.comms, def)
+
+	// check the client version is up to date to the network
+	err = c.checkVersion()
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to load client")
+	}
+
+	//register with permissioning if necessary
+	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+		err = c.registerWithPermissioning()
+		if err != nil {
+			return nil, errors.WithMessage(err, "failed to load client")
+		}
 	}
 
 	// Initialize network and link it to context
-	netman, err := network.NewManager(ctx, params.GetDefaultNetwork(), ndf)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
+		params.GetDefaultNetwork(), def)
 	if err != nil {
 		return nil, err
 	}
-	ctx.Manager = netman
 
-	client := &Client{
-		storage:     storageSess,
-		ctx:         ctx,
-		switchboard: ctx.Switchboard,
-		network:     netman,
-	}
-
-	return client, nil
+	return c, nil
 }
 
 // ----- Client Functions -----
+// StartNetworkFollower kicks off the tracking of the network. It starts
+// long running network client threads and returns an object for checking
+// state and stopping those threads.
+// Call this when returning from sleep and close when going back to
+// sleep.
+// Threads Started:
+//   - Network Follower (/network/follow.go)
+//   	tracks the network events and hands them off to workers for handling
+//   - Historical Round Retrieval (/network/rounds/historical.go)
+//		Retrieves data about rounds which are too old to be stored by the client
+//	 - Message Retrieval Worker Group (/network/rounds/retreive.go)
+//		Requests all messages in a given round from the gateway of the last node
+//	 - Message Handling Worker Group (/network/message/reception.go)
+//		Decrypts and partitions messages when signals via the Switchboard
+//	 - Health Tracker (/network/health)
+func (c *Client) StartNetworkFollower() (stoppable.Stoppable, error) {
+	jww.INFO.Printf("StartNetworkFollower()")
+	multi := stoppable.NewMulti("client")
 
-// RegisterListener registers a listener callback function that is called
-// every time a new message matches the specified parameters.
-func (c *Client) RegisterListenerCb(uid id.ID, msgType int, username string,
-	listenerCb func(msg Message)) {
-	jww.INFO.Printf("RegisterListener(%s, %d, %s, func())", uid, msgType,
-		username)
+	stopFollow, err := c.network.Follow()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to start following "+
+			"the network")
+	}
+	multi.Add(stopFollow)
+	// Key exchange
+	multi.Add(keyExchange.Start(c.switchboard, c.storage, c.network))
+	return multi, nil
 }
+
+
 
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
@@ -197,6 +253,14 @@ func (c *Client) SendUnsafe(payload []byte, recipient id.ID, msgType int) ([]int
 func (c *Client) SendCMIX(payload []byte, recipient id.ID) (int, error) {
 	jww.INFO.Printf("SendCMIX(%s, %s)", payload, recipient)
 	return 0, nil
+}
+
+// RegisterListener registers a listener callback function that is called
+// every time a new message matches the specified parameters.
+func (c *Client) RegisterListenerCb(uid id.ID, msgType int, username string,
+	listenerCb func(msg Message)) {
+	jww.INFO.Printf("RegisterListener(%s, %d, %s, func())", uid, msgType,
+		username)
 }
 
 // RegisterForNotifications allows a client to register for push
@@ -283,7 +347,7 @@ func (c *Client) RegisterPhone(phone string) ([]byte, error) {
 }
 
 // ConfirmRegistration sends the user discovery agent a confirmation
-// token (from Register Email/Phone) and code (string sent via Email
+// token (from register Email/Phone) and code (string sent via Email
 // or SMS to confirm ownership) to confirm ownership.
 func (c *Client) ConfirmRegistration(token, code []byte) error {
 	jww.INFO.Printf("ConfirmRegistration(%s, %s)", token, code)
@@ -363,15 +427,6 @@ func (c *Client) RegisterAuthRequestCb(cb func(contact Contact,
 	jww.INFO.Printf("RegisterAuthRequestCb(...)")
 }
 
-// StartNetworkRunner kicks off the longrunning network client threads
-// and returns an object for checking state and stopping those threads.
-// Call this when returning from sleep and close when going back to
-// sleep.
-func (c *Client) StartNetworkRunner() stoppable.Stoppable {
-	jww.INFO.Printf("StartNetworkRunner()")
-	return nil
-}
-
 // RegisterRoundEventsCb registers a callback for round
 // events.
 func (c *Client) RegisterRoundEventsCb(
@@ -380,65 +435,14 @@ func (c *Client) RegisterRoundEventsCb(
 }
 
 // ----- Utility Functions -----
-
-// clientStorageExists returns true if an EKV (storage.Session) exists in the
-// given location or not.
-func clientStorageExists(storageDir string) bool {
-	// Check if diretory exists.
-
-	// If directory exists, check if either .ekv.1 or .ekv.2 files exist in
-	// the directory.
-
-	return false
-}
-
-// parseNDF parses the initial ndf string for the client. This includes a
-// network public key that is also used to verify integrity of the ndf.
+// parseNDF parses the initial ndf string for the client. do not check the
+// signature, it is deprecated.
 func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	if ndfString == "" {
 		return nil, errors.New("ndf file empty")
 	}
 
-	ndfReader := bufio.NewReader(strings.NewReader(ndfString))
-
-	// ndfData is the json string defining the ndf
-	ndfData, err := ndfReader.ReadBytes('\n')
-	ndfData = ndfData[:len(ndfData)-1]
-	if err != nil {
-		return nil, err
-	}
-
-	// ndfSignature is the second line of the file, used to verify
-	// integrity.
-	ndfSignature, err := ndfReader.ReadBytes('\n')
-	if err != nil {
-		return nil, err
-	}
-	ndfSignature, err = base64.StdEncoding.DecodeString(
-		string(ndfSignature[:len(ndfSignature)-1]))
-	if err != nil {
-		return nil, err
-	}
-
 	ndf, _, err := ndf.DecodeNDF(ndfString)
-	if err != nil {
-		return nil, err
-	}
-
-	// Load the TLS cert given to us, and from that get the RSA public key
-	cert, err := tls.LoadCertificate(ndf.Registration.TlsCertificate)
-	if err != nil {
-		return nil, err
-	}
-	pubKey := cert.PublicKey.(*rsa.PublicKey)
-
-	// Hash NDF JSON
-	rsaHash := sha256.New()
-	rsaHash.Write(ndfData)
-
-	// Verify signature
-	err = rsa.Verify(pubKey, crypto.SHA256,
-		rsaHash.Sum(nil), ndfSignature, nil)
 	if err != nil {
 		return nil, err
 	}

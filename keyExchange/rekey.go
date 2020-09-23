@@ -10,22 +10,21 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/utility"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
-type SendE2E func(msg message.Send, param params.E2E) ([]id.Round, error)
-
-func CheckKeyExchanges(instance *network.Instance, sendE2E SendE2E, sess *storage.Session, manager *e2e.Manager) {
+func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
+	sess *storage.Session, manager *e2e.Manager) {
 	sessions := manager.TriggerNegotiations()
 	for _, session := range sessions {
 		go trigger(instance, sendE2E, sess, manager, session)
@@ -36,7 +35,8 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E SendE2E, sess *storag
 // session and negotiation, or resenting a negotiation for an already created
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extand
-func trigger(instance *network.Instance, sendE2E SendE2E, sess *storage.Session, manager *e2e.Manager, session *e2e.Session) {
+func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
+	sess *storage.Session, manager *e2e.Manager, session *e2e.Session) {
 	var negotiatingSession *e2e.Session
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
@@ -65,7 +65,8 @@ func trigger(instance *network.Instance, sendE2E SendE2E, sess *storage.Session,
 	}
 }
 
-func negotiate(instance *network.Instance, sendE2E SendE2E, sess *storage.Session, session *e2e.Session) error {
+func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
+	sess *storage.Session, session *e2e.Session) error {
 	e2eStore := sess.E2e()
 
 	//generate public key

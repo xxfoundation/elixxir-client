@@ -2,7 +2,7 @@ package node
 
 import (
 	"crypto/rand"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"

@@ -2,8 +2,8 @@ package message
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -31,7 +31,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	wg := sync.WaitGroup{}
 
 	for i, p := range partitions {
-		msgCmix := format.NewMessage(m.Context.Session.Cmix().GetGroup().GetP().ByteLen())
+		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
 		e2e.SetUnencrypted(msgCmix, msg.Recipient)
 		wg.Add(1)

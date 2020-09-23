@@ -4,8 +4,8 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 )

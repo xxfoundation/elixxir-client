@@ -2,7 +2,7 @@ package switchboard
 
 import (
 	"github.com/golang-collections/collections/set"
-	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/interfaces/message"
 )
 
 type byType struct {

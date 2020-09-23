@@ -1,11 +1,11 @@
 package message
 
 import (
-	"gitlab.com/elixxir/client/context/message"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	jww "github.com/spf13/jwalterweatherman"
 	"time"
 )
 

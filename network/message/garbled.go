@@ -1,7 +1,7 @@
 package message
 
 import (
-	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"time"
 )
 

@@ -2,10 +2,10 @@ package rounds
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 )

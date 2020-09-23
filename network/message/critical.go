@@ -2,9 +2,9 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/utility"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 	"time"
@@ -46,7 +46,7 @@ func (m *Manager) criticalMessages() {
 				roundEvents.AddRoundEventChan(r, sendResults, 1*time.Minute,
 					states.COMPLETED, states.FAILED)
 			}
-			success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
+			success, numTimeOut, numRoundFail := network.TrackResults(sendResults, len(rounds))
 			if !success {
 				jww.ERROR.Printf("critical message send failed to transmit "+
 					"transmit %v/%v paritions: %v round failures, %v timeouts",

@@ -5,11 +5,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
-	"gitlab.com/elixxir/client/context/utility"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -23,7 +23,7 @@ const (
 	errUnknown    = "unknown trigger from partner %s"
 )
 
-func startTrigger(sess *storage.Session, net context.NetworkManager, c chan message.Receive,
+func startTrigger(sess *storage.Session, net interfaces.NetworkManager, c chan message.Receive,
 	stop *stoppable.Single, garbledMessageTrigger chan<- struct{}) {
 	for true {
 		select {
@@ -39,7 +39,7 @@ func startTrigger(sess *storage.Session, net context.NetworkManager, c chan mess
 	}
 }
 
-func handleTrigger(sess *storage.Session, net context.NetworkManager, request message.Receive,
+func handleTrigger(sess *storage.Session, net interfaces.NetworkManager, request message.Receive,
 	garbledMessageTrigger chan<- struct{}) error {
 	//ensure the message was encrypted properly
 	if request.Encryption != message.E2E {
@@ -131,7 +131,7 @@ func handleTrigger(sess *storage.Session, net context.NetworkManager, request me
 	}
 
 	//Wait until the result tracking responds
-	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
+	success, numTimeOut, numRoundFail := network.TrackResults(sendResults, len(rounds))
 
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If

@@ -7,17 +7,13 @@
 package api
 
 import (
-	"bufio"
-	"crypto"
-	"crypto/sha256"
-	"encoding/base64"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/permissioning"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
@@ -27,10 +23,8 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"strings"
 )
 
 type Client struct {
@@ -47,7 +41,7 @@ type Client struct {
 	// note that the manager has a pointer to the context in many cases, but
 	// this interface allows it to be mocked for easy testing without the
 	// loop
-	network context.NetworkManager
+	network interfaces.NetworkManager
 	//object used to register and communicate with permissioning
 	permissioning *permissioning.Permissioning
 }
@@ -57,11 +51,6 @@ type Client struct {
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
 func NewClient(defJSON, storageDir string, password []byte) (*Client, error) {
-	if clientStorageExists(storageDir) {
-		return nil, errors.Errorf("client already exists at %s",
-			storageDir)
-	}
-
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -91,13 +80,44 @@ func NewClient(defJSON, storageDir string, password []byte) (*Client, error) {
 	return loadClient(storageSess, rngStreamGen)
 }
 
-// LoadClient initalizes a client object from existing storage.
-func LoadClient(storageDir string, password []byte) (*Client, error) {
-	if !clientStorageExists(storageDir) {
-		return nil, errors.Errorf("client does not exist at %s",
-			storageDir)
+// NewPrecannedClient creates an insecure user with predetermined keys with nodes
+// It creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information
+// at a later date.
+func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) (*Client, error) {
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
+
+	// Parse the NDF
+	def, err := parseNDF(defJSON)
+	if err != nil {
+		return nil, err
+	}
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
+
+	// Create Storage
+	passwordStr := string(password)
+	storageSess, err := storage.New(storageDir, passwordStr,
+		protoUser.UID, protoUser.Salt, protoUser.RSAKey, protoUser.IsPrecanned,
+		protoUser.CMixKey, protoUser.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
+	if err != nil {
+		return nil, err
 	}
 
+	// Save NDF to be used in the future
+	storageSess.SetBaseNDF(def)
+
+	//execute the rest of the loading as normal
+	return loadClient(storageSess, rngStreamGen)
+}
+
+
+// LoadClient initalizes a client object from existing storage.
+func LoadClient(storageDir string, password []byte) (*Client, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
@@ -392,65 +412,14 @@ func (c *Client) RegisterRoundEventsCb(
 }
 
 // ----- Utility Functions -----
-
-// clientStorageExists returns true if an EKV (storage.Session) exists in the
-// given location or not.
-func clientStorageExists(storageDir string) bool {
-	// Check if diretory exists.
-
-	// If directory exists, check if either .ekv.1 or .ekv.2 files exist in
-	// the directory.
-
-	return false
-}
-
-// parseNDF parses the initial ndf string for the client. This includes a
-// network public key that is also used to verify integrity of the ndf.
+// parseNDF parses the initial ndf string for the client. do not check the
+// signature, it is deprecated.
 func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	if ndfString == "" {
 		return nil, errors.New("ndf file empty")
 	}
 
-	ndfReader := bufio.NewReader(strings.NewReader(ndfString))
-
-	// ndfData is the json string defining the ndf
-	ndfData, err := ndfReader.ReadBytes('\n')
-	ndfData = ndfData[:len(ndfData)-1]
-	if err != nil {
-		return nil, err
-	}
-
-	// ndfSignature is the second line of the file, used to verify
-	// integrity.
-	ndfSignature, err := ndfReader.ReadBytes('\n')
-	if err != nil {
-		return nil, err
-	}
-	ndfSignature, err = base64.StdEncoding.DecodeString(
-		string(ndfSignature[:len(ndfSignature)-1]))
-	if err != nil {
-		return nil, err
-	}
-
 	ndf, _, err := ndf.DecodeNDF(ndfString)
-	if err != nil {
-		return nil, err
-	}
-
-	// Load the TLS cert given to us, and from that get the RSA public key
-	cert, err := tls.LoadCertificate(ndf.Registration.TlsCertificate)
-	if err != nil {
-		return nil, err
-	}
-	pubKey := cert.PublicKey.(*rsa.PublicKey)
-
-	// Hash NDF JSON
-	rsaHash := sha256.New()
-	rsaHash.Write(ndfData)
-
-	// Verify signature
-	err = rsa.Verify(pubKey, crypto.SHA256,
-		rsaHash.Sum(nil), ndfSignature, nil)
 	if err != nil {
 		return nil, err
 	}

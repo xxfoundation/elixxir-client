@@ -83,6 +83,13 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	//store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
 
+	//move the registration state to keys generated
+	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to denote state "+
+			"change in session")
+	}
+
 	//execute the rest of the loading as normal
 	return loadClient(storageSess, rngStreamGen)
 }

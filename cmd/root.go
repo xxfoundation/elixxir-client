@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
@@ -174,6 +175,34 @@ var rootCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		initLog(viper.GetBool("verbose"), viper.GetString("log"))
 		jww.INFO.Printf(Version())
+
+		pass := viper.GetString("password")
+		storeDir := viper.GetString("session")
+		regCode := viper.GetString("regcode")
+
+		var err error
+		var client *api.Client
+		if _, err = os.Stat(storeDir); os.IsNotExist(err) {
+			// Load NDF
+			ndfPath := viper.GetString("ndf")
+			ndfJSON, err := ioutil.ReadFile(ndfPath)
+			if err != nil {
+				jww.FATAL.Panicf(err.Error())
+			}
+
+			client, err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
+		} else {
+			client, err = api.LoadClient(storeDir, []byte(pass))
+		}
+
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+
+		user, err := client.GetUser()
+		jww.INFO.Printf("%v", user.ID)
+
 	},
 }
 
@@ -249,6 +278,10 @@ func init() {
 	rootCmd.Flags().StringP("log", "l", "-",
 		"Path to the log output path (- is stdout)")
 	viper.BindPFlag("log", rootCmd.Flags().Lookup("log"))
+
+	rootCmd.Flags().StringP("regcode", "r", "",
+		"Registration code (optional)")
+	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

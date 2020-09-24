@@ -11,6 +11,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
 	"gitlab.com/elixxir/client/permissioning"
@@ -70,9 +71,8 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 
 	// Create Storage
 	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr,
-		protoUser.UID, protoUser.Salt, protoUser.RSAKey, protoUser.IsPrecanned,
-		protoUser.CMixKey, protoUser.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
+	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -108,9 +108,8 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	// Create Storage
 	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr,
-		protoUser.UID, protoUser.Salt, protoUser.RSAKey, protoUser.IsPrecanned,
-		protoUser.CMixKey, protoUser.E2EKey, cmixGrp, e2eGrp, rngStreamGen)
+	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +201,8 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 // state and stopping those threads.
 // Call this when returning from sleep and close when going back to
 // sleep.
+// These threads may become a significant drain on battery when offline, ensure
+// they are stopped if there is no internet access
 // Threads Started:
 //   - Network Follower (/network/follow.go)
 //   	tracks the network events and hands them off to workers for handling
@@ -270,25 +271,41 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	return nil
 }
 
-//gets the state of the network follower
+// Gets the state of the network follower. Returns:
+// Stopped 	- 0
+// Starting - 1000
+// Running	- 2000
+// Stopping	- 3000
 func (c *Client) NetworkFollowerStatus() Status {
+	jww.INFO.Printf("NetworkFollowerStatus()")
 	return c.status.get()
-}
-
-// Returns the switchboard for Registration
-func (c *Client) GetSwitchboard() interfaces.Switchboard {
-	return c.switchboard
 }
 
 // Returns the health tracker for registration and polling
 func (c *Client) GetHealth() interfaces.HealthTracker {
+	jww.INFO.Printf("GetHealth()")
 	return c.network.GetHealthTracker()
 }
 
 // RegisterRoundEventsCb registers a callback for round
 // events.
 func (c *Client) GetRoundEvents() interfaces.RoundEvents {
+	jww.INFO.Printf("GetRoundEvents()")
 	return c.network.GetInstance().GetRoundEvents()
+}
+
+
+// Returns the switchboard for Registration
+func (c *Client) GetSwitchboard() interfaces.Switchboard {
+	jww.INFO.Printf("GetSwitchboard()")
+	return c.switchboard
+}
+
+// GetUser returns the current user Identity for this client. This
+// can be serialized into a byte stream for out-of-band sharing.
+func (c *Client) GetUser() user.User {
+	jww.INFO.Printf("GetUser()")
+	return c.storage.GetUser()
 }
 
 // ----- Utility Functions -----

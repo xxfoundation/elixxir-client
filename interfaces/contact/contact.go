@@ -13,7 +13,7 @@ import (
 // in go, the structure is meant to be edited directly, the functions are for
 // bindings compatibility
 type Contact struct {
-	ID       id.ID
+	ID       *id.ID
 	DhPubKey *cyclic.Int
 	Facts    []fact.Fact
 }

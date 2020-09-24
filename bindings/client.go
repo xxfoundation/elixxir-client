@@ -8,15 +8,16 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/api"
+	"time"
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions
 // to support the gomobile Client interface
 type BindingsClient struct {
-	api.Client
+	api api.Client
 }
 
-// NewClient connects and registers to the network using a json encoded
+/*// NewClient connects and registers to the network using a json encoded
 // network information string and then creates a new client at the specified
 // storageDir using the specified password. This function will fail
 // when:
@@ -58,7 +59,48 @@ func LoadClient(storageDir string, password []byte) (Client, error) {
 	}
 	bindingsClient := &BindingsClient{*client}
 	return bindingsClient, nil
+}*/
+
+func (b *BindingsClient) StartNetworkFollower() error {
+	return b.api.StartNetworkFollower()
 }
+
+func (b *BindingsClient) StopNetworkFollower(timeoutMS int) error {
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	return b.api.StopNetworkFollower(timeout)
+}
+
+func (b *BindingsClient) NetworkFollowerStatus() int {
+	return int(b.api.NetworkFollowerStatus())
+}
+
+func (b *BindingsClient) IsNetworkHealthy() bool {
+	return b.api.GetHealth().IsHealthy()
+}
+
+func (b *BindingsClient) RegisterNetworkHealthCB(cb func(bool)) {
+	b.api.GetHealth().AddFunc(cb)
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 // RegisterListener records and installs a listener for messages
 // matching specific uid, msgType, and/or username

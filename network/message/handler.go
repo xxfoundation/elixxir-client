@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-func (m *Manager) processMessages(quitCh <-chan struct{}) {
+func (m *Manager) handleMessages(quitCh <-chan struct{}) {
 	done := false
 	for !done {
 		select {
@@ -17,7 +17,7 @@ func (m *Manager) processMessages(quitCh <-chan struct{}) {
 			done = true
 		case bundle := <-m.messageReception:
 			for _, msg := range bundle.Messages {
-				m.receiveMessage(msg)
+				m.handleMessage(msg)
 			}
 			bundle.Finish()
 		}
@@ -25,7 +25,7 @@ func (m *Manager) processMessages(quitCh <-chan struct{}) {
 
 }
 
-func (m *Manager) receiveMessage(ecrMsg format.Message) {
+func (m *Manager) handleMessage(ecrMsg format.Message) {
 	// We've done all the networking, now process the message
 	fingerprint := ecrMsg.GetKeyFP()
 

@@ -13,8 +13,15 @@ import (
 	"time"
 )
 
-// Internal send e2e which bypasses the network check, for use in SendE2E and
-// SendUnsafe which do their own network checks
+// WARNING: Potentially Unsafe
+// Payloads send are not End to End encrypted, MetaData is NOT protected with
+// this call, see SendE2E for End to End encryption and full privacy protection
+// Internal SendCmix which bypasses the network check, will attempt to send to
+// the network without checking state. It has a built in retry system which can
+// be configured through the params object.
+// If the message is successfully sent, the id of the round sent it is returned,
+// which can be registered with the network instance to get a callback on
+// its status
 func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
 
 	timeStart := time.Now()
@@ -29,11 +36,14 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//find the best round to send to, excluding roudn which have been attempted
 		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
-		topology, err := buildToplogy(bestRound.Topology)
+
+		//build the topology
+		idList, err := id.NewIDListFromBytes(bestRound.Topology)
 		if err == nil {
 			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
 			continue
 		}
+		topology := connect.NewCircuit(idList)
 
 		//get they keys for the round, reject if any nodes do not have
 		//keying relationships
@@ -101,22 +111,11 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 	return 0, errors.New("failed to send the message")
 }
 
-func buildToplogy(nodes [][]byte) (*connect.Circuit, error) {
-	idList := make([]*id.ID, len(nodes))
-	for i, n := range nodes {
-		nid, err := id.Unmarshal(n)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to "+
-				"convert topology on node %v/%v {raw id: %v}", i, len(nodes), n)
-		}
-		idList[i] = nid
-	}
-	topology := connect.NewCircuit(idList)
-	return topology, nil
-
-}
-
-func handleMissingNodeKeys(instance *network.Instance, newNodeChan chan network.NodeGateway, nodes []*id.ID) {
+// Signals to the node registration thread to register a node if keys are
+// missing. Registration is triggered automatically when the node is first seen,
+// so this should on trigger on rare events.
+func handleMissingNodeKeys(instance *network.Instance,
+	newNodeChan chan network.NodeGateway, nodes []*id.ID) {
 	for _, n := range nodes {
 		ng, err := instance.GetNodeAndGateway(n)
 		if err != nil {

@@ -37,7 +37,7 @@ func (c *Cleanup) IsRunning() bool {
 
 // Name returns the name of the stoppable denoting it has cleanup.
 func (c *Cleanup) Name() string {
-	return Name() + " with cleanup"
+	return c.stop.Name() + " with cleanup"
 }
 
 // Close stops the contained stoppable and runs the cleanup function after. The
@@ -51,9 +51,9 @@ func (c *Cleanup) Close(timeout time.Duration) error {
 			start := time.Now()
 
 			// Run the stoppable
-			if err := Close(timeout); err != nil {
+			if err := c.stop.Close(timeout); err != nil {
 				err = errors.WithMessagef(err, "Cleanup for %s not executed",
-					Name())
+					c.stop.Name())
 				return
 			}
 
@@ -71,10 +71,10 @@ func (c *Cleanup) Close(timeout time.Duration) error {
 			case err := <-complete:
 				if err != nil {
 					err = errors.WithMessagef(err, "Cleanup for %s failed",
-						Name())
+						c.stop.Name())
 				}
 			case <-timer.C:
-				err = errors.Errorf("Clean up for %s timeout", Name())
+				err = errors.Errorf("Clean up for %s timeout", c.stop.Name())
 			}
 		})
 

@@ -33,10 +33,10 @@ func TestProcessing_Process(t *testing.T) {
 	}{
 		{10, true, true, 0},
 		{10, true, false, 0},
-		{10, false, true, 1},
+		{10, false, true, 0},
 		{100, true, true, 0},
 		{100, true, false, 0},
-		{100, false, true, 1},
+		{100, false, true, 0},
 	}
 
 	for i, d := range testData {
@@ -85,6 +85,9 @@ func TestProcessing_Fail(t *testing.T) {
 	pr.Fail(rid)
 	if pr.rounds[rid].processing {
 		t.Errorf("Fail() did not mark processing as false for round id %d.", rid)
+	}
+	if pr.rounds[rid].failCount != 1 {
+		t.Errorf("Fail() did not increment the fail count of round id %d.", rid)
 	}
 }
 

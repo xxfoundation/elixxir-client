@@ -50,7 +50,8 @@ func TestRegisterWithPermissioning(t *testing.T) {
 
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
-	sender.getHost, err = connect.NewHost(&id.Permissioning, "address", nil, false, false)
+	sender.getHost, err = connect.NewHost(&id.Permissioning, "address", nil,
+		connect.GetDefaultHostParams())
 	if err != nil {
 		t.Fatal(err)
 	}

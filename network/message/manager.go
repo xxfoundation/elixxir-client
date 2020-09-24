@@ -41,22 +41,14 @@ func (m *Manager) GetMessageReceptionChannel() chan<- Bundle {
 	return m.messageReception
 }
 
-//Gets the channel to send received messages on
-func (m *Manager) CheckGarbledMessages() {
-	select {
-	case m.triggerGarbled <- struct{}{}:
-	default:
-	}
-}
-
 //Starts all worker pool
 func (m *Manager) StartProcessies() stoppable.Stoppable {
 	multi := stoppable.NewMulti("MessageReception")
 
-	//create the message reception workers
+	//create the message handler workers
 	for i := uint(0); i < m.param.MessageReceptionWorkerPoolSize; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("MessageReception Worker %v", i))
-		go m.processMessages(stop.Quit())
+		go m.handleMessages(stop.Quit())
 		multi.Add(stop)
 	}
 

@@ -17,7 +17,7 @@ package network
 //   - /node/register.go for add/remove node events
 //   - /rounds/historical.go for old round retrieval
 //   - /rounds/retrieve.go for message retrieval
-//   - /message/reception.go decryption, partitioning, and signaling of messages
+//   - /message/handle.go decryption, partitioning, and signaling of messages
 //   - /health/tracker.go - tracks the state of the network through the network
 //		instance
 
@@ -33,6 +33,7 @@ import (
 	"time"
 )
 
+//comms interface makes testing easier
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
@@ -55,6 +56,7 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	}
 }
 
+// executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	//randomly select a gateway to poll
@@ -109,14 +111,21 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	// ---- Round Processing -----
-	//build the round checker
+	// check rounds using the round checker function which determines if there
+	// are messages waiting in rounds and then sends signals to the appropriate
+	// handling threads
 	roundChecker := func(rid id.Round) bool {
 		return m.round.Checker(rid)
 	}
 
-	//check rounds
+	// get the bit vector of rounds that have been checked
 	checkedRounds := m.Session.GetCheckedRounds()
+	// cleave off old state in the bit vector which is deprecated from the
+	// network
 	checkedRounds.Forward(lastTrackedRound)
+	// loop through all rounds the client does not know about and the gateway
+	// does, checking the bloom filter for the user to see if there are
+	// messages for the user (bloom not implemented yet)
 	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
 		int(m.param.MaxCheckedRounds))
 }

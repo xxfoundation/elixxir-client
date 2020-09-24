@@ -29,7 +29,6 @@ type historicalRoundsComms interface {
 func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-chan struct{}) {
 
 	timerCh := make(<-chan time.Time)
-	hasTimer := false
 
 	rng := m.Rng.GetStream()
 	var rounds []uint64
@@ -44,7 +43,6 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			done = true
 		// if the timer elapses process rounds to ensure the delay isn't too long
 		case <-timerCh:
-			hasTimer = false
 			if len(rounds) > 0 {
 				shouldProcess = true
 			}
@@ -53,7 +51,8 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			rounds = append(rounds, uint64(rid))
 			if len(rounds) > int(m.params.MaxHistoricalRounds) {
 				shouldProcess = true
-			} else if !hasTimer {
+			} else if len(rounds) == 1 {
+				//if this is the first round, start the timeout
 				timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			}
 		}
@@ -61,6 +60,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			continue
 		}
 
+		//find a gateway to request about the rounds
 		gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comm, rng)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
@@ -75,9 +75,10 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical rounds "+
 				"data: %s", response)
-			// if the check fails to resolve, break the loop so they will be
+			// if the check fails to resolve, break the loop and so they will be
 			// checked again
-			break
+			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
+			continue
 		}
 		for i, roundInfo := range response.Rounds {
 			if roundInfo == nil {

@@ -96,8 +96,11 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	multi := stoppable.NewMulti("networkManager")
 
 	// health tracker
-	m.Health.Start()
-	multi.Add(m.Health)
+	healthStop, err := m.Health.Start()
+	if err != nil {
+		return nil, errors.Errorf("failed to follow")
+	}
+	multi.Add(healthStop)
 
 	// Node Updates
 	multi.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,

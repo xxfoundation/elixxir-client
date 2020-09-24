@@ -1,10 +1,10 @@
 package storage
 
 import (
-	"gitlab.com/elixxir/client/storage/versioned"
 	"github.com/pkg/errors"
-	"time"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/storage/versioned"
+	"time"
 )
 
 const regCodeKey = "regCode"

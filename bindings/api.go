@@ -35,7 +35,7 @@ type BindingsClient struct {
 // Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte) (Client, error) {
 	// TODO: This should wrap the bindings ClientImpl, when available.
-	client, err := api.NewClient(network, storageDir, password)
+	client, err := api.NewClient(network, storageDir, password, "")
 	if err != nil {
 		return nil, err
 	}

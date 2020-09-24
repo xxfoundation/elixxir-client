@@ -16,7 +16,7 @@ func (c *Client) Version() version.Version {
 
 func (c *Client) checkVersion() error {
 	clientVersion := c.Version()
-	jww.INFO.Printf("Client Version: %s", clientVersion)
+	jww.INFO.Printf("Client Version: %s", clientVersion.String())
 
 	has, netVersion, err := c.permissioning.GetNetworkVersion()
 	if err != nil {
@@ -29,7 +29,7 @@ func (c *Client) checkVersion() error {
 			return errors.Errorf("Client and Minimum Network Version are "+
 				"incompatible\n"+
 				"\tMinimum Network: %s\n"+
-				"\tClient: %s", netVersion, clientVersion)
+				"\tClient: %s", netVersion.String(), clientVersion.String())
 		}
 	} else {
 		jww.WARN.Printf("Network requires no minnimim version")

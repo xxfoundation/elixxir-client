@@ -9,6 +9,7 @@
 package health
 
 import (
+	"errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
@@ -24,7 +25,7 @@ type Tracker struct {
 	channels []chan bool
 	funcs    []func(isHealthy bool)
 
-	*stoppable.Single
+	running bool
 
 	isHealthy bool
 	mux       sync.RWMutex
@@ -46,7 +47,7 @@ func newTracker(timeout time.Duration) *Tracker {
 		channels:  make([]chan bool, 0),
 		heartbeat: make(chan network.Heartbeat, 100),
 		isHealthy: false,
-		Single:    stoppable.NewSingle("Health Tracker"),
+		running:   false,
 	}
 }
 
@@ -75,13 +76,30 @@ func (t *Tracker) setHealth(h bool) {
 	t.transmit(h)
 }
 
-func (t *Tracker) Start() {
-	if t.Single.IsRunning() {
-		jww.FATAL.Panicf("Cannot start the health tracker when it " +
-			"is already running")
+func (t *Tracker) Start() (stoppable.Stoppable, error) {
+	t.mux.Lock()
+	defer t.mux.Unlock()
+	if t.running {
+		return nil, errors.New("cannot start Health tracker threads, " +
+			"they are already running")
 	}
+	t.running = true
 
-	go t.start(t.Quit())
+	t.isHealthy = false
+
+	stop := stoppable.NewSingle("Health Tracker")
+	stopCleanup := stoppable.NewCleanup(stop, func(duration time.Duration) error {
+		t.mux.Lock()
+		defer t.mux.Unlock()
+		t.isHealthy = false
+		t.transmit(false)
+		t.running = false
+		return nil
+	})
+
+	go t.start(stop.Quit())
+
+	return stopCleanup, nil
 }
 
 // Long-running thread used to monitor and report on network health

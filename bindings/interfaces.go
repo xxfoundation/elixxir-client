@@ -8,7 +8,6 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/stoppable"
 )
 
 // Client is defined inside the api package. At minimum, it implements all of
@@ -121,7 +120,7 @@ type Client interface {
 	// and returns an object for checking state and stopping those threads.
 	// Call this when returning from sleep and close when going back to
 	// sleep.
-	StartNetworkRunner() stoppable.Stoppable
+	StartNetworkFollower() error
 
 	// RegisterRoundEventsHandler registers a callback interface for round
 	// events.

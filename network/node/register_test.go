@@ -68,7 +68,8 @@ func TestRegisterNodes(t *testing.T) {
 	comms := NewMockClientComms()
 
 	instanceComms := &connect.ProtoComms{}
-	_, err = instanceComms.AddHost(&id.Permissioning, "0.0.0.0:420", []byte(pub), false, false)
+	_, err = instanceComms.AddHost(&id.Permissioning, "0.0.0.0:420", []byte(pub),
+		connect.GetDefaultHostParams())
 	if err != nil {
 		t.Errorf("Faield to add perm host: %+v", err)
 	}

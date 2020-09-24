@@ -84,26 +84,26 @@ tag:
         - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
         - git push origin_tags -f --tags
 
-bindings:
-  stage: build
-  except:
-    - tags
-  tags:
-    - ios
-  script:
-    - go get -u golang.org/x/mobile/cmd/gomobile
-    - go get -u golang.org/x/mobile/bind
-    - rm -rf $HOME/go/src/gitlab.com/elixxir/client/
-    - mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
-    - cp -r * $HOME/go/src/gitlab.com/elixxir/client/
-    - GO111MODULE=on gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
-    - GO111MODULE=on gomobile bind -target ios gitlab.com/elixxir/client/bindings
-    - zip -r iOS.zip Bindings.framework
-  artifacts:
-    paths:
-      - iOS.zip
-      - bindings.aar
-      - bindings-sources.jar
+# bindings:
+#   stage: build
+#   except:
+#     - tags
+#   tags:
+#     - ios
+#   script:
+#     - go get -u golang.org/x/mobile/cmd/gomobile
+#     - go get -u golang.org/x/mobile/bind
+#     - rm -rf $HOME/go/src/gitlab.com/elixxir/client/
+#     - mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
+#     - cp -r * $HOME/go/src/gitlab.com/elixxir/client/
+#     - GO111MODULE=on gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+#     - GO111MODULE=on gomobile bind -target ios gitlab.com/elixxir/client/bindings
+#     - zip -r iOS.zip Bindings.framework
+#   artifacts:
+#     paths:
+#       - iOS.zip
+#       - bindings.aar
+#       - bindings-sources.jar
 
 trigger_integration:
   stage: trigger_integration

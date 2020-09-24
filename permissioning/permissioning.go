@@ -23,8 +23,8 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Permissioning, erro
 	var err error
 	//add the permissioning host to comms
 	perm.host, err = comms.AddHost(&id.Permissioning, def.Registration.Address,
-		[]byte(def.Registration.TlsCertificate), false,
-		false)
+		[]byte(def.Registration.TlsCertificate),
+		connect.GetDefaultHostParams())
 
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create permissioning")

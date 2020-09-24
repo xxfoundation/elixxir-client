@@ -13,7 +13,6 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
@@ -26,6 +25,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
+	"sync/atomic"
 
 	"time"
 )
@@ -40,12 +40,12 @@ type manager struct {
 	//Shared data with all sub managers
 	internal.Internal
 
-	// runners are the Network goroutines that handle reception
-	runners *stoppable.Multi
-
 	//sub-managers
 	round   *rounds.Manager
 	message *message.Manager
+
+	//atomic denotes if the network is running
+	running *uint32
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -60,10 +60,12 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 			" client network manager")
 	}
 
+	running := uint32(0)
+
 	//create manager object
 	m := manager{
 		param:   params,
-		runners: stoppable.NewMulti("network.Manager"),
+		running: &running,
 	}
 
 	m.Internal = internal.Internal{
@@ -85,43 +87,57 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 }
 
 // StartRunners kicks off all network reception goroutines ("threads").
-func (m *manager) StartRunners() error {
-	if m.runners.IsRunning() {
-		return errors.Errorf("network routines are already running")
+// Started Threads are:
+//   - Network Follower (/network/follow.go)
+//   - Historical Round Retrieval (/network/rounds/historical.go)
+//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//	 - Message Handling Worker Group (/network/message/handle.go)
+//	 - Health Tracker (/network/health)
+//	 - Garbled Messages (/network/message/garbled.go)
+//	 - Critical Messages (/network/message/critical.go)
+func (m *manager) Follow() (stoppable.Stoppable, error) {
+
+	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
+		return nil, errors.Errorf("network routines are already running")
 	}
 
+	multi := stoppable.NewMulti("networkManager")
+
 	// health tracker
-	m.Health.Start()
-	m.runners.Add(m.Health)
+	healthStop, err := m.Health.Start()
+	if err != nil {
+		return nil, errors.Errorf("failed to follow")
+	}
+	multi.Add(healthStop)
 
 	// Node Updates
-	m.runners.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,
+	multi.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,
 		m.Comms, m.NodeRegistration)) // Adding/Keys
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.trackNetwork(trackNetworkStopper.Quit())
-	m.runners.Add(trackNetworkStopper)
+	go m.followNetwork(trackNetworkStopper.Quit())
+	multi.Add(trackNetworkStopper)
 
 	// Message reception
-	m.runners.Add(m.message.StartProcessies())
+	multi.Add(m.message.StartProcessies())
 
 	// Round processing
-	m.runners.Add(m.round.StartProcessors())
+	multi.Add(m.round.StartProcessors())
 
-	// Key exchange
-	m.runners.Add(keyExchange.Start(m.Switchboard, m.Session, m,
-		m.message.GetTriggerGarbledCheckChannel()))
+	//set the running status back to 0 so it can be started again
+	closer := stoppable.NewCleanup(multi, func(time.Duration) error {
+		if !atomic.CompareAndSwapUint32(m.running, 1, 0) {
+			return errors.Errorf("network routines are already stopped")
+		}
+		return nil
+	})
 
-	return nil
+	return closer, nil
 }
 
-// StopRunners stops all the reception goroutines
-func (m *manager) GetStoppable() stoppable.Stoppable {
-	return m.runners
-}
 
 // GetHealthTracker returns the health tracker
 func (m *manager) GetHealthTracker() interfaces.HealthTracker {
@@ -131,5 +147,12 @@ func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 // GetInstance returns the network instance object (ndf state)
 func (m *manager) GetInstance() *network.Instance {
 	return m.Instance
+}
+
+// triggers a check on garbled messages to see if they can be decrypted
+// this should be done when a new e2e client is added in case messages were
+// received early or arrived out of order
+func (m *manager) CheckGarbledMessages() {
+	m.message.CheckGarbledMessages()
 }
 

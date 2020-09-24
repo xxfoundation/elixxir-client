@@ -14,34 +14,13 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"os"
 	"testing"
 )
 
-// Most of these tests use the same Store
-// So keep that in mind when designing tests
-var testStore *Store
-
-// Main testing function
-func TestMain(m *testing.M) {
-
-	kv := make(ekv.Memstore)
-	vkv := versioned.NewKV(kv)
-
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
-	priv := grp.NewInt(2)
-
-	testStore, _ = NewStore(grp, vkv, priv)
-
-	runFunc := func() int {
-		return m.Run()
-	}
-
-	os.Exit(runFunc())
-}
-
 // Happy path Add/Done test
 func TestStore_AddRemove(t *testing.T) {
+	testStore, _ := makeTestStore()
+
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
 
@@ -60,13 +39,16 @@ func TestStore_AddRemove(t *testing.T) {
 
 // Happy path
 func TestLoadStore(t *testing.T) {
+	testStore, kv := makeTestStore()
+
 	// Add a test node key
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
+
 	testStore.Add(nodeId, key)
 
 	// Load the store and check its attributes
-	store, err := LoadStore(testStore.kv)
+	store, err := LoadStore(kv)
 	if err != nil {
 		t.Errorf("Unable to load store: %+v", err)
 	}
@@ -83,6 +65,7 @@ func TestLoadStore(t *testing.T) {
 
 // Happy path
 func TestStore_GetRoundKeys(t *testing.T) {
+	testStore, _ := makeTestStore()
 	// Set up the circuit
 	numIds := 10
 	nodeIds := make([]*id.ID, numIds)
@@ -107,6 +90,7 @@ func TestStore_GetRoundKeys(t *testing.T) {
 
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
+	testStore, _ := makeTestStore()
 	// Set up the circuit
 	numIds := 10
 	nodeIds := make([]*id.ID, numIds)
@@ -164,4 +148,18 @@ func TestNewStore(t *testing.T) {
 	if store.kv == nil {
 		t.Errorf("Failed to set store.kv")
 	}
+}
+
+// Main testing function
+func makeTestStore() (*Store, *versioned.KV) {
+
+	kv := make(ekv.Memstore)
+	vkv := versioned.NewKV(kv)
+
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	priv := grp.NewInt(2)
+
+	testStore, _ := NewStore(grp, vkv, priv)
+
+	return testStore, vkv
 }

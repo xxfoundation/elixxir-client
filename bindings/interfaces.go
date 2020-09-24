@@ -8,7 +8,7 @@ package bindings
 
 import (
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Client is defined inside the api package. At minimum, it implements all of
@@ -121,7 +121,7 @@ type Client interface {
 	// and returns an object for checking state and stopping those threads.
 	// Call this when returning from sleep and close when going back to
 	// sleep.
-	StartNetworkRunner() stoppable.Stoppable
+	StartNetworkFollower() error
 
 	// RegisterRoundEventsHandler registers a callback interface for round
 	// events.
@@ -140,11 +140,11 @@ type ContactList interface {
 
 // Listener provides a callback to hear a message
 // An object implementing this interface can be called back when the client
-// gets a message of the type that the registerer specified at registration
+// gets a message of the type that the regi    sterer specified at registration
 // time.
 type Listener interface {
 	// Hear is called to receive a message in the UI
-	Hear(msg api.Message)
+	Hear(msg Message)
 }
 
 // AuthEventHandler handles authentication requests initiated by
@@ -188,4 +188,29 @@ type RoundEventHandler interface {
 // UserDiscoveryHandler handles search results against the user discovery agent.
 type UserDiscoveryHandler interface {
 	HandleSearchResults(results ContactList)
+}
+
+// Message is a message received from the cMix network in the clear
+// or that has been decrypted using established E2E keys.
+type Message interface {
+	// Returns the message's sender ID, if available
+	GetSender() id.ID
+	GetSenderBytes() []byte
+
+	// Returns the message payload/contents
+	// Parse this with protobuf/whatever according to the message type
+	GetPayload() []byte
+
+	// Returns the message's recipient ID
+	// This is usually your userID but could be an ephemeral/group ID
+	GetRecipient() id.ID
+	GetRecipientBytes() []byte
+
+	// Returns the message's type
+	GetMessageType() int32
+
+	// Returns the message's timestamp in seconds since unix epoc
+	GetTimestamp() int64
+	// Returns the message's timestamp in ns since unix epoc
+	GetTimestampNano() int64
 }

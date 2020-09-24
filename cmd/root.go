@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
@@ -172,12 +173,45 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		if !verbose && viper.Get("verbose") != nil {
-			verbose = viper.GetBool("verbose")
+		initLog(viper.GetBool("verbose"), viper.GetString("log"))
+		jww.INFO.Printf(Version())
+
+		pass := viper.GetString("password")
+		storeDir := viper.GetString("session")
+		regCode := viper.GetString("regcode")
+
+		var client *api.Client
+		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
+			// Load NDF
+			ndfPath := viper.GetString("ndf")
+			ndfJSON, err := ioutil.ReadFile(ndfPath)
+			if err != nil {
+				jww.FATAL.Panicf(err.Error())
+			}
+
+			client, err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+		} else {
+			client, err = api.LoadClient(storeDir, []byte(pass))
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		}
-		if logPath == "" && viper.Get("logPath") != nil {
-			logPath = viper.GetString("logPath")
+
+		user, err := client.GetUser()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
 		}
+		jww.INFO.Printf("%v", user.ID)
+
+	},
+}
+
+func initLog(verbose bool, logPath string) {
+	if logPath != "-" && logPath != "" {
 		// Disable stdout output
 		jww.SetStdoutOutput(ioutil.Discard)
 		// Use log file
@@ -187,10 +221,16 @@ var rootCmd = &cobra.Command{
 			panic(err.Error())
 		}
 		jww.SetLogOutput(logOutput)
-		if verbose {
-			jww.SetLogThreshold(jww.LevelTrace)
-		}
-	},
+	}
+
+	if verbose {
+		jww.SetStdoutThreshold(jww.LevelTrace)
+		jww.SetLogThreshold(jww.LevelTrace)
+	} else {
+		jww.SetStdoutThreshold(jww.LevelInfo)
+		jww.SetLogThreshold(jww.LevelInfo)
+	}
+
 }
 
 func isValidUser(usr []byte) (bool, *id.ID) {
@@ -222,60 +262,30 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
+	rootCmd.Flags().BoolP("verbose", "v", false,
 		"Verbose mode for debugging")
+	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
 
-	rootCmd.PersistentFlags().BoolVarP(&noBlockingTransmission, "noBlockingTransmission",
-		"", false, "Sets if transmitting messages blocks or not.  "+
-			"Defaults to true if unset.")
-	rootCmd.PersistentFlags().Uint32VarP(&rateLimiting, "rateLimiting", "",
-		1000, "Sets the amount of time, in ms, "+
-			"that the client waits between sending messages.  "+
-			"set to zero to disable.  "+
-			"Automatically disabled if 'blockingTransmission' is false")
+	rootCmd.Flags().StringP("session", "s",
+		"", "Sets the initial username and the directory for "+
+			"client storage")
+	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
 
-	rootCmd.PersistentFlags().Uint64VarP(&userId, "userid", "i", 0,
-		"ID to sign in as. Does not register, must be an available precanned user")
-
-	rootCmd.PersistentFlags().StringVarP(&registrationCode,
-		"regcode", "r",
-		"",
-		"Registration Code with the registration server")
-
-	rootCmd.PersistentFlags().StringVarP(&username,
-		"username", "E",
-		"",
-		"Username to register for User Discovery")
-
-	rootCmd.PersistentFlags().StringVarP(&sessionFile, "sessionfile", "f",
-		"", "Passes a file path for loading a session.  "+
-			"If the file doesn't exist the code will register the user and"+
-			" store it there.  If not passed the session will be stored"+
-			" to ram and lost when the cli finishes")
-
-	rootCmd.PersistentFlags().StringVarP(&ndfPubKey,
-		"ndfPubKeyCertPath",
-		"p",
-		"",
-		"Path to the certificated containing the public key for the "+
-			" network definition JSON file")
-
-	rootCmd.PersistentFlags().StringVarP(&ndfPath,
-		"ndf",
-		"n",
-		"ndf.json",
-		"Path to the network definition JSON file")
-
-	rootCmd.PersistentFlags().BoolVar(&skipNDFVerification,
-		"skipNDFVerification",
-		false,
-		"Specifies if the NDF should be loaded without the signature")
-
-	rootCmd.PersistentFlags().StringVarP(&sessFilePassword,
-		"password",
-		"P",
-		"",
+	rootCmd.Flags().StringP("password", "p", "",
 		"Password to the session file")
+	viper.BindPFlag("password", rootCmd.Flags().Lookup("password"))
+
+	rootCmd.Flags().StringP("ndf", "n", "ndf.json",
+		"Path to the network definition JSON file")
+	viper.BindPFlag("ndf", rootCmd.Flags().Lookup("ndf"))
+
+	rootCmd.Flags().StringP("log", "l", "-",
+		"Path to the log output path (- is stdout)")
+	viper.BindPFlag("log", rootCmd.Flags().Lookup("log"))
+
+	rootCmd.Flags().StringP("regcode", "r", "",
+		"Registration code (optional)")
+	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
@@ -307,11 +317,8 @@ func init() {
 		"w", 1, "Denotes the number of messages the "+
 			"client should receive before closing")
 
-	rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
-		"Sets the email to search for to find a user with user discovery")
-
-	rootCmd.Flags().StringVarP(&logPath, "log", "l", "",
-		"Print logs to specified log file, not stdout")
+	// rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
+	// 	"Sets the email to search for to find a user with user discovery")
 
 	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
 		"t", 45, "The number of seconds to wait for "+

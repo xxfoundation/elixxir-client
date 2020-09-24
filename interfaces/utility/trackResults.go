@@ -1,11 +1,11 @@
-package network
+package utility
 
 import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 )
 
-// Function to track the results of events. It returns true if the collection of
+// Function to follow the results of events. It returns true if the collection of
 // events resolved well, and then a count of how many rounds failed and how
 // many roundEvents timed out.
 func TrackResults(resultsCh chan ds.EventReturn, numResults int) (bool, int, int) {

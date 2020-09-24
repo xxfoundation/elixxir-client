@@ -6,16 +6,20 @@
 
 package network
 
-// updates.go tracks the network for:
-//   1. Node addition and removal
+// follow.go tracks the network for:
+//   1. The status of the network and its accessibility
 //   2. New/Active/Complete rounds and their contact gateways
+//   3. Node addition and removal
 // This information is tracked by polling a gateway for the network definition
 // file (NDF). Once it detects an event it sends it off to the proper channel
 // for a worker to update the client state (add/remove a node, check for
 // messages at a gateway, etc). See:
-//   - nodes.go for add/remove node events
-//   - rounds.go for round event handling & processing
-//   - receive.go for message handling
+//   - /node/register.go for add/remove node events
+//   - /rounds/historical.go for old round retrieval
+//   - /rounds/retrieve.go for message retrieval
+//   - /message/handle.go decryption, partitioning, and signaling of messages
+//   - /health/tracker.go - tracks the state of the network through the network
+//		instance
 
 import (
 	"gitlab.com/elixxir/client/network/gateway"
@@ -29,14 +33,15 @@ import (
 	"time"
 )
 
-type trackNetworkComms interface {
+//comms interface makes testing easier
+type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
 }
 
-// TrackNetwork polls the network to get updated on the state of nodes, the
+// followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *manager) trackNetwork(quitCh <-chan struct{}) {
+func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	rng := m.Rng.GetStream()
 
@@ -46,20 +51,23 @@ func (m *manager) trackNetwork(quitCh <-chan struct{}) {
 			rng.Close()
 			break
 		case <-ticker.C:
-			m.track(rng, m.Comms)
+			m.follow(rng, m.Comms)
 		}
 	}
 }
 
-func (m *manager) track(rng csprng.Source, comms trackNetworkComms) {
+// executes each iteration of the follower
+func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
+	//randomly select a gateway to poll
+	//TODO: make this more intelligent
 	gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comms, rng)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
+		jww.FATAL.Panicf("Failed to follow network, NDF has corrupt "+
 			"data: %s", err)
 	}
 
-	// Poll for the new NDF
+	// Poll network updates
 	pollReq := pb.GatewayPoll{
 		Partial: &pb.NDFHash{
 			Hash: m.Instance.GetPartialNdf().GetHash(),
@@ -72,10 +80,8 @@ func (m *manager) track(rng csprng.Source, comms trackNetworkComms) {
 		return
 	}
 
-	//handle updates
-	newNDF := pollResp.PartialNDF
+	// ---- Process Update Data ----
 	lastTrackedRound := id.Round(pollResp.LastTrackedRound)
-	roundUpdates := pollResp.Updates
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
@@ -83,29 +89,43 @@ func (m *manager) track(rng csprng.Source, comms trackNetworkComms) {
 		return
 	}
 
-	// ---- NODE EVENTS ----
-	// NOTE: this updates the structure AND sends events over the node
-	//       update channels
-	err = m.Instance.UpdatePartialNdf(newNDF)
-	if err != nil {
-		jww.ERROR.Printf(err.Error())
-		return
+	// ---- Node Events ----
+	// NOTE: this updates the structure, AND sends events over the node
+	//       update channels about new and removed nodes
+	if pollResp.PartialNDF != nil {
+		err = m.Instance.UpdatePartialNdf(pollResp.PartialNDF)
+		if err != nil {
+			jww.ERROR.Printf(err.Error())
+			return
+		}
 	}
-	err = m.Instance.RoundUpdates(roundUpdates)
-	if err != nil {
-		jww.ERROR.Printf(err.Error())
-		return
+
+	// NOTE: this updates rounds and updates the tracking of the health of the
+	// network
+	if pollResp.Updates != nil {
+		err = m.Instance.RoundUpdates(pollResp.Updates)
+		if err != nil {
+			jww.ERROR.Printf(err.Error())
+			return
+		}
 	}
 
 	// ---- Round Processing -----
-	//build the round checker
+	// check rounds using the round checker function which determines if there
+	// are messages waiting in rounds and then sends signals to the appropriate
+	// handling threads
 	roundChecker := func(rid id.Round) bool {
 		return m.round.Checker(rid)
 	}
 
-	//check rounds
+	// get the bit vector of rounds that have been checked
 	checkedRounds := m.Session.GetCheckedRounds()
+	// cleave off old state in the bit vector which is deprecated from the
+	// network
 	checkedRounds.Forward(lastTrackedRound)
+	// loop through all rounds the client does not know about and the gateway
+	// does, checking the bloom filter for the user to see if there are
+	// messages for the user (bloom not implemented yet)
 	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
 		int(m.param.MaxCheckedRounds))
 }

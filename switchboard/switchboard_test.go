@@ -155,7 +155,7 @@ func TestSwitchboard_RegisterFunc(t *testing.T) {
 		t.Errorf("Listener is not registered by Message Type")
 	}
 
-	Hear(message.Receive{})
+	lid.listener.Hear(message.Receive{})
 	if !heard {
 		t.Errorf("Func listener not registered correctly")
 	}
@@ -224,7 +224,7 @@ func TestSwitchboard_RegisterChan(t *testing.T) {
 		t.Errorf("Listener is not registered by Message Type")
 	}
 
-	Hear(message.Receive{})
+	lid.listener.Hear(message.Receive{})
 	select {
 	case <-ch:
 	case <-time.After(5 * time.Millisecond):

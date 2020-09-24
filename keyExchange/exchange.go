@@ -15,7 +15,7 @@ const keyExchangeConfirmName = "KeyExchangeConfirm"
 const keyExchangeMulti = "KeyExchange"
 
 func Start(switchboard *switchboard.Switchboard, sess *storage.Session,
-	net interfaces.NetworkManager, garbledMessageTrigger chan<- struct{}) stoppable.Stoppable {
+	net interfaces.NetworkManager) stoppable.Stoppable {
 
 	// register the rekey trigger thread
 	triggerCh := make(chan message.Receive, 100)
@@ -31,7 +31,7 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session,
 		})
 
 	// start the trigger thread
-	go startTrigger(sess, net, triggerCh, triggerStop, garbledMessageTrigger)
+	go startTrigger(sess, net, triggerCh, triggerStop.Quit())
 
 	//register the rekey confirm thread
 	confirmCh := make(chan message.Receive, 100)

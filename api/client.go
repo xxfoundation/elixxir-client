@@ -118,6 +118,13 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	// Save NDF to be used in the future
 	storageSess.SetBaseNDF(def)
 
+	//move the registration state to keys generated
+	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to denote state "+
+			"change in session")
+	}
+
 	//execute the rest of the loading as normal
 	return loadClient(storageSess, rngStreamGen)
 }

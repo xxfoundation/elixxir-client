@@ -21,7 +21,7 @@ type Store struct {
 func New(kv *versioned.KV) *Store {
 	return &Store{
 		multiparts: make(map[multiPartID]*multiPartMessage),
-		kv:         kv,
+		kv:         kv.Prefix(keyMultiPartMessagePrefix),
 	}
 }
 

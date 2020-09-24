@@ -181,5 +181,5 @@ func (c *Conversation) marshal() ([]byte, error) {
 }
 
 func makeConversationKey(partner *id.ID) string {
-	return partner.String()
+	return "partner:" + partner.String()
 }

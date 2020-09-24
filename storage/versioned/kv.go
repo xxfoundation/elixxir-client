@@ -8,6 +8,7 @@ package versioned
 
 import (
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
 	"strings"
 )
@@ -73,6 +74,7 @@ func NewKV(data ekv.KeyValue) *KV {
 // Make sure to inspect the version returned in the versioned object
 func (v *KV) Get(key string) (*Object, error) {
 	key = v.prefix + key
+	jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
 	// Get raw data
 	result := Object{}
 	err := v.r.data.Get(key, &result)
@@ -96,6 +98,7 @@ func (v *KV) Get(key string) (*Object, error) {
 // Delete removes a given key from the data store
 func (v *KV) Delete(key string) error {
 	key = v.prefix + key
+	jww.TRACE.Printf("Delete %p with key %v", v.r.data, key)
 	return v.r.data.Delete(key)
 }
 
@@ -104,6 +107,7 @@ func (v *KV) Delete(key string) error {
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
 func (v *KV) Set(key string, object *Object) error {
 	key = v.prefix + key
+	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
 

@@ -2,15 +2,17 @@ package partition
 
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/id"
+	"strconv"
 	"time"
 )
 
 const currentMultiPartMessagePartVersion = 0
-const keyMultiPartMessagePartPrefix = "MultiPartMessagePart"
+const keyMultiPartMessagePartPrefix = "parts"
 
-func loadPart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8) ([]byte, error) {
-	key := makeMultiPartMessagePartKey(partner, messageID, partNum)
+func loadPart(kv *versioned.KV, messageID uint64, partNum uint8) ([]byte, error) {
+	kv = kv.Prefix(keyMultiPartMessagePartPrefix).
+		Prefix(strconv.FormatUint(messageID, 32))
+	key := makeMultiPartMessagePartKey(partNum)
 
 	obj, err := kv.Get(key)
 	if err != nil {
@@ -20,8 +22,10 @@ func loadPart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8)
 	return obj.Data, nil
 }
 
-func savePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8, part []byte) error {
-	key := makeMultiPartMessagePartKey(partner, messageID, partNum)
+func savePart(kv *versioned.KV, messageID uint64, partNum uint8, part []byte) error {
+	kv = kv.Prefix(keyMultiPartMessagePartPrefix).
+		Prefix(strconv.FormatUint(messageID, 32))
+	key := makeMultiPartMessagePartKey(partNum)
 
 	obj := versioned.Object{
 		Version:   currentMultiPartMessagePartVersion,
@@ -32,13 +36,13 @@ func savePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8,
 	return kv.Set(key, &obj)
 }
 
-func deletePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8) error {
-	key := makeMultiPartMessagePartKey(partner, messageID, partNum)
+func deletePart(kv *versioned.KV, messageID uint64, partNum uint8) error {
+	kv = kv.Prefix(keyMultiPartMessagePartPrefix).
+		Prefix(strconv.FormatUint(messageID, 32))
+	key := makeMultiPartMessagePartKey(partNum)
 	return kv.Delete(key)
 }
 
-func makeMultiPartMessagePartKey(partner *id.ID, messageID uint64, partNum uint8) string {
-	return keyMultiPartMessagePartPrefix + ":" + partner.String() + ":" +
-		string(messageID) + ":" + string(partNum)
-
+func makeMultiPartMessagePartKey(partNum uint8) string {
+	return strconv.FormatUint(uint64(partNum), 32)
 }

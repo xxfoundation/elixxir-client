@@ -8,6 +8,8 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -32,11 +34,12 @@ type multiPartMessage struct {
 // no one exists
 func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 	kv *versioned.KV) *multiPartMessage {
-	key := makeMultiPartMessageKey(sender, messageID)
+	kv = kv.Prefix(sender.String())
+	key := makeMultiPartMessageKey(messageID)
 
 	obj, err := kv.Get(key)
 	if err != nil {
-		if os.IsNotExist(err) {
+		if os.IsNotExist(err) || strings.Contains(err.Error(), "object not found") {
 			mpm := &multiPartMessage{
 				Sender:       sender,
 				MessageID:    messageID,
@@ -69,7 +72,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 }
 
 func (mpm *multiPartMessage) save() error {
-	key := makeMultiPartMessageKey(mpm.Sender, mpm.MessageID)
+	key := makeMultiPartMessageKey(mpm.MessageID)
 
 	data, err := json.Marshal(mpm)
 	if err != nil {
@@ -95,7 +98,7 @@ func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {
 	mpm.parts[partNumber] = part
 	mpm.NumParts++
 
-	if err := savePart(mpm.kv, mpm.Sender, mpm.MessageID, partNumber, part); err != nil {
+	if err := savePart(mpm.kv, mpm.MessageID, partNumber, part); err != nil {
 		jww.FATAL.Panicf("Failed to save multi part "+
 			"message part %v from %s messageID %v: %s", partNumber, mpm.Sender,
 			mpm.MessageID, err)
@@ -122,7 +125,7 @@ func (mpm *multiPartMessage) AddFirst(mt message.Type, partNumber uint8,
 	mpm.parts[partNumber] = part
 	mpm.PresentParts++
 
-	if err := savePart(mpm.kv, mpm.Sender, mpm.MessageID, partNumber, part); err != nil {
+	if err := savePart(mpm.kv, mpm.MessageID, partNumber, part); err != nil {
 		jww.FATAL.Panicf("Failed to save multi part "+
 			"message part %v from %s messageID %v: %s", partNumber, mpm.Sender,
 			mpm.MessageID, err)
@@ -153,12 +156,12 @@ func (mpm *multiPartMessage) IsComplete() (message.Receive, bool) {
 	//load all parts from disk, deleting files from disk as we go along
 	for i := uint8(0); i < mpm.NumParts; i++ {
 		if mpm.parts[i] == nil {
-			if mpm.parts[i], err = loadPart(mpm.kv, mpm.Sender, mpm.MessageID, i); err != nil {
+			if mpm.parts[i], err = loadPart(mpm.kv, mpm.MessageID, i); err != nil {
 				jww.FATAL.Panicf("Failed to load multi part "+
 					"message part %v from %s messageID %v: %s", i, mpm.Sender,
 					mpm.MessageID, err)
 			}
-			if err = deletePart(mpm.kv, mpm.Sender, mpm.MessageID, i); err != nil {
+			if err = deletePart(mpm.kv, mpm.MessageID, i); err != nil {
 				jww.FATAL.Panicf("Failed to delete  multi part "+
 					"message part %v from %s messageID %v: %s", i, mpm.Sender,
 					mpm.MessageID, err)
@@ -193,7 +196,7 @@ func (mpm *multiPartMessage) IsComplete() (message.Receive, bool) {
 }
 
 func (mpm *multiPartMessage) delete() {
-	key := makeMultiPartMessageKey(mpm.Sender, mpm.MessageID)
+	key := makeMultiPartMessageKey(mpm.MessageID)
 	if err := mpm.kv.Delete(key); err != nil {
 		jww.FATAL.Panicf("Failed to delete multi part "+
 			"message from %s messageID %v: %s", mpm.Sender,
@@ -201,7 +204,6 @@ func (mpm *multiPartMessage) delete() {
 	}
 }
 
-func makeMultiPartMessageKey(partner *id.ID, messageID uint64) string {
-	return keyMultiPartMessagePrefix + ":" + partner.String() + ":" +
-		string(messageID)
+func makeMultiPartMessageKey(messageID uint64) string {
+	return strconv.FormatUint(messageID, 32)
 }

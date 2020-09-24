@@ -21,17 +21,18 @@ import (
 // Most of these tests use the same Store
 // So keep that in mind when designing tests
 var testStore *Store
+var rootKv *versioned.KV
 
 // Main testing function
 func TestMain(m *testing.M) {
 
 	kv := make(ekv.Memstore)
-	vkv := versioned.NewKV(kv)
+	rootKv = versioned.NewKV(kv)
 
 	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	priv := grp.NewInt(2)
 
-	testStore, _ = NewStore(grp, vkv, priv)
+	testStore, _ = NewStore(grp, rootKv, priv)
 
 	runFunc := func() int {
 		return m.Run()
@@ -42,6 +43,8 @@ func TestMain(m *testing.M) {
 
 // Happy path Add/Done test
 func TestStore_AddRemove(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
 
@@ -60,15 +63,17 @@ func TestStore_AddRemove(t *testing.T) {
 
 // Happy path
 func TestLoadStore(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
 	// Add a test node key
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
 	testStore.Add(nodeId, key)
 
 	// Load the store and check its attributes
-	store, err := LoadStore(testStore.kv)
+	store, err := LoadStore(rootKv)
 	if err != nil {
-		t.Errorf("Unable to load store: %+v", err)
+		t.Fatalf("Unable to load store: %+v", err)
 	}
 	if store.GetDHPublicKey().Cmp(testStore.GetDHPublicKey()) != 0 {
 		t.Errorf("LoadStore failed to load public key")
@@ -83,6 +88,8 @@ func TestLoadStore(t *testing.T) {
 
 // Happy path
 func TestStore_GetRoundKeys(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up the circuit
 	numIds := 10
 	nodeIds := make([]*id.ID, numIds)
@@ -107,6 +114,8 @@ func TestStore_GetRoundKeys(t *testing.T) {
 
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up the circuit
 	numIds := 10
 	nodeIds := make([]*id.ID, numIds)

@@ -83,6 +83,13 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	//store the registration code for later use
 	storageSess.SetRegCode(registrationCode)
 
+	//move the registration state to keys generated
+	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to denote state "+
+			"change in session")
+	}
+
 	//execute the rest of the loading as normal
 	return loadClient(storageSess, rngStreamGen)
 }
@@ -117,6 +124,13 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	// Save NDF to be used in the future
 	storageSess.SetBaseNDF(def)
+
+	//move the registration state to keys generated
+	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to denote state "+
+			"change in session")
+	}
 
 	//execute the rest of the loading as normal
 	return loadClient(storageSess, rngStreamGen)
@@ -171,6 +185,10 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to init "+
+			"permissioning handler")
+	}
 
 	// check the client version is up to date to the network
 	err = c.checkVersion()
@@ -180,10 +198,13 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 
 	//register with permissioning if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
+			jww.ERROR.Printf("Client has failed registration: %s", err)
 			return nil, errors.WithMessage(err, "failed to load client")
 		}
+		jww.INFO.Printf("Client sucsecfully registered with the network")
 	}
 
 	// Initialize network and link it to context

@@ -4,7 +4,7 @@ variables:
   REPO_DIR: gitlab.com/elixxir
   REPO_NAME: client
   DOCKER_IMAGE: elixxirlabs/cuda-go:latest
-  MIN_CODE_COVERAGE: "70"
+  MIN_CODE_COVERAGE: "35"
 
 before_script:
   ##

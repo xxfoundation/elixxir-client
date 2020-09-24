@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+// WARNING: Unsafe
+// Payloads are not End to End encrypted, MetaData is NOT protected with
+// this call, see SendE2E for End to End encryption and full privacy protection
+// Internal SendUnsafe which bypasses the network check, will attempt to send to
+// the network without checking state.
+// This partitions payloads into multi-part messages but does NOT end to encrypt
+// them
+// Sends using SendCMIX and returns a list of rounds the messages are in. Will
+// return an error if a single part of the message fails to send.
 func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
 
 	//timestamp the message

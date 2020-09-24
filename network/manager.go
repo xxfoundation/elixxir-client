@@ -87,6 +87,14 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 }
 
 // StartRunners kicks off all network reception goroutines ("threads").
+// Started Threads are:
+//   - Network Follower (/network/follow.go)
+//   - Historical Round Retrieval (/network/rounds/historical.go)
+//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//	 - Message Handling Worker Group (/network/message/handle.go)
+//	 - Health Tracker (/network/health)
+//	 - Garbled Messages (/network/message/garbled.go)
+//	 - Critical Messages (/network/message/critical.go)
 func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {

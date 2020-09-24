@@ -13,6 +13,9 @@ import (
 	"time"
 )
 
+// WARNING: Potentially Unsafe
+// Payloads send are not End to End encrypted, MetaData is NOT protected with
+// this call, see SendE2E for End to End encryption and full privacy protection
 // Internal SendCmix which bypasses the network check, will attempt to send to
 // the network without checking state. It has a built in retry system which can
 // be configured through the params object.

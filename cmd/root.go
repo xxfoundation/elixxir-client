@@ -180,9 +180,8 @@ var rootCmd = &cobra.Command{
 		storeDir := viper.GetString("session")
 		regCode := viper.GetString("regcode")
 
-		var err error
 		var client *api.Client
-		if _, err = os.Stat(storeDir); os.IsNotExist(err) {
+		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 			// Load NDF
 			ndfPath := viper.GetString("ndf")
 			ndfJSON, err := ioutil.ReadFile(ndfPath)
@@ -192,15 +191,20 @@ var rootCmd = &cobra.Command{
 
 			client, err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		} else {
 			client, err = api.LoadClient(storeDir, []byte(pass))
-		}
-
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
 		}
 
 		user, err := client.GetUser()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 		jww.INFO.Printf("%v", user.ID)
 
 	},

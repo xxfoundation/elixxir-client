@@ -191,10 +191,13 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 
 	//register with permissioning if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
+			jww.ERROR.Printf("Client has failed registration: %s", err)
 			return nil, errors.WithMessage(err, "failed to load client")
 		}
+		jww.INFO.Printf("Client sucsecfully registered with the network")
 	}
 
 	// Initialize network and link it to context

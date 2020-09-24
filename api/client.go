@@ -178,6 +178,10 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to init "+
+			"permissioning handler")
+	}
 
 	// check the client version is up to date to the network
 	err = c.checkVersion()

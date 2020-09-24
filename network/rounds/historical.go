@@ -15,6 +15,14 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
+// Historical Rounds looks up the round history via random gateways.
+// It batches these quests but never waits longer than
+// params.HistoricalRoundsPeriod to do a lookup.
+// Historical rounds receives input from:
+//   - Network Follower (/network/follow.go)
+// Historical Rounds sends the output to:
+//	 - Message Retrieval Workers (/network/round/retrieve.go)
+
 //interface to increase east of testing of historical rounds
 type historicalRoundsComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
@@ -22,10 +30,9 @@ type historicalRoundsComms interface {
 		message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error)
 }
 
-// ProcessHistoricalRounds analyzes round history to see if this Client
-// needs to check for messages at any of the gateways which completed
-// those rounds.
-// Waits to request many rounds at a time or for a timeout to trigger
+// Long running thread which process historical rounds
+// Can be killed by sending a signal to the quit channel
+// takes a comms interface to aid in testing
 func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-chan struct{}) {
 
 	timerCh := make(<-chan time.Time)
@@ -40,6 +47,16 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 		select {
 		case <-quitCh:
 			rng.Close()
+			// return all rounds in the queue to the input channel so they can
+			// be checked in the future. If the queue is full, disable them as
+			// processing so they are picked up from the beginning
+			for _, rid := range rounds {
+				select {
+				case m.historicalRounds <- id.Round(rid):
+				default:
+					m.p.NotProcessing(id.Round(rid))
+				}
+			}
 			done = true
 		// if the timer elapses process rounds to ensure the delay isn't too long
 		case <-timerCh:
@@ -67,6 +84,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 				"data: %s", err)
 		}
 
+		//send the historical rounds request
 		hr := &pb.HistoricalRounds{
 			Rounds: rounds,
 		}
@@ -80,13 +98,20 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			continue
 		}
+
+		// process the returned historical rounds.
 		for i, roundInfo := range response.Rounds {
+			// The interface has missing returns returned as nil, such rounds
+			// need be be removes as processing so the network follower will
+			// pick them up in the future.
 			if roundInfo == nil {
 				jww.ERROR.Printf("could not retreive "+
 					"historical round %d", rounds[i])
+				m.p.Fail(id.Round(rounds[i]))
 				continue
 			}
-			m.p.Done(id.Round(rounds[i]))
+			// Successfully retrieved rounds are sent to the Message
+			// Retrieval Workers
 			m.lookupRoundMessages <- roundInfo
 		}
 	}

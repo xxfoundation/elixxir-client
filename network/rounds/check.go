@@ -1,40 +1,47 @@
 package rounds
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// getRoundChecker passes a context and the round infos received by the
-// gateway to the funky round checker api to update round state.
-// The returned function passes round event objects over the context
-// to the rest of the message handlers for getting messages.
+// the round checker is a single use function which is meant to be wrapped
+// and adhere to the knownRounds checker interface. it receives a round ID and
+// looks up the state of that round to determine if the client has a message
+// waiting in it.
+// It will return true if it can conclusively determine no message exists,
+// returning false and set the round to processing if it needs further
+// investigation.
+// Once it determines messages might be waiting in a round, it determines
+// if the information about that round is already present, if it is the data is
+// sent to Message Retrieval Workers, otherwise it is sent to Historical Round
+// Retrieval
 func (m *Manager) Checker(roundID id.Round) bool {
 	// Set round to processing, if we can
 	processing, count := m.p.Process(roundID)
 	if !processing {
+		// if is already processing, ignore
 		return false
 	}
+
+	//if the number of times the round has been checked has hit the max, drop it
 	if count == m.params.MaxAttemptsCheckingARound {
+		jww.ERROR.Printf("Round %v failed the maximum number of times "+
+			"(%v), stopping retrval attempt", roundID,
+			m.params.MaxAttemptsCheckingARound)
 		m.p.Done(roundID)
 		return true
 	}
-	// FIXME: Spec has us SETTING processing, but not REMOVING it
-	// until the get messages thread completes the lookup, this
-	// is smell that needs refining. It seems as if there should be
-	// a state that lives with the round info as soon as we know
-	// about it that gets updated at different parts...not clear
-	// needs to be thought through.
-	//defer processing.Done(roundID)
 
 	// TODO: Bloom filter lookup -- return true when we don't have
-	// Go get the round from the round infos, if it exists
 
+	// Go get the round from the round infos, if it exists
 	ri, err := m.Instance.GetRound(roundID)
 	if err != nil {
-		// If we didn't find it, send to historical
-		// rounds processor
+		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- roundID
 	} else {
+		// IF found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- ri
 	}
 

@@ -209,13 +209,16 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 //   	tracks the network events and hands them off to workers for handling
 //   - Historical Round Retrieval (/network/rounds/historical.go)
 //		Retrieves data about rounds which are too old to be stored by the client
-//	 - Message Retrieval Worker Group (/network/rounds/retreive.go)
+//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
 //		Requests all messages in a given round from the gateway of the last node
-//	 - Message Handling Worker Group (/network/message/reception.go)
+//	 - Message Handling Worker Group (/network/message/handle.go)
 //		Decrypts and partitions messages when signals via the Switchboard
 //	 - Health Tracker (/network/health)
 //		Via the network instance tracks the state of the network
-//	 -
+//	 - Garbled Messages (/network/message/garbled.go)
+//		Can be signaled to check all recent messages which could be be decoded
+//		Uses a message store on disk for persistence
+
 func (c *Client) StartNetworkFollower() error {
 	jww.INFO.Printf("StartNetworkFollower()")
 
@@ -241,8 +244,10 @@ func (c *Client) StartNetworkFollower() error {
 	return nil
 }
 
-// stops the network follower if it is running.
-// if the network follower is running nad this fails, the client object will
+// StopNetworkFollower stops the network follower if it is running.
+// It returns errors if the Follower is in the wrong status to stop or if it
+// fails to stop it.
+// if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	err := c.status.toStopping()

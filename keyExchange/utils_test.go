@@ -2,19 +2,17 @@ package keyExchange
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
@@ -26,11 +24,9 @@ import (
 )
 
 // Generate partner ID for two people, used for smoke tests
-func GeneratePartnerID(aliceContext, bobContext *context.Context,
+func GeneratePartnerID(aliceKey, bobKey *cyclic.Int,
 	group *cyclic.Group) e2e.SessionID {
-	alicePrivKey := aliceContext.Session.E2e().GetDHPrivateKey()
-	bobPubKey := bobContext.Session.E2e().GetDHPublicKey()
-	baseKey := dh.GenerateSessionKey(alicePrivKey, bobPubKey, group)
+	baseKey := dh.GenerateSessionKey(aliceKey, bobKey, group)
 
 	h, _ := hash.NewCMixHash()
 	h.Write(baseKey.Bytes())
@@ -45,12 +41,23 @@ func GeneratePartnerID(aliceContext, bobContext *context.Context,
 // Contains a test implementation of the networkManager interface. Used to bypass actual sending
 // between test clients in testing key exchange
 type testNetworkManagerGeneric struct {
-	ctx      *context.Context
 	instance *network.Instance
 }
 
+func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker {
+	panic("implement me")
+}
+
+func (t *testNetworkManagerGeneric) Follow() (stoppable.Stoppable, error) {
+	panic("implement me")
+}
+
+func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
+	panic("implement me")
+}
+
 func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) ([]id.Round, error) {
-	rounds := []id.Round{id.Round(0),id.Round(1),id.Round(2)}
+	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	return rounds, nil
 
 }
@@ -71,14 +78,6 @@ func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 
 }
 
-func (t *testNetworkManagerGeneric) GetHealthTracker() context.HealthTracker {
-	return nil
-}
-
-func (t *testNetworkManagerGeneric) SetContext(ctx *context.Context) {
-	t.ctx = ctx
-}
-
 func (t *testNetworkManagerGeneric) RegisterWithPermissioning(string) ([]byte, error) {
 	return nil, nil
 }
@@ -90,8 +89,7 @@ func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 	return &stoppable.Multi{}
 }
 
-
-func InitTestingContextGeneric(i interface{}) *context.Context {
+func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
 	switch i.(type) {
 	case *testing.T:
 		break
@@ -103,8 +101,6 @@ func InitTestingContextGeneric(i interface{}) *context.Context {
 		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
 	}
 
-	rng := fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG)
-
 	thisSession := storage.InitTestingSession(i)
 	commsManager := connect.NewManagerTesting(i)
 	instanceComms := &connect.ProtoComms{
@@ -114,25 +110,16 @@ func InitTestingContextGeneric(i interface{}) *context.Context {
 
 	_, err := instanceComms.AddHost(&id.Permissioning, "0.0.0.0:420", []byte(pub), connect.GetDefaultHostParams())
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 
 	thisManager := &testNetworkManagerGeneric{instance: thisInstance}
 
-	thisContext := &context.Context{
-		Session:     thisSession,
-		Switchboard: nil,
-		Manager:     thisManager,
-		Rng:         rng,
-	}
-
-	thisManager.SetContext(thisContext)
-
-	return thisContext
+	return thisSession, thisManager
 
 }
 
@@ -140,14 +127,29 @@ func InitTestingContextGeneric(i interface{}) *context.Context {
 // between test clients in testing key exchange
 // Separated from Generic to allow for a full stack test that doesn't impact the generic one used in smoke tests
 type testNetworkManagerFullExchange struct {
-	ctx      *context.Context
 	instance *network.Instance
 }
 
-// Intended for alice to send to bob
+func (t *testNetworkManagerFullExchange) GetHealthTracker() interfaces.HealthTracker {
+	panic("implement me")
+}
+
+func (t *testNetworkManagerFullExchange) Follow() (stoppable.Stoppable, error) {
+	panic("implement me")
+}
+
+func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
+	panic("implement me")
+}
+
+// Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
+// together
 func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) ([]id.Round, error) {
-	rounds := []id.Round{id.Round(0),id.Round(1),id.Round(2)}
-	sessionID := GeneratePartnerID(exchangeAliceContext, exchangeBobContext, genericGroup)
+	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
+	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
+	bobPubKey := bobSession.E2e().GetDHPublicKey()
+
+	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
 
 	rekeyConfirm, _ := proto.Marshal(&RekeyConfirm{
 		SessionID: sessionID.Marshal(),
@@ -163,7 +165,7 @@ func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
 		Encryption:  message.E2E,
 	}
 
-	exchangeBobContext.Switchboard.Speak(confirmMessage)
+	bobSwitchboard.Speak(confirmMessage)
 
 	return rounds, nil
 
@@ -185,14 +187,6 @@ func (t *testNetworkManagerFullExchange) GetInstance() *network.Instance {
 
 }
 
-func (t *testNetworkManagerFullExchange) GetHealthTracker() context.HealthTracker {
-	return nil
-}
-
-func (t *testNetworkManagerFullExchange) SetContext(ctx *context.Context) {
-	t.ctx = ctx
-}
-
 func (t *testNetworkManagerFullExchange) RegisterWithPermissioning(string) ([]byte, error) {
 	return nil, nil
 }
@@ -204,8 +198,7 @@ func (t *testNetworkManagerFullExchange) GetStoppable() stoppable.Stoppable {
 	return &stoppable.Multi{}
 }
 
-
-func InitTestingContextFullExchange(i interface{}) *context.Context {
+func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {
 	switch i.(type) {
 	case *testing.T:
 		break
@@ -217,8 +210,6 @@ func InitTestingContextFullExchange(i interface{}) *context.Context {
 		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
 	}
 
-	rng := fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG)
-
 	thisSession := storage.InitTestingSession(i)
 	commsManager := connect.NewManagerTesting(i)
 	instanceComms := &connect.ProtoComms{
@@ -227,39 +218,18 @@ func InitTestingContextFullExchange(i interface{}) *context.Context {
 
 	_, err := instanceComms.AddHost(&id.Permissioning, "0.0.0.0:420", []byte(pub), connect.GetDefaultHostParams())
 	if err != nil {
-		return nil
+		return nil, nil, nil
 	}
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
-		return nil
+		return nil, nil, nil
 	}
 
 	thisManager := &testNetworkManagerFullExchange{instance: thisInstance}
 
-	thisContext := &context.Context{
-		Session:     thisSession,
-		Manager:     thisManager,
-		Switchboard:switchboard.New(),
-		Rng:         rng,
-	}
-
-	thisManager.SetContext(thisContext)
-
-	return thisContext
+	return thisSession, switchboard.New(), thisManager
 
 }
-
-type listener struct {
-}
-
-func (lst *listener) Hear(item message.Receive)  {
-
-}
-
-func (lst *listener) Name() string  {
-	return "test"
-}
-
 
 var pub = "-----BEGIN CERTIFICATE-----\n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\n-----END CERTIFICATE-----\n"
 var def = getNDF()
@@ -319,5 +289,3 @@ func getNDF() *ndf.NetworkDefinition {
 		},
 	}
 }
-
-

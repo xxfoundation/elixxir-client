@@ -2,7 +2,7 @@ package keyExchange
 
 import (
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
@@ -11,16 +11,25 @@ import (
 
 // Smoke test for handleTrigger
 func TestHandleConfirm(t *testing.T) {
+	// Generate alice and bob's session
+	aliceSession, _ := InitTestingContextGeneric(t)
+	bobSession, _ := InitTestingContextGeneric(t)
 
-	aliceContext := InitTestingContextGeneric(t)
-	bobContext := InitTestingContextGeneric(t)
-
+	// Maintain an ID for bob
 	bobID := id.NewIdFromBytes([]byte("test"), t)
 
-	aliceContext.Session.E2e().AddPartner(bobID, bobContext.Session.E2e().GetDHPublicKey(),
-		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
-	sessionID := GeneratePartnerID(aliceContext, bobContext, genericGroup)
+	// Pull the keys for Alice and Bob
+	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
+	bobPubKey := bobSession.E2e().GetDHPublicKey()
 
+	// Add bob as a partner
+	aliceSession.E2e().AddPartner(bobID, bobPubKey,
+		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+
+	// Generate a session ID, bypassing some business logic here
+	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
+
+	// Generate the message
 	rekey, _ := proto.Marshal(&RekeyConfirm{
 		SessionID: sessionID.Marshal(),
 	})
@@ -34,5 +43,7 @@ func TestHandleConfirm(t *testing.T) {
 		Timestamp:   time.Now(),
 		Encryption:  message.E2E,
 	}
-	handleConfirm(aliceContext.Session, receiveMsg)
+
+	// Handle the confirmation
+	handleConfirm(aliceSession, receiveMsg)
 }

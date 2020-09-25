@@ -17,14 +17,10 @@ func (sid SessionID) String() string {
 	return base64.StdEncoding.EncodeToString(sid[:])
 }
 
-func (sid SessionID) Unmarshal(b []byte) error {
+func (sid *SessionID) Unmarshal(b []byte) error {
 	if len(b) != sessionIDLen {
 		return errors.New("SessionID of invalid length received")
 	}
-
 	copy(sid[:], b)
 	return nil
 }
-
-
-

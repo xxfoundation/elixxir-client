@@ -2,10 +2,10 @@ package rounds
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -25,8 +25,8 @@ type Manager struct {
 func NewManager(internal internal.Internal, params params.Rounds,
 	bundles chan<- message.Bundle) *Manager {
 	m := &Manager{
-		params:   params,
-		p:        newProcessingRounds(),
+		params: params,
+		p:      newProcessingRounds(),
 
 		historicalRounds:    make(chan id.Round, params.HistoricalRoundsBufferLen),
 		lookupRoundMessages: make(chan *mixmessages.RoundInfo, params.LookupRoundsBufferLen),

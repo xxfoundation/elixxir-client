@@ -2,14 +2,22 @@ package message
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/context/utility"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/utility"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 	"time"
 )
 
+// Critical Messages are protocol layer communications that must succeed. These
+// are added to the persistent critical messages store.  This thread waits for
+// network access to move from unhealthy to healthy and the sends all critical
+// messages.
+// Health is tracked by registering with the Health
+// Tracker (/network/Health/Tracker.g0)
+
+//Thread loop for processing critical messages
 func (m *Manager) processCriticalMessages(quitCh <-chan struct{}) {
 	done := false
 	for !done {
@@ -24,6 +32,7 @@ func (m *Manager) processCriticalMessages(quitCh <-chan struct{}) {
 	}
 }
 
+// processes all critical messages
 func (m *Manager) criticalMessages() {
 	critMsgs := m.Session.GetCriticalMessages()
 	//try to send every message in the critical messages buffer in paralell

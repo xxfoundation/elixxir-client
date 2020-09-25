@@ -11,16 +11,18 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/primitives/utils"
 )
 
 // Change this value to set the version for this build
 const currentVersion = "1.4.0"
 
-func printVersion() {
-	fmt.Printf("Elixxir Client v%s -- %s\n\n", globals.SEMVER, globals.GITVERSION)
-	fmt.Printf("Dependencies:\n\n%s\n", globals.DEPENDENCIES)
+func Version() string {
+	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", api.SEMVER,
+		api.GITVERSION)
+	out += fmt.Sprintf("Dependencies:\n\n%s\n", api.DEPENDENCIES)
+	return out
 }
 
 func init() {
@@ -33,7 +35,7 @@ var versionCmd = &cobra.Command{
 	Short: "Print the version and dependency information for the Elixxir binary",
 	Long:  `Print the version and dependency information for the Elixxir binary`,
 	Run: func(cmd *cobra.Command, args []string) {
-		printVersion()
+		fmt.Printf(Version())
 	},
 }
 

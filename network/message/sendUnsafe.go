@@ -2,8 +2,8 @@ package message
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -11,6 +11,15 @@ import (
 	"time"
 )
 
+// WARNING: Unsafe
+// Payloads are not End to End encrypted, MetaData is NOT protected with
+// this call, see SendE2E for End to End encryption and full privacy protection
+// Internal SendUnsafe which bypasses the network check, will attempt to send to
+// the network without checking state.
+// This partitions payloads into multi-part messages but does NOT end to encrypt
+// them
+// Sends using SendCMIX and returns a list of rounds the messages are in. Will
+// return an error if a single part of the message fails to send.
 func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
 
 	//timestamp the message
@@ -31,7 +40,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	wg := sync.WaitGroup{}
 
 	for i, p := range partitions {
-		msgCmix := format.NewMessage(m.Context.Session.Cmix().GetGroup().GetP().ByteLen())
+		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
 		e2e.SetUnencrypted(msgCmix, msg.Recipient)
 		wg.Add(1)

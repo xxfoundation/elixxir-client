@@ -8,7 +8,7 @@ import (
 )
 
 type status struct {
-	count      uint
+	failCount  uint
 	processing bool
 }
 
@@ -34,16 +34,15 @@ func (pr *processing) Process(id id.Round) (bool, uint) {
 
 	if rs, ok := pr.rounds[id]; ok {
 		if rs.processing {
-			return false, rs.count
+			return false, rs.failCount
 		}
-		rs.count++
 		rs.processing = true
 
-		return true, rs.count
+		return true, rs.failCount
 	}
 
 	pr.rounds[id] = &status{
-		count:      0,
+		failCount:  0,
 		processing: true,
 	}
 
@@ -62,12 +61,14 @@ func (pr *processing) IsProcessing(id id.Round) bool {
 	return false
 }
 
-// Fail sets a round's processing status to failed so that it can be retried.
+// Fail sets a round's processing status to failed and increments its fail
+// counter so that it can be retried.
 func (pr *processing) Fail(id id.Round) {
 	pr.Lock()
 	defer pr.Unlock()
 	if rs, ok := pr.rounds[id]; ok {
 		rs.processing = false
+		rs.failCount++
 	}
 }
 
@@ -76,4 +77,14 @@ func (pr *processing) Done(id id.Round) {
 	pr.Lock()
 	defer pr.Unlock()
 	delete(pr.rounds, id)
+}
+
+// NotProcessing sets a round's processing status to failed so that it can be
+// retried but does not increment its fail counter.
+func (pr *processing) NotProcessing(id id.Round) {
+	pr.Lock()
+	defer pr.Unlock()
+	if rs, ok := pr.rounds[id]; ok {
+		rs.processing = false
+	}
 }

@@ -3,7 +3,7 @@ package partition
 import (
 	"crypto/md5"
 	"encoding/binary"
-	"gitlab.com/elixxir/client/context/message"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"

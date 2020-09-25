@@ -1,17 +1,15 @@
 package partition
 
 import (
+	"fmt"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/xx_network/primitives/id"
-	"strconv"
 	"time"
 )
 
 const currentMultiPartMessagePartVersion = 0
-const keyMultiPartMessagePartPrefix = "MultiPartMessagePart"
 
-func loadPart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8) ([]byte, error) {
-	key := makeMultiPartMessagePartKey(partner, messageID, partNum)
+func loadPart(kv *versioned.KV, partNum uint8) ([]byte, error) {
+	key := makeMultiPartMessagePartKey(partNum)
 
 	obj, err := kv.Get(key)
 	if err != nil {
@@ -21,8 +19,8 @@ func loadPart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8)
 	return obj.Data, nil
 }
 
-func savePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8, part []byte) error {
-	key := makeMultiPartMessagePartKey(partner, messageID, partNum)
+func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
+	key := makeMultiPartMessagePartKey(partNum)
 
 	obj := versioned.Object{
 		Version:   currentMultiPartMessagePartVersion,
@@ -33,13 +31,17 @@ func savePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8,
 	return kv.Set(key, &obj)
 }
 
-func deletePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint8) error {
-	key := makeMultiPartMessagePartKey(partner, messageID, partNum)
+func deletePart(kv *versioned.KV, partNum uint8) error {
+	key := makeMultiPartMessagePartKey(partNum)
 	return kv.Delete(key)
 }
 
-func makeMultiPartMessagePartKey(partner *id.ID, messageID uint64, partNum uint8) string {
-	return keyMultiPartMessagePartPrefix + ":" + partner.String() + ":" +
-		strconv.FormatUint(messageID, 10) + ":" + string(partNum)
-
+// Make the key for a part
+func makeMultiPartMessagePartKey(part uint8) string {
+	return fmt.Sprintf("part:%v", part)
 }
+
+//func multiPartMessagePartPrefix(kv *versioned.KV, id uint64) *versioned.KV {
+//	return kv.Prefix(keyMultiPartMessagePartPrefix).
+//		Prefix(strconv.FormatUint(id, 32))
+//}

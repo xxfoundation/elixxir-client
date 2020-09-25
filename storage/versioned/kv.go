@@ -8,8 +8,9 @@ package versioned
 
 import (
 	"fmt"
-	"gitlab.com/elixxir/client/globals"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
 	"strings"
 )
 
@@ -19,6 +20,12 @@ const PrefixSeparator = "/"
 // identifier using a globally defined separator character.
 func MakeKeyWithPrefix(dataType string, uniqueID string) string {
 	return fmt.Sprintf("%s%s%s", dataType, PrefixSeparator, uniqueID)
+}
+
+// MakePartnerPrefix creates a string prefix
+// to denote who a conversation or relationship is with
+func MakePartnerPrefix(id *id.ID) string {
+	return fmt.Sprintf("Partner:%v", id.String())
 }
 
 // Upgrade functions must be of this type
@@ -74,9 +81,9 @@ func NewKV(data ekv.KeyValue) *KV {
 // Make sure to inspect the version returned in the versioned object
 func (v *KV) Get(key string) (*Object, error) {
 	key = v.prefix + key
+	jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
 	// Get raw data
 	result := Object{}
-	globals.Log.TRACE.Println("getting key", key, "in", v.r.data)
 	err := v.r.data.Get(key, &result)
 	if err != nil {
 		return nil, err
@@ -98,6 +105,7 @@ func (v *KV) Get(key string) (*Object, error) {
 // Delete removes a given key from the data store
 func (v *KV) Delete(key string) error {
 	key = v.prefix + key
+	jww.TRACE.Printf("Delete %p with key %v", v.r.data, key)
 	return v.r.data.Delete(key)
 }
 
@@ -106,7 +114,7 @@ func (v *KV) Delete(key string) error {
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
 func (v *KV) Set(key string, object *Object) error {
 	key = v.prefix + key
-	globals.Log.TRACE.Println("setting key", key, "in", v.r.data)
+	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
 

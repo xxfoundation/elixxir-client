@@ -2,6 +2,7 @@ package partition
 
 import (
 	"bytes"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -13,12 +14,13 @@ import (
 
 // Tests happy path of New().
 func TestNew(t *testing.T) {
+	rootKv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &Store{
 		multiParts: make(map[multiPartID]*multiPartMessage),
-		kv:         versioned.NewKV(make(ekv.Memstore)),
+		kv:         rootKv.Prefix(packagePrefix),
 	}
 
-	store := New(expectedStore.kv)
+	store := New(rootKv)
 
 	if !reflect.DeepEqual(expectedStore, store) {
 		t.Errorf("New() did not return the expecte Store."+
@@ -28,6 +30,7 @@ func TestNew(t *testing.T) {
 
 // Tests happy path of Store.AddFirst().
 func TestStore_AddFirst(t *testing.T) {
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	part := []byte("Test message.")
 	s := New(versioned.NewKV(ekv.Memstore{}))
 

@@ -19,6 +19,9 @@ import (
 
 // Happy path Add/Done test
 func TestStore_AddRemove(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
+
 	testStore, _ := makeTestStore()
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
@@ -39,6 +42,9 @@ func TestStore_AddRemove(t *testing.T) {
 
 // Happy path
 func TestLoadStore(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
+
 	testStore, kv := makeTestStore()
 
 	// Add a test node key
@@ -50,7 +56,7 @@ func TestLoadStore(t *testing.T) {
 	// Load the store and check its attributes
 	store, err := LoadStore(kv)
 	if err != nil {
-		t.Errorf("Unable to load store: %+v", err)
+		t.Fatalf("Unable to load store: %+v", err)
 	}
 	if store.GetDHPublicKey().Cmp(testStore.GetDHPublicKey()) != 0 {
 		t.Errorf("LoadStore failed to load public key")
@@ -65,6 +71,9 @@ func TestLoadStore(t *testing.T) {
 
 // Happy path
 func TestStore_GetRoundKeys(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
+
 	testStore, _ := makeTestStore()
 	// Set up the circuit
 	numIds := 10
@@ -90,6 +99,9 @@ func TestStore_GetRoundKeys(t *testing.T) {
 
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	//jww.SetStdoutThreshold(jww.LevelTrace)
+
 	testStore, _ := makeTestStore()
 	// Set up the circuit
 	numIds := 10

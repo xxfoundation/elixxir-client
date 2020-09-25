@@ -3,6 +3,7 @@ package partition
 import (
 	"bytes"
 	"encoding/json"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -15,6 +16,7 @@ import (
 
 // Tests the creation part of loadOrCreateMultiPartMessage().
 func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
@@ -35,14 +37,9 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 	mpm := loadOrCreateMultiPartMessage(expectedMpm.Sender,
 		expectedMpm.MessageID, expectedMpm.kv)
 
-	if !reflect.DeepEqual(expectedMpm, mpm) {
-		t.Errorf("loadOrCreateMultiPartMessage() did not create the correct "+
-			"multiPartMessage.\n\texpected: %+v\n\treceived: %+v",
-			expectedMpm, mpm)
-	}
+	CheckMultiPartMessages(expectedMpm, mpm, t)
 
-	obj, err := expectedMpm.kv.Get(makeMultiPartMessageKey(expectedMpm.Sender,
-		expectedMpm.MessageID))
+	obj, err := mpm.kv.Get(messageKey)
 	if err != nil {
 		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
 	}
@@ -76,10 +73,36 @@ func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 	mpm := loadOrCreateMultiPartMessage(expectedMpm.Sender,
 		expectedMpm.MessageID, expectedMpm.kv)
 
-	if !reflect.DeepEqual(expectedMpm, mpm) {
-		t.Errorf("loadOrCreateMultiPartMessage() did not create the correct "+
-			"multiPartMessage.\n\texpected: %+v\n\treceived: %+v",
-			expectedMpm, mpm)
+	CheckMultiPartMessages(expectedMpm, mpm, t)
+}
+
+func CheckMultiPartMessages(expectedMpm *multiPartMessage, mpm *multiPartMessage, t *testing.T) {
+	// The kv differs because it has prefix called, so we compare fields individually
+	if expectedMpm.Timestamp != mpm.Timestamp {
+		t.Errorf("timestamps mismatch: expected %v, got %v", expectedMpm.Timestamp, mpm.Timestamp)
+	}
+	if expectedMpm.MessageType != mpm.MessageType {
+		t.Errorf("messagetype mismatch: expected %v, got %v", expectedMpm.MessageID, mpm.MessageID)
+	}
+	if expectedMpm.MessageID != mpm.MessageID {
+		t.Errorf("messageid mismatch: expected %v, got %v", expectedMpm.MessageID, mpm.MessageID)
+	}
+	if expectedMpm.NumParts != mpm.NumParts {
+		t.Errorf("numparts mismatch: expected %v, got %v", expectedMpm.NumParts, mpm.NumParts)
+	}
+	if expectedMpm.PresentParts != mpm.PresentParts {
+		t.Errorf("presentparts mismatch: expected %v, got %v", expectedMpm.PresentParts, mpm.PresentParts)
+	}
+	if !expectedMpm.Sender.Cmp(mpm.Sender) {
+		t.Errorf("sender mismatch: expected %v, got %v", expectedMpm.Sender, mpm.Sender)
+	}
+	if len(expectedMpm.parts) != len(mpm.parts) {
+		t.Error("parts different length")
+	}
+	for i := range expectedMpm.parts {
+		if !bytes.Equal(expectedMpm.parts[i], mpm.parts[i]) {
+			t.Errorf("parts differed at index %v", i)
+		}
 	}
 }
 
@@ -112,7 +135,7 @@ func TestMultiPartMessage_Add(t *testing.T) {
 		t.Fatalf("Failed to marshal expected multiPartMessage: %v", err)
 	}
 
-	obj, err := mpm.kv.Get(makeMultiPartMessageKey(mpm.Sender, mpm.MessageID))
+	obj, err := mpm.kv.Get(messageKey)
 	if err != nil {
 		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
 	}
@@ -145,12 +168,9 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 	npm.AddFirst(expectedMpm.MessageType, 2, expectedMpm.NumParts,
 		expectedMpm.Timestamp, expectedMpm.parts[2])
 
-	if !reflect.DeepEqual(expectedMpm, npm) {
-		t.Errorf("AddFirst() did not produce correct multiPartMessage."+
-			"\n\texpected: %#v\n\treceived: %#v", expectedMpm, npm)
-	}
+	CheckMultiPartMessages(expectedMpm, npm, t)
 
-	data, err := loadPart(npm.kv, npm.Sender, npm.MessageID, 2)
+	data, err := loadPart(npm.kv, 2)
 	if err != nil {
 		t.Errorf("loadPart() produced an error: %v", err)
 	}
@@ -213,13 +233,12 @@ func TestMultiPartMessage_delete(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	mpm := loadOrCreateMultiPartMessage(id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		prng.Uint64(), kv)
-	key := makeMultiPartMessageKey(mpm.Sender, mpm.MessageID)
 
 	mpm.delete()
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(messageKey)
 	if ekv.Exists(err) {
 		t.Errorf("delete() did not properly delete key %s."+
-			"\n\tobject received: %+v", key, obj)
+			"\n\tobject received: %+v", messageKey, obj)
 	}
 }
 

@@ -10,7 +10,7 @@ import (
 )
 
 // Sub key used in building keys for saving the message to the key value store
-const knownRoundsSubKey = "knownRound"
+const knownRoundsPrefix = "knownRound"
 
 // Version of the file saved to the key value store
 const currentKnownRoundsVersion = 0
@@ -32,7 +32,7 @@ func NewKnownRounds(kv *versioned.KV, key string, size int) (*KnownRounds, error
 	// Create new empty struct
 	kr := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
-		kv:     kv,
+		kv:     kv.Prefix(knownRoundsPrefix),
 		key:    key,
 	}
 
@@ -49,7 +49,7 @@ func LoadKnownRounds(kv *versioned.KV, key string, size int) (*KnownRounds, erro
 	// Create new empty struct
 	kr := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
-		kv:     kv,
+		kv:     kv.Prefix(knownRoundsPrefix),
 		key:    key,
 	}
 
@@ -78,7 +78,7 @@ func (kr *KnownRounds) save() error {
 	}
 
 	// Save versioned object
-	return kr.kv.Set(makeKnownRoundsSubKey(kr.key), &obj)
+	return kr.kv.Set(kr.key, &obj)
 }
 
 // load retrieves the list of rounds from the key value store and stores them
@@ -86,7 +86,7 @@ func (kr *KnownRounds) save() error {
 func (kr *KnownRounds) load() error {
 
 	// Load the versioned object
-	vo, err := kr.kv.Get(makeKnownRoundsSubKey(kr.key))
+	vo, err := kr.kv.Get(kr.key)
 	if err != nil {
 		return err
 	}
@@ -161,9 +161,4 @@ func (kr *KnownRounds) RangeUncheckedMasked(mask *knownRounds.KnownRounds,
 	if err != nil {
 		jww.FATAL.Panicf("Error saving list of checked rounds: %v", err)
 	}
-}
-
-// makeKnownRoundsSubKey generates a new key for the known rounds buffer.
-func makeKnownRoundsSubKey(key string) string {
-	return key + knownRoundsSubKey
 }

@@ -63,6 +63,5 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 	go m.processGarbledMessages(garbledStop.Quit())
 	multi.Add(garbledStop)
 
-
 	return multi
 }

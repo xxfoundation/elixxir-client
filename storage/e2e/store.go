@@ -21,12 +21,14 @@ import (
 	"time"
 )
 
-const currentStoreVersion = 0
-const packagePrefix = "e2eSession"
-const storeKey = "Store"
-const pubKeyKey = "DhPubKey"
-const privKeyKey = "DhPrivKey"
-const grpKey = "Group"
+const (
+	currentStoreVersion = 0
+	packagePrefix       = "e2eSession"
+	storeKey            = "Store"
+	pubKeyKey           = "DhPubKey"
+	privKeyKey          = "DhPrivKey"
+	grpKey              = "Group"
+)
 
 type Store struct {
 	managers map[id.ID]*Manager
@@ -38,52 +40,53 @@ type Store struct {
 
 	kv *versioned.KV
 
-	fingerprints
+	*fingerprints
 
-	context
+	*context
 }
 
-func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int, rng *fastRNG.StreamGenerator) (*Store, error) {
-	//generate public key
-	pub := diffieHellman.GeneratePublicKey(priv, grp)
+func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
+	rng *fastRNG.StreamGenerator) (*Store, error) {
+	// Generate public key
+	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
 
+	// Modify the prefix of the KV
 	kv = kv.Prefix(packagePrefix)
 
+	// Create new fingerprint map
 	fingerprints := newFingerprints()
-	s := &Store{
-		managers:     make(map[id.ID]*Manager),
-		fingerprints: fingerprints,
 
-		dhPrivateKey: priv,
-		dhPublicKey:  pub,
+	s := &Store{
+		managers: make(map[id.ID]*Manager),
+
+		dhPrivateKey: privKey,
+		dhPublicKey:  pubKey,
 		grp:          grp,
+
+		fingerprints: &fingerprints,
 
 		kv: kv,
 
-		context: context{
+		context: &context{
 			fa:  &fingerprints,
 			grp: grp,
 			rng: rng,
 		},
 	}
 
-	err := utility.StoreCyclicKey(kv, pub, pubKeyKey)
+	err := utility.StoreCyclicKey(kv, pubKey, pubKeyKey)
 	if err != nil {
-		return nil,
-			errors.WithMessage(err,
-				"Failed to store e2e DH public key")
+		return nil, errors.WithMessage(err, "Failed to store e2e DH public key")
 	}
 
-	err = utility.StoreCyclicKey(kv, priv, privKeyKey)
+	err = utility.StoreCyclicKey(kv, privKey, privKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to store e2e DH private key")
+		return nil, errors.WithMessage(err, "Failed to store e2e DH private key")
 	}
 
 	err = utility.StoreGroup(kv, grp, grpKey)
 	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to store e2e group")
+		return nil, errors.WithMessage(err, "Failed to store e2e group")
 	}
 
 	return s, s.save()
@@ -92,13 +95,15 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int, rng *fastRN
 func LoadStore(kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Store, error) {
 	fingerprints := newFingerprints()
 	kv = kv.Prefix(packagePrefix)
+
 	s := &Store{
-		managers:     make(map[id.ID]*Manager),
-		fingerprints: fingerprints,
+		managers: make(map[id.ID]*Manager),
+
+		fingerprints: &fingerprints,
 
 		kv: kv,
 
-		context: context{
+		context: &context{
 			fa:  &fingerprints,
 			rng: rng,
 		},
@@ -110,7 +115,6 @@ func LoadStore(kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Store, error) {
 	}
 
 	err = s.unmarshal(obj.Data)
-
 	if err != nil {
 		return nil, err
 	}
@@ -142,15 +146,14 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	m := newManager(&s.context, s.kv, partnerID, s.dhPrivateKey, partnerPubKey, sendParams, receiveParams)
+	m := newManager(s.context, s.kv, partnerID, s.dhPrivateKey, partnerPubKey,
+		sendParams, receiveParams)
 
 	s.managers[*partnerID] = m
 	if err := s.save(); err != nil {
-		jww.FATAL.Printf("Failed to add Parter %s: Save of store "+
-			"failed: %s", partnerID, err)
+		jww.FATAL.Printf("Failed to add Parter %s: Save of store failed: %s",
+			partnerID, err)
 	}
-
-	return
 }
 
 func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
@@ -160,40 +163,40 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 	m, ok := s.managers[*partnerID]
 
 	if !ok {
-		return nil, errors.New("Cound not find manager for partner")
+		return nil, errors.New("Could not find manager for partner")
 	}
 
 	return m, nil
 }
 
-//Pops a key for use based upon its fingerprint
+// PopKey pops a key for use based upon its fingerprint.
 func (s *Store) PopKey(f format.Fingerprint) (*Key, bool) {
 	return s.fingerprints.Pop(f)
 }
 
-//Key exists for a key fingerprint
+// CheckKey checks that a key exists for the key fingerprint.
 func (s *Store) CheckKey(f format.Fingerprint) bool {
 	return s.fingerprints.Check(f)
 }
 
-//Returns the diffie hellman private key
+// GetDHPrivateKey returns the diffie hellman private key.
 func (s *Store) GetDHPrivateKey() *cyclic.Int {
 	return s.dhPrivateKey
 }
 
-//Returns the diffie hellman public key
+// GetDHPublicKey returns the diffie hellman public key.
 func (s *Store) GetDHPublicKey() *cyclic.Int {
 	return s.dhPublicKey
 }
 
-//Returns the cyclic group used for cmix
+// GetGroup returns the cyclic group used for cMix.
 func (s *Store) GetGroup() *cyclic.Group {
 	return s.grp
 }
 
-//ekv functions
-func (s *Store) marshal() ([]byte, error) {
+// ekv functions
 
+func (s *Store) marshal() ([]byte, error) {
 	contacts := make([]id.ID, len(s.managers))
 
 	index := 0
@@ -215,11 +218,12 @@ func (s *Store) unmarshal(b []byte) error {
 	}
 
 	for _, partnerID := range contacts {
-		// load the manager. Manager handles adding the fingerprints via the
+		// Load the manager. The manager handles adding the fingerprints via the
 		// context object
-		manager, err := loadManager(&s.context, &partnerID)
+		manager, err := loadManager(s.context, s.kv, &partnerID)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load manager for partner %s: %s", &partnerID, err.Error())
+			jww.FATAL.Panicf("Failed to load manager for partner %s: %s",
+				&partnerID, err.Error())
 		}
 
 		s.managers[partnerID] = manager
@@ -227,20 +231,17 @@ func (s *Store) unmarshal(b []byte) error {
 
 	s.dhPrivateKey, err = utility.LoadCyclicKey(s.kv, privKeyKey)
 	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load e2e DH private key")
+		return errors.WithMessage(err, "Failed to load e2e DH private key")
 	}
 
 	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
 	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load e2e DH public key")
+		return errors.WithMessage(err, "Failed to load e2e DH public key")
 	}
 
 	s.grp, err = utility.LoadGroup(s.kv, grpKey)
 	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load e2e group")
+		return errors.WithMessage(err, "Failed to load e2e group")
 	}
 
 	return nil
@@ -251,13 +252,15 @@ type fingerprints struct {
 	mux   sync.RWMutex
 }
 
+// newFingerprints creates a new fingerprints with an empty map.
 func newFingerprints() fingerprints {
 	return fingerprints{
 		toKey: make(map[format.Fingerprint]*Key),
 	}
 }
 
-//fingerprint adhere to the fingerprintAccess interface
+// fingerprints adheres to the fingerprintAccess interface.
+
 func (f *fingerprints) add(keys []*Key) {
 	f.mux.Lock()
 	defer f.mux.Unlock()

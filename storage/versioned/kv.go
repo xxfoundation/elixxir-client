@@ -8,6 +8,7 @@ package versioned
 
 import (
 	"fmt"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/ekv"
 	"strings"
 )
@@ -75,6 +76,7 @@ func (v *KV) Get(key string) (*Object, error) {
 	key = v.prefix + key
 	// Get raw data
 	result := Object{}
+	globals.Log.TRACE.Println("getting key", key, "in", v.r.data)
 	err := v.r.data.Get(key, &result)
 	if err != nil {
 		return nil, err
@@ -104,6 +106,7 @@ func (v *KV) Delete(key string) error {
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
 func (v *KV) Set(key string, object *Object) error {
 	key = v.prefix + key
+	globals.Log.TRACE.Println("setting key", key, "in", v.r.data)
 	return v.r.data.Set(key, object)
 }
 

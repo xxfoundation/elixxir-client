@@ -33,7 +33,7 @@ type Client struct {
 	rng *fastRNG.StreamGenerator
 	// the storage session securely stores data to disk and memoizes as is
 	// appropriate
-	storage     *storage.Session
+	storage *storage.Session
 	//the switchboard is used for inter-process signaling about received messages
 	switchboard *switchboard.Switchboard
 	//object used for communications
@@ -134,7 +134,6 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	//execute the rest of the loading as normal
 	return loadClient(storageSess, rngStreamGen)
 }
-
 
 // LoadClient initalizes a client object from existing storage.
 func LoadClient(storageDir string, password []byte) (*Client, error) {
@@ -314,7 +313,6 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
 	return c.network.GetInstance().GetRoundEvents()
 }
-
 
 // Returns the switchboard for Registration
 func (c *Client) GetSwitchboard() interfaces.Switchboard {

@@ -13,5 +13,3 @@ type Receive struct {
 	Encryption  EncryptionType
 	Id          ID
 }
-
-

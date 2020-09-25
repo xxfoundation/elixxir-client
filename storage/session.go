@@ -11,6 +11,7 @@ package storage
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
+	userInterface "gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -28,7 +29,6 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
-	userInterface "gitlab.com/elixxir/client/interfaces/user"
 )
 
 // Number of rounds to store in the CheckedRound buffer

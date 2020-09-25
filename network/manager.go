@@ -138,7 +138,6 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	return closer, nil
 }
 
-
 // GetHealthTracker returns the health tracker
 func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 	return m.Health
@@ -155,4 +154,3 @@ func (m *manager) GetInstance() *network.Instance {
 func (m *manager) CheckGarbledMessages() {
 	m.message.CheckGarbledMessages()
 }
-

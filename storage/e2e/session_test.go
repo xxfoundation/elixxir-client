@@ -136,7 +136,7 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 // Shows that newSession can result in all the fields being populated
 func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
-	sessionA, _ := makeTestSession(t)
+	sessionA, _ := makeTestSession()
 	// Make a new session with the variables we got from makeTestSession
 	sessionB := newSession(sessionA.manager, sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey, sessionA.params, sessionA.t, sessionA.GetID())
 
@@ -159,7 +159,7 @@ func TestNewSession(t *testing.T) {
 // Shows that loadSession can result in all the fields being populated
 func TestSession_Load(t *testing.T) {
 	// Make a test session to easily populate all the fields
-	sessionA, _ := makeTestSession(t)
+	sessionA, _ := makeTestSession()
 	err := sessionA.save()
 	if err != nil {
 		t.Fatal(err)
@@ -215,7 +215,7 @@ func cmpKeyState(a *stateVector, b *stateVector) error {
 
 // Create a new session. Marshal and unmarshal it
 func TestSession_Serialization(t *testing.T) {
-	s, ctx := makeTestSession(t)
+	s, ctx := makeTestSession()
 	sSerialized, err := s.marshal()
 	if err != nil {
 		t.Fatal(err)
@@ -270,7 +270,7 @@ func cmpSerializedFields(a *Session, b *Session) error {
 
 // PopKey should return a new key from this session
 func TestSession_PopKey(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	key, err := s.PopKey()
 	if err != nil {
 		t.Fatal(err)
@@ -289,7 +289,7 @@ func TestSession_PopKey(t *testing.T) {
 
 // Delete should remove unused keys from this session
 func TestSession_Delete(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	err := s.save()
 	if err != nil {
 		t.Fatal(err)
@@ -313,7 +313,7 @@ func TestSession_Delete(t *testing.T) {
 // that will also get caught by the other error first. So it's only practical
 // to test the one error.
 func TestSession_PopKey_Error(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
 	s.keyState, err = newStateVector(s.kv, "", 0)
@@ -330,7 +330,7 @@ func TestSession_PopKey_Error(t *testing.T) {
 // PopRekey should return the next key
 // There's no boundary, except for the number of keynums in the state vector
 func TestSession_PopReKey(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	key, err := s.PopReKey()
 	if err != nil {
 		t.Fatal("PopKey should have returned an error")
@@ -350,7 +350,7 @@ func TestSession_PopReKey(t *testing.T) {
 // PopRekey should not return the next key if there are no more keys available
 // in the state vector
 func TestSession_PopReKey_Err(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	// Construct a specific state vector that will quickly run out of keys
 	var err error
 	s.keyState, err = newStateVector(s.kv, "", 0)
@@ -365,7 +365,7 @@ func TestSession_PopReKey_Err(t *testing.T) {
 
 // Simple test that shows the base key can get got
 func TestSession_GetBaseKey(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	baseKey := s.GetBaseKey()
 	if baseKey.Cmp(s.baseKey) != 0 {
 		t.Errorf("expected %v, got %v", baseKey.Text(16), s.baseKey.Text(16))
@@ -374,7 +374,7 @@ func TestSession_GetBaseKey(t *testing.T) {
 
 // Smoke test for GetID
 func TestSession_GetID(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	id := s.GetID()
 	if len(id.Marshal()) == 0 {
 		t.Error("Zero length for session ID!")
@@ -383,7 +383,7 @@ func TestSession_GetID(t *testing.T) {
 
 // Smoke test for GetPartnerPubKey
 func TestSession_GetPartnerPubKey(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	partnerPubKey := s.GetPartnerPubKey()
 	if partnerPubKey.Cmp(s.partnerPubKey) != 0 {
 		t.Errorf("expected %v, got %v", partnerPubKey.Text(16), s.partnerPubKey.Text(16))
@@ -392,7 +392,7 @@ func TestSession_GetPartnerPubKey(t *testing.T) {
 
 // Smoke test for GetMyPrivKey
 func TestSession_GetMyPrivKey(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	myPrivKey := s.GetMyPrivKey()
 	if myPrivKey.Cmp(s.myPrivKey) != 0 {
 		t.Errorf("expected %v, got %v", myPrivKey.Text(16), s.myPrivKey.Text(16))
@@ -401,7 +401,7 @@ func TestSession_GetMyPrivKey(t *testing.T) {
 
 // Shows that IsConfirmed returns whether the session is confirmed
 func TestSession_IsConfirmed(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	s.negotiationStatus = Unconfirmed
 	if s.IsConfirmed() {
 		t.Error("s was confirmed when it shouldn't have been")
@@ -414,7 +414,7 @@ func TestSession_IsConfirmed(t *testing.T) {
 
 // Shows that Status can result in all possible statuses
 func TestSession_Status(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	var err error
 	s.keyState, err = newStateVector(s.kv, "", 500)
 	if err != nil {
@@ -442,7 +442,7 @@ func TestSession_Status(t *testing.T) {
 // Tests that state transitions as documented don't cause panics
 // Tests that the session saves or doesn't save when appropriate
 func TestSession_SetNegotiationStatus(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	//	Normal paths: SetNegotiationStatus should not fail
 	// Use timestamps to determine whether a save has occurred
 	s.negotiationStatus = Sending
@@ -522,7 +522,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 
 // Tests that TriggerNegotiation makes only valid state transitions
 func TestSession_TriggerNegotiation(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	// Set up num keys used to be > ttl: should partnerSource negotiation
 	s.keyState.numAvailable = 50
 	s.keyState.numkeys = 100
@@ -551,8 +551,8 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 	s.ttl = 51
 	s.negotiationStatus = Confirmed
 
-	if !s.triggerNegotiation() {
-		t.Error("partnerSource negotiation unexpectedly failed")
+	if s.triggerNegotiation() {
+		t.Error("trigger negotiation unexpectedly failed")
 	}
 	if s.negotiationStatus != Confirmed {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
@@ -571,7 +571,7 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 // Shows that String doesn't cause errors or panics
 // Also can be used to examine or change output of String()
 func TestSession_String(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	t.Log(s.String())
 	s.manager.partner = id.NewIdFromUInt(80, id.User, t)
 	t.Log(s.String())
@@ -579,7 +579,7 @@ func TestSession_String(t *testing.T) {
 
 // Shows that GetSource gets the partnerSource we set
 func TestSession_GetTrigger(t *testing.T) {
-	s, _ := makeTestSession(t)
+	s, _ := makeTestSession()
 	thisTrigger := s.GetID()
 	s.partnerSource = thisTrigger
 	if !reflect.DeepEqual(s.GetSource(), thisTrigger) {
@@ -588,7 +588,7 @@ func TestSession_GetTrigger(t *testing.T) {
 }
 
 // Make a default test session with some things populated
-func makeTestSession(t *testing.T) (*Session, *context) {
+func makeTestSession() (*Session, *context) {
 	grp := getGroup()
 	rng := csprng.NewSystemRNG()
 	partnerPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp, rng)

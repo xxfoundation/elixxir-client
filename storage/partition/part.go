@@ -3,6 +3,7 @@ package partition
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"strconv"
 	"time"
 )
 
@@ -39,6 +40,6 @@ func deletePart(kv *versioned.KV, partner *id.ID, messageID uint64, partNum uint
 
 func makeMultiPartMessagePartKey(partner *id.ID, messageID uint64, partNum uint8) string {
 	return keyMultiPartMessagePartPrefix + ":" + partner.String() + ":" +
-		string(messageID) + ":" + string(partNum)
+		strconv.FormatUint(messageID, 10) + ":" + string(partNum)
 
 }

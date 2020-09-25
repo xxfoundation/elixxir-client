@@ -27,6 +27,7 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
+	userInterface "gitlab.com/elixxir/client/interfaces/user"
 )
 
 // Number of rounds to store in the CheckedRound buffer
@@ -69,8 +70,8 @@ func initStore(baseDir, password string) (*Session, error) {
 }
 
 // Creates new UserData in the session
-func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
-	isPrecanned bool, cmixDHPrivKey, e2eDHPrivKey *cyclic.Int, cmixGrp,
+
+func New(baseDir, password string, u userInterface.User, cmixGrp,
 	e2eGrp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
@@ -84,17 +85,17 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 			"Create new session")
 	}
 
-	s.user, err = user.NewUser(s.kv, uid, salt, rsaKey, isPrecanned)
+	s.user, err = user.NewUser(s.kv, u.ID, u.Salt, u.RSA, u.Precanned)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, cmixDHPrivKey)
+	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey, rng)
+	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}

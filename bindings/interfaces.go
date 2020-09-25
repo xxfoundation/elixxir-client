@@ -7,7 +7,7 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -15,7 +15,41 @@ import (
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
 // network.
+// These threads may become a significant drain on battery when offline, ensure
+// they are stopped if there is no internet access
 type Client interface {
+	// ----- Network -----
+	// StartNetworkFollower kicks off the tracking of the network. It starts
+	// long running network client threads and returns an object for checking
+	// state and stopping those threads.
+	// Call this when returning from sleep and close when going back to
+	// sleep.
+	StartNetworkFollower() error
+
+	// StopNetworkFollower stops the network follower if it is running.
+	// It returns errors if the Follower is in the wrong status to stop or if it
+	// fails to stop it.
+	// if the network follower is running and this fails, the client object will
+	// most likely be in an unrecoverable state and need to be trashed.
+	StopNetworkFollower(timeoutMS int) error
+
+	// NetworkFollowerStatus gets the state of the network follower.
+	// Returns:
+	// 	Stopped 	- 0
+	// 	Starting	- 1000
+	// 	Running		- 2000
+	// 	Stopping	- 3000
+	NetworkFollowerStatus() int
+
+	// Returns true if the following of the network is in a state where messages
+	// can be sent, false otherwise
+	IsNetworkHealthy() bool
+
+	// Registers a callback which gets triggered every time network health
+	// changes
+	RegisterNetworkHealthCB(func(bool))
+
+	RegisterRoundEventCallback(rid int, hdlr RoundEventHandler, )
 
 	// ----- Reception -----
 
@@ -85,13 +119,7 @@ type Client interface {
 
 	// GetUser returns the current user Identity for this client. This
 	// can be serialized into a byte stream for out-of-band sharing.
-	GetUser() (api.Contact, error)
-	// MakeContact creates a contact from a byte stream (i.e., unmarshal's a
-	// Contact object), allowing out-of-band import of identities.
-	MakeContact(contactBytes []byte) (api.Contact, error)
-	// GetContact returns a Contact object for the given user id, or
-	// an error
-	GetContact(uid []byte) (api.Contact, error)
+	GetUser() (interfaces.Contact, error)
 
 	// ----- User Discovery -----
 
@@ -110,22 +138,16 @@ type Client interface {
 	// so this user can send messages to the desired recipient Contact.
 	// To receive confirmation from the remote user, clients must
 	// register a listener to do that.
-	CreateAuthenticatedChannel(recipient api.Contact, payload []byte) error
+	CreateAuthenticatedChannel(recipient interfaces.Contact, payload []byte) error
 	// RegierAuthEventsHandler registers a callback interface for channel
 	// authentication events.
 	RegisterAuthEventsHandler(hdlr AuthEventHandler)
 
 	// ----- Network -----
 
-	// StartNetworkRunner kicks off the longrunning network client threads
-	// and returns an object for checking state and stopping those threads.
-	// Call this when returning from sleep and close when going back to
-	// sleep.
-	StartNetworkFollower() error
-
 	// RegisterRoundEventsHandler registers a callback interface for round
 	// events.
-	RegisterRoundEventsHandler(hdlr RoundEventHandler)
+	RegisterRoundEventsHandler()
 }
 
 // ContactList contains a list of contacts
@@ -133,7 +155,7 @@ type ContactList interface {
 	// GetLen returns the number of contacts in the list
 	GetLen() int
 	// GetContact returns the contact at index i
-	GetContact(i int) api.Contact
+	GetContact(i int) interfaces.Contact
 }
 
 // ----- Callback interfaces -----
@@ -154,13 +176,13 @@ type AuthEventHandler interface {
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. Payload is typically empty but
 	// may include a small introductory message.
-	HandleConfirmation(contact api.Contact, payload []byte)
+	HandleConfirmation(contact interfaces.Contact, payload []byte)
 	// HandleRequest handles AuthEvents received before
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. It should prompt the user to accept
 	// the channel creation "request" and, if approved,
 	// call CreateAuthenticatedChannel for this Contact.
-	HandleRequest(contact api.Contact, payload []byte)
+	HandleRequest(contact interfaces.Contact, payload []byte)
 }
 
 // RoundList contains a list of contacts
@@ -171,18 +193,10 @@ type RoundList interface {
 	GetRoundID(i int) int
 }
 
-// RoundEvent contains event information for a given round.
-// TODO: This is a half-baked interface and will be filled out later.
-type RoundEvent interface {
-	// GetID returns the round ID for this round.
-	GetID() int
-	// GetStatus returns the status of this round.
-	GetStatus() int
-}
 
 // RoundEventHandler handles round events happening on the cMix network.
 type RoundEventHandler interface {
-	HandleEvent(re RoundEvent)
+	HandleEvent(id int, state byte)
 }
 
 // UserDiscoveryHandler handles search results against the user discovery agent.

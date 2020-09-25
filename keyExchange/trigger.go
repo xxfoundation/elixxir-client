@@ -67,8 +67,9 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	//get the old session which triggered the exchange
 	oldSession := partner.GetSendSession(oldSessionID)
 	if oldSession == nil {
-		jww.ERROR.Printf("no session %s for partner %s: %s",
+		err := errors.Errorf("no session %s for partner %s: %s",
 			oldSession, request.Sender, err)
+		jww.ERROR.Printf(err.Error())
 		return err
 	}
 
@@ -124,10 +125,8 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 		roundEvents.AddRoundEventChan(r, sendResults, 1*time.Minute,
 			states.COMPLETED, states.FAILED)
 	}
-
 	//Wait until the result tracking responds
 	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
-
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
@@ -159,6 +158,7 @@ func unmarshalSource(grp *cyclic.Group, payload []byte) (e2e.SessionID,
 	}
 
 	oldSessionID := e2e.SessionID{}
+
 	if err := oldSessionID.Unmarshal(msg.SessionID); err != nil {
 		return e2e.SessionID{}, nil, errors.Errorf("Failed to unmarshal"+
 			" sessionID: %s", err)

@@ -23,8 +23,8 @@ update_release:
 	GOFLAGS="" go get -u gitlab.com/elixxir/primitives@peppa/newClient
 	GOFLAGS="" go get -u gitlab.com/elixxir/crypto@peppa/newClient
 	GOFLAGS="" go get -u gitlab.com/xx_network/crypto@release
-	GOFLAGS="" go get -u gitlab.com/elixxir/comms@release
-	GOFLAGS="" go get -u gitlab.com/xx_network/comms@release
+	GOFLAGS="" go get -u gitlab.com/elixxir/comms@hotfix/TestingFunction
+	GOFLAGS="" go get -u gitlab.com/xx_network/comms@hotfix/TestingFunction
 	GOFLAGS="" go get -u gitlab.com/xx_network/primitives@release
 
 update_master:

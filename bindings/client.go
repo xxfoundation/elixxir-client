@@ -82,26 +82,6 @@ func (b *BindingsClient) RegisterNetworkHealthCB(cb func(bool)) {
 	b.api.GetHealth().AddFunc(cb)
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // RegisterListener records and installs a listener for messages
 // matching specific uid, msgType, and/or username
 func (b *BindingsClient) RegisterListener(uid []byte, msgType int,

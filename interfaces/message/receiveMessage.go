@@ -11,4 +11,5 @@ type Receive struct {
 	Sender      *id.ID
 	Timestamp   time.Time
 	Encryption  EncryptionType
+	Id          ID
 }

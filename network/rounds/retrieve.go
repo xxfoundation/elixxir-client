@@ -39,7 +39,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	}
 }
 
-
 func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	comms messageRetrievalComms) (message.Bundle, error) {
 

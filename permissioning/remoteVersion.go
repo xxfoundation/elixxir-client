@@ -2,8 +2,8 @@ package permissioning
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/primitives/version"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 )
 

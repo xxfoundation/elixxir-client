@@ -1,11 +1,11 @@
 package api
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 //This holds all functions to send messages over the network

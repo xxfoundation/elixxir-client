@@ -2,13 +2,13 @@ package api
 
 import (
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/xx"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 const (
@@ -62,7 +62,7 @@ func createNewUser(rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
 		RSA:              rsaKey,
 		Precanned:        false,
 		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
-		E2eDhPrivateKey:  cmix.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
 	}
 }
 
@@ -89,6 +89,6 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 		ID:              userID.DeepCopy(),
 		Salt:            salt,
 		Precanned:       false,
-		E2eDhPrivateKey: cmix.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey: e2e.NewIntFromBytes(e2eKeyBytes),
 	}
 }

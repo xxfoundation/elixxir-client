@@ -39,8 +39,7 @@ func (m *Manager) handleGarbledMessages() {
 	garbledMsgs := m.Session.GetGarbledMessages()
 	e2eKv := m.Session.E2e()
 	//try to decrypt every garbled message, excising those who's counts are too high
-	for grbldMsg, count, timestamp, has := garbledMsgs.Next(); has;
-	grbldMsg, count, timestamp, has = garbledMsgs.Next() {
+	for grbldMsg, count, timestamp, has := garbledMsgs.Next(); has; grbldMsg, count, timestamp, has = garbledMsgs.Next() {
 		fingerprint := grbldMsg.GetKeyFP()
 		// Check if the key is there, process it if it is
 		if key, isE2E := e2eKv.PopKey(fingerprint); isE2E {

@@ -39,7 +39,7 @@ func (f Fact) Marshal() []byte {
 func Unmarshal(b []byte) (Fact, error) {
 	t := Type(b[0])
 	if !t.IsValid() {
-		return Fact{}, errors.Errorf("Fact is not a valid type: %s", )
+		return Fact{}, errors.Errorf("Fact is not a valid type: %s", t)
 	}
 
 	f := string(b[1:])

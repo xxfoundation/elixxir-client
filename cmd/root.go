@@ -201,11 +201,8 @@ var rootCmd = &cobra.Command{
 			}
 		}
 
-		user, err := client.GetUser()
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		jww.INFO.Printf("%v", user.ID)
+		user := client.GetUser()
+		jww.INFO.Printf("%s", user.ID)
 
 	},
 }

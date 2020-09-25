@@ -1,6 +1,9 @@
 package api
 
-import jww "github.com/spf13/jwalterweatherman"
+import (
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/contact"
+)
 
 // Returns true if the cryptographic identity has been registered with
 // the CMIX user discovery agent.
@@ -48,7 +51,7 @@ func (c *Client) ConfirmRegistration(token, code []byte) error {
 // Search accepts a "separator" separated list of search elements with
 // an associated list of searchTypes. It returns a ContactList which
 // allows you to iterate over the found contact objects.
-func (c *Client) Search(data, separator string, searchTypes []byte) []Contact {
+func (c *Client) Search(data, separator string, searchTypes []byte) []contact.Contact {
 	jww.INFO.Printf("Search(%s, %s, %s)", data, separator, searchTypes)
 	return nil
 }
@@ -56,14 +59,14 @@ func (c *Client) Search(data, separator string, searchTypes []byte) []Contact {
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.
 func (c *Client) SearchWithCallback(data, separator string, searchTypes []byte,
-	cb func(results []Contact)) {
-	resultCh := make(chan []Contact, 1)
-	go func(out chan []Contact, data, separator string, srchTypes []byte) {
+	cb func(results []contact.Contact)) {
+	resultCh := make(chan []contact.Contact, 1)
+	go func(out chan []contact.Contact, data, separator string, srchTypes []byte) {
 		out <- c.Search(data, separator, srchTypes)
 		close(out)
 	}(resultCh, data, separator, searchTypes)
 
-	go func(in chan []Contact, cb func(results []Contact)) {
+	go func(in chan []contact.Contact, cb func(results []contact.Contact)) {
 		select {
 		case contacts := <-in:
 			cb(contacts)

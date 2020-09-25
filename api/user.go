@@ -62,7 +62,7 @@ func createNewUser(rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
 		RSA:              rsaKey,
 		Precanned:        false,
 		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
-		E2eDhPrivateKey:  cmix.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
 	}
 }
 
@@ -89,6 +89,6 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 		ID:              userID.DeepCopy(),
 		Salt:            salt,
 		Precanned:       false,
-		E2eDhPrivateKey: cmix.NewIntFromBytes(e2eKeyBytes),
+		E2eDhPrivateKey: e2e.NewIntFromBytes(e2eKeyBytes),
 	}
 }

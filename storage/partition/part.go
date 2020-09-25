@@ -10,8 +10,7 @@ const currentMultiPartMessagePartVersion = 0
 const keyMultiPartMessagePartPrefix = "parts"
 
 func loadPart(kv *versioned.KV, messageID uint64, partNum uint8) ([]byte, error) {
-	kv = kv.Prefix(keyMultiPartMessagePartPrefix).
-		Prefix(strconv.FormatUint(messageID, 32))
+	kv = multiPartMessagePartPrefix(kv, messageID)
 	key := makeMultiPartMessagePartKey(partNum)
 
 	obj, err := kv.Get(key)
@@ -23,8 +22,7 @@ func loadPart(kv *versioned.KV, messageID uint64, partNum uint8) ([]byte, error)
 }
 
 func savePart(kv *versioned.KV, messageID uint64, partNum uint8, part []byte) error {
-	kv = kv.Prefix(keyMultiPartMessagePartPrefix).
-		Prefix(strconv.FormatUint(messageID, 32))
+	kv = multiPartMessagePartPrefix(kv, messageID)
 	key := makeMultiPartMessagePartKey(partNum)
 
 	obj := versioned.Object{
@@ -37,12 +35,16 @@ func savePart(kv *versioned.KV, messageID uint64, partNum uint8, part []byte) er
 }
 
 func deletePart(kv *versioned.KV, messageID uint64, partNum uint8) error {
-	kv = kv.Prefix(keyMultiPartMessagePartPrefix).
-		Prefix(strconv.FormatUint(messageID, 32))
+	kv = multiPartMessagePartPrefix(kv, messageID)
 	key := makeMultiPartMessagePartKey(partNum)
 	return kv.Delete(key)
 }
 
 func makeMultiPartMessagePartKey(partNum uint8) string {
 	return strconv.FormatUint(uint64(partNum), 32)
+}
+
+func multiPartMessagePartPrefix(kv *versioned.KV, id uint64) *versioned.KV {
+	return kv.Prefix(keyMultiPartMessagePartPrefix).
+		Prefix(strconv.FormatUint(id, 32))
 }

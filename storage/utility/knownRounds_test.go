@@ -1,6 +1,7 @@
 package utility
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/knownRounds"
@@ -13,14 +14,15 @@ import (
 func TestNewKnownRounds(t *testing.T) {
 	// Set up expected value
 	size := 10
+	rootKv := versioned.NewKV(make(ekv.Memstore))
 	expectedKR := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
-		kv:     versioned.NewKV(make(ekv.Memstore)),
+		kv:     rootKv.Prefix(knownRoundsPrefix),
 		key:    "testKey",
 	}
 
 	// Create new KnownRounds
-	kr, err := NewKnownRounds(expectedKR.kv, expectedKR.key, size)
+	kr, err := NewKnownRounds(rootKv, expectedKR.key, size)
 	if err != nil {
 		t.Errorf("NewKnownRounds() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
@@ -28,17 +30,19 @@ func TestNewKnownRounds(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedKR, kr) {
 		t.Errorf("NewKnownRounds() returned an incorrect KnownRounds."+
-			"\n\texpected: %v\n\treceived: %v", expectedKR, kr)
+			"\n\texpected: %+v\n\treceived: %+v", expectedKR, kr)
 	}
 }
 
 // Tests happy path of LoadKnownRounds.
 func TestLoadKnownRounds(t *testing.T) {
+	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up expected value
 	size := 10
+	rootKv := versioned.NewKV(make(ekv.Memstore))
 	expectedKR := &KnownRounds{
 		rounds: knownRounds.NewKnownRound(size),
-		kv:     versioned.NewKV(make(ekv.Memstore)),
+		kv:     rootKv.Prefix(knownRoundsPrefix),
 		key:    "testKey",
 	}
 
@@ -53,7 +57,7 @@ func TestLoadKnownRounds(t *testing.T) {
 		t.Fatalf("Error saving KnownRounds: %v", err)
 	}
 
-	kr, err := LoadKnownRounds(expectedKR.kv, expectedKR.key, size)
+	kr, err := LoadKnownRounds(rootKv, expectedKR.key, size)
 	if err != nil {
 		t.Errorf("LoadKnownRounds() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
@@ -94,7 +98,7 @@ func TestKnownRounds_save(t *testing.T) {
 		t.Errorf("save() returned an error: %v", err)
 	}
 
-	obj, err := expectedKR.kv.Get(makeKnownRoundsSubKey(expectedKR.key))
+	obj, err := expectedKR.kv.Get(expectedKR.key)
 	if err != nil {
 		t.Errorf("Get() returned an error: %v", err)
 	}

@@ -72,7 +72,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 	// while waiting check if any rekeys need to happen and trigger them. This
 	// can happen now because the key popping happens in this thread,
 	// only the sending is parallelized
-	keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E, m.Session, partner)
+	keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E, m.Session, partner, 1*time.Minute)
 
 	wg.Wait()
 

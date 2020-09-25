@@ -3,6 +3,7 @@ package keyExchange
 import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
@@ -14,8 +15,8 @@ const keyExchangeTriggerName = "KeyExchangeTrigger"
 const keyExchangeConfirmName = "KeyExchangeConfirm"
 const keyExchangeMulti = "KeyExchange"
 
-func Start(switchboard *switchboard.Switchboard, sess *storage.Session,
-	net interfaces.NetworkManager) stoppable.Stoppable {
+func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net interfaces.NetworkManager,
+	params params.Rekey) stoppable.Stoppable {
 
 	// register the rekey trigger thread
 	triggerCh := make(chan message.Receive, 100)
@@ -31,7 +32,7 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session,
 		})
 
 	// start the trigger thread
-	go startTrigger(sess, net, triggerCh, triggerStop.Quit())
+	go startTrigger(sess, net, triggerCh, triggerStop.Quit(), params)
 
 	//register the rekey confirm thread
 	confirmCh := make(chan message.Receive, 100)

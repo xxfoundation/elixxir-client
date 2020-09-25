@@ -34,7 +34,7 @@ type multiPartMessage struct {
 // no one exists
 func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 	kv *versioned.KV) *multiPartMessage {
-	kv = kv.Prefix(sender.String())
+	kv = kv.Prefix(versioned.MakePartnerPrefix(sender))
 	key := makeMultiPartMessageKey(messageID)
 
 	obj, err := kv.Get(key)

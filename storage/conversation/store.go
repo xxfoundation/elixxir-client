@@ -16,7 +16,7 @@ type Store struct {
 
 //Returns a new conversation store made off of the KV
 func NewStore(kv *versioned.KV) *Store {
-	kv = kv.Prefix(conversationKeyPrefix)
+	kv = kv.Prefix(conversationKeyPrefix).Prefix("Partner")
 	return &Store{
 		loadedConversations: make(map[id.ID]*Conversation),
 		kv:                  kv,

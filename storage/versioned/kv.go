@@ -10,6 +10,7 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/id"
 	"strings"
 )
 
@@ -19,6 +20,12 @@ const PrefixSeparator = "/"
 // identifier using a globally defined separator character.
 func MakeKeyWithPrefix(dataType string, uniqueID string) string {
 	return fmt.Sprintf("%s%s%s", dataType, PrefixSeparator, uniqueID)
+}
+
+// MakePartnerPrefix creates a string prefix
+// to denote who a conversation or relationship is with
+func MakePartnerPrefix(id *id.ID) string {
+	return fmt.Sprintf("%v:%v", "Partner:", id.String())
 }
 
 // Upgrade functions must be of this type

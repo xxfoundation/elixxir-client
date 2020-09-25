@@ -33,7 +33,7 @@ func (c Contact) GetDHPublicKey() []byte {
 func (c Contact) AddFact(f interfaces.Fact) interfaces.Contact {
 	fNew := fact.Fact{
 		Fact: f.Get(),
-		T:    f.GetType(),
+		T:    fact.Type(f.GetType()),
 	}
 	c.Facts = append(c.Facts, fNew)
 	return c

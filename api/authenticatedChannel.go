@@ -1,12 +1,15 @@
 package api
 
-import jww "github.com/spf13/jwalterweatherman"
+import (
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/contact"
+)
 
 // CreateAuthenticatedChannel creates a 1-way authenticated channel
 // so this user can send messages to the desired recipient Contact.
 // To receive confirmation from the remote user, clients must
 // register a listener to do that.
-func (c *Client) CreateAuthenticatedChannel(recipient Contact,
+func (c *Client) CreateAuthenticatedChannel(recipient contact.Contact,
 	payload []byte) error {
 	jww.INFO.Printf("CreateAuthenticatedChannel(%v, %v)",
 		recipient, payload)
@@ -15,14 +18,14 @@ func (c *Client) CreateAuthenticatedChannel(recipient Contact,
 
 // RegisterAuthConfirmationCb registers a callback for channel
 // authentication confirmation events.
-func (c *Client) RegisterAuthConfirmationCb(cb func(contact Contact,
+func (c *Client) RegisterAuthConfirmationCb(cb func(contact contact.Contact,
 	payload []byte)) {
 	jww.INFO.Printf("RegisterAuthConfirmationCb(...)")
 }
 
 // RegisterAuthRequestCb registers a callback for channel
 // authentication request events.
-func (c *Client) RegisterAuthRequestCb(cb func(contact Contact,
+func (c *Client) RegisterAuthRequestCb(cb func(contact contact.Contact,
 	payload []byte)) {
 	jww.INFO.Printf("RegisterAuthRequestCb(...)")
 }

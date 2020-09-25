@@ -8,6 +8,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -33,13 +34,14 @@ type sessionBuff struct {
 	sendMux sync.Mutex
 }
 
-func NewSessionBuff(manager *Manager, key string) *sessionBuff {
+func NewSessionBuff(manager *Manager, key string, kv *versioned.KV) *sessionBuff {
 	return &sessionBuff{
 		manager:     manager,
 		sessions:    make([]*Session, 0),
 		sessionByID: make(map[SessionID]*Session),
 		mux:         sync.RWMutex{},
 		key:         key,
+		kv:          kv,
 	}
 }
 
@@ -258,9 +260,12 @@ func (sb *sessionBuff) GetByID(id SessionID) *Session {
 func (sb *sessionBuff) Confirm(id SessionID) error {
 	sb.mux.Lock()
 	defer sb.mux.Unlock()
+	fmt.Printf("sb: %v\n", sb)
+	fmt.Printf("sb.sessionById: %v\n", sb.sessionByID)
+
 	s, ok := sb.sessionByID[id]
 	if !ok {
-		return errors.Errorf("Could not confirm session %s, does not exist", s.GetID())
+		return errors.Errorf("Could not confirm session %s, does not exist", id)
 	}
 
 	s.SetNegotiationStatus(Confirmed)

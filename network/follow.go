@@ -129,4 +129,3 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
 		int(m.param.MaxCheckedRounds))
 }
-

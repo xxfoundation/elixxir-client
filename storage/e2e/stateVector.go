@@ -207,7 +207,6 @@ func (sv *stateVector) Delete() error {
 	return sv.kv.Delete(sv.key)
 }
 
-
 // finds the next used state and sets that as firstAvailable. This does not
 // execute a store and a store must be executed after.
 func (sv *stateVector) nextAvailable() {

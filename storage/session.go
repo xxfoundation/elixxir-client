@@ -11,6 +11,7 @@ package storage
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
+	userInterface "gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/large"
@@ -27,7 +29,6 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
-	"time"
 )
 
 // Number of rounds to store in the CheckedRound buffer
@@ -70,8 +71,8 @@ func initStore(baseDir, password string) (*Session, error) {
 }
 
 // Creates new UserData in the session
-func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
-	isPrecanned bool, cmixDHPrivKey, e2eDHPrivKey *cyclic.Int, cmixGrp,
+
+func New(baseDir, password string, u userInterface.User, cmixGrp,
 	e2eGrp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
@@ -85,22 +86,17 @@ func New(baseDir, password string, uid *id.ID, salt []byte, rsaKey *rsa.PrivateK
 			"Create new session")
 	}
 
-	s.user, err = user.NewUser(s.kv, uid, salt, rsaKey, isPrecanned)
+	s.user, err = user.NewUser(s.kv, u.ID, u.Salt, u.RSA, u.Precanned)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, cmixDHPrivKey)
+	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
 
-	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, e2eDHPrivKey, rng)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
-	}
-
-	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
+	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create session")
 	}
@@ -217,25 +213,6 @@ func (s *Session) Partition() *partition.Store {
 	return s.partition
 }
 
-// SetNDF stores a network definition json file
-func (s *Session) SetNDF(ndfJSON string) error {
-	return s.Set("NetworkDefinition",
-		&versioned.Object{
-			Version:   uint64(1),
-			Data:      []byte(ndfJSON),
-			Timestamp: time.Now(),
-		})
-}
-
-// Returns the stored network definition json file
-func (s *Session) GetNDF() (string, error) {
-	ndf, err := s.Get("NetworkDefinition")
-	if err != nil {
-		return "", err
-	}
-	return string(ndf.Data), nil
-}
-
 // Get an object from the session
 func (s *Session) Get(key string) (*versioned.Object, error) {
 	return s.kv.Get(key)
@@ -297,5 +274,18 @@ func InitTestingSession(i interface{}) *Session {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
 	}
 	s.cmix = cmix
+
+	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2),
+		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))
+	if err != nil {
+		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
+	}
+	s.e2e = e2eStore
+
+	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy critical messages: %+v", err)
+	}
+
 	return s
 }

@@ -3,8 +3,8 @@ package network
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -14,7 +14,7 @@ import (
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
 func (m *manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
-	if !m.Health.IsRunning() {
+	if !m.Health.IsHealthy() {
 		return 0, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
 	}
@@ -28,7 +28,7 @@ func (m *manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 // NOTE: Do not use this function unless you know what you are doing.
 // This function always produces an error message in client logging.
 func (m *manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
-	if !m.Health.IsRunning() {
+	if !m.Health.IsHealthy() {
 		return nil, errors.New("cannot send unsafe message when the " +
 			"network is not healthy")
 	}
@@ -46,7 +46,7 @@ func (m *manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 func (m *manager) SendE2E(msg message.Send, e2eP params.E2E) (
 	[]id.Round, error) {
 
-	if !m.Health.IsRunning() {
+	if !m.Health.IsHealthy() {
 		return nil, errors.New("Cannot send e2e message when the " +
 			"network is not healthy")
 	}

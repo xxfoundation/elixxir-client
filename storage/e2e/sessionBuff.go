@@ -8,6 +8,7 @@ package e2e
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -256,6 +257,9 @@ func (sb *sessionBuff) GetByID(id SessionID) *Session {
 func (sb *sessionBuff) Confirm(id SessionID) error {
 	sb.mux.Lock()
 	defer sb.mux.Unlock()
+	fmt.Printf("sb: %v\n", sb)
+	fmt.Printf("sb.sessionById: %v\n", sb.sessionByID)
+
 	s, ok := sb.sessionByID[id]
 	if !ok {
 		return errors.Errorf("Could not confirm session %s, does not exist", id)

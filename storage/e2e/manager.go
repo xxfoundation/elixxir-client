@@ -9,7 +9,7 @@ package e2e
 import (
 	"fmt"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -40,8 +40,8 @@ func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey *cyc
 		partner: partnerID,
 	}
 
-	m.send = NewSessionBuff(m, "send")
-	m.receive = NewSessionBuff(m, "receive")
+	m.send = NewSessionBuff(m, "send", kv)
+	m.receive = NewSessionBuff(m, "receive", kv)
 
 	sendSession := newSession(m, myPrivKey, partnerPubKey, nil,
 		sendParams, Send, SessionID{})

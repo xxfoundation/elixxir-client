@@ -8,14 +8,15 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/context"
-	"gitlab.com/elixxir/client/context/stoppable"
+	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/user"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
@@ -33,26 +34,25 @@ type RegisterNodeCommsInterface interface {
 		message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error)
 }
 
-func StartRegistration(ctx *context.Context, comms RegisterNodeCommsInterface,
+func StartRegistration(instance *network.Instance, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
 	c chan network.NodeGateway) stoppable.Stoppable {
 	stop := stoppable.NewSingle("NodeRegistration")
-	instance := ctx.Manager.GetInstance()
 
 	instance.SetAddGatewayChan(c)
 
-	go registerNodes(ctx, comms, stop, c)
+	go registerNodes(session, rngGen, comms, stop, c)
 
 	return stop
 }
 
-func registerNodes(ctx *context.Context, comms RegisterNodeCommsInterface,
+func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
 	stop *stoppable.Single, c chan network.NodeGateway) {
-	u := ctx.Session.User()
+	u := session.User()
 	regSignature := u.GetRegistrationValidationSignature()
 	uci := u.GetCryptographicIdentity()
-	cmix := ctx.Session.Cmix()
+	cmix := session.Cmix()
 
-	rng := ctx.Rng.GetStream()
+	rng := rngGen.GetStream()
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
 	for true {

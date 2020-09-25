@@ -8,9 +8,9 @@ package message
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
-	"gitlab.com/elixxir/client/network/keyExchange"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -72,7 +72,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 	// while waiting check if any rekeys need to happen and trigger them. This
 	// can happen now because the key popping happens in this thread,
 	// only the sending is parallelized
-	keyExchange.CheckKeyExchanges(m.Context, partner)
+	keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E, m.Session, partner)
 
 	wg.Wait()
 

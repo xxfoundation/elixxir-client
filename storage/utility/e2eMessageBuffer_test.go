@@ -2,8 +2,8 @@ package utility
 
 import (
 	"encoding/json"
-	"gitlab.com/elixxir/client/context/message"
-	"gitlab.com/elixxir/client/context/params"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"

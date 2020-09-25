@@ -14,7 +14,6 @@ import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/states"
-	"time"
 )
 
 const (
@@ -23,13 +22,13 @@ const (
 )
 
 func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	c chan message.Receive, quitCh <-chan struct{}) {
+	c chan message.Receive, quitCh <-chan struct{}, params params.Rekey) {
 	for true {
 		select {
 		case <-quitCh:
 			return
 		case request := <-c:
-			err := handleTrigger(sess, net, request)
+			err := handleTrigger(sess, net, request, params)
 			if err != nil {
 				jww.ERROR.Printf("Failed to handle rekey trigger: %s",
 					err)
@@ -39,7 +38,7 @@ func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
 }
 
 func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	request message.Receive) error {
+	request message.Receive, param params.Rekey) error {
 	//ensure the message was encrypted properly
 	if request.Encryption != message.E2E {
 		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
@@ -122,14 +121,17 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	sendResults := make(chan ds.EventReturn, len(rounds))
 	roundEvents := net.GetInstance().GetRoundEvents()
 	for _, r := range rounds {
-		roundEvents.AddRoundEventChan(r, sendResults, 1*time.Minute,
+		roundEvents.AddRoundEventChan(r, sendResults, param.RoundTimeout,
 			states.COMPLETED, states.FAILED)
 	}
+
+	fmt.Println("before tracking")
 	//Wait until the result tracking responds
 	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
+	fmt.Println("after tracking")
 	if !success {
 		jww.ERROR.Printf("Key Negotiation for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",

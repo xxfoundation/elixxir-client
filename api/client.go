@@ -260,7 +260,7 @@ func (c *Client) StartNetworkFollower() error {
 	}
 	c.runner.Add(stopFollow)
 	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network))
+	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, params.GetDefaultRekey()))
 
 	err = c.status.toRunning()
 	if err != nil {

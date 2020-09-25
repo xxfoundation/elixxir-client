@@ -24,10 +24,10 @@ import (
 )
 
 func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, manager *e2e.Manager) {
+	sess *storage.Session, manager *e2e.Manager, sendTimeout time.Duration) {
 	sessions := manager.TriggerNegotiations()
 	for _, session := range sessions {
-		go trigger(instance, sendE2E, sess, manager, session)
+		go trigger(instance, sendE2E, sess, manager, session, sendTimeout)
 	}
 }
 
@@ -36,7 +36,8 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 // session. They run the same negotiation, the former does it on a newly created
 // session while the latter on an extand
 func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, manager *e2e.Manager, session *e2e.Session) {
+	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
+	sendTimeout time.Duration) {
 	var negotiatingSession *e2e.Session
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
@@ -56,7 +57,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	}
 
 	// send the rekey notification to the partner
-	err := negotiate(instance, sendE2E, sess, negotiatingSession)
+	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout)
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
@@ -66,7 +67,8 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 }
 
 func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, session *e2e.Session) error {
+	sess *storage.Session, session *e2e.Session,
+	sendTimeout time.Duration) error {
 	e2eStore := sess.E2e()
 
 	//generate public key
@@ -111,7 +113,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	//Register the event for all rounds
 	roundEvents := instance.GetRoundEvents()
 	for _, r := range rounds {
-		roundEvents.AddRoundEventChan(r, sendResults, 1*time.Minute,
+		roundEvents.AddRoundEventChan(r, sendResults, sendTimeout,
 			states.COMPLETED, states.FAILED)
 	}
 

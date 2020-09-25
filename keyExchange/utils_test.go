@@ -45,15 +45,15 @@ type testNetworkManagerGeneric struct {
 }
 
 func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker {
-	panic("implement me")
+	return nil
 }
 
 func (t *testNetworkManagerGeneric) Follow() (stoppable.Stoppable, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
-	panic("implement me")
+	return
 }
 
 func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) ([]id.Round, error) {
@@ -131,15 +131,15 @@ type testNetworkManagerFullExchange struct {
 }
 
 func (t *testNetworkManagerFullExchange) GetHealthTracker() interfaces.HealthTracker {
-	panic("implement me")
+	return nil
 }
 
 func (t *testNetworkManagerFullExchange) Follow() (stoppable.Stoppable, error) {
-	panic("implement me")
+	return nil, nil
 }
 
 func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
-	panic("implement me")
+	return
 }
 
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation

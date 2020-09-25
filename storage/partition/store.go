@@ -12,6 +12,8 @@ import (
 
 type multiPartID [16]byte
 
+const packagePrefix = "Partition"
+
 type Store struct {
 	multiParts map[multiPartID]*multiPartMessage
 	kv         *versioned.KV
@@ -21,7 +23,7 @@ type Store struct {
 func New(kv *versioned.KV) *Store {
 	return &Store{
 		multiParts: make(map[multiPartID]*multiPartMessage),
-		kv:         kv.Prefix(keyMultiPartMessagePrefix),
+		kv:         kv.Prefix(packagePrefix),
 	}
 }
 

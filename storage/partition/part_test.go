@@ -15,20 +15,19 @@ func Test_savePart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
-	messageID := prng.Uint64()
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
 	key := makeMultiPartMessagePartKey(partNum)
 
 	// Save part
-	err := savePart(kv, messageID, partNum, part)
+	err := savePart(kv, partNum, part)
 	if err != nil {
 		t.Errorf("savePart() produced an error: %v", err)
 	}
 
 	// Attempt to get from key value store
-	obj, err := multiPartMessagePartPrefix(kv, messageID).Get(key)
+	obj, err := kv.Get(key)
 	if err != nil {
 		t.Errorf("Get() produced an error: %v", err)
 	}
@@ -45,22 +44,20 @@ func Test_loadPart(t *testing.T) {
 	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up test values
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	messageID := prng.Uint64()
 	rootKv := versioned.NewKV(make(ekv.Memstore))
-	kv := multiPartMessagePartPrefix(rootKv, messageID)
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
 	key := makeMultiPartMessagePartKey(partNum)
 
 	// Save part to key value store
-	err := kv.Set(key, &versioned.Object{Timestamp: time.Now(), Data: part})
+	err := rootKv.Set(key, &versioned.Object{Timestamp: time.Now(), Data: part})
 	if err != nil {
 		t.Fatalf("Failed to set object: %v", err)
 	}
 
 	// Load part from key value store
-	data, err := loadPart(rootKv, messageID, partNum)
+	data, err := loadPart(rootKv, partNum)
 	if err != nil {
 		t.Errorf("loadPart() produced an error: %v", err)
 	}
@@ -78,13 +75,12 @@ func Test_loadPart_NotFoundError(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
-	messageID := prng.Uint64()
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
 
 	// Load part from key value store
-	data, err := loadPart(kv, messageID, partNum)
+	data, err := loadPart(kv, partNum)
 	if ekv.Exists(err) {
 		t.Errorf("loadPart() found an item for the key: %v", err)
 	}
@@ -101,25 +97,24 @@ func TestDeletePart(t *testing.T) {
 	// Set up test values
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
-	messageID := prng.Uint64()
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
 	prng.Read(part)
 
 	// Save part
-	err := savePart(kv, messageID, partNum, part)
+	err := savePart(kv, partNum, part)
 	if err != nil {
 		t.Fatalf("savePart() produced an error: %v", err)
 	}
 
 	// Attempt to delete part
-	err = deletePart(kv, messageID, partNum)
+	err = deletePart(kv, partNum)
 	if err != nil {
 		t.Errorf("deletePart() produced an error: %v", err)
 	}
 
 	// Check if part was deleted
-	_, err = loadPart(kv, messageID, partNum)
+	_, err = loadPart(kv, partNum)
 	if ekv.Exists(err) {
 		t.Errorf("part was found in key value store: %v", err)
 	}

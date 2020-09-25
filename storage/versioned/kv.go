@@ -25,7 +25,7 @@ func MakeKeyWithPrefix(dataType string, uniqueID string) string {
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with
 func MakePartnerPrefix(id *id.ID) string {
-	return fmt.Sprintf("%v:%v", "Partner:", id.String())
+	return fmt.Sprintf("Partner:%v", id.String())
 }
 
 // Upgrade functions must be of this type

@@ -39,7 +39,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 
 	CheckMultiPartMessages(expectedMpm, mpm, t)
 
-	obj, err := mpm.kv.Get(makeMultiPartMessageKey(expectedMpm.MessageID))
+	obj, err := mpm.kv.Get(messageKey)
 	if err != nil {
 		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
 	}
@@ -135,7 +135,7 @@ func TestMultiPartMessage_Add(t *testing.T) {
 		t.Fatalf("Failed to marshal expected multiPartMessage: %v", err)
 	}
 
-	obj, err := mpm.kv.Get(makeMultiPartMessageKey(mpm.MessageID))
+	obj, err := mpm.kv.Get(messageKey)
 	if err != nil {
 		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
 	}
@@ -170,7 +170,7 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 
 	CheckMultiPartMessages(expectedMpm, npm, t)
 
-	data, err := loadPart(npm.kv, npm.MessageID, 2)
+	data, err := loadPart(npm.kv, 2)
 	if err != nil {
 		t.Errorf("loadPart() produced an error: %v", err)
 	}
@@ -233,13 +233,12 @@ func TestMultiPartMessage_delete(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	mpm := loadOrCreateMultiPartMessage(id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		prng.Uint64(), kv)
-	key := makeMultiPartMessageKey(mpm.MessageID)
 
 	mpm.delete()
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(messageKey)
 	if ekv.Exists(err) {
 		t.Errorf("delete() did not properly delete key %s."+
-			"\n\tobject received: %+v", key, obj)
+			"\n\tobject received: %+v", messageKey, obj)
 	}
 }
 

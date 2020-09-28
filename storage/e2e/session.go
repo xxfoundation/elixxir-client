@@ -234,7 +234,6 @@ func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) Sessi
 	return getSessionIDFromBaseKey(baseKey)
 }
 
-
 //Blake2B hash of base key used for storage
 func (s *Session) GetID() SessionID {
 	return getSessionIDFromBaseKey(s.baseKey)
@@ -447,6 +446,8 @@ func (s *Session) triggerNegotiation() bool {
 			s.mux.Unlock()
 			return false
 		}
+		// fixme: Is this a bug? In rekey.go, it seems a session would never be unconfirmed
+		//  as it would be set to sending. Possible that this is wrong or the switch statement is
 	} else if s.negotiationStatus == Unconfirmed {
 		// retrigger this sessions negotiation
 		s.mux.RUnlock()

@@ -3,7 +3,7 @@ package params
 import "time"
 
 type Rekey struct {
-	RoundTimeout             time.Duration
+	RoundTimeout time.Duration
 }
 
 func GetDefaultRekey() Rekey {

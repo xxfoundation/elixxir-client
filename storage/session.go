@@ -11,6 +11,7 @@ package storage
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
+	userInterface "gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -28,11 +29,10 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"sync"
 	"testing"
-	userInterface "gitlab.com/elixxir/client/interfaces/user"
 )
 
 // Number of rounds to store in the CheckedRound buffer
-const checkRoundsMaxSize = 1000000 / 64
+const CheckRoundsMaxSize = 1000000 / 64
 
 // Session object, backed by encrypted filestore
 type Session struct {
@@ -88,27 +88,32 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 
 	s.user, err = user.NewUser(s.kv, u.ID, u.Salt, u.RSA, u.Precanned)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessage(err, "Failed to create user")
 	}
 
 	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessage(err, "Failed to create cmix store")
 	}
 
 	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, rng)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessage(err, "Failed to create e2e store")
 	}
 
 	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessage(err, "Failed to create garbledMessages buffer")
 	}
 
-	s.checkedRounds, err = utility.NewKnownRounds(s.kv, checkedRoundsKey, checkRoundsMaxSize)
+	s.checkedRounds, err = utility.NewKnownRounds(s.kv, checkedRoundsKey, CheckRoundsMaxSize)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create session")
+		return nil, errors.WithMessage(err, "Failed to create checkedRounds")
+	}
+
+	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create e2e message buffer")
 	}
 
 	s.conversations = conversation.NewStore(s.kv)
@@ -154,7 +159,7 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
 
-	s.checkedRounds, err = utility.LoadKnownRounds(s.kv, checkedRoundsKey, checkRoundsMaxSize)
+	s.checkedRounds, err = utility.LoadKnownRounds(s.kv, checkedRoundsKey, CheckRoundsMaxSize)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}

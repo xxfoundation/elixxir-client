@@ -204,6 +204,12 @@ var rootCmd = &cobra.Command{
 		user := client.GetUser()
 		jww.INFO.Printf("%s", user.ID)
 
+		err := client.StartNetworkFollower()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		select {}
 	},
 }
 

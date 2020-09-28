@@ -75,14 +75,19 @@ func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, co
 // It registers a user with a specific in the client's ndf.
 func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway, regSig []byte,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) error {
-	gw := ngw.Gateway
-	gatewayID, err := id.Unmarshal(gw.ID)
+	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
+		jww.ERROR.Println("registerWithNode() failed to decode nodeId")
 		return err
 	}
 
-	nodeID := gatewayID.DeepCopy()
-	nodeID.SetType(id.Node)
+	gatewayID, err := ngw.Gateway.GetGatewayId()
+	if err != nil {
+		jww.ERROR.Println("registerWithNode() failed to decode gatewayID")
+		return err
+	}
+
+	jww.INFO.Printf("Begin registration with node: %s", nodeID)
 
 	if store.IsRegistered(nodeID) {
 		return nil
@@ -123,6 +128,8 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 	}
 
 	store.Add(nodeID, transmissionKey)
+
+	jww.INFO.Printf("Completed registration with node %s", nodeID)
 
 	return nil
 }

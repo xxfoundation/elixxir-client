@@ -96,7 +96,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Garbled Messages (/network/message/garbled.go)
 //	 - Critical Messages (/network/message/critical.go)
 func (m *manager) Follow() (stoppable.Stoppable, error) {
-
 	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
 		return nil, errors.Errorf("network routines are already running")
 	}
@@ -138,7 +137,6 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	return closer, nil
 }
 
-
 // GetHealthTracker returns the health tracker
 func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 	return m.Health
@@ -155,4 +153,3 @@ func (m *manager) GetInstance() *network.Instance {
 func (m *manager) CheckGarbledMessages() {
 	m.message.CheckGarbledMessages()
 }
-

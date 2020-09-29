@@ -23,7 +23,7 @@ type getRemoteClientVersionComms interface {
 // getRemoteVersion contacts the permissioning server and returns the current
 // supported client version.
 func getRemoteVersion(permissioningHost *connect.Host, comms getRemoteClientVersionComms) (bool, version.Version, error) {
-	//gets the remove version
+	//gets the remote version
 	response, err := comms.SendGetCurrentClientVersionMessage(
 		permissioningHost)
 	if err != nil {

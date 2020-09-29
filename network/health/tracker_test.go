@@ -46,8 +46,11 @@ func TestNewTracker(t *testing.T) {
 	}()
 
 	// Begin the health tracker
-	quit := make(chan struct{})
-	go tracker.start(quit)
+	_, err := tracker.Start()
+	if err != nil {
+		t.Errorf("Unable to start tracker: %+v", err)
+		return
+	}
 
 	// Send a positive health heartbeat
 	expectedCount := 2

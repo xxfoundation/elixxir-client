@@ -7,37 +7,84 @@
 package health
 
 import (
+	"gitlab.com/elixxir/comms/network"
 	//	"gitlab.com/elixxir/comms/network"
 	"testing"
 	"time"
 )
 
+// Happy path smoke test
 func TestNewTracker(t *testing.T) {
-	tracker := newTracker(1 * time.Second)
-	//hbChan := tracker.heartbeat
+	// Initialize required variables
+	timeout := 500 * time.Millisecond
+	tracker := newTracker(timeout)
 	counter := 0
+	positiveHb := network.Heartbeat{
+		HasWaitingRound: true,
+		IsRoundComplete: true,
+	}
 
-	// positiveHb := network.Heartbeat{
-	// 	HasWaitingRound: true,
-	// 	IsRoundComplete: true,
-	// }
-	// negativeHb := network.Heartbeat{
-	// 	HasWaitingRound: false,
-	// 	IsRoundComplete: false,
-	// }
-
-	listenChan := make(chan bool)
+	// Build listening channel and listening function
+	listenChan := make(chan bool, 10)
 	listenFunc := func(isHealthy bool) {
-		counter++
+		if isHealthy {
+			counter++
+		} else {
+			counter--
+		}
 	}
 	tracker.AddChannel(listenChan)
 	tracker.AddFunc(listenFunc)
 	go func() {
-		for range listenChan {
-			counter++
+		for isHealthy := range listenChan {
+			if isHealthy {
+				counter++
+			} else {
+				counter--
+			}
 		}
 	}()
 
+	// Begin the health tracker
 	quit := make(chan struct{})
 	go tracker.start(quit)
+
+	// Send a positive health heartbeat
+	expectedCount := 2
+	tracker.heartbeat <- positiveHb
+
+	// Wait for the heartbeat to register
+	for i := 0; i < 5; i++ {
+		if tracker.IsHealthy() && counter == expectedCount {
+			break
+		} else {
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+	// Verify the network was marked as healthy
+	if !tracker.IsHealthy() {
+		t.Errorf("Tracker did not become healthy")
+		return
+	}
+
+	// Verify the heartbeat triggered the listening chan/func
+	if counter != expectedCount {
+		t.Errorf("Expected counter to be %d, got %d", expectedCount, counter)
+	}
+
+	// Wait out the timeout
+	expectedCount = 0
+	time.Sleep(timeout)
+
+	// Verify the network was marked as NOT healthy
+	if tracker.IsHealthy() {
+		t.Errorf("Tracker should not report healthy")
+		return
+	}
+
+	// Verify the timeout triggered the listening chan/func
+	if counter != expectedCount {
+		t.Errorf("Expected counter to be %d, got %d", expectedCount, counter)
+	}
 }

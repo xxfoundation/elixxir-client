@@ -2,9 +2,9 @@ package message
 
 import (
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/id"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 const messageIDLen = 32

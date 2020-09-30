@@ -4,6 +4,7 @@ import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/switchboard"
@@ -38,8 +39,10 @@ func TestFullExchange(t *testing.T) {
 		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
 
 	// Start the listeners for alice and bob
-	Start(aliceSwitchboard, aliceSession, aliceManager)
-	Start(bobSwitchboard, bobSession, bobManager)
+	rekeyParams := params.GetDefaultRekey()
+	rekeyParams.RoundTimeout = 5 * time.Second
+	Start(aliceSwitchboard, aliceSession, aliceManager, rekeyParams)
+	Start(bobSwitchboard, bobSession, bobManager, rekeyParams)
 
 	// Generate a session ID, bypassing some business logic here
 	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)

@@ -29,15 +29,23 @@ func TestHandleConfirm(t *testing.T) {
 	// Generate a session ID, bypassing some business logic here
 	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
 
+	// Get Alice's manager for Bob
+	receivedManager, err := aliceSession.E2e().GetPartner(bobID)
+	if err != nil {
+		t.Errorf("Bob is not recognized as Alice's partner: %v", err)
+	}
+
+	// Trigger negotiations, so that negotiation statuses
+	// can be transitioned
+	receivedManager.TriggerNegotiations()
+
 	// Generate the message
 	rekey, _ := proto.Marshal(&RekeyConfirm{
 		SessionID: sessionID.Marshal(),
 	})
-	payload := make([]byte, 0)
-	payload = append(payload, rekey...)
 
 	receiveMsg := message.Receive{
-		Payload:     payload,
+		Payload:     rekey,
 		MessageType: message.NoType,
 		Sender:      bobID,
 		Timestamp:   time.Now(),
@@ -46,4 +54,16 @@ func TestHandleConfirm(t *testing.T) {
 
 	// Handle the confirmation
 	handleConfirm(aliceSession, receiveMsg)
+
+	// Get Alice's session for Bob
+	confirmedSession := receivedManager.GetSendSession(sessionID)
+
+	// Check that the session is in the proper status
+	newSession := receivedManager.GetSendSession(sessionID)
+	if newSession.NegotiationStatus() != e2e.Confirmed {
+		t.Errorf("Session not in confirmed status!"+
+			"\n\tExpected: Confirmed"+
+			"\n\tReceived: %s", confirmedSession.NegotiationStatus())
+	}
+
 }

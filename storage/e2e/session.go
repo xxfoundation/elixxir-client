@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
@@ -18,6 +19,7 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
+	"testing"
 	"time"
 )
 
@@ -214,6 +216,22 @@ func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 	h.Write(baseKey.Bytes())
 	copy(sid[:], h.Sum(nil))
 	return sid
+}
+
+//underlying definition of session id
+// FOR TESTING PURPOSES ONLY
+func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
+	switch i.(type) {
+	case *testing.T:
+		break
+	case *testing.M:
+		break
+	case *testing.B:
+		break
+	default:
+		globals.Log.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)
+	}
+	return getSessionIDFromBaseKey(baseKey)
 }
 
 //Blake2B hash of base key used for storage
@@ -449,7 +467,7 @@ func (s *Session) triggerNegotiation() bool {
 		}
 	}
 	s.mux.RUnlock()
-	return true
+	return false
 }
 
 // checks if the session has been confirmed

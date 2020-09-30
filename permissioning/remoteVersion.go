@@ -2,8 +2,8 @@ package permissioning
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/primitives/version"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
 )
 
@@ -23,7 +23,7 @@ type getRemoteClientVersionComms interface {
 // getRemoteVersion contacts the permissioning server and returns the current
 // supported client version.
 func getRemoteVersion(permissioningHost *connect.Host, comms getRemoteClientVersionComms) (bool, version.Version, error) {
-	//gets the remove version
+	//gets the remote version
 	response, err := comms.SendGetCurrentClientVersionMessage(
 		permissioningHost)
 	if err != nil {

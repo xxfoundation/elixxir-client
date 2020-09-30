@@ -49,7 +49,7 @@ type Client interface {
 	// changes
 	RegisterNetworkHealthCB(func(bool))
 
-	RegisterRoundEventCallback(rid int, hdlr RoundEventHandler, )
+	RegisterRoundEventCallback(rid int, hdlr RoundEventHandler)
 
 	// ----- Reception -----
 
@@ -192,7 +192,6 @@ type RoundList interface {
 	// GetRoundID returns the round ID at index i
 	GetRoundID(i int) int
 }
-
 
 // RoundEventHandler handles round events happening on the cMix network.
 type RoundEventHandler interface {

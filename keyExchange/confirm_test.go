@@ -44,7 +44,6 @@ func TestHandleConfirm(t *testing.T) {
 		SessionID: sessionID.Marshal(),
 	})
 
-
 	receiveMsg := message.Receive{
 		Payload:     rekey,
 		MessageType: message.NoType,
@@ -62,10 +61,9 @@ func TestHandleConfirm(t *testing.T) {
 	// Check that the session is in the proper status
 	newSession := receivedManager.GetSendSession(sessionID)
 	if newSession.NegotiationStatus() != e2e.Confirmed {
-		t.Errorf("Session not in confirmed status!" +
-			"\n\tExpected: Confirmed" +
+		t.Errorf("Session not in confirmed status!"+
+			"\n\tExpected: Confirmed"+
 			"\n\tReceived: %s", confirmedSession.NegotiationStatus())
 	}
-
 
 }

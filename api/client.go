@@ -212,6 +212,11 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 		return nil, err
 	}
 
+	err = c.network.GetInstance().UpdateGatewayConnections()
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 

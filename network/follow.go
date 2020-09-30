@@ -23,6 +23,7 @@ package network
 
 import (
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
@@ -73,19 +74,20 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			Hash: m.Instance.GetPartialNdf().GetHash(),
 		},
 		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
+		ClientID:   m.Uid.Bytes(),
 	}
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
-		jww.ERROR.Printf(err.Error())
+		jww.ERROR.Printf("%+v", err)
 		return
 	}
 
 	// ---- Process Update Data ----
 	lastTrackedRound := id.Round(pollResp.LastTrackedRound)
-	gwRoundsState := &knownRounds.KnownRounds{}
+	gwRoundsState := knownRounds.NewKnownRound(storage.CheckRoundsMaxSize + 1)
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
-		jww.ERROR.Printf(err.Error())
+		jww.ERROR.Printf("Failed to unmartial: %+v", err)
 		return
 	}
 
@@ -95,7 +97,13 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	if pollResp.PartialNDF != nil {
 		err = m.Instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
-			jww.ERROR.Printf(err.Error())
+			jww.ERROR.Printf("%+v", err)
+			return
+		}
+
+		err = m.Instance.UpdateGatewayConnections()
+		if err != nil {
+			jww.ERROR.Printf("%+v", err)
 			return
 		}
 	}
@@ -105,7 +113,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	if pollResp.Updates != nil {
 		err = m.Instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
-			jww.ERROR.Printf(err.Error())
+			jww.ERROR.Printf("%+v", err)
 			return
 		}
 	}

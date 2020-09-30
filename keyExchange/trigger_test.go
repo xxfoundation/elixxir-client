@@ -84,10 +84,8 @@ func TestHandleTrigger(t *testing.T) {
 	// Check that this session with unrecognized keys is not valid
 	badSession := receivedManager.GetReceiveSession(badSessionID)
 	if badSession != nil {
-		t.Errorf("Alice found a session from an unknown keypair. " +
+		t.Errorf("Alice found a session from an unknown keypair. "+
 			"\nSession: %v", badSession)
 	}
-
-
 
 }

@@ -234,7 +234,6 @@ func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) Sessi
 	return getSessionIDFromBaseKey(baseKey)
 }
 
-
 //Blake2B hash of base key used for storage
 func (s *Session) GetID() SessionID {
 	return getSessionIDFromBaseKey(s.baseKey)

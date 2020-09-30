@@ -20,15 +20,14 @@ type meteredCmixMessage struct {
 	Timestamp time.Time
 }
 
-// SaveMessage saves the message as a versioned object at the specified key
-// in the key value store.
+// SaveMessage saves the message as a versioned object at the specified key in
+// the key value store.
 func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
 	msg := m.(meteredCmixMessage)
 
 	marshaled, err := json.Marshal(&msg)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to marshal metered "+
-			"cmix message")
+		return errors.WithMessage(err, "Failed to marshal metered cmix message")
 	}
 
 	// Create versioned object
@@ -52,15 +51,14 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (int
 		return format.Message{}, err
 	}
 
-	msg := &meteredCmixMessage{}
-	err = json.Unmarshal(vo.Data, msg)
+	msg := meteredCmixMessage{}
+	err = json.Unmarshal(vo.Data, &msg)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to unmarshal "+
-			"metered cmix message")
+		return nil, errors.WithMessage(err, "Failed to unmarshal metered cmix message")
 	}
 
 	// Create message from data
-	return format.Unmarshal(vo.Data), nil
+	return msg, nil
 }
 
 // DeleteMessage deletes the message with the specified key from the key value
@@ -85,7 +83,7 @@ type MeteredCmixMessageBuffer struct {
 }
 
 func NewMeteredCmixMessageBuffer(kv *versioned.KV, key string) (*MeteredCmixMessageBuffer, error) {
-	mb, err := NewMessageBuffer(kv, &cmixMessageHandler{}, key)
+	mb, err := NewMessageBuffer(kv, &meteredCmixMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +92,7 @@ func NewMeteredCmixMessageBuffer(kv *versioned.KV, key string) (*MeteredCmixMess
 }
 
 func LoadMeteredCmixMessageBuffer(kv *versioned.KV, key string) (*MeteredCmixMessageBuffer, error) {
-	mb, err := LoadMessageBuffer(kv, &cmixMessageHandler{}, key)
+	mb, err := LoadMessageBuffer(kv, &meteredCmixMessageHandler{}, key)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +127,7 @@ func (mcmb *MeteredCmixMessageBuffer) Next() (format.Message, uint, time.Time, b
 	msg := m.(meteredCmixMessage)
 	rtnCnt := msg.Count
 
-	//increment the count and save
+	// increment the count and save
 	msg.Count++
 	mcmh := &meteredCmixMessageHandler{}
 	err := mcmh.SaveMessage(mcmb.kv, msg, makeStoredMessageKey(mcmb.key, mcmh.HashMessage(msg)))
@@ -143,9 +141,9 @@ func (mcmb *MeteredCmixMessageBuffer) Next() (format.Message, uint, time.Time, b
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Remove(m format.Message) {
-	mcmb.mb.Succeeded(m)
+	mcmb.mb.Succeeded(meteredCmixMessage{M: m.Marshal()})
 }
 
 func (mcmb *MeteredCmixMessageBuffer) Failed(m format.Message) {
-	mcmb.mb.Failed(m)
+	mcmb.mb.Failed(meteredCmixMessage{M: m.Marshal()})
 }

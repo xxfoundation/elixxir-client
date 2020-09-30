@@ -87,7 +87,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		return err
 	}
 
-	jww.INFO.Printf("Begin registration with node: %s", nodeID)
+	jww.INFO.Printf("registerWithNode() begin registration with node: %s", nodeID)
 
 	if store.IsRegistered(nodeID) {
 		return nil

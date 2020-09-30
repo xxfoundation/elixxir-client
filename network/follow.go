@@ -97,13 +97,13 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	if pollResp.PartialNDF != nil {
 		err = m.Instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
-			jww.ERROR.Printf(err.Error())
+			jww.ERROR.Printf("%+v", err)
 			return
 		}
 
 		err = m.Instance.UpdateGatewayConnections()
 		if err != nil {
-			jww.ERROR.Printf(err.Error())
+			jww.ERROR.Printf("%+v", err)
 			return
 		}
 	}
@@ -113,7 +113,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	if pollResp.Updates != nil {
 		err = m.Instance.RoundUpdates(pollResp.Updates)
 		if err != nil {
-			jww.ERROR.Printf(err.Error())
+			jww.ERROR.Printf("%+v", err)
 			return
 		}
 	}

@@ -299,27 +299,6 @@ func (mb *MessageBuffer) Failed(m interface{}) {
 	mb.messages[h] = struct{}{}
 }
 
-/*
-// loadMessage loads the message with the specified key.
-func loadMessage(kv *versioned.KV, key string) (format.Message, error) {
-	// Load the versioned object
-	vo, err := kv.Get(key)
-	if err != nil {
-		return format.Message{}, err
-	}
-
-	// Create message from data
-	return format.Unmarshal(vo.Data), err
-}
-
-// hashMessage generates a hash of the message.
-func hashMessage(m format.Message) MessageHash {
-	// Sum returns a array that is the exact same size as the MessageHash and Go
-	// apparently automatically casts it
-	return md5.Sum(m.Marshal())
-}
-*/
-
 // makeStoredMessageKey generates a new key for the message based on its has.
 func makeStoredMessageKey(key string, h MessageHash) string {
 	return key + messageSubKey + string(h[:])

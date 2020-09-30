@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
@@ -332,6 +333,13 @@ func (c *Client) GetUser() user.User {
 	return c.storage.GetUser()
 }
 
+// RegisterListenerCallback records and installs a listener callback for
+// messages matching specific uid, msgType, and/or username
+func (c *Client) RegisterListenerCallback(uid []byte, msgType int,
+	username string, listenerCb func(msg message.Receive)) {
+
+}
+
 // ----- Utility Functions -----
 // parseNDF parses the initial ndf string for the client. do not check the
 // signature, it is deprecated.
@@ -346,6 +354,12 @@ func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	}
 
 	return ndf, nil
+}
+
+func (c *Client) getCMIXPrimeSize() int {
+	ndf := c.network.GetInstance().GetPartialNdf().Get()
+	cmixGrp, _ := decodeGroups(ndf)
+	return len(cmixGrp.GetPBytes())
 }
 
 // decodeGroups returns the e2e and cmix groups from the ndf

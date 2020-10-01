@@ -151,5 +151,5 @@ func (t *Tracker) transmit(health bool) {
 }
 
 func healthy(a network.Heartbeat) bool {
-	return a.HasWaitingRound && a.IsRoundComplete
+	return a.IsRoundComplete
 }

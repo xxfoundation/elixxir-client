@@ -157,17 +157,28 @@ var rootCmd = &cobra.Command{
 			jww.FATAL.Panicf("%+v", err)
 		}
 
+		time.Sleep(10 * time.Second)
+
+		// Wait until connected or crash on timeout
+		connected := make(chan bool, 1)
+		client.GetHealth().AddChannel(connected)
+		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		timeoutTick := time.NewTicker(waitTimeout * time.Second)
+		isConnected := false
+		for !isConnected {
+			select {
+			case isConnected = <-connected:
+				jww.INFO.Printf("health status: %b\n",
+					isConnected)
+				break
+			case <-timeoutTick.C:
+				jww.FATAL.Panic("timeout on connection")
+			}
+		}
+
 		// Send Messages
 		msgBody := viper.GetString("message")
-		recipientIDBytes, err := hex.DecodeString(
-			viper.GetString("destid"))
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		recipientID, err := id.Unmarshal(recipientIDBytes)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		recipientID := getUIDFromString(viper.GetString("destid"))
 
 		msg := client.NewCMIXMessage(recipientID, []byte(msgBody))
 		params := params.GetDefaultCMIX()
@@ -175,24 +186,43 @@ var rootCmd = &cobra.Command{
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {
-			client.SendCMIX(msg, params)
+			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
+			roundID, err := client.SendCMIX(msg, params)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			jww.INFO.Printf("RoundID: %d\n", roundID)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
 		receiveCnt := viper.GetUint("receiveCount")
-		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
-		timeoutTick := time.NewTicker(waitTimeout * time.Second)
-		for {
+		timeoutTick = time.NewTicker(waitTimeout * time.Second)
+		done := false
+		for !done {
 			select {
 			case <-timeoutTick.C:
 				fmt.Println("Timed out!")
+				done = true
 				break
 			}
 		}
 		fmt.Printf("Received %d", receiveCnt)
 	},
+}
+
+func getUIDFromString(idStr string) *id.ID {
+	idBytes, err := hex.DecodeString(fmt.Sprintf("%0*d%s",
+		66-len(idStr), 0, idStr))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	ID, err := id.Unmarshal(idBytes)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return ID
 }
 
 func initLog(verbose bool, logPath string) {

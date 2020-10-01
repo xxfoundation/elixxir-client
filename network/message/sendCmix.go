@@ -39,7 +39,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
-		if err == nil {
+		if err != nil {
 			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
 			continue
 		}

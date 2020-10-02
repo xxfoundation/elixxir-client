@@ -46,7 +46,7 @@ type Store struct {
 }
 
 func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
-	rng *fastRNG.StreamGenerator) (*Store, error) {
+	myID *id.ID, rng *fastRNG.StreamGenerator) (*Store, error) {
 	// Generate public key
 	pubKey := diffieHellman.GeneratePublicKey(privKey, grp)
 
@@ -68,9 +68,10 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 		kv: kv,
 
 		context: &context{
-			fa:  &fingerprints,
-			grp: grp,
-			rng: rng,
+			fa:   &fingerprints,
+			grp:  grp,
+			rng:  rng,
+			myID: myID,
 		},
 	}
 
@@ -92,7 +93,7 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 	return s, s.save()
 }
 
-func LoadStore(kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Store, error) {
+func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*Store, error) {
 	fingerprints := newFingerprints()
 	kv = kv.Prefix(packagePrefix)
 
@@ -104,8 +105,9 @@ func LoadStore(kv *versioned.KV, rng *fastRNG.StreamGenerator) (*Store, error) {
 		kv: kv,
 
 		context: &context{
-			fa:  &fingerprints,
-			rng: rng,
+			fa:   &fingerprints,
+			rng:  rng,
+			myID: myID,
 		},
 	}
 
@@ -163,7 +165,7 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 	m, ok := s.managers[*partnerID]
 
 	if !ok {
-		return nil, errors.New("Could not find manager for partner")
+		return nil, errors.New("Could not find relationship for partner")
 	}
 
 	return m, nil
@@ -218,11 +220,11 @@ func (s *Store) unmarshal(b []byte) error {
 	}
 
 	for _, partnerID := range contacts {
-		// Load the manager. The manager handles adding the fingerprints via the
+		// Load the relationship. The relationship handles adding the fingerprints via the
 		// context object
 		manager, err := loadManager(s.context, s.kv, &partnerID)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load manager for partner %s: %s",
+			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
 				&partnerID, err.Error())
 		}
 

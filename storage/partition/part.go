@@ -42,6 +42,6 @@ func makeMultiPartMessagePartKey(part uint8) string {
 }
 
 //func multiPartMessagePartPrefix(kv *versioned.KV, id uint64) *versioned.KV {
-//	return kv.Prefix(keyMultiPartMessagePartPrefix).
-//		Prefix(strconv.FormatUint(id, 32))
+//	return kv.prefix(keyMultiPartMessagePartPrefix).
+//		prefix(strconv.FormatUint(id, 32))
 //}

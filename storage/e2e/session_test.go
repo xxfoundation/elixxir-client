@@ -32,8 +32,8 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	s := &Session{
 		partnerPubKey: partnerPubKey,
 		params:        GetDefaultSessionParams(),
-		manager: &Manager{
-			ctx: ctx,
+		relationship: &relationship{
+			manager: &Manager{ctx: ctx},
 		},
 		t: Receive,
 	}
@@ -93,8 +93,8 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 		myPrivKey:     myPrivKey,
 		partnerPubKey: partnerPubKey,
 		params:        GetDefaultSessionParams(),
-		manager: &Manager{
-			ctx: ctx,
+		relationship: &relationship{
+			manager: &Manager{ctx: ctx},
 		},
 		t: Send,
 	}
@@ -138,7 +138,9 @@ func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession()
 	// Make a new session with the variables we got from makeTestSession
-	sessionB := newSession(sessionA.manager, sessionA.myPrivKey, sessionA.partnerPubKey, sessionA.baseKey, sessionA.params, sessionA.t, sessionA.GetID())
+	sessionB := newSession(sessionA.relationship, sessionA.t, sessionA.myPrivKey,
+		sessionA.partnerPubKey, sessionA.baseKey, sessionA.GetID(), []byte(""),
+		sessionA.params)
 
 	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {
@@ -148,8 +150,8 @@ func TestNewSession(t *testing.T) {
 	if sessionB.keyState == nil {
 		t.Error("newSession should populate keyState")
 	}
-	if sessionB.manager == nil {
-		t.Error("newSession should populate manager")
+	if sessionB.relationship == nil {
+		t.Error("newSession should populate relationship")
 	}
 	if sessionB.ttl == 0 {
 		t.Error("newSession should populate ttl")
@@ -165,7 +167,7 @@ func TestSession_Load(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Load another, hopefully identical session from the storage
-	sessionB, err := loadSession(sessionA.manager, sessionA.kv)
+	sessionB, err := loadSession(sessionA.relationship, sessionA.kv, []byte(""))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -180,8 +182,8 @@ func TestSession_Load(t *testing.T) {
 		t.Error(err)
 	}
 	// For everything else, just make sure it's populated
-	if sessionB.manager == nil {
-		t.Error("load should populate manager")
+	if sessionB.relationship == nil {
+		t.Error("load should populate relationship")
 	}
 	if sessionB.ttl == 0 {
 		t.Error("load should populate ttl")
@@ -222,8 +224,10 @@ func TestSession_Serialization(t *testing.T) {
 	}
 
 	sDeserialized := &Session{
-		manager: &Manager{ctx: ctx},
-		kv:      s.kv,
+		relationship: &relationship{
+			manager: &Manager{ctx: ctx},
+		},
+		kv: s.kv,
 	}
 	err = sDeserialized.unmarshal(sSerialized)
 	if err != nil {
@@ -573,7 +577,7 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 func TestSession_String(t *testing.T) {
 	s, _ := makeTestSession()
 	t.Log(s.String())
-	s.manager.partner = id.NewIdFromUInt(80, id.User, t)
+	s.relationship.manager.partner = id.NewIdFromUInt(80, id.User, t)
 	t.Log(s.String())
 }
 
@@ -599,8 +603,9 @@ func makeTestSession() (*Session, *context) {
 	//create context objects for general use
 	fps := newFingerprints()
 	ctx := &context{
-		fa:  &fps,
-		grp: grp,
+		fa:   &fps,
+		grp:  grp,
+		myID: &id.ID{},
 	}
 
 	kv := versioned.NewKV(make(ekv.Memstore))
@@ -610,9 +615,12 @@ func makeTestSession() (*Session, *context) {
 		myPrivKey:     myPrivKey,
 		partnerPubKey: partnerPubKey,
 		params:        GetDefaultSessionParams(),
-		manager: &Manager{
-			ctx: ctx,
-			kv:  kv,
+		relationship: &relationship{
+			manager: &Manager{
+				ctx: ctx,
+				kv:  kv,
+			},
+			kv: kv,
 		},
 		kv:                kv,
 		t:                 Receive,

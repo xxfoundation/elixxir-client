@@ -202,8 +202,8 @@ func getSession(t *testing.T) *Session {
 	}
 
 	return &Session{
-		manager: &Manager{
-			ctx: ctx,
+		relationship: &relationship{
+			manager: &Manager{ctx: ctx},
 		},
 		baseKey:  baseKey,
 		keyState: keyState,

@@ -31,9 +31,10 @@ func TestNewStore(t *testing.T) {
 		kv:           kv.Prefix(packagePrefix),
 		fingerprints: &fingerprints,
 		context: &context{
-			fa:  &fingerprints,
-			grp: grp,
-			rng: rng,
+			fa:   &fingerprints,
+			grp:  grp,
+			rng:  rng,
+			myID: &id.ID{},
 		},
 	}
 	expectedData, err := expectedStore.marshal()
@@ -41,7 +42,7 @@ func TestNewStore(t *testing.T) {
 		t.Fatalf("marshal() produced an error: %v", err)
 	}
 
-	store, err := NewStore(grp, kv, privKey, rng)
+	store, err := NewStore(grp, kv, privKey, &id.ID{}, rng)
 	if err != nil {
 		t.Errorf("NewStore() produced an error: %v", err)
 	}
@@ -66,14 +67,14 @@ func TestNewStore(t *testing.T) {
 func TestLoadStore(t *testing.T) {
 	expectedStore, kv, rng := makeTestStore()
 
-	store, err := LoadStore(kv, rng)
+	store, err := LoadStore(kv, &id.ID{}, rng)
 	if err != nil {
 		t.Errorf("LoadStore() produced an error: %v", err)
 	}
 
 	if !reflect.DeepEqual(expectedStore, store) {
 		t.Errorf("LoadStore() returned incorrect Store."+
-			"\n\texpected: %+v\n\treceived: %+v", expectedStore, store)
+			"\n\texpected: %#v\n\treceived: %#v", expectedStore, store)
 	}
 }
 
@@ -131,7 +132,7 @@ func TestStore_GetPartner_Error(t *testing.T) {
 	}
 
 	if m != nil {
-		t.Errorf("GetPartner() did not return a nil manager."+
+		t.Errorf("GetPartner() did not return a nil relationship."+
 			"\n\texpected: %v\n\treceived: %v", nil, m)
 	}
 }
@@ -278,7 +279,7 @@ func makeTestStore() (*Store, *versioned.KV, *fastRNG.StreamGenerator) {
 	privKey := grp.NewInt(57)
 	kv := versioned.NewKV(make(ekv.Memstore))
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-	s, err := NewStore(grp, kv, privKey, rng)
+	s, err := NewStore(grp, kv, privKey, &id.ID{}, rng)
 	if err != nil {
 		panic("NewStore() produced an error: " + err.Error())
 	}

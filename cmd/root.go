@@ -314,11 +314,11 @@ func init() {
 	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
 	rootCmd.Flags().UintP("sendDelay",
 		"", 500, "The delay between sending the messages in ms")
-	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
+	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
 
 	rootCmd.Flags().UintP("receiveCount",
 		"", 1, "How many messages we should wait for before quitting")
-	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
+	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
 	rootCmd.Flags().UintP("waitTimeout", "", 15,
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",

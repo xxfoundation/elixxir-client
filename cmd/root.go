@@ -9,15 +9,18 @@ package cmd
 
 import (
 	"encoding/binary"
+	"encoding/hex"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
 	"strconv"
+	"time"
 )
 
 var verbose bool
@@ -94,61 +97,6 @@ func Execute() {
 // 	params.MinNumKeys = uint16(minNumKeys)
 // }
 
-// type FallbackListener struct {
-// 	MessagesReceived int64
-// }
-
-// func (l *FallbackListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
-// 	if !isHeardElsewhere {
-// 		message := item.(*parse.Message)
-// 		sender, ok := userRegistry.Users.GetUser(message.Sender)
-// 		var senderNick string
-// 		if !ok {
-// 			jww.ERROR.Printf("Couldn't get sender %v", message.Sender)
-// 		} else {
-// 			senderNick = sender.Username
-// 		}
-// 		atomic.AddInt64(&l.MessagesReceived, 1)
-// 		jww.INFO.Printf("Message of type %v from %q, %v received with fallback: %s\n",
-// 			message.MessageType, printIDNice(message.Sender), senderNick,
-// 			string(message.Body))
-// 	}
-// }
-
-// type TextListener struct {
-// 	MessagesReceived int64
-// }
-
-// func (l *TextListener) Hear(item switchboard.Item, isHeardElsewhere bool, i ...interface{}) {
-// 	message := item.(*parse.Message)
-// 	jww.INFO.Println("Hearing a text message")
-// 	result := cmixproto.TextMessage{}
-// 	err := proto.Unmarshal(message.Body, &result)
-// 	if err != nil {
-// 		jww.ERROR.Printf("Error unmarshaling text message: %v\n",
-// 			err.Error())
-// 	}
-
-// 	sender, ok := userRegistry.Users.GetUser(message.Sender)
-// 	var senderNick string
-// 	if !ok {
-// 		jww.INFO.Printf("First message from sender %v", printIDNice(message.Sender))
-// 		u := userRegistry.Users.NewUser(message.Sender, base64.StdEncoding.EncodeToString(message.Sender[:]))
-// 		userRegistry.Users.UpsertUser(u)
-// 		senderNick = u.Username
-// 	} else {
-// 		senderNick = sender.Username
-// 	}
-// 	logMsg := fmt.Sprintf("Message from %v, %v Received: %s\n",
-// 		printIDNice(message.Sender),
-// 		senderNick, result.Message)
-// 	jww.INFO.Printf("%s -- Timestamp: %s\n", logMsg,
-// 		message.Timestamp.String())
-// 	fmt.Printf(logMsg)
-
-// 	atomic.AddInt64(&l.MessagesReceived, 1)
-// }
-
 // type userSearcher struct {
 // 	foundUserChan chan []byte
 // }
@@ -209,8 +157,72 @@ var rootCmd = &cobra.Command{
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		select {}
+		time.Sleep(10 * time.Second)
+
+		// Wait until connected or crash on timeout
+		connected := make(chan bool, 1)
+		client.GetHealth().AddChannel(connected)
+		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+		isConnected := false
+		for !isConnected {
+			select {
+			case isConnected = <-connected:
+				jww.INFO.Printf("health status: %v\n",
+					isConnected)
+				break
+			case <-timeoutTimer.C:
+				jww.FATAL.Panic("timeout on connection")
+			}
+		}
+
+		// Send Messages
+		msgBody := viper.GetString("message")
+		recipientID := getUIDFromString(viper.GetString("destid"))
+
+		msg := client.NewCMIXMessage(recipientID, []byte(msgBody))
+		params := params.GetDefaultCMIX()
+
+		sendCnt := int(viper.GetUint("sendCount"))
+		sendDelay := time.Duration(viper.GetUint("sendDelay"))
+		for i := 0; i < sendCnt; i++ {
+			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
+			roundID, err := client.SendCMIX(msg, params)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			jww.INFO.Printf("RoundID: %d\n", roundID)
+			time.Sleep(sendDelay * time.Millisecond)
+		}
+
+		// Wait until message timeout or we receive enough then exit
+		// TODO: Actually check for how many messages we've received
+		receiveCnt := viper.GetUint("receiveCount")
+		timeoutTimer = time.NewTimer(waitTimeout * time.Second)
+		done := false
+		for !done {
+			select {
+			case <-timeoutTimer.C:
+				fmt.Println("Timed out!")
+				done = true
+				break
+			}
+		}
+		fmt.Printf("Received %d", receiveCnt)
 	},
+}
+
+func getUIDFromString(idStr string) *id.ID {
+	idBytes, err := hex.DecodeString(fmt.Sprintf("%0*d%s",
+		66-len(idStr), 0, idStr))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	ID, err := id.Unmarshal(idBytes)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return ID
 }
 
 func initLog(verbose bool, logPath string) {
@@ -286,16 +298,34 @@ func init() {
 		"Path to the log output path (- is stdout)")
 	viper.BindPFlag("log", rootCmd.Flags().Lookup("log"))
 
-	rootCmd.Flags().StringP("regcode", "r", "",
+	rootCmd.Flags().StringP("regcode", "", "",
 		"Registration code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
+	rootCmd.Flags().StringP("message", "m", "", "Message to send")
+	viper.BindPFlag("message", rootCmd.Flags().Lookup("message"))
+
+	rootCmd.Flags().StringP("destid", "d", "0",
+		"ID to send message to (hexadecimal string up to 256 bits)")
+	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
+
+	rootCmd.Flags().UintP("sendCount",
+		"", 1, "The number of times to send the message")
+	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
+	rootCmd.Flags().UintP("sendDelay",
+		"", 500, "The delay between sending the messages in ms")
+	viper.BindPFlag("sendDelay", rootCmd.Flags().Lookup("sendDelay"))
+
+	rootCmd.Flags().UintP("receiveCount",
+		"", 1, "How many messages we should wait for before quitting")
+	viper.BindPFlag("receiveCount", rootCmd.Flags().Lookup("receiveCount"))
+	rootCmd.Flags().UintP("waitTimeout", "", 15,
+		"The number of seconds to wait for messages to arrive")
+	viper.BindPFlag("waitTimeout",
+		rootCmd.Flags().Lookup("waitTimeout"))
+
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().StringVarP(&message, "message", "m", "", "Message to send")
-	rootCmd.PersistentFlags().Uint64VarP(&destinationUserId, "destid", "d", 0,
-		"ID to send message to")
-
 	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
 		"Token to register user with notification bot")
 
@@ -306,13 +336,6 @@ func init() {
 		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
 			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 
-	rootCmd.Flags().BoolVarP(&noTLS, "noTLS", "", false,
-		"Set to ignore tls. Connections will fail if the network requires tls. For debugging")
-
-	rootCmd.Flags().StringVar(&privateKeyPath, "privateKey", "",
-		"The path for a PEM encoded private key which will be used "+
-			"to create the user")
-
 	rootCmd.Flags().StringVar(&destinationUserIDBase64, "dest64", "",
 		"Sets the destination user id encoded in base 64")
 
@@ -322,13 +345,6 @@ func init() {
 
 	// rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
 	// 	"Sets the email to search for to find a user with user discovery")
-
-	rootCmd.Flags().UintVarP(&messageTimeout, "messageTimeout",
-		"t", 45, "The number of seconds to wait for "+
-			"'waitForMessages' messages to arrive")
-
-	rootCmd.Flags().UintVarP(&messageCnt, "messageCount",
-		"c", 1, "The number of times to send the message")
 }
 
 // initConfig reads in config file and ENV variables if set.

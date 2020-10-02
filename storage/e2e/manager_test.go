@@ -20,22 +20,20 @@ func Test_newManager(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partnerID := id.NewIdFromUInt(100, id.User, t)
 	expectedM := &Manager{
-		ctx:     ctx,
-		kv:      kv.Prefix(fmt.Sprintf(managerPrefix, partnerID)),
-		partner: partnerID,
+		ctx:                 ctx,
+		kv:                  kv.Prefix(fmt.Sprintf(managerPrefix, partnerID)),
+		partner:             partnerID,
+		originPartnerPubKey: s.partnerPubKey,
+		originMyPrivKey:     s.myPrivKey,
 	}
-	expectedM.send = NewSessionBuff(expectedM, "send")
-	expectedM.receive = NewSessionBuff(expectedM, "receive")
-	expectedM.send.AddSession(newSession(expectedM, s.myPrivKey,
-		s.partnerPubKey, nil, s.params, Send, SessionID{}))
-	expectedM.receive.AddSession(newSession(expectedM, s.myPrivKey,
-		s.partnerPubKey, nil, s.params, Receive, SessionID{}))
+	expectedM.send = NewRelationship(expectedM, Send, GetDefaultSessionParams())
+	expectedM.receive = NewRelationship(expectedM, Receive, GetDefaultSessionParams())
 
-	// Create new manager
+	// Create new relationship
 	m := newManager(ctx, kv, partnerID, s.myPrivKey, s.partnerPubKey, s.params,
 		s.params)
 
-	// Check if the new manager matches the expected
+	// Check if the new relationship matches the expected
 	if !managersEqual(expectedM, m, t) {
 		t.Errorf("newManager() did not produce the expected Manager."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
@@ -47,13 +45,13 @@ func TestLoadManager(t *testing.T) {
 	// Set up expected and test values
 	expectedM, kv := newTestManager(t)
 
-	// Attempt to load manager
+	// Attempt to load relationship
 	m, err := loadManager(expectedM.ctx, kv, expectedM.partner)
 	if err != nil {
 		t.Errorf("loadManager() returned an error: %v", err)
 	}
 
-	// Check if the loaded manager matches the expected
+	// Check if the loaded relationship matches the expected
 	if !managersEqual(expectedM, m, t) {
 		t.Errorf("loadManager() did not produce the expected Manager."+
 			"\n\texpected: %+v\n\treceived: %+v", expectedM, m)
@@ -224,7 +222,7 @@ func TestManager_TriggerNegotiations(t *testing.T) {
 	}
 }
 
-// newTestManager returns a new manager for testing.
+// newTestManager returns a new relationship for testing.
 func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	s, ctx := makeTestSession()
@@ -232,7 +230,7 @@ func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 	partnerID := id.NewIdFromUInts([4]uint64{prng.Uint64(), prng.Uint64(),
 		prng.Uint64(), prng.Uint64()}, id.User, t)
 
-	// Create new manager
+	// Create new relationship
 	m := newManager(ctx, kv, partnerID, s.myPrivKey, s.partnerPubKey, s.params,
 		s.params)
 
@@ -242,31 +240,31 @@ func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
 func managersEqual(expected, received *Manager, t *testing.T) bool {
 	equal := true
 	if !reflect.DeepEqual(expected.ctx, received.ctx) {
-		t.Errorf("Did not receive expected Manager.ctx."+
+		t.Errorf("Did not Receive expected Manager.ctx."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.ctx, received.ctx)
 		equal = false
 	}
 	if !reflect.DeepEqual(expected.kv, received.kv) {
-		t.Errorf("Did not receive expected Manager.kv."+
+		t.Errorf("Did not Receive expected Manager.kv."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.kv, received.kv)
 		equal = false
 	}
 	if !expected.partner.Cmp(received.partner) {
-		t.Errorf("Did not receive expected Manager.partner."+
+		t.Errorf("Did not Receive expected Manager.partner."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.partner, received.partner)
 		equal = false
 	}
-	if !sessionBuffsEqual(expected.receive, received.receive) {
-		t.Errorf("Did not receive expected Manager.receive."+
+	if !relationshipsEqual(expected.receive, received.receive) {
+		t.Errorf("Did not Receive expected Manager.Receive."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.receive, received.receive)
 		equal = false
 	}
-	if !sessionBuffsEqual(expected.send, received.send) {
-		t.Errorf("Did not receive expected Manager.send."+
+	if !relationshipsEqual(expected.send, received.send) {
+		t.Errorf("Did not Receive expected Manager.Send."+
 			"\n\texpected: %+v\n\treceived: %+v",
 			expected.send, received.send)
 		equal = false

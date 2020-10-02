@@ -8,90 +8,122 @@ package e2e
 
 import (
 	"encoding/json"
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/cyclic"
 	"sync"
 	"time"
 )
 
 const maxUnconfirmed uint = 3
-const currentSessionBuffVersion = 0
+const currentRelationshipVersion = 0
+const currentRelationshipFingerprintVersion = 0
+const relationshipKey = "relationship"
+const relationshipFingerprintKey = "relationshipFingerprint"
 
-type sessionBuff struct {
+type relationship struct {
 	manager *Manager
+	t       RelationshipType
 
 	kv *versioned.KV
 
 	sessions    []*Session
 	sessionByID map[SessionID]*Session
 
-	key string
+	fingerprint []byte
 
 	mux     sync.RWMutex
 	sendMux sync.Mutex
 }
 
-func NewSessionBuff(manager *Manager, key string) *sessionBuff {
-	return &sessionBuff{
+func NewRelationship(manager *Manager, t RelationshipType,
+	initialParams SessionParams) *relationship {
+
+	kv := manager.kv.Prefix(t.prefix())
+
+	//build the fingerprint
+	fingerprint := makeRelationshipFingerprint(t, manager.ctx.grp,
+		manager.originMyPrivKey, manager.originPartnerPubKey, manager.ctx.myID,
+		manager.partner)
+
+	if err := storeRelationshipFingerprint(fingerprint, kv); err != nil {
+		jww.FATAL.Panicf("Failed to store relationship fingerpint "+
+			"for new relationship: %+v", err)
+	}
+
+	r := &relationship{
 		manager:     manager,
+		t:           t,
 		sessions:    make([]*Session, 0),
 		sessionByID: make(map[SessionID]*Session),
-		key:         key,
-		kv:          manager.kv,
+		fingerprint: fingerprint,
+		kv:          kv,
 	}
+
+	s := newSession(r, r.t, manager.originMyPrivKey,
+		manager.originPartnerPubKey, nil, SessionID{},
+		r.fingerprint, initialParams)
+
+	r.addSession(s)
+
+	if err := r.save(); err != nil {
+		jww.FATAL.Printf("Failed to save Relationship %s after "+
+			"adding session %s: %s", relationshipKey, s, err)
+	}
+
+	return r
 }
 
-func LoadSessionBuff(manager *Manager, key string) (*sessionBuff, error) {
-	sb := &sessionBuff{
+func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, error) {
+
+	kv := manager.kv.Prefix(t.prefix())
+
+	r := &relationship{
+		t:           t,
 		manager:     manager,
 		sessionByID: make(map[SessionID]*Session),
-		key:         key,
-		kv:          manager.kv,
+		kv:          kv,
 	}
 
-	key = makeSessionBuffKey(key)
-
-	obj, err := manager.kv.Get(key)
+	obj, err := kv.Get(relationshipKey)
 	if err != nil {
 		return nil, err
 	}
 
-	err = sb.unmarshal(obj.Data)
+	err = r.unmarshal(obj.Data)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return sb, nil
+	return r, nil
 }
 
-func (sb *sessionBuff) save() error {
-	key := makeSessionBuffKey(sb.key)
+func (r *relationship) save() error {
 
 	now := time.Now()
 
-	data, err := sb.marshal()
+	data, err := r.marshal()
 	if err != nil {
 		return err
 	}
 
 	obj := versioned.Object{
-		Version:   currentSessionBuffVersion,
+		Version:   currentRelationshipVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
-	return sb.kv.Set(key, &obj)
+	return r.kv.Set(relationshipKey, &obj)
 }
 
 //ekv functions
-func (sb *sessionBuff) marshal() ([]byte, error) {
-	sessions := make([]SessionID, len(sb.sessions))
+func (r *relationship) marshal() ([]byte, error) {
+	sessions := make([]SessionID, len(r.sessions))
 
 	index := 0
-	for sid := range sb.sessionByID {
+	for sid := range r.sessionByID {
 		sessions[index] = sid
 		index++
 	}
@@ -99,7 +131,7 @@ func (sb *sessionBuff) marshal() ([]byte, error) {
 	return json.Marshal(&sessions)
 }
 
-func (sb *sessionBuff) unmarshal(b []byte) error {
+func (r *relationship) unmarshal(b []byte) error {
 	var sessions []SessionID
 
 	err := json.Unmarshal(b, &sessions)
@@ -108,54 +140,60 @@ func (sb *sessionBuff) unmarshal(b []byte) error {
 		return err
 	}
 
+	//load the fingerprint
+	r.fingerprint = loadRelationshipFingerprint(r.kv)
+
 	//load all the sessions
 	for _, sid := range sessions {
-		sessionKV := sb.kv.Prefix(makeSessionPrefix(sid))
-		session, err := loadSession(sb.manager, sessionKV)
+		sessionKV := r.kv.Prefix(makeSessionPrefix(sid))
+		session, err := loadSession(r, sessionKV, r.fingerprint)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to load session %s for %s: %s",
-				makeSessionPrefix(sid), sb.manager.partner, err.Error())
+			jww.FATAL.Panicf("Failed to load session %s for %s: %+v",
+				makeSessionPrefix(sid), r.manager.partner, err)
 		}
-		sb.addSession(session)
+		r.addSession(session)
 	}
 
 	return nil
 }
 
-func (sb *sessionBuff) AddSession(s *Session) {
-	sb.mux.Lock()
-	defer sb.mux.Unlock()
+func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
+	trigger SessionID, params SessionParams) *Session {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	sb.addSession(s)
-	if err := sb.save(); err != nil {
-		key := makeSessionBuffKey(sb.key)
-		jww.FATAL.Printf("Failed to save Session Buffer %s after "+
-			"adding session %s: %s", key, s, err)
+	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey, trigger,
+		r.fingerprint, params)
+
+	r.addSession(s)
+	if err := r.save(); err != nil {
+		jww.FATAL.Printf("Failed to save Relationship %s after "+
+			"adding session %s: %s", relationshipKey, s, err)
 	}
 
+	return s
+}
+
+func (r *relationship) addSession(s *Session) {
+	r.sessions = append([]*Session{s}, r.sessions...)
+	r.sessionByID[s.GetID()] = s
 	return
 }
 
-func (sb *sessionBuff) addSession(s *Session) {
-	sb.sessions = append([]*Session{s}, sb.sessions...)
-	sb.sessionByID[s.GetID()] = s
-	return
-}
-
-func (sb *sessionBuff) GetNewest() *Session {
-	sb.mux.RLock()
-	defer sb.mux.RUnlock()
-	if len(sb.sessions) == 0 {
+func (r *relationship) GetNewest() *Session {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+	if len(r.sessions) == 0 {
 		return nil
 	}
-	return sb.sessions[0]
+	return r.sessions[0]
 }
 
 // returns the key  which is most likely to be successful for sending
-func (sb *sessionBuff) getKeyForSending() (*Key, error) {
-	sb.sendMux.Lock()
-	defer sb.sendMux.Unlock()
-	s := sb.getSessionForSending()
+func (r *relationship) getKeyForSending() (*Key, error) {
+	r.sendMux.Lock()
+	defer r.sendMux.Unlock()
+	s := r.getSessionForSending()
 	if s == nil {
 		return nil, errors.New("Failed to find a session for sending")
 	}
@@ -164,8 +202,8 @@ func (sb *sessionBuff) getKeyForSending() (*Key, error) {
 }
 
 // returns the session which is most likely to be successful for sending
-func (sb *sessionBuff) getSessionForSending() *Session {
-	sessions := sb.sessions
+func (r *relationship) getSessionForSending() *Session {
+	sessions := r.sessions
 
 	var confirmedRekey []*Session
 	var unconfirmedActive []*Session
@@ -200,9 +238,9 @@ func (sb *sessionBuff) getSessionForSending() *Session {
 
 // returns a list of session that need rekeys. Nil instances mean a new rekey
 // from scratch
-func (sb *sessionBuff) TriggerNegotiation() []*Session {
+func (r *relationship) TriggerNegotiation() []*Session {
 	//dont need to take the lock due to the use of a copy of the buffer
-	sessions := sb.getInternalBufferShallowCopy()
+	sessions := r.getInternalBufferShallowCopy()
 	var instructions []*Session
 	for _, ses := range sessions {
 		if ses.triggerNegotiation() {
@@ -213,10 +251,10 @@ func (sb *sessionBuff) TriggerNegotiation() []*Session {
 }
 
 // returns a key which should be used for rekeying
-func (sb *sessionBuff) getKeyForRekey() (*Key, error) {
-	sb.sendMux.Lock()
-	defer sb.sendMux.Unlock()
-	s := sb.getNewestRekeyableSession()
+func (r *relationship) getKeyForRekey() (*Key, error) {
+	r.sendMux.Lock()
+	defer r.sendMux.Unlock()
+	s := r.getNewestRekeyableSession()
 	if s == nil {
 		return nil, errors.New("Failed to find a session for rekeying")
 	}
@@ -225,15 +263,14 @@ func (sb *sessionBuff) getKeyForRekey() (*Key, error) {
 }
 
 // returns the newest session which can be used to start a key negotiation
-func (sb *sessionBuff) getNewestRekeyableSession() *Session {
+func (r *relationship) getNewestRekeyableSession() *Session {
 	//dont need to take the lock due to the use of a copy of the buffer
-	sessions := sb.getInternalBufferShallowCopy()
-
+	sessions := r.getInternalBufferShallowCopy()
 	if len(sessions) == 0 {
 		return nil
 	}
-
-	for _, s := range sb.sessions {
+	for _, s := range r.sessions {
+		//fmt.Println(i)
 		// This looks like it might not be thread safe, I think it is because
 		// the failure mode is it skips to a lower key to rekey with, which is
 		// always valid. It isn't clear it can fail though because we are
@@ -245,29 +282,27 @@ func (sb *sessionBuff) getNewestRekeyableSession() *Session {
 	return nil
 }
 
-func (sb *sessionBuff) GetByID(id SessionID) *Session {
-	sb.mux.RLock()
-	defer sb.mux.RUnlock()
-	return sb.sessionByID[id]
+func (r *relationship) GetByID(id SessionID) *Session {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+	return r.sessionByID[id]
 }
 
 // sets the passed session ID as confirmed. Call "GetSessionRotation" after
 // to get any sessions that are to be deleted and then "DeleteSession" to
 // remove them
-func (sb *sessionBuff) Confirm(id SessionID) error {
-	sb.mux.Lock()
-	defer sb.mux.Unlock()
-	fmt.Printf("sb: %v\n", sb)
-	fmt.Printf("sb.sessionById: %v\n", sb.sessionByID)
+func (r *relationship) Confirm(id SessionID) error {
+	r.mux.Lock()
+	defer r.mux.Unlock()
 
-	s, ok := sb.sessionByID[id]
+	s, ok := r.sessionByID[id]
 	if !ok {
 		return errors.Errorf("Could not confirm session %s, does not exist", id)
 	}
 
 	s.SetNegotiationStatus(Confirmed)
 
-	sb.clean()
+	r.clean()
 
 	return nil
 }
@@ -275,25 +310,25 @@ func (sb *sessionBuff) Confirm(id SessionID) error {
 // adding or removing a session is always done via replacing the entire
 // slice, this allow us to copy the slice under the read lock and do the
 // rest of the work while not taking the lock
-func (sb *sessionBuff) getInternalBufferShallowCopy() []*Session {
-	sb.mux.RLock()
-	defer sb.mux.RUnlock()
-	return sb.sessions
+func (r *relationship) getInternalBufferShallowCopy() []*Session {
+	r.mux.RLock()
+	defer r.mux.RUnlock()
+	return r.sessions
 }
 
-func (sb *sessionBuff) clean() {
+func (r *relationship) clean() {
 
 	numConfirmed := uint(0)
 
 	var newSessions []*Session
 	editsMade := false
 
-	for _, s := range sb.sessions {
+	for _, s := range r.sessions {
 		if s.IsConfirmed() {
 			numConfirmed++
 			//if the number of newer confirmed is sufficient, delete the confirmed
 			if numConfirmed > maxUnconfirmed {
-				delete(sb.sessionByID, s.GetID())
+				delete(r.sessionByID, s.GetID())
 				s.Delete()
 				editsMade = true
 				continue
@@ -304,16 +339,12 @@ func (sb *sessionBuff) clean() {
 
 	//only do the update and save if changes occured
 	if editsMade {
-		sb.sessions = newSessions
+		r.sessions = newSessions
 
-		if err := sb.save(); err != nil {
-			key := makeSessionBuffKey(sb.key)
+		if err := r.save(); err != nil {
 			jww.FATAL.Printf("Failed to save Session Buffer %s after "+
-				"clean: %s", key, err)
+				"clean: %s", r.kv.GetFullKey(relationshipKey), err)
 		}
 	}
 }
 
-func makeSessionBuffKey(key string) string {
-	return "sessionBuffer" + key
-}

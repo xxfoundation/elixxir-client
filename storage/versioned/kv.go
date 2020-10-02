@@ -126,3 +126,8 @@ func (v *KV) Prefix(prefix string) *KV {
 	}
 	return &kvPrefix
 }
+
+//Returns the key with all prefixes appended
+func (v *KV) GetFullKey(key string) string {
+	return v.prefix + key
+}

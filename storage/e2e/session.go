@@ -28,15 +28,15 @@ const sessionPrefix = "session{ID:%s}"
 const sessionKey = "session"
 
 type Session struct {
-	//pointer to manager
-	manager *Manager
+	//pointer to relationship
+	relationship *relationship
 	//prefixed kv
 	kv *versioned.KV
 	//params
 	params SessionParams
 
 	//type
-	t SessionType
+	t RelationshipType
 
 	// Underlying key
 	baseKey *cyclic.Int
@@ -45,9 +45,11 @@ type Session struct {
 	// Partner Public Key
 	partnerPubKey *cyclic.Int
 	// ID of the session which teh partner public key comes from for this
-	// sessions creation.  Shares a partner public key if a send session,
-	// shares a myPrivateKey if a receive session
+	// sessions creation.  Shares a partner public key if a Send session,
+	// shares a myPrivateKey if a Receive session
 	partnerSource SessionID
+	//fingerprint of relationship
+	relationshipFingerprint []byte
 
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
@@ -90,9 +92,9 @@ type SessionDisk struct {
 
 /*CONSTRUCTORS*/
 //Generator which creates all keys and structures
-func newSession(manager *Manager, myPrivKey, partnerPubKey,
-	baseKey *cyclic.Int, params SessionParams, t SessionType,
-	trigger SessionID) *Session {
+func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey,
+	baseKey *cyclic.Int, trigger SessionID, relationshipFingerprint []byte,
+	params SessionParams) *Session {
 
 	confirmation := Unconfirmed
 	if t == Receive {
@@ -100,38 +102,40 @@ func newSession(manager *Manager, myPrivKey, partnerPubKey,
 	}
 
 	session := &Session{
-		params:            params,
-		manager:           manager,
-		t:                 t,
-		myPrivKey:         myPrivKey,
-		partnerPubKey:     partnerPubKey,
-		baseKey:           baseKey,
-		negotiationStatus: confirmation,
-		partnerSource:     trigger,
+		params:                  params,
+		relationship:            ship,
+		t:                       t,
+		myPrivKey:               myPrivKey,
+		partnerPubKey:           partnerPubKey,
+		baseKey:                 baseKey,
+		relationshipFingerprint: relationshipFingerprint,
+		negotiationStatus:       confirmation,
+		partnerSource:           trigger,
 	}
 
-	session.kv = session.generate(manager.kv)
+	session.kv = session.generate(ship.kv)
 
 	err := session.save()
 	if err != nil {
 		jww.FATAL.Printf("Failed to make new session for Partner %s: %s",
-			manager.partner, err)
+			ship.manager.partner, err)
 	}
 
 	return session
 }
 
 // Load session and state vector from kv and populate runtime fields
-func loadSession(manager *Manager, kv *versioned.KV) (*Session, error) {
+func loadSession(ship *relationship, kv *versioned.KV,
+	relationshipFingerprint []byte) (*Session, error) {
 
 	session := Session{
-		manager: manager,
-		kv:      kv,
+		relationship: ship,
+		kv:           kv,
 	}
 
 	obj, err := kv.Get(sessionKey)
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessagef(err, "Failed to load %s", kv.GetFullKey(sessionKey))
 	}
 
 	err = session.unmarshal(obj.Data)
@@ -141,8 +145,9 @@ func loadSession(manager *Manager, kv *versioned.KV) (*Session, error) {
 
 	if session.t == Receive {
 		// register key fingerprints
-		manager.ctx.fa.add(session.getUnusedKeys())
+		ship.manager.ctx.fa.add(session.getUnusedKeys())
 	}
+	session.relationshipFingerprint = relationshipFingerprint
 
 	return &session, nil
 }
@@ -172,7 +177,7 @@ func (s *Session) Delete() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	s.manager.ctx.fa.remove(s.getUnusedKeys())
+	s.relationship.manager.ctx.fa.remove(s.getUnusedKeys())
 
 	stateVectorErr := s.keyState.Delete()
 	sessionErr := s.kv.Delete(sessionKey)
@@ -241,8 +246,8 @@ func (s *Session) GetID() SessionID {
 
 // returns the ID of the partner for this session
 func (s *Session) GetPartner() *id.ID {
-	if s.manager != nil {
-		return s.manager.partner
+	if s.relationship != nil {
+		return s.relationship.manager.partner
 	} else {
 		return nil
 	}
@@ -284,10 +289,10 @@ func (s *Session) unmarshal(b []byte) error {
 		return err
 	}
 
-	grp := s.manager.ctx.grp
+	grp := s.relationship.manager.ctx.grp
 
 	s.params = sd.Params
-	s.t = SessionType(sd.Type)
+	s.t = RelationshipType(sd.Type)
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
@@ -328,8 +333,12 @@ func (s *Session) PopReKey() (*Key, error) {
 	return newKey(s, keyNum), nil
 }
 
+func (s *Session) GetRelationshipFingerprint() []byte {
+	return s.relationshipFingerprint
+}
+
 // returns the state of the session, which denotes if the Session is active,
-// functional but in need of a rekey, empty of send key, or empty of rekeys
+// functional but in need of a rekey, empty of Send key, or empty of rekeys
 func (s *Session) Status() Status {
 	// copy the num available so it stays consistent as this function does its
 	// checks
@@ -480,6 +489,7 @@ func (s *Session) NegotiationStatus() Negotiation {
 // checks if the session has been confirmed
 func (s *Session) IsConfirmed() bool {
 	c := s.NegotiationStatus()
+	//fmt.Println(c)
 	return c >= Confirmed
 }
 
@@ -501,11 +511,11 @@ func (s *Session) useKey(keynum uint32) {
 // generates keys from the base data stored in the session object.
 // myPrivKey will be generated if not present
 func (s *Session) generate(kv *versioned.KV) *versioned.KV {
-	grp := s.manager.ctx.grp
+	grp := s.relationship.manager.ctx.grp
 
 	//generate private key if it is not present
 	if s.myPrivKey == nil {
-		stream := s.manager.ctx.rng.GetStream()
+		stream := s.relationship.manager.ctx.rng.GetStream()
 		s.myPrivKey = dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, grp,
 			stream)
 		stream.Close()
@@ -542,7 +552,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	//register keys for reception if this is a reception session
 	if s.t == Receive {
 		//register keys
-		s.manager.ctx.fa.add(s.getUnusedKeys())
+		s.relationship.manager.ctx.fa.add(s.getUnusedKeys())
 	}
 
 	return kv

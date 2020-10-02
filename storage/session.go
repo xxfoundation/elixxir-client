@@ -90,13 +90,14 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
+	uid := s.user.GetCryptographicIdentity().GetUserID()
 
 	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create cmix store")
 	}
 
-	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, rng)
+	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, uid, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create e2e store")
 	}
@@ -144,7 +145,9 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.e2e, err = e2e.LoadStore(s.kv, rng)
+	uid := s.user.GetCryptographicIdentity().GetUserID()
+
+	s.e2e, err = e2e.LoadStore(s.kv, uid, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
@@ -251,7 +254,8 @@ func InitTestingSession(i interface{}) *Session {
 	store := make(ekv.Memstore)
 	kv := versioned.NewKV(store)
 	s := &Session{kv: kv}
-	u, err := user.NewUser(kv, id.NewIdFromString("zezima", id.User, i), []byte("salt"), privKey, false)
+	uid := id.NewIdFromString("zezima", id.User, i)
+	u, err := user.NewUser(kv, uid, []byte("salt"), privKey, false)
 	if err != nil {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}
@@ -280,7 +284,7 @@ func InitTestingSession(i interface{}) *Session {
 	}
 	s.cmix = cmix
 
-	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2),
+	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2), uid,
 		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))
 	if err != nil {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)

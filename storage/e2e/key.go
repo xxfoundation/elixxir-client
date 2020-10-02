@@ -90,5 +90,6 @@ func (k *Key) denoteUse() {
 
 // Generates the key and returns it
 func (k *Key) generateKey() e2eCrypto.Key {
-	return e2eCrypto.DeriveKey(k.session.baseKey, k.keyNum)
+	return e2eCrypto.DeriveKey(k.session.baseKey, k.keyNum,
+		k.session.relationshipFingerprint)
 }

@@ -163,7 +163,7 @@ var rootCmd = &cobra.Command{
 		connected := make(chan bool, 1)
 		client.GetHealth().AddChannel(connected)
 		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
-		timeoutTick := time.NewTicker(waitTimeout * time.Second)
+		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		isConnected := false
 		for !isConnected {
 			select {
@@ -171,7 +171,7 @@ var rootCmd = &cobra.Command{
 				jww.INFO.Printf("health status: %v\n",
 					isConnected)
 				break
-			case <-timeoutTick.C:
+			case <-timeoutTimer.C:
 				jww.FATAL.Panic("timeout on connection")
 			}
 		}
@@ -198,11 +198,11 @@ var rootCmd = &cobra.Command{
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
 		receiveCnt := viper.GetUint("receiveCount")
-		timeoutTick = time.NewTicker(waitTimeout * time.Second)
+		timeoutTimer = time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done {
 			select {
-			case <-timeoutTick.C:
+			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
 				done = true
 				break

@@ -356,12 +356,6 @@ func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 	return ndf, nil
 }
 
-func (c *Client) getCMIXPrimeSize() int {
-	ndf := c.network.GetInstance().GetPartialNdf().Get()
-	cmixGrp, _ := decodeGroups(ndf)
-	return len(cmixGrp.GetPBytes())
-}
-
 // decodeGroups returns the e2e and cmix groups from the ndf
 func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 	largeIntBits := 16

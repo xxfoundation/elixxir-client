@@ -46,7 +46,8 @@ func (c *Client) SendCMIX(msg format.Message, param params.CMIX) (id.Round,
 // FIXME: this is weird and shouldn't be necessary, but it is.
 func (c *Client) NewCMIXMessage(recipient *id.ID,
 	contents []byte) format.Message {
-	msg := format.NewMessage(c.getCMIXPrimeSize())
+	primeSize := len(c.storage.Cmix().GetGroup().GetPBytes())
+	msg := format.NewMessage(primeSize)
 	msg.SetContents(contents)
 	msg.SetRecipientID(recipient)
 	return msg

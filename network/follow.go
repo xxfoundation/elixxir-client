@@ -57,8 +57,13 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	}
 }
 
+var followCnt int = 0
+
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
+
+	jww.TRACE.Printf("follow: %d", followCnt)
+	followCnt++
 
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent
@@ -76,6 +81,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
 		ClientID:   m.Uid.Bytes(),
 	}
+	jww.TRACE.Printf("polling %s for NDF", gwHost)
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
 		jww.ERROR.Printf("%+v", err)
@@ -112,6 +118,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// network
 	if pollResp.Updates != nil {
 		err = m.Instance.RoundUpdates(pollResp.Updates)
+		//jww.TRACE.Printf("%+v", pollResp.Updates)
 		if err != nil {
 			jww.ERROR.Printf("%+v", err)
 			return

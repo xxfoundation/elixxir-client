@@ -29,7 +29,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
 		elapsed := time.Now().Sub(timeStart)
-		if elapsed < param.Timeout {
+		if elapsed > param.Timeout {
 			return 0, errors.New("Sending cmix message timed out")
 		}
 		remainingTime := param.Timeout - elapsed
@@ -39,7 +39,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
-		if err == nil {
+		if err != nil {
 			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
 			continue
 		}

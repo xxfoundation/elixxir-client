@@ -40,3 +40,15 @@ func (c *Client) SendCMIX(msg format.Message, param params.CMIX) (id.Round,
 	jww.INFO.Printf("SendCMIX(%v)", msg)
 	return c.network.SendCMIX(msg, param)
 }
+
+// NewCMIXMessage Creates a new cMix message with the right properties
+// for the current cMix network.
+// FIXME: this is weird and shouldn't be necessary, but it is.
+func (c *Client) NewCMIXMessage(recipient *id.ID,
+	contents []byte) format.Message {
+	primeSize := len(c.storage.Cmix().GetGroup().GetPBytes())
+	msg := format.NewMessage(primeSize)
+	msg.SetContents(contents)
+	msg.SetRecipientID(recipient)
+	return msg
+}

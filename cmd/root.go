@@ -168,7 +168,7 @@ var rootCmd = &cobra.Command{
 		for !isConnected {
 			select {
 			case isConnected = <-connected:
-				jww.INFO.Printf("health status: %b\n",
+				jww.INFO.Printf("health status: %v\n",
 					isConnected)
 				break
 			case <-timeoutTick.C:

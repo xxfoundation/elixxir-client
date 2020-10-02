@@ -113,9 +113,7 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 
 // Long-running thread used to monitor and report on network health
 func (t *Tracker) start(quitCh <-chan struct{}) {
-
-	var timerChan <-chan time.Time
-	timerChan = make(chan time.Time)
+	timer := time.NewTimer(t.timeout)
 
 	for {
 		var heartbeat network.Heartbeat
@@ -124,13 +122,23 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 			// Handle thread kill
 			break
 		case heartbeat = <-t.heartbeat:
-			jww.INFO.Printf("heartbeat: %+v", heartbeat)
+			jww.INFO.Printf("heartbeat: %v", heartbeat)
+			// Stop and reset timer
+			if !timer.Stop() {
+				select {
+				case <-timer.C: // per docs explicitly drain
+				default:
+				}
+			}
+			timer.Reset(t.timeout)
 			if healthy(heartbeat) {
-				timerChan = time.NewTimer(t.timeout).C
 				t.setHealth(true)
 			}
-		case <-timerChan:
+			break
+		case <-timer.C:
 			t.setHealth(false)
+			timer.Reset(t.timeout)
+			break
 		}
 	}
 }

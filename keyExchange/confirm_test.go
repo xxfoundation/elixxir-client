@@ -46,7 +46,7 @@ func TestHandleConfirm(t *testing.T) {
 
 	receiveMsg := message.Receive{
 		Payload:     rekey,
-		MessageType: message.NoType,
+		MessageType: message.KeyExchangeConfirm,
 		Sender:      bobID,
 		Timestamp:   time.Now(),
 		Encryption:  message.E2E,

@@ -123,21 +123,21 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 			break
 		case heartbeat = <-t.heartbeat:
 			jww.INFO.Printf("heartbeat: %v", heartbeat)
-			// Stop and reset timer
-			if !timer.Stop() {
-				select {
-				case <-timer.C: // per docs explicitly drain
-				default:
-				}
-			}
-			timer.Reset(t.timeout)
 			if healthy(heartbeat) {
+				// Stop and reset timer
+				if !timer.Stop() {
+					select {
+					// per docs explicitly drain
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(t.timeout)
 				t.setHealth(true)
 			}
 			break
 		case <-timer.C:
 			t.setHealth(false)
-			timer.Reset(t.timeout)
 			break
 		}
 	}

@@ -15,7 +15,9 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
@@ -126,6 +128,13 @@ var rootCmd = &cobra.Command{
 		user := client.GetUser()
 		jww.INFO.Printf("%s", user.ID)
 
+		// Set up reception handler
+		swboard := client.GetSwitchboard()
+		recvCh := make(chan message.Receive, 10)
+		listenerID := swboard.RegisterChannel("raw",
+			switchboard.AnyUser(), message.Raw, recvCh)
+		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+
 		err := client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -134,23 +143,12 @@ var rootCmd = &cobra.Command{
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)
 		client.GetHealth().AddChannel(connected)
-		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
-		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
-		isConnected := false
-		for !isConnected {
-			select {
-			case isConnected = <-connected:
-				jww.INFO.Printf("health status: %v\n",
-					isConnected)
-				break
-			case <-timeoutTimer.C:
-				jww.FATAL.Panic("timeout on connection")
-			}
-		}
+		waitUntilConnected(connected)
 
 		// Send Messages
 		msgBody := viper.GetString("message")
-		recipientID := getUIDFromString(viper.GetString("destid"))
+		//recipientID := getUIDFromString(viper.GetString("destid"))
+		recipientID := user.ID
 
 		msg := client.NewCMIXMessage(recipientID, []byte(msgBody))
 		params := params.GetDefaultCMIX()
@@ -170,7 +168,8 @@ var rootCmd = &cobra.Command{
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
 		receiveCnt := viper.GetUint("receiveCount")
-		timeoutTimer = time.NewTimer(waitTimeout * time.Second)
+		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done {
 			select {
@@ -178,10 +177,48 @@ var rootCmd = &cobra.Command{
 				fmt.Println("Timed out!")
 				done = true
 				break
+			case m := <-recvCh:
+				fmt.Printf("Message received: %v", m)
+				break
 			}
 		}
 		fmt.Printf("Received %d", receiveCnt)
 	},
+}
+
+func waitUntilConnected(connected chan bool) {
+	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+	isConnected := false
+	//Wait until we connect or panic if we can't by a timeout
+	for !isConnected {
+		select {
+		case isConnected = <-connected:
+			jww.INFO.Printf("health status: %v\n",
+				isConnected)
+			break
+		case <-timeoutTimer.C:
+			jww.FATAL.Panic("timeout on connection")
+		}
+	}
+
+	// Now start a thread to empty this channel and update us
+	// on connection changes for debugging purposes.
+	go func() {
+		prev := true
+		for {
+			select {
+			case isConnected = <-connected:
+				if isConnected != prev {
+					prev = isConnected
+					jww.INFO.Printf(
+						"health status changed: %v\n",
+						isConnected)
+				}
+				break
+			}
+		}
+	}()
 }
 
 func getUIDFromString(idStr string) *id.ID {

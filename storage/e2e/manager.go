@@ -168,6 +168,13 @@ func (m *Manager) GetSendSession(sid SessionID) *Session {
 	return m.send.GetByID(sid)
 }
 
+// GetSendSession gets the Send session of the passed ID. Returns nil if no
+// session is found.
+func (m *Manager) GetSendRelationshipFingerprint() []byte {
+	return m.send.fingerprint
+}
+
+
 // GetReceiveSession gets the Receive session of the passed ID. Returns nil if
 // no session is found.
 func (m *Manager) GetReceiveSession(sid SessionID) *Session {

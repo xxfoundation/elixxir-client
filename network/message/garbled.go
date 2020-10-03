@@ -52,7 +52,8 @@ func (m *Manager) handleGarbledMessages() {
 				garbledMsgs.Remove(grbldMsg)
 				//handle the successfully decrypted message
 				xxMsg, ok := m.partitioner.HandlePartition(sender, message.E2E,
-					msg.GetContents())
+					msg.GetContents(),
+					key.GetSession().GetRelationshipFingerprint())
 				if ok {
 					m.Switchboard.Speak(xxMsg)
 					continue

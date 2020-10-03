@@ -2,7 +2,6 @@ package partition
 
 import (
 	"bytes"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"math/rand"
@@ -41,7 +40,6 @@ func Test_savePart(t *testing.T) {
 
 // Tests happy path of loadPart().
 func Test_loadPart(t *testing.T) {
-	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up test values
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	rootKv := versioned.NewKV(make(ekv.Memstore))

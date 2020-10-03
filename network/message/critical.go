@@ -39,7 +39,7 @@ func (m *Manager) criticalMessages() {
 	for msg, param, has := critMsgs.Next(); has; msg, param, has = critMsgs.Next() {
 		go func(msg message.Send, param params.E2E) {
 			//send the message
-			rounds, err := m.SendE2E(msg, param)
+			rounds, _, err := m.SendE2E(msg, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {

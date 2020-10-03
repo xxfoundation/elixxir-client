@@ -33,15 +33,15 @@ func NewPartitioner(messageSize int, session *storage.Session) Partitioner {
 }
 
 func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
-	timestamp time.Time, payload []byte) ([][]byte, error) {
+	timestamp time.Time, payload []byte) ([][]byte, uint64, error) {
 
 	if len(payload) > p.maxSize {
-		return nil, errors.Errorf("Payload is too long, max payload "+
+		return nil, 0, errors.Errorf("Payload is too long, max payload "+
 			"length is %v, received %v", p.maxSize, len(payload))
 	}
 
 	//Get the ID of the sent message
-	_, messageID := p.session.Conversations().Get(recipient).GetNextSendID()
+	fullMessageID, messageID := p.session.Conversations().Get(recipient).GetNextSendID()
 
 	// get the number of parts of the message. This equates to just a linear
 	// equation
@@ -59,11 +59,11 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 		parts[i] = newMessagePart(messageID, i, sub).Bytes()
 	}
 
-	return parts, nil
+	return parts, fullMessageID, nil
 }
 
 func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
-	contents []byte) (message.Receive, bool) {
+	contents []byte, relationshipFingerprint []byte) (message.Receive, bool) {
 
 	//If it is the first message in a set, handle it as so
 	if isFirst(contents) {
@@ -83,7 +83,7 @@ func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
 		//Return the
 		return p.session.Partition().AddFirst(sender, fm.GetType(),
 			messageID, fm.GetPart(), fm.GetNumParts(), timestamp,
-			fm.GetSizedContents())
+			fm.GetSizedContents(), relationshipFingerprint)
 		//If it is a subsiquent message part, handle it as so
 	} else {
 		mp := MessagePartFromBytes(contents)
@@ -91,7 +91,7 @@ func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
 			ProcessReceivedMessageID(mp.GetID())
 
 		return p.session.Partition().Add(sender, messageID, mp.GetPart(),
-			mp.GetSizedContents())
+			mp.GetSizedContents(), relationshipFingerprint)
 	}
 }
 

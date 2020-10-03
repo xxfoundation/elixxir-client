@@ -4,6 +4,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -13,7 +14,8 @@ import (
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
-func (c *Client) SendE2E(m message.Send, param params.E2E) ([]id.Round, error) {
+func (c *Client) SendE2E(m message.Send, param params.E2E) ([]id.Round,
+	e2e.MessageID, error) {
 	jww.INFO.Printf("SendE2E(%s, %d. %v)", m.Recipient,
 		m.MessageType, m.Payload)
 	return c.network.SendE2E(m, param)

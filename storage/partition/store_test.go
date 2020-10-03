@@ -2,7 +2,6 @@ package partition
 
 import (
 	"bytes"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
@@ -30,12 +29,12 @@ func TestNew(t *testing.T) {
 
 // Tests happy path of Store.AddFirst().
 func TestStore_AddFirst(t *testing.T) {
-	jww.SetStdoutThreshold(jww.LevelTrace)
 	part := []byte("Test message.")
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 1, time.Now(), part)
+		message.Text, 5, 0, 1, time.Now(), part,
+		[]byte{0})
 
 	if !complete {
 		t.Errorf("AddFirst() returned that the message was not complete.")
@@ -54,13 +53,15 @@ func TestStore_Add(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 2, time.Now(), part1)
+		message.Text, 5, 0, 2, time.Now(), part1,
+		[]byte{0})
 
 	if complete {
 		t.Errorf("AddFirst() returned that the message was complete.")
 	}
 
-	msg, complete = s.Add(id.NewIdFromString("User", id.User, t), 5, 1, part2)
+	msg, complete = s.Add(id.NewIdFromString("User", id.User, t),
+		5, 1, part2, []byte{0})
 	if !complete {
 		t.Errorf("AddFirst() returned that the message was not complete.")
 	}

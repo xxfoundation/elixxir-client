@@ -11,22 +11,23 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/keyExchange"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
 )
 
-func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error) {
+func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.MessageID, error) {
 
 	//timestamp the message
 	ts := time.Now()
 
 	//partition the message
-	partitions, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
+	partitions, internalMsgId, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
 		msg.Payload)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to send unsafe message")
+		return nil, e2e.MessageID{}, errors.WithMessage(err, "failed to send unsafe message")
 	}
 
 	//encrypt then send the partitions over cmix
@@ -36,7 +37,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 	// get the key manager for the partner
 	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Could not send End to End encrypted "+
+		return nil, e2e.MessageID{}, errors.WithMessagef(err, "Could not send End to End encrypted "+
 			"message, no relationship found with %v", partner)
 	}
 
@@ -50,7 +51,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 		//get a key to end to end encrypt
 		key, err := partner.GetKeyForSending(param.Type)
 		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to get key "+
+			return nil, e2e.MessageID{}, errors.WithMessagef(err, "Failed to get key "+
 				"for end to end encryption")
 		}
 
@@ -79,10 +80,11 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, error
 	//see if any parts failed to send
 	numFail, errRtn := getSendErrors(errCh)
 	if numFail > 0 {
-		return nil, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
+		return nil, e2e.MessageID{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
 	}
 
 	//return the rounds if everything send successfully
-	return roundIds, nil
+	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(), internalMsgId)
+	return roundIds, msgID, nil
 }

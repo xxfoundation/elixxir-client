@@ -98,7 +98,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
 
-	rounds, err := sendE2E(m, e2eParams)
+	rounds, _, err := sendE2E(m, e2eParams)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will
 	// be triggered next time a key is used

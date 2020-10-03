@@ -7,6 +7,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -138,7 +139,7 @@ func (mpm *multiPartMessage) AddFirst(mt message.Type, partNumber uint8,
 	}
 }
 
-func (mpm *multiPartMessage) IsComplete() (message.Receive, bool) {
+func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message.Receive, bool) {
 	mpm.mux.Lock()
 	if mpm.NumParts == 0 || mpm.NumParts != mpm.PresentParts {
 		mpm.mux.Unlock()
@@ -181,6 +182,12 @@ func (mpm *multiPartMessage) IsComplete() (message.Receive, bool) {
 		partOffset += len(part)
 	}
 
+	var mid e2e.MessageID
+	if len(relationshipFingerprint) != 0 {
+		mid = e2e.NewMessageID(relationshipFingerprint, mpm.MessageID)
+	}
+
+
 	// Return the message
 	m := message.Receive{
 		Payload:     reconstructed,
@@ -189,6 +196,7 @@ func (mpm *multiPartMessage) IsComplete() (message.Receive, bool) {
 		Timestamp:   time.Time{},
 		// Encryption will be set externally
 		Encryption: 0,
+		ID:         mid,
 	}
 
 	return m, true

@@ -132,7 +132,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Wait until connected or crash on timeout
-		connected := make(chan bool, 1)
+		connected := make(chan bool, 10)
 		client.GetHealth().AddChannel(connected)
 		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)

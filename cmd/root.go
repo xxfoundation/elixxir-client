@@ -23,32 +23,6 @@ import (
 	"time"
 )
 
-var verbose bool
-var userId uint64
-var privateKeyPath string
-var destinationUserId uint64
-var destinationUserIDBase64 string
-var message string
-var sessionFile string
-var noBlockingTransmission bool
-var rateLimiting uint32
-var registrationCode string
-var username string
-var end2end bool
-var keyParams []string
-var ndfPath string
-var skipNDFVerification bool
-var ndfPubKey string
-var sessFilePassword string
-var noTLS bool
-var searchForUser string
-var waitForMessages uint
-var messageTimeout uint
-var messageCnt uint
-var precanned = false
-var logPath string = ""
-var notificationToken string
-
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
 // happen once to the rootCmd.
@@ -156,8 +130,6 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-
-		time.Sleep(10 * time.Second)
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 1)
@@ -326,22 +298,15 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
-		"Token to register user with notification bot")
+	// rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
+	// 	"Token to register user with notification bot")
 
-	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
-		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
+	// rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
+	// 	"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 
-	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
-		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
-			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
-
-	rootCmd.Flags().StringVar(&destinationUserIDBase64, "dest64", "",
-		"Sets the destination user id encoded in base 64")
-
-	rootCmd.Flags().UintVarP(&waitForMessages, "waitForMessages",
-		"w", 1, "Denotes the number of messages the "+
-			"client should receive before closing")
+	// rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
+	// 	make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
+	// 		" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 
 	// rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
 	// 	"Sets the email to search for to find a user with user discovery")

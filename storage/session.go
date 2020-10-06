@@ -111,6 +111,8 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create checkedRounds")
 	}
+	// There is no round id 0
+	s.checkedRounds.Check(0)
 
 	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
 	if err != nil {

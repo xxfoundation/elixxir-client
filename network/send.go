@@ -37,7 +37,7 @@ func (m *manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 		" to end encryption, they have limited security and privacy " +
 		"preserving properties")
 
-	return m.SendUnsafe(msg, param)
+	return m.message.SendUnsafe(msg, param)
 }
 
 // SendE2E sends an end-to-end payload to the provided recipient with

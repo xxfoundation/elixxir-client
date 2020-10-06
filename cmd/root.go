@@ -132,7 +132,7 @@ var rootCmd = &cobra.Command{
 		swboard := client.GetSwitchboard()
 		recvCh := make(chan message.Receive, 10)
 		listenerID := swboard.RegisterChannel("raw",
-			switchboard.AnyUser(), message.Raw, recvCh)
+			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 		err := client.StartNetworkFollower()
@@ -150,18 +150,22 @@ var rootCmd = &cobra.Command{
 		//recipientID := getUIDFromString(viper.GetString("destid"))
 		recipientID := user.ID
 
-		msg := client.NewCMIXMessage(recipientID, []byte(msgBody))
-		params := params.GetDefaultCMIX()
+		msg := message.Send{
+			Recipient:   recipientID,
+			Payload:     []byte(msgBody),
+			MessageType: message.Text,
+		}
+		params := params.GetDefaultUnsafe()
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			roundID, err := client.SendCMIX(msg, params)
+			roundIDs, err := client.SendUnsafe(msg, params)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			jww.INFO.Printf("RoundID: %d\n", roundID)
+			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
 

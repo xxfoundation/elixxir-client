@@ -62,7 +62,7 @@ var followCnt int = 0
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
-	jww.INFO.Printf("follow: %d", followCnt)
+	jww.TRACE.Printf("follow: %d", followCnt)
 	followCnt++
 
 	//randomly select a gateway to poll
@@ -148,8 +148,4 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// messages for the user (bloom not implemented yet)
 	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
 		int(m.param.MaxCheckedRounds))
-
-	wr := m.Instance.GetWaitingRounds()
-
-	jww.INFO.Printf("WaitingRounds: %+v, %d", wr.GetSlice(), wr.Len())
 }

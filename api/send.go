@@ -37,7 +37,7 @@ func (c *Client) SendUnsafe(m message.Send, param params.Unsafe) ([]id.Round,
 // if it fails.
 func (c *Client) SendCMIX(msg format.Message, param params.CMIX) (id.Round,
 	error) {
-	jww.INFO.Printf("SendCMIX(%v)", msg)
+	jww.INFO.Printf("SendCMIX(%s)", string(msg.GetContents()))
 	return c.network.SendCMIX(msg, param)
 }
 

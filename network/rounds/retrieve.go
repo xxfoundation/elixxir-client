@@ -65,7 +65,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
-		m.p.Fail(rid)
+		m.p.Done(rid)
 		return message.Bundle{}, errors.Errorf("host %s does not have "+
 			"roundID: %d", gwHost.String(), rid)
 	}

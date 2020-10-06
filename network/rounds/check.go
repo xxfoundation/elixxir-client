@@ -17,6 +17,7 @@ import (
 // sent to Message Retrieval Workers, otherwise it is sent to Historical Round
 // Retrieval
 func (m *Manager) Checker(roundID id.Round) bool {
+	jww.INFO.Printf("Checking round ID: %d", roundID)
 	// Set round to processing, if we can
 	processing, count := m.p.Process(roundID)
 	if !processing {
@@ -38,9 +39,11 @@ func (m *Manager) Checker(roundID id.Round) bool {
 	// Go get the round from the round infos, if it exists
 	ri, err := m.Instance.GetRound(roundID)
 	if err != nil {
+		jww.INFO.Printf("Historical Round: %d", roundID)
 		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- roundID
 	} else {
+		jww.INFO.Printf("Looking up Round: %d", roundID)
 		// IF found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- ri
 	}

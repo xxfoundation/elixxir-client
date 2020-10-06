@@ -62,6 +62,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 	} else {
 		// if it doesnt match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
+		msg = ecrMsg
 		raw := message.Receive{
 			Payload:     msg.GetRawContents(),
 			MessageType: message.Raw,

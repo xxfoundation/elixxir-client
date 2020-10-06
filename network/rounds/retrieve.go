@@ -51,6 +51,9 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 			"to request from")
 	}
 
+	jww.INFO.Printf("Getting messages for RoundID %v via Gateway: %s", rid,
+		gwHost.GetId())
+
 	// send the request
 	msgReq := &pb.GetMessages{
 		ClientID: m.Uid.Marshal(),

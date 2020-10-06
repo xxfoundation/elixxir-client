@@ -42,6 +42,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	for i, p := range partitions {
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
+		msgCmix.SetRecipientID(msg.Recipient)
 		e2e.SetUnencrypted(msgCmix, msg.Recipient)
 		wg.Add(1)
 		go func(i int) {
@@ -53,6 +54,8 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 			wg.Done()
 		}(i)
 	}
+
+	wg.Wait()
 
 	//see if any parts failed to send
 	numFail, errRtn := getSendErrors(errCh)

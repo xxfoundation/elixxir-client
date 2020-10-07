@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
+	cE2e "gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/primitives/format"
@@ -56,9 +57,10 @@ func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
 
-func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) ([]id.Round, error) {
+func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) (
+	[]id.Round, cE2e.MessageID, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	return rounds, nil
+	return rounds, cE2e.MessageID{}, nil
 
 }
 
@@ -140,7 +142,9 @@ func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
 
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
 // together
-func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) ([]id.Round, error) {
+func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
+	[]id.Round, cE2e.MessageID, error) {
+
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
@@ -163,7 +167,7 @@ func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
 
 	bobSwitchboard.Speak(confirmMessage)
 
-	return rounds, nil
+	return rounds, cE2e.MessageID{}, nil
 
 }
 

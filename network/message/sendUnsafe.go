@@ -26,7 +26,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	ts := time.Now()
 
 	//partition the message
-	partitions, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
+	partitions, _, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
 		msg.Payload)
 
 	if err != nil {

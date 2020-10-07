@@ -29,23 +29,23 @@ func New(kv *versioned.KV) *Store {
 
 func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
 	partNum, numParts uint8, timestamp time.Time,
-	part []byte) (message.Receive, bool) {
+	part []byte, relationshipFingerprint []byte) (message.Receive, bool) {
 
 	mpm := s.load(partner, messageID)
 
 	mpm.AddFirst(mt, partNum, numParts, timestamp, part)
 
-	return mpm.IsComplete()
+	return mpm.IsComplete(relationshipFingerprint)
 }
 
 func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
-	part []byte) (message.Receive, bool) {
+	part []byte, relationshipFingerprint []byte) (message.Receive, bool) {
 
 	mpm := s.load(partner, messageID)
 
 	mpm.Add(partNum, part)
 
-	return mpm.IsComplete()
+	return mpm.IsComplete(relationshipFingerprint)
 }
 
 func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {

@@ -115,7 +115,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// send fails
 	sess.GetCriticalMessages().AddProcessing(m, e2eParams)
 
-	rounds, err := net.SendE2E(m, e2eParams)
+	rounds, _, err := net.SendE2E(m, e2eParams)
 
 	//Register the event for all rounds
 	sendResults := make(chan ds.EventReturn, len(rounds))

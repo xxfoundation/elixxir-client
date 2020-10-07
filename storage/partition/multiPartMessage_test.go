@@ -3,9 +3,9 @@ package partition
 import (
 	"bytes"
 	"encoding/json"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
@@ -16,7 +16,6 @@ import (
 
 // Tests the creation part of loadOrCreateMultiPartMessage().
 func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
-	jww.SetStdoutThreshold(jww.LevelTrace)
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
@@ -185,12 +184,13 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 func TestMultiPartMessage_IsComplete(t *testing.T) {
 	// Create multiPartMessage and fill with random parts
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	mid := prng.Uint64()
 	mpm := loadOrCreateMultiPartMessage(id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		prng.Uint64(), versioned.NewKV(make(ekv.Memstore)))
+		mid, versioned.NewKV(make(ekv.Memstore)))
 	partNums, parts := generateParts(prng, 75)
 
 	// Check that IsComplete() is false where there are no parts
-	msg, complete := mpm.IsComplete()
+	msg, complete := mpm.IsComplete([]byte{0})
 	if complete {
 		t.Error("IsComplete() returned true when NumParts == 0.")
 	}
@@ -202,7 +202,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 		}
 	}
 
-	msg, complete = mpm.IsComplete()
+	msg, complete = mpm.IsComplete([]byte{0})
 	if !complete {
 		t.Error("IsComplete() returned false when the message should be complete.")
 	}
@@ -218,6 +218,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 		Sender:      mpm.Sender,
 		Timestamp:   time.Time{},
 		Encryption:  0,
+		ID:          e2e.NewMessageID([]byte{0}, mid),
 	}
 
 	if !reflect.DeepEqual(expectedMsg, msg) {

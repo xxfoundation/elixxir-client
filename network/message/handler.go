@@ -35,6 +35,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 	var msg format.Message
 	var encTy message.EncryptionType
 	var err error
+	var relationshipFingerprint []byte
 
 	// try to get the key fingerprint, process as e2e encryption if
 	// the fingerprint is found
@@ -43,6 +44,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		msg, err = key.Decrypt(ecrMsg)
 		// get the sender
 		sender = key.GetSession().GetPartner()
+		relationshipFingerprint = key.GetSession().GetRelationshipFingerprint()
 
 		//drop the message is decryption failed
 		if err != nil {
@@ -77,7 +79,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message
-	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents())
+	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
+		relationshipFingerprint)
 	// If the reception completed a message, hear it on the switchboard
 	if ok {
 		m.Switchboard.Speak(xxMsg)

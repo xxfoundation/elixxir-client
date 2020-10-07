@@ -50,6 +50,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		roundKeys, missingKeys := m.Session.Cmix().GetRoundKeys(topology)
 		if len(missingKeys) > 0 {
 			go handleMissingNodeKeys(m.Instance, m.nodeRegistration, missingKeys)
+			time.Sleep(param.RetryDelay)
 			continue
 		}
 
@@ -59,6 +60,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		transmitGateway, ok := m.Comms.GetHost(firstGateway)
 		if !ok {
 			jww.ERROR.Printf("Failed to get host for gateway %s", transmitGateway)
+			time.Sleep(param.RetryDelay)
 			continue
 		}
 

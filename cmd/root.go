@@ -15,39 +15,15 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
 	"strconv"
 	"time"
 )
-
-var verbose bool
-var userId uint64
-var privateKeyPath string
-var destinationUserId uint64
-var destinationUserIDBase64 string
-var message string
-var sessionFile string
-var noBlockingTransmission bool
-var rateLimiting uint32
-var registrationCode string
-var username string
-var end2end bool
-var keyParams []string
-var ndfPath string
-var skipNDFVerification bool
-var ndfPubKey string
-var sessFilePassword string
-var noTLS bool
-var searchForUser string
-var waitForMessages uint
-var messageTimeout uint
-var messageCnt uint
-var precanned = false
-var logPath string = ""
-var notificationToken string
 
 // Execute adds all child commands to the root command and sets flags
 // appropriately.  This is called by main.main(). It only needs to
@@ -153,53 +129,52 @@ var rootCmd = &cobra.Command{
 		user := client.GetUser()
 		jww.INFO.Printf("%s", user.ID)
 
-		err = client.StartNetworkFollower()
+		// Set up reception handler
+		swboard := client.GetSwitchboard()
+		recvCh := make(chan message.Receive, 10)
+		listenerID := swboard.RegisterChannel("raw",
+			switchboard.AnyUser(), message.Text, recvCh)
+		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+
+		err := client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 
-		time.Sleep(10 * time.Second)
-
 		// Wait until connected or crash on timeout
-		connected := make(chan bool, 1)
+		connected := make(chan bool, 10)
 		client.GetHealth().AddChannel(connected)
-		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
-		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
-		isConnected := false
-		for !isConnected {
-			select {
-			case isConnected = <-connected:
-				jww.INFO.Printf("health status: %v\n",
-					isConnected)
-				break
-			case <-timeoutTimer.C:
-				jww.FATAL.Panic("timeout on connection")
-			}
-		}
+		waitUntilConnected(connected)
 
 		// Send Messages
 		msgBody := viper.GetString("message")
-		recipientID := getUIDFromString(viper.GetString("destid"))
+		//recipientID := getUIDFromString(viper.GetString("destid"))
+		recipientID := user.ID
 
-		msg := client.NewCMIXMessage(recipientID, []byte(msgBody))
-		params := params.GetDefaultCMIX()
+		msg := message.Send{
+			Recipient:   recipientID,
+			Payload:     []byte(msgBody),
+			MessageType: message.Text,
+		}
+		params := params.GetDefaultUnsafe()
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			roundID, err := client.SendCMIX(msg, params)
+			roundIDs, err := client.SendUnsafe(msg, params)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			jww.INFO.Printf("RoundID: %d\n", roundID)
+			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
 		receiveCnt := viper.GetUint("receiveCount")
-		timeoutTimer = time.NewTimer(waitTimeout * time.Second)
+		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done {
 			select {
@@ -207,10 +182,49 @@ var rootCmd = &cobra.Command{
 				fmt.Println("Timed out!")
 				done = true
 				break
+			case m := <-recvCh:
+				fmt.Printf("Message received: %s", string(
+					m.Payload))
+				break
 			}
 		}
 		fmt.Printf("Received %d", receiveCnt)
 	},
+}
+
+func waitUntilConnected(connected chan bool) {
+	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+	isConnected := false
+	//Wait until we connect or panic if we can't by a timeout
+	for !isConnected {
+		select {
+		case isConnected = <-connected:
+			jww.INFO.Printf("health status: %v\n",
+				isConnected)
+			break
+		case <-timeoutTimer.C:
+			jww.FATAL.Panic("timeout on connection")
+		}
+	}
+
+	// Now start a thread to empty this channel and update us
+	// on connection changes for debugging purposes.
+	go func() {
+		prev := true
+		for {
+			select {
+			case isConnected = <-connected:
+				if isConnected != prev {
+					prev = isConnected
+					jww.INFO.Printf(
+						"health status changed: %v\n",
+						isConnected)
+				}
+				break
+			}
+		}
+	}()
 }
 
 func getUIDFromString(idStr string) *id.ID {
@@ -327,22 +341,15 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
-		"Token to register user with notification bot")
+	// rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
+	// 	"Token to register user with notification bot")
 
-	rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
-		"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
+	// rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
+	// 	"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
 
-	rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
-		make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
-			" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
-
-	rootCmd.Flags().StringVar(&destinationUserIDBase64, "dest64", "",
-		"Sets the destination user id encoded in base 64")
-
-	rootCmd.Flags().UintVarP(&waitForMessages, "waitForMessages",
-		"w", 1, "Denotes the number of messages the "+
-			"client should receive before closing")
+	// rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
+	// 	make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
+	// 		" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
 
 	// rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
 	// 	"Sets the email to search for to find a user with user discovery")

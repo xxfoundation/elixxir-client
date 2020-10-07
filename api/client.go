@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
@@ -331,13 +330,6 @@ func (c *Client) GetSwitchboard() interfaces.Switchboard {
 func (c *Client) GetUser() user.User {
 	jww.INFO.Printf("GetUser()")
 	return c.storage.GetUser()
-}
-
-// RegisterListenerCallback records and installs a listener callback for
-// messages matching specific uid, msgType, and/or username
-func (c *Client) RegisterListenerCallback(uid []byte, msgType int,
-	username string, listenerCb func(msg message.Receive)) {
-
 }
 
 // ----- Utility Functions -----

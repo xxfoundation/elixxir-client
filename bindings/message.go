@@ -15,10 +15,6 @@ type Message interface {
 	// Parse this with protobuf/whatever according to the message type
 	GetPayload() []byte
 
-	// Returns the message's recipient ID
-	// This is usually your userID but could be an ephemeral/group ID
-	GetRecipient() []byte
-
 	// Returns the message's type
 	GetMessageType() int
 
@@ -40,4 +36,23 @@ func (mi messageInternal) GetID() []byte {
 // Returns the message's sender ID, if available
 func (mi messageInternal) GetSender() []byte {
 	return mi.m.Sender.Bytes()
+}
+
+// Returns the message's payload/contents
+func (mi messageInternal) GetPayload() []byte {
+	return mi.m.Payload
+}
+
+// Returns the message's type
+func (mi messageInternal) GetMessageType() int {
+	return int(mi.m.MessageType)
+}
+
+// Returns the message's timestamp in ms
+func (mi messageInternal) GetTimestampMS() int {
+	return int(mi.m.Timestamp.Unix())
+}
+
+func (mi messageInternal) GetTimestampNano() int {
+	return int(mi.m.Timestamp.UnixNano())
 }

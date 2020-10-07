@@ -23,7 +23,7 @@ package network
 
 import (
 	"gitlab.com/elixxir/client/network/gateway"
-	"gitlab.com/elixxir/client/storage"
+	//"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
@@ -57,8 +57,13 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	}
 }
 
+var followCnt int = 0
+
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
+
+	jww.TRACE.Printf("follow: %d", followCnt)
+	followCnt++
 
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent
@@ -76,6 +81,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
 		ClientID:   m.Uid.Bytes(),
 	}
+	jww.TRACE.Printf("polling %s for NDF", gwHost)
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
 		jww.ERROR.Printf("%+v", err)
@@ -84,7 +90,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// ---- Process Update Data ----
 	lastTrackedRound := id.Round(pollResp.LastTrackedRound)
-	gwRoundsState := knownRounds.NewKnownRound(storage.CheckRoundsMaxSize + 1)
+	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
 		jww.ERROR.Printf("Failed to unmartial: %+v", err)
@@ -112,6 +118,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// network
 	if pollResp.Updates != nil {
 		err = m.Instance.RoundUpdates(pollResp.Updates)
+		//jww.TRACE.Printf("%+v", pollResp.Updates)
 		if err != nil {
 			jww.ERROR.Printf("%+v", err)
 			return
@@ -130,7 +137,12 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	checkedRounds := m.Session.GetCheckedRounds()
 	// cleave off old state in the bit vector which is deprecated from the
 	// network
+	jww.DEBUG.Printf("lastCheckedRound: %v", lastTrackedRound)
 	checkedRounds.Forward(lastTrackedRound)
+
+	jww.TRACE.Printf("gwRoundState: %+v", gwRoundsState)
+	jww.TRACE.Printf("pollResp.KnownRounds: %s", string(pollResp.KnownRounds))
+
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)

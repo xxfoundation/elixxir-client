@@ -110,10 +110,6 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 		Manager: commsManager,
 	}
 
-	_, err := instanceComms.AddHost(&id.Permissioning, "0.0.0.0:420", []byte(pub), connect.GetDefaultHostParams())
-	if err != nil {
-		return nil, nil
-	}
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
 		return nil, nil

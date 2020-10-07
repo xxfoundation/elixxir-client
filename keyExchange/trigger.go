@@ -125,13 +125,11 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 			states.COMPLETED, states.FAILED)
 	}
 
-	fmt.Println("before tracking")
 	//Wait until the result tracking responds
 	success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
 	// If a single partition of the Key Negotiation request does not
 	// transmit, the partner will not be able to read the confirmation. If
 	// such a failure occurs
-	fmt.Println("after tracking")
 	if !success {
 		jww.ERROR.Printf("Key Negotiation for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",

@@ -54,13 +54,22 @@ func newTracker(timeout time.Duration) *Tracker {
 // Add a channel to the list of Tracker channels
 // such that each channel can be notified of network changes
 func (t *Tracker) AddChannel(c chan bool) {
+	t.mux.Lock()
 	t.channels = append(t.channels, c)
+	t.mux.Unlock()
+	select {
+	case c <- t.IsHealthy():
+	default:
+	}
 }
 
 // Add a function to the list of Tracker function
 // such that each function can be run after network changes
 func (t *Tracker) AddFunc(f func(isHealthy bool)) {
+	t.mux.Lock()
 	t.funcs = append(t.funcs, f)
+	t.mux.Unlock()
+	go f(t.IsHealthy())
 }
 
 func (t *Tracker) IsHealthy() bool {
@@ -104,9 +113,7 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 
 // Long-running thread used to monitor and report on network health
 func (t *Tracker) start(quitCh <-chan struct{}) {
-
-	var timerChan <-chan time.Time
-	timerChan = make(chan time.Time)
+	timer := time.NewTimer(t.timeout)
 
 	for {
 		var heartbeat network.Heartbeat
@@ -115,12 +122,23 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 			// Handle thread kill
 			break
 		case heartbeat = <-t.heartbeat:
+			jww.DEBUG.Printf("heartbeat: %v", heartbeat)
 			if healthy(heartbeat) {
-				timerChan = time.NewTimer(t.timeout).C
+				// Stop and reset timer
+				if !timer.Stop() {
+					select {
+					// per docs explicitly drain
+					case <-timer.C:
+					default:
+					}
+				}
+				timer.Reset(t.timeout)
 				t.setHealth(true)
 			}
-		case <-timerChan:
+			break
+		case <-timer.C:
 			t.setHealth(false)
+			break
 		}
 	}
 }
@@ -141,5 +159,5 @@ func (t *Tracker) transmit(health bool) {
 }
 
 func healthy(a network.Heartbeat) bool {
-	return a.HasWaitingRound && a.IsRoundComplete
+	return a.IsRoundComplete
 }

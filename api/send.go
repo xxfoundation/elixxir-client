@@ -39,6 +39,18 @@ func (c *Client) SendUnsafe(m message.Send, param params.Unsafe) ([]id.Round,
 // if it fails.
 func (c *Client) SendCMIX(msg format.Message, param params.CMIX) (id.Round,
 	error) {
-	jww.INFO.Printf("SendCMIX(%v)", msg)
+	jww.INFO.Printf("SendCMIX(%s)", string(msg.GetContents()))
 	return c.network.SendCMIX(msg, param)
+}
+
+// NewCMIXMessage Creates a new cMix message with the right properties
+// for the current cMix network.
+// FIXME: this is weird and shouldn't be necessary, but it is.
+func (c *Client) NewCMIXMessage(recipient *id.ID,
+	contents []byte) format.Message {
+	primeSize := len(c.storage.Cmix().GetGroup().GetPBytes())
+	msg := format.NewMessage(primeSize)
+	msg.SetContents(contents)
+	msg.SetRecipientID(recipient)
+	return msg
 }

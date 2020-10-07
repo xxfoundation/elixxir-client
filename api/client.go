@@ -55,7 +55,7 @@ type Client struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) (*Client, error) {
+func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -63,7 +63,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cmixGrp, e2eGrp := decodeGroups(def)
 
@@ -74,7 +74,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Save NDF to be used in the future
@@ -86,12 +86,12 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	//move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to denote state "+
+		return errors.WithMessage(err, "Failed to denote state "+
 			"change in session")
 	}
 
-	//execute the rest of the loading as normal
-	return loadClient(storageSess, rngStreamGen)
+	//TODO: close the session
+	return nil
 }
 
 // NewPrecannedClient creates an insecure user with predetermined keys with nodes
@@ -99,7 +99,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) (*Client, error) {
+func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) error {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -107,7 +107,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	// Parse the NDF
 	def, err := parseNDF(defJSON)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	cmixGrp, e2eGrp := decodeGroups(def)
 
@@ -118,7 +118,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Save NDF to be used in the future
@@ -127,12 +127,12 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	//move the registration state to keys generated
 	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to denote state "+
+		return errors.WithMessage(err, "Failed to denote state "+
 			"change in session")
 	}
 
-	//execute the rest of the loading as normal
-	return loadClient(storageSess, rngStreamGen)
+	//TODO: close the session
+	return nil
 }
 
 // LoadClient initalizes a client object from existing storage.

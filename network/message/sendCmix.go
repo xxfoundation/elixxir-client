@@ -29,7 +29,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
 		elapsed := time.Now().Sub(timeStart)
-		if elapsed < param.Timeout {
+		if elapsed > param.Timeout {
 			return 0, errors.New("Sending cmix message timed out")
 		}
 		remainingTime := param.Timeout - elapsed
@@ -39,7 +39,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
-		if err == nil {
+		if err != nil {
 			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
 			continue
 		}
@@ -50,6 +50,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		roundKeys, missingKeys := m.Session.Cmix().GetRoundKeys(topology)
 		if len(missingKeys) > 0 {
 			go handleMissingNodeKeys(m.Instance, m.nodeRegistration, missingKeys)
+			time.Sleep(param.RetryDelay)
 			continue
 		}
 
@@ -59,6 +60,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		transmitGateway, ok := m.Comms.GetHost(firstGateway)
 		if !ok {
 			jww.ERROR.Printf("Failed to get host for gateway %s", transmitGateway)
+			time.Sleep(param.RetryDelay)
 			continue
 		}
 

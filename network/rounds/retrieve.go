@@ -51,6 +51,9 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 			"to request from")
 	}
 
+	jww.INFO.Printf("Getting messages for RoundID %v via Gateway: %s", rid,
+		gwHost.GetId())
+
 	// send the request
 	msgReq := &pb.GetMessages{
 		ClientID: m.Uid.Marshal(),
@@ -65,7 +68,9 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
-		m.p.Fail(rid)
+		rid := id.Round(roundInfo.ID)
+		m.p.Done(rid)
+		m.Session.GetCheckedRounds().Check(rid)
 		return message.Bundle{}, errors.Errorf("host %s does not have "+
 			"roundID: %d", gwHost.String(), rid)
 	}

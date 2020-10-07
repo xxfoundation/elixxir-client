@@ -16,9 +16,9 @@ import (
 // Happy path smoke test
 func TestNewTracker(t *testing.T) {
 	// Initialize required variables
-	timeout := 500 * time.Millisecond
+	timeout := 250 * time.Millisecond
 	tracker := newTracker(timeout)
-	counter := 0
+	counter := 2 // First signal is "false/unhealthy"
 	positiveHb := network.Heartbeat{
 		HasWaitingRound: true,
 		IsRoundComplete: true,
@@ -57,7 +57,7 @@ func TestNewTracker(t *testing.T) {
 	tracker.heartbeat <- positiveHb
 
 	// Wait for the heartbeat to register
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 4; i++ {
 		if tracker.IsHealthy() && counter == expectedCount {
 			break
 		} else {

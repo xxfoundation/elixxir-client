@@ -1,29 +1,20 @@
-package fact
+package contact
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces"
 )
 
 type Fact struct {
 	Fact string
-	T    Type
+	T    FactType
 }
 
 func (f Fact) Get() string {
 	return f.Fact
 }
 
-func (f Fact) GetType() int {
+func (f Fact) Type() int {
 	return int(f.T)
-}
-
-func (f Fact) Copy() interfaces.Fact {
-	f2 := Fact{
-		Fact: f.Fact,
-		T:    f.T,
-	}
-	return &f2
 }
 
 // marshal is for transmission for UDB, not a part of the fact interface
@@ -36,8 +27,8 @@ func (f Fact) Marshal() []byte {
 	return b
 }
 
-func Unmarshal(b []byte) (Fact, error) {
-	t := Type(b[0])
+func UnmarshalFact(b []byte) (Fact, error) {
+	t := FactType(b[0])
 	if !t.IsValid() {
 		return Fact{}, errors.Errorf("Fact is not a valid type: %s", t)
 	}

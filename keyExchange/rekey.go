@@ -7,6 +7,7 @@
 package keyExchange
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -32,24 +33,31 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 }
 
 // There are two types of key negotiations that can be triggered, creating a new
-// session and negotiation, or resenting a negotiation for an already created
+// session and negotiation, or resetting a negotiation for an already created
 // session. They run the same negotiation, the former does it on a newly created
-// session while the latter on an extand
+// session while the latter on an extant session
 func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
 	sendTimeout time.Duration) {
 	var negotiatingSession *e2e.Session
+	fmt.Printf("session status: %v\n", session.NegotiationStatus())
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
 	// replace itself, then create the session
 	case e2e.NewSessionTriggered:
+		fmt.Printf("in new session triggered\n")
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil,
 			e2e.GetDefaultSessionParams())
 		//move the state of the triggering session forward
 		session.SetNegotiationStatus(e2e.NewSessionCreated)
+		fmt.Printf("after setting session: %v\n", negotiatingSession.NegotiationStatus())
+
 	// If the session has not successfully negotiated, redo its negotiation
+	// Fixme: It doesn't seem possible to have an unconfirmed status in the codepath
 	case e2e.Unconfirmed:
+		fmt.Printf("in new Unconfirmed\n")
+
 		negotiatingSession = session
 	default:
 		jww.FATAL.Panicf("Session %s provided invalid e2e "+
@@ -133,7 +141,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
-	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
+	jww.INFO.Printf("Key Negotiation transmission for %s sucesful",
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
 

@@ -3,13 +3,18 @@ package interfaces
 type Contact interface {
 	GetID() []byte
 	GetDHPublicKey() []byte
-	AddFact(Fact) Contact
-	NumFacts() int
-	GetFact(int) (Fact, error)
+	GetOwnershipProof() []byte
+	GetFactList() FactList
 	Marshal() ([]byte, error)
+}
+
+type FactList interface {
+	Num() int
+	Get(int) Fact
+	Add(string, int) error
 }
 
 type Fact interface {
 	Get() string
-	GetType() int
+	Type() int
 }

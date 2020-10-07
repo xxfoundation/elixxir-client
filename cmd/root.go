@@ -136,7 +136,7 @@ var rootCmd = &cobra.Command{
 			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
-		err := client.StartNetworkFollower()
+		err = client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

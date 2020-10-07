@@ -6,11 +6,6 @@
 
 package bindings
 
-import (
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/xx_network/primitives/id"
-)
-
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
@@ -119,7 +114,7 @@ type client interface {
 
 	// GetUser returns the current user Identity for this client. This
 	// can be serialized into a byte stream for out-of-band sharing.
-	GetUser() (interfaces.Contact, error)
+	GetUser() (Contact, error)
 
 	// ----- User Discovery -----
 
@@ -138,7 +133,7 @@ type client interface {
 	// so this user can send messages to the desired recipient Contact.
 	// To receive confirmation from the remote user, clients must
 	// register a listener to do that.
-	CreateAuthenticatedChannel(recipient interfaces.Contact, payload []byte) error
+	CreateAuthenticatedChannel(recipient Contact, payload []byte) error
 	// RegierAuthEventsHandler registers a callback interface for channel
 	// authentication events.
 	RegisterAuthEventsHandler(hdlr AuthEventHandler)
@@ -155,22 +150,12 @@ type ContactList interface {
 	// GetLen returns the number of contacts in the list
 	GetLen() int
 	// GetContact returns the contact at index i
-	GetContact(i int) interfaces.Contact
+	GetContact(i int) Contact
 }
 
 // ----- Callback interfaces -----
 
-// Listener provides a callback to hear a message
-// An object implementing this interface can be called back when the client
-// gets a message of the type that the regi    sterer specified at registration
-// time.
-type Listener interface {
-	// Hear is called to receive a message in the UI
-	Hear(payload []byte, mType int, sender []byte, timestamp)
-	// Returns a name, used for debugging
-	Name() string
 
-}
 
 // AuthEventHandler handles authentication requests initiated by
 // CreateAuthenticatedChannel
@@ -179,13 +164,13 @@ type AuthEventHandler interface {
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. Payload is typically empty but
 	// may include a small introductory message.
-	HandleConfirmation(contact interfaces.Contact, payload []byte)
+	HandleConfirmation(contact Contact, payload []byte)
 	// HandleRequest handles AuthEvents received before
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. It should prompt the user to accept
 	// the channel creation "request" and, if approved,
 	// call CreateAuthenticatedChannel for this Contact.
-	HandleRequest(contact interfaces.Contact, payload []byte)
+	HandleRequest(contact Contact, payload []byte)
 }
 
 // RoundList contains a list of contacts
@@ -208,4 +193,58 @@ type UserDiscoveryHandler interface {
 
 type NetworkHealthCallback interface {
 	Callback(bool)
+}
+
+// Message is a message received from the cMix network in the clear
+// or that has been decrypted using established E2E keys.
+type Message interface {
+	//Returns the id of the message
+	GetID() []byte
+
+	// Returns the message's sender ID, if available
+	GetSender() []byte
+
+	// Returns the message payload/contents
+	// Parse this with protobuf/whatever according to the message type
+	GetPayload() []byte
+
+	// Returns the message's type
+	GetMessageType() int
+
+	// Returns the message's timestamp in milliseconds since unix epoc
+	GetTimestampMS() int
+	// Returns the message's timestamp in ns since unix epoc
+	GetTimestampNano() int
+}
+
+type Contact interface {
+	GetID() []byte
+	GetDHPublicKey() []byte
+	GetOwnershipProof() []byte
+	GetFactList() FactList
+	Marshal() ([]byte, error)
+}
+
+type FactList interface {
+	Num() int
+	Get(int) Fact
+	Add(string, int) error
+}
+
+type Fact interface {
+	Get() string
+	Type() int
+}
+
+type User interface {
+	GetID() []byte
+	GetSalt() []byte
+	GetRSAPrivateKeyPem() []byte
+	GetRSAPublicKeyPem() []byte
+	IsPrecanned() bool
+	GetCmixDhPrivateKey() []byte
+	GetCmixDhPublicKey() []byte
+	GetE2EDhPrivateKey() []byte
+	GetE2EDhPublicKey() []byte
+	GetContact() Contact
 }

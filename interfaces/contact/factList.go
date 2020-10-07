@@ -2,7 +2,7 @@ package contact
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/bindings"
 )
 
 type FactList struct {
@@ -13,7 +13,7 @@ func (fl FactList) Num() int {
 	return len(fl.source.Facts)
 }
 
-func (fl FactList) Get(i int) interfaces.Fact {
+func (fl FactList) Get(i int) bindings.Fact {
 	return fl.source.Facts[i]
 }
 

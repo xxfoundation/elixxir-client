@@ -9,6 +9,8 @@ package bindings
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -126,25 +128,49 @@ func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 // RegisterListener records and installs a listener for messages
 // matching specific uid, msgType, and/or username
 func (c *Client) RegisterListener(uid []byte, msgType int,
-	username string, listener Listener) {
+	listener Listener) (ListenerID, error) {
+
+	name := listener.Name()
+	u, err := id.Unmarshal(uid)
+	if err != nil {
+		return ListenerID{}, err
+	}
+	mt := message.Type(msgType)
+
+	f := func(item message.Receive) {
+		listener.Hear(item)
+	}
+
+	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
+
+	return ListenerID{id: lid}, nil
+}
+
+// Unregister removes the listener with the specified ID so it will no
+// longer get called
+func (c *Client) UnregisterListener(lid ListenerID) {
+	c.api.GetSwitchboard().Unregister(lid.id)
+}
+
+// RegisterRoundEventsHandler registers a callback interface for round
+// events.
+func (c *Client) RegisterRoundEventsHandler(hdlr RoundEventHandler) {
 }
 
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.
-func (b *BindingsClient) SearchWithHandler(data, separator string,
+func (c *Client) SearchWithHandler(data, separator string,
 	searchTypes []byte, hdlr UserDiscoveryHandler) {
 }
+
 
 // RegisterAuthEventsHandler registers a callback interface for channel
 // authentication events.
 func (b *BindingsClient) RegisterAuthEventsHandler(hdlr AuthEventHandler) {
 }
 
-// RegisterRoundEventsHandler registers a callback interface for round
-// events.
-func (b *BindingsClient) RegisterRoundEventsHandler(hdlr RoundEventHandler) {
-}
+
 
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of

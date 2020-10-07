@@ -312,17 +312,17 @@ func (c *Client) GetHealth() interfaces.HealthTracker {
 	return c.network.GetHealthTracker()
 }
 
+// Returns the switchboard for Registration
+func (c *Client) GetSwitchboard() interfaces.Switchboard {
+	jww.INFO.Printf("GetSwitchboard()")
+	return c.switchboard
+}
+
 // RegisterRoundEventsCb registers a callback for round
 // events.
 func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
 	return c.network.GetInstance().GetRoundEvents()
-}
-
-// Returns the switchboard for Registration
-func (c *Client) GetSwitchboard() interfaces.Switchboard {
-	jww.INFO.Printf("GetSwitchboard()")
-	return c.switchboard
 }
 
 // GetUser returns the current user Identity for this client. This

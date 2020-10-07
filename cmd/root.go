@@ -104,7 +104,7 @@ var rootCmd = &cobra.Command{
 		storeDir := viper.GetString("session")
 		regCode := viper.GetString("regcode")
 
-		var client *api.Client
+		//create a new client if none exist
 		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 			// Load NDF
 			ndfPath := viper.GetString("ndf")
@@ -113,16 +113,17 @@ var rootCmd = &cobra.Command{
 				jww.FATAL.Panicf(err.Error())
 			}
 
-			client, err = api.NewClient(string(ndfJSON), storeDir,
+			err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-		} else {
-			client, err = api.LoadClient(storeDir, []byte(pass))
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+		}
+
+		//load the client
+		client, err := api.LoadClient(storeDir, []byte(pass))
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
 		}
 
 		user := client.GetUser()
@@ -135,7 +136,7 @@ var rootCmd = &cobra.Command{
 			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
-		err := client.StartNetworkFollower()
+		err = client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

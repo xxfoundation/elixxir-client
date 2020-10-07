@@ -64,6 +64,6 @@ func (u User) GetContact() interfaces.Contact {
 	return contact.Contact{
 		ID:       u.ID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,
-		Facts:    nil,
+		Facts:    make([]contact.Fact, 0),
 	}
 }

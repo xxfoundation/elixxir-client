@@ -160,6 +160,8 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
 		jww.FATAL.Printf("Failed to add Parter %s: Save of store failed: %s",
 			partnerID, err)
 	}
+
+	return nil
 }
 
 func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {

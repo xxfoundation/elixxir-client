@@ -2,22 +2,22 @@ package contact
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/bindings"
+	"gitlab.com/elixxir/client/interfaces/bind"
 )
 
-type FactList struct {
+type factList struct {
 	source *Contact
 }
 
-func (fl FactList) Num() int {
+func (fl factList) Num() int {
 	return len(fl.source.Facts)
 }
 
-func (fl FactList) Get(i int) bindings.Fact {
+func (fl factList) Get(i int) bind.Fact {
 	return fl.source.Facts[i]
 }
 
-func (fl FactList) Add(fact string, factType int) error {
+func (fl factList) Add(fact string, factType int) error {
 	ft := FactType(factType)
 	if !ft.IsValid() {
 		return errors.New("Invalid fact type")

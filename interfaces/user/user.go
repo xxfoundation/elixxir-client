@@ -1,7 +1,7 @@
 package user
 
 import (
-	"gitlab.com/elixxir/client/bindings"
+	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -60,7 +60,7 @@ func (u User) GetE2EDhPublicKey() []byte {
 	return u.E2eDhPublicKey.Bytes()
 }
 
-func (u User) GetContact() bindings.Contact {
+func (u User) GetContact() bind.Contact {
 	return contact.Contact{
 		ID:       u.ID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,

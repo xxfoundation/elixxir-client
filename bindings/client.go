@@ -9,6 +9,7 @@ package bindings
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -66,7 +67,7 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 }
 
 //Unmarshals a marshaled contact object
-func UnmarshalContact(b []byte) (Contact, error) {
+func UnmarshalContact(b []byte) (bind.Contact, error) {
 	return contact.Unmarshal(b)
 }
 
@@ -197,7 +198,7 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 // Returns a user object from which all information about the current user
 // can be gleaned
 func (c *Client) GetUser() User {
-	return c.GetUser()
+	return c.api.GetUser()
 }
 
 

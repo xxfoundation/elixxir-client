@@ -6,6 +6,8 @@
 
 package bindings
 
+import "gitlab.com/elixxir/client/interfaces/bind"
+
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
@@ -112,7 +114,7 @@ type client interface {
 
 	// GetUser returns the current user Identity for this client. This
 	// can be serialized into a byte stream for out-of-band sharing.
-	GetUser() (Contact, error)
+	GetUser() (bind.Contact, error)
 
 	// ----- User Discovery -----
 
@@ -131,7 +133,7 @@ type client interface {
 	// so this user can send messages to the desired recipient Contact.
 	// To receive confirmation from the remote user, clients must
 	// register a listener to do that.
-	CreateAuthenticatedChannel(recipient Contact, payload []byte) error
+	CreateAuthenticatedChannel(recipient bind.Contact, payload []byte) error
 	// RegierAuthEventsHandler registers a callback interface for channel
 	// authentication events.
 	RegisterAuthEventsHandler(hdlr AuthEventHandler)
@@ -148,7 +150,7 @@ type ContactList interface {
 	// GetLen returns the number of contacts in the list
 	GetLen() int
 	// GetContact returns the contact at index i
-	GetContact(i int) Contact
+	GetContact(i int) bind.Contact
 }
 
 // ----- Callback interfaces -----
@@ -162,13 +164,13 @@ type AuthEventHandler interface {
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. Payload is typically empty but
 	// may include a small introductory message.
-	HandleConfirmation(contact Contact, payload []byte)
+	HandleConfirmation(contact bind.Contact, payload []byte)
 	// HandleRequest handles AuthEvents received before
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. It should prompt the user to accept
 	// the channel creation "request" and, if approved,
 	// call CreateAuthenticatedChannel for this Contact.
-	HandleRequest(contact Contact, payload []byte)
+	HandleRequest(contact bind.Contact, payload []byte)
 }
 
 // UserDiscoveryHandler handles search results against the user discovery agent.
@@ -202,24 +204,6 @@ type Message interface {
 	GetTimestampNano() int
 }
 
-type Contact interface {
-	GetID() []byte
-	GetDHPublicKey() []byte
-	GetOwnershipProof() []byte
-	GetFactList() FactList
-	Marshal() ([]byte, error)
-}
-
-type FactList interface {
-	Num() int
-	Get(int) Fact
-	Add(string, int) error
-}
-
-type Fact interface {
-	Get() string
-	Type() int
-}
 
 type User interface {
 	GetID() []byte
@@ -231,5 +215,5 @@ type User interface {
 	GetCmixDhPublicKey() []byte
 	GetE2EDhPrivateKey() []byte
 	GetE2EDhPublicKey() []byte
-	GetContact() Contact
+	GetContact() bind.Contact
 }

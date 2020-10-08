@@ -8,6 +8,7 @@ package bindings
 
 import "gitlab.com/elixxir/client/interfaces/bind"
 
+/*
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
@@ -176,11 +177,8 @@ type AuthEventHandler interface {
 // UserDiscoveryHandler handles search results against the user discovery agent.
 type UserDiscoveryHandler interface {
 	HandleSearchResults(results ContactList)
-}
+}*/
 
-type NetworkHealthCallback interface {
-	Callback(bool)
-}
 
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.

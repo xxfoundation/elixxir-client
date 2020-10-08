@@ -9,6 +9,8 @@ package bindings
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/bind"
+	"gitlab.com/elixxir/client/interfaces/contact"
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -59,12 +61,13 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 	return &Client{*client}, nil
 }
 
-/*
+
 //Unmarshals a marshaled contact object
 func UnmarshalContact(b []byte) (bind.Contact, error) {
 	return contact.Unmarshal(b)
 }
 
+/*
 // StartNetworkFollower kicks off the tracking of the network. It starts
 // long running network client threads and returns an object for checking
 // state and stopping those threads.
@@ -194,8 +197,6 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 func (c *Client) GetUser() User {
 	return c.api.GetUser()
 }
-
-
 
 /*
 // SearchWithHandler is a non-blocking search that also registers

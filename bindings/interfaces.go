@@ -6,8 +6,6 @@
 
 package bindings
 
-import "gitlab.com/xx_network/primitives/id"
-
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
@@ -45,8 +43,6 @@ type client interface {
 	// Registers a callback which gets triggered every time network health
 	// changes
 	RegisterNetworkHealthCB(func(bool))
-
-	RegisterRoundEventCallback(rid int, hdlr RoundEventHandler)
 
 	// ----- Reception -----
 

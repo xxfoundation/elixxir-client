@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -127,13 +129,17 @@ func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 
 // RegisterListener records and installs a listener for messages
 // matching specific uid, msgType, and/or username
+// Returns a ListenerUnregister interface which can be
+//
+// Message Types can be found in client/interfaces/message/type.go
+// Make sure to not conflict with ANY default message types
 func (c *Client) RegisterListener(uid []byte, msgType int,
-	listener Listener) (ListenerID, error) {
+	listener Listener) (Unregister, error) {
 
 	name := listener.Name()
 	u, err := id.Unmarshal(uid)
 	if err != nil {
-		return ListenerID{}, err
+		return Unregister{}, err
 	}
 	mt := message.Type(msgType)
 
@@ -143,19 +149,52 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 
 	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
 
-	return ListenerID{id: lid}, nil
-}
-
-// Unregister removes the listener with the specified ID so it will no
-// longer get called
-func (c *Client) UnregisterListener(lid ListenerID) {
-	c.api.GetSwitchboard().Unregister(lid.id)
+	return newListenerUnregister(lid, c.api.GetSwitchboard()), nil
 }
 
 // RegisterRoundEventsHandler registers a callback interface for round
 // events.
-func (c *Client) RegisterRoundEventsHandler(hdlr RoundEventHandler) {
+// The rid is the round the event attaches to
+// The timeoutMS is the number of milliseconds until the event fails, and the
+// validStates are a list of states (one per byte) on which the event gets
+// triggered
+// States:
+//  0x00 - PENDING (Never seen by client)
+//  0x01 - PRECOMPUTING
+//  0x02 - STANDBY
+//  0x03 - QUEUED
+//  0x04 - REALTIME
+//  0x05 - COMPLETED
+//  0x06 - FAILED
+// These states are defined in elixxir/primitives/states/state.go
+func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
+	timeoutMS int, validStates []byte) Unregister {
+
+	rcb := func(ri *mixmessages.RoundInfo, timedOut bool) {
+		cb.EventCallback(int(ri.ID), byte(ri.State), timedOut)
+	}
+
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+
+	vStates := make([]states.Round, len(validStates))
+	for i, s := range validStates {
+		vStates[i] = states.Round(s)
+	}
+
+	roundID := id.Round(rid)
+
+	ec := c.api.GetRoundEvents().AddRoundEvent(roundID, rcb, timeout, vStates...)
+
+	return newRoundUnregister(roundID, ec, c.api.GetRoundEvents())
 }
+
+// Returns a user object from which all information about the current user
+// can be gleaned
+func (c *Client) GetUser() User {
+	return c.GetUser()
+}
+
+
 
 /*
 // SearchWithHandler is a non-blocking search that also registers
@@ -204,4 +243,4 @@ func (b *BindingsClient) SendCMIX(payload, recipient []byte) (int, error) {
 func (b *BindingsClient) Search(data, separator string,
 	searchTypes []byte) ContactList {
 	return nil
-}
+}*/

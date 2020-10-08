@@ -6,6 +6,8 @@
 
 package bindings
 
+import "gitlab.com/xx_network/primitives/id"
+
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
@@ -171,19 +173,6 @@ type AuthEventHandler interface {
 	// the channel creation "request" and, if approved,
 	// call CreateAuthenticatedChannel for this Contact.
 	HandleRequest(contact Contact, payload []byte)
-}
-
-// RoundList contains a list of contacts
-type RoundList interface {
-	// GetLen returns the number of contacts in the list
-	GetLen() int
-	// GetRoundID returns the round ID at index i
-	GetRoundID(i int) int
-}
-
-// RoundEventHandler handles round events happening on the cMix network.
-type RoundEventHandler interface {
-	HandleEvent(id int, state byte)
 }
 
 // UserDiscoveryHandler handles search results against the user discovery agent.

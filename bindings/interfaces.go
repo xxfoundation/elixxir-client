@@ -6,8 +6,6 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/interfaces/bind"
-
 /*
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
@@ -179,7 +177,7 @@ type UserDiscoveryHandler interface {
 	HandleSearchResults(results ContactList)
 }*/
 
-
+/*
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.
 type Message interface {
@@ -214,4 +212,4 @@ type User interface {
 	GetE2EDhPrivateKey() []byte
 	GetE2EDhPublicKey() []byte
 	GetContact() bind.Contact
-}
+}*/

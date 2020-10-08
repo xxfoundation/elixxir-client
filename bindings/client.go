@@ -9,13 +9,6 @@ package bindings
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/bind"
-	"gitlab.com/elixxir/client/interfaces/contact"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -66,6 +59,7 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 	return &Client{*client}, nil
 }
 
+/*
 //Unmarshals a marshaled contact object
 func UnmarshalContact(b []byte) (bind.Contact, error) {
 	return contact.Unmarshal(b)

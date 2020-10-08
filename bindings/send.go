@@ -3,7 +3,6 @@ package bindings
 import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -67,6 +66,7 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 	return roundList{list: rids}, nil
 }
 
+/*
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
@@ -110,4 +110,4 @@ func (sr SendReport) GetRoundList() RoundList {
 
 func (sr SendReport) GetMessageID() []byte {
 	return sr.mid[:]
-}
+}*/

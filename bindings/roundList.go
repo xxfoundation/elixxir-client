@@ -1,10 +1,6 @@
 package bindings
 
-import (
-	"errors"
-	"gitlab.com/xx_network/primitives/id"
-)
-
+/*
 type roundList struct {
 	list []id.Round
 }
@@ -29,4 +25,4 @@ func (rl roundList) Get(i int) (int, error) {
 	}
 
 	return int(rl.list[i]), nil
-}
+}*/

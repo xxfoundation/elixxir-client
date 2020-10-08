@@ -1,12 +1,6 @@
 package bindings
 
-import (
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/elixxir/comms/network/dataStructures"
-	"gitlab.com/xx_network/primitives/id"
-)
-
+/*
 // Listener provides a callback to hear a message
 // An object implementing this interface can be called back when the client
 // gets a message of the type that the regi    sterer specified at registration
@@ -56,4 +50,4 @@ func newRoundUnregister(rid id.Round, ec *dataStructures.EventCallback,
 		re.Remove(rid, ec)
 	}
 	return Unregister{f: f}
-}
+}*/

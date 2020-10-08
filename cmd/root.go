@@ -103,6 +103,8 @@ var rootCmd = &cobra.Command{
 		pass := viper.GetString("password")
 		storeDir := viper.GetString("session")
 		regCode := viper.GetString("regcode")
+		precannedID := viper.GetUint("precannedID")
+		precannedPartner := viper.GetUint("precannedPartner")
 
 		//create a new client if none exist
 		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
@@ -113,8 +115,14 @@ var rootCmd = &cobra.Command{
 				jww.FATAL.Panicf(err.Error())
 			}
 
-			err = api.NewClient(string(ndfJSON), storeDir,
-				[]byte(pass), regCode)
+			if precannedID != 0 {
+				err = api.NewPrecannedClient(precannedID, string(ndfJSON),
+					storeDir, []byte(pass))
+			} else {
+				err = api.NewClient(string(ndfJSON), storeDir,
+					[]byte(pass), regCode)
+			}
+
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -124,6 +132,10 @@ var rootCmd = &cobra.Command{
 		client, err := api.LoadClient(storeDir, []byte(pass))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
+		}
+
+		if precannedPartner != 0 {
+			client.MakePrecannedContact(precannedPartner)
 		}
 
 		user := client.GetUser()

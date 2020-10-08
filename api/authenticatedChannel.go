@@ -10,11 +10,11 @@ import (
 // so this user can send messages to the desired recipient Contact.
 // To receive confirmation from the remote user, clients must
 // register a listener to do that.
-func (c *Client) CreateAuthenticatedChannel(recipient contact.Contact,
-	payload []byte) error {
-	jww.INFO.Printf("CreateAuthenticatedChannel(%v, %v)",
-		recipient, payload)
-	return nil
+func (c *Client) CreateAuthenticatedChannel(recipient contact.Contact) error {
+	jww.INFO.Printf("CreateAuthenticatedChannel(%v)", recipient)
+	sesParam := e2e.GetDefaultSessionParams()
+	return c.storage.E2e().AddPartner(recipient.ID, recipient.DhPubKey,
+		sesParam, sesParam)
 }
 
 // RegisterAuthConfirmationCb registers a callback for channel
@@ -32,15 +32,15 @@ func (c *Client) RegisterAuthRequestCb(cb func(contact contact.Contact,
 }
 
 // Create an insecure e2e relationship with a precanned user
-func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) contact.Contact {
+func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Contact, error) {
 
 	precan := c.MakePrecannedContact(precannedID)
 
 	//add the precanned user as a e2e contact
 	sesParam := e2e.GetDefaultSessionParams()
-	c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey, sesParam, sesParam)
+	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey, sesParam, sesParam)
 
-	return precan
+	return precan, err
 }
 
 // Create an insecure e2e contact object for a precanned user

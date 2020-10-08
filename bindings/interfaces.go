@@ -6,8 +6,6 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/interfaces/bind"
-
 /*
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
@@ -202,7 +200,7 @@ type Message interface {
 	GetTimestampNano() int
 }
 
-
+/*
 type User interface {
 	GetID() []byte
 	GetSalt() []byte
@@ -214,4 +212,4 @@ type User interface {
 	GetE2EDhPrivateKey() []byte
 	GetE2EDhPublicKey() []byte
 	GetContact() bind.Contact
-}
+}*/

@@ -12,6 +12,8 @@ import (
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -161,7 +163,6 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 	return newListenerUnregister(lid, c.api.GetSwitchboard()), nil
 }
 
-/*
 // RegisterRoundEventsHandler registers a callback interface for round
 // events.
 // The rid is the round the event attaches to

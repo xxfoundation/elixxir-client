@@ -11,10 +11,6 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/states"
-	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 

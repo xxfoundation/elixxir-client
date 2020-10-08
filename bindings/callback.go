@@ -1,6 +1,12 @@
 package bindings
 
-/*
+import (
+	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/xx_network/primitives/id"
+)
+
 // Listener provides a callback to hear a message
 // An object implementing this interface can be called back when the client
 // gets a message of the type that the regi    sterer specified at registration
@@ -11,7 +17,7 @@ type Listener interface {
 	// Returns a name, used for debugging
 	Name() string
 }
-*/
+
 // A callback when which is used to receive notification if network health
 // changes
 type NetworkHealthCallback interface {
@@ -22,7 +28,7 @@ type NetworkHealthCallback interface {
 // RoundEventHandler handles round events happening on the cMix network.
 type RoundEventCallback interface {
 	EventCallback(rid int, state byte, timedOut bool)
-}
+}*/
 
 // Generic Unregister - a generic return used for all callbacks which can be
 // unregistered
@@ -51,4 +57,4 @@ func newRoundUnregister(rid id.Round, ec *dataStructures.EventCallback,
 		re.Remove(rid, ec)
 	}
 	return Unregister{f: f}
-}*/
+}

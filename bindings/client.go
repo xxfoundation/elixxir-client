@@ -11,6 +11,8 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -133,7 +135,7 @@ func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 	c.api.GetHealth().AddFunc(nhc.Callback)
 }
 
-/*
+
 // RegisterListener records and installs a listener for messages
 // matching specific uid, msgType, and/or username
 // Returns a ListenerUnregister interface which can be
@@ -159,6 +161,7 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 	return newListenerUnregister(lid, c.api.GetSwitchboard()), nil
 }
 
+/*
 // RegisterRoundEventsHandler registers a callback interface for round
 // events.
 // The rid is the round the event attaches to

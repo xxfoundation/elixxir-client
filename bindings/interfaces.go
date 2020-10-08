@@ -177,7 +177,7 @@ type UserDiscoveryHandler interface {
 	HandleSearchResults(results ContactList)
 }*/
 
-/*
+
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.
 type Message interface {
@@ -200,7 +200,7 @@ type Message interface {
 	GetTimestampNano() int
 }
 
-
+/*
 type User interface {
 	GetID() []byte
 	GetSalt() []byte

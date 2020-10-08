@@ -144,9 +144,13 @@ func (s *Store) save() error {
 }
 
 func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
-	sendParams, receiveParams SessionParams) {
+	sendParams, receiveParams SessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
+	if _, ok := s.managers[*partnerID]; ok {
+		return errors.New("Cannot overwrite existing partner")
+	}
 
 	m := newManager(s.context, s.kv, partnerID, s.dhPrivateKey, partnerPubKey,
 		sendParams, receiveParams)

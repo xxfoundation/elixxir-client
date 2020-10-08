@@ -11,6 +11,11 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -67,7 +72,7 @@ func UnmarshalContact(b []byte) (bind.Contact, error) {
 	return contact.Unmarshal(b)
 }
 
-/*
+
 // StartNetworkFollower kicks off the tracking of the network. It starts
 // long running network client threads and returns an object for checking
 // state and stopping those threads.
@@ -125,6 +130,7 @@ func (c *Client) IsNetworkHealthy() bool {
 	return c.api.GetHealth().IsHealthy()
 }
 
+/*
 // registers the network health callback to be called any time the network
 // health changes
 func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {

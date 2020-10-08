@@ -181,7 +181,7 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 	timeoutMS int) Unregister {
 
 	rcb := func(ri *mixmessages.RoundInfo, timedOut bool) {
-		cb.EventCallback(int(ri.ID), byte(ri.State), timedOut)
+		cb.EventCallback(int(ri.ID), int(ri.State), timedOut)
 	}
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond

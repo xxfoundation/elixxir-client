@@ -27,7 +27,7 @@ type NetworkHealthCallback interface {
 
 // RoundEventHandler handles round events happening on the cMix network.
 type RoundEventCallback interface {
-	EventCallback(rid int, state int, timedOut bool)
+	EventCallback(rid, state int, timedOut bool)
 }
 
 // Generic Unregister - a generic return used for all callbacks which can be

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -178,7 +179,7 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 //  0x06 - FAILED
 // These states are defined in elixxir/primitives/states/state.go
 func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
-	timeoutMS int) Unregister {
+	timeoutMS int, il *IntList) Unregister {
 
 	rcb := func(ri *mixmessages.RoundInfo, timedOut bool) {
 		cb.EventCallback(int(ri.ID), int(ri.State), timedOut)
@@ -186,10 +187,10 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	/*vStates := make([]states.Round, len(validStates))
-	for i, s := range validStates {
+	vStates := make([]states.Round, len(il.lst))
+	for i, s := range il.lst {
 		vStates[i] = states.Round(s)
-	}*/
+	}
 
 	roundID := id.Round(rid)
 
@@ -198,7 +199,6 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 	return newRoundUnregister(roundID, ec, c.api.GetRoundEvents())
 }
 
-/*
 // Returns a user object from which all information about the current user
 // can be gleaned
 func (c *Client) GetUser() User {

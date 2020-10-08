@@ -1,6 +1,12 @@
 package bindings
 
-/*
+import (
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/xx_network/primitives/id"
+)
+
 // SendCMIX sends a "raw" CMIX message payload to the provided
 // recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
 // Returns the round ID of the round the payload was sent or an error
@@ -105,4 +111,4 @@ func (sr SendReport) GetRoundList() RoundList {
 
 func (sr SendReport) GetMessageID() []byte {
 	return sr.mid[:]
-}*/
+}

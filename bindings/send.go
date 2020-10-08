@@ -1,6 +1,7 @@
 package bindings
 
 import (
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -46,5 +47,21 @@ func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 // Make sure to not conflict with ANY default message types
 func (c *Client) SendUnsafe(recipient, payload []byte,
 	messageType int) (RoundList, error) {
+	u, err := id.Unmarshal(recipient)
+	if err != nil {
+		return nil, err
+	}
 
+	m := message.Send{
+		Recipient:   u,
+		Payload:     payload,
+		MessageType: message.Type(messageType),
+	}
+
+	rids, err := c.api.SendUnsafe(m, params.GetDefaultUnsafe())
+	if err != nil {
+		return nil, err
+	}
+
+	return roundList{list: rids}, nil
 }

@@ -14,7 +14,7 @@ type RoundList interface {
 	// Len returns the number of contacts in the list
 	Len() int
 	// Get returns the round ID at index i
-	Get(i int) int
+	Get(i int) (int, error)
 }
 
 func (rl roundList) Len() int {

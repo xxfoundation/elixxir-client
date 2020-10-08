@@ -11,13 +11,14 @@ type Listener interface {
 	// Returns a name, used for debugging
 	Name() string
 }
-
+*/
 // A callback when which is used to receive notification if network health
 // changes
 type NetworkHealthCallback interface {
 	Callback(bool)
 }
 
+/*
 // RoundEventHandler handles round events happening on the cMix network.
 type RoundEventCallback interface {
 	EventCallback(rid int, state byte, timedOut bool)

@@ -9,6 +9,7 @@ package bindings
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
@@ -62,6 +63,11 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 		return nil, err
 	}
 	return &Client{*client}, nil
+}
+
+//Unmarshals a marshaled contact object
+func UnmarshalContact(b []byte) (Contact, error) {
+	return contact.Unmarshal(b)
 }
 
 // StartNetworkFollower kicks off the tracking of the network. It starts
@@ -207,34 +213,6 @@ func (c *Client) SearchWithHandler(data, separator string,
 // RegisterAuthEventsHandler registers a callback interface for channel
 // authentication events.
 func (b *BindingsClient) RegisterAuthEventsHandler(hdlr AuthEventHandler) {
-}
-
-
-
-// SendE2E sends an end-to-end payload to the provided recipient with
-// the provided msgType. Returns the list of rounds in which parts of
-// the message were sent or an error if it fails.
-func (b *BindingsClient) SendE2E(payload, recipient []byte,
-	msgType int) (RoundList, error) {
-	return nil, nil
-}
-
-// SendUnsafe sends an unencrypted payload to the provided recipient
-// with the provided msgType. Returns the list of rounds in which parts
-// of the message were sent or an error if it fails.
-// NOTE: Do not use this function unless you know what you are doing.
-// This function always produces an error message in client logging.
-func (b *BindingsClient) SendUnsafe(payload, recipient []byte,
-	msgType int) (RoundList, error) {
-	return nil, nil
-}
-
-// SendCMIX sends a "raw" CMIX message payload to the provided
-// recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
-// Returns the round ID of the round the payload was sent or an error
-// if it fails.
-func (b *BindingsClient) SendCMIX(payload, recipient []byte) (int, error) {
-	return 0, nil
 }
 
 // Search accepts a "separator" separated list of search elements with

@@ -3,6 +3,7 @@ package bindings
 import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -64,4 +65,49 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 	}
 
 	return roundList{list: rids}, nil
+}
+
+// SendE2E sends an end-to-end payload to the provided recipient with
+// the provided msgType. Returns the list of rounds in which parts of
+// the message were sent or an error if it fails.
+//
+// Message Types can be found in client/interfaces/message/type.go
+// Make sure to not conflict with ANY default message types
+func (c *Client) SendE2E(recipient, payload []byte,
+	messageType int) (SendReport, error) {
+	u, err := id.Unmarshal(recipient)
+	if err != nil {
+		return SendReport{}, err
+	}
+
+	m := message.Send{
+		Recipient:   u,
+		Payload:     payload,
+		MessageType: message.Type(messageType),
+	}
+
+	rids, mid, err := c.api.SendE2E(m, params.GetDefaultE2E())
+	if err != nil {
+		return SendReport{}, err
+	}
+
+	sr := SendReport{
+		rl:  roundList{list: rids},
+		mid: mid,
+	}
+
+	return sr, nil
+}
+
+type SendReport struct {
+	rl  RoundList
+	mid e2e.MessageID
+}
+
+func (sr SendReport) GetRoundList() RoundList {
+	return sr.rl
+}
+
+func (sr SendReport) GetMessageID() []byte {
+	return sr.mid[:]
 }

@@ -1,12 +1,6 @@
 package keyExchange
 
-import (
-	"gitlab.com/elixxir/client/storage/e2e"
-	"gitlab.com/xx_network/primitives/id"
-	"testing"
-	"time"
-)
-
+/*
 func TestRekey(t *testing.T) {
 	// Generate alice and bob's session
 	aliceSession, networkManager := InitTestingContextGeneric(t)
@@ -47,4 +41,4 @@ func TestRekey(t *testing.T) {
 			"\n\tExpected: %v"+
 			"\n\tReceived: %v", e2e.Sent, bobE2ESession.NegotiationStatus())
 	}
-}
+}*/

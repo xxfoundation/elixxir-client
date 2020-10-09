@@ -47,6 +47,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		//create the cmix message
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
+		msgCmix.SetRecipientID(msg.Recipient)
 
 		//get a key to end to end encrypt
 		key, err := partner.GetKeyForSending(param.Type)

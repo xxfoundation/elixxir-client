@@ -213,7 +213,7 @@ var rootCmd = &cobra.Command{
 				done = true
 				break
 			case m := <-recvCh:
-				fmt.Printf("Message received: %s", string(
+				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
 				break
 			}

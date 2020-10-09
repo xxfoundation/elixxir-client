@@ -8,6 +8,7 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -22,6 +23,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -103,8 +105,7 @@ var rootCmd = &cobra.Command{
 		pass := viper.GetString("password")
 		storeDir := viper.GetString("session")
 		regCode := viper.GetString("regcode")
-		precannedID := viper.GetUint("precannedID")
-		precannedPartner := viper.GetUint("precannedPartner")
+		precannedID := viper.GetUint("sendid")
 
 		//create a new client if none exist
 		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
@@ -116,8 +117,8 @@ var rootCmd = &cobra.Command{
 			}
 
 			if precannedID != 0 {
-				err = api.NewPrecannedClient(precannedID, string(ndfJSON),
-					storeDir, []byte(pass))
+				err = api.NewPrecannedClient(precannedID,
+					string(ndfJSON), storeDir, []byte(pass))
 			} else {
 				err = api.NewClient(string(ndfJSON), storeDir,
 					[]byte(pass), regCode)
@@ -132,10 +133,6 @@ var rootCmd = &cobra.Command{
 		client, err := api.LoadClient(storeDir, []byte(pass))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
-		}
-
-		if precannedPartner != 0 {
-			client.MakePrecannedContact(precannedPartner)
 		}
 
 		user := client.GetUser()
@@ -160,21 +157,42 @@ var rootCmd = &cobra.Command{
 
 		// Send Messages
 		msgBody := viper.GetString("message")
-		//recipientID := getUIDFromString(viper.GetString("destid"))
-		recipientID := user.ID
+		recipientID, isPrecanPartner := parseRecipient(
+			viper.GetString("destid"))
+
+		if isPrecanPartner {
+			jww.WARN.Printf("Precanned user id detected: %s",
+				recipientID)
+			preUsr, err := client.MakePrecannedAuthenticatedChannel(
+				getPrecanID(recipientID))
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			// Sanity check, make sure user id's haven't changed
+			preBytes := preUsr.ID.Bytes()
+			idBytes := recipientID.Bytes()
+			for i := 0; i < len(preBytes); i++ {
+				if idBytes[i] != preBytes[i] {
+					jww.FATAL.Panicf("no id match: %v %v",
+						preBytes, idBytes)
+				}
+			}
+		} else {
+			jww.FATAL.Panicf("e2e unimplemented")
+		}
 
 		msg := message.Send{
 			Recipient:   recipientID,
 			Payload:     []byte(msgBody),
 			MessageType: message.Text,
 		}
-		params := params.GetDefaultUnsafe()
+		params := params.GetDefaultE2E()
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			roundIDs, err := client.SendUnsafe(msg, params)
+			roundIDs, _, err := client.SendE2E(msg, params)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -239,12 +257,70 @@ func waitUntilConnected(connected chan bool) {
 	}()
 }
 
-func getUIDFromString(idStr string) *id.ID {
+func getPrecanID(recipientID *id.ID) uint {
+	return uint(recipientID.Bytes()[7])
+}
+
+func parseRecipient(idStr string) (*id.ID, bool) {
+	var recipientID *id.ID
+	if strings.HasPrefix(idStr, "0x") {
+		recipientID = getUIDFromHexString(idStr[2:])
+	} else if strings.HasPrefix(idStr, "b64:") {
+		recipientID = getUIDFromb64String(idStr[4:])
+	} else {
+		recipientID = getUIDFromString(idStr)
+	}
+	// check if precanned
+	rBytes := recipientID.Bytes()
+	for i := 0; i < 32; i++ {
+		if i != 7 && rBytes[i] != 0 {
+			return recipientID, false
+		}
+	}
+	if rBytes[7] != byte(0) && rBytes[7] <= byte(40) {
+		return recipientID, true
+	}
+	jww.FATAL.Panicf("error recipient id parse failure: %+v", recipientID)
+	return recipientID, false
+}
+
+func getUIDFromHexString(idStr string) *id.ID {
 	idBytes, err := hex.DecodeString(fmt.Sprintf("%0*d%s",
 		66-len(idStr), 0, idStr))
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
+	ID, err := id.Unmarshal(idBytes)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return ID
+}
+
+func getUIDFromb64String(idStr string) *id.ID {
+	idBytes, err := base64.StdEncoding.DecodeString(idStr)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	ID, err := id.Unmarshal(idBytes)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return ID
+}
+
+func getUIDFromString(idStr string) *id.ID {
+	idInt, err := strconv.Atoi(idStr)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	if idInt > 255 {
+		jww.FATAL.Panicf("cannot convert integers above 255. Use 0x " +
+			"or b64: representation")
+	}
+	idBytes := make([]byte, 33)
+	binary.BigEndian.PutUint64(idBytes, uint64(idInt))
+	idBytes[32] = byte(id.User)
 	ID, err := id.Unmarshal(idBytes)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -332,8 +408,13 @@ func init() {
 	rootCmd.Flags().StringP("message", "m", "", "Message to send")
 	viper.BindPFlag("message", rootCmd.Flags().Lookup("message"))
 
+	rootCmd.Flags().UintP("sendid", "", 0,
+		"Use precanned user id (must be between 1 and 40, inclusive)")
+	viper.BindPFlag("sendid", rootCmd.Flags().Lookup("sendid"))
+
 	rootCmd.Flags().StringP("destid", "d", "0",
-		"ID to send message to (hexadecimal string up to 256 bits)")
+		"ID to send message to (if below 40, will be precanned. Use "+
+			"'0x' or 'b64:' for hex and base64 representations)")
 	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
 
 	rootCmd.Flags().UintP("sendCount",

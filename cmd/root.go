@@ -121,7 +121,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		//load the client
-		client, err := api.LoadClient(storeDir, []byte(pass))
+		client, err := api.Login(storeDir, []byte(pass))
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

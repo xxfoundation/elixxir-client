@@ -50,16 +50,16 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 	return api.NewPrecannedClient(uint(precannedID), network, storageDir, password)
 }
 
-// LoadClient will load an existing client from the storageDir
+// Login will load an existing client from the storageDir
 // using the password. This will fail if the client doesn't exist or
 // the password is incorrect.
 // The password is passed as a byte array so that it can be cleared from
 // memory and stored as securely as possible using the memguard library.
-// LoadClient does not block on network connection, and instead loads and
+// Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
-func LoadClient(storageDir string, password []byte) (*Client, error) {
+func Login(storageDir string, password []byte) (*Client, error) {
 	// TODO: This should wrap the bindings ClientImpl, when available.
-	client, err := api.LoadClient(storageDir, password)
+	client, err := api.Login(storageDir, password)
 	if err != nil {
 		return nil, err
 	}

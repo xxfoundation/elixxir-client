@@ -135,8 +135,8 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	return nil
 }
 
-// LoadClient initalizes a client object from existing storage.
-func LoadClient(storageDir string, password []byte) (*Client, error) {
+// Login initalizes a client object from existing storage.
+func Login(storageDir string, password []byte) (*Client, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 
@@ -151,7 +151,7 @@ func LoadClient(storageDir string, password []byte) (*Client, error) {
 	return loadClient(storageSess, rngStreamGen)
 }
 
-// LoadClient initalizes a client object from existing storage.
+// Login initalizes a client object from existing storage.
 func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator) (c *Client, err error) {
 
 	// Set up a new context
@@ -312,17 +312,17 @@ func (c *Client) GetHealth() interfaces.HealthTracker {
 	return c.network.GetHealthTracker()
 }
 
+// Returns the switchboard for Registration
+func (c *Client) GetSwitchboard() interfaces.Switchboard {
+	jww.INFO.Printf("GetSwitchboard()")
+	return c.switchboard
+}
+
 // RegisterRoundEventsCb registers a callback for round
 // events.
 func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
 	return c.network.GetInstance().GetRoundEvents()
-}
-
-// Returns the switchboard for Registration
-func (c *Client) GetSwitchboard() interfaces.Switchboard {
-	jww.INFO.Printf("GetSwitchboard()")
-	return c.switchboard
 }
 
 // GetUser returns the current user Identity for this client. This

@@ -185,7 +185,7 @@ func TestRelationship_GetByID(t *testing.T) {
 func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
 	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
-
+	sb.sessions[0].negotiationStatus = Unconfirmed
 	// no available rekeyable sessions: nil
 	session2 := sb.getNewestRekeyableSession()
 	if session2 != nil {

@@ -4,7 +4,6 @@ import (
 	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/binary"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -23,6 +22,7 @@ import (
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"strconv"
 	"time"
 )
 
@@ -97,12 +97,13 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 	var transmissionKey *cyclic.Int
 	// TODO: should move this to a precanned user initialization
 	if uci.IsPrecanned() {
-		userNum := binary.BigEndian.Uint64(uci.GetUserID().Bytes())
+		userNum := int(uci.GetUserID().Bytes()[7])
 		h := sha256.New()
 		h.Reset()
-		h.Write([]byte(string(40000 + userNum)))
+		h.Write([]byte(strconv.Itoa(int(4000 + userNum))))
 
 		transmissionKey = store.GetGroup().NewIntFromBytes(h.Sum(nil))
+		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Initialise blake2b hash for transmission keys and sha256 for reception
 		// keys

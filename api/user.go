@@ -85,10 +85,19 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
 	userID.SetType(id.User)
 
+	// NOTE: not used... RSA Keygen (4096 bit defaults)
+	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
 	return user.User{
 		ID:              userID.DeepCopy(),
 		Salt:            salt,
-		Precanned:       false,
+		Precanned:       true,
 		E2eDhPrivateKey: e2e.NewIntFromBytes(e2eKeyBytes),
+		// NOTE: These are dummy/not used
+		CmixDhPrivateKey: cmix.NewInt(1),
+		RSA:              rsaKey,
 	}
 }

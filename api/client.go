@@ -124,8 +124,9 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	// Save NDF to be used in the future
 	storageSess.SetBaseNDF(def)
 
-	//move the registration state to keys generated
-	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	//move the registration state to indicate registered with permissioning
+	err = storageSess.ForwardRegistrationStatus(
+		storage.PermissioningComplete)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to denote state "+
 			"change in session")

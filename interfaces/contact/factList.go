@@ -22,9 +22,11 @@ func (fl FactList) Add(fact string, factType int) error {
 	if !ft.IsValid() {
 		return errors.New("Invalid fact type")
 	}
-	fl.source.Facts = append(fl.source.Facts, Fact{
-		Fact: fact,
-		T:    ft,
-	})
+	f, err := NewFact(ft, fact)
+	if err != nil {
+		return err
+	}
+
+	fl.source.Facts = append(fl.source.Facts, f)
 	return nil
 }

@@ -6,7 +6,13 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
+	jww "github.com/spf13/jwalterweatherman"
 )
+
+const factDelimiter = ","
+const factBreak = ";"
+
 
 // Contact implements the Contact interface defined in interface/contact.go,
 // in go, the structure is meant to be edited directly, the functions are for
@@ -38,8 +44,20 @@ func (c Contact) GetFactList() interfaces.FactList {
 	return FactList{source: &c}
 }
 
+// json marshals the contact
 func (c Contact) Marshal() ([]byte, error) {
 	return json.Marshal(&c)
+}
+
+// converts facts to a delineated string with an ending character for transfer
+// over the network
+func (c Contact) StringifyFacts() string {
+	stringList := make([]string, len(c.Facts))
+	for index, f := range c.Facts {
+		stringList[index] = f.Stringify()
+	}
+
+	return strings.Join(stringList, factDelimiter) + factBreak
 }
 
 func Unmarshal(b []byte) (Contact, error) {
@@ -55,4 +73,27 @@ func Unmarshal(b []byte) (Contact, error) {
 		}
 	}
 	return c, nil
+}
+
+// splits the "facts" portion of the payload from the rest and returns them as
+// facts
+func UnstringifyFacts(s string) ([]Fact, string, error) {
+	parts := strings.SplitN(s, factBreak, 1)
+	if len(parts) != 2 {
+		return nil, "", errors.New("Invalid fact string passed")
+	}
+	factStrings := strings.Split(parts[0], factDelimiter)
+
+	var factList []Fact
+	for _, fString := range factStrings {
+		fact, err := UnstringifyFact(fString)
+		if err != nil {
+			jww.WARN.Printf("Fact failed to unstringify, dropped: %s",
+				err)
+		} else {
+			factList = append(factList, fact)
+		}
+
+	}
+	return factList, parts[1], nil
 }

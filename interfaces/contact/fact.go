@@ -1,12 +1,16 @@
 package contact
 
-import (
-	"github.com/pkg/errors"
-)
-
 type Fact struct {
 	Fact string
 	T    FactType
+}
+
+func NewFact(ft FactType, fact string) (Fact, error) {
+	//todo: filter the fact string
+	return Fact{
+		Fact: fact,
+		T:    ft,
+	}, nil
 }
 
 func (f Fact) Get() string {
@@ -18,25 +22,15 @@ func (f Fact) Type() int {
 }
 
 // marshal is for transmission for UDB, not a part of the fact interface
-func (f Fact) Marshal() []byte {
-	serial := []byte(f.Fact)
-	b := make([]byte, len(serial)+1)
-	b[0] = byte(f.T)
-
-	copy(b[1:len(serial)-1], serial)
-	return b
+func (f Fact) Stringify() string {
+	return f.T.Stringify() + f.Fact
 }
 
-func UnmarshalFact(b []byte) (Fact, error) {
-	t := FactType(b[0])
-	if !t.IsValid() {
-		return Fact{}, errors.Errorf("Fact is not a valid type: %s", t)
+func UnstringifyFact(s string) (Fact, error) {
+	ft, err := UnstringifyFactType(s)
+	if err != nil {
+		return Fact{}, err
 	}
 
-	f := string(b[1:])
-
-	return Fact{
-		Fact: f,
-		T:    t,
-	}, nil
+	return NewFact(ft, s)
 }

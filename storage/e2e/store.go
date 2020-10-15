@@ -210,6 +210,7 @@ func (s *Store) marshal() ([]byte, error) {
 	index := 0
 	for partnerID := range s.managers {
 		contacts[index] = partnerID
+		index++
 	}
 
 	return json.Marshal(&contacts)

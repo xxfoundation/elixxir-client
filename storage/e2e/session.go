@@ -80,10 +80,6 @@ type SessionDisk struct {
 	MyPrivKey []byte
 	// Partner Public Key
 	PartnerPubKey []byte
-
-	// Group used by the above keys
-	Group []byte
-
 	// ID of the session which triggered this sessions creation.
 	Trigger []byte
 
@@ -261,19 +257,12 @@ func (s *Session) GetPartner() *id.ID {
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
-	grp := s.relationship.manager.ctx.grp
-
 	sd.Params = s.params
 	sd.Type = uint8(s.t)
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
 	sd.Trigger = s.partnerSource[:]
-	grpBytes, err := grp.GobEncode()
-	if err != nil {
-		return nil, err
-	}
-	sd.Group = grpBytes
 
 	// assume in progress confirmations and session creations have failed on
 	// reset, therefore do not store their pending progress
@@ -300,11 +289,7 @@ func (s *Session) unmarshal(b []byte) error {
 		return err
 	}
 
-	grp := &cyclic.Group{}
-	err = grp.GobDecode(sd.Group)
-	if err != nil {
-		return err
-	}
+	grp := s.relationship.manager.ctx.grp
 
 	s.params = sd.Params
 	s.t = RelationshipType(sd.Type)

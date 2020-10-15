@@ -97,6 +97,11 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 	fingerprints := newFingerprints()
 	kv = kv.Prefix(packagePrefix)
 
+	grp, err := utility.LoadGroup(kv, grpKey)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Store{
 		managers: make(map[id.ID]*Manager),
 
@@ -108,6 +113,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 			fa:   &fingerprints,
 			rng:  rng,
 			myID: myID,
+			grp:  grp,
 		},
 	}
 

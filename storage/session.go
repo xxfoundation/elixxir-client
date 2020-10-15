@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	userInterface "gitlab.com/elixxir/client/interfaces/user"
+	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -49,6 +50,7 @@ type Session struct {
 	user             *user.User
 	conversations    *conversation.Store
 	partition        *partition.Store
+	auth             *auth.Store
 	criticalMessages *utility.E2eMessageBuffer
 	garbledMessages  *utility.MeteredCmixMessageBuffer
 	checkedRounds    *utility.KnownRounds
@@ -100,6 +102,11 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	s.e2e, err = e2e.NewStore(e2eGrp, s.kv, u.E2eDhPrivateKey, uid, rng)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create e2e store")
+	}
+
+	s.auth, err = auth.NewStore(s.kv, e2eGrp, []*cyclic.Int{u.E2eDhPrivateKey})
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create auth store")
 	}
 
 	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
@@ -154,6 +161,12 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
+	s.auth, err = auth.NewStore(s.kv, s.e2e.GetGroup(),
+		[]*cyclic.Int{s.e2e.GetDHPrivateKey()})
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load auth store")
+	}
+
 	s.criticalMessages, err = utility.LoadE2eMessageBuffer(s.kv, criticalMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
@@ -191,6 +204,12 @@ func (s *Session) E2e() *e2e.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.e2e
+}
+
+func (s *Session) Auth() *auth.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.auth
 }
 
 func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {

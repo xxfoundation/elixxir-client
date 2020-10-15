@@ -186,13 +186,22 @@ var rootCmd = &cobra.Command{
 			Payload:     []byte(msgBody),
 			MessageType: message.Text,
 		}
-		params := params.GetDefaultE2E()
+		paramsE2E := params.GetDefaultE2E()
+		paramsUnsafe := params.GetDefaultUnsafe()
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
+		unsafe := viper.GetBool("unsafe")
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			roundIDs, _, err := client.SendE2E(msg, params)
+			var roundIDs []id.Round
+			if unsafe {
+				roundIDs, err = client.SendUnsafe(msg,
+					paramsUnsafe)
+			} else {
+				roundIDs, _, err = client.SendE2E(msg,
+					paramsE2E)
+			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -431,6 +440,10 @@ func init() {
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",
 		rootCmd.Flags().Lookup("waitTimeout"))
+
+	rootCmd.Flags().BoolP("unsafe", "", false,
+		"Send raw, unsafe messages without e2e encryption.")
+	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

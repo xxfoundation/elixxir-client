@@ -403,8 +403,8 @@ func isValidUser(usr []byte) (bool, *id.ID) {
 
 func askToCreateChannel(recipientID *id.ID) bool {
 	for {
-		fmt.Printf("This is the first time you have messaged %v, " +
-			"are you sure? (yes/no) ")
+		fmt.Printf("This is the first time you have messaged %v, "+
+			"are you sure? (yes/no) ", recipientID)
 		var input string
 		fmt.Scanln(&input)
 		if input == "yes" {

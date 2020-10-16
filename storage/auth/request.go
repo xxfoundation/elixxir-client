@@ -5,15 +5,15 @@ import (
 	"sync"
 )
 
-type requestType uint
+type RequestType uint
 
 const (
-	Sent    requestType = 0
-	Receive requestType = 1
+	Sent    RequestType = 0
+	Receive RequestType = 1
 )
 
 type request struct {
-	rt requestType
+	rt RequestType
 	//data if sent
 	sent *SentRequest
 	//data if receive

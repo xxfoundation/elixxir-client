@@ -10,6 +10,8 @@ const (
 	NoType Type = 0
 
 	// A message with no message structure
+	// this is a reserved type, a message sent with this type will be
+	// ignored on reception. To send a raw message use SendCMIX.
 	Raw Type = 1
 
 	//General text message, contains human readable text

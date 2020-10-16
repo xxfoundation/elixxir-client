@@ -1,7 +1,8 @@
 package storage
 
 const (
-	criticalMessagesKey = "CriticalMessages"
-	garbledMessagesKey  = "GarbledMessages"
-	checkedRoundsKey    = "CheckedRounds"
+	criticalMessagesKey    = "CriticalMessages"
+	criticalRawMessagesKey = "CriticalRawMessages"
+	garbledMessagesKey     = "GarbledMessages"
+	checkedRoundsKey       = "CheckedRounds"
 )

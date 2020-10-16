@@ -15,6 +15,8 @@ import (
 	"time"
 )
 
+const NoRequest = "Request Not Found"
+
 const storePrefix = "requestMap"
 const requestMapKey = "map"
 
@@ -85,7 +87,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	for _, rDisk := range requestList {
 
 		r := &request{
-			rt: requestType(rDisk.T),
+			rt: RequestType(rDisk.T),
 		}
 
 		partner, err := id.Unmarshal(rDisk.ID)
@@ -301,6 +303,28 @@ func (s *Store) GetReceivedRequestData(partner *id.ID) (contact.Contact, error) 
 
 	return *r.receive, nil
 }
+
+// returns request with its type and data. the lock is not taken.
+func (s *Store) GetRequest(partner *id.ID) (RequestType, *SentRequest, contact.Contact, error) {
+	s.mux.RLock()
+	r, ok := s.requests[*partner]
+	s.mux.RUnlock()
+
+	if !ok {
+		return 0, nil, contact.Contact{}, errors.New(NoRequest)
+	}
+
+	switch r.rt {
+	case Sent:
+		return Sent, r.sent, contact.Contact{}, nil
+	case Receive:
+		return Receive, nil, *r.receive, nil
+	default:
+		return 0, nil, contact.Contact{},
+			errors.Errorf("invalid Type: %s", r.rt)
+	}
+}
+
 
 // One of two calls after using a request. This one to be used when the use
 // is unsuccessful. It will allow any thread waiting on access to continue

@@ -7,6 +7,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"sync"
 	"time"
 )
 
@@ -19,6 +20,7 @@ type SentRequest struct {
 	myPrivKey   *cyclic.Int
 	myPubKey    *cyclic.Int
 	fingerprint format.Fingerprint
+	sentMux     sync.Mutex
 }
 
 type sentRequestDisk struct {
@@ -34,27 +36,27 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"SentRequest Auth with %s", partner)
 	}
 
-	ipd := &sentRequestDisk{}
+	srd := &sentRequestDisk{}
 
-	if err := json.Unmarshal(obj.Data, ipd); err != nil {
+	if err := json.Unmarshal(obj.Data, srd); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Unmarshal "+
 			"SentRequest Auth with %s", partner)
 	}
 
 	myPrivKey := grp.NewInt(1)
-	if err = myPrivKey.GobDecode(ipd.MyPubKey); err != nil {
+	if err = myPrivKey.GobDecode(srd.MyPubKey); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to decode private "+
 			"key with %s for SentRequest Auth", partner)
 	}
 
 	myPubKey := grp.NewInt(1)
-	if err = myPubKey.GobDecode(ipd.MyPubKey); err != nil {
+	if err = myPubKey.GobDecode(srd.MyPubKey); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to decode public "+
 			"key with %s for SentRequest Auth", partner)
 	}
 
 	fp := format.Fingerprint{}
-	copy(fp[:], ipd.Fingerprint)
+	copy(fp[:], srd.Fingerprint)
 
 	return &SentRequest{
 		kv:          kv,
@@ -65,14 +67,14 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	}, nil
 }
 
-func (ip *SentRequest) save() error {
+func (sr *SentRequest) save() error {
 
-	privKey, err := ip.myPrivKey.GobEncode()
+	privKey, err := sr.myPrivKey.GobEncode()
 	if err != nil {
 		return err
 	}
 
-	pubKey, err := ip.myPubKey.GobEncode()
+	pubKey, err := sr.myPubKey.GobEncode()
 	if err != nil {
 		return err
 	}
@@ -80,7 +82,7 @@ func (ip *SentRequest) save() error {
 	ipd := sentRequestDisk{
 		MyPrivKey:   privKey,
 		MyPubKey:    pubKey,
-		Fingerprint: ip.fingerprint[:],
+		Fingerprint: sr.fingerprint[:],
 	}
 
 	data, err := json.Marshal(&ipd)
@@ -94,25 +96,25 @@ func (ip *SentRequest) save() error {
 		Data:      data,
 	}
 
-	return ip.kv.Set(versioned.MakePartnerPrefix(ip.partner), &obj)
+	return sr.kv.Set(versioned.MakePartnerPrefix(sr.partner), &obj)
 }
 
-func (ip *SentRequest) delete() error {
-	return ip.kv.Delete(versioned.MakePartnerPrefix(ip.partner))
+func (sr *SentRequest) delete() error {
+	return sr.kv.Delete(versioned.MakePartnerPrefix(sr.partner))
 }
 
-func (ip *SentRequest) GetPartner() *id.ID {
-	return ip.partner
+func (sr *SentRequest) GetPartner() *id.ID {
+	return sr.partner
 }
 
-func (ip *SentRequest) GetMyPrivKey() *cyclic.Int {
-	return ip.myPrivKey
+func (sr *SentRequest) GetMyPrivKey() *cyclic.Int {
+	return sr.myPrivKey
 }
 
-func (ip *SentRequest) GetMyPubKey() *cyclic.Int {
-	return ip.myPubKey
+func (sr *SentRequest) GetMyPubKey() *cyclic.Int {
+	return sr.myPubKey
 }
 
-func (ip *SentRequest) GetFingerprint() format.Fingerprint {
-	return ip.fingerprint
+func (sr *SentRequest) GetFingerprint() format.Fingerprint {
+	return sr.fingerprint
 }

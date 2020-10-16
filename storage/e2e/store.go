@@ -30,6 +30,9 @@ const (
 	grpKey              = "Group"
 )
 
+var NoPartnerErrorStr = "No relationship with partner found"
+
+
 type Store struct {
 	managers map[id.ID]*Manager
 	mux      sync.RWMutex
@@ -97,6 +100,11 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 	fingerprints := newFingerprints()
 	kv = kv.Prefix(packagePrefix)
 
+	grp, err := utility.LoadGroup(kv, grpKey)
+	if err != nil {
+		return nil, err
+	}
+
 	s := &Store{
 		managers: make(map[id.ID]*Manager),
 
@@ -108,6 +116,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 			fa:   &fingerprints,
 			rng:  rng,
 			myID: myID,
+			grp:  grp,
 		},
 	}
 
@@ -171,7 +180,7 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 	m, ok := s.managers[*partnerID]
 
 	if !ok {
-		return nil, errors.New("Could not find relationship for partner")
+		return nil, errors.New(NoPartnerErrorStr)
 	}
 
 	return m, nil
@@ -245,11 +254,6 @@ func (s *Store) unmarshal(b []byte) error {
 	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to load e2e DH public key")
-	}
-
-	s.grp, err = utility.LoadGroup(s.kv, grpKey)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to load e2e group")
 	}
 
 	return nil

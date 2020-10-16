@@ -66,14 +66,14 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
 		raw := message.Receive{
-			Payload:     msg.GetRawContents(),
+			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
 			Sender:      &id.ID{},
 			Timestamp:   time.Time{},
 			Encryption:  message.None,
 		}
-		m.Switchboard.Speak(raw)
 		m.Session.GetGarbledMessages().Add(msg)
+		m.Switchboard.Speak(raw)
 		return
 	}
 
@@ -83,6 +83,12 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		relationshipFingerprint)
 	// If the reception completed a message, hear it on the switchboard
 	if ok {
-		m.Switchboard.Speak(xxMsg)
+		if xxMsg.MessageType == message.Raw {
+			jww.WARN.Panicf("Recieved a message of type 'Raw' from %s."+
+				"Message Ignored, 'Raw' is a reserved type. Message supressed.",
+				xxMsg.ID)
+		} else {
+			m.Switchboard.Speak(xxMsg)
+		}
 	}
 }

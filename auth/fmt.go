@@ -40,7 +40,7 @@ func buildBaseFormat(data []byte, pubkeySize int) baseFormat {
 	return f
 }
 
-func unmarshalFormat(b []byte, pubkeySize int) (baseFormat, error) {
+func unmarshalBaseFormat(b []byte, pubkeySize int) (baseFormat, error) {
 	if len(b) < pubkeySize+saltSize {
 		return baseFormat{}, errors.New("Received baseFormat too small")
 	}
@@ -167,9 +167,9 @@ type requestFormat struct {
 	msgPayload []byte
 }
 
-func newRequestFormat(ecrFmt ecrFormat) (requestFormat) {
+func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
 	if len(ecrFmt.payload) < id.ArrIDLen {
-		jww.FATAL.Panicf("Payload is not long enough")
+		return requestFormat{}, errors.New("Payload is not long enough")
 	}
 
 	rf := requestFormat{
@@ -179,7 +179,7 @@ func newRequestFormat(ecrFmt ecrFormat) (requestFormat) {
 	rf.id = rf.payload[:id.ArrIDLen]
 	rf.id = rf.payload[id.ArrIDLen:]
 
-	return rf
+	return rf, nil
 }
 
 func (rf requestFormat) GetID() (*id.ID, error) {

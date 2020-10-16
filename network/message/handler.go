@@ -68,7 +68,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		raw := message.Receive{
 			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
-			Sender:      &id.ID{},
+			Sender:      msg.GetRecipientID(),
 			Timestamp:   time.Time{},
 			Encryption:  message.None,
 		}

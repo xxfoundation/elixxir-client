@@ -69,7 +69,10 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
 	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
-	requestFmt := newRequestFormat(ecrFmt)
+	requestFmt, err := newRequestFormat(ecrFmt)
+	if err != nil {
+		return errors.Errorf("failed to make request format: %+v", err)
+	}
 
 	//check the payload fits
 	facts := me.StringifyFacts()
@@ -117,7 +120,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	/*store state*/
 	//fixme: channel is bricked if the first store succedes but the second fails
 	//store the in progress auth
-	err = storage.Auth().AddSent(partner.ID, newPrivKey, newPrivKey, fp)
+	err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
+		newPrivKey, fp)
 	if err != nil {
 		return errors.Errorf("Failed to store auth request: %s", err)
 	}

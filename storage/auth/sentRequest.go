@@ -16,17 +16,19 @@ const currentSentRequestVersion = 0
 type SentRequest struct {
 	kv *versioned.KV
 
-	partner     *id.ID
-	myPrivKey   *cyclic.Int
-	myPubKey    *cyclic.Int
-	fingerprint format.Fingerprint
-	sentMux     sync.Mutex
+	partner                 *id.ID
+	partnerhistoricalPubKey *cyclic.Int
+	myPrivKey               *cyclic.Int
+	myPubKey                *cyclic.Int
+	fingerprint             format.Fingerprint
+	sentMux                 sync.Mutex
 }
 
 type sentRequestDisk struct {
-	MyPrivKey   []byte
-	MyPubKey    []byte
-	Fingerprint []byte
+	PartnerhistoricalPubKey []byte
+	MyPrivKey               []byte
+	MyPubKey                []byte
+	Fingerprint             []byte
 }
 
 func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
@@ -41,6 +43,12 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	if err := json.Unmarshal(obj.Data, srd); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Unmarshal "+
 			"SentRequest Auth with %s", partner)
+	}
+
+	historicalPrivKey := grp.NewInt(1)
+	if err = historicalPrivKey.GobDecode(srd.PartnerhistoricalPubKey); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decode historical"+
+			" private key with %s for SentRequest Auth", partner)
 	}
 
 	myPrivKey := grp.NewInt(1)
@@ -59,11 +67,12 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	copy(fp[:], srd.Fingerprint)
 
 	return &SentRequest{
-		kv:          kv,
-		partner:     partner,
-		myPrivKey:   myPrivKey,
-		myPubKey:    myPubKey,
-		fingerprint: fp,
+		kv:                      kv,
+		partner:                 partner,
+		partnerhistoricalPubKey: historicalPrivKey,
+		myPrivKey:               myPrivKey,
+		myPubKey:                myPubKey,
+		fingerprint:             fp,
 	}, nil
 }
 
@@ -79,10 +88,16 @@ func (sr *SentRequest) save() error {
 		return err
 	}
 
+	historicalPrivKey, err := sr.myPubKey.GobEncode()
+	if err != nil {
+		return err
+	}
+
 	ipd := sentRequestDisk{
-		MyPrivKey:   privKey,
-		MyPubKey:    pubKey,
-		Fingerprint: sr.fingerprint[:],
+		PartnerhistoricalPubKey: historicalPrivKey,
+		MyPrivKey:               privKey,
+		MyPubKey:                pubKey,
+		Fingerprint:             sr.fingerprint[:],
 	}
 
 	data, err := json.Marshal(&ipd)
@@ -105,6 +120,10 @@ func (sr *SentRequest) delete() error {
 
 func (sr *SentRequest) GetPartner() *id.ID {
 	return sr.partner
+}
+
+func (sr *SentRequest) GetPartnerHistoricalPubKey() *cyclic.Int {
+	return sr.partnerhistoricalPubKey
 }
 
 func (sr *SentRequest) GetMyPrivKey() *cyclic.Int {

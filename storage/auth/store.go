@@ -151,8 +151,8 @@ func (s *Store) save() error {
 	return s.kv.Set(requestMapKey, &obj)
 }
 
-func (s *Store) AddSent(partner *id.ID, myPrivKey, myPubKey *cyclic.Int,
-	fp format.Fingerprint) error {
+func (s *Store) AddSent(partner *id.ID, partnerhistoricalPubKey, myPrivKey,
+	myPubKey *cyclic.Int, fp format.Fingerprint) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -162,11 +162,12 @@ func (s *Store) AddSent(partner *id.ID, myPrivKey, myPubKey *cyclic.Int,
 	}
 
 	sr := &SentRequest{
-		kv:          s.kv,
-		partner:     partner,
-		myPrivKey:   myPrivKey,
-		myPubKey:    myPubKey,
-		fingerprint: fp,
+		kv:                      s.kv,
+		partner:                 partner,
+		partnerhistoricalPubKey: partnerhistoricalPubKey,
+		myPrivKey:               myPrivKey,
+		myPubKey:                myPubKey,
+		fingerprint:             fp,
 	}
 
 	if err := sr.save(); err != nil {
@@ -253,6 +254,9 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 		//return the request
 		return Specific, r.Request.sent, nil, nil
 	default:
+		jww.WARN.Printf("Auth request message ignored due to "+
+			"Unknown fingerprint type %d on lookup, should be "+
+			"impossible", r.Type)
 		return 0, nil, nil, errors.Errorf("Unknown fingerprint type")
 	}
 }

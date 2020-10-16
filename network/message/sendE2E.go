@@ -19,7 +19,10 @@ import (
 )
 
 func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.MessageID, error) {
-
+	if msg.MessageType == message.Raw {
+		return nil, e2e.MessageID{}, errors.Errorf("Raw (%d) is a reserved "+
+			"message type", msg.MessageType)
+	}
 	//timestamp the message
 	ts := time.Now()
 

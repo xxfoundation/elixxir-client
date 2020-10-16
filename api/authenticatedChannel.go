@@ -4,6 +4,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // CreateAuthenticatedChannel creates a 1-way authenticated channel
@@ -29,6 +30,13 @@ func (c *Client) RegisterAuthConfirmationCb(cb func(contact contact.Contact,
 func (c *Client) RegisterAuthRequestCb(cb func(contact contact.Contact,
 	payload []byte)) {
 	jww.INFO.Printf("RegisterAuthRequestCb(...)")
+}
+
+// HasAuthenticatedChannel returns true if an authenticated channel exists for
+// the partner
+func (c *Client) HasAuthenticatedChannel(partner *id.ID) bool {
+	m, err := c.storage.E2e().GetPartner(partner)
+	return m != nil && err == nil
 }
 
 // Create an insecure e2e relationship with a precanned user

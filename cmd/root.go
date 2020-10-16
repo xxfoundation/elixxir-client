@@ -159,8 +159,10 @@ var rootCmd = &cobra.Command{
 		msgBody := viper.GetString("message")
 		recipientID, isPrecanPartner := parseRecipient(
 			viper.GetString("destid"))
+		// Send unsafe messages or not?
+		unsafe := viper.GetBool("unsafe")
 
-		if isPrecanPartner {
+		if isPrecanPartner && !unsafe {
 			jww.WARN.Printf("Precanned user id detected: %s",
 				recipientID)
 			preUsr, err := client.MakePrecannedAuthenticatedChannel(
@@ -177,7 +179,7 @@ var rootCmd = &cobra.Command{
 						preBytes, idBytes)
 				}
 			}
-		} else {
+		} else if !unsafe {
 			jww.FATAL.Panicf("e2e unimplemented")
 		}
 
@@ -191,7 +193,6 @@ var rootCmd = &cobra.Command{
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
-		unsafe := viper.GetBool("unsafe")
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 			var roundIDs []id.Round
@@ -211,7 +212,8 @@ var rootCmd = &cobra.Command{
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
-		receiveCnt := viper.GetUint("receiveCount")
+		expectedCnt := viper.GetUint("receiveCount")
+		receiveCnt := uint(0)
 		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
@@ -224,10 +226,14 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
+				receiveCnt++
+				if receiveCnt == expectedCnt {
+					done = true
+				}
 				break
 			}
 		}
-		fmt.Printf("Received %d", receiveCnt)
+		fmt.Printf("Received %d\n", receiveCnt)
 	},
 }
 

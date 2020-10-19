@@ -136,7 +136,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		user := client.GetUser()
-		jww.INFO.Printf("%s", user.ID)
+		jww.INFO.Printf("User: %s", user.ID)
 
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
@@ -223,8 +223,17 @@ var rootCmd = &cobra.Command{
 
 func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	isPrecanPartner bool) {
+	if client.HasAuthenticatedChannel(recipientID) {
+		jww.INFO.Printf("Authenticated channel already in place for %s",
+			recipientID)
+		return
+	}
+
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
+		msg := "unsafe channel creation enabled\n"
+		jww.WARN.Printf(msg)
+		fmt.Printf("WARNING: %s", msg)
 		allowed = true
 	} else {
 		allowed = askToCreateChannel(recipientID)
@@ -232,6 +241,11 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	if !allowed {
 		jww.FATAL.Panicf("User did not allow channel creation!")
 	}
+
+	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
+		recipientID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
 
 	if isPrecanPartner {
 		jww.WARN.Printf("Precanned user id detected: %s",

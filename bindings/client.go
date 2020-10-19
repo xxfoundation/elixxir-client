@@ -8,6 +8,8 @@ package bindings
 
 import (
 	"errors"
+	"fmt"
+	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
@@ -42,7 +44,10 @@ func NewClient(network, storageDir string, password []byte, regCode string) erro
 //
 // Users of this function should delete the storage directory on error.
 func NewPrecannedClient(precannedID int, network, storageDir string, password []byte) error {
-
+	fmt.Println("CAN YOU SEE ME: fmt")
+	jwalterweatherman.ERROR.Println("CAN YOU SEE ME: JWW")
+	panic("DOES this panic: panic")
+	jwalterweatherman.FATAL.Panicf("DOES this panic: jww")
 	if precannedID < 0 {
 		return errors.New("Cannot create precanned client with negative ID")
 	}

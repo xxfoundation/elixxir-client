@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
 	"time"
 )
 
@@ -34,7 +35,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		}
 		remainingTime := param.Timeout - elapsed
 
-		//find the best round to send to, excluding roudn which have been attempted
+		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
 
 		//build the topology
@@ -95,19 +96,25 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		//Add the mac proving ownership
 		msg.MAC = roundKeys.MakeClientGatewayKey(salt, network.GenerateSlotDigest(msg))
 
+		//add the round on to the list of attempted so it is not tried again
+		attempted.Insert(bestRound)
+
 		//Send the payload
 		gwSlotResp, err := m.Comms.SendPutMessage(transmitGateway, msg)
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly
 		if err != nil {
+			if strings.Contains(err.Error(),
+				"try a different round.") {
+				jww.WARN.Printf("could not send: %s",
+					err)
+				continue
+			}
 			jww.ERROR.Printf("Failed to send message to %s: %s",
 				transmitGateway, err)
 		} else if gwSlotResp.Accepted {
 			return id.Round(bestRound.ID), nil
 		}
-
-		//add the round on to the list of attempted so it is not tried again
-		attempted.Insert(bestRound)
 	}
 
 	return 0, errors.New("failed to send the message")

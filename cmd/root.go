@@ -162,25 +162,9 @@ var rootCmd = &cobra.Command{
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
 
-		if isPrecanPartner && !unsafe {
-			jww.WARN.Printf("Precanned user id detected: %s",
-				recipientID)
-			preUsr, err := client.MakePrecannedAuthenticatedChannel(
-				getPrecanID(recipientID))
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			// Sanity check, make sure user id's haven't changed
-			preBytes := preUsr.ID.Bytes()
-			idBytes := recipientID.Bytes()
-			for i := 0; i < len(preBytes); i++ {
-				if idBytes[i] != preBytes[i] {
-					jww.FATAL.Panicf("no id match: %v %v",
-						preBytes, idBytes)
-				}
-			}
-		} else if !unsafe {
-			jww.FATAL.Panicf("e2e unimplemented")
+		if !unsafe {
+			addAuthenticatedChannel(client, recipientID,
+				isPrecanPartner)
 		}
 
 		msg := message.Send{
@@ -235,6 +219,40 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
 	},
+}
+
+func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+	isPrecanPartner bool) {
+	var allowed bool
+	if viper.GetBool("unsafe-channel-creation") {
+		allowed = true
+	} else {
+		allowed = askToCreateChannel(recipientID)
+	}
+	if !allowed {
+		jww.FATAL.Panicf("User did not allow channel creation!")
+	}
+
+	if isPrecanPartner {
+		jww.WARN.Printf("Precanned user id detected: %s",
+			recipientID)
+		preUsr, err := client.MakePrecannedAuthenticatedChannel(
+			getPrecanID(recipientID))
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		// Sanity check, make sure user id's haven't changed
+		preBytes := preUsr.ID.Bytes()
+		idBytes := recipientID.Bytes()
+		for i := 0; i < len(preBytes); i++ {
+			if idBytes[i] != preBytes[i] {
+				jww.FATAL.Panicf("no id match: %v %v",
+					preBytes, idBytes)
+			}
+		}
+	} else {
+		jww.FATAL.Panicf("e2e unimplemented")
+	}
 }
 
 func waitUntilConnected(connected chan bool) {
@@ -383,6 +401,22 @@ func isValidUser(usr []byte) (bool, *id.ID) {
 	return false, nil
 }
 
+func askToCreateChannel(recipientID *id.ID) bool {
+	for {
+		fmt.Printf("This is the first time you have messaged %v, "+
+			"are you sure? (yes/no) ", recipientID)
+		var input string
+		fmt.Scanln(&input)
+		if input == "yes" {
+			return true
+		}
+		if input == "no" {
+			return false
+		}
+		fmt.Printf("Please answer 'yes' or 'no'\n")
+	}
+}
+
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {
@@ -450,6 +484,13 @@ func init() {
 	rootCmd.Flags().BoolP("unsafe", "", false,
 		"Send raw, unsafe messages without e2e encryption.")
 	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
+
+	rootCmd.Flags().BoolP("unsafe-channel-creation", "", false,
+		"Turns off the user identity authenticated channel check, "+
+			"which prompts the user to answer yes or no "+
+			"to approve authenticated channels")
+	viper.BindPFlag("unsafe-channel-creation",
+		rootCmd.Flags().Lookup("unsafe-channel-creation"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

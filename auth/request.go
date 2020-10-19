@@ -150,6 +150,9 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 		jww.ERROR.Printf("request failed to transmit, will be " +
 			"handled on reconnect")
 		storage.GetCriticalRawMessages().Failed(cmixMsg)
+	} else {
+		storage.GetCriticalRawMessages().Succeeded(cmixMsg)
 	}
+
 	return nil
 }

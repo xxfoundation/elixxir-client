@@ -167,6 +167,8 @@ func handleRequest(cmixMsg format.Message, myHistoricalPrivKey *cyclic.Int,
 		Facts:          facts,
 	}
 
+	// fixme: the client will never be notified of the channel creation if a
+	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
 	if err = storage.Auth().AddReceived(c); err != nil {
 		jww.WARN.Printf("failed to store contact Auth "+
@@ -233,7 +235,8 @@ func doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			"confirmation of %s", sr.GetPartner())
 	}
 
-	// create the relationship
+	// fixme: channel can get into a bricked state if the first save occurs and
+	// the second does not
 	p := e2e.GetDefaultSessionParams()
 	if err := storage.E2e().AddPartner(sr.GetPartner(),
 		partnerPubKey, p, p); err != nil {
@@ -241,7 +244,6 @@ func doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
 	}
-	net.CheckGarbledMessages()
 
 	// delete the in progress negotiation
 	if err := storage.Auth().Delete(sr.GetPartner()); err != nil {
@@ -258,7 +260,11 @@ func doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 		Facts:          make([]contact.Fact, 0),
 	}
 
+	//  fixme: if a crash occurs before or during the call, the notification
+	//  will never be sent.
 	go ccb(c)
+
+	net.CheckGarbledMessages()
 
 	return nil
 }

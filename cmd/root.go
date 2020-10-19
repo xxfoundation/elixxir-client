@@ -167,6 +167,11 @@ var rootCmd = &cobra.Command{
 				isPrecanPartner)
 		}
 
+		if recipientID == nil {
+			jww.INFO.Printf("sending message to self")
+			recipientID = user.ID
+		}
+
 		msg := message.Send{
 			Recipient:   recipientID,
 			Payload:     []byte(msgBody),
@@ -309,6 +314,10 @@ func getPrecanID(recipientID *id.ID) uint {
 }
 
 func parseRecipient(idStr string) (*id.ID, bool) {
+	if idStr == "0" {
+		return nil, false
+	}
+
 	var recipientID *id.ID
 	if strings.HasPrefix(idStr, "0x") {
 		recipientID = getUIDFromHexString(idStr[2:])

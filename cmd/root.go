@@ -159,8 +159,10 @@ var rootCmd = &cobra.Command{
 		msgBody := viper.GetString("message")
 		recipientID, isPrecanPartner := parseRecipient(
 			viper.GetString("destid"))
+		// Send unsafe messages or not?
+		unsafe := viper.GetBool("unsafe")
 
-		if isPrecanPartner {
+		if isPrecanPartner && !unsafe {
 			jww.WARN.Printf("Precanned user id detected: %s",
 				recipientID)
 			preUsr, err := client.MakePrecannedAuthenticatedChannel(
@@ -177,7 +179,7 @@ var rootCmd = &cobra.Command{
 						preBytes, idBytes)
 				}
 			}
-		} else {
+		} else if !unsafe {
 			jww.FATAL.Panicf("e2e unimplemented")
 		}
 
@@ -186,13 +188,21 @@ var rootCmd = &cobra.Command{
 			Payload:     []byte(msgBody),
 			MessageType: message.Text,
 		}
-		params := params.GetDefaultE2E()
+		paramsE2E := params.GetDefaultE2E()
+		paramsUnsafe := params.GetDefaultUnsafe()
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			roundIDs, _, err := client.SendE2E(msg, params)
+			var roundIDs []id.Round
+			if unsafe {
+				roundIDs, err = client.SendUnsafe(msg,
+					paramsUnsafe)
+			} else {
+				roundIDs, _, err = client.SendE2E(msg,
+					paramsE2E)
+			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -202,7 +212,8 @@ var rootCmd = &cobra.Command{
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
-		receiveCnt := viper.GetUint("receiveCount")
+		expectedCnt := viper.GetUint("receiveCount")
+		receiveCnt := uint(0)
 		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
@@ -215,10 +226,14 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
+				receiveCnt++
+				if receiveCnt == expectedCnt {
+					done = true
+				}
 				break
 			}
 		}
-		fmt.Printf("Received %d", receiveCnt)
+		fmt.Printf("Received %d\n", receiveCnt)
 	},
 }
 
@@ -431,6 +446,10 @@ func init() {
 		"The number of seconds to wait for messages to arrive")
 	viper.BindPFlag("waitTimeout",
 		rootCmd.Flags().Lookup("waitTimeout"))
+
+	rootCmd.Flags().BoolP("unsafe", "", false,
+		"Send raw, unsafe messages without e2e encryption.")
+	viper.BindPFlag("unsafe", rootCmd.Flags().Lookup("unsafe"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

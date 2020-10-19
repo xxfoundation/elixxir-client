@@ -211,6 +211,7 @@ func (s *Store) marshal() ([]byte, error) {
 	index := 0
 	for nid := range s.nodes {
 		nodes[index] = nid
+		index++
 	}
 
 	return json.Marshal(&nodes)

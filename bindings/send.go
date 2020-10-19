@@ -45,7 +45,7 @@ func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 // This function always produces an error message in client logging.
 //
 // Message Types can be found in client/interfaces/message/type.go
-// Make sure to not conflict with ANY default message types
+// Make sure to not conflict with ANY default message types with custom types
 func (c *Client) SendUnsafe(recipient, payload []byte,
 	messageType int) (RoundList, error) {
 	u, err := id.Unmarshal(recipient)

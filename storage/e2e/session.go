@@ -528,8 +528,6 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 		s.baseKey = dh.GenerateSessionKey(s.myPrivKey, s.partnerPubKey, grp)
 	}
 
-		s.partnerPubKey.Text(16))
-
 	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
 
 	//generate ttl and keying info

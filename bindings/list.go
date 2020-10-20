@@ -41,12 +41,12 @@ type RoundList interface {
 }
 
 // Gets the number of round IDs stored
-func (rl roundList) Len() int {
+func (rl *roundList) Len() int {
 	return len(rl.list)
 }
 
 // Gets a stored round ID at the given index
-func (rl roundList) Get(i int) (int, error) {
+func (rl *roundList) Get(i int) (int, error) {
 	if i < 0 || i > len(rl.list) {
 		return -1, errors.New("round ID cannot be under 0 or over" +
 			" list len")

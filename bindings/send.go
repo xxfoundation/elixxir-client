@@ -1,6 +1,8 @@
 package bindings
 
 import (
+	"errors"
+	"fmt"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -50,7 +52,8 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 	messageType int) (RoundList, error) {
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafew: %+v",
+			err))
 	}
 
 	m := message.Send{
@@ -61,10 +64,11 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 
 	rids, err := c.api.SendUnsafe(m, params.GetDefaultUnsafe())
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafew: %+v",
+			err))
 	}
 
-	return roundList{list: rids}, nil
+	return &roundList{list: rids}, nil
 }
 
 
@@ -75,10 +79,10 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types
 func (c *Client) SendE2E(recipient, payload []byte,
-	messageType int) (SendReport, error) {
+	messageType int) (*SendReport, error) {
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
-		return SendReport{}, err
+		return nil, err
 	}
 
 	m := message.Send{
@@ -89,15 +93,15 @@ func (c *Client) SendE2E(recipient, payload []byte,
 
 	rids, mid, err := c.api.SendE2E(m, params.GetDefaultE2E())
 	if err != nil {
-		return SendReport{}, err
+		return nil, err
 	}
 
 	sr := SendReport{
-		rl:  roundList{list: rids},
+		rl:  &roundList{list: rids},
 		mid: mid,
 	}
 
-	return sr, nil
+	return &sr, nil
 }
 
 type SendReport struct {
@@ -105,10 +109,10 @@ type SendReport struct {
 	mid e2e.MessageID
 }
 
-func (sr SendReport) GetRoundList() RoundList {
+func (sr *SendReport) GetRoundList() RoundList {
 	return sr.rl
 }
 
-func (sr SendReport) GetMessageID() []byte {
+func (sr *SendReport) GetMessageID() []byte {
 	return sr.mid[:]
 }

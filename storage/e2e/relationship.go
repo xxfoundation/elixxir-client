@@ -65,6 +65,14 @@ func NewRelationship(manager *Manager, t RelationshipType,
 		manager.originPartnerPubKey, nil, SessionID{},
 		r.fingerprint, initialParams)
 
+	// set to confirmed because the first session is always confirmed as a
+	// result of the negotiation before creation
+	s.negotiationStatus = Confirmed
+	if err := s.save(); err != nil {
+		jww.FATAL.Panicf("Failed to Send session after setting to "+
+			"confimred: %+v", err)
+	}
+
 	r.addSession(s)
 
 	if err := r.save(); err != nil {

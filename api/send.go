@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -47,10 +48,13 @@ func (c *Client) SendCMIX(msg format.Message, param params.CMIX) (id.Round,
 // for the current cMix network.
 // FIXME: this is weird and shouldn't be necessary, but it is.
 func (c *Client) NewCMIXMessage(recipient *id.ID,
-	contents []byte) format.Message {
+	contents []byte) (format.Message, error) {
 	primeSize := len(c.storage.Cmix().GetGroup().GetPBytes())
 	msg := format.NewMessage(primeSize)
+	if len(contents) > msg.ContentsSize() {
+		return format.Message{}, errors.New("Contents to long for cmix")
+	}
 	msg.SetContents(contents)
 	msg.SetRecipientID(recipient)
-	return msg
+	return msg, nil
 }

@@ -33,46 +33,42 @@ func TestNewKnownRounds(t *testing.T) {
 	}
 }
 
-// // Tests happy path of LoadKnownRounds.
-// func TestLoadKnownRounds(t *testing.T) {
-// 	// Set up expected value
-// 	size := 10
-// 	rootKv := versioned.NewKV(make(ekv.Memstore))
-// 	expectedKR := &KnownRounds{
-// 		rounds: knownRounds.NewKnownRound(size),
-// 		kv:     rootKv.Prefix(knownRoundsPrefix),
-// 		key:    "testKey",
-// 	}
+// Tests happy path of LoadKnownRounds.
+func TestLoadKnownRounds(t *testing.T) {
+	// Set up expected value
+	size := 10
+	rootKv := versioned.NewKV(make(ekv.Memstore))
+	expectedKR := &KnownRounds{
+		rounds: knownRounds.NewKnownRound(size),
+		kv:     rootKv.Prefix(knownRoundsPrefix),
+		key:    "testKey",
+	}
 
-// 	// Check rounds in the buffer and save the key value store
-// 	expectedKR.rounds.Check(id.Round(0))
-// 	for i := 0; i < (size * 64); i++ {
-// 		if i%7 == 0 {
-// 			t.Errorf("%+v",
-// 				expectedKR.rounds)
-// 			expectedKR.rounds.Check(id.Round(i))
-// 		}
-// 	}
-// 	err := expectedKR.save()
-// 	if err != nil {
-// 		t.Fatalf("Error saving KnownRounds: %v", err)
-// 	}
+	// Check rounds in the buffer and save the key value store
+	expectedKR.rounds.Check(id.Round(0))
+	for i := 0; i < (size * 64); i++ {
+		if i%7 == 0 {
+			expectedKR.rounds.Check(id.Round(i))
+		}
+	}
+	err := expectedKR.save()
+	if err != nil {
+		t.Fatalf("Error saving KnownRounds: %v", err)
+	}
 
-// 	// *63 here instead of *64 because the calculation on the initializer
-// 	// in primitives is weird, and we need the exact size for DeepEqual
-// 	kr, err := LoadKnownRounds(rootKv, expectedKR.key, size*63)
-// 	if err != nil {
-// 		t.Errorf("LoadKnownRounds() returned an error."+
-// 			"\n\texpected: %v\n\treceived: %+v", nil, err)
-// 	}
+	kr, err := LoadKnownRounds(rootKv, expectedKR.key, size)
+	if err != nil {
+		t.Errorf("LoadKnownRounds() returned an error."+
+			"\n\texpected: %v\n\treceived: %+v", nil, err)
+	}
 
-// 	if !reflect.DeepEqual(expectedKR, kr) {
-// 		t.Errorf("LoadKnownRounds() returned an incorrect KnownRounds."+
-// 			"\n\texpected: %+v\n\treceived: %+v", expectedKR, kr)
-// 		t.Errorf("%+v != \n%+v",
-// 			expectedKR.rounds, kr.rounds)
-// 	}
-// }
+	if !reflect.DeepEqual(expectedKR, kr) {
+		t.Errorf("LoadKnownRounds() returned an incorrect KnownRounds."+
+			"\n\texpected: %+v\n\treceived: %+v", expectedKR, kr)
+		t.Errorf("%+v != \n%+v",
+			expectedKR.rounds, kr.rounds)
+	}
+}
 
 // Tests happy path of KnownRounds.save().
 func TestKnownRounds_save(t *testing.T) {

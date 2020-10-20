@@ -1,4 +1,4 @@
-package interfaces
+package bind
 
 type Contact interface {
 	GetID() []byte

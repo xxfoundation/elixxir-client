@@ -6,18 +6,16 @@
 
 package bindings
 
-import (
-	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/xx_network/primitives/id"
-)
+import "gitlab.com/elixxir/client/interfaces/bind"
 
+/*
 // Client is defined inside the api package. At minimum, it implements all of
 // functionality defined here. A Client handles all network connectivity, key
 // generation, and storage for a given cryptographic identity on the cmix
 // network.
 // These threads may become a significant drain on battery when offline, ensure
 // they are stopped if there is no internet access
-type Client interface {
+type client interface {
 	// ----- Network -----
 	// StartNetworkFollower kicks off the tracking of the network. It starts
 	// long running network client threads and returns an object for checking
@@ -48,8 +46,6 @@ type Client interface {
 	// Registers a callback which gets triggered every time network health
 	// changes
 	RegisterNetworkHealthCB(func(bool))
-
-	RegisterRoundEventCallback(rid int, hdlr RoundEventHandler)
 
 	// ----- Reception -----
 
@@ -119,7 +115,7 @@ type Client interface {
 
 	// GetUser returns the current user Identity for this client. This
 	// can be serialized into a byte stream for out-of-band sharing.
-	GetUser() (interfaces.Contact, error)
+	GetUser() (bind.Contact, error)
 
 	// ----- User Discovery -----
 
@@ -138,7 +134,7 @@ type Client interface {
 	// so this user can send messages to the desired recipient Contact.
 	// To receive confirmation from the remote user, clients must
 	// register a listener to do that.
-	CreateAuthenticatedChannel(recipient interfaces.Contact, payload []byte) error
+	CreateAuthenticatedChannel(recipient bind.Contact, payload []byte) error
 	// RegierAuthEventsHandler registers a callback interface for channel
 	// authentication events.
 	RegisterAuthEventsHandler(hdlr AuthEventHandler)
@@ -155,19 +151,12 @@ type ContactList interface {
 	// GetLen returns the number of contacts in the list
 	GetLen() int
 	// GetContact returns the contact at index i
-	GetContact(i int) interfaces.Contact
+	GetContact(i int) bind.Contact
 }
 
 // ----- Callback interfaces -----
 
-// Listener provides a callback to hear a message
-// An object implementing this interface can be called back when the client
-// gets a message of the type that the regi    sterer specified at registration
-// time.
-type Listener interface {
-	// Hear is called to receive a message in the UI
-	Hear(msg Message)
-}
+
 
 // AuthEventHandler handles authentication requests initiated by
 // CreateAuthenticatedChannel
@@ -176,54 +165,52 @@ type AuthEventHandler interface {
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. Payload is typically empty but
 	// may include a small introductory message.
-	HandleConfirmation(contact interfaces.Contact, payload []byte)
+	HandleConfirmation(contact bind.Contact, payload []byte)
 	// HandleRequest handles AuthEvents received before
 	// the client has called CreateAuthenticatedChannel for
 	// the provided contact. It should prompt the user to accept
 	// the channel creation "request" and, if approved,
 	// call CreateAuthenticatedChannel for this Contact.
-	HandleRequest(contact interfaces.Contact, payload []byte)
-}
-
-// RoundList contains a list of contacts
-type RoundList interface {
-	// GetLen returns the number of contacts in the list
-	GetLen() int
-	// GetRoundID returns the round ID at index i
-	GetRoundID(i int) int
-}
-
-// RoundEventHandler handles round events happening on the cMix network.
-type RoundEventHandler interface {
-	HandleEvent(id int, state byte)
+	HandleRequest(contact bind.Contact, payload []byte)
 }
 
 // UserDiscoveryHandler handles search results against the user discovery agent.
 type UserDiscoveryHandler interface {
 	HandleSearchResults(results ContactList)
-}
+}*/
+
 
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.
 type Message interface {
+	//Returns the id of the message
+	GetID() []byte
+
 	// Returns the message's sender ID, if available
-	GetSender() id.ID
-	GetSenderBytes() []byte
+	GetSender() []byte
 
 	// Returns the message payload/contents
 	// Parse this with protobuf/whatever according to the message type
 	GetPayload() []byte
 
-	// Returns the message's recipient ID
-	// This is usually your userID but could be an ephemeral/group ID
-	GetRecipient() id.ID
-	GetRecipientBytes() []byte
-
 	// Returns the message's type
-	GetMessageType() int32
+	GetMessageType() int
 
-	// Returns the message's timestamp in seconds since unix epoc
-	GetTimestamp() int64
+	// Returns the message's timestamp in milliseconds since unix epoc
+	GetTimestampMS() int
 	// Returns the message's timestamp in ns since unix epoc
-	GetTimestampNano() int64
+	GetTimestampNano() int
+}
+
+type User interface {
+	GetID() []byte
+	GetSalt() []byte
+	GetRSAPrivateKeyPem() []byte
+	GetRSAPublicKeyPem() []byte
+	IsPrecanned() bool
+	GetCmixDhPrivateKey() []byte
+	GetCmixDhPublicKey() []byte
+	GetE2EDhPrivateKey() []byte
+	GetE2EDhPublicKey() []byte
+	GetContact() bind.Contact
 }

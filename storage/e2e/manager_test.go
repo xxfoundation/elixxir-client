@@ -214,7 +214,7 @@ func TestManager_Confirm(t *testing.T) {
 // Tests happy path of Manager.TriggerNegotiations.
 func TestManager_TriggerNegotiations(t *testing.T) {
 	m, _ := newTestManager(t)
-
+	m.send.sessions[0].negotiationStatus = Unconfirmed
 	sessions := m.TriggerNegotiations()
 	if !reflect.DeepEqual(m.send.sessions, sessions) {
 		t.Errorf("TriggerNegotiations() returned incorrect sessions."+

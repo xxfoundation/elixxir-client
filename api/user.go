@@ -9,6 +9,7 @@ import (
 	"gitlab.com/elixxir/crypto/xx"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"math/rand"
 )
 
 const (
@@ -73,7 +74,8 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
 	// to do with optimizing operations on one side and still preserves
 	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, rng)
+	prng := rand.New(rand.NewSource(int64(precannedID)))
+	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, prng)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
@@ -85,10 +87,19 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 	binary.BigEndian.PutUint64(userID[:], uint64(precannedID))
 	userID.SetType(id.User)
 
+	// NOTE: not used... RSA Keygen (4096 bit defaults)
+	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
 	return user.User{
 		ID:              userID.DeepCopy(),
 		Salt:            salt,
-		Precanned:       false,
+		Precanned:       true,
 		E2eDhPrivateKey: e2e.NewIntFromBytes(e2eKeyBytes),
+		// NOTE: These are dummy/not used
+		CmixDhPrivateKey: cmix.NewInt(1),
+		RSA:              rsaKey,
 	}
 }

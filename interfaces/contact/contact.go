@@ -3,7 +3,7 @@ package contact
 import (
 	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces"
+	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
@@ -40,8 +40,8 @@ func (c Contact) GetOwnershipProof() []byte {
 }
 
 // Returns a fact list for adding and getting facts to and from the contact
-func (c Contact) GetFactList() interfaces.FactList {
-	return FactList{source: &c}
+func (c Contact) GetFactList() bind.FactList {
+	return factList{source: &c}
 }
 
 // json marshals the contact

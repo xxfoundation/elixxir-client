@@ -152,7 +152,7 @@ func (s *Store) save() error {
 	return s.kv.Set(storeKey, &obj)
 }
 
-func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
+func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
 	sendParams, receiveParams SessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()

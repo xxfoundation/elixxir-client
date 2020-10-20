@@ -40,6 +40,9 @@ func RegisterCallbacks(rcb RequestCallback, ccb ConfirmCallback,
 			//lookup the message, check if it is an auth request
 			cmixMsg := format.Unmarshal(msg.Payload)
 			fp := cmixMsg.GetKeyFP()
+			// this takes the request lock if it is a specific fp,
+			// all exits after this need to call fail or Delete if it is
+			// specific
 			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
 			if err != nil {
 				// if the lookup fails, ignore the message. It is likely
@@ -76,7 +79,7 @@ func handleRequest(cmixMsg format.Message, myHistoricalPrivKey *cyclic.Int,
 	}
 
 	//decrypt the message
-	success, payload, _ := cAuth.Decrypt(myHistoricalPrivKey,
+	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
 		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
@@ -189,6 +192,7 @@ func handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if m, err := storage.E2e().GetPartner(sr.GetPartner()); m != nil || err == nil {
 		jww.WARN.Printf("Cannot confirm auth for %s, channel already "+
 			"exists.", sr.GetPartner())
+		storage.Auth().Fail(sr.GetPartner())
 		return
 	}
 
@@ -196,17 +200,19 @@ func handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
 	if err != nil {
 		jww.WARN.Printf("Failed to handle auth confirm: %s", err)
+		storage.Auth().Fail(sr.GetPartner())
 		return
 	}
 
 	// decrypt the payload
-	success, payload, _ := cAuth.Decrypt(sr.GetMyPrivKey(),
+	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),
 		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {
 		jww.WARN.Printf("Recieved auth confirmation failed its mac " +
 			"check")
+		storage.Auth().Fail(sr.GetPartner())
 		return
 	}
 
@@ -214,6 +220,7 @@ func handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal auth confirmation's "+
 			"encrypted payload: %s", err)
+		storage.Auth().Fail(sr.GetPartner())
 		return
 	}
 
@@ -221,6 +228,7 @@ func handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if err := doConfirm(sr, grp, partnerPubKey, ecrFmt.GetOwnership(),
 		storage, ccb, net); err != nil {
 		jww.WARN.Printf("Confirmation failed: %s", err)
+		storage.Auth().Fail(sr.GetPartner())
 		return
 	}
 }
@@ -239,16 +247,17 @@ func doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	// the second does not
 	p := e2e.GetDefaultSessionParams()
 	if err := storage.E2e().AddPartner(sr.GetPartner(),
-		partnerPubKey, p, p); err != nil {
+		partnerPubKey, sr.GetMyPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
 	}
 
 	// delete the in progress negotiation
+	// this undoes the request lock
 	if err := storage.Auth().Delete(sr.GetPartner()); err != nil {
-		return errors.Errorf("Failed to delete in progress negotiation "+
-			"with partner (%s) after confirmation: %+v",
+		return errors.Errorf("UNRECOVERABLE! Failed to delete in "+
+			"progress negotiation with partner (%s) after confirmation: %+v",
 			sr.GetPartner(), err)
 	}
 

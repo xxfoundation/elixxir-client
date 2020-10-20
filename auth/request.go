@@ -105,8 +105,9 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	requestFmt.SetID(storage.GetUser().ID)
 	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
-	ecrPayload, mac, fp := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
+	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
 		salt, ecrFmt.payload, grp)
+	fp := cAuth.MakeOwnershipProofFP(ownership)
 
 	/*construct message*/
 	baseFmt.SetEcrPayload(ecrPayload)
@@ -125,7 +126,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	if err != nil {
 		return errors.Errorf("Failed to store auth request: %s", err)
 	}
-	//store the message as a critical message so it will alwasy be sent
+
+	//store the message as a critical message so it will always be sent
 	storage.GetCriticalRawMessages().AddProcessing(cmixMsg)
 
 	/*send message*/

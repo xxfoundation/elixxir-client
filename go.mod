@@ -14,7 +14,7 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/comms v0.0.0-20201006010513-3353fb46569a
-	gitlab.com/elixxir/crypto v0.0.0-20201014182120-fb12f042858e
+	gitlab.com/elixxir/crypto v0.0.0-20201020171647-d7d62fef38cb
 	gitlab.com/elixxir/ekv v0.1.3
 	gitlab.com/elixxir/primitives v0.0.0-20201007223554-4a62c355bb0b
 	gitlab.com/xx_network/comms v0.0.0-20200924225518-0c867207b1e6

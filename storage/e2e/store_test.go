@@ -87,7 +87,7 @@ func TestStore_AddPartner(t *testing.T) {
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
 
-	s.AddPartner(partnerID, pubKey, p, p)
+	s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
 
 	m, exists := s.managers[*partnerID]
 	if !exists {
@@ -108,7 +108,7 @@ func TestStore_GetPartner(t *testing.T) {
 	p := GetDefaultSessionParams()
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
-	s.AddPartner(partnerID, pubKey, p, p)
+	s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
 
 	m, err := s.GetPartner(partnerID)
 	if err != nil {

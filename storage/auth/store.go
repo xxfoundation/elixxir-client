@@ -329,21 +329,22 @@ func (s *Store) GetRequest(partner *id.ID) (RequestType, *SentRequest, contact.C
 	}
 }
 
-
 // One of two calls after using a request. This one to be used when the use
 // is unsuccessful. It will allow any thread waiting on access to continue
 // using the structure
-func (s *Store) Fail(partner *id.ID) error {
+// this does not return an error because an error is not handleable
+func (s *Store) Fail(partner *id.ID) {
 	s.mux.RLock()
 	r, ok := s.requests[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
-		return errors.Errorf("Request not found: %s", partner)
+		jww.ERROR.Panicf("Request cannot be failed, not found: %s",
+			partner)
+		return
 	}
 
 	r.mux.Unlock()
-	return nil
 }
 
 // One of two calls after using a request. This one to be used when the use

@@ -6,15 +6,32 @@ import (
 	"gitlab.com/elixxir/client/storage/e2e"
 )
 
-// CreateAuthenticatedChannel creates a 1-way authenticated channel
+// CreateAuthenticatedChannelUNSAFE creates a 1-way authenticated channel
 // so this user can send messages to the desired recipient Contact.
 // To receive confirmation from the remote user, clients must
 // register a listener to do that.
-func (c *Client) CreateAuthenticatedChannel(recipient contact.Contact) error {
+func (c *Client) CreateAuthenticatedChannelUnsafe(recipient contact.Contact) error {
 	jww.INFO.Printf("CreateAuthenticatedChannel(%v)", recipient)
 	sesParam := e2e.GetDefaultSessionParams()
 	return c.storage.E2e().AddPartner(recipient.ID, recipient.DhPubKey,
-		sesParam, sesParam)
+		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
+}
+
+// RequestAuthenticatedChannel sends a request to another party to establish an
+// authenticated channel
+// It will not run if the network status is not healthy
+// An error will be returned if a channel already exists, if a request was
+// already received, or if a request was already sent
+// When a confirmation occurs, the channel will be created and the callback
+// will be called
+func (c *Client) RequestAuthenticatedChannel(recipient contact.Contact) error {
+	jww.INFO.Printf("RequestAuthenticatedChannel(%v)", recipient)
+
+	if c.network.
+
+		sesParam := e2e.GetDefaultSessionParams()
+	return c.storage.E2e().AddPartner(recipient.ID, recipient.DhPubKey,
+		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
 }
 
 // RegisterAuthConfirmationCb registers a callback for channel
@@ -38,7 +55,8 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 
 	//add the precanned user as a e2e contact
 	sesParam := e2e.GetDefaultSessionParams()
-	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey, sesParam, sesParam)
+	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey,
+		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
 
 	return precan, err
 }

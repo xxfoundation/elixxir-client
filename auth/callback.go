@@ -2,6 +2,7 @@ package auth
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -10,11 +11,9 @@ import (
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/crypto/cyclic"
+	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
-	jww "github.com/spf13/jwalterweatherman"
-	"io"
 	"strings"
 )
 
@@ -23,7 +22,7 @@ type ConfirmCallback func(partner contact.Contact)
 
 func RegisterCallbacks(rcb RequestCallback, ccb ConfirmCallback,
 	sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager, rng io.Reader) stoppable.Stoppable {
+	net interfaces.NetworkManager) stoppable.Stoppable {
 
 	rawMessages := make(chan message.Receive, 1000)
 	sw.RegisterChannel("Auth", &id.ID{}, message.Raw, rawMessages)

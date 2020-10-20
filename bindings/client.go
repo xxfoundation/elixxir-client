@@ -16,7 +16,7 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
+	//jww "github.com/spf13/jwalterweatherman"
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions

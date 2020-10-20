@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/ndf"
+	"sync"
 	"time"
 )
 
@@ -49,6 +50,10 @@ type Client struct {
 	//contains stopables for all running threads
 	runner *stoppable.Multi
 	status *statusTracker
+
+	// contains the sync once used to ensure authenticated channel callbacks are
+	// only registered once
+	authOnce sync.Once
 }
 
 // NewClient creates client storage, generates keys, connects, and registers

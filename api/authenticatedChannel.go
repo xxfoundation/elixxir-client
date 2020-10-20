@@ -19,7 +19,7 @@ import (
 // will be called
 func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 	message string) error {
-	jww.INFO.Printf("RequestAuthenticatedChannel(%v)", recipient)
+	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
 
 	if !c.network.GetHealthTracker().IsHealthy() {
 		return errors.New("Cannot request authenticated channel " +
@@ -30,18 +30,54 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 		c.storage, c.network)
 }
 
-// RegisterAuthConfirmationCb registers a callback for channel
-// authentication confirmation events.
-func (c *Client) RegisterAuthConfirmationCb(cb func(contact contact.Contact,
-	payload []byte)) {
-	jww.INFO.Printf("RegisterAuthConfirmationCb(...)")
+// RegisterAuthCallbacks registers both callbacks for authenticated channels.
+// This can only be called once
+func (c *Client) RegisterAuthCallbacks(request auth.RequestCallback,
+	confirm auth.ConfirmCallback) error {
+	jww.INFO.Printf("RegisterAuthCallbacks(...)")
+
+	exicuted := false
+
+	c.authOnce.Do(func() {
+		stop := auth.RegisterCallbacks(request, confirm, c.switchboard,
+			c.storage, c.network)
+		c.runner.Add(stop)
+		exicuted = true
+	})
+
+	if !exicuted {
+		return errors.New("Cannot register auth callbacks more than " +
+			"once")
+	}
+	return nil
 }
 
-// RegisterAuthRequestCb registers a callback for channel
-// authentication request events.
-func (c *Client) RegisterAuthRequestCb(cb func(contact contact.Contact,
-	payload []byte)) {
-	jww.INFO.Printf("RegisterAuthRequestCb(...)")
+// ConfirmAuthenticatedChannel creates an authenticated channel out of a valid
+// received request and sends a message to the requestor that the request has
+// been confirmed
+// It will not run if the network status is not healthy
+// An error will be returned if a channel already exists, if a request doest
+// exist, or if the passed in contact does not exactly match the received
+// request
+func (c *Client) ConfirmAuthenticatedChannel(recipient, me contact.Contact,
+	message string) error {
+	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
+
+	if !c.network.GetHealthTracker().IsHealthy() {
+		return errors.New("Cannot request authenticated channel " +
+			"creation when the network is not healthy")
+	}
+
+	return auth.ConfirmRequestAuth(recipient, c.rng.GetStream(),
+		c.storage, c.network)
+}
+
+// VerifyOwnership checks if the ownership proof on a passed contact matches the
+// identity in a verified contact
+func (c *Client) VerifyOwnership(received, verified contact.Contact) bool {
+	jww.INFO.Printf("VerifyOwnership(%s)", received.ID)
+
+	return auth.VerifyOwnership(received, verified, c.storage)
 }
 
 // HasAuthenticatedChannel returns true if an authenticated channel exists for

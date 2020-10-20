@@ -9,6 +9,7 @@ package bindings
 import (
 	"errors"
 	"github.com/spf13/jwalterweatherman"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
@@ -61,6 +62,9 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // starts subprocesses to perform network operations.
 func Login(storageDir string, password []byte) (*Client, error) {
 	// TODO: This should wrap the bindings ClientImpl, when available.
+	jww.SetStdoutThreshold(jww.LevelTrace)
+	jww.SetLogThreshold(jww.LevelTrace)
+
 	client, err := api.Login(storageDir, password)
 	if err != nil {
 		return nil, err
@@ -68,12 +72,10 @@ func Login(storageDir string, password []byte) (*Client, error) {
 	return &Client{*client}, nil
 }
 
-
 //Unmarshals a marshaled contact object
 func UnmarshalContact(b []byte) (bind.Contact, error) {
 	return contact.Unmarshal(b)
 }
-
 
 // StartNetworkFollower kicks off the tracking of the network. It starts
 // long running network client threads and returns an object for checking
@@ -132,13 +134,11 @@ func (c *Client) IsNetworkHealthy() bool {
 	return c.api.GetHealth().IsHealthy()
 }
 
-
 // registers the network health callback to be called any time the network
 // health changes
 func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 	c.api.GetHealth().AddFunc(nhc.Callback)
 }
-
 
 // RegisterListener records and installs a listener for messages
 // matching specific uid, msgType, and/or username

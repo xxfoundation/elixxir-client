@@ -139,7 +139,8 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 // Login initalizes a client object from existing storage.
 func Login(storageDir string, password []byte) (*Client, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
+		csprng.NewSystemRNG)
 
 	// Load Storage
 	passwordStr := string(password)

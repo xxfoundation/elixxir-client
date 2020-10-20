@@ -16,7 +16,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -145,12 +144,12 @@ func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types
 func (c *Client) RegisterListener(uid []byte, msgType int,
-	listener Listener) (Unregister, error) {
+	listener Listener) error {
 
 	name := listener.Name()
 	u, err := id.Unmarshal(uid)
 	if err != nil {
-		return Unregister{}, err
+		return err
 	}
 	mt := message.Type(msgType)
 
@@ -158,9 +157,9 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 		listener.Hear(item)
 	}
 
-	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
+	c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
 
-	return newListenerUnregister(lid, c.api.GetSwitchboard()), nil
+	return nil
 }
 
 // RegisterRoundEventsHandler registers a callback interface for round

@@ -1,22 +1,14 @@
 package api
 
 import (
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// CreateAuthenticatedChannelUNSAFE creates a 1-way authenticated channel
-// so this user can send messages to the desired recipient Contact.
-// To receive confirmation from the remote user, clients must
-// register a listener to do that.
-func (c *Client) CreateAuthenticatedChannelUnsafe(recipient contact.Contact) error {
-	jww.INFO.Printf("CreateAuthenticatedChannel(%v)", recipient)
-	sesParam := e2e.GetDefaultSessionParams()
-	return c.storage.E2e().AddPartner(recipient.ID, recipient.DhPubKey,
-		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
-}
 
 // RequestAuthenticatedChannel sends a request to another party to establish an
 // authenticated channel
@@ -25,14 +17,17 @@ func (c *Client) CreateAuthenticatedChannelUnsafe(recipient contact.Contact) err
 // already received, or if a request was already sent
 // When a confirmation occurs, the channel will be created and the callback
 // will be called
-func (c *Client) RequestAuthenticatedChannel(recipient contact.Contact) error {
+func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
+	message string) error {
 	jww.INFO.Printf("RequestAuthenticatedChannel(%v)", recipient)
 
-	if c.network.
+	if !c.network.GetHealthTracker().IsHealthy() {
+		return errors.New("Cannot request authenticated channel " +
+			"creation when the network is not healthy")
+	}
 
-		sesParam := e2e.GetDefaultSessionParams()
-	return c.storage.E2e().AddPartner(recipient.ID, recipient.DhPubKey,
-		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
+	return auth.RequestAuth(recipient, me, message, c.rng.GetStream(),
+		c.storage, c.network)
 }
 
 // RegisterAuthConfirmationCb registers a callback for channel

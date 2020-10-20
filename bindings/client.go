@@ -201,7 +201,8 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 // Returns a user object from which all information about the current user
 // can be gleaned
 func (c *Client) GetUser() User {
-	return c.api.GetUser()
+	u := c.api.GetUser()
+	return &u
 }
 
 /*

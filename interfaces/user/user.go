@@ -24,43 +24,43 @@ type User struct {
 	E2eDhPublicKey  *cyclic.Int
 }
 
-func (u User) GetID() []byte {
+func (u *User) GetID() []byte {
 	return u.ID.Marshal()
 }
 
-func (u User) GetSalt() []byte {
+func (u *User) GetSalt() []byte {
 	return u.Salt
 }
 
-func (u User) GetRSAPrivateKeyPem() []byte {
+func (u *User) GetRSAPrivateKeyPem() []byte {
 	return rsa.CreatePrivateKeyPem(u.RSA)
 }
 
-func (u User) GetRSAPublicKeyPem() []byte {
+func (u *User) GetRSAPublicKeyPem() []byte {
 	return rsa.CreatePublicKeyPem(u.RSA.GetPublic())
 }
 
-func (u User) IsPrecanned() bool {
+func (u *User) IsPrecanned() bool {
 	return u.Precanned
 }
 
-func (u User) GetCmixDhPrivateKey() []byte {
+func (u *User) GetCmixDhPrivateKey() []byte {
 	return u.CmixDhPrivateKey.Bytes()
 }
 
-func (u User) GetCmixDhPublicKey() []byte {
+func (u *User) GetCmixDhPublicKey() []byte {
 	return u.CmixDhPublicKey.Bytes()
 }
 
-func (u User) GetE2EDhPrivateKey() []byte {
+func (u *User) GetE2EDhPrivateKey() []byte {
 	return u.E2eDhPrivateKey.Bytes()
 }
 
-func (u User) GetE2EDhPublicKey() []byte {
+func (u *User) GetE2EDhPublicKey() []byte {
 	return u.E2eDhPublicKey.Bytes()
 }
 
-func (u User) GetContact() bind.Contact {
+func (u *User) GetContact() bind.Contact {
 	return contact.Contact{
 		ID:       u.ID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,

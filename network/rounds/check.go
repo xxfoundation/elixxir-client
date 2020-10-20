@@ -27,8 +27,8 @@ func (m *Manager) Checker(roundID id.Round) bool {
 
 	//if the number of times the round has been checked has hit the max, drop it
 	if count == m.params.MaxAttemptsCheckingARound {
-		jww.ERROR.Printf("Round %v failed the maximum number of times "+
-			"(%v), stopping retrval attempt", roundID,
+		jww.ERROR.Printf("Looking up Round %v failed the maximum number "+
+			"of times (%v), stopping retrval attempt", roundID,
 			m.params.MaxAttemptsCheckingARound)
 		m.p.Done(roundID)
 		return true

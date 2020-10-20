@@ -8,6 +8,7 @@ package bindings
 
 import (
 	"errors"
+	"github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
@@ -31,6 +32,7 @@ type Client struct {
 //
 // Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte, regCode string) error {
+	jwalterweatherman.SetLogThreshold(jwalterweatherman.LevelInfo)
 	return api.NewClient(network, storageDir, password, regCode)
 }
 
@@ -42,6 +44,7 @@ func NewClient(network, storageDir string, password []byte, regCode string) erro
 //
 // Users of this function should delete the storage directory on error.
 func NewPrecannedClient(precannedID int, network, storageDir string, password []byte) error {
+	jwalterweatherman.SetLogThreshold(jwalterweatherman.LevelInfo)
 	if precannedID < 0 {
 		return errors.New("Cannot create precanned client with negative ID")
 	}

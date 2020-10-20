@@ -205,7 +205,7 @@ type User interface {
 	GetSalt() []byte
 	GetRSAPrivateKeyPem() []byte
 	GetRSAPublicKeyPem() []byte
-	IsPrecanned() bool
+	//IsPrecanned() int
 	GetCmixDhPrivateKey() []byte
 	GetCmixDhPublicKey() []byte
 	GetE2EDhPrivateKey() []byte

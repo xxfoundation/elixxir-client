@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/globals"
 	userInterface "gitlab.com/elixxir/client/interfaces/user"
+	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -44,14 +45,16 @@ type Session struct {
 	baseNdf   *ndf.NetworkDefinition
 
 	//sub-stores
-	e2e              *e2e.Store
-	cmix             *cmix.Store
-	user             *user.User
-	conversations    *conversation.Store
-	partition        *partition.Store
-	criticalMessages *utility.E2eMessageBuffer
-	garbledMessages  *utility.MeteredCmixMessageBuffer
-	checkedRounds    *utility.KnownRounds
+	e2e                 *e2e.Store
+	cmix                *cmix.Store
+	user                *user.User
+	conversations       *conversation.Store
+	partition           *partition.Store
+	auth                *auth.Store
+	criticalMessages    *utility.E2eMessageBuffer
+	criticalRawMessages *utility.CmixMessageBuffer
+	garbledMessages     *utility.MeteredCmixMessageBuffer
+	checkedRounds       *utility.KnownRounds
 }
 
 // Initialize a new Session object
@@ -102,6 +105,11 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 		return nil, errors.WithMessage(err, "Failed to create e2e store")
 	}
 
+	s.auth, err = auth.NewStore(s.kv, e2eGrp, []*cyclic.Int{u.E2eDhPrivateKey})
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create auth store")
+	}
+
 	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create garbledMessages buffer")
@@ -116,7 +124,12 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 
 	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
 	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create e2e message buffer")
+		return nil, errors.WithMessage(err, "Failed to create e2e critical message buffer")
+	}
+
+	s.criticalRawMessages, err = utility.NewCmixMessageBuffer(s.kv, criticalRawMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create raw critical message buffer")
 	}
 
 	s.conversations = conversation.NewStore(s.kv)
@@ -154,9 +167,20 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
+	s.auth, err = auth.NewStore(s.kv, s.e2e.GetGroup(),
+		[]*cyclic.Int{s.e2e.GetDHPrivateKey()})
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load auth store")
+	}
+
 	s.criticalMessages, err = utility.LoadE2eMessageBuffer(s.kv, criticalMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
+	}
+
+	s.criticalRawMessages, err = utility.LoadCmixMessageBuffer(s.kv, criticalRawMessagesKey)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load raw critical message buffer")
 	}
 
 	s.garbledMessages, err = utility.LoadMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
@@ -193,10 +217,22 @@ func (s *Session) E2e() *e2e.Store {
 	return s.e2e
 }
 
+func (s *Session) Auth() *auth.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.auth
+}
+
 func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.criticalMessages
+}
+
+func (s *Session) GetCriticalRawMessages() *utility.CmixMessageBuffer {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.criticalRawMessages
 }
 
 func (s *Session) GetGarbledMessages() *utility.MeteredCmixMessageBuffer {

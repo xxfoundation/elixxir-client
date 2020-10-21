@@ -191,3 +191,11 @@ func (m *Manager) Confirm(sid SessionID) error {
 func (m *Manager) TriggerNegotiations() []*Session {
 	return m.send.TriggerNegotiation()
 }
+
+func (m *Manager) GetMyOriginPrivateKey() *cyclic.Int {
+	return m.originMyPrivKey.DeepCopy()
+}
+
+func (m *Manager) GetPartnerOriginPublicKey() *cyclic.Int {
+	return m.originPartnerPubKey.DeepCopy()
+}

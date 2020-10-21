@@ -30,6 +30,9 @@ const (
 	grpKey              = "Group"
 )
 
+var NoPartnerErrorStr = "No relationship with partner found"
+
+
 type Store struct {
 	managers map[id.ID]*Manager
 	mux      sync.RWMutex
@@ -149,7 +152,7 @@ func (s *Store) save() error {
 	return s.kv.Set(storeKey, &obj)
 }
 
-func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey *cyclic.Int,
+func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
 	sendParams, receiveParams SessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -177,7 +180,7 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 	m, ok := s.managers[*partnerID]
 
 	if !ok {
-		return nil, errors.New("Could not find relationship for partner")
+		return nil, errors.New(NoPartnerErrorStr)
 	}
 
 	return m, nil
@@ -252,11 +255,6 @@ func (s *Store) unmarshal(b []byte) error {
 	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to load e2e DH public key")
-	}
-
-	s.grp, err = utility.LoadGroup(s.kv, grpKey)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to load e2e group")
 	}
 
 	return nil

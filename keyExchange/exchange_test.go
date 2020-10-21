@@ -33,15 +33,17 @@ func TestFullExchange(t *testing.T) {
 	// Pull alice's and bob's keys for later use
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
 	alicePubKey := aliceSession.E2e().GetDHPublicKey()
+	bobPrivKey := bobSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
+
 	// Generate bob's new keypair
 	newBobPrivKey := dh.GeneratePrivateKey(dh.DefaultPrivateKeyLength, genericGroup, csprng.NewSystemRNG())
 	newBobPubKey := dh.GeneratePublicKey(newBobPrivKey, genericGroup)
 
 	// Add Alice and Bob as partners
-	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey,
+	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey, alicePrivKey,
 		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
-	bobSession.E2e().AddPartner(exchangeAliceId, alicePubKey,
+	bobSession.E2e().AddPartner(exchangeAliceId, alicePubKey, bobPrivKey,
 		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
 
 	// Start the listeners for alice and bob

@@ -17,7 +17,7 @@ func TestRekey(t *testing.T) {
 	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)
 
 	// Add bob as a partner
-	aliceSession.E2e().AddPartner(bobID, bobPubKey,
+	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
 		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
 
 	// Get Alice's manager for Bob

@@ -23,7 +23,7 @@ func TestHandleConfirm(t *testing.T) {
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
 
 	// Add bob as a partner
-	aliceSession.E2e().AddPartner(bobID, bobPubKey,
+	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
 		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
 
 	// Generate a session ID, bypassing some business logic here

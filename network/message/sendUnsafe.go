@@ -21,7 +21,10 @@ import (
 // Sends using SendCMIX and returns a list of rounds the messages are in. Will
 // return an error if a single part of the message fails to send.
 func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round, error) {
-
+	if msg.MessageType == message.Raw {
+		return nil, errors.Errorf("Raw (%d) is a reserved message type",
+			msg.MessageType)
+	}
 	//timestamp the message
 	ts := time.Now()
 

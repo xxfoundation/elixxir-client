@@ -12,7 +12,7 @@ type CMIX struct {
 func GetDefaultCMIX() CMIX {
 	return CMIX{
 		RoundTries: 3,
-		Timeout:    10 * time.Second,
+		Timeout:    25 * time.Second,
 		RetryDelay: 2 * time.Second,
 	}
 }

@@ -52,6 +52,14 @@ func (c *Client) RegisterAuthCallbacks(request auth.RequestCallback,
 	return nil
 }
 
+// GetAuthenticatedChannelRequest returns the contact received in a request if
+// one exists for the given userID.  Returns an error if no contact is found.
+func (c *Client) GetAuthenticatedChannelRequest(partner *id.ID) (contact.Contact, error) {
+	jww.INFO.Printf("GetAuthenticatedChannelRequest(%s)", partner)
+
+	return c.storage.Auth().GetReceivedRequestData(partner)
+}
+
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid
 // received request and sends a message to the requestor that the request has
 // been confirmed
@@ -60,7 +68,7 @@ func (c *Client) RegisterAuthCallbacks(request auth.RequestCallback,
 // exist, or if the passed in contact does not exactly match the received
 // request
 func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) error {
-	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
+	jww.INFO.Printf("ConfirmAuthenticatedChannel(%s)", recipient.ID)
 
 	if !c.network.GetHealthTracker().IsHealthy() {
 		return errors.New("Cannot request authenticated channel " +

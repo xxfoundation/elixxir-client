@@ -14,11 +14,14 @@ const (
 
 type request struct {
 	rt RequestType
-	//data if sent
+
+	// Data if sent
 	sent *SentRequest
-	//data if receive
+
+	// Data if receive
 	receive *contact.Contact
-	//mux to ensure there isnt concurent access
+
+	// mux to ensure there is not concurrent access
 	mux sync.Mutex
 }
 

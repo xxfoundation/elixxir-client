@@ -17,11 +17,10 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/comms/mixmessages"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
-
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions

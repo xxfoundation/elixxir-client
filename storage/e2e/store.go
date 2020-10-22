@@ -110,7 +110,8 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 
 		fingerprints: &fingerprints,
 
-		kv: kv,
+		kv:  kv,
+		grp: grp,
 
 		context: &context{
 			fa:   &fingerprints,

@@ -41,9 +41,8 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// verify the passed contact matches what is stored
 	if storedContact.DhPubKey.Cmp(partner.DhPubKey) != 0 {
 		storage.Auth().Fail(partner.ID)
-		return errors.Errorf("Pending Auth Request has different "+
-			"pubkey than stored",
-			err)
+		return errors.WithMessage(err, "Pending Auth Request has different "+
+			"pubkey than stored")
 	}
 
 	grp := storage.E2e().GetGroup()

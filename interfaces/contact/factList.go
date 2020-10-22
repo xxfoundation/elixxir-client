@@ -2,8 +2,8 @@ package contact
 
 import (
 	"github.com/pkg/errors"
-	"strings"
 	jww "github.com/spf13/jwalterweatherman"
+	"strings"
 )
 
 type FactList []Fact

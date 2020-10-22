@@ -1,6 +1,7 @@
 package bindings
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -25,19 +26,22 @@ import (
 func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
-		return -1, err
+		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+			err))
 	}
 
 	msg, err := c.api.NewCMIXMessage(u, contents)
 	if err != nil {
-		return -1, err
+		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+			err))
 	}
 
 	rid, err := c.api.SendCMIX(msg, params.GetDefaultCMIX())
 	if err != nil {
-		return -1, err
+		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+			err))
 	}
-	return int(rid), err
+	return int(rid), nil
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient
@@ -49,10 +53,10 @@ func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types with custom types
 func (c *Client) SendUnsafe(recipient, payload []byte,
-	messageType int) (RoundList, error) {
+	messageType int) (*RoundList, error) {
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafew: %+v",
+		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafe: %+v",
 			err))
 	}
 
@@ -64,11 +68,11 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 
 	rids, err := c.api.SendUnsafe(m, params.GetDefaultUnsafe())
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafew: %+v",
+		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafe: %+v",
 			err))
 	}
 
-	return &roundList{list: rids}, nil
+	return &RoundList{list: rids}, nil
 }
 
 
@@ -78,11 +82,10 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 //
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types
-func (c *Client) SendE2E(recipient, payload []byte,
-	messageType int) (*SendReport, error) {
+func (c *Client) SendE2E(recipient, payload []byte, messageType int) (*SendReport, error) {
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed SendE2E: %+v", err))
 	}
 
 	m := message.Send{
@@ -93,26 +96,31 @@ func (c *Client) SendE2E(recipient, payload []byte,
 
 	rids, mid, err := c.api.SendE2E(m, params.GetDefaultE2E())
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed SendE2E: %+v", err))
 	}
 
 	sr := SendReport{
-		rl:  &roundList{list: rids},
+		rl:  &RoundList{list: rids},
 		mid: mid,
 	}
 
 	return &sr, nil
 }
 
+// the send report is the mechanisim by which sendE2E returns a single
 type SendReport struct {
-	rl  RoundList
+	rl  *RoundList
 	mid e2e.MessageID
 }
 
-func (sr *SendReport) GetRoundList() RoundList {
+func (sr *SendReport) GetRoundList() *RoundList {
 	return sr.rl
 }
 
 func (sr *SendReport) GetMessageID() []byte {
 	return sr.mid[:]
+}
+
+func (sr *SendReport) Marshal() ([]byte, error) {
+	return json.Marshal(sr)
 }

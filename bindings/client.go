@@ -7,17 +7,22 @@
 package bindings
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/spf13/jwalterweatherman"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/bind"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
+
 )
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -34,7 +39,12 @@ type Client struct {
 // Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte, regCode string) error {
 	jwalterweatherman.SetLogThreshold(jwalterweatherman.LevelInfo)
-	return api.NewClient(network, storageDir, password, regCode)
+
+	if err := api.NewClient(network, storageDir, password, regCode); err != nil {
+		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
+			err))
+	}
+	return nil
 }
 
 // NewPrecannedClient creates an insecure user with predetermined keys with nodes
@@ -50,7 +60,11 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 		return errors.New("Cannot create precanned client with negative ID")
 	}
 
-	return api.NewPrecannedClient(uint(precannedID), network, storageDir, password)
+	if err := api.NewPrecannedClient(uint(precannedID), network, storageDir, password); err != nil {
+		return errors.New(fmt.Sprintf("Failed to create new precanned "+
+			"client: %+v", err))
+	}
+	return nil
 }
 
 // Login will load an existing client from the storageDir
@@ -67,14 +81,29 @@ func Login(storageDir string, password []byte) (*Client, error) {
 
 	client, err := api.Login(storageDir, password)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
 	return &Client{*client}, nil
 }
 
-//Unmarshals a marshaled contact object
-func UnmarshalContact(b []byte) (bind.Contact, error) {
-	return contact.Unmarshal(b)
+//Unmarshals a marshaled contact object, returns an error if it fails
+func UnmarshalContact(b []byte) (*Contact, error) {
+	c, err := contact.Unmarshal(b)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Unmarshal "+
+			"Contact: %+v", err))
+	}
+	return &Contact{c: &c}, nil
+}
+
+//Unmarshals a marshaled send report object, returns an error if it fails
+func UnmarshalSendReport(b []byte) (*SendReport, error) {
+	sr := &SendReport{}
+	if err := json.Unmarshal(b, sr); err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Unmarshal "+
+			"Send Report: %+v", err))
+	}
+	return sr, nil
 }
 
 // StartNetworkFollower kicks off the tracking of the network. It starts
@@ -106,7 +135,11 @@ func UnmarshalContact(b []byte) (bind.Contact, error) {
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
 func (c *Client) StartNetworkFollower() error {
-	return c.api.StartNetworkFollower()
+	if err := c.api.StartNetworkFollower(); err != nil {
+		return errors.New(fmt.Sprintf("Failed to start the "+
+			"network follower: %+v", err))
+	}
+	return nil
 }
 
 // StopNetworkFollower stops the network follower if it is running.
@@ -116,7 +149,11 @@ func (c *Client) StartNetworkFollower() error {
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Client) StopNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	return c.api.StopNetworkFollower(timeout)
+	if err := c.api.StopNetworkFollower(timeout); err != nil {
+		return errors.New(fmt.Sprintf("Failed to stop the "+
+			"network follower: %+v", err))
+	}
+	return nil
 }
 
 // Gets the state of the network follower. Returns:
@@ -144,25 +181,39 @@ func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 // matching specific uid, msgType, and/or username
 // Returns a ListenerUnregister interface which can be
 //
+// to register for any userID, pass in an id with length 0 or an id with
+// all zeroes
+//
+// to register for any message type, pass in a message type of 0
+//
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types
 func (c *Client) RegisterListener(uid []byte, msgType int,
-	listener Listener) error {
+	listener Listener) (*Unregister, error) {
 
 	name := listener.Name()
-	u, err := id.Unmarshal(uid)
-	if err != nil {
-		return err
+
+	var u *id.ID
+	if len(uid) == 0 {
+		u = &id.ID{}
+	} else {
+		var err error
+		u, err = id.Unmarshal(uid)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to "+
+				"ResgisterListener: %+v", err))
+		}
 	}
+
 	mt := message.Type(msgType)
 
 	f := func(item message.Receive) {
 		listener.Hear(item)
 	}
 
-	c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
+	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
 
-	return nil
+	return newListenerUnregister(lid, c.api.GetSwitchboard()), nil
 }
 
 // RegisterRoundEventsHandler registers a callback interface for round
@@ -181,7 +232,7 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 //  0x06 - FAILED
 // These states are defined in elixxir/primitives/states/state.go
 func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
-	timeoutMS int, il *IntList) Unregister {
+	timeoutMS int, il *IntList) *Unregister {
 
 	rcb := func(ri *mixmessages.RoundInfo, timedOut bool) {
 		cb.EventCallback(int(ri.ID), int(ri.State), timedOut)
@@ -201,11 +252,55 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 	return newRoundUnregister(roundID, ec, c.api.GetRoundEvents())
 }
 
+// RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
+// message was sent in sucesfully completed. Under the hood, this uses the same
+// interface as RegisterRoundEventsHandler, but provides a convienet way to use
+// the interface in its most common form, looking up the result of message
+// retreval
+//
+// The callbacks will return at timeoutMS if no state update occurs
+//
+// This function takes the marshaled send report to ensure a memory leak does
+// not occur as a result of both sides of the bindings holding a refrence to
+// the same pointer.
+func (c *Client) RegisterMessageDeliveryCB(marshaledSendReport []byte,
+	mdc MessageDeliveryCallback, timeoutMS int) (*Unregister, error) {
+
+	sr, err := UnmarshalSendReport(marshaledSendReport)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to "+
+			"RegisterMessageDeliveryCB: %+v", err))
+	}
+
+	/*check message delivery*/
+	sendResults := make(chan ds.EventReturn, len(sr.rl.list))
+	roundEvents := c.api.GetRoundEvents()
+
+	reventObjs := make([]*ds.EventCallback, len(sr.rl.list))
+
+	for i, r := range sr.rl.list {
+		reventObjs[i] = roundEvents.AddRoundEventChan(r, sendResults,
+			time.Duration(timeoutMS)*time.Millisecond, states.COMPLETED,
+			states.FAILED)
+	}
+
+	go func() {
+		success, _, numTmeout := utility.TrackResults(sendResults, len(sr.rl.list))
+		if !success {
+			mdc.EventCallback(sr.mid[:], false, numTmeout > 0)
+		} else {
+			mdc.EventCallback(sr.mid[:], true, false)
+		}
+	}()
+
+	return newRoundListUnregister(sr.rl.list, reventObjs, roundEvents), nil
+}
+
 // Returns a user object from which all information about the current user
 // can be gleaned
-func (c *Client) GetUser() User {
+func (c *Client) GetUser() *User {
 	u := c.api.GetUser()
-	return &u
+	return &User{u: &u}
 }
 
 /*

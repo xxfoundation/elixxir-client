@@ -199,15 +199,3 @@ type Message interface {
 	// Returns the message's timestamp in ns since unix epoc
 	GetTimestampNano() int
 }
-
-type User interface {
-	GetID() []byte
-	GetSalt() []byte
-	GetRSAPrivateKeyPem() []byte
-	GetRSAPublicKeyPem() []byte
-	//IsPrecanned() int
-	GetCmixDhPrivateKey() []byte
-	GetCmixDhPublicKey() []byte
-	GetE2EDhPrivateKey() []byte
-	GetE2EDhPublicKey() []byte
-}

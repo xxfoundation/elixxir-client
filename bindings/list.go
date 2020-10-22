@@ -28,25 +28,17 @@ func (il *IntList) Get(i int) (int, error) {
 	return il.lst[i], nil
 }
 
-type roundList struct {
+type RoundList struct {
 	list []id.Round
 }
 
-// RoundList contains a list of contacts
-type RoundList interface {
-	// Len returns the number of contacts in the list
-	Len() int
-	// Get returns the round ID at index i
-	Get(i int) (int, error)
-}
-
 // Gets the number of round IDs stored
-func (rl *roundList) Len() int {
+func (rl *RoundList) Len() int {
 	return len(rl.list)
 }
 
 // Gets a stored round ID at the given index
-func (rl *roundList) Get(i int) (int, error) {
+func (rl *RoundList) Get(i int) (int, error) {
 	if i < 0 || i > len(rl.list) {
 		return -1, errors.New("round ID cannot be under 0 or over" +
 			" list len")

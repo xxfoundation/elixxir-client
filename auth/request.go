@@ -75,7 +75,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	}
 
 	//check the payload fits
-	facts := me.StringifyFacts()
+	facts := me.Facts.Stringify()
 	msgPayload := facts + message + eol
 	msgPayloadBytes := []byte(msgPayload)
 

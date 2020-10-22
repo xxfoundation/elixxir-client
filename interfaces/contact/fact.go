@@ -13,14 +13,6 @@ func NewFact(ft FactType, fact string) (Fact, error) {
 	}, nil
 }
 
-func (f Fact) Get() string {
-	return f.Fact
-}
-
-func (f Fact) Type() int {
-	return int(f.T)
-}
-
 // marshal is for transmission for UDB, not a part of the fact interface
 func (f Fact) Stringify() string {
 	return f.T.Stringify() + f.Fact

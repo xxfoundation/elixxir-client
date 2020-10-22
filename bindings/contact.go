@@ -1,7 +1,6 @@
 package bindings
 
 import (
-	"encoding/json"
 	"errors"
 	"gitlab.com/elixxir/client/interfaces/contact"
 )
@@ -18,6 +17,7 @@ func (f *Fact) Get() string {
 func (f *Fact) Type() int {
 	return int(f.f.T)
 }
+
 
 /* contact object*/
 type Contact struct {
@@ -44,6 +44,11 @@ func (c *Contact) GetFactList() *FactList {
 	return &FactList{c: c.c}
 }
 
+func (c *Contact) Marshal() ([]byte, error) {
+	return c.c.Marshal()
+}
+
+/* FactList object*/
 type FactList struct {
 	c *contact.Contact
 }
@@ -69,7 +74,5 @@ func (fl *FactList) Add(fact string, factType int) error {
 }
 
 func (fl *FactList) Marshal() ([]byte, error) {
-	return json.Marshal(&fl.c.Facts)
+	return []byte(fl.c.Facts.Stringify()), nil
 }
-
-func unmarshalFactList

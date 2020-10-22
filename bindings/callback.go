@@ -30,6 +30,23 @@ type RoundEventCallback interface {
 	EventCallback(rid, state int, timedOut bool)
 }
 
+// RoundEventHandler handles round events happening on the cMix network.
+type MessageDeliveryCallback interface {
+	EventCallback(msgID []byte, delivered, timedOut bool)
+}
+
+// AuthRequestCallback notifies the register whenever they receive an auth
+// request
+type AuthRequestCallback interface {
+	Callback(requestor *Contact, message string)
+}
+
+// AuthConfirmCallback notifies the register whenever they receive an auth
+// request confirmation
+type AuthConfirmCallback interface {
+	Callback(partner *Contact)
+}
+
 // Generic Unregister - a generic return used for all callbacks which can be
 // unregistered
 // Interface which allows the un-registration of a listener
@@ -38,23 +55,34 @@ type Unregister struct {
 }
 
 //Call unregisters a callback
-func (u Unregister) Unregister() {
+func (u *Unregister) Unregister() {
 	u.f()
 }
 
 //creates an unregister interface for listeners
-func newListenerUnregister(lid switchboard.ListenerID, sw interfaces.Switchboard) Unregister {
+func newListenerUnregister(lid switchboard.ListenerID, sw interfaces.Switchboard) *Unregister {
 	f := func() {
 		sw.Unregister(lid)
 	}
-	return Unregister{f: f}
+	return &Unregister{f: f}
 }
 
 //creates an unregister interface for round events
 func newRoundUnregister(rid id.Round, ec *dataStructures.EventCallback,
-	re interfaces.RoundEvents) Unregister {
+	re interfaces.RoundEvents) *Unregister {
 	f := func() {
 		re.Remove(rid, ec)
 	}
-	return Unregister{f: f}
+	return &Unregister{f: f}
+}
+
+//creates an unregister interface for round events
+func newRoundListUnregister(rounds []id.Round, ec []*dataStructures.EventCallback,
+	re interfaces.RoundEvents) *Unregister {
+	f := func() {
+		for i, r := range rounds {
+			re.Remove(r, ec[i])
+		}
+	}
+	return &Unregister{f: f}
 }

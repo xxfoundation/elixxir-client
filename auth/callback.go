@@ -153,7 +153,7 @@ func handleRequest(cmixMsg format.Message, myHistoricalPrivKey *cyclic.Int,
 	}
 
 	//process the inner payload
-	facts, msg, err := contact.UnstringifyFacts(
+	facts, msg, err := contact.UnstringifyFactList(
 		string(requestFmt.msgPayload))
 	if err != nil {
 		jww.WARN.Printf("failed to parse facts and message "+

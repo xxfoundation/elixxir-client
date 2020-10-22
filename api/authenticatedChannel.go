@@ -59,8 +59,7 @@ func (c *Client) RegisterAuthCallbacks(request auth.RequestCallback,
 // An error will be returned if a channel already exists, if a request doest
 // exist, or if the passed in contact does not exactly match the received
 // request
-func (c *Client) ConfirmAuthenticatedChannel(recipient, me contact.Contact,
-	message string) error {
+func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) error {
 	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
 
 	if !c.network.GetHealthTracker().IsHealthy() {

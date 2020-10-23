@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"math/rand"
 	"strings"
 	"time"
 )
@@ -67,9 +68,9 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//encrypt the message
 		salt := make([]byte, 32)
-		stream := m.Rng.GetStream()
+		stream := rand.New(rand.NewSource(42))
 		_, err = stream.Read(salt)
-		stream.Close()
+		//stream.Close()
 
 		if err != nil {
 			return 0, errors.WithMessage(err, "Failed to generate "+
@@ -87,11 +88,17 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			KMACs:    kmacs,
 		}
 
+		jww.INFO.Printf("PlainText Payload: %v", msg.Marshal())
+		jww.INFO.Printf("Encrypted Payload: %v", encMsg.Marshal())
+		jww.INFO.Printf("Transmission Packet: %+v", msgPacket)
+
 		//create the wrapper to the gateway
 		msg := &mixmessages.GatewaySlot{
 			Message: msgPacket,
 			RoundID: bestRound.ID,
 		}
+
+		jww.INFO.Printf("Gateway Slot: %+v", msgPacket)
 
 		//Add the mac proving ownership
 		msg.MAC = roundKeys.MakeClientGatewayKey(salt, network.GenerateSlotDigest(msg))

@@ -26,6 +26,7 @@ func (rk *RoundKeys) Encrypt(msg format.Message,
 	keys := make([]*cyclic.Int, len(rk.keys))
 
 	for i, k := range rk.keys {
+		jww.INFO.Printf("CMIXKEY: num: %d, key: %s", i, k.Get().Text(16))
 		keys[i] = k.Get()
 	}
 

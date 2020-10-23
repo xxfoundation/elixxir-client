@@ -10,7 +10,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"math/rand"
 	"strings"
 	"time"
 )
@@ -68,14 +67,14 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//encrypt the message
 		salt := make([]byte, 32)
-		stream := rand.New(rand.NewSource(42))
-		_, err = stream.Read(salt)
+		//stream := rand.New(rand.NewSource(42))
+		//_, err = stream.Read(salt)
 		//stream.Close()
 
-		if err != nil {
+		/*if err != nil {
 			return 0, errors.WithMessage(err, "Failed to generate "+
 				"salt, this should never happen")
-		}
+		}*/
 
 		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
 

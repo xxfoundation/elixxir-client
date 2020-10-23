@@ -99,7 +99,7 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 
 	precan := c.MakePrecannedContact(precannedID)
 
-	//add the precanned user as a e2e contact
+	// add the precanned user as a e2e contact
 	sesParam := e2e.GetDefaultSessionParams()
 	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey,
 		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
@@ -112,11 +112,11 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 
 	e2eGrp := c.storage.E2e().GetGroup()
 
-	//get the user definition
+	// get the user definition
 	precanned := createPrecannedUser(precannedID, c.rng.GetStream(),
 		c.storage.Cmix().GetGroup(), e2eGrp)
 
-	//compute their public e2e key
+	// compute their public e2e key
 	partnerPubKey := e2eGrp.ExpG(precanned.E2eDhPrivateKey, e2eGrp.NewInt(1))
 
 	return contact.Contact{

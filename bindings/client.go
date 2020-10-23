@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/spf13/jwalterweatherman"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -73,10 +72,6 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 func Login(storageDir string, password []byte) (*Client, error) {
-	// TODO: This should wrap the bindings ClientImpl, when available.
-	jww.SetStdoutThreshold(jww.LevelTrace)
-	jww.SetLogThreshold(jww.LevelTrace)
-
 	client, err := api.Login(storageDir, password)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))

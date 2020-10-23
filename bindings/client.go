@@ -10,7 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/spf13/jwalterweatherman"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -21,6 +21,12 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
+
+// sets the log level
+func init() {
+	jww.SetLogThreshold(jww.LevelInfo)
+	jww.SetStdoutThreshold(jww.LevelInfo)
+}
 
 // BindingsClient wraps the api.Client, implementing additional functions
 // to support the gomobile Client interface
@@ -35,8 +41,6 @@ type Client struct {
 //
 // Users of this function should delete the storage directory on error.
 func NewClient(network, storageDir string, password []byte, regCode string) error {
-	jwalterweatherman.SetLogThreshold(jwalterweatherman.LevelInfo)
-
 	if err := api.NewClient(network, storageDir, password, regCode); err != nil {
 		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
 			err))
@@ -52,7 +56,6 @@ func NewClient(network, storageDir string, password []byte, regCode string) erro
 //
 // Users of this function should delete the storage directory on error.
 func NewPrecannedClient(precannedID int, network, storageDir string, password []byte) error {
-	jwalterweatherman.SetLogThreshold(jwalterweatherman.LevelInfo)
 	if precannedID < 0 {
 		return errors.New("Cannot create precanned client with negative ID")
 	}
@@ -78,6 +81,48 @@ func Login(storageDir string, password []byte) (*Client, error) {
 	}
 	return &Client{*client}, nil
 }
+
+// sets level of logging. All logs the set level and above will be displayed
+// options are:
+//	TRACE		- 0
+//	DEBUG		- 1
+//	INFO 		- 2
+//	WARN		- 3
+//	ERROR		- 4
+//	CRITICAL	- 5
+//	FATAL		- 6
+// The default state without updates is: INFO
+func LogLevel(level int) error {
+	if level < 0 || level > 6 {
+		return errors.New(fmt.Sprintf("log level is not valid: log level: %d", level))
+	}
+
+	threshold := jww.Threshold(level)
+	jww.SetLogThreshold(threshold)
+	jww.SetStdoutThreshold(threshold)
+
+	switch threshold {
+	case jww.LevelTrace:
+		fallthrough
+	case jww.LevelDebug:
+		fallthrough
+	case jww.LevelInfo:
+		jww.INFO.Printf("Log level set to: %s", threshold)
+	case jww.LevelWarn:
+		jww.WARN.Printf("Log level set to: %s", threshold)
+	case jww.LevelError:
+		jww.ERROR.Printf("Log level set to: %s", threshold)
+	case jww.LevelCritical:
+		jww.CRITICAL.Printf("Log level set to: %s", threshold)
+	case jww.LevelFatal:
+		jww.FATAL.Printf("Log level set to: %s", threshold)
+	}
+
+	return nil
+}
+
+
+
 
 //Unmarshals a marshaled contact object, returns an error if it fails
 func UnmarshalContact(b []byte) (*Contact, error) {

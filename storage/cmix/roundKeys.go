@@ -139,13 +139,16 @@ func keyGen(grp *cyclic.Group, salt []byte, baseKey, output *cyclic.Int) *cyclic
 	h1.Write(a)
 	h1.Write(salt)
 	x := h1.Sum(nil)
+	jww.INFO.Printf("keygen x: %v", x)
 
 	// Different Hash (SHA256) of the previous result to add entropy
 	h2.Reset()
 	h2.Write(x)
 	y := h2.Sum(nil)
+	jww.INFO.Printf("keygen y: %v", x)
 
 	// Expand Key using SHA512
 	k := hash.ExpandKey(sha512.New(), grp, y, output)
+	jww.INFO.Printf("keygen expandedKey: %s", k.Text(16))
 	return k
 }

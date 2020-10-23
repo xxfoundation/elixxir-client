@@ -2,7 +2,6 @@ package parse
 
 import (
 	"encoding/binary"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"time"
 )
@@ -41,11 +40,11 @@ func newFirstMessagePart(mt message.Type, id uint32, numParts uint8,
 	m.NumParts[0] = numParts
 
 	//Serialize and add the timestamp to the payload
-	timestampBytes, err := timestamp.MarshalBinary()
+	/*timestampBytes, err := timestamp.MarshalBinary()
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create firstMessagePart: %s", err.Error())
 	}
-	copy(m.Timestamp, timestampBytes)
+	copy(m.Timestamp, timestampBytes)*/
 
 	//set the contents length
 	binary.BigEndian.PutUint16(m.Len, uint16(len(contents)))

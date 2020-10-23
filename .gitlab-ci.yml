@@ -91,7 +91,7 @@ bindings:
   tags:
     - ios
   script:
-    - export PATH="/usr/local/opt/go@1.13/bin:$PATH
+    - export PATH="/usr/local/opt/go@1.13/bin:$PATH"
     - go get -u golang.org/x/mobile/cmd/gomobile
     - go get -u golang.org/x/mobile/bind
     - rm -rf $HOME/go/src/gitlab.com/elixxir/client/

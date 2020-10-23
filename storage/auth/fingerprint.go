@@ -11,8 +11,10 @@ const (
 
 type fingerprint struct {
 	Type FingerprintType
-	//only populated if ti is general
+
+	// Only populated if it is general
 	PrivKey *cyclic.Int
-	//only populated if it is specific
+
+	// Only populated if it is specific
 	Request *request
 }

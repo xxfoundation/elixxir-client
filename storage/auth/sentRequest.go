@@ -17,7 +17,7 @@ type SentRequest struct {
 	kv *versioned.KV
 
 	partner                 *id.ID
-	partnerhistoricalPubKey *cyclic.Int
+	partnerHistoricalPubKey *cyclic.Int
 	myPrivKey               *cyclic.Int
 	myPubKey                *cyclic.Int
 	fingerprint             format.Fingerprint
@@ -25,7 +25,7 @@ type SentRequest struct {
 }
 
 type sentRequestDisk struct {
-	PartnerhistoricalPubKey []byte
+	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
 	Fingerprint             []byte
@@ -46,15 +46,15 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	}
 
 	historicalPrivKey := grp.NewInt(1)
-	if err = historicalPrivKey.GobDecode(srd.PartnerhistoricalPubKey); err != nil {
-		return nil, errors.WithMessagef(err, "Failed to decode historical"+
-			" private key with %s for SentRequest Auth", partner)
+	if err = historicalPrivKey.GobDecode(srd.PartnerHistoricalPubKey); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decode historical "+
+			"private key with %s for SentRequest Auth", partner)
 	}
 
 	myPrivKey := grp.NewInt(1)
-	if err = myPrivKey.GobDecode(srd.MyPubKey); err != nil {
-		return nil, errors.WithMessagef(err, "Failed to decode private "+
-			"key with %s for SentRequest Auth", partner)
+	if err = myPrivKey.GobDecode(srd.MyPrivKey); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decode private key "+
+			"with %s for SentRequest Auth", partner)
 	}
 
 	myPubKey := grp.NewInt(1)
@@ -69,7 +69,7 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	return &SentRequest{
 		kv:                      kv,
 		partner:                 partner,
-		partnerhistoricalPubKey: historicalPrivKey,
+		partnerHistoricalPubKey: historicalPrivKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
 		fingerprint:             fp,
@@ -77,7 +77,6 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 }
 
 func (sr *SentRequest) save() error {
-
 	privKey, err := sr.myPrivKey.GobEncode()
 	if err != nil {
 		return err
@@ -88,13 +87,13 @@ func (sr *SentRequest) save() error {
 		return err
 	}
 
-	historicalPrivKey, err := sr.myPubKey.GobEncode()
+	historicalPrivKey, err := sr.partnerHistoricalPubKey.GobEncode()
 	if err != nil {
 		return err
 	}
 
 	ipd := sentRequestDisk{
-		PartnerhistoricalPubKey: historicalPrivKey,
+		PartnerHistoricalPubKey: historicalPrivKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
 		Fingerprint:             sr.fingerprint[:],
@@ -123,7 +122,7 @@ func (sr *SentRequest) GetPartner() *id.ID {
 }
 
 func (sr *SentRequest) GetPartnerHistoricalPubKey() *cyclic.Int {
-	return sr.partnerhistoricalPubKey
+	return sr.partnerHistoricalPubKey
 }
 
 func (sr *SentRequest) GetMyPrivKey() *cyclic.Int {

@@ -3,6 +3,7 @@ package auth
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/auth"
@@ -12,9 +13,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"strings"
 )
-
-type RequestCallback func(requestor contact.Contact, message string)
-type ConfirmCallback func(partner contact.Contact)
 
 func (m *Manager) StartProcessies() stoppable.Stoppable {
 
@@ -171,7 +169,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	//  will never be sent.
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
-		rcb := cb.(RequestCallback)
+		rcb := cb.(interfaces.RequestCallback)
 		go rcb(c, msg)
 	}
 	return
@@ -262,7 +260,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	//  will never be sent.
 	cbList := m.confirmCallbacks.Get(c.ID)
 	for _, cb := range cbList {
-		ccb := cb.(ConfirmCallback)
+		ccb := cb.(interfaces.ConfirmCallback)
 		go ccb(c)
 	}
 

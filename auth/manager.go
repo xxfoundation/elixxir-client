@@ -34,21 +34,21 @@ func NewManager(sw interfaces.Switchboard, storage *storage.Session,
 
 // Adds a general callback to be used on auth requests. This will be preempted
 // by any specific callback
-func (m *Manager) AddGeneralRequestCallback(cb RequestCallback) {
+func (m *Manager) AddGeneralRequestCallback(cb interfaces.RequestCallback) {
 	m.requestCallbacks.AddGeneral(cb)
 }
 
 // Adds a general callback to be used on auth requests. This will not be
 // preempted by any specific callback. It is recommended that the specific
 // callbacks are used, this is primarily for debugging.
-func (m *Manager) AddOverrideRequestCallback(cb RequestCallback) {
+func (m *Manager) AddOverrideRequestCallback(cb interfaces.RequestCallback) {
 	m.requestCallbacks.AddOverride(cb)
 }
 
 // Adds a specific callback to be used on auth requests. This will preempt a
 // general callback, meaning the request will be heard on this callback and not
 // the general. Request will still be heard on override callbacks.
-func (m *Manager) AddSpecificRequestCallback(id *id.ID, cb RequestCallback) {
+func (m *Manager) AddSpecificRequestCallback(id *id.ID, cb interfaces.RequestCallback) {
 	m.requestCallbacks.AddSpecific(id, cb)
 }
 
@@ -59,21 +59,21 @@ func (m *Manager) RemoveSpecificRequestCallback(id *id.ID) {
 
 // Adds a general callback to be used on auth confirms. This will be preempted
 // by any specific callback
-func (m *Manager) AddGeneralConfirmCallback(cb ConfirmCallback) {
+func (m *Manager) AddGeneralConfirmCallback(cb interfaces.ConfirmCallback) {
 	m.confirmCallbacks.AddGeneral(cb)
 }
 
 // Adds a general callback to be used on auth confirms. This will not be
 // preempted by any specific callback. It is recommended that the specific
 // callbacks are used, this is primarily for debugging.
-func (m *Manager) AddOverrideConfirmCallback(cb ConfirmCallback) {
+func (m *Manager) AddOverrideConfirmCallback(cb interfaces.ConfirmCallback) {
 	m.confirmCallbacks.AddOverride(cb)
 }
 
 // Adds a specific callback to be used on auth confirms. This will preempt a
 // general callback, meaning the request will be heard on this callback and not
 // the general. Request will still be heard on override callbacks.
-func (m *Manager) AddSpecificConfirmCallback(id *id.ID, cb ConfirmCallback) {
+func (m *Manager) AddSpecificConfirmCallback(id *id.ID, cb interfaces.ConfirmCallback) {
 	m.confirmCallbacks.AddSpecific(id, cb)
 }
 

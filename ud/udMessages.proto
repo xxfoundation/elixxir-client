@@ -30,24 +30,24 @@ message SearchSend {
   // PublicKey used in the registration
   repeated HashFact fact = 1;
   // ID of the session used to create this session
-  int32 commID = 2;
+  int64 commID = 2;
 }
 
 // Message sent from UDB to client in response to a search
 message SearchResponse {
   // ID of the session created
   repeated Contact contacts = 1;
-  int32 commID = 2;
+  int64 commID = 2;
 }
 
 // Message sent to UDB for looking up a user
 message LookupSend {
   repeated bytes userID = 1;
-  int32 commID = 2;
+  int64 commID = 2;
 }
 
 // Message sent from UDB for looking up a user
 message LookupResponse {
   repeated bytes pubKey = 1;
-  int32 commID = 2;
+  int64 commID = 2;
 }

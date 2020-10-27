@@ -1,3 +1,3 @@
 #!/bin/bash
 
-protoc --go_out=. xchange.proto
+protoc --go_out=. udMessages.proto

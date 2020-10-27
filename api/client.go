@@ -9,6 +9,7 @@ package api
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/user"
@@ -25,7 +26,6 @@ import (
 	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync"
 	"time"
 )
 
@@ -46,14 +46,12 @@ type Client struct {
 	network interfaces.NetworkManager
 	//object used to register and communicate with permissioning
 	permissioning *permissioning.Permissioning
+	//object containing auth interactions
+	auth *auth.Manager
 
 	//contains stopables for all running threads
 	runner *stoppable.Multi
 	status *statusTracker
-
-	// contains the sync once used to ensure authenticated channel callbacks are
-	// only registered once
-	authOnce sync.Once
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -224,6 +222,9 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 		return nil, err
 	}
 
+	//initilize the auth tracker
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
 	return c, nil
 }
 
@@ -256,6 +257,8 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 //		Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
+//   - Auth Callback (/auth/callback.go)
+//      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower() error {
 	jww.INFO.Printf("StartNetworkFollower()")
 
@@ -263,6 +266,9 @@ func (c *Client) StartNetworkFollower() error {
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
+
+	stopAuth := c.auth.StartProcessies()
+	c.runner.Add(stopAuth)
 
 	stopFollow, err := c.network.Follow()
 	if err != nil {

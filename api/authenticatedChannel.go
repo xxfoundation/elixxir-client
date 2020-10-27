@@ -4,6 +4,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/xx_network/primitives/id"
@@ -30,26 +31,12 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 		c.storage, c.network)
 }
 
-// RegisterAuthCallbacks registers both callbacks for authenticated channels.
-// This can only be called once
-func (c *Client) RegisterAuthCallbacks(request auth.RequestCallback,
-	confirm auth.ConfirmCallback) error {
-	jww.INFO.Printf("RegisterAuthCallbacks(...)")
+// GetAuthRegistrar gets the object which allows the registration of auth
+// callbacks
+func (c *Client) GetAuthRegistrar() interfaces.Auth {
+	jww.INFO.Printf("GetAuthRegistrar(...)")
 
-	exicuted := false
-
-	c.authOnce.Do(func() {
-		stop := auth.RegisterCallbacks(request, confirm, c.switchboard,
-			c.storage, c.network)
-		c.runner.Add(stop)
-		exicuted = true
-	})
-
-	if !exicuted {
-		return errors.New("Cannot register auth callbacks more than " +
-			"once")
-	}
-	return nil
+	return c.auth
 }
 
 // GetAuthenticatedChannelRequest returns the contact received in a request if

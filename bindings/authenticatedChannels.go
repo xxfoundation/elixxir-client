@@ -50,7 +50,7 @@ func (c *Client) RequestAuthenticatedChannel(recipientMarshaled,
 // RegisterAuthCallbacks registers both callbacks for authenticated channels.
 // This can only be called once
 func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
-	confirm AuthConfirmCallback) error {
+	confirm AuthConfirmCallback) {
 
 	requestFunc := func(requestor contact.Contact, message string) {
 		requestorBind := &Contact{c: &requestor}
@@ -62,7 +62,10 @@ func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
 		confirm.Callback(partnerBind)
 	}
 
-	return c.api.RegisterAuthCallbacks(requestFunc, confirmFunc)
+	c.api.GetAuthRegistrar().AddGeneralConfirmCallback(confirmFunc)
+	c.api.GetAuthRegistrar().AddGeneralRequestCallback(requestFunc)
+
+	return
 }
 
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid

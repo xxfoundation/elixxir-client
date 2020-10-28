@@ -67,14 +67,14 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 		//encrypt the message
 		salt := make([]byte, 32)
-		stream := m.Rng.GetStream()
-		_, err = stream.Read(salt)
-		stream.Close()
+		//stream := rand.New(rand.NewSource(42))
+		//_, err = stream.Read(salt)
+		//stream.Close()
 
-		if err != nil {
+		/*if err != nil {
 			return 0, errors.WithMessage(err, "Failed to generate "+
 				"salt, this should never happen")
-		}
+		}*/
 
 		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
 
@@ -87,11 +87,17 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			KMACs:    kmacs,
 		}
 
+		jww.INFO.Printf("PlainText Payload: %v", msg.Marshal())
+		jww.INFO.Printf("Encrypted Payload: %v", encMsg.Marshal())
+		jww.INFO.Printf("Transmission Packet: %+v", msgPacket)
+
 		//create the wrapper to the gateway
 		msg := &mixmessages.GatewaySlot{
 			Message: msgPacket,
 			RoundID: bestRound.ID,
 		}
+
+		jww.INFO.Printf("Gateway Slot: %+v", msgPacket)
 
 		//Add the mac proving ownership
 		msg.MAC = roundKeys.MakeClientGatewayKey(salt, network.GenerateSlotDigest(msg))

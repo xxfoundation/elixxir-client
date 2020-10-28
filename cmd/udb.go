@@ -7,26 +7,26 @@
 package cmd
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
-	"time"
+	//"time"
 )
 
 type callbackSearch struct{}
 
 func (cs callbackSearch) Callback(userID, pubKey []byte, err error) {
 	if err != nil {
-		globals.Log.INFO.Printf("UDB search failed: %v\n", err.Error())
+		jww.INFO.Printf("UDB search failed: %v\n", err.Error())
 	} else if len(pubKey) == 0 {
-		globals.Log.INFO.Printf("Public Key returned is empty\n")
+		jww.INFO.Printf("Public Key returned is empty\n")
 	} else {
 		userID, err := id.Unmarshal(userID)
 		if err != nil {
-			globals.Log.ERROR.Printf("Malformed user ID from successful UDB search: %v", err)
+			jww.ERROR.Printf("Malformed user ID from successful UDB search: %v", err)
 		}
-		globals.Log.INFO.Printf("UDB search successful. Returned user %v\n",
+		jww.INFO.Printf("UDB search successful. Returned user %v\n",
 			userID)
 	}
 }
@@ -38,7 +38,7 @@ func parseUdbMessage(msg string, client *api.Client) {
 	// Split the message on spaces
 	args := strings.Fields(msg)
 	if len(args) < 3 {
-		globals.Log.ERROR.Printf("UDB command must have at least three arguments!")
+		jww.ERROR.Printf("UDB command must have at least three arguments!")
 	}
 	// The first arg is the command
 	// the second is the valueType
@@ -46,10 +46,10 @@ func parseUdbMessage(msg string, client *api.Client) {
 	keyword := args[0]
 	// Case-insensitive match the keyword to a command
 	if strings.EqualFold(keyword, "SEARCH") {
-		client.SearchForUser(args[2], searchCallback, 2*time.Minute)
+		//client.SearchForUser(args[2], searchCallback, 2*time.Minute)
 	} else if strings.EqualFold(keyword, "REGISTER") {
-		globals.Log.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
+		jww.ERROR.Printf("UDB REGISTER not allowed, it is already done during user registration")
 	} else {
-		globals.Log.ERROR.Printf("UDB command not recognized!")
+		jww.ERROR.Printf("UDB command not recognized!")
 	}
 }

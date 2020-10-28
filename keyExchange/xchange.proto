@@ -1,0 +1,24 @@
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2018 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
+
+// Call ./generate.sh to generate the protocol buffer code
+
+syntax = "proto3";
+
+package parse;
+option go_package = "keyExchange";
+
+message RekeyTrigger {
+    // PublicKey used in the registration
+    bytes publicKey = 1;
+    // ID of the session used to create this session
+    bytes sessionID = 2;
+}
+
+message RekeyConfirm {
+    // ID of the session created
+    bytes sessionID = 1;
+}

@@ -7,477 +7,357 @@
 package bindings
 
 import (
-	"crypto/rand"
+	"encoding/json"
 	"errors"
-	"github.com/spf13/jwalterweatherman"
+	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/parse"
-	"gitlab.com/elixxir/crypto/csprng"
+	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/comms/mixmessages"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"io"
-	"math/big"
-	"strings"
 	"time"
 )
 
+// sets the log level
+func init() {
+	jww.SetLogThreshold(jww.LevelInfo)
+	jww.SetStdoutThreshold(jww.LevelInfo)
+}
+
+// BindingsClient wraps the api.Client, implementing additional functions
+// to support the gomobile Client interface
 type Client struct {
-	client         *api.Client
-	statusCallback ConnectionStatusCallback
+	api api.Client
 }
 
-// Returns listener handle as a string.
-// You can use it to delete the listener later.
-// Please ensure userId has the correct length (256 bits)
-// User IDs are informally big endian. If you want compatibility with the demo
-// user names, set the last byte and leave all other bytes zero for userId.
-// If you pass the zero user ID (256 bits of zeroes) to Listen() you will hear
-// messages sent from all users.
-// If you pass the zero type (just zero) to Listen() you will hear messages of
-// all types.
-func (cl *Client) Listen(userId []byte, messageType int32, newListener Listener) (string, error) {
-	typedUserId, err := id.Unmarshal(userId)
-	if err != nil {
-		return "", err
-	}
-
-	listener := &listenerProxy{proxy: newListener}
-
-	return cl.client.Listen(typedUserId, messageType, listener), nil
-}
-
-// Pass the listener handle that Listen() returned to delete the listener
-func (cl *Client) StopListening(listenerHandle string) {
-	cl.client.StopListening(listenerHandle)
-}
-
-func FormatTextMessage(message string) []byte {
-	return api.FormatTextMessage(message)
-}
-
-// Initializes the client by registering a storage mechanism and a reception
-// callback.
-// For the mobile interface, one must be provided
-// The loc can be empty, it is only necessary if the passed storage interface
-// requires it to be passed via "SetLocation"
+// NewClient creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information
+// at a later date.
 //
-// Parameters: storage implements Storage.
-// Implement this interface to store the user session data locally.
-// You must give us something for this parameter.
-//
-// loc is a string. If you're using DefaultStorage for your storage,
-// this would be the filename of the file that you're storing the user
-// session in.
-func NewClient(storage Storage, locA, locB string, ndfStr, ndfPubKey string) (*Client, error) {
-	globals.Log.INFO.Printf("Binding call: NewClient()")
-	if storage == nil {
-		return nil, errors.New("could not init client: Storage was nil")
-	}
-
-	ndf := api.VerifyNDF(ndfStr, ndfPubKey)
-
-	proxy := &storageProxy{boundStorage: storage}
-
-	cl, err := api.NewClient(globals.Storage(proxy), locA, locB, ndf)
-
-	return &Client{client: cl}, err
-}
-
-func NewClient_deprecated(storage Storage, locA, locB string, ndfStr, ndfPubKey string,
-	csc ConnectionStatusCallback) (*Client, error) {
-
-	return &Client{client: nil, statusCallback: csc}, nil
-}
-
-func (cl *Client) EnableDebugLogs() {
-	globals.Log.INFO.Printf("Binding call: EnableDebugLogs()")
-	globals.Log.SetStdoutThreshold(jwalterweatherman.LevelDebug)
-	globals.Log.SetLogThreshold(jwalterweatherman.LevelDebug)
-}
-
-// Connects to gateways and registration server (if needed)
-// using tls filepaths to create credential information
-// for connection establishment
-func (cl *Client) InitNetwork() error {
-	globals.Log.INFO.Printf("Binding call: InitNetwork()")
-	return cl.client.InitNetwork()
-}
-
-// Sets a callback which receives a strings describing the current status of
-// Registration or UDB Registration, or UDB Search
-func (cl *Client) SetOperationProgressCallback(rpcFace OperationProgressCallback) {
-	rpc := func(i int) {
-		rpcFace.Callback(i)
-	}
-	cl.client.SetOperationProgressCallback(rpc)
-}
-
-// Generate Keys generates the user identity for the network and stores it
-func (cl *Client) GenerateKeys(password string) error {
-
-	globals.Log.INFO.Printf("Binding call: GenerateKeys()\n" +
-		"  Password: ********")
-	return cl.client.GenerateKeys(nil, password)
-}
-
-// Registers user and returns the User ID bytes.
-// Returns null if registration fails and error
-// If preCan set to true, registration is attempted assuming a pre canned user
-// registrationCode is a one time use string
-// registrationAddr is the address of the registration server
-// gwAddressesList is CSV of gateway addresses
-// grp is the CMIX group needed for keys generation in JSON string format
-func (cl *Client) RegisterWithPermissioning(preCan bool, registrationCode string) ([]byte, error) {
-
-	globals.Log.INFO.Printf("Binding call: RegisterWithPermissioning()\n"+
-		"   preCan: %v\n   registrationCode: %s\n  "+
-		"   Password: ********", preCan, registrationCode)
-	UID, err := cl.client.RegisterWithPermissioning(preCan, registrationCode)
-
-	if err != nil {
-		return id.ZeroUser[:], err
-	}
-
-	return UID[:], nil
-}
-
-// Registers user with all nodes it has not been registered with.
-// Returns error if registration fails
-func (cl *Client) RegisterWithNodes() error {
-	globals.Log.INFO.Printf("Binding call: RegisterWithNodes()")
-	err := cl.client.RegisterWithNodes()
-	return err
-}
-
-// Register with UDB uses the account's email to register with the UDB for
-// User discovery.  Must be called after Register and InitNetwork.
-// It will fail if the user has already registered with UDB
-func (cl *Client) RegisterWithUDB(username string, timeoutMS int) error {
-	globals.Log.INFO.Printf("Binding call: RegisterWithUDB()\n")
-	return cl.client.RegisterWithUDB(username, time.Duration(timeoutMS)*time.Millisecond)
-}
-
-// Logs in the user based on User ID and returns the nickname of that user.
-// Returns an empty string and an error
-// UID is a uint64 BigEndian serialized into a byte slice
-func (cl *Client) Login(UID []byte, password string) ([]byte, error) {
-	globals.Log.INFO.Printf("Binding call: Login()\n"+
-		"   UID: %v\n   Password: ********", UID)
-
-	uid, err := cl.client.Login(password)
-
-	if uid == nil {
-		return make([]byte, 0), err
-	}
-
-	return (*uid)[:], err
-}
-
-func (cl *Client) GetUsername() string {
-	globals.Log.INFO.Printf("Binding call: GetUsername()")
-
-	return cl.client.GetSession().GetCurrentUser().Username
-}
-
-func (cl *Client) GetUserID() []byte {
-	globals.Log.INFO.Printf("Binding call: GetUserID()")
-
-	return cl.client.GetSession().GetCurrentUser().User[:]
-}
-
-type MessageReceiverCallback interface {
-	Callback(err error)
-}
-
-// Starts the polling of the external servers.
-// Must be done after listeners are set up.
-func (cl *Client) StartMessageReceiver(mrc MessageReceiverCallback) error {
-	globals.Log.INFO.Printf("Binding call: StartMessageReceiver()")
-	return cl.client.StartMessageReceiver(mrc.Callback)
-}
-
-func (cl *Client) StartMessageReceiver_deprecated() error {
-	receiverCallback := func(err error) {
-		cl.backoff(0)
-	}
-
-	err := cl.client.StartMessageReceiver(receiverCallback)
-	if err != nil {
-		return err
+// Users of this function should delete the storage directory on error.
+func NewClient(network, storageDir string, password []byte, regCode string) error {
+	if err := api.NewClient(network, storageDir, password, regCode); err != nil {
+		return errors.New(fmt.Sprintf("Failed to create new client: %+v",
+			err))
 	}
 	return nil
 }
 
-func (cl *Client) backoff(backoffCount int) {
-	receiverCallback := func(err error) {
-		cl.backoff(backoffCount + 1)
+// NewPrecannedClient creates an insecure user with predetermined keys with nodes
+// It creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information
+// at a later date.
+//
+// Users of this function should delete the storage directory on error.
+func NewPrecannedClient(precannedID int, network, storageDir string, password []byte) error {
+	if precannedID < 0 {
+		return errors.New("Cannot create precanned client with negative ID")
 	}
 
-	// Compute backoff time
-	var delay time.Duration
-	var block = false
-	if backoffCount > 15 {
-		delay = time.Hour
-		block = true
+	if err := api.NewPrecannedClient(uint(precannedID), network, storageDir, password); err != nil {
+		return errors.New(fmt.Sprintf("Failed to create new precanned "+
+			"client: %+v", err))
 	}
-	wait := 2 ^ backoffCount
-	if wait > 180 {
-		wait = 180
-	}
-	jitter, _ := rand.Int(csprng.NewSystemRNG(), big.NewInt(1000))
-	delay = time.Second*time.Duration(wait) + time.Millisecond*time.Duration(jitter.Int64())
-
-	cl.statusCallback.Callback(0, int(delay.Seconds()))
-
-	// Start timer, or stop if max attempts reached
-	timer := time.NewTimer(delay)
-	if block {
-		timer.Stop()
-	}
-
-	select {
-	case <-timer.C:
-		backoffCount = 0
-	}
-
-	// attempt to start the message receiver
-	cl.statusCallback.Callback(1, 0)
-	err := cl.client.StartMessageReceiver(receiverCallback)
-	if err != nil {
-		cl.statusCallback.Callback(0, 0)
-	}
-	cl.statusCallback.Callback(2, 0)
-}
-
-// Overwrites the username in registration. Only succeeds if the client
-// has registered with permissioning but not UDB
-func (cl *Client) ChangeUsername(un string) error {
-	globals.Log.INFO.Printf("Binding call: ChangeUsername()\n"+
-		"   username: %s", un)
-	return cl.client.GetSession().ChangeUsername(un)
-}
-
-// gets the curent registration status.  they cane be:
-//  0 - NotStarted
-//	1 - PermissioningComplete
-//	2 - UDBComplete
-func (cl *Client) GetRegState() int64 {
-	globals.Log.INFO.Printf("Binding call: GetRegState()")
-	return int64(cl.client.GetSession().GetRegState())
-}
-
-// Registers user with all nodes it has not been registered with.
-// Returns error if registration fails
-func (cl *Client) StorageIsEmpty() bool {
-	globals.Log.INFO.Printf("Binding call: StorageIsEmpty()")
-	return cl.client.GetSession().StorageIsEmpty()
-}
-
-// Sends a message structured via the message interface
-// Automatically serializes the message type before the rest of the payload
-// Returns an error if either sender or recipient are too short
-// the encrypt bool tell the client if it should send and e2e encrypted message
-// or not.  If true, and there is no keying relationship with the user specified
-// in the message object, then it will return an error.  If using precanned
-// users encryption must be set to false.
-func (cl *Client) Send(m Message, encrypt bool) (int64, error) {
-	globals.Log.INFO.Printf("Binding call: Send()\n"+
-		"Sender: %v\n"+
-		"Payload: %v\n"+
-		"Recipient: %v\n"+
-		"MessageTye: %v", m.GetSender(), m.GetPayload(),
-		m.GetRecipient(), m.GetMessageType())
-
-	sender, err := id.Unmarshal(m.GetSender())
-	if err != nil {
-		return 0, err
-	}
-	recipient, err := id.Unmarshal(m.GetRecipient())
-	if err != nil {
-		return 0, err
-	}
-
-	var cryptoType parse.CryptoType
-	if encrypt {
-		cryptoType = parse.E2E
-	} else {
-		cryptoType = parse.Unencrypted
-	}
-
-	return time.Now().UnixNano(), cl.client.Send(&parse.Message{
-		TypedBody: parse.TypedBody{
-			MessageType: m.GetMessageType(),
-			Body:        m.GetPayload(),
-		},
-		InferredType: cryptoType,
-		Sender:       sender,
-		Receiver:     recipient,
-	})
-}
-
-//a version of the send function which does not return a timestamp for use
-//on iOS
-func (cl *Client) SendNoTimestamp(m Message, encrypt bool) error {
-	_, err := cl.Send(m, encrypt)
-	return err
-}
-
-// Logs the user out, saving the state for the system and clearing all data
-// from RAM
-func (cl *Client) Logout() error {
-	globals.Log.INFO.Printf("Binding call: Logout()\n")
-	return cl.client.Logout(500 * time.Millisecond)
-}
-
-// Get the version string from the locally built client repository
-func GetLocalVersion() string {
-	globals.Log.INFO.Printf("Binding call: GetLocalVersion()\n")
-	return api.GetLocalVersion()
-}
-
-// Get the version string from the registration server
-// You need to connect to gateways for this to be populated.
-// For the client to function, the local version must be compatible with this
-// version. If that's not the case, check out the git tag corresponding to the
-// client release version returned here.
-func (cl *Client) GetRemoteVersion() string {
-	globals.Log.INFO.Printf("Binding call: GetRemoteVersion()\n")
-	return cl.GetRemoteVersion()
-}
-
-// Turns off blocking transmission so multiple messages can be sent
-// simultaneously
-func (cl *Client) DisableBlockingTransmission() {
-	globals.Log.INFO.Printf("Binding call: DisableBlockingTransmission()\n")
-	cl.client.DisableBlockingTransmission()
-}
-
-// Sets the minimum amount of time, in ms, between message transmissions
-// Just for testing, probably to be removed in production
-func (cl *Client) SetRateLimiting(limit int) {
-	globals.Log.INFO.Printf("Binding call: SetRateLimiting()\n"+
-		"   limit: %v", limit)
-	cl.client.SetRateLimiting(uint32(limit))
-}
-
-// SearchForUser searches for the user with the passed username.
-// returns state on the search callback.  A timeout in ms is required.
-// A recommended timeout is 2 minutes or 120000
-func (cl *Client) SearchForUser(username string,
-	cb SearchCallback, timeoutMS int) {
-
-	globals.Log.INFO.Printf("Binding call: SearchForUser()\n"+
-		"   username: %v\n"+
-		"   timeout: %v\n", username, timeoutMS)
-
-	proxy := &searchCallbackProxy{cb}
-	cl.client.SearchForUser(username, proxy, time.Duration(timeoutMS)*time.Millisecond)
-}
-
-// DeleteContact deletes the contact at the given userID.  returns the emails
-// of that contact if possible
-func (cl *Client) DeleteContact(uid []byte) (string, error) {
-	globals.Log.INFO.Printf("Binding call: DeleteContact()\n"+
-		"   uid: %v\n", uid)
-	u, err := id.Unmarshal(uid)
-	if err != nil {
-		return "", err
-	}
-
-	return cl.client.DeleteUser(u)
-}
-
-// Nickname lookup API
-// Non-blocking, once the API call completes, the callback function
-// passed as argument is called
-func (cl *Client) LookupNick(user []byte,
-	cb NickLookupCallback) error {
-	proxy := &nickCallbackProxy{cb}
-	userID, err := id.Unmarshal(user)
-	if err != nil {
-		return err
-	}
-	cl.client.LookupNick(userID, proxy)
 	return nil
 }
 
-// Parses a passed message.  Allows a message to be parsed using the internal parser
-// across the Bindings
-func ParseMessage(message []byte) (Message, error) {
-	return api.ParseMessage(message)
-}
-
-func (s *storageProxy) SetLocation(locationA, locationB string) error {
-	return s.boundStorage.SetLocation(locationA, locationB)
-}
-
-func (s *storageProxy) GetLocation() (string, string) {
-	locsStr := s.boundStorage.GetLocation()
-	locs := strings.Split(locsStr, ",")
-
-	if len(locs) == 2 {
-		return locs[0], locs[1]
-	} else {
-		return locsStr, locsStr + "-2"
+// Login will load an existing client from the storageDir
+// using the password. This will fail if the client doesn't exist or
+// the password is incorrect.
+// The password is passed as a byte array so that it can be cleared from
+// memory and stored as securely as possible using the memguard library.
+// Login does not block on network connection, and instead loads and
+// starts subprocesses to perform network operations.
+func Login(storageDir string, password []byte) (*Client, error) {
+	client, err := api.Login(storageDir, password)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
+	return &Client{*client}, nil
 }
 
-func (s *storageProxy) SaveA(data []byte) error {
-	return s.boundStorage.SaveA(data)
+// sets level of logging. All logs the set level and above will be displayed
+// options are:
+//	TRACE		- 0
+//	DEBUG		- 1
+//	INFO 		- 2
+//	WARN		- 3
+//	ERROR		- 4
+//	CRITICAL	- 5
+//	FATAL		- 6
+// The default state without updates is: INFO
+func LogLevel(level int) error {
+	if level < 0 || level > 6 {
+		return errors.New(fmt.Sprintf("log level is not valid: log level: %d", level))
+	}
+
+	threshold := jww.Threshold(level)
+	jww.SetLogThreshold(threshold)
+	jww.SetStdoutThreshold(threshold)
+
+	switch threshold {
+	case jww.LevelTrace:
+		fallthrough
+	case jww.LevelDebug:
+		fallthrough
+	case jww.LevelInfo:
+		jww.INFO.Printf("Log level set to: %s", threshold)
+	case jww.LevelWarn:
+		jww.WARN.Printf("Log level set to: %s", threshold)
+	case jww.LevelError:
+		jww.ERROR.Printf("Log level set to: %s", threshold)
+	case jww.LevelCritical:
+		jww.CRITICAL.Printf("Log level set to: %s", threshold)
+	case jww.LevelFatal:
+		jww.FATAL.Printf("Log level set to: %s", threshold)
+	}
+
+	return nil
 }
 
-func (s *storageProxy) LoadA() []byte {
-	return s.boundStorage.LoadA()
+
+
+
+//Unmarshals a marshaled contact object, returns an error if it fails
+func UnmarshalContact(b []byte) (*Contact, error) {
+	c, err := contact.Unmarshal(b)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Unmarshal "+
+			"Contact: %+v", err))
+	}
+	return &Contact{c: &c}, nil
 }
 
-func (s *storageProxy) SaveB(data []byte) error {
-	return s.boundStorage.SaveB(data)
+//Unmarshals a marshaled send report object, returns an error if it fails
+func UnmarshalSendReport(b []byte) (*SendReport, error) {
+	sr := &SendReport{}
+	if err := json.Unmarshal(b, sr); err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to Unmarshal "+
+			"Send Report: %+v", err))
+	}
+	return sr, nil
 }
 
-func (s *storageProxy) LoadB() []byte {
-	return s.boundStorage.LoadB()
+// StartNetworkFollower kicks off the tracking of the network. It starts
+// long running network client threads and returns an object for checking
+// state and stopping those threads.
+// Call this when returning from sleep and close when going back to
+// sleep.
+// These threads may become a significant drain on battery when offline, ensure
+// they are stopped if there is no internet access
+// Threads Started:
+//   - Network Follower (/network/follow.go)
+//   	tracks the network events and hands them off to workers for handling
+//   - Historical Round Retrieval (/network/rounds/historical.go)
+//		Retrieves data about rounds which are too old to be stored by the client
+//	 - Message Retrieval Worker Group (/network/rounds/retrieve.go)
+//		Requests all messages in a given round from the gateway of the last node
+//	 - Message Handling Worker Group (/network/message/handle.go)
+//		Decrypts and partitions messages when signals via the Switchboard
+//	 - Health Tracker (/network/health)
+//		Via the network instance tracks the state of the network
+//	 - Garbled Messages (/network/message/garbled.go)
+//		Can be signaled to check all recent messages which could be be decoded
+//		Uses a message store on disk for persistence
+//	 - Critical Messages (/network/message/critical.go)
+//		Ensures all protocol layer mandatory messages are sent
+//		Uses a message store on disk for persistence
+//	 - KeyExchange Trigger (/keyExchange/trigger.go)
+//		Responds to sent rekeys and executes them
+//   - KeyExchange Confirm (/keyExchange/confirm.go)
+//		Responds to confirmations of successful rekey operations
+func (c *Client) StartNetworkFollower() error {
+	if err := c.api.StartNetworkFollower(); err != nil {
+		return errors.New(fmt.Sprintf("Failed to start the "+
+			"network follower: %+v", err))
+	}
+	return nil
 }
 
-func (s *storageProxy) IsEmpty() bool {
-	return s.boundStorage.IsEmpty()
+// StopNetworkFollower stops the network follower if it is running.
+// It returns errors if the Follower is in the wrong status to stop or if it
+// fails to stop it.
+// if the network follower is running and this fails, the client object will
+// most likely be in an unrecoverable state and need to be trashed.
+func (c *Client) StopNetworkFollower(timeoutMS int) error {
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	if err := c.api.StopNetworkFollower(timeout); err != nil {
+		return errors.New(fmt.Sprintf("Failed to stop the "+
+			"network follower: %+v", err))
+	}
+	return nil
 }
 
-type Writer interface{ io.Writer }
-
-func SetLogOutput(w Writer) {
-	api.SetLogOutput(w)
+// Gets the state of the network follower. Returns:
+// Stopped 	- 0
+// Starting - 1000
+// Running	- 2000
+// Stopping	- 3000
+func (c *Client) NetworkFollowerStatus() int {
+	return int(c.api.NetworkFollowerStatus())
 }
 
-// Call this to get the session data without getting Save called from the Go side
-func (cl *Client) GetSessionData() ([]byte, error) {
-	return cl.client.GetSessionData()
+// returns true if the network is read to be in a healthy state where
+// messages can be sent
+func (c *Client) IsNetworkHealthy() bool {
+	return c.api.GetHealth().IsHealthy()
 }
 
-//LoadEncryptedSession: Spits out the encrypted session file in text
-func (cl *Client) LoadEncryptedSession() (string, error) {
-	globals.Log.INFO.Printf("Binding call: LoadEncryptedSession()")
-	return cl.client.LoadEncryptedSession()
+// registers the network health callback to be called any time the network
+// health changes
+func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
+	c.api.GetHealth().AddFunc(nhc.Callback)
 }
 
-//WriteToSession: Writes to file the replacement string
-func (cl *Client) WriteToSession(replacement string, storage globals.Storage) error {
-	globals.Log.INFO.Printf("Binding call: WriteToSession")
-	return cl.client.WriteToSessionFile(replacement, storage)
+// RegisterListener records and installs a listener for messages
+// matching specific uid, msgType, and/or username
+// Returns a ListenerUnregister interface which can be
+//
+// to register for any userID, pass in an id with length 0 or an id with
+// all zeroes
+//
+// to register for any message type, pass in a message type of 0
+//
+// Message Types can be found in client/interfaces/message/type.go
+// Make sure to not conflict with ANY default message types
+func (c *Client) RegisterListener(uid []byte, msgType int,
+	listener Listener) (*Unregister, error) {
+
+	name := listener.Name()
+
+	var u *id.ID
+	if len(uid) == 0 {
+		u = &id.ID{}
+	} else {
+		var err error
+		u, err = id.Unmarshal(uid)
+		if err != nil {
+			return nil, errors.New(fmt.Sprintf("Failed to "+
+				"ResgisterListener: %+v", err))
+		}
+	}
+
+	mt := message.Type(msgType)
+
+	f := func(item message.Receive) {
+		listener.Hear(item)
+	}
+
+	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)
+
+	return newListenerUnregister(lid, c.api.GetSwitchboard()), nil
 }
 
-func (cl *Client) InitListeners() error {
-	globals.Log.INFO.Printf("Binding call: InitListeners")
-	return cl.client.InitListeners()
+// RegisterRoundEventsHandler registers a callback interface for round
+// events.
+// The rid is the round the event attaches to
+// The timeoutMS is the number of milliseconds until the event fails, and the
+// validStates are a list of states (one per byte) on which the event gets
+// triggered
+// States:
+//  0x00 - PENDING (Never seen by client)
+//  0x01 - PRECOMPUTING
+//  0x02 - STANDBY
+//  0x03 - QUEUED
+//  0x04 - REALTIME
+//  0x05 - COMPLETED
+//  0x06 - FAILED
+// These states are defined in elixxir/primitives/states/state.go
+func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
+	timeoutMS int, il *IntList) *Unregister {
+
+	rcb := func(ri *mixmessages.RoundInfo, timedOut bool) {
+		cb.EventCallback(int(ri.ID), int(ri.State), timedOut)
+	}
+
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+
+	vStates := make([]states.Round, len(il.lst))
+	for i, s := range il.lst {
+		vStates[i] = states.Round(s)
+	}
+
+	roundID := id.Round(rid)
+
+	ec := c.api.GetRoundEvents().AddRoundEvent(roundID, rcb, timeout)
+
+	return newRoundUnregister(roundID, ec, c.api.GetRoundEvents())
 }
 
-// RegisterForNotifications sends a message to notification bot indicating it
-// is registering for notifications
-func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
-	return cl.client.RegisterForNotifications(notificationToken)
+// RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
+// message was sent in sucesfully completed. Under the hood, this uses the same
+// interface as RegisterRoundEventsHandler, but provides a convienet way to use
+// the interface in its most common form, looking up the result of message
+// retreval
+//
+// The callbacks will return at timeoutMS if no state update occurs
+//
+// This function takes the marshaled send report to ensure a memory leak does
+// not occur as a result of both sides of the bindings holding a refrence to
+// the same pointer.
+func (c *Client) RegisterMessageDeliveryCB(marshaledSendReport []byte,
+	mdc MessageDeliveryCallback, timeoutMS int) (*Unregister, error) {
+
+	sr, err := UnmarshalSendReport(marshaledSendReport)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to "+
+			"RegisterMessageDeliveryCB: %+v", err))
+	}
+
+	/*check message delivery*/
+	sendResults := make(chan ds.EventReturn, len(sr.rl.list))
+	roundEvents := c.api.GetRoundEvents()
+
+	reventObjs := make([]*ds.EventCallback, len(sr.rl.list))
+
+	for i, r := range sr.rl.list {
+		reventObjs[i] = roundEvents.AddRoundEventChan(r, sendResults,
+			time.Duration(timeoutMS)*time.Millisecond, states.COMPLETED,
+			states.FAILED)
+	}
+
+	go func() {
+		success, _, numTmeout := utility.TrackResults(sendResults, len(sr.rl.list))
+		if !success {
+			mdc.EventCallback(sr.mid[:], false, numTmeout > 0)
+		} else {
+			mdc.EventCallback(sr.mid[:], true, false)
+		}
+	}()
+
+	return newRoundListUnregister(sr.rl.list, reventObjs, roundEvents), nil
 }
 
-// UnregisterForNotifications sends a message to notification bot indicating it
-// no longer wants to be registered for notifications
-func (cl *Client) UnregisterForNotifications() error {
-	return cl.client.UnregisterForNotifications()
+// Returns a user object from which all information about the current user
+// can be gleaned
+func (c *Client) GetUser() *User {
+	u := c.api.GetUser()
+	return &User{u: &u}
 }
+
+/*
+// SearchWithHandler is a non-blocking search that also registers
+// a callback interface for user disovery events.
+func (c *Client) SearchWithHandler(data, separator string,
+	searchTypes []byte, hdlr UserDiscoveryHandler) {
+}
+
+
+// RegisterAuthEventsHandler registers a callback interface for channel
+// authentication events.
+func (b *BindingsClient) RegisterAuthEventsHandler(hdlr AuthEventHandler) {
+}
+
+// Search accepts a "separator" separated list of search elements with
+// an associated list of searchTypes. It returns a ContactList which
+// allows you to iterate over the found contact objects.
+func (b *BindingsClient) Search(data, separator string,
+	searchTypes []byte) ContactList {
+	return nil
+}*/

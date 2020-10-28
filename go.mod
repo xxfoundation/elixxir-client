@@ -25,6 +25,7 @@ require (
 	gitlab.com/xx_network/comms v0.0.1
 	gitlab.com/xx_network/crypto v0.0.1
 	gitlab.com/xx_network/primitives v0.0.1
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
 	google.golang.org/genproto v0.0.0-20200709005830-7a2ca40e9dc3 // indirect
 	google.golang.org/protobuf v1.25.0

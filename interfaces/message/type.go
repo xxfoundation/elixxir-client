@@ -19,7 +19,7 @@ const (
 	//General text message, contains human readable text
 	Text Type = 2
 
-	/*UD message types*/
+	/*User Discovery message types*/
 	//Message structures defined in the UD package
 
 	// A search for users based on facts.  A series of hashed facts are passed

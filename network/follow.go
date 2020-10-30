@@ -24,9 +24,9 @@ package network
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	//"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/crypto/csprng"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
 
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"

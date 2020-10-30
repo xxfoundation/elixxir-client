@@ -3,10 +3,10 @@ package e2e
 import (
 	"errors"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/csprng"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"

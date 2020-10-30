@@ -6,7 +6,7 @@ import (
 	//"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	//"gitlab.com/elixxir/comms/network"
-	//"gitlab.com/elixxir/crypto/csprng"
+	//"gitlab.com/xx_network/crypto/csprng"
 	//"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	//"gitlab.com/xx_network/crypto/signature/rsa"

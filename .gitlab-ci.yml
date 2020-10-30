@@ -22,6 +22,11 @@ before_script:
   - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
   - export PATH=$HOME/go/bin:$PATH
   - export GOPRIVATE=gitlab.com/elixxir/*,gitlab.com/xx_network/*
+  # Clear out old locally-cached tags
+  - git tag -l | xargs git tag -d
+  - git fetch --tags
+  # Uncomment below to set GOPATH to where it is downloaded
+  - 
 
 
 stages:

@@ -3,8 +3,8 @@ package utility
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"gitlab.com/elixxir/crypto/large"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/crypto/large"
 	"testing"
 )
 

@@ -1,8 +1,6 @@
 package cmix
 
 import (
-	"crypto/sha256"
-	"crypto/sha512"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cmix"
 	"gitlab.com/elixxir/crypto/cyclic"

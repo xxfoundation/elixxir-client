@@ -30,6 +30,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
 		elapsed := time.Now().Sub(timeStart)
+		jww.DEBUG.Printf("SendCMIX Send Attempt %d", numRoundTries+1)
 		if elapsed > param.Timeout {
 			return 0, errors.New("Sending cmix message timed out")
 		}

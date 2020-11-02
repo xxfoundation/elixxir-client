@@ -246,7 +246,7 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 	mt := message.Type(msgType)
 
 	f := func(item message.Receive) {
-		listener.Hear(item)
+		listener.Hear(&Message{r:item})
 	}
 
 	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)

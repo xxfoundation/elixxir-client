@@ -13,7 +13,7 @@ import (
 // time.
 type Listener interface {
 	// Hear is called to receive a message in the UI
-	Hear(message Message)
+	Hear(message *Message)
 	// Returns a name, used for debugging
 	Name() string
 }

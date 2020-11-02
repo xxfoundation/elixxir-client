@@ -35,7 +35,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			return 0, errors.New("Sending cmix message timed out")
 		}
 		remainingTime := param.Timeout - elapsed
-		jww.DEBUG.Printf("SendCMIX GetUpcommingRealtime")
+		jww.TRACE.Printf("SendCMIX GetUpcommingRealtime")
 		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
 
@@ -46,7 +46,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			continue
 		}
 		topology := connect.NewCircuit(idList)
-		jww.DEBUG.Printf("SendCMIX GetRoundKeys")
+		jww.TRACE.Printf("SendCMIX GetRoundKeys")
 		//get they keys for the round, reject if any nodes do not have
 		//keying relationships
 		roundKeys, missingKeys := m.Session.Cmix().GetRoundKeys(topology)
@@ -59,7 +59,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		//get the gateway to transmit to
 		firstGateway := topology.GetNodeAtIndex(0).DeepCopy()
 		firstGateway.SetType(id.Gateway)
-		jww.DEBUG.Printf("SendCMIX GetHost")
+
 		transmitGateway, ok := m.Comms.GetHost(firstGateway)
 		if !ok {
 			jww.ERROR.Printf("Failed to get host for gateway %s", transmitGateway)
@@ -77,7 +77,6 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			return 0, errors.WithMessage(err, "Failed to generate "+
 				"salt, this should never happen")
 		}
-		jww.DEBUG.Printf("SendCMIX Encrypt")
 		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
 
 		//build the message payload
@@ -94,7 +93,6 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			Message: msgPacket,
 			RoundID: bestRound.ID,
 		}
-		jww.DEBUG.Printf("SendCMIX MakeClientGatewayKey")
 		//Add the mac proving ownership
 		msg.MAC = roundKeys.MakeClientGatewayKey(salt, network.GenerateSlotDigest(msg))
 

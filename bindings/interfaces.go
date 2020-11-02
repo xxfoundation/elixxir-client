@@ -175,7 +175,7 @@ type AuthEventHandler interface {
 // UserDiscoveryHandler handles search results against the user discovery agent.
 type UserDiscoveryHandler interface {
 	HandleSearchResults(results ContactList)
-}*/
+}
 
 
 // Message is a message received from the cMix network in the clear
@@ -198,4 +198,4 @@ type Message interface {
 	GetTimestampMS() int
 	// Returns the message's timestamp in ns since unix epoc
 	GetTimestampNano() int
-}
+}*/

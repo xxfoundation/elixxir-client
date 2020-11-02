@@ -59,6 +59,7 @@ type Client struct {
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
 func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
+	jww.INFO.Printf("NewClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -103,6 +104,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
 func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) error {
+	jww.INFO.Printf("NewPrecannedClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
@@ -141,6 +143,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 // Login initalizes a client object from existing storage.
 func Login(storageDir string, password []byte) (*Client, error) {
+	jww.INFO.Printf("Login()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
 		csprng.NewSystemRNG)

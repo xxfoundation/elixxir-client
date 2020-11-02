@@ -228,6 +228,8 @@ func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
 // Make sure to not conflict with ANY default message types
 func (c *Client) RegisterListener(uid []byte, msgType int,
 	listener Listener) (*Unregister, error) {
+	jww.INFO.Printf("RegisterListener(%v, %d)", uid,
+		msgType)
 
 	name := listener.Name()
 

@@ -24,7 +24,7 @@ func GetDefaultNetwork() Network {
 		TrackNetworkPeriod:   100 * time.Millisecond,
 		MaxCheckedRounds:     500,
 		RegNodesBufferLen:    500,
-		NetworkHealthTimeout: 15 * time.Second,
+		NetworkHealthTimeout: 30 * time.Second,
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

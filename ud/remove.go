@@ -10,7 +10,7 @@ import (
 
 
 type removeFactComms interface{
-	SendDeleteMessage(host *connect.Host, message *messages.AuthenticatedMessage)
+	SendDeleteMessage(host *connect.Host, message *messages.AuthenticatedMessage)(*messages.Ack, error)
 }
 
 func (m *Manager)RemoveFact(fact contact.Fact)error{

@@ -20,7 +20,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 )
 
-const eol = string(0x0a)
+const terminator = ";"
 
 func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) error {
@@ -46,8 +46,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	}
 
 	// check that the message is properly formed
-	if strings.Contains(message, eol) {
-		return errors.Errorf("Message cannot contain 'EOL'")
+	if strings.Contains(message, terminator) {
+		return errors.Errorf("Message cannot contain '%s'", terminator)
 	}
 
 	//lookup if an ongoing request is occurring
@@ -76,7 +76,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	//check the payload fits
 	facts := me.Facts.Stringify()
-	msgPayload := facts + message + eol
+	msgPayload := facts + message + terminator
 	msgPayloadBytes := []byte(msgPayload)
 
 	if len(msgPayloadBytes) > requestFmt.MsgPayloadLen() {

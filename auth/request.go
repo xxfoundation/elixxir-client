@@ -1,8 +1,8 @@
 package auth
 
 import (
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
@@ -17,7 +18,6 @@ import (
 	"io"
 	"strings"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 const eol = string(0x0a)
@@ -47,7 +47,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	// check that the message is properly formed
 	if strings.Contains(message, eol) {
-		return errors.Errorf("Message cannot contain 'EOL'")
+		return errors.Errorf("Message cannot contain 'EOL': %v, %s",
+			[]byte(message), message)
 	}
 
 	//lookup if an ongoing request is occurring

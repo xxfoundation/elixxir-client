@@ -351,7 +351,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		recipientContact = recipient
 	}
 
-	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
+	msg := fmt.Sprintf("Adding authenticated channel for: %s",
 		recipientID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)

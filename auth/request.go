@@ -53,15 +53,19 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	//lookup if an ongoing request is occurring
 	rqType, _, _, err := storage.Auth().GetRequest(partner.ID)
-	if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
-		return errors.WithMessage(err, "Error on lookup of potential "+
-			"existing request")
-	} else if rqType == auth.Receive {
-		return errors.WithMessage(err, "Cannot send a request after"+
-			"receiving a request")
-	} else if rqType == auth.Sent {
-		return errors.WithMessage(err, "Cannot send a request after"+
-			"already sending one")
+	if err != nil && strings.Contains(err.Error(), auth.NoRequest) {
+		err = nil
+	}
+	if err != nil {
+		if rqType == auth.Receive {
+			return errors.WithMessage(err,
+				"Cannot send a request after "+
+					"receiving a request")
+		} else if rqType == auth.Sent {
+			return errors.WithMessage(err,
+				"Cannot send a request after "+
+					"already sending one")
+		}
 	}
 
 	grp := storage.E2e().GetGroup()

@@ -16,6 +16,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
@@ -145,6 +146,23 @@ var rootCmd = &cobra.Command{
 			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
+		// Set up auth request handler, which simply prints the
+		// user id of the requestor.
+		authMgr := client.GetAuthRegistrar()
+		authMgr.AddGeneralRequestCallback(printChanRequest)
+
+		// If unsafe channels, add auto-acceptor
+		if viper.GetBool("unsafe-channel-creation") {
+			authMgr.AddGeneralRequestCallback(func(
+				requestor contact.Contact, message string) {
+				err := client.ConfirmAuthenticatedChannel(
+					requestor)
+				if err != nil {
+					jww.FATAL.Panicf("%+v", err)
+				}
+			})
+		}
+
 		err = client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -159,17 +177,33 @@ var rootCmd = &cobra.Command{
 		msgBody := viper.GetString("message")
 		recipientID, isPrecanPartner := parseRecipient(
 			viper.GetString("destid"))
-		// Send unsafe messages or not?
-		unsafe := viper.GetBool("unsafe")
-
-		if !unsafe {
-			addAuthenticatedChannel(client, recipientID,
-				isPrecanPartner)
-		}
 
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
 			recipientID = user.ID
+		}
+
+		// Accept auth requests then exit
+		acceptChan := viper.GetString("accept-channel")
+		if acceptChan != "" {
+			recipientContact, err := (client.GetAuthenticatedChannelRequest(
+				recipientID))
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			err = client.ConfirmAuthenticatedChannel(
+				recipientContact)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			return
+		}
+
+		// Send unsafe messages or not?
+		unsafe := viper.GetBool("unsafe")
+		if !unsafe {
+			addAuthenticatedChannel(client, recipientID,
+				isPrecanPartner)
 		}
 
 		msg := message.Send{
@@ -226,6 +260,16 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+func printChanRequest(requestor contact.Contact, message string) {
+	msg := fmt.Sprintf("Authentication channel request from: %s\n",
+		requestor.ID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+	msg = fmt.Sprintf("Authentication channel request message: %s", message)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+}
+
 func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	isPrecanPartner bool) {
 	if client.HasAuthenticatedChannel(recipientID) {
@@ -245,6 +289,18 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	}
 	if !allowed {
 		jww.FATAL.Panicf("User did not allow channel creation!")
+	}
+
+	recipientContact, err := client.GetAuthenticatedChannelRequest(
+		recipientID)
+	if err == nil {
+		jww.INFO.Printf("Accepting existing channel request for %s",
+			recipientID)
+		err := client.ConfirmAuthenticatedChannel(recipientContact)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		return
 	}
 
 	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
@@ -270,7 +326,24 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 			}
 		}
 	} else {
-		jww.FATAL.Panicf("e2e unimplemented")
+		me := client.GetUser().GetContact()
+		// Look up contact object via UDB
+		data := fmt.Sprintf("%s", recipientID)
+		separator := ","
+		searchTypes := []byte("UID")
+		foundUsers := client.Search(data, separator, searchTypes)
+		if len(foundUsers) == 0 {
+			jww.FATAL.Panicf("No users found for %s", recipientID)
+		}
+		msg := fmt.Sprintf("%s requesting auth channel", me.ID)
+		for _, them := range foundUsers {
+			jww.INFO.Printf("Requesting auth channel from: %s",
+				recipientID)
+			err := client.RequestAuthenticatedChannel(them, me, msg)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+		}
 	}
 }
 
@@ -510,10 +583,14 @@ func init() {
 
 	rootCmd.Flags().BoolP("unsafe-channel-creation", "", false,
 		"Turns off the user identity authenticated channel check, "+
-			"which prompts the user to answer yes or no "+
-			"to approve authenticated channels")
+			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+
+	rootCmd.Flags().StringP("accept-channel", "", "",
+		"Accept the specified channel request")
+	viper.BindPFlag("accept-channel",
+		rootCmd.Flags().Lookup("accept-channel"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

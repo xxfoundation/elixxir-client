@@ -23,7 +23,7 @@ type User struct {
 	E2eDhPublicKey  *cyclic.Int
 }
 
-func (u *User) GetContact() contact.Contact {
+func (u User) GetContact() contact.Contact {
 	return contact.Contact{
 		ID:       u.ID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,

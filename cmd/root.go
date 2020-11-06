@@ -137,13 +137,8 @@ var rootCmd = &cobra.Command{
 		}
 
 		user := client.GetUser()
-		contactBytes, _ := user.GetContact().Marshal()
 		jww.INFO.Printf("User: %s", user.ID)
-
-		jww.INFO.Printf("Contact User Bytes: %s", contactBytes)
-
-		jww.INFO.Printf("My User Contact: %s",
-			base64.StdEncoding.EncodeToString(contactBytes))
+		writeContact(user.GetContact())
 
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
@@ -196,6 +191,7 @@ var rootCmd = &cobra.Command{
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
 			recipientID = user.ID
+			recipientContact = user.GetContact()
 		}
 
 		// Accept auth request for this recipient

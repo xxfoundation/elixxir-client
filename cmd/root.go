@@ -137,7 +137,13 @@ var rootCmd = &cobra.Command{
 		}
 
 		user := client.GetUser()
+		contactBytes, _ := user.GetContact().Marshal()
 		jww.INFO.Printf("User: %s", user.ID)
+
+		jww.INFO.Printf("Contact User Bytes: %s", contactBytes)
+
+		jww.INFO.Printf("My User Contact: %s",
+			base64.StdEncoding.EncodeToString(contactBytes))
 
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
@@ -175,35 +181,33 @@ var rootCmd = &cobra.Command{
 
 		// Send Messages
 		msgBody := viper.GetString("message")
-		recipientID, isPrecanPartner := parseRecipient(
-			viper.GetString("destid"))
 
+		isPrecanPartner := false
+		recipientContact := readContact()
+		recipientID := recipientContact.ID
+
+		// Try to get recipientID from destid
+		if recipientID == nil {
+			recipientID, isPrecanPartner = parseRecipient(
+				viper.GetString("destid"))
+		}
+
+		// Set it to myself
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
 			recipientID = user.ID
 		}
 
-		// Accept auth requests then exit
-		acceptChan := viper.GetString("accept-channel")
-		if acceptChan != "" {
-			recipientContact, err := (client.GetAuthenticatedChannelRequest(
-				recipientID))
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			err = client.ConfirmAuthenticatedChannel(
-				recipientContact)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			return
+		// Accept auth request for this recipient
+		if viper.GetBool("accept-channel") {
+			acceptChannel(client, recipientID)
 		}
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
 		if !unsafe {
 			addAuthenticatedChannel(client, recipientID,
-				isPrecanPartner)
+				recipientContact, isPrecanPartner)
 		}
 
 		msg := message.Send{
@@ -249,6 +253,7 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
+				//fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
@@ -258,6 +263,50 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
 	},
+}
+
+func writeContact(c contact.Contact) {
+	outfilePath := viper.GetString("writeContact")
+	if outfilePath == "" {
+		return
+	}
+	cBytes, err := c.Marshal()
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	err = ioutil.WriteFile(outfilePath, cBytes, 0644)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+}
+
+func readContact() contact.Contact {
+	inputFilePath := viper.GetString("destfile")
+	if inputFilePath == "" {
+		return contact.Contact{}
+	}
+	data, err := ioutil.ReadFile(inputFilePath)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	c, err := contact.Unmarshal(data)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return c
+}
+
+func acceptChannel(client *api.Client, recipientID *id.ID) {
+	recipientContact, err := client.GetAuthenticatedChannelRequest(
+		recipientID)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	err = client.ConfirmAuthenticatedChannel(
+		recipientContact)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
 }
 
 func printChanRequest(requestor contact.Contact, message string) {
@@ -271,7 +320,7 @@ func printChanRequest(requestor contact.Contact, message string) {
 }
 
 func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
-	isPrecanPartner bool) {
+	recipient contact.Contact, isPrecanPartner bool) {
 	if client.HasAuthenticatedChannel(recipientID) {
 		jww.INFO.Printf("Authenticated channel already in place for %s",
 			recipientID)
@@ -291,6 +340,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		jww.FATAL.Panicf("User did not allow channel creation!")
 	}
 
+	// Check if a channel exists for this recipientID
 	recipientContact, err := client.GetAuthenticatedChannelRequest(
 		recipientID)
 	if err == nil {
@@ -301,6 +351,8 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 			jww.FATAL.Panicf("%+v", err)
 		}
 		return
+	} else {
+		recipientContact = recipient
 	}
 
 	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
@@ -327,22 +379,12 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		}
 	} else {
 		me := client.GetUser().GetContact()
-		// Look up contact object via UDB
-		data := fmt.Sprintf("%s", recipientID)
-		separator := ","
-		searchTypes := []byte("UID")
-		foundUsers := client.Search(data, separator, searchTypes)
-		if len(foundUsers) == 0 {
-			jww.FATAL.Panicf("No users found for %s", recipientID)
-		}
-		msg := fmt.Sprintf("%s requesting auth channel", me.ID)
-		for _, them := range foundUsers {
-			jww.INFO.Printf("Requesting auth channel from: %s",
-				recipientID)
-			err := client.RequestAuthenticatedChannel(them, me, msg)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+		jww.INFO.Printf("Requesting auth channel from: %s",
+			recipientID)
+		err := client.RequestAuthenticatedChannel(recipientContact,
+			me, msg)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
 		}
 	}
 }
@@ -534,6 +576,10 @@ func init() {
 			"client storage")
 	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
 
+	rootCmd.Flags().StringP("writeContact", "w",
+		"", "Write the contact file for this user to this file")
+	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
+
 	rootCmd.Flags().StringP("password", "p", "",
 		"Password to the session file")
 	viper.BindPFlag("password", rootCmd.Flags().Lookup("password"))
@@ -562,6 +608,10 @@ func init() {
 			"'0x' or 'b64:' for hex and base64 representations)")
 	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
 
+	rootCmd.Flags().StringP("destfile", "",
+		"", "Read this contact file for the destination id")
+	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
+
 	rootCmd.Flags().UintP("sendCount",
 		"", 1, "The number of times to send the message")
 	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
@@ -587,8 +637,8 @@ func init() {
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
 
-	rootCmd.Flags().StringP("accept-channel", "", "",
-		"Accept the specified channel request")
+	rootCmd.Flags().BoolP("accept-channel", "", false,
+		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
 

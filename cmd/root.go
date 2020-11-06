@@ -574,7 +574,7 @@ func init() {
 
 	rootCmd.Flags().StringP("writeContact", "w",
 		"", "Write the contact file for this user to this file")
-	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
+	viper.BindPFlag("writeContact", rootCmd.Flags().Lookup("writeContact"))
 
 	rootCmd.Flags().StringP("password", "p", "",
 		"Password to the session file")
@@ -606,7 +606,7 @@ func init() {
 
 	rootCmd.Flags().StringP("destfile", "",
 		"", "Read this contact file for the destination id")
-	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
+	viper.BindPFlag("destfile", rootCmd.Flags().Lookup("destfile"))
 
 	rootCmd.Flags().UintP("sendCount",
 		"", 1, "The number of times to send the message")

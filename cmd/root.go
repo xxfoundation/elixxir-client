@@ -156,6 +156,7 @@ var rootCmd = &cobra.Command{
 		if viper.GetBool("unsafe-channel-creation") {
 			authMgr.AddGeneralRequestCallback(func(
 				requestor contact.Contact, message string) {
+				jww.INFO.Printf("Got Request: %s", requestor.ID)
 				err := client.ConfirmAuthenticatedChannel(
 					requestor)
 				if err != nil {

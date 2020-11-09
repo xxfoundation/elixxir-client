@@ -122,6 +122,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
+	cmixMsg.SetRecipientID(partner.ID)
+	jww.INFO.Printf("PARTNER ID: %s", partner.ID)
 
 	/*store state*/
 	//fixme: channel is bricked if the first store succedes but the second fails
@@ -134,6 +136,11 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	//store the message as a critical message so it will always be sent
 	storage.GetCriticalRawMessages().AddProcessing(cmixMsg)
+
+	//jww.INFO.Printf("CMIX MESSAGE 1: %s, %v, %v, %v", cmixMsg.GetRecipientID(),
+	//	cmixMsg.GetKeyFP(), cmixMsg.GetMac(), cmixMsg.GetContents())
+	jww.INFO.Printf("CMIX MESSAGE FP: %s, %v", cmixMsg.GetRecipientID(),
+		cmixMsg.GetKeyFP())
 
 	/*send message*/
 	round, err := net.SendCMIX(cmixMsg, params.GetDefaultCMIX())

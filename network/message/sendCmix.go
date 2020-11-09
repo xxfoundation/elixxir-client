@@ -77,6 +77,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			return 0, errors.WithMessage(err, "Failed to generate "+
 				"salt, this should never happen")
 		}
+		jww.INFO.Printf("RECIPIENTIDPRE_ENCRYPT: %s", msg.GetRecipientID())
 		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
 
 		//build the message payload

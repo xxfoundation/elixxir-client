@@ -42,7 +42,8 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 	}
 
 	for _, key := range privKeys {
-		fp := auth.MakeRequestFingerprint(key)
+		pubkey := grp.ExpG(key, grp.NewInt(1))
+		fp := auth.MakeRequestFingerprint(pubkey)
 		s.fingerprints[fp] = fingerprint{
 			Type:    General,
 			PrivKey: key,

@@ -177,7 +177,7 @@ func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
 	}
 
 	rf.id = rf.payload[:id.ArrIDLen]
-	rf.id = rf.payload[id.ArrIDLen:]
+	rf.msgPayload = rf.payload[id.ArrIDLen:]
 
 	return rf, nil
 }

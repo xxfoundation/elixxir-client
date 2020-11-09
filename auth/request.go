@@ -111,7 +111,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		salt, ecrFmt.payload, grp)
+		salt, ecrFmt.data, grp)
 	fp := cAuth.MakeOwnershipProofFP(ownership)
 
 	/*construct message*/

@@ -42,11 +42,12 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 	}
 
 	for _, key := range privKeys {
+		keyCopy := key.DeepCopy()
 		pubkey := grp.ExpG(key, grp.NewInt(1))
 		fp := auth.MakeRequestFingerprint(pubkey)
 		s.fingerprints[fp] = fingerprint{
 			Type:    General,
-			PrivKey: key,
+			PrivKey: keyCopy,
 			Request: nil,
 		}
 	}
@@ -71,10 +72,12 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	}
 
 	for _, key := range privKeys {
-		fp := auth.MakeRequestFingerprint(key)
+		keyCopy := key.DeepCopy()
+		pubkey := grp.ExpG(key, grp.NewInt(1))
+		fp := auth.MakeRequestFingerprint(pubkey)
 		s.fingerprints[fp] = fingerprint{
 			Type:    General,
-			PrivKey: key,
+			PrivKey: keyCopy,
 			Request: nil,
 		}
 	}

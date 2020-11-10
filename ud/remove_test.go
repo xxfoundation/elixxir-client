@@ -49,7 +49,7 @@ func TestRemoveFact(t *testing.T) {
 	}
 
 	rng := csprng.NewSystemRNG()
-	cpk, err := rsa.GenerateKey(rng, 256)
+	cpk, err := rsa.GenerateKey(rng, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}

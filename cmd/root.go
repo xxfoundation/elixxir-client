@@ -215,6 +215,8 @@ var rootCmd = &cobra.Command{
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
 
+		time.Sleep(10 * time.Second)
+
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {

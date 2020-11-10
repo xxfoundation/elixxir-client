@@ -216,7 +216,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 		Payload:     payload,
 		MessageType: mpm.MessageType,
 		Sender:      mpm.Sender,
-		Timestamp:   time.Time{},
+		Timestamp:   msg.Timestamp,
 		Encryption:  0,
 		ID:          e2e.NewMessageID([]byte{0}, mid),
 	}

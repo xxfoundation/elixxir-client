@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-const eol = string(0x0a)
+const terminator = ";"
 
 func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) error {
@@ -46,9 +46,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	}
 
 	// check that the message is properly formed
-	if strings.Contains(message, eol) {
-		return errors.Errorf("Message cannot contain 'EOL': %v, %s",
-			[]byte(message), message)
+	if strings.Contains(message, terminator) {
+		return errors.Errorf("Message cannot contain '%s'", terminator)
 	}
 
 	//lookup if an ongoing request is occurring
@@ -81,7 +80,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	//check the payload fits
 	facts := me.Facts.Stringify()
-	msgPayload := facts + message + eol
+	msgPayload := facts + message + terminator
 	msgPayloadBytes := []byte(msgPayload)
 
 	if len(msgPayloadBytes) > requestFmt.MsgPayloadLen() {
@@ -105,6 +104,9 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//generate new keypair
 	newPrivKey := diffieHellman.GeneratePrivateKey(256, grp, rng)
 	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, grp)
+
+	jww.INFO.Printf("MYPUBKEY: %v", newPubKey.Bytes())
+	jww.INFO.Printf("THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
 
 	/*encrypt payload*/
 	requestFmt.SetID(storage.GetUser().ID)

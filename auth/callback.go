@@ -28,6 +28,7 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			//lookup the message, check if it is an auth request
 			cmixMsg := format.Unmarshal(msg.Payload)
 			fp := cmixMsg.GetKeyFP()
+			jww.INFO.Printf("RAW AUTH FP: %v", fp)
 			// this takes the request lock if it is a specific fp,
 			// all exits after this need to call fail or Delete if it is
 			// specific
@@ -192,6 +193,9 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		m.storage.Auth().Fail(sr.GetPartner())
 		return
 	}
+
+	jww.INFO.Printf("PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("LOCALPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),

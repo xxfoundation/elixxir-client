@@ -11,3 +11,5 @@ type Manager struct{
 	privKey *
 }
 
+func NewManager()
+

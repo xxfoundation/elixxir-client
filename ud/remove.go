@@ -14,14 +14,14 @@ type removeFactComms interface{
 }
 
 func (m *Manager)RemoveFact(fact contact.Fact)error{
-	return m.removeFact(fact,m.comms)
+	return nil//m.removeFact(fact,m.comms)
 }
 
 func (m *Manager)removeFact(fact contact.Fact, SendDeleteMessage removeFactComms)error {
 	//digest the fact
 	fact.Stringify()
 	//sign the fact
-	rsa.Sign()
+	//rsa.Sign()
 
 	//constuct the message
 

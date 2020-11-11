@@ -105,8 +105,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	newPrivKey := diffieHellman.GeneratePrivateKey(256, grp, rng)
 	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, grp)
 
-	jww.INFO.Printf("MYPUBKEY: %v", newPubKey.Bytes())
-	jww.INFO.Printf("THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
+	jww.INFO.Printf("RequestAuth MYPUBKEY: %v", newPubKey.Bytes())
+	jww.INFO.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
 
 	/*encrypt payload*/
 	requestFmt.SetID(storage.GetUser().ID)

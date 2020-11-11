@@ -9,6 +9,7 @@ import (
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
 	"strings"
@@ -64,6 +65,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
 		return
 	}
+
+	myPubKey := diffieHellman.GeneratePublicKey(myHistoricalPrivKey, grp)
+
+	jww.INFO.Printf("handleRequest MYPUBKEY: %v", myPubKey.Bytes())
+	jww.INFO.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
 
 	//decrypt the message
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
@@ -194,8 +200,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		return
 	}
 
-	jww.INFO.Printf("PARTNERPUBKEY: %v", partnerPubKey.Bytes())
-	jww.INFO.Printf("LOCALPUBKEY: %v", sr.GetMyPubKey().Bytes())
+	jww.INFO.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),

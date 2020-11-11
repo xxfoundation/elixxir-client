@@ -38,62 +38,6 @@ func Execute() {
 	}
 }
 
-// func setKeyParams(client *api.Client) {
-// 	jww.DEBUG.Printf("Trying to parse key parameters...")
-// 	minKeys, err := strconv.Atoi(keyParams[0])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	maxKeys, err := strconv.Atoi(keyParams[1])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	numRekeys, err := strconv.Atoi(keyParams[2])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	ttlScalar, err := strconv.ParseFloat(keyParams[3], 64)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	minNumKeys, err := strconv.Atoi(keyParams[4])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	jww.DEBUG.Printf("Setting key generation parameters: %d, %d, %d, %f, %d",
-// 		minKeys, maxKeys, numRekeys, ttlScalar, minNumKeys)
-
-// 	params := client.GetKeyParams()
-// 	params.MinKeys = uint16(minKeys)
-// 	params.MaxKeys = uint16(maxKeys)
-// 	params.NumRekeys = uint16(numRekeys)
-// 	params.TTLScalar = ttlScalar
-// 	params.MinNumKeys = uint16(minNumKeys)
-// }
-
-// type userSearcher struct {
-// 	foundUserChan chan []byte
-// }
-
-// func newUserSearcher() api.SearchCallback {
-// 	us := userSearcher{}
-// 	us.foundUserChan = make(chan []byte)
-// 	return &us
-// }
-
-// func (us *userSearcher) Callback(userID, pubKey []byte, err error) {
-// 	if err != nil {
-// 		jww.ERROR.Printf("Could not find searched user: %+v", err)
-// 	} else {
-// 		us.foundUserChan <- userID
-// 	}
-// }
-
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "client",
@@ -195,6 +139,8 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
+		time.Sleep(10 * time.Second)
+
 		// Accept auth request for this recipient
 		if viper.GetBool("accept-channel") {
 			acceptChannel(client, recipientID)
@@ -214,8 +160,6 @@ var rootCmd = &cobra.Command{
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
-
-		time.Sleep(10 * time.Second)
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
@@ -376,7 +320,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 					preBytes, idBytes)
 			}
 		}
-	} else {
+	} else if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
@@ -385,6 +329,9 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+	} else {
+		jww.ERROR.Printf("Could not add auth channel for %s",
+			recipientID)
 	}
 }
 

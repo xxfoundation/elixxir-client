@@ -190,6 +190,9 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 			"partern %s", partner)
 	}
 
+	jww.INFO.Printf("AddSent PUBKEY FINGERPRINT: %v", sr.fingerprint)
+	jww.INFO.Printf("AddSent PUBKEY: %v", sr.myPubKey.Bytes())
+
 	s.fingerprints[sr.fingerprint] = fingerprint{
 		Type:    Specific,
 		PrivKey: nil,

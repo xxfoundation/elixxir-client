@@ -114,14 +114,15 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	ecrFmt.SetOwnership(ownership)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
 		salt, ecrFmt.data, grp)
-	fp := cAuth.MakeOwnershipProofFP(ownership)
+	confirmFp := cAuth.MakeOwnershipProofFP(ownership)
+	requestfp := cAuth.MakeRequestFingerprint(partner.DhPubKey)
 
 	/*construct message*/
 	baseFmt.SetEcrPayload(ecrPayload)
 	baseFmt.SetSalt(salt)
 	baseFmt.SetPubKey(newPubKey)
 
-	cmixMsg.SetKeyFP(fp)
+	cmixMsg.SetKeyFP(requestfp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
 	cmixMsg.SetRecipientID(partner.ID)
@@ -131,7 +132,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//fixme: channel is bricked if the first store succedes but the second fails
 	//store the in progress auth
 	err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
-		newPrivKey, fp)
+		newPrivKey, confirmFp)
 	if err != nil {
 		return errors.Errorf("Failed to store auth request: %s", err)
 	}

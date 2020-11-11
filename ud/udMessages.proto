@@ -20,8 +20,8 @@ message HashFact {
 // Describes a user lookup result. The ID, public key, and the
 // facts inputted that brought up this user.
 message Contact {
-  repeated bytes userID = 1;
-  repeated bytes pubKey = 2;
+  bytes userID = 1;
+  bytes pubKey = 2;
   repeated HashFact trigFacts = 3;
 }
 
@@ -42,12 +42,12 @@ message SearchResponse {
 
 // Message sent to UDB for looking up a user
 message LookupSend {
-  repeated bytes userID = 1;
+  bytes userID = 1;
   int64 commID = 2;
 }
 
 // Message sent from UDB for looking up a user
 message LookupResponse {
-  repeated bytes pubKey = 1;
+  bytes pubKey = 1;
   int64 commID = 2;
 }

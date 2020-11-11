@@ -8,8 +8,8 @@ import (
 type RequestType uint
 
 const (
-	Sent    RequestType = 0
-	Receive RequestType = 1
+	Sent    RequestType = 1
+	Receive RequestType = 2
 )
 
 type request struct {

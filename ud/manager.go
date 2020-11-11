@@ -8,8 +8,6 @@ import (
 type Manager struct{
 	comms *client.Comms
 	host *connect.Host
-	privKey *
 }
 
-func NewManager()
 

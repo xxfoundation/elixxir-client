@@ -2,10 +2,8 @@ package ud
 
 import (
 	"gitlab.com/elixxir/client/interfaces/contact"
-	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 

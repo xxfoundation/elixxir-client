@@ -111,11 +111,26 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				Request: r,
 			}
 
+			s.requests[*sr.partner] = &request{
+				rt:      Sent,
+				sent:    sr,
+				receive: nil,
+				mux:     sync.Mutex{},
+			}
+
 		case Receive:
 			c, err := utility.LoadContact(kv, partner)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
+
+			s.requests[*c.ID] = &request{
+				rt:      Receive,
+				sent:    nil,
+				receive: &c,
+				mux:     sync.Mutex{},
+			}
+
 
 			r.receive = &c
 
@@ -259,8 +274,8 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 		_, ok := s.requests[*r.Request.sent.partner]
 		s.mux.RUnlock()
 		if !ok {
-			return 0, nil, nil, errors.Errorf("Fingerprint cannot be "+
-				"found: %s", fp)
+			return 0, nil, nil, errors.Errorf("request associated with " +
+				"fingerprint cannot be found: %s", fp)
 		}
 		// Return the request
 		return Specific, r.Request.sent, nil, nil

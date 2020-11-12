@@ -150,7 +150,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
-		jww.ERROR.Printf("request failed to transmit, will be "+
+		jww.ERROR.Printf("auth request failed to transmit, will be "+
 			"handled on reconnect: %+v", err)
 		storage.GetCriticalRawMessages().Failed(cmixMsg)
 	}
@@ -164,7 +164,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	success, _, _ := utility.TrackResults(sendResults, 1)
 	if !success {
-		jww.ERROR.Printf("request failed to transmit, will be " +
+		jww.ERROR.Printf("auth request failed to transmit, will be " +
 			"handled on reconnect")
 		storage.GetCriticalRawMessages().Failed(cmixMsg)
 	} else {

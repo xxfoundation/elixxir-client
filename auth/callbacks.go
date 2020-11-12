@@ -3,10 +3,7 @@ package auth
 import (
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
-	jww "github.com/spf13/jwalterweatherman"
 )
-
-
 
 type callbackMap struct {
 	generalCallback  []interface{}

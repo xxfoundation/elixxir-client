@@ -79,7 +79,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//encrypt the payload
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		salt, ecrFmt.payload, grp)
+		salt, ecrFmt.data, grp)
 
 	//get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)

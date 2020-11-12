@@ -159,12 +159,15 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 	defer s.mux.Unlock()
 
 	myPubKey := s.grp.ExpG(myPrivKey,s.grp.NewInt(1))
+	baseKey := s.grp.Exp(partnerPubKey,myPrivKey,s.grp.NewInt(1))
 
 	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s" +
-		"\n\tMy Public Key: %s\n\tPartner Public Key: %s", partnerID,
+		"\n\tMy Public Key: %s\n\tPartner Public Key: %s\n\tBase Key: %s",
+		partnerID,
 		myPrivKey.TextVerbose(16, 0),
 		myPubKey.TextVerbose(16, 0),
-		partnerPubKey.TextVerbose(16, 0))
+		partnerPubKey.TextVerbose(16, 0),
+		baseKey.TextVerbose(16, 0))
 
 	if _, ok := s.managers[*partnerID]; ok {
 		return errors.New("Cannot overwrite existing partner")

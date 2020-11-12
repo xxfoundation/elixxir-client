@@ -270,6 +270,7 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 
 	// Done message from buffer
 	delete(mb.processingMessages, h)
+	delete(mb.messages, h)
 
 	// Done message from key value store
 	err := mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))

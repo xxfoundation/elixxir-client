@@ -177,7 +177,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
 		jww.INFO.Printf("callback type: %T", cb)
-		rcb := cb.(interfaces.RequestCallback)
+		jww.INFO.Printf("printed internal callback: %+v", cb)
+		rcb := (cb).([]interface{})[0].(interfaces.RequestCallback)
 		go rcb(c, msg)
 	}
 	return

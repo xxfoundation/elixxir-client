@@ -158,8 +158,12 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	myPubKey := s.grp.ExpG(myPrivKey,s.grp.NewInt(1))
+
 	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s" +
-		"\n\tPartner Public Key: %s", partnerID, myPrivKey.Text(16),
+		"\n\tMy Public Key: %s\n\tPartner Public Key: %s", partnerID,
+		myPrivKey.Text(16),
+		myPubKey.Text(16),
 		partnerPubKey.Text(16))
 
 	if _, ok := s.managers[*partnerID]; ok {

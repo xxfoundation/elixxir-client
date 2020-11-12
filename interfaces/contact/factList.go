@@ -21,7 +21,9 @@ func (fl FactList) Stringify() string {
 // atttached at the end
 func UnstringifyFactList(s string) ([]Fact, string, error) {
 	parts := strings.SplitN(s, factBreak, 1)
-	if len(parts) != 2 {
+	if len(parts) == 1{
+		return nil, parts[0], nil
+	}else if len(parts) != 2 {
 		return nil, "", errors.New("Invalid fact string passed")
 	}
 	factStrings := strings.Split(parts[0], factDelimiter)

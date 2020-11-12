@@ -173,7 +173,7 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 		return errors.New("Cannot overwrite existing partner")
 	}
 
-	m := newManager(s.context, s.kv, partnerID, s.dhPrivateKey, partnerPubKey,
+	m := newManager(s.context, s.kv, partnerID, myPrivKey, partnerPubKey,
 		sendParams, receiveParams)
 
 	s.managers[*partnerID] = m

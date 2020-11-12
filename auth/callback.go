@@ -176,6 +176,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	//  will never be sent.
 	cbList := m.requestCallbacks.Get(c.ID)
 	for _, cb := range cbList {
+		jww.INFO.Printf("callback type: %T", cb)
 		rcb := cb.(interfaces.RequestCallback)
 		go rcb(c, msg)
 	}

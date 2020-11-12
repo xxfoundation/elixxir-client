@@ -167,7 +167,7 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	s.auth, err = auth.NewStore(s.kv, s.e2e.GetGroup(),
+	s.auth, err = auth.LoadStore(s.kv, s.e2e.GetGroup(),
 		[]*cyclic.Int{s.e2e.GetDHPrivateKey()})
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load auth store")

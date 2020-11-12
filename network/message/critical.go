@@ -47,11 +47,12 @@ func (m *Manager) criticalMessages() {
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
-				jww.ERROR.Printf("Failed to send critical message on " +
-					"notification of healthy network")
+				jww.ERROR.Printf("Failed to send critical message on "+
+					"notification of healthy network: %+v", err)
 				critMsgs.Failed(msg)
 				return
 			}
+			jww.INFO.Printf("critical RoundIDs: %v", rounds)
 			//wait on the results to make sure the rounds were sucesfull
 			sendResults := make(chan ds.EventReturn, len(rounds))
 			roundEvents := m.Instance.GetRoundEvents()
@@ -81,11 +82,13 @@ func (m *Manager) criticalMessages() {
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
-				jww.ERROR.Printf("Failed to send critical message on " +
-					"notification of healthy network")
+				jww.ERROR.Printf("Failed to send critical message on "+
+					"notification of healthy network: %+v", err)
 				critRawMsgs.Failed(msg)
 				return
 			}
+			jww.INFO.Printf("critical healthy RoundIDs: %v", round)
+
 			//wait on the results to make sure the rounds were sucesfull
 			sendResults := make(chan ds.EventReturn, 1)
 			roundEvents := m.Instance.GetRoundEvents()
@@ -104,7 +107,5 @@ func (m *Manager) criticalMessages() {
 			critRawMsgs.Succeeded(msg)
 		}(msg)
 	}
-
-
 
 }

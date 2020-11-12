@@ -35,6 +35,7 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			// specific
 			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
 			if err != nil {
+				jww.INFO.Printf("FINGERPRINT FAILURE: %s", err.Error())
 				// if the lookup fails, ignore the message. It is likely
 				// garbled or for a different protocol
 				break

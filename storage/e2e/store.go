@@ -162,9 +162,9 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 
 	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s" +
 		"\n\tMy Public Key: %s\n\tPartner Public Key: %s", partnerID,
-		myPrivKey.Text(16),
-		myPubKey.Text(16),
-		partnerPubKey.Text(16))
+		myPrivKey.TextVerbose(16, 0),
+		myPubKey.TextVerbose(16, 0),
+		partnerPubKey.TextVerbose(16, 0))
 
 	if _, ok := s.managers[*partnerID]; ok {
 		return errors.New("Cannot overwrite existing partner")

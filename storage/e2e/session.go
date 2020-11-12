@@ -115,6 +115,14 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 
 	session.kv = session.generate(ship.kv)
 
+	jww.INFO.Printf("New Session with Partner %s:\n\tType: %s" +
+		"\n\tBaseKey: %s\n\tRelationship Fingerprint: %s\n\tNumKeys: %d",
+		ship.manager.partner,
+		t,
+		session.baseKey.Text(16),
+		session.relationshipFingerprint,
+		session.ttl)
+
 	err := session.save()
 	if err != nil {
 		jww.FATAL.Printf("Failed to make new session for Partner %s: %s",

@@ -93,6 +93,8 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			rt: RequestType(rDisk.T),
 		}
 
+		var rid *id.ID
+
 		partner, err := id.Unmarshal(rDisk.ID)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
@@ -111,12 +113,8 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				Request: r,
 			}
 
-			s.requests[*sr.partner] = &request{
-				rt:      Sent,
-				sent:    sr,
-				receive: nil,
-				mux:     sync.Mutex{},
-			}
+			rid = sr.partner
+			r.sent = sr
 
 		case Receive:
 			c, err := utility.LoadContact(kv, partner)
@@ -124,19 +122,15 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
 
-			s.requests[*c.ID] = &request{
-				rt:      Receive,
-				sent:    nil,
-				receive: &c,
-				mux:     sync.Mutex{},
-			}
-
-
+			rid = c.ID
 			r.receive = &c
 
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
+
+		//store in the request map
+		s.requests[*rid] = r
 	}
 
 	return s, nil

@@ -18,10 +18,12 @@ import (
 // Happy path.
 func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(0))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
 	privKeys := make([]*cyclic.Int, 10)
+	pubKeys := make([]*cyclic.Int, 10)
 	for i := range privKeys {
 		privKeys[i] = grp.NewInt(rand.Int63n(172))
+		pubKeys[i] = grp.ExpG(privKeys[i],grp.NewInt(1))
 	}
 
 	store, err := NewStore(kv, grp, privKeys)
@@ -30,8 +32,12 @@ func TestNewStore(t *testing.T) {
 	}
 
 	for i, key := range privKeys {
-		if store.fingerprints[auth.MakeRequestFingerprint(key)].PrivKey != key {
-			t.Errorf("Key not found in map (%d): %s", i, key.Text(10))
+		rq, ok := store.fingerprints[auth.MakeRequestFingerprint(pubKeys[i])]
+		if !ok {
+			t.Errorf("Key not found in map (%d): %s", i, pubKeys[i].Text(16))
+		}else if rq.PrivKey.Cmp(key)!=0{
+			t.Errorf("Key found in map (%d) does not match private: " +
+				"%s vs %s", i, key.Text(10), rq.PrivKey.Text(10))
 		}
 	}
 }
@@ -62,15 +68,6 @@ func TestLoadStore(t *testing.T) {
 	store, err := LoadStore(kv, s.grp, privKeys)
 	if err != nil {
 		t.Errorf("LoadStore() returned an error: %+v", err)
-	}
-
-	s.requests = map[id.ID]*request{}
-	s.fingerprints[sr.fingerprint] = fingerprint{
-		Type: Specific,
-		Request: &request{
-			rt:   Sent,
-			sent: sr,
-		},
 	}
 
 	if !reflect.DeepEqual(s, store) {
@@ -181,7 +178,8 @@ func TestStore_AddReceived_PartnerAlreadyExistsError(t *testing.T) {
 func TestStore_GetFingerprint_GeneralFingerprintType(t *testing.T) {
 	s, _, privKeys := makeTestStore(t)
 
-	fp := auth.MakeRequestFingerprint(privKeys[0])
+	pubkey := s.grp.ExpG(privKeys[0],s.grp.NewInt(1))
+	fp := auth.MakeRequestFingerprint(pubkey)
 	fpType, request, key, err := s.GetFingerprint(fp)
 	if err != nil {
 		t.Errorf("GetFingerprint() returned an error: %+v", err)
@@ -194,6 +192,7 @@ func TestStore_GetFingerprint_GeneralFingerprintType(t *testing.T) {
 		t.Errorf("GetFingerprint() returned incorrect request."+
 			"\n\texpected: %+v\n\treceived: %+v", nil, request)
 	}
+
 	if key.Cmp(privKeys[0]) == -2 {
 		t.Errorf("GetFingerprint() returned incorrect key."+
 			"\n\texpected: %s\n\treceived: %s", privKeys[0].Text(10), key.Text(10))

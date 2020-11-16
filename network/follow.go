@@ -140,7 +140,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid)
+		return m.round.Checker(rid, filterList)
 	}
 
 	// get the bit vector of rounds that have been checked

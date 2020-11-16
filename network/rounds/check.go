@@ -1,8 +1,10 @@
 package rounds
 
 import (
+	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
+	bloom "gitlab.com/elixxir/bloomfilter"
 )
 
 // the round checker is a single use function which is meant to be wrapped
@@ -16,7 +18,7 @@ import (
 // if the information about that round is already present, if it is the data is
 // sent to Message Retrieval Workers, otherwise it is sent to Historical Round
 // Retrieval
-func (m *Manager) Checker(roundID id.Round) bool {
+func (m *Manager) Checker(roundID id.Round, filters []*bloom.Ring) bool {
 	jww.INFO.Printf("Checking round ID: %d", roundID)
 	// Set round to processing, if we can
 	processing, count := m.p.Process(roundID)
@@ -34,7 +36,23 @@ func (m *Manager) Checker(roundID id.Round) bool {
 		return true
 	}
 
-	// TODO: Bloom filter lookup -- return true when we don't have
+	//check if the round is in the bloom filters
+	hasRound := false
+	serialRid := serializeRound(roundID)
+
+	for _, filter := range filters{
+		hasRound = filter.Test(serialRid)
+		if hasRound{
+			break
+		}
+	}
+
+	//if it is not present, set the round as checked
+	//that means no messages are available for the user in the round
+	if !hasRound{
+		m.p.Done(roundID)
+		return true
+	}
 
 	// Go get the round from the round infos, if it exists
 	ri, err := m.Instance.GetRound(roundID)
@@ -49,4 +67,10 @@ func (m *Manager) Checker(roundID id.Round) bool {
 	}
 
 	return false
+}
+
+func serializeRound(roundId id.Round) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(roundId))
+	return b
 }

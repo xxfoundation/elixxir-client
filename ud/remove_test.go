@@ -3,6 +3,7 @@ package ud
 import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/comms/client"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
@@ -33,7 +34,7 @@ var genericGroup = cyclic.NewGroup(
 
 type testRFC struct{}
 
-func (rFC *testRFC) SendDeleteMessage(host *connect.Host, message *messages.AuthenticatedMessage) (*messages.Ack, error) {
+func (rFC *testRFC) SendDeleteMessage(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
 	return &messages.Ack{}, nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"strings"
 )
@@ -148,7 +149,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	}
 
 	//process the inner payload
-	facts, msg, err := contact.UnstringifyFactList(
+	facts, msg, err := fact.UnstringifyFactList(
 		string(requestFmt.msgPayload))
 	if err != nil {
 		jww.WARN.Printf("failed to parse facts and message "+
@@ -264,7 +265,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 		ID:             sr.GetPartner().DeepCopy(),
 		DhPubKey:       partnerPubKey.DeepCopy(),
 		OwnershipProof: copySlice(ownershipProof),
-		Facts:          make([]contact.Fact, 0),
+		Facts:          make([]fact.Fact, 0),
 	}
 
 	//  fixme: if a crash occurs before or during the calls, the notification

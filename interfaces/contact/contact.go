@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -18,7 +19,7 @@ type Contact struct {
 	ID             *id.ID
 	DhPubKey       *cyclic.Int
 	OwnershipProof []byte
-	Facts          FactList
+	Facts          fact.FactList
 }
 
 func (c Contact) Marshal() ([]byte, error) {

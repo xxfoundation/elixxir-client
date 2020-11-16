@@ -24,12 +24,12 @@ package network
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	//"gitlab.com/elixxir/client/storage"
+	jww "github.com/spf13/jwalterweatherman"
+	bloom "gitlab.com/elixxir/bloomfilter"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
-	bloom "gitlab.com/elixxir/bloomfilter"
-	jww "github.com/spf13/jwalterweatherman"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -97,15 +97,14 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return
 	}
 	var filterList []*bloom.Ring
-	for _, f := range pollResp.BloomFilters{
+	for _, f := range pollResp.BloomFilters {
 		filter := &bloom.Ring{}
-		if err := filter.UnmarshalBinary(f); err!=nil{
+		if err := filter.UnmarshalBinary(f); err != nil {
 			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
 			continue
 		}
 		filterList = append(filterList, filter)
 	}
-
 
 	// ---- Node Events ----
 	// NOTE: this updates the structure, AND sends events over the node

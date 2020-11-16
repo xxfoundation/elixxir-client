@@ -3,8 +3,8 @@ package rounds
 import (
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/xx_network/primitives/id"
 	bloom "gitlab.com/elixxir/bloomfilter"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // the round checker is a single use function which is meant to be wrapped
@@ -40,16 +40,16 @@ func (m *Manager) Checker(roundID id.Round, filters []*bloom.Ring) bool {
 	hasRound := false
 	serialRid := serializeRound(roundID)
 
-	for _, filter := range filters{
+	for _, filter := range filters {
 		hasRound = filter.Test(serialRid)
-		if hasRound{
+		if hasRound {
 			break
 		}
 	}
 
 	//if it is not present, set the round as checked
 	//that means no messages are available for the user in the round
-	if !hasRound{
+	if !hasRound {
 		m.p.Done(roundID)
 		return true
 	}

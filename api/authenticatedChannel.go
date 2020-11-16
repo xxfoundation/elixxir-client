@@ -7,6 +7,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -110,6 +111,6 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 		ID:             precanned.ID,
 		DhPubKey:       partnerPubKey,
 		OwnershipProof: nil,
-		Facts:          make([]contact.Fact, 0),
+		Facts:          make([]fact.Fact, 0),
 	}
 }

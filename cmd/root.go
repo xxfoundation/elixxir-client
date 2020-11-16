@@ -343,7 +343,7 @@ func waitUntilConnected(connected chan bool) {
 	for !isConnected {
 		select {
 		case isConnected = <-connected:
-			jww.INFO.Printf("health status: %v\n",
+			jww.INFO.Printf("Network Status: %v\n",
 				isConnected)
 			break
 		case <-timeoutTimer.C:
@@ -361,7 +361,7 @@ func waitUntilConnected(connected chan bool) {
 				if isConnected != prev {
 					prev = isConnected
 					jww.INFO.Printf(
-						"health status changed: %v\n",
+						"Network Status Changed: %v\n",
 						isConnected)
 				}
 				break

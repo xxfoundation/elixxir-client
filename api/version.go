@@ -32,7 +32,7 @@ func (c *Client) checkVersion() error {
 				"\tClient: %s", netVersion.String(), clientVersion.String())
 		}
 	} else {
-		jww.WARN.Printf("Network requires no minnimim version")
+		jww.INFO.Printf("Network requires no minimum version")
 	}
 
 	return nil

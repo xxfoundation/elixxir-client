@@ -27,7 +27,7 @@ import (
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
-
+	bloom "gitlab.com/elixxir/bloomfilter"
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
@@ -96,6 +96,16 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		jww.ERROR.Printf("Failed to unmartial: %+v", err)
 		return
 	}
+	var filterList []*bloom.Ring
+	for _, f := range pollResp.BloomFilters{
+		filter := &bloom.Ring{}
+		if err := filter.UnmarshalBinary(f); err!=nil{
+			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
+			continue
+		}
+		filterList = append(filterList, filter)
+	}
+
 
 	// ---- Node Events ----
 	// NOTE: this updates the structure, AND sends events over the node

@@ -98,6 +98,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 	var filterList []*bloom.Ring
 	for _, f := range pollResp.BloomFilters {
+		jww.INFO.Printf("Bloom Filter received: %v", f)
 		filter := &bloom.Ring{}
 		if err := filter.UnmarshalBinary(f); err != nil {
 			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
@@ -105,6 +106,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		}
 		filterList = append(filterList, filter)
 	}
+	jww.INFO.Printf("Bloom filters found in response: %d", len(filterList))
 
 	// ---- Node Events ----
 	// NOTE: this updates the structure, AND sends events over the node

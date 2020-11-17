@@ -34,6 +34,9 @@ import (
 	"time"
 )
 
+const bloomFilterSize = 71888 // In Bits
+const bloomFilterHashes = 8
+
 //comms interface makes testing easier
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
@@ -99,7 +102,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	var filterList []*bloom.Ring
 	for _, f := range pollResp.BloomFilters {
 		jww.INFO.Printf("Bloom Filter received: %v", f)
-		filter := &bloom.Ring{}
+		filter, err := bloom.InitByParameters(bloomFilterSize, bloomFilterHashes)
+		if err != nil {
+			jww.FATAL.Panicf("Unable to create a bloom filter: %v", err)
+		}
 		if err := filter.UnmarshalBinary(f); err != nil {
 			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
 			continue

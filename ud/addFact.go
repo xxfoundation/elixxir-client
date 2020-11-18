@@ -25,11 +25,11 @@ func (m *Manager) addFact(fact fact.Fact, aFC addFactComms) (*pb.FactRegisterRes
 		FactType: uint32(fact.T),
 	}
 
+	// Sign our fact for putting into the request
 	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, mmFact.Digest(), nil)
 	if err != nil {
 		return &pb.FactRegisterResponse{}, err
 	}
-	//signature.Sign(mmFact, m.privKey)
 
 	// Create our Fact Removal Request message data
 	remFactMsg := pb.FactRegisterRequest{

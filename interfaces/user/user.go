@@ -3,6 +3,7 @@ package user
 import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -23,10 +24,10 @@ type User struct {
 	E2eDhPublicKey  *cyclic.Int
 }
 
-func (u *User) GetContact() contact.Contact {
+func (u User) GetContact() contact.Contact {
 	return contact.Contact{
 		ID:       u.ID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,
-		Facts:    make([]contact.Fact, 0),
+		Facts:    make([]fact.Fact, 0),
 	}
 }

@@ -3,11 +3,12 @@ package bindings
 import (
 	"errors"
 	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/primitives/fact"
 )
 
 /* fact object*/
 type Fact struct {
-	f *contact.Fact
+	f *fact.Fact
 }
 
 func (f *Fact) Get() string {
@@ -61,13 +62,13 @@ func (fl *FactList) Get(i int) Fact {
 	return Fact{f: &(fl.c.Facts)[i]}
 }
 
-func (fl *FactList) Add(fact string, factType int) error {
-	ft := contact.FactType(factType)
+func (fl *FactList) Add(factData string, factType int) error {
+	ft := fact.FactType(factType)
 	if !ft.IsValid() {
 		return errors.New("Invalid fact type")
 	}
-	fl.c.Facts = append(fl.c.Facts, contact.Fact{
-		Fact: fact,
+	fl.c.Facts = append(fl.c.Facts, fact.Fact{
+		Fact: factData,
 		T:    ft,
 	})
 	return nil

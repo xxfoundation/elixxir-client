@@ -72,6 +72,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 			Timestamp:   time.Time{},
 			Encryption:  message.None,
 		}
+		jww.INFO.Printf("Garbled/RAW Message: %v", msg.GetKeyFP())
 		m.Session.GetGarbledMessages().Add(msg)
 		m.Switchboard.Speak(raw)
 		return

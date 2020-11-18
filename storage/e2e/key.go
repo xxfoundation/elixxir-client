@@ -36,7 +36,8 @@ func (k *Key) Fingerprint() format.Fingerprint {
 	if k.fp != nil {
 		return *k.fp
 	}
-	return e2eCrypto.DeriveKeyFingerprint(k.session.baseKey, k.keyNum)
+	return e2eCrypto.DeriveKeyFingerprint(k.session.baseKey, k.keyNum,
+		k.session.relationshipFingerprint)
 }
 
 // the E2E key to encrypt msg to its intended recipient

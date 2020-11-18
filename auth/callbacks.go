@@ -63,7 +63,7 @@ func (cm *callbackMap) Get(id *id.ID) []interface{} {
 	if specific, ok := cm.specificCallback[*id]; ok {
 		cbList = append(cbList, specific)
 	} else {
-		cbList = append(cbList, cm.generalCallback)
+		cbList = append(cbList, cm.generalCallback...)
 	}
 
 	return cbList

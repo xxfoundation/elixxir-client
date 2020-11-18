@@ -42,7 +42,8 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 	}
 
 	for _, key := range privKeys {
-		fp := auth.MakeRequestFingerprint(key)
+		pubkey := grp.ExpG(key, grp.NewInt(1))
+		fp := auth.MakeRequestFingerprint(pubkey)
 		s.fingerprints[fp] = fingerprint{
 			Type:    General,
 			PrivKey: key,
@@ -70,7 +71,8 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 	}
 
 	for _, key := range privKeys {
-		fp := auth.MakeRequestFingerprint(key)
+		pubkey := grp.ExpG(key, grp.NewInt(1))
+		fp := auth.MakeRequestFingerprint(pubkey)
 		s.fingerprints[fp] = fingerprint{
 			Type:    General,
 			PrivKey: key,
@@ -88,6 +90,8 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 		r := &request{
 			rt: RequestType(rDisk.T),
 		}
+
+		var rid *id.ID
 
 		partner, err := id.Unmarshal(rDisk.ID)
 		if err != nil {
@@ -107,17 +111,24 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				Request: r,
 			}
 
+			rid = sr.partner
+			r.sent = sr
+
 		case Receive:
 			c, err := utility.LoadContact(kv, partner)
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
 
+			rid = c.ID
 			r.receive = &c
 
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
+
+		//store in the request map
+		s.requests[*rid] = r
 	}
 
 	return s, nil
@@ -186,6 +197,9 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 			"partern %s", partner)
 	}
 
+	jww.INFO.Printf("AddSent PUBKEY FINGERPRINT: %v", sr.fingerprint)
+	jww.INFO.Printf("AddSent PUBKEY: %v", sr.myPubKey.Bytes())
+
 	s.fingerprints[sr.fingerprint] = fingerprint{
 		Type:    Specific,
 		PrivKey: nil,
@@ -252,8 +266,8 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 		_, ok := s.requests[*r.Request.sent.partner]
 		s.mux.RUnlock()
 		if !ok {
-			return 0, nil, nil, errors.Errorf("Fingerprint cannot be "+
-				"found: %s", fp)
+			return 0, nil, nil, errors.Errorf("request associated with " +
+				"fingerprint cannot be found: %s", fp)
 		}
 		// Return the request
 		return Specific, r.Request.sent, nil, nil

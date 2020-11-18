@@ -1,20 +1,19 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"crypto/rand"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/crypto/signature"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"io"
 )
 
 type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
 }
 
-func (m *Manager) SendRegisterFact(fact contact.Fact) (*pb.FactRegisterResponse, error) {
+func (m *Manager) SendRegisterFact(fact fact.Fact) (*pb.FactRegisterResponse, error) {
 	return m.addFact(fact, m.comms)
 }
 
@@ -26,14 +25,17 @@ func (m *Manager) addFact(fact fact.Fact, aFC addFactComms) (*pb.FactRegisterRes
 		FactType: uint32(fact.T),
 	}
 
-	rsa.Sign(io.Reader, m.privKey, )
+	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, mmFact.Digest(), nil)
+	if err != nil {
+		return &pb.FactRegisterResponse{}, err
+	}
 	//signature.Sign(mmFact, m.privKey)
 
 	// Create our Fact Removal Request message data
 	remFactMsg := pb.FactRegisterRequest{
-		UID: m.host.GetId().Marshal(),
-		Fact: &mmFact,
-		FactSig: []byte("B"),
+		UID:     m.host.GetId().Marshal(),
+		Fact:    &mmFact,
+		FactSig: fsig,
 	}
 
 	// Send the message

@@ -1,24 +1,25 @@
 package ud
 
 import (
-	"gitlab.com/xx_network/comms/messages"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 )
 
-func (m *Manager)Register(myID *id.ID, username string)error{
+func (m *Manager) Register(myID *id.ID, username string) error {
 
-	msg := &messages.AuthenticatedMessage{
-		ID:                   myID.Bytes(),
-		Signature:            nil,
-		Token:                nil,
-		Client:               nil,
-		Message:              nil,
-		XXX_NoUnkeyedLiteral: struct{}{},
-		XXX_unrecognized:     nil,
-		XXX_sizecache:        0,
+	msg := &pb.UDBUserRegistration{
+		PermissioningSignature: nil,
+		RSAPublicPem:           "",
+		IdentityRegistration:   nil,
+		IdentitySignature:      nil,
+		Frs:                    nil,
+		UID:                    myID.Bytes(),
+		XXX_NoUnkeyedLiteral:   struct{}{},
+		XXX_unrecognized:       nil,
+		XXX_sizecache:          0,
 	}
 
-	m.comms.SendRegisterUser(m.host)
+	_, _ = m.comms.SendRegisterUser(m.host, msg)
 
-
+	return nil
 }

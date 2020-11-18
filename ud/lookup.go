@@ -89,7 +89,6 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 
 	// Send the request
 	rounds, _, err := m.net.SendE2E(msg, params.GetDefaultE2E())
-
 	if err != nil {
 		return errors.WithMessage(err, "Failed to send the lookup request")
 	}
@@ -126,7 +125,7 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		case response := <-responseChan:
 			if response.Error != "" {
 				err = errors.Errorf("User Discovery returned an error on "+
-					"Lookup: %s", response.Error)
+					"lookup: %s", response.Error)
 			} else {
 				pubkey := m.grp.NewIntFromBytes(response.PubKey)
 				c = contact.Contact{

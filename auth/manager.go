@@ -4,6 +4,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -27,7 +28,7 @@ func NewManager(sw interfaces.Switchboard, storage *storage.Session,
 		net:              net,
 	}
 
-	sw.RegisterChannel("Auth", &id.ID{}, message.Raw, m.rawMessages)
+	sw.RegisterChannel("Auth", switchboard.AnyUser(), message.Raw, m.rawMessages)
 
 	return m
 }

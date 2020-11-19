@@ -9,7 +9,9 @@ import (
 	"gitlab.com/elixxir/client/storage/auth"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/elixxir/primitives/format"
 	"strings"
 )
@@ -28,11 +30,13 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			//lookup the message, check if it is an auth request
 			cmixMsg := format.Unmarshal(msg.Payload)
 			fp := cmixMsg.GetKeyFP()
+			jww.INFO.Printf("RAW AUTH FP: %v", fp)
 			// this takes the request lock if it is a specific fp,
 			// all exits after this need to call fail or Delete if it is
 			// specific
 			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
 			if err != nil {
+				jww.INFO.Printf("FINGERPRINT FAILURE: %s", err.Error())
 				// if the lookup fails, ignore the message. It is likely
 				// garbled or for a different protocol
 				break
@@ -63,6 +67,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		jww.WARN.Printf("Failed to handle auth request: %s", err)
 		return
 	}
+
+	myPubKey := diffieHellman.GeneratePublicKey(myHistoricalPrivKey, grp)
+
+	jww.INFO.Printf("handleRequest MYPUBKEY: %v", myPubKey.Bytes())
+	jww.INFO.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
 
 	//decrypt the message
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
@@ -112,7 +121,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		//check if the relationship already exists,
 		rType, sr2, _, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
-			// if another error is recieved, print it and exist
+			// if another error is recieved, print it and exit
 			jww.WARN.Printf("Recieved new Auth request for %s, "+
 				"internal lookup produced bad result: %+v",
 				partnerID, err)
@@ -140,7 +149,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	}
 
 	//process the inner payload
-	facts, msg, err := contact.UnstringifyFactList(
+	facts, msg, err := fact.UnstringifyFactList(
 		string(requestFmt.msgPayload))
 	if err != nil {
 		jww.WARN.Printf("failed to parse facts and message "+
@@ -192,6 +201,9 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		m.storage.Auth().Fail(sr.GetPartner())
 		return
 	}
+
+	jww.INFO.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),
@@ -253,7 +265,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 		ID:             sr.GetPartner().DeepCopy(),
 		DhPubKey:       partnerPubKey.DeepCopy(),
 		OwnershipProof: copySlice(ownershipProof),
-		Facts:          make([]contact.Fact, 0),
+		Facts:          make([]fact.Fact, 0),
 	}
 
 	//  fixme: if a crash occurs before or during the calls, the notification

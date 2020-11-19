@@ -193,7 +193,7 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 		Payload:     reconstructed,
 		MessageType: mpm.MessageType,
 		Sender:      mpm.Sender,
-		Timestamp:   time.Time{},
+		Timestamp:   mpm.Timestamp,
 		// Encryption will be set externally
 		Encryption: 0,
 		ID:         mid,

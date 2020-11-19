@@ -16,6 +16,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
@@ -36,62 +37,6 @@ func Execute() {
 		os.Exit(1)
 	}
 }
-
-// func setKeyParams(client *api.Client) {
-// 	jww.DEBUG.Printf("Trying to parse key parameters...")
-// 	minKeys, err := strconv.Atoi(keyParams[0])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	maxKeys, err := strconv.Atoi(keyParams[1])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	numRekeys, err := strconv.Atoi(keyParams[2])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	ttlScalar, err := strconv.ParseFloat(keyParams[3], 64)
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	minNumKeys, err := strconv.Atoi(keyParams[4])
-// 	if err != nil {
-// 		return
-// 	}
-
-// 	jww.DEBUG.Printf("Setting key generation parameters: %d, %d, %d, %f, %d",
-// 		minKeys, maxKeys, numRekeys, ttlScalar, minNumKeys)
-
-// 	params := client.GetKeyParams()
-// 	params.MinKeys = uint16(minKeys)
-// 	params.MaxKeys = uint16(maxKeys)
-// 	params.NumRekeys = uint16(numRekeys)
-// 	params.TTLScalar = ttlScalar
-// 	params.MinNumKeys = uint16(minNumKeys)
-// }
-
-// type userSearcher struct {
-// 	foundUserChan chan []byte
-// }
-
-// func newUserSearcher() api.SearchCallback {
-// 	us := userSearcher{}
-// 	us.foundUserChan = make(chan []byte)
-// 	return &us
-// }
-
-// func (us *userSearcher) Callback(userID, pubKey []byte, err error) {
-// 	if err != nil {
-// 		jww.ERROR.Printf("Could not find searched user: %+v", err)
-// 	} else {
-// 		us.foundUserChan <- userID
-// 	}
-// }
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -137,6 +82,7 @@ var rootCmd = &cobra.Command{
 
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ID)
+		writeContact(user.GetContact())
 
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
@@ -144,6 +90,24 @@ var rootCmd = &cobra.Command{
 		listenerID := swboard.RegisterChannel("raw",
 			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+
+		// Set up auth request handler, which simply prints the
+		// user id of the requestor.
+		authMgr := client.GetAuthRegistrar()
+		authMgr.AddGeneralRequestCallback(printChanRequest)
+
+		// If unsafe channels, add auto-acceptor
+		if viper.GetBool("unsafe-channel-creation") {
+			authMgr.AddGeneralRequestCallback(func(
+				requestor contact.Contact, message string) {
+				jww.INFO.Printf("Got Request: %s", requestor.ID)
+				err := client.ConfirmAuthenticatedChannel(
+					requestor)
+				if err != nil {
+					jww.FATAL.Panicf("%+v", err)
+				}
+			})
+		}
 
 		err = client.StartNetworkFollower()
 		if err != nil {
@@ -157,19 +121,36 @@ var rootCmd = &cobra.Command{
 
 		// Send Messages
 		msgBody := viper.GetString("message")
-		recipientID, isPrecanPartner := parseRecipient(
-			viper.GetString("destid"))
-		// Send unsafe messages or not?
-		unsafe := viper.GetBool("unsafe")
 
-		if !unsafe {
-			addAuthenticatedChannel(client, recipientID,
-				isPrecanPartner)
+		isPrecanPartner := false
+		recipientContact := readContact()
+		recipientID := recipientContact.ID
+
+		// Try to get recipientID from destid
+		if recipientID == nil {
+			recipientID, isPrecanPartner = parseRecipient(
+				viper.GetString("destid"))
 		}
 
+		// Set it to myself
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
 			recipientID = user.ID
+			recipientContact = user.GetContact()
+		}
+
+		time.Sleep(10 * time.Second)
+
+		// Accept auth request for this recipient
+		if viper.GetBool("accept-channel") {
+			acceptChannel(client, recipientID)
+		}
+
+		// Send unsafe messages or not?
+		unsafe := viper.GetBool("unsafe")
+		if !unsafe {
+			addAuthenticatedChannel(client, recipientID,
+				recipientContact, isPrecanPartner)
 		}
 
 		msg := message.Send{
@@ -215,6 +196,7 @@ var rootCmd = &cobra.Command{
 			case m := <-recvCh:
 				fmt.Printf("Message received: %s\n", string(
 					m.Payload))
+				//fmt.Printf("%s", m.Timestamp)
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
@@ -226,8 +208,62 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+func writeContact(c contact.Contact) {
+	outfilePath := viper.GetString("writeContact")
+	if outfilePath == "" {
+		return
+	}
+	cBytes, err := c.Marshal()
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	err = ioutil.WriteFile(outfilePath, cBytes, 0644)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+}
+
+func readContact() contact.Contact {
+	inputFilePath := viper.GetString("destfile")
+	if inputFilePath == "" {
+		return contact.Contact{}
+	}
+	data, err := ioutil.ReadFile(inputFilePath)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	c, err := contact.Unmarshal(data)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return c
+}
+
+func acceptChannel(client *api.Client, recipientID *id.ID) {
+	recipientContact, err := client.GetAuthenticatedChannelRequest(
+		recipientID)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	err = client.ConfirmAuthenticatedChannel(
+		recipientContact)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+}
+
+func printChanRequest(requestor contact.Contact, message string) {
+	msg := fmt.Sprintf("Authentication channel request from: %s\n",
+		requestor.ID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+	msg = fmt.Sprintf("Authentication channel request message: %s", message)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+}
+
 func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
-	isPrecanPartner bool) {
+	recipient contact.Contact, isPrecanPartner bool) {
 	if client.HasAuthenticatedChannel(recipientID) {
 		jww.INFO.Printf("Authenticated channel already in place for %s",
 			recipientID)
@@ -247,7 +283,22 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		jww.FATAL.Panicf("User did not allow channel creation!")
 	}
 
-	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
+	// Check if a channel exists for this recipientID
+	recipientContact, err := client.GetAuthenticatedChannelRequest(
+		recipientID)
+	if err == nil {
+		jww.INFO.Printf("Accepting existing channel request for %s",
+			recipientID)
+		err := client.ConfirmAuthenticatedChannel(recipientContact)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		return
+	} else {
+		recipientContact = recipient
+	}
+
+	msg := fmt.Sprintf("Adding authenticated channel for: %s",
 		recipientID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
@@ -269,8 +320,18 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 					preBytes, idBytes)
 			}
 		}
+	} else if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
+		me := client.GetUser().GetContact()
+		jww.INFO.Printf("Requesting auth channel from: %s",
+			recipientID)
+		err := client.RequestAuthenticatedChannel(recipientContact,
+			me, msg)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
 	} else {
-		jww.FATAL.Panicf("e2e unimplemented")
+		jww.ERROR.Printf("Could not add auth channel for %s",
+			recipientID)
 	}
 }
 
@@ -282,7 +343,7 @@ func waitUntilConnected(connected chan bool) {
 	for !isConnected {
 		select {
 		case isConnected = <-connected:
-			jww.INFO.Printf("health status: %v\n",
+			jww.INFO.Printf("Network Status: %v\n",
 				isConnected)
 			break
 		case <-timeoutTimer.C:
@@ -300,7 +361,7 @@ func waitUntilConnected(connected chan bool) {
 				if isConnected != prev {
 					prev = isConnected
 					jww.INFO.Printf(
-						"health status changed: %v\n",
+						"Network Status Changed: %v\n",
 						isConnected)
 				}
 				break
@@ -461,6 +522,10 @@ func init() {
 			"client storage")
 	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
 
+	rootCmd.Flags().StringP("writeContact", "w",
+		"", "Write the contact file for this user to this file")
+	viper.BindPFlag("writeContact", rootCmd.Flags().Lookup("writeContact"))
+
 	rootCmd.Flags().StringP("password", "p", "",
 		"Password to the session file")
 	viper.BindPFlag("password", rootCmd.Flags().Lookup("password"))
@@ -489,6 +554,10 @@ func init() {
 			"'0x' or 'b64:' for hex and base64 representations)")
 	viper.BindPFlag("destid", rootCmd.Flags().Lookup("destid"))
 
+	rootCmd.Flags().StringP("destfile", "",
+		"", "Read this contact file for the destination id")
+	viper.BindPFlag("destfile", rootCmd.Flags().Lookup("destfile"))
+
 	rootCmd.Flags().UintP("sendCount",
 		"", 1, "The number of times to send the message")
 	viper.BindPFlag("sendCount", rootCmd.Flags().Lookup("sendCount"))
@@ -510,10 +579,14 @@ func init() {
 
 	rootCmd.Flags().BoolP("unsafe-channel-creation", "", false,
 		"Turns off the user identity authenticated channel check, "+
-			"which prompts the user to answer yes or no "+
-			"to approve authenticated channels")
+			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+
+	rootCmd.Flags().BoolP("accept-channel", "", false,
+		"Accept the channel request for the corresponding recipient ID")
+	viper.BindPFlag("accept-channel",
+		rootCmd.Flags().Lookup("accept-channel"))
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.

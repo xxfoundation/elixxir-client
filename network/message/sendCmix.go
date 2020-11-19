@@ -8,11 +8,14 @@ import (
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"strings"
 	"time"
 )
+
+const sendTimeBuffer = uint64(100*time.Millisecond)
 
 // WARNING: Potentially Unsafe
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
@@ -38,6 +41,13 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		jww.TRACE.Printf("SendCMIX GetUpcommingRealtime")
 		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
+
+		if (bestRound.Timestamps[states.REALTIME]+sendTimeBuffer)>
+			uint64(time.Now().UnixNano()){
+			jww.WARN.Println("Round received which has already started" +
+				" realtime")
+			continue
+		}
 
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
@@ -77,6 +87,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			return 0, errors.WithMessage(err, "Failed to generate "+
 				"salt, this should never happen")
 		}
+		jww.INFO.Printf("RECIPIENTIDPRE_ENCRYPT: %s", msg.GetRecipientID())
 		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
 
 		//build the message payload

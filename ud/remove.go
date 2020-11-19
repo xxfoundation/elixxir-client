@@ -12,7 +12,7 @@ type removeFactComms interface {
 }
 
 func (m *Manager) RemoveFact(fact contact.Fact) error {
-	return m.removeFact(fact, m.comms)
+	return m.removeFact(fact, nil)
 }
 
 func (m *Manager) removeFact(fact contact.Fact, rFC removeFactComms) error {

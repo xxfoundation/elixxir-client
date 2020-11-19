@@ -24,15 +24,18 @@ package network
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	//"gitlab.com/elixxir/client/storage"
+	jww "github.com/spf13/jwalterweatherman"
+	bloom "gitlab.com/elixxir/bloomfilter"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
-
-	jww "github.com/spf13/jwalterweatherman"
-	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
+
+const bloomFilterSize = 71888 // In Bits
+const bloomFilterHashes = 8
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -96,6 +99,20 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		jww.ERROR.Printf("Failed to unmartial: %+v", err)
 		return
 	}
+	var filterList []*bloom.Ring
+	for _, f := range pollResp.BloomFilters {
+		jww.INFO.Printf("Bloom Filter received: %v", f)
+		filter, err := bloom.InitByParameters(bloomFilterSize, bloomFilterHashes)
+		if err != nil {
+			jww.FATAL.Panicf("Unable to create a bloom filter: %v", err)
+		}
+		if err := filter.UnmarshalBinary(f); err != nil {
+			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
+			continue
+		}
+		filterList = append(filterList, filter)
+	}
+	jww.INFO.Printf("Bloom filters found in response: %d", len(filterList))
 
 	// ---- Node Events ----
 	// NOTE: this updates the structure, AND sends events over the node
@@ -130,7 +147,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid)
+		return m.round.Checker(rid, filterList)
 	}
 
 	// get the bit vector of rounds that have been checked

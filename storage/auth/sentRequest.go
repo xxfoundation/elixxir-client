@@ -7,7 +7,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"sync"
 	"time"
 )
 
@@ -21,7 +20,6 @@ type SentRequest struct {
 	myPrivKey               *cyclic.Int
 	myPubKey                *cyclic.Int
 	fingerprint             format.Fingerprint
-	sentMux                 sync.Mutex
 }
 
 type sentRequestDisk struct {

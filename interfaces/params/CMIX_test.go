@@ -7,7 +7,7 @@ import (
 
 func TestGetDefaultCMIX(t *testing.T) {
 	c := GetDefaultCMIX()
-	if c.RoundTries != 3 || c.Timeout != 25*time.Second {
+	if c.RoundTries != 10 || c.Timeout != 25*time.Second {
 		t.Errorf("GetDefaultCMIX did not return expected values")
 	}
 }

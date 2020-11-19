@@ -79,7 +79,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//encrypt the payload
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
-		salt, ecrFmt.payload, grp)
+		salt, ecrFmt.data, grp)
 
 	//get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
@@ -92,6 +92,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
+	cmixMsg.SetRecipientID(partner.ID)
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not or the two occur and the storage into critical
@@ -123,7 +124,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
-		jww.ERROR.Printf("request failed to transmit, will be "+
+		jww.ERROR.Printf("auth confirm failed to transmit, will be "+
 			"handled on reconnect: %+v", err)
 		storage.GetCriticalRawMessages().Failed(cmixMsg)
 	}
@@ -137,7 +138,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	success, _, _ := utility.TrackResults(sendResults, 1)
 	if !success {
-		jww.ERROR.Printf("request failed to transmit, will be " +
+		jww.ERROR.Printf("auth confirm failed to transmit, will be " +
 			"handled on reconnect")
 		storage.GetCriticalRawMessages().Failed(cmixMsg)
 	} else {

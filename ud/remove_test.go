@@ -1,9 +1,9 @@
 package ud
 
 import (
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -60,7 +60,7 @@ func TestRemoveFact(t *testing.T) {
 		privKey: cpk,
 	}
 
-	f := contact.Fact{
+	f := fact.Fact{
 		Fact: "testing",
 		T:    2,
 	}

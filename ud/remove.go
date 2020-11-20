@@ -4,9 +4,9 @@ import (
 	"crypto/rand"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -16,11 +16,11 @@ type removeFactComms interface {
 	SendDeleteMessage(host *connect.Host, message *messages.AuthenticatedMessage) (*messages.Ack, error)
 }
 
-func (m *Manager) RemoveFact(fact contact.Fact) error {
+func (m *Manager) RemoveFact(fact fact.Fact) error {
 	return m.removeFact(fact, nil)
 }
 
-func (m *Manager) removeFact(fact contact.Fact, rFC removeFactComms) error {
+func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 	// Construct the message to send
 	// Convert our Fact to a mixmessages Fact for sending
 	mmFact := mixmessages.Fact{

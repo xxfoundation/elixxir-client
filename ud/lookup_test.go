@@ -28,11 +28,11 @@ import (
 // Happy path.
 func TestManager_Lookup(t *testing.T) {
 	// Set up manager
-	m := Manager{
+	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
 		storage:          storage.InitTestingSession(t),
-		udID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
 	}
@@ -111,14 +111,14 @@ func TestManager_Lookup(t *testing.T) {
 	}
 }
 
-// Error path: the LookupResponse returns an error.
-func TestManager_Lookup_LookupResponseError(t *testing.T) {
+// Error path: the callback returns an error.
+func TestManager_Lookup_CallbackError(t *testing.T) {
 	// Set up manager
-	m := Manager{
+	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
 		storage:          storage.InitTestingSession(t),
-		udID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
 	}
@@ -175,11 +175,11 @@ func TestManager_Lookup_LookupResponseError(t *testing.T) {
 // Error path: the round event chan times out.
 func TestManager_Lookup_EventChanTimeout(t *testing.T) {
 	// Set up manager
-	m := Manager{
+	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
 		storage:          storage.InitTestingSession(t),
-		udID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
 	}
@@ -226,11 +226,11 @@ func TestManager_Lookup_EventChanTimeout(t *testing.T) {
 
 // Happy path.
 func TestManager_lookupProcess(t *testing.T) {
-	m := Manager{
+	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
 		storage:          storage.InitTestingSession(t),
-		udID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
 	}
@@ -280,11 +280,11 @@ func TestManager_lookupProcess(t *testing.T) {
 
 // Error path: dropped lookup response due to incorrect message.Receive.
 func TestManager_lookupProcess_NoLookupResponse(t *testing.T) {
-	m := Manager{
+	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
 		storage:          storage.InitTestingSession(t),
-		udID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
 	}

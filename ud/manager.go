@@ -25,8 +25,11 @@ type Manager struct {
 
 	udID *id.ID
 
-	inProgressLookup map[uint64]chan *LookupResponse
-	inProgressMux    sync.RWMutex
+	inProgressLookup    map[uint64]chan *LookupResponse
+	inProgressLookupMux sync.RWMutex
+
+	inProgressSearch    map[uint64]chan *SearchResponse
+	inProgressSearchMux sync.Mutex
 
 	net interfaces.NetworkManager
 

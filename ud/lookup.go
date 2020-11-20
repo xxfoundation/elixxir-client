@@ -35,9 +35,9 @@ func (m *Manager) lookupProcess(c chan message.Receive, quitCh <-chan struct{}) 
 			}
 
 			// Get the appropriate channel from the lookup
-			m.inProgressMux.RLock()
+			m.inProgressLookupMux.RLock()
 			ch, ok := m.inProgressLookup[lookupResponse.CommID]
-			m.inProgressMux.RUnlock()
+			m.inProgressLookupMux.RUnlock()
 			if !ok {
 				jww.WARN.Printf("Dropped a lookup response from user "+
 					"discovery due to unknown comm ID: %d",
@@ -83,9 +83,9 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 
 	// Register the request in the response map so it can be processed on return
 	responseChan := make(chan *LookupResponse, 1)
-	m.inProgressMux.Lock()
+	m.inProgressLookupMux.Lock()
 	m.inProgressLookup[commID] = responseChan
-	m.inProgressMux.Unlock()
+	m.inProgressLookupMux.Unlock()
 
 	// Send the request
 	rounds, _, err := m.net.SendE2E(msg, params.GetDefaultE2E())
@@ -113,7 +113,7 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		select {
 		// Return an error if the round fails
 		case <-roundFailChan:
-			err = errors.New("One or more rounds failed to resolved; " +
+			err = errors.New("One or more rounds failed to resolve; " +
 				"lookup not delivered")
 
 		// Return an error if the timeout is reached
@@ -138,9 +138,9 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		}
 
 		// Delete the response channel from the map
-		m.inProgressMux.Lock()
+		m.inProgressLookupMux.Lock()
 		delete(m.inProgressLookup, commID)
-		m.inProgressMux.Unlock()
+		m.inProgressLookupMux.Unlock()
 
 		// Call the callback last in case it is blocking
 		callback(c, err)

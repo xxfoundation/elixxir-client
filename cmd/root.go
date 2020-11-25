@@ -86,8 +86,8 @@ var rootCmd = &cobra.Command{
 
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10)
-		listenerID := swboard.RegisterChannel("raw",
+		recvCh := make(chan message.Receive, 10000)
+		listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
 			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 

@@ -566,6 +566,8 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	if s.t == Receive {
 		//register keys
 		s.relationship.manager.ctx.fa.add(s.getUnusedKeys())
+	}else{
+		s.getUnusedKeys()
 	}
 
 	return kv
@@ -578,6 +580,10 @@ func (s *Session) getUnusedKeys() []*Key {
 	keys := make([]*Key, len(keyNums))
 	for i, keyNum := range keyNums {
 		keys[i] = newKey(s, keyNum)
+		if keyNum<10{
+			jww.INFO.Printf("Type: %s, Fingerprint %d: %v", s.t, keyNum, keys[i].Fingerprint())
+		}
+
 	}
 
 	return keys

@@ -82,6 +82,8 @@ type SessionDisk struct {
 	PartnerPubKey []byte
 	// ID of the session which triggered this sessions creation.
 	Trigger []byte
+	// relationship fp
+	RelationshipFingerprint []byte
 
 	//denotes if the other party has confirmed this key
 	Confirmation uint8
@@ -274,6 +276,7 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.MyPrivKey = s.myPrivKey.Bytes()
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
 	sd.Trigger = s.partnerSource[:]
+	sd.RelationshipFingerprint = s.relationshipFingerprint
 
 	// assume in progress confirmations and session creations have failed on
 	// reset, therefore do not store their pending progress
@@ -309,6 +312,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 	s.negotiationStatus = Negotiation(sd.Confirmation)
 	s.ttl = sd.TTL
+	s.relationshipFingerprint = sd.RelationshipFingerprint
 	copy(s.partnerSource[:], sd.Trigger)
 
 	s.keyState, err = loadStateVector(s.kv, "")

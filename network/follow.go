@@ -101,13 +101,18 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 	var filterList []*bloom.Ring
 	for _, f := range pollResp.BloomFilters {
-		jww.INFO.Printf("Bloom Filter received: %v", f)
-		filter, err := bloom.InitByParameters(bloomFilterSize, bloomFilterHashes)
+		jww.DEBUG.Printf("Bloom Filter size: %d, hashes: %d",
+			bloomFilterSize, bloomFilterHashes)
+		filter, err := bloom.InitByParameters(bloomFilterSize,
+			bloomFilterHashes)
 		if err != nil {
-			jww.FATAL.Panicf("Unable to create a bloom filter: %v", err)
+			jww.INFO.Printf("Bloom Filter Data: %v", f)
+			jww.FATAL.Panicf("Unable to create a bloom filter: %+v",
+				err)
 		}
 		if err := filter.UnmarshalBinary(f); err != nil {
 			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
+			jww.INFO.Printf("Bloom Filter Unmarshal Data: %v", f)
 			continue
 		}
 		filterList = append(filterList, filter)

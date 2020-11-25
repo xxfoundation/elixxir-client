@@ -249,7 +249,7 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 	r, ok := s.fingerprints[fp]
 	s.mux.RUnlock()
 	if !ok {
-		return 0, nil, nil, errors.Errorf("Fingerprint cannot be found: %s", fp)
+		return 0, nil, nil, errors.Errorf("Fingerprint cannot be found: %v", fp)
 	}
 
 	switch r.Type {
@@ -266,7 +266,7 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 		_, ok := s.requests[*r.Request.sent.partner]
 		s.mux.RUnlock()
 		if !ok {
-			return 0, nil, nil, errors.Errorf("request associated with " +
+			return 0, nil, nil, errors.Errorf("request associated with "+
 				"fingerprint cannot be found: %s", fp)
 		}
 		// Return the request

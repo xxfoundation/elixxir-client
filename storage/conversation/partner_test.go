@@ -178,6 +178,29 @@ func TestConversation_save_load(t *testing.T) {
 	}
 }
 
+// Happy path.
+func TestConversation_Delete(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	partner := id.NewIdFromString("partner ID", id.User, t)
+	conv := makeRandomConv(kv, partner)
+
+	if err := conv.save(); err != nil {
+		t.Fatalf("Failed to save conversation to storage: %+v", err)
+	}
+
+	if _, err := loadConversation(kv, partner); err != nil {
+		t.Fatalf("Failed to load conversation from storage: %v", err)
+	}
+
+	if err := conv.delete(); err != nil {
+		t.Errorf("delete() produced an error: %+v", err)
+	}
+
+	if _, err := loadConversation(kv, partner); err == nil {
+		t.Error("Object found in storage when it should be deleted.")
+	}
+}
+
 // Tests the happy path of marshal() and unmarshal().
 func TestConversation_marshal_unmarshal(t *testing.T) {
 	expectedConv := makeRandomConv(versioned.NewKV(make(ekv.Memstore)),

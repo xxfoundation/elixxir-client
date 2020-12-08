@@ -86,8 +86,8 @@ var rootCmd = &cobra.Command{
 
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10)
-		listenerID := swboard.RegisterChannel("raw",
+		recvCh := make(chan message.Receive, 10000)
+		listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
 			switchboard.AnyUser(), message.Text, recvCh)
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
@@ -257,7 +257,7 @@ func printChanRequest(requestor contact.Contact, message string) {
 		requestor.ID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
-	msg = fmt.Sprintf("Authentication channel request message: %s", message)
+	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
 }
@@ -298,7 +298,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		recipientContact = recipient
 	}
 
-	msg := fmt.Sprintf("Adding authenticated channel for: %s",
+	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
 		recipientID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)

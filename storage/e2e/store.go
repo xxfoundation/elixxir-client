@@ -310,7 +310,6 @@ func (f *fingerprints) Check(fingerprint format.Fingerprint) bool {
 func (f *fingerprints) Pop(fingerprint format.Fingerprint) (*Key, bool) {
 	f.mux.Lock()
 	defer f.mux.Unlock()
-
 	key, ok := f.toKey[fingerprint]
 
 	if !ok {

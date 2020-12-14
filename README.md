@@ -3,7 +3,7 @@
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-The XX Network client is a command line tool and related libraries
+The XX Network client is a library and related command line tool 
 that facilitate making full-featured XX clients for all platforms. The
 command line tool can be built for any platform supported by
 golang. The libraries are built for iOS and Android using
@@ -11,7 +11,8 @@ golang. The libraries are built for iOS and Android using
 
 This repository contains everything necessary to implement all of the
 XX Network messaging features. These include the end-to-end encryption
-and metadata protection.
+and metadata protection. It also contains features to extend the base 
+messaging protocols.
 
 For library writers, the client requires a writable folder to store
 data, functions for receiving and approving requests for creating
@@ -44,7 +45,7 @@ GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clien
 GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
 ```
 
-Basic usage, sending unsafe, unencrypted messages to yourself:
+Basic command line usage, sending unsafe, unencrypted messages to yourself:
 
 ```
 client --password user-password --ndf ndf.json -l client.log -s session-directory --writeContact user-contact.json --unsafe -m \"Hello World, without E2E Encryption\"
@@ -52,7 +53,7 @@ client --password user-password --ndf ndf.json -l client.log -s session-director
 
 * `--password` is the password used to encrypt and load the session.
 * `--ndf` is the network definition file, downloadable from the XX network
-  website.
+  website when available.
 * `-l` the file to write logs (user messages are still printed to stdout)
 * `--writeContact` Output the user's contact information to this file.
 * `--unsafe` Send message without encryption (necessary whenever you have not
@@ -155,48 +156,12 @@ Note that the client cannot be used on the betanet with precanned user ids.
 
 ## Library Overview
 
-The XX client uses gomobile to build Android and iOS libraries. We
+The XX client is designed to be used as a go library (and by extension a 
+c library). 
+ 
+Support is also present for go mobile to build Android and iOS libraries. We
 bind all exported symbols from the bindings package for use on mobile
 platforms.
-
-### Building the Library
-
-To set up Gomobile for Android, install the NDK and pass the -ndk flag
-to ` $ gomobile init`. Other repositories that use Gomobile for
-binding should include a shell script that creates the bindings. For
-iOS, gomobile must be run on an OS X machine with Xcode installed.
-
-Important reference info:
-1. [Setting up Gomobile and subcommands](https://godoc.org/golang.org/x/mobile/cmd/gomobile)
-2. [Reference cycles, type restrictions](https://godoc.org/golang.org/x/mobile/cmd/gobind)
-
-To clone and build:
-
-```
-# Go mobile install
-go get -u golang.org/x/mobile/cmd/gomobile
-go get -u golang.org/x/mobile/bind
-gomobile init... # Note this line will be different depending on sdk/target!
-# Get and test code
-git clone https://gitlab.com/elixxir/client.git client
-cd client
-go mod vendor -v
-go mod tidy
-go test ./...
-# Android
-gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
-# iOS
-gomobile bind -target ios gitlab.com/elixxir/client/bindings
-zip -r iOS.zip Bindings.framework
-```
-
-You can verify that all symbols got bound by unzipping
-`bindings-sources.jar` and inspecting the resulting source files.
-
-Every time you make a change to the client or bindings, you must
-rebuild the client bindings into a .aar or iOS.zip to propagate those
-changes to the app. There's a script that runs gomobile for you in the
-`bindings-integration` repository.
 
 ### Implementation Notes
 
@@ -206,6 +171,9 @@ set up before starting network threads (i.e., before StartNetworkFollowers
 -- #2 below) and you cannot perform certain actions until the network
 connection reaches the "healthy" state. Below are relevant code listings for
 how to do these actions.
+
+the ndf is the network definition file, downloadable from the XX network 
+website when available.
 
 1. Creating and/or Loading a client:
 ```
@@ -420,14 +388,56 @@ type RoundEventCallback func(ri *pb.RoundInfo, timedOut bool)
 showing that you can receive a full RoundInfo object for any round event
 received by the client library on the network.
 
+### Building the Library for iOS and Android
+
+To set up Gomobile for Android, install the NDK and pass the -ndk flag
+to ` $ gomobile init`. Other repositories that use Gomobile for
+binding should include a shell script that creates the bindings. For
+iOS, gomobile must be run on an OS X machine with Xcode installed.
+
+Important reference info:
+1. [Setting up Gomobile and subcommands](https://godoc.org/golang.org/x/mobile/cmd/gomobile)
+2. [Reference cycles, type restrictions](https://godoc.org/golang.org/x/mobile/cmd/gobind)
+
+To clone and build:
+
+```
+# Go mobile install
+go get -u golang.org/x/mobile/cmd/gomobile
+go get -u golang.org/x/mobile/bind
+gomobile init... # Note this line will be different depending on sdk/target!
+# Get and test code
+git clone https://gitlab.com/elixxir/client.git client
+cd client
+go mod vendor -v
+go mod tidy
+go test ./...
+# Android
+gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+# iOS
+gomobile bind -target ios gitlab.com/elixxir/client/bindings
+zip -r iOS.zip Bindings.framework
+```
+
+You can verify that all symbols got bound by unzipping
+`bindings-sources.jar` and inspecting the resulting source files.
+
+Every time you make a change to the client or bindings, you must
+rebuild the client bindings into a .aar or iOS.zip to propagate those
+changes to the app. There's a script that runs gomobile for you in the
+`bindings-integration` repository.
+
 ## Roadmap
 
 See the larger network documentation for more, but there are 2 specific
 parts of the roadmap that are intended for the client:
 
-* Ephemeral IDs - sending messages to users with temporal/ephemeral recipient
+* Ephemeral IDs - Sending messages to users with temporal/ephemeral recipient
   user identities.
 * User Discovery - A bot that will allow the user to look for others on the
   network.
+* Notifications - An optional notifications system which uses firebase
+* Efficiency improvements - mechanisms for message pickup and network tracking 
+* will evolve to allow tradeoffs and options for use
 
 We also are always looking at how to simplify and improve the library interface.

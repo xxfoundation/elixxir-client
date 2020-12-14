@@ -35,7 +35,6 @@ func TestAddFact(t *testing.T) {
 
 	// Create our Manager object
 	m := Manager{
-		comms:   nil,
 		host:    h,
 		privKey: cpk,
 	}

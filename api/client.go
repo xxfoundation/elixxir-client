@@ -29,8 +29,6 @@ import (
 	"time"
 )
 
-type ServiceProcess func()stoppable.Stoppable
-
 type Client struct {
 	//generic RNG for client
 	rng *fastRNG.StreamGenerator
@@ -55,7 +53,8 @@ type Client struct {
 	runner *stoppable.Multi
 	status *statusTracker
 
-	serviceProcessies []ServiceProcess
+	//handler for external services
+	services *serviceProcessiesList
 
 }
 
@@ -178,6 +177,8 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 		status:      newStatusTracker(),
 	}
 
+	c.services = newServiceProcessiesList(c.runner)
+
 	//get the user from session
 	user := c.storage.User()
 	cryptoUser := user.GetCryptographicIdentity()
@@ -292,9 +293,7 @@ func (c *Client) StartNetworkFollower() error {
 		return errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
-	for _, p := range c.serviceProcessies{
-		c.runner.Add(p())
-	}
+	c.services.run(c.runner)
 
 	return nil
 }
@@ -350,12 +349,39 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	return c.network.GetInstance().GetRoundEvents()
 }
 
+// AddService adds a service ot be controlled by the client thread control,
+// these will be started and stopped with the network follower
+func (c *Client)AddService(sp ServiceProcess){
+	c.services.Add(sp)
+}
+
 // GetUser returns the current user Identity for this client. This
 // can be serialized into a byte stream for out-of-band sharing.
 func (c *Client) GetUser() user.User {
 	jww.INFO.Printf("GetUser()")
 	return c.storage.GetUser()
 }
+
+// GetComms returns the client comms object
+func (c *Client)GetComms() *client.Comms{
+	return c.comms
+}
+
+// GetRng returns the client rng object
+func (c *Client)GetRng() *fastRNG.StreamGenerator{
+	return c.rng
+}
+
+// GetStorage returns the client storage object
+func (c *Client)GetStorage() *storage.Session{
+	return c.storage
+}
+
+// GetNetworkInterface returns the client Network Interface
+func (c *Client)GetNetworkInterface() interfaces.NetworkManager{
+	return c.network
+}
+
 
 // ----- Utility Functions -----
 // parseNDF parses the initial ndf string for the client. do not check the

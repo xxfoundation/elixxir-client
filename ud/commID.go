@@ -30,7 +30,7 @@ func (m *Manager) getCommID() uint64 {
 		Data:      data,
 	}
 
-	if err := m.storage.Set(commIDKey, obj); err != nil {
+	if err := m.client.GetStorage().Set(commIDKey, obj); err != nil {
 		jww.FATAL.Panicf("Failed to store the next commID: %+v", err)
 	}
 

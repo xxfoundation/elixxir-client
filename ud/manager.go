@@ -2,6 +2,7 @@ package ud
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -17,6 +18,7 @@ import (
 
 type Manager struct {
 	//external
+	client *api.Client
 	comms   *client.Comms
 	rng     *fastRNG.StreamGenerator
 	sw      interfaces.Switchboard
@@ -45,16 +47,15 @@ type Manager struct {
 
 // New manager builds a new user discovery manager. It requires that an
 // updated NDF is available and will error if one is not.
-func NewManager(comms *client.Comms, rng *fastRNG.StreamGenerator,
-	sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager)(*Manager, error){
+func NewManager(client *api.Client)(*Manager, error){
 
 	m := &Manager{
-		comms:               comms,
-		rng:                 rng,
-		sw:                  sw,
-		storage:             storage,
-		net:                 net,
+		client:				 client,
+		comms:               client.GetComms(),
+		rng:                 client.GetRng(),
+		sw:                  client.GetSwitchboard(),
+		storage:             client.GetStorage(),
+		net:                 client.GetNetworkInterface(),
 		inProgressLookup: 	 make(map[uint64]chan *LookupResponse),
 		inProgressSearch:	 make(map[uint64]chan *SearchResponse),
 	}
@@ -62,7 +63,7 @@ func NewManager(comms *client.Comms, rng *fastRNG.StreamGenerator,
 	var err error
 
 	//check that user discovery is available in the ndf
-	def := net.GetInstance().GetPartialNdf().Get()
+	def := m.net.GetInstance().GetPartialNdf().Get()
 	if m.udID, err = id.Unmarshal(def.UDB.ID); err!=nil{
 		return nil, errors.WithMessage(err,"NDF does not have User " +
 			"Discovery information, is there network access?: ID could not be " +
@@ -97,8 +98,11 @@ func NewManager(comms *client.Comms, rng *fastRNG.StreamGenerator,
 	return m, nil
 }
 
+func (m *Manager) StartProcesses()  {
+	m.client.AddService(m.startProcesses)
+}
 
-func (m *Manager) StartProcesses() stoppable.Stoppable {
+func (m *Manager) startProcesses() stoppable.Stoppable {
 
 	lookupStop := stoppable.NewSingle("UDLookup")
 	lookupChan := make(chan message.Receive, 100)

@@ -1,10 +1,11 @@
 package api
 
 import (
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/client/ud"
 )
 
+/*
 // Returns true if the cryptographic identity has been registered with
 // the CMIX user discovery agent.
 // Note that clients do not need to perform this step if they use
@@ -73,4 +74,15 @@ func (c *Client) SearchWithCallback(data, separator string, searchTypes []byte,
 			//TODO: Timer
 		}
 	}(resultCh, cb)
+}*/
+
+func (c *Client) StartUD() (*ud.Manager, error) {
+	m, err := ud.NewManager(c.comms, c.rng, c.switchboard, c.storage, c.network)
+	if err!=nil{
+		return nil, err
+	}
+
+	c.serviceProcessies = append(c.serviceProcessies, m.StartProcesses())
+	c.runner.Add(m.StartProcesses())
+	return m, nil
 }

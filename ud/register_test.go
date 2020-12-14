@@ -34,11 +34,14 @@ func TestManager_register(t *testing.T) {
 		t.Fatalf("Could not create a new host: %+v", err)
 	}
 
+	isReg := uint32(0)
+
 	// Set up manager
 	m := &Manager{
 		host:    host,
 		rng:     fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		storage: storage.InitTestingSession(t),
+		registered: &isReg,
 	}
 
 	c := &testRegisterComm{}

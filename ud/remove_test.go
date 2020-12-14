@@ -29,10 +29,13 @@ func TestRemoveFact(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	isReg := uint32(1)
+
 	m := Manager{
 		comms:   nil,
 		host:    h,
 		privKey: cpk,
+		registered: &isReg,
 	}
 
 	f := fact.Fact{

@@ -27,6 +27,8 @@ import (
 
 // Happy path.
 func TestManager_Lookup(t *testing.T) {
+	isReg := uint32(1)
+
 	// Set up manager
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
@@ -35,6 +37,7 @@ func TestManager_Lookup(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
+		registered: 	  &isReg,
 	}
 
 	// Generate callback function
@@ -113,6 +116,7 @@ func TestManager_Lookup(t *testing.T) {
 
 // Error path: the callback returns an error.
 func TestManager_Lookup_CallbackError(t *testing.T) {
+	isReg := uint32(1)
 	// Set up manager
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
@@ -121,6 +125,7 @@ func TestManager_Lookup_CallbackError(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	// Generate callback function
@@ -174,6 +179,7 @@ func TestManager_Lookup_CallbackError(t *testing.T) {
 
 // Error path: the round event chan times out.
 func TestManager_Lookup_EventChanTimeout(t *testing.T) {
+	isReg := uint32(1)
 	// Set up manager
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
@@ -182,6 +188,7 @@ func TestManager_Lookup_EventChanTimeout(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	// Generate callback function
@@ -226,6 +233,7 @@ func TestManager_Lookup_EventChanTimeout(t *testing.T) {
 
 // Happy path.
 func TestManager_lookupProcess(t *testing.T) {
+	isReg := uint32(1)
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
@@ -233,6 +241,7 @@ func TestManager_lookupProcess(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	c := make(chan message.Receive)
@@ -280,6 +289,7 @@ func TestManager_lookupProcess(t *testing.T) {
 
 // Error path: dropped lookup response due to incorrect message.Receive.
 func TestManager_lookupProcess_NoLookupResponse(t *testing.T) {
+	isReg := uint32(1)
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
@@ -287,6 +297,7 @@ func TestManager_lookupProcess_NoLookupResponse(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	c := make(chan message.Receive)
@@ -329,8 +340,16 @@ func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E) ([]id.Round,
 	return rounds, e2e.MessageID{}, nil
 }
 
-func (t *testNetworkManager) SendUnsafe(message.Send, params.Unsafe) ([]id.Round, error) {
-	return nil, nil
+func (t *testNetworkManager) SendUnsafe(m message.Send, _ params.Unsafe) ([]id.Round, error) {
+	rounds := []id.Round{
+		id.Round(0),
+		id.Round(1),
+		id.Round(2),
+	}
+
+	t.msg = m
+
+	return rounds, nil
 }
 
 func (t *testNetworkManager) SendCMIX(format.Message, params.CMIX) (id.Round, error) {

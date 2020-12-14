@@ -21,11 +21,7 @@ func (m *Manager) lookupProcess(c chan message.Receive, quitCh <-chan struct{}) 
 		case <-quitCh:
 			return
 		case response := <-c:
-			// Edge check the encryption
-			if response.Encryption != message.E2E {
-				jww.WARN.Printf("Dropped a lookup response from user " +
-					"discovery due to incorrect encryption")
-			}
+
 
 			// Unmarshal the message
 			lookupResponse := &LookupResponse{}
@@ -61,6 +57,11 @@ func (m *Manager) lookupProcess(c chan message.Receive, quitCh <-chan struct{}) 
 // system or returns by the timeout.
 func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
 
+	if !m.IsRegistered(){
+		return errors.New("Failed to lookup: " +
+			"client is not registered")
+	}
+
 	// Get the ID of this comm so it can be connected to its response
 	commID := m.getCommID()
 
@@ -88,7 +89,7 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 	m.inProgressLookupMux.Unlock()
 
 	// Send the request
-	rounds, _, err := m.net.SendE2E(msg, params.GetDefaultE2E())
+	rounds, err := m.net.SendUnsafe(msg, params.GetDefaultUnsafe())
 	if err != nil {
 		return errors.WithMessage(err, "Failed to send the lookup request")
 	}

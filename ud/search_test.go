@@ -19,6 +19,7 @@ import (
 
 // Happy path.
 func TestManager_Search(t *testing.T) {
+	isReg := uint32(1)
 	// Set up manager
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
@@ -27,6 +28,7 @@ func TestManager_Search(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressSearch: map[uint64]chan *SearchResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	// Generate callback function
@@ -122,6 +124,7 @@ func TestManager_Search(t *testing.T) {
 
 // Error path: the callback returns an error.
 func TestManager_Search_CallbackError(t *testing.T) {
+	isReg := uint32(1)
 	// Set up manager
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
@@ -130,6 +133,7 @@ func TestManager_Search_CallbackError(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressSearch: map[uint64]chan *SearchResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	// Generate callback function
@@ -188,6 +192,7 @@ func TestManager_Search_CallbackError(t *testing.T) {
 
 // Error path: the round event chan times out.
 func TestManager_Search_EventChanTimeout(t *testing.T) {
+	isReg := uint32(1)
 	// Set up manager
 	m := &Manager{
 		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
@@ -196,6 +201,7 @@ func TestManager_Search_EventChanTimeout(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressSearch: map[uint64]chan *SearchResponse{},
 		net:              newTestNetworkManager(t),
+		registered: &isReg,
 	}
 
 	// Generate callback function
@@ -240,5 +246,98 @@ func TestManager_Search_EventChanTimeout(t *testing.T) {
 
 	if _, exists := m.inProgressSearch[m.commID-1]; exists {
 		t.Error("Failed to delete SearchResponse from inProgressSearch.")
+	}
+}
+
+// Happy path.
+func TestManager_searchProcess(t *testing.T) {
+	isReg := uint32(1)
+	m := &Manager{
+		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
+		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
+		storage:          storage.InitTestingSession(t),
+		udID:             &id.UDB,
+		inProgressSearch: map[uint64]chan *SearchResponse{},
+		net:              newTestNetworkManager(t),
+		registered: &isReg,
+	}
+
+	c := make(chan message.Receive)
+	quitCh := make(chan struct{})
+
+	// Generate expected Send message
+	payload, err := proto.Marshal(&SearchSend{
+		Fact: []*HashFact{&HashFact{
+			Hash:                 []byte{1},
+			Type:                 0,
+		}},
+		CommID: m.commID,
+	})
+	if err != nil {
+		t.Fatalf("Failed to marshal LookupSend: %+v", err)
+	}
+
+	m.inProgressSearch[m.commID] = make(chan *SearchResponse, 1)
+
+	// Trigger response chan
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+		c <- message.Receive{
+			Payload:    payload,
+			Encryption: message.E2E,
+		}
+		time.Sleep(1 * time.Millisecond)
+		quitCh <- struct{}{}
+	}()
+
+	m.searchProcess(c, quitCh)
+
+	select {
+	case response := <-m.inProgressSearch[m.commID]:
+		expectedResponse := &SearchResponse{}
+		if err := proto.Unmarshal(payload, expectedResponse); err != nil {
+			t.Fatalf("Failed to unmarshal payload: %+v", err)
+		}
+
+		if !reflect.DeepEqual(expectedResponse, response) {
+			t.Errorf("Recieved unexpected response."+
+				"\n\texpected: %+v\n\trecieved: %+v", expectedResponse, response)
+		}
+	case <-time.After(100 * time.Millisecond):
+		t.Error("Response not sent.")
+	}
+}
+
+// Error path: dropped lookup response due to incorrect message.Receive.
+func TestManager_searchpProcess_NoSearchResponse(t *testing.T) {
+	isReg := uint32(1)
+	m := &Manager{
+		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
+		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
+		storage:          storage.InitTestingSession(t),
+		udID:             &id.UDB,
+		inProgressSearch: map[uint64]chan *SearchResponse{},
+		net:              newTestNetworkManager(t),
+		registered: &isReg,
+	}
+
+	c := make(chan message.Receive)
+	quitCh := make(chan struct{})
+
+	// Trigger response chan
+	go func() {
+		time.Sleep(1 * time.Millisecond)
+		c <- message.Receive{}
+		time.Sleep(1 * time.Millisecond)
+		quitCh <- struct{}{}
+	}()
+
+	m.lookupProcess(c, quitCh)
+
+	select {
+	case response := <-m.inProgressSearch[m.commID]:
+		t.Errorf("Received unexpected response: %+v", response)
+	case <-time.After(10 * time.Millisecond):
+		return
 	}
 }

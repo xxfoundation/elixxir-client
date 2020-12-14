@@ -29,6 +29,8 @@ import (
 	"time"
 )
 
+type ServiceProcess func()stoppable.Stoppable
+
 type Client struct {
 	//generic RNG for client
 	rng *fastRNG.StreamGenerator
@@ -52,6 +54,9 @@ type Client struct {
 	//contains stopables for all running threads
 	runner *stoppable.Multi
 	status *statusTracker
+
+	serviceProcessies []ServiceProcess
+
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -285,6 +290,10 @@ func (c *Client) StartNetworkFollower() error {
 	err = c.status.toRunning()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Start the Network Follower")
+	}
+
+	for _, p := range c.serviceProcessies{
+		c.runner.Add(p())
 	}
 
 	return nil

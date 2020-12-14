@@ -23,6 +23,11 @@ func (m *Manager) Register(username string) error {
 // register registers a user with user discovery with a specified comm for
 // easier testing.
 func (m *Manager) register(username string, comm registerUserComms) error {
+	if m.IsRegistered(){
+		return errors.New("cannot register client with User Discovery: " +
+			"client is already registered")
+	}
+
 	var err error
 	user := m.storage.User()
 	cryptoUser := m.storage.User().GetCryptographicIdentity()
@@ -70,6 +75,10 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	// Register user with user discovery
 	_, err = comm.SendRegisterUser(m.host, msg)
+
+	if err==nil{
+		err = m.setRegistered()
+	}
 
 	return err
 }

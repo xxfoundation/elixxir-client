@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
@@ -16,6 +17,11 @@ func (m *Manager) RemoveFact(fact fact.Fact) error {
 }
 
 func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
+	if !m.IsRegistered(){
+		return errors.New("Failed to remove fact: " +
+			"client is not registered")
+	}
+
 	// Construct the message to send
 	// Convert our Fact to a mixmessages Fact for sending
 	mmFact := mixmessages.Fact{

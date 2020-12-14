@@ -19,12 +19,12 @@ require (
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
 	gitlab.com/elixxir/comms v0.0.4-0.20201125010058-1bd873622e92
-	gitlab.com/elixxir/crypto v0.0.5-0.20201125005724-bcc603df02d3
+	gitlab.com/elixxir/crypto v0.0.6
 	gitlab.com/elixxir/ekv v0.1.3
 	gitlab.com/elixxir/primitives v0.0.3-0.20201116174806-97f190989704
 	gitlab.com/xx_network/comms v0.0.4-0.20201119231004-a67d08045535
 	gitlab.com/xx_network/crypto v0.0.5-0.20201124194022-366c10b1bce0
-	gitlab.com/xx_network/primitives v0.0.3-0.20201116234927-44e42fc91e7c
+	gitlab.com/xx_network/primitives v0.0.3-0.20201209182507-be7e190879a6
 	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/ini.v1 v1.61.0 // indirect

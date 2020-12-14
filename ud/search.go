@@ -3,6 +3,7 @@ package ud
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -16,8 +17,51 @@ import (
 
 type searchCallback func([]contact.Contact, error)
 
+
+func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) {
+	for true {
+		select {
+		case <-quitCh:
+			return
+		case response := <-c:
+			// Unmarshal the message
+			searchResponse := &SearchResponse{}
+			if err := proto.Unmarshal(response.Payload, searchResponse); err != nil {
+				jww.WARN.Printf("Dropped a search response from user "+
+					"discovery due to failed unmarshal: %s", err)
+			}
+
+			// Get the appropriate channel from the lookup
+			m.inProgressSearchMux.RLock()
+			ch, ok := m.inProgressSearch[searchResponse.CommID]
+			m.inProgressSearchMux.RUnlock()
+			if !ok {
+				jww.WARN.Printf("Dropped a search response from user "+
+					"discovery due to unknown comm ID: %d",
+					searchResponse.CommID)
+			}
+
+			// Send the response on the correct channel
+			// Drop if the send cannot be completed
+			select {
+			case ch <- searchResponse:
+			default:
+				jww.WARN.Printf("Dropped a search response from user "+
+					"discovery due to failure to transmit to handling thread: "+
+					"commID: %d", searchResponse.CommID)
+			}
+		}
+	}
+}
+
+
 // Search...
 func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
+	if !m.IsRegistered(){
+		return errors.New("Failed to search: " +
+			"client is not registered")
+	}
+
 	// Get the ID of this comm so it can be connected to its response
 	commID := m.getCommID()
 
@@ -47,7 +91,7 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 	m.inProgressSearchMux.Unlock()
 
 	// Send the request
-	rounds, _, err := m.net.SendE2E(msg, params.GetDefaultE2E())
+	rounds, err := m.net.SendUnsafe(msg, params.GetDefaultUnsafe())
 	if err != nil {
 		return errors.WithMessage(err, "Failed to send the search request")
 	}

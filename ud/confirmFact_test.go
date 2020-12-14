@@ -26,9 +26,12 @@ func TestManager_confirmFact(t *testing.T) {
 		t.Fatalf("Could not create a new host: %+v", err)
 	}
 
+	isReg := uint32(1)
+
 	// Set up manager
 	m := &Manager{
 		host: host,
+		registered:&isReg,
 	}
 
 	c := &testComm{}
@@ -38,14 +41,9 @@ func TestManager_confirmFact(t *testing.T) {
 		Code:           "1234",
 	}
 
-	msg, err := m.confirmFact(expectedRequest.ConfirmationID, expectedRequest.Code, c)
+	err = m.confirmFact(expectedRequest.ConfirmationID, expectedRequest.Code, c)
 	if err != nil {
 		t.Errorf("confirmFact() returned an error: %+v", err)
-	}
-
-	if !reflect.DeepEqual(*msg, messages.Ack{}) {
-		t.Errorf("confirmFact() did not return the expected Ack message."+
-			"\n\texpected: %+v\n\treceived: %+v", messages.Ack{}, *msg)
 	}
 
 	if !reflect.DeepEqual(expectedRequest, c.request) {

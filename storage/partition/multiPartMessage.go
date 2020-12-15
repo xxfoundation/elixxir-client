@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package partition
 
 import (
@@ -186,7 +193,6 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 	if len(relationshipFingerprint) != 0 {
 		mid = e2e.NewMessageID(relationshipFingerprint, mpm.MessageID)
 	}
-
 
 	// Return the message
 	m := message.Receive{

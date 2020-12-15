@@ -1,8 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2019 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package bindings
 
@@ -120,9 +121,6 @@ func LogLevel(level int) error {
 
 	return nil
 }
-
-
-
 
 //Unmarshals a marshaled contact object, returns an error if it fails
 func UnmarshalContact(b []byte) (*Contact, error) {
@@ -248,7 +246,7 @@ func (c *Client) RegisterListener(uid []byte, msgType int,
 	mt := message.Type(msgType)
 
 	f := func(item message.Receive) {
-		listener.Hear(&Message{r:item})
+		listener.Hear(&Message{r: item})
 	}
 
 	lid := c.api.GetSwitchboard().RegisterFunc(name, u, mt, f)

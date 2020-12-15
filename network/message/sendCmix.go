@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package message
 
 import (
@@ -15,7 +22,7 @@ import (
 	"time"
 )
 
-const sendTimeBuffer = uint64(100*time.Millisecond)
+const sendTimeBuffer = uint64(100 * time.Millisecond)
 
 // WARNING: Potentially Unsafe
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
@@ -42,8 +49,8 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
 
-		if (bestRound.Timestamps[states.REALTIME]+sendTimeBuffer)>
-			uint64(time.Now().UnixNano()){
+		if (bestRound.Timestamps[states.REALTIME] + sendTimeBuffer) >
+			uint64(time.Now().UnixNano()) {
 			jww.WARN.Println("Round received which has already started" +
 				" realtime")
 			continue

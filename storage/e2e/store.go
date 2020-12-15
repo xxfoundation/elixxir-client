@@ -1,8 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package e2e
 
@@ -31,7 +32,6 @@ const (
 )
 
 var NoPartnerErrorStr = "No relationship with partner found"
-
 
 type Store struct {
 	managers map[id.ID]*Manager
@@ -158,7 +158,7 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s" +
+	jww.INFO.Printf("Adding Partner %s:\n\tMy Private Key: %s"+
 		"\n\tPartner Public Key: %s",
 		partnerID,
 		myPrivKey.TextVerbose(16, 0),

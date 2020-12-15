@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package params
 
 import (
@@ -13,7 +20,6 @@ type Network struct {
 	// Longest delay between network events for Health tracker to denote that
 	// the network is in a bad state
 	NetworkHealthTimeout time.Duration
-
 
 	Rounds
 	Messages

@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
@@ -23,7 +30,6 @@ type Listener interface {
 type NetworkHealthCallback interface {
 	Callback(bool)
 }
-
 
 // RoundEventHandler handles round events happening on the cMix network.
 type RoundEventCallback interface {

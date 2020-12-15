@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package storage
 
 import (
@@ -17,7 +24,7 @@ func (s *Session) SetRegCode(regCode string) {
 			Version:   regCodeVersion,
 			Data:      []byte(regCode),
 			Timestamp: time.Now(),
-		}); err!=nil{
+		}); err != nil {
 		jww.FATAL.Panicf("Failed to set the registration code: %s", err)
 	}
 }

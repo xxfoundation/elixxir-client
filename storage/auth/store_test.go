@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package auth
 
 import (
@@ -23,7 +30,7 @@ func TestNewStore(t *testing.T) {
 	pubKeys := make([]*cyclic.Int, 10)
 	for i := range privKeys {
 		privKeys[i] = grp.NewInt(rand.Int63n(172))
-		pubKeys[i] = grp.ExpG(privKeys[i],grp.NewInt(1))
+		pubKeys[i] = grp.ExpG(privKeys[i], grp.NewInt(1))
 	}
 
 	store, err := NewStore(kv, grp, privKeys)
@@ -35,8 +42,8 @@ func TestNewStore(t *testing.T) {
 		rq, ok := store.fingerprints[auth.MakeRequestFingerprint(pubKeys[i])]
 		if !ok {
 			t.Errorf("Key not found in map (%d): %s", i, pubKeys[i].Text(16))
-		}else if rq.PrivKey.Cmp(key)!=0{
-			t.Errorf("Key found in map (%d) does not match private: " +
+		} else if rq.PrivKey.Cmp(key) != 0 {
+			t.Errorf("Key found in map (%d) does not match private: "+
 				"%s vs %s", i, key.Text(10), rq.PrivKey.Text(10))
 		}
 	}
@@ -178,7 +185,7 @@ func TestStore_AddReceived_PartnerAlreadyExistsError(t *testing.T) {
 func TestStore_GetFingerprint_GeneralFingerprintType(t *testing.T) {
 	s, _, privKeys := makeTestStore(t)
 
-	pubkey := s.grp.ExpG(privKeys[0],s.grp.NewInt(1))
+	pubkey := s.grp.ExpG(privKeys[0], s.grp.NewInt(1))
 	fp := auth.MakeRequestFingerprint(pubkey)
 	fpType, request, key, err := s.GetFingerprint(fp)
 	if err != nil {

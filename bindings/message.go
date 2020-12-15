@@ -1,10 +1,17 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import "gitlab.com/elixxir/client/interfaces/message"
 
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.
-type Message struct{
+type Message struct {
 	r message.Receive
 }
 

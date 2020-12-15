@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package bindings
 
 import (
@@ -74,7 +81,6 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 
 	return &RoundList{list: rids}, nil
 }
-
 
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of

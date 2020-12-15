@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package e2e
 
 import (
@@ -220,7 +227,6 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	} else if session4.GetID() != sb.sessions[0].GetID() {
 		t.Error("didn't get the expected session")
 	}
-
 
 	// make the very newest session unrekeyable: the previous session
 	//sb.sessions[1].negotiationStatus = Confirmed
@@ -498,4 +504,3 @@ func relationshipsEqual(buff *relationship, buff2 *relationship) bool {
 	}
 	return true
 }
-

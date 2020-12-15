@@ -27,33 +27,35 @@ const (
 )
 
 type Conversation struct {
-	// Public & stored data
+	// Public and stored data
 	lastReceivedID         uint32
 	numReceivedRevolutions uint32
 	nextSentID             uint64
 
-	// Private, unstored data
+	// Private and non-stored data
 	partner *id.ID
 	kv      *versioned.KV
 	mux     sync.Mutex
 }
 
+// conversationDisk stores the public data of Conversation for saving to disk.
 type conversationDisk struct {
-	// Public & stored data
+	// Public and stored data
 	LastReceivedID         uint32
 	NumReceivedRevolutions uint32
 	NextSendID             uint64
 }
 
-// LoadOrMakeConversation returns the Conversation if it can be found, otherwise
-// returns a new partner.
+// LoadOrMakeConversation returns the Conversation with the given ID, if it can
+// be found in KV. Otherwise, a new conversation with the given ID is generated,
+// saved to KV, and returned.
 func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
-
 	c, err := loadConversation(kv, partner)
 	if err != nil && !strings.Contains(err.Error(), "Failed to Load conversation") {
 		jww.FATAL.Panicf("Failed to loadOrMakeConversation: %s", err)
 	}
 
+	// Create new conversation and save to KV if one does not exist
 	if c == nil {
 		c = &Conversation{
 			lastReceivedID:         0,
@@ -62,6 +64,7 @@ func LoadOrMakeConversation(kv *versioned.KV, partner *id.ID) *Conversation {
 			partner:                partner,
 			kv:                     kv,
 		}
+
 		if err = c.save(); err != nil {
 			jww.FATAL.Panicf("Failed to save new conversation: %s", err)
 		}
@@ -86,6 +89,7 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 				"Received ID in a conversation: %s", err)
 		}
 		high = c.numReceivedRevolutions
+
 	case 0:
 		if mid > c.lastReceivedID {
 			c.lastReceivedID = mid
@@ -95,6 +99,7 @@ func (c *Conversation) ProcessReceivedMessageID(mid uint32) uint64 {
 			}
 		}
 		high = c.numReceivedRevolutions
+
 	case -1:
 		high = c.numReceivedRevolutions - 1
 	}
@@ -124,6 +129,7 @@ func (c *Conversation) GetNextSendID() (uint64, uint32) {
 	return old, uint32(old & 0x00000000FFFFFFFF)
 }
 
+// loadConversation returns the Conversation with the given ID from KV storage.
 func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {
 	key := makeConversationKey(partner)
 
@@ -144,6 +150,7 @@ func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {
 	return c, nil
 }
 
+// save saves the Conversation to KV storage.
 func (c *Conversation) save() error {
 	data, err := c.marshal()
 	if err != nil {
@@ -158,6 +165,12 @@ func (c *Conversation) save() error {
 
 	key := makeConversationKey(c.partner)
 	return c.kv.Set(key, &obj)
+}
+
+// delete removes the Conversation from KV storage.
+func (c *Conversation) delete() error {
+	key := makeConversationKey(c.partner)
+	return c.kv.Delete(key)
 }
 
 func (c *Conversation) unmarshal(b []byte) error {

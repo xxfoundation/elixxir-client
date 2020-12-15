@@ -1,157 +1,443 @@
-# elixxir/client
+# XX Network Client
 
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-This repo contains the Elixxir command-line client (used for integration
-testing) and related libraries that facilitate making more full-featured
-clients for all platforms.
+The XX Network client is a library and related command line tool 
+that facilitate making full-featured XX clients for all platforms. The
+command line tool can be built for any platform supported by
+golang. The libraries are built for iOS and Android using
+[gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
 
-##Running the Command Line Client
+This repository contains everything necessary to implement all of the
+XX Network messaging features. These include the end-to-end encryption
+and metadata protection. It also contains features to extend the base 
+messaging protocols.
 
-First, make sure dependencies are installed into the vendor folder by running
-`glide up`. Then, in the project directory, run `go run main.go`.
+For library writers, the client requires a writable folder to store
+data, functions for receiving and approving requests for creating
+secure end-to-end messaging channels, for discovering users, and for
+receiving different types of messages. Details for implementing these
+features are in the Library Overview section below.
 
-If what you're working on requires you to change other repos, you can remove
-the other repo from the vendor folder and Go's build tools will look for those
-packages in your Go path instead. Knowing which dependencies to remove can be
-really helpful if you're changing a lot of repos at once.
+The client is open source software released under the simplified BSD License.
 
-If glide isn't working and you don't know why, try removing glide.lock and
-~/.glide to brutally cleanse the cache.
+## Command Line Usage
 
+The command line tool is intended for testing XX network functionality and not
+for regular user use. 
 
-Mutually exclusive (almost) required args:
+Compilation (assuming golang 1.13 or newer):
 
-|Long flag|Short flag|Effect|Example|
-|---|---|---|---|
-|--userid|-i|ID of precanned user to use|-i 5|
-|--regcode|-e|Registration code to use for logging in a new user|-e AAAA|
+```
+git clone https://gitlab.com/elixxir/client.git client
+cd client
+go mod vendor -v
+go mod tidy
+go test ./...
+# Linux 64 bit binary
+GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o client.linux64 main.go
+# Windows 64 bit binary
+GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o client.win64 main.go
+# Windows 32 big binary
+GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
+# Mac OSX 64 bit binary (intel)
+GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
+```
 
-The above args are mutually exclusive and are not fully required.
+Basic command line usage, sending unsafe, unencrypted messages to yourself:
 
-For example, to login as canned user 18, use `-i 18` and any registration code specified with `-e` will be ignored.
-To login as a new user, `-i` MUST not be specified, and `-e` will be the registration code to be used.
+```
+client --password user-password --ndf ndf.json -l client.log -s session-directory --writeContact user-contact.json --unsafe -m \"Hello World, without E2E Encryption\"
+```
 
-NOTE: There is a third way of starting the client, which ONLY works without specifying any of the above args.
-This will internally ignore the registration address, if specified, and will do registration directly on the Nodes
-only.
+* `--password` is the password used to encrypt and load the session.
+* `--ndf` is the network definition file, downloadable from the XX network
+  website when available.
+* `-l` the file to write logs (user messages are still printed to stdout)
+* `--writeContact` Output the user's contact information to this file.
+* `--unsafe` Send message without encryption (necessary whenever you have not
+  already established an e2e channel)
+* `-m` The message to send
 
-Optional args:
+The client defaults to sending to itself when not supplied.
 
-|Long flag|Short flag|Effect|Example|
-|---|---|---|---|
-|--message|-m|Message to send|-m "top of the morning"|
-|--messageTimeout|-t|The number of seconds to wait for 'waitForMessages' messages to arrive (default 45)|-t 42|
-|--ndf|-n|Path to the network definition JSON file (default "ndf.json")| -n "ndf.json"|
-|--SearchForUser|-s|Sets the email to search for to find a user with user discovery| -s "david@chaum.com|
-|--dest64| |Sets the destination user id encoded in base 64| --dest64 "yCvV6AsEK3l+45Gn4awBJ4lpb+hT2sO6yzxjeraRor0="|
-|--destid|-d|ID to send message to| -d 69|
-|--email|-E|Email to register for User Discovery| -e "david@chaum.com"|
-|--end2end| |Send messages with E2E encryption to destination user. Must have found each other via UDB first| -end2end|
-|--help| |help for client| --help|
-|--keyParams| |Define key generation parameters. Pass values in comma separated list in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys| |
-|--ndfPubKey|-p|Path to the public key for the network definition JSON file|
-|--nick| |Nickname to register for User Discovery (default "Default")| --nick "zezima"|
-|--noBlockingTransmission| |Sets if transmitting messages blocks or not.  Defaults to true if unset.|--noBlockingTransmission|
-|--noTLS| |Set to ignore TLS. Connections will fail if the network requires TLS. For debugging|--noTLS|
-|--privateKey| |The path for a PEM encoded private key which will be used to create the user|--privateKey "key.pem"|
-|--rateLimiting| |Sets the amount of time, in ms, that the client waits between sending messages.  set to zero to disable.  Automatically disabled if 'blockingTransmission' is false (default 1000)| --rateLimiting 100|
-|--regcode string|-r|Registration Code with the registration server |--regcode "AAAA"|
-|--sessionfile|-f|Passes a file path for loading a session.  If the file doesnt exist the code will register the user and store it there.  If not passed the session will be stored to ram and lost when the cli finishes| -s "user.session"|
-|--skipNDFVerification| |Specifies if the NDF should be loaded without the signature|--skipNDFVerification|
-|--userid|-i|ID to sign in as. Does not register, must be an available precanned user |-i 32|
-|--verbose|-v|Verbose mode for debugging|-v|
-|--version|-V|Show the client version information|-V|
-|--waitForMessages|-w|Denotes the number of messages the client should receive before closing (default 1)|-w 7|
+Sending unsafe messages between 2 users:
 
-Runs a client for cMix anonymous communication platform
+```
+# Get user contact jsons
+client --password user1-password --ndf ndf.json -l client1.log -s user1session --writeContact user1-contact.json --unsafe -m "Hi"
+client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi"
+
+# Send messages to each other, run them in the background so they both receive
+# each other's messages
+client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user2-contact.json --unsafe -m "Hi User 2, from User 1 without E2E Encryption" &
+client --password user2-password --ndf ndf.json -l client2.log -s user2session --destfile user1-contact.json --unsafe -m "Hi User 1, from User 2 without E2E Encryption" &
+```
+
+* `--destfile` is used to specify the recipient. You can also use
+  `--destid b64:...` using the user's base64 id which is printed in the logs.
+
+To send with end to end encryption, you must first establish a connection
+with the other user:
+
+```
+# Get user contact jsons
+client --password user1-password --ndf ndf.json -l client1.log -s user1session --writeContact user1-contact.json --unsafe -m "Hi"
+client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi"
+
+# Send E2E Messages
+client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user2-contact.json --unsafe-channel-creation -m "Hi User 2, from User 1 with E2E Encryption" &
+client --password user2-password --ndf ndf.json -l client2.log -s user2session --destfile user1-contact.json --unsafe-channel-creation -m "Hi User 1, from User 2 with E2E Encryption" &
+```
+
+Note that we have dropped the `--unsafe` in exchange for:
+* `--unsafe-channel-creation` Auto-create and auto-accept channel requests.
+
+To be considered "safe" the user should be prompted. You can do this
+with the command line by explicitly accepting the channel creation
+when sending and/or explicitly accepting a request with
+`--accept-channel`.
+
+Full usage of client can be found with `client --help`:
+
+```
+$ ./client --help
+Usage:
+  client [flags]
+  client [command]
+
+Available Commands:
+  generate    Generates version and dependency information for the
+              Elixxir binary
+  help        Help about any command
+  version     Print the version and dependency information for the
+              Elixxir binary
+
+Flags:
+      --accept-channel            Accept the channel request for the
+                                  corresponding recipient ID
+      --destfile string           Read this contact file for the destination id
+  -d, --destid string             ID to send message to (if below 40, will be
+                                  precanned. Use '0x' or 'b64:' for hex and
+                                  base64 representations) (default "0")
+  -h, --help                      help for client
+  -l, --log string                Path to the log output path (- is stdout)
+                                  (default "-")
+  -m, --message string            Message to send
+  -n, --ndf string                Path to the network definition JSON file
+                                  (default "ndf.json")
+  -p, --password string           Password to the session file
+      --receiveCount uint         How many messages we should wait for before
+                                  quitting (default 1)
+      --regcode string            Registration code (optional)
+      --sendCount uint            The number of times to send the message
+                                  (default 1)
+      --sendDelay uint            The delay between sending the messages in ms
+                                  (default 500)
+      --sendid uint               Use precanned user id (must be between 1 and
+                                  40, inclusive)
+  -s, --session string            Sets the initial directory for client storage
+      --unsafe                    Send raw, unsafe messages without e2e
+                                  encryption.
+      --unsafe-channel-creation   Turns off the user identity authenticated
+                                  channel check, automatically approving
+                                  authenticated channels
+  -v, --verbose                   Verbose mode for debugging
+      --waitTimeout uint          The number of seconds to wait for messages to
+                                  arrive (default 15)
+  -w, --writeContact string       Write the contact file for this user to this
+                                  file
 
 Use "client [command] --help" for more information about a command.
+```
 
+Note that the client cannot be used on the betanet with precanned user ids.
 
+## Library Overview
 
-##Project Structure
+The XX client is designed to be used as a go library (and by extension a 
+c library). 
+ 
+Support is also present for go mobile to build Android and iOS libraries. We
+bind all exported symbols from the bindings package for use on mobile
+platforms.
 
-`api` package contains functions that clients written in Go should call to do
-all of the main interactions with the client library.
+### Implementation Notes
 
-`bindings` package exists for compatibility with Gomobile. All functions and
-structs in the `bindings` package must be able to be bound with `$ gomobile bind`
-or they will be unceremoniously removed. There are many requirements for 
-this, and if you're writing bindings, you should check the `gomobile` 
-documentation listed below.
+Clients need to perform the same actions *in the same order* as shown in
+`cmd/root.go`. Specifically, certain handlers need to be registered and
+set up before starting network threads (i.e., before StartNetworkFollowers
+-- #2 below) and you cannot perform certain actions until the network
+connection reaches the "healthy" state. Below are relevant code listings for
+how to do these actions.
 
-In general, clients written in Go should use the `api` package and clients 
-written in other languages should use the `bindings` package.
+the ndf is the network definition file, downloadable from the XX network 
+website when available.
 
-`bots` contains code for interacting with bots. If the amount of code required
-to easily interact with a bot is reasonably small, it should go in this package.
+1. Creating and/or Loading a client:
+```
+	//create a new client if none exist
+	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
+		// Load NDF
+		ndfPath := viper.GetString("ndf")
+		ndfJSON, err := ioutil.ReadFile(ndfPath)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+		err = api.NewClient(string(ndfJSON), storeDir,
+			[]byte(pass), regCode)
+		}
 
-`cmd` contains the command line client itself, including the dummy messaging
-prototype that sends messages at a constant rate.
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
 
-`crypto` contains code for encrypting and decrypting individual messages with
-the client's part of the cipher. 
+	//load the client
+	client, err := api.Login(storeDir, []byte(pass))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+```
+2. Set up registration, authorization request handlers
+```
+	user := client.GetUser()
 
-`globals` contains a few global variables. Avoid putting more things in here
-without seriously considering the alternatives. Most important is the Log 
-variable:
+	// Set up reception handler
+	swboard := client.GetSwitchboard()
+	recvCh := make(chan message.Receive, 10000) // Needs to be large
+	// Note the name below is arbitrary
+	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
+		switchboard.AnyUser(), message.Text, recvCh)
+	jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
-globals.Log.ERROR.Println("this is an error")
+	// Set up auth request handler, which simply prints the
+	// user id of the requestor.
+	authMgr := client.GetAuthRegistrar()
+	authMgr.AddGeneralRequestCallback(printChanRequest)
+...
+func printChanRequest(requestor contact.Contact, message string) {
+	msg := fmt.Sprintf("Authentication channel request from: %s\n",
+		requestor.ID)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
+	jww.INFO.Printf(msg)
+	fmt.Printf(msg)
+	// Or you can auto confirm with:
+	// err := client.ConfirmAuthenticatedChannel(
+	//	requestor)
 
-Using this global Log variable allows external users of jww logging, like the 
-console UI, to see and print log messages from the client library if they need
-to, so please use globals.Log for all logging messages to make this behavior
-work consistently.
+}
+```
 
-If you think you can come up with a better design to deal with this problem, 
-please go ahead and implement it. Anything that moves towards the globals 
-package no longer existing is probably a win.
+3. Start network threads and wait until network is healthy:
+```
+	err = client.StartNetworkFollower()
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
 
-`io` contains functions for communicating between the client and the gateways.
-It's also currently responsible for putting fragmented messages back together.
+	// Wait until connected or crash on timeout
+	connected := make(chan bool, 10)
+	client.GetHealth().AddChannel(connected)
+	waitUntilConnected(connected)
+...
+func waitUntilConnected(connected chan bool) {
+	waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+	isConnected := false
+	//Wait until we connect or panic if we can't by a timeout
+	for !isConnected {
+		select {
+		case isConnected = <-connected:
+			jww.INFO.Printf("Network Status: %v\n",
+				isConnected)
+			break
+		case <-timeoutTimer.C:
+			jww.FATAL.Panic("timeout on connection")
+		}
+	}
+}
+```
 
-`parse` contains functions for serializing and deserializing various specialized
-information into messages. This includes message types and fragmenting messages
-that are too long.
+4. Adding authenticated channels (if we haven't done it yet)
+```
+	if client.HasAuthenticatedChannel(recipientID) {
+		jww.INFO.Printf("Authenticated channel already in place for %s",
+			recipientID)
+		return
+	}
+	// Check if a channel exists for this recipientID
+	recipientContact, err := client.GetAuthenticatedChannelRequest(
+		recipientID)
+	if err == nil {
+		jww.INFO.Printf("Accepting existing channel request for %s",
+			recipientID)
+		err := client.ConfirmAuthenticatedChannel(recipientContact)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		return
+	} else {
+		recipientContact = recipient
+	}
 
-`payment` deals with the wallet and payments, and keeping track of all related
-data in non-volatile storage.
+	me := client.GetUser().GetContact()
+	jww.INFO.Printf("Requesting auth channel from: %s",
+		recipientID)
+	err := client.RequestAuthenticatedChannel(recipientContact,
+		me, msg)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+```
 
-`switchboard` includes a structure that you can use to listen to incoming 
-messages and dispatch them to the correct handlers.
+5. Sending E2E and Unsafe Messages
+```
+	msg := message.Send{
+		Recipient:   recipientID,
+		Payload:     []byte(msgBody),
+		MessageType: message.Text,
+	}
+	paramsE2E := params.GetDefaultE2E()
+	paramsUnsafe := params.GetDefaultUnsafe()
 
-`user` includes objects that deal with the user's identity and the session 
-and session storage.
+	fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
+	var roundIDs []id.Round
+	if unsafe {
+		roundIDs, err = client.SendUnsafe(msg,
+			paramsUnsafe)
+	} else {
+		roundIDs, _, err = client.SendE2E(msg,
+			paramsE2E)
+	}
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
+```
+The "RoundIDs" are the rounds in which your message parts were sent. After those
+rounds have completed on the network, you can assume that the message has "sent"
+successfully. See the client interface section for info on how to access round
+state changes.
 
-##Gomobile
+6. Receiving Messages (assuming you set the receiver above in step 2)
+```
+	timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+	select {
+	case <-timeoutTimer.C:
+		fmt.Println("Timed out!")
+		break
+	case m := <-recvCh:
+		fmt.Printf("Message received: %s\n", string(
+			m.Payload))
+		break
+	}
+```
 
-We bind all exported symbols from the bindings package for use on mobile 
-platforms. To set up Gomobile for Android, install the NDK and 
-pass the -ndk flag to ` $ gomobile init`. Other repositories that use Gomobile
-for binding should include a shell script that creates the bindings.
+The main entry point for developing with the client is `api/client` (or
+`bindings/client`). We recommend using go doc to explore:
 
-###Recommended Reading for Gomobile
+```
+go doc -all ./api
+go doc -all ./interfaces
+```
 
-https://godoc.org/golang.org/x/mobile/cmd/gomobile (setup and available 
-subcommands)
+Looking at the API will, for example, show you there is a RoundEvents callback
+registration function, which lets your client see round events:
 
-https://godoc.org/golang.org/x/mobile/cmd/gobind (reference cycles, type 
-restrictions)
+```
+func (c *Client) GetRoundEvents() interfaces.RoundEvents
+    RegisterRoundEventsCb registers a callback for round events.
+```
 
-Currently we aren't using reverse bindings, i.e. calling mobile from Go.
+and then inside interfaces:
 
-###Testing Bindings via Gomobile
+```
+type RoundEvents interface {
+        // designates a callback to call on the specified event
+        // rid is the id of the round the event occurs on
+        // callback is the callback the event is triggered on
+        // timeout is the amount of time before an error event is returned
+        // valid states are the states which the event should trigger on
+        AddRoundEvent(rid id.Round, callback ds.RoundEventCallback,
+                timeout time.Duration, validStates ...states.Round) *ds.EventCallback
 
-The separate `bindings-integration` repository exists to make it easier to 
-automatically test bindings. Writing instrumented tests from Android allows 
-you to create black-box tests that also prove that all the methods you think 
-are getting bound are indeed bound, rather than silently getting skipped.
+        // designates a go channel to signal the specified event
+        // rid is the id of the round the event occurs on
+        // eventChan is the channel the event is triggered on
+        // timeout is the amount of time before an error event is returned
+        // valid states are the states which the event should trigger on
+        AddRoundEventChan(rid id.Round, eventChan chan ds.EventReturn,
+                timeout time.Duration, validStates ...states.Round) *ds.EventCallback
 
-You can also verify that all symbols got bound by unzipping `bindings-sources.jar`
-and inspecting the resulting source files.
+        //Allows the un-registration of a round event before it triggers
+        Remove(rid id.Round, e *ds.EventCallback)
+}
+```
 
-Every time you make a change to the client or bindings, you must rebuild the 
-client bindings into a .aar to propagate those changes to the app. There's a 
-script that runs gomobile for you in the `bindings-integration` repository.
+Which, when investigated, yields the following prototype:
+
+```
+// Callbacks must use this function signature
+type RoundEventCallback func(ri *pb.RoundInfo, timedOut bool)
+```
+
+showing that you can receive a full RoundInfo object for any round event
+received by the client library on the network.
+
+### Building the Library for iOS and Android
+
+To set up Gomobile for Android, install the NDK and pass the -ndk flag
+to ` $ gomobile init`. Other repositories that use Gomobile for
+binding should include a shell script that creates the bindings. For
+iOS, gomobile must be run on an OS X machine with Xcode installed.
+
+Important reference info:
+1. [Setting up Gomobile and subcommands](https://godoc.org/golang.org/x/mobile/cmd/gomobile)
+2. [Reference cycles, type restrictions](https://godoc.org/golang.org/x/mobile/cmd/gobind)
+
+To clone and build:
+
+```
+# Go mobile install
+go get -u golang.org/x/mobile/cmd/gomobile
+go get -u golang.org/x/mobile/bind
+gomobile init... # Note this line will be different depending on sdk/target!
+# Get and test code
+git clone https://gitlab.com/elixxir/client.git client
+cd client
+go mod vendor -v
+go mod tidy
+go test ./...
+# Android
+gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+# iOS
+gomobile bind -target ios gitlab.com/elixxir/client/bindings
+zip -r iOS.zip Bindings.framework
+```
+
+You can verify that all symbols got bound by unzipping
+`bindings-sources.jar` and inspecting the resulting source files.
+
+Every time you make a change to the client or bindings, you must
+rebuild the client bindings into a .aar or iOS.zip to propagate those
+changes to the app. There's a script that runs gomobile for you in the
+`bindings-integration` repository.
+
+## Roadmap
+
+See the larger network documentation for more, but there are 2 specific
+parts of the roadmap that are intended for the client:
+
+* Ephemeral IDs - Sending messages to users with temporal/ephemeral recipient
+  user identities.
+* User Discovery - A bot that will allow the user to look for others on the
+  network.
+* Notifications - An optional notifications system which uses firebase
+* Efficiency improvements - mechanisms for message pickup and network tracking 
+* will evolve to allow tradeoffs and options for use
+
+We also are always looking at how to simplify and improve the library interface.

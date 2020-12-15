@@ -12,13 +12,14 @@ const regCodeVersion = 0
 
 // SetNDF stores a network definition json file
 func (s *Session) SetRegCode(regCode string) {
-	err := s.Set(regCodeKey,
+	if err := s.Set(regCodeKey,
 		&versioned.Object{
 			Version:   regCodeVersion,
 			Data:      []byte(regCode),
 			Timestamp: time.Now(),
-		})
-	jww.FATAL.Printf("Failed to set the registration code: %s", err)
+		}); err!=nil{
+		jww.FATAL.Panicf("Failed to set the registration code: %s", err)
+	}
 }
 
 // Returns the stored network definition json file

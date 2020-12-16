@@ -206,8 +206,10 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		err = client.StopNetworkFollower(1 * time.Second)
-		fmt.Printf("Failed to cleanly close threads: %+v\n", err)
+		client.StopNetworkFollower(1 * time.Second)
+		/*if err!=nil{
+			fmt.Printf("Failed to cleanly close threads: %+v\n", err)
+		}*/
 	},
 }
 

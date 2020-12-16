@@ -188,7 +188,7 @@ var rootCmd = &cobra.Command{
 		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
-		for !done {
+		for !done && expectedCnt != 0 {
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
@@ -206,6 +206,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
+		client.StopNetworkFollower(1 * time.Second)
 	},
 }
 

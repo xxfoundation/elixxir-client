@@ -210,7 +210,7 @@ var rootCmd = &cobra.Command{
 		/*if err!=nil{
 			fmt.Printf("Failed to cleanly close threads: %+v\n", err)
 		}*/
-		time.Sleep(10*time.Second)
+		time.Sleep(10 * time.Second)
 	},
 }
 

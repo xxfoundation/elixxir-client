@@ -1,8 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package api
 
@@ -55,7 +56,6 @@ type Client struct {
 
 	//handler for external services
 	services *serviceProcessiesList
-
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -351,7 +351,7 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 
 // AddService adds a service ot be controlled by the client thread control,
 // these will be started and stopped with the network follower
-func (c *Client)AddService(sp ServiceProcess){
+func (c *Client) AddService(sp ServiceProcess) {
 	c.services.Add(sp)
 }
 
@@ -363,25 +363,24 @@ func (c *Client) GetUser() user.User {
 }
 
 // GetComms returns the client comms object
-func (c *Client)GetComms() *client.Comms{
+func (c *Client) GetComms() *client.Comms {
 	return c.comms
 }
 
 // GetRng returns the client rng object
-func (c *Client)GetRng() *fastRNG.StreamGenerator{
+func (c *Client) GetRng() *fastRNG.StreamGenerator {
 	return c.rng
 }
 
 // GetStorage returns the client storage object
-func (c *Client)GetStorage() *storage.Session{
+func (c *Client) GetStorage() *storage.Session {
 	return c.storage
 }
 
 // GetNetworkInterface returns the client Network Interface
-func (c *Client)GetNetworkInterface() interfaces.NetworkManager{
+func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
-
 
 // ----- Utility Functions -----
 // parseNDF parses the initial ndf string for the client. do not check the

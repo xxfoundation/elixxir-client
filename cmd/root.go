@@ -519,30 +519,33 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.Flags().BoolP("verbose", "v", false,
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false,
 		"Verbose mode for debugging")
-	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
+	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 
-	rootCmd.Flags().StringP("session", "s",
-		"", "Sets the initial username and the directory for "+
-			"client storage")
-	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
+	rootCmd.PersistentFlags().StringP("session", "s",
+		"", "Sets the initial storage directory for "+
+			"client session data")
+	viper.BindPFlag("session", rootCmd.PersistentFlags().Lookup("session"))
 
-	rootCmd.Flags().StringP("writeContact", "w",
-		"", "Write the contact file for this user to this file")
-	viper.BindPFlag("writeContact", rootCmd.Flags().Lookup("writeContact"))
+	rootCmd.PersistentFlags().StringP("writeContact", "w",
+		"-", "Write contact information, if any, to this file, "+
+			" defaults to stdout")
+	viper.BindPFlag("writeContact", rootCmd.PersistentFlags().Lookup(
+		"writeContact"))
 
-	rootCmd.Flags().StringP("password", "p", "",
+	rootCmd.PersistentFlags().StringP("password", "p", "",
 		"Password to the session file")
-	viper.BindPFlag("password", rootCmd.Flags().Lookup("password"))
+	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup(
+		"password"))
 
-	rootCmd.Flags().StringP("ndf", "n", "ndf.json",
+	rootCmd.PersistentFlags().StringP("ndf", "n", "ndf.json",
 		"Path to the network definition JSON file")
-	viper.BindPFlag("ndf", rootCmd.Flags().Lookup("ndf"))
+	viper.BindPFlag("ndf", rootCmd.PersistentFlags().Lookup("ndf"))
 
-	rootCmd.Flags().StringP("log", "l", "-",
+	rootCmd.PersistentFlags().StringP("log", "l", "-",
 		"Path to the log output path (- is stdout)")
-	viper.BindPFlag("log", rootCmd.Flags().Lookup("log"))
+	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
 		"Registration code (optional)")
@@ -593,21 +596,6 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
-	// 	"Token to register user with notification bot")
-
-	// rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
-	// 	"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
-
-	// rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
-	// 	make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
-	// 		" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
-
-	// rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
-	// 	"Sets the email to search for to find a user with user discovery")
 }
 
 // initConfig reads in config file and ENV variables if set.

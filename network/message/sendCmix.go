@@ -48,7 +48,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		jww.TRACE.Printf("SendCMIX GetUpcommingRealtime")
 		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := m.Instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
-		if bestRound == nil{
+		if bestRound == nil {
 			continue
 		}
 

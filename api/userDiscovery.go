@@ -85,7 +85,7 @@ func (c *Client) SearchWithCallback(data, separator string, searchTypes []byte,
 
 func (c *Client) StartUD() (*ud.Manager, error) {
 	m, err := ud.NewManager(c.comms, c.rng, c.switchboard, c.storage, c.network)
-	if err!=nil{
+	if err != nil {
 		return nil, err
 	}
 

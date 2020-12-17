@@ -2,6 +2,7 @@ package ud
 
 import (
 	"crypto/rand"
+	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
@@ -19,6 +20,11 @@ func (m *Manager) SendRegisterFact(fact fact.Fact) (*pb.FactRegisterResponse, er
 }
 
 func (m *Manager) addFact(inFact fact.Fact, aFC addFactComms) (*pb.FactRegisterResponse, error) {
+	if !m.IsRegistered(){
+		return nil, errors.New("Failed to add fact: " +
+			"client is not registered")
+	}
+
 	// Create a primitives Fact so we can hash it
 	f, err := fact.NewFact(inFact.T, inFact.Fact)
 	if err != nil {

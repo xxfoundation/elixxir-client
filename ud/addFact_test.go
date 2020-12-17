@@ -20,6 +20,7 @@ func (rFC *testAFC) SendRegisterFact(host *connect.Host, message *pb.FactRegiste
 
 // Test that the addFact function completes successfully
 func TestAddFact(t *testing.T) {
+	isReg := uint32(1)
 	// Add our host, addFact uses it to get the ID of the user
 	h, err := connect.NewHost(&id.DummyUser, "address", nil, connect.GetDefaultHostParams())
 	if err != nil {
@@ -37,6 +38,7 @@ func TestAddFact(t *testing.T) {
 	m := Manager{
 		host:    h,
 		privKey: cpk,
+		registered:&isReg,
 	}
 
 	// Create our test fact

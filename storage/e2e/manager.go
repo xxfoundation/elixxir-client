@@ -1,8 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 package e2e
 
@@ -54,8 +55,7 @@ func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey,
 			err)
 	}
 
-	if err := utility.StoreCyclicKey(kv, partnerPubKey, originPartnerPubKey);
-		err != nil {
+	if err := utility.StoreCyclicKey(kv, partnerPubKey, originPartnerPubKey); err != nil {
 		jww.FATAL.Panicf("Failed to store %s: %+v", originPartnerPubKey,
 			err)
 	}
@@ -173,7 +173,6 @@ func (m *Manager) GetSendSession(sid SessionID) *Session {
 func (m *Manager) GetSendRelationshipFingerprint() []byte {
 	return m.send.fingerprint
 }
-
 
 // GetReceiveSession gets the Receive session of the passed ID. Returns nil if
 // no session is found.

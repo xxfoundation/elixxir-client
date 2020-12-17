@@ -1,8 +1,9 @@
-////////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 Privategrity Corporation                                   /
-//                                                                             /
-// All rights reserved.                                                        /
-////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
 
 // Package cmd initializes the CLI and config parsers as well as the logger.
 package cmd
@@ -187,7 +188,7 @@ var rootCmd = &cobra.Command{
 		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
-		for !done {
+		for !done && expectedCnt != 0 {
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
@@ -205,6 +206,11 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
+		client.StopNetworkFollower(1 * time.Second)
+		/*if err!=nil{
+			fmt.Printf("Failed to cleanly close threads: %+v\n", err)
+		}*/
+		time.Sleep(10 * time.Second)
 	},
 }
 

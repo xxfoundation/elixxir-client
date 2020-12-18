@@ -41,9 +41,12 @@ func TestAddFact(t *testing.T) {
 		registered:&isReg,
 	}
 
+
 	// Create our test fact
+	USCountryCode := "US"
+	USNumber := "6502530000"
 	f := fact.Fact{
-		Fact: "testing",
+		Fact: USNumber + USCountryCode,
 		T:    2,
 	}
 

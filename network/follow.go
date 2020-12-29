@@ -1,9 +1,8 @@
-///////////////////////////////////////////////////////////////////////////////
-// Copyright © 2020 xx network SEZC                                          //
-//                                                                           //
-// Use of this source code is governed by a license that can be found in the //
-// LICENSE file                                                              //
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 Privategrity Corporation                                   /
+//                                                                             /
+// All rights reserved.                                                        /
+////////////////////////////////////////////////////////////////////////////////
 
 package network
 
@@ -23,10 +22,10 @@ package network
 //		instance
 
 import (
-	"gitlab.com/elixxir/client/network/gateway"
-	//"gitlab.com/elixxir/client/storage"
+	"bytes"
 	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
+	"gitlab.com/elixxir/client/network/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
@@ -51,18 +50,18 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	rng := m.Rng.GetStream()
 
 	done := false
-	for !done{
+	for !done {
 		select {
 		case <-quitCh:
 			rng.Close()
-			done=true
+			done = true
 		case <-ticker.C:
 			m.follow(rng, m.Comms)
 		}
 	}
 }
 
-var followCnt int = 0
+var followCnt = 0
 
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
@@ -86,10 +85,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
 		ClientID:   m.Uid.Bytes(),
 	}
-	jww.TRACE.Printf("polling %s for NDF", gwHost)
+	jww.TRACE.Printf("Polling %s for NDF...", gwHost)
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
-		jww.ERROR.Printf("%+v", err)
+		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)
 		return
 	}
 
@@ -98,7 +97,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
-		jww.ERROR.Printf("Failed to unmartial: %+v", err)
+		jww.ERROR.Printf("Failed to unmarshal: %+v", err)
 		return
 	}
 	var filterList []*bloom.Ring
@@ -127,13 +126,13 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	if pollResp.PartialNDF != nil {
 		err = m.Instance.UpdatePartialNdf(pollResp.PartialNDF)
 		if err != nil {
-			jww.ERROR.Printf("%+v", err)
+			jww.ERROR.Printf("Unable to update partial NDF: %+v", err)
 			return
 		}
 
 		err = m.Instance.UpdateGatewayConnections()
 		if err != nil {
-			jww.ERROR.Printf("%+v", err)
+			jww.ERROR.Printf("Unable to update gateway connections: %+v", err)
 			return
 		}
 	}
@@ -142,10 +141,35 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// network
 	if pollResp.Updates != nil {
 		err = m.Instance.RoundUpdates(pollResp.Updates)
-		//jww.TRACE.Printf("%+v", pollResp.Updates)
 		if err != nil {
 			jww.ERROR.Printf("%+v", err)
 			return
+		}
+
+		// Iterate over ClientErrors for each RoundUpdate
+		for _, update := range pollResp.Updates {
+			for _, clientErr := range update.ClientErrors {
+
+				// If this Client appears in the ClientError
+				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().ID.Marshal()) {
+
+					// Obtain relevant NodeGateway information
+					nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())
+					if err != nil {
+						jww.ERROR.Printf("Unable to get NodeGateway: %+v", err)
+						return
+					}
+					nid, err := nGw.Node.GetNodeId()
+					if err != nil {
+						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
+						return
+					}
+
+					// Delete all existing keys and trigger a re-registration with the relevant Node
+					m.Session.Cmix().Remove(nid)
+					m.Instance.GetAddGatewayChan() <- nGw
+				}
+			}
 		}
 	}
 

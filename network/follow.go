@@ -29,6 +29,7 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -149,6 +150,12 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 		// Iterate over ClientErrors for each RoundUpdate
 		for _, update := range pollResp.Updates {
+
+			// Ignore irrelevant updates
+			if update.State != uint32(states.COMPLETED) && update.State != uint32(states.FAILED) {
+				continue
+			}
+
 			for _, clientErr := range update.ClientErrors {
 
 				// If this Client appears in the ClientError

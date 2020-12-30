@@ -7,13 +7,12 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
-	"math"
 	"math/rand"
 	"reflect"
 	"testing"
 )
 
-// Tests marshaling and unmarshalling of a common contact.
+// Tests marshaling and unmarshalling of a common Contact.
 func TestContact_Marshal_Unmarshal(t *testing.T) {
 	expectedContact := Contact{
 		ID:       id.NewIdFromUInt(rand.Uint64(), id.User, t),
@@ -26,10 +25,7 @@ func TestContact_Marshal_Unmarshal(t *testing.T) {
 		},
 	}
 
-	buff, err := expectedContact.Marshal()
-	if err != nil {
-		t.Errorf("Marshal() produced an error: %+v", err)
-	}
+	buff := expectedContact.Marshal()
 
 	testContact, err := Unmarshal(buff)
 	if err != nil {
@@ -39,8 +35,23 @@ func TestContact_Marshal_Unmarshal(t *testing.T) {
 	if !reflect.DeepEqual(expectedContact, testContact) {
 		t.Errorf("Unmarshaled Contact does not match expected."+
 			"\nexpected: %#v\nreceived: %#v", expectedContact, testContact)
-		t.Errorf("DhPubKey."+
-			"\nexpected: %+v\nreceived: %+v", expectedContact.DhPubKey.TextVerbose(10, math.MaxInt64), testContact.DhPubKey.TextVerbose(10, math.MaxInt64))
+	}
+}
+
+// Tests marshaling and unmarshalling of a Contact with nil fields.
+func TestContact_Marshal_Unmarshal_Nil(t *testing.T) {
+	expectedContact := Contact{}
+
+	buff := expectedContact.Marshal()
+
+	testContact, err := Unmarshal(buff)
+	if err != nil {
+		t.Errorf("Unmarshal() produced an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(expectedContact, testContact) {
+		t.Errorf("Unmarshaled Contact does not match expected."+
+			"\nexpected: %#v\nreceived: %#v", expectedContact, testContact)
 	}
 }
 
@@ -59,10 +70,7 @@ func TestContact_Marshal_Size(t *testing.T) {
 	}
 	rand.Read(expectedContact.OwnershipProof)
 
-	buff, err := expectedContact.Marshal()
-	if err != nil {
-		t.Errorf("Marshal() produced an error: %+v", err)
-	}
+	buff := expectedContact.Marshal()
 
 	marshalBuff, err := json.Marshal(expectedContact)
 	if err != nil {

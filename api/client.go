@@ -339,6 +339,7 @@ func (c *Client) GetSwitchboard() interfaces.Switchboard {
 // events.
 func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
+	jww.WARN.Printf("GetRoundEvents does not handle Client Errors edge case!")
 	return c.network.GetInstance().GetRoundEvents()
 }
 

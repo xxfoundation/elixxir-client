@@ -173,6 +173,12 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 						return
 					}
 
+					// FIXME: Should be able to trigger proper type of round event
+					// FIXME: without mutating the RoundInfo. Signature also needs verified
+					// FIXME: before keys are deleted
+					update.State = uint32(states.FAILED)
+					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
+
 					// Delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
 					m.Instance.GetAddGatewayChan() <- nGw

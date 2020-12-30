@@ -291,15 +291,15 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 }
 
 // RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
-// message was sent in sucesfully completed. Under the hood, this uses the same
-// interface as RegisterRoundEventsHandler, but provides a convienet way to use
+// message was sent in successfully completed. Under the hood, this uses the same
+// interface as RegisterRoundEventsHandler, but provides a convent way to use
 // the interface in its most common form, looking up the result of message
-// retreval
+// retrieval
 //
 // The callbacks will return at timeoutMS if no state update occurs
 //
 // This function takes the marshaled send report to ensure a memory leak does
-// not occur as a result of both sides of the bindings holding a refrence to
+// not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
 func (c *Client) RegisterMessageDeliveryCB(marshaledSendReport []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) (*Unregister, error) {

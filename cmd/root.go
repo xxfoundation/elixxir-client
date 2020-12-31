@@ -21,7 +21,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
-	"gitlab.com/xx_network/primitives/id"
+	w "gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -45,41 +45,8 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		initLog(viper.GetBool("verbose"), viper.GetString("log"))
-		jww.INFO.Printf(Version())
 
-		pass := viper.GetString("password")
-		storeDir := viper.GetString("session")
-		regCode := viper.GetString("regcode")
-		precannedID := viper.GetUint("sendid")
-
-		//create a new client if none exist
-		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
-			// Load NDF
-			ndfPath := viper.GetString("ndf")
-			ndfJSON, err := ioutil.ReadFile(ndfPath)
-			if err != nil {
-				jww.FATAL.Panicf(err.Error())
-			}
-
-			if precannedID != 0 {
-				err = api.NewPrecannedClient(precannedID,
-					string(ndfJSON), storeDir, []byte(pass))
-			} else {
-				err = api.NewClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode)
-			}
-
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-		}
-
-		//load the client
-		client, err := api.Login(storeDir, []byte(pass))
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		client := initClient()
 
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ID)
@@ -110,7 +77,7 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
-		err = client.StartNetworkFollower()
+		err := client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -212,6 +179,46 @@ var rootCmd = &cobra.Command{
 		}*/
 		time.Sleep(10 * time.Second)
 	},
+}
+
+func initClient() *api.Client {
+	initLog(viper.GetBool("verbose"), viper.GetString("log"))
+	jww.INFO.Printf(Version())
+
+	pass := viper.GetString("password")
+	storeDir := viper.GetString("session")
+	regCode := viper.GetString("regcode")
+	precannedID := viper.GetUint("sendid")
+
+	//create a new client if none exist
+	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
+		// Load NDF
+		ndfPath := viper.GetString("ndf")
+		ndfJSON, err := ioutil.ReadFile(ndfPath)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+
+		if precannedID != 0 {
+			err = api.NewPrecannedClient(precannedID,
+				string(ndfJSON), storeDir, []byte(pass))
+		} else {
+			err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
+		}
+
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
+
+	//load the client
+	client, err := api.Login(storeDir, []byte(pass))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	return client
 }
 
 func writeContact(c contact.Contact) {

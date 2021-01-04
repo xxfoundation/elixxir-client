@@ -61,8 +61,8 @@ func (c Contact) Marshal() []byte {
 	if c.ID != nil {
 		buff.Write(c.ID.Marshal())
 	} else {
-		emptyID := make([]byte, id.ArrIDLen)
-		buff.Write(emptyID)
+		// Handle nil ID
+		buff.Write(make([]byte, id.ArrIDLen))
 	}
 
 	// Write DhPubKey
@@ -83,7 +83,7 @@ func Unmarshal(b []byte) (Contact, error) {
 	var err error
 	buff := bytes.NewBuffer(b)
 
-	// Get size (in bytes) of each field
+	// Get size of each field
 	dhPubKeySize, _ := binary.Varint(buff.Next(sizeByteLength))
 	ownershipProofSize, _ := binary.Varint(buff.Next(sizeByteLength))
 	factsSize, _ := binary.Varint(buff.Next(sizeByteLength))
@@ -104,23 +104,23 @@ func Unmarshal(b []byte) (Contact, error) {
 		// Handle nil key
 		c.DhPubKey = nil
 	} else {
-		err = c.DhPubKey.BinaryDecode(buff.Next(int(dhPubKeySize)))
-		if err != nil {
+		if err = c.DhPubKey.BinaryDecode(buff.Next(int(dhPubKeySize))); err != nil {
 			return Contact{}, errors.Errorf("Failed to binary decode Contact DhPubKey: %+v", err)
 		}
 	}
 
 	// Get OwnershipProof
-	c.OwnershipProof = buff.Next(int(ownershipProofSize))
-	if len(c.OwnershipProof) == 0 {
+	if ownershipProofSize == 0 {
 		// Handle nil OwnershipProof
 		c.OwnershipProof = nil
+	} else {
+		c.OwnershipProof = buff.Next(int(ownershipProofSize))
 	}
 
 	// Get and unstringify fact list
 	c.Facts, _, err = fact.UnstringifyFactList(string(buff.Next(int(factsSize))))
 	if err != nil {
-		return Contact{}, errors.Errorf("Failed to unstringify Fact List: %+v", err)
+		return Contact{}, errors.Errorf("Failed to unstringify Contact fact list: %+v", err)
 	}
 
 	return c, nil

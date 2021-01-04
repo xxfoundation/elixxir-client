@@ -20,15 +20,10 @@ const currentContactVersion = 0
 func StoreContact(kv *versioned.KV, c contact.Contact) error {
 	now := time.Now()
 
-	data, err := c.Marshal()
-	if err != nil {
-		return err
-	}
-
 	obj := versioned.Object{
 		Version:   currentContactVersion,
 		Timestamp: now,
-		Data:      data,
+		Data:      c.Marshal(),
 	}
 
 	return kv.Set(makeContactKey(c.ID), &obj)

@@ -52,7 +52,7 @@ func (c *Contact) GetFactList() *FactList {
 }
 
 func (c *Contact) Marshal() ([]byte, error) {
-	return c.c.Marshal()
+	return c.c.Marshal(), nil
 }
 
 /* FactList object*/

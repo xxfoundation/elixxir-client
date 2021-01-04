@@ -76,7 +76,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		//load the client
-		client, err := api.Login(storeDir, []byte(pass))
+		client, err := api.Login(storeDir, []byte(pass), params.GetDefaultNetwork())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -110,7 +110,7 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
-		err = client.StartNetworkFollower()
+		err = client.StartNetworkFollower(params.GetDefaultRekey())
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

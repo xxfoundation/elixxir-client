@@ -36,11 +36,10 @@ func TestAddFact(t *testing.T) {
 
 	// Create our Manager object
 	m := Manager{
-		host:    h,
-		privKey: cpk,
-		registered:&isReg,
+		host:       h,
+		privKey:    cpk,
+		registered: &isReg,
 	}
-
 
 	// Create our test fact
 	USCountryCode := "US"

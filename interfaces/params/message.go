@@ -7,7 +7,10 @@
 
 package params
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Messages struct {
 	MessageReceptionBuffLen        uint
@@ -23,4 +26,12 @@ func GetDefaultMessage() Messages {
 		MaxChecksGarbledMessage:        10,
 		GarbledMessageWait:             15 * time.Minute,
 	}
+}
+
+func (m *Messages) MarshalJSON() ([]byte, error) {
+	return json.Marshal(m)
+}
+
+func (m *Messages) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, m)
 }

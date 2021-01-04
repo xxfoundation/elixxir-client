@@ -8,6 +8,7 @@
 package params
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -35,4 +36,24 @@ func GetDefaultNetwork() Network {
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()
 	return n
+}
+
+func (n *Network) MarshalJSON() ([]byte, error) {
+	return json.Marshal(n)
+}
+
+func (n *Network) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, n)
+}
+
+// Obtain default Network parameters, or override with given parameters if set
+func GetNetworkParameters(params string) (Network, error) {
+	p := GetDefaultNetwork()
+	if len(params) > 0 {
+		err := p.UnmarshalJSON([]byte(params))
+		if err != nil {
+			return Network{}, err
+		}
+	}
+	return p, nil
 }

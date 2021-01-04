@@ -7,7 +7,10 @@
 
 package params
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type Rounds struct {
 	// maximum number of times to attempt to retrieve a round from a gateway
@@ -38,4 +41,12 @@ func GetDefaultRounds() Rounds {
 		HistoricalRoundsBufferLen: 1000,
 		LookupRoundsBufferLen:     2000,
 	}
+}
+
+func (r *Rounds) MarshalJSON() ([]byte, error) {
+	return json.Marshal(r)
+}
+
+func (r *Rounds) UnmarshalJSON(b []byte) error {
+	return json.Unmarshal(b, r)
 }

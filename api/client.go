@@ -143,7 +143,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 }
 
 // Login initalizes a client object from existing storage.
-func Login(storageDir string, password []byte) (*Client, error) {
+func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
@@ -157,11 +157,11 @@ func Login(storageDir string, password []byte) (*Client, error) {
 	}
 
 	//execute the rest of the loading as normal
-	return loadClient(storageSess, rngStreamGen)
+	return loadClient(storageSess, rngStreamGen, parameters)
 }
 
 // Login initalizes a client object from existing storage.
-func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator) (c *Client, err error) {
+func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator, parameters params.Network) (c *Client, err error) {
 
 	// Set up a new context
 	c = &Client{
@@ -216,7 +216,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		params.GetDefaultNetwork(), def)
+		parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -263,7 +263,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower() error {
+func (c *Client) StartNetworkFollower(parameters params.Rekey) error {
 	jww.INFO.Printf("StartNetworkFollower()")
 
 	err := c.status.toStarting()
@@ -281,7 +281,7 @@ func (c *Client) StartNetworkFollower() error {
 	}
 	c.runner.Add(stopFollow)
 	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, params.GetDefaultRekey()))
+	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, parameters))
 
 	err = c.status.toRunning()
 	if err != nil {

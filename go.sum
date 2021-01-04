@@ -307,6 +307,7 @@ gitlab.com/xx_network/primitives v0.0.2 h1:r45yKenJ9e7PylI1ZXJ1Es09oYNaYXjxVy9+u
 gitlab.com/xx_network/primitives v0.0.2/go.mod h1:cs0QlFpdMDI6lAo61lDRH2JZz+3aVkHy+QogOB6F/qc=
 gitlab.com/xx_network/primitives v0.0.3 h1:RBJGPtphUyDvN8iG8+VTF8tr5iT9f5WHo0NCbenspYE=
 gitlab.com/xx_network/primitives v0.0.3/go.mod h1:cs0QlFpdMDI6lAo61lDRH2JZz+3aVkHy+QogOB6F/qc=
+gitlab.com/xx_network/primitives v0.0.4-0.20201216174909-808eb0fc97fc h1:nZ0kNhQfkEr4TIpf1MQxOIWiSd1M1YTE2JrFA1SPSD4=
 gitlab.com/xx_network/primitives v0.0.4-0.20201216174909-808eb0fc97fc/go.mod h1:cs0QlFpdMDI6lAo61lDRH2JZz+3aVkHy+QogOB6F/qc=
 gitlab.com/xx_network/primitives v0.0.4-0.20201229212313-fe33d9809f27 h1:JGpYRKkhPw58dlhii/wH8N9uWZ1AOTyVw3b6ZYdndA8=
 gitlab.com/xx_network/primitives v0.0.4-0.20201229212313-fe33d9809f27/go.mod h1:cs0QlFpdMDI6lAo61lDRH2JZz+3aVkHy+QogOB6F/qc=

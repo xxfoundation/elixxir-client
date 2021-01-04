@@ -21,7 +21,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
-	w "gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
 	"strconv"

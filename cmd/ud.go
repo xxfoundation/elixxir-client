@@ -9,6 +9,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
@@ -17,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/primitives/fact"
+	"time"
 )
 
 // udCmd user discovery subcommand, allowing user lookup and registration for
@@ -65,7 +67,7 @@ var udCmd = &cobra.Command{
 			})
 		}
 
-		err := client.StartNetworkFollower()
+		err = client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -83,7 +85,7 @@ var udCmd = &cobra.Command{
 			}
 		}
 
-		var facts []fact.Fact
+		var facts fact.FactList
 		phone := viper.GetString("addphone")
 		if phone != "" {
 			f, err := fact.NewFact(fact.Phone, phone)
@@ -129,21 +131,24 @@ var udCmd = &cobra.Command{
 					lookupIDStr)
 			}
 			userDiscoveryMgr.Lookup(lookupID,
-				func(newContact contact.Contact, err Error) {
+				func(newContact contact.Contact, err error) {
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}
-					fmt.Printf(newContact.String())
+					cBytes, err := newContact.Marshal()
+					if err != nil {
+						jww.FATAL.Panicf("%+v", err)
+					}
+					fmt.Printf(string(cBytes))
 				},
 				time.Duration(10*time.Second))
 			time.Sleep(11 * time.Second)
 		}
 
 		usernameSrchStr := viper.GetString("searchusername")
-		emailSrchStr := viper.GetSTring("searchemail")
-		phoneSrchStr := viper.GetSTring("searchphone")
+		emailSrchStr := viper.GetString("searchemail")
+		phoneSrchStr := viper.GetString("searchphone")
 
-		var facts FactList
 		if usernameSrchStr != "" {
 			f, err := fact.NewFact(fact.Username, usernameSrchStr)
 			if err != nil {
@@ -167,24 +172,28 @@ var udCmd = &cobra.Command{
 		}
 
 		if len(facts) == 0 {
-			client.StopNetworkFollowers(10 * time.Second)
+			client.StopNetworkFollower(10 * time.Second)
 			return
 		}
 
-		err := userDiscoveryMgr.Search(facts,
+		err = userDiscoveryMgr.Search(facts,
 			func(contacts []contact.Contact, err error) {
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}
 				for i := 0; i < len(contacts); i++ {
-					fmt.Printf(contacts[i].String())
+					cBytes, err := contacts[i].Marshal()
+					if err != nil {
+						jww.FATAL.Panicf("%+v", err)
+					}
+					fmt.Printf(string(cBytes))
 				}
 			}, 10*time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
 		time.Sleep(11 * time.Second)
-		client.StopNetworkFollowers(10 * time.Second)
+		client.StopNetworkFollower(10 * time.Second)
 	},
 }
 

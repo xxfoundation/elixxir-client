@@ -24,7 +24,7 @@ require (
 	gitlab.com/elixxir/primitives v0.0.3-0.20210104223605-0e47af99d9d5
 	gitlab.com/xx_network/comms v0.0.4-0.20201222193955-56206d700360
 	gitlab.com/xx_network/crypto v0.0.5-0.20201217195719-cc31e1d1eee3
-	gitlab.com/xx_network/primitives v0.0.4-0.20201229212313-fe33d9809f27
+	gitlab.com/xx_network/primitives v0.0.4-0.20201216174909-808eb0fc97fc
 	golang.org/x/crypto v0.0.0-20201217014255-9d1352758620
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201214210602-f9fddec55a1e // indirect

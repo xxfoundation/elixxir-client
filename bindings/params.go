@@ -9,7 +9,9 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/interfaces/params"
+import (
+	"gitlab.com/elixxir/client/interfaces/params"
+)
 
 func (c *Client) GetCMIXParams() (string, error) {
 	p, err := params.GetDefaultCMIX().Marshal()

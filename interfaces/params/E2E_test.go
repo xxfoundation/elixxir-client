@@ -31,3 +31,38 @@ func TestSendType_String(t *testing.T) {
 		t.Errorf("Running String on unknown E2E type got %s", e.Type.String())
 	}
 }
+
+// New params path
+func TestGetE2EParameters(t *testing.T) {
+	p := GetDefaultE2E()
+
+	expected := p.RoundTries + 1
+	p.RoundTries = expected
+	jsonString, err := p.Marshal()
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	q, err := GetE2EParameters(string(jsonString))
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if q.RoundTries != expected {
+		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, expected)
+	}
+}
+
+// No new params path
+func TestGetE2EParameters_Default(t *testing.T) {
+	p := GetDefaultE2E()
+
+	q, err := GetE2EParameters("")
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if q.RoundTries != p.RoundTries {
+		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, p.RoundTries)
+	}
+}

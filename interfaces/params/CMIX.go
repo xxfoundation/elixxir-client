@@ -27,7 +27,7 @@ func GetDefaultCMIX() CMIX {
 	}
 }
 
-func (c *CMIX) Marshal() ([]byte, error) {
+func (c CMIX) Marshal() ([]byte, error) {
 	return json.Marshal(c)
 }
 

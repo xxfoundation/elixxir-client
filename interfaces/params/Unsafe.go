@@ -17,12 +17,8 @@ func GetDefaultUnsafe() Unsafe {
 	return Unsafe{CMIX: GetDefaultCMIX()}
 }
 
-func (u *Unsafe) MarshalJSON() ([]byte, error) {
+func (u Unsafe) Marshal() ([]byte, error) {
 	return json.Marshal(u)
-}
-
-func (u *Unsafe) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, u)
 }
 
 // Obtain default Unsafe parameters, or override with given parameters if set

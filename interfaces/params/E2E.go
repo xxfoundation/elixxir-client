@@ -22,7 +22,7 @@ func GetDefaultE2E() E2E {
 		CMIX: GetDefaultCMIX(),
 	}
 }
-func (e *E2E) Marshal() ([]byte, error) {
+func (e E2E) Marshal() ([]byte, error) {
 	return json.Marshal(e)
 }
 

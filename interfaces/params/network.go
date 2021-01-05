@@ -38,7 +38,7 @@ func GetDefaultNetwork() Network {
 	return n
 }
 
-func (n *Network) Marshal() ([]byte, error) {
+func (n Network) Marshal() ([]byte, error) {
 	return json.Marshal(n)
 }
 

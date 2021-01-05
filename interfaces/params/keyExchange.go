@@ -22,7 +22,7 @@ func GetDefaultRekey() Rekey {
 	}
 }
 
-func (r *Rekey) Marshal() ([]byte, error) {
+func (r Rekey) Marshal() ([]byte, error) {
 	return json.Marshal(r)
 }
 

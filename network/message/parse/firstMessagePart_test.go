@@ -41,6 +41,18 @@ func TestNewFirstMessagePart(t *testing.T) {
 			's', 't', 'r', 'i', 'n', 'g'},
 	)
 
+	gotTime, err := fmp.GetTimestamp()
+	if err != nil {
+		t.Error(err)
+	}
+	expectedTime, err := fmp.GetTimestamp()
+	if err != nil {
+		t.Error(err)
+	}
+	if !gotTime.Equal(expectedTime) {
+		t.Errorf("Got time: %v, expected time: %v", gotTime, expectedTime)
+	}
+
 	if !reflect.DeepEqual(fmp, efmp) {
 		t.Errorf("Expected and got firstMessagePart did not match.\n\tGot: %#v\n\tExpected: %#v", fmp, efmp)
 	}

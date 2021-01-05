@@ -23,11 +23,6 @@ func (c *Client) GetE2EParams() (string, error) {
 	return string(p), err
 }
 
-func (c *Client) GetRekeyParams() (string, error) {
-	p, err := params.GetDefaultRekey().Marshal()
-	return string(p), err
-}
-
 func (c *Client) GetNetworkParams() (string, error) {
 	p, err := params.GetDefaultNetwork().Marshal()
 	return string(p), err

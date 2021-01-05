@@ -40,6 +40,8 @@ type Client struct {
 	switchboard *switchboard.Switchboard
 	//object used for communications
 	comms *client.Comms
+	// Network parameters
+	parameters params.Network
 
 	// note that the manager has a pointer to the context in many cases, but
 	// this interface allows it to be mocked for easy testing without the
@@ -175,8 +177,8 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator,
 	}
 
 	//get the user from session
-	user := c.storage.User()
-	cryptoUser := user.GetCryptographicIdentity()
+	u := c.storage.User()
+	cryptoUser := u.GetCryptographicIdentity()
 
 	//start comms
 	c.comms, err = client.NewClientComms(cryptoUser.GetUserID(),
@@ -196,6 +198,9 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator,
 		return nil, errors.WithMessage(err, "failed to init "+
 			"permissioning handler")
 	}
+
+	// Add network parameters
+	c.parameters = parameters
 
 	// check the client version is up to date to the network
 	err = c.checkVersion()
@@ -263,7 +268,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator,
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower(parameters params.Rekey) error {
+func (c *Client) StartNetworkFollower() error {
 	jww.INFO.Printf("StartNetworkFollower()")
 
 	err := c.status.toStarting()
@@ -281,7 +286,7 @@ func (c *Client) StartNetworkFollower(parameters params.Rekey) error {
 	}
 	c.runner.Add(stopFollow)
 	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, parameters))
+	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey))
 
 	err = c.status.toRunning()
 	if err != nil {

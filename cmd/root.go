@@ -110,7 +110,7 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
-		err = client.StartNetworkFollower(params.GetDefaultRekey())
+		err = client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

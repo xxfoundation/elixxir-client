@@ -24,6 +24,7 @@ type Network struct {
 
 	Rounds
 	Messages
+	Rekey
 }
 
 func GetDefaultNetwork() Network {

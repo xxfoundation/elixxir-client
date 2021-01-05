@@ -38,19 +38,15 @@ func GetDefaultNetwork() Network {
 	return n
 }
 
-func (n *Network) MarshalJSON() ([]byte, error) {
+func (n *Network) Marshal() ([]byte, error) {
 	return json.Marshal(n)
-}
-
-func (n *Network) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, n)
 }
 
 // Obtain default Network parameters, or override with given parameters if set
 func GetNetworkParameters(params string) (Network, error) {
 	p := GetDefaultNetwork()
 	if len(params) > 0 {
-		err := p.UnmarshalJSON([]byte(params))
+		err := json.Unmarshal([]byte(params), &p)
 		if err != nil {
 			return Network{}, err
 		}

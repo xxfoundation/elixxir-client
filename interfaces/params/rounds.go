@@ -8,7 +8,6 @@
 package params
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -41,12 +40,4 @@ func GetDefaultRounds() Rounds {
 		HistoricalRoundsBufferLen: 1000,
 		LookupRoundsBufferLen:     2000,
 	}
-}
-
-func (r *Rounds) MarshalJSON() ([]byte, error) {
-	return json.Marshal(r)
-}
-
-func (r *Rounds) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, r)
 }

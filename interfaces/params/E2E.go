@@ -22,20 +22,15 @@ func GetDefaultE2E() E2E {
 		CMIX: GetDefaultCMIX(),
 	}
 }
-
-func (e *E2E) MarshalJSON() ([]byte, error) {
+func (e *E2E) Marshal() ([]byte, error) {
 	return json.Marshal(e)
-}
-
-func (e *E2E) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, e)
 }
 
 // Obtain default E2E parameters, or override with given parameters if set
 func GetE2EParameters(params string) (E2E, error) {
 	p := GetDefaultE2E()
 	if len(params) > 0 {
-		err := p.UnmarshalJSON([]byte(params))
+		err := json.Unmarshal([]byte(params), &p)
 		if err != nil {
 			return E2E{}, err
 		}

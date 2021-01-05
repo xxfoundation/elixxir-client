@@ -27,19 +27,15 @@ func GetDefaultCMIX() CMIX {
 	}
 }
 
-func (c *CMIX) MarshalJSON() ([]byte, error) {
+func (c *CMIX) Marshal() ([]byte, error) {
 	return json.Marshal(c)
-}
-
-func (c *CMIX) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, c)
 }
 
 // Obtain default CMIX parameters, or override with given parameters if set
 func GetCMIXParameters(params string) (CMIX, error) {
 	p := GetDefaultCMIX()
 	if len(params) > 0 {
-		err := p.UnmarshalJSON([]byte(params))
+		err := json.Unmarshal([]byte(params), &p)
 		if err != nil {
 			return CMIX{}, err
 		}

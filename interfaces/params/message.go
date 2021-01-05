@@ -8,7 +8,6 @@
 package params
 
 import (
-	"encoding/json"
 	"time"
 )
 
@@ -26,12 +25,4 @@ func GetDefaultMessage() Messages {
 		MaxChecksGarbledMessage:        10,
 		GarbledMessageWait:             15 * time.Minute,
 	}
-}
-
-func (m *Messages) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m)
-}
-
-func (m *Messages) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, m)
 }

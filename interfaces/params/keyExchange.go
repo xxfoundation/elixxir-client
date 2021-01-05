@@ -22,19 +22,15 @@ func GetDefaultRekey() Rekey {
 	}
 }
 
-func (r *Rekey) MarshalJSON() ([]byte, error) {
+func (r *Rekey) Marshal() ([]byte, error) {
 	return json.Marshal(r)
-}
-
-func (r *Rekey) UnmarshalJSON(b []byte) error {
-	return json.Unmarshal(b, r)
 }
 
 // Obtain default Rekey parameters, or override with given parameters if set
 func GetRekeyParameters(params string) (Rekey, error) {
 	p := GetDefaultRekey()
 	if len(params) > 0 {
-		err := p.UnmarshalJSON([]byte(params))
+		err := json.Unmarshal([]byte(params), &p)
 		if err != nil {
 			return Rekey{}, err
 		}

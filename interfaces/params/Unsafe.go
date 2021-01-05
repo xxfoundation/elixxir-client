@@ -29,7 +29,7 @@ func (u *Unsafe) UnmarshalJSON(b []byte) error {
 func GetUnsafeParameters(params string) (Unsafe, error) {
 	p := GetDefaultUnsafe()
 	if len(params) > 0 {
-		err := p.UnmarshalJSON([]byte(params))
+		err := json.Unmarshal([]byte(params), &p)
 		if err != nil {
 			return Unsafe{}, err
 		}

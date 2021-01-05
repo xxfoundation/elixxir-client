@@ -42,7 +42,7 @@ func TestNewFirstMessagePart(t *testing.T) {
 	)
 
 	if !reflect.DeepEqual(fmp, efmp) {
-		t.Errorf("Expected and got firstMessagePart did not match.\r\tGot: %#v\r\tExected: %#v", fmp, efmp)
+		t.Errorf("Expected and got firstMessagePart did not match.\n\tGot: %#v\n\tExpected: %#v", fmp, efmp)
 	}
 }
 

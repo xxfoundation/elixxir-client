@@ -335,5 +335,8 @@ func InitTestingSession(i interface{}) *Session {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy critical messages: %+v", err)
 	}
 
+	s.conversations = conversation.NewStore(s.kv)
+	s.partition = partition.New(s.kv)
+
 	return s
 }

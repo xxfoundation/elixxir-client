@@ -49,6 +49,11 @@ type Manager struct {
 // updated NDF is available and will error if one is not.
 func NewManager(client *api.Client)(*Manager, error){
 
+	if !client.GetHealth().IsHealthy(){
+		return nil, errors.New("cannot start UD Manager when network " +
+			"is not healthy")
+	}
+
 	m := &Manager{
 		client:				 client,
 		comms:               client.GetComms(),

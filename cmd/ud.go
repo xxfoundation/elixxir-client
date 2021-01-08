@@ -37,11 +37,6 @@ var udCmd = &cobra.Command{
 		jww.INFO.Printf("User: %s", user.ID)
 		writeContact(user.GetContact())
 
-		userDiscoveryMgr, err := ud.NewManager(client)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
 		// Set up reception handler
 		swboard := client.GetSwitchboard()
 		recvCh := make(chan message.Receive, 10000)
@@ -67,7 +62,7 @@ var udCmd = &cobra.Command{
 			})
 		}
 
-		err = client.StartNetworkFollower()
+		err := client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -76,6 +71,12 @@ var udCmd = &cobra.Command{
 		connected := make(chan bool, 10)
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
+
+		userDiscoveryMgr, err := ud.NewManager(client)
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+		userDiscoveryMgr.StartProcesses()
 
 		userToRegister := viper.GetString("register")
 		if userToRegister != "" {

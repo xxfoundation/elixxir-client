@@ -44,7 +44,7 @@ func (m *Manager) loadCommID() {
 
 	obj, err := m.storage.Get(commIDKey)
 	if err != nil {
-		jww.WARN.Printf("Failed to get the commID; restarting at zero: %+v", err)
+		jww.WARN.Printf("Failed to get the commID; restarting at zero: %s", err)
 		return
 	}
 

@@ -181,7 +181,7 @@ var rootCmd = &cobra.Command{
 	},
 }
 
-func initClient() *api.Client {
+func createClient() *api.Client {
 	initLog(viper.GetBool("verbose"), viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
@@ -211,6 +211,19 @@ func initClient() *api.Client {
 			jww.FATAL.Panicf("%+v", err)
 		}
 	}
+
+	client, err := api.OpenClient(storeDir, []byte(pass))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return client
+}
+
+func initClient() *api.Client {
+	createClient()
+
+	pass := viper.GetString("password")
+	storeDir := viper.GetString("session")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass))

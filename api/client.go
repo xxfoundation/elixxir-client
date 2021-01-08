@@ -145,9 +145,9 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	return nil
 }
 
-// Login initalizes a client object from existing storage.
-func Login(storageDir string, password []byte) (*Client, error) {
-	jww.INFO.Printf("Login()")
+// OpenClient session, but don't connect to the network or log in
+func OpenClient(storageDir string, password []byte) (*Client, error) {
+	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
 		csprng.NewSystemRNG)
@@ -159,16 +159,9 @@ func Login(storageDir string, password []byte) (*Client, error) {
 		return nil, err
 	}
 
-	//execute the rest of the loading as normal
-	return loadClient(storageSess, rngStreamGen)
-}
-
-// Login initalizes a client object from existing storage.
-func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator) (c *Client, err error) {
-
 	// Set up a new context
-	c = &Client{
-		storage:     session,
+	c := &Client{
+		storage:     storageSess,
 		switchboard: switchboard.New(),
 		rng:         rngStreamGen,
 		comms:       nil,
@@ -177,6 +170,20 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 		status:      newStatusTracker(),
 	}
 
+	return c, nil
+}
+
+// Login initalizes a client object from existing storage.
+func Login(storageDir string, password []byte) (*Client, error) {
+	jww.INFO.Printf("Login()")
+
+	c, err := OpenClient(storageDir, password)
+
+	if err != nil {
+		return nil, err
+	}
+
+	//execute the rest of the loading as normal
 	c.services = newServiceProcessiesList(c.runner)
 
 	//get the user from session
@@ -193,7 +200,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 	}
 
 	//get the NDF to pass into permissioning and the network manager
-	def := session.GetBaseNDF()
+	def := c.storage.GetBaseNDF()
 
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)

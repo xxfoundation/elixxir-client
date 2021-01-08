@@ -20,7 +20,7 @@ require (
 	github.com/ugorji/go v1.1.4 // indirect
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
-	gitlab.com/elixxir/comms v0.0.4-0.20210107184523-c6ed72fd848c
+	gitlab.com/elixxir/comms v0.0.4-0.20210108215809-3fd92afa101f
 	gitlab.com/elixxir/crypto v0.0.7-0.20210107184400-5c3e52a35758
 	gitlab.com/elixxir/ekv v0.1.4
 	gitlab.com/elixxir/primitives v0.0.3-0.20210107183456-9cf6fe2de1e5

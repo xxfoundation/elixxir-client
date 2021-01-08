@@ -15,15 +15,16 @@ const isRegisteredVersion = 0
 // loadRegistered loads from storage if the client is registered with user
 // discovery.
 func (m *Manager) loadRegistered()  {
-
+	var isReg = uint32(0)
 	obj, err := m.storage.Get(isRegisteredKey)
 	if err != nil {
 		jww.INFO.Printf("Failed to load is registered; " +
 			"assuming un-registered: %s", err)
 		return
+	}else{
+		isReg = binary.BigEndian.Uint32(obj.Data)
 	}
 
-	isReg := binary.BigEndian.Uint32(obj.Data)
 	m.registered = &isReg
 }
 

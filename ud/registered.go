@@ -20,7 +20,6 @@ func (m *Manager) loadRegistered()  {
 	if err != nil {
 		jww.INFO.Printf("Failed to load is registered; " +
 			"assuming un-registered: %s", err)
-		return
 	}else{
 		isReg = binary.BigEndian.Uint32(obj.Data)
 	}

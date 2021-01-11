@@ -86,14 +86,14 @@ var udCmd = &cobra.Command{
 			}
 		}
 
-		var facts fact.FactList
+		var newFacts fact.FactList
 		phone := viper.GetString("addphone")
 		if phone != "" {
 			f, err := fact.NewFact(fact.Phone, phone)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			facts = append(facts, f)
+			newFacts = append(newFacts, f)
 		}
 		email := viper.GetString("addemail")
 		if email != "" {
@@ -101,11 +101,11 @@ var udCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			facts = append(facts, f)
+			newFacts = append(newFacts, f)
 		}
 
-		for i := 0; i < len(facts); i++ {
-			r, err := userDiscoveryMgr.SendRegisterFact(facts[i])
+		for i := 0; i < len(newFacts); i++ {
+			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -150,6 +150,7 @@ var udCmd = &cobra.Command{
 		emailSrchStr := viper.GetString("searchemail")
 		phoneSrchStr := viper.GetString("searchphone")
 
+		var facts fact.FactList
 		if usernameSrchStr != "" {
 			f, err := fact.NewFact(fact.Username, usernameSrchStr)
 			if err != nil {

@@ -28,8 +28,12 @@ type Tracker struct {
 
 	running bool
 
+	// Determines the current health status
 	isHealthy bool
-	mux       sync.RWMutex
+	// Denotes the past health status
+	// wasHealthy is true if isHealthy has ever been true
+	wasHealthy bool
+	mux        sync.RWMutex
 }
 
 // Creates a single HealthTracker thread, starts it, and returns a tracker and a stoppable
@@ -79,8 +83,20 @@ func (t *Tracker) IsHealthy() bool {
 	return t.isHealthy
 }
 
+// Returns true if isHealthy has ever been true
+func (t *Tracker) WasHealthy() bool {
+	t.mux.RLock()
+	defer t.mux.RUnlock()
+	return t.wasHealthy
+}
+
 func (t *Tracker) setHealth(h bool) {
 	t.mux.Lock()
+	// Only ever set wasHealthy to true if
+	// new health value is true
+	if h {
+		t.wasHealthy = true
+	}
 	t.isHealthy = h
 	t.mux.Unlock()
 	t.transmit(h)

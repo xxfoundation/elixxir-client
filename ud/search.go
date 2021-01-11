@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -115,9 +116,16 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 
 		select {
 		// Return an error if the round fails
-		case <-roundFailChan:
-			err = errors.New("One or more rounds failed to resolve; " +
-				"search not delivered")
+		case fail := <-roundFailChan:
+			fType := ""
+			if fail.TimedOut{
+				fType = "timeout"
+			}else{
+				fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
+			}
+			err = errors.Errorf("One or more rounds failed to resolve " +
+				"due to: %s; " +
+				"search not delivered", fType)
 
 		// Return an error if the timeout is reached
 		case <-timer.C:

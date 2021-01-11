@@ -20,7 +20,7 @@ func (m *Manager) SendRegisterFact(fact fact.Fact) (*pb.FactRegisterResponse, er
 }
 
 func (m *Manager) addFact(inFact fact.Fact, aFC addFactComms) (*pb.FactRegisterResponse, error) {
-	if !m.IsRegistered(){
+	if !m.IsRegistered() {
 		return nil, errors.New("Failed to add fact: " +
 			"client is not registered")
 	}
@@ -40,9 +40,11 @@ func (m *Manager) addFact(inFact fact.Fact, aFC addFactComms) (*pb.FactRegisterR
 		return &pb.FactRegisterResponse{}, err
 	}
 
+	uid := m.storage.User().GetCryptographicIdentity().GetUserID()
+
 	// Create our Fact Removal Request message data
 	remFactMsg := pb.FactRegisterRequest{
-		UID: m.host.GetId().Marshal(),
+		UID: uid.Marshal(),
 		Fact: &pb.Fact{
 			Fact:     inFact.Fact,
 			FactType: uint32(inFact.T),

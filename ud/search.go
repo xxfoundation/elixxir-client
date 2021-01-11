@@ -123,9 +123,8 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 			}else{
 				fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
 			}
-			err = errors.Errorf("One or more rounds failed to resolve " +
-				"due to: %s; " +
-				"search not delivered", fType)
+			err = errors.Errorf("One or more rounds (%v) failed to " +
+				"resolve due to: %s; search not delivered", rounds, fType)
 
 		// Return an error if the timeout is reached
 		case <-timer.C:

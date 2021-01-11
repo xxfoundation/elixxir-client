@@ -104,7 +104,8 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		// Subtract a millisecond to ensure this timeout will trigger before the
 		// one below
 		m.net.GetInstance().GetRoundEvents().AddRoundEventChan(round,
-			roundFailChan, timeout-1*time.Millisecond, states.FAILED)
+			roundFailChan, timeout-1*time.Millisecond, states.FAILED,
+			states.COMPLETED)
 	}
 
 	// Start the go routine which will trigger the callback
@@ -114,32 +115,41 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		var err error
 		var c []contact.Contact
 
-		select {
-		// Return an error if the round fails
-		case fail := <-roundFailChan:
-			fType := ""
-			if fail.TimedOut{
-				fType = "timeout"
-			}else{
-				fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
-			}
-			err = errors.Errorf("One or more rounds (%v) failed to " +
-				"resolve due to: %s; search not delivered", rounds, fType)
+		done := false
+		for !done{
+			select {
+			// Return an error if the round fails
+			case fail := <-roundFailChan:
+				if states.Round(fail.RoundInfo.State)==states.FAILED{
+					fType := ""
+					if fail.TimedOut{
+						fType = "timeout"
+					}else{
+						fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
+					}
+					err = errors.Errorf("One or more rounds (%v) failed to " +
+						"resolve due to: %s; search not delivered", rounds, fType)
+					done = true
+				}
 
-		// Return an error if the timeout is reached
-		case <-timer.C:
-			err = errors.New("Response from User Discovery did not come " +
-				"before timeout")
+			// Return an error if the timeout is reached
+			case <-timer.C:
+				err = errors.New("Response from User Discovery did not come " +
+					"before timeout")
+				done = true
 
-		// Return the contacts if one is returned
-		case response := <-responseChan:
-			if response.Error != "" {
-				err = errors.Errorf("User Discovery returned an error on "+
-					"search: %s", response.Error)
-			} else {
-				c, err = m.parseContacts(response.Contacts, factMap)
+			// Return the contacts if one is returned
+			case response := <-responseChan:
+				if response.Error != "" {
+					err = errors.Errorf("User Discovery returned an error on "+
+						"search: %s", response.Error)
+				} else {
+					c, err = m.parseContacts(response.Contacts, factMap)
+				}
+				done = true
 			}
 		}
+
 
 		// Delete the response channel from the map
 		m.inProgressSearchMux.Lock()

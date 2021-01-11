@@ -70,12 +70,7 @@ build:
     - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
     - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
-    - whoami
-    - mc alias set elixxir-binaries $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
-    - mc cp release/client.linux64 elixxir-binaries/elixxir-binaries
-    - mc cp release/client.win64 elixxir-binaries/elixxir-binaries
-    - mc cp release/client.win32 elixxir-binaries/elixxir-binaries
-    - mc cp release/client.darwin64 elixxir-binaries/elixxir-binaries
+    - /upload-artifacts.sh release/
   artifacts:
     paths:
      - release/

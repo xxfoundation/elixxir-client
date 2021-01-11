@@ -43,7 +43,7 @@ build:
     - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
     - whoami
-    - mc ls elixxir-binaries/elixxir-binaries
+    - mc alias set elixxir-binaries $S3_ENDPOINT $S3_KEY $S3_SECRET
     - mc cp release/client.linux64 elixxir-binaries/elixxir-binaries
     - mc cp release/client.win64 elixxir-binaries/elixxir-binaries
     - mc cp release/client.win32 elixxir-binaries/elixxir-binaries

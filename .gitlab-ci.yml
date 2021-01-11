@@ -30,34 +30,6 @@ stages:
   - trigger_integration
   - trigger_release_integration
 
-test:
-  stage: test
-  image: $DOCKER_IMAGE
-  except:
-    - tags
-  script:
-    - git clean -ffdx
-    - go mod vendor -v
-    - go build ./...
-    - go mod tidy
-    - mkdir -p testdata
-
-    # Test coverage
-    - go-acc --covermode atomic --output testdata/coverage.out ./... -- -v
-    # Exclude some specific packages and files
-    - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go | grep -v main.go > testdata/coverage-real.out
-    - go tool cover -func=testdata/coverage-real.out
-    - go tool cover -html=testdata/coverage-real.out -o testdata/coverage.html
-
-    # Test Coverage Check
-    - go tool cover -func=testdata/coverage-real.out | grep "total:" | awk '{print $3}' | sed 's/\%//g' > testdata/coverage-percentage.txt
-    - export CODE_CHECK=$(echo "$(cat testdata/coverage-percentage.txt) >= $MIN_CODE_COVERAGE" | bc -l)
-    - (if [ "$CODE_CHECK" == "1" ]; then echo "Minimum coverage of $MIN_CODE_COVERAGE succeeded"; else echo "Minimum coverage of $MIN_CODE_COVERAGE failed"; exit 1; fi);
-  artifacts:
-    paths:
-      - vendor/
-      - testdata/
-
 build:
   stage: build
   image: $DOCKER_IMAGE

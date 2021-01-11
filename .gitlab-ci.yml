@@ -25,10 +25,38 @@ before_script:
 
 
 stages:
-#  - test
+  - test
   - build
   - trigger_integration
   - trigger_release_integration
+
+test:
+  stage: test
+  image: $DOCKER_IMAGE
+  except:
+    - tags
+  script:
+    - git clean -ffdx
+    - go mod vendor -v
+    - go build ./...
+    - go mod tidy
+    - mkdir -p testdata
+
+    # Test coverage
+    - go-acc --covermode atomic --output testdata/coverage.out ./... -- -v
+    # Exclude some specific packages and files
+    - cat testdata/coverage.out | grep -v cmd | grep -v mockserver | grep -v pb[.]go | grep -v main.go > testdata/coverage-real.out
+    - go tool cover -func=testdata/coverage-real.out
+    - go tool cover -html=testdata/coverage-real.out -o testdata/coverage.html
+
+    # Test Coverage Check
+    - go tool cover -func=testdata/coverage-real.out | grep "total:" | awk '{print $3}' | sed 's/\%//g' > testdata/coverage-percentage.txt
+    - export CODE_CHECK=$(echo "$(cat testdata/coverage-percentage.txt) >= $MIN_CODE_COVERAGE" | bc -l)
+    - (if [ "$CODE_CHECK" == "1" ]; then echo "Minimum coverage of $MIN_CODE_COVERAGE succeeded"; else echo "Minimum coverage of $MIN_CODE_COVERAGE failed"; exit 1; fi);
+  artifacts:
+    paths:
+      - vendor/
+      - testdata/
 
 build:
   stage: build
@@ -43,7 +71,7 @@ build:
     - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
     - whoami
-    - mc alias set elixxir-binaries $S3_ENDPOINT $S3_KEY $S3_SECRET
+    - mc alias set elixxir-binaries $ARTIFACT_S3_ENDPOINT $ARTIFACT_S3_KEY $ARTIFACT_S3_SECRET
     - mc cp release/client.linux64 elixxir-binaries/elixxir-binaries
     - mc cp release/client.win64 elixxir-binaries/elixxir-binaries
     - mc cp release/client.win32 elixxir-binaries/elixxir-binaries

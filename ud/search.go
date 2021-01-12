@@ -144,6 +144,7 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 					err = errors.Errorf("User Discovery returned an error on "+
 						"search: %s", response.Error)
 				} else {
+					jww.INFO.Printf("%v", response.Contacts)
 					c, err = m.parseContacts(response.Contacts, factMap)
 				}
 				done = true

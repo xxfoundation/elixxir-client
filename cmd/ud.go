@@ -109,9 +109,8 @@ var udCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			// TODO Store the code
-
-			fmt.Printf("Fact Add Response: %+v", r)
+			// TODO Store the code?
+			jww.INFO.Printf("Fact Add Response: %+v", r)
 		}
 
 		confirmID := viper.GetString("confirm")
@@ -188,7 +187,7 @@ var udCmd = &cobra.Command{
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}
-					fmt.Printf(string(cBytes))
+					fmt.Printf("%s", cBytes)
 				}
 			}, 90*time.Second)
 		if err != nil {

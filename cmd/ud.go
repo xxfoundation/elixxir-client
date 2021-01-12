@@ -142,8 +142,8 @@ var udCmd = &cobra.Command{
 					}
 					fmt.Printf(string(cBytes))
 				},
-				time.Duration(10*time.Second))
-			time.Sleep(11 * time.Second)
+				time.Duration(90*time.Second))
+			time.Sleep(91 * time.Second)
 		}
 
 		usernameSrchStr := viper.GetString("searchusername")
@@ -190,12 +190,12 @@ var udCmd = &cobra.Command{
 					}
 					fmt.Printf(string(cBytes))
 				}
-			}, 10*time.Second)
+			}, 90*time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		time.Sleep(11 * time.Second)
-		client.StopNetworkFollower(10 * time.Second)
+		time.Sleep(91 * time.Second)
+		client.StopNetworkFollower(90 * time.Second)
 	},
 }
 

@@ -18,7 +18,6 @@ import (
 
 type searchCallback func([]contact.Contact, error)
 
-
 func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) {
 	for true {
 		select {
@@ -55,10 +54,9 @@ func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) 
 	}
 }
 
-
 // Search...
 func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
-	if !m.IsRegistered(){
+	if !m.IsRegistered() {
 		return errors.New("Failed to search: " +
 			"client is not registered")
 	}
@@ -78,6 +76,8 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 	if err != nil {
 		return errors.WithMessage(err, "Failed to form outgoing search request")
 	}
+
+	//cUID := m.client.GetUser().ID
 
 	msg := message.Send{
 		Recipient:   m.udID,
@@ -116,18 +116,18 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		var c []contact.Contact
 
 		done := false
-		for !done{
+		for !done {
 			select {
 			// Return an error if the round fails
 			case fail := <-roundFailChan:
-				if states.Round(fail.RoundInfo.State)==states.FAILED || fail.TimedOut{
+				if states.Round(fail.RoundInfo.State) == states.FAILED || fail.TimedOut {
 					fType := ""
-					if fail.TimedOut{
+					if fail.TimedOut {
 						fType = "timeout"
-					}else{
+					} else {
 						fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
 					}
-					err = errors.Errorf("One or more rounds (%v) failed to " +
+					err = errors.Errorf("One or more rounds (%v) failed to "+
 						"resolve due to: %s; search not delivered", rounds, fType)
 					done = true
 				}
@@ -149,7 +149,6 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 				done = true
 			}
 		}
-
 
 		// Delete the response channel from the map
 		m.inProgressSearchMux.Lock()

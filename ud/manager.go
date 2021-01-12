@@ -18,20 +18,20 @@ import (
 
 type Manager struct {
 	//external
-	client *api.Client
+	client  *api.Client
 	comms   *client.Comms
 	rng     *fastRNG.StreamGenerator
 	sw      interfaces.Switchboard
 	storage *storage.Session
-	net interfaces.NetworkManager
+	net     interfaces.NetworkManager
 
 	//loaded from external access
-	udID *id.ID
+	udID    *id.ID
 	privKey *rsa.PrivateKey
-	grp *cyclic.Group
+	grp     *cyclic.Group
 
 	//internal maps
-	host    *connect.Host
+	host                *connect.Host
 	inProgressLookup    map[uint64]chan *LookupResponse
 	inProgressLookupMux sync.RWMutex
 
@@ -47,35 +47,34 @@ type Manager struct {
 
 // New manager builds a new user discovery manager. It requires that an
 // updated NDF is available and will error if one is not.
-func NewManager(client *api.Client)(*Manager, error){
-
-	if !client.GetHealth().IsHealthy(){
+func NewManager(client *api.Client) (*Manager, error) {
+	if !client.GetHealth().WasHealthy() {
 		return nil, errors.New("cannot start UD Manager when network " +
-			"is not healthy")
+			"was never healthy")
 	}
 
 	m := &Manager{
-		client:				 client,
-		comms:               client.GetComms(),
-		rng:                 client.GetRng(),
-		sw:                  client.GetSwitchboard(),
-		storage:             client.GetStorage(),
-		net:                 client.GetNetworkInterface(),
-		inProgressLookup: 	 make(map[uint64]chan *LookupResponse),
-		inProgressSearch:	 make(map[uint64]chan *SearchResponse),
+		client:           client,
+		comms:            client.GetComms(),
+		rng:              client.GetRng(),
+		sw:               client.GetSwitchboard(),
+		storage:          client.GetStorage(),
+		net:              client.GetNetworkInterface(),
+		inProgressLookup: make(map[uint64]chan *LookupResponse),
+		inProgressSearch: make(map[uint64]chan *SearchResponse),
 	}
 
 	var err error
 
 	//check that user discovery is available in the ndf
 	def := m.net.GetInstance().GetPartialNdf().Get()
-	if m.udID, err = id.Unmarshal(def.UDB.ID); err!=nil{
-		return nil, errors.WithMessage(err,"NDF does not have User " +
-			"Discovery information, is there network access?: ID could not be " +
+	if m.udID, err = id.Unmarshal(def.UDB.ID); err != nil {
+		return nil, errors.WithMessage(err, "NDF does not have User "+
+			"Discovery information, is there network access?: ID could not be "+
 			"unmarshaled")
 	}
 
-	if def.UDB.Cert==""{
+	if def.UDB.Cert == "" {
 		return nil, errors.New("NDF does not have User " +
 			"Discovery information, is there network access?: Cert " +
 			"not present")
@@ -84,9 +83,9 @@ func NewManager(client *api.Client)(*Manager, error){
 	//create the user discovery host object
 
 	hp := connect.GetDefaultHostParams()
-	if m.host, err = m.comms.AddHost(m.udID, def.UDB.Address,[]byte(def.UDB.Cert),
-		hp); err!=nil{
-		return nil, errors.WithMessage(err, "User Discovery host " +
+	if m.host, err = m.comms.AddHost(m.udID, def.UDB.Address, []byte(def.UDB.Cert),
+		hp); err != nil {
+		return nil, errors.WithMessage(err, "User Discovery host "+
 			"object could not be constructed")
 	}
 
@@ -105,7 +104,7 @@ func NewManager(client *api.Client)(*Manager, error){
 	return m, nil
 }
 
-func (m *Manager) StartProcesses()  {
+func (m *Manager) StartProcesses() {
 	m.client.AddService(m.startProcesses)
 }
 
@@ -126,7 +125,3 @@ func (m *Manager) startProcesses() stoppable.Stoppable {
 	udMulti.Add(searchStop)
 	return lookupStop
 }
-
-
-
-

@@ -117,7 +117,7 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 			select {
 			// Return an error if the round fails
 			case fail := <-roundFailChan:
-				if states.Round(fail.RoundInfo.State)==states.FAILED{
+				if states.Round(fail.RoundInfo.State)==states.FAILED || fail.TimedOut{
 					fType := ""
 					if fail.TimedOut{
 						fType = "timeout"

@@ -120,7 +120,7 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 			select {
 			// Return an error if the round fails
 			case fail := <-roundFailChan:
-				if states.Round(fail.RoundInfo.State)==states.FAILED{
+				if states.Round(fail.RoundInfo.State)==states.FAILED || fail.TimedOut{
 					fType := ""
 					if fail.TimedOut{
 						fType = "timeout"

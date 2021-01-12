@@ -187,6 +187,7 @@ var udCmd = &cobra.Command{
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}
+					jww.INFO.Printf("Size Printed: %d", len(cBytes))
 					fmt.Printf("%s", cBytes)
 				}
 			}, 90*time.Second)

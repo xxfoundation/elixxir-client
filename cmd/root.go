@@ -255,6 +255,7 @@ func readContact() contact.Contact {
 		return contact.Contact{}
 	}
 	data, err := ioutil.ReadFile(inputFilePath)
+	jww.INFO.Printf("Size read in: %d", len(data))
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

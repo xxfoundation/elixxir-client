@@ -72,6 +72,12 @@ func TestNewTracker(t *testing.T) {
 		return
 	}
 
+	// Check if the tracker was ever healthy
+	if !tracker.WasHealthy() {
+		t.Errorf("Tracker did not become healthy")
+		return
+	}
+
 	// Verify the heartbeat triggered the listening chan/func
 	if counter != expectedCount {
 		t.Errorf("Expected counter to be %d, got %d", expectedCount, counter)
@@ -84,6 +90,13 @@ func TestNewTracker(t *testing.T) {
 	// Verify the network was marked as NOT healthy
 	if tracker.IsHealthy() {
 		t.Errorf("Tracker should not report healthy")
+		return
+	}
+
+	// Check if the tracker was ever healthy,
+	// after setting healthy to false
+	if !tracker.WasHealthy() {
+		t.Errorf("Tracker was healthy previously but not reported healthy")
 		return
 	}
 

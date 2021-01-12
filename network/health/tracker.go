@@ -92,11 +92,10 @@ func (t *Tracker) WasHealthy() bool {
 
 func (t *Tracker) setHealth(h bool) {
 	t.mux.Lock()
-	// Only ever set wasHealthy to true if
-	// new health value is true
-	if !t.wasHealthy && h {
-		t.wasHealthy = true
-	}
+	// Only set wasHealthy to true if either
+	//  wasHealthy is true or
+	//  wasHealthy false but h value is true
+	t.wasHealthy = t.wasHealthy || h
 	t.isHealthy = h
 	t.mux.Unlock()
 	t.transmit(h)

@@ -6,13 +6,17 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type removeFactComms interface {
 	SendDeleteMessage(host *connect.Host, message *mixmessages.FactRemovalRequest) (*messages.Ack, error)
 }
 
+// Removes a previously confirmed fact.  Will fail if the fact is not
+// associated with this client.
 func (m *Manager) RemoveFact(fact fact.Fact) error {
+	jww.INFO.Printf("ud.RemoveFact(%s)", fact.Stringify())
 	return m.removeFact(fact, nil)
 }
 

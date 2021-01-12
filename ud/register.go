@@ -9,14 +9,20 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/signature/rsa"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type registerUserComms interface {
 	SendRegisterUser(*connect.Host, *pb.UDBUserRegistration) (*messages.Ack, error)
 }
 
-// Register registers a user with user discovery.
+// Register registers a user with user discovery. Will return an error if the
+// network signatures are malformed or if the username is taken. Usernames cannot
+// be changed after registration at this time. Will fail if the user is already
+// registered.
+// Registration does not go over cmix, it occurs over normal communications
 func (m *Manager) Register(username string) error {
+	jww.INFO.Printf("ud.Register(%s)", username)
 	return m.register(username, m.comms)
 }
 

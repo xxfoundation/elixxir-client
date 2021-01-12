@@ -8,12 +8,27 @@
 package bindings
 
 import (
-	"errors"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/primitives/fact"
 )
 
 /* fact object*/
+//creates a new fact. The factType must be either:
+//  0 - Username
+//  1 - Email
+//  2 - Phone Number
+// The fact must be well formed for the type and must not include commas or
+// semicolons. If it is not well formed, it will be rejected.  Phone numbers
+// must have the two letter country codes appended.  For the complete set of
+// validation, see /elixxir/primitives/fact/fact.go
+func NewFact(factType int, factStr string)(*Fact, error){
+	f, err := fact.NewFact(fact.FactType(factType), factStr)
+	if err!=nil{
+		return nil, err
+	}
+	return &Fact{f:&f}, nil
+}
+
 type Fact struct {
 	f *fact.Fact
 }
@@ -24,6 +39,10 @@ func (f *Fact) Get() string {
 
 func (f *Fact) Type() int {
 	return int(f.f.T)
+}
+
+func (f *Fact) Stringify() string {
+	return f.f.Stringify()
 }
 
 /* contact object*/
@@ -53,33 +72,4 @@ func (c *Contact) GetFactList() *FactList {
 
 func (c *Contact) Marshal() ([]byte, error) {
 	return c.c.Marshal()
-}
-
-/* FactList object*/
-type FactList struct {
-	c *contact.Contact
-}
-
-func (fl *FactList) Num() int {
-	return len(fl.c.Facts)
-}
-
-func (fl *FactList) Get(i int) Fact {
-	return Fact{f: &(fl.c.Facts)[i]}
-}
-
-func (fl *FactList) Add(factData string, factType int) error {
-	ft := fact.FactType(factType)
-	if !ft.IsValid() {
-		return errors.New("Invalid fact type")
-	}
-	fl.c.Facts = append(fl.c.Facts, fact.Fact{
-		Fact: factData,
-		T:    ft,
-	})
-	return nil
-}
-
-func (fl *FactList) Marshal() ([]byte, error) {
-	return []byte(fl.c.Facts.Stringify()), nil
 }

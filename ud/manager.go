@@ -81,8 +81,10 @@ func NewManager(client *api.Client) (*Manager, error) {
 	}
 
 	//create the user discovery host object
+
+	hp := connect.GetDefaultHostParams()
 	if m.host, err = m.comms.AddHost(m.udID, def.UDB.Address, []byte(def.UDB.Cert),
-		connect.GetDefaultHostParams()); err != nil {
+		hp); err != nil {
 		return nil, errors.WithMessage(err, "User Discovery host "+
 			"object could not be constructed")
 	}

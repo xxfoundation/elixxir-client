@@ -53,9 +53,9 @@ func TestAddFact(t *testing.T) {
 	// This way we don't need to run UDB just to check that this
 	// function works.
 	tafc := testAFC{}
-
+	uid := &id.ID{}
 	// Run addFact and see if it returns without an error!
-	_, err = m.addFact(f, &tafc)
+	_, err = m.addFact(f, uid, &tafc)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -21,7 +22,6 @@ func (m *Manager) lookupProcess(c chan message.Receive, quitCh <-chan struct{}) 
 		case <-quitCh:
 			return
 		case response := <-c:
-
 
 			// Unmarshal the message
 			lookupResponse := &LookupResponse{}
@@ -101,7 +101,8 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		// Subtract a millisecond to ensure this timeout will trigger before the
 		// one below
 		m.net.GetInstance().GetRoundEvents().AddRoundEventChan(round,
-			roundFailChan, timeout-1*time.Millisecond, states.FAILED)
+			roundFailChan, timeout-1*time.Millisecond, states.FAILED,
+			states.COMPLETED)
 	}
 
 	// Start the go routine which will trigger the callback
@@ -111,30 +112,44 @@ func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Durat
 		var err error
 		var c contact.Contact
 
-		select {
-		// Return an error if the round fails
-		case <-roundFailChan:
-			err = errors.New("One or more rounds failed to resolve; " +
-				"lookup not delivered")
-
-		// Return an error if the timeout is reached
-		case <-timer.C:
-			err = errors.New("Response from User Discovery did not come " +
-				"before timeout")
-
-		// Return the contact if one is returned
-		case response := <-responseChan:
-			if response.Error != "" {
-				err = errors.Errorf("User Discovery returned an error on "+
-					"lookup: %s", response.Error)
-			} else {
-				pubkey := m.grp.NewIntFromBytes(response.PubKey)
-				c = contact.Contact{
-					ID:             uid,
-					DhPubKey:       pubkey,
-					OwnershipProof: nil,
-					Facts:          nil,
+		done := false
+		for !done {
+			select {
+			// Return an error if the round fails
+			case fail := <-roundFailChan:
+				if states.Round(fail.RoundInfo.State)==states.FAILED || fail.TimedOut{
+					fType := ""
+					if fail.TimedOut{
+						fType = "timeout"
+					}else{
+						fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
+					}
+					err = errors.Errorf("One or more rounds (%v) failed to " +
+						"resolve due to: %s; search not delivered", rounds, fType)
+					done = true
 				}
+
+			// Return an error if the timeout is reached
+			case <-timer.C:
+				err = errors.New("Response from User Discovery did not come " +
+					"before timeout")
+				done = true
+
+			// Return the contact if one is returned
+			case response := <-responseChan:
+				if response.Error != "" {
+					err = errors.Errorf("User Discovery returned an error on "+
+						"lookup: %s", response.Error)
+				} else {
+					pubkey := m.grp.NewIntFromBytes(response.PubKey)
+					c = contact.Contact{
+						ID:             uid,
+						DhPubKey:       pubkey,
+						OwnershipProof: nil,
+						Facts:          nil,
+					}
+				}
+				done = true
 			}
 		}
 

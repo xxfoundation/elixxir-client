@@ -9,6 +9,7 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 type addFactComms interface {
@@ -16,11 +17,12 @@ type addFactComms interface {
 }
 
 func (m *Manager) SendRegisterFact(fact fact.Fact) (*pb.FactRegisterResponse, error) {
-	return m.addFact(fact, m.comms)
+	uid := m.storage.User().GetCryptographicIdentity().GetUserID()
+	return m.addFact(fact, uid, m.comms)
 }
 
-func (m *Manager) addFact(inFact fact.Fact, aFC addFactComms) (*pb.FactRegisterResponse, error) {
-	if !m.IsRegistered(){
+func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (*pb.FactRegisterResponse, error) {
+	if !m.IsRegistered() {
 		return nil, errors.New("Failed to add fact: " +
 			"client is not registered")
 	}
@@ -42,7 +44,7 @@ func (m *Manager) addFact(inFact fact.Fact, aFC addFactComms) (*pb.FactRegisterR
 
 	// Create our Fact Removal Request message data
 	remFactMsg := pb.FactRegisterRequest{
-		UID: m.host.GetId().Marshal(),
+		UID: uid.Marshal(),
 		Fact: &pb.Fact{
 			Fact:     inFact.Fact,
 			FactType: uint32(inFact.T),

@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -16,7 +17,6 @@ import (
 )
 
 type searchCallback func([]contact.Contact, error)
-
 
 func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) {
 	for true {
@@ -54,10 +54,9 @@ func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) 
 	}
 }
 
-
 // Search...
 func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
-	if !m.IsRegistered(){
+	if !m.IsRegistered() {
 		return errors.New("Failed to search: " +
 			"client is not registered")
 	}
@@ -77,6 +76,8 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 	if err != nil {
 		return errors.WithMessage(err, "Failed to form outgoing search request")
 	}
+
+	//cUID := m.client.GetUser().ID
 
 	msg := message.Send{
 		Recipient:   m.udID,
@@ -103,7 +104,8 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		// Subtract a millisecond to ensure this timeout will trigger before the
 		// one below
 		m.net.GetInstance().GetRoundEvents().AddRoundEventChan(round,
-			roundFailChan, timeout-1*time.Millisecond, states.FAILED)
+			roundFailChan, timeout-1*time.Millisecond, states.FAILED,
+			states.COMPLETED)
 	}
 
 	// Start the go routine which will trigger the callback
@@ -113,24 +115,38 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		var err error
 		var c []contact.Contact
 
-		select {
-		// Return an error if the round fails
-		case <-roundFailChan:
-			err = errors.New("One or more rounds failed to resolve; " +
-				"search not delivered")
+		done := false
+		for !done {
+			select {
+			// Return an error if the round fails
+			case fail := <-roundFailChan:
+				if states.Round(fail.RoundInfo.State) == states.FAILED || fail.TimedOut {
+					fType := ""
+					if fail.TimedOut {
+						fType = "timeout"
+					} else {
+						fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
+					}
+					err = errors.Errorf("One or more rounds (%v) failed to "+
+						"resolve due to: %s; search not delivered", rounds, fType)
+					done = true
+				}
 
-		// Return an error if the timeout is reached
-		case <-timer.C:
-			err = errors.New("Response from User Discovery did not come " +
-				"before timeout")
+			// Return an error if the timeout is reached
+			case <-timer.C:
+				err = errors.New("Response from User Discovery did not come " +
+					"before timeout")
+				done = true
 
-		// Return the contacts if one is returned
-		case response := <-responseChan:
-			if response.Error != "" {
-				err = errors.Errorf("User Discovery returned an error on "+
-					"search: %s", response.Error)
-			} else {
-				c, err = m.parseContacts(response.Contacts, factMap)
+			// Return the contacts if one is returned
+			case response := <-responseChan:
+				if response.Error != "" {
+					err = errors.Errorf("User Discovery returned an error on "+
+						"search: %s", response.Error)
+				} else {
+					c, err = m.parseContacts(response.Contacts, factMap)
+				}
+				done = true
 			}
 		}
 

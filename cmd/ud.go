@@ -86,14 +86,14 @@ var udCmd = &cobra.Command{
 			}
 		}
 
-		var facts fact.FactList
+		var newFacts fact.FactList
 		phone := viper.GetString("addphone")
 		if phone != "" {
 			f, err := fact.NewFact(fact.Phone, phone)
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			facts = append(facts, f)
+			newFacts = append(newFacts, f)
 		}
 		email := viper.GetString("addemail")
 		if email != "" {
@@ -101,11 +101,11 @@ var udCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
-			facts = append(facts, f)
+			newFacts = append(newFacts, f)
 		}
 
-		for i := 0; i < len(facts); i++ {
-			r, err := userDiscoveryMgr.SendRegisterFact(facts[i])
+		for i := 0; i < len(newFacts); i++ {
+			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
@@ -142,14 +142,15 @@ var udCmd = &cobra.Command{
 					}
 					fmt.Printf(string(cBytes))
 				},
-				time.Duration(10*time.Second))
-			time.Sleep(11 * time.Second)
+				time.Duration(90*time.Second))
+			time.Sleep(91 * time.Second)
 		}
 
 		usernameSrchStr := viper.GetString("searchusername")
 		emailSrchStr := viper.GetString("searchemail")
 		phoneSrchStr := viper.GetString("searchphone")
 
+		var facts fact.FactList
 		if usernameSrchStr != "" {
 			f, err := fact.NewFact(fact.Username, usernameSrchStr)
 			if err != nil {
@@ -189,12 +190,12 @@ var udCmd = &cobra.Command{
 					}
 					fmt.Printf(string(cBytes))
 				}
-			}, 10*time.Second)
+			}, 90*time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
-		time.Sleep(11 * time.Second)
-		client.StopNetworkFollower(10 * time.Second)
+		time.Sleep(91 * time.Second)
+		client.StopNetworkFollower(90 * time.Second)
 	},
 }
 

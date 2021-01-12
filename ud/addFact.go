@@ -10,27 +10,37 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type addFactComms interface {
 	SendRegisterFact(host *connect.Host, message *pb.FactRegisterRequest) (*pb.FactRegisterResponse, error)
 }
 
-func (m *Manager) SendRegisterFact(fact fact.Fact) (*pb.FactRegisterResponse, error) {
+// Adds a fact for the user to user discovery. Will only succeed if the
+// user is already registered and the system does not have the fact currently
+// registered for any user.
+// This does not complete the fact registration process, it returns a
+// confirmation id instead. Over the communications system the fact is
+// associated with, a code will be sent. This confirmation ID needs to be
+// called along with the code to finalize the fact.
+func (m *Manager) SendRegisterFact(fact fact.Fact) (string, error) {
+	jww.INFO.Printf("ud.SendRegisterFact(%s)", fact.Stringify())
 	uid := m.storage.User().GetCryptographicIdentity().GetUserID()
 	return m.addFact(fact, uid, m.comms)
 }
 
-func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (*pb.FactRegisterResponse, error) {
+func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (string, error) {
+
 	if !m.IsRegistered() {
-		return nil, errors.New("Failed to add fact: " +
+		return "", errors.New("Failed to add fact: " +
 			"client is not registered")
 	}
 
 	// Create a primitives Fact so we can hash it
 	f, err := fact.NewFact(inFact.T, inFact.Fact)
 	if err != nil {
-		return &pb.FactRegisterResponse{}, err
+		return "", err
 	}
 
 	// Create a hash of our fact
@@ -39,7 +49,7 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (*pb.F
 	// Sign our inFact for putting into the request
 	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fhash, nil)
 	if err != nil {
-		return &pb.FactRegisterResponse{}, err
+		return "", err
 	}
 
 	// Create our Fact Removal Request message data
@@ -55,6 +65,11 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (*pb.F
 	// Send the message
 	response, err := aFC.SendRegisterFact(m.host, &remFactMsg)
 
+	confirmationID := ""
+	if response!=nil{
+		confirmationID=response.ConfirmationID
+	}
+
 	// Return the error
-	return response, err
+	return confirmationID, err
 }

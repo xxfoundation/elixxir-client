@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-type searchCallback func([]contact.Contact, error)
+type SearchCallback func([]contact.Contact, error)
 
 func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) {
 	for true {
@@ -54,8 +54,13 @@ func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) 
 	}
 }
 
-// Search...
-func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
+// Searches for the passed Facts. The SearchCallback will return
+// a list of contacts, each having the facts it hit against.
+// This is NOT intended to be used to search for multiple users at once, that
+// can have a privacy reduction. Instead, it is intended to be used to search
+// for a user where multiple pieces of information is known.
+func (m *Manager) Search(list fact.FactList, callback SearchCallback, timeout time.Duration) error {
+	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
 	if !m.IsRegistered() {
 		return errors.New("Failed to search: " +
 			"client is not registered")

@@ -56,7 +56,7 @@ func (m *Manager) lookupProcess(c chan message.Receive, quitCh <-chan struct{}) 
 // Lookup returns the public key of the passed ID as known by the user discovery
 // system or returns by the timeout.
 func (m *Manager) Lookup(uid *id.ID, callback lookupCallback, timeout time.Duration) error {
-
+	jww.INFO.Printf("ud.Lookup(%s, %s)", uid, timeout)
 	if !m.IsRegistered(){
 		return errors.New("Failed to lookup: " +
 			"client is not registered")

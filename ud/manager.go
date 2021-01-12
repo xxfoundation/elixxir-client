@@ -14,6 +14,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 type Manager struct {
@@ -47,8 +48,9 @@ type Manager struct {
 
 // New manager builds a new user discovery manager. It requires that an
 // updated NDF is available and will error if one is not.
-func NewManager(client *api.Client) (*Manager, error) {
-	if !client.GetHealth().WasHealthy() {
+func NewManager(client *api.Client)(*Manager, error){
+	jww.INFO.Println("ud.NewManager()")
+	if !client.GetHealth().IsHealthy(){
 		return nil, errors.New("cannot start UD Manager when network " +
 			"was never healthy")
 	}

@@ -135,7 +135,7 @@ var udCmd = &cobra.Command{
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}
-					cBytes, err := newContact.Marshal()
+					cBytes := newContact.Marshal()
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}
@@ -183,7 +183,7 @@ var udCmd = &cobra.Command{
 					jww.FATAL.Panicf("%+v", err)
 				}
 				for i := 0; i < len(contacts); i++ {
-					cBytes, err := contacts[i].Marshal()
+					cBytes := contacts[i].Marshal()
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}

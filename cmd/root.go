@@ -239,11 +239,7 @@ func writeContact(c contact.Contact) {
 	if outfilePath == "" {
 		return
 	}
-	cBytes, err := c.Marshal()
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	err = ioutil.WriteFile(outfilePath, cBytes, 0644)
+	err := ioutil.WriteFile(outfilePath, c.Marshal(), 0644)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

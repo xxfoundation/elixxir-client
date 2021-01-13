@@ -36,20 +36,16 @@ type Contact struct {
 // |   size   |      size      |   size  |          | DhPubKey | OwnershipProof | FactList |
 // |  2 bytes |     2 bytes    | 2 bytes | 33 bytes |          |                |          |
 // +----------+----------------+---------+----------+----------+----------------+----------+
-func (c Contact) Marshal() ([]byte, error) {
+func (c Contact) Marshal() []byte {
 	var buff bytes.Buffer
 	b := make([]byte, sizeByteLength)
 
 	// Write size of DhPubKey
 	var dhPubKey []byte
-	var err error
 	if c.DhPubKey != nil {
-		dhPubKey, err = c.DhPubKey.GobEncode()
-		if err != nil {
-			return nil, errors.Errorf("Failed to gob encode DhPubKey: %+v", err)
-		}
+		dhPubKey = c.DhPubKey.BinaryEncode()
+		binary.PutVarint(b, int64(len(dhPubKey)))
 	}
-	binary.PutVarint(b, int64(len(dhPubKey)))
 	buff.Write(b)
 
 	// Write size of OwnershipProof
@@ -65,8 +61,8 @@ func (c Contact) Marshal() ([]byte, error) {
 	if c.ID != nil {
 		buff.Write(c.ID.Marshal())
 	} else {
-		emptyID := make([]byte, id.ArrIDLen)
-		buff.Write(emptyID)
+		// Handle nil ID
+		buff.Write(make([]byte, id.ArrIDLen))
 	}
 
 	// Write DhPubKey
@@ -78,24 +74,24 @@ func (c Contact) Marshal() ([]byte, error) {
 	// Write fact list
 	buff.Write([]byte(factList))
 
-	return buff.Bytes(), nil
+	return buff.Bytes()
 }
 
 // Unmarshal decodes the byte slice produced by Contact.Marshal into a Contact.
 func Unmarshal(b []byte) (Contact, error) {
 	c := Contact{DhPubKey: &cyclic.Int{}}
 	var err error
-	buf := bytes.NewBuffer(b)
+	buff := bytes.NewBuffer(b)
 
-	// Get size (in bytes) of each field
-	dhPubKeySize, _ := binary.Varint(buf.Next(sizeByteLength))
-	ownershipProofSize, _ := binary.Varint(buf.Next(sizeByteLength))
-	factsSize, _ := binary.Varint(buf.Next(sizeByteLength))
+	// Get size of each field
+	dhPubKeySize, _ := binary.Varint(buff.Next(sizeByteLength))
+	ownershipProofSize, _ := binary.Varint(buff.Next(sizeByteLength))
+	factsSize, _ := binary.Varint(buff.Next(sizeByteLength))
 
 	// Get and unmarshal ID
-	c.ID, err = id.Unmarshal(buf.Next(id.ArrIDLen))
+	c.ID, err = id.Unmarshal(buff.Next(id.ArrIDLen))
 	if err != nil {
-		return c, errors.Errorf("Failed to unmarshal Contact ID: %+v", err)
+		return Contact{}, errors.Errorf("Failed to unmarshal Contact ID: %+v", err)
 	}
 
 	// Handle nil ID
@@ -108,22 +104,23 @@ func Unmarshal(b []byte) (Contact, error) {
 		// Handle nil key
 		c.DhPubKey = nil
 	} else {
-		err = c.DhPubKey.GobDecode(buf.Next(int(dhPubKeySize)))
-		if err != nil {
-			return c, errors.Errorf("Failed to gob decode Contact DhPubKey: %+v", err)
+		if err = c.DhPubKey.BinaryDecode(buff.Next(int(dhPubKeySize))); err != nil {
+			return Contact{}, errors.Errorf("Failed to binary decode Contact DhPubKey: %+v", err)
 		}
 	}
 
 	// Get OwnershipProof
-	c.OwnershipProof = buf.Next(int(ownershipProofSize))
-	if len(c.OwnershipProof) == 0 {
+	if ownershipProofSize == 0 {
+		// Handle nil OwnershipProof
 		c.OwnershipProof = nil
+	} else {
+		c.OwnershipProof = buff.Next(int(ownershipProofSize))
 	}
 
 	// Get and unstringify fact list
-	c.Facts, _, err = fact.UnstringifyFactList(string(buf.Next(int(factsSize))))
+	c.Facts, _, err = fact.UnstringifyFactList(string(buff.Next(int(factsSize))))
 	if err != nil {
-		return c, errors.Errorf("Failed to unstringify Fact List: %+v", err)
+		return Contact{}, errors.Errorf("Failed to unstringify Contact fact list: %+v", err)
 	}
 
 	return c, nil

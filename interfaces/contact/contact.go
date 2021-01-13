@@ -79,6 +79,12 @@ func (c Contact) Marshal() []byte {
 
 // Unmarshal decodes the byte slice produced by Contact.Marshal into a Contact.
 func Unmarshal(b []byte) (Contact, error) {
+	if len(b) < sizeByteLength*3+id.ArrIDLen {
+		return Contact{}, errors.Errorf("Length of provided buffer (%d) too "+
+			"short; length must be at least %d.",
+			len(b), sizeByteLength*3+id.ArrIDLen)
+	}
+
 	c := Contact{DhPubKey: &cyclic.Int{}}
 	var err error
 	buff := bytes.NewBuffer(b)

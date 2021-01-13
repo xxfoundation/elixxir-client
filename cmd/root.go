@@ -251,13 +251,13 @@ func readContact() contact.Contact {
 		return contact.Contact{}
 	}
 	data, err := ioutil.ReadFile(inputFilePath)
-	jww.INFO.Printf("Size read in: %d", len(data))
+	jww.INFO.Printf("Contact file size read in: %d", len(data))
 	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+		jww.FATAL.Panicf("Failed to read contact file: %+v", err)
 	}
 	c, err := contact.Unmarshal(data)
 	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
 	}
 	return c
 }

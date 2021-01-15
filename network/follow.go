@@ -51,11 +51,11 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	rng := m.Rng.GetStream()
 
 	done := false
-	for !done{
+	for !done {
 		select {
 		case <-quitCh:
 			rng.Close()
-			done=true
+			done = true
 		case <-ticker.C:
 			m.follow(rng, m.Comms)
 		}

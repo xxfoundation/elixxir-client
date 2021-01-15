@@ -45,41 +45,8 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
-		initLog(viper.GetBool("verbose"), viper.GetString("log"))
-		jww.INFO.Printf(Version())
 
-		pass := viper.GetString("password")
-		storeDir := viper.GetString("session")
-		regCode := viper.GetString("regcode")
-		precannedID := viper.GetUint("sendid")
-
-		//create a new client if none exist
-		if _, err := os.Stat(storeDir); os.IsNotExist(err) {
-			// Load NDF
-			ndfPath := viper.GetString("ndf")
-			ndfJSON, err := ioutil.ReadFile(ndfPath)
-			if err != nil {
-				jww.FATAL.Panicf(err.Error())
-			}
-
-			if precannedID != 0 {
-				err = api.NewPrecannedClient(precannedID,
-					string(ndfJSON), storeDir, []byte(pass))
-			} else {
-				err = api.NewClient(string(ndfJSON), storeDir,
-					[]byte(pass), regCode)
-			}
-
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-		}
-
-		//load the client
-		client, err := api.Login(storeDir, []byte(pass), params.GetDefaultNetwork())
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
+		client := initClient()
 
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ID)
@@ -110,7 +77,7 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
-		err = client.StartNetworkFollower()
+		err := client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -214,16 +181,65 @@ var rootCmd = &cobra.Command{
 	},
 }
 
+func createClient() *api.Client {
+	initLog(viper.GetBool("verbose"), viper.GetString("log"))
+	jww.INFO.Printf(Version())
+
+	pass := viper.GetString("password")
+	storeDir := viper.GetString("session")
+	regCode := viper.GetString("regcode")
+	precannedID := viper.GetUint("sendid")
+
+	//create a new client if none exist
+	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
+		// Load NDF
+		ndfPath := viper.GetString("ndf")
+		ndfJSON, err := ioutil.ReadFile(ndfPath)
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+
+		if precannedID != 0 {
+			err = api.NewPrecannedClient(precannedID,
+				string(ndfJSON), storeDir, []byte(pass))
+		} else {
+			err = api.NewClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode)
+		}
+
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+	}
+
+	client, err := api.OpenClient(storeDir, []byte(pass))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+	return client
+}
+
+func initClient() *api.Client {
+	createClient()
+
+	pass := viper.GetString("password")
+	storeDir := viper.GetString("session")
+
+	//load the client
+	client, err := api.Login(storeDir, []byte(pass))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+
+	return client
+}
+
 func writeContact(c contact.Contact) {
 	outfilePath := viper.GetString("writeContact")
 	if outfilePath == "" {
 		return
 	}
-	cBytes, err := c.Marshal()
-	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
-	}
-	err = ioutil.WriteFile(outfilePath, cBytes, 0644)
+	err := ioutil.WriteFile(outfilePath, c.Marshal(), 0644)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -235,12 +251,13 @@ func readContact() contact.Contact {
 		return contact.Contact{}
 	}
 	data, err := ioutil.ReadFile(inputFilePath)
+	jww.INFO.Printf("Contact file size read in: %d", len(data))
 	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+		jww.FATAL.Panicf("Failed to read contact file: %+v", err)
 	}
 	c, err := contact.Unmarshal(data)
 	if err != nil {
-		jww.FATAL.Panicf("%+v", err)
+		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
 	}
 	return c
 }
@@ -519,30 +536,33 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.Flags().BoolP("verbose", "v", false,
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false,
 		"Verbose mode for debugging")
-	viper.BindPFlag("verbose", rootCmd.Flags().Lookup("verbose"))
+	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
 
-	rootCmd.Flags().StringP("session", "s",
-		"", "Sets the initial username and the directory for "+
-			"client storage")
-	viper.BindPFlag("session", rootCmd.Flags().Lookup("session"))
+	rootCmd.PersistentFlags().StringP("session", "s",
+		"", "Sets the initial storage directory for "+
+			"client session data")
+	viper.BindPFlag("session", rootCmd.PersistentFlags().Lookup("session"))
 
-	rootCmd.Flags().StringP("writeContact", "w",
-		"", "Write the contact file for this user to this file")
-	viper.BindPFlag("writeContact", rootCmd.Flags().Lookup("writeContact"))
+	rootCmd.PersistentFlags().StringP("writeContact", "w",
+		"-", "Write contact information, if any, to this file, "+
+			" defaults to stdout")
+	viper.BindPFlag("writeContact", rootCmd.PersistentFlags().Lookup(
+		"writeContact"))
 
-	rootCmd.Flags().StringP("password", "p", "",
+	rootCmd.PersistentFlags().StringP("password", "p", "",
 		"Password to the session file")
-	viper.BindPFlag("password", rootCmd.Flags().Lookup("password"))
+	viper.BindPFlag("password", rootCmd.PersistentFlags().Lookup(
+		"password"))
 
-	rootCmd.Flags().StringP("ndf", "n", "ndf.json",
+	rootCmd.PersistentFlags().StringP("ndf", "n", "ndf.json",
 		"Path to the network definition JSON file")
-	viper.BindPFlag("ndf", rootCmd.Flags().Lookup("ndf"))
+	viper.BindPFlag("ndf", rootCmd.PersistentFlags().Lookup("ndf"))
 
-	rootCmd.Flags().StringP("log", "l", "-",
+	rootCmd.PersistentFlags().StringP("log", "l", "-",
 		"Path to the log output path (- is stdout)")
-	viper.BindPFlag("log", rootCmd.Flags().Lookup("log"))
+	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
 		"Registration code (optional)")
@@ -593,21 +613,6 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	// rootCmd.Flags().StringVarP(&notificationToken, "nbRegistration", "x", "",
-	// 	"Token to register user with notification bot")
-
-	// rootCmd.PersistentFlags().BoolVarP(&end2end, "end2end", "", false,
-	// 	"Send messages with E2E encryption to destination user. Must have found each other via UDB first")
-
-	// rootCmd.PersistentFlags().StringSliceVarP(&keyParams, "keyParams", "",
-	// 	make([]string, 0), "Define key generation parameters. Pass values in comma separated list"+
-	// 		" in the following order: MinKeys,MaxKeys,NumRekeys,TTLScalar,MinNumKeys")
-
-	// rootCmd.Flags().StringVarP(&searchForUser, "SearchForUser", "s", "",
-	// 	"Sets the email to search for to find a user with user discovery")
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -55,6 +55,9 @@ type Client struct {
 	//contains stopables for all running threads
 	runner *stoppable.Multi
 	status *statusTracker
+
+	//handler for external services
+	services *serviceProcessiesList
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -144,9 +147,9 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	return nil
 }
 
-// Login initalizes a client object from existing storage.
-func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
-	jww.INFO.Printf("Login()")
+// OpenClient session, but don't connect to the network or log in
+func OpenClient(storageDir string, password []byte) (*Client, error) {
+	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
 		csprng.NewSystemRNG)
@@ -158,16 +161,9 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		return nil, err
 	}
 
-	//execute the rest of the loading as normal
-	return loadClient(storageSess, rngStreamGen, parameters)
-}
-
-// Login initalizes a client object from existing storage.
-func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator, parameters params.Network) (c *Client, err error) {
-
 	// Set up a new context
-	c = &Client{
-		storage:     session,
+	c := &Client{
+		storage:     storageSess,
 		switchboard: switchboard.New(),
 		rng:         rngStreamGen,
 		comms:       nil,
@@ -175,6 +171,22 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator,
 		runner:      stoppable.NewMulti("client"),
 		status:      newStatusTracker(),
 	}
+
+	return c, nil
+}
+
+// Login initalizes a client object from existing storage.
+func Login(storageDir string, password []byte) (*Client, error) {
+	jww.INFO.Printf("Login()")
+
+	c, err := OpenClient(storageDir, password)
+
+	if err != nil {
+		return nil, err
+	}
+
+	//execute the rest of the loading as normal
+	c.services = newServiceProcessiesList(c.runner)
 
 	//get the user from session
 	u := c.storage.User()
@@ -190,7 +202,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator,
 	}
 
 	//get the NDF to pass into permissioning and the network manager
-	def := session.GetBaseNDF()
+	def := c.storage.GetBaseNDF()
 
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)
@@ -293,6 +305,8 @@ func (c *Client) StartNetworkFollower() error {
 		return errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
+	c.services.run(c.runner)
+
 	return nil
 }
 
@@ -347,11 +361,37 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	return c.network.GetInstance().GetRoundEvents()
 }
 
+// AddService adds a service ot be controlled by the client thread control,
+// these will be started and stopped with the network follower
+func (c *Client) AddService(sp ServiceProcess) {
+	c.services.Add(sp)
+}
+
 // GetUser returns the current user Identity for this client. This
 // can be serialized into a byte stream for out-of-band sharing.
 func (c *Client) GetUser() user.User {
 	jww.INFO.Printf("GetUser()")
 	return c.storage.GetUser()
+}
+
+// GetComms returns the client comms object
+func (c *Client) GetComms() *client.Comms {
+	return c.comms
+}
+
+// GetRng returns the client rng object
+func (c *Client) GetRng() *fastRNG.StreamGenerator {
+	return c.rng
+}
+
+// GetStorage returns the client storage object
+func (c *Client) GetStorage() *storage.Session {
+	return c.storage
+}
+
+// GetNetworkInterface returns the client Network Interface
+func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
+	return c.network
 }
 
 // ----- Utility Functions -----

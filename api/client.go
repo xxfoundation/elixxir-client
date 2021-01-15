@@ -148,7 +148,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 }
 
 // OpenClient session, but don't connect to the network or log in
-func OpenClient(storageDir string, password []byte) (*Client, error) {
+func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
@@ -170,16 +170,17 @@ func OpenClient(storageDir string, password []byte) (*Client, error) {
 		network:     nil,
 		runner:      stoppable.NewMulti("client"),
 		status:      newStatusTracker(),
+		parameters:  parameters,
 	}
 
 	return c, nil
 }
 
 // Login initalizes a client object from existing storage.
-func Login(storageDir string, password []byte) (*Client, error) {
+func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
-	c, err := OpenClient(storageDir, password)
+	c, err := OpenClient(storageDir, password, parameters)
 
 	if err != nil {
 		return nil, err
@@ -210,9 +211,6 @@ func Login(storageDir string, password []byte) (*Client, error) {
 		return nil, errors.WithMessage(err, "failed to init "+
 			"permissioning handler")
 	}
-
-	// Add network parameters
-	c.parameters = parameters
 
 	// check the client version is up to date to the network
 	err = c.checkVersion()

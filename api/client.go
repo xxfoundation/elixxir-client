@@ -40,6 +40,8 @@ type Client struct {
 	switchboard *switchboard.Switchboard
 	//object used for communications
 	comms *client.Comms
+	// Network parameters
+	parameters params.Network
 
 	// note that the manager has a pointer to the context in many cases, but
 	// this interface allows it to be mocked for easy testing without the
@@ -146,7 +148,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 }
 
 // OpenClient session, but don't connect to the network or log in
-func OpenClient(storageDir string, password []byte) (*Client, error) {
+func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
@@ -168,16 +170,17 @@ func OpenClient(storageDir string, password []byte) (*Client, error) {
 		network:     nil,
 		runner:      stoppable.NewMulti("client"),
 		status:      newStatusTracker(),
+		parameters:  parameters,
 	}
 
 	return c, nil
 }
 
 // Login initalizes a client object from existing storage.
-func Login(storageDir string, password []byte) (*Client, error) {
+func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
-	c, err := OpenClient(storageDir, password)
+	c, err := OpenClient(storageDir, password, parameters)
 
 	if err != nil {
 		return nil, err
@@ -187,8 +190,8 @@ func Login(storageDir string, password []byte) (*Client, error) {
 	c.services = newServiceProcessiesList(c.runner)
 
 	//get the user from session
-	user := c.storage.User()
-	cryptoUser := user.GetCryptographicIdentity()
+	u := c.storage.User()
+	cryptoUser := u.GetCryptographicIdentity()
 
 	//start comms
 	c.comms, err = client.NewClientComms(cryptoUser.GetUserID(),
@@ -228,7 +231,7 @@ func Login(storageDir string, password []byte) (*Client, error) {
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		params.GetDefaultNetwork(), def)
+		parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +296,7 @@ func (c *Client) StartNetworkFollower() error {
 	}
 	c.runner.Add(stopFollow)
 	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, params.GetDefaultRekey()))
+	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey))
 
 	err = c.status.toRunning()
 	if err != nil {

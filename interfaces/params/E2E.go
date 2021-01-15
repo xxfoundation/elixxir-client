@@ -7,7 +7,10 @@
 
 package params
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type E2E struct {
 	Type SendType
@@ -18,6 +21,21 @@ func GetDefaultE2E() E2E {
 	return E2E{Type: Standard,
 		CMIX: GetDefaultCMIX(),
 	}
+}
+func (e E2E) Marshal() ([]byte, error) {
+	return json.Marshal(e)
+}
+
+// Obtain default E2E parameters, or override with given parameters if set
+func GetE2EParameters(params string) (E2E, error) {
+	p := GetDefaultE2E()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return E2E{}, err
+		}
+	}
+	return p, nil
 }
 
 type SendType uint8

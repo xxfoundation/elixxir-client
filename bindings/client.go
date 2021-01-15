@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/comms/mixmessages"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -75,8 +76,13 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // memory and stored as securely as possible using the memguard library.
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
-func Login(storageDir string, password []byte) (*Client, error) {
-	client, err := api.Login(storageDir, password)
+func Login(storageDir string, password []byte, parameters string) (*Client, error) {
+	p, err := params.GetNetworkParameters(parameters)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
+	}
+
+	client, err := api.Login(storageDir, password, p)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}

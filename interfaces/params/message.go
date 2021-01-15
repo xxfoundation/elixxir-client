@@ -7,7 +7,9 @@
 
 package params
 
-import "time"
+import (
+	"time"
+)
 
 type Messages struct {
 	MessageReceptionBuffLen        uint

@@ -14,8 +14,8 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func (perm *Permissioning) Register(publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
-	return register(perm.comms, perm.host, publicKey, registrationCode)
+func (perm *Permissioning) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey, registrationCode string) ([]byte, []byte, error) {
+	return register(perm.comms, perm.host, transmissionPublicKey, receptionPublicKey, registrationCode)
 }
 
 // client.Comms should implement this interface
@@ -26,20 +26,21 @@ type registrationMessageSender interface {
 //register registers the user with optional registration code
 // Returns an error if registration fails.
 func register(comms registrationMessageSender, host *connect.Host,
-	publicKey *rsa.PublicKey, registrationCode string) ([]byte, error) {
+	transmissionPublicKey, receptionPublicKey *rsa.PublicKey, registrationCode string) ([]byte, []byte, error) {
 
 	response, err := comms.
 		SendRegistrationMessage(host,
 			&pb.UserRegistration{
-				RegistrationCode: registrationCode,
-				ClientRSAPubKey:  string(rsa.CreatePublicKeyPem(publicKey)),
+				RegistrationCode:         registrationCode,
+				ClientRSAPubKey:          string(rsa.CreatePublicKeyPem(transmissionPublicKey)),
+				ClientReceptionRSAPubKey: string(rsa.CreatePublicKeyPem(receptionPublicKey)),
 			})
 	if err != nil {
 		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Registration Server!")
-		return nil, err
+		return nil, nil, err
 	}
 	if response.Error != "" {
-		return nil, errors.Errorf("sendRegistrationMessage: error handling message: %s", response.Error)
+		return nil, nil, errors.Errorf("sendRegistrationMessage: error handling message: %s", response.Error)
 	}
-	return response.ClientSignedByServer.Signature, nil
+	return response.ClientSignedByServer.Signature, response.ClientReceptionSignedByServer.Signature, nil
 }

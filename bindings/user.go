@@ -16,20 +16,36 @@ type User struct {
 	u *user.User
 }
 
-func (u *User) GetID() []byte {
-	return u.u.ID.Marshal()
+func (u *User) GetTransmissionID() []byte {
+	return u.u.TransmissionID.Marshal()
 }
 
-func (u *User) GetSalt() []byte {
-	return u.u.Salt
+func (u *User) GetReceptionID() []byte {
+	return u.u.ReceptionID.Marshal()
 }
 
-func (u *User) GetRSAPrivateKeyPem() []byte {
-	return rsa.CreatePrivateKeyPem(u.u.RSA)
+func (u *User) GetTransmissionSalt() []byte {
+	return u.u.TransmissionSalt
 }
 
-func (u *User) GetRSAPublicKeyPem() []byte {
-	return rsa.CreatePublicKeyPem(u.u.RSA.GetPublic())
+func (u *User) GetReceptionSalt() []byte {
+	return u.u.ReceptionSalt
+}
+
+func (u *User) GetTransmissionRSAPrivateKeyPem() []byte {
+	return rsa.CreatePrivateKeyPem(u.u.TransmissionRSA)
+}
+
+func (u *User) GetTransmissionRSAPublicKeyPem() []byte {
+	return rsa.CreatePublicKeyPem(u.u.TransmissionRSA.GetPublic())
+}
+
+func (u *User) GetReceptionRSAPrivateKeyPem() []byte {
+	return rsa.CreatePrivateKeyPem(u.u.ReceptionRSA)
+}
+
+func (u *User) GetReceptionRSAPublicKeyPem() []byte {
+	return rsa.CreatePublicKeyPem(u.u.ReceptionRSA.GetPublic())
 }
 
 func (u *User) IsPrecanned() bool {

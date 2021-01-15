@@ -90,11 +90,11 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 			"Create new session")
 	}
 
-	s.user, err = user.NewUser(s.kv, u.ID, u.Salt, u.RSA, u.Precanned)
+	s.user, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
-	uid := s.user.GetCryptographicIdentity().GetUserID()
+	uid := s.user.GetCryptographicIdentity().GetReceptionID()
 
 	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
 	if err != nil {
@@ -161,7 +161,7 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	uid := s.user.GetCryptographicIdentity().GetUserID()
+	uid := s.user.GetCryptographicIdentity().GetReceptionID()
 
 	s.e2e, err = e2e.LoadStore(s.kv, uid, rng)
 	if err != nil {
@@ -294,11 +294,12 @@ func InitTestingSession(i interface{}) *Session {
 	kv := versioned.NewKV(store)
 	s := &Session{kv: kv}
 	uid := id.NewIdFromString("zezima", id.User, i)
-	u, err := user.NewUser(kv, uid, []byte("salt"), privKey, false)
+	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false)
 	if err != nil {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}
-	u.SetRegistrationValidationSignature([]byte("sig"))
+	u.SetTransmissionRegistrationValidationSignature([]byte("sig"))
+	u.SetReceptionRegistrationValidationSignature([]byte("sig"))
 	s.user = u
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+

@@ -14,35 +14,54 @@ import (
 )
 
 const currentRegValidationSigVersion = 0
-const regValidationSigKey = "registrationValidationSignature"
+const transmissionRegValidationSigKey = "transmissionRegistrationValidationSignature"
+const receptionRegValidationSigKey = "receptionRegistrationValidationSignature"
 
-// Returns the Registration Validation Signature stored in RAM. May return
+// Returns the transmission Registration Validation Signature stored in RAM. May return
 // nil of no signature is stored
-func (u *User) GetRegistrationValidationSignature() []byte {
+func (u *User) GetTransmissionRegistrationValidationSignature() []byte {
 	u.rvsMux.RLock()
 	defer u.rvsMux.RUnlock()
-	return u.regValidationSig
+	return u.transmissionRegValidationSig
 }
 
-// Loads the Registration Validation Signature if it exists in the ekv
-func (u *User) loadRegistrationValidationSignature() {
+// Returns the reception Registration Validation Signature stored in RAM. May return
+// nil of no signature is stored
+func (u *User) GetReceptionRegistrationValidationSignature() []byte {
+	u.rvsMux.RLock()
+	defer u.rvsMux.RUnlock()
+	return u.receptionRegValidationSig
+}
+
+// Loads the transmission Registration Validation Signature if it exists in the ekv
+func (u *User) loadTransmissionRegistrationValidationSignature() {
 	u.rvsMux.Lock()
-	obj, err := u.kv.Get(regValidationSigKey)
+	obj, err := u.kv.Get(transmissionRegValidationSigKey)
 	if err == nil {
-		u.regValidationSig = obj.Data
+		u.transmissionRegValidationSig = obj.Data
+	}
+	u.rvsMux.Unlock()
+}
+
+// Loads the reception Registration Validation Signature if it exists in the ekv
+func (u *User) loadReceptionRegistrationValidationSignature() {
+	u.rvsMux.Lock()
+	obj, err := u.kv.Get(receptionRegValidationSigKey)
+	if err == nil {
+		u.receptionRegValidationSig = obj.Data
 	}
 	u.rvsMux.Unlock()
 }
 
 // Sets the Registration Validation Signature if it is not set and stores it in
 // the ekv
-func (u *User) SetRegistrationValidationSignature(b []byte) {
+func (u *User) SetTransmissionRegistrationValidationSignature(b []byte) {
 	u.rvsMux.Lock()
 	defer u.rvsMux.Unlock()
 
 	//check if the signature already exists
-	if u.regValidationSig != nil {
-		jww.FATAL.Panicf("cannot overwrite existing Registration Validation Signature")
+	if u.transmissionRegValidationSig != nil {
+		jww.FATAL.Panicf("cannot overwrite existing transmission Registration Validation Signature")
 	}
 
 	obj := &versioned.Object{
@@ -51,11 +70,37 @@ func (u *User) SetRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(regValidationSigKey, obj)
+	err := u.kv.Set(transmissionRegValidationSigKey, obj)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to store the Registration Validation "+
+		jww.FATAL.Panicf("Failed to store the transmission Registration Validation "+
 			"Signature: %s", err)
 	}
 
-	u.regValidationSig = b
+	u.transmissionRegValidationSig = b
+}
+
+// Sets the Registration Validation Signature if it is not set and stores it in
+// the ekv
+func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
+	u.rvsMux.Lock()
+	defer u.rvsMux.Unlock()
+
+	//check if the signature already exists
+	if u.receptionRegValidationSig != nil {
+		jww.FATAL.Panicf("cannot overwrite existing reception Registration Validation Signature")
+	}
+
+	obj := &versioned.Object{
+		Version:   currentRegValidationSigVersion,
+		Timestamp: time.Now(),
+		Data:      b,
+	}
+
+	err := u.kv.Set(receptionRegValidationSigKey, obj)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to store the reception Registration Validation "+
+			"Signature: %s", err)
+	}
+
+	u.receptionRegValidationSig = b
 }

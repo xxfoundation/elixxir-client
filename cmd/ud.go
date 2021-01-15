@@ -34,7 +34,7 @@ var udCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := initClient()
 		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ID)
+		jww.INFO.Printf("User: %s", user.TransmissionID)
 		writeContact(user.GetContact())
 
 		// Set up reception handler

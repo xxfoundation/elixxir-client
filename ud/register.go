@@ -2,6 +2,7 @@ package ud
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
@@ -9,7 +10,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 type registerUserComms interface {
@@ -29,7 +29,7 @@ func (m *Manager) Register(username string) error {
 // register registers a user with user discovery with a specified comm for
 // easier testing.
 func (m *Manager) register(username string, comm registerUserComms) error {
-	if m.IsRegistered(){
+	if m.IsRegistered() {
 		return errors.New("cannot register client with User Discovery: " +
 			"client is already registered")
 	}
@@ -41,19 +41,19 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	// Construct the user registration message
 	msg := &pb.UDBUserRegistration{
-		PermissioningSignature: user.GetRegistrationValidationSignature(),
-		RSAPublicPem:           string(rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic())),
+		PermissioningSignature: user.GetTransmissionRegistrationValidationSignature(),
+		RSAPublicPem:           string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())),
 		IdentityRegistration: &pb.Identity{
 			Username: username,
 			DhPubKey: m.storage.E2e().GetDHPublicKey().Bytes(),
-			Salt:     cryptoUser.GetSalt(),
+			Salt:     cryptoUser.GetTransmissionSalt(),
 		},
-		UID: cryptoUser.GetUserID().Marshal(),
+		UID: cryptoUser.GetTransmissionID().Marshal(),
 	}
 
 	// Sign the identity data and add to user registration message
 	identityDigest := msg.IdentityRegistration.Digest()
-	msg.IdentitySignature, err = rsa.Sign(rng, cryptoUser.GetRSA(),
+	msg.IdentitySignature, err = rsa.Sign(rng, cryptoUser.GetTransmissionRSA(),
 		hash.CMixHash, identityDigest, nil)
 	if err != nil {
 		return errors.Errorf("Failed to sign user's IdentityRegistration: %+v", err)
@@ -67,11 +67,11 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	// Hash and sign fact
 	hashedFact := factID.Fingerprint(usernameFact)
-	signedFact, err := rsa.Sign(rng, cryptoUser.GetRSA(), hash.CMixHash, hashedFact, nil)
+	signedFact, err := rsa.Sign(rng, cryptoUser.GetTransmissionRSA(), hash.CMixHash, hashedFact, nil)
 
 	// Add username fact register request to the user registration message
 	msg.Frs = &pb.FactRegisterRequest{
-		UID: cryptoUser.GetUserID().Marshal(),
+		UID: cryptoUser.GetTransmissionID().Marshal(),
 		Fact: &pb.Fact{
 			Fact:     username,
 			FactType: 0,
@@ -82,7 +82,7 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 	// Register user with user discovery
 	_, err = comm.SendRegisterUser(m.host, msg)
 
-	if err==nil{
+	if err == nil {
 		err = m.setRegistered()
 	}
 

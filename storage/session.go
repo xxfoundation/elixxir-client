@@ -337,7 +337,7 @@ func InitTestingSession(i interface{}) *Session {
 
 	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Failed to create garbledMessages buffer: %+v")
+		globals.Log.FATAL.Panicf("Failed to create garbledMessages buffer: %+v", err)
 	}
 
 	s.conversations = conversation.NewStore(s.kv)

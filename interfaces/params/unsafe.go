@@ -7,16 +7,28 @@
 
 package params
 
-//import (
-//	"time"
-//)
+import "encoding/json"
 
-type NodeKeys struct {
-	WorkerPoolSize uint
+type Unsafe struct {
+	CMIX
 }
 
-func GetDefaultNodeKeys() NodeKeys {
-	return NodeKeys{
-		WorkerPoolSize: 10,
+func GetDefaultUnsafe() Unsafe {
+	return Unsafe{CMIX: GetDefaultCMIX()}
+}
+
+func (u Unsafe) Marshal() ([]byte, error) {
+	return json.Marshal(u)
+}
+
+// Obtain default Unsafe parameters, or override with given parameters if set
+func GetUnsafeParameters(params string) (Unsafe, error) {
+	p := GetDefaultUnsafe()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Unsafe{}, err
+		}
 	}
+	return p, nil
 }

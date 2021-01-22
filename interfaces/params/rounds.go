@@ -7,7 +7,9 @@
 
 package params
 
-import "time"
+import (
+	"time"
+)
 
 type Rounds struct {
 	// maximum number of times to attempt to retrieve a round from a gateway

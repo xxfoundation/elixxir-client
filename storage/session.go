@@ -336,5 +336,13 @@ func InitTestingSession(i interface{}) *Session {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy critical messages: %+v", err)
 	}
 
+	s.garbledMessages, err = utility.NewMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Failed to create garbledMessages buffer: %+v", err)
+	}
+
+	s.conversations = conversation.NewStore(s.kv)
+	s.partition = partition.New(s.kv)
+
 	return s
 }

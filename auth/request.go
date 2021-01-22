@@ -47,7 +47,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	}
 
 	// check that the request is being sent from the proper ID
-	if !me.ID.Cmp(storage.GetUser().ID) {
+	if !me.ID.Cmp(storage.GetUser().ReceptionID) {
 		return errors.Errorf("Authenticated channel request " +
 			"can only be sent from user's identity")
 	}
@@ -116,7 +116,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	jww.INFO.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
 
 	/*encrypt payload*/
-	requestFmt.SetID(storage.GetUser().ID)
+	requestFmt.SetID(storage.GetUser().ReceptionID)
 	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,

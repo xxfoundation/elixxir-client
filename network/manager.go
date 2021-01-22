@@ -77,7 +77,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Health:           health.Init(instance, params.NetworkHealthTimeout),
 		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
-		Uid:              session.User().GetCryptographicIdentity().GetUserID(),
+		Uid:              session.User().GetCryptographicIdentity().GetTransmissionID(),
 	}
 
 	//create sub managers

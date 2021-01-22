@@ -159,7 +159,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			for _, clientErr := range update.ClientErrors {
 
 				// If this Client appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().ID.Marshal()) {
+				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
 
 					// Obtain relevant NodeGateway information
 					nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())

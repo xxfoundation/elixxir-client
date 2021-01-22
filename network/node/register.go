@@ -55,7 +55,7 @@ func StartRegistration(instance *network.Instance, session *storage.Session, rng
 func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := session.User()
-	regSignature := u.GetRegistrationValidationSignature()
+	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	uci := u.GetCryptographicIdentity()
 	cmix := session.Cmix()
 
@@ -104,7 +104,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 	var transmissionKey *cyclic.Int
 	// TODO: should move this to a precanned user initialization
 	if uci.IsPrecanned() {
-		userNum := int(uci.GetUserID().Bytes()[7])
+		userNum := int(uci.GetTransmissionID().Bytes()[7])
 		h := sha256.New()
 		h.Reset()
 		h.Write([]byte(strconv.Itoa(int(4000 + userNum))))
@@ -126,8 +126,8 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 
 		// Confirm received nonce
 		jww.INFO.Println("Register: Confirming received nonce")
-		err = confirmNonce(comms, uci.GetUserID().Bytes(),
-			nonce, uci.GetRSA(), gatewayID)
+		err = confirmNonce(comms, uci.GetTransmissionID().Bytes(),
+			nonce, uci.GetTransmissionRSA(), gatewayID)
 		if err != nil {
 			errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
 			return errors.New(errMsg)
@@ -154,7 +154,7 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	data := h.Sum(nil)
 
 	// Sign DH pubkey
-	clientSig, err := rsa.Sign(rng, uci.GetRSA(), sha, data, opts)
+	clientSig, err := rsa.Sign(rng, uci.GetTransmissionRSA(), sha, data, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -169,8 +169,8 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	}
 	nonceResponse, err := comms.SendRequestNonceMessage(host,
 		&pb.NonceRequest{
-			Salt:            uci.GetSalt(),
-			ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetRSA().GetPublic())),
+			Salt:            uci.GetTransmissionSalt(),
+			ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())),
 			ClientSignedByServer: &messages.RSASignature{
 				Signature: regHash,
 			},

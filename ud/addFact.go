@@ -3,6 +3,7 @@ package ud
 import (
 	"crypto/rand"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/hash"
@@ -10,7 +11,6 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 type addFactComms interface {
@@ -26,7 +26,7 @@ type addFactComms interface {
 // called along with the code to finalize the fact.
 func (m *Manager) SendRegisterFact(fact fact.Fact) (string, error) {
 	jww.INFO.Printf("ud.SendRegisterFact(%s)", fact.Stringify())
-	uid := m.storage.User().GetCryptographicIdentity().GetUserID()
+	uid := m.storage.User().GetCryptographicIdentity().GetReceptionID()
 	return m.addFact(fact, uid, m.comms)
 }
 
@@ -66,8 +66,8 @@ func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (strin
 	response, err := aFC.SendRegisterFact(m.host, &remFactMsg)
 
 	confirmationID := ""
-	if response!=nil{
-		confirmationID=response.ConfirmationID
+	if response != nil {
+		confirmationID = response.ConfirmationID
 	}
 
 	// Return the error

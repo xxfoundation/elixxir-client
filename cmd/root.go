@@ -49,7 +49,7 @@ var rootCmd = &cobra.Command{
 		client := initClient()
 
 		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ID)
+		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
 		// Set up reception handler
@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 		// Set it to myself
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
-			recipientID = user.ID
+			recipientID = user.ReceptionID
 			recipientContact = user.GetContact()
 		}
 

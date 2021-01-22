@@ -62,6 +62,6 @@ func (c *Client) NewCMIXMessage(recipient *id.ID,
 		return format.Message{}, errors.New("Contents to long for cmix")
 	}
 	msg.SetContents(contents)
-	msg.SetRecipientID(recipient)
+	msg.SetEphemeralRID(recipient.Bytes())
 	return msg, nil
 }

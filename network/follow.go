@@ -85,7 +85,6 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			Hash: m.Instance.GetPartialNdf().GetHash(),
 		},
 		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
-		ClientID:   m.Uid.Bytes(),
 	}
 	jww.TRACE.Printf("Polling %s for NDF...", gwHost)
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
@@ -103,7 +102,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return
 	}
 	var filterList []*bloom.Ring
-	for _, f := range pollResp.BloomFilters {
+	for _, f := range pollResp.Filters.Filters {
 		jww.DEBUG.Printf("Bloom Filter size: %d, hashes: %d",
 			bloomFilterSize, bloomFilterHashes)
 		filter, err := bloom.InitByParameters(bloomFilterSize,
@@ -113,7 +112,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			jww.FATAL.Panicf("Unable to create a bloom filter: %+v",
 				err)
 		}
-		if err := filter.UnmarshalBinary(f); err != nil {
+		if err := filter.UnmarshalBinary(f.Filter); err != nil {
 			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
 			jww.INFO.Printf("Bloom Filter Unmarshal Data: %v", f)
 			continue

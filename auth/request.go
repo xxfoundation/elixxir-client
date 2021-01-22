@@ -132,7 +132,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetKeyFP(requestfp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
-	cmixMsg.SetRecipientID(partner.ID)
+	cmixMsg.SetEphemeralRID(partner.ID.Bytes())
 	jww.INFO.Printf("PARTNER ID: %s", partner.ID)
 
 	/*store state*/
@@ -149,7 +149,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	//jww.INFO.Printf("CMIX MESSAGE 1: %s, %v, %v, %v", cmixMsg.GetRecipientID(),
 	//	cmixMsg.GetKeyFP(), cmixMsg.GetMac(), cmixMsg.GetContents())
-	jww.INFO.Printf("CMIX MESSAGE FP: %s, %v", cmixMsg.GetRecipientID(),
+	jww.INFO.Printf("CMIX MESSAGE FP: %s, %v", cmixMsg.GetEphemeralRID(),
 		cmixMsg.GetKeyFP())
 
 	/*send message*/

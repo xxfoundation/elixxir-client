@@ -99,7 +99,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
-	cmixMsg.SetRecipientID(partner.ID)
+	cmixMsg.SetEphemeralRID(partner.ID.Bytes())
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not or the two occur and the storage into critical

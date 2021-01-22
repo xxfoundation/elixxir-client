@@ -9,6 +9,7 @@ package message
 
 import (
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/primitives/format"
 	"time"
 )
 
@@ -45,6 +46,7 @@ func (m *Manager) processGarbledMessages(quitCh <-chan struct{}) {
 func (m *Manager) handleGarbledMessages() {
 	garbledMsgs := m.Session.GetGarbledMessages()
 	e2eKv := m.Session.E2e()
+	var failedMsgs []format.Message
 	//try to decrypt every garbled message, excising those who's counts are too high
 	for grbldMsg, count, timestamp, has := garbledMsgs.Next(); has; grbldMsg, count, timestamp, has = garbledMsgs.Next() {
 		fingerprint := grbldMsg.GetKeyFP()
@@ -52,9 +54,9 @@ func (m *Manager) handleGarbledMessages() {
 		if key, isE2E := e2eKv.PopKey(fingerprint); isE2E {
 			// Decrypt encrypted message
 			msg, err := key.Decrypt(grbldMsg)
-			// get the sender
-			sender := key.GetSession().GetPartner()
 			if err == nil {
+				// get the sender
+				sender := key.GetSession().GetPartner()
 				//remove from the buffer if decryption is successful
 				garbledMsgs.Remove(grbldMsg)
 				//handle the successfully decrypted message
@@ -74,7 +76,10 @@ func (m *Manager) handleGarbledMessages() {
 			time.Since(timestamp) > m.param.GarbledMessageWait {
 			garbledMsgs.Remove(grbldMsg)
 		} else {
-			garbledMsgs.Failed(grbldMsg)
+			failedMsgs = append(failedMsgs, grbldMsg)
 		}
+	}
+	for _, grbldMsg := range failedMsgs {
+		garbledMsgs.Failed(grbldMsg)
 	}
 }

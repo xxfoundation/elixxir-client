@@ -257,6 +257,7 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 	if err != nil {
 		jww.FATAL.Panicf("Could not load message: %v", err)
 	}
+
 	return m, true
 }
 

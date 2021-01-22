@@ -92,7 +92,7 @@ func NewManager(client *api.Client) (*Manager, error) {
 	}
 
 	//get the commonly used data from storage
-	m.privKey = m.storage.GetUser().TransmissionRSA
+	m.privKey = m.storage.GetUser().ReceptionRSA
 
 	//load the last used commID
 	m.loadCommID()

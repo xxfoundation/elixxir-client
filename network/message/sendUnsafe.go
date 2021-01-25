@@ -51,7 +51,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	for i, p := range partitions {
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
-		msgCmix.SetEphemeralRID(msg.Recipient.Bytes())
+		msgCmix.SetRecipientID(msg.Recipient)
 		e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetUserID())
 		wg.Add(1)
 		go func(i int) {

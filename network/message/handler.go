@@ -72,14 +72,10 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		// if it doesnt match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
-		sendID, err := id.Unmarshal(msg.GetEphemeralRID())
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
 		raw := message.Receive{
 			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
-			Sender:      sendID,
+			Sender:      msg.GetRecipientID(),
 			Timestamp:   time.Time{},
 			Encryption:  message.None,
 		}

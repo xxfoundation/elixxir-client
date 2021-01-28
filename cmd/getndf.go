@@ -41,6 +41,7 @@ var getNDFCmd = &cobra.Command{
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		gwHost := viper.GetString("gwhost")
+		permHost := viper.GetString("permhost")
 		certPath := viper.GetString("cert")
 
 		// Load the certificate
@@ -54,25 +55,36 @@ var getNDFCmd = &cobra.Command{
 				"You can download a cert using openssl:\n\n%s",
 				opensslCertDL)
 		}
-		params := connect.GetDefaultHostParams()
-		params.AuthEnabled = false
-		comms, _ := client.NewClientComms(nil, nil, nil, nil)
-		host, _ := connect.NewHost(&id.TempGateway, gwHost, cert, params)
-		pollMsg := &pb.GatewayPoll{
-			Partial: &pb.NDFHash{
-				Hash: nil,
-			},
-			LastUpdate: uint64(0),
-			ClientID:   id.DummyUser.Marshal(),
-		}
-		resp, err := comms.SendPoll(host, pollMsg)
-		if err != nil {
-			jww.FATAL.Panicf("Unable to poll %s for NDF: %+v",
-				gwHost, err)
+
+		// Gateway lookup
+		if gwHost != "" {
+			params := connect.GetDefaultHostParams()
+			params.AuthEnabled = false
+			comms, _ := client.NewClientComms(nil, nil, nil, nil)
+			host, _ := connect.NewHost(&id.TempGateway, gwHost,
+				cert, params)
+			pollMsg := &pb.GatewayPoll{
+				Partial: &pb.NDFHash{
+					Hash: nil,
+				},
+				LastUpdate: uint64(0),
+				ClientID:   id.DummyUser.Marshal(),
+			}
+			resp, err := comms.SendPoll(host, pollMsg)
+			if err != nil {
+				jww.FATAL.Panicf("Unable to poll %s for NDF:"+
+					" %+v",
+					gwHost, err)
+			}
+			fmt.Printf("%s", resp.PartialNDF.Ndf)
 			return
 		}
 
-		fmt.Printf("%s", resp.PartialNDF.Ndf)
+		if permHost != "" {
+			jww.ERROR.Printf("Unimplemented!")
+		}
+
+		fmt.Println("Enter --gwhost or --permhost and --cert please")
 	},
 }
 
@@ -81,6 +93,10 @@ func init() {
 		"Poll this gateway host:port for the NDF")
 	viper.BindPFlag("gwhost",
 		getNDFCmd.Flags().Lookup("gwhost"))
+	getNDFCmd.Flags().StringP("permhost", "", "",
+		"Poll this permissioning host:port for the NDF")
+	viper.BindPFlag("permhost",
+		getNDFCmd.Flags().Lookup("permhost"))
 
 	getNDFCmd.Flags().StringP("cert", "", "",
 		"Check with the TLS certificate at this path")

@@ -142,7 +142,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 }
 
 // Signals to the node registration thread to register a node if keys are
-// missing. Registration is triggered automatically when the node is first seen,
+// missing. Identity is triggered automatically when the node is first seen,
 // so this should on trigger on rare events.
 func handleMissingNodeKeys(instance *network.Instance,
 	newNodeChan chan network.NodeGateway, nodes []*id.ID) {

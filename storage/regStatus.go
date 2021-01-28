@@ -27,7 +27,7 @@ const (
 	UDBComplete           RegistrationStatus = 30000 // Set upon completion of RegisterWithUdb
 )
 
-// stringer for Registration Status
+// stringer for Identity Status
 func (rs RegistrationStatus) String() string {
 	switch rs {
 	case NotStarted:
@@ -35,9 +35,9 @@ func (rs RegistrationStatus) String() string {
 	case KeyGenComplete:
 		return "Key Generation Complete"
 	case PermissioningComplete:
-		return "Permissioning Registration Complete"
+		return "Permissioning Identity Complete"
 	case UDBComplete:
-		return "User Discovery Registration Complete"
+		return "User Discovery Identity Complete"
 	default:
 		return fmt.Sprintf("Unknown registration state %v", uint32(rs))
 	}

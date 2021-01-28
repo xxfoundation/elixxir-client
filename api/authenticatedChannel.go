@@ -114,7 +114,7 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 	partnerPubKey := e2eGrp.ExpG(precanned.E2eDhPrivateKey, e2eGrp.NewInt(1))
 
 	return contact.Contact{
-		ID:             precanned.ID,
+		ID:             precanned.ReceptionID,
 		DhPubKey:       partnerPubKey,
 		OwnershipProof: nil,
 		Facts:          make([]fact.Fact, 0),

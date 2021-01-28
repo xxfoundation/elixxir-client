@@ -19,8 +19,11 @@ import (
 // Test normal function and errors for User's SetUsername function
 func TestUser_SetUsername(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	uid := id.NewIdFromString("test", id.User, t)
-	u, err := NewUser(kv, uid, []byte("salt"), &rsa.PrivateKey{}, false)
+	tid := id.NewIdFromString("trans", id.User, t)
+	rid := id.NewIdFromString("recv", id.User, t)
+	tsalt := []byte("tsalt")
+	rsalt := []byte("rsalt")
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -50,8 +53,11 @@ func TestUser_SetUsername(t *testing.T) {
 // Test functionality of User's GetUsername function
 func TestUser_GetUsername(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	uid := id.NewIdFromString("test", id.User, t)
-	u, err := NewUser(kv, uid, []byte("salt"), &rsa.PrivateKey{}, false)
+	tid := id.NewIdFromString("trans", id.User, t)
+	rid := id.NewIdFromString("recv", id.User, t)
+	tsalt := []byte("tsalt")
+	rsalt := []byte("rsalt")
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -75,8 +81,11 @@ func TestUser_GetUsername(t *testing.T) {
 // Test the loadUsername helper function
 func TestUser_loadUsername(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	uid := id.NewIdFromString("test", id.User, t)
-	u, err := NewUser(kv, uid, []byte("salt"), &rsa.PrivateKey{}, false)
+	tid := id.NewIdFromString("trans", id.User, t)
+	rid := id.NewIdFromString("recv", id.User, t)
+	tsalt := []byte("tsalt")
+	rsalt := []byte("rsalt")
+	u, err := NewUser(kv, tid, rid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}

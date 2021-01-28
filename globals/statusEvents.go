@@ -7,9 +7,9 @@
 
 package globals
 
-//Registration
+//Identity
 const REG_KEYGEN = 1       //Generating Cryptographic Keys
-const REG_PRECAN = 2       //Doing a Precanned Registration (Not Secure)
+const REG_PRECAN = 2       //Doing a Precanned Identity (Not Secure)
 const REG_UID_GEN = 3      //Generating User ID
 const REG_PERM = 4         //Validating User Identity With Permissioning Server
 const REG_NODE = 5         //Registering with Nodes

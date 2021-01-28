@@ -28,7 +28,8 @@ func TestNewKnownRounds(t *testing.T) {
 	}
 
 	// Create new KnownRounds
-	kr, err := NewKnownRounds(rootKv, expectedKR.key, size)
+	k := knownRounds.NewKnownRound(size)
+	kr, err := NewKnownRounds(rootKv, expectedKR.key, k)
 	if err != nil {
 		t.Errorf("NewKnownRounds() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
@@ -154,7 +155,8 @@ func TestKnownRounds_save(t *testing.T) {
 // }
 
 func TestKnownRounds_Smoke(t *testing.T) {
-	kr, err := NewKnownRounds(versioned.NewKV(make(ekv.Memstore)), "testKey", 10)
+	k := knownRounds.NewKnownRound(10)
+	kr, err := NewKnownRounds(versioned.NewKV(make(ekv.Memstore)), "testKey", k)
 	if err != nil {
 		t.Fatalf("Failed to create new KnownRounds: %v", err)
 	}

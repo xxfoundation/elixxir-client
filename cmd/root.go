@@ -49,7 +49,7 @@ var rootCmd = &cobra.Command{
 		client := initClient()
 
 		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ID)
+		jww.INFO.Printf("User: %s", user.TransmissionID)
 		writeContact(user.GetContact())
 
 		// Set up reception handler
@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 		// Set it to myself
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
-			recipientID = user.ID
+			recipientID = user.ReceptionID
 			recipientContact = user.GetContact()
 		}
 
@@ -565,7 +565,7 @@ func init() {
 	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
-		"Registration code (optional)")
+		"Identity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	rootCmd.Flags().StringP("message", "m", "", "Message to send")

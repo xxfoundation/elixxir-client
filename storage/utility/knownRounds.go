@@ -35,10 +35,10 @@ type KnownRounds struct {
 // NewKnownRounds creates a new empty KnownRounds and saves it to the passed
 // in key value store at the specified key. An error is returned on an
 // unsuccessful save.
-func NewKnownRounds(kv *versioned.KV, key string, size int) (*KnownRounds, error) {
+func NewKnownRounds(kv *versioned.KV, key string, known *knownRounds.KnownRounds) (*KnownRounds, error) {
 	// Create new empty struct
 	kr := &KnownRounds{
-		rounds: knownRounds.NewKnownRound(size),
+		rounds: known,
 		kv:     kv.Prefix(knownRoundsPrefix),
 		key:    key,
 	}
@@ -107,6 +107,15 @@ func (kr *KnownRounds) load() error {
 	return nil
 }
 
+// Deletes a known rounds object from disk and memory
+func (kr *KnownRounds) Delete() error {
+	err := kr.kv.Delete(kr.key)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Checked determines if the round has been checked.
 func (kr *KnownRounds) Checked(rid id.Round) bool {
 	kr.mux.RLock()
@@ -158,11 +167,25 @@ func (kr *KnownRounds) RangeUnchecked(newestRid id.Round,
 
 // RangeUncheckedMasked checks rounds based off the provided mask.
 func (kr *KnownRounds) RangeUncheckedMasked(mask *knownRounds.KnownRounds,
-	roundCheck func(id id.Round) bool, maxChecked int) {
+	roundCheck knownRounds.RoundCheckFunc, maxChecked int) {
 	kr.mux.Lock()
 	defer kr.mux.Unlock()
 
 	kr.rounds.RangeUncheckedMasked(mask, roundCheck, maxChecked)
+
+	err := kr.save()
+	if err != nil {
+		jww.FATAL.Panicf("Error saving list of checked rounds: %v", err)
+	}
+}
+
+// RangeUncheckedMasked checks rounds based off the provided mask.
+func (kr *KnownRounds) RangeUncheckedMaskedRange(mask *knownRounds.KnownRounds,
+	roundCheck knownRounds.RoundCheckFunc, start, end id.Round, maxChecked int) {
+	kr.mux.Lock()
+	defer kr.mux.Unlock()
+
+	kr.rounds.RangeUncheckedMaskedRange(mask, roundCheck, start, end, maxChecked)
 
 	err := kr.save()
 	if err != nil {

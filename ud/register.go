@@ -20,7 +20,7 @@ type registerUserComms interface {
 // network signatures are malformed or if the username is taken. Usernames cannot
 // be changed after registration at this time. Will fail if the user is already
 // registered.
-// Registration does not go over cmix, it occurs over normal communications
+// Identity does not go over cmix, it occurs over normal communications
 func (m *Manager) Register(username string) error {
 	jww.INFO.Printf("ud.Register(%s)", username)
 	return m.register(username, m.comms)

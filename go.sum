@@ -253,12 +253,16 @@ gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228 h1:Gi6rj4mAlK0
 gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228/go.mod h1:H6jztdm0k+wEV2QGK/KYA+MY9nj9Zzatux/qIvDDv3k=
 gitlab.com/elixxir/comms v0.0.4-0.20210125231706-c782d1f645ea h1:hpK8M9wSAAhzaA03+1FOniNxgowPm1uTylcpAOa47DQ=
 gitlab.com/elixxir/comms v0.0.4-0.20210125231706-c782d1f645ea/go.mod h1:5hxGwa/8BEpo4cZrbxhxyXPpXmwzMPunKE/H141+rPU=
+gitlab.com/elixxir/comms v0.0.4-0.20210128232810-8f2ffd6ed805 h1:czoy+y4wbng8weZP9viWj6G41EySfsFszJuSk011G6Y=
+gitlab.com/elixxir/comms v0.0.4-0.20210128232810-8f2ffd6ed805/go.mod h1:+7fs54+YYHbC6ljvobl5RgrtgOjt3UBfs5SRNvQFtM4=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4 h1:28ftZDeYEko7xptCZzeFWS1Iam95dj46TWFVVlKmw6A=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4/go.mod h1:ucm9SFKJo+K0N2GwRRpaNr+tKXMIOVWzmyUD0SbOu2c=
 gitlab.com/elixxir/crypto v0.0.3 h1:znCt/x2bL4y8czTPaaFkwzdgSgW3BJc/1+dxyf1jqVw=
 gitlab.com/elixxir/crypto v0.0.3/go.mod h1:ZNgBOblhYToR4m8tj4cMvJ9UsJAUKq+p0gCp07WQmhA=
 gitlab.com/elixxir/crypto v0.0.7-0.20210125231257-b52a556be893 h1:0NjQOwdGO/xBvgBMzRLSFXpSpnluzjT16obl5AcGfmI=
 gitlab.com/elixxir/crypto v0.0.7-0.20210125231257-b52a556be893/go.mod h1:BoYrgHnTJPvvd4f/f4A+y22wwgZ7IxkYtGC8x9WiwxA=
+gitlab.com/elixxir/crypto v0.0.7-0.20210128232700-0d547d16aff5 h1:jNik2VPt/GCzrlNZsjfR+Kdro71td91H4jAmaa4pvA4=
+gitlab.com/elixxir/crypto v0.0.7-0.20210128232700-0d547d16aff5/go.mod h1:XfpfHnG+bTq+GjuMI5Ncamnd5zED+1ao4xpxVS2a9Uo=
 gitlab.com/elixxir/ekv v0.1.4 h1:NLVMwsFEKArWcsDHu2DbXlm9374iSgn7oIA3rVSsvjc=
 gitlab.com/elixxir/ekv v0.1.4/go.mod h1:e6WPUt97taFZe5PFLPb1Dupk7tqmDCTQu1kkstqJvw4=
 gitlab.com/elixxir/primitives v0.0.0-20200731184040-494269b53b4d/go.mod h1:OQgUZq7SjnE0b+8+iIAT2eqQF+2IFHn73tOo+aV11mg=

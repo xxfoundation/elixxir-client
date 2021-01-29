@@ -15,19 +15,20 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 // SendCMIX sends a "raw" CMIX message payload to the provided
 // recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
-func (m *manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+func (m *manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
 	if !m.Health.IsHealthy() {
-		return 0, errors.New("Cannot send cmix message when the " +
+		return 0, ephemeral.Id{}, errors.New("Cannot send cmix message when the " +
 			"network is not healthy")
 	}
 
-	return m.message.SendCMIX(msg, param)
+	return m.message.SendCMIX(msg, recipient, param)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient

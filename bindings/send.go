@@ -30,6 +30,7 @@ import (
 // This will return the round the message was sent on if it is successfully sent
 // This can be used to register a round event to learn about message delivery.
 // on failure a round id of -1 is returned
+// todo- return the ephemeral ID
 func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
@@ -37,13 +38,13 @@ func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 			err))
 	}
 
-	msg, err := c.api.NewCMIXMessage(u, contents)
+	msg, err := c.api.NewCMIXMessage(contents)
 	if err != nil {
 		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
 			err))
 	}
 
-	rid, err := c.api.SendCMIX(msg, params.GetDefaultCMIX())
+	rid, _, err := c.api.SendCMIX(msg, u, params.GetDefaultCMIX())
 	if err != nil {
 		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
 			err))

@@ -7,6 +7,7 @@ import (
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"strconv"
 	"time"
 
 )
@@ -111,5 +112,6 @@ func (r registration)getKR()KnownRounds{
 }
 
 func regPrefix(EphId  ephemeral.Id, Source *id.ID)string{
-	return "receptionRegistration_" + string(EphId.Int64()) + Source.String()
+	return "receptionRegistration_" +
+		strconv.FormatInt(EphId.Int64(), 16) + Source.String()
 }

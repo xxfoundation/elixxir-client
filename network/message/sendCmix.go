@@ -14,10 +14,12 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"strings"
 	"time"
 )
@@ -33,7 +35,7 @@ const sendTimeBuffer = uint64(100 * time.Millisecond)
 // If the message is successfully sent, the id of the round sent it is returned,
 // which can be registered with the network instance to get a callback on
 // its status
-func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, error) {
+func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
 
 	timeStart := time.Now()
 	attempted := set.New()
@@ -42,7 +44,7 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		elapsed := time.Now().Sub(timeStart)
 		jww.DEBUG.Printf("SendCMIX Send Attempt %d", numRoundTries+1)
 		if elapsed > param.Timeout {
-			return 0, errors.New("Sending cmix message timed out")
+			return 0, ephemeral.Id{}, errors.New("Sending cmix message timed out")
 		}
 		remainingTime := param.Timeout - elapsed
 		jww.TRACE.Printf("SendCMIX GetUpcommingRealtime")
@@ -58,6 +60,22 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 				" realtime")
 			continue
 		}
+
+		//set the ephemeral ID
+		ephID, _, _, err := ephemeral.GetId(recipient,
+			uint(bestRound.AddressSpaceSize),
+			int64(bestRound.Timestamps[states.REALTIME]))
+
+		msg.SetEphemeralRID(ephID[:])
+
+		//set the identity fingerprint
+		ifp, err := fingerprint.IdentityFP(msg.GetContents(), recipient)
+		if err!=nil{
+			jww.FATAL.Panicf("failed to generate the Identity " +
+				"fingerprint due to unrecoverable error: %+v", err)
+		}
+
+		msg.SetIdentityFP(ifp)
 
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
@@ -94,10 +112,10 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 		stream.Close()
 
 		if err != nil {
-			return 0, errors.WithMessage(err, "Failed to generate "+
-				"salt, this should never happen")
+			return 0, ephemeral.Id{}, errors.WithMessage(err,
+				"Failed to generate salt, this should never happen")
 		}
-		jww.INFO.Printf("RECIPIENTIDPRE_ENCRYPT: %s", msg.GetRecipientID())
+
 		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
 
 		//build the message payload
@@ -115,7 +133,8 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			RoundID: bestRound.ID,
 		}
 		//Add the mac proving ownership
-		msg.MAC = roundKeys.MakeClientGatewayKey(salt, network.GenerateSlotDigest(msg))
+		msg.MAC = roundKeys.MakeClientGatewayKey(salt,
+			network.GenerateSlotDigest(msg))
 
 		//add the round on to the list of attempted so it is not tried again
 		attempted.Insert(bestRound)
@@ -134,11 +153,11 @@ func (m *Manager) SendCMIX(msg format.Message, param params.CMIX) (id.Round, err
 			jww.ERROR.Printf("Failed to send message to %s: %s",
 				transmitGateway, err)
 		} else if gwSlotResp.Accepted {
-			return id.Round(bestRound.ID), nil
+			return id.Round(bestRound.ID), ephID, nil
 		}
 	}
 
-	return 0, errors.New("failed to send the message")
+	return 0, ephemeral.Id{}, errors.New("failed to send the message")
 }
 
 // Signals to the node registration thread to register a node if keys are

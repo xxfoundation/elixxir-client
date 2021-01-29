@@ -18,6 +18,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"math/rand"
 	"reflect"
@@ -352,8 +353,8 @@ func (t *testNetworkManager) SendUnsafe(m message.Send, _ params.Unsafe) ([]id.R
 	return rounds, nil
 }
 
-func (t *testNetworkManager) SendCMIX(format.Message, params.CMIX) (id.Round, error) {
-	return 0, nil
+func (t *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id.Round, ephemeral.Id, error) {
+	return 0, ephemeral.Id{}, nil
 }
 
 func (t *testNetworkManager) GetInstance() *network.Instance {

@@ -154,7 +154,7 @@ func (s *Store)GetIdentity(rng io.Reader)(IdentityUse, error){
 	// with so we can continue tracking the network and to further obfuscate
 	// network identities
 	if len(s.active)==0{
-		identity, err = generateFakeIdentity(rng, uint(s.idSize))
+		identity, err = generateFakeIdentity(rng, uint(s.idSize), now)
 		if err!=nil{
 			jww.FATAL.Panicf("Failed to generate a new ID when none " +
 				"available: %+v", err)
@@ -167,7 +167,7 @@ func (s *Store)GetIdentity(rng io.Reader)(IdentityUse, error){
 	}
 
 	//calculate the sampling period
-	identity, err = identity.SetSamplingPeriod(rng)
+	identity, err = identity.setSamplingPeriod(rng)
 	if err!=nil{
 		jww.FATAL.Panicf("Failed to caluclate the sampling period: " +
 			"%+v", err)
@@ -207,7 +207,7 @@ func (s *Store)RemoveIdentity(ephID ephemeral.Id)bool {
 			s.active = append(s.active[:i], s.active[i+1:]...)
 			err := inQuestion.Delete()
 			if err!=nil{
-				jww.FATAL.Panicf("Failed to delete identity %s")
+				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
 			}
 			if !inQuestion.Ephemeral{
 				if err := s.save(); err!=nil{

@@ -8,7 +8,10 @@ import (
 	"time"
 )
 
-func generateFakeIdentity(rng io.Reader, idSize uint)(IdentityUse, error){
+// generateFakeIdentity generates a fake identity of the given size with the
+// given random number generator
+func generateFakeIdentity(rng io.Reader, idSize uint, now time.Time)(IdentityUse, error){
+	//randomly generate an identity
 	randIDbytes := make([]byte, id.ArrIDLen-1)
 	if _, err := rng.Read(randIDbytes); err!=nil{
 		return IdentityUse{}, errors.WithMessage(err, "failed to " +
@@ -19,8 +22,9 @@ func generateFakeIdentity(rng io.Reader, idSize uint)(IdentityUse, error){
 	copy(randID[:id.ArrIDLen-1], randIDbytes)
 	randID.SetType(id.User)
 
+	//generate the current ephemeral ID from the random identity
 	ephID, start, end, err := ephemeral.GetId(randID, idSize,
-		time.Now().UnixNano())
+		now.UnixNano())
 	if err!=nil{
 		return IdentityUse{}, errors.WithMessage(err, "failed to " +
 			"generate an ephemral ID for random identity when none is " +

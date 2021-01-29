@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"strconv"
 	"time"
 )
 
@@ -80,6 +81,6 @@ func (i Identity)calculateKrSize()int{
 }
 
 func (i *Identity)String()string{
-	return string(i.EphId.Int64()) + " " + i.String()
+	return strconv.FormatInt(i.EphId.Int64(), 16) + " " + i.Source.String()
 }
 

@@ -56,11 +56,11 @@ var getNDFCmd = &cobra.Command{
 				opensslCertDL)
 		}
 
+		params := connect.GetDefaultHostParams()
+		params.AuthEnabled = false
+		comms, _ := client.NewClientComms(nil, nil, nil, nil)
 		// Gateway lookup
 		if gwHost != "" {
-			params := connect.GetDefaultHostParams()
-			params.AuthEnabled = false
-			comms, _ := client.NewClientComms(nil, nil, nil, nil)
 			host, _ := connect.NewHost(&id.TempGateway, gwHost,
 				cert, params)
 			pollMsg := &pb.GatewayPoll{
@@ -81,7 +81,19 @@ var getNDFCmd = &cobra.Command{
 		}
 
 		if permHost != "" {
-			jww.ERROR.Printf("Unimplemented!")
+			host, _ := connect.NewHost(&id.Permissioning, permHost,
+				cert, params)
+			pollMsg := &pb.NDFHash{
+				Hash: []byte("DummyUserRequest"),
+			}
+			resp, err := comms.RequestNdf(host, pollMsg)
+			if err != nil {
+				jww.FATAL.Panicf("Unable to ask %s for NDF:"+
+					" %+v",
+					permHost, err)
+			}
+			fmt.Printf("%s", resp.Ndf)
+			return
 		}
 
 		fmt.Println("Enter --gwhost or --permhost and --cert please")

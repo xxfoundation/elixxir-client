@@ -197,7 +197,7 @@ func (s *Store)AddIdentity(identity Identity)error {
 	return nil
 }
 
-func (s *Store)RemoveIdentity(ephID ephemeral.Id)bool {
+func (s *Store)RemoveIdentity(ephID ephemeral.Id) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -215,12 +215,9 @@ func (s *Store)RemoveIdentity(ephID ephemeral.Id)bool {
 						"identity removal")
 				}
 			}
-
-			return true
+			return
 		}
 	}
-
-	return false
 }
 
 func (s *Store)UpdateIDSize(idSize uint){

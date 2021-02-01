@@ -17,7 +17,9 @@ import (
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
+	"gitlab.com/elixxir/client/storage/ephemeral"
 	"gitlab.com/elixxir/client/storage/partition"
+	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -56,6 +58,9 @@ type Session struct {
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	checkedRounds       *utility.KnownRounds
+	ephemeral           *ephemeral.Store
+	reception          *reception.Store
+
 }
 
 // Initialize a new Session object
@@ -136,6 +141,13 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
+	s.ephemeral, err = ephemeral.NewStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to ephemeralId tracking store")
+	}
+
+	s.reception = reception.NewStore(s.kv)
+
 	return s, nil
 }
 
@@ -196,6 +208,11 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
+
+	s.ephemeral, err = ephemeral.LoadStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to ephemeral store")
+	}
 
 	return s, nil
 }
@@ -258,6 +275,18 @@ func (s *Session) Partition() *partition.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.partition
+}
+
+func (s *Session) Ephemeral() *ephemeral.Store  {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.ephemeral
+}
+
+func (s *Session) Reception() *reception.Store  {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.reception
 }
 
 // Get an object from the session
@@ -343,6 +372,11 @@ func InitTestingSession(i interface{}) *Session {
 
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
+
+	s.ephemeral, err = ephemeral.NewStore(s.kv)
+	if err != nil {
+		globals.Log.FATAL.Panicf("Failed to create ephemeral store: %+v", err)
+	}
 
 	return s
 }

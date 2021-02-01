@@ -7,13 +7,14 @@
 
 package network
 
-// manager.go controls access to network resources. Interprocess communications
+// check.go controls access to network resources. Interprocess communications
 // and intraclient state are accessible through the context object.
 
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/ephemeral"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
@@ -44,7 +45,6 @@ type manager struct {
 	//sub-managers
 	round   *rounds.Manager
 	message *message.Manager
-
 	//atomic denotes if the network is running
 	running *uint32
 }
@@ -126,6 +126,9 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
+	m.Session.Ephemeral()
+	// Ephemeral ID tracking
+	multi.Add(ephemeral.Check(m.Session, m.Comms.Id))
 
 	//set the running status back to 0 so it can be started again
 	closer := stoppable.NewCleanup(multi, func(time.Duration) error {

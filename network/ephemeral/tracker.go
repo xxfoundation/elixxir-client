@@ -62,7 +62,6 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single, ident
 		for _, identity := range identities {
 			// Track if identity has been generated already
 			if !identityStore.IsAlreadyIdentity(identity) {
-				globals.Log.FATAL.Printf("inserting identity: %v\n", identity)
 				// If not not, insert identity into store
 				if err = identityStore.InsertIdentity(identity); err != nil {
 					globals.Log.FATAL.Panicf("Could not insert "+

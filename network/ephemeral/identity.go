@@ -10,7 +10,7 @@ package ephemeral
 import "gitlab.com/elixxir/client/storage/reception"
 
 type IdentityStoreInterface interface {
-	IsNewIdentity(identity reception.Identity) bool
+	IsAlreadyIdentity(identity reception.Identity) bool
 	AddIdentity(identity reception.Identity) error
 	InsertIdentity(identity reception.Identity) error
 }
@@ -20,14 +20,14 @@ type IdentityStore struct {
 	tracker map[reception.Identity]bool
 }
 
-func newTracker(store *reception.Store) *IdentityStore {
+func NewTracker(store *reception.Store) *IdentityStore {
 	return &IdentityStore{
 		tracker: make(map[reception.Identity]bool),
 		Store:   store,
 	}
 }
 
-func (is *IdentityStore) IsNewIdentity(identity reception.Identity) bool {
+func (is *IdentityStore) IsAlreadyIdentity(identity reception.Identity) bool {
 	return is.tracker[identity]
 }
 

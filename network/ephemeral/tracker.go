@@ -23,38 +23,35 @@ const validityGracePeriod = 5 * time.Minute
 const TimestampKey = "IDTrackingTimestamp"
 const ephemeralStoppable = "EphemeralCheck"
 
-// Check runs a thread which checks for past and present ephemeral ids
-func Check(session *storage.Session, ourId *id.ID) stoppable.Stoppable {
+// Track runs a thread which checks for past and present ephemeral ids
+func Track(session *storage.Session, ourId *id.ID, identityStore *IdentityStore) stoppable.Stoppable {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
-	go check(session, ourId, stop)
+	go track(session, ourId, stop, identityStore)
 
 	return stop
 }
 
-// check is a thread which continuously processes ephemeral ids.
+// track is a thread which continuously processes ephemeral ids.
 // If any error occurs, the thread crashes
-func check(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
+func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single, identityStore *IdentityStore) {
 	// Get the latest timestamp from store
-	identityStore := newTracker(session.Reception())
 	lastTimestampObj, err := session.Get(TimestampKey)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not get timestamp: %v", err)
-		return
 	}
 
 	lastCheck, err := unmarshalTimestamp(lastTimestampObj)
 	if err != nil {
 		globals.Log.FATAL.Panicf("Could not parse stored timestamp: %v", err)
-		return
 	}
 
 	for true {
-		// Generates the IDs since the last check
+		// Generates the IDs since the last track
 		now := time.Now()
 		protoIds, err := getUpcomingIDs(ourId, now, lastCheck)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could not generate " +
+			globals.Log.FATAL.Panicf("Could not generate "+
 				"upcoming IDs: %v", err)
 		}
 
@@ -63,11 +60,12 @@ func check(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 		// Add identities to storage if unique
 		for _, identity := range identities {
-			// Check if identity has been generated already
-			if !identityStore.IsNewIdentity(identity) {
+			// Track if identity has been generated already
+			if !identityStore.IsAlreadyIdentity(identity) {
+				globals.Log.FATAL.Printf("inserting identity: %v\n", identity)
 				// If not not, insert identity into store
 				if err = identityStore.InsertIdentity(identity); err != nil {
-					globals.Log.FATAL.Panicf("Could not insert " +
+					globals.Log.FATAL.Panicf("Could not insert "+
 						"identity: %v", err)
 				}
 			}
@@ -75,9 +73,9 @@ func check(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		}
 
 		// Generate the time stamp for storage
-		vo, err := marshalTimestamp(now)
+		vo, err := MarshalTimestamp(now)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could not marshal " +
+			globals.Log.FATAL.Panicf("Could not marshal "+
 				"timestamp for storage: %v", err)
 
 		}
@@ -136,7 +134,7 @@ func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 }
 
 // Marshals the timestamp for ekv storage. Generates a storable object
-func marshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
+func MarshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 	data, err := timeToStore.MarshalBinary()
 
 	return &versioned.Object{
@@ -147,7 +145,7 @@ func marshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 }
 
 // Wrapper for GetIdsByRange. Generates ephemeral ids in the time period
-// since the last check
+// since the last track
 func getUpcomingIDs(ourId *id.ID, now,
 	lastCheck time.Time) ([]ephemeral.ProtoIdentity, error) {
 	return ephemeral.GetIdsByRange(ourId, ephemeralIdSie,
@@ -159,10 +157,14 @@ func getUpcomingIDs(ourId *id.ID, now,
 // off of the last ephemeral ID to expire
 func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
 	// Get the last identity in the list
-	lastIdentity := baseIDs[len(baseIDs)-1]
+	indx := 0
+	if len(baseIDs)-1 >= 0 {
+		indx = len(baseIDs) - 1
+	}
+	lastIdentity := baseIDs[indx]
 
 	// Factor out the grace period previously expanded upon.
 	// Calculate and return that duration
-	gracePeriod := lastIdentity.End.Add(-2 * validityGracePeriod)
+	gracePeriod := lastIdentity.End.Add(-validityGracePeriod)
 	return lastIdentity.End.Sub(gracePeriod)
 }

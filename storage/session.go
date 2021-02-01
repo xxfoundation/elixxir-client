@@ -132,11 +132,6 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
-	s.ephemeral, err = ephemeral.NewStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to ephemeralId tracking store")
-	}
-
 	s.reception = reception.NewStore(s.kv)
 
 	return s, nil
@@ -199,11 +194,6 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
-
-	s.ephemeral, err = ephemeral.LoadStore(s.kv)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to ephemeral store")
-	}
 
 	return s, nil
 }
@@ -358,10 +348,6 @@ func InitTestingSession(i interface{}) *Session {
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
-	s.ephemeral, err = ephemeral.NewStore(s.kv)
-	if err != nil {
-		globals.Log.FATAL.Panicf("Failed to create ephemeral store: %+v", err)
-	}
-
+	s.reception = reception.NewStore(s.kv)
 	return s
 }

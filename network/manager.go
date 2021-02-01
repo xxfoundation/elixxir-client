@@ -7,7 +7,7 @@
 
 package network
 
-// check.go controls access to network resources. Interprocess communications
+// tracker.go controls access to network resources. Interprocess communications
 // and intraclient state are accessible through the context object.
 
 import (
@@ -96,6 +96,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Health Tracker (/network/health)
 //	 - Garbled Messages (/network/message/garbled.go)
 //	 - Critical Messages (/network/message/critical.go)
+//   - Ephemeral ID tracking (network/ephemeral/tracker.go)
 func (m *manager) Follow() (stoppable.Stoppable, error) {
 	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
 		return nil, errors.Errorf("network routines are already running")
@@ -126,8 +127,15 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
+
 	// Ephemeral ID tracking
-	multi.Add(ephemeral.Check(m.Session, m.Comms.Id))
+	err = checkTimestampStore(m.Session)
+	if err != nil {
+		return nil, errors.Errorf("Could not store timestamp " +
+			"for ephemeral ID tracking: %v", err)
+	}
+	identityStore := ephemeral.NewTracker(m.Session.Reception())
+	multi.Add(ephemeral.Track(m.Session, m.Comms.Id, identityStore))
 
 	//set the running status back to 0 so it can be started again
 	closer := stoppable.NewCleanup(multi, func(time.Duration) error {
@@ -138,6 +146,20 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	})
 
 	return closer, nil
+}
+
+// Sanitation check of timestamp store. If a value has not been stored yet
+// then the current time is stored
+func checkTimestampStore(session *storage.Session) error {
+	if _, err := session.Get(ephemeral.TimestampKey); err != nil {
+		now, err := ephemeral.MarshalTimestamp(time.Now())
+		if err != nil {
+			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
+		}
+		return session.Set(ephemeral.TimestampKey, now)
+	}
+
+	return nil
 }
 
 // GetHealthTracker returns the health tracker

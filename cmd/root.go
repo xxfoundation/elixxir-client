@@ -212,7 +212,10 @@ func createClient() *api.Client {
 		}
 	}
 
-	client, err := api.OpenClient(storeDir, []byte(pass), params.GetDefaultNetwork())
+	netParams := params.GetDefaultNetwork()
+	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+
+	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -225,8 +228,11 @@ func initClient() *api.Client {
 	pass := viper.GetString("password")
 	storeDir := viper.GetString("session")
 
+	netParams := params.GetDefaultNetwork()
+	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+
 	//load the client
-	client, err := api.Login(storeDir, []byte(pass), params.GetDefaultNetwork())
+	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -613,6 +619,11 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
+
+	rootCmd.Flags().BoolP("forceHistoricalRounds", "", false,
+		"Force all rounds to be sent to historical round retrieval")
+	viper.BindPFlag("forceHistoricalRounds",
+		rootCmd.Flags().Lookup("forceHistoricalRounds"))
 }
 
 // initConfig reads in config file and ENV variables if set.

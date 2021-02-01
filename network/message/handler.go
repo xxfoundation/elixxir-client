@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
 )
 
@@ -72,10 +73,16 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		// if it doesnt match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
+		ephID, err := ephemeral.Marshal(msg.GetEphemeralRID())
+		if err!=nil{
+			jww.DEBUG.Printf("Failed to unmarshal ephemeral ID " +
+				"on unknown message: %+v", err)
+		}
 		raw := message.Receive{
 			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
-			Sender:      msg.GetRecipientID(),
+			Sender:      nil,
+			EphemeralID: ephID,
 			Timestamp:   time.Time{},
 			Encryption:  message.None,
 		}

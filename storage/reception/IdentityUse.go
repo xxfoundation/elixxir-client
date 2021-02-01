@@ -26,7 +26,9 @@ type IdentityUse struct{
 	KR KnownRounds
 }
 
-func (iu IdentityUse)SetSamplingPeriod(rng io.Reader)(IdentityUse, error){
+// setSamplingPeriod add the Request mask as a random buffer around the sampling
+// time to obfuscate it
+func (iu IdentityUse)setSamplingPeriod(rng io.Reader)(IdentityUse, error){
 
 	//generate the seed
 	seed := make([]byte,32)
@@ -36,18 +38,17 @@ func (iu IdentityUse)SetSamplingPeriod(rng io.Reader)(IdentityUse, error){
 	}
 
 	h, err := hash.NewCMixHash()
-	if err==nil{
+	if err!=nil{
 		return IdentityUse{}, err
 	}
 
 	//calculate the period offset
 	periodOffset :=
 		randomness.RandInInterval(big.NewInt(iu.RequestMask.Nanoseconds()),
-			seed,h).Uint64()
-	iu.StartRequest = iu.StartValid.Add(-time.Duration(periodOffset)*
-		time.Nanosecond)
+			seed,h).Int64()
+	iu.StartRequest = iu.StartValid.Add(-time.Duration(periodOffset))
 	iu.EndRequest = iu.EndValid.Add(iu.RequestMask -
-		time.Duration(periodOffset)*time.Nanosecond)
+		time.Duration(periodOffset))
 	return iu, nil
 }
 

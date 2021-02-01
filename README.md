@@ -158,6 +158,8 @@ Flags:
   -d, --destid string             ID to send message to (if below 40, will be
                                   precanned. Use '0x' or 'b64:' for hex and
                                   base64 representations) (default "0")
+      --forceHistoricalRounds     Force all rounds to be sent to historical
+                                  round retrieval
   -h, --help                      help for client
   -l, --log string                Path to the log output path (- is stdout)
                                   (default "-")

@@ -12,22 +12,25 @@ import (
 )
 
 type Rounds struct {
-	// maximum number of times to attempt to retrieve a round from a gateway
+	// Maximum number of times to attempt to retrieve a round from a gateway
 	// before giving up on it
 	MaxAttemptsCheckingARound uint
-	// number of historical rounds required to automatically send a historical
+	// Number of historical rounds required to automatically send a historical
 	// rounds query
 	MaxHistoricalRounds uint
-	// maximum period of time a pending historical round query will wait before
-	// it si transmitted
+	// Maximum period of time a pending historical round query will wait before
+	// it is transmitted
 	HistoricalRoundsPeriod time.Duration
-	// number of worker threads for retreiving messages from gateways
+	// Number of worker threads for retrieving messages from gateways
 	NumMessageRetrievalWorkers uint
 
-	//Length of historical rounds channel buffer
+	// Length of historical rounds channel buffer
 	HistoricalRoundsBufferLen uint
-	//Length of round lookup channel buffer
+	// Length of round lookup channel buffer
 	LookupRoundsBufferLen uint
+
+	// Toggles if historical rounds should always be used
+	ForceHistoricalRounds bool
 }
 
 func GetDefaultRounds() Rounds {
@@ -39,5 +42,6 @@ func GetDefaultRounds() Rounds {
 
 		HistoricalRoundsBufferLen: 1000,
 		LookupRoundsBufferLen:     2000,
+		ForceHistoricalRounds:     false,
 	}
 }

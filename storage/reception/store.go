@@ -37,6 +37,7 @@ type Store struct{
 type storedReference struct {
 	Eph    ephemeral.Id
 	Source *id.ID
+	StartValid time.Time
 }
 
 //creates a new reception store.  It starts empty
@@ -81,10 +82,10 @@ func LoadStore(kv *versioned.KV)*Store{
 
 	s.active = make([]*registration, len(identities))
 	for i, sr := range identities{
-		s.active[i], err = loadRegistration(sr.Eph, sr.Source, s.kv)
+		s.active[i], err = loadRegistration(sr.Eph, sr.Source, sr.StartValid, s.kv)
 		if err!=nil{
 			jww.FATAL.Panicf("Failed to load registration for %s: %+v",
-				regPrefix(sr.Eph, sr.Source), err)
+				regPrefix(sr.Eph, sr.Source, sr.StartValid), err)
 		}
 	}
 
@@ -111,6 +112,7 @@ func (s *Store)	save()error{
 			identities[i] = storedReference{
 				Eph:    reg.EphId,
 				Source: reg.Source,
+				StartValid: reg.StartValid.Round(0),
 			}
 			i++
 		}

@@ -38,7 +38,7 @@ func newRegistration(reg Identity, kv *versioned.KV)(*registration, error){
 	}
 
 	//set the prefix
-	kv = kv.Prefix(regPrefix(reg.EphId, reg.Source))
+	kv = kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))
 
 
 	r := &registration{
@@ -64,19 +64,19 @@ func newRegistration(reg Identity, kv *versioned.KV)(*registration, error){
 	return r, nil
 }
 
-func loadRegistration(EphId  ephemeral.Id, Source *id.ID, kv *versioned.KV)(*registration, error){
-	kv = kv.Prefix(regPrefix(EphId, Source))
+func loadRegistration(EphId  ephemeral.Id, Source *id.ID, startvalid time.Time, kv *versioned.KV)(*registration, error){
+	kv = kv.Prefix(regPrefix(EphId, Source, startvalid))
 
 	reg, err := loadIdentity(kv)
 	if err!=nil{
 		return nil, errors.WithMessagef(err, "Failed to load identity " +
-			"for %s", regPrefix(EphId, Source))
+			"for %s", regPrefix(EphId, Source, startvalid))
 	}
 
 	kr, err := utility.LoadKnownRounds(kv,knownRoundsStorageKey, reg.calculateKrSize())
 	if err!=nil{
 		return nil, errors.WithMessagef(err, "Failed to load known " +
-			"rounds for %s", regPrefix(EphId, Source))
+			"rounds for %s", regPrefix(EphId, Source, startvalid))
 	}
 
 	r := &registration{
@@ -111,7 +111,8 @@ func (r registration)getKR()KnownRounds{
 	}
 }
 
-func regPrefix(EphId  ephemeral.Id, Source *id.ID)string{
+func regPrefix(EphId  ephemeral.Id, Source *id.ID, startTime time.Time)string{
 	return "receptionRegistration_" +
-		strconv.FormatInt(EphId.Int64(), 16) + Source.String()
+		strconv.FormatInt(EphId.Int64(), 16) + Source.String() +
+		strconv.FormatInt(startTime.Round(0).UnixNano(), 10)
 }

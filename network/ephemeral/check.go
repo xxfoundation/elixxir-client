@@ -54,7 +54,8 @@ func check(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		now := time.Now()
 		protoIds, err := getUpcomingIDs(ourId, now, lastCheck)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could not generate : %v", err)
+			globals.Log.FATAL.Panicf("Could not generate " +
+				"upcoming IDs: %v", err)
 		}
 
 		// Generate identities off of that list
@@ -66,7 +67,8 @@ func check(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 			if !identityStore.IsNewIdentity(identity) {
 				// If not not, insert identity into store
 				if err = identityStore.InsertIdentity(identity); err != nil {
-					return
+					globals.Log.FATAL.Panicf("Could not insert " +
+						"identity: %v", err)
 				}
 			}
 
@@ -75,12 +77,14 @@ func check(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		// Generate the time stamp for storage
 		vo, err := marshalTimestamp(now)
 		if err != nil {
-			return
+			globals.Log.FATAL.Panicf("Could not marshal " +
+				"timestamp for storage: %v", err)
+
 		}
 
 		// Store the timestamp
 		if err = session.Set(TimestampKey, vo); err != nil {
-			return
+			globals.Log.FATAL.Panicf("Could not store timestamp: %v", err)
 		}
 
 		// Sleep until the last Id has expired

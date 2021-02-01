@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
-	"gitlab.com/elixxir/client/storage/ephemeral"
 	"gitlab.com/elixxir/client/storage/partition"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/user"
@@ -58,7 +57,6 @@ type Session struct {
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	checkedRounds       *utility.KnownRounds
-	ephemeral           *ephemeral.Store
 	reception          *reception.Store
 
 }
@@ -275,12 +273,6 @@ func (s *Session) Partition() *partition.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.partition
-}
-
-func (s *Session) Ephemeral() *ephemeral.Store  {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.ephemeral
 }
 
 func (s *Session) Reception() *reception.Store  {

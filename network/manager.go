@@ -126,7 +126,6 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
-	m.Session.Ephemeral()
 	// Ephemeral ID tracking
 	multi.Add(ephemeral.Check(m.Session, m.Comms.Id))
 

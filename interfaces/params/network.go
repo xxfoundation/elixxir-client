@@ -8,6 +8,7 @@
 package params
 
 import (
+	"encoding/json"
 	"time"
 )
 
@@ -23,6 +24,7 @@ type Network struct {
 
 	Rounds
 	Messages
+	Rekey
 }
 
 func GetDefaultNetwork() Network {
@@ -35,4 +37,20 @@ func GetDefaultNetwork() Network {
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()
 	return n
+}
+
+func (n Network) Marshal() ([]byte, error) {
+	return json.Marshal(n)
+}
+
+// Obtain default Network parameters, or override with given parameters if set
+func GetNetworkParameters(params string) (Network, error) {
+	p := GetDefaultNetwork()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return Network{}, err
+		}
+	}
+	return p, nil
 }

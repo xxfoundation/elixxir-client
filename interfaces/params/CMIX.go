@@ -7,7 +7,10 @@
 
 package params
 
-import "time"
+import (
+	"encoding/json"
+	"time"
+)
 
 type CMIX struct {
 	//maximum number of rounds to try and send on
@@ -22,4 +25,20 @@ func GetDefaultCMIX() CMIX {
 		Timeout:    25 * time.Second,
 		RetryDelay: 1 * time.Second,
 	}
+}
+
+func (c CMIX) Marshal() ([]byte, error) {
+	return json.Marshal(c)
+}
+
+// Obtain default CMIX parameters, or override with given parameters if set
+func GetCMIXParameters(params string) (CMIX, error) {
+	p := GetDefaultCMIX()
+	if len(params) > 0 {
+		err := json.Unmarshal([]byte(params), &p)
+		if err != nil {
+			return CMIX{}, err
+		}
+	}
+	return p, nil
 }

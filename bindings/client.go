@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/comms/mixmessages"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -75,8 +76,13 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // memory and stored as securely as possible using the memguard library.
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
-func Login(storageDir string, password []byte) (*Client, error) {
-	client, err := api.Login(storageDir, password)
+func Login(storageDir string, password []byte, parameters string) (*Client, error) {
+	p, err := params.GetNetworkParameters(parameters)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
+	}
+
+	client, err := api.Login(storageDir, password, p)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
@@ -291,15 +297,15 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 }
 
 // RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
-// message was sent in sucesfully completed. Under the hood, this uses the same
-// interface as RegisterRoundEventsHandler, but provides a convienet way to use
+// message was sent in successfully completed. Under the hood, this uses the same
+// interface as RegisterRoundEventsHandler, but provides a convent way to use
 // the interface in its most common form, looking up the result of message
-// retreval
+// retrieval
 //
 // The callbacks will return at timeoutMS if no state update occurs
 //
 // This function takes the marshaled send report to ensure a memory leak does
-// not occur as a result of both sides of the bindings holding a refrence to
+// not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
 func (c *Client) RegisterMessageDeliveryCB(marshaledSendReport []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) (*Unregister, error) {

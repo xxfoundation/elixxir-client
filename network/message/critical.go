@@ -44,7 +44,7 @@ func (m *Manager) processCriticalMessages(quitCh <-chan struct{}) {
 func (m *Manager) criticalMessages() {
 	critMsgs := m.Session.GetCriticalMessages()
 	// try to send every message in the critical messages and the raw critical
-	// messages buffer in paralell
+	// messages buffer in parallel
 
 	//critical messages
 	for msg, param, has := critMsgs.Next(); has; msg, param, has = critMsgs.Next() {
@@ -60,7 +60,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 			jww.INFO.Printf("critical RoundIDs: %v", rounds)
-			//wait on the results to make sure the rounds were sucesfull
+			//wait on the results to make sure the rounds were successful
 			sendResults := make(chan ds.EventReturn, len(rounds))
 			roundEvents := m.Instance.GetRoundEvents()
 			for _, r := range rounds {

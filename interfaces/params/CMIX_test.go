@@ -18,3 +18,38 @@ func TestGetDefaultCMIX(t *testing.T) {
 		t.Errorf("GetDefaultCMIX did not return expected values")
 	}
 }
+
+// New params path
+func TestGetCMIXParameters(t *testing.T) {
+	p := GetDefaultCMIX()
+
+	expected := p.RoundTries + 1
+	p.RoundTries = expected
+	jsonString, err := p.Marshal()
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	q, err := GetCMIXParameters(string(jsonString))
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if q.RoundTries != expected {
+		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, expected)
+	}
+}
+
+// No new params path
+func TestGetCMIXParameters_Default(t *testing.T) {
+	p := GetDefaultCMIX()
+
+	q, err := GetCMIXParameters("")
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if q.RoundTries != p.RoundTries {
+		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, p.RoundTries)
+	}
+}

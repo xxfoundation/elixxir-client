@@ -35,6 +35,4 @@ type Internal struct {
 
 	//channels
 	NodeRegistration chan network.NodeGateway
-	//local pointer to user ID because it is used often
-
 }

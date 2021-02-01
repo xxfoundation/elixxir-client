@@ -49,7 +49,7 @@ var rootCmd = &cobra.Command{
 		client := initClient()
 
 		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.TransmissionID)
+		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
 		// Set up reception handler
@@ -212,7 +212,7 @@ func createClient() *api.Client {
 		}
 	}
 
-	client, err := api.OpenClient(storeDir, []byte(pass))
+	client, err := api.OpenClient(storeDir, []byte(pass), params.GetDefaultNetwork())
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -226,7 +226,7 @@ func initClient() *api.Client {
 	storeDir := viper.GetString("session")
 
 	//load the client
-	client, err := api.Login(storeDir, []byte(pass))
+	client, err := api.Login(storeDir, []byte(pass), params.GetDefaultNetwork())
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}

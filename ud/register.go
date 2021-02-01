@@ -41,19 +41,19 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	// Construct the user registration message
 	msg := &pb.UDBUserRegistration{
-		PermissioningSignature: user.GetTransmissionRegistrationValidationSignature(),
-		RSAPublicPem:           string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())),
+		PermissioningSignature: user.GetReceptionRegistrationValidationSignature(),
+		RSAPublicPem:           string(rsa.CreatePublicKeyPem(cryptoUser.GetReceptionRSA().GetPublic())),
 		IdentityRegistration: &pb.Identity{
 			Username: username,
 			DhPubKey: m.storage.E2e().GetDHPublicKey().Bytes(),
-			Salt:     cryptoUser.GetTransmissionSalt(),
+			Salt:     cryptoUser.GetReceptionSalt(),
 		},
-		UID: cryptoUser.GetTransmissionID().Marshal(),
+		UID: cryptoUser.GetReceptionID().Marshal(),
 	}
 
 	// Sign the identity data and add to user registration message
 	identityDigest := msg.IdentityRegistration.Digest()
-	msg.IdentitySignature, err = rsa.Sign(rng, cryptoUser.GetTransmissionRSA(),
+	msg.IdentitySignature, err = rsa.Sign(rng, cryptoUser.GetReceptionRSA(),
 		hash.CMixHash, identityDigest, nil)
 	if err != nil {
 		return errors.Errorf("Failed to sign user's IdentityRegistration: %+v", err)
@@ -67,11 +67,11 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	// Hash and sign fact
 	hashedFact := factID.Fingerprint(usernameFact)
-	signedFact, err := rsa.Sign(rng, cryptoUser.GetTransmissionRSA(), hash.CMixHash, hashedFact, nil)
+	signedFact, err := rsa.Sign(rng, cryptoUser.GetReceptionRSA(), hash.CMixHash, hashedFact, nil)
 
 	// Add username fact register request to the user registration message
 	msg.Frs = &pb.FactRegisterRequest{
-		UID: cryptoUser.GetTransmissionID().Marshal(),
+		UID: cryptoUser.GetReceptionID().Marshal(),
 		Fact: &pb.Fact{
 			Fact:     username,
 			FactType: 0,

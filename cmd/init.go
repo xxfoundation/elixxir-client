@@ -22,9 +22,9 @@ var initCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		client := createClient()
 		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.TransmissionID)
+		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
-		fmt.Printf("%s\n", user.TransmissionID)
+		fmt.Printf("%s\n", user.ReceptionID)
 	},
 }
 

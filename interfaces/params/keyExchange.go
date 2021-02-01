@@ -7,7 +7,9 @@
 
 package params
 
-import "time"
+import (
+	"time"
+)
 
 type Rekey struct {
 	RoundTimeout time.Duration

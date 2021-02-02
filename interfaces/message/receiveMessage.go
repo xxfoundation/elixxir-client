@@ -20,7 +20,7 @@ type Receive struct {
 	MessageType Type
 	Sender      *id.ID
 	RecipientID	*id.ID
-	EphemeralID *ephemeral.Id
+	EphemeralID ephemeral.Id
 	Timestamp   time.Time
 	Encryption  EncryptionType
 }

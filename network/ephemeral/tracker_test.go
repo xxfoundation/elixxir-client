@@ -20,18 +20,7 @@ func TestCheck(t *testing.T) {
 	session := storage.InitTestingSession(t)
 	identityStore := NewTracker(session.Reception())
 
-	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
-	Track(session, ourId, identityStore)
-}
-
-// Unit test for track
-func TestCheck_Thread(t *testing.T) {
-
-	session := storage.InitTestingSession(t)
-	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
-	stop := stoppable.NewSingle(ephemeralStoppable)
-	identityStore := NewTracker(session.Reception())
-
+	/// Store a mock initial timestamp the store
 	now := time.Now()
 	twoDaysAgo := now.Add(-2 * 24 * time.Hour)
 	twoDaysTimestamp, err := MarshalTimestamp(twoDaysAgo)
@@ -42,6 +31,43 @@ func TestCheck_Thread(t *testing.T) {
 	if err != nil {
 		t.Errorf("Could not set mock timestamp for test setup: %v", err)
 	}
+
+	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
+	stop := Track(session, ourId, identityStore)
+
+	err = stop.Close(3 * time.Second)
+	if err != nil {
+		t.Errorf("Could not close thread: %v", err)
+	}
+
+}
+
+// Unit test for track
+func TestCheck_Thread(t *testing.T) {
+
+	session := storage.InitTestingSession(t)
+	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
+	stop := stoppable.NewSingle(ephemeralStoppable)
+	identityStore := NewTracker(session.Reception())
+
+	err := stop.Close(2 * time.Second)
+	if err != nil {
+		t.Errorf("Could not close thread: %v", err)
+	}
+
+	/// Store a mock initial timestamp the store
+	now := time.Now()
+	twoDaysAgo := now.Add(-2 * 24 * time.Hour)
+	twoDaysTimestamp, err := MarshalTimestamp(twoDaysAgo)
+	if err != nil {
+		t.Errorf("Could not marshal timestamp for test setup: %v", err)
+	}
+	err = session.Set(TimestampKey, twoDaysTimestamp)
+	if err != nil {
+		t.Errorf("Could not set mock timestamp for test setup: %v", err)
+	}
+
+	// Run the tracker
 	go func() {
 		track(session, ourId, stop, identityStore)
 		t.Errorf("Thread should not close")

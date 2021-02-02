@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-//tests Generate Fake identity is consistant and returns a correct result
+// Tests Generate Fake identity is consistent and returns a correct result.
 func TestGenerateFakeIdentity(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
 

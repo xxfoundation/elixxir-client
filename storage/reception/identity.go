@@ -14,23 +14,22 @@ const identityStorageKey = "IdentityStorage"
 const identityStorageVersion = 0
 
 type Identity struct {
-	//identity
+	// Identity
 	EphId  ephemeral.Id
 	Source *id.ID
 
-	//usage variables
-	End         time.Time // timestamp when active polling will stop
-	ExtraChecks uint      // number of extra checks executed as active
-	// after the id exits active
+	// Usage variables
+	End         time.Time // Timestamp when active polling will stop
+	ExtraChecks uint      // Number of extra checks executed as active after the
+	// ID exits active
 
-	//polling parameters
-	StartValid  time.Time     // timestamp when the ephID begins being valid
-	EndValid    time.Time     // timestamp when the ephID stops being valid
-	RequestMask time.Duration // amount of extra time requested for the poll
-	// in order to mask the exact valid time for
-	// the id
+	// Polling parameters
+	StartValid  time.Time     // Timestamp when the ephID begins being valid
+	EndValid    time.Time     // Timestamp when the ephID stops being valid
+	RequestMask time.Duration // Amount of extra time requested for the poll in
+	// order to mask the exact valid time for the ID
 
-	//makes the identity not store on disk
+	// Makes the identity not store on disk
 	Ephemeral bool
 }
 
@@ -49,7 +48,7 @@ func loadIdentity(kv *versioned.KV) (Identity, error) {
 }
 
 func (i Identity) store(kv *versioned.KV) error {
-	//marshal the registration
+	// Marshal the registration
 	regStr, err := json.Marshal(&i)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to marshal Identity")
@@ -62,7 +61,7 @@ func (i Identity) store(kv *versioned.KV) error {
 		Data:      regStr,
 	}
 
-	//store the data
+	// Store the data
 	err = kv.Set(identityStorageKey, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store Identity")
@@ -92,5 +91,4 @@ func (i Identity) Equal(b Identity) bool {
 		i.EndValid.Equal(b.EndValid) &&
 		i.RequestMask == b.RequestMask &&
 		i.Ephemeral == b.Ephemeral
-
 }

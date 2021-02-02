@@ -90,12 +90,12 @@ func TestIdentity_CalculateKrSize(t *testing.T) {
 	for _, d := range deltas {
 		expected := int(d.Seconds()+1) * maxRoundsPerSecond
 		now := time.Now()
-		id := Identity{
+		i := Identity{
 			StartValid: now,
 			EndValid:   now.Add(d),
 		}
 
-		krSize := id.calculateKrSize()
+		krSize := i.calculateKrSize()
 		if krSize != expected {
 			t.Errorf("kr size not correct! expected: %v, recieved: %v",
 				expected, krSize)

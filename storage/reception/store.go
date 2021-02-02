@@ -24,10 +24,10 @@ const receptionIDSizeStorageKey = "receptionIDSizeKey"
 const receptionIDSizeStorageVersion = 0
 const defaultIDSize = 12
 
-type Store struct{
-	// identities which are being actively checked
-	active 		[]*registration
-	idSize 	    int
+type Store struct {
+	// Identities which are being actively checked
+	active []*registration
+	idSize int
 
 	kv *versioned.KV
 
@@ -35,13 +35,13 @@ type Store struct{
 }
 
 type storedReference struct {
-	Eph    ephemeral.Id
-	Source *id.ID
+	Eph        ephemeral.Id
+	Source     *id.ID
 	StartValid time.Time
 }
 
-//creates a new reception store.  It starts empty
-func NewStore(kv *versioned.KV)*Store{
+// NewStore creates a new reception store that starts empty.
+func NewStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		active: make([]*registration, 0),
@@ -49,21 +49,21 @@ func NewStore(kv *versioned.KV)*Store{
 		kv:     kv,
 	}
 
-	//store the empty list
-	if err := s.save(); err!=nil{
+	// Store the empty list
+	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to save new reception store: %+v", err)
 	}
 
-	//update the size so queries can be made
+	// Update the size so queries can be made
 	s.UpdateIDSize(defaultIDSize)
 
 	return s
 }
 
-func LoadStore(kv *versioned.KV)*Store{
+func LoadStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
-		kv:     kv,
+		kv: kv,
 	}
 
 	// Load the versioned object for the reception list
@@ -75,43 +75,43 @@ func LoadStore(kv *versioned.KV)*Store{
 
 	identities := make([]storedReference, len(s.active))
 	err = json.Unmarshal(vo.Data, &identities)
-	if err!=nil{
-		jww.FATAL.Panicf("Failed to unmarshal the reception storage " +
+	if err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal the reception storage "+
 			"list: %+v", err)
 	}
 
 	s.active = make([]*registration, len(identities))
-	for i, sr := range identities{
+	for i, sr := range identities {
 		s.active[i], err = loadRegistration(sr.Eph, sr.Source, sr.StartValid, s.kv)
-		if err!=nil{
+		if err != nil {
 			jww.FATAL.Panicf("Failed to load registration for %s: %+v",
 				regPrefix(sr.Eph, sr.Source, sr.StartValid), err)
 		}
 	}
 
-	//load the ephmemeral ID length
+	// Load the ephemeral ID length
 	vo, err = kv.Get(receptionIDSizeStorageKey)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get the reception id size: %+v",
+		jww.FATAL.Panicf("Failed to get the reception ID size: %+v",
 			err)
 	}
 
-	if s.idSize, err = strconv.Atoi(string(vo.Data)); err!=nil{
-		jww.FATAL.Panicf("Failed to unmarshal the reception id size: %+v",
+	if s.idSize, err = strconv.Atoi(string(vo.Data)); err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal the reception ID size: %+v",
 			err)
 	}
 
 	return s
 }
 
-func (s *Store)	save()error{
+func (s *Store) save() error {
 	identities := make([]storedReference, len(s.active))
 	i := 0
-	for _, reg := range s.active{
-		if !reg.Ephemeral{
+	for _, reg := range s.active {
+		if !reg.Ephemeral {
 			identities[i] = storedReference{
-				Eph:    reg.EphId,
-				Source: reg.Source,
+				Eph:        reg.EphId,
+				Source:     reg.Source,
 				StartValid: reg.StartValid.Round(0),
 			}
 			i++
@@ -120,8 +120,8 @@ func (s *Store)	save()error{
 	identities = identities[:i]
 
 	data, err := json.Marshal(&identities)
-	if err!=nil{
-		return errors.WithMessage(err, "failed to store reception " +
+	if err != nil {
+		return errors.WithMessage(err, "failed to store reception "+
 			"store")
 	}
 
@@ -133,64 +133,64 @@ func (s *Store)	save()error{
 	}
 
 	err = s.kv.Set(receptionStoreStorageKey, obj)
-	if err!=nil{
+	if err != nil {
 		return errors.WithMessage(err, "Failed to store reception store")
 	}
 
 	return nil
 }
 
-func (s *Store)GetIdentity(rng io.Reader)(IdentityUse, error){
+func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	now := time.Now()
 
-	//remove any now expired identities
+	// Remove any now expired identities
 	s.prune(now)
 
 	var identity IdentityUse
 	var err error
 
-	// if the list is empty, we return a randomly generated identity to poll
-	// with so we can continue tracking the network and to further obfuscate
-	// network identities
-	if len(s.active)==0{
+	// If the list is empty, then we return a randomly generated identity to
+	// poll with so we can continue tracking the network and to further
+	// obfuscate network identities.
+	if len(s.active) == 0 {
 		identity, err = generateFakeIdentity(rng, uint(s.idSize), now)
-		if err!=nil{
-			jww.FATAL.Panicf("Failed to generate a new ID when none " +
+		if err != nil {
+			jww.FATAL.Panicf("Failed to generate a new ID when none "+
 				"available: %+v", err)
 		}
-	}else{
+	} else {
 		identity, err = s.selectIdentity(rng, now)
-		if err!=nil{
-			jww.FATAL.Panicf("Failed to select an id: %+v", err)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to select an ID: %+v", err)
 		}
 	}
 
-	//calculate the sampling period
+	// Calculate the sampling period
 	identity, err = identity.setSamplingPeriod(rng)
-	if err!=nil{
-		jww.FATAL.Panicf("Failed to caluclate the sampling period: " +
+	if err != nil {
+		jww.FATAL.Panicf("Failed to calculate the sampling period: "+
 			"%+v", err)
 	}
 
 	return identity, nil
 }
 
-func (s *Store)AddIdentity(identity Identity)error {
+func (s *Store) AddIdentity(identity Identity) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
 	reg, err := newRegistration(identity, s.kv)
-	if err!=nil{
-		return errors.WithMessage(err,"failed to add new identity to " +
+	if err != nil {
+		return errors.WithMessage(err, "failed to add new identity to "+
 			"reception store")
 	}
 
 	s.active = append(s.active, reg)
-	if !identity.Ephemeral{
-		if err := s.save(); err!=nil{
+	if !identity.Ephemeral {
+		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to save reception store after identity " +
 				"addition")
 		}
@@ -199,20 +199,20 @@ func (s *Store)AddIdentity(identity Identity)error {
 	return nil
 }
 
-func (s *Store)RemoveIdentity(ephID ephemeral.Id) {
+func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for i:=0;i<len(s.active);i++{
+	for i := 0; i < len(s.active); i++ {
 		inQuestion := s.active[i]
-		if bytes.Equal(inQuestion.EphId[:],ephID[:]){
+		if bytes.Equal(inQuestion.EphId[:], ephID[:]) {
 			s.active = append(s.active[:i], s.active[i+1:]...)
 			err := inQuestion.Delete()
-			if err!=nil{
+			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
 			}
-			if !inQuestion.Ephemeral{
-				if err := s.save(); err!=nil{
+			if !inQuestion.Ephemeral {
+				if err := s.save(); err != nil {
 					jww.FATAL.Panicf("Failed to save reception store after " +
 						"identity removal")
 				}
@@ -222,32 +222,33 @@ func (s *Store)RemoveIdentity(ephID ephemeral.Id) {
 	}
 }
 
-func (s *Store)UpdateIDSize(idSize uint){
+func (s *Store) UpdateIDSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.idSize = int(idSize)
-	//store the id size
+
+	// Store the ID size
 	obj := &versioned.Object{
 		Version:   receptionIDSizeStorageVersion,
 		Timestamp: time.Now(),
-		Data: []byte(strconv.Itoa(s.idSize)),
+		Data:      []byte(strconv.Itoa(s.idSize)),
 	}
 
 	err := s.kv.Set(receptionIDSizeStorageKey, obj)
-	if err!=nil{
+	if err != nil {
 		jww.FATAL.Panicf("Failed to store reception ID size: %+v", err)
 	}
 }
 
-func (s *Store)prune(now time.Time) {
+func (s *Store) prune(now time.Time) {
 	lengthBefore := len(s.active)
 
-	//prune the list
-	for i:=0;i<len(s.active);i++{
+	// Prune the list
+	for i := 0; i < len(s.active); i++ {
 		inQuestion := s.active[i]
-		if now.After(inQuestion.End) && inQuestion.ExtraChecks ==0{
-			if err := inQuestion.Delete(); err!=nil{
-				jww.ERROR.Printf("Failed to delete Identity for %s: " +
+		if now.After(inQuestion.End) && inQuestion.ExtraChecks == 0 {
+			if err := inQuestion.Delete(); err != nil {
+				jww.ERROR.Printf("Failed to delete Identity for %s: "+
 					"%+v", inQuestion, err)
 			}
 
@@ -257,46 +258,45 @@ func (s *Store)prune(now time.Time) {
 		}
 	}
 
-	//save the list if it changed
-	if lengthBefore!=len(s.active){
-		if err := s.save(); err!=nil{
+	// Save the list if it changed
+	if lengthBefore != len(s.active) {
+		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage")
 		}
 	}
 }
 
-func (s *Store)selectIdentity(rng io.Reader, now time.Time)(IdentityUse, error) {
+func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error) {
 
-	//choose a member from the list
+	// Choose a member from the list
 	var selected *registration
 
-	if len(s.active)==1{
-		selected= s.active[0]
-	}else{
-
-		seed := make([]byte,32)
-		if _, err := rng.Read(seed);err!=nil{
-			return IdentityUse{}, errors.WithMessage(err, "Failed to " +
-				"choose id due to rng failure")
+	if len(s.active) == 1 {
+		selected = s.active[0]
+	} else {
+		seed := make([]byte, 32)
+		if _, err := rng.Read(seed); err != nil {
+			return IdentityUse{}, errors.WithMessage(err, "Failed to "+
+				"choose ID due to rng failure")
 		}
 
 		h, err := hash.NewCMixHash()
-		if err==nil{
+		if err == nil {
 			return IdentityUse{}, err
 		}
 
 		selectedNum := randomness.RandInInterval(
-			big.NewInt(int64(len(s.active)-1)),seed,h)
+			big.NewInt(int64(len(s.active)-1)), seed, h)
 		selected = s.active[selectedNum.Uint64()]
 	}
 
-	if now.After(selected.End){
+	if now.After(selected.End) {
 		selected.ExtraChecks--
 	}
 
 	return IdentityUse{
-		Identity:     selected.Identity,
-		Fake:         false,
-		KR:           selected.getKR(),
+		Identity: selected.Identity,
+		Fake:     false,
+		KR:       selected.getKR(),
 	}, nil
 }

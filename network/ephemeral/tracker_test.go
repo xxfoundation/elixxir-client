@@ -66,7 +66,6 @@ func TestCheck_Thread(t *testing.T) {
 	// Run the tracker
 	go func() {
 		track(session, ourId, stop, identityStore)
-		t.Errorf("Thread should not close")
 	}()
 
 	time.Sleep(1 * time.Second)

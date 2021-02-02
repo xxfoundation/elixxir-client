@@ -50,10 +50,6 @@ func TestCheck_Thread(t *testing.T) {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 	identityStore := NewTracker(session.Reception())
 
-	err := stop.Close(2 * time.Second)
-	if err != nil {
-		t.Errorf("Could not close thread: %v", err)
-	}
 
 	/// Store a mock initial timestamp the store
 	now := time.Now()
@@ -87,5 +83,11 @@ func TestCheck_Thread(t *testing.T) {
 	if !identityStore.IsAlreadyIdentity(identities[0]) {
 		t.Errorf("Store was not updated for newly generated identies")
 	}
+
+	err = stop.Close(3 * time.Second)
+	if err != nil {
+		t.Errorf("Could not close thread: %v", err)
+	}
+
 
 }

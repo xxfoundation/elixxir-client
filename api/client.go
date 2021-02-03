@@ -180,14 +180,122 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
+	//Open the client
 	c, err := OpenClient(storageDir, password, parameters)
 
 	if err != nil {
 		return nil, err
 	}
 
-	//execute the rest of the loading as normal
+	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
+
+	//initilize comms
+	err = c.initComms()
+	if err != nil {
+		return nil, err
+	}
+
+	//get the NDF to pass into permissioning and the network manager
+	def := c.storage.GetBaseNDF()
+
+	//initialize permissioning
+	if def.Registration.Address != ""{
+		err = c.initPermissioning(def)
+		if err != nil {
+			return nil, err
+		}
+	}else{
+		jww.WARN.Printf("Registration with permissioning skipped due to " +
+			"blank permissionign address. Client will not be able to register " +
+			"or track network.")
+	}
+
+
+	// Initialize network and link it to context
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
+		parameters, def)
+	if err != nil {
+		return nil, err
+	}
+
+	//update gateway connections
+	err = c.network.GetInstance().UpdateGatewayConnections()
+	if err != nil {
+		return nil, err
+	}
+
+	//initilize the auth tracker
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	return c, nil
+}
+
+// LoginWithNewBaseNDF_UNSAFE initializes a client object from existing storage
+// while replacing the base NDF.  This is designed for some specific deployment
+// procedures and is generally unsafe.
+func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
+	newBaseNdf string, parameters params.Network) (*Client, error) {
+	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
+
+	// Parse the NDF
+	def, err := parseNDF(newBaseNdf)
+	if err != nil {
+		return nil, err
+	}
+
+	//Open the client
+	c, err := OpenClient(storageDir, password, parameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	//Attach the services interface
+	c.services = newServiceProcessiesList(c.runner)
+
+	//initialize comms
+	err = c.initComms()
+	if err != nil {
+		return nil, err
+	}
+
+	//store the updated base NDF
+	c.storage.SetBaseNDF(def)
+
+	//initialize permissioning
+	if def.Registration.Address != ""{
+		err = c.initPermissioning(def)
+		if err != nil {
+			return nil, err
+		}
+	}else{
+		jww.WARN.Printf("Registration with permissioning skipped due to " +
+			"blank permissionign address. Client will not be able to register " +
+			"or track network.")
+	}
+
+	// Initialize network and link it to context
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
+		parameters, def)
+	if err != nil {
+		return nil, err
+	}
+
+	//update gateway connections
+	err = c.network.GetInstance().UpdateGatewayConnections()
+	if err != nil {
+		return nil, err
+	}
+
+	//initilize the auth tracker
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	return c, nil
+}
+
+func (c *Client)initComms()error{
+	var err error
 
 	//get the user from session
 	u := c.storage.User()
@@ -199,52 +307,37 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		rsa.CreatePrivateKeyPem(cryptoUser.GetRSA()),
 		cryptoUser.GetSalt())
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to load client")
+		return errors.WithMessage(err, "failed to load client")
 	}
+	return nil
+}
 
-	//get the NDF to pass into permissioning and the network manager
-	def := c.storage.GetBaseNDF()
-
+func (c *Client)initPermissioning(def *ndf.NetworkDefinition)error{
+	var err error
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to init "+
+		return errors.WithMessage(err, "failed to init "+
 			"permissioning handler")
 	}
 
 	// check the client version is up to date to the network
 	err = c.checkVersion()
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to load client")
+		return errors.WithMessage(err, "failed to load client")
 	}
 
 	//register with permissioning if necessary
-	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete  {
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
 			jww.ERROR.Printf("Client has failed registration: %s", err)
-			return nil, errors.WithMessage(err, "failed to load client")
+			return errors.WithMessage(err, "failed to load client")
 		}
 		jww.INFO.Printf("Client sucsecfully registered with the network")
 	}
-
-	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
-	if err != nil {
-		return nil, err
-	}
-
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
-
-	return c, nil
+	return nil
 }
 
 // ----- Client Functions -----

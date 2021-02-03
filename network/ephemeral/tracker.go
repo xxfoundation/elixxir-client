@@ -13,28 +13,30 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
 )
 
-const ephemeralIdSie = 64
 const validityGracePeriod = 5 * time.Minute
 const TimestampKey = "IDTrackingTimestamp"
 const ephemeralStoppable = "EphemeralCheck"
 
 // Track runs a thread which checks for past and present ephemeral ids
-func Track(session *storage.Session, ourId *id.ID, identityStore *IdentityStore) stoppable.Stoppable {
+func Track(session *storage.Session, instance *network.Instance, ourId *id.ID) stoppable.Stoppable {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
-	go track(session, ourId, stop, identityStore)
+	go track(session, instance, ourId, stop)
 
 	return stop
 }
 
 // track is a thread which continuously processes ephemeral ids.
 // If any error occurs, the thread crashes
-func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single, identityStore *IdentityStore) {
+func track(session *storage.Session, instance *network.Instance, ourId *id.ID, stop *stoppable.Single) {
+	identityStore := session.Reception()
+
 	// Get the latest timestamp from store
 	lastTimestampObj, err := session.Get(TimestampKey)
 	if err != nil {
@@ -47,9 +49,18 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single, ident
 	}
 
 	for true {
-		// Generates the IDs since the last track
 		now := time.Now()
-		protoIds, err := getUpcomingIDs(ourId, now, lastCheck)
+
+		// Pull out the round information
+		ri, err := instance.GetRound(instance.GetLastRoundID())
+		if err != nil {
+			globals.Log.FATAL.Panicf("Could not pull round information: %v", err)
+		}
+
+		// Generates the IDs since the last track
+		protoIds, err := ephemeral.GetIdsByRange(ourId, uint(ri.AddressSpaceSize),
+			now.UnixNano(), now.Sub(lastCheck))
+
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not generate "+
 				"upcoming IDs: %v", err)
@@ -61,9 +72,9 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single, ident
 		// Add identities to storage if unique
 		for _, identity := range identities {
 			// Track if identity has been generated already
-			if !identityStore.IsAlreadyIdentity(identity) {
+			if identity.StartValid.After(lastCheck) {
 				// If not not, insert identity into store
-				if err = identityStore.InsertIdentity(identity); err != nil {
+				if err = identityStore.AddIdentity(identity); err != nil {
 					globals.Log.FATAL.Panicf("Could not insert "+
 						"identity: %v", err)
 				}
@@ -104,9 +115,9 @@ func generateIdentities(protoIds []ephemeral.ProtoIdentity,
 
 	// Add identities for every ephemeral id
 	for _, eid := range protoIds {
-		// Expand the grace period
+		// Expand the grace period for both start and end
 		eid.End.Add(validityGracePeriod)
-
+		eid.Start.Add(-validityGracePeriod)
 		identities = append(identities, reception.Identity{
 			EphId:      eid.Id,
 			Source:     ourId,
@@ -141,15 +152,6 @@ func MarshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 		Timestamp: time.Now(),
 		Data:      data,
 	}, err
-}
-
-// Wrapper for GetIdsByRange. Generates ephemeral ids in the time period
-// since the last track
-func getUpcomingIDs(ourId *id.ID, now,
-	lastCheck time.Time) ([]ephemeral.ProtoIdentity, error) {
-	return ephemeral.GetIdsByRange(ourId, ephemeralIdSie,
-		now.UnixNano(), now.Sub(lastCheck))
-
 }
 
 // Helper function which calculates the time for the ticker based

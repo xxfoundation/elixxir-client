@@ -134,8 +134,8 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 		return nil, errors.Errorf("Could not store timestamp " +
 			"for ephemeral ID tracking: %v", err)
 	}
-	identityStore := ephemeral.NewTracker(m.Session.Reception())
-	multi.Add(ephemeral.Track(m.Session, m.Comms.Id, identityStore))
+
+	multi.Add(ephemeral.Track(m.Session, m.Instance, m.Comms.Id))
 
 	//set the running status back to 0 so it can be started again
 	closer := stoppable.NewCleanup(multi, func(time.Duration) error {

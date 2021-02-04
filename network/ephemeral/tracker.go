@@ -158,11 +158,11 @@ func MarshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 // off of the last ephemeral ID to expire
 func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
 	// Get the last identity in the list
-	indx := 0
-	if len(baseIDs)-1 >= 0 {
-		indx = len(baseIDs) - 1
+	index := 0
+	if len(baseIDs)-1 > 0 {
+		index = len(baseIDs) - 1
 	}
-	lastIdentity := baseIDs[indx]
+	lastIdentity := baseIDs[index]
 
 	// Factor out the grace period previously expanded upon.
 	// Calculate and return that duration

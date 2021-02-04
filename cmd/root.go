@@ -645,7 +645,7 @@ func init() {
 	viper.BindPFlag("e2eMaxKeys", rootCmd.Flags().Lookup("e2eMaxKeys"))
 	rootCmd.Flags().UintP("e2eNumReKeys",
 		"", uint(defaultE2EParams.NumRekeys),
-		"Number of rekeys held in memory at once")
+		"Number of rekeys reserved for rekey operations")
 	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
 }
 

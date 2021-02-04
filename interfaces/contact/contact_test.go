@@ -91,6 +91,7 @@ func TestContact_Marshal_Size(t *testing.T) {
 	}
 }
 
+// Unit test of getFingerprint
 func TestContact_GetFingerprint(t *testing.T) {
 	c := Contact{
 		ID:       id.NewIdFromString("Samwise", id.User, t),
@@ -123,6 +124,7 @@ func TestContact_GetFingerprint(t *testing.T) {
 
 }
 
+// Consistency test for changes in underlying dependencies
 func TestContact_GetFingerprint_Consistency(t *testing.T) {
 	expected := []string{
 		"rBUw1n4jtH4uEYq",
@@ -135,9 +137,14 @@ func TestContact_GetFingerprint_Consistency(t *testing.T) {
 		"Y6gTPVEzow4IHOm",
 		"6f/rT2vWxDC9tdt",
 		"rwqbDT+PoeA6Iww",
+		"YN4IFijP/GZ172O",
+		"ScbHVQc2T9SXQ2m",
+		"50mfbCXQ+LIqiZn",
+		"cyRYdMKXByiFdtC",
+		"7g6ujy7iIbJVl4F",
 	}
 
-	numTest := 10
+	numTest := 15
 	output := make([]string, 0)
 	for i := 0; i < numTest; i++ {
 		c := Contact{

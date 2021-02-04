@@ -8,6 +8,8 @@
 package ephemeral
 
 import (
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
@@ -36,6 +38,13 @@ func Track(session *storage.Session, instance *network.Instance, ourId *id.ID) s
 // If any error occurs, the thread crashes
 func track(session *storage.Session, instance *network.Instance, ourId *id.ID, stop *stoppable.Single) {
 	identityStore := session.Reception()
+
+	// Check that there is a timestamp in store at all
+	err := checkTimestampStore(session)
+	if err != nil {
+		jww.FATAL.Panicf("Could not store timestamp "+
+			"for ephemeral ID tracking: %v", err)
+	}
 
 	// Get the latest timestamp from store
 	lastTimestampObj, err := session.Get(TimestampKey)
@@ -83,7 +92,7 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 		}
 
 		// Generate the time stamp for storage
-		vo, err := MarshalTimestamp(now)
+		vo, err := marshalTimestamp(now)
 		if err != nil {
 			globals.Log.FATAL.Panicf("Could not marshal "+
 				"timestamp for storage: %v", err)
@@ -132,6 +141,20 @@ func generateIdentities(protoIds []ephemeral.ProtoIdentity,
 	return identities
 }
 
+// Sanitation check of timestamp store. If a value has not been stored yet
+// then the current time is stored
+func checkTimestampStore(session *storage.Session) error {
+	if _, err := session.Get(TimestampKey); err != nil {
+		now, err := marshalTimestamp(time.Now())
+		if err != nil {
+			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
+		}
+		return session.Set(TimestampKey, now)
+	}
+
+	return nil
+}
+
 // Takes the stored timestamp and unmarshal into a time object
 func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 	if lastTimestampObj == nil || lastTimestampObj.Data == nil {
@@ -144,7 +167,7 @@ func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 }
 
 // Marshals the timestamp for ekv storage. Generates a storable object
-func MarshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
+func marshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 	data, err := timeToStore.MarshalBinary()
 
 	return &versioned.Object{

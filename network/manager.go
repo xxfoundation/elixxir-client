@@ -128,13 +128,6 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	// Ephemeral ID tracking
-	err = checkTimestampStore(m.Session)
-	if err != nil {
-		return nil, errors.Errorf("Could not store timestamp " +
-			"for ephemeral ID tracking: %v", err)
-	}
-
 	multi.Add(ephemeral.Track(m.Session, m.Instance, m.Comms.Id))
 
 	//set the running status back to 0 so it can be started again
@@ -146,20 +139,6 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	})
 
 	return closer, nil
-}
-
-// Sanitation check of timestamp store. If a value has not been stored yet
-// then the current time is stored
-func checkTimestampStore(session *storage.Session) error {
-	if _, err := session.Get(ephemeral.TimestampKey); err != nil {
-		now, err := ephemeral.MarshalTimestamp(time.Now())
-		if err != nil {
-			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
-		}
-		return session.Set(ephemeral.TimestampKey, now)
-	}
-
-	return nil
 }
 
 // GetHealthTracker returns the health tracker

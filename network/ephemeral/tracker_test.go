@@ -36,7 +36,7 @@ func TestCheck(t *testing.T) {
 	/// Store a mock initial timestamp the store
 	now := time.Now()
 	twoDaysAgo := now.Add(-2 * 24 * time.Hour)
-	twoDaysTimestamp, err := MarshalTimestamp(twoDaysAgo)
+	twoDaysTimestamp, err := marshalTimestamp(twoDaysAgo)
 	if err != nil {
 		t.Errorf("Could not marshal timestamp for test setup: %v", err)
 	}
@@ -69,7 +69,7 @@ func TestCheck_Thread(t *testing.T) {
 	/// Store a mock initial timestamp the store
 	now := time.Now()
 	yesterday := now.Add(-24 * time.Hour)
-	yesterdayTimestamp, err := MarshalTimestamp(yesterday)
+	yesterdayTimestamp, err := marshalTimestamp(yesterday)
 	if err != nil {
 		t.Errorf("Could not marshal timestamp for test setup: %v", err)
 	}

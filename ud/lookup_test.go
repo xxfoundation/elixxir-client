@@ -360,10 +360,6 @@ func (t *testNetworkManager) GetInstance() *network.Instance {
 	return t.instance
 }
 
-func (t *testNetworkManager) GetE2EParams() params.E2ESessionParams {
-	return params.GetDefaultE2ESessionParams()
-}
-
 func (t *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {
 	return nil
 }

@@ -79,10 +79,4 @@ func Test_GetDefaultParams(t *testing.T) {
 	if p.NumRekeys != numReKeys {
 		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.NumRekeys, numReKeys)
 	}
-	if p.TTLScalar != ttlScalar {
-		t.Errorf("MinKeys mismatch\r\tGot: %v\r\tExpected: %v", p.TTLScalar, ttlScalar)
-	}
-	if p.MinNumKeys != threshold {
-		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MinNumKeys, threshold)
-	}
 }

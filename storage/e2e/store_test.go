@@ -31,6 +31,7 @@ func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	fingerprints := newFingerprints()
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	e2eP := params.GetDefaultE2ESessionParams()
 	expectedStore := &Store{
 		managers:     make(map[id.ID]*Manager),
 		dhPrivateKey: privKey,
@@ -44,6 +45,7 @@ func TestNewStore(t *testing.T) {
 			rng:  rng,
 			myID: &id.ID{},
 		},
+		e2eParams: e2eP,
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {

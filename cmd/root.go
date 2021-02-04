@@ -213,6 +213,10 @@ func createClient() *api.Client {
 	}
 
 	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
@@ -233,10 +237,6 @@ func initClient() *api.Client {
 	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
 	netParams.E2EParams.NumRekeys = uint16(
 		viper.GetUint("e2eNumReKeys"))
-	netParams.E2EParams.TTLParams.TTLScalar = float64(
-		viper.GetUint("e2eTTLScalar"))
-	netParams.E2EParams.TTLParams.MinNumKeys = uint16(
-		viper.GetUint("e2eTTLMinNumKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 
 	//load the client
@@ -647,16 +647,6 @@ func init() {
 		"", uint(defaultE2EParams.NumRekeys),
 		"Number of rekeys held in memory at once")
 	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
-	rootCmd.Flags().Float64P("e2eTTLScalar",
-		"", defaultE2EParams.TTLParams.TTLScalar,
-		"Time to live key retrigger setting")
-	viper.BindPFlag("e2eTTLScalar", rootCmd.Flags().Lookup("e2eTTLScalar"))
-	rootCmd.Flags().UintP("e2eTTLMinNumKeys",
-		"", uint(defaultE2EParams.TTLParams.MinNumKeys),
-		"Minimum number of keys used in the TTL")
-	viper.BindPFlag("e2eTTLMinNumKeys",
-		rootCmd.Flags().Lookup("e2eTTLMinNumKeys"))
-
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -89,9 +89,10 @@ func GetDefaultE2ESessionParams() E2ESessionParams {
 		MinKeys:   minKeys,
 		MaxKeys:   maxKeys,
 		NumRekeys: numReKeys,
-		TTLParams: e2e.TTLParams{
-			TTLScalar:  ttlScalar,
-			MinNumKeys: threshold,
-		},
 	}
+}
+
+func (p E2ESessionParams) String() string {
+	return fmt.Sprintf("Params{ MinKeys: %d, MaxKeys: %d, NumRekeys: %d }",
+		p.MinKeys, p.MaxKeys, p.NumRekeys)
 }

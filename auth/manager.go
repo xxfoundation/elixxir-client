@@ -28,14 +28,13 @@ type Manager struct {
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager, e2eParams params.E2ESessionParams) *Manager {
+	net interfaces.NetworkManager) *Manager {
 	m := &Manager{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),
 		rawMessages:      make(chan message.Receive, 1000),
 		storage:          storage,
 		net:              net,
-		params:           e2eParams,
 	}
 
 	sw.RegisterChannel("Auth", switchboard.AnyUser(), message.Raw, m.rawMessages)
@@ -91,8 +90,4 @@ func (m *Manager) AddSpecificConfirmCallback(id *id.ID, cb interfaces.ConfirmCal
 // Removes a specific callback to be used on auth confirm.
 func (m *Manager) RemoveSpecificConfirmCallback(id *id.ID) {
 	m.confirmCallbacks.RemoveSpecific(id)
-}
-
-func (m *Manager) GetE2EParams() params.E2ESessionParams {
-	return m.params
 }

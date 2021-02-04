@@ -17,9 +17,10 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -548,14 +549,17 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
 
 	p := s.e2eParams
+	h, _ := hash.NewCMixHash()
 
 	//generate ttl and keying info
-	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
-		p.MinKeys, p.MaxKeys, p.TTLParams)
+	numKeys := uint32(randomness.RandInInterval(big.NewInt(
+		int64(p.MaxKeys-p.MinKeys)),
+		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
+	keysTTL := uint32(p.NumRekeys)
 
 	//ensure that enough keys are remaining to rekey
 	if numKeys-uint32(keysTTL) < uint32(p.NumRekeys) {
-		numKeys = uint32(keysTTL + p.NumRekeys)
+		numKeys = uint32(keysTTL) + uint32(p.NumRekeys)
 	}
 
 	s.ttl = uint32(keysTTL)
@@ -594,8 +598,4 @@ func (s *Session) getUnusedKeys() []*Key {
 //builds the
 func makeSessionPrefix(sid SessionID) string {
 	return fmt.Sprintf(sessionPrefix, sid)
-}
-
-func (s *Session) GetE2EParams() params.E2ESessionParams {
-	return s.e2eParams
 }

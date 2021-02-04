@@ -46,8 +46,7 @@ type manager struct {
 	message *message.Manager
 
 	//atomic denotes if the network is running
-	running   *uint32
-	e2eParams params.E2ESessionParams
+	running *uint32
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -63,6 +62,11 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	}
 
 	running := uint32(0)
+
+	// Note: These are not loaded/stored in E2E Store, but the
+	// E2E Session Params are a part of the network parameters, so we
+	// set them here when they are needed on startup
+	session.E2e().SetE2ESessionParams(params.E2EParams)
 
 	//create manager object
 	m := manager{
@@ -154,8 +158,4 @@ func (m *manager) GetInstance() *network.Instance {
 // received early or arrived out of order
 func (m *manager) CheckGarbledMessages() {
 	m.message.CheckGarbledMessages()
-}
-
-func (m *manager) GetE2EParams() params.E2ESessionParams {
-	return m.e2eParams
 }

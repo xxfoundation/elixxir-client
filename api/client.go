@@ -242,9 +242,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	//initilize the auth tracker
-	authE2EParams := parameters.E2EParams
-	c.auth = auth.NewManager(c.switchboard, c.storage, c.network,
-		authE2EParams)
+	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
 }

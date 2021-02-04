@@ -105,7 +105,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// messages does not occur
 
 	//create local relationship
-	p := net.GetE2EParams()
+	p := storage.E2e().GetE2ESessionParams()
 	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
 		p, p); err != nil {
 		storage.Auth().Fail(partner.ID)

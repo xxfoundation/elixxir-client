@@ -25,6 +25,8 @@ type Network struct {
 	Rounds
 	Messages
 	Rekey
+
+	E2EParams E2ESessionParams
 }
 
 func GetDefaultNetwork() Network {
@@ -33,6 +35,7 @@ func GetDefaultNetwork() Network {
 		MaxCheckedRounds:     500,
 		RegNodesBufferLen:    500,
 		NetworkHealthTimeout: 30 * time.Second,
+		E2EParams:            GetDefaultE2ESessionParams(),
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

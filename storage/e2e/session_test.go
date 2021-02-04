@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"errors"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -38,7 +39,7 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 	//build the session
 	s := &Session{
 		partnerPubKey: partnerPubKey,
-		params:        GetDefaultSessionParams(),
+		e2eParams:     params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
@@ -99,7 +100,7 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 	s := &Session{
 		myPrivKey:     myPrivKey,
 		partnerPubKey: partnerPubKey,
-		params:        GetDefaultSessionParams(),
+		e2eParams:     params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{ctx: ctx},
 		},
@@ -147,7 +148,7 @@ func TestNewSession(t *testing.T) {
 	// Make a new session with the variables we got from makeTestSession
 	sessionB := newSession(sessionA.relationship, sessionA.t, sessionA.myPrivKey,
 		sessionA.partnerPubKey, sessionA.baseKey, sessionA.GetID(), []byte(""),
-		sessionA.params)
+		sessionA.e2eParams)
 
 	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {
@@ -252,19 +253,19 @@ func cmpSerializedFields(a *Session, b *Session) error {
 	if a.t != b.t {
 		return errors.New("t differed")
 	}
-	if a.params.MaxKeys != b.params.MaxKeys {
+	if a.e2eParams.MaxKeys != b.e2eParams.MaxKeys {
 		return errors.New("maxKeys differed")
 	}
-	if a.params.MinKeys != b.params.MinKeys {
+	if a.e2eParams.MinKeys != b.e2eParams.MinKeys {
 		return errors.New("minKeys differed")
 	}
-	if a.params.NumRekeys != b.params.NumRekeys {
+	if a.e2eParams.NumRekeys != b.e2eParams.NumRekeys {
 		return errors.New("numRekeys differed")
 	}
-	if a.params.MinNumKeys != b.params.MinNumKeys {
+	if a.e2eParams.MinNumKeys != b.e2eParams.MinNumKeys {
 		return errors.New("minNumKeys differed")
 	}
-	if a.params.TTLScalar != b.params.TTLScalar {
+	if a.e2eParams.TTLScalar != b.e2eParams.TTLScalar {
 		return errors.New("ttlScalar differed")
 	}
 	if a.baseKey.Cmp(b.baseKey) != 0 {
@@ -621,7 +622,7 @@ func makeTestSession() (*Session, *context) {
 		baseKey:       baseKey,
 		myPrivKey:     myPrivKey,
 		partnerPubKey: partnerPubKey,
-		params:        GetDefaultSessionParams(),
+		e2eParams:     params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{
 				ctx: ctx,

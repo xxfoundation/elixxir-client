@@ -213,6 +213,10 @@ func createClient() *api.Client {
 	}
 
 	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
@@ -229,6 +233,10 @@ func initClient() *api.Client {
 	storeDir := viper.GetString("session")
 
 	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 
 	//load the client
@@ -624,6 +632,21 @@ func init() {
 		"Force all rounds to be sent to historical round retrieval")
 	viper.BindPFlag("forceHistoricalRounds",
 		rootCmd.Flags().Lookup("forceHistoricalRounds"))
+
+	// E2E Params
+	defaultE2EParams := params.GetDefaultE2ESessionParams()
+	rootCmd.Flags().UintP("e2eMinKeys",
+		"", uint(defaultE2EParams.MinKeys),
+		"Minimum number of keys used before requesting rekey")
+	viper.BindPFlag("MinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
+	rootCmd.Flags().UintP("e2eMaxKeys",
+		"", uint(defaultE2EParams.MaxKeys),
+		"Max keys used before blocking until a rekey completes")
+	viper.BindPFlag("e2eMaxKeys", rootCmd.Flags().Lookup("e2eMaxKeys"))
+	rootCmd.Flags().UintP("e2eNumReKeys",
+		"", uint(defaultE2EParams.NumRekeys),
+		"Number of rekeys reserved for rekey operations")
+	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
 }
 
 // initConfig reads in config file and ENV variables if set.

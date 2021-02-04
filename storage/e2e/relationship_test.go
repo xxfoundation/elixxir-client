@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -19,7 +20,7 @@ import (
 // Subtest: unmarshal/marshal with one session in the buff
 func TestRelationship_MarshalUnmarshal(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 
 	// Serialization should include session slice only
 	serialized, err := sb.marshal()
@@ -49,7 +50,7 @@ func TestRelationship_MarshalUnmarshal(t *testing.T) {
 // Shows that Relationship returns an equivalent session buff to the one that was saved
 func TestLoadRelationship(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 
 	err := sb.save()
 	if err != nil {
@@ -69,7 +70,7 @@ func TestLoadRelationship(t *testing.T) {
 // Shows that Relationship returns a valid session buff
 func TestNewRelationshipBuff(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	if mgr != sb.manager {
 		t.Error("managers should be identical")
 	}
@@ -86,7 +87,7 @@ func TestNewRelationshipBuff(t *testing.T) {
 // Shows that AddSession adds one session to the relationship
 func TestRelationship_AddSession(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	if len(sb.sessions) != 1 {
 		t.Error("starting session slice length should be 1")
 	}
@@ -99,7 +100,7 @@ func TestRelationship_AddSession(t *testing.T) {
 	// should have been created using the same relationship (which is not the case in
 	// this test.)
 	sb.AddSession(session.myPrivKey, session.partnerPubKey, nil,
-		session.partnerSource, session.params)
+		session.partnerSource, session.e2eParams)
 	if len(sb.sessions) != 2 {
 		t.Error("ending session slice length should be 2")
 	}
@@ -114,7 +115,7 @@ func TestRelationship_AddSession(t *testing.T) {
 // GetNewest should get the session that was most recently added to the buff
 func TestRelationship_GetNewest(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	// The newest session should be nil upon session buffer creation
 	nilSession := sb.GetNewest()
 	if nilSession == nil {
@@ -124,14 +125,14 @@ func TestRelationship_GetNewest(t *testing.T) {
 
 	session, _ := makeTestSession()
 	sb.AddSession(session.myPrivKey, session.partnerPubKey, nil,
-		session.partnerSource, session.params)
+		session.partnerSource, session.e2eParams)
 	if session.GetID() != sb.GetNewest().GetID() {
 		t.Error("session added should have same ID")
 	}
 
 	session2, _ := makeTestSession()
 	sb.AddSession(session2.myPrivKey, session2.partnerPubKey, nil,
-		session2.partnerSource, session2.params)
+		session2.partnerSource, session.e2eParams)
 	if session2.GetID() != sb.GetNewest().GetID() {
 		t.Error("session added should have same ID")
 	}
@@ -141,11 +142,11 @@ func TestRelationship_GetNewest(t *testing.T) {
 // Shows that Confirm confirms the specified session in the buff
 func TestRelationship_Confirm(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	session, _ := makeTestSession()
 
 	sb.AddSession(session.myPrivKey, session.partnerPubKey, nil,
-		session.partnerSource, session.params)
+		session.partnerSource, session.e2eParams)
 	sb.sessions[1].negotiationStatus = Sent
 
 	if sb.sessions[1].IsConfirmed() {
@@ -165,7 +166,7 @@ func TestRelationship_Confirm(t *testing.T) {
 // Shows that the session buff returns an error when the session doesn't exist
 func TestRelationship_Confirm_Err(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	session, _ := makeTestSession()
 
 	err := sb.Confirm(session.GetID())
@@ -177,10 +178,10 @@ func TestRelationship_Confirm_Err(t *testing.T) {
 // Shows that a session can get got by ID from the buff
 func TestRelationship_GetByID(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	session, _ := makeTestSession()
 	session = sb.AddSession(session.myPrivKey, session.partnerPubKey, nil,
-		session.partnerSource, session.params)
+		session.partnerSource, session.e2eParams)
 	session2 := sb.GetByID(session.GetID())
 	if !reflect.DeepEqual(session, session2) {
 		t.Error("gotten session should be the same")
@@ -191,7 +192,7 @@ func TestRelationship_GetByID(t *testing.T) {
 // returning sessions that are confirmed and past ttl
 func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	sb.sessions[0].negotiationStatus = Unconfirmed
 	// no available rekeyable sessions: nil
 	session2 := sb.getNewestRekeyableSession()
@@ -202,7 +203,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	// add a rekeyable session: that session
 	session, _ := makeTestSession()
 	sb.AddSession(session.myPrivKey, session.partnerPubKey, session.baseKey,
-		session.partnerSource, session.params)
+		session.partnerSource, session.e2eParams)
 	sb.sessions[0].negotiationStatus = Confirmed
 	session3 := sb.getNewestRekeyableSession()
 
@@ -217,7 +218,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	additionalSession, _ := makeTestSession()
 	sb.AddSession(additionalSession.myPrivKey, additionalSession.partnerPubKey,
 		additionalSession.partnerPubKey, additionalSession.partnerSource,
-		additionalSession.params)
+		additionalSession.e2eParams)
 
 	sb.sessions[0].negotiationStatus = Confirmed
 
@@ -243,7 +244,7 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 // Shows that GetSessionForSending follows the hierarchy of sessions correctly
 func TestRelationship_GetSessionForSending(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 
 	sb.sessions = make([]*Session, 0)
 	sb.sessionByID = make(map[SessionID]*Session)
@@ -258,7 +259,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 
 	sb.AddSession(unconfirmedRekey.myPrivKey, unconfirmedRekey.partnerPubKey,
 		unconfirmedRekey.partnerPubKey, unconfirmedRekey.partnerSource,
-		unconfirmedRekey.params)
+		unconfirmedRekey.e2eParams)
 	sb.sessions[0].negotiationStatus = Unconfirmed
 	sb.sessions[0].keyState.numAvailable = 600
 	sending := sb.getSessionForSending()
@@ -271,7 +272,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 
 	sb.AddSession(unconfirmedActive.myPrivKey, unconfirmedActive.partnerPubKey,
 		unconfirmedActive.partnerPubKey, unconfirmedActive.partnerSource,
-		unconfirmedActive.params)
+		unconfirmedActive.e2eParams)
 	sb.sessions[0].negotiationStatus = Unconfirmed
 	sb.sessions[0].keyState.numAvailable = 2000
 	sending = sb.getSessionForSending()
@@ -284,7 +285,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 
 	sb.AddSession(confirmedRekey.myPrivKey, confirmedRekey.partnerPubKey,
 		confirmedRekey.partnerPubKey, confirmedRekey.partnerSource,
-		confirmedRekey.params)
+		confirmedRekey.e2eParams)
 	sb.sessions[0].negotiationStatus = Confirmed
 	sb.sessions[0].keyState.numAvailable = 600
 	sending = sb.getSessionForSending()
@@ -296,7 +297,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	confirmedActive, _ := makeTestSession()
 	sb.AddSession(confirmedActive.myPrivKey, confirmedActive.partnerPubKey,
 		confirmedActive.partnerPubKey, confirmedActive.partnerSource,
-		confirmedActive.params)
+		confirmedActive.e2eParams)
 
 	sb.sessions[0].negotiationStatus = Confirmed
 	sb.sessions[0].keyState.numAvailable = 2000
@@ -309,7 +310,7 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 // Shows that GetKeyForRekey returns a key if there's an appropriate session for rekeying
 func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 
 	sb.sessions = make([]*Session, 0)
 	sb.sessionByID = make(map[SessionID]*Session)
@@ -326,7 +327,7 @@ func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 	session, _ := makeTestSession()
 	sb.AddSession(session.myPrivKey, session.partnerPubKey,
 		session.partnerPubKey, session.partnerSource,
-		session.params)
+		session.e2eParams)
 	sb.sessions[0].negotiationStatus = Confirmed
 	key, err = sb.getKeyForRekey()
 	if err != nil {
@@ -340,7 +341,7 @@ func TestSessionBuff_GetKeyForRekey(t *testing.T) {
 // Shows that GetKeyForSending returns a key if there's an appropriate session for sending
 func TestSessionBuff_GetKeyForSending(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 
 	sb.sessions = make([]*Session, 0)
 	sb.sessionByID = make(map[SessionID]*Session)
@@ -357,7 +358,7 @@ func TestSessionBuff_GetKeyForSending(t *testing.T) {
 	session, _ := makeTestSession()
 	sb.AddSession(session.myPrivKey, session.partnerPubKey,
 		session.partnerPubKey, session.partnerSource,
-		session.params)
+		session.e2eParams)
 	key, err = sb.getKeyForSending()
 	if err != nil {
 		t.Error(err)
@@ -370,14 +371,14 @@ func TestSessionBuff_GetKeyForSending(t *testing.T) {
 // Shows that TriggerNegotiation sets up for negotiation correctly
 func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
-	sb := NewRelationship(mgr, Send, GetDefaultSessionParams())
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
 	sb.sessions = make([]*Session, 0)
 	sb.sessionByID = make(map[SessionID]*Session)
 
 	session, _ := makeTestSession()
 	session = sb.AddSession(session.myPrivKey, session.partnerPubKey,
 		session.partnerPubKey, session.partnerSource,
-		session.params)
+		session.e2eParams)
 	session.negotiationStatus = Confirmed
 	// The added session isn't ready for rekey so it's not returned here
 	negotiations := sb.TriggerNegotiation()
@@ -388,7 +389,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 	// Make only a few keys available to trigger the ttl
 	session2 = sb.AddSession(session2.myPrivKey, session2.partnerPubKey,
 		session2.partnerPubKey, session2.partnerSource,
-		session2.params)
+		session2.e2eParams)
 	session2.keyState.numAvailable = 4
 	session2.negotiationStatus = Confirmed
 	negotiations = sb.TriggerNegotiation()
@@ -410,7 +411,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 
 	session3 = sb.AddSession(session3.myPrivKey, session3.partnerPubKey,
 		session3.partnerPubKey, session3.partnerSource,
-		session3.params)
+		session3.e2eParams)
 	session3.negotiationStatus = Unconfirmed
 
 	// Set session 2 status back to Confirmed to show that more than one session can be returned

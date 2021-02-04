@@ -10,7 +10,6 @@ package auth
 import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/xx_network/primitives/id"
@@ -24,7 +23,6 @@ type Manager struct {
 
 	storage *storage.Session
 	net     interfaces.NetworkManager
-	params  params.E2ESessionParams
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,

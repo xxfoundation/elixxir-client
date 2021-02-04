@@ -250,7 +250,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not
-	p := m.params
+	p := m.storage.E2e().GetE2ESessionParams()
 	if err := m.storage.E2e().AddPartner(sr.GetPartner(),
 		partnerPubKey, sr.GetMyPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+

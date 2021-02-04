@@ -81,7 +81,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 
 	//create the new session
 	session, duplicate := partner.NewReceiveSession(PartnerPublicKey,
-		e2e.GetDefaultSessionParams(), oldSession)
+		params.GetDefaultE2ESessionParams(), oldSession)
 	// new session being nil means the session was a duplicate. This is possible
 	// in edge cases where the partner crashes during operation. The session
 	// creation in this case ignores the new session, but the confirmation

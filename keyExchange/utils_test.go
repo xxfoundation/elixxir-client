@@ -98,6 +98,10 @@ func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 	return &stoppable.Multi{}
 }
 
+func (t *testNetworkManagerGeneric) GetE2EParams() params.E2ESessionParams {
+	return params.GetDefaultE2ESessionParams()
+}
+
 func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
 	switch i.(type) {
 	case *testing.T:
@@ -145,6 +149,10 @@ func (t *testNetworkManagerFullExchange) Follow() (stoppable.Stoppable, error) {
 
 func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
 	return
+}
+
+func (t *testNetworkManagerFullExchange) GetE2EParams() params.E2ESessionParams {
+	return params.GetDefaultE2ESessionParams()
 }
 
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation

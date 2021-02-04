@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -90,7 +91,7 @@ func TestStore_AddPartner(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
-	p := GetDefaultSessionParams()
+	p := params.GetDefaultE2ESessionParams()
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
 
@@ -112,7 +113,7 @@ func TestStore_GetPartner(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
-	p := GetDefaultSessionParams()
+	p := params.GetDefaultE2ESessionParams()
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
 	s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)

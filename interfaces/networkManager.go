@@ -25,6 +25,7 @@ type NetworkManager interface {
 	GetHealthTracker() HealthTracker
 	Follow() (stoppable.Stoppable, error)
 	CheckGarbledMessages()
+	GetE2EParams() params.E2ESessionParams
 }
 
 //for use in key exchange which needs to be callable inside of network

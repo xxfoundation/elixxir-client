@@ -10,6 +10,7 @@ package auth
 import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/xx_network/primitives/id"
@@ -23,16 +24,18 @@ type Manager struct {
 
 	storage *storage.Session
 	net     interfaces.NetworkManager
+	params  params.E2ESessionParams
 }
 
 func NewManager(sw interfaces.Switchboard, storage *storage.Session,
-	net interfaces.NetworkManager) *Manager {
+	net interfaces.NetworkManager, e2eParams params.E2ESessionParams) *Manager {
 	m := &Manager{
 		requestCallbacks: newCallbackMap(),
 		confirmCallbacks: newCallbackMap(),
 		rawMessages:      make(chan message.Receive, 1000),
 		storage:          storage,
 		net:              net,
+		params:           e2eParams,
 	}
 
 	sw.RegisterChannel("Auth", switchboard.AnyUser(), message.Raw, m.rawMessages)
@@ -88,4 +91,8 @@ func (m *Manager) AddSpecificConfirmCallback(id *id.ID, cb interfaces.ConfirmCal
 // Removes a specific callback to be used on auth confirm.
 func (m *Manager) RemoveSpecificConfirmCallback(id *id.ID) {
 	m.confirmCallbacks.RemoveSpecific(id)
+}
+
+func (m *Manager) GetE2EParams() params.E2ESessionParams {
+	return m.params
 }

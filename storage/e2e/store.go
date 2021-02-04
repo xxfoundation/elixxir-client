@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -154,7 +155,7 @@ func (s *Store) save() error {
 }
 
 func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
-	sendParams, receiveParams SessionParams) error {
+	sendParams, receiveParams params.E2ESessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 

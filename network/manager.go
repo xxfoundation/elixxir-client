@@ -46,7 +46,8 @@ type manager struct {
 	message *message.Manager
 
 	//atomic denotes if the network is running
-	running *uint32
+	running   *uint32
+	e2eParams params.E2ESessionParams
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -153,4 +154,8 @@ func (m *manager) GetInstance() *network.Instance {
 // received early or arrived out of order
 func (m *manager) CheckGarbledMessages() {
 	m.message.CheckGarbledMessages()
+}
+
+func (m *manager) GetE2EParams() params.E2ESessionParams {
+	return m.e2eParams
 }

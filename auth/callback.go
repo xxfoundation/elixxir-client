@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/auth"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -251,7 +250,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not
-	p := e2e.GetDefaultSessionParams()
+	p := m.params
 	if err := m.storage.E2e().AddPartner(sr.GetPartner(),
 		partnerPubKey, sr.GetMyPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+

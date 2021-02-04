@@ -66,3 +66,23 @@ func TestGetE2EParameters_Default(t *testing.T) {
 		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, p.RoundTries)
 	}
 }
+
+// Test that the GetDefaultParams function returns the right default data
+func Test_GetDefaultParams(t *testing.T) {
+	p := GetDefaultE2ESessionParams()
+	if p.MinKeys != minKeys {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MinKeys, minKeys)
+	}
+	if p.MaxKeys != maxKeys {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MaxKeys, maxKeys)
+	}
+	if p.NumRekeys != numReKeys {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.NumRekeys, numReKeys)
+	}
+	if p.TTLScalar != ttlScalar {
+		t.Errorf("MinKeys mismatch\r\tGot: %v\r\tExpected: %v", p.TTLScalar, ttlScalar)
+	}
+	if p.MinNumKeys != threshold {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MinNumKeys, threshold)
+	}
+}

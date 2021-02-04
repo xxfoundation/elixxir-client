@@ -11,50 +11,49 @@ func TestIdentityUse_SetSamplingPeriod(t *testing.T) {
 
 	const numTests = 1000
 
-	for i:=0;i<numTests;i++{
-		//generate an identity use
+	for i := 0; i < numTests; i++ {
+		// Generate an identity use
 		start := randate()
-		end := start.Add(time.Duration(rand.Uint64()%uint64(92*time.Hour)))
-		mask := time.Duration(rand.Uint64()%uint64(92*time.Hour))
+		end := start.Add(time.Duration(rand.Uint64() % uint64(92*time.Hour)))
+		mask := time.Duration(rand.Uint64() % uint64(92*time.Hour))
 		iu := IdentityUse{
-			Identity:     Identity{
+			Identity: Identity{
 				StartValid:  start,
 				EndValid:    end,
 				RequestMask: mask,
 			},
 		}
 
-		//generate the sampling period
+		// Generate the sampling period
 		var err error
 		iu, err = iu.setSamplingPeriod(rng)
-		if err!=nil{
-			t.Errorf("Errored in generatign sampling " +
+		if err != nil {
+			t.Errorf("Errored in generatign sampling "+
 				"period on interation %v: %+v", i, err)
 		}
 
-		//test that the range between the periods is correct
+		// Test that the range between the periods is correct
 		resultRange := iu.EndRequest.Sub(iu.StartRequest)
 		expectedRange := iu.EndValid.Sub(iu.StartValid) + iu.RequestMask
 
 		if resultRange != expectedRange {
-			t.Errorf("The generated sampling period is of the wrong " +
+			t.Errorf("The generated sampling period is of the wrong "+
 				"size: Expecterd: %s, Received: %s", expectedRange, resultRange)
 		}
 
-		//test the sampling range does not exceed a reasonable lower bound
+		// Test the sampling range does not exceed a reasonable lower bound
 		lowerBound := iu.StartValid.Add(-iu.RequestMask)
-		if !iu.StartRequest.After(lowerBound){
-			t.Errorf("Start request exceeds the reasonable lower " +
+		if !iu.StartRequest.After(lowerBound) {
+			t.Errorf("Start request exceeds the reasonable lower "+
 				"bound: \n\t Bound: %s\n\t Start: %s", lowerBound, iu.StartValid)
 		}
 
-		//test the sampling range does not exceed a reasonable upper bound
-		upperBound := iu.EndValid.Add(iu.RequestMask-time.Millisecond)
-		if iu.EndRequest.After(upperBound){
+		// Test the sampling range does not exceed a reasonable upper bound
+		upperBound := iu.EndValid.Add(iu.RequestMask - time.Millisecond)
+		if iu.EndRequest.After(upperBound) {
 			t.Errorf("End request exceeds the reasonable upper bound")
 		}
 	}
-
 
 }
 

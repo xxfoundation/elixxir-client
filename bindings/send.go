@@ -30,8 +30,13 @@ import (
 // This will return the round the message was sent on if it is successfully sent
 // This can be used to register a round event to learn about message delivery.
 // on failure a round id of -1 is returned
-// todo- return the ephemeral ID
-func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
+func (c *Client) SendCmix(recipient, contents []byte, parameters string) (int, error) {
+	p, err := params.GetCMIXParameters(parameters)
+	if err != nil {
+		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+			err))
+	}
+
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
 		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
@@ -44,7 +49,7 @@ func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 			err))
 	}
 
-	rid, _, err := c.api.SendCMIX(msg, u, params.GetDefaultCMIX())
+	rid, _, err := c.api.SendCMIX(msg, u, p)
 	if err != nil {
 		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
 			err))
@@ -61,7 +66,12 @@ func (c *Client) SendCmix(recipient, contents []byte) (int, error) {
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types with custom types
 func (c *Client) SendUnsafe(recipient, payload []byte,
-	messageType int) (*RoundList, error) {
+	messageType int, parameters string) (*RoundList, error) {
+	p, err := params.GetUnsafeParameters(parameters)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafe: %+v",
+			err))
+	}
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafe: %+v",
@@ -74,7 +84,7 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 		MessageType: message.Type(messageType),
 	}
 
-	rids, err := c.api.SendUnsafe(m, params.GetDefaultUnsafe())
+	rids, err := c.api.SendUnsafe(m, p)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to sendUnsafe: %+v",
 			err))
@@ -89,7 +99,12 @@ func (c *Client) SendUnsafe(recipient, payload []byte,
 //
 // Message Types can be found in client/interfaces/message/type.go
 // Make sure to not conflict with ANY default message types
-func (c *Client) SendE2E(recipient, payload []byte, messageType int) (*SendReport, error) {
+func (c *Client) SendE2E(recipient, payload []byte, messageType int, parameters string) (*SendReport, error) {
+	p, err := params.GetE2EParameters(parameters)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Failed SendE2E: %+v", err))
+	}
+
 	u, err := id.Unmarshal(recipient)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed SendE2E: %+v", err))
@@ -101,7 +116,7 @@ func (c *Client) SendE2E(recipient, payload []byte, messageType int) (*SendRepor
 		MessageType: message.Type(messageType),
 	}
 
-	rids, mid, err := c.api.SendE2E(m, params.GetDefaultE2E())
+	rids, mid, err := c.api.SendE2E(m, p)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed SendE2E: %+v", err))
 	}

@@ -36,6 +36,11 @@ type sendCmixCommsInterface interface {
 const sendTimeBuffer = uint64(100 * time.Millisecond)
 
 // WARNING: Potentially Unsafe
+// Public manager function to send a message over CMIX
+func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
+	return sendCmixHelper(msg, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.Uid, m.Comms)
+}
+
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
 // this call, see SendE2E for End to End encryption and full privacy protection
 // Internal SendCmix which bypasses the network check, will attempt to send to
@@ -44,11 +49,6 @@ const sendTimeBuffer = uint64(100 * time.Millisecond)
 // If the message is successfully sent, the id of the round sent it is returned,
 // which can be registered with the network instance to get a callback on
 // its status
-func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
-	return sendCmixHelper(msg, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.Uid, m.Comms)
-}
-
-// Attempt to send a message over cmix
 func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway, rng *fastRNG.StreamGenerator, senderId *id.ID,
 	comms sendCmixCommsInterface) (id.Round, ephemeral.Id, error) {

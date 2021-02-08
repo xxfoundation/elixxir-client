@@ -26,8 +26,10 @@ const defaultIDSize = 12
 
 type Store struct {
 	// Identities which are being actively checked
-	active []*registration
-	idSize int
+	active      []*registration
+	idSize      int
+	sync.Once
+	idSizeLock sync.Mutex
 
 	kv *versioned.KV
 
@@ -47,6 +49,7 @@ func NewStore(kv *versioned.KV) *Store {
 		active: make([]*registration, 0),
 		idSize: defaultIDSize * 2,
 		kv:     kv,
+		Once: sync.Once{},
 	}
 
 	// Store the empty list
@@ -56,6 +59,7 @@ func NewStore(kv *versioned.KV) *Store {
 
 	// Update the size so queries can be made
 	s.UpdateIdSize(defaultIDSize)
+	s.idSizeLock.Lock()
 
 	return s
 }
@@ -229,6 +233,12 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 func (s *Store) UpdateIdSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
+	// Unlock the size lock once set after default initialization
+	s.Once.Do(func() {
+		s.idSizeLock.Unlock()
+	})
+
 	if s.idSize == int(idSize) {
 		return
 	}

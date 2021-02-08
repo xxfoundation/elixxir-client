@@ -45,7 +45,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	}
 
 	//find filters that could have the round
-	var potentialFilters []*bloom.Bloom
+	var potentialFilters []*bloom.Ring
 
 	for _, filter := range filters {
 		if filter.FirstRound() <= roundID && filter.LastRound() >= roundID {

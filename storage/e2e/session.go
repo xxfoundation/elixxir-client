@@ -562,7 +562,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 		numKeys = keysTTL + uint32(p.NumRekeys)
 	}
 
-	s.ttl = uint32(s.params.NumRekeys)
+	s.ttl = uint32(s.e2eParams.NumRekeys)
 
 	//create the new state vectors. This will cause disk operations storing them
 

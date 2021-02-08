@@ -64,7 +64,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	}, nil)
 
 	e2ekv := i.Session.E2e()
-	err = e2ekv.AddPartner(sess2.GetUser().ID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+	err = e2ekv.AddPartner(sess2.GetUser().ReceptionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())
 	if err != nil {
@@ -72,7 +72,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		t.FailNow()
 	}
 
-	err = sess2.E2e().AddPartner(sess1.GetUser().ID,
+	err = sess2.E2e().AddPartner(sess1.GetUser().ReceptionID,
 		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
 		params.GetDefaultE2ESessionParams(),
 		params.GetDefaultE2ESessionParams())

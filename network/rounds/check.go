@@ -74,7 +74,11 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 
 	// Go get the round from the round infos, if it exists
 	ri, err := m.Instance.GetRound(roundID)
-	if err != nil {
+	if err != nil || m.params.ForceHistoricalRounds {
+		if m.params.ForceHistoricalRounds {
+			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
+				roundID)
+		}
 		jww.DEBUG.Printf("HistoricalRound <- %d", roundID)
 		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- historicalRoundRequest{
@@ -83,7 +87,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 		}
 	} else {
 		jww.DEBUG.Printf("lookupRoundMessages <- %d", roundID)
-		// IF found, send to Message Retrieval Workers
+		// If found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- roundLookup{
 			roundInfo: ri,
 			identity:  identity,

@@ -212,7 +212,14 @@ func createClient() *api.Client {
 		}
 	}
 
-	client, err := api.OpenClient(storeDir, []byte(pass), params.GetDefaultNetwork())
+	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
+	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+
+	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -225,8 +232,15 @@ func initClient() *api.Client {
 	pass := viper.GetString("password")
 	storeDir := viper.GetString("session")
 
+	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
+	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+
 	//load the client
-	client, err := api.Login(storeDir, []byte(pass), params.GetDefaultNetwork())
+	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -613,6 +627,26 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
+
+	rootCmd.Flags().BoolP("forceHistoricalRounds", "", false,
+		"Force all rounds to be sent to historical round retrieval")
+	viper.BindPFlag("forceHistoricalRounds",
+		rootCmd.Flags().Lookup("forceHistoricalRounds"))
+
+	// E2E Params
+	defaultE2EParams := params.GetDefaultE2ESessionParams()
+	rootCmd.Flags().UintP("e2eMinKeys",
+		"", uint(defaultE2EParams.MinKeys),
+		"Minimum number of keys used before requesting rekey")
+	viper.BindPFlag("MinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
+	rootCmd.Flags().UintP("e2eMaxKeys",
+		"", uint(defaultE2EParams.MaxKeys),
+		"Max keys used before blocking until a rekey completes")
+	viper.BindPFlag("e2eMaxKeys", rootCmd.Flags().Lookup("e2eMaxKeys"))
+	rootCmd.Flags().UintP("e2eNumReKeys",
+		"", uint(defaultE2EParams.NumRekeys),
+		"Number of rekeys reserved for rekey operations")
+	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
 }
 
 // initConfig reads in config file and ENV variables if set.

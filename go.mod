@@ -3,7 +3,6 @@ module gitlab.com/elixxir/client
 go 1.13
 
 require (
-	github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6 // indirect
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.4.3
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
@@ -17,16 +16,14 @@ require (
 	github.com/spf13/cobra v1.1.1
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.7.1
-	github.com/ugorji/go v1.1.4 // indirect
-	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
-	gitlab.com/elixxir/bloomfilter v0.0.0-20210120224144-ac046983a17a
-	gitlab.com/elixxir/comms v0.0.4-0.20210208181740-1ad1139f7170
-	gitlab.com/elixxir/crypto v0.0.7-0.20210208181828-64b4b57e23d6
+	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
+	gitlab.com/elixxir/comms v0.0.4-0.20210202030342-3e0a43736d5b
+	gitlab.com/elixxir/crypto v0.0.7-0.20210128232700-0d547d16aff5
 	gitlab.com/elixxir/ekv v0.1.4
-	gitlab.com/elixxir/primitives v0.0.3-0.20210127201240-6a42ad925e8a
+	gitlab.com/elixxir/primitives v0.0.3-0.20210126180712-bfbfb725c75a
 	gitlab.com/xx_network/comms v0.0.4-0.20210121204701-7a1eb0542424
 	gitlab.com/xx_network/crypto v0.0.5-0.20210121204626-b251b926e4f7
-	gitlab.com/xx_network/primitives v0.0.4-0.20210208183356-ee1e9ec13f8f
+	gitlab.com/xx_network/primitives v0.0.4-0.20210121203635-8a771fc14f8a
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20201224014010-6772e930b67b // indirect
 	golang.org/x/sys v0.0.0-20210105210732-16f7687f5001 // indirect

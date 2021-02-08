@@ -38,7 +38,7 @@ func TestManager_Lookup(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
-		registered: 	  &isReg,
+		registered:       &isReg,
 	}
 
 	// Generate callback function
@@ -126,7 +126,7 @@ func TestManager_Lookup_CallbackError(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
-		registered: &isReg,
+		registered:       &isReg,
 	}
 
 	// Generate callback function
@@ -189,7 +189,7 @@ func TestManager_Lookup_EventChanTimeout(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
-		registered: &isReg,
+		registered:       &isReg,
 	}
 
 	// Generate callback function
@@ -242,7 +242,7 @@ func TestManager_lookupProcess(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
-		registered: &isReg,
+		registered:       &isReg,
 	}
 
 	c := make(chan message.Receive)
@@ -298,7 +298,7 @@ func TestManager_lookupProcess_NoLookupResponse(t *testing.T) {
 		udID:             &id.UDB,
 		inProgressLookup: map[uint64]chan *LookupResponse{},
 		net:              newTestNetworkManager(t),
-		registered: &isReg,
+		registered:       &isReg,
 	}
 
 	c := make(chan message.Receive)

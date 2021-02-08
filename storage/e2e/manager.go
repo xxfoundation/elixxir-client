@@ -38,7 +38,8 @@ type Manager struct {
 
 // newManager creates the relationship and its first Send and Receive sessions.
 func newManager(ctx *context, kv *versioned.KV, partnerID *id.ID, myPrivKey,
-	partnerPubKey *cyclic.Int, sendParams, receiveParams SessionParams) *Manager {
+	partnerPubKey *cyclic.Int,
+	sendParams, receiveParams params.E2ESessionParams) *Manager {
 
 	kv = kv.Prefix(fmt.Sprintf(managerPrefix, partnerID))
 
@@ -112,7 +113,7 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 // session already exists, then it will not be overwritten and the extant
 // session will be returned with the bool set to true denoting a duplicate. This
 // allows for support of duplicate key exchange triggering.
-func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionParams,
+func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, e2eParams params.E2ESessionParams,
 	source *Session) (*Session, bool) {
 
 	// Check if the session already exists
@@ -125,7 +126,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 
 	// Add the session to the buffer
 	session := m.receive.AddSession(source.myPrivKey, partnerPubKey, baseKey,
-		source.GetID(), params)
+		source.GetID(), e2eParams)
 
 	return session, false
 }
@@ -133,13 +134,13 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, params SessionPar
 // NewSendSession creates a new Receive session using the latest public key
 // received from the partner and a new private key for the user. Passing in a
 // private key is optional. A private key will be generated if none is passed.
-func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, params SessionParams) *Session {
+func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, e2eParams params.E2ESessionParams) *Session {
 	// Find the latest public key from the other party
 	sourceSession := m.receive.getNewestRekeyableSession()
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.partnerPubKey, nil,
-		sourceSession.GetID(), params)
+		sourceSession.GetID(), e2eParams)
 }
 
 // GetKeyForSending gets the correct session to Send with depending on the type

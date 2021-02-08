@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -46,6 +47,8 @@ type Store struct {
 	*fingerprints
 
 	*context
+
+	e2eParams params.E2ESessionParams
 }
 
 func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
@@ -76,6 +79,8 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, privKey *cyclic.Int,
 			rng:  rng,
 			myID: myID,
 		},
+
+		e2eParams: params.GetDefaultE2ESessionParams(),
 	}
 
 	err := utility.StoreCyclicKey(kv, pubKey, pubKeyKey)
@@ -119,6 +124,8 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 			myID: myID,
 			grp:  grp,
 		},
+
+		e2eParams: params.GetDefaultE2ESessionParams(),
 	}
 
 	obj, err := kv.Get(storeKey)
@@ -154,7 +161,7 @@ func (s *Store) save() error {
 }
 
 func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,
-	sendParams, receiveParams SessionParams) error {
+	sendParams, receiveParams params.E2ESessionParams) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -265,6 +272,22 @@ func (s *Store) unmarshal(b []byte) error {
 	}
 
 	return nil
+}
+
+// GetE2ESessionParams returns a copy of the session params object
+func (s *Store) GetE2ESessionParams() params.E2ESessionParams {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	jww.DEBUG.Printf("Using Session Params: %s", s.e2eParams)
+	return s.e2eParams
+}
+
+// SetE2ESessionParams overwrites the current session params
+func (s *Store) SetE2ESessionParams(newParams params.E2ESessionParams) {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	jww.DEBUG.Printf("Setting Session Params: %s", newParams)
+	s.e2eParams = newParams
 }
 
 type fingerprints struct {

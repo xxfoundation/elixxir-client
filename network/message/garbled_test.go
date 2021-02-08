@@ -7,7 +7,6 @@ import (
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -65,13 +64,18 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	}, nil)
 
 	e2ekv := i.Session.E2e()
-	err = e2ekv.AddPartner(sess2.GetUser().ReceptionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(), e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+	err = e2ekv.AddPartner(sess2.GetUser().ID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 	if err != nil {
 		t.Errorf("Failed to add e2e partner: %+v", err)
 		t.FailNow()
 	}
 
-	err = sess2.E2e().AddPartner(sess1.GetUser().ReceptionID, sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(), e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+	err = sess2.E2e().AddPartner(sess1.GetUser().ID,
+		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 	if err != nil {
 		t.Errorf("Failed to add e2e partner: %+v", err)
 		t.FailNow()

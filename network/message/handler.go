@@ -48,10 +48,10 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 
 	//check if the identity fingerprint matches
 	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(), ecrMsg.GetContents(), identity.Source)
-	if err!=nil{
+	if err != nil {
 		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
 	}
-	if !forMe{
+	if !forMe {
 		return
 	}
 
@@ -83,8 +83,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		// if it doesnt match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
-		if err!=nil{
-			jww.DEBUG.Printf("Failed to unmarshal ephemeral ID " +
+		if err != nil {
+			jww.DEBUG.Printf("Failed to unmarshal ephemeral ID "+
 				"on unknown message: %+v", err)
 		}
 		raw := message.Receive{

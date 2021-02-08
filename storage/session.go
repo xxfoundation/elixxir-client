@@ -57,7 +57,7 @@ type Session struct {
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	checkedRounds       *utility.KnownRounds
-	reception 			*reception.Store
+	reception           *reception.Store
 }
 
 // Initialize a new Session object
@@ -132,7 +132,6 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	s.partition = partition.New(s.kv)
 
 	s.reception = reception.NewStore(s.kv)
-
 
 	return s, nil
 }

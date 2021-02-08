@@ -48,17 +48,17 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	var potentialFilters []*bloom.Bloom
 
 	for _, filter := range filters {
-		if filter.FirstRound()<=roundID && filter.LastRound()>=roundID{
+		if filter.FirstRound() <= roundID && filter.LastRound() >= roundID {
 			potentialFilters = append(potentialFilters, filter.GetFilter())
 		}
 	}
 
 	hasRound := false
 	//check if the round is in any of the potential filters
-	if len(potentialFilters)>0{
+	if len(potentialFilters) > 0 {
 		serialRid := serializeRound(roundID)
-		for _, f := range potentialFilters{
-			if f.Test(serialRid){
+		for _, f := range potentialFilters {
+			if f.Test(serialRid) {
 				hasRound = true
 				break
 			}

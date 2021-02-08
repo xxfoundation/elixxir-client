@@ -25,9 +25,9 @@ type messageRetrievalComms interface {
 		message *pb.GetMessages) (*pb.GetMessagesResponse, error)
 }
 
-type roundLookup struct{
+type roundLookup struct {
 	roundInfo *pb.RoundInfo
-	identity reception.IdentityUse
+	identity  reception.IdentityUse
 }
 
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,

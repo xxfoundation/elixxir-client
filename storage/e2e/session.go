@@ -16,8 +16,8 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
 	"math/big"
 	"sync"
@@ -551,7 +551,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	h, _ := hash.NewCMixHash()
 
 	numKeys := uint32(randomness.RandInInterval(big.NewInt(int64(s.params.MaxKeys-s.params.MinKeys)),
-		s.baseKey.Bytes(),h).Int64()+int64(s.params.MinKeys))
+		s.baseKey.Bytes(), h).Int64() + int64(s.params.MinKeys))
 
 	s.ttl = uint32(s.params.NumRekeys)
 

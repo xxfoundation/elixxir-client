@@ -33,8 +33,8 @@ type historicalRoundsComms interface {
 }
 
 //structure which contains a historical round lookup
-type historicalRoundRequest struct{
-	rid id.Round
+type historicalRoundRequest struct {
+	rid      id.Round
 	identity reception.IdentityUse
 }
 
@@ -92,8 +92,8 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 				"data: %s", err)
 		}
 
-		rounds := make([]uint64,len(roundRequests))
-		for i, rr := range roundRequests{
+		rounds := make([]uint64, len(roundRequests))
+		for i, rr := range roundRequests {
 			rounds[i] = uint64(rr.rid)
 		}
 

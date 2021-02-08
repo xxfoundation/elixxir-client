@@ -45,7 +45,7 @@ func NewStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		active: make([]*registration, 0),
-		idSize: defaultIDSize,
+		idSize: defaultIDSize * 2,
 		kv:     kv,
 	}
 
@@ -229,7 +229,7 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 func (s *Store) UpdateIdSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	if s.idSize == int(idSize){
+	if s.idSize == int(idSize) {
 		return
 	}
 
@@ -248,7 +248,7 @@ func (s *Store) UpdateIdSize(idSize uint) {
 	}
 }
 
-func (s *Store)GetIDSize()uint {
+func (s *Store) GetIDSize() uint {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	return uint(s.idSize)

@@ -36,15 +36,11 @@ import (
 	"time"
 )
 
-const BloomFilterSize = 904 // In Bits
-const BloomFilterHashes = 10
-
 //comms interface makes testing easier
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
 }
-
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
@@ -74,11 +70,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
-	if err!=nil{
-		jww.FATAL.Panicf("Failed to get an ideneity, this should be " +
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get an ideneity, this should be "+
 			"impossible: %+v", err)
 	}
-
 
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent
@@ -93,10 +88,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		Partial: &pb.NDFHash{
 			Hash: m.Instance.GetPartialNdf().GetHash(),
 		},
-		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
-		ReceptionID:   identity.EphId[:],
+		LastUpdate:     uint64(m.Instance.GetLastUpdateID()),
+		ReceptionID:    identity.EphId[:],
 		StartTimestamp: identity.StartRequest.UnixNano(),
-		EndTimestamp: identity.EndRequest.UnixNano(),
+		EndTimestamp:   identity.EndRequest.UnixNano(),
 	}
 	jww.TRACE.Printf("Polling %s for NDF...", gwHost)
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
@@ -131,7 +126,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	//check that the stored address space is correct
-	m.Session.Reception().UpdateIDSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
+	m.Session.Reception().UpdateIdSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
 
 	// NOTE: this updates rounds and updates the tracking of the health of the
 	// network
@@ -182,7 +177,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	// ---- Identity Specific Round Processing -----
-	if identity.Fake{
+	if identity.Fake {
 		return
 	}
 
@@ -190,17 +185,17 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	filtersStart, filtersEnd := rounds.ValidFilterRange(identity, pollResp.Filters)
 
 	//check if there are any valid filters returned
-	if !(filtersEnd>filtersStart){
+	if !(filtersEnd > filtersStart) {
 		return
 	}
 
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
-	for i:=filtersStart;i<filtersEnd;i++{
+	for i := filtersStart; i < filtersEnd; i++ {
 		filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
 	}
 
-	jww.INFO.Printf("Bloom filters found in response: %d, filters used: %s",
+	jww.INFO.Printf("Bloom filters found in response: %d, num filters used: %d",
 		len(pollResp.Filters.Filters), len(filterList))
 
 	// check rounds using the round checker function which determines if there

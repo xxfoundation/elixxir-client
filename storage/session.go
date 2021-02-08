@@ -349,5 +349,6 @@ func InitTestingSession(i interface{}) *Session {
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
+	s.reception = reception.NewStore(s.kv)
 	return s
 }

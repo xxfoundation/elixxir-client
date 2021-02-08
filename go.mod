@@ -21,12 +21,12 @@ require (
 	github.com/xordataexchange/crypt v0.0.3-0.20170626215501-b2862e3d0a77 // indirect
 	gitlab.com/elixxir/bloomfilter v0.0.0-20210120224144-ac046983a17a
 	gitlab.com/elixxir/comms v0.0.4-0.20210208181740-1ad1139f7170
-	gitlab.com/elixxir/crypto v0.0.7-0.20210205171416-0a952e4e10de
+	gitlab.com/elixxir/crypto v0.0.7-0.20210208181828-64b4b57e23d6
 	gitlab.com/elixxir/ekv v0.1.4
 	gitlab.com/elixxir/primitives v0.0.3-0.20210127201240-6a42ad925e8a
 	gitlab.com/xx_network/comms v0.0.4-0.20210121204701-7a1eb0542424
 	gitlab.com/xx_network/crypto v0.0.5-0.20210121204626-b251b926e4f7
-	gitlab.com/xx_network/primitives v0.0.4-0.20210208175706-a47ce8d49d4b
+	gitlab.com/xx_network/primitives v0.0.4-0.20210208183356-ee1e9ec13f8f
 	golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad
 	golang.org/x/net v0.0.0-20201224014010-6772e930b67b // indirect
 	golang.org/x/sys v0.0.0-20210105210732-16f7687f5001 // indirect

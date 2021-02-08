@@ -68,7 +68,7 @@ var getNDFCmd = &cobra.Command{
 					Hash: nil,
 				},
 				LastUpdate: uint64(0),
-				ClientID:   id.DummyUser.Marshal(),
+				ReceptionID:   id.DummyUser.Marshal(),
 			}
 			resp, err := comms.SendPoll(host, pollMsg)
 			if err != nil {

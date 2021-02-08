@@ -120,7 +120,6 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	}
 	ri := &mixmessages.RoundInfo{
 		ID:               1,
-		AddressSpaceSize: 64,
 	}
 
 	testCert, err := rsa.LoadPrivateKeyFromPem(cert)
@@ -136,7 +135,6 @@ func setupInstance(instance interfaces.NetworkManager) error {
 
 	ri = &mixmessages.RoundInfo{
 		ID:               2,
-		AddressSpaceSize: 64,
 	}
 	if err = signature.Sign(ri, testCert); err != nil {
 		return errors.Errorf("Failed to sign round info: %v", err)

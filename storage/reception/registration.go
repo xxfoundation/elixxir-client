@@ -91,12 +91,12 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 func (r *registration) Delete() error {
 	if !r.Ephemeral {
 		if err := r.knownRoundsStorage.Delete(); err != nil {
-			return errors.WithMessagef(err, "Failed to delete "+
-				"registration known rounds %s", r)
+			return errors.WithMessagef(err, "Failed to delete registration "+
+				"known rounds %s", r)
 		}
 		if err := r.delete(r.kv); err != nil {
-			return errors.WithMessagef(err, "Failed to delete "+
-				"registration public data %s", r)
+			return errors.WithMessagef(err, "Failed to delete registration "+
+				"public data %s", r)
 		}
 	}
 

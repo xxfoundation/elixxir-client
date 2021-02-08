@@ -12,23 +12,21 @@ import (
 // given random number generator
 func generateFakeIdentity(rng io.Reader, idSize uint, now time.Time) (IdentityUse, error) {
 	// Randomly generate an identity
-	randIDbytes := make([]byte, id.ArrIDLen-1)
-	if _, err := rng.Read(randIDbytes); err != nil {
+	randIdBytes := make([]byte, id.ArrIDLen-1)
+	if _, err := rng.Read(randIdBytes); err != nil {
 		return IdentityUse{}, errors.WithMessage(err, "failed to "+
 			"generate a random identity when none is available")
 	}
 
 	randID := &id.ID{}
-	copy(randID[:id.ArrIDLen-1], randIDbytes)
+	copy(randID[:id.ArrIDLen-1], randIdBytes)
 	randID.SetType(id.User)
 
 	// Generate the current ephemeral ID from the random identity
-	ephID, start, end, err := ephemeral.GetId(randID, idSize,
-		now.UnixNano())
+	ephID, start, end, err := ephemeral.GetId(randID, idSize, now.UnixNano())
 	if err != nil {
-		return IdentityUse{}, errors.WithMessage(err, "failed to "+
-			"generate an ephemeral ID for random identity when none is "+
-			"available")
+		return IdentityUse{}, errors.WithMessage(err, "failed to generate an "+
+			"ephemeral ID for random identity when none is available")
 	}
 
 	return IdentityUse{

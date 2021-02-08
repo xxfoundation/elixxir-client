@@ -2,6 +2,7 @@ package contact
 
 import (
 	"encoding/json"
+	"fmt"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -26,6 +27,8 @@ func TestContact_Marshal_Unmarshal(t *testing.T) {
 	}
 
 	buff := expectedContact.Marshal()
+
+	fmt.Println(string(buff))
 
 	testContact, err := Unmarshal(buff)
 	if err != nil {

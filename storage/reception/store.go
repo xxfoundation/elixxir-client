@@ -55,7 +55,7 @@ func NewStore(kv *versioned.KV) *Store {
 	}
 
 	// Update the size so queries can be made
-	s.UpdateIDSize(defaultIDSize)
+	s.UpdateIdSize(defaultIDSize)
 
 	return s
 }
@@ -69,15 +69,13 @@ func LoadStore(kv *versioned.KV) *Store {
 	// Load the versioned object for the reception list
 	vo, err := kv.Get(receptionStoreStorageKey)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get the reception storage list: %+v",
-			err)
+		jww.FATAL.Panicf("Failed to get the reception storage list: %+v", err)
 	}
 
 	identities := make([]storedReference, len(s.active))
 	err = json.Unmarshal(vo.Data, &identities)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal the reception storage "+
-			"list: %+v", err)
+		jww.FATAL.Panicf("Failed to unmarshal the reception storage list: %+v", err)
 	}
 
 	s.active = make([]*registration, len(identities))
@@ -92,8 +90,7 @@ func LoadStore(kv *versioned.KV) *Store {
 	// Load the ephemeral ID length
 	vo, err = kv.Get(receptionIDSizeStorageKey)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get the reception ID size: %+v",
-			err)
+		jww.FATAL.Panicf("Failed to get the reception ID size: %+v", err)
 	}
 
 	if s.idSize, err = strconv.Atoi(string(vo.Data)); err != nil {
@@ -105,24 +102,11 @@ func LoadStore(kv *versioned.KV) *Store {
 }
 
 func (s *Store) save() error {
-	identities := make([]storedReference, len(s.active))
-	i := 0
-	for _, reg := range s.active {
-		if !reg.Ephemeral {
-			identities[i] = storedReference{
-				Eph:        reg.EphId,
-				Source:     reg.Source,
-				StartValid: reg.StartValid.Round(0),
-			}
-			i++
-		}
-	}
-	identities = identities[:i]
+	identities := s.makeStoredReferences()
 
 	data, err := json.Marshal(&identities)
 	if err != nil {
-		return errors.WithMessage(err, "failed to store reception "+
-			"store")
+		return errors.WithMessage(err, "failed to store reception store")
 	}
 
 	// Create versioned object with data
@@ -138,6 +122,26 @@ func (s *Store) save() error {
 	}
 
 	return nil
+}
+
+// makeStoredReferences generates a reference of any non-ephemeral identities
+// for storage.
+func (s *Store) makeStoredReferences() []storedReference {
+	identities := make([]storedReference, len(s.active))
+
+	i := 0
+	for _, reg := range s.active {
+		if !reg.Ephemeral {
+			identities[i] = storedReference{
+				Eph:        reg.EphId,
+				Source:     reg.Source,
+				StartValid: reg.StartValid.Round(0),
+			}
+			i++
+		}
+	}
+
+	return identities[:i]
 }
 
 func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
@@ -222,7 +226,7 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	}
 }
 
-func (s *Store) UpdateIDSize(idSize uint) {
+func (s *Store) UpdateIdSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	s.idSize = int(idSize)
@@ -252,7 +256,7 @@ func (s *Store) prune(now time.Time) {
 					"%+v", inQuestion, err)
 			}
 
-			s.active = append(s.active[:i-1], s.active[i:]...)
+			s.active = append(s.active[:i], s.active[i+1:]...)
 
 			i--
 		}
@@ -267,7 +271,6 @@ func (s *Store) prune(now time.Time) {
 }
 
 func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error) {
-
 	// Choose a member from the list
 	var selected *registration
 
@@ -279,9 +282,8 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 			return IdentityUse{}, errors.WithMessage(err, "Failed to "+
 				"choose ID due to rng failure")
 		}
-
 		h, err := hash.NewCMixHash()
-		if err == nil {
+		if err != nil {
 			return IdentityUse{}, err
 		}
 

@@ -49,9 +49,11 @@ func TestFullExchange(t *testing.T) {
 
 	// Add Alice and Bob as partners
 	aliceSession.E2e().AddPartner(exchangeBobId, bobPubKey, alicePrivKey,
-		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 	bobSession.E2e().AddPartner(exchangeAliceId, alicePubKey, bobPrivKey,
-		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 
 	// Start the listeners for alice and bob
 	rekeyParams := params.GetDefaultRekey()

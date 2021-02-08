@@ -38,8 +38,8 @@ func TestHandleTrigger(t *testing.T) {
 
 	// Add bob as a partner
 	aliceSession.E2e().AddPartner(bobID, bobSession.E2e().GetDHPublicKey(),
-		alicePrivKey, e2e.GetDefaultSessionParams(),
-		e2e.GetDefaultSessionParams())
+		alicePrivKey, params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 
 	// Generate a session ID, bypassing some business logic here
 	oldSessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)

@@ -326,7 +326,7 @@ func (s *Store) GetReceivedRequestData(partner *id.ID) (contact.Contact, error) 
 	r, ok := s.requests[*partner]
 	s.mux.RUnlock()
 
-	if !ok {
+	if !ok || r.receive == nil {
 		return contact.Contact{}, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}

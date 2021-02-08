@@ -127,7 +127,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	//check that the stored address space is correct
 	m.Session.Reception().UpdateIdSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
-
+	m.Session.Reception().UnlockIdSize()
 	// NOTE: this updates rounds and updates the tracking of the health of the
 	// network
 	if pollResp.Updates != nil {

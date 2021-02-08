@@ -87,7 +87,7 @@ func TestCheck_Thread(t *testing.T) {
 
 	// Manually generate identities
 
-	eids, err := ephemeral.GetIdsByRange(ourId, 64, now.UnixNano(), now.Sub(yesterday))
+	eids, err := ephemeral.GetIdsByRange(ourId, session.Reception().GetIDSize(), now.UnixNano(), now.Sub(yesterday))
 	if err != nil {
 		t.Errorf("Could not generate upcoming ids: %v", err)
 	}

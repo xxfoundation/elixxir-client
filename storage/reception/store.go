@@ -59,7 +59,6 @@ func NewStore(kv *versioned.KV) *Store {
 
 	// Update the size so queries can be made
 	s.UpdateIdSize(defaultIDSize)
-	s.idSizeLock.Lock()
 
 	return s
 }
@@ -230,13 +229,16 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	}
 }
 
+func (s *Store) UnlockIdSize()  {
+	s.idSizeLock.Unlock()
+}
+
 func (s *Store) UpdateIdSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// Unlock the size lock once set after default initialization
 	s.Once.Do(func() {
-		s.idSizeLock.Unlock()
+		s.idSizeLock.Lock()
 	})
 
 	if s.idSize == int(idSize) {

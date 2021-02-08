@@ -60,14 +60,8 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 	for true {
 		now := time.Now()
 
-		// Pull out the round information
-		ri, err := instance.GetRound(instance.GetLastRoundID())
-		if err != nil {
-			globals.Log.FATAL.Panicf("Could not pull round information: %v", err)
-		}
-
 		// Generates the IDs since the last track
-		protoIds, err := ephemeral.GetIdsByRange(ourId, uint(ri.AddressSpaceSize),
+		protoIds, err := ephemeral.GetIdsByRange(ourId, session.Reception().GetIDSize(),
 			now.UnixNano(), now.Sub(lastCheck))
 
 		if err != nil {

@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/partition"
+	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -56,6 +57,7 @@ type Session struct {
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	checkedRounds       *utility.KnownRounds
+	reception           *reception.Store
 }
 
 // Initialize a new Session object
@@ -90,11 +92,11 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 			"Create new session")
 	}
 
-	s.user, err = user.NewUser(s.kv, u.ID, u.Salt, u.RSA, u.Precanned)
+	s.user, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}
-	uid := s.user.GetCryptographicIdentity().GetUserID()
+	uid := s.user.GetCryptographicIdentity().GetReceptionID()
 
 	s.cmix, err = cmix.NewStore(cmixGrp, s.kv, u.CmixDhPrivateKey)
 	if err != nil {
@@ -116,13 +118,6 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 		return nil, errors.WithMessage(err, "Failed to create garbledMessages buffer")
 	}
 
-	s.checkedRounds, err = utility.NewKnownRounds(s.kv, checkedRoundsKey, CheckRoundsMaxSize)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create checkedRounds")
-	}
-	// There is no round id 0
-	s.checkedRounds.Check(0)
-
 	s.criticalMessages, err = utility.NewE2eMessageBuffer(s.kv, criticalMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create e2e critical message buffer")
@@ -135,6 +130,8 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
+
+	s.reception = reception.NewStore(s.kv)
 
 	return s, nil
 }
@@ -161,7 +158,7 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 		return nil, errors.WithMessage(err, "Failed to load Session")
 	}
 
-	uid := s.user.GetCryptographicIdentity().GetUserID()
+	uid := s.user.GetCryptographicIdentity().GetReceptionID()
 
 	s.e2e, err = e2e.LoadStore(s.kv, uid, rng)
 	if err != nil {
@@ -197,6 +194,8 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
+	s.reception = reception.LoadStore(s.kv)
+
 	return s, nil
 }
 
@@ -222,6 +221,12 @@ func (s *Session) Auth() *auth.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.auth
+}
+
+func (s *Session) Reception() *reception.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.reception
 }
 
 func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {
@@ -294,11 +299,12 @@ func InitTestingSession(i interface{}) *Session {
 	kv := versioned.NewKV(store)
 	s := &Session{kv: kv}
 	uid := id.NewIdFromString("zezima", id.User, i)
-	u, err := user.NewUser(kv, uid, []byte("salt"), privKey, false)
+	u, err := user.NewUser(kv, uid, uid, []byte("salt"), []byte("salt"), privKey, privKey, false)
 	if err != nil {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy user: %+v", err)
 	}
-	u.SetRegistrationValidationSignature([]byte("sig"))
+	u.SetTransmissionRegistrationValidationSignature([]byte("sig"))
+	u.SetReceptionRegistrationValidationSignature([]byte("sig"))
 	s.user = u
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+
@@ -343,5 +349,6 @@ func InitTestingSession(i interface{}) *Session {
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
+	s.reception = reception.NewStore(s.kv)
 	return s
 }

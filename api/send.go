@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 //This holds all functions to send messages over the network
@@ -45,23 +46,21 @@ func (c *Client) SendUnsafe(m message.Send, param params.Unsafe) ([]id.Round,
 // recipient. Note that both SendE2E and SendUnsafe call SendCMIX.
 // Returns the round ID of the round the payload was sent or an error
 // if it fails.
-func (c *Client) SendCMIX(msg format.Message, param params.CMIX) (id.Round,
-	error) {
+func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
+	param params.CMIX) (id.Round, ephemeral.Id, error) {
 	jww.INFO.Printf("SendCMIX(%s)", string(msg.GetContents()))
-	return c.network.SendCMIX(msg, param)
+	return c.network.SendCMIX(msg, recipientID, param)
 }
 
 // NewCMIXMessage Creates a new cMix message with the right properties
 // for the current cMix network.
 // FIXME: this is weird and shouldn't be necessary, but it is.
-func (c *Client) NewCMIXMessage(recipient *id.ID,
-	contents []byte) (format.Message, error) {
+func (c *Client) NewCMIXMessage(contents []byte) (format.Message, error) {
 	primeSize := len(c.storage.Cmix().GetGroup().GetPBytes())
 	msg := format.NewMessage(primeSize)
 	if len(contents) > msg.ContentsSize() {
 		return format.Message{}, errors.New("Contents to long for cmix")
 	}
 	msg.SetContents(contents)
-	msg.SetRecipientID(recipient)
 	return msg, nil
 }

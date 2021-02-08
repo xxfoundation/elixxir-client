@@ -43,13 +43,13 @@ func (c *Client) SendCmix(recipient, contents []byte, parameters string) (int, e
 			err))
 	}
 
-	msg, err := c.api.NewCMIXMessage(u, contents)
+	msg, err := c.api.NewCMIXMessage(contents)
 	if err != nil {
 		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
 			err))
 	}
 
-	rid, err := c.api.SendCMIX(msg, p)
+	rid, _, err := c.api.SendCMIX(msg, u, p)
 	if err != nil {
 		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
 			err))

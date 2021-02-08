@@ -9,6 +9,8 @@ package contact
 
 import (
 	"bytes"
+	"crypto"
+	"encoding/base64"
 	"encoding/binary"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -17,6 +19,7 @@ import (
 )
 
 const sizeByteLength = 2
+const fingerprintLength = 15
 
 // Contact implements the Contact interface defined in interface/contact.go,
 // in go, the structure is meant to be edited directly, the functions are for
@@ -75,6 +78,22 @@ func (c Contact) Marshal() []byte {
 	buff.Write([]byte(factList))
 
 	return buff.Bytes()
+}
+
+// Creates a 15 character long fingerprint of contact
+// off of the ID and DH public key
+func (c Contact) GetFingerprint() string {
+	// Generate hash
+	sha := crypto.SHA256
+	h := sha.New()
+
+	// Hash Id and public key
+	h.Write(c.ID.Bytes())
+	h.Write(c.DhPubKey.Bytes())
+	data := h.Sum(nil)
+
+	// Encode hash and truncate
+	return base64.StdEncoding.EncodeToString(data[:])[:fingerprintLength]
 }
 
 // Unmarshal decodes the byte slice produced by Contact.Marshal into a Contact.

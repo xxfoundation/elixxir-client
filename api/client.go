@@ -194,10 +194,10 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	cryptoUser := u.GetCryptographicIdentity()
 
 	//start comms
-	c.comms, err = client.NewClientComms(cryptoUser.GetUserID(),
-		rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic()),
-		rsa.CreatePrivateKeyPem(cryptoUser.GetRSA()),
-		cryptoUser.GetSalt())
+	c.comms, err = client.NewClientComms(cryptoUser.GetTransmissionID(),
+		rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic()),
+		rsa.CreatePrivateKeyPem(cryptoUser.GetTransmissionRSA()),
+		cryptoUser.GetTransmissionSalt())
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to load client")
 	}
@@ -346,7 +346,7 @@ func (c *Client) GetHealth() interfaces.HealthTracker {
 	return c.network.GetHealthTracker()
 }
 
-// Returns the switchboard for Registration
+// Returns the switchboard for Identity
 func (c *Client) GetSwitchboard() interfaces.Switchboard {
 	jww.INFO.Printf("GetSwitchboard()")
 	return c.switchboard

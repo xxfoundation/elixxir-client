@@ -17,10 +17,13 @@ import (
 
 type User struct {
 	//General Identity
-	ID        *id.ID
-	Salt      []byte
-	RSA       *rsa.PrivateKey
-	Precanned bool
+	TransmissionID   *id.ID
+	TransmissionSalt []byte
+	TransmissionRSA  *rsa.PrivateKey
+	ReceptionID      *id.ID
+	ReceptionSalt    []byte
+	ReceptionRSA     *rsa.PrivateKey
+	Precanned        bool
 
 	//cmix Identity
 	CmixDhPrivateKey *cyclic.Int
@@ -33,7 +36,7 @@ type User struct {
 
 func (u User) GetContact() contact.Contact {
 	return contact.Contact{
-		ID:       u.ID.DeepCopy(),
+		ID:       u.ReceptionID.DeepCopy(),
 		DhPubKey: u.E2eDhPublicKey,
 		Facts:    make([]fact.Fact, 0),
 	}

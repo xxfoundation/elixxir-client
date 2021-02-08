@@ -51,7 +51,6 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		//create the cmix message
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
-		msgCmix.SetRecipientID(msg.Recipient)
 
 		//get a key to end to end encrypt
 		key, err := partner.GetKeyForSending(param.Type)
@@ -67,7 +66,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], err = m.SendCMIX(msgEnc, param.CMIX)
+			roundIds[i], _, err = m.SendCMIX(msgEnc, msg.Recipient, param.CMIX)
 			if err != nil {
 				errCh <- err
 			}

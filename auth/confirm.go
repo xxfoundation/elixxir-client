@@ -98,7 +98,6 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
-	cmixMsg.SetRecipientID(partner.ID)
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not or the two occur and the storage into critical
@@ -126,7 +125,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	storage.GetCriticalRawMessages().AddProcessing(cmixMsg)
 
 	/*send message*/
-	round, err := net.SendCMIX(cmixMsg, params.GetDefaultCMIX())
+	round, _, err := net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried

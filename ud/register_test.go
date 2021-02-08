@@ -38,9 +38,9 @@ func TestManager_register(t *testing.T) {
 
 	// Set up manager
 	m := &Manager{
-		host:    host,
-		rng:     fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		storage: storage.InitTestingSession(t),
+		host:       host,
+		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
+		storage:    storage.InitTestingSession(t),
 		registered: &isReg,
 	}
 
@@ -55,7 +55,7 @@ func TestManager_register(t *testing.T) {
 	m.isCorrect("testUser", c.msg, t)
 
 	// Verify the signed identity data
-	pubKey := m.storage.User().GetCryptographicIdentity().GetRSA().GetPublic()
+	pubKey := m.storage.User().GetCryptographicIdentity().GetTransmissionRSA().GetPublic()
 	err = rsa.Verify(pubKey, hash.CMixHash, c.msg.IdentityRegistration.Digest(),
 		c.msg.IdentitySignature, nil)
 	if err != nil {
@@ -77,14 +77,14 @@ func (m *Manager) isCorrect(username string, msg *pb.UDBUserRegistration, t *tes
 	user := m.storage.User()
 	cryptoUser := m.storage.User().GetCryptographicIdentity()
 
-	if !bytes.Equal(user.GetRegistrationValidationSignature(), msg.PermissioningSignature) {
+	if !bytes.Equal(user.GetTransmissionRegistrationValidationSignature(), msg.PermissioningSignature) {
 		t.Errorf("PermissioningSignature incorrect.\n\texpected: %v\n\treceived: %v",
-			user.GetRegistrationValidationSignature(), msg.PermissioningSignature)
+			user.GetTransmissionRegistrationValidationSignature(), msg.PermissioningSignature)
 	}
 
-	if string(rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic())) != msg.RSAPublicPem {
+	if string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())) != msg.RSAPublicPem {
 		t.Errorf("RSAPublicPem incorrect.\n\texpected: %v\n\treceived: %v",
-			string(rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic())), msg.RSAPublicPem)
+			string(rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic())), msg.RSAPublicPem)
 	}
 
 	if username != msg.IdentityRegistration.Username {
@@ -97,14 +97,14 @@ func (m *Manager) isCorrect(username string, msg *pb.UDBUserRegistration, t *tes
 			m.storage.E2e().GetDHPublicKey().Bytes(), msg.IdentityRegistration.DhPubKey)
 	}
 
-	if !bytes.Equal(cryptoUser.GetSalt(), msg.IdentityRegistration.Salt) {
+	if !bytes.Equal(cryptoUser.GetTransmissionSalt(), msg.IdentityRegistration.Salt) {
 		t.Errorf("IdentityRegistration Salt incorrect.\n\texpected: %#v\n\treceived: %#v",
-			cryptoUser.GetSalt(), msg.IdentityRegistration.Salt)
+			cryptoUser.GetTransmissionSalt(), msg.IdentityRegistration.Salt)
 	}
 
-	if !bytes.Equal(cryptoUser.GetUserID().Marshal(), msg.Frs.UID) {
+	if !bytes.Equal(cryptoUser.GetTransmissionID().Marshal(), msg.Frs.UID) {
 		t.Errorf("Frs UID incorrect.\n\texpected: %v\n\treceived: %v",
-			cryptoUser.GetUserID().Marshal(), msg.Frs.UID)
+			cryptoUser.GetTransmissionID().Marshal(), msg.Frs.UID)
 	}
 
 	if !reflect.DeepEqual(&pb.Fact{Fact: username}, msg.Frs.Fact) {

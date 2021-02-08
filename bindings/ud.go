@@ -44,7 +44,7 @@ func NewUserDiscovery(client *Client)(*UserDiscovery, error){
 // network signatures are malformed or if the username is taken. Usernames
 // cannot be changed after registration at this time. Will fail if the user is
 // already registered.
-// Registration does not go over cmix, it occurs over normal communications
+// Identity does not go over cmix, it occurs over normal communications
 func (ud *UserDiscovery)Register(username string)error{
 	return ud.ud.Register(username)
 }

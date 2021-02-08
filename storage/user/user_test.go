@@ -26,7 +26,8 @@ func TestLoadUser(t *testing.T) {
 	}
 
 	uid := id.NewIdFromString("test", id.User, t)
-	ci := newCryptographicIdentity(uid, []byte("salt"), &rsa.PrivateKey{}, false, kv)
+	salt := []byte("salt")
+	ci := newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false, kv)
 	err = ci.save(kv)
 	if err != nil {
 		t.Errorf("Failed to save ci to kv: %+v", err)
@@ -42,7 +43,8 @@ func TestLoadUser(t *testing.T) {
 func TestNewUser(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
-	u, err := NewUser(kv, uid, []byte("salt"), &rsa.PrivateKey{}, false)
+	salt := []byte("salt")
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
@@ -52,13 +54,15 @@ func TestNewUser(t *testing.T) {
 func TestUser_GetCryptographicIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	uid := id.NewIdFromString("test", id.User, t)
-	u, err := NewUser(kv, uid, []byte("salt"), &rsa.PrivateKey{}, false)
+	rsalt := []byte("reception salt")
+	tsalt := []byte("transmission salt")
+	u, err := NewUser(kv, uid, uid, tsalt, rsalt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
 	if err != nil || u == nil {
 		t.Errorf("Failed to create new user: %+v", err)
 	}
 
 	ci := u.GetCryptographicIdentity()
-	if bytes.Compare(ci.salt, []byte("salt")) != 0 {
+	if bytes.Compare(ci.transmissionSalt, tsalt) != 0 {
 		t.Errorf("Cryptographic Identity not retrieved properly")
 	}
 }

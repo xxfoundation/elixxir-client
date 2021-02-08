@@ -558,11 +558,11 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	keysTTL := uint32(p.NumRekeys)
 
 	//ensure that enough keys are remaining to rekey
-	if numKeys-uint32(keysTTL) < uint32(p.NumRekeys) {
-		numKeys = uint32(keysTTL) + uint32(p.NumRekeys)
+	if numKeys-keysTTL < uint32(p.NumRekeys) {
+		numKeys = keysTTL + uint32(p.NumRekeys)
 	}
 
-	s.ttl = uint32(keysTTL)
+	s.ttl = uint32(s.params.NumRekeys)
 
 	//create the new state vectors. This will cause disk operations storing them
 

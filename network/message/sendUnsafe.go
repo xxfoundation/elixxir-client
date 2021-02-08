@@ -51,12 +51,11 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	for i, p := range partitions {
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
-		msgCmix.SetRecipientID(msg.Recipient)
-		e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetUserID())
+		e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], err = m.SendCMIX(msgCmix, param.CMIX)
+			roundIds[i], _, err = m.SendCMIX(msgCmix, msg.Recipient, param.CMIX)
 			if err != nil {
 				errCh <- err
 			}

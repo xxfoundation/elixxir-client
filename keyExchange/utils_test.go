@@ -26,6 +26,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
 	"time"
@@ -76,9 +77,9 @@ func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) 
 	return nil, nil
 }
 
-func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, p params.CMIX) (id.Round, error) {
+func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
 
-	return id.Round(0), nil
+	return id.Round(0), ephemeral.Id{}, nil
 
 }
 
@@ -183,9 +184,9 @@ func (t *testNetworkManagerFullExchange) SendUnsafe(m message.Send, p params.Uns
 	return nil, nil
 }
 
-func (t *testNetworkManagerFullExchange) SendCMIX(message format.Message, p params.CMIX) (id.Round, error) {
+func (t *testNetworkManagerFullExchange) SendCMIX(message format.Message, eid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
 
-	return id.Round(0), nil
+	return id.Round(0), ephemeral.Id{}, nil
 
 }
 

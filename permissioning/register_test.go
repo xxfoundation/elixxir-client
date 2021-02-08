@@ -38,6 +38,10 @@ func (s *MockRegistrationSender) SendRegistrationMessage(host *connect.Host, mes
 			Nonce:     []byte("nonce"),
 			Signature: []byte("sig"),
 		},
+		ClientReceptionSignedByServer: &messages.RSASignature{
+			Nonce:     []byte("receptionnonce"),
+			Signature: []byte("receptionsig"),
+		},
 		Error: s.errInReply,
 	}, s.errSendRegistration
 }
@@ -64,12 +68,15 @@ func TestRegisterWithPermissioning(t *testing.T) {
 	}
 
 	regCode := "flooble doodle"
-	sig, err := register(&sender, sender.getHost, key.GetPublic(), regCode)
+	sig1, sig2, err := register(&sender, sender.getHost, key.GetPublic(), key.GetPublic(), regCode)
 	if err != nil {
 		t.Error(err)
 	}
-	if string(sig) != "sig" {
+	if string(sig1) != "sig" {
 		t.Error("expected signature to be 'sig'")
+	}
+	if string(sig2) != "receptionsig" {
+		t.Error("expected signature to be 'receptionsig'")
 	}
 	if sender.host.String() != sender.getHost.String() {
 		t.Errorf("hosts differed. expected %v, got %v", sender.host, sender.getHost)
@@ -98,7 +105,7 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
 	sender.errInReply = "failure occurred on permissioning"
-	_, err = register(&sender, nil, key.GetPublic(), "")
+	_, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
 	if err == nil {
 		t.Error("no error if registration fails on permissioning")
 	}
@@ -115,7 +122,7 @@ func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
 	sender.errSendRegistration = errors.New("connection problem")
-	_, err = register(&sender, nil, key.GetPublic(), "")
+	_, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
 	if err == nil {
 		t.Error("no error if e.g. context deadline exceeded")
 	}

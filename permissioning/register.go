@@ -36,7 +36,7 @@ func register(comms registrationMessageSender, host *connect.Host,
 				ClientReceptionRSAPubKey: string(rsa.CreatePublicKeyPem(receptionPublicKey)),
 			})
 	if err != nil {
-		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Registration Server!")
+		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Identity Server!")
 		return nil, nil, err
 	}
 	if response.Error != "" {

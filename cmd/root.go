@@ -565,7 +565,7 @@ func init() {
 	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
-		"Registration code (optional)")
+		"Identity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
 	rootCmd.Flags().StringP("message", "m", "", "Message to send")

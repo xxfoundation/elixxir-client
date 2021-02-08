@@ -10,6 +10,7 @@ package message
 import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
 )
 
@@ -18,6 +19,8 @@ type Receive struct {
 	Payload     []byte
 	MessageType Type
 	Sender      *id.ID
+	RecipientID	*id.ID
+	EphemeralID ephemeral.Id
 	Timestamp   time.Time
 	Encryption  EncryptionType
 }

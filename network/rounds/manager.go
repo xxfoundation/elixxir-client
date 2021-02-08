@@ -13,8 +13,6 @@ import (
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/xx_network/primitives/id"
 )
 
 type Manager struct {
@@ -24,8 +22,8 @@ type Manager struct {
 
 	internal.Internal
 
-	historicalRounds    chan id.Round
-	lookupRoundMessages chan *mixmessages.RoundInfo
+	historicalRounds    chan historicalRoundRequest
+	lookupRoundMessages chan roundLookup
 	messageBundles      chan<- message.Bundle
 }
 
@@ -35,8 +33,8 @@ func NewManager(internal internal.Internal, params params.Rounds,
 		params: params,
 		p:      newProcessingRounds(),
 
-		historicalRounds:    make(chan id.Round, params.HistoricalRoundsBufferLen),
-		lookupRoundMessages: make(chan *mixmessages.RoundInfo, params.LookupRoundsBufferLen),
+		historicalRounds:    make(chan historicalRoundRequest, params.HistoricalRoundsBufferLen),
+		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
 		messageBundles:      bundles,
 	}
 

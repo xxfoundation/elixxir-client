@@ -346,7 +346,7 @@ func (c *Client) GetHealth() interfaces.HealthTracker {
 	return c.network.GetHealthTracker()
 }
 
-// Returns the switchboard for Registration
+// Returns the switchboard for Identity
 func (c *Client) GetSwitchboard() interfaces.Switchboard {
 	jww.INFO.Printf("GetSwitchboard()")
 	return c.switchboard

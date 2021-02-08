@@ -82,8 +82,7 @@ func TestCheck_Thread(t *testing.T) {
 	go func() {
 		track(session, instance.GetInstance(), ourId, stop)
 	}()
-
-	time.Sleep(1 * time.Second)
+	time.Sleep(time.Second)
 
 	// Manually generate identities
 
@@ -102,7 +101,7 @@ func TestCheck_Thread(t *testing.T) {
 	}
 
 	// Check if store has been updated for new identities
-	if identities[0].String() != retrieved.String() {
+	if identities[0].String() != retrieved.Identity.String() {
 		t.Errorf("Store was not updated for newly generated identies")
 	}
 

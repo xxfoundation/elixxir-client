@@ -26,8 +26,8 @@ import (
 	"gitlab.com/xx_network/primitives/utils"
 )
 
-const opensslCertDL = ("openssl s_client -showcerts -connect ip:port < " +
-	"/dev/null 2>&1 | openssl x509 -outform PEM > certfile.pem")
+const opensslCertDL = "openssl s_client -showcerts -connect ip:port < " +
+	"/dev/null 2>&1 | openssl x509 -outform PEM > certfile.pem"
 
 // getNDFCmd user discovery subcommand, allowing user lookup and registration for
 // allowing others to search.
@@ -36,8 +36,8 @@ const opensslCertDL = ("openssl s_client -showcerts -connect ip:port < " +
 // commands.
 var getNDFCmd = &cobra.Command{
 	Use: "getndf",
-	Short: ("Download the network definition file from the network " +
-		"and print it."),
+	Short: "Download the network definition file from the network " +
+		"and print it.",
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		gwHost := viper.GetString("gwhost")
@@ -67,8 +67,8 @@ var getNDFCmd = &cobra.Command{
 				Partial: &pb.NDFHash{
 					Hash: nil,
 				},
-				LastUpdate: uint64(0),
-				ReceptionID:   id.DummyUser.Marshal(),
+				LastUpdate:  uint64(0),
+				ReceptionID: id.DummyUser.Marshal(),
 			}
 			resp, err := comms.SendPoll(host, pollMsg)
 			if err != nil {

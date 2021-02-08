@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -106,7 +105,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// messages does not occur
 
 	//create local relationship
-	p := e2e.GetDefaultSessionParams()
+	p := storage.E2e().GetE2ESessionParams()
 	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
 		p, p); err != nil {
 		storage.Auth().Fail(partner.ID)

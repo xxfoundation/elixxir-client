@@ -13,12 +13,14 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -34,7 +36,7 @@ type Session struct {
 	//prefixed kv
 	kv *versioned.KV
 	//params
-	params SessionParams
+	e2eParams params.E2ESessionParams
 
 	//type
 	t RelationshipType
@@ -70,7 +72,7 @@ type Session struct {
 // must be exported
 // Utility struct to write part of session data to disk
 type SessionDisk struct {
-	Params SessionParams
+	E2EParams params.E2ESessionParams
 
 	//session type
 	Type uint8
@@ -97,7 +99,7 @@ type SessionDisk struct {
 //Generator which creates all keys and structures
 func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey,
 	baseKey *cyclic.Int, trigger SessionID, relationshipFingerprint []byte,
-	params SessionParams) *Session {
+	e2eParams params.E2ESessionParams) *Session {
 
 	confirmation := Unconfirmed
 	if t == Receive {
@@ -105,7 +107,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	}
 
 	session := &Session{
-		params:                  params,
+		e2eParams:               e2eParams,
 		relationship:            ship,
 		t:                       t,
 		myPrivKey:               myPrivKey,
@@ -271,7 +273,7 @@ func (s *Session) GetPartner() *id.ID {
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
-	sd.Params = s.params
+	sd.E2EParams = s.e2eParams
 	sd.Type = uint8(s.t)
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
@@ -306,7 +308,7 @@ func (s *Session) unmarshal(b []byte) error {
 
 	grp := s.relationship.manager.ctx.grp
 
-	s.params = sd.Params
+	s.e2eParams = sd.E2EParams
 	s.t = RelationshipType(sd.Type)
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
@@ -328,7 +330,7 @@ func (s *Session) unmarshal(b []byte) error {
 // Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
 func (s *Session) PopKey() (*Key, error) {
-	if s.keyState.GetNumAvailable() <= uint32(s.params.NumRekeys) {
+	if s.keyState.GetNumAvailable() <= uint32(s.e2eParams.NumRekeys) {
 		return nil, errors.New("no more keys left, remaining reserved " +
 			"for rekey")
 	}
@@ -362,7 +364,7 @@ func (s *Session) Status() Status {
 
 	if numAvailable == 0 {
 		return RekeyEmpty
-	} else if numAvailable <= uint32(s.params.NumRekeys) {
+	} else if numAvailable <= uint32(s.e2eParams.NumRekeys) {
 		return Empty
 		// do not need to make a copy of getNumKeys becasue it is static and
 		// only used once
@@ -546,13 +548,18 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 
 	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
 
+	p := s.e2eParams
+	h, _ := hash.NewCMixHash()
+
 	//generate ttl and keying info
-	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
-		s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
+	numKeys := uint32(randomness.RandInInterval(big.NewInt(
+		int64(p.MaxKeys-p.MinKeys)),
+		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
+	keysTTL := uint32(p.NumRekeys)
 
 	//ensure that enough keys are remaining to rekey
-	if numKeys-uint32(keysTTL) < uint32(s.params.NumRekeys) {
-		numKeys = uint32(keysTTL + s.params.NumRekeys)
+	if numKeys-uint32(keysTTL) < uint32(p.NumRekeys) {
+		numKeys = uint32(keysTTL) + uint32(p.NumRekeys)
 	}
 
 	s.ttl = uint32(keysTTL)

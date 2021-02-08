@@ -49,7 +49,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 		fmt.Printf("in new session triggered\n")
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil,
-			e2e.GetDefaultSessionParams())
+			sess.E2e().GetE2ESessionParams())
 		//move the state of the triggering session forward
 		session.SetNegotiationStatus(e2e.NewSessionCreated)
 		fmt.Printf("after setting session: %v\n", negotiatingSession.NegotiationStatus())

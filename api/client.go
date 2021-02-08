@@ -40,6 +40,8 @@ type Client struct {
 	switchboard *switchboard.Switchboard
 	//object used for communications
 	comms *client.Comms
+	// Network parameters
+	parameters params.Network
 
 	// note that the manager has a pointer to the context in many cases, but
 	// this interface allows it to be mocked for easy testing without the
@@ -53,6 +55,9 @@ type Client struct {
 	//contains stopables for all running threads
 	runner *stoppable.Multi
 	status *statusTracker
+
+	//handler for external services
+	services *serviceProcessiesList
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -142,9 +147,9 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 	return nil
 }
 
-// Login initalizes a client object from existing storage.
-func Login(storageDir string, password []byte) (*Client, error) {
-	jww.INFO.Printf("Login()")
+// OpenClient session, but don't connect to the network or log in
+func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
+	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
 		csprng.NewSystemRNG)
@@ -156,27 +161,37 @@ func Login(storageDir string, password []byte) (*Client, error) {
 		return nil, err
 	}
 
-	//execute the rest of the loading as normal
-	return loadClient(storageSess, rngStreamGen)
-}
-
-// Login initalizes a client object from existing storage.
-func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator) (c *Client, err error) {
-
 	// Set up a new context
-	c = &Client{
-		storage:     session,
+	c := &Client{
+		storage:     storageSess,
 		switchboard: switchboard.New(),
 		rng:         rngStreamGen,
 		comms:       nil,
 		network:     nil,
 		runner:      stoppable.NewMulti("client"),
 		status:      newStatusTracker(),
+		parameters:  parameters,
 	}
 
+	return c, nil
+}
+
+// Login initalizes a client object from existing storage.
+func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
+	jww.INFO.Printf("Login()")
+
+	c, err := OpenClient(storageDir, password, parameters)
+
+	if err != nil {
+		return nil, err
+	}
+
+	//execute the rest of the loading as normal
+	c.services = newServiceProcessiesList(c.runner)
+
 	//get the user from session
-	user := c.storage.User()
-	cryptoUser := user.GetCryptographicIdentity()
+	u := c.storage.User()
+	cryptoUser := u.GetCryptographicIdentity()
 
 	//start comms
 	c.comms, err = client.NewClientComms(cryptoUser.GetUserID(),
@@ -188,7 +203,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 	}
 
 	//get the NDF to pass into permissioning and the network manager
-	def := session.GetBaseNDF()
+	def := c.storage.GetBaseNDF()
 
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)
@@ -216,7 +231,7 @@ func loadClient(session *storage.Session, rngStreamGen *fastRNG.StreamGenerator)
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		params.GetDefaultNetwork(), def)
+		parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -281,12 +296,14 @@ func (c *Client) StartNetworkFollower() error {
 	}
 	c.runner.Add(stopFollow)
 	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, params.GetDefaultRekey()))
+	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey))
 
 	err = c.status.toRunning()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
+
+	c.services.run(c.runner)
 
 	return nil
 }
@@ -339,7 +356,14 @@ func (c *Client) GetSwitchboard() interfaces.Switchboard {
 // events.
 func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 	jww.INFO.Printf("GetRoundEvents()")
+	jww.WARN.Printf("GetRoundEvents does not handle Client Errors edge case!")
 	return c.network.GetInstance().GetRoundEvents()
+}
+
+// AddService adds a service ot be controlled by the client thread control,
+// these will be started and stopped with the network follower
+func (c *Client) AddService(sp ServiceProcess) {
+	c.services.Add(sp)
 }
 
 // GetUser returns the current user Identity for this client. This
@@ -347,6 +371,26 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 func (c *Client) GetUser() user.User {
 	jww.INFO.Printf("GetUser()")
 	return c.storage.GetUser()
+}
+
+// GetComms returns the client comms object
+func (c *Client) GetComms() *client.Comms {
+	return c.comms
+}
+
+// GetRng returns the client rng object
+func (c *Client) GetRng() *fastRNG.StreamGenerator {
+	return c.rng
+}
+
+// GetStorage returns the client storage object
+func (c *Client) GetStorage() *storage.Session {
+	return c.storage
+}
+
+// GetNetworkInterface returns the client Network Interface
+func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
+	return c.network
 }
 
 // ----- Utility Functions -----

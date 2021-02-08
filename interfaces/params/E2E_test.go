@@ -31,3 +31,52 @@ func TestSendType_String(t *testing.T) {
 		t.Errorf("Running String on unknown E2E type got %s", e.Type.String())
 	}
 }
+
+// New params path
+func TestGetE2EParameters(t *testing.T) {
+	p := GetDefaultE2E()
+
+	expected := p.RoundTries + 1
+	p.RoundTries = expected
+	jsonString, err := p.Marshal()
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	q, err := GetE2EParameters(string(jsonString))
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if q.RoundTries != expected {
+		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, expected)
+	}
+}
+
+// No new params path
+func TestGetE2EParameters_Default(t *testing.T) {
+	p := GetDefaultE2E()
+
+	q, err := GetE2EParameters("")
+	if err != nil {
+		t.Errorf("%+v", err)
+	}
+
+	if q.RoundTries != p.RoundTries {
+		t.Errorf("Parameters failed to change! Got %d, Expected %d", q.RoundTries, p.RoundTries)
+	}
+}
+
+// Test that the GetDefaultParams function returns the right default data
+func Test_GetDefaultParams(t *testing.T) {
+	p := GetDefaultE2ESessionParams()
+	if p.MinKeys != minKeys {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MinKeys, minKeys)
+	}
+	if p.MaxKeys != maxKeys {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.MaxKeys, maxKeys)
+	}
+	if p.NumRekeys != numReKeys {
+		t.Errorf("MinKeys mismatch\r\tGot: %d\r\tExpected: %d", p.NumRekeys, numReKeys)
+	}
+}

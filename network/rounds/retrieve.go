@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
@@ -24,6 +25,11 @@ type messageRetrievalComms interface {
 		message *pb.GetMessages) (*pb.GetMessagesResponse, error)
 }
 
+type roundLookup struct{
+	roundInfo *pb.RoundInfo
+	identity reception.IdentityUse
+}
+
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
 
@@ -32,13 +38,15 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		select {
 		case <-quitCh:
 			done = true
-		case ri := <-m.lookupRoundMessages:
+		case rl := <-m.lookupRoundMessages:
+			ri := rl.roundInfo
 			bundle, err := m.getMessagesFromGateway(ri, comms)
 			if err != nil {
 				jww.WARN.Printf("Failed to get messages for round %v: %s",
 					ri.ID, err)
 				break
 			}
+			bundle.Identity = rl.identity
 			if len(bundle.Messages) != 0 {
 				m.messageBundles <- bundle
 			}

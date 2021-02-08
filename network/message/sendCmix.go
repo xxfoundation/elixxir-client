@@ -65,6 +65,17 @@ func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 		ephID, _, _, err := ephemeral.GetId(recipient,
 			uint(bestRound.AddressSpaceSize),
 			int64(bestRound.Timestamps[states.REALTIME]))
+		if err!=nil{
+			jww.FATAL.Panicf("Failed to generate ephemeral ID: %+v", err)
+		}
+
+
+		rng := m.Rng.GetStream()
+		ephID, err = ephID.Fill(uint(bestRound.AddressSpaceSize), rng)
+		if err!=nil{
+			jww.FATAL.Panicf("Failed to obviscate the ephemeralID: %+v", err)
+		}
+		rng.Close()
 
 		msg.SetEphemeralRID(ephID[:])
 

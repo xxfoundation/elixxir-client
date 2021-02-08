@@ -25,8 +25,8 @@ package network
 import (
 	"bytes"
 	jww "github.com/spf13/jwalterweatherman"
-	bloom "gitlab.com/elixxir/bloomfilter"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -36,14 +36,15 @@ import (
 	"time"
 )
 
-const bloomFilterSize = 71888 // In Bits
-const bloomFilterHashes = 8
+const BloomFilterSize = 904 // In Bits
+const BloomFilterHashes = 10
 
 //comms interface makes testing easier
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
 }
+
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
@@ -71,6 +72,14 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	jww.TRACE.Printf("follow: %d", followCnt)
 	followCnt++
 
+	//get the identity we will poll for
+	identity, err := m.Session.Reception().GetIdentity(rng)
+	if err!=nil{
+		jww.FATAL.Panicf("Failed to get an ideneity, this should be " +
+			"impossible: %+v", err)
+	}
+
+
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent
 	gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comms, rng)
@@ -85,7 +94,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			Hash: m.Instance.GetPartialNdf().GetHash(),
 		},
 		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
-		ClientID:   m.Uid.Bytes(),
+		ReceptionID:   identity.EphId[:],
+		StartTimestamp: identity.StartRequest.UnixNano(),
+		EndTimestamp: identity.EndRequest.UnixNano(),
 	}
 	jww.TRACE.Printf("Polling %s for NDF...", gwHost)
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
@@ -94,33 +105,13 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return
 	}
 
-	// ---- Process Update Data ----
-	lastTrackedRound := id.Round(pollResp.LastTrackedRound)
+	// ---- Process Network State Update Data ----
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
 		jww.ERROR.Printf("Failed to unmarshal: %+v", err)
 		return
 	}
-	var filterList []*bloom.Ring
-	for _, f := range pollResp.BloomFilters {
-		jww.DEBUG.Printf("Bloom Filter size: %d, hashes: %d",
-			bloomFilterSize, bloomFilterHashes)
-		filter, err := bloom.InitByParameters(bloomFilterSize,
-			bloomFilterHashes)
-		if err != nil {
-			jww.INFO.Printf("Bloom Filter Data: %v", f)
-			jww.FATAL.Panicf("Unable to create a bloom filter: %+v",
-				err)
-		}
-		if err := filter.UnmarshalBinary(f); err != nil {
-			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
-			jww.INFO.Printf("Bloom Filter Unmarshal Data: %v", f)
-			continue
-		}
-		filterList = append(filterList, filter)
-	}
-	jww.INFO.Printf("Bloom filters found in response: %d", len(filterList))
 
 	// ---- Node Events ----
 	// NOTE: this updates the structure, AND sends events over the node
@@ -138,6 +129,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			return
 		}
 	}
+
+	//check that the stored address space is correct
+	m.Session.Reception().UpdateIDSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
 
 	// NOTE: this updates rounds and updates the tracking of the health of the
 	// network
@@ -187,20 +181,37 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		}
 	}
 
-	// ---- Round Processing -----
+	// ---- Identity Specific Round Processing -----
+	if identity.Fake{
+		return
+	}
+
+	//get the range fo filters which are valid for the identity
+	filtersStart, filtersEnd := rounds.ValidFilterRange(identity, pollResp.Filters)
+
+	//check if there are any valid filters returned
+	if !(filtersEnd>filtersStart){
+		return
+	}
+
+	//prepare the filter objects for processing
+	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
+	for i:=filtersStart;i<filtersEnd;i++{
+		filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+	}
+
+	jww.INFO.Printf("Bloom filters found in response: %d, filters used: %s",
+		len(pollResp.Filters.Filters), len(filterList))
+
 	// check rounds using the round checker function which determines if there
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid, filterList)
+		return m.round.Checker(rid, filterList, identity)
 	}
 
 	// get the bit vector of rounds that have been checked
 	checkedRounds := m.Session.GetCheckedRounds()
-	// cleave off old state in the bit vector which is deprecated from the
-	// network
-	jww.DEBUG.Printf("lastCheckedRound: %v", lastTrackedRound)
-	checkedRounds.Forward(lastTrackedRound)
 
 	jww.TRACE.Printf("gwRoundState: %+v", gwRoundsState)
 	jww.TRACE.Printf("pollResp.KnownRounds: %s", string(pollResp.KnownRounds))
@@ -208,6 +219,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
+	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
+		filterList[0].FirstRound(), filterList[len(filterList)-1].LastRound(),
 		int(m.param.MaxCheckedRounds))
 }

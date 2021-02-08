@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
+	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -25,7 +26,7 @@ import (
 // if the information about that round is already present, if it is the data is
 // sent to Message Retrieval Workers, otherwise it is sent to Historical Round
 // Retrieval
-func (m *Manager) Checker(roundID id.Round, filters []*bloom.Ring) bool {
+func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
 	jww.DEBUG.Printf("Checker(roundID: %d)", roundID)
 	// Set round to processing, if we can
 	processing, count := m.p.Process(roundID)
@@ -43,14 +44,24 @@ func (m *Manager) Checker(roundID id.Round, filters []*bloom.Ring) bool {
 		return true
 	}
 
-	//check if the round is in the bloom filters
-	hasRound := false
-	serialRid := serializeRound(roundID)
+	//find filters that could have the round
+	var potentialFilters []*bloom.Bloom
 
 	for _, filter := range filters {
-		hasRound = filter.Test(serialRid)
-		if hasRound {
-			break
+		if filter.FirstRound()<=roundID && filter.LastRound()>=roundID{
+			potentialFilters = append(potentialFilters, filter.GetFilter())
+		}
+	}
+
+	hasRound := false
+	//check if the round is in any of the potential filters
+	if len(potentialFilters)>0{
+		serialRid := serializeRound(roundID)
+		for _, f := range potentialFilters{
+			if f.Test(serialRid){
+				hasRound = true
+				break
+			}
 		}
 	}
 
@@ -66,11 +77,17 @@ func (m *Manager) Checker(roundID id.Round, filters []*bloom.Ring) bool {
 	if err != nil {
 		jww.DEBUG.Printf("HistoricalRound <- %d", roundID)
 		// If we didn't find it, send to Historical Rounds Retrieval
-		m.historicalRounds <- roundID
+		m.historicalRounds <- historicalRoundRequest{
+			rid:      roundID,
+			identity: identity,
+		}
 	} else {
 		jww.DEBUG.Printf("lookupRoundMessages <- %d", roundID)
 		// IF found, send to Message Retrieval Workers
-		m.lookupRoundMessages <- ri
+		m.lookupRoundMessages <- roundLookup{
+			roundInfo: ri,
+			identity:  identity,
+		}
 	}
 
 	return false

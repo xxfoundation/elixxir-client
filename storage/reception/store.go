@@ -225,6 +225,10 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 func (s *Store) UpdateIDSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	if s.idSize == int(idSize){
+		return
+	}
+
 	s.idSize = int(idSize)
 
 	// Store the ID size
@@ -238,6 +242,12 @@ func (s *Store) UpdateIDSize(idSize uint) {
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store reception ID size: %+v", err)
 	}
+}
+
+func (s *Store)GetIDSize()uint {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	return uint(s.idSize)
 }
 
 func (s *Store) prune(now time.Time) {

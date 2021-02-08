@@ -16,9 +16,10 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
+	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/primitives/id"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -547,15 +548,12 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
 
 	//generate ttl and keying info
-	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
-		s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
+	h, _ := hash.NewCMixHash()
 
-	//ensure that enough keys are remaining to rekey
-	if numKeys-uint32(keysTTL) < uint32(s.params.NumRekeys) {
-		numKeys = uint32(keysTTL + s.params.NumRekeys)
-	}
+	numKeys := uint32(randomness.RandInInterval(big.NewInt(int64(s.params.MaxKeys-s.params.MinKeys)),
+		s.baseKey.Bytes(),h).Int64()+int64(s.params.MinKeys))
 
-	s.ttl = uint32(keysTTL)
+	s.ttl = uint32(s.params.NumRekeys)
 
 	//create the new state vectors. This will cause disk operations storing them
 

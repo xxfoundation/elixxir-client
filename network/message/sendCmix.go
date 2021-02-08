@@ -8,7 +8,6 @@
 package message
 
 import (
-	"fmt"
 	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -82,6 +81,17 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		ephID, _, _, err := ephemeral.GetId(recipient,
 			uint(bestRound.AddressSpaceSize),
 			int64(bestRound.Timestamps[states.REALTIME]))
+		if err != nil {
+			jww.FATAL.Panicf("Failed to generate ephemeral ID: %+v", err)
+		}
+
+		stream := rng.GetStream()
+		ephID, err = ephID.Fill(uint(bestRound.AddressSpaceSize), stream)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to obviscate the ephemeralID: %+v", err)
+		}
+		stream.Close()
+
 		msg.SetEphemeralRID(ephID[:])
 
 		//set the identity fingerprint
@@ -122,8 +132,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		}
 
 		//encrypt the message
+		stream = rng.GetStream()
 		salt := make([]byte, 32)
-		stream := rng.GetStream()
 		_, err = stream.Read(salt)
 		stream.Close()
 
@@ -157,7 +167,6 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 
 		jww.DEBUG.Printf("SendCMIX SendPutMessage")
 		//Send the payload
-		fmt.Println("Sending")
 		gwSlotResp, err := comms.SendPutMessage(transmitGateway, wrappedMsg)
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly

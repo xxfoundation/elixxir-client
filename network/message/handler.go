@@ -10,10 +10,11 @@ package message
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/crypto/e2e"
+	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
 )
 
@@ -25,7 +26,7 @@ func (m *Manager) handleMessages(quitCh <-chan struct{}) {
 			done = true
 		case bundle := <-m.messageReception:
 			for _, msg := range bundle.Messages {
-				m.handleMessage(msg)
+				m.handleMessage(msg, bundle.Identity)
 			}
 			bundle.Finish()
 		}
@@ -33,7 +34,7 @@ func (m *Manager) handleMessages(quitCh <-chan struct{}) {
 
 }
 
-func (m *Manager) handleMessage(ecrMsg format.Message) {
+func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.IdentityUse) {
 	// We've done all the networking, now process the message
 	fingerprint := ecrMsg.GetKeyFP()
 
@@ -44,6 +45,15 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 	var encTy message.EncryptionType
 	var err error
 	var relationshipFingerprint []byte
+
+	//check if the identity fingerprint matches
+	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(), ecrMsg.GetContents(), identity.Source)
+	if err != nil {
+		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
+	}
+	if !forMe {
+		return
+	}
 
 	// try to get the key fingerprint, process as e2e encryption if
 	// the fingerprint is found
@@ -73,18 +83,18 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 		// if it doesnt match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
-		ephID, err := ephemeral.Marshal(msg.GetEphemeralRID())
-		if err!=nil{
-			jww.DEBUG.Printf("Failed to unmarshal ephemeral ID " +
+		if err != nil {
+			jww.DEBUG.Printf("Failed to unmarshal ephemeral ID "+
 				"on unknown message: %+v", err)
 		}
 		raw := message.Receive{
 			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
 			Sender:      nil,
-			EphemeralID: ephID,
+			EphemeralID: identity.EphId,
 			Timestamp:   time.Time{},
 			Encryption:  message.None,
+			RecipientID: identity.Source,
 		}
 		jww.INFO.Printf("Garbled/RAW Message: %v", msg.GetKeyFP())
 		m.Session.GetGarbledMessages().Add(msg)
@@ -96,6 +106,11 @@ func (m *Manager) handleMessage(ecrMsg format.Message) {
 	// we get a full message
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
 		relationshipFingerprint)
+
+	//Set the identities
+	xxMsg.RecipientID = identity.Source
+	xxMsg.EphemeralID = identity.EphId
+
 	// If the reception completed a message, hear it on the switchboard
 	if ok {
 		if xxMsg.MessageType == message.Raw {

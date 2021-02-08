@@ -11,7 +11,6 @@ import (
 )
 
 func TestIdentity_EncodeDecode(t *testing.T) {
-
 	kv := versioned.NewKV(make(ekv.Memstore))
 	r := Identity{
 		EphId:       ephemeral.Id{},
@@ -23,23 +22,24 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
+
 	err := r.store(kv)
 	if err != nil {
-		t.Errorf("Failed to store: %s", err)
+		t.Errorf("Failed to store: %+v", err)
 	}
 
 	rLoad, err := loadIdentity(kv)
 	if err != nil {
-		t.Errorf("Failed to load: %s", err)
+		t.Errorf("Failed to load: %+v", err)
 	}
 
 	if !r.Equal(rLoad) {
-		t.Errorf("The two registrations are not the same\n saved:  %+v\n loaded: %+v", r, rLoad)
+		t.Errorf("Registrations are not the same\nsaved:  %+v\nloaded: %+v",
+			r, rLoad)
 	}
 }
 
 func TestIdentity_Delete(t *testing.T) {
-
 	kv := versioned.NewKV(make(ekv.Memstore))
 	r := Identity{
 		EphId:       ephemeral.Id{},
@@ -51,6 +51,7 @@ func TestIdentity_Delete(t *testing.T) {
 		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
+
 	err := r.store(kv)
 	if err != nil {
 		t.Errorf("Failed to store: %s", err)
@@ -63,24 +64,20 @@ func TestIdentity_Delete(t *testing.T) {
 
 	_, err = loadIdentity(kv)
 	if err == nil {
-		t.Errorf("Load after delete succeded")
+		t.Error("Load after delete succeeded.")
 	}
 }
 
 func TestIdentity_String(t *testing.T) {
 	rng := rand.New(rand.NewSource(42))
-
-	timestamp := time.Date(2009, 11, 17, 20,
-		34, 58, 651387237, time.UTC)
-
+	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	received, _ := generateFakeIdentity(rng, 15, timestamp)
-
 	expected := "-1763 U4x/lrFkvxuXu59LtHLon1sUhPJSCcnZND6SugndnVID"
 
 	s := received.String()
 	if s != expected {
-		t.Errorf("String did not return the correct value: "+
-			"\n\t Expected: %s\n\t Received: %s", expected, s)
+		t.Errorf("String did not return the correct value."+
+			"\nexpected: %s\nreceived: %s", expected, s)
 	}
 }
 
@@ -97,8 +94,25 @@ func TestIdentity_CalculateKrSize(t *testing.T) {
 
 		krSize := i.calculateKrSize()
 		if krSize != expected {
-			t.Errorf("kr size not correct! expected: %v, recieved: %v",
+			t.Errorf("krSize is not correct.\nexpected: %d\nrecieved: %d",
 				expected, krSize)
 		}
+	}
+}
+
+func TestIdentity_Equal(t *testing.T) {
+	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
+	a, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, timestamp)
+	b, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, timestamp)
+	c, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, time.Now())
+
+	if !a.Identity.Equal(b.Identity) {
+		t.Errorf("Equal() found two equal identities as unequal."+
+			"\na: %s\nb: %s", a.String(), b.String())
+	}
+
+	if a.Identity.Equal(c.Identity) {
+		t.Errorf("Equal() found two unequal identities as equal."+
+			"\na: %s\nc: %s", a.String(), c.String())
 	}
 }

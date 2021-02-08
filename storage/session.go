@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/storage/partition"
+	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/user"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -56,6 +57,7 @@ type Session struct {
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	checkedRounds       *utility.KnownRounds
+	reception           *reception.Store
 }
 
 // Initialize a new Session object
@@ -129,6 +131,8 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
+	s.reception = reception.NewStore(s.kv)
+
 	return s, nil
 }
 
@@ -190,6 +194,8 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
+	s.reception = reception.LoadStore(s.kv)
+
 	return s, nil
 }
 
@@ -215,6 +221,12 @@ func (s *Session) Auth() *auth.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.auth
+}
+
+func (s *Session) Reception() *reception.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.reception
 }
 
 func (s *Session) GetCriticalMessages() *utility.E2eMessageBuffer {

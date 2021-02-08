@@ -32,8 +32,8 @@ func (iu IdentityUse) setSamplingPeriod(rng io.Reader) (IdentityUse, error) {
 	// Generate the seed
 	seed := make([]byte, 32)
 	if _, err := rng.Read(seed); err != nil {
-		return IdentityUse{}, errors.WithMessage(err, "Failed to "+
-			"choose ID due to rng failure")
+		return IdentityUse{}, errors.WithMessage(err, "Failed to choose ID "+
+			"due to rng failure")
 	}
 
 	h, err := hash.NewCMixHash()

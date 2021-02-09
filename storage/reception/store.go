@@ -249,6 +249,8 @@ func (s *Store) MarkIdSizeAsSet()   {
 // sync.Cond wait. Used on any reader of idSize
 // who cannot use the default id size
 func (s *Store) WaitForIdSizeUpdate()  {
+	s.idSizeCond.L.Lock()
+	defer s.idSizeCond.L.Unlock()
 	s.idSizeCond.Wait()
 }
 

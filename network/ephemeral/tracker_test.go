@@ -47,6 +47,7 @@ func TestCheck(t *testing.T) {
 
 	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
 	stop := Track(session, instance.GetInstance(), ourId)
+	session.Reception().MarkIdSizeAsSet()
 
 	err = stop.Close(3 * time.Second)
 	if err != nil {
@@ -78,14 +79,15 @@ func TestCheck_Thread(t *testing.T) {
 		t.Errorf("Could not set mock timestamp for test setup: %v", err)
 	}
 
+	session.Reception().MarkIdSizeAsSet()
+
 	// Run the tracker
 	go func() {
 		track(session, instance.GetInstance(), ourId, stop)
 	}()
-	time.Sleep(time.Second)
+	time.Sleep(2*time.Second)
 
 	// Manually generate identities
-
 	eids, err := ephemeral.GetIdsByRange(ourId, session.Reception().GetIDSize(), now.UnixNano(), now.Sub(yesterday))
 	if err != nil {
 		t.Errorf("Could not generate upcoming ids: %v", err)
@@ -100,9 +102,15 @@ func TestCheck_Thread(t *testing.T) {
 		t.Errorf("Could not retrieve identity: %v", err)
 	}
 
+	identities[0].End.Add(validityGracePeriod)
+	identities[0].StartValid.Add(-validityGracePeriod)
+
+
 	// Check if store has been updated for new identities
 	if identities[0].String() != retrieved.Identity.String() {
-		t.Errorf("Store was not updated for newly generated identies")
+		t.Errorf("Store was not updated for newly generated identies." +
+			"\n\tExpected: %v" +
+			"\n\tReceived: %v", identities[0], retrieved.Identity)
 	}
 
 	err = stop.Close(3 * time.Second)

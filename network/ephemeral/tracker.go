@@ -57,15 +57,16 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 		globals.Log.FATAL.Panicf("Could not parse stored timestamp: %v", err)
 	}
 
+
 	// Wait until we get the id size from the network
 	receptionStore := session.Reception()
-	if !receptionStore.IsIdSizeDefault() {
+	for !receptionStore.IsIdSizeDefault() {
 		receptionStore.WaitForIdSizeUpdate()
 	}
 
+
 	for true {
 		now := time.Now()
-
 		// Generates the IDs since the last track
 		protoIds, err := ephemeral.GetIdsByRange(ourId, session.Reception().GetIDSize(),
 			now.UnixNano(), now.Sub(lastCheck))

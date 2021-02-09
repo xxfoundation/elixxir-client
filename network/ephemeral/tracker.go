@@ -59,8 +59,8 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 
 	// Wait until we get the id size from the network
 	receptionStore := session.Reception()
-	for receptionStore.IsIdSizeDefault() {
-		receptionStore.Wait()
+	if !receptionStore.IsIdSizeDefault() {
+		receptionStore.WaitForIdSizeUpdate()
 	}
 
 	for true {

@@ -26,10 +26,10 @@ const defaultIDSize = 12
 
 type Store struct {
 	// Identities which are being actively checked
-	active          []*registration
-	idSize          int
-	idSizeCond      *sync.Cond
-	isDefaultIdSide bool
+	active      []*registration
+	idSize      int
+	idSizeCond  *sync.Cond
+	isIdSizeSet bool
 
 	kv *versioned.KV
 
@@ -233,7 +233,7 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 func (s *Store) IsIdSizeDefault() bool  {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	return s.isDefaultIdSide
+	return s.isIdSizeSet
 }
 
 // Updates idSize boolean and broadcasts to any waiting
@@ -241,14 +241,14 @@ func (s *Store) IsIdSizeDefault() bool  {
 func (s *Store) MarkIdSizeAsSet()   {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	s.isDefaultIdSide = true
+	s.isIdSizeSet = true
 	s.idSizeCond.Broadcast()
 }
 
 // Wrapper function which calls a
 // sync.Cond wait. Used on any reader of idSize
 // who cannot use the default id size
-func (s *Store) Wait()  {
+func (s *Store) WaitForIdSizeUpdate()  {
 	s.idSizeCond.Wait()
 }
 

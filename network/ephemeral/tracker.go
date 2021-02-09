@@ -174,6 +174,9 @@ func marshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 // Helper function which calculates the time for the ticker based
 // off of the last ephemeral ID to expire
 func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
+	if len(baseIDs) == 0 {
+		return time.Duration(0)
+	}
 	// Get the last identity in the list
 	index := 0
 	if len(baseIDs)-1 > 0 {

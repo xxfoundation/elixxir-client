@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -126,6 +127,11 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 	s.criticalRawMessages, err = utility.NewCmixMessageBuffer(s.kv, criticalRawMessagesKey)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create raw critical message buffer")
+	}
+
+	s.checkedRounds, err = utility.NewKnownRounds(s.kv, checkedRoundsKey, knownRounds.NewKnownRound(CheckRoundsMaxSize))
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create checked rounds buffer")
 	}
 
 	s.conversations = conversation.NewStore(s.kv)

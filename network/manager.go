@@ -133,7 +133,7 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.Session, m.Instance, m.Comms.Id))
+	multi.Add(ephemeral.Track(m.Session, m.Comms.Id))
 
 	//set the running status back to 0 so it can be started again
 	closer := stoppable.NewCleanup(multi, func(time.Duration) error {

@@ -57,6 +57,12 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 		globals.Log.FATAL.Panicf("Could not parse stored timestamp: %v", err)
 	}
 
+	// Wait until we get the id size from the network
+	receptionStore := session.Reception()
+	for receptionStore.IsIdSizeDefault() {
+		receptionStore.Wait()
+	}
+
 	for true {
 		now := time.Now()
 

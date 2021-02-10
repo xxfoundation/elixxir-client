@@ -67,6 +67,7 @@ func LoadStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		kv: kv,
+		idSizeCond: sync.NewCond(&sync.Mutex{}),
 	}
 
 	// Load the versioned object for the reception list

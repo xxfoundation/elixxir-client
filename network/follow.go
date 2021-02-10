@@ -93,7 +93,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 	}
-	jww.TRACE.Printf("Polling %s for NDF...", gwHost)
+	jww.INFO.Printf("Polling gateway %s with ID %v...", gwHost, identity.EphId.Int64())
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
 		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)

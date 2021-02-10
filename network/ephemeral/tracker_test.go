@@ -14,12 +14,9 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/testkeys"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/signature"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/utils"
 	"testing"
 	"time"
@@ -46,7 +43,8 @@ func TestCheck(t *testing.T) {
 	}
 
 	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
-	stop := Track(session, instance.GetInstance(), ourId)
+	stop := Track(session, ourId)
+	session.Reception().MarkIdSizeAsSet()
 
 	err = stop.Close(3 * time.Second)
 	if err != nil {
@@ -80,30 +78,11 @@ func TestCheck_Thread(t *testing.T) {
 
 	// Run the tracker
 	go func() {
-		track(session, instance.GetInstance(), ourId, stop)
+		track(session, ourId, stop)
 	}()
-	time.Sleep(time.Second)
+	time.Sleep(3 * time.Second)
 
-	// Manually generate identities
-
-	eids, err := ephemeral.GetIdsByRange(ourId, session.Reception().GetIDSize(), now.UnixNano(), now.Sub(yesterday))
-	if err != nil {
-		t.Errorf("Could not generate upcoming ids: %v", err)
-	}
-
-	identities := generateIdentities(eids, ourId)
-
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-
-	retrieved, err := session.Reception().GetIdentity(rngStreamGen.GetStream())
-	if err != nil {
-		t.Errorf("Could not retrieve identity: %v", err)
-	}
-
-	// Check if store has been updated for new identities
-	if identities[0].String() != retrieved.Identity.String() {
-		t.Errorf("Store was not updated for newly generated identies")
-	}
+	session.Reception().MarkIdSizeAsSet()
 
 	err = stop.Close(3 * time.Second)
 	if err != nil {
@@ -118,8 +97,7 @@ func setupInstance(instance interfaces.NetworkManager) error {
 		return errors.Errorf("Failed to read cert from from file: %v", err)
 	}
 	ri := &mixmessages.RoundInfo{
-		ID:               1,
-		AddressSpaceSize: 64,
+		ID: 1,
 	}
 
 	testCert, err := rsa.LoadPrivateKeyFromPem(cert)
@@ -134,8 +112,7 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	}
 
 	ri = &mixmessages.RoundInfo{
-		ID:               2,
-		AddressSpaceSize: 64,
+		ID: 2,
 	}
 	if err = signature.Sign(ri, testCert); err != nil {
 		return errors.Errorf("Failed to sign round info: %v", err)

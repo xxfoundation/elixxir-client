@@ -26,8 +26,10 @@ const defaultIDSize = 12
 
 type Store struct {
 	// Identities which are being actively checked
-	active []*registration
-	idSize int
+	active      []*registration
+	idSize      int
+	idSizeCond  *sync.Cond
+	isIdSizeSet bool
 
 	kv *versioned.KV
 
@@ -44,9 +46,10 @@ type storedReference struct {
 func NewStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
-		active: make([]*registration, 0),
-		idSize: defaultIDSize * 2,
-		kv:     kv,
+		active:     make([]*registration, 0),
+		idSize:     defaultIDSize * 2,
+		kv:         kv,
+		idSizeCond: sync.NewCond(&sync.Mutex{}),
 	}
 
 	// Store the empty list
@@ -226,9 +229,40 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	}
 }
 
+// Returns whether idSize is set to default
+func (s *Store) IsIdSizeDefault() bool {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	return s.isIdSizeSet
+}
+
+// Updates idSize boolean and broadcasts to any waiting
+// idSize readers that id size is now updated with the network
+func (s *Store) MarkIdSizeAsSet() {
+	s.mux.Lock()
+	s.idSizeCond.L.Lock()
+	defer s.mux.Unlock()
+	defer s.idSizeCond.L.Unlock()
+	s.isIdSizeSet = true
+	s.idSizeCond.Broadcast()
+}
+
+// Wrapper function which calls a
+// sync.Cond wait. Used on any reader of idSize
+// who cannot use the default id size
+func (s *Store) WaitForIdSizeUpdate() {
+	s.idSizeCond.L.Lock()
+	defer s.idSizeCond.L.Unlock()
+	for !s.IsIdSizeDefault() {
+
+		s.idSizeCond.Wait()
+	}
+}
+
 func (s *Store) UpdateIdSize(idSize uint) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	if s.idSize == int(idSize) {
 		return
 	}

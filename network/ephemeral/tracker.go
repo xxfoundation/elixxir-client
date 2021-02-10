@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"time"
@@ -26,18 +25,17 @@ const TimestampKey = "IDTrackingTimestamp"
 const ephemeralStoppable = "EphemeralCheck"
 
 // Track runs a thread which checks for past and present ephemeral ids
-func Track(session *storage.Session, instance *network.Instance, ourId *id.ID) stoppable.Stoppable {
+func Track(session *storage.Session, ourId *id.ID) stoppable.Stoppable {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
-	go track(session, instance, ourId, stop)
+	go track(session, ourId, stop)
 
 	return stop
 }
 
 // track is a thread which continuously processes ephemeral ids.
 // If any error occurs, the thread crashes
-func track(session *storage.Session, instance *network.Instance, ourId *id.ID, stop *stoppable.Single) {
-	identityStore := session.Reception()
+func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 	// Check that there is a timestamp in store at all
 	err := checkTimestampStore(session)
@@ -57,11 +55,14 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 		globals.Log.FATAL.Panicf("Could not parse stored timestamp: %v", err)
 	}
 
+	// Wait until we get the id size from the network
+	receptionStore := session.Reception()
+	receptionStore.WaitForIdSizeUpdate()
+
 	for true {
 		now := time.Now()
-
 		// Generates the IDs since the last track
-		protoIds, err := ephemeral.GetIdsByRange(ourId, session.Reception().GetIDSize(),
+		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now.UnixNano(), now.Sub(lastCheck))
 
 		if err != nil {
@@ -77,7 +78,7 @@ func track(session *storage.Session, instance *network.Instance, ourId *id.ID, s
 			// Track if identity has been generated already
 			if identity.StartValid.After(lastCheck) {
 				// If not not, insert identity into store
-				if err = identityStore.AddIdentity(identity); err != nil {
+				if err = receptionStore.AddIdentity(identity); err != nil {
 					globals.Log.FATAL.Panicf("Could not insert "+
 						"identity: %v", err)
 				}

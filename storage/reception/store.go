@@ -267,6 +267,7 @@ func (s *Store) UpdateIdSize(idSize uint) {
 	if s.idSize == int(idSize) {
 		return
 	}
+	jww.INFO.Printf("Updating address space size to %v", idSize)
 
 	s.idSize = int(idSize)
 

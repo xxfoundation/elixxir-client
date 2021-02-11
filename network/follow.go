@@ -179,7 +179,12 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {
-		jww.TRACE.Printf("identity.Fake == true")
+		jww.DEBUG.Printf("not processing result, identity.Fake == true")
+		return
+	}
+
+	if len(pollResp.Filters.Filters)==0{
+		jww.DEBUG.Printf("no filters found for the passed ID, skipping processing")
 		return
 	}
 

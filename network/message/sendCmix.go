@@ -85,6 +85,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			jww.FATAL.Panicf("Failed to generate ephemeral ID: %+v", err)
 		}
 
+		jww.INFO.Printf("Sending to EphID %v (source: %s)", ephID.Int64(), recipient)
+
 		stream := rng.GetStream()
 		ephID, err = ephID.Fill(uint(bestRound.AddressSpaceSize), stream)
 		if err != nil {

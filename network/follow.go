@@ -184,12 +184,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	//get the range fo filters which are valid for the identity
-	filtersStart, filtersEnd := rounds.ValidFilterRange(identity, pollResp.Filters)
+	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
 
 	//check if there are any valid filters returned
-	if !(filtersEnd > filtersStart) {
-		jww.TRACE.Printf("filtersEnd(%d) > filtersStart(%d)",
-			filtersEnd, filtersStart)
+	if outOfBounds {
 		return
 	}
 

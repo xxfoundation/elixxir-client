@@ -42,14 +42,33 @@ func (rf *RemoteFilter) LastRound() id.Round {
 }
 
 // ValidFilterRange calculates which of the returned filters are valid for the identity
-func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.ClientBlooms) (start int, end int) {
-	firstFilterStart := time.Unix(0, filters.FirstTimestamp)
-	filterDelta := time.Duration(filters.Period)
+func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.ClientBlooms) (startIdx int, endIdx int, outOfBounds bool) {
+	outOfBounds = false
 
-	deltaFromStart := int(identity.StartValid.Sub(firstFilterStart) / filterDelta)
-	deltaFromEnd := int((identity.EndValid.Sub(firstFilterStart) + filterDelta - 1) / filterDelta)
-	if deltaFromEnd > (len(filters.Filters) - 1) {
-		deltaFromEnd = len(filters.Filters)
+	firstElementTS := filters.FirstTimestamp
+
+	identityStart := identity.StartValid.UnixNano()
+	identityEnd := identity.EndValid.UnixNano()
+
+	startIdx = int((identityStart - firstElementTS)/filters.Period)
+	if startIdx < 0{
+		startIdx = 0
 	}
-	return deltaFromStart, deltaFromEnd + 1
+
+	if startIdx > len(filters.Filters)-1{
+		outOfBounds = true
+		return startIdx, endIdx, outOfBounds
+	}
+
+	endIdx = int((identityEnd - firstElementTS)/filters.Period)
+	if endIdx<0{
+		outOfBounds = true
+		return startIdx, endIdx, outOfBounds
+	}
+
+	if int(endIdx) > len(filters.Filters)-1{
+		endIdx = len(filters.Filters)-1
+	}
+
+	return startIdx, endIdx, outOfBounds
 }

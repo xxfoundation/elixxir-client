@@ -6,7 +6,6 @@ import (
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 func NewRemoteFilter(data *mixmessages.ClientBloom) *RemoteFilter {
@@ -50,24 +49,24 @@ func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.Clien
 	identityStart := identity.StartValid.UnixNano()
 	identityEnd := identity.EndValid.UnixNano()
 
-	startIdx = int((identityStart - firstElementTS)/filters.Period)
-	if startIdx < 0{
+	startIdx = int((identityStart - firstElementTS) / filters.Period)
+	if startIdx < 0 {
 		startIdx = 0
 	}
 
-	if startIdx > len(filters.Filters)-1{
+	if startIdx > len(filters.Filters)-1 {
 		outOfBounds = true
 		return startIdx, endIdx, outOfBounds
 	}
 
-	endIdx = int((identityEnd - firstElementTS)/filters.Period)
-	if endIdx<0{
+	endIdx = int((identityEnd - firstElementTS) / filters.Period)
+	if endIdx < 0 {
 		outOfBounds = true
 		return startIdx, endIdx, outOfBounds
 	}
 
-	if int(endIdx) > len(filters.Filters)-1{
-		endIdx = len(filters.Filters)-1
+	if int(endIdx) > len(filters.Filters)-1 {
+		endIdx = len(filters.Filters) - 1
 	}
 
 	return startIdx, endIdx, outOfBounds

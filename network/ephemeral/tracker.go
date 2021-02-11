@@ -65,7 +65,7 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 			now.UnixNano(), now.Sub(lastCheck))
 
 		jww.INFO.Printf("Now: %d, LastCheck: %d (%v), Different: %d (%v)",
-			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
+			now.UnixNano(), lastCheck.Unix(), lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
 
 		jww.INFO.Printf("protoIds Count: %d", len(protoIds))
 

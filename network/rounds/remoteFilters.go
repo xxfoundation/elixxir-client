@@ -6,7 +6,6 @@ import (
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 func NewRemoteFilter(data *mixmessages.ClientBloom) *RemoteFilter {

@@ -202,15 +202,20 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 	opts.Hash = sha
 	h := sha.New()
 	h.Write(nonce)
-	data := h.Sum(nil)
+	hashedNonce := h.Sum(nil)
 
 	// Hash nonce & sign
-	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, data, opts)
+	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, hashedNonce, opts)
 	if err != nil {
 		jww.ERROR.Printf(
 			"Register: Unable to sign nonce! %s", err)
 		return err
 	}
+
+	h.Reset()
+	h.Write(UID)
+	hashedId := h.Sum(nil)
+	identitySig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, hashedId, opts)
 
 	// Send signed nonce to Server
 	// TODO: This returns a receipt that can be used to speed up registration
@@ -218,6 +223,9 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 		UserID: UID,
 		NonceSignedByClient: &messages.RSASignature{
 			Signature: sig,
+		},
+		IdSignedByClient:&messages.RSASignature{
+			Signature:            identitySig,
 		},
 	}
 

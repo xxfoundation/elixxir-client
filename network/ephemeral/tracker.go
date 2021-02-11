@@ -64,10 +64,10 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now.UnixNano(), now.Sub(lastCheck))
 
-		jww.INFO.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
+		jww.DEBUG.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
 			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
 
-		jww.INFO.Printf("protoIds Count: %d", len(protoIds))
+		jww.DEBUG.Printf("protoIds Count: %d", len(protoIds))
 
 		if err != nil {
 			jww.FATAL.Panicf("Could not generate "+
@@ -79,6 +79,9 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 		jww.INFO.Printf("Number of Identities Generated: %d",
 			len(identities))
+
+		jww.INFO.Printf("Current Identity: %d, Start: %s, End: %s",
+			identities[len(identities)-1].EphId.Int64(), identities[len(identities)-1].StartValid, identities[len(identities)-1].EndValid)
 
 		// Add identities to storage if unique
 		for _, identity := range identities {

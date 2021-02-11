@@ -179,6 +179,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {
+		jww.TRACE.Printf("identity.Fake == true")
 		return
 	}
 
@@ -187,6 +188,8 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	//check if there are any valid filters returned
 	if !(filtersEnd > filtersStart) {
+		jww.TRACE.Printf("filtersEnd(%d) > filtersStart(%d)",
+			filtersEnd, filtersStart)
 		return
 	}
 

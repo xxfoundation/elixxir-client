@@ -179,14 +179,15 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {
+		jww.TRACE.Printf("identity.Fake == true")
 		return
 	}
 
 	//get the range fo filters which are valid for the identity
-	filtersStart, filtersEnd := rounds.ValidFilterRange(identity, pollResp.Filters)
+	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
 
 	//check if there are any valid filters returned
-	if !(filtersEnd > filtersStart) {
+	if outOfBounds {
 		return
 	}
 

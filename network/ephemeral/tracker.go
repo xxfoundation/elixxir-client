@@ -10,7 +10,6 @@ package ephemeral
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -47,12 +46,12 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 	// Get the latest timestamp from store
 	lastTimestampObj, err := session.Get(TimestampKey)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Could not get timestamp: %v", err)
+		jww.FATAL.Panicf("Could not get timestamp: %v", err)
 	}
 
 	lastCheck, err := unmarshalTimestamp(lastTimestampObj)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Could not parse stored timestamp: %v", err)
+		jww.FATAL.Panicf("Could not parse stored timestamp: %v", err)
 	}
 
 	// Wait until we get the id size from the network
@@ -65,13 +64,21 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now.UnixNano(), now.Sub(lastCheck))
 
+		jww.INFO.Printf("Now: %d, LastCheck: %d (%v), Different: %d (%v)",
+			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
+
+		jww.INFO.Printf("protoIds Count: %d", len(protoIds))
+
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could not generate "+
+			jww.FATAL.Panicf("Could not generate "+
 				"upcoming IDs: %v", err)
 		}
 
 		// Generate identities off of that list
 		identities := generateIdentities(protoIds, ourId)
+
+		jww.INFO.Printf("Number of Identities Generated: %d",
+			len(identities))
 
 		// Add identities to storage if unique
 		for _, identity := range identities {
@@ -79,7 +86,7 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 			if identity.StartValid.After(lastCheck) {
 				// If not not, insert identity into store
 				if err = receptionStore.AddIdentity(identity); err != nil {
-					globals.Log.FATAL.Panicf("Could not insert "+
+					jww.FATAL.Panicf("Could not insert "+
 						"identity: %v", err)
 				}
 			}
@@ -89,14 +96,14 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		// Generate the time stamp for storage
 		vo, err := marshalTimestamp(now)
 		if err != nil {
-			globals.Log.FATAL.Panicf("Could not marshal "+
+			jww.FATAL.Panicf("Could not marshal "+
 				"timestamp for storage: %v", err)
 
 		}
 
 		// Store the timestamp
 		if err = session.Set(TimestampKey, vo); err != nil {
-			globals.Log.FATAL.Panicf("Could not store timestamp: %v", err)
+			jww.FATAL.Panicf("Could not store timestamp: %v", err)
 		}
 
 		// Sleep until the last Id has expired
@@ -140,7 +147,7 @@ func generateIdentities(protoIds []ephemeral.ProtoIdentity,
 // then the current time is stored
 func checkTimestampStore(session *storage.Session) error {
 	if _, err := session.Get(TimestampKey); err != nil {
-		now, err := marshalTimestamp(time.Now())
+		now, err := marshalTimestamp(time.Unix(0, 0))
 		if err != nil {
 			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
 		}

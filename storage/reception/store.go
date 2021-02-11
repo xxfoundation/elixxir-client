@@ -190,6 +190,12 @@ func (s *Store) AddIdentity(identity Identity) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	if identity.StartValid.After(identity.EndValid){
+		return errors.Errorf("Cannot add an identity which start valid " +
+			"time (%s) is after its end valid time(%s)", identity.StartValid,
+			identity.EndValid)
+	}
+
 	reg, err := newRegistration(identity, s.kv)
 	if err != nil {
 		return errors.WithMessage(err, "failed to add new identity to "+

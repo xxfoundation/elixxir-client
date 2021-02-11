@@ -80,8 +80,9 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		jww.INFO.Printf("Number of Identities Generated: %d",
 			len(identities))
 
-		jww.INFO.Printf("Current Identity: %d, Start: %s, End: %s",
-			identities[len(identities)-1].EphId.Int64(), identities[len(identities)-1].StartValid, identities[len(identities)-1].EndValid)
+		jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s",
+			identities[len(identities)-1].EphId.Int64(), identities[len(identities)-1].Source,
+			identities[len(identities)-1].StartValid, identities[len(identities)-1].EndValid)
 
 		// Add identities to storage if unique
 		for _, identity := range identities {

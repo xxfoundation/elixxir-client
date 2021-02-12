@@ -64,10 +64,10 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now, now.Sub(lastCheck))
 
-		jww.INFO.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
+		jww.DEBUG.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
 			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
 
-		jww.INFO.Printf("protoIds Count: %d", len(protoIds))
+		jww.DEBUG.Printf("protoIds Count: %d", len(protoIds))
 
 		if err != nil {
 			jww.FATAL.Panicf("Could not generate "+
@@ -79,6 +79,10 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 		jww.INFO.Printf("Number of Identities Generated: %d",
 			len(identities))
+
+		jww.INFO.Printf("Current Identity: %d (source: %s), Start: %s, End: %s",
+			identities[len(identities)-1].EphId.Int64(), identities[len(identities)-1].Source,
+			identities[len(identities)-1].StartValid, identities[len(identities)-1].EndValid)
 
 		// Add identities to storage if unique
 		for _, identity := range identities {
@@ -147,7 +151,9 @@ func generateIdentities(protoIds []ephemeral.ProtoIdentity,
 // then the current time is stored
 func checkTimestampStore(session *storage.Session) error {
 	if _, err := session.Get(TimestampKey); err != nil {
-		now, err := marshalTimestamp(time.Unix(0, 0))
+		// only generate from the last hour because this is a new id, it
+		// couldn't receive messages yet
+		now, err := marshalTimestamp(time.Now().Add(-1*time.Hour))
 		if err != nil {
 			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
 		}

@@ -290,11 +290,7 @@ func (s *Session) Delete(key string) error {
 // FOR TESTING ONLY
 func InitTestingSession(i interface{}) *Session {
 	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)

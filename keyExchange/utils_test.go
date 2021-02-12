@@ -101,11 +101,7 @@ func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 
 func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
 	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
@@ -208,11 +204,7 @@ func (t *testNetworkManagerFullExchange) GetStoppable() stoppable.Stoppable {
 
 func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {
 	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)

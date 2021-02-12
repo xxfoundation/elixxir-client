@@ -26,5 +26,5 @@ func TrackResults(resultsCh chan ds.EventReturn, numResults int) (bool, int, int
 		}
 	}
 
-	return (numTimeOut + numRoundFail) > 0, numRoundFail, numTimeOut
+	return (numTimeOut + numRoundFail) == 0, numRoundFail, numTimeOut
 }

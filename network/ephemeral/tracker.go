@@ -62,7 +62,7 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		now := time.Now()
 		// Generates the IDs since the last track
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
-			now.UnixNano(), now.Sub(lastCheck))
+			now, now.Sub(lastCheck))
 
 		jww.INFO.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
 			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))

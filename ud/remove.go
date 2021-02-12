@@ -2,11 +2,11 @@ package ud
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 type removeFactComms interface {
@@ -21,7 +21,7 @@ func (m *Manager) RemoveFact(fact fact.Fact) error {
 }
 
 func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
-	if !m.IsRegistered(){
+	if !m.IsRegistered() {
 		return errors.New("Failed to remove fact: " +
 			"client is not registered")
 	}

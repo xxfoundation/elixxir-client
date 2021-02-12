@@ -243,11 +243,7 @@ func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		globals.Log.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)

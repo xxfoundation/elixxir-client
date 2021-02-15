@@ -71,7 +71,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 
 	// send the request
 	msgReq := &pb.GetMessages{
-		ClientID: m.Uid.Marshal(),
+		ClientID: m.TransmissionID.Marshal(),
 		RoundID:  uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
@@ -97,7 +97,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		jww.WARN.Printf("host %s has no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicitive of a problem if it is consistant", gwHost,
-			m.Uid, rid)
+			m.TransmissionID, rid)
 		return message.Bundle{}, nil
 	}
 

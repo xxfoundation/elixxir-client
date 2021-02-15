@@ -89,7 +89,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		Comms:            comms,
 		Health:           nil,
-		Uid:              sess1.GetUser().TransmissionID,
+		TransmissionID:   sess1.GetUser().TransmissionID,
 		Instance:         inst,
 		NodeRegistration: nil,
 	}
@@ -104,7 +104,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
 	_, _, err = sendCmixHelper(msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultCMIX(),
 		m.Instance, m.Session, m.nodeRegistration, m.Rng,
-		m.Uid, &MockSendCMIXComms{t: t})
+		m.TransmissionID, &MockSendCMIXComms{t: t})
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)
 	}

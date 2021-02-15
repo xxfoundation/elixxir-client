@@ -28,8 +28,10 @@ type Internal struct {
 	//contains the health tracker which keeps track of if from the client's
 	//perspective, the network is in good condition
 	Health *health.Tracker
-	//ID of the node
-	Uid *id.ID
+	//ID which messages are sent as
+	TransmissionID *id.ID
+	//ID which messages are received as
+	ReceptionID *id.ID
 	//contains the network instance
 	Instance *network.Instance
 

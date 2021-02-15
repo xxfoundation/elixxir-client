@@ -70,17 +70,21 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			continue
 		}
 
-		if (bestRound.Timestamps[states.REALTIME] + sendTimeBuffer) >
-			uint64(time.Now().UnixNano()) {
-			jww.WARN.Println("Round received which has already started" +
-				" realtime")
+		roundCutoffTime := time.Unix(0,
+			int64(bestRound.Timestamps[states.QUEUED] + sendTimeBuffer))
+		now := time.Now()
+
+		if roundCutoffTime.After(now) {
+			jww.WARN.Printf("Round %d received which has already started" +
+				" realtime: \n\t started: %s \n\t now: %s", bestRound.ID,
+				roundCutoffTime, now)
 			continue
 		}
 
 		//set the ephemeral ID
 		ephID, _, _, err := ephemeral.GetId(recipient,
 			uint(bestRound.AddressSpaceSize),
-			int64(bestRound.Timestamps[states.REALTIME]))
+			int64(bestRound.Timestamps[states.QUEUED]))
 		if err != nil {
 			jww.FATAL.Panicf("Failed to generate ephemeral ID: %+v", err)
 		}

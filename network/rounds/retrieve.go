@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 type messageRetrievalComms interface {
@@ -40,7 +41,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			done = true
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
-			bundle, err := m.getMessagesFromGateway(ri, comms)
+			bundle, err := m.getMessagesFromGateway(ri, comms, rl.identity.EphId)
 			if err != nil {
 				jww.WARN.Printf("Failed to get messages for round %v: %s",
 					ri.ID, err)
@@ -55,7 +56,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 }
 
 func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
-	comms messageRetrievalComms) (message.Bundle, error) {
+	comms messageRetrievalComms, ephid ephemeral.Id) (message.Bundle, error) {
 
 	rid := id.Round(roundInfo.ID)
 
@@ -71,7 +72,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 
 	// send the request
 	msgReq := &pb.GetMessages{
-		ClientID: m.TransmissionID.Marshal(),
+		ClientID: ephid[:],
 		RoundID:  uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)

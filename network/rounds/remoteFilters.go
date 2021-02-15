@@ -24,10 +24,11 @@ func (rf *RemoteFilter) GetFilter() *bloom.Ring {
 
 	if rf.filter == nil {
 		var err error
-		rf.filter, err = bloom.InitByParameters(interfaces.BloomFilterSize,
+		rf.filter, _ = bloom.InitByParameters(interfaces.BloomFilterSize,
 			interfaces.BloomFilterHashes)
+		err = rf.filter.UnmarshalBinary(rf.data.Filter)
 		if err != nil {
-			return nil
+			jww.FATAL.Panicf("Failed to properly unmarshal the bloom filter: %+v", err)
 		}
 	}
 	return rf.filter

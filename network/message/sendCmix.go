@@ -32,7 +32,7 @@ type sendCmixCommsInterface interface {
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
 }
 
-const sendTimeBuffer = uint64(100 * time.Millisecond)
+const sendTimeBuffer = 100 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
@@ -71,7 +71,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		}
 
 		roundCutoffTime := time.Unix(0,
-			int64(bestRound.Timestamps[states.QUEUED] + sendTimeBuffer))
+			int64(bestRound.Timestamps[states.QUEUED]))
+		roundCutoffTime.Add(sendTimeBuffer)
 		now := time.Now()
 
 		if roundCutoffTime.After(now) {

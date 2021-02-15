@@ -90,7 +90,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		raw := message.Receive{
 			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
-			Sender:      nil,
+			Sender:      &id.ID{},
 			EphemeralID: identity.EphId,
 			Timestamp:   time.Time{},
 			Encryption:  message.None,

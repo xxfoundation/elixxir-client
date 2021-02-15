@@ -79,6 +79,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			jww.WARN.Printf("Round %d received which has already started" +
 				" realtime: \n\t started: %s \n\t now: %s", bestRound.ID,
 				roundCutoffTime, now)
+			attempted.Insert(bestRound)
 			continue
 		}
 

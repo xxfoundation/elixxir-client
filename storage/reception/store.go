@@ -316,6 +316,7 @@ func (s *Store) prune(now time.Time) {
 
 	// Save the list if it changed
 	if lengthBefore != len(s.active) {
+		jww.INFO.Printf("Pruned %d identities", lengthBefore-len(s.active))
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage")
 		}

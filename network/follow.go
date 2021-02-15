@@ -95,7 +95,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 	jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 		identity.EphId.Int64(), identity.Source, identity.StartRequest,
-		identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), gwHost)
+		identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), gwHost.GetId())
 
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
@@ -207,6 +207,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
+		jww.INFO.Printf("ima spam blooms: first: %d, last: %s, filter: %v", pollResp.Filters.Filters[i].FirstRound, pollResp.Filters.Filters[i].FirstRound+uint64(pollResp.Filters.Filters[i].RoundRange), pollResp.Filters.Filters[i].Filter)
 		filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
 	}
 

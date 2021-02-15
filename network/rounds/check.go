@@ -48,7 +48,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	var potentialFilters []*bloom.Ring
 
 	for _, filter := range filters {
-		if filter != nil && filter.FirstRound() <= roundID && filter.LastRound() >= roundID {
+		if filter != nil && filter.FirstRound() >= roundID && filter.LastRound() <= roundID {
 			potentialFilters = append(potentialFilters, filter.GetFilter())
 		}
 	}

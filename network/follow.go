@@ -146,6 +146,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 				continue
 			}
 
+			jww.INFO.Printf("Round %d timestamps: %v",
+				update.ID, update.Timestamps)
+
 			for _, clientErr := range update.ClientErrors {
 
 				// If this Client appears in the ClientError

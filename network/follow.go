@@ -33,6 +33,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"time"
 )
 
@@ -204,12 +205,21 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return
 	}
 
+	firstRound := id.Round(math.MaxUint64)
+	lastRound := id.Round(0)
+
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
 		if len(pollResp.Filters.Filters[i].Filter)!=0{
 			jww.INFO.Printf("ima spam blooms: first: %d, last: %d, filter: %v", pollResp.Filters.Filters[i].FirstRound, pollResp.Filters.Filters[i].FirstRound+uint64(pollResp.Filters.Filters[i].RoundRange), pollResp.Filters.Filters[i].Filter)
 			filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+			if filterList[i-filtersStart].FirstRound()<firstRound{
+				firstRound = filterList[i-filtersStart].FirstRound()
+			}
+			if filterList[i-filtersStart].LastRound()>lastRound{
+				lastRound = filterList[i-filtersStart].LastRound()
+			}
 		}
 	}
 
@@ -233,6 +243,5 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
 	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
-		filterList[0].FirstRound(), filterList[len(filterList)-1].LastRound(),
-		int(m.param.MaxCheckedRounds))
+		firstRound, lastRound, int(m.param.MaxCheckedRounds))
 }

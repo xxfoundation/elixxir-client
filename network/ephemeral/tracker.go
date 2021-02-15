@@ -86,15 +86,10 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 		// Add identities to storage if unique
 		for _, identity := range identities {
-			// Track if identity has been generated already
-			if identity.StartValid.After(lastCheck) {
-				// If not not, insert identity into store
-				if err = receptionStore.AddIdentity(identity); err != nil {
-					jww.FATAL.Panicf("Could not insert "+
-						"identity: %v", err)
-				}
+			if err = receptionStore.AddIdentity(identity); err != nil {
+				jww.FATAL.Panicf("Could not insert "+
+					"identity: %v", err)
 			}
-
 		}
 
 		// Generate the time stamp for storage
@@ -192,11 +187,7 @@ func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
 		return time.Duration(0)
 	}
 	// Get the last identity in the list
-	index := 0
-	if len(baseIDs)-1 > 0 {
-		index = len(baseIDs) - 1
-	}
-	lastIdentity := baseIDs[index]
+	lastIdentity := baseIDs[len(baseIDs)-1]
 
 	// Factor out the grace period previously expanded upon.
 	// Calculate and return that duration

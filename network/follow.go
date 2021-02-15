@@ -243,5 +243,5 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
 	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
-		firstRound, lastRound, int(m.param.MaxCheckedRounds))
+		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
 }

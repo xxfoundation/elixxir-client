@@ -207,8 +207,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
-		jww.INFO.Printf("ima spam blooms: first: %d, last: %s, filter: %v", pollResp.Filters.Filters[i].FirstRound, pollResp.Filters.Filters[i].FirstRound+uint64(pollResp.Filters.Filters[i].RoundRange), pollResp.Filters.Filters[i].Filter)
-		filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+		if len(pollResp.Filters.Filters[i].Filter)!=0{
+			jww.INFO.Printf("ima spam blooms: first: %d, last: %d, filter: %v", pollResp.Filters.Filters[i].FirstRound, pollResp.Filters.Filters[i].FirstRound+uint64(pollResp.Filters.Filters[i].RoundRange), pollResp.Filters.Filters[i].Filter)
+			filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+		}
 	}
 
 	jww.INFO.Printf("Bloom filters found in response: %d, num filters used: %d",

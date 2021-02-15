@@ -183,13 +183,15 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return
 	}
 
-	if len(pollResp.Filters.Filters)==0{
+	if len(pollResp.Filters.Filters) == 0 {
 		jww.DEBUG.Printf("no filters found for the passed ID, skipping processing")
 		return
 	}
 
 	//get the range fo filters which are valid for the identity
 	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
+
+	jww.INFO.Printf("filtersStart (%d), filtersEnd(%d), oob %v", filtersStart, filtersEnd, outOfBounds)
 
 	//check if there are any valid filters returned
 	if outOfBounds {

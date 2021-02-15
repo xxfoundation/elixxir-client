@@ -64,7 +64,7 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now, now.Sub(lastCheck))
 
-		jww.DEBUG.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
+		jww.DEBUG.Printf("Now: %d, LastCheck: %d (%v), Different: %d (%v)",
 			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
 
 		jww.DEBUG.Printf("protoIds Count: %d", len(protoIds))
@@ -153,7 +153,7 @@ func checkTimestampStore(session *storage.Session) error {
 	if _, err := session.Get(TimestampKey); err != nil {
 		// only generate from the last hour because this is a new id, it
 		// couldn't receive messages yet
-		now, err := marshalTimestamp(time.Now().Add(-1*time.Hour))
+		now, err := marshalTimestamp(time.Now().Add(-1 * time.Hour))
 		if err != nil {
 			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
 		}

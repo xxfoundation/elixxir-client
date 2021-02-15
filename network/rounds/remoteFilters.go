@@ -1,6 +1,7 @@
 package rounds
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -48,6 +49,9 @@ func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.Clien
 
 	identityStart := identity.StartValid.UnixNano()
 	identityEnd := identity.EndValid.UnixNano()
+
+	jww.INFO.Printf("firstElementTS: %d, identityStart: %d, identityEnd: %d",
+		firstElementTS, identityStart, identityEnd)
 
 	startIdx = int((identityStart - firstElementTS) / filters.Period)
 	if startIdx < 0 {

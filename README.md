@@ -4,7 +4,7 @@
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
 The xx network client is a library and related command line tool 
-that facilitate making full-featured XX clients for all platforms. The
+that facilitate making full-featured xx clients for all platforms. The
 command line tool can be built for any platform supported by
 golang. The libraries are built for iOS and Android using
 [gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
@@ -195,7 +195,7 @@ Note that the client cannot be used on the betanet with precanned user ids.
 
 ## Library Overview
 
-The XX client is designed to be used as a go library (and by extension a 
+The xx client is designed to be used as a go library (and by extension a 
 c library). 
  
 Support is also present for go mobile to build Android and iOS libraries. We

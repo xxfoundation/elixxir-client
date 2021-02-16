@@ -47,7 +47,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	var relationshipFingerprint []byte
 
 	//check if the identity fingerprint matches
-	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(), ecrMsg.GetContents(), identity.Source)
+	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+		ecrMsg.GetContents(), identity.Source)
 	if err != nil {
 		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
 	}

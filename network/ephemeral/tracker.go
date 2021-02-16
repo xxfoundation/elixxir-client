@@ -64,8 +64,8 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now, now.Sub(lastCheck))
 
-		jww.DEBUG.Printf("Now: %d, LastCheck: %v, Different: %v",
-			now.UnixNano(), lastCheck, now.Sub(lastCheck))
+		jww.DEBUG.Printf("Now: %s, LastCheck: %s, Different: %s",
+			now, lastCheck, now.Sub(lastCheck))
 
 		jww.DEBUG.Printf("protoIds Count: %d", len(protoIds))
 

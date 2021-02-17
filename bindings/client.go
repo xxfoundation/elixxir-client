@@ -298,7 +298,7 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 
 // RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
 // message was sent in successfully completed. Under the hood, this uses the same
-// interface as RegisterRoundEventsHandler, but provides a convent way to use
+// interface as RegisterRoundEventsHandler, but provides a convenient way to use
 // the interface in its most common form, looking up the result of message
 // retrieval
 //

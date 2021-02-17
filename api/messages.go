@@ -9,7 +9,6 @@ package api
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
-	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/network/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -19,12 +18,16 @@ import (
 	"time"
 )
 
+type RoundEventCallback interface {
+	Report(rid, state int, timedOut bool) bool
+}
+
 // Adjudicates on the rounds requested. Checks if they are older rounds or in progress rounds.
 // Sends updates on the rounds with callbacks
-func (c *Client)  RegisterMessageDelivery(roundList []id.Round, timeoutMS int) error {
+func (c *Client)  RegisterMessageDelivery(roundList []id.Round, roundCallback RoundEventCallback,
+	timeoutMS int) error {
 	// Get the oldest round in the buffer
 	networkInstance := c.network.GetInstance()
-	oldestRound := networkInstance.GetOldestRoundID()
 	timeout := time.Duration(timeoutMS)*time.Millisecond
 
 	/*check message delivery*/
@@ -33,30 +36,32 @@ func (c *Client)  RegisterMessageDelivery(roundList []id.Round, timeoutMS int) e
 	rndEventObjs := make([]*ds.EventCallback, len(roundList))
 
 	// Generate a message
-	msg := &pb.HistoricalRounds{
+	historicalRequest := &pb.HistoricalRounds{
 		Rounds: []uint64{},
 	}
 
+
+	oldestRound := networkInstance.GetOldestRoundID()
 	for i, rnd := range roundList {
+		roundInfo, err := networkInstance.GetRound(rnd)
+		if err != nil {
+			jww.DEBUG.Printf("Failed to ger round [%d] in buffer: %v", rnd, err)
+			// Update oldest round (buffer may have updated externally)
+			oldestRound = networkInstance.GetOldestRoundID()
+		}
+
+
 		if rnd < oldestRound {
 			// If round is older that oldest round in our buffer
 			// Add it to the historical round request (performed later)
-			msg.Rounds = append(msg.Rounds, uint64(rnd))
+			historicalRequest.Rounds = append(historicalRequest.Rounds, uint64(rnd))
 		} else {
-			// Otherwise, the round is in process OR hasn't happened yet.
-			// Check if the round has happened by looking at the buffer
-			ri, err := networkInstance.GetRound(rnd)
-			if err != nil {
-				jww.ERROR.Printf("Failed to ger round [%d] in buffer: %v", rnd, err)
-				continue
-			}
-
-			// If the round is done (completed or failed) send the results
+			// If the round is in the buffer, and done (completed or failed) send the results
 			// through the channel
-			if states.Round(ri.State) == states.COMPLETED ||
-				states.Round(ri.State) ==  states.FAILED {
+			if roundInfo != nil && (states.Round(roundInfo.State) == states.COMPLETED ||
+				states.Round(roundInfo.State) ==  states.FAILED) {
 				sendResults <- ds.EventReturn{
-					RoundInfo: ri,
+					RoundInfo: roundInfo,
 				}
 				continue
 			}
@@ -68,16 +73,21 @@ func (c *Client)  RegisterMessageDelivery(roundList []id.Round, timeoutMS int) e
 		}
 	}
 
+
 	// Find out what happened to old (historical) rounds
-	go c.getHistoricalRounds(msg, networkInstance, sendResults)
+	historicalReport := make(chan ds.EventReturn, len(historicalRequest.Rounds))
+	go c.getHistoricalRounds(historicalRequest, networkInstance, historicalReport)
 
 	// Determine the success of all rounds requested
 	go func() {
-		success, numRoundFail, numTimeout := utility.TrackResults(sendResults, len(roundList))
-		if !success {
-			globals.Log.WARN.Printf("RegisterMessageDelivery failed for %v/%v rounds. " +
-				"%v round(s) failed, %v timeouts", numRoundFail+numTimeout, len(roundList),
-				numRoundFail, numTimeout)
+		select {
+		case roundReport := <-sendResults:
+			ri := roundReport.RoundInfo
+			roundCallback.Report(int(ri.ID), int(ri.State), roundReport.TimedOut)
+		case roundReport := <- historicalReport:
+			ri := roundReport.RoundInfo
+			roundCallback.Report(int(ri.ID), int(ri.State), roundReport.TimedOut)
+			
 		}
 	}()
 

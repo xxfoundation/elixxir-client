@@ -8,7 +8,6 @@
 package node
 
 import (
-	"crypto"
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
@@ -112,7 +111,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		transmissionKey = store.GetGroup().NewIntFromBytes(h.Sum(nil))
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
-		// Initialise blake2b hash for transmission keys and sha256 for reception
+		// Initialise blake2b hash for transmission keys and reception
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
@@ -146,15 +145,15 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
 	dhPub := store.GetDHPublicKey().Bytes()
-	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
-	opts.Hash = sha
-	h := sha.New()
+	opts.Hash = hash.CMixHash
+	h, _ := hash.NewCMixHash()
 	h.Write(dhPub)
 	data := h.Sum(nil)
 
 	// Sign DH pubkey
-	clientSig, err := rsa.Sign(rng, uci.GetTransmissionRSA(), sha, data, opts)
+	clientSig, err := rsa.Sign(rng, uci.GetTransmissionRSA(), opts.Hash,
+		data, opts)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,15 +196,14 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 // Returns nil if successful, error otherwise
 func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 	privateKeyRSA *rsa.PrivateKey, gwID *id.ID) error {
-	sha := crypto.SHA256
 	opts := rsa.NewDefaultOptions()
-	opts.Hash = sha
-	h := sha.New()
+	opts.Hash = hash.CMixHash
+	h, _ := hash.NewCMixHash()
 	h.Write(nonce)
 	data := h.Sum(nil)
 
 	// Hash nonce & sign
-	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, sha, data, opts)
+	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, opts.Hash, data, opts)
 	if err != nil {
 		jww.ERROR.Printf(
 			"Register: Unable to sign nonce! %s", err)

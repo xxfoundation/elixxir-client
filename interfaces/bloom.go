@@ -1,4 +1,4 @@
 package interfaces
 
-const BloomFilterSize = 904 // In Bits
+const BloomFilterSize = 648 // In Bits
 const BloomFilterHashes = 10

@@ -47,11 +47,13 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	var relationshipFingerprint []byte
 
 	//check if the identity fingerprint matches
-	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(), ecrMsg.GetContents(), identity.Source)
+	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+		ecrMsg.GetContents(), identity.Source)
 	if err != nil {
 		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
 	}
 	if !forMe {
+		jww.INFO.Printf("I rejected: %s, am i dumb?", ecrMsg.GetContents())
 		return
 	}
 
@@ -90,7 +92,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		raw := message.Receive{
 			Payload:     msg.Marshal(),
 			MessageType: message.Raw,
-			Sender:      nil,
+			Sender:      &id.ID{},
 			EphemeralID: identity.EphId,
 			Timestamp:   time.Time{},
 			Encryption:  message.None,

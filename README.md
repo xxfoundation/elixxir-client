@@ -1,16 +1,16 @@
-# XX Network Client
+# xx network Client
 
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-The XX Network client is a library and related command line tool 
-that facilitate making full-featured XX clients for all platforms. The
+The xx network client is a library and related command line tool 
+that facilitate making full-featured xx clients for all platforms. The
 command line tool can be built for any platform supported by
 golang. The libraries are built for iOS and Android using
 [gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
 
 This repository contains everything necessary to implement all of the
-XX Network messaging features. These include the end-to-end encryption
+xx network messaging features. These include the end-to-end encryption
 and metadata protection. It also contains features to extend the base 
 messaging protocols.
 
@@ -24,7 +24,7 @@ The client is open source software released under the simplified BSD License.
 
 ## Command Line Usage
 
-The command line tool is intended for testing XX network functionality and not
+The command line tool is intended for testing xx network functionality and not
 for regular user use. 
 
 Compilation (assuming golang 1.13 or newer):
@@ -89,7 +89,7 @@ client --password user-password --ndf ndf.json -l client.log -s session-director
 ```
 
 * `--password` is the password used to encrypt and load the session.
-* `--ndf` is the network definition file, downloadable from the XX network
+* `--ndf` is the network definition file, downloadable from the xx network
   website when available.
 * `-l` the file to write logs (user messages are still printed to stdout)
 * `--writeContact` Output the user's contact information to this file.
@@ -195,7 +195,7 @@ Note that the client cannot be used on the betanet with precanned user ids.
 
 ## Library Overview
 
-The XX client is designed to be used as a go library (and by extension a 
+The xx client is designed to be used as a go library (and by extension a 
 c library). 
  
 Support is also present for go mobile to build Android and iOS libraries. We
@@ -211,7 +211,7 @@ set up before starting network threads (i.e., before StartNetworkFollowers
 connection reaches the "healthy" state. Below are relevant code listings for
 how to do these actions.
 
-the ndf is the network definition file, downloadable from the XX network 
+the ndf is the network definition file, downloadable from the xx network 
 website when available.
 
 1. Creating and/or Loading a client:

@@ -64,8 +64,8 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now, now.Sub(lastCheck))
 
-		jww.DEBUG.Printf("Now: %d, LastCheck: %v (%v), Different: %v (%v)",
-			now.UnixNano(), lastCheck, lastCheck, now.Sub(lastCheck), now.Sub(lastCheck))
+		jww.DEBUG.Printf("Now: %s, LastCheck: %s, Different: %s",
+			now, lastCheck, now.Sub(lastCheck))
 
 		jww.DEBUG.Printf("protoIds Count: %d", len(protoIds))
 
@@ -86,15 +86,10 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 		// Add identities to storage if unique
 		for _, identity := range identities {
-			// Track if identity has been generated already
-			if identity.StartValid.After(lastCheck) {
-				// If not not, insert identity into store
-				if err = receptionStore.AddIdentity(identity); err != nil {
-					jww.FATAL.Panicf("Could not insert "+
-						"identity: %v", err)
-				}
+			if err = receptionStore.AddIdentity(identity); err != nil {
+				jww.FATAL.Panicf("Could not insert "+
+					"identity: %v", err)
 			}
-
 		}
 
 		// Generate the time stamp for storage
@@ -153,7 +148,7 @@ func checkTimestampStore(session *storage.Session) error {
 	if _, err := session.Get(TimestampKey); err != nil {
 		// only generate from the last hour because this is a new id, it
 		// couldn't receive messages yet
-		now, err := marshalTimestamp(time.Now().Add(-1*time.Hour))
+		now, err := marshalTimestamp(time.Now().Add(-1 * time.Hour))
 		if err != nil {
 			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
 		}
@@ -192,11 +187,7 @@ func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
 		return time.Duration(0)
 	}
 	// Get the last identity in the list
-	index := 0
-	if len(baseIDs)-1 > 0 {
-		index = len(baseIDs) - 1
-	}
-	lastIdentity := baseIDs[index]
+	lastIdentity := baseIDs[len(baseIDs)-1]
 
 	// Factor out the grace period previously expanded upon.
 	// Calculate and return that duration

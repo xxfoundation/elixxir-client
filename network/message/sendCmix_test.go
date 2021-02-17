@@ -62,7 +62,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to start instance: %+v", err)
 	}
-	now := uint64(time.Now().UnixNano())
+	now := time.Now()
 	nid1 := id.NewIdFromString("zezima", id.Node, t)
 	nid2 := id.NewIdFromString("jakexx360", id.Node, t)
 	nid3 := id.NewIdFromString("westparkhome", id.Node, t)
@@ -70,13 +70,21 @@ func Test_attemptSendCmix(t *testing.T) {
 	sess1.Cmix().Add(nid1, grp.NewInt(1))
 	sess1.Cmix().Add(nid2, grp.NewInt(2))
 	sess1.Cmix().Add(nid3, grp.NewInt(3))
+
+	timestamps := []uint64{
+						uint64(now.Add(-30*time.Second).UnixNano()), //PENDING
+						uint64(now.Add(-25*time.Second).UnixNano()), //PRECOMPUTING
+						uint64(now.Add(-5*time.Second).UnixNano()),  //STANDBY
+						uint64(now.Add(5*time.Second).UnixNano()), 	 //QUEUED
+						0}											 //REALTIME
+
 	inst.GetWaitingRounds().Insert(&mixmessages.RoundInfo{
 		ID:                         3,
 		UpdateID:                   0,
 		State:                      uint32(states.QUEUED),
 		BatchSize:                  0,
 		Topology:                   [][]byte{nid1.Marshal(), nid2.Marshal(), nid3.Marshal()},
-		Timestamps:                 []uint64{now - 30, now - 15, now, now + 15, 0},
+		Timestamps:                 timestamps,
 		Errors:                     nil,
 		ClientErrors:               nil,
 		ResourceQueueTimeoutMillis: 0,
@@ -89,7 +97,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		Comms:            comms,
 		Health:           nil,
-		Uid:              sess1.GetUser().TransmissionID,
+		TransmissionID:   sess1.GetUser().TransmissionID,
 		Instance:         inst,
 		NodeRegistration: nil,
 	}
@@ -104,7 +112,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
 	_, _, err = sendCmixHelper(msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultCMIX(),
 		m.Instance, m.Session, m.nodeRegistration, m.Rng,
-		m.Uid, &MockSendCMIXComms{t: t})
+		m.TransmissionID, &MockSendCMIXComms{t: t})
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)
 	}

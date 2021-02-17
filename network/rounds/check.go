@@ -10,7 +10,6 @@ package rounds
 import (
 	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
-	bloom "gitlab.com/elixxir/bloomfilter"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -44,21 +43,12 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 		return true
 	}
 
-	//find filters that could have the round
-	var potentialFilters []*bloom.Ring
-
-	for _, filter := range filters {
-		if filter.FirstRound() <= roundID && filter.LastRound() >= roundID {
-			potentialFilters = append(potentialFilters, filter.GetFilter())
-		}
-	}
-
 	hasRound := false
-	//check if the round is in any of the potential filters
-	if len(potentialFilters) > 0 {
-		serialRid := serializeRound(roundID)
-		for _, f := range potentialFilters {
-			if f.Test(serialRid) {
+	//find filters that could have the round and check them
+	serialRid := serializeRound(roundID)
+	for _, filter := range filters {
+		if filter != nil && filter.FirstRound() <= roundID && filter.LastRound() >= roundID {
+			if filter.GetFilter().Test(serialRid) {
 				hasRound = true
 				break
 			}
@@ -68,6 +58,8 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	//if it is not present, set the round as checked
 	//that means no messages are available for the user in the round
 	if !hasRound {
+		jww.DEBUG.Printf("No messages found for round %d, " +
+			"will not check again", roundID)
 		m.p.Done(roundID)
 		return true
 	}

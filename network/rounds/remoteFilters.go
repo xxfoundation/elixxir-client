@@ -1,6 +1,7 @@
 package rounds
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	bloom "gitlab.com/elixxir/bloomfilter"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -23,10 +24,11 @@ func (rf *RemoteFilter) GetFilter() *bloom.Ring {
 
 	if rf.filter == nil {
 		var err error
-		rf.filter, err = bloom.InitByParameters(interfaces.BloomFilterSize,
+		rf.filter, _ = bloom.InitByParameters(interfaces.BloomFilterSize,
 			interfaces.BloomFilterHashes)
+		err = rf.filter.UnmarshalBinary(rf.data.Filter)
 		if err != nil {
-			return nil
+			jww.FATAL.Panicf("Failed to properly unmarshal the bloom filter: %+v", err)
 		}
 	}
 	return rf.filter
@@ -48,6 +50,9 @@ func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.Clien
 
 	identityStart := identity.StartValid.UnixNano()
 	identityEnd := identity.EndValid.UnixNano()
+
+	jww.INFO.Printf("firstElementTS: %d, identityStart: %d, identityEnd: %d",
+		firstElementTS, identityStart, identityEnd)
 
 	startIdx = int((identityStart - firstElementTS) / filters.Period)
 	if startIdx < 0 {

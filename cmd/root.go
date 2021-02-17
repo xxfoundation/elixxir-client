@@ -638,7 +638,7 @@ func init() {
 	rootCmd.Flags().UintP("e2eMinKeys",
 		"", uint(defaultE2EParams.MinKeys),
 		"Minimum number of keys used before requesting rekey")
-	viper.BindPFlag("MinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
+	viper.BindPFlag("e2eMinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
 	rootCmd.Flags().UintP("e2eMaxKeys",
 		"", uint(defaultE2EParams.MaxKeys),
 		"Max keys used before blocking until a rekey completes")

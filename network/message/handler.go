@@ -53,7 +53,6 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
 	}
 	if !forMe {
-		jww.INFO.Printf("I rejected: %s, am i dumb?", ecrMsg.GetContents())
 		return
 	}
 

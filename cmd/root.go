@@ -134,16 +134,37 @@ var rootCmd = &cobra.Command{
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 			var roundIDs []id.Round
+			var roundTimeout time.Duration
 			if unsafe {
 				roundIDs, err = client.SendUnsafe(msg,
 					paramsUnsafe)
+				roundTimeout = paramsUnsafe.Timeout
 			} else {
 				roundIDs, _, err = client.SendE2E(msg,
 					paramsE2E)
+				roundTimeout = paramsUnsafe.Timeout
 			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
+
+			// Construct the callback function which prints out the rounds' results
+			f := func(allRoundsSucceeded, timedOut bool,
+				rounds map[id.Round]api.RoundResult) {
+				for _, r := range roundIDs {
+					// Print out only rounds that reported successfully
+					if result, exists := rounds[r]; exists && result == api.Succeeded{
+						jww.DEBUG.Printf("RoundID %+v ended successfully \n", r)
+					}
+				}
+			}
+
+			// Have the client report back the round results
+			err = client.GetRoundResults(roundIDs, roundTimeout, f)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+
 			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}

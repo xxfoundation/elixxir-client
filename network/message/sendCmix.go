@@ -26,7 +26,7 @@ import (
 	"time"
 )
 
-// interface for sendcmix comms; allows mocking this in testing
+// interface for SendCMIX comms; allows mocking this in testing
 type sendCmixCommsInterface interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
@@ -63,7 +63,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			return 0, ephemeral.Id{}, errors.New("Sending cmix message timed out")
 		}
 		remainingTime := param.Timeout - elapsed
-		jww.TRACE.Printf("SendCMIX GetUpcommingRealtime")
+		jww.TRACE.Printf("SendCMIX GetUpcomingRealtime")
 		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
 		if bestRound == nil {
@@ -76,7 +76,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		now := time.Now()
 
 		if now.After(roundCutoffTime) {
-			jww.WARN.Printf("Round %d received which has already started" +
+			jww.WARN.Printf("Round %d received which has already started"+
 				" realtime: \n\t started: %s \n\t now: %s", bestRound.ID,
 				roundCutoffTime, now)
 			attempted.Insert(bestRound)
@@ -94,13 +94,13 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		jww.INFO.Printf("Sending to EphID %v (source: %s)", ephID.Int64(), recipient)
 
 		stream := rng.GetStream()
-		ephID, err = ephID.Fill(uint(bestRound.AddressSpaceSize), stream)
+		ephIdFilled, err := ephID.Fill(uint(bestRound.AddressSpaceSize), stream)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to obviscate the ephemeralID: %+v", err)
+			jww.FATAL.Panicf("Failed to obfuscate the ephemeralID: %+v", err)
 		}
 		stream.Close()
 
-		msg.SetEphemeralRID(ephID[:])
+		msg.SetEphemeralRID(ephIdFilled[:])
 
 		//set the identity fingerprint
 		ifp, err := fingerprint.IdentityFP(msg.GetContents(), recipient)

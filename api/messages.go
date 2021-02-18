@@ -38,9 +38,7 @@ const (
 //	  Returns false if all rounds statuses were returned
 // rounds contains a mapping of all previously requested rounds to
 //   their respective round results
-type RoundEventCallback interface {
-	Report(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult)
-}
+type RoundEventCallback func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult)
 
 // Comm interface for RequestHistoricalRounds.
 // Constructed for testability with getRoundResults
@@ -129,14 +127,14 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 			// If we know about all rounds, return
 			if numResults == 0 {
-				roundCallback.Report(allRoundsSucceeded, false, roundsResults)
+				roundCallback(allRoundsSucceeded, false, roundsResults)
 				return
 			}
 
 			// Wait for info about rounds or the timeout to occur
 			select {
 			case <-timer.C:
-				roundCallback.Report(false, true, roundsResults)
+				roundCallback(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
 				numResults--

@@ -21,27 +21,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
-// A mock structure which should conform to the callback for getRoundResults
-type mockRoundCallback struct {
-	allRoundsSucceeded bool
-	timedOut           bool
-	rounds             map[id.Round]RoundResult
-}
-
-// Construction for mockRoundCallback
-func NewMockRoundCB() *mockRoundCallback {
-	return &mockRoundCallback{}
-}
-
-// Report simply stores the passed in values in the structure
-func (mrc *mockRoundCallback) Report(allRoundsSucceeded, timedOut bool,
-	rounds map[id.Round]RoundResult) {
-
-	mrc.allRoundsSucceeded = allRoundsSucceeded
-	mrc.timedOut = timedOut
-	mrc.rounds = rounds
-}
-
 // Mock comm struct which returns no historical round data
 type noHistoricalRounds struct{}
 

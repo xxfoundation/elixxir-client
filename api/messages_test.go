@@ -43,8 +43,14 @@ func TestClient_GetRoundResults(t *testing.T) {
 		t.Errorf("Failed in setup: %v", err)
 	}
 
+	// Construct the round call back function signature
+	var successfulRounds, timeout bool
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
+		successfulRounds = allRoundsSucceeded
+		timeout = timedOut
+	}
+
 	// Call the round results
-	receivedRCB := NewMockRoundCB()
 	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
 		receivedRCB, sendResults, NewNoHistoricalRoundsComm())
 	if err != nil {
@@ -55,11 +61,11 @@ func TestClient_GetRoundResults(t *testing.T) {
 	time.Sleep(1 * time.Second)
 
 	// If any rounds timed out or any round failed, the happy path has failed
-	if receivedRCB.timedOut || !receivedRCB.allRoundsSucceeded {
+	if timeout || !successfulRounds {
 		t.Errorf("Unexpected round failures in happy path. "+
 			"Expected all rounds to succeed with no timeouts."+
 			"\n\tTimedOut: %v"+
-			"\n\tallRoundsSucceeded: %v", receivedRCB.timedOut, receivedRCB.allRoundsSucceeded)
+			"\n\tallRoundsSucceeded: %v", timeout, successfulRounds)
 	}
 
 }
@@ -100,8 +106,14 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 		t.Errorf("Failed in setup: %v", err)
 	}
 
+	// Construct the round call back function signature
+	var successfulRounds, timeout bool
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
+		successfulRounds = allRoundsSucceeded
+		timeout = timedOut
+	}
+
 	// Call the round results
-	receivedRCB := NewMockRoundCB()
 	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
 		receivedRCB, sendResults, NewNoHistoricalRoundsComm())
 	if err != nil {
@@ -112,10 +124,10 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// If no rounds have failed, this test has failed
-	if receivedRCB.allRoundsSucceeded {
+	if successfulRounds {
 		t.Errorf("Expected some rounds to fail. "+
 			"\n\tTimedOut: %v"+
-			"\n\tallRoundsSucceeded: %v", receivedRCB.timedOut, receivedRCB.allRoundsSucceeded)
+			"\n\tallRoundsSucceeded: %v", timeout, successfulRounds)
 	}
 
 }
@@ -166,8 +178,14 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 
 	}
 
+	// Construct the round call back function signature
+	var successfulRounds, timeout bool
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
+		successfulRounds = allRoundsSucceeded
+		timeout = timedOut
+	}
+
 	// Call the round results
-	receivedRCB := NewMockRoundCB()
 	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
 		receivedRCB, sendResults, NewHistoricalRoundsComm())
 	if err != nil {
@@ -178,10 +196,10 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// If no round failed, this test has failed
-	if receivedRCB.allRoundsSucceeded {
+	if successfulRounds {
 		t.Errorf("Expected historical rounds to have round failures"+
 			"\n\tTimedOut: %v"+
-			"\n\tallRoundsSucceeded: %v", receivedRCB.timedOut, receivedRCB.allRoundsSucceeded)
+			"\n\tallRoundsSucceeded: %v", timeout, successfulRounds)
 	}
 }
 
@@ -204,8 +222,14 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 		t.Errorf("Failed in setup: %v", err)
 	}
 
+	// Construct the round call back function signature
+	var successfulRounds, timeout bool
+	receivedRCB := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]RoundResult) {
+		successfulRounds = allRoundsSucceeded
+		timeout = timedOut
+	}
+
 	// Call the round results
-	receivedRCB := NewMockRoundCB()
 	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
 		receivedRCB, sendResults, NewNoHistoricalRoundsComm())
 	if err != nil {
@@ -216,9 +240,10 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 	time.Sleep(2 * time.Second)
 
 	// If no rounds have timed out , this test has failed
-	if !receivedRCB.timedOut {
+	if !timeout {
 		t.Errorf("Expected all rounds to timeout with no valid round reporter."+
-			"\n\tTimedOut: %v", receivedRCB.timedOut)
+			"\n\tTimedOut: %v"+
+			"\n\tallRoundsSucceeded: %v", timeout, successfulRounds)
 	}
 
 }

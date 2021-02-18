@@ -38,7 +38,7 @@ func (rr RoundResult) String() string  {
 	case Succeeded:
 		return "Succeeded"
 	default:
-		return fmt.Sprintf("UNKNOWN RESULT: %d", RR)
+		return fmt.Sprintf("UNKNOWN RESULT: %d", rr)
 	}
 }
 

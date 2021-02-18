@@ -37,13 +37,11 @@ func TestClient_GetRoundResults(t *testing.T) {
 		}
 	}
 
-	//// Create a new copy of the test client for this test
+	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
 		t.Errorf("Failed in setup: %v", err)
 	}
-
-
 
 	// Call the round results
 	receivedRCB := NewMockRoundCB()
@@ -96,7 +94,7 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 
 	}
 
-	//// Create a new copy of the test client for this test
+	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
 		t.Errorf("Failed in setup: %v", err)
@@ -115,7 +113,7 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 
 	// If no rounds have failed, this test has failed
 	if receivedRCB.allRoundsSucceeded {
-		t.Errorf("Expected some rounds to fail and others to timeout. "+
+		t.Errorf("Expected some rounds to fail. "+
 			"\n\tTimedOut: %v"+
 			"\n\tallRoundsSucceeded: %v", receivedRCB.timedOut, receivedRCB.allRoundsSucceeded)
 	}
@@ -154,14 +152,17 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 		t.Errorf("Failed in setup: %v", err)
 	}
 
-
-
-
 	// Overpopulate the round buffer, ensuring a circle back of the ring buffer
 	for i := 1; i <= ds.RoundInfoBufLen+completedHistoricalRoundID+1; i++ {
 		ri := &pb.RoundInfo{ID: uint64(i)}
-		signRoundInfo(ri)
-		client.network.GetInstance().RoundUpdate(ri)
+		if err = signRoundInfo(ri); err != nil {
+			t.Errorf("Failed to sign round in set up: %v", err)
+		}
+
+		err = client.network.GetInstance().RoundUpdate(ri)
+		if err != nil {
+			t.Errorf("Failed to upsert round in set up: %v", err)
+		}
 
 	}
 
@@ -178,7 +179,9 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 
 	// If no round failed, this test has failed
 	if receivedRCB.allRoundsSucceeded {
-		t.Errorf("Expected historical rounds to have a failure.")
+		t.Errorf("Expected historical rounds to have round failures"+
+			"\n\tTimedOut: %v"+
+			"\n\tallRoundsSucceeded: %v", receivedRCB.timedOut, receivedRCB.allRoundsSucceeded)
 	}
 }
 
@@ -201,9 +204,6 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 		t.Errorf("Failed in setup: %v", err)
 	}
 
-
-
-
 	// Call the round results
 	receivedRCB := NewMockRoundCB()
 	err = client.getRoundResults(roundList, time.Duration(10)*time.Millisecond,
@@ -217,8 +217,7 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 
 	// If no rounds have timed out , this test has failed
 	if !receivedRCB.timedOut {
-		t.Errorf("Unexpected round failures in happy path. "+
-			"Expected all rounds to succeed with no timeouts."+
+		t.Errorf("Expected all rounds to timeout with no valid round reporter."+
 			"\n\tTimedOut: %v", receivedRCB.timedOut)
 	}
 

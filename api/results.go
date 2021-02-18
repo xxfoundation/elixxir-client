@@ -7,6 +7,7 @@
 package api
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -27,6 +28,19 @@ const (
 	Failed
 	Succeeded
 )
+
+func (rr RoundResult) String() string  {
+	switch rr {
+	case TimeOut:
+		return "TimeOut"
+	case Failed:
+		return "Failed"
+	case Succeeded:
+		return "Succeeded"
+	default:
+		return fmt.Sprintf("UNKNOWN RESULT: %d", RR)
+	}
+}
 
 // Callback interface which reports the requested rounds.
 // Designed such that the caller may decide how much detail they need.

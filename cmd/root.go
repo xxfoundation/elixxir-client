@@ -90,6 +90,8 @@ var rootCmd = &cobra.Command{
 		// Send Messages
 		msgBody := viper.GetString("message")
 
+		fmt.Printf("MESSAGE BODY: %s", msgBody)
+
 		isPrecanPartner := false
 		recipientContact := readContact()
 		recipientID := recipientContact.ID
@@ -128,6 +130,8 @@ var rootCmd = &cobra.Command{
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
+
+		fmt.Printf("MESSAGE BODY 2: %s", msgBody)
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))
@@ -582,8 +586,9 @@ func init() {
 		"Identity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
-	rootCmd.Flags().StringP("message", "m", "", "Message to send")
-	viper.BindPFlag("message", rootCmd.Flags().Lookup("message"))
+	rootCmd.PersistentFlags().StringP("message", "m", "",
+		"Message to send")
+	viper.BindPFlag("message", rootCmd.PersistentFlags().Lookup("message"))
 
 	rootCmd.Flags().UintP("sendid", "", 0,
 		"Use precanned user id (must be between 1 and 40, inclusive)")

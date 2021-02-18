@@ -7,7 +7,6 @@
 package api
 
 import (
-	"fmt"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -36,8 +35,6 @@ func NewMockRoundCB() *mockRoundCallback {
 // Report simply stores the passed in values in the structure
 func (mrc *mockRoundCallback) Report(allRoundsSucceeded, timedOut bool,
 	rounds map[id.Round]RoundResult) {
-	fmt.Printf("allRoundsSucceeded: %v\n", allRoundsSucceeded)
-	fmt.Printf("timedOut: %v\n", timedOut)
 
 	mrc.allRoundsSucceeded = allRoundsSucceeded
 	mrc.timedOut = timedOut

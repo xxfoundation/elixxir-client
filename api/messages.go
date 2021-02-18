@@ -7,7 +7,6 @@
 package api
 
 import (
-	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -92,7 +91,6 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				roundsResults[rnd] = Succeeded
 			} else if states.Round(roundInfo.State) == states.FAILED {
 				roundsResults[rnd] = Failed
-				fmt.Printf("Round %d considered %v\n", roundInfo.ID, roundInfo.State)
 				allRoundsSucceeded = false
 			} else {
 				// If in progress, add a channel monitoring its status
@@ -128,11 +126,9 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 		// Create the results timer
 		timer := time.NewTimer(timeout)
 		for {
-			fmt.Printf("looping at most: %v\n", numResults)
 
 			// If we know about all rounds, return
 			if numResults == 0 {
-				fmt.Printf("passing to report the following: %v\n", allRoundsSucceeded)
 				roundCallback.Report(allRoundsSucceeded, false, roundsResults)
 				return
 			}
@@ -140,11 +136,9 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			// Wait for info about rounds or the timeout to occur
 			select {
 			case <-timer.C:
-				fmt.Printf("timed out\n")
 				roundCallback.Report(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
-				fmt.Printf("roundReport: %v\n", roundReport)
 				numResults--
 				// Skip if the round is nil (unknown from historical rounds)
 				// they default to timed out, so correct behavior is preserved
@@ -154,12 +148,10 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 					// If available, denote the result
 					roundId := id.Round(roundReport.RoundInfo.ID)
 					if states.Round(roundReport.RoundInfo.State) == states.COMPLETED {
-						fmt.Printf("round %d marked successful\n", roundId)
 						roundsResults[roundId] = Succeeded
 					} else {
 						roundsResults[roundId] = Failed
 						allRoundsSucceeded = false
-						fmt.Printf("Round [unknown] considered [failed]\n")
 
 					}
 				}
@@ -197,7 +189,6 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 
 	// Process historical rounds, sending back to the caller thread
 	for _, ri := range resp.Rounds {
-		fmt.Printf("received rounds from gateway: %v\n", ri)
 		sendResults <- ds.EventReturn{
 			ri,
 			false,

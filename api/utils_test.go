@@ -58,7 +58,6 @@ func newTestingClient(face interface{}) (*Client, error) {
 		Manager: commsManager,
 	}
 
-
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, face)
 	if err != nil {
 		return nil, nil
@@ -84,16 +83,16 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 		Registration: ndf.Registration{
 			TlsCertificate: string(cert),
 		},
-		Nodes: []ndf.Node {
+		Nodes: []ndf.Node{
 			{
-				ID:    nodeID.Bytes(),
+				ID:             nodeID.Bytes(),
 				Address:        "",
 				TlsCertificate: string(cert),
 			},
 		},
-		Gateways: []ndf.Gateway {
+		Gateways: []ndf.Gateway{
 			{
-				ID:    nodeID.Bytes(),
+				ID:             nodeID.Bytes(),
 				Address:        "",
 				TlsCertificate: string(cert),
 			},
@@ -148,6 +147,5 @@ func signRoundInfo(ri *pb.RoundInfo) error {
 	ourPrivateKey := &rsa.PrivateKey{PrivateKey: *pk}
 
 	return signature.Sign(ri, ourPrivateKey)
-
 
 }

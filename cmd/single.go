@@ -72,7 +72,7 @@ var singleCmd = &cobra.Command{
 		waitUntilConnected(connected)
 
 		// Make single-use manager and start receiving process
-		singleMng := single.NewManager(client, client.GetStorage().Reception())
+		singleMng := single.NewManager(client)
 
 		// Register the callback
 		callbackChan := make(chan responseCallbackChan)

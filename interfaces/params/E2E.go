@@ -74,7 +74,7 @@ const (
 	maxKeys   uint16  = 800
 	ttlScalar float64 = 1.2 // generate 20% extra keys
 	threshold uint16  = 224
-	numReKeys uint16  = 64
+	numReKeys uint16  = 16
 )
 
 type E2ESessionParams struct {

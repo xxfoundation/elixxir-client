@@ -50,7 +50,11 @@ type Manager struct {
 }
 
 // NewManager creates a new single-use communication manager.
-func NewManager(client *api.Client, reception *reception.Store) *Manager {
+func NewManager(client *api.Client) *Manager {
+	return newManager(client, client.GetStorage().Reception())
+}
+
+func newManager(client *api.Client, reception *reception.Store) *Manager {
 	return &Manager{
 		client:      client,
 		store:       client.GetStorage(),

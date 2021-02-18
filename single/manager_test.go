@@ -39,13 +39,13 @@ import (
 )
 
 // Happy path.
-func TestNewManager(t *testing.T) {
+func Test_newManager(t *testing.T) {
 	client := &api.Client{}
 	e := &Manager{
 		client: client,
 		p:      newPending(),
 	}
-	m := NewManager(client, reception.NewStore(versioned.NewKV(make(ekv.Memstore))))
+	m := newManager(client, &reception.Store{})
 
 	if e.client != m.client || e.store != m.store || e.net != m.net ||
 		e.rng != m.rng || !reflect.DeepEqual(e.p, m.p) {

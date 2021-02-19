@@ -116,10 +116,6 @@ func init() {
 		"Path to contact file to send message to.")
 	_ = viper.BindPFlag("contact", singleCmd.Flags().Lookup("contact"))
 
-	singleCmd.Flags().StringP("message", "m", "",
-		"Message to send.")
-	_ = viper.BindPFlag("message", singleCmd.Flags().Lookup("message"))
-
 	singleCmd.Flags().Uint8("maxMessages", 1,
 		"The max number of single-use response messages.")
 	_ = viper.BindPFlag("maxMessages", singleCmd.Flags().Lookup("maxMessages"))

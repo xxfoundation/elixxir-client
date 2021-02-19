@@ -42,7 +42,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
 		return nil, e2e.MessageID{}, errors.WithMessagef(err, "Could not send End to End encrypted "+
-			"message, no relationship found with %v", partner)
+			"message, no relationship found with %s", msg.Recipient)
 	}
 
 	wg := sync.WaitGroup{}

@@ -52,7 +52,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		Comms:            comms,
 		Health:           nil,
-		Uid:              sess1.GetUser().TransmissionID,
+		TransmissionID:   sess1.GetUser().TransmissionID,
 		Instance:         nil,
 		NodeRegistration: nil,
 	}

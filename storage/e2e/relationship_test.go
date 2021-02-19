@@ -189,7 +189,7 @@ func TestRelationship_GetByID(t *testing.T) {
 }
 
 // Shows that GetNewestRekeyableSession acts as expected:
-// returning sessions that are confirmed and past ttl
+// returning sessions that are confirmed and past rekeyThreshold
 func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)
 	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
@@ -261,10 +261,17 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 		unconfirmedRekey.partnerPubKey, unconfirmedRekey.partnerSource,
 		unconfirmedRekey.e2eParams)
 	sb.sessions[0].negotiationStatus = Unconfirmed
+	sb.sessions[0].keyState.numkeys = 2000
+	sb.sessions[0].rekeyThreshold = 1000
 	sb.sessions[0].keyState.numAvailable = 600
 	sending := sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
+	}
+	if sending.Status()!=RekeyNeeded || sending.IsConfirmed(){
+		t.Errorf("returned session is expected to be 'RekeyNedded' " +
+			"'Unconfirmed', it is: %s, confirmed: %v", sending.Status(),
+			sending.IsConfirmed())
 	}
 
 	// Second case: unconfirmed active
@@ -274,10 +281,18 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 		unconfirmedActive.partnerPubKey, unconfirmedActive.partnerSource,
 		unconfirmedActive.e2eParams)
 	sb.sessions[0].negotiationStatus = Unconfirmed
+	sb.sessions[0].keyState.numkeys = 2000
+	sb.sessions[0].rekeyThreshold = 1000
 	sb.sessions[0].keyState.numAvailable = 2000
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
+	}
+
+	if sending.Status()!=Active || sending.IsConfirmed(){
+		t.Errorf("returned session is expected to be 'Active' " +
+			"'Unconfirmed', it is: %s, confirmed: %v", sending.Status(),
+			sending.IsConfirmed())
 	}
 
 	// Third case: confirmed rekey
@@ -287,11 +302,19 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 		confirmedRekey.partnerPubKey, confirmedRekey.partnerSource,
 		confirmedRekey.e2eParams)
 	sb.sessions[0].negotiationStatus = Confirmed
+	sb.sessions[0].keyState.numkeys = 2000
+	sb.sessions[0].rekeyThreshold = 1000
 	sb.sessions[0].keyState.numAvailable = 600
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
 	}
+	if sending.Status()!=RekeyNeeded || !sending.IsConfirmed(){
+		t.Errorf("returned session is expected to be 'RekeyNeeded' " +
+			"'Confirmed', it is: %s, confirmed: %v", sending.Status(),
+			sending.IsConfirmed())
+	}
+
 
 	// Fourth case: confirmed active
 	confirmedActive, _ := makeTestSession()
@@ -300,10 +323,17 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 		confirmedActive.e2eParams)
 
 	sb.sessions[0].negotiationStatus = Confirmed
+	sb.sessions[0].keyState.numkeys = 2000
 	sb.sessions[0].keyState.numAvailable = 2000
+	sb.sessions[0].rekeyThreshold = 1000
 	sending = sb.getSessionForSending()
 	if sending.GetID() != sb.sessions[0].GetID() {
-		t.Error("got an unexpected session")
+		t.Errorf("got an unexpected session of state: %s", sending.Status())
+	}
+	if sending.Status()!=Active || !sending.IsConfirmed(){
+		t.Errorf("returned session is expected to be 'Active' " +
+			"'Confirmed', it is: %s, confirmed: %v", sending.Status(),
+			sending.IsConfirmed())
 	}
 }
 
@@ -386,7 +416,7 @@ func TestSessionBuff_TriggerNegotiation(t *testing.T) {
 		t.Errorf("should have had zero negotiations: %+v", negotiations)
 	}
 	session2, _ := makeTestSession()
-	// Make only a few keys available to trigger the ttl
+	// Make only a few keys available to trigger the rekeyThreshold
 	session2 = sb.AddSession(session2.myPrivKey, session2.partnerPubKey,
 		session2.partnerPubKey, session2.partnerSource,
 		session2.e2eParams)

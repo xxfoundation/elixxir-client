@@ -6,12 +6,10 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/xx_network/crypto/randomness"
+	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"io"
-	"math/big"
 	"strconv"
 	"sync"
 	"time"
@@ -66,7 +64,7 @@ func NewStore(kv *versioned.KV) *Store {
 func LoadStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
-		kv: kv,
+		kv:         kv,
 		idSizeCond: sync.NewCond(&sync.Mutex{}),
 	}
 
@@ -190,8 +188,8 @@ func (s *Store) AddIdentity(identity Identity) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if identity.StartValid.After(identity.EndValid){
-		return errors.Errorf("Cannot add an identity which start valid " +
+	if identity.StartValid.After(identity.EndValid) {
+		return errors.Errorf("Cannot add an identity which start valid "+
 			"time (%s) is after its end valid time(%s)", identity.StartValid,
 			identity.EndValid)
 	}
@@ -316,6 +314,7 @@ func (s *Store) prune(now time.Time) {
 
 	// Save the list if it changed
 	if lengthBefore != len(s.active) {
+		jww.INFO.Printf("Pruned %d identities", lengthBefore-len(s.active))
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store reception storage")
 		}
@@ -334,19 +333,18 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 			return IdentityUse{}, errors.WithMessage(err, "Failed to "+
 				"choose ID due to rng failure")
 		}
-		h, err := hash.NewCMixHash()
-		if err != nil {
-			return IdentityUse{}, err
-		}
 
-		selectedNum := randomness.RandInInterval(
-			big.NewInt(int64(len(s.active)-1)), seed, h)
+		selectedNum := large.NewInt(1).Mod(large.NewIntFromBytes(seed), large.NewInt(int64(len(s.active))))
 		selected = s.active[selectedNum.Uint64()]
 	}
 
 	if now.After(selected.End) {
 		selected.ExtraChecks--
 	}
+
+	jww.DEBUG.Printf("Selected identity: EphId: %d  ID: %s  End: %s  StartValid: %s  EndValid: %s",
+		selected.EphId.Int64(), selected.Source, selected.End.Format("01/02/06 03:04:05 pm"),
+		selected.StartValid.Format("01/02/06 03:04:05 pm"), selected.EndValid.Format("01/02/06 03:04:05 pm"))
 
 	return IdentityUse{
 		Identity: selected.Identity,

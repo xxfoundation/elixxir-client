@@ -49,9 +49,10 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	wg := sync.WaitGroup{}
 
 	for i, p := range partitions {
+		myID := m.Session.User().GetCryptographicIdentity()
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
-		e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
+		e2e.SetUnencrypted(msgCmix, myID.GetReceptionID())
 		wg.Add(1)
 		go func(i int) {
 			var err error

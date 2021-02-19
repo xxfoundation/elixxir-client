@@ -82,7 +82,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Health:           health.Init(instance, params.NetworkHealthTimeout),
 		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
-		Uid:              session.User().GetCryptographicIdentity().GetTransmissionID(),
+		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
+		ReceptionID: 	  session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
 	//create sub managers
@@ -133,7 +134,7 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.Session, m.Comms.Id))
+	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
 
 	//set the running status back to 0 so it can be started again
 	closer := stoppable.NewCleanup(multi, func(time.Duration) error {

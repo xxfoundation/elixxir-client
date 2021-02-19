@@ -57,8 +57,8 @@ type Session struct {
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
 
-	// Value of the counter at which a rekey is triggered
-	ttl uint32
+	// Number of keys used before the system attempts a rekey
+	rekeyThreshold uint32
 
 	// Received Keys dirty bits
 	// Each bit represents a single Key
@@ -92,7 +92,7 @@ type SessionDisk struct {
 	Confirmation uint8
 
 	// Number of keys usable before rekey
-	TTL uint32
+	RekeyThreshold uint32
 }
 
 /*CONSTRUCTORS*/
@@ -100,6 +100,11 @@ type SessionDisk struct {
 func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey,
 	baseKey *cyclic.Int, trigger SessionID, relationshipFingerprint []byte,
 	e2eParams params.E2ESessionParams) *Session {
+
+	if e2eParams.MinKeys<10{
+		jww.FATAL.Panicf("Cannot create a session with a minnimum number " +
+			"of keys less than 10")
+	}
 
 	confirmation := Unconfirmed
 	if t == Receive {
@@ -127,7 +132,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		t,
 		session.baseKey.TextVerbose(16, 0),
 		session.relationshipFingerprint,
-		session.ttl,
+		session.rekeyThreshold,
 		session.myPrivKey.TextVerbose(16, 0),
 		session.partnerPubKey.TextVerbose(16, 0))
 
@@ -243,11 +248,7 @@ func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		globals.Log.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)
@@ -291,7 +292,7 @@ func (s *Session) marshal() ([]byte, error) {
 		sd.Confirmation = uint8(s.negotiationStatus)
 	}
 
-	sd.TTL = s.ttl
+	sd.RekeyThreshold = s.rekeyThreshold
 
 	return json.Marshal(&sd)
 }
@@ -314,7 +315,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 	s.negotiationStatus = Negotiation(sd.Confirmation)
-	s.ttl = sd.TTL
+	s.rekeyThreshold = sd.RekeyThreshold
 	s.relationshipFingerprint = sd.RelationshipFingerprint
 	copy(s.partnerSource[:], sd.Trigger)
 
@@ -361,6 +362,7 @@ func (s *Session) Status() Status {
 	// copy the num available so it stays consistent as this function does its
 	// checks
 	numAvailable := s.keyState.GetNumAvailable()
+	numUsed := s.keyState.GetNumUsed()
 
 	if numAvailable == 0 {
 		return RekeyEmpty
@@ -368,7 +370,7 @@ func (s *Session) Status() Status {
 		return Empty
 		// do not need to make a copy of getNumKeys becasue it is static and
 		// only used once
-	} else if numAvailable <= s.keyState.GetNumKeys()-s.ttl {
+	} else if numUsed >= s.rekeyThreshold {
 		return RekeyNeeded
 	} else {
 		return Active
@@ -453,11 +455,11 @@ func (s *Session) triggerNegotiation() bool {
 	// case, such double locking is preferable because the majority of the time,
 	// the checked cases will turn out to be false.
 	s.mux.RLock()
-	// If we've used more keys than the TTL, it's time for a rekey
-	if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
+	// If we've used more keys than the RekeyThreshold, it's time for a rekey
+	if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
 		s.mux.RUnlock()
 		s.mux.Lock()
-		if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
+		if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
 			//partnerSource a rekey to create a new session
 			s.negotiationStatus = NewSessionTriggered
 			// no save is make after the update because we do not want this state
@@ -551,18 +553,17 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 	p := s.e2eParams
 	h, _ := hash.NewCMixHash()
 
-	//generate ttl and keying info
+	//generate rekeyThreshold and keying info
 	numKeys := uint32(randomness.RandInInterval(big.NewInt(
 		int64(p.MaxKeys-p.MinKeys)),
 		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
-	keysTTL := uint32(p.NumRekeys)
 
-	//ensure that enough keys are remaining to rekey
-	if numKeys-keysTTL < uint32(p.NumRekeys) {
-		numKeys = keysTTL + uint32(p.NumRekeys)
-	}
+	// start rekeying when 75% of keys have been used
+	s.rekeyThreshold = (numKeys*3)/4
 
-	s.ttl = uint32(s.e2eParams.NumRekeys)
+	// the total number of keys should be the number of rekeys plus the
+	// number of keys to use
+	numKeys = numKeys + uint32(s.e2eParams.NumRekeys)
 
 	//create the new state vectors. This will cause disk operations storing them
 

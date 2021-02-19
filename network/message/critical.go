@@ -85,7 +85,7 @@ func (m *Manager) criticalMessages() {
 	for msg, has := critRawMsgs.Next(); has; msg, has = critRawMsgs.Next() {
 		go func(msg format.Message) {
 			//send the message
-			round, _, err := m.SendCMIX(msg, m.Uid, param)
+			round, _, err := m.SendCMIX(msg, m.TransmissionID, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {

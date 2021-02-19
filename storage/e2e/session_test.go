@@ -61,9 +61,9 @@ func TestSession_generate_noPrivateKeyReceive(t *testing.T) {
 		t.Errorf("generated base key does not match expected base key")
 	}
 
-	//verify the ttl was generated
-	if s.ttl == 0 {
-		t.Errorf("ttl not generated")
+	//verify the rekeyThreshold was generated
+	if s.rekeyThreshold == 0 {
+		t.Errorf("rekeyThreshold not generated")
 	}
 
 	//verify keystates where created
@@ -122,9 +122,9 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 		t.Errorf("generated base key does not match expected base key")
 	}
 
-	//verify the ttl was generated
-	if s.ttl == 0 {
-		t.Errorf("ttl not generated")
+	//verify the rekeyThreshold was generated
+	if s.rekeyThreshold == 0 {
+		t.Errorf("rekeyThreshold not generated")
 	}
 
 	//verify keystates where created
@@ -161,8 +161,8 @@ func TestNewSession(t *testing.T) {
 	if sessionB.relationship == nil {
 		t.Error("newSession should populate relationship")
 	}
-	if sessionB.ttl == 0 {
-		t.Error("newSession should populate ttl")
+	if sessionB.rekeyThreshold == 0 {
+		t.Error("newSession should populate rekeyThreshold")
 	}
 }
 
@@ -193,8 +193,8 @@ func TestSession_Load(t *testing.T) {
 	if sessionB.relationship == nil {
 		t.Error("load should populate relationship")
 	}
-	if sessionB.ttl == 0 {
-		t.Error("load should populate ttl")
+	if sessionB.rekeyThreshold == 0 {
+		t.Error("load should populate rekeyThreshold")
 	}
 }
 
@@ -440,14 +440,15 @@ func TestSession_Status(t *testing.T) {
 	if s.Status() != Empty {
 		t.Error("Status should have been empty")
 	}
-	// Passing the ttl should result in a rekey being needed
-	s.keyState.numAvailable = s.keyState.numkeys - s.ttl
+	// Passing the rekeyThreshold should result in a rekey being needed
+	s.keyState.numAvailable = s.keyState.numkeys - s.rekeyThreshold
 	if s.Status() != RekeyNeeded {
-		t.Error("Just past the ttl, rekey should be needed")
+		t.Error("Just past the rekeyThreshold, rekey should be needed")
 	}
 	s.keyState.numAvailable = s.keyState.numkeys
+	s.rekeyThreshold = 450
 	if s.Status() != Active {
-		t.Error("If all keys available, session should be active")
+		t.Errorf("If all keys available, session should be active, recieved: %s", s.Status())
 	}
 }
 
@@ -469,7 +470,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !object.Timestamp.After(now) {
-		t.Error("save didn't occur after switching Sending to Sent")
+		t.Errorf("save didn't occur after switching Sending to Sent")
 	}
 
 	now = time.Now()
@@ -483,7 +484,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !object.Timestamp.After(now) {
-		t.Error("save didn't occur after switching Sent to Confirmed")
+		t.Errorf("save didn't occur after switching Sent to Confirmed")
 	}
 
 	now = time.Now()
@@ -535,10 +536,10 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 // Tests that TriggerNegotiation makes only valid state transitions
 func TestSession_TriggerNegotiation(t *testing.T) {
 	s, _ := makeTestSession()
-	// Set up num keys used to be > ttl: should partnerSource negotiation
+	// Set up num keys used to be > rekeyThreshold: should partnerSource negotiation
 	s.keyState.numAvailable = 50
 	s.keyState.numkeys = 100
-	s.ttl = 49
+	s.rekeyThreshold = 49
 	s.negotiationStatus = Confirmed
 
 	if !s.triggerNegotiation() {
@@ -548,8 +549,8 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
 	}
 
-	// Set up num keys used to be = ttl: should partnerSource negotiation
-	s.ttl = 50
+	// Set up num keys used to be = rekeyThreshold: should partnerSource negotiation
+	s.rekeyThreshold = 50
 	s.negotiationStatus = Confirmed
 
 	if !s.triggerNegotiation() {
@@ -559,8 +560,8 @@ func TestSession_TriggerNegotiation(t *testing.T) {
 		t.Errorf("negotiationStatus: got %v, expected %v", s.negotiationStatus, NewSessionTriggered)
 	}
 
-	// Set up num keys used to be < ttl: shouldn't partnerSource negotiation
-	s.ttl = 51
+	// Set up num keys used to be < rekeyThreshold: shouldn't partnerSource negotiation
+	s.rekeyThreshold = 51
 	s.negotiationStatus = Confirmed
 
 	if s.triggerNegotiation() {
@@ -633,7 +634,7 @@ func makeTestSession() (*Session, *context) {
 		kv:                kv,
 		t:                 Receive,
 		negotiationStatus: Confirmed,
-		ttl:               5,
+		rekeyThreshold:    5,
 	}
 	var err error
 	s.keyState, err = newStateVector(s.kv,

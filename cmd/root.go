@@ -134,16 +134,32 @@ var rootCmd = &cobra.Command{
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 			var roundIDs []id.Round
+			var roundTimeout time.Duration
 			if unsafe {
 				roundIDs, err = client.SendUnsafe(msg,
 					paramsUnsafe)
+				roundTimeout = paramsUnsafe.Timeout
 			} else {
 				roundIDs, _, err = client.SendE2E(msg,
 					paramsE2E)
+				roundTimeout = paramsE2E.Timeout
 			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
+
+			// Construct the callback function which prints out the rounds' results
+			f := func(allRoundsSucceeded, timedOut bool,
+				rounds map[id.Round]api.RoundResult) {
+				printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+			}
+
+			// Have the client report back the round results
+			err = client.GetRoundResults(roundIDs, roundTimeout, f)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+
 			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
@@ -179,6 +195,46 @@ var rootCmd = &cobra.Command{
 		}*/
 		time.Sleep(10 * time.Second)
 	},
+}
+
+// Helper function which prints the round resuls
+func printRoundResults(allRoundsSucceeded, timedOut bool,
+	rounds map[id.Round]api.RoundResult, roundIDs []id.Round, msg message.Send) {
+
+	// Done as string slices for easy and human readable printing
+	successfulRounds := make([]string, 0)
+	failedRounds := make([]string, 0)
+	timedOutRounds := make([]string, 0)
+
+	for _, r := range roundIDs {
+		// Group all round reports into a category based on their
+		// result (successful, failed, or timed out)
+		if result, exists := rounds[r]; exists {
+			if result == api.Succeeded {
+				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
+			} else if result == api.Failed {
+				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
+			} else {
+				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
+			}
+		}
+	}
+
+	jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
+		msg.Payload, msg.Recipient)
+
+	// Print out all rounds results, if they are populated
+	if len(successfulRounds) > 0 {
+		jww.INFO.Printf("\tRound(s) %v successful", strings.Join(successfulRounds, ","))
+	}
+	if len(failedRounds) > 0 {
+		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
+	}
+	if len(timedOutRounds) > 0 {
+		jww.ERROR.Printf("\tRound(s) %v timed " +
+			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
+	}
+
 }
 
 func createClient() *api.Client {
@@ -582,8 +638,9 @@ func init() {
 		"Identity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
-	rootCmd.Flags().StringP("message", "m", "", "Message to send")
-	viper.BindPFlag("message", rootCmd.Flags().Lookup("message"))
+	rootCmd.PersistentFlags().StringP("message", "m", "",
+		"Message to send")
+	viper.BindPFlag("message", rootCmd.PersistentFlags().Lookup("message"))
 
 	rootCmd.Flags().UintP("sendid", "", 0,
 		"Use precanned user id (must be between 1 and 40, inclusive)")
@@ -638,7 +695,7 @@ func init() {
 	rootCmd.Flags().UintP("e2eMinKeys",
 		"", uint(defaultE2EParams.MinKeys),
 		"Minimum number of keys used before requesting rekey")
-	viper.BindPFlag("MinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
+	viper.BindPFlag("e2eMinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
 	rootCmd.Flags().UintP("e2eMaxKeys",
 		"", uint(defaultE2EParams.MaxKeys),
 		"Max keys used before blocking until a rekey completes")

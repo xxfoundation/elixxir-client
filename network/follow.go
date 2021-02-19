@@ -33,6 +33,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"time"
 )
 
@@ -71,7 +72,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get an ideneity, this should be "+
+		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
 	}
 
@@ -93,7 +94,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 	}
-	jww.INFO.Printf("Polling gateway %s with ID %v...", gwHost, identity.EphId.Int64())
+	jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+		identity.EphId.Int64(), identity.Source, identity.StartRequest,
+		identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), gwHost.GetId())
+
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
 		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)
@@ -146,6 +150,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 				continue
 			}
 
+			jww.INFO.Printf("Round %d timestamps: %v",
+				update.ID, update.Timestamps)
+
 			for _, clientErr := range update.ClientErrors {
 
 				// If this Client appears in the ClientError
@@ -183,23 +190,37 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return
 	}
 
-	if len(pollResp.Filters.Filters)==0{
-		jww.DEBUG.Printf("no filters found for the passed ID, skipping processing")
+	if len(pollResp.Filters.Filters) == 0 {
+		jww.DEBUG.Printf("No filters found for the passed ID %d (%s), "+
+			"skipping processing.", identity.EphId, identity.Source)
 		return
 	}
 
 	//get the range fo filters which are valid for the identity
 	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
 
+	jww.INFO.Printf("filtersStart (%d), filtersEnd(%d), oob %v", filtersStart, filtersEnd, outOfBounds)
+
 	//check if there are any valid filters returned
 	if outOfBounds {
 		return
 	}
 
+	firstRound := id.Round(math.MaxUint64)
+	lastRound := id.Round(0)
+
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
-		filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+		if len(pollResp.Filters.Filters[i].Filter) != 0 {
+			filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+			if filterList[i-filtersStart].FirstRound() < firstRound {
+				firstRound = filterList[i-filtersStart].FirstRound()
+			}
+			if filterList[i-filtersStart].LastRound() > lastRound {
+				lastRound = filterList[i-filtersStart].LastRound()
+			}
+		}
 	}
 
 	jww.INFO.Printf("Bloom filters found in response: %d, num filters used: %d",
@@ -222,6 +243,5 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
 	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
-		filterList[0].FirstRound(), filterList[len(filterList)-1].LastRound(),
-		int(m.param.MaxCheckedRounds))
+		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
 }

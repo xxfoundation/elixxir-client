@@ -90,8 +90,6 @@ var rootCmd = &cobra.Command{
 		// Send Messages
 		msgBody := viper.GetString("message")
 
-		fmt.Printf("MESSAGE BODY: %s", msgBody)
-
 		isPrecanPartner := false
 		recipientContact := readContact()
 		recipientID := recipientContact.ID
@@ -130,8 +128,6 @@ var rootCmd = &cobra.Command{
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
-
-		fmt.Printf("MESSAGE BODY 2: %s", msgBody)
 
 		sendCnt := int(viper.GetUint("sendCount"))
 		sendDelay := time.Duration(viper.GetUint("sendDelay"))

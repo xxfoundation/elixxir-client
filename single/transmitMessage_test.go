@@ -1,12 +1,22 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package single
 
 import (
 	"bytes"
+	"encoding/binary"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/e2e/singleUse"
+	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/large"
-	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -32,7 +42,7 @@ func Test_newTransmitMessage(t *testing.T) {
 // Error path: public key size is larger than external payload size.
 func Test_newTransmitMessage_PubKeySizeError(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
+		if r := recover(); r == nil || !strings.Contains(r.(string), "Payload size") {
 			t.Error("newTransmitMessage() did not panic when the size of " +
 				"the payload is smaller than the size of the public key.")
 		}
@@ -135,13 +145,13 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 	testPayload := m.GetPayload()
 
 	if !bytes.Equal(payload, testPayload) {
-		t.Errorf("GetPayload() returned incorrect payload."+
+		t.Errorf("GetContents() returned incorrect payload."+
 			"\nexpected: %+v\nreceived: %+v", payload, testPayload)
 	}
 
 	payloadSize := externalPayloadSize - pubKeySize
 	if payloadSize != m.GetPayloadSize() {
-		t.Errorf("GetPayloadSize() returned incorrect payload size."+
+		t.Errorf("GetContentsSize() returned incorrect content size."+
 			"\nexpected: %d\nreceived: %d", payloadSize, m.GetPayloadSize())
 	}
 }
@@ -149,9 +159,9 @@ func TestTransmitMessage_SetPayload_GetPayload_GetPayloadSize(t *testing.T) {
 // Error path: supplied payload is not the same size as message payload.
 func TestTransmitMessage_SetPayload_PayloadSizeError(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
-			t.Error("SetPayload() did not panic when the size of supplied " +
-				"payload is not the same size as message payload.")
+		if r := recover(); r == nil || !strings.Contains(r.(string), "is not the same as the size") {
+			t.Error("SetContents() did not panic when the size of supplied " +
+				"contents is not the same size as message contents.")
 		}
 	}()
 
@@ -165,23 +175,25 @@ func Test_newTransmitMessagePayload(t *testing.T) {
 	payloadSize := prng.Intn(2000)
 	expected := transmitMessagePayload{
 		data:     make([]byte, payloadSize),
-		rid:      make([]byte, id.ArrIDLen),
-		num:      make([]byte, numSize),
-		contents: make([]byte, payloadSize-id.ArrIDLen-numSize),
+		tagFP:    make([]byte, tagFPSize),
+		nonce:    make([]byte, nonceSize),
+		maxParts: make([]byte, maxPartsSize),
+		size:     make([]byte, sizeSize),
+		contents: make([]byte, payloadSize-transmitPlMinSize),
 	}
 
 	mp := newTransmitMessagePayload(payloadSize)
 
 	if !reflect.DeepEqual(expected, mp) {
 		t.Errorf("newTransmitMessagePayload() did not produce the expected "+
-			"transmitMessagePayload.\nexpected: %#v\nreceived: %#v", expected, mp)
+			"transmitMessagePayload.\nexpected: %+v\nreceived: %+v", expected, mp)
 	}
 }
 
-// Error path: payload size is smaller than than rid size + num size.
+// Error path: payload size is smaller than than rid size + maxParts size.
 func Test_newTransmitMessagePayload_PayloadSizeError(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
+		if r := recover(); r == nil || !strings.Contains(r.(string), "Size of single-use transmission message payload") {
 			t.Error("newTransmitMessagePayload() did not panic when the size " +
 				"of the payload is smaller than the size of the reception ID " +
 				"+ the message count.")
@@ -194,13 +206,17 @@ func Test_newTransmitMessagePayload_PayloadSizeError(t *testing.T) {
 // Happy path.
 func Test_mapTransmitMessagePayload(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	rid := id.NewIdFromUInt(prng.Uint64(), id.User, t)
+	tagFP := singleUse.NewTagFP("Tag")
+	nonceBytes := make([]byte, nonceSize)
 	num := uint8(prng.Uint64())
+	size := []byte{uint8(prng.Uint64()), uint8(prng.Uint64())}
 	contents := make([]byte, prng.Intn(1000))
 	prng.Read(contents)
 	var data []byte
-	data = append(data, rid.Bytes()...)
+	data = append(data, tagFP.Bytes()...)
+	data = append(data, nonceBytes...)
 	data = append(data, num)
+	data = append(data, size...)
 	data = append(data, contents...)
 	mp := mapTransmitMessagePayload(data)
 
@@ -209,14 +225,24 @@ func Test_mapTransmitMessagePayload(t *testing.T) {
 			"for data.\nexpected: %+v\nreceived: %+v", data, mp.data)
 	}
 
-	if !bytes.Equal(rid.Bytes(), mp.rid) {
+	if !bytes.Equal(tagFP.Bytes(), mp.tagFP) {
 		t.Errorf("mapTransmitMessagePayload() failed to map the correct bytes "+
-			"for rid.\nexpected: %+v\nreceived: %+v", rid.Bytes(), mp.rid)
+			"for tagFP.\nexpected: %+v\nreceived: %+v", tagFP.Bytes(), mp.tagFP)
 	}
 
-	if num != mp.num[0] {
+	if !bytes.Equal(nonceBytes, mp.nonce) {
 		t.Errorf("mapTransmitMessagePayload() failed to map the correct bytes "+
-			"for num.\nexpected: %d\nreceived: %d", num, mp.num[0])
+			"for the nonce.\nexpected: %s\nreceived: %s", nonceBytes, mp.nonce)
+	}
+
+	if num != mp.maxParts[0] {
+		t.Errorf("mapTransmitMessagePayload() failed to map the correct bytes "+
+			"for maxParts.\nexpected: %d\nreceived: %d", num, mp.maxParts[0])
+	}
+
+	if !bytes.Equal(size, mp.size) {
+		t.Errorf("mapTransmitMessagePayload() failed to map the correct bytes "+
+			"for size.\nexpected: %+v\nreceived: %+v", size, mp.size)
 	}
 
 	if !bytes.Equal(contents, mp.contents) {
@@ -255,41 +281,69 @@ func Test_unmarshalTransmitMessagePayload(t *testing.T) {
 }
 
 // Happy path.
-func TestTransmitMessagePayload_SetRID_GetRID(t *testing.T) {
+func TestTransmitMessagePayload_GetRID(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	mp := newTransmitMessagePayload(prng.Intn(2000))
-	rid := id.NewIdFromUInt(prng.Uint64(), id.User, t)
+	expectedRID := singleUse.NewRecipientID(getGroup().NewInt(42), mp.Marshal())
 
-	mp.SetRID(rid)
-	testRID := mp.GetRID()
+	testRID := mp.GetRID(getGroup().NewInt(42))
 
-	if !rid.Cmp(testRID) {
+	if !expectedRID.Cmp(testRID) {
 		t.Errorf("GetRID() did not return the expected ID."+
-			"\nexpected: %s\nreceived: %s", rid, testRID)
+			"\nexpected: %s\nreceived: %s", expectedRID, testRID)
 	}
 }
 
 // Happy path.
-func TestTransmitMessagePayload_SetCount_GetCount(t *testing.T) {
+func Test_transmitMessagePayload_SetNonce_GetNonce(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	mp := newTransmitMessagePayload(prng.Intn(2000))
+
+	expectedNonce := prng.Uint64()
+	expectedNonceBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(expectedNonceBytes, expectedNonce)
+	err := mp.SetNonce(strings.NewReader(string(expectedNonceBytes)))
+	if err != nil {
+		t.Errorf("SetNonce() produced an error: %+v", err)
+	}
+
+	if expectedNonce != mp.GetNonce() {
+		t.Errorf("GetNonce() did not return the expected nonce."+
+			"\nexpected: %d\nreceived: %d", expectedNonce, mp.GetNonce())
+	}
+}
+
+// Error path: RNG return an error.
+func Test_transmitMessagePayload_SetNonce_RngError(t *testing.T) {
+	prng := rand.New(rand.NewSource(42))
+	mp := newTransmitMessagePayload(prng.Intn(2000))
+	err := mp.SetNonce(strings.NewReader(""))
+	if !check(err, "failed to generate nonce") {
+		t.Errorf("SetNonce() did not return an error when nonce generation "+
+			"fails: %+v", err)
+	}
+}
+
+// Happy path.
+func TestTransmitMessagePayload_SetMaxParts_GetMaxParts(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	mp := newTransmitMessagePayload(prng.Intn(2000))
 	count := uint8(prng.Uint64())
 
-	mp.SetCount(count)
-	testCount := mp.GetCount()
+	mp.SetMaxParts(count)
+	testCount := mp.GetMaxParts()
 
 	if count != testCount {
-		t.Errorf("GetCount() did not return the expected count."+
+		t.Errorf("GetMaxParts() did not return the expected count."+
 			"\nexpected: %d\nreceived: %d", count, testCount)
 	}
 }
 
 // Happy path.
-func TestTransmitMessagePayload_SetContents_GetContents_GetContentsSize(t *testing.T) {
+func TestTransmitMessagePayload_SetContents_GetContents_GetContentsSize_GetMaxContentsSize(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
-	payloadSize := prng.Intn(2000)
-	mp := newTransmitMessagePayload(payloadSize)
-	contentsSize := payloadSize - id.ArrIDLen - numSize
+	mp := newTransmitMessagePayload(format.MinimumPrimeSize)
+	contentsSize := (format.MinimumPrimeSize - transmitPlMinSize) / 2
 	contents := make([]byte, contentsSize)
 	prng.Read(contents)
 
@@ -304,19 +358,24 @@ func TestTransmitMessagePayload_SetContents_GetContents_GetContentsSize(t *testi
 		t.Errorf("GetContentsSize() did not return the expected size."+
 			"\nexpected: %d\nreceived: %d", contentsSize, mp.GetContentsSize())
 	}
+
+	if format.MinimumPrimeSize-transmitPlMinSize != mp.GetMaxContentsSize() {
+		t.Errorf("GetMaxContentsSize() did not return the expected size."+
+			"\nexpected: %d\nreceived: %d", format.MinimumPrimeSize-transmitPlMinSize, mp.GetMaxContentsSize())
+	}
 }
 
 // Error path: supplied bytes are smaller than payload contents.
 func TestTransmitMessagePayload_SetContents(t *testing.T) {
 	defer func() {
-		if r := recover(); r == nil {
+		if r := recover(); r == nil || !strings.Contains(r.(string), "max size of message content") {
 			t.Error("SetContents() did not panic when the size of the " +
 				"supplied bytes is not the same as the payload content size.")
 		}
 	}()
 
-	mp := newTransmitMessagePayload(255)
-	mp.SetContents([]byte{1, 2, 3})
+	mp := newTransmitMessagePayload(format.MinimumPrimeSize)
+	mp.SetContents(make([]byte, format.MinimumPrimeSize+1))
 }
 
 func getGroup() *cyclic.Group {

@@ -243,6 +243,15 @@ func (r *relationship) getSessionForSending() *Session {
 		return unconfirmedRekey[0]
 	}
 
+	jww.INFO.Printf("Details about %v sessions which are invalid:", len(sessions))
+	for i, s := range sessions{
+		if s==nil{
+			jww.INFO.Printf("\tSession %v is nil", i)
+		}else{
+			jww.INFO.Printf("\tSession %v: status: %v, confimred: %v", i, s.Status(), s.IsConfirmed())
+		}
+	}
+
 	return nil
 }
 

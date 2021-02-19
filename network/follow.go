@@ -72,7 +72,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get an ideneity, this should be "+
+		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
 	}
 
@@ -191,7 +191,8 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.DEBUG.Printf("no filters found for the passed ID, skipping processing")
+		jww.DEBUG.Printf("No filters found for the passed ID %d (%s), "+
+			"skipping processing.", identity.EphId, identity.Source)
 		return
 	}
 
@@ -211,13 +212,12 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
-		if len(pollResp.Filters.Filters[i].Filter)!=0{
-			jww.INFO.Printf("ima spam blooms: first: %d, last: %d, filter: %v", pollResp.Filters.Filters[i].FirstRound, pollResp.Filters.Filters[i].FirstRound+uint64(pollResp.Filters.Filters[i].RoundRange), pollResp.Filters.Filters[i].Filter)
+		if len(pollResp.Filters.Filters[i].Filter) != 0 {
 			filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
-			if filterList[i-filtersStart].FirstRound()<firstRound{
+			if filterList[i-filtersStart].FirstRound() < firstRound {
 				firstRound = filterList[i-filtersStart].FirstRound()
 			}
-			if filterList[i-filtersStart].LastRound()>lastRound{
+			if filterList[i-filtersStart].LastRound() > lastRound {
 				lastRound = filterList[i-filtersStart].LastRound()
 			}
 		}

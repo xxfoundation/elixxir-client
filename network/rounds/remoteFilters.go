@@ -70,9 +70,11 @@ func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.Clien
 		return startIdx, endIdx, outOfBounds
 	}
 
-	if int(endIdx) > len(filters.Filters)-1 {
+	if endIdx > len(filters.Filters)-1 {
 		endIdx = len(filters.Filters) - 1
 	}
 
-	return startIdx, endIdx, outOfBounds
+	// Add 1 to the end index so that it follows Go's convention; the last index
+	// is exclusive to the range
+	return startIdx, endIdx + 1, outOfBounds
 }

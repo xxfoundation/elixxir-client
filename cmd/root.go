@@ -138,16 +138,66 @@ var rootCmd = &cobra.Command{
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 			var roundIDs []id.Round
+			var roundTimeout time.Duration
 			if unsafe {
 				roundIDs, err = client.SendUnsafe(msg,
 					paramsUnsafe)
+				roundTimeout = paramsUnsafe.Timeout
 			} else {
 				roundIDs, _, err = client.SendE2E(msg,
 					paramsE2E)
+				roundTimeout = paramsE2E.Timeout
 			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
+			jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
+				msg.Payload, msg.Recipient)
+
+			// Construct the callback function which prints out the rounds' results
+			f := func(allRoundsSucceeded, timedOut bool,
+				rounds map[id.Round]api.RoundResult) {
+
+				// Done as string slices for easy and human readable printing
+				successfulRounds := make([]string, 0)
+				failedRounds := make([]string, 0)
+				timedOutRounds := make([]string, 0)
+
+				for _, r := range roundIDs {
+					// Group all round reports into a category based on their
+					// result (successful, failed, or timed out)
+					if result, exists := rounds[r]; exists {
+						if result == api.Succeeded {
+							successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
+						} else if result == api.Failed {
+							failedRounds = append(failedRounds, strconv.Itoa(int(r)))
+						} else {
+							timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
+						}
+
+					}
+				}
+
+				// Print out all rounds ressults, if they are populated
+				if len(successfulRounds) > 0 {
+					jww.INFO.Printf("Round(s) %v successful", strings.Join(successfulRounds, ","))
+				}
+				if len(failedRounds) > 0 {
+					jww.ERROR.Printf("Round(s) %v failed", strings.Join(failedRounds, ","))
+				}
+				if len(timedOutRounds) > 0 {
+					jww.ERROR.Printf("Round(s) %v timed out (no network "+
+						"resolution could be found)", strings.Join(timedOutRounds, ","))
+				}
+
+			}
+
+			// Have the client report back the round results
+			err = client.GetRoundResults(roundIDs, roundTimeout, f)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+
 			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}

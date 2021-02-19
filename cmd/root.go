@@ -382,6 +382,8 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
 
+	recipientContact := recipient
+
 	if isPrecanPartner {
 		jww.WARN.Printf("Precanned user id detected: %s",
 			recipientID)

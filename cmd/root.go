@@ -116,7 +116,8 @@ var rootCmd = &cobra.Command{
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-		if !unsafe {
+		assumeAuth := viper.GetBool("assume-auth-channel")
+		if !unsafe && !assumeAuth {
 			addAuthenticatedChannel(client, recipientID,
 				recipientContact, isPrecanPartner)
 		}
@@ -361,11 +362,6 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		jww.INFO.Printf("Authenticated channel already in place for %s",
 			recipientID)
 		return
-	}
-
-	if viper.GetBool("check-channel") {
-		jww.FATAL.Panicf("E2E channel for %s does not exist!",
-			recipientID)
 	}
 
 	var allowed bool
@@ -670,10 +666,10 @@ func init() {
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
 
-	rootCmd.Flags().BoolP("check-channel", "", false,
-		"Crash if an authenticated channel does not exist for user")
-	viper.BindPFlag("check-channel",
-		rootCmd.Flags().Lookup("check-channel"))
+	rootCmd.Flags().BoolP("assume-auth-channel", "", false,
+		"Do not check for an authentication channel for this user")
+	viper.BindPFlag("assume-auth-channel",
+		rootCmd.Flags().Lookup("assume-auth-channel"))
 
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")

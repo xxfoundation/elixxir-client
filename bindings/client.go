@@ -16,9 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/comms/mixmessages"
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
@@ -298,7 +296,7 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 
 // RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
 // message was sent in successfully completed. Under the hood, this uses the same
-// interface as RegisterRoundEventsHandler, but provides a convent way to use
+// interface as RegisterRoundEventsHandler, but provides a convenient way to use
 // the interface in its most common form, looking up the result of message
 // retrieval
 //
@@ -307,37 +305,30 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
-func (c *Client) RegisterMessageDeliveryCB(marshaledSendReport []byte,
-	mdc MessageDeliveryCallback, timeoutMS int) (*Unregister, error) {
+func (c *Client) WaitForRoundCompletion(marshaledSendReport []byte,
+	mdc MessageDeliveryCallback, timeoutMS int) error {
 
 	sr, err := UnmarshalSendReport(marshaledSendReport)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to "+
-			"RegisterMessageDeliveryCB: %+v", err))
+		 return errors.New(fmt.Sprintf("Failed to "+
+			"WaitForRoundCompletion callback due to bad Send Report: %+v", err))
 	}
 
-	/*check message delivery*/
-	sendResults := make(chan ds.EventReturn, len(sr.rl.list))
-	roundEvents := c.api.GetRoundEvents()
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult){
+		results := make([]byte, len(sr.rl.list))
 
-	reventObjs := make([]*ds.EventCallback, len(sr.rl.list))
-
-	for i, r := range sr.rl.list {
-		reventObjs[i] = roundEvents.AddRoundEventChan(r, sendResults,
-			time.Duration(timeoutMS)*time.Millisecond, states.COMPLETED,
-			states.FAILED)
-	}
-
-	go func() {
-		success, _, numTmeout := utility.TrackResults(sendResults, len(sr.rl.list))
-		if !success {
-			mdc.EventCallback(sr.mid[:], false, numTmeout > 0)
-		} else {
-			mdc.EventCallback(sr.mid[:], true, false)
+		for i, r := range sr.rl.list{
+			if result, exists := rounds[r]; exists{
+				results[i] = byte(result)
+			}
 		}
-	}()
 
-	return newRoundListUnregister(sr.rl.list, reventObjs, roundEvents), nil
+		mdc.EventCallback(sr.mid.Marshal(), allRoundsSucceeded, timedOut, results)
+	}
+
+	timeout := time.Duration(timeoutMS)*time.Millisecond
+
+	return c.api.GetRoundResults(sr.rl.list, timeout, f)
 }
 
 // Returns a user object from which all information about the current user

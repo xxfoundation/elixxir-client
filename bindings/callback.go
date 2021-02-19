@@ -38,7 +38,7 @@ type RoundEventCallback interface {
 
 // RoundEventHandler handles round events happening on the cMix network.
 type MessageDeliveryCallback interface {
-	EventCallback(msgID []byte, delivered, timedOut bool)
+	EventCallback(msgID []byte, delivered, timedOut bool, roundResults []byte)
 }
 
 // AuthRequestCallback notifies the register whenever they receive an auth

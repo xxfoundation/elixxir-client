@@ -142,7 +142,7 @@ var rootCmd = &cobra.Command{
 			} else {
 				roundIDs, _, err = client.SendE2E(msg,
 					paramsE2E)
-				roundTimeout = paramsUnsafe.Timeout
+				roundTimeout = paramsE2E.Timeout
 			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)

@@ -116,7 +116,8 @@ var rootCmd = &cobra.Command{
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-		if !unsafe {
+		assumeAuth := viper.GetBool("assume-auth-channel")
+		if !unsafe && !assumeAuth {
 			addAuthenticatedChannel(client, recipientID,
 				recipientContact, isPrecanPartner)
 		}
@@ -231,7 +232,7 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
 	}
 	if len(timedOutRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v timed " +
+		jww.ERROR.Printf("\tRound(s) %v timed "+
 			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
 	}
 
@@ -376,25 +377,12 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		jww.FATAL.Panicf("User did not allow channel creation!")
 	}
 
-	// Check if a channel exists for this recipientID
-	recipientContact, err := client.GetAuthenticatedChannelRequest(
-		recipientID)
-	if err == nil {
-		jww.INFO.Printf("Accepting existing channel request for %s",
-			recipientID)
-		err := client.ConfirmAuthenticatedChannel(recipientContact)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		return
-	} else {
-		recipientContact = recipient
-	}
-
 	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
 		recipientID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
+
+	recipientContact := recipient
 
 	if isPrecanPartner {
 		jww.WARN.Printf("Precanned user id detected: %s",
@@ -679,6 +667,11 @@ func init() {
 			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+
+	rootCmd.Flags().BoolP("assume-auth-channel", "", false,
+		"Do not check for an authentication channel for this user")
+	viper.BindPFlag("assume-auth-channel",
+		rootCmd.Flags().Lookup("assume-auth-channel"))
 
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")

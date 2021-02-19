@@ -144,7 +144,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			// then exit, nothing else needed
 			case auth.Sent:
 				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey,
+				if err := m.doConfirm(sr2, grp, partnerPubKey, myPubKey,
 					ecrFmt.GetOwnership()); err != nil {
 					jww.WARN.Printf("Confirmation failed: %s", err)
 				}
@@ -232,7 +232,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// finalize the confirmation
-	if err := m.doConfirm(sr, grp, partnerPubKey, ecrFmt.GetOwnership()); err != nil {
+	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetPartnerHistoricalPubKey(),
+		ecrFmt.GetOwnership()); err != nil {
 		jww.WARN.Printf("Confirmation failed: %s", err)
 		m.storage.Auth().Fail(sr.GetPartner())
 		return
@@ -240,10 +241,10 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, myPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
 	// verify the message came from the intended recipient
 	if !cAuth.VerifyOwnershipProof(sr.GetMyPrivKey(),
-		sr.GetPartnerHistoricalPubKey(), grp, ownershipProof) {
+		myPubKeyOwnershipProof, grp, ownershipProof) {
 		return errors.Errorf("Failed authenticate identity for auth "+
 			"confirmation of %s", sr.GetPartner())
 	}

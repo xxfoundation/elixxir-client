@@ -65,15 +65,24 @@ var rootCmd = &cobra.Command{
 		authMgr.AddGeneralRequestCallback(printChanRequest)
 
 		// If unsafe channels, add auto-acceptor
+		num_channels_confirmed := 0
+		authMgr.AddGeneralConfirmCallback(func(
+			partner contact.Contact) {
+			jww.INFO.Printf("Channel Confirmed: %s",
+				partner.ID)
+			num_channels_confirmed++
+		})
 		if viper.GetBool("unsafe-channel-creation") {
 			authMgr.AddGeneralRequestCallback(func(
 				requestor contact.Contact, message string) {
-				jww.INFO.Printf("Got Request: %s", requestor.ID)
+				jww.INFO.Printf("Channel Request: %s",
+					requestor.ID)
 				err := client.ConfirmAuthenticatedChannel(
 					requestor)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}
+				num_channels_confirmed++
 			})
 		}
 
@@ -169,7 +178,8 @@ var rootCmd = &cobra.Command{
 		// TODO: Actually check for how many messages we've received
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
-		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		waitSecs := viper.GetUint("waitTimeout")
+		waitTimeout := time.Duration(waitSecs)
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done && expectedCnt != 0 {
@@ -190,11 +200,19 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		// client.StopNetworkFollower(1 * time.Second)
-		/*if err!=nil{
-			fmt.Printf("Failed to cleanly close threads: %+v\n", err)
-		}*/
-		time.Sleep(10 * time.Second)
+		if receiveCnt == 0 && sendCnt == 0 {
+			scnt := uint(0)
+			for num_channels_confirmed == 0 && scnt < waitSecs {
+				time.Sleep(1 * time.Second)
+				scnt++
+			}
+		}
+		err = client.StopNetworkFollower(5 * time.Second)
+		if err != nil {
+			jww.WARN.Printf(
+				"Failed to cleanly close threads: %+v\n",
+				err)
+		}
 	},
 }
 

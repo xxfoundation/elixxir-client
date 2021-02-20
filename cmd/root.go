@@ -129,6 +129,9 @@ var rootCmd = &cobra.Command{
 		if !unsafe && !assumeAuth {
 			addAuthenticatedChannel(client, recipientID,
 				recipientContact, isPrecanPartner)
+			// Do not wait for channel confirmations if we
+			// tried to add a channel
+			num_channels_confirmed++
 		}
 
 		msg := message.Send{

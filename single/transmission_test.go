@@ -264,7 +264,7 @@ func TestManager_makeTransmitCmixMessage(t *testing.T) {
 	maxMsgs := uint8(8)
 	timeNow := time.Now()
 
-	msg, dhKey, rid, ephID, err := m.makeTransmitCmixMessage(partner, payload,
+	msg, dhKey, rid, _, err := m.makeTransmitCmixMessage(partner, payload,
 		tag, maxMsgs, 32, 30*time.Second, timeNow, prng)
 
 	if err != nil {
@@ -314,16 +314,6 @@ func TestManager_makeTransmitCmixMessage(t *testing.T) {
 	if !rid.Cmp(decryptedPayload.GetRID(encPayload.GetPubKey(m.store.E2e().GetGroup()))) {
 		t.Errorf("Returned incorrect recipient ID.\nexpected: %s\nreceived: %s",
 			decryptedPayload.GetRID(encPayload.GetPubKey(m.store.E2e().GetGroup())), rid)
-	}
-
-	expectedEphID, _, _, err := ephemeral.GetId(rid, uint(len(rid)), timeNow.UnixNano())
-	if err != nil {
-		t.Fatalf("Failed to generate expected ephemeral ID: %+v", err)
-	}
-
-	if expectedEphID != ephID {
-		t.Errorf("Returned incorrect ephemeral ID.\nexpected: %d\nreceived: %d",
-			expectedEphID.Int64(), ephID.Int64())
 	}
 }
 

@@ -65,15 +65,24 @@ var rootCmd = &cobra.Command{
 		authMgr.AddGeneralRequestCallback(printChanRequest)
 
 		// If unsafe channels, add auto-acceptor
+		num_channels_confirmed := 0
+		authMgr.AddGeneralConfirmCallback(func(
+			partner contact.Contact) {
+			jww.INFO.Printf("Channel Confirmed: %s",
+				partner.ID)
+			num_channels_confirmed++
+		})
 		if viper.GetBool("unsafe-channel-creation") {
 			authMgr.AddGeneralRequestCallback(func(
 				requestor contact.Contact, message string) {
-				jww.INFO.Printf("Got Request: %s", requestor.ID)
+				jww.INFO.Printf("Channel Request: %s",
+					requestor.ID)
 				err := client.ConfirmAuthenticatedChannel(
 					requestor)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}
+				num_channels_confirmed++
 			})
 		}
 
@@ -116,9 +125,13 @@ var rootCmd = &cobra.Command{
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-		if !unsafe {
+		assumeAuth := viper.GetBool("assume-auth-channel")
+		if !unsafe && !assumeAuth {
 			addAuthenticatedChannel(client, recipientID,
 				recipientContact, isPrecanPartner)
+			// Do not wait for channel confirmations if we
+			// tried to add a channel
+			num_channels_confirmed++
 		}
 
 		msg := message.Send{
@@ -168,7 +181,8 @@ var rootCmd = &cobra.Command{
 		// TODO: Actually check for how many messages we've received
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
-		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		waitSecs := viper.GetUint("waitTimeout")
+		waitTimeout := time.Duration(waitSecs)
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done && expectedCnt != 0 {
@@ -189,11 +203,19 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		// client.StopNetworkFollower(1 * time.Second)
-		/*if err!=nil{
-			fmt.Printf("Failed to cleanly close threads: %+v\n", err)
-		}*/
-		time.Sleep(10 * time.Second)
+		if receiveCnt == 0 && sendCnt == 0 {
+			scnt := uint(0)
+			for num_channels_confirmed == 0 && scnt < waitSecs {
+				time.Sleep(1 * time.Second)
+				scnt++
+			}
+		}
+		err = client.StopNetworkFollower(5 * time.Second)
+		if err != nil {
+			jww.WARN.Printf(
+				"Failed to cleanly close threads: %+v\n",
+				err)
+		}
 	},
 }
 
@@ -231,7 +253,7 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
 	}
 	if len(timedOutRounds) > 0 {
-		jww.ERROR.Printf("\tRound(s) %v timed " +
+		jww.ERROR.Printf("\tRound(s) %v timed "+
 			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
 	}
 
@@ -376,25 +398,12 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		jww.FATAL.Panicf("User did not allow channel creation!")
 	}
 
-	// Check if a channel exists for this recipientID
-	recipientContact, err := client.GetAuthenticatedChannelRequest(
-		recipientID)
-	if err == nil {
-		jww.INFO.Printf("Accepting existing channel request for %s",
-			recipientID)
-		err := client.ConfirmAuthenticatedChannel(recipientContact)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		return
-	} else {
-		recipientContact = recipient
-	}
-
 	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
 		recipientID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
+
+	recipientContact := recipient
 
 	if isPrecanPartner {
 		jww.WARN.Printf("Precanned user id detected: %s",
@@ -679,6 +688,11 @@ func init() {
 			"automatically approving authenticated channels")
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
+
+	rootCmd.Flags().BoolP("assume-auth-channel", "", false,
+		"Do not check for an authentication channel for this user")
+	viper.BindPFlag("assume-auth-channel",
+		rootCmd.Flags().Lookup("assume-auth-channel"))
 
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")

@@ -174,7 +174,42 @@ func TestContact_GetFingerprint_Consistency(t *testing.T) {
 		}
 
 	}
+}
 
+// Happy path.
+func TestEqual(t *testing.T) {
+	a := Contact{
+		ID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		DhPubKey:       getCycInt(512),
+		OwnershipProof: make([]byte, 1024),
+		Facts: fact.FactList{
+			{Fact: "myVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongUsername", T: fact.Username},
+			{Fact: "myVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongEmail@elixxir.io", T: fact.Email},
+			{Fact: "6502530000US", T: fact.Phone},
+		},
+	}
+	rand.Read(a.OwnershipProof)
+	b := Contact{
+		ID:             a.ID,
+		DhPubKey:       a.DhPubKey,
+		OwnershipProof: a.OwnershipProof,
+		Facts:          a.Facts,
+	}
+	c := Contact{
+		ID:             id.NewIdFromUInt(rand.Uint64(), id.User, t),
+		DhPubKey:       getCycInt(512),
+		OwnershipProof: make([]byte, 1024),
+	}
+
+	if !Equal(a, b) {
+		t.Errorf("Equal reported two equal contacts as different."+
+			"\na: %+v\nb: +%v", a, b)
+	}
+
+	if Equal(a, c) {
+		t.Errorf("Equal reported two unequal contacts as the same."+
+			"\na: %+v\nc: +%v", a, c)
+	}
 }
 
 func getCycInt(size int) *cyclic.Int {

@@ -38,7 +38,7 @@ func TestManager_GetMaxTransmissionPayloadSize(t *testing.T) {
 func TestManager_transmitSingleUse(t *testing.T) {
 	m := newTestManager(0, false, t)
 	prng := rand.New(rand.NewSource(42))
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("Contact ID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(5),
 	}
@@ -84,7 +84,7 @@ func TestManager_transmitSingleUse(t *testing.T) {
 // Error path: function quits early if the timoutHandler quit.
 func TestManager_transmitSingleUse_QuitChanError(t *testing.T) {
 	m := newTestManager(10*time.Millisecond, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("Contact ID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(5),
 	}
@@ -117,7 +117,7 @@ func TestManager_transmitSingleUse_QuitChanError(t *testing.T) {
 func TestManager_transmitSingleUse_AddIdentityError(t *testing.T) {
 	timeout := 15 * time.Millisecond
 	m := newTestManager(timeout, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("Contact ID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(5),
 	}
@@ -149,7 +149,7 @@ func TestManager_transmitSingleUse_AddIdentityError(t *testing.T) {
 // Error path: SendCMIX fails to send message.
 func TestManager_transmitSingleUse_SendCMIXError(t *testing.T) {
 	m := newTestManager(0, true, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("Contact ID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(5),
 	}
@@ -181,7 +181,7 @@ func TestManager_transmitSingleUse_MakeTransmitCmixMessageError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	payload := make([]byte, m.store.Cmix().GetGroup().GetP().ByteLen())
 
-	err := m.transmitSingleUse(nil, payload, "", 0, prng, nil, 0, nil)
+	err := m.transmitSingleUse(contact2.Contact{}, payload, "", 0, prng, nil, 0, nil)
 	if err == nil {
 		t.Error("transmitSingleUse() did not return an error when the payload " +
 			"is too large.")
@@ -191,7 +191,7 @@ func TestManager_transmitSingleUse_MakeTransmitCmixMessageError(t *testing.T) {
 // Error path: failed to add pending state because is already exists.
 func TestManager_transmitSingleUse_AddStateError(t *testing.T) {
 	m := newTestManager(0, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("Contact ID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(5),
 	}
@@ -222,7 +222,7 @@ func TestManager_transmitSingleUse_AddStateError(t *testing.T) {
 func TestManager_transmitSingleUse_RoundTimeoutError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	prng := rand.New(rand.NewSource(42))
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("Contact ID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(5),
 	}
@@ -254,7 +254,7 @@ func TestManager_transmitSingleUse_RoundTimeoutError(t *testing.T) {
 func TestManager_makeTransmitCmixMessage(t *testing.T) {
 	m := newTestManager(0, false, t)
 	prng := rand.New(rand.NewSource(42))
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(42),
 	}
@@ -324,7 +324,7 @@ func TestManager_makeTransmitCmixMessage_PayloadTooLargeError(t *testing.T) {
 	payload := make([]byte, 1000)
 	rand.New(rand.NewSource(42)).Read(payload)
 
-	_, _, _, _, err := m.makeTransmitCmixMessage(nil, payload, "", 8, 32,
+	_, _, _, _, err := m.makeTransmitCmixMessage(contact2.Contact{}, payload, "", 8, 32,
 		30*time.Second, time.Now(), prng)
 
 	if !check(err, "too long for message payload capacity") {
@@ -337,7 +337,7 @@ func TestManager_makeTransmitCmixMessage_PayloadTooLargeError(t *testing.T) {
 func TestManager_makeTransmitCmixMessage_KeyGenerationError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	prng := strings.NewReader("a")
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(42),
 	}

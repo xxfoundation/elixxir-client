@@ -18,7 +18,7 @@ func Test_callbackMap_registerCallback(t *testing.T) {
 	callbackChan := make(chan int)
 	testCallbacks := []struct {
 		tag string
-		cb  receiveComm
+		cb  ReceiveComm
 	}{
 		{"tag1", func([]byte, Contact) { callbackChan <- 0 }},
 		{"tag2", func([]byte, Contact) { callbackChan <- 1 }},
@@ -45,7 +45,7 @@ func Test_callbackMap_getCallback(t *testing.T) {
 	callbackChan := make(chan int)
 	testCallbacks := []struct {
 		tagFP singleUse.TagFP
-		cb    receiveComm
+		cb    ReceiveComm
 	}{
 		{singleUse.UnmarshalTagFP([]byte("tag1")), func([]byte, Contact) { callbackChan <- 0 }},
 		{singleUse.UnmarshalTagFP([]byte("tag2")), func([]byte, Contact) { callbackChan <- 1 }},

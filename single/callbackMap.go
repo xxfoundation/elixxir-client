@@ -13,7 +13,7 @@ import (
 	"sync"
 )
 
-type receiveComm func(payload []byte, c Contact)
+type ReceiveComm func(payload []byte, c Contact)
 
 // callbackMap stores a list of possible callbacks that can be called when a
 // message is received. To receive a transmission, each transmitted message must
@@ -22,21 +22,21 @@ type receiveComm func(payload []byte, c Contact)
 // message belongs to. The tag can be anything, but should be long enough so
 // that it is unique.
 type callbackMap struct {
-	callbacks map[singleUse.TagFP]receiveComm
+	callbacks map[singleUse.TagFP]ReceiveComm
 	sync.RWMutex
 }
 
 // newCallbackMap initialises a new map.
 func newCallbackMap() *callbackMap {
 	return &callbackMap{
-		callbacks: map[singleUse.TagFP]receiveComm{},
+		callbacks: map[singleUse.TagFP]ReceiveComm{},
 	}
 }
 
 // registerCallback adds a callback function to the map that associates it with
 // its tag. The tag should be a unique string identifying the module using the
 // callback.
-func (cbm *callbackMap) registerCallback(tag string, callback receiveComm) {
+func (cbm *callbackMap) registerCallback(tag string, callback ReceiveComm) {
 	cbm.Lock()
 	defer cbm.Unlock()
 
@@ -46,7 +46,7 @@ func (cbm *callbackMap) registerCallback(tag string, callback receiveComm) {
 
 // getCallback returns the callback registered with the given tag fingerprint.
 // An error is returned if no associated callback exists.
-func (cbm *callbackMap) getCallback(tagFP singleUse.TagFP) (receiveComm, error) {
+func (cbm *callbackMap) getCallback(tagFP singleUse.TagFP) (ReceiveComm, error) {
 	cbm.RLock()
 	defer cbm.RUnlock()
 

@@ -23,7 +23,7 @@ type pending struct {
 	sync.RWMutex
 }
 
-type replyComm func(payload []byte, err error)
+type ReplyComm func(payload []byte, err error)
 
 // state contains the information and state of each single-use message that is
 // being transmitted.
@@ -31,7 +31,7 @@ type state struct {
 	dhKey    *cyclic.Int
 	fpMap    *fingerprintMap // List of fingerprints for each response part
 	c        *collator       // Collects all response message parts
-	callback replyComm       // Returns the error status of the communication
+	callback ReplyComm       // Returns the error status of the communication
 	quitChan chan struct{}   // Sending on channel kills the timeout handler
 }
 
@@ -44,7 +44,7 @@ func newPending() *pending {
 
 // newState generates a new state object with the fingerprint map and collator
 // initialised.
-func newState(dhKey *cyclic.Int, messageCount uint8, callback replyComm) *state {
+func newState(dhKey *cyclic.Int, messageCount uint8, callback ReplyComm) *state {
 	return &state{
 		dhKey:    dhKey,
 		fpMap:    newFingerprintMap(dhKey, uint64(messageCount)),
@@ -57,7 +57,7 @@ func newState(dhKey *cyclic.Int, messageCount uint8, callback replyComm) *state 
 // addState adds a new state to the map and starts a thread waiting for all the
 // message parts or for the timeout to occur.
 func (p *pending) addState(rid *id.ID, dhKey *cyclic.Int, maxMsgs uint8,
-	callback replyComm, timeout time.Duration) (chan struct{}, *int32, error) {
+	callback ReplyComm, timeout time.Duration) (chan struct{}, *int32, error) {
 	p.Lock()
 
 	// Check if the state already exists
@@ -84,7 +84,7 @@ func (p *pending) addState(rid *id.ID, dhKey *cyclic.Int, maxMsgs uint8,
 
 // timeoutHandler waits for the signal to complete or times out and deletes the
 // state.
-func (p *pending) timeoutHandler(rid *id.ID, callback replyComm,
+func (p *pending) timeoutHandler(rid *id.ID, callback ReplyComm,
 	timeout time.Duration, quitChan chan struct{}, quit *int32) {
 	jww.DEBUG.Printf("Starting handler for sending single-use transmission "+
 		"that will timeout after %s.", timeout)

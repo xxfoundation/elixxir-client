@@ -218,7 +218,7 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 	// TODO: This returns a receipt that can be used to speed up registration
 	msg := &pb.RequestRegistrationConfirmation{
 		UserID: UID,
-		SignedData: &messages.RSASignature{
+		NonceSignedByClient: &messages.RSASignature{
 			Signature: sig,
 		},
 	}

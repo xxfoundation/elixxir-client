@@ -128,7 +128,7 @@ func init() {
 }
 
 // sendSingleUse sends a single use message.
-func sendSingleUse(m *single.Manager, partner *contact.Contact, payload []byte,
+func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
 	maxMessages uint8, timeout time.Duration) {
 	// Construct callback
 	callbackChan := make(chan struct {
@@ -238,7 +238,7 @@ func makeResponsePayloadPart(m *single.Manager, payload []byte) []byte {
 
 // readSingleUseContact opens the contact specified in the CLI flags. Panics if
 // no file provided or if an error occurs while reading or unmarshalling it.
-func readSingleUseContact(key string) *contact.Contact {
+func readSingleUseContact(key string) contact.Contact {
 	// Get path
 	filePath := viper.GetString(key)
 	if filePath == "" {
@@ -258,5 +258,5 @@ func readSingleUseContact(key string) *contact.Contact {
 		jww.FATAL.Panicf("Failed to unmarshal contact: %+v", err)
 	}
 
-	return &c
+	return c
 }

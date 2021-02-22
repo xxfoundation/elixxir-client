@@ -29,9 +29,9 @@ func NewContact(partner *id.ID, partnerPubKey, dhKey *cyclic.Int,
 	tagFP singleUse.TagFP, maxParts uint8) Contact {
 	used := int32(0)
 	return Contact{
-		partner:       partner.DeepCopy(),
-		partnerPubKey: partnerPubKey.DeepCopy(),
-		dhKey:         dhKey.DeepCopy(),
+		partner:       partner,
+		partnerPubKey: partnerPubKey,
+		dhKey:         dhKey,
 		tagFP:         tagFP,
 		maxParts:      maxParts,
 		used:          &used,

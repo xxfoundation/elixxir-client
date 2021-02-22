@@ -91,7 +91,7 @@ func (m *Manager) StartProcesses() stoppable.Stoppable {
 }
 
 // RegisterCallback registers a callback for received messages.
-func (m *Manager) RegisterCallback(tag string, callback receiveComm) {
+func (m *Manager) RegisterCallback(tag string, callback ReceiveComm) {
 	jww.DEBUG.Printf("Registering single-use callback with tag %s.", tag)
 	m.callbackMap.registerCallback(tag, callback)
 }

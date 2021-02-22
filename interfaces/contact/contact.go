@@ -150,3 +150,11 @@ func Unmarshal(b []byte) (Contact, error) {
 
 	return c, nil
 }
+
+// Equal determines if the two contacts have the same values.
+func Equal(a, b Contact) bool {
+	return a.ID.Cmp(b.ID) &&
+		a.DhPubKey.Cmp(b.DhPubKey) == 0 &&
+		bytes.Equal(a.OwnershipProof, b.OwnershipProof) &&
+		a.Facts.Stringify() == b.Facts.Stringify()
+}

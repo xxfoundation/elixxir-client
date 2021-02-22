@@ -57,7 +57,7 @@ func Test_newManager(t *testing.T) {
 // Happy path.
 func TestManager_StartProcesses(t *testing.T) {
 	m := newTestManager(0, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
@@ -143,7 +143,7 @@ func TestManager_StartProcesses(t *testing.T) {
 // Happy path: tests that the stoppable stops both routines.
 func TestManager_StartProcesses_Stop(t *testing.T) {
 	m := newTestManager(0, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
@@ -225,7 +225,7 @@ type receiveCommData struct {
 	c       Contact
 }
 
-func createReceiveComm() (receiveComm, chan receiveCommData) {
+func createReceiveComm() (ReceiveComm, chan receiveCommData) {
 	callbackChan := make(chan receiveCommData)
 
 	callback := func(payload []byte, c Contact) {

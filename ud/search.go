@@ -1,171 +1,86 @@
 package ud
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/contact"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
-type SearchCallback func([]contact.Contact, error)
+// SearchTag specifies which callback to trigger when UD receives a search
+// request.
+const SearchTag = "xxNetwork_UdLookup"
 
-func (m *Manager) searchProcess(c chan message.Receive, quitCh <-chan struct{}) {
-	for true {
-		select {
-		case <-quitCh:
-			return
-		case response := <-c:
-			// Unmarshal the message
-			searchResponse := &SearchResponse{}
-			if err := proto.Unmarshal(response.Payload, searchResponse); err != nil {
-				jww.WARN.Printf("Dropped a search response from user "+
-					"discovery due to failed unmarshal: %s", err)
-			}
+// TODO: reconsider where this comes from
+const maxSearchMessages = 20
 
-			// Get the appropriate channel from the lookup
-			m.inProgressSearchMux.RLock()
-			ch, ok := m.inProgressSearch[searchResponse.CommID]
-			m.inProgressSearchMux.RUnlock()
-			if !ok {
-				jww.WARN.Printf("Dropped a search response from user "+
-					"discovery due to unknown comm ID: %d",
-					searchResponse.CommID)
-			}
+type searchCallback func([]contact.Contact, error)
 
-			// Send the response on the correct channel
-			// Drop if the send cannot be completed
-			select {
-			case ch <- searchResponse:
-			default:
-				jww.WARN.Printf("Dropped a search response from user "+
-					"discovery due to failure to transmit to handling thread: "+
-					"commID: %d", searchResponse.CommID)
-			}
-		}
-	}
-}
-
-// Searches for the passed Facts. The SearchCallback will return
-// a list of contacts, each having the facts it hit against.
-// This is NOT intended to be used to search for multiple users at once, that
-// can have a privacy reduction. Instead, it is intended to be used to search
-// for a user where multiple pieces of information is known.
-func (m *Manager) Search(list fact.FactList, callback SearchCallback, timeout time.Duration) error {
+// Search searches for the passed Facts. The searchCallback will return a list
+// of contacts, each having the facts it hit against. This is NOT intended to be
+// used to search for multiple users at once; that can have a privacy reduction.
+// Instead, it is intended to be used to search for a user where multiple pieces
+// of information is known.
+func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout time.Duration) error {
 	jww.INFO.Printf("ud.Search(%s, %s)", list.Stringify(), timeout)
 	if !m.IsRegistered() {
-		return errors.New("Failed to search: " +
-			"client is not registered")
+		return errors.New("Failed to search: client is not registered.")
 	}
-
-	// Get the ID of this comm so it can be connected to its response
-	commID := m.getCommID()
 
 	factHashes, factMap := hashFactList(list)
 
-	// Build the request
-	request := &SearchSend{
-		Fact:   factHashes,
-		CommID: commID,
-	}
-
+	// Build the request and marshal it
+	request := &SearchSend{Fact: factHashes}
 	requestMarshaled, err := proto.Marshal(request)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to form outgoing search request")
+		return errors.WithMessage(err, "Failed to form outgoing search request.")
 	}
 
-	//cUID := m.client.GetUser().ID
-
-	msg := message.Send{
-		Recipient:   m.udID,
-		Payload:     requestMarshaled,
-		MessageType: message.UdSearch,
+	f := func(payload []byte, err error) {
+		m.searchResponseHandler(factMap, callback, payload, err)
 	}
 
-	// Register the request in the response map so it can be processed on return
-	responseChan := make(chan *SearchResponse)
-	m.inProgressSearchMux.Lock()
-	m.inProgressSearch[commID] = responseChan
-	m.inProgressSearchMux.Unlock()
-
-	// Send the request
-	rounds, err := m.net.SendUnsafe(msg, params.GetDefaultUnsafe())
+	err = m.single.TransmitSingleUse(m.udContact, requestMarshaled, SearchTag,
+		maxSearchMessages, f, timeout)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to send the search request")
+		return errors.WithMessage(err, "Failed to transmit search request.")
 	}
-
-	// Register the round event to capture if the round fails
-	roundFailChan := make(chan dataStructures.EventReturn, len(rounds))
-
-	for _, round := range rounds {
-		// Subtract a millisecond to ensure this timeout will trigger before the
-		// one below
-		m.net.GetInstance().GetRoundEvents().AddRoundEventChan(round,
-			roundFailChan, timeout-1*time.Millisecond, states.FAILED,
-			states.COMPLETED)
-	}
-
-	// Start the go routine which will trigger the callback
-	go func() {
-		timer := time.NewTimer(timeout)
-
-		var err error
-		var c []contact.Contact
-
-		done := false
-		for !done {
-			select {
-			// Return an error if the round fails
-			case fail := <-roundFailChan:
-				if states.Round(fail.RoundInfo.State) == states.FAILED || fail.TimedOut {
-					fType := ""
-					if fail.TimedOut {
-						fType = "timeout"
-					} else {
-						fType = fmt.Sprintf("round failure: %v", fail.RoundInfo.ID)
-					}
-					err = errors.Errorf("One or more rounds (%v) failed to "+
-						"resolve due to: %s; search not delivered", rounds, fType)
-					done = true
-				}
-
-			// Return an error if the timeout is reached
-			case <-timer.C:
-				err = errors.New("Response from User Discovery did not come " +
-					"before timeout")
-				done = true
-
-			// Return the contacts if one is returned
-			case response := <-responseChan:
-				if response.Error != "" {
-					err = errors.Errorf("User Discovery returned an error on "+
-						"search: %s", response.Error)
-				} else {
-					jww.INFO.Printf("%v", response.Contacts)
-					c, err = m.parseContacts(response.Contacts, factMap)
-				}
-				done = true
-			}
-		}
-
-		// Delete the response channel from the map
-		m.inProgressSearchMux.Lock()
-		delete(m.inProgressSearch, commID)
-		m.inProgressSearchMux.Unlock()
-
-		// Call the callback last in case it is blocking
-		callback(c, err)
-	}()
 
 	return nil
+}
+
+func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
+	callback searchCallback, payload []byte, err error) {
+	if err != nil {
+		go callback(nil, errors.WithMessage(err, "Failed to search."))
+		return
+	}
+
+	// Unmarshal the message
+	searchResponse := &SearchResponse{}
+	if err := proto.Unmarshal(payload, searchResponse); err != nil {
+		jww.WARN.Printf("Dropped a search response from user discovery due to "+
+			"failed unmarshal: %s", err)
+	}
+	if searchResponse.Error != "" {
+		err = errors.Errorf("User Discovery returned an error on search: %s",
+			searchResponse.Error)
+		go callback(nil, err)
+		return
+	}
+
+	c, err := m.parseContacts(searchResponse.Contacts, factMap)
+	if err != nil {
+		go callback(nil, errors.WithMessage(err, "Failed to parse contacts from "+
+			"remote server."))
+		return
+	}
+
+	go callback(c, nil)
 }
 
 // hashFactList hashes each fact in the FactList into a HashFact and returns a
@@ -188,7 +103,8 @@ func hashFactList(list fact.FactList) ([]*HashFact, map[string]fact.Fact) {
 
 // parseContacts parses the list of Contacts in the SearchResponse and returns a
 // list of contact.Contact with their ID and public key.
-func (m *Manager) parseContacts(response []*Contact, hashMap map[string]fact.Fact) ([]contact.Contact, error) {
+func (m *Manager) parseContacts(response []*Contact,
+	hashMap map[string]fact.Fact) ([]contact.Contact, error) {
 	contacts := make([]contact.Contact, len(response))
 
 	// Convert each contact message into a new contact.Contact
@@ -196,7 +112,7 @@ func (m *Manager) parseContacts(response []*Contact, hashMap map[string]fact.Fac
 		// Unmarshal user ID bytes
 		uid, err := id.Unmarshal(c.UserID)
 		if err != nil {
-			return nil, errors.Errorf("Failed to parse Contact user ID: %+v", err)
+			return nil, errors.Errorf("failed to parse Contact user ID: %+v", err)
 		}
 
 		// Create new Contact

@@ -205,6 +205,8 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 	nodeId.SetType(id.Node)
 	h.Write(nodeId.Bytes())
 	data := h.Sum(nil)
+	// todo: remove this print
+	jww.INFO.Printf("ConfirmRegistration hashedData: %v", data)
 
 	// Hash nonce & sign
 	sig, err := rsa.Sign(rand.Reader, privateKeyRSA, opts.Hash, data, opts)

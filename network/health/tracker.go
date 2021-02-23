@@ -138,7 +138,6 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 			// Handle thread kill
 			break
 		case heartbeat = <-t.heartbeat:
-			jww.DEBUG.Printf("heartbeat: %v", heartbeat)
 			if healthy(heartbeat) {
 				// Stop and reset timer
 				if !timer.Stop() {

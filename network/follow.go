@@ -37,6 +37,8 @@ import (
 	"time"
 )
 
+const debugTrackPeriod = 1*time.Minute
+
 //comms interface makes testing easier
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
@@ -47,6 +49,7 @@ type followNetworkComms interface {
 // round status, and informs the client when messages can be retrieved.
 func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
+	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
 
 	done := false
@@ -57,6 +60,9 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 			done = true
 		case <-ticker.C:
 			m.follow(rng, m.Comms)
+		case <- TrackTicker.C:
+			jww.INFO.Println(m.tracker.Report())
+			m.tracker = newPollTracker()
 		}
 	}
 }
@@ -66,8 +72,6 @@ var followCnt = 0
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
-	jww.TRACE.Printf("follow: %d", followCnt)
-	followCnt++
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
@@ -75,6 +79,8 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
 	}
+
+	m.tracker.Track(identity.EphId, identity.Source)
 
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent
@@ -94,7 +100,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 	}
-	jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+	jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 		identity.EphId.Int64(), identity.Source, identity.StartRequest,
 		identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), gwHost.GetId())
 
@@ -196,8 +202,6 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	//get the range fo filters which are valid for the identity
 	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
 
-	jww.INFO.Printf("filtersStart (%d), filtersEnd(%d), oob %v", filtersStart, filtersEnd, outOfBounds)
-
 	//check if there are any valid filters returned
 	if outOfBounds {
 		return
@@ -220,9 +224,6 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		}
 	}
 
-	jww.INFO.Printf("Bloom filters found in response: %d, num filters used: %d",
-		len(pollResp.Filters.Filters), len(filterList))
-
 	// check rounds using the round checker function which determines if there
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
@@ -232,9 +233,6 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// get the bit vector of rounds that have been checked
 	checkedRounds := m.Session.GetCheckedRounds()
-
-	jww.TRACE.Printf("gwRoundState: %+v", gwRoundsState)
-	jww.TRACE.Printf("pollResp.KnownRounds: %s", string(pollResp.KnownRounds))
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are

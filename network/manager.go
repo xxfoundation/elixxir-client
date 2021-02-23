@@ -47,6 +47,9 @@ type manager struct {
 	message *message.Manager
 	//atomic denotes if the network is running
 	running *uint32
+
+	//map of polls for debugging
+	tracker *pollTracker
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -72,6 +75,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	m := manager{
 		param:   params,
 		running: &running,
+		tracker: newPollTracker(),
 	}
 
 	m.Internal = internal.Internal{

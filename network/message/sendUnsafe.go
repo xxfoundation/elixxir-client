@@ -8,6 +8,7 @@ package message
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -48,11 +49,19 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 
 	wg := sync.WaitGroup{}
 
+	jww.INFO.Printf("Unsafe sending %d messages to %s",
+		len(partitions), msg.Recipient)
+
+
 	for i, p := range partitions {
 		myID := m.Session.User().GetCryptographicIdentity()
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
 		e2e.SetUnencrypted(msgCmix, myID.GetReceptionID())
+
+		jww.INFO.Printf("Unsafe sending %d/%d to %s with msgDigest: %s",
+			i+i, len(partitions), msg.Recipient, msgCmix.Digest())
+
 		wg.Add(1)
 		go func(i int) {
 			var err error
@@ -69,8 +78,13 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	//see if any parts failed to send
 	numFail, errRtn := getSendErrors(errCh)
 	if numFail > 0 {
+		jww.INFO.Printf("Failed to Unsafe send %d/%d to %s",
+			numFail, len(partitions), msg.Recipient)
 		return nil, errors.Errorf("Failed to send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
+	}else{
+		jww.INFO.Printf("Sucesfully Unsafe sent %d/%d to %s",
+			numFail, len(partitions), msg.Recipient)
 	}
 
 	//return the rounds if everything send successfully

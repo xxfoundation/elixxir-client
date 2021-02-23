@@ -26,18 +26,18 @@ import (
 // sent to Message Retrieval Workers, otherwise it is sent to Historical Round
 // Retrieval
 func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
-	jww.DEBUG.Printf("Checker(roundID: %d)", roundID)
 	// Set round to processing, if we can
-	processing, count := m.p.Process(roundID)
-	if !processing {
+	notProcessing, count := m.p.Process(roundID)
+	if !notProcessing {
 		// if is already processing, ignore
 		return false
 	}
 
 	//if the number of times the round has been checked has hit the max, drop it
 	if count == m.params.MaxAttemptsCheckingARound {
-		jww.ERROR.Printf("Looking up Round %v failed the maximum number "+
-			"of times (%v), stopping retrval attempt", roundID,
+		jww.ERROR.Printf("Looking up Round %v for %d (%s) failed " +
+			"the maximum number of times (%v), stopping retrval attempt",
+			roundID, identity.EphId, identity.Source,
 			m.params.MaxAttemptsCheckingARound)
 		m.p.Done(roundID)
 		return true
@@ -47,7 +47,8 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	//find filters that could have the round and check them
 	serialRid := serializeRound(roundID)
 	for _, filter := range filters {
-		if filter != nil && filter.FirstRound() <= roundID && filter.LastRound() >= roundID {
+		if filter != nil && filter.FirstRound() <= roundID &&
+			filter.LastRound() >= roundID {
 			if filter.GetFilter().Test(serialRid) {
 				hasRound = true
 				break
@@ -58,8 +59,8 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	//if it is not present, set the round as checked
 	//that means no messages are available for the user in the round
 	if !hasRound {
-		jww.DEBUG.Printf("No messages found for round %d, " +
-			"will not check again", roundID)
+		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, " +
+			"will not check again", identity.EphId, identity.Source, roundID)
 		m.p.Done(roundID)
 		return true
 	}
@@ -71,14 +72,18 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)
 		}
-		jww.DEBUG.Printf("HistoricalRound <- %d", roundID)
+		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
+			"up messages via historical lookup", roundID, identity.EphId,
+			identity.Source)
 		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- historicalRoundRequest{
 			rid:      roundID,
 			identity: identity,
 		}
 	} else {
-		jww.DEBUG.Printf("lookupRoundMessages <- %d", roundID)
+		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
+			"up messages via in ram lookup", roundID, identity.EphId,
+			identity.Source)
 		// If found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- roundLookup{
 			roundInfo: ri,

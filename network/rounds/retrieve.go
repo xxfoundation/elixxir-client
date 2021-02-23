@@ -47,8 +47,9 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 					ri.ID, err)
 				break
 			}
-			bundle.Identity = rl.identity
+
 			if len(bundle.Messages) != 0 {
+				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
 			}
 		}

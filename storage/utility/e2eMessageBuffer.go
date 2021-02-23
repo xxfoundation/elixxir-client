@@ -148,7 +148,7 @@ func (emb *E2eMessageBuffer) Next() (message.Send, params.E2E, bool) {
 	msg := m.(e2eMessage)
 	recipient, err := id.Unmarshal(msg.Recipient)
 	if err != nil {
-		jww.FATAL.Panicf("Error unmarshaling recipient: %v", err)
+		jww.FATAL.Panicf("Error unmarshaling Recipient: %v", err)
 	}
 	return message.Send{recipient, msg.Payload,
 		message.Type(msg.MessageType)}, msg.Params, true

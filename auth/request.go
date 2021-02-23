@@ -144,7 +144,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	}
 
 	//store the message as a critical message so it will always be sent
-	storage.GetCriticalRawMessages().AddProcessing(cmixMsg)
+	storage.GetCriticalRawMessages().AddProcessing(cmixMsg, partner.ID)
 
 	//jww.INFO.Printf("CMIX MESSAGE 1: %s, %v, %v, %v", cmixMsg.GetRecipientID(),
 	//	cmixMsg.GetKeyFP(), cmixMsg.GetMac(), cmixMsg.GetContents())
@@ -158,7 +158,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 		// retried
 		jww.ERROR.Printf("auth request failed to transmit, will be "+
 			"handled on reconnect: %+v", err)
-		storage.GetCriticalRawMessages().Failed(cmixMsg)
+		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	}
 
 	/*check message delivery*/
@@ -172,9 +172,9 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	if !success {
 		jww.ERROR.Printf("auth request failed to transmit, will be " +
 			"handled on reconnect")
-		storage.GetCriticalRawMessages().Failed(cmixMsg)
+		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	} else {
-		storage.GetCriticalRawMessages().Succeeded(cmixMsg)
+		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
 	}
 
 	return nil

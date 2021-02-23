@@ -102,10 +102,13 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
+		jww.DEBUG.Printf("Requesting Historical rounds (%v) from " +
+			"gateway %s", rounds, gwHost.GetId())
+
 		response, err := comm.RequestHistoricalRounds(gwHost, hr)
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+
-				"data: %s", response)
+				"data for rounds %v: %s", rounds, response)
 			// if the check fails to resolve, break the loop and so they will be
 			// checked again
 			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C

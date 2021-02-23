@@ -18,8 +18,9 @@ import (
 type User struct {
 	ci *CryptographicIdentity
 
-	regValidationSig []byte
-	rvsMux           sync.RWMutex
+	transmissionRegValidationSig []byte
+	receptionRegValidationSig    []byte
+	rvsMux                       sync.RWMutex
 
 	username    string
 	usernameMux sync.RWMutex
@@ -28,10 +29,10 @@ type User struct {
 }
 
 // builds a new user.
-func NewUser(kv *versioned.KV, uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
-	isPrecanned bool) (*User, error) {
+func NewUser(kv *versioned.KV, transmissionID, receptionID *id.ID, transmissionSalt,
+	receptionSalt []byte, transmissionRsa, receptionRsa *rsa.PrivateKey, isPrecanned bool) (*User, error) {
 
-	ci := newCryptographicIdentity(uid, salt, rsaKey, isPrecanned, kv)
+	ci := newCryptographicIdentity(transmissionID, receptionID, transmissionSalt, receptionSalt, transmissionRsa, receptionRsa, isPrecanned, kv)
 
 	return &User{ci: ci, kv: kv}, nil
 }
@@ -44,7 +45,8 @@ func LoadUser(kv *versioned.KV) (*User, error) {
 	}
 
 	u := &User{ci: ci, kv: kv}
-	u.loadRegistrationValidationSignature()
+	u.loadTransmissionRegistrationValidationSignature()
+	u.loadReceptionRegistrationValidationSignature()
 	u.loadUsername()
 
 	return u, nil

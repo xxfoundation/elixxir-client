@@ -49,7 +49,7 @@ var rootCmd = &cobra.Command{
 		client := initClient()
 
 		user := client.GetUser()
-		jww.INFO.Printf("User: %s", user.ID)
+		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
 		// Set up reception handler
@@ -65,15 +65,24 @@ var rootCmd = &cobra.Command{
 		authMgr.AddGeneralRequestCallback(printChanRequest)
 
 		// If unsafe channels, add auto-acceptor
+		num_channels_confirmed := 0
+		authMgr.AddGeneralConfirmCallback(func(
+			partner contact.Contact) {
+			jww.INFO.Printf("Channel Confirmed: %s",
+				partner.ID)
+			num_channels_confirmed++
+		})
 		if viper.GetBool("unsafe-channel-creation") {
 			authMgr.AddGeneralRequestCallback(func(
 				requestor contact.Contact, message string) {
-				jww.INFO.Printf("Got Request: %s", requestor.ID)
+				jww.INFO.Printf("Channel Request: %s",
+					requestor.ID)
 				err := client.ConfirmAuthenticatedChannel(
 					requestor)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}
+				num_channels_confirmed++
 			})
 		}
 
@@ -103,7 +112,7 @@ var rootCmd = &cobra.Command{
 		// Set it to myself
 		if recipientID == nil {
 			jww.INFO.Printf("sending message to self")
-			recipientID = user.ID
+			recipientID = user.ReceptionID
 			recipientContact = user.GetContact()
 		}
 
@@ -116,9 +125,13 @@ var rootCmd = &cobra.Command{
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-		if !unsafe {
+		assumeAuth := viper.GetBool("assume-auth-channel")
+		if !unsafe && !assumeAuth {
 			addAuthenticatedChannel(client, recipientID,
 				recipientContact, isPrecanPartner)
+			// Do not wait for channel confirmations if we
+			// tried to add a channel
+			num_channels_confirmed++
 		}
 
 		msg := message.Send{
@@ -134,16 +147,32 @@ var rootCmd = &cobra.Command{
 		for i := 0; i < sendCnt; i++ {
 			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 			var roundIDs []id.Round
+			var roundTimeout time.Duration
 			if unsafe {
 				roundIDs, err = client.SendUnsafe(msg,
 					paramsUnsafe)
+				roundTimeout = paramsUnsafe.Timeout
 			} else {
 				roundIDs, _, err = client.SendE2E(msg,
 					paramsE2E)
+				roundTimeout = paramsE2E.Timeout
 			}
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
+
+			// Construct the callback function which prints out the rounds' results
+			f := func(allRoundsSucceeded, timedOut bool,
+				rounds map[id.Round]api.RoundResult) {
+				printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+			}
+
+			// Have the client report back the round results
+			err = client.GetRoundResults(roundIDs, roundTimeout, f)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+
 			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
@@ -152,7 +181,8 @@ var rootCmd = &cobra.Command{
 		// TODO: Actually check for how many messages we've received
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
-		waitTimeout := time.Duration(viper.GetUint("waitTimeout"))
+		waitSecs := viper.GetUint("waitTimeout")
+		waitTimeout := time.Duration(waitSecs)
 		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done && expectedCnt != 0 {
@@ -173,12 +203,60 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		// client.StopNetworkFollower(1 * time.Second)
-		/*if err!=nil{
-			fmt.Printf("Failed to cleanly close threads: %+v\n", err)
-		}*/
-		time.Sleep(10 * time.Second)
+		if receiveCnt == 0 && sendCnt == 0 {
+			scnt := uint(0)
+			for num_channels_confirmed == 0 && scnt < waitSecs {
+				time.Sleep(1 * time.Second)
+				scnt++
+			}
+		}
+		err = client.StopNetworkFollower(5 * time.Second)
+		if err != nil {
+			jww.WARN.Printf(
+				"Failed to cleanly close threads: %+v\n",
+				err)
+		}
 	},
+}
+
+// Helper function which prints the round resuls
+func printRoundResults(allRoundsSucceeded, timedOut bool,
+	rounds map[id.Round]api.RoundResult, roundIDs []id.Round, msg message.Send) {
+
+	// Done as string slices for easy and human readable printing
+	successfulRounds := make([]string, 0)
+	failedRounds := make([]string, 0)
+	timedOutRounds := make([]string, 0)
+
+	for _, r := range roundIDs {
+		// Group all round reports into a category based on their
+		// result (successful, failed, or timed out)
+		if result, exists := rounds[r]; exists {
+			if result == api.Succeeded {
+				successfulRounds = append(successfulRounds, strconv.Itoa(int(r)))
+			} else if result == api.Failed {
+				failedRounds = append(failedRounds, strconv.Itoa(int(r)))
+			} else {
+				timedOutRounds = append(timedOutRounds, strconv.Itoa(int(r)))
+			}
+		}
+	}
+
+	jww.INFO.Printf("Result of sending message \"%s\" to \"%v\":",
+		msg.Payload, msg.Recipient)
+
+	// Print out all rounds results, if they are populated
+	if len(successfulRounds) > 0 {
+		jww.INFO.Printf("\tRound(s) %v successful", strings.Join(successfulRounds, ","))
+	}
+	if len(failedRounds) > 0 {
+		jww.ERROR.Printf("\tRound(s) %v failed", strings.Join(failedRounds, ","))
+	}
+	if len(timedOutRounds) > 0 {
+		jww.ERROR.Printf("\tRound(s) %v timed "+
+			"\n\tout (no network resolution could be found)", strings.Join(timedOutRounds, ","))
+	}
+
 }
 
 func createClient() *api.Client {
@@ -212,7 +290,14 @@ func createClient() *api.Client {
 		}
 	}
 
-	client, err := api.OpenClient(storeDir, []byte(pass), params.GetDefaultNetwork())
+	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
+	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+
+	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -225,8 +310,15 @@ func initClient() *api.Client {
 	pass := viper.GetString("password")
 	storeDir := viper.GetString("session")
 
+	netParams := params.GetDefaultNetwork()
+	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
+	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))
+	netParams.E2EParams.NumRekeys = uint16(
+		viper.GetUint("e2eNumReKeys"))
+	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+
 	//load the client
-	client, err := api.Login(storeDir, []byte(pass), params.GetDefaultNetwork())
+	client, err := api.Login(storeDir, []byte(pass), netParams)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -306,25 +398,12 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		jww.FATAL.Panicf("User did not allow channel creation!")
 	}
 
-	// Check if a channel exists for this recipientID
-	recipientContact, err := client.GetAuthenticatedChannelRequest(
-		recipientID)
-	if err == nil {
-		jww.INFO.Printf("Accepting existing channel request for %s",
-			recipientID)
-		err := client.ConfirmAuthenticatedChannel(recipientContact)
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		return
-	} else {
-		recipientContact = recipient
-	}
-
 	msg := fmt.Sprintf("Adding authenticated channel for: %s\n",
 		recipientID)
 	jww.INFO.Printf(msg)
 	fmt.Printf(msg)
+
+	recipientContact := recipient
 
 	if isPrecanPartner {
 		jww.WARN.Printf("Precanned user id detected: %s",
@@ -565,11 +644,12 @@ func init() {
 	viper.BindPFlag("log", rootCmd.PersistentFlags().Lookup("log"))
 
 	rootCmd.Flags().StringP("regcode", "", "",
-		"Registration code (optional)")
+		"Identity code (optional)")
 	viper.BindPFlag("regcode", rootCmd.Flags().Lookup("regcode"))
 
-	rootCmd.Flags().StringP("message", "m", "", "Message to send")
-	viper.BindPFlag("message", rootCmd.Flags().Lookup("message"))
+	rootCmd.PersistentFlags().StringP("message", "m", "",
+		"Message to send")
+	viper.BindPFlag("message", rootCmd.PersistentFlags().Lookup("message"))
 
 	rootCmd.Flags().UintP("sendid", "", 0,
 		"Use precanned user id (must be between 1 and 40, inclusive)")
@@ -609,10 +689,35 @@ func init() {
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
 
+	rootCmd.Flags().BoolP("assume-auth-channel", "", false,
+		"Do not check for an authentication channel for this user")
+	viper.BindPFlag("assume-auth-channel",
+		rootCmd.Flags().Lookup("assume-auth-channel"))
+
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
+
+	rootCmd.Flags().BoolP("forceHistoricalRounds", "", false,
+		"Force all rounds to be sent to historical round retrieval")
+	viper.BindPFlag("forceHistoricalRounds",
+		rootCmd.Flags().Lookup("forceHistoricalRounds"))
+
+	// E2E Params
+	defaultE2EParams := params.GetDefaultE2ESessionParams()
+	rootCmd.Flags().UintP("e2eMinKeys",
+		"", uint(defaultE2EParams.MinKeys),
+		"Minimum number of keys used before requesting rekey")
+	viper.BindPFlag("e2eMinKeys", rootCmd.Flags().Lookup("e2eMinKeys"))
+	rootCmd.Flags().UintP("e2eMaxKeys",
+		"", uint(defaultE2EParams.MaxKeys),
+		"Max keys used before blocking until a rekey completes")
+	viper.BindPFlag("e2eMaxKeys", rootCmd.Flags().Lookup("e2eMaxKeys"))
+	rootCmd.Flags().UintP("e2eNumReKeys",
+		"", uint(defaultE2EParams.NumRekeys),
+		"Number of rekeys reserved for rekey operations")
+	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
 }
 
 // initConfig reads in config file and ENV variables if set.

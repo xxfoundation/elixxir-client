@@ -13,12 +13,14 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/globals"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
-	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/hash"
+	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
+	"math/big"
 	"sync"
 	"testing"
 	"time"
@@ -34,7 +36,7 @@ type Session struct {
 	//prefixed kv
 	kv *versioned.KV
 	//params
-	params SessionParams
+	e2eParams params.E2ESessionParams
 
 	//type
 	t RelationshipType
@@ -55,8 +57,8 @@ type Session struct {
 	//denotes if the other party has confirmed this key
 	negotiationStatus Negotiation
 
-	// Value of the counter at which a rekey is triggered
-	ttl uint32
+	// Number of keys used before the system attempts a rekey
+	rekeyThreshold uint32
 
 	// Received Keys dirty bits
 	// Each bit represents a single Key
@@ -70,7 +72,7 @@ type Session struct {
 // must be exported
 // Utility struct to write part of session data to disk
 type SessionDisk struct {
-	Params SessionParams
+	E2EParams params.E2ESessionParams
 
 	//session type
 	Type uint8
@@ -90,14 +92,19 @@ type SessionDisk struct {
 	Confirmation uint8
 
 	// Number of keys usable before rekey
-	TTL uint32
+	RekeyThreshold uint32
 }
 
 /*CONSTRUCTORS*/
 //Generator which creates all keys and structures
 func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey,
 	baseKey *cyclic.Int, trigger SessionID, relationshipFingerprint []byte,
-	params SessionParams) *Session {
+	e2eParams params.E2ESessionParams) *Session {
+
+	if e2eParams.MinKeys<10{
+		jww.FATAL.Panicf("Cannot create a session with a minnimum number " +
+			"of keys less than 10")
+	}
 
 	confirmation := Unconfirmed
 	if t == Receive {
@@ -105,7 +112,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	}
 
 	session := &Session{
-		params:                  params,
+		e2eParams:               e2eParams,
 		relationship:            ship,
 		t:                       t,
 		myPrivKey:               myPrivKey,
@@ -125,7 +132,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		t,
 		session.baseKey.TextVerbose(16, 0),
 		session.relationshipFingerprint,
-		session.ttl,
+		session.rekeyThreshold,
 		session.myPrivKey.TextVerbose(16, 0),
 		session.partnerPubKey.TextVerbose(16, 0))
 
@@ -241,11 +248,7 @@ func getSessionIDFromBaseKey(baseKey *cyclic.Int) SessionID {
 // FOR TESTING PURPOSES ONLY
 func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) SessionID {
 	switch i.(type) {
-	case *testing.T:
-		break
-	case *testing.M:
-		break
-	case *testing.B:
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
 		globals.Log.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)
@@ -271,7 +274,7 @@ func (s *Session) GetPartner() *id.ID {
 func (s *Session) marshal() ([]byte, error) {
 	sd := SessionDisk{}
 
-	sd.Params = s.params
+	sd.E2EParams = s.e2eParams
 	sd.Type = uint8(s.t)
 	sd.BaseKey = s.baseKey.Bytes()
 	sd.MyPrivKey = s.myPrivKey.Bytes()
@@ -289,7 +292,7 @@ func (s *Session) marshal() ([]byte, error) {
 		sd.Confirmation = uint8(s.negotiationStatus)
 	}
 
-	sd.TTL = s.ttl
+	sd.RekeyThreshold = s.rekeyThreshold
 
 	return json.Marshal(&sd)
 }
@@ -306,13 +309,13 @@ func (s *Session) unmarshal(b []byte) error {
 
 	grp := s.relationship.manager.ctx.grp
 
-	s.params = sd.Params
+	s.e2eParams = sd.E2EParams
 	s.t = RelationshipType(sd.Type)
 	s.baseKey = grp.NewIntFromBytes(sd.BaseKey)
 	s.myPrivKey = grp.NewIntFromBytes(sd.MyPrivKey)
 	s.partnerPubKey = grp.NewIntFromBytes(sd.PartnerPubKey)
 	s.negotiationStatus = Negotiation(sd.Confirmation)
-	s.ttl = sd.TTL
+	s.rekeyThreshold = sd.RekeyThreshold
 	s.relationshipFingerprint = sd.RelationshipFingerprint
 	copy(s.partnerSource[:], sd.Trigger)
 
@@ -328,7 +331,7 @@ func (s *Session) unmarshal(b []byte) error {
 // Pops the first unused key, skipping any which are denoted as used.
 // will return if the remaining keys are designated as rekeys
 func (s *Session) PopKey() (*Key, error) {
-	if s.keyState.GetNumAvailable() <= uint32(s.params.NumRekeys) {
+	if s.keyState.GetNumAvailable() <= uint32(s.e2eParams.NumRekeys) {
 		return nil, errors.New("no more keys left, remaining reserved " +
 			"for rekey")
 	}
@@ -359,14 +362,15 @@ func (s *Session) Status() Status {
 	// copy the num available so it stays consistent as this function does its
 	// checks
 	numAvailable := s.keyState.GetNumAvailable()
+	numUsed := s.keyState.GetNumUsed()
 
 	if numAvailable == 0 {
 		return RekeyEmpty
-	} else if numAvailable <= uint32(s.params.NumRekeys) {
+	} else if numAvailable <= uint32(s.e2eParams.NumRekeys) {
 		return Empty
 		// do not need to make a copy of getNumKeys becasue it is static and
 		// only used once
-	} else if numAvailable <= s.keyState.GetNumKeys()-s.ttl {
+	} else if numUsed >= s.rekeyThreshold {
 		return RekeyNeeded
 	} else {
 		return Active
@@ -451,11 +455,11 @@ func (s *Session) triggerNegotiation() bool {
 	// case, such double locking is preferable because the majority of the time,
 	// the checked cases will turn out to be false.
 	s.mux.RLock()
-	// If we've used more keys than the TTL, it's time for a rekey
-	if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
+	// If we've used more keys than the RekeyThreshold, it's time for a rekey
+	if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
 		s.mux.RUnlock()
 		s.mux.Lock()
-		if s.keyState.GetNumUsed() >= s.ttl && s.negotiationStatus == Confirmed {
+		if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
 			//partnerSource a rekey to create a new session
 			s.negotiationStatus = NewSessionTriggered
 			// no save is make after the update because we do not want this state
@@ -546,16 +550,20 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 
 	kv = kv.Prefix(makeSessionPrefix(s.GetID()))
 
-	//generate ttl and keying info
-	keysTTL, numKeys := e2e.GenerateKeyTTL(s.baseKey.GetLargeInt(),
-		s.params.MinKeys, s.params.MaxKeys, s.params.TTLParams)
+	p := s.e2eParams
+	h, _ := hash.NewCMixHash()
 
-	//ensure that enough keys are remaining to rekey
-	if numKeys-uint32(keysTTL) < uint32(s.params.NumRekeys) {
-		numKeys = uint32(keysTTL + s.params.NumRekeys)
-	}
+	//generate rekeyThreshold and keying info
+	numKeys := uint32(randomness.RandInInterval(big.NewInt(
+		int64(p.MaxKeys-p.MinKeys)),
+		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
 
-	s.ttl = uint32(keysTTL)
+	// start rekeying when 75% of keys have been used
+	s.rekeyThreshold = (numKeys*3)/4
+
+	// the total number of keys should be the number of rekeys plus the
+	// number of keys to use
+	numKeys = numKeys + uint32(s.e2eParams.NumRekeys)
 
 	//create the new state vectors. This will cause disk operations storing them
 

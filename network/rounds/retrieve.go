@@ -12,16 +12,23 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 type messageRetrievalComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	RequestMessages(host *connect.Host,
 		message *pb.GetMessages) (*pb.GetMessagesResponse, error)
+}
+
+type roundLookup struct {
+	roundInfo *pb.RoundInfo
+	identity  reception.IdentityUse
 }
 
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
@@ -32,13 +39,15 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		select {
 		case <-quitCh:
 			done = true
-		case ri := <-m.lookupRoundMessages:
-			bundle, err := m.getMessagesFromGateway(ri, comms)
+		case rl := <-m.lookupRoundMessages:
+			ri := rl.roundInfo
+			bundle, err := m.getMessagesFromGateway(ri, comms, rl.identity.EphId)
 			if err != nil {
 				jww.WARN.Printf("Failed to get messages for round %v: %s",
 					ri.ID, err)
 				break
 			}
+			bundle.Identity = rl.identity
 			if len(bundle.Messages) != 0 {
 				m.messageBundles <- bundle
 			}
@@ -47,7 +56,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 }
 
 func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
-	comms messageRetrievalComms) (message.Bundle, error) {
+	comms messageRetrievalComms, ephid ephemeral.Id) (message.Bundle, error) {
 
 	rid := id.Round(roundInfo.ID)
 
@@ -63,7 +72,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 
 	// send the request
 	msgReq := &pb.GetMessages{
-		ClientID: m.Uid.Marshal(),
+		ClientID: ephid[:],
 		RoundID:  uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
@@ -89,7 +98,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		jww.WARN.Printf("host %s has no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicitive of a problem if it is consistant", gwHost,
-			m.Uid, rid)
+			m.TransmissionID, rid)
 		return message.Bundle{}, nil
 	}
 

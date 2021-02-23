@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"sync"
@@ -39,7 +40,7 @@ type relationship struct {
 }
 
 func NewRelationship(manager *Manager, t RelationshipType,
-	initialParams SessionParams) *relationship {
+	initialParams params.E2ESessionParams) *relationship {
 
 	kv := manager.kv.Prefix(t.prefix())
 
@@ -167,12 +168,12 @@ func (r *relationship) unmarshal(b []byte) error {
 }
 
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
-	trigger SessionID, params SessionParams) *Session {
+	trigger SessionID, e2eParams params.E2ESessionParams) *Session {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
 	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey, trigger,
-		r.fingerprint, params)
+		r.fingerprint, e2eParams)
 
 	r.addSession(s)
 	if err := r.save(); err != nil {
@@ -240,6 +241,15 @@ func (r *relationship) getSessionForSending() *Session {
 		return unconfirmedActive[0]
 	} else if len(unconfirmedRekey) > 0 {
 		return unconfirmedRekey[0]
+	}
+
+	jww.INFO.Printf("Details about %v sessions which are invalid:", len(sessions))
+	for i, s := range sessions{
+		if s==nil{
+			jww.INFO.Printf("\tSession %v is nil", i)
+		}else{
+			jww.INFO.Printf("\tSession %v: status: %v, confimred: %v", i, s.Status(), s.IsConfirmed())
+		}
 	}
 
 	return nil

@@ -14,9 +14,12 @@ func (s *Session) GetUser() user.User {
 	defer s.mux.RUnlock()
 	ci := s.user.GetCryptographicIdentity()
 	return user.User{
-		ID:               ci.GetUserID().DeepCopy(),
-		Salt:             copySlice(ci.GetSalt()),
-		RSA:              ci.GetRSA(),
+		TransmissionID:   ci.GetTransmissionID().DeepCopy(),
+		TransmissionSalt: copySlice(ci.GetTransmissionSalt()),
+		TransmissionRSA:  ci.GetReceptionRSA(),
+		ReceptionID:      ci.GetReceptionID().DeepCopy(),
+		ReceptionSalt:    copySlice(ci.GetReceptionSalt()),
+		ReceptionRSA:     ci.GetReceptionRSA(),
 		Precanned:        ci.IsPrecanned(),
 		CmixDhPrivateKey: s.cmix.GetDHPrivateKey().DeepCopy(),
 		CmixDhPublicKey:  s.cmix.GetDHPublicKey().DeepCopy(),

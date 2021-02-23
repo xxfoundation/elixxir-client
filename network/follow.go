@@ -25,19 +25,19 @@ package network
 import (
 	"bytes"
 	jww "github.com/spf13/jwalterweatherman"
-	bloom "gitlab.com/elixxir/bloomfilter"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"time"
 )
 
-const bloomFilterSize = 71888 // In Bits
-const bloomFilterHashes = 8
+const debugTrackPeriod = 1*time.Minute
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -49,6 +49,7 @@ type followNetworkComms interface {
 // round status, and informs the client when messages can be retrieved.
 func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
+	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
 
 	done := false
@@ -59,6 +60,9 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 			done = true
 		case <-ticker.C:
 			m.follow(rng, m.Comms)
+		case <- TrackTicker.C:
+			jww.INFO.Println(m.tracker.Report())
+			m.tracker = newPollTracker()
 		}
 	}
 }
@@ -68,8 +72,15 @@ var followCnt = 0
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
-	jww.TRACE.Printf("follow: %d", followCnt)
-	followCnt++
+
+	//get the identity we will poll for
+	identity, err := m.Session.Reception().GetIdentity(rng)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to get an identity, this should be "+
+			"impossible: %+v", err)
+	}
+
+	m.tracker.Track(identity.EphId, identity.Source)
 
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent
@@ -84,43 +95,28 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		Partial: &pb.NDFHash{
 			Hash: m.Instance.GetPartialNdf().GetHash(),
 		},
-		LastUpdate: uint64(m.Instance.GetLastUpdateID()),
-		ClientID:   m.Uid.Bytes(),
+		LastUpdate:     uint64(m.Instance.GetLastUpdateID()),
+		ReceptionID:    identity.EphId[:],
+		StartTimestamp: identity.StartRequest.UnixNano(),
+		EndTimestamp:   identity.EndRequest.UnixNano(),
 	}
-	jww.TRACE.Printf("Polling %s for NDF...", gwHost)
+	jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+		identity.EphId.Int64(), identity.Source, identity.StartRequest,
+		identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), gwHost.GetId())
+
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
 		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)
 		return
 	}
 
-	// ---- Process Update Data ----
-	lastTrackedRound := id.Round(pollResp.LastTrackedRound)
+	// ---- Process Network State Update Data ----
 	gwRoundsState := &knownRounds.KnownRounds{}
 	err = gwRoundsState.Unmarshal(pollResp.KnownRounds)
 	if err != nil {
 		jww.ERROR.Printf("Failed to unmarshal: %+v", err)
 		return
 	}
-	var filterList []*bloom.Ring
-	for _, f := range pollResp.BloomFilters {
-		jww.DEBUG.Printf("Bloom Filter size: %d, hashes: %d",
-			bloomFilterSize, bloomFilterHashes)
-		filter, err := bloom.InitByParameters(bloomFilterSize,
-			bloomFilterHashes)
-		if err != nil {
-			jww.INFO.Printf("Bloom Filter Data: %v", f)
-			jww.FATAL.Panicf("Unable to create a bloom filter: %+v",
-				err)
-		}
-		if err := filter.UnmarshalBinary(f); err != nil {
-			jww.WARN.Printf("Failed to unmarshal filter: %+v", err)
-			jww.INFO.Printf("Bloom Filter Unmarshal Data: %v", f)
-			continue
-		}
-		filterList = append(filterList, filter)
-	}
-	jww.INFO.Printf("Bloom filters found in response: %d", len(filterList))
 
 	// ---- Node Events ----
 	// NOTE: this updates the structure, AND sends events over the node
@@ -139,6 +135,10 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		}
 	}
 
+	//check that the stored address space is correct
+	m.Session.Reception().UpdateIdSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
+	// Updates any id size readers of a network compliant id size
+	m.Session.Reception().MarkIdSizeAsSet()
 	// NOTE: this updates rounds and updates the tracking of the health of the
 	// network
 	if pollResp.Updates != nil {
@@ -159,7 +159,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 			for _, clientErr := range update.ClientErrors {
 
 				// If this Client appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().ID.Marshal()) {
+				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
 
 					// Obtain relevant NodeGateway information
 					nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())
@@ -187,27 +187,56 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		}
 	}
 
-	// ---- Round Processing -----
+	// ---- Identity Specific Round Processing -----
+	if identity.Fake {
+		jww.DEBUG.Printf("not processing result, identity.Fake == true")
+		return
+	}
+
+	if len(pollResp.Filters.Filters) == 0 {
+		jww.DEBUG.Printf("No filters found for the passed ID %d (%s), "+
+			"skipping processing.", identity.EphId, identity.Source)
+		return
+	}
+
+	//get the range fo filters which are valid for the identity
+	filtersStart, filtersEnd, outOfBounds := rounds.ValidFilterRange(identity, pollResp.Filters)
+
+	//check if there are any valid filters returned
+	if outOfBounds {
+		return
+	}
+
+	firstRound := id.Round(math.MaxUint64)
+	lastRound := id.Round(0)
+
+	//prepare the filter objects for processing
+	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
+	for i := filtersStart; i < filtersEnd; i++ {
+		if len(pollResp.Filters.Filters[i].Filter) != 0 {
+			filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
+			if filterList[i-filtersStart].FirstRound() < firstRound {
+				firstRound = filterList[i-filtersStart].FirstRound()
+			}
+			if filterList[i-filtersStart].LastRound() > lastRound {
+				lastRound = filterList[i-filtersStart].LastRound()
+			}
+		}
+	}
+
 	// check rounds using the round checker function which determines if there
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid, filterList)
+		return m.round.Checker(rid, filterList, identity)
 	}
 
 	// get the bit vector of rounds that have been checked
 	checkedRounds := m.Session.GetCheckedRounds()
-	// cleave off old state in the bit vector which is deprecated from the
-	// network
-	jww.DEBUG.Printf("lastCheckedRound: %v", lastTrackedRound)
-	checkedRounds.Forward(lastTrackedRound)
-
-	jww.TRACE.Printf("gwRoundState: %+v", gwRoundsState)
-	jww.TRACE.Printf("pollResp.KnownRounds: %s", string(pollResp.KnownRounds))
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	checkedRounds.RangeUncheckedMasked(gwRoundsState, roundChecker,
-		int(m.param.MaxCheckedRounds))
+	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
+		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
 }

@@ -302,10 +302,10 @@ func (c *Client)initComms()error{
 	cryptoUser := u.GetCryptographicIdentity()
 
 	//start comms
-	c.comms, err = client.NewClientComms(cryptoUser.GetUserID(),
-		rsa.CreatePublicKeyPem(cryptoUser.GetRSA().GetPublic()),
-		rsa.CreatePrivateKeyPem(cryptoUser.GetRSA()),
-		cryptoUser.GetSalt())
+	c.comms, err = client.NewClientComms(cryptoUser.GetTransmissionID(),
+		rsa.CreatePublicKeyPem(cryptoUser.GetTransmissionRSA().GetPublic()),
+		rsa.CreatePrivateKeyPem(cryptoUser.GetTransmissionRSA()),
+		cryptoUser.GetTransmissionSalt())
 	if err != nil {
 		return errors.WithMessage(err, "failed to load client")
 	}

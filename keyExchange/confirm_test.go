@@ -10,6 +10,7 @@ package keyExchange
 import (
 	"github.com/golang/protobuf/proto"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
@@ -31,7 +32,8 @@ func TestHandleConfirm(t *testing.T) {
 
 	// Add bob as a partner
 	aliceSession.E2e().AddPartner(bobID, bobPubKey, alicePrivKey,
-		e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 
 	// Generate a session ID, bypassing some business logic here
 	sessionID := GeneratePartnerID(alicePrivKey, bobPubKey, genericGroup)

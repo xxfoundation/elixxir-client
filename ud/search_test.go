@@ -1,33 +1,33 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
+	errors "github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces/contact"
-	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/single"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/factID"
-	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/fact"
-	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
+	"math/rand"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
 
 // Happy path.
 func TestManager_Search(t *testing.T) {
-	isReg := uint32(1)
 	// Set up manager
+	isReg := uint32(1)
+	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
 	m := &Manager{
-		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
-		storage:          storage.InitTestingSession(t),
-		udID:             &id.UDB,
-		inProgressSearch: map[uint64]chan *SearchResponse{},
-		net:              newTestNetworkManager(t),
+		grp:        grp,
+		udContact:  contact.Contact{ID: &id.UDB, DhPubKey: grp.NewInt(42)},
+		single:     &mockSingleSearch{},
 		registered: &isReg,
 	}
 
@@ -44,58 +44,27 @@ func TestManager_Search(t *testing.T) {
 	}
 
 	// Generate fact list
-	factList := fact.FactList{
-		{Fact: "fact1", T: fact.Username},
-		{Fact: "fact2", T: fact.Email},
-		{Fact: "fact3", T: fact.Phone},
+	var factList fact.FactList
+	for i := 0; i < 10; i++ {
+		factList = append(factList, fact.Fact{
+			Fact: fmt.Sprintf("fact %d", i),
+			T:    fact.FactType(rand.Intn(4)),
+		})
+	}
+	factHashes, _ := hashFactList(factList)
+
+	var contacts []*Contact
+	for i, hash := range factHashes {
+		contacts = append(contacts, &Contact{
+			UserID:    id.NewIdFromString("user", id.User, t).Marshal(),
+			PubKey:    []byte{byte(i + 1)},
+			TrigFacts: []*HashFact{hash},
+		})
 	}
 
-	// Trigger lookup response chan
-	responseContacts := []*Contact{
-		{
-			UserID: id.NewIdFromUInt(5, id.User, t).Bytes(),
-			PubKey: []byte{42},
-			TrigFacts: []*HashFact{
-				{Hash: factID.Fingerprint(factList[0]), Type: int32(factList[0].T)},
-				{Hash: factID.Fingerprint(factList[1]), Type: int32(factList[1].T)},
-				{Hash: factID.Fingerprint(factList[2]), Type: int32(factList[2].T)},
-			},
-		},
-	}
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		m.inProgressSearch[0] <- &SearchResponse{
-			Contacts: responseContacts,
-			Error:    "",
-		}
-	}()
-
-	// Run the search
-	err := m.Search(factList, callback, 20*time.Millisecond)
+	err := m.Search(factList, callback, 10*time.Millisecond)
 	if err != nil {
 		t.Errorf("Search() returned an error: %+v", err)
-	}
-
-	// Generate expected Send message
-	factHashes, factMap := hashFactList(factList)
-	payload, err := proto.Marshal(&SearchSend{
-		Fact:   factHashes,
-		CommID: m.commID - 1,
-	})
-	if err != nil {
-		t.Fatalf("Failed to marshal SearchSend: %+v", err)
-	}
-	expectedMsg := message.Send{
-		Recipient:   m.udID,
-		Payload:     payload,
-		MessageType: message.UdSearch,
-	}
-
-	// Verify the message is correct
-	if !reflect.DeepEqual(expectedMsg, m.net.(*testNetworkManager).msg) {
-		t.Errorf("Failed to send correct message."+
-			"\n\texpected: %+v\n\treceived: %+v",
-			expectedMsg, m.net.(*testNetworkManager).msg)
 	}
 
 	// Verify the callback is called
@@ -105,239 +74,419 @@ func TestManager_Search(t *testing.T) {
 			t.Errorf("Callback returned an error: %+v", cb.err)
 		}
 
-		expectedContacts, err := m.parseContacts(responseContacts, factMap)
-		if err != nil {
-			t.Fatalf("parseResponseContacts() returned an error: %+v", err)
-		}
-		if !reflect.DeepEqual(expectedContacts, cb.c) {
+		expectedContacts := []contact.Contact{m.udContact}
+		if !contact.Equal(expectedContacts[0], cb.c[0]) {
 			t.Errorf("Failed to get expected Contacts."+
-				"\n\texpected: %v\n\treceived: %v", expectedContacts, cb.c)
+				"\n\texpected: %+v\n\treceived: %+v", expectedContacts, cb.c)
 		}
 	case <-time.After(100 * time.Millisecond):
 		t.Error("Callback not called.")
 	}
-
-	if _, exists := m.inProgressSearch[m.commID-1]; exists {
-		t.Error("Failed to delete SearchResponse from inProgressSearch.")
-	}
 }
 
-// Error path: the callback returns an error.
-func TestManager_Search_CallbackError(t *testing.T) {
-	isReg := uint32(1)
-	// Set up manager
-	m := &Manager{
-		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
-		storage:          storage.InitTestingSession(t),
-		udID:             &id.UDB,
-		inProgressSearch: map[uint64]chan *SearchResponse{},
-		net:              newTestNetworkManager(t),
-		registered: &isReg,
-	}
-
-	// Generate callback function
-	callbackChan := make(chan struct {
-		c   []contact.Contact
-		err error
-	})
-	callback := func(c []contact.Contact, err error) {
-		callbackChan <- struct {
-			c   []contact.Contact
-			err error
-		}{c: c, err: err}
-	}
-
-	// Generate fact list
-	factList := fact.FactList{
-		{Fact: "fact1", T: fact.Username},
-		{Fact: "fact2", T: fact.Email},
-		{Fact: "fact3", T: fact.Phone},
-	}
-
-	// Trigger lookup response chan
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		m.inProgressSearch[0] <- &SearchResponse{
-			Contacts: nil,
-			Error:    "Error",
-		}
-	}()
-
-	// Run the search
-	err := m.Search(factList, callback, 10*time.Millisecond)
-	if err != nil {
-		t.Errorf("Search() returned an error: %+v", err)
-	}
-
-	// Verify the callback is called
-	select {
-	case cb := <-callbackChan:
-		if cb.err == nil {
-			t.Error("Callback did not return an expected error.")
-		}
-
-		if cb.c != nil {
-			t.Errorf("Failed to get expected Contacts."+
-				"\n\texpected: %v\n\treceived: %v", nil, cb.c)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Error("Callback not called.")
-	}
-
-	if _, exists := m.inProgressSearch[m.commID-1]; exists {
-		t.Error("Failed to delete SearchResponse from inProgressSearch.")
-	}
-}
-
-// Error path: the round event chan times out.
-func TestManager_Search_EventChanTimeout(t *testing.T) {
-	isReg := uint32(1)
-	// Set up manager
-	m := &Manager{
-		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
-		storage:          storage.InitTestingSession(t),
-		udID:             &id.UDB,
-		inProgressSearch: map[uint64]chan *SearchResponse{},
-		net:              newTestNetworkManager(t),
-		registered: &isReg,
-	}
-
-	// Generate callback function
-	callbackChan := make(chan struct {
-		c   []contact.Contact
-		err error
-	})
-	callback := func(c []contact.Contact, err error) {
-		callbackChan <- struct {
-			c   []contact.Contact
-			err error
-		}{c: c, err: err}
-	}
-
-	// Generate fact list
-	factList := fact.FactList{
-		{Fact: "fact1", T: fact.Username},
-		{Fact: "fact2", T: fact.Email},
-		{Fact: "fact3", T: fact.Phone},
-	}
-
-	// Run the search
-	err := m.Search(factList, callback, 10*time.Millisecond)
-	if err != nil {
-		t.Errorf("Search() returned an error: %+v", err)
-	}
-
-	// Verify the callback is called
-	select {
-	case cb := <-callbackChan:
-		if cb.err == nil {
-			t.Error("Callback did not return an expected error.")
-		}
-
-		if cb.c != nil {
-			t.Errorf("Failed to get expected Contacts."+
-				"\n\texpected: %v\n\treceived: %v", nil, cb.c)
-		}
-	case <-time.After(100 * time.Millisecond):
-		t.Error("Callback not called.")
-	}
-
-	if _, exists := m.inProgressSearch[m.commID-1]; exists {
-		t.Error("Failed to delete SearchResponse from inProgressSearch.")
-	}
-}
+//
+// // Error path: the callback returns an error.
+// func TestManager_Search_CallbackError(t *testing.T) {
+// 	isReg := uint32(1)
+// 	// Set up manager
+// 	m := &Manager{
+// 		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
+// 		grp:        cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
+// 		storage:    storage.InitTestingSession(t),
+// 		udContact:  contact.Contact{ID: &id.UDB},
+// 		net:        newTestNetworkManager(t),
+// 		registered: &isReg,
+// 	}
+//
+// 	// Generate callback function
+// 	callbackChan := make(chan struct {
+// 		c   []contact.Contact
+// 		err error
+// 	})
+// 	callback := func(c []contact.Contact, err error) {
+// 		callbackChan <- struct {
+// 			c   []contact.Contact
+// 			err error
+// 		}{c: c, err: err}
+// 	}
+//
+// 	// Generate fact list
+// 	factList := fact.FactList{
+// 		{Fact: "fact1", T: fact.Username},
+// 		{Fact: "fact2", T: fact.Email},
+// 		{Fact: "fact3", T: fact.Phone},
+// 	}
+//
+// 	// Trigger lookup response chan
+// 	// go func() {
+// 	// 	time.Sleep(1 * time.Millisecond)
+// 	// 	m.inProgressSearch[0] <- &SearchResponse{
+// 	// 		Contacts: nil,
+// 	// 		Error:    "Error",
+// 	// 	}
+// 	// }()
+//
+// 	// Run the search
+// 	err := m.Search(factList, callback, 10*time.Millisecond)
+// 	if err != nil {
+// 		t.Errorf("Search() returned an error: %+v", err)
+// 	}
+//
+// 	// Verify the callback is called
+// 	select {
+// 	case cb := <-callbackChan:
+// 		if cb.err == nil {
+// 			t.Error("Callback did not return an expected error.")
+// 		}
+//
+// 		if cb.c != nil {
+// 			t.Errorf("Failed to get expected Contacts."+
+// 				"\n\texpected: %v\n\treceived: %v", nil, cb.c)
+// 		}
+// 	case <-time.After(100 * time.Millisecond):
+// 		t.Error("Callback not called.")
+// 	}
+//
+// 	// if _, exists := m.inProgressSearch[m.commID-1]; exists {
+// 	// 	t.Error("Failed to delete SearchResponse from inProgressSearch.")
+// 	// }
+// }
+//
+// // Error path: the round event chan times out.
+// func TestManager_Search_EventChanTimeout(t *testing.T) {
+// 	isReg := uint32(1)
+// 	// Set up manager
+// 	m := &Manager{
+// 		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
+// 		grp:        cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
+// 		storage:    storage.InitTestingSession(t),
+// 		udContact:  contact.Contact{ID: &id.UDB},
+// 		net:        newTestNetworkManager(t),
+// 		registered: &isReg,
+// 	}
+//
+// 	// Generate callback function
+// 	callbackChan := make(chan struct {
+// 		c   []contact.Contact
+// 		err error
+// 	})
+// 	callback := func(c []contact.Contact, err error) {
+// 		callbackChan <- struct {
+// 			c   []contact.Contact
+// 			err error
+// 		}{c: c, err: err}
+// 	}
+//
+// 	// Generate fact list
+// 	factList := fact.FactList{
+// 		{Fact: "fact1", T: fact.Username},
+// 		{Fact: "fact2", T: fact.Email},
+// 		{Fact: "fact3", T: fact.Phone},
+// 	}
+//
+// 	// Run the search
+// 	err := m.Search(factList, callback, 10*time.Millisecond)
+// 	if err != nil {
+// 		t.Errorf("Search() returned an error: %+v", err)
+// 	}
+//
+// 	// Verify the callback is called
+// 	select {
+// 	case cb := <-callbackChan:
+// 		if cb.err == nil {
+// 			t.Error("Callback did not return an expected error.")
+// 		}
+//
+// 		if cb.c != nil {
+// 			t.Errorf("Failed to get expected Contacts."+
+// 				"\n\texpected: %v\n\treceived: %v", nil, cb.c)
+// 		}
+// 	case <-time.After(100 * time.Millisecond):
+// 		t.Error("Callback not called.")
+// 	}
+//
+// 	// if _, exists := m.inProgressSearch[m.commID-1]; exists {
+// 	// 	t.Error("Failed to delete SearchResponse from inProgressSearch.")
+// 	// }
+// }
 
 // Happy path.
-func TestManager_searchProcess(t *testing.T) {
-	isReg := uint32(1)
-	m := &Manager{
-		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
-		storage:          storage.InitTestingSession(t),
-		udID:             &id.UDB,
-		inProgressSearch: map[uint64]chan *SearchResponse{},
-		net:              newTestNetworkManager(t),
-		registered: &isReg,
+func TestManager_searchResponseHandler(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+
+	callbackChan := make(chan struct {
+		c   []contact.Contact
+		err error
+	})
+	callback := func(c []contact.Contact, err error) {
+		callbackChan <- struct {
+			c   []contact.Contact
+			err error
+		}{c: c, err: err}
 	}
 
-	c := make(chan message.Receive)
-	quitCh := make(chan struct{})
+	// Generate fact list
+	var factList fact.FactList
+	for i := 0; i < 10; i++ {
+		factList = append(factList, fact.Fact{
+			Fact: fmt.Sprintf("fact %d", i),
+			T:    fact.FactType(rand.Intn(4)),
+		})
+	}
+	factHashes, factMap := hashFactList(factList)
+
+	var contacts []*Contact
+	var expectedContacts []contact.Contact
+	for i, hash := range factHashes {
+		contacts = append(contacts, &Contact{
+			UserID:    id.NewIdFromString("user", id.User, t).Marshal(),
+			PubKey:    []byte{byte(i + 1)},
+			TrigFacts: []*HashFact{hash},
+		})
+		expectedContacts = append(expectedContacts, contact.Contact{
+			ID:       id.NewIdFromString("user", id.User, t),
+			DhPubKey: m.grp.NewIntFromBytes([]byte{byte(i + 1)}),
+			Facts:    fact.FactList{factMap[string(hash.Hash)]},
+		})
+	}
 
 	// Generate expected Send message
-	payload, err := proto.Marshal(&SearchSend{
-		Fact: []*HashFact{&HashFact{
-			Hash:                 []byte{1},
-			Type:                 0,
-		}},
-		CommID: m.commID,
-	})
+	payload, err := proto.Marshal(&SearchResponse{Contacts: contacts})
 	if err != nil {
 		t.Fatalf("Failed to marshal LookupSend: %+v", err)
 	}
 
-	m.inProgressSearch[m.commID] = make(chan *SearchResponse, 1)
-
-	// Trigger response chan
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		c <- message.Receive{
-			Payload:    payload,
-			Encryption: message.E2E,
-		}
-		time.Sleep(1 * time.Millisecond)
-		quitCh <- struct{}{}
-	}()
-
-	m.searchProcess(c, quitCh)
+	m.searchResponseHandler(factMap, callback, payload, nil)
 
 	select {
-	case response := <-m.inProgressSearch[m.commID]:
-		expectedResponse := &SearchResponse{}
-		if err := proto.Unmarshal(payload, expectedResponse); err != nil {
-			t.Fatalf("Failed to unmarshal payload: %+v", err)
+	case results := <-callbackChan:
+		if results.err != nil {
+			t.Errorf("Callback returned an error: %+v", results.err)
 		}
-
-		if !reflect.DeepEqual(expectedResponse, response) {
-			t.Errorf("Recieved unexpected response."+
-				"\n\texpected: %+v\n\trecieved: %+v", expectedResponse, response)
+		if !reflect.DeepEqual(expectedContacts, results.c) {
+			t.Errorf("Callback returned incorrect Contacts."+
+				"\nexpected: %+v\nreceived: %+v", expectedContacts, results.c)
 		}
-	case <-time.After(100 * time.Millisecond):
-		t.Error("Response not sent.")
+	case <-time.NewTimer(50 * time.Millisecond).C:
+		t.Error("Callback time out.")
 	}
 }
 
-// Error path: dropped lookup response due to incorrect message.Receive.
-func TestManager_searchpProcess_NoSearchResponse(t *testing.T) {
-	isReg := uint32(1)
-	m := &Manager{
-		rng:              fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
-		grp:              cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
-		storage:          storage.InitTestingSession(t),
-		udID:             &id.UDB,
-		inProgressSearch: map[uint64]chan *SearchResponse{},
-		net:              newTestNetworkManager(t),
-		registered: &isReg,
+// Happy path: error is returned on callback when passed into function.
+func TestManager_searchResponseHandler_CallbackError(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+
+	callbackChan := make(chan struct {
+		c   []contact.Contact
+		err error
+	})
+	callback := func(c []contact.Contact, err error) {
+		callbackChan <- struct {
+			c   []contact.Contact
+			err error
+		}{c: c, err: err}
 	}
 
-	c := make(chan message.Receive)
-	quitCh := make(chan struct{})
+	testErr := errors.New("search failure")
 
-	// Trigger response chan
-	go func() {
-		time.Sleep(1 * time.Millisecond)
-		c <- message.Receive{}
-		time.Sleep(1 * time.Millisecond)
-		quitCh <- struct{}{}
-	}()
-
-	m.lookupProcess(c, quitCh)
+	m.searchResponseHandler(map[string]fact.Fact{}, callback, []byte{}, testErr)
 
 	select {
-	case response := <-m.inProgressSearch[m.commID]:
-		t.Errorf("Received unexpected response: %+v", response)
-	case <-time.After(10 * time.Millisecond):
-		return
+	case results := <-callbackChan:
+		if results.err == nil || !strings.Contains(results.err.Error(), testErr.Error()) {
+			t.Errorf("Callback failed to return error."+
+				"\nexpected: %+v\nreceived: %+v", testErr, results.err)
+		}
+	case <-time.NewTimer(50 * time.Millisecond).C:
+		t.Error("Callback time out.")
 	}
+}
+
+// Error path: SearchResponse message contains an error.
+func TestManager_searchResponseHandler_MessageError(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+
+	callbackChan := make(chan struct {
+		c   []contact.Contact
+		err error
+	})
+	callback := func(c []contact.Contact, err error) {
+		callbackChan <- struct {
+			c   []contact.Contact
+			err error
+		}{c: c, err: err}
+	}
+
+	// Generate expected Send message
+	testErr := "SearchResponse error occurred"
+	payload, err := proto.Marshal(&SearchResponse{Error: testErr})
+	if err != nil {
+		t.Fatalf("Failed to marshal LookupSend: %+v", err)
+	}
+
+	m.searchResponseHandler(map[string]fact.Fact{}, callback, payload, nil)
+
+	select {
+	case results := <-callbackChan:
+		if results.err == nil || !strings.Contains(results.err.Error(), testErr) {
+			t.Errorf("Callback failed to return error."+
+				"\nexpected: %s\nreceived: %+v", testErr, results.err)
+		}
+	case <-time.NewTimer(50 * time.Millisecond).C:
+		t.Error("Callback time out.")
+	}
+}
+
+// Error path: contact is malformed and cannot be parsed.
+func TestManager_searchResponseHandler_ParseContactError(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+
+	callbackChan := make(chan struct {
+		c   []contact.Contact
+		err error
+	})
+	callback := func(c []contact.Contact, err error) {
+		callbackChan <- struct {
+			c   []contact.Contact
+			err error
+		}{c: c, err: err}
+	}
+
+	var contacts []*Contact
+	for i := 0; i < 10; i++ {
+		contacts = append(contacts, &Contact{
+			UserID: []byte{byte(i + 1)},
+		})
+	}
+
+	// Generate expected Send message
+	payload, err := proto.Marshal(&SearchResponse{Contacts: contacts})
+	if err != nil {
+		t.Fatalf("Failed to marshal LookupSend: %+v", err)
+	}
+
+	m.searchResponseHandler(nil, callback, payload, nil)
+
+	select {
+	case results := <-callbackChan:
+		if results.err == nil || !strings.Contains(results.err.Error(), "failed to parse Contact user ID") {
+			t.Errorf("Callback failed to return error: %+v", results.err)
+		}
+	case <-time.NewTimer(50 * time.Millisecond).C:
+		t.Error("Callback time out.")
+	}
+}
+
+// Happy path.
+func Test_hashFactList(t *testing.T) {
+	var factList fact.FactList
+	var expectedHashFacts []*HashFact
+	expectedHashMap := make(map[string]fact.Fact)
+	for i := 0; i < 10; i++ {
+		f := fact.Fact{
+			Fact: fmt.Sprintf("fact %d", i),
+			T:    fact.FactType(rand.Intn(4)),
+		}
+		factList = append(factList, f)
+		expectedHashFacts = append(expectedHashFacts, &HashFact{
+			Hash: factID.Fingerprint(f),
+			Type: int32(f.T),
+		})
+		expectedHashMap[string(factID.Fingerprint(f))] = f
+	}
+
+	hashFacts, hashMap := hashFactList(factList)
+
+	if !reflect.DeepEqual(expectedHashFacts, hashFacts) {
+		t.Errorf("hashFactList() failed to return the expected hash facts."+
+			"\nexpected: %+v\nreceived: %+v", expectedHashFacts, hashFacts)
+	}
+
+	if !reflect.DeepEqual(expectedHashMap, hashMap) {
+		t.Errorf("hashFactList() failed to return the expected hash map."+
+			"\nexpected: %+v\nreceived: %+v", expectedHashMap, hashMap)
+	}
+}
+
+// Happy path.
+func TestManager_parseContacts(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+
+	// Generate fact list
+	var factList fact.FactList
+	for i := 0; i < 10; i++ {
+		factList = append(factList, fact.Fact{
+			Fact: fmt.Sprintf("fact %d", i),
+			T:    fact.FactType(rand.Intn(4)),
+		})
+	}
+	factHashes, factMap := hashFactList(factList)
+
+	var contacts []*Contact
+	var expectedContacts []contact.Contact
+	for i, hash := range factHashes {
+		contacts = append(contacts, &Contact{
+			UserID:    id.NewIdFromString("user", id.User, t).Marshal(),
+			PubKey:    []byte{byte(i + 1)},
+			TrigFacts: []*HashFact{hash},
+		})
+		expectedContacts = append(expectedContacts, contact.Contact{
+			ID:       id.NewIdFromString("user", id.User, t),
+			DhPubKey: m.grp.NewIntFromBytes([]byte{byte(i + 1)}),
+			Facts:    fact.FactList{factMap[string(hash.Hash)]},
+		})
+	}
+
+	testContacts, err := m.parseContacts(contacts, factMap)
+	if err != nil {
+		t.Errorf("parseContacts() returned an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(expectedContacts, testContacts) {
+		t.Errorf("parseContacts() did not return the expected contacts."+
+			"\nexpected: %+v\nreceived: %+v", expectedContacts, testContacts)
+	}
+}
+
+// Error path: provided contact IDs are malformed and cannot be unmarshaled.
+func TestManager_parseContacts_IdUnmarshalError(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+	contacts := []*Contact{{UserID: []byte("invalid ID")}}
+
+	_, err := m.parseContacts(contacts, nil)
+	if err == nil || !strings.Contains(err.Error(), "failed to parse Contact user ID") {
+		t.Errorf("parseContacts() did not return an error when IDs are invalid: %+v", err)
+	}
+}
+
+// mockSingleSearch is used to test the search function, which uses the single-
+// use manager. It adheres to the SingleInterface interface.
+type mockSingleSearch struct {
+}
+
+func (s *mockSingleSearch) TransmitSingleUse(partner contact.Contact, payload []byte,
+	_ string, _ uint8, callback single.ReplyComm, _ time.Duration) error {
+
+	searchMsg := &SearchSend{}
+	if err := proto.Unmarshal(payload, searchMsg); err != nil {
+		return errors.Errorf("Failed to unmarshal SearchSend: %+v", err)
+	}
+
+	searchResponse := &SearchResponse{
+		Contacts: []*Contact{{
+			UserID: partner.ID.Marshal(),
+			PubKey: partner.DhPubKey.Bytes(),
+		}},
+	}
+	msg, err := proto.Marshal(searchResponse)
+	if err != nil {
+		return errors.Errorf("Failed to marshal SearchResponse: %+v", err)
+	}
+
+	callback(msg, nil)
+	return nil
+}
+
+func (s *mockSingleSearch) StartProcesses() stoppable.Stoppable {
+	return stoppable.NewSingle("")
 }

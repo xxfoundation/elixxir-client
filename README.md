@@ -1,16 +1,16 @@
-# XX Network Client
+# xx network Client
 
 [![pipeline status](https://gitlab.com/elixxir/client/badges/master/pipeline.svg)](https://gitlab.com/elixxir/client/commits/master)
 [![coverage report](https://gitlab.com/elixxir/client/badges/master/coverage.svg)](https://gitlab.com/elixxir/client/commits/master)
 
-The XX Network client is a library and related command line tool 
-that facilitate making full-featured XX clients for all platforms. The
+The xx network client is a library and related command line tool 
+that facilitate making full-featured xx clients for all platforms. The
 command line tool can be built for any platform supported by
 golang. The libraries are built for iOS and Android using
 [gomobile](https://godoc.org/golang.org/x/mobile/cmd/gomobile).
 
 This repository contains everything necessary to implement all of the
-XX Network messaging features. These include the end-to-end encryption
+xx network messaging features. These include the end-to-end encryption
 and metadata protection. It also contains features to extend the base 
 messaging protocols.
 
@@ -24,7 +24,7 @@ The client is open source software released under the simplified BSD License.
 
 ## Command Line Usage
 
-The command line tool is intended for testing XX network functionality and not
+The command line tool is intended for testing xx network functionality and not
 for regular user use. 
 
 Compilation (assuming golang 1.13 or newer):
@@ -45,6 +45,43 @@ GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/clien
 GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
 ```
 
+To get an NDF from a network gateway and the permissioning server, use the `getndf` subcommand.  The `getndf` subcommand allows command line users to poll the NDF from both a gateway and the permissioning server without any pre-established client connection. It requires an IP address, port, and ssl certificate. You can download an ssl cert with:
+```
+openssl s_client -showcerts -connect permissioning.prod.cmix.rip:11420 < /dev/null 2>&1 | openssl x509 -outform PEM > certfile.pem
+```
+
+Example usage for Gateways:
+
+```
+$ go run main.go getndf --gwhost localhost:8440 --cert ~/integration/keys/cmix.rip.crt | jq . | head
+{
+  "Timestamp": "2021-01-29T01:19:49.227246827Z",
+  "Gateways": [
+    {
+      "Id": "BRM+Iotl6ujIGhjRddZMBdauapS7Z6jL0FJGq7IkUdYB",
+      "Address": ":8440",
+      "Tls_certificate": "-----BEGIN CERTIFICATE-----\nMIIDbDCCAlSgAwIBAgIJAOUNtZneIYECMA0GCSqGSIb3DQEBBQUAMGgxCzAJBgNV\nBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQx\nGzAZBgNVBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJp\ncDAeFw0xOTAzMDUxODM1NDNaFw0yOTAzMDIxODM1NDNaMGgxCzAJBgNVBAYTAlVT\nMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQxGzAZBgNV\nBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJpcDCCASIw\nDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPP0WyVkfZA/CEd2DgKpcudn0oDh\nDwsjmx8LBDWsUgQzyLrFiVigfUmUefknUH3dTJjmiJtGqLsayCnWdqWLHPJYvFfs\nWYW0IGF93UG/4N5UAWO4okC3CYgKSi4ekpfw2zgZq0gmbzTnXcHF9gfmQ7jJUKSE\ntJPSNzXq+PZeJTC9zJAb4Lj8QzH18rDM8DaL2y1ns0Y2Hu0edBFn/OqavBJKb/uA\nm3AEjqeOhC7EQUjVamWlTBPt40+B/6aFJX5BYm2JFkRsGBIyBVL46MvC02MgzTT9\nbJIJfwqmBaTruwemNgzGu7Jk03hqqS1TUEvSI6/x8bVoba3orcKkf9HsDjECAwEA\nAaMZMBcwFQYDVR0RBA4wDIIKKi5jbWl4LnJpcDANBgkqhkiG9w0BAQUFAAOCAQEA\nneUocN4AbcQAC1+b3To8u5UGdaGxhcGyZBlAoenRVdjXK3lTjsMdMWb4QctgNfIf\nU/zuUn2mxTmF/ekP0gCCgtleZr9+DYKU5hlXk8K10uKxGD6EvoiXZzlfeUuotgp2\nqvI3ysOm/hvCfyEkqhfHtbxjV7j7v7eQFPbvNaXbLa0yr4C4vMK/Z09Ui9JrZ/Z4\ncyIkxfC6/rOqAirSdIp09EGiw7GM8guHyggE4IiZrDslT8V3xIl985cbCxSxeW1R\ntgH4rdEXuVe9+31oJhmXOE9ux2jCop9tEJMgWg7HStrJ5plPbb+HmjoX3nBO04E5\n6m52PyzMNV+2N21IPppKwA==\n-----END CERTIFICATE-----\n"
+    },
+    {
+      "Id": "JCBd9mAQb2BW8hc8H9avy1ubcjUAa7MHrPp0dBU/VqQB",
+```
+
+Example usage for the Permissioning server:
+
+```
+$ go run main.go getndf --permhost localhost:18000 --cert ~/integration/keys/cmix.rip.crt  | jq . | head
+{
+  "Timestamp": "2021-01-29T01:19:49.227246827Z",
+  "Gateways": [
+    {
+      "Id": "BRM+Iotl6ujIGhjRddZMBdauapS7Z6jL0FJGq7IkUdYB",
+      "Address": ":8440",
+      "Tls_certificate": "-----BEGIN CERTIFICATE-----\nMIIDbDCCAlSgAwIBAgIJAOUNtZneIYECMA0GCSqGSIb3DQEBBQUAMGgxCzAJBgNV\nBAYTAlVTMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQx\nGzAZBgNVBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJp\ncDAeFw0xOTAzMDUxODM1NDNaFw0yOTAzMDIxODM1NDNaMGgxCzAJBgNVBAYTAlVT\nMRMwEQYDVQQIDApDYWxpZm9ybmlhMRIwEAYDVQQHDAlDbGFyZW1vbnQxGzAZBgNV\nBAoMElByaXZhdGVncml0eSBDb3JwLjETMBEGA1UEAwwKKi5jbWl4LnJpcDCCASIw\nDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAPP0WyVkfZA/CEd2DgKpcudn0oDh\nDwsjmx8LBDWsUgQzyLrFiVigfUmUefknUH3dTJjmiJtGqLsayCnWdqWLHPJYvFfs\nWYW0IGF93UG/4N5UAWO4okC3CYgKSi4ekpfw2zgZq0gmbzTnXcHF9gfmQ7jJUKSE\ntJPSNzXq+PZeJTC9zJAb4Lj8QzH18rDM8DaL2y1ns0Y2Hu0edBFn/OqavBJKb/uA\nm3AEjqeOhC7EQUjVamWlTBPt40+B/6aFJX5BYm2JFkRsGBIyBVL46MvC02MgzTT9\nbJIJfwqmBaTruwemNgzGu7Jk03hqqS1TUEvSI6/x8bVoba3orcKkf9HsDjECAwEA\nAaMZMBcwFQYDVR0RBA4wDIIKKi5jbWl4LnJpcDANBgkqhkiG9w0BAQUFAAOCAQEA\nneUocN4AbcQAC1+b3To8u5UGdaGxhcGyZBlAoenRVdjXK3lTjsMdMWb4QctgNfIf\nU/zuUn2mxTmF/ekP0gCCgtleZr9+DYKU5hlXk8K10uKxGD6EvoiXZzlfeUuotgp2\nqvI3ysOm/hvCfyEkqhfHtbxjV7j7v7eQFPbvNaXbLa0yr4C4vMK/Z09Ui9JrZ/Z4\ncyIkxfC6/rOqAirSdIp09EGiw7GM8guHyggE4IiZrDslT8V3xIl985cbCxSxeW1R\ntgH4rdEXuVe9+31oJhmXOE9ux2jCop9tEJMgWg7HStrJ5plPbb+HmjoX3nBO04E5\n6m52PyzMNV+2N21IPppKwA==\n-----END CERTIFICATE-----\n"
+    },
+    {
+      "Id": "JCBd9mAQb2BW8hc8H9avy1ubcjUAa7MHrPp0dBU/VqQB",
+```
+
 Basic command line usage, sending unsafe, unencrypted messages to yourself:
 
 ```
@@ -52,7 +89,7 @@ client --password user-password --ndf ndf.json -l client.log -s session-director
 ```
 
 * `--password` is the password used to encrypt and load the session.
-* `--ndf` is the network definition file, downloadable from the XX network
+* `--ndf` is the network definition file, downloadable from the xx network
   website when available.
 * `-l` the file to write logs (user messages are still printed to stdout)
 * `--writeContact` Output the user's contact information to this file.
@@ -121,6 +158,8 @@ Flags:
   -d, --destid string             ID to send message to (if below 40, will be
                                   precanned. Use '0x' or 'b64:' for hex and
                                   base64 representations) (default "0")
+      --forceHistoricalRounds     Force all rounds to be sent to historical
+                                  round retrieval
   -h, --help                      help for client
   -l, --log string                Path to the log output path (- is stdout)
                                   (default "-")
@@ -156,7 +195,7 @@ Note that the client cannot be used on the betanet with precanned user ids.
 
 ## Library Overview
 
-The XX client is designed to be used as a go library (and by extension a 
+The xx client is designed to be used as a go library (and by extension a 
 c library). 
  
 Support is also present for go mobile to build Android and iOS libraries. We
@@ -172,7 +211,7 @@ set up before starting network threads (i.e., before StartNetworkFollowers
 connection reaches the "healthy" state. Below are relevant code listings for
 how to do these actions.
 
-the ndf is the network definition file, downloadable from the XX network 
+the ndf is the network definition file, downloadable from the xx network 
 website when available.
 
 1. Creating and/or Loading a client:

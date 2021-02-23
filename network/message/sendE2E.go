@@ -17,6 +17,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.MessageID, error) {
@@ -42,16 +43,19 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
 		return nil, e2e.MessageID{}, errors.WithMessagef(err, "Could not send End to End encrypted "+
-			"message, no relationship found with %v", partner)
+			"message, no relationship found with %s", msg.Recipient)
 	}
 
 	wg := sync.WaitGroup{}
+
+	jww.INFO.Printf("E2E sending %d messages to %s",
+		len(partitions), msg.Recipient)
+
 
 	for i, p := range partitions {
 		//create the cmix message
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 		msgCmix.SetContents(p)
-		msgCmix.SetRecipientID(msg.Recipient)
 
 		//get a key to end to end encrypt
 		key, err := partner.GetKeyForSending(param.Type)
@@ -63,11 +67,14 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		//end to end encrypt the cmix message
 		msgEnc := key.Encrypt(msgCmix)
 
+		jww.INFO.Printf("E2E sending %d/%d to %s with msgDigest: %s",
+			i+i, len(partitions), msg.Recipient, msgEnc.Digest())
+
 		//send the cmix message, each partition in its own thread
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], err = m.SendCMIX(msgEnc, param.CMIX)
+			roundIds[i], _, err = m.SendCMIX(msgEnc, msg.Recipient, param.CMIX)
 			if err != nil {
 				errCh <- err
 			}
@@ -85,8 +92,13 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	//see if any parts failed to send
 	numFail, errRtn := getSendErrors(errCh)
 	if numFail > 0 {
+		jww.INFO.Printf("Failed to E2E send %d/%d to %s",
+			numFail, len(partitions), msg.Recipient)
 		return nil, e2e.MessageID{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
+	}else{
+		jww.INFO.Printf("Sucesfully E2E sent %d/%d to %s",
+			numFail, len(partitions), msg.Recipient)
 	}
 
 	//return the rounds if everything send successfully

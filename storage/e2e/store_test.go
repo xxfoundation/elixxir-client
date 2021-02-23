@@ -9,6 +9,7 @@ package e2e
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -30,6 +31,7 @@ func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	fingerprints := newFingerprints()
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	e2eP := params.GetDefaultE2ESessionParams()
 	expectedStore := &Store{
 		managers:     make(map[id.ID]*Manager),
 		dhPrivateKey: privKey,
@@ -43,6 +45,7 @@ func TestNewStore(t *testing.T) {
 			rng:  rng,
 			myID: &id.ID{},
 		},
+		e2eParams: e2eP,
 	}
 	expectedData, err := expectedStore.marshal()
 	if err != nil {
@@ -90,7 +93,7 @@ func TestStore_AddPartner(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
-	p := GetDefaultSessionParams()
+	p := params.GetDefaultE2ESessionParams()
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
 
@@ -112,7 +115,7 @@ func TestStore_GetPartner(t *testing.T) {
 	s, _, _ := makeTestStore()
 	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
 	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
-	p := GetDefaultSessionParams()
+	p := params.GetDefaultE2ESessionParams()
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
 	s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)

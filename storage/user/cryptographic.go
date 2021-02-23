@@ -22,27 +22,36 @@ const currentCryptographicIdentityVersion = 0
 const cryptographicIdentityKey = "cryptographicIdentity"
 
 type CryptographicIdentity struct {
-	userID      *id.ID
-	salt        []byte
-	rsaKey      *rsa.PrivateKey
-	isPrecanned bool
+	transmissionID     *id.ID
+	transmissionSalt   []byte
+	transmissionRsaKey *rsa.PrivateKey
+	receptionID        *id.ID
+	receptionSalt      []byte
+	receptionRsaKey    *rsa.PrivateKey
+	isPrecanned        bool
 }
 
 type ciDisk struct {
-	UserID      *id.ID
-	Salt        []byte
-	RsaKey      *rsa.PrivateKey
-	IsPrecanned bool
+	TransmissionID     *id.ID
+	TransmissionSalt   []byte
+	TransmissionRsaKey *rsa.PrivateKey
+	ReceptionID        *id.ID
+	ReceptionSalt      []byte
+	ReceptionRsaKey    *rsa.PrivateKey
+	IsPrecanned        bool
 }
 
-func newCryptographicIdentity(uid *id.ID, salt []byte, rsaKey *rsa.PrivateKey,
+func newCryptographicIdentity(transmissionID, receptionID *id.ID, transmissionSalt, receptionSalt []byte, transmissionRsa, receptionRsa *rsa.PrivateKey,
 	isPrecanned bool, kv *versioned.KV) *CryptographicIdentity {
 
 	ci := &CryptographicIdentity{
-		userID:      uid,
-		salt:        salt,
-		rsaKey:      rsaKey,
-		isPrecanned: isPrecanned,
+		transmissionID:     transmissionID,
+		transmissionSalt:   transmissionSalt,
+		transmissionRsaKey: transmissionRsa,
+		receptionID:        receptionID,
+		receptionSalt:      receptionSalt,
+		receptionRsaKey:    receptionRsa,
+		isPrecanned:        isPrecanned,
 	}
 
 	if err := ci.save(kv); err != nil {
@@ -70,9 +79,12 @@ func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error)
 
 	if decodable != nil {
 		result.isPrecanned = decodable.IsPrecanned
-		result.rsaKey = decodable.RsaKey
-		result.salt = decodable.Salt
-		result.userID = decodable.UserID
+		result.receptionRsaKey = decodable.ReceptionRsaKey
+		result.transmissionRsaKey = decodable.TransmissionRsaKey
+		result.transmissionSalt = decodable.TransmissionSalt
+		result.transmissionID = decodable.TransmissionID
+		result.receptionID = decodable.ReceptionID
+		result.receptionSalt = decodable.ReceptionSalt
 	}
 
 	return result, err
@@ -82,10 +94,13 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 	var userDataBuffer bytes.Buffer
 
 	encodable := &ciDisk{
-		UserID:      ci.userID,
-		Salt:        ci.salt,
-		RsaKey:      ci.rsaKey,
-		IsPrecanned: ci.isPrecanned,
+		TransmissionID:     ci.transmissionID,
+		TransmissionSalt:   ci.transmissionSalt,
+		TransmissionRsaKey: ci.transmissionRsaKey,
+		ReceptionID:        ci.receptionID,
+		ReceptionSalt:      ci.receptionSalt,
+		ReceptionRsaKey:    ci.receptionRsaKey,
+		IsPrecanned:        ci.isPrecanned,
 	}
 
 	enc := gob.NewEncoder(&userDataBuffer)
@@ -103,16 +118,28 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 	return kv.Set(cryptographicIdentityKey, obj)
 }
 
-func (ci *CryptographicIdentity) GetUserID() *id.ID {
-	return ci.userID.DeepCopy()
+func (ci *CryptographicIdentity) GetTransmissionID() *id.ID {
+	return ci.transmissionID.DeepCopy()
 }
 
-func (ci *CryptographicIdentity) GetSalt() []byte {
-	return ci.salt
+func (ci *CryptographicIdentity) GetTransmissionSalt() []byte {
+	return ci.transmissionSalt
 }
 
-func (ci *CryptographicIdentity) GetRSA() *rsa.PrivateKey {
-	return ci.rsaKey
+func (ci *CryptographicIdentity) GetReceptionID() *id.ID {
+	return ci.receptionID.DeepCopy()
+}
+
+func (ci *CryptographicIdentity) GetReceptionSalt() []byte {
+	return ci.receptionSalt
+}
+
+func (ci *CryptographicIdentity) GetReceptionRSA() *rsa.PrivateKey {
+	return ci.receptionRsaKey
+}
+
+func (ci *CryptographicIdentity) GetTransmissionRSA() *rsa.PrivateKey {
+	return ci.transmissionRsaKey
 }
 
 func (ci *CryptographicIdentity) IsPrecanned() bool {

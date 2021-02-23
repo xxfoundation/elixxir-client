@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -99,14 +98,13 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	cmixMsg.SetKeyFP(fp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
-	cmixMsg.SetRecipientID(partner.ID)
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not or the two occur and the storage into critical
 	// messages does not occur
 
 	//create local relationship
-	p := e2e.GetDefaultSessionParams()
+	p := storage.E2e().GetE2ESessionParams()
 	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
 		p, p); err != nil {
 		storage.Auth().Fail(partner.ID)
@@ -124,17 +122,24 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	}
 
 	//store the message as a critical message so it will always be sent
-	storage.GetCriticalRawMessages().AddProcessing(cmixMsg)
+	storage.GetCriticalRawMessages().AddProcessing(cmixMsg, partner.ID)
+
+	jww.INFO.Printf("Confirming Auth with %s, msgDigest: %s",
+		partner.ID, cmixMsg.Digest())
 
 	/*send message*/
-	round, err := net.SendCMIX(cmixMsg, params.GetDefaultCMIX())
+	round, _, err := net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
-		jww.ERROR.Printf("auth confirm failed to transmit, will be "+
-			"handled on reconnect: %+v", err)
-		storage.GetCriticalRawMessages().Failed(cmixMsg)
+		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed " +
+			"to transmit: %+v",	partner.ID, cmixMsg.Digest(), err)
+		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
+		return errors.WithMessage(err,"Auth Confirm Failed to transmit")
 	}
+
+	jww.INFO.Printf("Confirm Request with %s (msgDigest: %s) sent on round %d",
+		partner.ID, cmixMsg.Digest(), round)
 
 	/*check message delivery*/
 	sendResults := make(chan ds.EventReturn, 1)
@@ -143,13 +148,24 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	roundEvents.AddRoundEventChan(round, sendResults, 1*time.Minute,
 		states.COMPLETED, states.FAILED)
 
-	success, _, _ := utility.TrackResults(sendResults, 1)
+	success, numFailed, _ := utility.TrackResults(sendResults, 1)
 	if !success {
+		if numFailed > 0{
+			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed " +
+				"delivery due to round failure, will retry on reconnect",
+				partner.ID, cmixMsg.Digest())
+		}else{
+			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed " +
+				"delivery due to timeout, will retry on reconnect",
+				partner.ID, cmixMsg.Digest())
+		}
 		jww.ERROR.Printf("auth confirm failed to transmit, will be " +
 			"handled on reconnect")
-		storage.GetCriticalRawMessages().Failed(cmixMsg)
+		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	} else {
-		storage.GetCriticalRawMessages().Succeeded(cmixMsg)
+		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) delivered " +
+			"sucesfully", partner.ID, cmixMsg.Digest())
+		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
 	}
 
 	return nil

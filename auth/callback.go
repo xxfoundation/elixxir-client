@@ -14,7 +14,6 @@ import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/auth"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -43,7 +42,7 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			// specific
 			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
 			if err != nil {
-				jww.INFO.Printf("FINGERPRINT FAILURE: %s", err.Error())
+				jww.TRACE.Printf("FINGERPRINT FAILURE: %s", err.Error())
 				// if the lookup fails, ignore the message. It is likely
 				// garbled or for a different protocol
 				break
@@ -59,6 +58,8 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			// if it is specific, that means the original request was sent
 			// by this users and a confirmation has been received
 			case auth.Specific:
+				jww.INFO.Printf("Received AutConfirm from %s," +
+					" msgDigest: %s", sr.GetPartner(), cmixMsg.Digest())
 				m.handleConfirm(cmixMsg, sr, grp)
 			}
 		}
@@ -77,8 +78,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 	myPubKey := diffieHellman.GeneratePublicKey(myHistoricalPrivKey, grp)
 
-	jww.INFO.Printf("handleRequest MYPUBKEY: %v", myPubKey.Bytes())
-	jww.INFO.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.TRACE.Printf("handleRequest MYPUBKEY: %v", myPubKey.Bytes())
+	jww.TRACE.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
 
 	//decrypt the message
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
@@ -114,6 +115,9 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	}
 
+	jww.INFO.Printf("Received AuthRequest from %s," +
+		" msgDigest: %s", partnerID, cmixMsg.Digest())
+
 	/*do state edge checks*/
 	// check if a relationship already exists.
 	// if it does and the keys used are the same as we have, send a
@@ -144,10 +148,14 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			// if we sent a request, then automatically confirm
 			// then exit, nothing else needed
 			case auth.Sent:
+				jww.INFO.Printf("Received AuthRequest from %s," +
+					" msgDigest: %s which has been requested, auto-confirming",
+					partnerID, cmixMsg.Digest())
 				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey,
+				if err := m.doConfirm(sr2, grp, partnerPubKey, myPubKey,
 					ecrFmt.GetOwnership()); err != nil {
-					jww.WARN.Printf("Confirmation failed: %s", err)
+					jww.WARN.Printf("Auto Confirmation with %s failed: %s",
+						partnerID, err)
 				}
 				//exit
 				return
@@ -209,8 +217,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		return
 	}
 
-	jww.INFO.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
-	jww.INFO.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
+	jww.TRACE.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.TRACE.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),
@@ -233,7 +241,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// finalize the confirmation
-	if err := m.doConfirm(sr, grp, partnerPubKey, ecrFmt.GetOwnership()); err != nil {
+	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetPartnerHistoricalPubKey(),
+		ecrFmt.GetOwnership()); err != nil {
 		jww.WARN.Printf("Confirmation failed: %s", err)
 		m.storage.Auth().Fail(sr.GetPartner())
 		return
@@ -241,17 +250,17 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, myPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
 	// verify the message came from the intended recipient
 	if !cAuth.VerifyOwnershipProof(sr.GetMyPrivKey(),
-		sr.GetPartnerHistoricalPubKey(), grp, ownershipProof) {
+		myPubKeyOwnershipProof, grp, ownershipProof) {
 		return errors.Errorf("Failed authenticate identity for auth "+
 			"confirmation of %s", sr.GetPartner())
 	}
 
 	// fixme: channel can get into a bricked state if the first save occurs and
 	// the second does not
-	p := e2e.GetDefaultSessionParams()
+	p := m.storage.E2e().GetE2ESessionParams()
 	if err := m.storage.E2e().AddPartner(sr.GetPartner(),
 		partnerPubKey, sr.GetMyPrivKey(), p, p); err != nil {
 		return errors.Errorf("Failed to create channel with partner (%s) "+

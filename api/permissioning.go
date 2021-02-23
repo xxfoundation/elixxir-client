@@ -16,7 +16,8 @@ import (
 func (c *Client) registerWithPermissioning() error {
 	userData := c.storage.User()
 	//get the users public key
-	pubKey := userData.GetCryptographicIdentity().GetRSA().GetPublic()
+	transmissionPubKey := userData.GetCryptographicIdentity().GetTransmissionRSA().GetPublic()
+	receptionPubKey := userData.GetCryptographicIdentity().GetReceptionRSA().GetPublic()
 
 	//load the registration code
 	regCode, err := c.storage.GetRegCode()
@@ -26,14 +27,15 @@ func (c *Client) registerWithPermissioning() error {
 	}
 
 	//register with permissioning
-	regValidationSignature, err := c.permissioning.Register(pubKey, regCode)
+	transmissionRegValidationSignature, receptionRegValidationSignature, err := c.permissioning.Register(transmissionPubKey, receptionPubKey, regCode)
 	if err != nil {
 		return errors.WithMessage(err, "failed to register with "+
 			"permissioning")
 	}
 
 	//store the signature
-	userData.SetRegistrationValidationSignature(regValidationSignature)
+	userData.SetTransmissionRegistrationValidationSignature(transmissionRegValidationSignature)
+	userData.SetReceptionRegistrationValidationSignature(receptionRegValidationSignature)
 
 	//update the registration status
 	err = c.storage.ForwardRegistrationStatus(storage.PermissioningComplete)

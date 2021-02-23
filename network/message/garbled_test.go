@@ -7,7 +7,6 @@ import (
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -42,8 +41,8 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	l := TestListener{
 		ch: make(chan bool),
 	}
-	sw.RegisterListener(sess2.GetUser().ID, message.Raw, l)
-	comms, err := client.NewClientComms(sess1.GetUser().ID, nil, nil, nil)
+	sw.RegisterListener(sess2.GetUser().TransmissionID, message.Raw, l)
+	comms, err := client.NewClientComms(sess1.GetUser().TransmissionID, nil, nil, nil)
 	if err != nil {
 		t.Errorf("Failed to start client comms: %+v", err)
 	}
@@ -53,7 +52,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		Comms:            comms,
 		Health:           nil,
-		Uid:              sess1.GetUser().ID,
+		TransmissionID:   sess1.GetUser().TransmissionID,
 		Instance:         nil,
 		NodeRegistration: nil,
 	}
@@ -65,18 +64,23 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	}, nil)
 
 	e2ekv := i.Session.E2e()
-	err = e2ekv.AddPartner(sess2.GetUser().ID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(), e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 	if err != nil {
 		t.Errorf("Failed to add e2e partner: %+v", err)
 		t.FailNow()
 	}
 
-	err = sess2.E2e().AddPartner(sess1.GetUser().ID, sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(), e2e.GetDefaultSessionParams(), e2e.GetDefaultSessionParams())
+	err = sess2.E2e().AddPartner(sess1.GetUser().TransmissionID,
+		sess1.E2e().GetDHPublicKey(), sess2.E2e().GetDHPrivateKey(),
+		params.GetDefaultE2ESessionParams(),
+		params.GetDefaultE2ESessionParams())
 	if err != nil {
 		t.Errorf("Failed to add e2e partner: %+v", err)
 		t.FailNow()
 	}
-	partner1, err := sess2.E2e().GetPartner(sess1.GetUser().ID)
+	partner1, err := sess2.E2e().GetPartner(sess1.GetUser().ReceptionID)
 	if err != nil {
 		t.Errorf("Failed to get partner: %+v", err)
 		t.FailNow()

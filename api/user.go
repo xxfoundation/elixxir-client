@@ -26,12 +26,6 @@ const (
 
 // createNewUser generates an identity for cMix
 func createNewUser(rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
-	// RSA Keygen (4096 bit defaults)
-	rsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-
 	// CMIX Keygen
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
 	// to do with optimizing operations on one side and still preserves
@@ -50,24 +44,51 @@ func createNewUser(rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
 		jww.FATAL.Panicf(err.Error())
 	}
 
+	// RSA Keygen (4096 bit defaults)
+	transmissionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	receptionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
 	// Salt, UID, etc gen
-	salt := make([]byte, SaltSize)
-	n, err := csprng.NewSystemRNG().Read(salt)
+	transmissionSalt := make([]byte, SaltSize)
+	n, err := csprng.NewSystemRNG().Read(transmissionSalt)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 	if n != SaltSize {
-		jww.FATAL.Panicf("salt size too small: %d", n)
+		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
 	}
-	userID, err := xx.NewID(rsaKey.GetPublic(), salt, id.User)
+	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+
+	// Salt, UID, etc gen
+	receptionSalt := make([]byte, SaltSize)
+	n, err = csprng.NewSystemRNG().Read(receptionSalt)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	if n != SaltSize {
+		jww.FATAL.Panicf("receptionSalt size too small: %d", n)
+	}
+	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(), receptionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
 	return user.User{
-		ID:               userID.DeepCopy(),
-		Salt:             salt,
-		RSA:              rsaKey,
+		TransmissionID:   transmissionID.DeepCopy(),
+		TransmissionSalt: transmissionSalt,
+		TransmissionRSA:  transmissionRsaKey,
+		ReceptionID:      receptionID.DeepCopy(),
+		ReceptionSalt:    receptionSalt,
+		ReceptionRSA:     receptionRsaKey,
 		Precanned:        false,
 		CmixDhPrivateKey: cmix.NewIntFromBytes(cMixKeyBytes),
 		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
@@ -101,12 +122,15 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 	}
 
 	return user.User{
-		ID:              userID.DeepCopy(),
-		Salt:            salt,
-		Precanned:       true,
-		E2eDhPrivateKey: e2e.NewIntFromBytes(e2eKeyBytes),
+		TransmissionID:   &userID,
+		TransmissionSalt: salt,
+		ReceptionID:      &userID,
+		ReceptionSalt:    salt,
+		Precanned:        true,
+		E2eDhPrivateKey:  e2e.NewIntFromBytes(e2eKeyBytes),
 		// NOTE: These are dummy/not used
 		CmixDhPrivateKey: cmix.NewInt(1),
-		RSA:              rsaKey,
+		TransmissionRSA:  rsaKey,
+		ReceptionRSA:     rsaKey,
 	}
 }

@@ -13,7 +13,6 @@ import (
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/contact"
-	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -94,7 +93,7 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 	precan := c.MakePrecannedContact(precannedID)
 
 	// add the precanned user as a e2e contact
-	sesParam := e2e.GetDefaultSessionParams()
+	sesParam := c.parameters.E2EParams
 	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey,
 		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
 
@@ -114,7 +113,7 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 	partnerPubKey := e2eGrp.ExpG(precanned.E2eDhPrivateKey, e2eGrp.NewInt(1))
 
 	return contact.Contact{
-		ID:             precanned.ID,
+		ID:             precanned.ReceptionID,
 		DhPubKey:       partnerPubKey,
 		OwnershipProof: nil,
 		Facts:          make([]fact.Fact, 0),

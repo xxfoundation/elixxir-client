@@ -7,13 +7,14 @@
 
 package network
 
-// manager.go controls access to network resources. Interprocess communications
+// tracker.go controls access to network resources. Interprocess communications
 // and intraclient state are accessible through the context object.
 
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/ephemeral"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
@@ -44,9 +45,11 @@ type manager struct {
 	//sub-managers
 	round   *rounds.Manager
 	message *message.Manager
-
 	//atomic denotes if the network is running
 	running *uint32
+
+	//map of polls for debugging
+	tracker *pollTracker
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -63,10 +66,16 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	running := uint32(0)
 
+	// Note: These are not loaded/stored in E2E Store, but the
+	// E2E Session Params are a part of the network parameters, so we
+	// set them here when they are needed on startup
+	session.E2e().SetE2ESessionParams(params.E2EParams)
+
 	//create manager object
 	m := manager{
 		param:   params,
 		running: &running,
+		tracker: newPollTracker(),
 	}
 
 	m.Internal = internal.Internal{
@@ -77,7 +86,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Health:           health.Init(instance, params.NetworkHealthTimeout),
 		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
-		Uid:              session.User().GetCryptographicIdentity().GetUserID(),
+		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
+		ReceptionID: 	  session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
 	//create sub managers
@@ -96,6 +106,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Health Tracker (/network/health)
 //	 - Garbled Messages (/network/message/garbled.go)
 //	 - Critical Messages (/network/message/critical.go)
+//   - Ephemeral ID tracking (network/ephemeral/tracker.go)
 func (m *manager) Follow() (stoppable.Stoppable, error) {
 	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
 		return nil, errors.Errorf("network routines are already running")
@@ -126,6 +137,8 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
+
+	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
 
 	//set the running status back to 0 so it can be started again
 	closer := stoppable.NewCleanup(multi, func(time.Duration) error {

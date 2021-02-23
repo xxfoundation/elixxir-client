@@ -15,6 +15,7 @@ import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -83,7 +84,8 @@ func (m *Manager) criticalMessages() {
 	param := params.GetDefaultCMIX()
 	//raw critical messages
 	for msg, rid, has := critRawMsgs.Next(); has; msg, rid, has = critRawMsgs.Next() {
-		go func(msg format.Message) {
+		localRid := rid.DeepCopy()
+		go func(msg format.Message, rid *id.ID) {
 			//send the message
 			round, _, err := m.SendCMIX(msg, rid, param)
 			//if the message fail to send, notify the buffer so it can be handled
@@ -112,7 +114,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 			critRawMsgs.Succeeded(msg, rid)
-		}(msg)
+		}(msg, localRid)
 	}
 
 }

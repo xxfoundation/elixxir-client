@@ -342,7 +342,7 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected.ExtraChecks--
 	}
 
-	jww.DEBUG.Printf("Selected identity: EphId: %d  ID: %s  End: %s  StartValid: %s  EndValid: %s",
+	jww.TRACE.Printf("Selected identity: EphId: %d  ID: %s  End: %s  StartValid: %s  EndValid: %s",
 		selected.EphId.Int64(), selected.Source, selected.End.Format("01/02/06 03:04:05 pm"),
 		selected.StartValid.Format("01/02/06 03:04:05 pm"), selected.EndValid.Format("01/02/06 03:04:05 pm"))
 

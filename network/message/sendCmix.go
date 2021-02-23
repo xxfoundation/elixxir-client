@@ -142,6 +142,9 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		//keying relationships
 		roundKeys, missingKeys := session.Cmix().GetRoundKeys(topology)
 		if len(missingKeys) > 0 {
+			jww.WARN.Printf("Failed to send on round %d to %s " +
+				"(msgDigest: %s) due to missing relationships with nodes: %s",
+				bestRound.ID, recipient, msg.Digest(), missingKeys)
 			go handleMissingNodeKeys(instance, nodeRegistration, missingKeys)
 			time.Sleep(param.RetryDelay)
 			continue

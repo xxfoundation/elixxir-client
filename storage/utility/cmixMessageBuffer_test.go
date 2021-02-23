@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -23,9 +24,13 @@ func TestCmixMessageHandler_SaveMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
 	kv := versioned.NewKV(make(ekv.Memstore))
-	testMsgs, _ := makeTestCmixMessages(10)
+	testMsgs, ids, _ := makeTestCmixMessages(10)
 
-	for _, msg := range testMsgs {
+	for i := range testMsgs {
+		msg := storedMessage{
+			Msg:       testMsgs[i].Marshal(),
+			Recipient: ids[i].Marshal(),
+		}
 		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
@@ -55,9 +60,13 @@ func TestCmixMessageHandler_LoadMessage(t *testing.T) {
 	// Set up test values
 	cmh := &cmixMessageHandler{}
 	kv := versioned.NewKV(make(ekv.Memstore))
-	testMsgs, _ := makeTestCmixMessages(10)
+	testMsgs, ids, _ := makeTestCmixMessages(10)
 
-	for _, msg := range testMsgs {
+	for i := range testMsgs {
+		msg := storedMessage{
+			Msg:       testMsgs[i].Marshal(),
+			Recipient: ids[i].Marshal(),
+		}
 		key := makeStoredMessageKey("testKey", cmh.HashMessage(msg))
 
 		// Save message
@@ -84,7 +93,7 @@ func TestCmixMessageHandler_LoadMessage(t *testing.T) {
 // Smoke test of cmixMessageHandler.
 func TestCmixMessageBuffer_Smoke(t *testing.T) {
 	// Set up test messages
-	testMsgs, _ := makeTestCmixMessages(2)
+	testMsgs, ids, _ := makeTestCmixMessages(2)
 
 	// Create new buffer
 	cmb, err := NewCmixMessageBuffer(versioned.NewKV(make(ekv.Memstore)), "testKey")
@@ -94,26 +103,26 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 	}
 
 	// Add two messages
-	cmb.Add(testMsgs[0])
-	cmb.Add(testMsgs[1])
+	cmb.Add(testMsgs[0], ids[0])
+	cmb.Add(testMsgs[1], ids[1])
 
 	if len(cmb.mb.messages) != 2 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
 			2, len(cmb.mb.messages))
 	}
 
-	msg, exists := cmb.Next()
+	msg, rid, exists := cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
-	cmb.Succeeded(msg)
+	cmb.Succeeded(msg, rid)
 
 	if len(cmb.mb.messages) != 1 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
 			1, len(cmb.mb.messages))
 	}
 
-	msg, exists = cmb.Next()
+	msg, rid,  exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
@@ -121,24 +130,23 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
 			0, len(cmb.mb.messages))
 	}
-	cmb.Failed(msg)
+	cmb.Failed(msg, rid)
 
 	if len(cmb.mb.messages) != 1 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
 			1, len(cmb.mb.messages))
 	}
 
-	msg, exists = cmb.Next()
+	msg, rid, exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}
-	cmb.Succeeded(msg)
+	cmb.Succeeded(msg, rid)
 
-	msg, exists = cmb.Next()
+	msg, rid, exists = cmb.Next()
 	if exists {
 		t.Error("Next() found a message in the buffer when it should be empty.")
 	}
-	cmb.Succeeded(msg)
 
 	if len(cmb.mb.messages) != 0 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
@@ -149,11 +157,12 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 
 // makeTestCmixMessages creates a list of messages with random data and the
 // expected map after they are added to the buffer.
-func makeTestCmixMessages(n int) ([]format.Message, map[MessageHash]struct{}) {
+func makeTestCmixMessages(n int) ([]format.Message, []*id.ID, map[MessageHash]struct{}) {
 	cmh := &cmixMessageHandler{}
 	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	mh := map[MessageHash]struct{}{}
 	msgs := make([]format.Message, n)
+	ids := make([]*id.ID, n)
 	for i := range msgs {
 		msgs[i] = format.NewMessage(128)
 		payload := make([]byte, 128)
@@ -161,8 +170,17 @@ func makeTestCmixMessages(n int) ([]format.Message, map[MessageHash]struct{}) {
 		msgs[i].SetPayloadA(payload)
 		prng.Read(payload)
 		msgs[i].SetPayloadB(payload)
-		mh[cmh.HashMessage(msgs[i])] = struct{}{}
+
+		rid := id.ID{}
+		prng.Read(rid[:32])
+		rid[32] = byte(id.User)
+		ids[i] = &rid
+		sm := storedMessage{
+			Msg:       msgs[i].Marshal(),
+			Recipient: ids[i].Marshal(),
+		}
+		mh[cmh.HashMessage(sm)] = struct{}{}
 	}
 
-	return msgs, mh
+	return msgs, ids, mh
 }

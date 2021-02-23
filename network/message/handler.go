@@ -103,6 +103,9 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		return
 	}
 
+	jww.INFO.Printf("Received message of type %s from %s," +
+		" msgDigest: %s", encTy, sender, msg.Digest())
+
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),

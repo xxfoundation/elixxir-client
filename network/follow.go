@@ -67,8 +67,6 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 	}
 }
 
-var followCnt = 0
-
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 

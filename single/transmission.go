@@ -43,8 +43,8 @@ func (m *Manager) GetMaxTransmissionPayloadSize() int {
 }
 
 // TransmitSingleUse creates a CMIX message, sends it, and waits for delivery.
-func (m *Manager) TransmitSingleUse(partner *contact2.Contact, payload []byte,
-	tag string, maxMsgs uint8, callback replyComm, timeout time.Duration) error {
+func (m *Manager) TransmitSingleUse(partner contact2.Contact, payload []byte,
+	tag string, maxMsgs uint8, callback ReplyComm, timeout time.Duration) error {
 
 	rngReader := m.rng.GetStream()
 	defer rngReader.Close()
@@ -60,9 +60,8 @@ type roundEvents interface {
 }
 
 // transmitSingleUse has the fields passed in for easier testing.
-func (m *Manager) transmitSingleUse(partner *contact2.Contact, payload []byte,
-	tag string, MaxMsgs uint8, rng io.Reader, callback replyComm,
-	timeout time.Duration, roundEvents roundEvents) error {
+func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
+	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration, roundEvents roundEvents) error {
 
 	// Get ephemeral ID address size; this will block until the client knows the
 	// address size if it is currently unknown
@@ -174,7 +173,7 @@ func (m *Manager) transmitSingleUse(partner *contact2.Contact, payload []byte,
 
 // makeTransmitCmixMessage generates a CMIX message containing the transmission message,
 // which contains the encrypted payload.
-func (m *Manager) makeTransmitCmixMessage(partner *contact2.Contact,
+func (m *Manager) makeTransmitCmixMessage(partner contact2.Contact,
 	payload []byte, tag string, maxMsgs uint8, addressSize uint,
 	timeout time.Duration, timeNow time.Time, rng io.Reader) (format.Message,
 	*cyclic.Int, *id.ID, ephemeral.Id, error) {

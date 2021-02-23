@@ -9,8 +9,12 @@ package utility
 
 import (
 	"crypto/md5"
+	"encoding/json"
+	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -18,16 +22,31 @@ const currentCmixMessageVersion = 0
 
 type cmixMessageHandler struct{}
 
+type storedMessage struct{
+	Msg       []byte
+	Recipient []byte
+}
+
+func (sm storedMessage)Marshal()[]byte{
+
+	data, err := json.Marshal(&sm)
+	if err!=nil{
+		jww.FATAL.Panicf("Failed to marshal stored message: %s", err)
+	}
+
+	return data
+}
+
 // SaveMessage saves the message as a versioned object at the specified key
 // in the key value store.
 func (cmh *cmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key string) error {
-	msg := m.(format.Message)
+	sm := m.(storedMessage)
 
 	// Create versioned object
 	obj := versioned.Object{
 		Version:   currentCmixMessageVersion,
 		Timestamp: time.Now(),
-		Data:      msg.Marshal(),
+		Data:      sm.Marshal(),
 	}
 
 	// Save versioned object
@@ -44,8 +63,13 @@ func (cmh *cmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (interf
 		return format.Message{}, err
 	}
 
+	sm := storedMessage{}
+	if err = json.Unmarshal(vo.Data, &sm); err!=nil{
+		return nil, errors.Wrap(err, "Failed to unmarshal stored message")
+	}
+
 	// Create message from data
-	return format.Unmarshal(vo.Data), nil
+	return sm, nil
 }
 
 // DeleteMessage deletes the message with the specified key from the key value
@@ -56,9 +80,8 @@ func (cmh *cmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error
 
 // HashMessage generates a hash of the message.
 func (cmh *cmixMessageHandler) HashMessage(m interface{}) MessageHash {
-	msg := m.(format.Message)
-
-	return md5.Sum(msg.Marshal())
+	sm := m.(storedMessage)
+	return md5.Sum(sm.Marshal())
 }
 
 // CmixMessageBuffer wraps the message buffer to store and load raw cmix
@@ -85,28 +108,50 @@ func LoadCmixMessageBuffer(kv *versioned.KV, key string) (*CmixMessageBuffer, er
 	return &CmixMessageBuffer{mb: mb}, nil
 }
 
-func (cmb *CmixMessageBuffer) Add(m format.Message) {
-	cmb.mb.Add(m)
+func (cmb *CmixMessageBuffer) Add(msg format.Message, recipent *id.ID) {
+	sm := storedMessage{
+		Msg:       msg.Marshal(),
+		Recipient: recipent.Marshal(),
+	}
+	cmb.mb.Add(sm)
 }
 
-func (cmb *CmixMessageBuffer) AddProcessing(m format.Message) {
-	cmb.mb.AddProcessing(m)
+func (cmb *CmixMessageBuffer) AddProcessing(msg format.Message, recipent *id.ID) {
+	sm := storedMessage{
+		Msg:       msg.Marshal(),
+		Recipient: recipent.Marshal(),
+	}
+	cmb.mb.AddProcessing(sm)
 }
 
-func (cmb *CmixMessageBuffer) Next() (format.Message, bool) {
+func (cmb *CmixMessageBuffer) Next() (format.Message, *id.ID, bool) {
 	m, ok := cmb.mb.Next()
 	if !ok {
-		return format.Message{}, false
+		return format.Message{}, nil, false
 	}
 
-	msg := m.(format.Message)
-	return msg, true
+	sm := m.(storedMessage)
+	msg := format.Unmarshal(sm.Msg)
+	recpient, err := id.Unmarshal(sm.Recipient)
+	if err!=nil{
+		jww.FATAL.Panicf("Could nto get an id for stored cmix " +
+			"message buffer: %+v", err)
+	}
+	return msg, recpient, true
 }
 
-func (cmb *CmixMessageBuffer) Succeeded(m format.Message) {
-	cmb.mb.Succeeded(m)
+func (cmb *CmixMessageBuffer) Succeeded(msg format.Message, recipent *id.ID) {
+	sm := storedMessage{
+		Msg:       msg.Marshal(),
+		Recipient: recipent.Marshal(),
+	}
+	cmb.mb.Succeeded(sm)
 }
 
-func (cmb *CmixMessageBuffer) Failed(m format.Message) {
-	cmb.mb.Failed(m)
+func (cmb *CmixMessageBuffer) Failed(msg format.Message, recipent *id.ID) {
+	sm := storedMessage{
+		Msg:       msg.Marshal(),
+		Recipient: recipent.Marshal(),
+	}
+	cmb.mb.Failed(sm)
 }

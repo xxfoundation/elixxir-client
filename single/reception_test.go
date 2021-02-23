@@ -17,7 +17,7 @@ func TestManager_receiveTransmissionHandler(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
 	quitChan := make(chan struct{})
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
@@ -82,7 +82,7 @@ func TestManager_receiveTransmissionHandler_FingerPrintError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
 	quitChan := make(chan struct{})
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(42),
 	}
@@ -119,7 +119,7 @@ func TestManager_receiveTransmissionHandler_ProcessMessageError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
 	quitChan := make(chan struct{})
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
@@ -158,7 +158,7 @@ func TestManager_receiveTransmissionHandler_TagFpError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
 	quitChan := make(chan struct{})
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
@@ -181,7 +181,7 @@ func TestManager_receiveTransmissionHandler_TagFpError(t *testing.T) {
 // Happy path.
 func TestManager_processTransmission(t *testing.T) {
 	m := newTestManager(0, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("partnerID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
@@ -235,7 +235,7 @@ func TestManager_processTransmission_TransmitMessageUnmarshalError(t *testing.T)
 // Error path: MAC fails to verify.
 func TestManager_processTransmission_MacVerifyError(t *testing.T) {
 	m := newTestManager(0, false, t)
-	partner := &contact2.Contact{
+	partner := contact2.Contact{
 		ID:       id.NewIdFromString("partnerID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}

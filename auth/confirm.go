@@ -122,7 +122,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	}
 
 	//store the message as a critical message so it will always be sent
-	storage.GetCriticalRawMessages().AddProcessing(cmixMsg)
+	storage.GetCriticalRawMessages().AddProcessing(cmixMsg, partner.ID)
 
 	/*send message*/
 	round, _, err := net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
@@ -131,7 +131,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		// retried
 		jww.ERROR.Printf("auth confirm failed to transmit, will be "+
 			"handled on reconnect: %+v", err)
-		storage.GetCriticalRawMessages().Failed(cmixMsg)
+		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	}
 
 	/*check message delivery*/
@@ -145,9 +145,9 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	if !success {
 		jww.ERROR.Printf("auth confirm failed to transmit, will be " +
 			"handled on reconnect")
-		storage.GetCriticalRawMessages().Failed(cmixMsg)
+		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	} else {
-		storage.GetCriticalRawMessages().Succeeded(cmixMsg)
+		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
 	}
 
 	return nil

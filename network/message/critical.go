@@ -15,6 +15,7 @@ import (
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
 
@@ -82,16 +83,17 @@ func (m *Manager) criticalMessages() {
 	critRawMsgs := m.Session.GetCriticalRawMessages()
 	param := params.GetDefaultCMIX()
 	//raw critical messages
-	for msg, has := critRawMsgs.Next(); has; msg, has = critRawMsgs.Next() {
-		go func(msg format.Message) {
+	for msg, rid, has := critRawMsgs.Next(); has; msg, rid, has = critRawMsgs.Next() {
+		localRid := rid.DeepCopy()
+		go func(msg format.Message, rid *id.ID) {
 			//send the message
-			round, _, err := m.SendCMIX(msg, m.TransmissionID, param)
+			round, _, err := m.SendCMIX(msg, rid, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
 				jww.ERROR.Printf("Failed to send critical message on "+
 					"notification of healthy network: %+v", err)
-				critRawMsgs.Failed(msg)
+				critRawMsgs.Failed(msg, rid)
 				return
 			}
 			jww.INFO.Printf("critical healthy RoundIDs: %v", round)
@@ -108,11 +110,11 @@ func (m *Manager) criticalMessages() {
 				jww.ERROR.Printf("critical message send failed to transmit "+
 					"transmit %v/%v paritions: %v round failures, %v timeouts",
 					numRoundFail+numTimeOut, 1, numRoundFail, numTimeOut)
-				critRawMsgs.Failed(msg)
+				critRawMsgs.Failed(msg, rid)
 				return
 			}
-			critRawMsgs.Succeeded(msg)
-		}(msg)
+			critRawMsgs.Succeeded(msg, rid)
+		}(msg, localRid)
 	}
 
 }

@@ -220,7 +220,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 				bestRound.ID, err)
 			return 0, ephemeral.Id{}, errors.WithMessage(err,  "Failed to put cmix message")
 		} else if gwSlotResp.Accepted {
-			jww.INFO.Printf("Sucesfully sent to EphID %v (source: %s) " +
+			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) " +
 				"in round %d", ephID.Int64(), recipient, bestRound.ID)
 			return id.Round(bestRound.ID), ephID, nil
 		} else{

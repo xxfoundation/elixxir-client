@@ -103,13 +103,17 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			uint(bestRound.AddressSpaceSize),
 			int64(bestRound.Timestamps[states.QUEUED]))
 		if err != nil {
-			jww.FATAL.Panicf("Failed to generate ephemeral ID: %+v", err)
+			jww.FATAL.Panicf("Failed to generate ephemeral ID when " +
+				"sending to %s (msgDigest: %s):  %+v", err, recipient,
+				msg.Digest())
 		}
 
 		stream := rng.GetStream()
 		ephIdFilled, err := ephID.Fill(uint(bestRound.AddressSpaceSize), stream)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to obfuscate the ephemeralID: %+v", err)
+			jww.FATAL.Panicf("Failed to obfuscate the ephemeralID when " +
+				"sending to %s (msgDigest: %s): %+v", recipient, msg.Digest(),
+				err)
 		}
 		stream.Close()
 
@@ -119,7 +123,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		ifp, err := fingerprint.IdentityFP(msg.GetContents(), recipient)
 		if err != nil {
 			jww.FATAL.Panicf("failed to generate the Identity "+
-				"fingerprint due to unrecoverable error: %+v", err)
+				"fingerprint due to unrecoverable error when sending to %s " +
+				"(msgDigest: %s): %+v", recipient, msg.Digest(), err)
 		}
 
 		msg.SetIdentityFP(ifp)
@@ -127,7 +132,9 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
 		if err != nil {
-			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
+			jww.ERROR.Printf("Failed to use topology for round %d when " +
+				"sending to %s (msgDigest: %s): %+v", bestRound.ID,
+				recipient, msg.Digest(), err)
 			continue
 		}
 		topology := connect.NewCircuit(idList)
@@ -146,7 +153,9 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 
 		transmitGateway, ok := comms.GetHost(firstGateway)
 		if !ok {
-			jww.ERROR.Printf("Failed to get host for gateway %s", transmitGateway)
+			jww.ERROR.Printf("Failed to get host for gateway %s when " +
+				"sending to %s (msgDigest: %s)", transmitGateway, recipient,
+				msg.Digest())
 			time.Sleep(param.RetryDelay)
 			continue
 		}
@@ -158,6 +167,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		stream.Close()
 
 		if err != nil {
+			jww.ERROR.Printf("Failed to generate salt when sending to " +
+				"%s (msgDigest: %s): %+v", recipient, msg.Digest(), err)
 			return 0, ephemeral.Id{}, errors.WithMessage(err,
 				"Failed to generate salt, this should never happen")
 		}
@@ -196,12 +207,14 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		if err != nil {
 			if strings.Contains(err.Error(),
 				"try a different round.") {
-				jww.WARN.Printf("could not send: %s",
-					err)
+				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) " +
+					"due to round error with rougn %d, retrying: %+v",
+					recipient, msg.Digest(), bestRound.ID, err)
 				continue
 			}
 			jww.ERROR.Printf("Failed to send to EphID %d (%s) on " +
-				"round %d: %+v", ephID.Int64(), recipient, bestRound.ID, err)
+				"round %d, bailing: %+v", ephID.Int64(), recipient,
+				bestRound.ID, err)
 			return 0, ephemeral.Id{}, errors.WithMessage(err,  "Failed to put cmix message")
 		} else if gwSlotResp.Accepted {
 			jww.INFO.Printf("Sucesfully sent to EphID %v (source: %s) " +

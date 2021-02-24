@@ -50,17 +50,19 @@ func (m *Manager) criticalMessages() {
 	//critical messages
 	for msg, param, has := critMsgs.Next(); has; msg, param, has = critMsgs.Next() {
 		go func(msg message.Send, param params.E2E) {
+			jww.INFO.Printf("Resending critical message to %s ",
+				msg.Recipient)
 			//send the message
 			rounds, _, err := m.SendE2E(msg, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
-				jww.ERROR.Printf("Failed to send critical message on "+
-					"notification of healthy network: %+v", err)
+				jww.ERROR.Printf("Failed to send critical message to %s " +
+					" on notification of healthy network: %+v", msg.Recipient,
+					err)
 				critMsgs.Failed(msg)
 				return
 			}
-			jww.INFO.Printf("critical RoundIDs: %v", rounds)
 			//wait on the results to make sure the rounds were successful
 			sendResults := make(chan ds.EventReturn, len(rounds))
 			roundEvents := m.Instance.GetRoundEvents()
@@ -70,12 +72,16 @@ func (m *Manager) criticalMessages() {
 			}
 			success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
 			if !success {
-				jww.ERROR.Printf("critical message send failed to transmit "+
-					"transmit %v/%v paritions: %v round failures, %v timeouts",
-					numRoundFail+numTimeOut, len(rounds), numRoundFail, numTimeOut)
+				jww.ERROR.Printf("critical message send to %s failed " +
+					"to transmit transmit %v/%v paritions on rounds %d: %v " +
+					"round failures, %v timeouts", msg.Recipient,
+					numRoundFail+numTimeOut, len(rounds), rounds, numRoundFail, numTimeOut)
 				critMsgs.Failed(msg)
 				return
 			}
+
+			jww.INFO.Printf("Sucesfull resend of critical message " +
+				"to %s on rounds %d", msg.Recipient, rounds)
 			critMsgs.Succeeded(msg)
 		}(msg, param)
 	}
@@ -86,33 +92,45 @@ func (m *Manager) criticalMessages() {
 	for msg, rid, has := critRawMsgs.Next(); has; msg, rid, has = critRawMsgs.Next() {
 		localRid := rid.DeepCopy()
 		go func(msg format.Message, rid *id.ID) {
+			jww.INFO.Printf("Resending critical raw message to %s " +
+				"(msgDigest: %s)", rid, msg.Digest())
 			//send the message
 			round, _, err := m.SendCMIX(msg, rid, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
-				jww.ERROR.Printf("Failed to send critical message on "+
+				jww.ERROR.Printf("Failed to send critical raw message on "+
 					"notification of healthy network: %+v", err)
 				critRawMsgs.Failed(msg, rid)
 				return
 			}
-			jww.INFO.Printf("critical healthy RoundIDs: %v", round)
 
-			//wait on the results to make sure the rounds were sucesfull
+			//wait on the results to make sure the rounds were successful
 			sendResults := make(chan ds.EventReturn, 1)
 			roundEvents := m.Instance.GetRoundEvents()
 
 			roundEvents.AddRoundEventChan(round, sendResults, 1*time.Minute,
 				states.COMPLETED, states.FAILED)
 
-			success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, 1)
+			success, numTimeOut, _ := utility.TrackResults(sendResults, 1)
 			if !success {
-				jww.ERROR.Printf("critical message send failed to transmit "+
-					"transmit %v/%v paritions: %v round failures, %v timeouts",
-					numRoundFail+numTimeOut, 1, numRoundFail, numTimeOut)
+				if numTimeOut>0{
+					jww.ERROR.Printf("critical raw message resend to %s " +
+						"(msgDigest: %s) on round %d failed to transmit due to " +
+						"timeout", rid, msg.Digest(), round)
+				}else{
+					jww.ERROR.Printf("critical raw message resend to %s " +
+						"(msgDigest: %s) on round %d failed to transmit due to " +
+						"send failure", rid, msg.Digest(), round)
+				}
+
 				critRawMsgs.Failed(msg, rid)
 				return
 			}
+
+			jww.INFO.Printf("Sucesfull resend of critical raw message " +
+				"to %s (msgDigest: %s) on round %d", rid, msg.Digest(), round)
+
 			critRawMsgs.Succeeded(msg, rid)
 		}(msg, localRid)
 	}

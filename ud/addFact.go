@@ -26,8 +26,7 @@ type addFactComms interface {
 // called along with the code to finalize the fact.
 func (m *Manager) SendRegisterFact(fact fact.Fact) (string, error) {
 	jww.INFO.Printf("ud.SendRegisterFact(%s)", fact.Stringify())
-	uid := m.storage.User().GetCryptographicIdentity().GetReceptionID()
-	return m.addFact(fact, uid, m.comms)
+	return m.addFact(fact, m.myID, m.comms)
 }
 
 func (m *Manager) addFact(inFact fact.Fact, uid *id.ID, aFC addFactComms) (string, error) {

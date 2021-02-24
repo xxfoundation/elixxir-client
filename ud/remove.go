@@ -35,7 +35,7 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 
 	// Create our Fact Removal Request message data
 	remFactMsg := mixmessages.FactRemovalRequest{
-		UID:        m.storage.GetUser().GetContact().ID.Marshal(),
+		UID:         m.myID.Marshal(),
 		RemovalData: &mmFact,
 	}
 

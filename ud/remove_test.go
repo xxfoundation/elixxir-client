@@ -36,6 +36,7 @@ func TestRemoveFact(t *testing.T) {
 		host:    h,
 		privKey: cpk,
 		registered: &isReg,
+		myID: &id.ID{},
 	}
 
 	f := fact.Fact{

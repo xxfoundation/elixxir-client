@@ -112,8 +112,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	newPrivKey := diffieHellman.GeneratePrivateKey(256, grp, rng)
 	newPubKey := diffieHellman.GeneratePublicKey(newPrivKey, grp)
 
-	jww.INFO.Printf("RequestAuth MYPUBKEY: %v", newPubKey.Bytes())
-	jww.INFO.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
+	jww.TRACE.Printf("RequestAuth MYPUBKEY: %v", newPubKey.Bytes())
+	jww.TRACE.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
 
 	/*encrypt payload*/
 	requestFmt.SetID(storage.GetUser().ReceptionID)
@@ -132,7 +132,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetKeyFP(requestfp)
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
-	jww.INFO.Printf("PARTNER ID: %s", partner.ID)
 
 	/*store state*/
 	//fixme: channel is bricked if the first store succedes but the second fails
@@ -146,20 +145,22 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//store the message as a critical message so it will always be sent
 	storage.GetCriticalRawMessages().AddProcessing(cmixMsg, partner.ID)
 
-	//jww.INFO.Printf("CMIX MESSAGE 1: %s, %v, %v, %v", cmixMsg.GetRecipientID(),
-	//	cmixMsg.GetKeyFP(), cmixMsg.GetMac(), cmixMsg.GetContents())
-	jww.INFO.Printf("CMIX MESSAGE FP: %s, %v", partner.ID,
-		cmixMsg.GetKeyFP())
+	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
+		partner.ID, cmixMsg.Digest())
 
 	/*send message*/
 	round, _, err := net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
-		jww.ERROR.Printf("auth request failed to transmit, will be "+
-			"handled on reconnect: %+v", err)
+		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) failed " +
+			"to transmit: %+v",	partner.ID, cmixMsg.Digest(), err)
 		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
+		return errors.WithMessage(err,"Auth Request Failed to transmit")
 	}
+
+	jww.INFO.Printf("Auth Request with %s (msgDigest: %s) sent on round %d",
+		partner.ID, cmixMsg.Digest(), round)
 
 	/*check message delivery*/
 	sendResults := make(chan ds.EventReturn, 1)
@@ -168,12 +169,21 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	roundEvents.AddRoundEventChan(round, sendResults, 1*time.Minute,
 		states.COMPLETED, states.FAILED)
 
-	success, _, _ := utility.TrackResults(sendResults, 1)
+	success, numFailed, _ := utility.TrackResults(sendResults, 1)
 	if !success {
-		jww.ERROR.Printf("auth request failed to transmit, will be " +
-			"handled on reconnect")
+		if numFailed > 0{
+			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) failed " +
+				"delivery due to round failure, will retry on reconnect",
+				partner.ID, cmixMsg.Digest())
+		}else{
+			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) failed " +
+				"delivery due to timeout, will retry on reconnect",
+				partner.ID, cmixMsg.Digest())
+		}
 		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	} else {
+		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) delivered " +
+			"sucesfully", partner.ID, cmixMsg.Digest())
 		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
 	}
 

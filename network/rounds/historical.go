@@ -73,10 +73,12 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			}
 		// get new round to lookup and force a lookup if
 		case r := <-m.historicalRounds:
+			jww.DEBUG.Printf("Recieved and quing round %d for " +
+				"historical rounds lookup", r.rid)
 			roundRequests = append(roundRequests, r)
 			if len(roundRequests) > int(m.params.MaxHistoricalRounds) {
 				shouldProcess = true
-			} else if len(roundRequests) == 1 {
+			} else if len(roundRequests) != 0 {
 				//if this is the first round, start the timeout
 				timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			}
@@ -102,10 +104,13 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
+		jww.DEBUG.Printf("Requesting Historical rounds %v from " +
+			"gateway %s", rounds, gwHost.GetId())
+
 		response, err := comm.RequestHistoricalRounds(gwHost, hr)
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+
-				"data: %s", response)
+				"data for rounds %v: %s", rounds, response)
 			// if the check fails to resolve, break the loop and so they will be
 			// checked again
 			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
@@ -118,7 +123,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			// need be be removes as processing so the network follower will
 			// pick them up in the future.
 			if roundInfo == nil {
-				jww.ERROR.Printf("could not retreive "+
+				jww.ERROR.Printf("Failed to retreive "+
 					"historical round %d", roundRequests[i].rid)
 				m.p.Fail(roundRequests[i].rid)
 				continue
@@ -131,5 +136,8 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			}
 			m.lookupRoundMessages <- rl
 		}
+
+		//clear the buffer now that all have been checked
+		roundRequests = make([]historicalRoundRequest, 0)
 	}
 }

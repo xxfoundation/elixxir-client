@@ -97,6 +97,10 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID uint) (contact.Co
 	err := c.storage.E2e().AddPartner(precan.ID, precan.DhPubKey,
 		c.storage.E2e().GetDHPrivateKey(), sesParam, sesParam)
 
+	// check garbled messages in case any messages arrived before creating
+	// the channel
+	c.network.CheckGarbledMessages()
+
 	return precan, err
 }
 

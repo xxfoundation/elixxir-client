@@ -47,8 +47,9 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 					ri.ID, err)
 				break
 			}
-			bundle.Identity = rl.identity
+
 			if len(bundle.Messages) != 0 {
+				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
 			}
 		}
@@ -67,8 +68,8 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 			"to request from")
 	}
 
-	jww.INFO.Printf("Getting messages for RoundID %v via Gateway: %s", rid,
-		gwHost.GetId())
+	jww.INFO.Printf("Getting messages for RoundID %v for EphID %d " +
+		"via Gateway: %s", rid, ephid, gwHost.GetId())
 
 	// send the request
 	msgReq := &pb.GetMessages{

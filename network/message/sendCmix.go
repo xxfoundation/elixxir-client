@@ -55,15 +55,26 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 	timeStart := time.Now()
 	attempted := set.New()
 
+	jww.INFO.Printf("Looking for round to send cMix message to %s " +
+		"(msgDigest: %s)", recipient, msg.Digest())
+
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
 		elapsed := time.Now().Sub(timeStart)
 
-		jww.DEBUG.Printf("SendCMIX Send Attempt %d", numRoundTries+1)
 		if elapsed > param.Timeout {
+			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) " +
+				"were found before timeout %s", recipient, msg.Digest(),
+				param.Timeout)
 			return 0, ephemeral.Id{}, errors.New("Sending cmix message timed out")
 		}
+		if numRoundTries>0{
+			jww.INFO.Printf("Attempt %d to find round to send message " +
+				"to %s (msgDigest: %s)", numRoundTries+1, recipient,
+				msg.Digest())
+		}
+
+
 		remainingTime := param.Timeout - elapsed
-		jww.TRACE.Printf("SendCMIX GetUpcomingRealtime")
 		//find the best round to send to, excluding attempted rounds
 		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
 		if bestRound == nil {
@@ -75,10 +86,14 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		roundCutoffTime.Add(sendTimeBuffer)
 		now := time.Now()
 
+		jww.DEBUG.Printf("Found round %d to send to %s (msgDigest: %s)",
+			bestRound.ID, recipient, msg.Digest())
+
 		if now.After(roundCutoffTime) {
-			jww.WARN.Printf("Round %d received which has already started"+
-				" realtime: \n\t started: %s \n\t now: %s", bestRound.ID,
-				roundCutoffTime, now)
+			jww.WARN.Printf("Round %d for sending to %s (msgDigest: %s) " +
+				"received which has already started realtime: \n\t started: " +
+				"%s \n\t now: %s", bestRound.ID, recipient, msg.Digest(),
+				 roundCutoffTime, now)
 			attempted.Insert(bestRound)
 			continue
 		}
@@ -88,16 +103,17 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			uint(bestRound.AddressSpaceSize),
 			int64(bestRound.Timestamps[states.QUEUED]))
 		if err != nil {
-			jww.FATAL.Panicf("Failed to generate ephemeral ID: %+v", err)
+			jww.FATAL.Panicf("Failed to generate ephemeral ID when " +
+				"sending to %s (msgDigest: %s):  %+v", err, recipient,
+				msg.Digest())
 		}
-
-		jww.INFO.Printf("Sending to EphID %v (source: %s) in round %d",
-			ephID.Int64(), recipient, bestRound.ID)
 
 		stream := rng.GetStream()
 		ephIdFilled, err := ephID.Fill(uint(bestRound.AddressSpaceSize), stream)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to obfuscate the ephemeralID: %+v", err)
+			jww.FATAL.Panicf("Failed to obfuscate the ephemeralID when " +
+				"sending to %s (msgDigest: %s): %+v", recipient, msg.Digest(),
+				err)
 		}
 		stream.Close()
 
@@ -107,7 +123,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		ifp, err := fingerprint.IdentityFP(msg.GetContents(), recipient)
 		if err != nil {
 			jww.FATAL.Panicf("failed to generate the Identity "+
-				"fingerprint due to unrecoverable error: %+v", err)
+				"fingerprint due to unrecoverable error when sending to %s " +
+				"(msgDigest: %s): %+v", recipient, msg.Digest(), err)
 		}
 
 		msg.SetIdentityFP(ifp)
@@ -115,15 +132,19 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		//build the topology
 		idList, err := id.NewIDListFromBytes(bestRound.Topology)
 		if err != nil {
-			jww.ERROR.Printf("Failed to use topology for round %v: %s", bestRound.ID, err)
+			jww.ERROR.Printf("Failed to use topology for round %d when " +
+				"sending to %s (msgDigest: %s): %+v", bestRound.ID,
+				recipient, msg.Digest(), err)
 			continue
 		}
 		topology := connect.NewCircuit(idList)
-		jww.TRACE.Printf("SendCMIX GetRoundKeys")
 		//get they keys for the round, reject if any nodes do not have
 		//keying relationships
 		roundKeys, missingKeys := session.Cmix().GetRoundKeys(topology)
 		if len(missingKeys) > 0 {
+			jww.WARN.Printf("Failed to send on round %d to %s " +
+				"(msgDigest: %s) due to missing relationships with nodes: %s",
+				bestRound.ID, recipient, msg.Digest(), missingKeys)
 			go handleMissingNodeKeys(instance, nodeRegistration, missingKeys)
 			time.Sleep(param.RetryDelay)
 			continue
@@ -135,7 +156,9 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 
 		transmitGateway, ok := comms.GetHost(firstGateway)
 		if !ok {
-			jww.ERROR.Printf("Failed to get host for gateway %s", transmitGateway)
+			jww.ERROR.Printf("Failed to get host for gateway %s when " +
+				"sending to %s (msgDigest: %s)", transmitGateway, recipient,
+				msg.Digest())
 			time.Sleep(param.RetryDelay)
 			continue
 		}
@@ -147,6 +170,8 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		stream.Close()
 
 		if err != nil {
+			jww.ERROR.Printf("Failed to generate salt when sending to " +
+				"%s (msgDigest: %s): %+v", recipient, msg.Digest(), err)
 			return 0, ephemeral.Id{}, errors.WithMessage(err,
 				"Failed to generate salt, this should never happen")
 		}
@@ -174,27 +199,38 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		//add the round on to the list of attempted so it is not tried again
 		attempted.Insert(bestRound)
 
-		jww.DEBUG.Printf("SendCMIX SendPutMessage")
-		//Send the payload
+		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, " +
+			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
+			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
+			encMsg.Digest(), transmitGateway.GetId())
+		//		//Send the payload
 		gwSlotResp, err := comms.SendPutMessage(transmitGateway, wrappedMsg)
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly
 		if err != nil {
 			if strings.Contains(err.Error(),
 				"try a different round.") {
-				jww.WARN.Printf("could not send: %s",
-					err)
+				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) " +
+					"due to round error with rougn %d, retrying: %+v",
+					recipient, msg.Digest(), bestRound.ID, err)
 				continue
 			}
-			jww.ERROR.Printf("Failed to send message to %s: %s",
-				transmitGateway, err)
+			jww.ERROR.Printf("Failed to send to EphID %d (%s) on " +
+				"round %d, bailing: %+v", ephID.Int64(), recipient,
+				bestRound.ID, err)
+			return 0, ephemeral.Id{}, errors.WithMessage(err,  "Failed to put cmix message")
 		} else if gwSlotResp.Accepted {
-			jww.INFO.Printf("Sucesfully sent to EphID %v (source: %s) " +
+			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) " +
 				"in round %d", ephID.Int64(), recipient, bestRound.ID)
 			return id.Round(bestRound.ID), ephID, nil
+		} else{
+			jww.FATAL.Panicf("Gateway %s returned no error, but failed " +
+				"to accept message when sending to EphID %d (%s) on round %d",
+				transmitGateway.GetId(), ephID.Int64(), recipient, bestRound.ID)
 		}
 	}
-	return 0, ephemeral.Id{}, errors.New("failed to send the message")
+	return 0, ephemeral.Id{}, errors.New("failed to send the message, " +
+		"unknown error")
 }
 
 // Signals to the node registration thread to register a node if keys are

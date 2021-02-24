@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
@@ -36,6 +37,7 @@ func TestRemoveFact(t *testing.T) {
 		host:    h,
 		privKey: cpk,
 		registered: &isReg,
+		storage:    storage.InitTestingSession(t),
 	}
 
 	f := fact.Fact{

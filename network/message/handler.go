@@ -97,7 +97,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 			Encryption:  message.None,
 			RecipientID: identity.Source,
 		}
-		jww.INFO.Printf("Garbled/RAW Message: %v", msg.GetKeyFP())
+		jww.INFO.Printf("Garbled/RAW Message: keyFP: %v, msgDigest: %s",
+			msg.GetKeyFP(), msg.Digest())
 		m.Session.GetGarbledMessages().Add(msg)
 		m.Switchboard.Speak(raw)
 		return

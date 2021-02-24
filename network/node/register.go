@@ -200,6 +200,10 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 	opts.Hash = hash.CMixHash
 	h, _ := hash.NewCMixHash()
 	h.Write(nonce)
+	// Hash the ID of the node we are sending to
+	nodeId := gwID.DeepCopy()
+	nodeId.SetType(id.Node)
+	h.Write(nodeId.Bytes())
 	data := h.Sum(nil)
 
 	// Hash nonce & sign

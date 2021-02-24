@@ -8,7 +8,6 @@
 package keyExchange
 
 import (
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -41,24 +40,20 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
 	sendTimeout time.Duration) {
 	var negotiatingSession *e2e.Session
-	fmt.Printf("session status: %v\n", session.NegotiationStatus())
+	jww.INFO.Printf("Negotation triggered for session %s with " +
+		"status: %s", session, session.NegotiationStatus())
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
 	// replace itself, then create the session
 	case e2e.NewSessionTriggered:
-		fmt.Printf("in new session triggered\n")
 		//create the session, pass a nil private key to generate a new one
 		negotiatingSession = manager.NewSendSession(nil,
 			sess.E2e().GetE2ESessionParams())
 		//move the state of the triggering session forward
 		session.SetNegotiationStatus(e2e.NewSessionCreated)
-		fmt.Printf("after setting session: %v\n", negotiatingSession.NegotiationStatus())
 
-	// If the session has not successfully negotiated, redo its negotiation
-	// Fixme: It doesn't seem possible to have an unconfirmed status in the codepath
-	case e2e.Unconfirmed:
-		fmt.Printf("in new Unconfirmed\n")
-
+	// If the session is set to send a negotation
+	case e2e.Sending:
 		negotiatingSession = session
 	default:
 		jww.FATAL.Panicf("Session %s provided invalid e2e "+
@@ -70,7 +65,8 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
-		jww.ERROR.Printf("Failed to do Key Negotiation: %s", err)
+		jww.ERROR.Printf("Failed to do Key Negotiation with " +
+			"session %s: %s", session, err)
 		negotiatingSession.SetNegotiationStatus(e2e.Unconfirmed)
 	}
 }

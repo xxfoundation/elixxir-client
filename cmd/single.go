@@ -35,6 +35,7 @@ var singleCmd = &cobra.Command{
 		// Write user contact to file
 		user := client.GetUser()
 		jww.INFO.Printf("User: %s", user.ReceptionID)
+		jww.INFO.Printf("User Transmission: %s", user.TransmissionID)
 		writeContact(user.GetContact())
 
 		// Set up reception handler

@@ -60,7 +60,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	//that means no messages are available for the user in the round
 	if !hasRound {
 		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, " +
-			"will not check again", identity.EphId, identity.Source, roundID)
+			"will not check again", identity.EphId.Int64(), identity.Source, roundID)
 		m.p.Done(roundID)
 		return true
 	}
@@ -73,7 +73,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 				roundID)
 		}
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
-			"up messages via historical lookup", roundID, identity.EphId,
+			"up messages via historical lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- historicalRoundRequest{
@@ -82,7 +82,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 		}
 	} else {
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
-			"up messages via in ram lookup", roundID, identity.EphId,
+			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		// If found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- roundLookup{

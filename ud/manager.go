@@ -38,9 +38,11 @@ type Manager struct {
 	privKey   *rsa.PrivateKey
 	grp       *cyclic.Group
 
-	// Internal maps
+	// internal structures
 	host   *connect.Host
 	single SingleInterface
+	myID *id.ID
+
 
 	registered *uint32
 }
@@ -93,6 +95,8 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 		return nil, errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")
 	}
+
+	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
 
 	// Get the commonly used data from storage
 	m.privKey = m.storage.GetUser().ReceptionRSA

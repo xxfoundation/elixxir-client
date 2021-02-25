@@ -98,7 +98,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 			" %s", numFail, len(partitions), errRtn)
 	}else{
 		jww.INFO.Printf("Sucesfully E2E sent %d/%d to %s",
-			numFail, len(partitions), msg.Recipient)
+			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 
 	//return the rounds if everything send successfully

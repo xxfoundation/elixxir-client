@@ -67,7 +67,6 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	if err != nil {
 		jww.ERROR.Printf("Failed to do Key Negotiation with " +
 			"session %s: %s", session, err)
-		negotiatingSession.SetNegotiationStatus(e2e.Unconfirmed)
 	}
 }
 

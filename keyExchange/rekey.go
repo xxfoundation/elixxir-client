@@ -129,7 +129,6 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// transmit, the partner cannot read the result. Log the error and set
 	// the session as unconfirmed so it will re-trigger the negotiation
 	if !success {
-		session.SetNegotiationStatus(e2e.Unconfirmed)
 		return errors.Errorf("Key Negotiation for %s failed to "+
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,

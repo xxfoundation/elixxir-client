@@ -118,6 +118,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 
 	// If the reception completed a message, hear it on the switchboard
 	if ok {
+		xxMsg.Encryption = encTy
 		if xxMsg.MessageType == message.Raw {
 			jww.WARN.Panicf("Recieved a message of type 'Raw' from %s."+
 				"Message Ignored, 'Raw' is a reserved type. Message supressed.",

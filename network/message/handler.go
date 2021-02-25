@@ -50,7 +50,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
 		ecrMsg.GetContents(), identity.Source)
 	if err != nil {
-		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
+		jww.FATAL.Panicf("Could not check IdentityFingerprint: %+v", err)
 	}
 	if !forMe {
 		return
@@ -104,7 +104,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		return
 	}
 
-	jww.INFO.Printf("Received message of type %s from %s," +
+	jww.INFO.Printf("Received message of type %s from %s,"+
 		" msgDigest: %s", encTy, sender, ecrMsg.Digest())
 
 	// Process the decrypted/unencrypted message partition, to see if

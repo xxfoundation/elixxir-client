@@ -126,7 +126,7 @@ func (m *Manager) NewReceiveSession(partnerPubKey *cyclic.Int, e2eParams params.
 
 	// Add the session to the buffer
 	session := m.receive.AddSession(source.myPrivKey, partnerPubKey, baseKey,
-		source.GetID(), e2eParams)
+		source.GetID(), Confirmed, e2eParams)
 
 	return session, false
 }
@@ -140,7 +140,7 @@ func (m *Manager) NewSendSession(myPrivKey *cyclic.Int, e2eParams params.E2ESess
 
 	// Add the session to the Send session buffer and return
 	return m.send.AddSession(myPrivKey, sourceSession.partnerPubKey, nil,
-		sourceSession.GetID(), e2eParams)
+		sourceSession.GetID(), Sending, e2eParams)
 }
 
 // GetKeyForSending gets the correct session to Send with depending on the type

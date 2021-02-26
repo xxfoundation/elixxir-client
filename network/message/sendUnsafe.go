@@ -84,7 +84,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 			" %s", numFail, len(partitions), errRtn)
 	}else{
 		jww.INFO.Printf("Sucesfully Unsafe sent %d/%d to %s",
-			numFail, len(partitions), msg.Recipient)
+			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 
 	//return the rounds if everything send successfully

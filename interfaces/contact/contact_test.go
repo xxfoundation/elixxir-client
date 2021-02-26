@@ -11,7 +11,6 @@ import (
 	"crypto"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -37,8 +36,6 @@ func TestContact_Marshal_Unmarshal(t *testing.T) {
 	}
 
 	buff := expectedContact.Marshal()
-
-	fmt.Println(string(buff))
 
 	testContact, err := Unmarshal(buff)
 	if err != nil {
@@ -101,78 +98,54 @@ func TestContact_Marshal_Size(t *testing.T) {
 	}
 }
 
-// Unit test of getFingerprint
+// Unit test of GetFingerprint.
 func TestContact_GetFingerprint(t *testing.T) {
 	c := Contact{
 		ID:       id.NewIdFromString("Samwise", id.User, t),
 		DhPubKey: getCycInt(512),
 	}
 
-	contactString := c.GetFingerprint()
-	if len(contactString) != fingerprintLength {
-		t.Errorf("Unexpected length for fingerprint."+
-			"\n\tExpected length: %d"+
-			"\n\tReceived length: %d", len(contactString), fingerprintLength)
+	testFP := c.GetFingerprint()
+	if len(testFP) != fingerprintLength {
+		t.Errorf("GetFingerprint() returned fingerprint with unexpected length."+
+			"\nexpected length: %d\nreceived length: %d",
+			fingerprintLength, len(testFP))
 	}
 
-	// Generate hash
-	sha := crypto.SHA256
-	h := sha.New()
-
-	// Hash Id and public key
+	// Generate expected fingerprint
+	h := crypto.SHA256.New()
 	h.Write(c.ID.Bytes())
 	h.Write(c.DhPubKey.Bytes())
-	data := h.Sum(nil)
+	expectedFP := base64.StdEncoding.EncodeToString(h.Sum(nil))[:fingerprintLength]
 
-	expectedFP := base64.StdEncoding.EncodeToString(data[:])[:fingerprintLength]
-
-	if strings.Compare(contactString, expectedFP) != 0 {
-		t.Errorf("Fingerprint outputted is not expected."+
-			"\n\tExpected: %s"+
-			"\n\tReceived: %s", contactString, expectedFP)
+	if strings.Compare(expectedFP, testFP) != 0 {
+		t.Errorf("GetFingerprint() returned expected fingerprint."+
+			"\nexpected: %s\nreceived: %s", expectedFP, testFP)
 	}
 
 }
 
-// Consistency test for changes in underlying dependencies
+// Consistency test for changes in underlying dependencies.
 func TestContact_GetFingerprint_Consistency(t *testing.T) {
 	expected := []string{
-		"rBUw1n4jtH4uEYq",
-		"Z/Jm1OUwDaql5cd",
-		"+vHLzY+yH96zAiy",
-		"cZm5Iz78ViOIlnh",
-		"9LqrcbFEIV4C4LX",
-		"ll4eykGpMWYlxw+",
-		"6YQshWJhdPL6ajx",
-		"Y6gTPVEzow4IHOm",
-		"6f/rT2vWxDC9tdt",
-		"rwqbDT+PoeA6Iww",
-		"YN4IFijP/GZ172O",
-		"ScbHVQc2T9SXQ2m",
-		"50mfbCXQ+LIqiZn",
-		"cyRYdMKXByiFdtC",
-		"7g6ujy7iIbJVl4F",
+		"rBUw1n4jtH4uEYq", "Z/Jm1OUwDaql5cd", "+vHLzY+yH96zAiy",
+		"cZm5Iz78ViOIlnh", "9LqrcbFEIV4C4LX", "ll4eykGpMWYlxw+",
+		"6YQshWJhdPL6ajx", "Y6gTPVEzow4IHOm", "6f/rT2vWxDC9tdt",
+		"rwqbDT+PoeA6Iww", "YN4IFijP/GZ172O", "ScbHVQc2T9SXQ2m",
+		"50mfbCXQ+LIqiZn", "cyRYdMKXByiFdtC", "7g6ujy7iIbJVl4F",
 	}
 
-	numTest := 15
-	output := make([]string, 0)
-	for i := 0; i < numTest; i++ {
+	for i := range expected {
 		c := Contact{
 			ID:       id.NewIdFromUInt(uint64(i), id.User, t),
 			DhPubKey: getGroup().NewInt(25),
 		}
 
-		contactString := c.GetFingerprint()
-		output = append(output, contactString)
-	}
-
-	for i := 0; i < numTest; i++ {
-		if strings.Compare(output[i], expected[i]) != 0 {
-			t.Errorf("Fingerprint outputted is not expected."+
-				"\n\tReceived: %s"+
-				"\n\tExpected: %s", output[i], expected[i])
+		fp := c.GetFingerprint()
+		if expected[i] != fp {
+			t.Errorf("GetFingerprint() did not output the expected fingerprint (%d)."+
+				"\nexpected: %s\nreceived: %s", i, expected[i], fp)
 		}
-
 	}
 }
 
@@ -183,9 +156,8 @@ func TestEqual(t *testing.T) {
 		DhPubKey:       getCycInt(512),
 		OwnershipProof: make([]byte, 1024),
 		Facts: fact.FactList{
-			{Fact: "myVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongUsername", T: fact.Username},
-			{Fact: "myVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryVeryLongEmail@elixxir.io", T: fact.Email},
-			{Fact: "6502530000US", T: fact.Phone},
+			{Fact: "myUsername", T: fact.Username},
+			{Fact: "devinputvalidation@elixxir.io", T: fact.Email},
 		},
 	}
 	rand.Read(a.OwnershipProof)
@@ -213,34 +185,31 @@ func TestEqual(t *testing.T) {
 }
 
 func getCycInt(size int) *cyclic.Int {
-	var primeString = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD1" +
-		"29024E088A67CC74020BBEA63B139B22514A08798E3404DD" +
-		"EF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245" +
-		"E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7ED" +
-		"EE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3D" +
-		"C2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F" +
-		"83655D23DCA3AD961C62F356208552BB9ED529077096966D" +
-		"670C354E4ABC9804F1746C08CA18217C32905E462E36CE3B" +
-		"E39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9" +
-		"DE2BCBF6955817183995497CEA956AE515D2261898FA0510" +
-		"15728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64" +
-		"ECFB850458DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7" +
-		"ABF5AE8CDB0933D71E8C94E04A25619DCEE3D2261AD2EE6B" +
-		"F12FFA06D98A0864D87602733EC86A64521F2B18177B200C" +
-		"BBE117577A615D6C770988C0BAD946E208E24FA074E5AB31" +
-		"43DB5BFCE0FD108E4B82D120A92108011A723C12A787E6D7" +
-		"88719A10BDBA5B2699C327186AF4E23C1A946834B6150BDA" +
-		"2583E9CA2AD44CE8DBBBC2DB04DE8EF92E8EFC141FBECAA6" +
-		"287C59474E6BC05D99B2964FA090C3A2233BA186515BE7ED" +
-		"1F612970CEE2D7AFB81BDD762170481CD0069127D5B05AA9" +
-		"93B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199" +
-		"FFFFFFFFFFFFFFFF"
+	var primeString = "FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E0" +
+		"88A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F" +
+		"14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDE" +
+		"E386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48" +
+		"361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED52907709" +
+		"6966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E8603" +
+		"9B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D22" +
+		"61898FA051015728E5A8AAAC42DAD33170D04507A33A85521ABDF1CBA64ECFB850458" +
+		"DBEF0A8AEA71575D060C7DB3970F85A6E1E4C7ABF5AE8CDB0933D71E8C94E04A25619" +
+		"DCEE3D2261AD2EE6BF12FFA06D98A0864D87602733EC86A64521F2B18177B200CBBE1" +
+		"17577A615D6C770988C0BAD946E208E24FA074E5AB3143DB5BFCE0FD108E4B82D120A" +
+		"92108011A723C12A787E6D788719A10BDBA5B2699C327186AF4E23C1A946834B6150B" +
+		"DA2583E9CA2AD44CE8DBBBC2DB04DE8EF92E8EFC141FBECAA6287C59474E6BC05D99B" +
+		"2964FA090C3A2233BA186515BE7ED1F612970CEE2D7AFB81BDD762170481CD0069127" +
+		"D5B05AA993B4EA988D8FDDC186FFB7DC90A6C08F4DF435C934063199FFFFFFFFFFFFF" +
+		"FFF"
+
 	buff, err := csprng.GenerateInGroup([]byte(primeString), size, csprng.NewSystemRNG())
 	if err != nil {
 		panic(err)
 	}
 
-	grp := cyclic.NewGroup(large.NewIntFromString(primeString, 16), large.NewInt(2)).NewIntFromBytes(buff)
+	grp := cyclic.NewGroup(large.NewIntFromString(primeString, 16),
+		large.NewInt(2)).NewIntFromBytes(buff)
+
 	return grp
 }
 

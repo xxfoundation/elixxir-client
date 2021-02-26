@@ -9,6 +9,7 @@ package message
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/keyExchange"
@@ -17,7 +18,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.MessageID, error) {
@@ -51,7 +51,6 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	jww.INFO.Printf("E2E sending %d messages to %s",
 		len(partitions), msg.Recipient)
 
-
 	for i, p := range partitions {
 		//create the cmix message
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
@@ -59,6 +58,18 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 
 		//get a key to end to end encrypt
 		key, err := partner.GetKeyForSending(param.Type)
+		keyTries := 0
+		for err != nil && keyTries < param.RetryCount {
+			jww.WARN.Printf("Out of sending keys for %s "+
+				"(msgDigest: %s, partition: %d), this can "+
+				"happen when sending messages faster than "+
+				"the client can negotiate keys. Please "+
+				"adjust your e2e key parameters",
+				msg.Recipient, msgCmix.Digest(), i)
+			keyTries++
+			time.Sleep(param.RetryDelay)
+			key, err = partner.GetKeyForSending(param.Type)
+		}
 		if err != nil {
 			return nil, e2e.MessageID{}, errors.WithMessagef(err, "Failed to get key "+
 				"for end to end encryption")
@@ -96,9 +107,9 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 			numFail, len(partitions), msg.Recipient)
 		return nil, e2e.MessageID{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
-	}else{
+	} else {
 		jww.INFO.Printf("Sucesfully E2E sent %d/%d to %s",
-			numFail, len(partitions), msg.Recipient)
+			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 
 	//return the rounds if everything send successfully

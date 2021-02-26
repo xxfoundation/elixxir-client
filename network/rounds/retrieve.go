@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 type messageRetrievalComms interface {
@@ -41,7 +40,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			done = true
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
-			bundle, err := m.getMessagesFromGateway(ri, comms, rl.identity.EphId)
+			bundle, err := m.getMessagesFromGateway(ri, comms, rl.identity)
 			if err != nil {
 				jww.WARN.Printf("Failed to get messages for round %v: %s",
 					ri.ID, err)
@@ -57,7 +56,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 }
 
 func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
-	comms messageRetrievalComms, ephid ephemeral.Id) (message.Bundle, error) {
+	comms messageRetrievalComms, identity reception.IdentityUse) (message.Bundle, error) {
 
 	rid := id.Round(roundInfo.ID)
 
@@ -69,11 +68,11 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	}
 
 	jww.INFO.Printf("Getting messages for RoundID %v for EphID %d " +
-		"via Gateway: %s", rid, ephid, gwHost.GetId())
+		"via Gateway: %s", rid, identity.EphId, gwHost.GetId())
 
 	// send the request
 	msgReq := &pb.GetMessages{
-		ClientID: ephid[:],
+		ClientID: identity.EphId[:],
 		RoundID:  uint64(rid),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
@@ -87,7 +86,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	if !msgResp.GetHasRound() {
 		rid := id.Round(roundInfo.ID)
 		m.p.Done(rid)
-		m.Session.GetCheckedRounds().Check(rid)
+		identity.KR.Check(rid)
 		return message.Bundle{}, errors.Errorf("host %s does not have "+
 			"roundID: %d", gwHost.String(), rid)
 	}
@@ -111,7 +110,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		Round:    rid,
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
-			m.Session.GetCheckedRounds().Check(rid)
+			identity.KR.Check(rid)
 			m.p.Done(rid)
 		},
 	}

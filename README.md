@@ -182,7 +182,7 @@ Flags:
       --unsafe-channel-creation   Turns off the user identity authenticated
                                   channel check, automatically approving
                                   authenticated channels
-  -v, --logLevel                  Level of debugging to print (0 = info, 
+  -v, --logLevel uint             Level of debugging to print (0 = info, 
                                   1 = debug, >1 = trace). (Default info)
       --waitTimeout uint          The number of seconds to wait for messages to
                                   arrive (default 15)

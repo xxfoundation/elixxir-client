@@ -561,12 +561,15 @@ func initLog(threshold uint, logPath string) {
 	}
 
 	if threshold>1{
+		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
 	}else if threshold == 1{
+		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
 	}else{
+		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
@@ -619,7 +622,7 @@ func init() {
 	// will be global for your application.
 	rootCmd.PersistentFlags().UintP("logLevel", "v", 0,
 		"Verbose mode for debugging")
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
 
 	rootCmd.PersistentFlags().StringP("session", "s",
 		"", "Sets the initial storage directory for "+

@@ -53,6 +53,14 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		jww.FATAL.Panicf("Could not check IdentityFingerprint: %+v", err)
 	}
 	if !forMe {
+		if jww.GetLogThreshold()==jww.LevelTrace{
+			expectedFP, _ := fingerprint2.IdentityFP(ecrMsg.GetContents(),
+				identity.Source)
+			jww.TRACE.Printf("Message for %d (%s) failed identity " +
+				"check: %v (expected) vs %v (received)", identity.EphId,
+				identity.Source, expectedFP, ecrMsg.GetIdentityFP(), )
+		}
+
 		return
 	}
 

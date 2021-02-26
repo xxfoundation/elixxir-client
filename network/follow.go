@@ -24,7 +24,9 @@ package network
 
 import (
 	"bytes"
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -37,7 +39,7 @@ import (
 	"time"
 )
 
-const debugTrackPeriod = 1*time.Minute
+const debugTrackPeriod = 1 * time.Minute
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -47,7 +49,7 @@ type followNetworkComms interface {
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *manager) followNetwork(quitCh <-chan struct{}) {
+func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
@@ -59,8 +61,8 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 			rng.Close()
 			done = true
 		case <-ticker.C:
-			m.follow(rng, m.Comms)
-		case <- TrackTicker.C:
+			m.follow(report, rng, m.Comms)
+		case <-TrackTicker.C:
 			jww.INFO.Println(m.tracker.Report())
 			m.tracker = newPollTracker()
 		}
@@ -68,8 +70,7 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 }
 
 // executes each iteration of the follower
-func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
-
+func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source, comms followNetworkComms) {
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
@@ -97,6 +98,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		ReceptionID:    identity.EphId[:],
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
+		ClientVersion:  []byte(m.clientVersion),
 	}
 	jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 		identity.EphId.Int64(), identity.Source, identity.StartRequest,
@@ -104,6 +106,11 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
+		report(
+			"NetworkFollower",
+			fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), gwHost.String()),
+			fmt.Sprintf("%+v", err),
+		)
 		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)
 		return
 	}

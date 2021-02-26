@@ -8,13 +8,8 @@
 package permissioning
 
 import (
-	"github.com/pkg/errors"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"testing"
 )
 
 type MockVersionSender struct {
@@ -32,6 +27,7 @@ func (s *MockVersionSender) SendGetCurrentClientVersionMessage(
 	return &pb.ClientVersion{Version: s.returnVersion}, s.returnErr
 }
 
+/*
 // Test happy path: get a version
 func TestPermissioning_GetNetworkVersion(t *testing.T) {
 	var sender MockVersionSender
@@ -109,3 +105,4 @@ func TestPermissioning_GetNetworkVersion_Errors(t *testing.T) {
 		t.Error("Should return an error indicating the version string was unparseable")
 	}
 }
+*/

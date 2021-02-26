@@ -7,12 +7,7 @@
 
 package api
 
-import (
-	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/primitives/version"
-)
-
+/*
 func (c *Client) Version() version.Version {
 	v, err := version.ParseVersion(SEMVER)
 	if err != nil {
@@ -44,3 +39,4 @@ func (c *Client) checkVersion() error {
 
 	return nil
 }
+*/

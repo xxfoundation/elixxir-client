@@ -58,6 +58,8 @@ type Client struct {
 
 	//handler for external services
 	services *serviceProcessiesList
+
+	clientErrorChannel chan interfaces.ClientError
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -200,21 +202,20 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	def := c.storage.GetBaseNDF()
 
 	//initialize permissioning
-	if def.Registration.Address != ""{
-		err = c.initPermissioning(def)
+	if def.Registration.Address != "" {
+		err = c.registerPermissioning(def)
 		if err != nil {
 			return nil, err
 		}
-	}else{
+	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
 			"blank permissionign address. Client will not be able to register " +
 			"or track network.")
 	}
 
-
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+		parameters, def, SEMVER)
 	if err != nil {
 		return nil, err
 	}
@@ -264,12 +265,12 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	c.storage.SetBaseNDF(def)
 
 	//initialize permissioning
-	if def.Registration.Address != ""{
-		err = c.initPermissioning(def)
+	if def.Registration.Address != "" {
+		err = c.registerPermissioning(def)
 		if err != nil {
 			return nil, err
 		}
-	}else{
+	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
 			"blank permissionign address. Client will not be able to register " +
 			"or track network.")
@@ -277,7 +278,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+		parameters, def, SEMVER)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +295,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	return c, nil
 }
 
-func (c *Client)initComms()error{
+func (c *Client) initComms() error {
 	var err error
 
 	//get the user from session
@@ -312,23 +313,18 @@ func (c *Client)initComms()error{
 	return nil
 }
 
-func (c *Client)initPermissioning(def *ndf.NetworkDefinition)error{
+func (c *Client) registerPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
-	//initialize permissioning
-	c.permissioning, err = permissioning.Init(c.comms, def)
-	if err != nil {
-		return errors.WithMessage(err, "failed to init "+
-			"permissioning handler")
-	}
-
-	// check the client version is up to date to the network
-	err = c.checkVersion()
-	if err != nil {
-		return errors.WithMessage(err, "failed to load client")
-	}
 
 	//register with permissioning if necessary
-	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete  {
+	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
+		//initialize permissioning
+		c.permissioning, err = permissioning.Init(c.comms, def)
+		if err != nil {
+			return errors.WithMessage(err, "failed to init "+
+				"permissioning handler")
+		}
+
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
@@ -371,20 +367,34 @@ func (c *Client)initPermissioning(def *ndf.NetworkDefinition)error{
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower() error {
+func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 	jww.INFO.Printf("StartNetworkFollower()")
+
+	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
+
+	cer := func(source, message, trace string) {
+		select {
+		case c.clientErrorChannel <- interfaces.ClientError{
+			Source:  source,
+			Message: message,
+			Trace:   trace,
+		}:
+		default:
+			jww.WARN.Printf("Failed to notify about ClientError from %s: %s", source, message)
+		}
+	}
 
 	err := c.status.toStarting()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to Start the Network Follower")
+		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
 	stopAuth := c.auth.StartProcessies()
 	c.runner.Add(stopAuth)
 
-	stopFollow, err := c.network.Follow()
+	stopFollow, err := c.network.Follow(cer)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to start following "+
+		return nil, errors.WithMessage(err, "Failed to start following "+
 			"the network")
 	}
 	c.runner.Add(stopFollow)
@@ -393,12 +403,12 @@ func (c *Client) StartNetworkFollower() error {
 
 	err = c.status.toRunning()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to Start the Network Follower")
+		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
 	c.services.run(c.runner)
 
-	return nil
+	return c.clientErrorChannel, nil
 }
 
 // StopNetworkFollower stops the network follower if it is running.
@@ -411,6 +421,7 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
+	close(c.clientErrorChannel)
 	err = c.runner.Close(timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")

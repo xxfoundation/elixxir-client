@@ -26,6 +26,10 @@ func Version() string {
 	return out
 }
 
+func GetVersion() string {
+	return currentVersion
+}
+
 func init() {
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(generateCmd)

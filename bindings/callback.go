@@ -92,3 +92,7 @@ func newRoundListUnregister(rounds []id.Round, ec []*dataStructures.EventCallbac
 	}
 	return &Unregister{f: f}
 }
+
+type ClientError interface {
+	Report(source, message, trace string)
+}

@@ -85,7 +85,7 @@ type testNetworkManagerGeneric struct {
 func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker {
 	return nil
 }
-func (t *testNetworkManagerGeneric) Follow() (stoppable.Stoppable, error) {
+func (t *testNetworkManagerGeneric) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 func (t *testNetworkManagerGeneric) CheckGarbledMessages() {

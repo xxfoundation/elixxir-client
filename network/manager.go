@@ -50,12 +50,14 @@ type manager struct {
 
 	//map of polls for debugging
 	tracker *pollTracker
+
+	clientVersion string
 }
 
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	rng *fastRNG.StreamGenerator, comms *client.Comms,
-	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
+	params params.Network, ndf *ndf.NetworkDefinition, clientVersion string) (interfaces.NetworkManager, error) {
 
 	//start network instance
 	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
@@ -73,9 +75,10 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	//create manager object
 	m := manager{
-		param:   params,
-		running: &running,
-		tracker: newPollTracker(),
+		param:         params,
+		running:       &running,
+		tracker:       newPollTracker(),
+		clientVersion: clientVersion,
 	}
 
 	m.Internal = internal.Internal{
@@ -87,7 +90,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
 		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
-		ReceptionID: 	  session.User().GetCryptographicIdentity().GetReceptionID(),
+		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
 	//create sub managers
@@ -107,7 +110,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Garbled Messages (/network/message/garbled.go)
 //	 - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/ephemeral/tracker.go)
-func (m *manager) Follow() (stoppable.Stoppable, error) {
+func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
 		return nil, errors.Errorf("network routines are already running")
 	}
@@ -129,7 +132,7 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(trackNetworkStopper.Quit())
+	go m.followNetwork(report, trackNetworkStopper.Quit())
 	multi.Add(trackNetworkStopper)
 
 	// Message reception

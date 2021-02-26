@@ -7,13 +7,7 @@
 
 package permissioning
 
-import (
-	"github.com/pkg/errors"
-	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/version"
-	"gitlab.com/xx_network/comms/connect"
-)
-
+/*
 // GetNetworkVersion contacts the permissioning server and returns the current
 // supported client version.
 // returns a bool which designates if the network is enforcing versioning
@@ -50,3 +44,4 @@ func getRemoteVersion(permissioningHost *connect.Host, comms getRemoteClientVers
 
 	return true, netVersion, nil
 }
+*/

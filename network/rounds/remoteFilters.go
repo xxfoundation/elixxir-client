@@ -51,9 +51,6 @@ func ValidFilterRange(identity reception.IdentityUse, filters *mixmessages.Clien
 	identityStart := identity.StartValid.UnixNano()
 	identityEnd := identity.EndValid.UnixNano()
 
-	jww.INFO.Printf("firstElementTS: %d, identityStart: %d, identityEnd: %d",
-		firstElementTS, identityStart, identityEnd)
-
 	startIdx = int((identityStart - firstElementTS) / filters.Period)
 	if startIdx < 0 {
 		startIdx = 0

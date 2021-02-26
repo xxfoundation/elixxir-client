@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const maxRoundsPerSecond = 100
+const maxRoundsPerSecond = 2
 const knownRoundsStorageKey = "krStorage"
 
 type registration struct {

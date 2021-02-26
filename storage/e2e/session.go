@@ -99,16 +99,11 @@ type SessionDisk struct {
 //Generator which creates all keys and structures
 func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey,
 	baseKey *cyclic.Int, trigger SessionID, relationshipFingerprint []byte,
-	e2eParams params.E2ESessionParams) *Session {
+	negotiationStatus Negotiation, e2eParams params.E2ESessionParams) *Session {
 
 	if e2eParams.MinKeys<10{
 		jww.FATAL.Panicf("Cannot create a session with a minnimum number " +
 			"of keys less than 10")
-	}
-
-	confirmation := Unconfirmed
-	if t == Receive {
-		confirmation = Confirmed
 	}
 
 	session := &Session{
@@ -119,7 +114,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		partnerPubKey:           partnerPubKey,
 		baseKey:                 baseKey,
 		relationshipFingerprint: relationshipFingerprint,
-		negotiationStatus:       confirmation,
+		negotiationStatus:       negotiationStatus,
 		partnerSource:           trigger,
 	}
 

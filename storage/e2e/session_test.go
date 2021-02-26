@@ -145,10 +145,11 @@ func TestSession_generate_PrivateKeySend(t *testing.T) {
 func TestNewSession(t *testing.T) {
 	// Make a test session to easily populate all the fields
 	sessionA, _ := makeTestSession()
+
 	// Make a new session with the variables we got from makeTestSession
 	sessionB := newSession(sessionA.relationship, sessionA.t, sessionA.myPrivKey,
 		sessionA.partnerPubKey, sessionA.baseKey, sessionA.GetID(), []byte(""),
-		sessionA.e2eParams)
+		sessionA.negotiationStatus, sessionA.e2eParams)
 
 	err := cmpSerializedFields(sessionA, sessionB)
 	if err != nil {

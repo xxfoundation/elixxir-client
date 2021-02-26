@@ -14,13 +14,16 @@ import (
 )
 
 type E2E struct {
-	Type SendType
+	Type       SendType
+	RetryCount int
 	CMIX
 }
 
 func GetDefaultE2E() E2E {
-	return E2E{Type: Standard,
-		CMIX: GetDefaultCMIX(),
+	return E2E{
+		Type:       Standard,
+		CMIX:       GetDefaultCMIX(),
+		RetryCount: 10,
 	}
 }
 func (e E2E) Marshal() ([]byte, error) {

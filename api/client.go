@@ -200,17 +200,16 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	def := c.storage.GetBaseNDF()
 
 	//initialize permissioning
-	if def.Registration.Address != ""{
+	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
 			return nil, err
 		}
-	}else{
+	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
 			"blank permissionign address. Client will not be able to register " +
 			"or track network.")
 	}
-
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
@@ -264,12 +263,12 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	c.storage.SetBaseNDF(def)
 
 	//initialize permissioning
-	if def.Registration.Address != ""{
+	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
 			return nil, err
 		}
-	}else{
+	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
 			"blank permissionign address. Client will not be able to register " +
 			"or track network.")
@@ -294,7 +293,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	return c, nil
 }
 
-func (c *Client)initComms()error{
+func (c *Client) initComms() error {
 	var err error
 
 	//get the user from session
@@ -312,7 +311,7 @@ func (c *Client)initComms()error{
 	return nil
 }
 
-func (c *Client)initPermissioning(def *ndf.NetworkDefinition)error{
+func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
 	//initialize permissioning
 	c.permissioning, err = permissioning.Init(c.comms, def)
@@ -328,7 +327,7 @@ func (c *Client)initPermissioning(def *ndf.NetworkDefinition)error{
 	}
 
 	//register with permissioning if necessary
-	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete  {
+	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
@@ -494,12 +493,12 @@ func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 		return nil, errors.New("ndf file empty")
 	}
 
-	ndf, _, err := ndf.DecodeNDF(ndfString)
+	netDef, err := ndf.Unmarshal([]byte(ndfString))
 	if err != nil {
 		return nil, err
 	}
 
-	return ndf, nil
+	return netDef, nil
 }
 
 // decodeGroups returns the e2e and cmix groups from the ndf

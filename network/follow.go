@@ -229,12 +229,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return m.round.Checker(rid, filterList, identity)
 	}
 
-	// get the bit vector of rounds that have been checked
-	checkedRounds := m.Session.GetCheckedRounds()
-
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
+	identity.KR.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
 		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
 }

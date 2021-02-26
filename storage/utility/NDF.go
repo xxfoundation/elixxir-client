@@ -21,12 +21,12 @@ func LoadNDF(kv *versioned.KV, key string) (*ndf.NetworkDefinition, error) {
 		return nil, err
 	}
 
-	ndf, _, err := ndf.DecodeNDF(string(vo.Data))
+	netDef, err := ndf.Unmarshal(vo.Data)
 	if err != nil {
 		return nil, err
 	}
 
-	return ndf, err
+	return netDef, err
 }
 
 func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {

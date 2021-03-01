@@ -38,6 +38,7 @@ import (
 )
 
 const debugTrackPeriod = 1*time.Minute
+const maxChecked = 100000
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -177,7 +178,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 					update.State = uint32(states.FAILED)
 					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
 
-					// Delete all existing keys and trigger a re-registration with the relevant Node
+					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
 					m.Instance.GetAddGatewayChan() <- nGw
 				}
@@ -229,9 +230,15 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return m.round.Checker(rid, filterList, identity)
 	}
 
+	// move the earliest unknown round tracker forward to the earliest
+	// tracked round if it is behind
+	earliestTrackedRound := id.Round(pollResp.EarliestRound)
+	identity.UR.Set(earliestTrackedRound)
+
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	identity.KR.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
-		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
+	earliestRemaining := gwRoundsState.RangeUnchecked(identity.UR.Get(),
+		maxChecked, roundChecker)
+	identity.UR.Set(earliestRemaining)
 }

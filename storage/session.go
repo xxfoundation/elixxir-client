@@ -263,7 +263,7 @@ func (s *Session) Set(key string, object *versioned.Object) error {
 	return s.kv.Set(key, object)
 }
 
-// Delete a value in the session
+// delete a value in the session
 func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key)
 }

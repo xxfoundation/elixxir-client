@@ -24,7 +24,7 @@ func Test_generateFakeIdentity(t *testing.T) {
 		"\"EndValid\":" + string(endValid) + "," +
 		"\"RequestMask\":86400000000000,\"Ephemeral\":true," +
 		"\"StartRequest\":\"0001-01-01T00:00:00Z\"," +
-		"\"EndRequest\":\"0001-01-01T00:00:00Z\",\"Fake\":true,\"KR\":null}"
+		"\"EndRequest\":\"0001-01-01T00:00:00Z\",\"Fake\":true,\"UR\":null}"
 
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 

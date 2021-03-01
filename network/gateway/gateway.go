@@ -44,6 +44,26 @@ func Get(ndf *ndf.NetworkDefinition, hg HostGetter, rng io.Reader) (*connect.Hos
 	return gwHost, nil
 }
 
+// Return the nth gateway, in host form, from the given round's team
+func GetFromIndex(hg HostGetter, ri *mixmessages.RoundInfo,
+	index int) (*connect.Host, error) {
+	roundTop := ri.GetTopology()
+	if index >= len(roundTop) {
+		return nil, errors.Errorf("Attempt to index gateway outside range of team")
+	}
+	selectedId, err := id.Unmarshal(roundTop[index])
+	if err != nil {
+		return nil, err
+	}
+	selectedId.SetType(id.Gateway)
+
+	gwHost, ok := hg.GetHost(selectedId)
+	if !ok {
+		return nil, errors.Errorf("Could not find host for gateway %s", selectedId)
+	}
+	return gwHost, nil
+}
+
 // Get the last gateway Host from the given RoundInfo
 func GetLast(hg HostGetter, ri *mixmessages.RoundInfo) (*connect.Host, error) {
 	roundTop := ri.GetTopology()

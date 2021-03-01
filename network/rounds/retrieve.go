@@ -78,15 +78,13 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
-		m.p.Fail(id.Round(roundInfo.ID))
+		m.p.Fail(id.Round(roundInfo.ID), identity.EphId, identity.Source)
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
 			"request messages from %s for round %d", gwHost.GetId(), rid)
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
-		rid := id.Round(roundInfo.ID)
-		m.p.Done(rid)
-		identity.KR.Check(rid)
+		m.p.Done(id.Round(roundInfo.ID), identity.EphId, identity.Source)
 		return message.Bundle{}, errors.Errorf("host %s does not have "+
 			"roundID: %d", gwHost.String(), rid)
 	}
@@ -110,8 +108,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		Round:    rid,
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
-			identity.KR.Check(rid)
-			m.p.Done(rid)
+			m.p.Done(rid, identity.EphId, identity.Source)
 		},
 	}
 

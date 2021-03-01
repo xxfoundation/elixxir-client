@@ -72,13 +72,14 @@ func (ur *UnknownRound)save() {
 }
 
 
-func (ur *UnknownRound)Set(rid id.Round){
+func (ur *UnknownRound)Set(rid id.Round)id.Round{
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	if rid>ur.rid{
 		ur.rid = rid
 		ur.save()
 	}
+	return ur.rid
 }
 
 func (ur *UnknownRound)Get()id.Round {

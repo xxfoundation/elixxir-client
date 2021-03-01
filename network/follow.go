@@ -192,8 +192,8 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.DEBUG.Printf("No filters found for the passed ID %d (%s), "+
-			"skipping processing.", identity.EphId, identity.Source)
+		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
+			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
 

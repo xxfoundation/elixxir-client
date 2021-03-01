@@ -89,7 +89,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		ClientErrors:               nil,
 		ResourceQueueTimeoutMillis: 0,
 		Signature:                  nil,
-		AddressSpaceSize:           0,
+		AddressSpaceSize:           4,
 	})
 	i := internal.Internal{
 		Session:          sess1,

@@ -138,8 +138,7 @@ var udCmd = &cobra.Command{
 					if err != nil {
 						jww.FATAL.Panicf("%+v", err)
 					}
-					cBytes := newContact.Marshal()
-					fmt.Printf(string(cBytes))
+					printContact(newContact)
 				}, 90*time.Second)
 
 			if err != nil {
@@ -189,10 +188,8 @@ var udCmd = &cobra.Command{
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}
-				for i := 0; i < len(contacts); i++ {
-					cBytes := contacts[i].Marshal()
-					jww.INFO.Printf("Size Printed: %d", len(cBytes))
-					fmt.Printf("%s", cBytes)
+				for _, c := range contacts {
+					printContact(c)
 				}
 			}, 90*time.Second)
 		if err != nil {
@@ -240,4 +237,16 @@ func init() {
 	_ = viper.BindPFlag("searchphone", udCmd.Flags().Lookup("searchphone"))
 
 	rootCmd.AddCommand(udCmd)
+}
+
+func printContact(c contact.Contact) {
+	jww.DEBUG.Printf("Printing client: %+v", c)
+	cBytes := c.Marshal()
+	if len(cBytes) == 0 {
+		jww.ERROR.Print("Marshaled client has a size of 0.")
+	} else {
+		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
+	}
+
+	fmt.Print(string(cBytes))
 }

@@ -36,9 +36,11 @@ func (c Negotiation) String() string {
 		return "Sent"
 	case Confirmed:
 		return "Confirmed"
+	case NewSessionTriggered:
+		return "NewSessionTriggered"
+	case NewSessionCreated:
+		return "NewSessionCreated"
 	default:
 		return fmt.Sprintf("Unknown Negotiation %v", uint8(c))
 	}
 }
-
-type exchangeType uint8

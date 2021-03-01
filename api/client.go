@@ -8,6 +8,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -27,7 +29,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/ndf"
-	"time"
 )
 
 type Client struct {
@@ -203,7 +204,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
-		err = c.registerPermissioning(def)
+		err = c.initPermissioning(def)
 		if err != nil {
 			return nil, err
 		}
@@ -266,7 +267,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
-		err = c.registerPermissioning(def)
+		err = c.initPermissioning(def)
 		if err != nil {
 			return nil, err
 		}
@@ -313,18 +314,11 @@ func (c *Client) initComms() error {
 	return nil
 }
 
-func (c *Client) registerPermissioning(def *ndf.NetworkDefinition) error {
+func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
 
 	//register with permissioning if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
-		//initialize permissioning
-		c.permissioning, err = permissioning.Init(c.comms, def)
-		if err != nil {
-			return errors.WithMessage(err, "failed to init "+
-				"permissioning handler")
-		}
-
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
 		if err != nil {
@@ -505,12 +499,12 @@ func parseNDF(ndfString string) (*ndf.NetworkDefinition, error) {
 		return nil, errors.New("ndf file empty")
 	}
 
-	ndf, _, err := ndf.DecodeNDF(ndfString)
+	netDef, err := ndf.Unmarshal([]byte(ndfString))
 	if err != nil {
 		return nil, err
 	}
 
-	return ndf, nil
+	return netDef, nil
 }
 
 // decodeGroups returns the e2e and cmix groups from the ndf

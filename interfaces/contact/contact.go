@@ -80,22 +80,6 @@ func (c Contact) Marshal() []byte {
 	return buff.Bytes()
 }
 
-// Creates a 15 character long fingerprint of contact
-// off of the ID and DH public key
-func (c Contact) GetFingerprint() string {
-	// Generate hash
-	sha := crypto.SHA256
-	h := sha.New()
-
-	// Hash Id and public key
-	h.Write(c.ID.Bytes())
-	h.Write(c.DhPubKey.Bytes())
-	data := h.Sum(nil)
-
-	// Encode hash and truncate
-	return base64.StdEncoding.EncodeToString(data[:])[:fingerprintLength]
-}
-
 // Unmarshal decodes the byte slice produced by Contact.Marshal into a Contact.
 func Unmarshal(b []byte) (Contact, error) {
 	if len(b) < sizeByteLength*3+id.ArrIDLen {
@@ -149,6 +133,22 @@ func Unmarshal(b []byte) (Contact, error) {
 	}
 
 	return c, nil
+}
+
+// GetFingerprint creates a 15 character long fingerprint of the contact off of
+// the ID and DH public key.
+func (c Contact) GetFingerprint() string {
+	// Generate hash
+	sha := crypto.SHA256
+	h := sha.New()
+
+	// Hash ID and DH public key
+	h.Write(c.ID.Bytes())
+	h.Write(c.DhPubKey.Bytes())
+	data := h.Sum(nil)
+
+	// Base64 encode hash and truncate it
+	return base64.StdEncoding.EncodeToString(data)[:fingerprintLength]
 }
 
 // Equal determines if the two contacts have the same values.

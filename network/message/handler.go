@@ -50,9 +50,17 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
 		ecrMsg.GetContents(), identity.Source)
 	if err != nil {
-		jww.FATAL.Panicf("Could not check IdentityFIngerprint: %+v", err)
+		jww.FATAL.Panicf("Could not check IdentityFingerprint: %+v", err)
 	}
 	if !forMe {
+		if jww.GetLogThreshold()==jww.LevelTrace{
+			expectedFP, _ := fingerprint2.IdentityFP(ecrMsg.GetContents(),
+				identity.Source)
+			jww.TRACE.Printf("Message for %d (%s) failed identity " +
+				"check: %v (expected) vs %v (received)", identity.EphId,
+				identity.Source, expectedFP, ecrMsg.GetIdentityFP(), )
+		}
+
 		return
 	}
 
@@ -104,7 +112,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		return
 	}
 
-	jww.INFO.Printf("Received message of type %s from %s," +
+	jww.INFO.Printf("Received message of type %s from %s,"+
 		" msgDigest: %s", encTy, sender, ecrMsg.Digest())
 
 	// Process the decrypted/unencrypted message partition, to see if
@@ -112,12 +120,12 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	xxMsg, ok := m.partitioner.HandlePartition(sender, encTy, msg.GetContents(),
 		relationshipFingerprint)
 
-	//Set the identities
-	xxMsg.RecipientID = identity.Source
-	xxMsg.EphemeralID = identity.EphId
-
 	// If the reception completed a message, hear it on the switchboard
 	if ok {
+		//Set the identities
+		xxMsg.RecipientID = identity.Source
+		xxMsg.EphemeralID = identity.EphId
+		xxMsg.Encryption = encTy
 		if xxMsg.MessageType == message.Raw {
 			jww.WARN.Panicf("Recieved a message of type 'Raw' from %s."+
 				"Message Ignored, 'Raw' is a reserved type. Message supressed.",

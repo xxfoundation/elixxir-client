@@ -63,13 +63,12 @@ func NewRelationship(manager *Manager, t RelationshipType,
 		kv:          kv,
 	}
 
-	s := newSession(r, r.t, manager.originMyPrivKey,
-		manager.originPartnerPubKey, nil, SessionID{},
-		r.fingerprint, initialParams)
-
 	// set to confirmed because the first session is always confirmed as a
 	// result of the negotiation before creation
-	s.negotiationStatus = Confirmed
+	s := newSession(r, r.t, manager.originMyPrivKey,
+		manager.originPartnerPubKey, nil, SessionID{},
+		r.fingerprint, Confirmed, initialParams)
+
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to Send session after setting to "+
 			"confimred: %+v", err)
@@ -168,12 +167,13 @@ func (r *relationship) unmarshal(b []byte) error {
 }
 
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,
-	trigger SessionID, e2eParams params.E2ESessionParams) *Session {
+	trigger SessionID, negotiationStatus Negotiation,
+	e2eParams params.E2ESessionParams) *Session {
 	r.mux.Lock()
 	defer r.mux.Unlock()
 
 	s := newSession(r, r.t, myPrivKey, partnerPubKey, baseKey, trigger,
-		r.fingerprint, e2eParams)
+		r.fingerprint, negotiationStatus, e2eParams)
 
 	r.addSession(s)
 	if err := r.save(); err != nil {

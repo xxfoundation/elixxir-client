@@ -3,9 +3,7 @@ package reception
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/hash"
-	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/crypto/randomness"
-	"gitlab.com/xx_network/primitives/id"
 	"io"
 	"math/big"
 	"time"
@@ -22,7 +20,7 @@ type IdentityUse struct {
 	Fake bool
 
 	// rounds data
-	KR KnownRounds
+	UR *UnknownRound
 }
 
 // setSamplingPeriod add the Request mask as a random buffer around the sampling
@@ -47,15 +45,4 @@ func (iu IdentityUse) setSamplingPeriod(rng io.Reader) (IdentityUse, error) {
 	iu.StartRequest = iu.StartValid.Add(-time.Duration(periodOffset))
 	iu.EndRequest = iu.EndValid.Add(iu.RequestMask - time.Duration(periodOffset))
 	return iu, nil
-}
-
-type KnownRounds interface {
-	Checked(rid id.Round) bool
-	Check(rid id.Round)
-	Forward(rid id.Round)
-	RangeUnchecked(newestRid id.Round, roundCheck func(id id.Round) bool)
-	RangeUncheckedMasked(mask *knownRounds.KnownRounds,
-		roundCheck knownRounds.RoundCheckFunc, maxChecked int)
-	RangeUncheckedMaskedRange(mask *knownRounds.KnownRounds,
-		roundCheck knownRounds.RoundCheckFunc, start, end id.Round, maxChecked int)
 }

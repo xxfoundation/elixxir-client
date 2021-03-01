@@ -1,7 +1,6 @@
 package reception
 
 import (
-	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"math/rand"
@@ -45,17 +44,8 @@ func TestNewRegistration_Ephemeral(t *testing.T) {
 			"succeeded: %+v", err)
 	}
 
-	if reg.knownRounds == nil {
+	if reg.ur == nil {
 		t.Error("Ephemeral identity does not have a known rounds.")
-	}
-
-	if reg.knownRoundsStorage != nil {
-		t.Error("Ephemeral identity has a known rounds storage.")
-	}
-
-	// Check if the known rounds is stored, it should not be
-	if _, err = utility.LoadKnownRounds(reg.kv, knownRoundsStorageKey, id.calculateKrSize()); err == nil {
-		t.Error("Ephemeral identity stored the known rounds when it should not have.")
 	}
 
 	if _, err = reg.kv.Get(identityStorageKey); err == nil {
@@ -81,22 +71,17 @@ func TestNewRegistration_Persistent(t *testing.T) {
 			"succeeded: %+v", err)
 	}
 
-	if reg.knownRounds == nil {
+	if reg.ur == nil {
 		t.Error("Persistent identity does not have a known rounds.")
 	}
 
-	if reg.knownRoundsStorage == nil {
-		t.Error("Persistent identity does not have a known rounds storage.")
-	}
-
-	// Check if the known rounds is stored, it should not be
-	if _, err = utility.LoadKnownRounds(reg.kv, knownRoundsStorageKey, id.calculateKrSize()); err != nil {
-		t.Errorf("Persistent identity did not store known rounds when "+
-			"it should: %+v", err)
-	}
+	// Check if the known rounds is stored, it should not be. this will panic
+	// if it isnt
+	LoadUnknownRound(reg.kv)
 
 	if _, err = reg.kv.Get(identityStorageKey); err != nil {
-		t.Error("Persistent identity did not store the identity when it should.")
+		t.Errorf("Persistent identity did not store the identity when " +
+			"it should: %+v.", err)
 	}
 }
 
@@ -123,13 +108,10 @@ func TestLoadRegistration(t *testing.T) {
 		t.Fatalf("Registration loading failed: %+v", err)
 	}
 
-	if reg.knownRounds != nil {
-		t.Error("Loading has a separated known rounds, it should not have.")
+	if reg.ur == nil {
+		t.Error("Loading should have a UR.")
 	}
 
-	if reg.knownRoundsStorage == nil {
-		t.Error("Loading identity does not have a known rounds storage.")
-	}
 }
 
 // TODO: finish
@@ -153,6 +135,6 @@ func Test_registration_Delete(t *testing.T) {
 
 	err = r.Delete()
 	if err != nil {
-		t.Errorf("Delete() returned an error: %+v", err)
+		t.Errorf("delete() returned an error: %+v", err)
 	}
 }

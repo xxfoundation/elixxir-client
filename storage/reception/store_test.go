@@ -66,7 +66,7 @@ func TestLoadStore(t *testing.T) {
 
 	testStore := LoadStore(kv)
 	for i, active := range testStore.active {
-		s.active[i].knownRounds = nil
+		s.active[i].ur = nil
 		if !s.active[i].Equal(active.Identity) {
 			t.Errorf("Failed to generate expected Store."+
 				"\nexpected: %#v\nreceived: %#v", s.active[i], active)

@@ -103,10 +103,10 @@ func (v *KV) Get(key string) (*Object, error) {
 	return &result, nil
 }
 
-// Delete removes a given key from the data store
+// delete removes a given key from the data store
 func (v *KV) Delete(key string) error {
 	key = v.prefix + key
-	jww.TRACE.Printf("Delete %p with key %v", v.r.data, key)
+	jww.TRACE.Printf("delete %p with key %v", v.r.data, key)
 	return v.r.data.Delete(key)
 }
 

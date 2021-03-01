@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -44,40 +45,42 @@ func Get(ndf *ndf.NetworkDefinition, hg HostGetter, rng io.Reader) (*connect.Hos
 	return gwHost, nil
 }
 
-// Return the nth gateway, in host form, from the given round's team
-func GetFromIndex(hg HostGetter, ri *mixmessages.RoundInfo,
-	index int) (*connect.Host, error) {
+// GetAllShuffled returns a shufled list of gateway hosts from the specified round
+func GetAllShuffled(hg HostGetter, ri *mixmessages.RoundInfo) ([]*connect.Host, error) {
 	roundTop := ri.GetTopology()
-	if index >= len(roundTop) {
-		return nil, errors.Errorf("Attempt to index gateway outside range of team")
-	}
-	selectedId, err := id.Unmarshal(roundTop[index])
-	if err != nil {
-		return nil, err
-	}
-	selectedId.SetType(id.Gateway)
+	hosts := make([]*connect.Host, 0)
+	shuffledList := make([]uint64, 0)
 
-	gwHost, ok := hg.GetHost(selectedId)
-	if !ok {
-		return nil, errors.Errorf("Could not find host for gateway %s", selectedId)
-	}
-	return gwHost, nil
-}
+	// Collect all host information from the round
+	for index, _ := range roundTop {
+		selectedId, err := id.Unmarshal(roundTop[index])
+		if err != nil {
+			return nil, err
+		}
 
-// Get the last gateway Host from the given RoundInfo
-func GetLast(hg HostGetter, ri *mixmessages.RoundInfo) (*connect.Host, error) {
-	roundTop := ri.GetTopology()
-	lastGw, err := id.Unmarshal(roundTop[len(roundTop)-1])
-	if err != nil {
-		return nil, err
-	}
-	lastGw.SetType(id.Gateway)
+		selectedId.SetType(id.Gateway)
 
-	gwHost, ok := hg.GetHost(lastGw)
-	if !ok {
-		return nil, errors.Errorf("Could not find host for gateway %s", lastGw)
+		gwHost, ok := hg.GetHost(selectedId)
+		if !ok {
+			return nil, errors.Errorf("Could not find host for gateway %s", selectedId)
+		}
+		hosts = append(hosts, gwHost)
+		shuffledList = append(shuffledList, uint64(index))
 	}
-	return gwHost, nil
+
+	returnHosts := make([]*connect.Host, len(hosts))
+
+	// Shuffle a list corresponding to the valid gateway hosts
+	shuffle.Shuffle(&shuffledList)
+
+	// Index through the shuffled list, building a list
+	// of shuffled gateways from the round
+	for index, shuffledIndex := range shuffledList {
+		returnHosts[index] = hosts[shuffledIndex]
+	}
+
+	return returnHosts, nil
+
 }
 
 // ReadUint32 reads an integer from an io.Reader (which should be a CSPRNG)

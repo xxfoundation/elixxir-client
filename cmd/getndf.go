@@ -41,7 +41,7 @@ var getNDFCmd = &cobra.Command{
 	Args: cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		gwHost := viper.GetString("gwhost")
-		//permHost := viper.GetString("permhost")
+		permHost := viper.GetString("permhost")
 		certPath := viper.GetString("cert")
 
 		// Load the certificate
@@ -79,22 +79,21 @@ var getNDFCmd = &cobra.Command{
 			fmt.Printf("%s", resp.PartialNDF.Ndf)
 			return
 		}
-		// fixme: RequestNdf is no longer exposed to client. This block may need to be removed
-		//if permHost != "" {
-		//	host, _ := connect.NewHost(&id.Permissioning, permHost,
-		//		cert, params)
-		//	pollMsg := &pb.NDFHash{
-		//		Hash: []byte("DummyUserRequest"),
-		//	}
-		//	resp, err := comms.RequestNdf(host, pollMsg)
-		//	if err != nil {
-		//		jww.FATAL.Panicf("Unable to ask %s for NDF:"+
-		//			" %+v",
-		//			permHost, err)
-		//	}
-		//	fmt.Printf("%s", resp.Ndf)
-		//	return
-		//}
+		if permHost != "" {
+			host, _ := connect.NewHost(&id.Permissioning, permHost,
+				cert, params)
+			pollMsg := &pb.NDFHash{
+				Hash: []byte("DummyUserRequest"),
+			}
+			resp, err := comms.RequestNdf(host, pollMsg)
+			if err != nil {
+				jww.FATAL.Panicf("Unable to ask %s for NDF:"+
+					" %+v",
+					permHost, err)
+			}
+			fmt.Printf("%s", resp.Ndf)
+			return
+		}
 
 		fmt.Println("Enter --gwhost or --permhost and --cert please")
 	},

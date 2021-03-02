@@ -117,8 +117,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
-		m.p.Done(roundID)
-		identity.KR.Check(roundID)
+		m.p.Done(roundID, identity.EphId, identity.Source)
 		return message.Bundle{}, errors.Errorf(noRoundError)
 	}
 
@@ -141,7 +140,6 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		Round:    roundID,
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
-			identity.KR.Check(roundID)
 			m.p.Done(roundID, identity.EphId, identity.Source)
 		},
 	}

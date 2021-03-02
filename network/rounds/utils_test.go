@@ -11,7 +11,6 @@ import (
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
@@ -33,12 +32,12 @@ func newManager(face interface{}) *Manager {
 	return testManager
 }
 
-
 // Build ID off of this string for expected gateway
 // which will return on over mock comm
 const ReturningGateway = "GetMessageRequest"
 const FalsePositive = "FalsePositive"
 const PayloadMessage = "Payload"
+
 type mockMessageRetrievalComms struct {
 	testingSignature *testing.T
 }
@@ -54,11 +53,11 @@ func (mmrc *mockMessageRetrievalComms) GetHost(hostId *id.ID) (*connect.Host, bo
 func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	message *pb.GetMessages) (*pb.GetMessagesResponse, error) {
 	payloadMsg := []byte(PayloadMessage)
-	payload := make([]byte,256)
+	payload := make([]byte, 256)
 	copy(payload, payloadMsg)
 	testSlot := &pb.Slot{
 		PayloadA: payload,
-		PayloadB:payload,
+		PayloadB: payload,
 	}
 
 	// If we are the requesting on the returning gateway, return a mock response
@@ -80,16 +79,3 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	}
 	return nil, nil
 }
-
-type mockKnownRounds struct {
-
-}
-
-func (mkr mockKnownRounds) Checked(rid id.Round) bool {return true}
-func (mkr mockKnownRounds)  Check(rid id.Round) {}
-func (mkr mockKnownRounds)  Forward(rid id.Round) {}
-func (mkr mockKnownRounds)  RangeUnchecked(newestRid id.Round, roundCheck func(id id.Round) bool) {}
-func (mkr mockKnownRounds)  RangeUncheckedMasked(mask *knownRounds.KnownRounds,
-	roundCheck knownRounds.RoundCheckFunc, maxChecked int) {}
-func (mkr mockKnownRounds)  RangeUncheckedMaskedRange(mask *knownRounds.KnownRounds,
-	roundCheck knownRounds.RoundCheckFunc, start, end id.Round, maxChecked int) {}

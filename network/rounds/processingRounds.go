@@ -20,7 +20,7 @@ import (
 type status struct {
 	failCount  uint
 	processing bool
-	done bool
+	done       bool
 }
 
 // processing struct with a lock so it can be managed with concurrent threads.
@@ -31,7 +31,7 @@ type processing struct {
 
 type hashID [16]byte
 
-func makeHashID(round id.Round, eph ephemeral.Id, source *id.ID)hashID{
+func makeHashID(round id.Round, eph ephemeral.Id, source *id.ID) hashID {
 	h := md5.New()
 	ridbytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(ridbytes, uint64(round))
@@ -64,7 +64,7 @@ func (pr *processing) Process(round id.Round, eph ephemeral.Id, source *id.ID) (
 	if rs, ok := pr.rounds[hid]; ok {
 		if rs.processing {
 			return false, false, rs.failCount
-		} else if rs.done{
+		} else if rs.done {
 			return false, true, 0
 		}
 		rs.processing = true

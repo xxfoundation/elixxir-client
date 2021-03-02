@@ -31,7 +31,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	if !notProcessing {
 		// if is already processing, ignore
 		return false
-	}else if completed{
+	} else if completed {
 		return true
 	}
 

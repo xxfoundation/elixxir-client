@@ -35,33 +35,33 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	go testManager.processMessageRetrieval(mockComms, quitChan)
 
 	// Construct expected values for checking
-	expectedEphID := ephemeral.Id{1,2,3,4,5,6,7,8}
+	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 	payloadMsg := []byte(PayloadMessage)
 	expectedPayload := make([]byte, 256)
 	copy(expectedPayload, payloadMsg)
 
 	go func() {
+		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
+
 		// Construct the round lookup
 		iu := reception.IdentityUse{
 			Identity: reception.Identity{
-				EphId: expectedEphID,
+				EphId:  expectedEphID,
+				Source: requestGateway,
 			},
-			KR: mockKnownRounds{},
 		}
-
-		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
 		idList := [][]byte{requestGateway.Bytes()}
 
 		roundInfo := &pb.RoundInfo{
-			ID: uint64(roundId),
+			ID:       uint64(roundId),
 			Topology: idList,
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
 			roundInfo: roundInfo,
-			identity: iu,
+			identity:  iu,
 		}
 
 	}()
@@ -69,30 +69,29 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	var testBundle message.Bundle
 	go func() {
 		// Receive the bundle over the channel
-		time.Sleep(1*time.Second)
-		testBundle = <- messageBundleChan
+		time.Sleep(1 * time.Second)
+		testBundle = <-messageBundleChan
 
 		// Close the process
 		quitChan <- struct{}{}
 
 	}()
 
-
-	time.Sleep(2*time.Second)
-	if reflect.DeepEqual(testBundle, message.Bundle{}) 	{
+	time.Sleep(2 * time.Second)
+	if reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Errorf("Did not receive a message bundle over the channel")
 		t.FailNow()
 	}
 
 	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
-		t.Errorf("Unexpected ephemeral ID in bundle." +
-			"\n\tExpected: %v" +
+		t.Errorf("Unexpected ephemeral ID in bundle."+
+			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
 	}
 
 	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {
-		t.Errorf("Unexpected ephemeral ID in bundle." +
-			"\n\tExpected: %v" +
+		t.Errorf("Unexpected ephemeral ID in bundle."+
+			"\n\tExpected: %v"+
 			"\n\tReceived: %v", expectedPayload, testBundle.Messages[0].GetPayloadA())
 
 	}
@@ -115,7 +114,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	// Initialize the message retrieval
 	go testManager.processMessageRetrieval(mockComms, quitChan)
 
-	expectedEphID := ephemeral.Id{1,2,3,4,5,6,7,8}
+	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 
 	// Construct a gateway without keyword ID in utils_test.go
 	// ie mockComms does not return a round
@@ -125,23 +124,22 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 		// Construct the round lookup
 		iu := reception.IdentityUse{
 			Identity: reception.Identity{
-				EphId: expectedEphID,
+				EphId:  expectedEphID,
+				Source: dummyGateway,
 			},
-			KR: mockKnownRounds{},
 		}
-
 
 		idList := [][]byte{dummyGateway.Bytes()}
 
 		roundInfo := &pb.RoundInfo{
-			ID: uint64(roundId),
+			ID:       uint64(roundId),
 			Topology: idList,
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
 			roundInfo: roundInfo,
-			identity: iu,
+			identity:  iu,
 		}
 
 	}()
@@ -149,26 +147,25 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	var testBundle message.Bundle
 	go func() {
 		// Receive the bundle over the channel
-		time.Sleep(1*time.Second)
-		testBundle = <- messageBundleChan
+		time.Sleep(1 * time.Second)
+		testBundle = <-messageBundleChan
 
 		// Close the process
 		quitChan <- struct{}{}
 
 	}()
 
-
-	time.Sleep(2*time.Second)
+	time.Sleep(2 * time.Second)
 	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
-		t.Errorf("Should not receive a message bundle, mock gateway should not return round." +
-			"\n\tExpected: %v" +
+		t.Errorf("Should not receive a message bundle, mock gateway should not return round."+
+			"\n\tExpected: %v"+
 			"\n\tReceived: %v", message.Bundle{}, testBundle)
 	}
 }
 
 // Test the path where there are no messages,
 // simulating a false positive in a bloom filter
-func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T)  {
+func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	roundId := id.Round(5)
@@ -184,7 +181,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T)  {
 	go testManager.processMessageRetrieval(mockComms, quitChan)
 
 	// Construct expected values for checking
-	expectedEphID := ephemeral.Id{1,2,3,4,5,6,7,8}
+	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 	payloadMsg := []byte(PayloadMessage)
 	expectedPayload := make([]byte, 256)
 	copy(expectedPayload, payloadMsg)
@@ -195,7 +192,6 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T)  {
 			Identity: reception.Identity{
 				EphId: expectedEphID,
 			},
-			KR: mockKnownRounds{},
 		}
 
 		requestGateway := id.NewIdFromString(FalsePositive, id.Gateway, t)
@@ -203,14 +199,14 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T)  {
 		idList := [][]byte{requestGateway.Bytes()}
 
 		roundInfo := &pb.RoundInfo{
-			ID: uint64(roundId),
+			ID:       uint64(roundId),
 			Topology: idList,
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
 			roundInfo: roundInfo,
-			identity: iu,
+			identity:  iu,
 		}
 
 	}()
@@ -218,17 +214,16 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T)  {
 	var testBundle message.Bundle
 	go func() {
 		// Receive the bundle over the channel
-		time.Sleep(1*time.Second)
-		testBundle = <- messageBundleChan
+		time.Sleep(1 * time.Second)
+		testBundle = <-messageBundleChan
 
 		// Close the process
 		quitChan <- struct{}{}
 
 	}()
 
-
-	time.Sleep(2*time.Second)
-	if !reflect.DeepEqual(testBundle, message.Bundle{}) 	{
+	time.Sleep(2 * time.Second)
+	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Errorf("Received a message bundle over the channel, should receive empty message list")
 		t.FailNow()
 	}
@@ -255,7 +250,7 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	quitChan <- struct{}{}
 
 	// Construct expected values for checking
-	expectedEphID := ephemeral.Id{1,2,3,4,5,6,7,8}
+	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 	payloadMsg := []byte(PayloadMessage)
 	expectedPayload := make([]byte, 256)
 	copy(expectedPayload, payloadMsg)
@@ -266,7 +261,6 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 			Identity: reception.Identity{
 				EphId: expectedEphID,
 			},
-			KR: mockKnownRounds{},
 		}
 
 		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
@@ -274,34 +268,29 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 		idList := [][]byte{requestGateway.Bytes()}
 
 		roundInfo := &pb.RoundInfo{
-			ID: uint64(roundId),
+			ID:       uint64(roundId),
 			Topology: idList,
 		}
 
 		// Send a round look up request
 		testManager.lookupRoundMessages <- roundLookup{
 			roundInfo: roundInfo,
-			identity: iu,
+			identity:  iu,
 		}
 
 	}()
 
-
-
 	var testBundle message.Bundle
 	go func() {
 		// Receive the bundle over the channel
-		testBundle = <- messageBundleChan
-
+		testBundle = <-messageBundleChan
 
 	}()
 
-
-	time.Sleep(1*time.Second)
-	if !reflect.DeepEqual(testBundle, message.Bundle{}) 	{
+	time.Sleep(1 * time.Second)
+	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Errorf("Received a message bundle over the channel, process should have quit before reception")
 		t.FailNow()
 	}
-
 
 }

@@ -334,6 +334,8 @@ gitlab.com/elixxir/primitives v0.0.3-0.20210301183103-afcb5c703289 h1:hIhtGuJX6n
 gitlab.com/elixxir/primitives v0.0.3-0.20210301183103-afcb5c703289/go.mod h1:l4DczasdfnrLdf2qimxOlJjr0RpcMzSwVCZXN3wxSzM=
 gitlab.com/elixxir/primitives v0.0.3-0.20210301202753-0aead7f17423 h1:au+EX4Jd7SKIxp7WYxoRBg1Fa5hrQ/byCEvgM9mb9Pg=
 gitlab.com/elixxir/primitives v0.0.3-0.20210301202753-0aead7f17423/go.mod h1:l4DczasdfnrLdf2qimxOlJjr0RpcMzSwVCZXN3wxSzM=
+gitlab.com/elixxir/primitives v0.0.3-0.20210302221323-00cd61964ac9 h1:Wlfz/wRX/ZMUGLsiGf+Xc20Lh4XAbG2ruJsDIWUBTOQ=
+gitlab.com/elixxir/primitives v0.0.3-0.20210302221323-00cd61964ac9/go.mod h1:l4DczasdfnrLdf2qimxOlJjr0RpcMzSwVCZXN3wxSzM=
 gitlab.com/xx_network/comms v0.0.0-20200805174823-841427dd5023/go.mod h1:owEcxTRl7gsoM8c3RQ5KAm5GstxrJp5tn+6JfQ4z5Hw=
 gitlab.com/xx_network/comms v0.0.3/go.mod h1:YViGbRj7FjJYoaO4NpALGEd9dK/l8uUT000FEBbUTL8=
 gitlab.com/xx_network/comms v0.0.4-0.20210210215624-622913c0a215 h1:f+cobRegYJH2x6cFkf1RfJEGFnX/vq2hGLltFC+g4Bk=

@@ -7,6 +7,7 @@
 package rounds
 
 import (
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
@@ -37,7 +38,7 @@ func newManager(face interface{}) *Manager {
 const ReturningGateway = "GetMessageRequest"
 const FalsePositive = "FalsePositive"
 const PayloadMessage = "Payload"
-
+const ErrorGateway = "Error"
 type mockMessageRetrievalComms struct {
 	testingSignature *testing.T
 }
@@ -50,6 +51,11 @@ func (mmrc *mockMessageRetrievalComms) GetHost(hostId *id.ID) (*connect.Host, bo
 	return h, true
 }
 
+// Mock comm which returns differently based on the host ID
+// ReturningGateway returns a happy path response, in which there is a message
+// FalsePositive returns a response in which there were no messages in the round
+// ErrorGateway returns an error on the mock comm
+// Any other ID returns default no round errors
 func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	message *pb.GetMessages) (*pb.GetMessagesResponse, error) {
 	payloadMsg := []byte(PayloadMessage)
@@ -77,5 +83,12 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 			HasRound: true,
 		}, nil
 	}
+
+	// Return a mock error
+	errorGateway := id.NewIdFromString(ErrorGateway, id.Gateway, mmrc.testingSignature)
+	if host.GetId().Cmp(errorGateway) {
+		return &pb.GetMessagesResponse{}, errors.Errorf("Connection error")
+	}
+
 	return nil, nil
 }

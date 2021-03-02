@@ -77,6 +77,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 
 	}()
 
+	// Ensure bundle received and has expected values
 	time.Sleep(2 * time.Second)
 	if reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Errorf("Did not receive a message bundle over the channel")
@@ -222,6 +223,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 
 	}()
 
+	// Ensure no bundle was received due to false positive test
 	time.Sleep(2 * time.Second)
 	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Errorf("Received a message bundle over the channel, should receive empty message list")
@@ -288,9 +290,93 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	}()
 
 	time.Sleep(1 * time.Second)
+	// Ensure no bundle was received due to quiting process early
 	if !reflect.DeepEqual(testBundle, message.Bundle{}) {
 		t.Errorf("Received a message bundle over the channel, process should have quit before reception")
 		t.FailNow()
+	}
+
+}
+
+// Path in which multiple error comms are encountered before a happy path comms
+func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T)  {
+	// General initializations
+	testManager := newManager(t)
+	roundId := id.Round(5)
+	mockComms := &mockMessageRetrievalComms{testingSignature: t}
+	quitChan := make(chan struct{})
+
+	// Create a local channel so reception is possible (testManager.messageBundles is
+	// send only via newManager call above)
+	messageBundleChan := make(chan message.Bundle)
+	testManager.messageBundles = messageBundleChan
+
+	// Initialize the message retrieval
+	go testManager.processMessageRetrieval(mockComms, quitChan)
+
+	// Construct expected values for checking
+	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
+	payloadMsg := []byte(PayloadMessage)
+	expectedPayload := make([]byte, 256)
+	copy(expectedPayload, payloadMsg)
+
+	go func() {
+		requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
+		errorGateway := id.NewIdFromString(ErrorGateway, id.Gateway, t)
+		// Construct the round lookup
+		iu := reception.IdentityUse{
+			Identity: reception.Identity{
+				EphId:  expectedEphID,
+				Source: requestGateway,
+			},
+		}
+
+		// Create a list of ID's in which some error gateways must be contacted before the happy path
+		idList := [][]byte{errorGateway.Bytes(), errorGateway.Bytes(), requestGateway.Bytes()}
+
+		roundInfo := &pb.RoundInfo{
+			ID:       uint64(roundId),
+			Topology: idList,
+		}
+
+		// Send a round look up request
+		testManager.lookupRoundMessages <- roundLookup{
+			roundInfo: roundInfo,
+			identity:  iu,
+		}
+
+	}()
+
+	var testBundle message.Bundle
+	go func() {
+		// Receive the bundle over the channel
+		time.Sleep(1 * time.Second)
+		testBundle = <-messageBundleChan
+
+		// Close the process
+		quitChan <- struct{}{}
+
+	}()
+
+	// Ensure that expected bundle is still received from happy comm
+	// despite initial errors
+	time.Sleep(2 * time.Second)
+	if reflect.DeepEqual(testBundle, message.Bundle{}) {
+		t.Errorf("Did not receive a message bundle over the channel")
+		t.FailNow()
+	}
+
+	if testBundle.Identity.EphId.Int64() != expectedEphID.Int64() {
+		t.Errorf("Unexpected ephemeral ID in bundle."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expectedEphID, testBundle.Identity.EphId)
+	}
+
+	if !bytes.Equal(expectedPayload, testBundle.Messages[0].GetPayloadA()) {
+		t.Errorf("Unexpected ephemeral ID in bundle."+
+			"\n\tExpected: %v"+
+			"\n\tReceived: %v", expectedPayload, testBundle.Messages[0].GetPayloadA())
+
 	}
 
 }

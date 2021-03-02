@@ -37,7 +37,6 @@ const noRoundError = "does not have round"
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
-
 	done := false
 	for !done {
 		select {
@@ -58,11 +57,12 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 
 			// Attempt to request messages for every gateway in the list.
 			// If we retrieve without error, then we exit. If we error, then
-			// we retry with the next gateway in the list
+			// we retry with the next gateway in the list until we exhaust the list
 			for i, gwHost := range gwHosts {
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwHost)
 				if err != nil {
+
 					// If the round is not in the gateway, this is an error
 					// in which there are no retries
 					if strings.Contains(err.Error(), noRoundError) {
@@ -78,11 +78,12 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 					continue
 				}
 
+				// If a non-error request, no longer retry
 				break
 
 			}
 
-			if err != nil && len(bundle.Messages) != 0 {
+			if err == nil && len(bundle.Messages) != 0 {
 				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
 			}

@@ -35,7 +35,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 
 	//if the number of times the round has been checked has hit the max, drop it
 	if count == m.params.MaxAttemptsCheckingARound {
-		jww.ERROR.Printf("Looking up Round %v for %d (%s) failed " +
+		jww.ERROR.Printf("Looking up Round %v for %d (%s) failed "+
 			"the maximum number of times (%v), stopping retrval attempt",
 			roundID, identity.EphId, identity.Source,
 			m.params.MaxAttemptsCheckingARound)
@@ -59,7 +59,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	//if it is not present, set the round as checked
 	//that means no messages are available for the user in the round
 	if !hasRound {
-		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, " +
+		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, "+
 			"will not check again", identity.EphId.Int64(), identity.Source, roundID)
 		m.p.Done(roundID)
 		return true
@@ -72,7 +72,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)
 		}
-		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
+		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via historical lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		// If we didn't find it, send to Historical Rounds Retrieval
@@ -81,7 +81,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 			identity: identity,
 		}
 	} else {
-		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
+		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		// If found, send to Message Retrieval Workers

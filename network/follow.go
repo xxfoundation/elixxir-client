@@ -38,6 +38,7 @@ import (
 )
 
 const debugTrackPeriod = 1*time.Minute
+const maxChecked = 100000
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -177,7 +178,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 					update.State = uint32(states.FAILED)
 					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
 
-					// Delete all existing keys and trigger a re-registration with the relevant Node
+					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
 					m.Instance.GetAddGatewayChan() <- nGw
 				}
@@ -192,8 +193,8 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.DEBUG.Printf("No filters found for the passed ID %d (%s), "+
-			"skipping processing.", identity.EphId, identity.Source)
+		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
+			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
 
@@ -229,12 +230,24 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 		return m.round.Checker(rid, filterList, identity)
 	}
 
-	// get the bit vector of rounds that have been checked
-	checkedRounds := m.Session.GetCheckedRounds()
+	// move the earliest unknown round tracker forward to the earliest
+	// tracked round if it is behind
+	deletionStart := identity.UR.Get()
+	earliestTrackedRound := id.Round(pollResp.EarliestRound)
+	updated := identity.UR.Set(earliestTrackedRound)
+	if updated-deletionStart>maxChecked{
+		deletionStart = updated
+	}
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	checkedRounds.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
-		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
+	earliestRemaining := gwRoundsState.RangeUnchecked(updated,
+		maxChecked, roundChecker)
+	identity.UR.Set(earliestRemaining)
+
+	//delete any old rounds from processing
+	for i:=deletionStart;i<=earliestRemaining;i++{
+		m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+	}
 }

@@ -81,25 +81,6 @@ func TestIdentity_String(t *testing.T) {
 	}
 }
 
-func TestIdentity_CalculateKrSize(t *testing.T) {
-	deltas := []time.Duration{0, 2 * time.Second, 2 * time.Hour, 36 * time.Hour,
-		time.Duration(rand.Uint32()) * time.Millisecond}
-	for _, d := range deltas {
-		expected := int(d.Seconds()+1) * maxRoundsPerSecond
-		now := time.Now()
-		i := Identity{
-			StartValid: now,
-			EndValid:   now.Add(d),
-		}
-
-		krSize := i.calculateKrSize()
-		if krSize != expected {
-			t.Errorf("krSize is not correct.\nexpected: %d\nrecieved: %d",
-				expected, krSize)
-		}
-	}
-}
-
 func TestIdentity_Equal(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	a, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, timestamp)

@@ -47,7 +47,7 @@ func (fpm *fingerprintMap) getKey(dhKey *cyclic.Int, fp format.Fingerprint) ([]b
 		return nil, false
 	}
 
-	// Delete found fingerprint
+	// delete found fingerprint
 	delete(fpm.fps, fp)
 
 	// Generate and return the key

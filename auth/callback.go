@@ -38,7 +38,7 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			fp := cmixMsg.GetKeyFP()
 			jww.INFO.Printf("RAW AUTH FP: %v", fp)
 			// this takes the request lock if it is a specific fp,
-			// all exits after this need to call fail or Delete if it is
+			// all exits after this need to call fail or delete if it is
 			// specific
 			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
 			if err != nil {

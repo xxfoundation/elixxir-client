@@ -177,7 +177,7 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 		lenMsg += len(mpm.parts[i])
 	}
 
-	// Delete the multipart message
+	// delete the multipart message
 	mpm.delete()
 	mpm.mux.Unlock()
 

@@ -27,10 +27,12 @@ import (
 // Retrieval
 func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
 	// Set round to processing, if we can
-	notProcessing, count := m.p.Process(roundID)
+	notProcessing, completed, count := m.p.Process(roundID, identity.EphId, identity.Source)
 	if !notProcessing {
 		// if is already processing, ignore
 		return false
+	}else if completed{
+		return true
 	}
 
 	//if the number of times the round has been checked has hit the max, drop it
@@ -39,7 +41,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 			"the maximum number of times (%v), stopping retrval attempt",
 			roundID, identity.EphId, identity.Source,
 			m.params.MaxAttemptsCheckingARound)
-		m.p.Done(roundID)
+		m.p.Done(roundID, identity.EphId, identity.Source)
 		return true
 	}
 
@@ -61,7 +63,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	if !hasRound {
 		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, "+
 			"will not check again", identity.EphId.Int64(), identity.Source, roundID)
-		m.p.Done(roundID)
+		m.p.Done(roundID, identity.EphId, identity.Source)
 		return true
 	}
 

@@ -18,10 +18,41 @@ import (
 	"testing"
 )
 
+// Happy path
+func TestNewStore(t *testing.T) {
+	kv := make(ekv.Memstore)
+	vkv := versioned.NewKV(kv)
+
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+	priv := grp.NewInt(2)
+	pub := diffieHellman.GeneratePublicKey(priv, grp)
+
+	store, err := NewStore(grp, vkv, priv)
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	if store.nodes == nil {
+		t.Errorf("Failed to initialize nodes")
+	}
+	if store.GetDHPrivateKey() == nil || store.GetDHPrivateKey().Cmp(priv) != 0 {
+		t.Errorf("Failed to set store.dhPrivateKey correctly")
+	}
+	if store.GetDHPublicKey() == nil || store.GetDHPublicKey().Cmp(pub) != 0 {
+		t.Errorf("Failed to set store.dhPublicKey correctly")
+	}
+	if store.grp == nil {
+		t.Errorf("Failed to set store.grp")
+	}
+	if store.kv == nil {
+		t.Errorf("Failed to set store.kv")
+	}
+}
+
 // Happy path Add/Done test
 func TestStore_AddRemove(t *testing.T) {
 	// Uncomment to print keys that Set and Get are called on
-	//jww.SetStdoutThreshold(jww.LevelTrace)
+	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
 
@@ -30,21 +61,19 @@ func TestStore_AddRemove(t *testing.T) {
 
 	testStore.Add(nodeId, key)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
-		t.Errorf("Failed to add node key")
-		return
+		t.Fatal("Failed to add node key")
 	}
 
 	testStore.Remove(nodeId)
 	if _, exists := testStore.nodes[*nodeId]; exists {
-		t.Errorf("Failed to remove node key")
-		return
+		t.Fatal("Failed to remove node key")
 	}
 }
 
 // Happy path
 func TestLoadStore(t *testing.T) {
 	// Uncomment to print keys that Set and Get are called on
-	//jww.SetStdoutThreshold(jww.LevelTrace)
+	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, kv := makeTestStore()
 
@@ -73,7 +102,7 @@ func TestLoadStore(t *testing.T) {
 // Happy path
 func TestStore_GetRoundKeys(t *testing.T) {
 	// Uncomment to print keys that Set and Get are called on
-	//jww.SetStdoutThreshold(jww.LevelTrace)
+	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
 	// Set up the circuit
@@ -101,7 +130,7 @@ func TestStore_GetRoundKeys(t *testing.T) {
 // Missing keys path
 func TestStore_GetRoundKeys_Missing(t *testing.T) {
 	// Uncomment to print keys that Set and Get are called on
-	//jww.SetStdoutThreshold(jww.LevelTrace)
+	// jww.SetStdoutThreshold(jww.LevelTrace)
 
 	testStore, _ := makeTestStore()
 	// Set up the circuit
@@ -128,38 +157,6 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 	}
 	if result != nil {
 		t.Errorf("Expected nil value for result due to missing keys!")
-	}
-}
-
-// Happy path
-func TestNewStore(t *testing.T) {
-	kv := make(ekv.Memstore)
-	vkv := versioned.NewKV(kv)
-
-	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
-	priv := grp.NewInt(2)
-	pub := diffieHellman.GeneratePublicKey(priv, grp)
-
-	store, err := NewStore(grp, vkv, priv)
-	if err != nil {
-		t.Errorf(err.Error())
-		return
-	}
-
-	if store.nodes == nil {
-		t.Errorf("Failed to initialize nodes")
-	}
-	if store.GetDHPrivateKey() == nil || store.GetDHPrivateKey().Cmp(priv) != 0 {
-		t.Errorf("Failed to set store.dhPrivateKey correctly")
-	}
-	if store.GetDHPublicKey() == nil || store.GetDHPublicKey().Cmp(pub) != 0 {
-		t.Errorf("Failed to set store.dhPublicKey correctly")
-	}
-	if store.grp == nil {
-		t.Errorf("Failed to set store.grp")
-	}
-	if store.kv == nil {
-		t.Errorf("Failed to set store.kv")
 	}
 }
 

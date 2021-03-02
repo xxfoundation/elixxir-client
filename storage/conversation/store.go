@@ -50,7 +50,7 @@ func (s *Store) Get(partner *id.ID) *Conversation {
 	return c
 }
 
-// Delete deletes the conversation with the given partner ID from memory and
+// delete deletes the conversation with the given partner ID from memory and
 // storage. Panics if the object cannot be deleted from storage.
 func (s *Store) Delete(partner *id.ID) {
 	s.mux.Lock()
@@ -62,13 +62,13 @@ func (s *Store) Delete(partner *id.ID) {
 		return
 	}
 
-	// Delete contact from storage
+	// delete contact from storage
 	err := c.delete()
 	if err != nil {
 		jww.FATAL.Panicf("Failed to remover conversation with ID %s from "+
 			"storage: %+v", partner, err)
 	}
 
-	// Delete contact from memory
+	// delete contact from memory
 	delete(s.loadedConversations, *partner)
 }

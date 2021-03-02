@@ -182,7 +182,8 @@ Flags:
       --unsafe-channel-creation   Turns off the user identity authenticated
                                   channel check, automatically approving
                                   authenticated channels
-  -v, --verbose                   Verbose mode for debugging
+  -v, --logLevel uint             Level of debugging to print (0 = info, 
+                                  1 = debug, >1 = trace). (Default info)
       --waitTimeout uint          The number of seconds to wait for messages to
                                   arrive (default 15)
   -w, --writeContact string       Write the contact file for this user to this

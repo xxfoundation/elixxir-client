@@ -62,7 +62,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 				select {
 				case m.historicalRounds <- r:
 				default:
-					m.p.NotProcessing(r.rid)
+					m.p.NotProcessing(r.rid, r.identity.EphId, r.identity.Source)
 				}
 			}
 			done = true
@@ -125,7 +125,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			if roundInfo == nil {
 				jww.ERROR.Printf("Failed to retreive "+
 					"historical round %d", roundRequests[i].rid)
-				m.p.Fail(roundRequests[i].rid)
+				m.p.Fail(roundRequests[i].rid, roundRequests[i].identity.EphId, roundRequests[i].identity.Source)
 				continue
 			}
 			// Successfully retrieved roundRequests are sent to the Message

@@ -260,7 +260,7 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 }
 
 func createClient() *api.Client {
-	initLog(viper.GetBool("verbose"), viper.GetString("log"))
+	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
 	pass := viper.GetString("password")
@@ -547,7 +547,7 @@ func getUIDFromString(idStr string) *id.ID {
 	return ID
 }
 
-func initLog(verbose bool, logPath string) {
+func initLog(threshold uint, logPath string) {
 	if logPath != "-" && logPath != "" {
 		// Disable stdout output
 		jww.SetStdoutOutput(ioutil.Discard)
@@ -560,14 +560,19 @@ func initLog(verbose bool, logPath string) {
 		jww.SetLogOutput(logOutput)
 	}
 
-	if verbose {
+	if threshold>1{
+		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
-	} else {
+	}else if threshold == 1{
+		jww.INFO.Printf("log level set to: DEBUG")
+		jww.SetStdoutThreshold(jww.LevelDebug)
+		jww.SetLogThreshold(jww.LevelDebug)
+	}else{
+		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
-
 }
 
 func isValidUser(usr []byte) (bool, *id.ID) {
@@ -615,9 +620,9 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().BoolP("verbose", "v", false,
+	rootCmd.PersistentFlags().UintP("logLevel", "v", 0,
 		"Verbose mode for debugging")
-	viper.BindPFlag("verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
 
 	rootCmd.PersistentFlags().StringP("session", "s",
 		"", "Sets the initial storage directory for "+

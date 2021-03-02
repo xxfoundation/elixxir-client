@@ -37,6 +37,7 @@ const noRoundError = "does not have round"
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
+
 	done := false
 	for !done {
 		select {
@@ -80,6 +81,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 
 				// If a non-error request, no longer retry
 				break
+
+			}
+			if err != nil {
+				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
 
 			}
 
@@ -137,7 +142,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
 			identity.KR.Check(roundID)
-			m.p.Done(roundID)
+			m.p.Done(roundID, identity.EphId, identity.Source)
 		},
 	}
 

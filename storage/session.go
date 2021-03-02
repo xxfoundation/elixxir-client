@@ -25,7 +25,6 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -57,7 +56,6 @@ type Session struct {
 	criticalMessages    *utility.E2eMessageBuffer
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
-	checkedRounds       *utility.KnownRounds
 	reception           *reception.Store
 }
 
@@ -129,11 +127,6 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 		return nil, errors.WithMessage(err, "Failed to create raw critical message buffer")
 	}
 
-	s.checkedRounds, err = utility.NewKnownRounds(s.kv, checkedRoundsKey, knownRounds.NewKnownRound(CheckRoundsMaxSize))
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create checked rounds buffer")
-	}
-
 	s.conversations = conversation.NewStore(s.kv)
 	s.partition = partition.New(s.kv)
 
@@ -188,11 +181,6 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 	}
 
 	s.garbledMessages, err = utility.LoadMeteredCmixMessageBuffer(s.kv, garbledMessagesKey)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load session")
-	}
-
-	s.checkedRounds, err = utility.LoadKnownRounds(s.kv, checkedRoundsKey, CheckRoundsMaxSize)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load session")
 	}
@@ -253,12 +241,6 @@ func (s *Session) GetGarbledMessages() *utility.MeteredCmixMessageBuffer {
 	return s.garbledMessages
 }
 
-func (s *Session) GetCheckedRounds() *utility.KnownRounds {
-	s.mux.RLock()
-	defer s.mux.RUnlock()
-	return s.checkedRounds
-}
-
 func (s *Session) Conversations() *conversation.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
@@ -281,7 +263,7 @@ func (s *Session) Set(key string, object *versioned.Object) error {
 	return s.kv.Set(key, object)
 }
 
-// Delete a value in the session
+// delete a value in the session
 func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key)
 }

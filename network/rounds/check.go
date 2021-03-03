@@ -27,11 +27,13 @@ import (
 // Retrieval
 func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
 	// Set round to processing, if we can
-	notProcessing, completed, count := m.p.Process(roundID, identity.EphId, identity.Source)
-	if !notProcessing {
-		// if is already processing, ignore
+	status, count := m.p.Process(roundID, identity.EphId, identity.Source)
+	jww.INFO.Printf("checking: %d, status: %s", roundID, status)
+
+	switch status{
+	case Processing:
 		return false
-	}else if completed{
+	case Done:
 		return true
 	}
 

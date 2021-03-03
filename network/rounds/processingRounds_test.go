@@ -9,13 +9,7 @@ package rounds
 
 // Testing functions for Processing Round structure
 
-import (
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"reflect"
-	"testing"
-)
-
+/*
 // Tests happy path of newProcessingRounds.
 func Test_newProcessingRounds(t *testing.T) {
 	expectedPr := &processing{
@@ -122,4 +116,4 @@ func TestProcessing_Done(t *testing.T) {
 	if s, _ := pr.rounds[hid]; !s.done{
 		t.Errorf("Done() failed to flag round ID %d.", rid)
 	}
-}
+}*/

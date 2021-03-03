@@ -232,12 +232,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
-	deletionStart := identity.UR.Get()
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	updated := identity.UR.Set(earliestTrackedRound)
-	if updated-deletionStart>maxChecked{
-		deletionStart = updated
-	}
+
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
@@ -245,9 +242,14 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	earliestRemaining := gwRoundsState.RangeUnchecked(updated,
 		maxChecked, roundChecker)
 	identity.UR.Set(earliestRemaining)
+	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
+
 
 	//delete any old rounds from processing
-	for i:=deletionStart;i<=earliestRemaining;i++{
-		m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+	if earliestRemaining>updated{
+		for i:=updated;i<=earliestRemaining;i++{
+			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+		}
 	}
+
 }

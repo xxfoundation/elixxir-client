@@ -62,7 +62,7 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 	return multi
 }
 
-func (m *Manager) DeleteProcessingRoundDelete(round id.Round, eph ephemeral.Id, source *id.ID)  {
+func (m *Manager) DeleteProcessingRoundDelete(round id.Round, eph ephemeral.Id, source *id.ID) {
 
 	m.p.Delete(round, eph, source)
 }

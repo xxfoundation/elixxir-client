@@ -29,7 +29,7 @@ const (
 	Succeeded
 )
 
-func (rr RoundResult) String() string  {
+func (rr RoundResult) String() string {
 	switch rr {
 	case TimeOut:
 		return "TimeOut"

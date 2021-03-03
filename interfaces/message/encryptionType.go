@@ -14,8 +14,8 @@ const (
 	E2E  EncryptionType = 1
 )
 
-func (et EncryptionType)String()string{
-	switch et{
+func (et EncryptionType) String() string {
+	switch et {
 	case None:
 		return "None"
 	case E2E:

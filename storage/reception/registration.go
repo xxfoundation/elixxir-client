@@ -14,7 +14,7 @@ const knownRoundsStorageKey = "krStorage"
 type registration struct {
 	Identity
 	ur *UnknownRound
-	kv                 *versioned.KV
+	kv *versioned.KV
 }
 
 func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
@@ -35,9 +35,9 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	kv = kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))
 
 	r := &registration{
-		Identity:    reg,
-		ur: NewUnknownRound(!reg.Ephemeral, kv),
-		kv:          kv,
+		Identity: reg,
+		ur:       NewUnknownRound(!reg.Ephemeral, kv),
+		kv:       kv,
 	}
 
 	// If this is not ephemeral, then store everything
@@ -49,8 +49,6 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 			return nil, errors.WithMessage(err, "failed to store registration")
 		}
 	}
-
-
 
 	return r, nil
 }
@@ -69,9 +67,9 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 	ur := LoadUnknownRound(kv)
 
 	r := &registration{
-		Identity:           reg,
-		ur: ur,
-		kv:                 kv,
+		Identity: reg,
+		ur:       ur,
+		kv:       kv,
 	}
 
 	return r, nil

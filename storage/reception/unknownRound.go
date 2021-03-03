@@ -12,14 +12,14 @@ import (
 const unknownRoundStorageKey = "unknownRoundStorage"
 const unknownRoundStorageVersion = 0
 
-type UnknownRound struct{
+type UnknownRound struct {
 	stored bool
-	kv *versioned.KV
-	rid id.Round
-	mux sync.Mutex
+	kv     *versioned.KV
+	rid    id.Round
+	mux    sync.Mutex
 }
 
-func NewUnknownRound(stored bool, kv *versioned.KV)*UnknownRound{
+func NewUnknownRound(stored bool, kv *versioned.KV) *UnknownRound {
 	ur := &UnknownRound{
 		stored: stored,
 		kv:     kv,
@@ -29,7 +29,7 @@ func NewUnknownRound(stored bool, kv *versioned.KV)*UnknownRound{
 	return ur
 }
 
-func LoadUnknownRound(kv *versioned.KV)*UnknownRound{
+func LoadUnknownRound(kv *versioned.KV) *UnknownRound {
 	ur := &UnknownRound{
 		stored: true,
 		kv:     kv,
@@ -41,7 +41,6 @@ func LoadUnknownRound(kv *versioned.KV)*UnknownRound{
 		jww.FATAL.Panicf("Failed to get the unknown round: %+v", err)
 	}
 
-
 	err = json.Unmarshal(obj.Data, &ur.rid)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to unmarshal the unknown round: %+v", err)
@@ -49,7 +48,7 @@ func LoadUnknownRound(kv *versioned.KV)*UnknownRound{
 	return ur
 }
 
-func (ur *UnknownRound)save() {
+func (ur *UnknownRound) save() {
 	if ur.stored {
 		urStr, err := json.Marshal(&ur.rid)
 		if err != nil {
@@ -71,18 +70,17 @@ func (ur *UnknownRound)save() {
 	}
 }
 
-
-func (ur *UnknownRound)Set(rid id.Round)id.Round{
+func (ur *UnknownRound) Set(rid id.Round) id.Round {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
-	if rid>ur.rid{
+	if rid > ur.rid {
 		ur.rid = rid
 		ur.save()
 	}
 	return ur.rid
 }
 
-func (ur *UnknownRound)Get()id.Round {
+func (ur *UnknownRound) Get() id.Round {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	return ur.rid
@@ -92,7 +90,7 @@ func (ur *UnknownRound) delete() {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	err := ur.kv.Delete(unknownRoundStorageKey)
-	if err!=nil{
+	if err != nil {
 		jww.FATAL.Panicf("Failed to delete unknownRound storage: %+v", err)
 	}
 }

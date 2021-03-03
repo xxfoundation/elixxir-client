@@ -53,7 +53,7 @@ type processing struct {
 
 type hashID [16]byte
 
-func makeHashID(round id.Round, eph ephemeral.Id, source *id.ID)hashID{
+func makeHashID(round id.Round, eph ephemeral.Id, source *id.ID) hashID {
 	h := md5.New()
 	ridbytes := make([]byte, 8)
 	binary.BigEndian.PutUint64(ridbytes, uint64(round))

@@ -67,7 +67,7 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 			"to request from")
 	}
 
-	jww.INFO.Printf("Getting messages for RoundID %v for EphID %d " +
+	jww.INFO.Printf("Getting messages for RoundID %v for EphID %d "+
 		"via Gateway: %s", rid, identity.EphId, gwHost.GetId())
 
 	// send the request

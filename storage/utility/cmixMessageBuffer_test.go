@@ -122,7 +122,7 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 			1, len(cmb.mb.messages))
 	}
 
-	msg, rid,  exists = cmb.Next()
+	msg, rid, exists = cmb.Next()
 	if !exists {
 		t.Error("Next() did not find any messages in buffer.")
 	}

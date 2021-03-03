@@ -374,7 +374,7 @@ func printChanRequest(requestor contact.Contact, message string) {
 	fmt.Printf(msg)
 	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
 	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
+	//fmt.Printf(msg)
 }
 
 func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,

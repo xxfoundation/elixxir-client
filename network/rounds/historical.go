@@ -73,7 +73,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			}
 		// get new round to lookup and force a lookup if
 		case r := <-m.historicalRounds:
-			jww.DEBUG.Printf("Recieved and quing round %d for " +
+			jww.DEBUG.Printf("Recieved and quing round %d for "+
 				"historical rounds lookup", r.rid)
 			roundRequests = append(roundRequests, r)
 			if len(roundRequests) > int(m.params.MaxHistoricalRounds) {
@@ -104,7 +104,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
-		jww.DEBUG.Printf("Requesting Historical rounds %v from " +
+		jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 			"gateway %s", rounds, gwHost.GetId())
 
 		response, err := comm.RequestHistoricalRounds(gwHost, hr)

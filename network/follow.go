@@ -37,7 +37,7 @@ import (
 	"time"
 )
 
-const debugTrackPeriod = 1*time.Minute
+const debugTrackPeriod = 1 * time.Minute
 const maxChecked = 100000
 
 //comms interface makes testing easier
@@ -61,7 +61,7 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 			done = true
 		case <-ticker.C:
 			m.follow(rng, m.Comms)
-		case <- TrackTicker.C:
+		case <-TrackTicker.C:
 			jww.INFO.Println(m.tracker.Report())
 			m.tracker = newPollTracker()
 		}
@@ -70,7 +70,6 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
-
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
@@ -235,7 +234,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	deletionStart := identity.UR.Get()
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	updated := identity.UR.Set(earliestTrackedRound)
-	if updated-deletionStart>maxChecked{
+	if updated-deletionStart > maxChecked {
 		deletionStart = updated
 	}
 
@@ -247,7 +246,7 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	identity.UR.Set(earliestRemaining)
 
 	//delete any old rounds from processing
-	for i:=deletionStart;i<=earliestRemaining;i++{
+	for i := deletionStart; i <= earliestRemaining; i++ {
 		m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
 	}
 }

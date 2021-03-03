@@ -132,10 +132,10 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried
-		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed " +
-			"to transmit: %+v",	partner.ID, cmixMsg.Digest(), err)
+		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
+			"to transmit: %+v", partner.ID, cmixMsg.Digest(), err)
 		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
-		return errors.WithMessage(err,"Auth Confirm Failed to transmit")
+		return errors.WithMessage(err, "Auth Confirm Failed to transmit")
 	}
 
 	jww.INFO.Printf("Confirm Request with %s (msgDigest: %s) sent on round %d",
@@ -150,12 +150,12 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	success, numFailed, _ := utility.TrackResults(sendResults, 1)
 	if !success {
-		if numFailed > 0{
-			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed " +
+		if numFailed > 0 {
+			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
 				"delivery due to round failure, will retry on reconnect",
 				partner.ID, cmixMsg.Digest())
-		}else{
-			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed " +
+		} else {
+			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
 				"delivery due to timeout, will retry on reconnect",
 				partner.ID, cmixMsg.Digest())
 		}
@@ -163,7 +163,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 			"handled on reconnect")
 		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
 	} else {
-		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) delivered " +
+		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) delivered "+
 			"sucesfully", partner.ID, cmixMsg.Digest())
 		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
 	}

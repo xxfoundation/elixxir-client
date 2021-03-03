@@ -119,7 +119,7 @@ func TestProcessing_Done(t *testing.T) {
 	hid := makeHashID(rid, ephID, source)
 	pr.rounds[hid] = &status{0, true, false}
 	pr.Done(rid, ephID, source)
-	if s, _ := pr.rounds[hid]; !s.done{
+	if s, _ := pr.rounds[hid]; !s.done {
 		t.Errorf("Done() failed to flag round ID %d.", rid)
 	}
 }

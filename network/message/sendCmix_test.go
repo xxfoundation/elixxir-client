@@ -72,11 +72,11 @@ func Test_attemptSendCmix(t *testing.T) {
 	sess1.Cmix().Add(nid3, grp.NewInt(3))
 
 	timestamps := []uint64{
-						uint64(now.Add(-30*time.Second).UnixNano()), //PENDING
-						uint64(now.Add(-25*time.Second).UnixNano()), //PRECOMPUTING
-						uint64(now.Add(-5*time.Second).UnixNano()),  //STANDBY
-						uint64(now.Add(5*time.Second).UnixNano()), 	 //QUEUED
-						0}											 //REALTIME
+		uint64(now.Add(-30 * time.Second).UnixNano()), //PENDING
+		uint64(now.Add(-25 * time.Second).UnixNano()), //PRECOMPUTING
+		uint64(now.Add(-5 * time.Second).UnixNano()),  //STANDBY
+		uint64(now.Add(5 * time.Second).UnixNano()),   //QUEUED
+		0} //REALTIME
 
 	inst.GetWaitingRounds().Insert(&mixmessages.RoundInfo{
 		ID:                         3,

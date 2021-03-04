@@ -185,6 +185,13 @@ func (s *Store) IsRegistered(nid *id.ID) bool {
 	return ok
 }
 
+// Count returns the number of registered nodes.
+func (s *Store) Count() int {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return len(s.nodes)
+}
+
 // save stores the cMix store.
 func (s *Store) save() error {
 	now := time.Now()

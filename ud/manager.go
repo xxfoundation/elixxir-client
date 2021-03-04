@@ -41,8 +41,7 @@ type Manager struct {
 	// internal structures
 	host   *connect.Host
 	single SingleInterface
-	myID *id.ID
-
+	myID   *id.ID
 
 	registered *uint32
 }

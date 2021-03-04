@@ -27,19 +27,23 @@ import (
 // Retrieval
 func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
 	// Set round to processing, if we can
-	notProcessing, count := m.p.Process(roundID)
-	if !notProcessing {
-		// if is already processing, ignore
+	status, count := m.p.Process(roundID, identity.EphId, identity.Source)
+	jww.INFO.Printf("checking: %d, status: %s", roundID, status)
+
+	switch status{
+	case Processing:
 		return false
+	case Done:
+		return true
 	}
 
 	//if the number of times the round has been checked has hit the max, drop it
 	if count == m.params.MaxAttemptsCheckingARound {
-		jww.ERROR.Printf("Looking up Round %v for %d (%s) failed " +
+		jww.ERROR.Printf("Looking up Round %v for %d (%s) failed "+
 			"the maximum number of times (%v), stopping retrval attempt",
 			roundID, identity.EphId, identity.Source,
 			m.params.MaxAttemptsCheckingARound)
-		m.p.Done(roundID)
+		m.p.Done(roundID, identity.EphId, identity.Source)
 		return true
 	}
 
@@ -59,9 +63,9 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 	//if it is not present, set the round as checked
 	//that means no messages are available for the user in the round
 	if !hasRound {
-		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, " +
+		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, "+
 			"will not check again", identity.EphId.Int64(), identity.Source, roundID)
-		m.p.Done(roundID)
+		m.p.Done(roundID, identity.EphId, identity.Source)
 		return true
 	}
 
@@ -72,7 +76,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)
 		}
-		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
+		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via historical lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		// If we didn't find it, send to Historical Rounds Retrieval

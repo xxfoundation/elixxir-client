@@ -8,32 +8,32 @@ import (
 
 type pollTracker map[id.ID]map[int64]uint
 
-func newPollTracker()*pollTracker{
+func newPollTracker() *pollTracker {
 	pt := make(pollTracker)
 	return &pt
 }
 
 //tracks a single poll
-func (pt *pollTracker)Track(ephID ephemeral.Id, source *id.ID){
-	if _, exists := (*pt)[*source]; !exists{
+func (pt *pollTracker) Track(ephID ephemeral.Id, source *id.ID) {
+	if _, exists := (*pt)[*source]; !exists {
 		(*pt)[*source] = make(map[int64]uint)
 		(*pt)[*source][ephID.Int64()] = 0
-	}else if _, exists := (*pt)[*source][ephID.Int64()]; !exists{
+	} else if _, exists := (*pt)[*source][ephID.Int64()]; !exists {
 		(*pt)[*source][ephID.Int64()] = 0
-	}else{
+	} else {
 		(*pt)[*source][ephID.Int64()] = (*pt)[*source][ephID.Int64()] + 1
 	}
 }
 
 //reports all resent polls
-func (pt *pollTracker)Report()string{
+func (pt *pollTracker) Report() string {
 	report := ""
 	numReports := uint(0)
 
-	for source := range *pt{
+	for source := range *pt {
 		numSubReports := uint(0)
 		subReport := ""
-		for ephID, reports := range (*pt)[source]{
+		for ephID, reports := range (*pt)[source] {
 			numSubReports += reports
 			subReport += fmt.Sprintf("\n\t\tEphID %d polled %d times", ephID, reports)
 		}
@@ -43,4 +43,3 @@ func (pt *pollTracker)Report()string{
 
 	return fmt.Sprintf("\nPolled the network %d times", numReports) + report
 }
-

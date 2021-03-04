@@ -268,8 +268,8 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
 	}
-	if sending.Status()!=RekeyNeeded || sending.IsConfirmed(){
-		t.Errorf("returned session is expected to be 'RekeyNedded' " +
+	if sending.Status() != RekeyNeeded || sending.IsConfirmed() {
+		t.Errorf("returned session is expected to be 'RekeyNedded' "+
 			"'Unconfirmed', it is: %s, confirmed: %v", sending.Status(),
 			sending.IsConfirmed())
 	}
@@ -289,8 +289,8 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 		t.Error("got an unexpected session")
 	}
 
-	if sending.Status()!=Active || sending.IsConfirmed(){
-		t.Errorf("returned session is expected to be 'Active' " +
+	if sending.Status() != Active || sending.IsConfirmed() {
+		t.Errorf("returned session is expected to be 'Active' "+
 			"'Unconfirmed', it is: %s, confirmed: %v", sending.Status(),
 			sending.IsConfirmed())
 	}
@@ -309,12 +309,11 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Error("got an unexpected session")
 	}
-	if sending.Status()!=RekeyNeeded || !sending.IsConfirmed(){
-		t.Errorf("returned session is expected to be 'RekeyNeeded' " +
+	if sending.Status() != RekeyNeeded || !sending.IsConfirmed() {
+		t.Errorf("returned session is expected to be 'RekeyNeeded' "+
 			"'Confirmed', it is: %s, confirmed: %v", sending.Status(),
 			sending.IsConfirmed())
 	}
-
 
 	// Fourth case: confirmed active
 	confirmedActive, _ := makeTestSession()
@@ -330,8 +329,8 @@ func TestRelationship_GetSessionForSending(t *testing.T) {
 	if sending.GetID() != sb.sessions[0].GetID() {
 		t.Errorf("got an unexpected session of state: %s", sending.Status())
 	}
-	if sending.Status()!=Active || !sending.IsConfirmed(){
-		t.Errorf("returned session is expected to be 'Active' " +
+	if sending.Status() != Active || !sending.IsConfirmed() {
+		t.Errorf("returned session is expected to be 'Active' "+
 			"'Confirmed', it is: %s, confirmed: %v", sending.Status(),
 			sending.IsConfirmed())
 	}

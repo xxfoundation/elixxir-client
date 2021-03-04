@@ -2,6 +2,7 @@ package reception
 
 import (
 	"bytes"
+	"crypto/md5"
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -25,6 +26,7 @@ const defaultIDSize = 12
 type Store struct {
 	// Identities which are being actively checked
 	active      []*registration
+	present 	map[idHash]interface{}
 	idSize      int
 	idSizeCond  *sync.Cond
 	isIdSizeSet bool
@@ -40,11 +42,23 @@ type storedReference struct {
 	StartValid time.Time
 }
 
+type idHash [16]byte
+func makeIdHash(ephID ephemeral.Id, source *id.ID)idHash{
+	h := md5.New()
+	h.Write(ephID[:])
+	h.Write(source.Bytes())
+	idHashBytes := h.Sum(nil)
+	idH := idHash{}
+	copy(idH[:], idHashBytes)
+	return idH
+}
+
 // NewStore creates a new reception store that starts empty.
 func NewStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		active:     make([]*registration, 0),
+		present: 	make(map[idHash]interface{}),
 		idSize:     defaultIDSize * 2,
 		kv:         kv,
 		idSizeCond: sync.NewCond(&sync.Mutex{}),
@@ -65,6 +79,7 @@ func LoadStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		kv:         kv,
+		present: make(map[idHash]interface{}),
 		idSizeCond: sync.NewCond(&sync.Mutex{}),
 	}
 
@@ -87,6 +102,7 @@ func LoadStore(kv *versioned.KV) *Store {
 			jww.FATAL.Panicf("Failed to load registration for %s: %+v",
 				regPrefix(sr.Eph, sr.Source, sr.StartValid), err)
 		}
+		s.present[makeIdHash(sr.Eph, sr.Source)] = nil
 	}
 
 	// Load the ephemeral ID length
@@ -185,8 +201,17 @@ func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
+
+	idH := makeIdHash(identity.EphId, identity.Source)
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
+	//do not make duplicates of IDs
+	if _, ok := s.present[idH]; ok{
+		jww.DEBUG.Printf("Ignoring duplicate identity for %d (%s)",
+			identity.EphId, identity.Source)
+		return nil
+	}
 
 	if identity.StartValid.After(identity.EndValid) {
 		return errors.Errorf("Cannot add an identity which start valid "+
@@ -201,6 +226,7 @@ func (s *Store) AddIdentity(identity Identity) error {
 	}
 
 	s.active = append(s.active, reg)
+	s.present[idH] = nil
 	if !identity.Ephemeral {
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to save reception store after identity " +
@@ -349,6 +375,6 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	return IdentityUse{
 		Identity: selected.Identity,
 		Fake:     false,
-		KR:       selected.getKR(),
+		UR:       selected.ur,
 	}, nil
 }

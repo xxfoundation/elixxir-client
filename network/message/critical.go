@@ -57,7 +57,7 @@ func (m *Manager) criticalMessages() {
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
-				jww.ERROR.Printf("Failed to send critical message to %s " +
+				jww.ERROR.Printf("Failed to send critical message to %s "+
 					" on notification of healthy network: %+v", msg.Recipient,
 					err)
 				critMsgs.Failed(msg)
@@ -72,15 +72,15 @@ func (m *Manager) criticalMessages() {
 			}
 			success, numTimeOut, numRoundFail := utility.TrackResults(sendResults, len(rounds))
 			if !success {
-				jww.ERROR.Printf("critical message send to %s failed " +
-					"to transmit transmit %v/%v paritions on rounds %d: %v " +
+				jww.ERROR.Printf("critical message send to %s failed "+
+					"to transmit transmit %v/%v paritions on rounds %d: %v "+
 					"round failures, %v timeouts", msg.Recipient,
 					numRoundFail+numTimeOut, len(rounds), rounds, numRoundFail, numTimeOut)
 				critMsgs.Failed(msg)
 				return
 			}
 
-			jww.INFO.Printf("Sucesfull resend of critical message " +
+			jww.INFO.Printf("Sucesfull resend of critical message "+
 				"to %s on rounds %d", msg.Recipient, rounds)
 			critMsgs.Succeeded(msg)
 		}(msg, param)
@@ -92,7 +92,7 @@ func (m *Manager) criticalMessages() {
 	for msg, rid, has := critRawMsgs.Next(); has; msg, rid, has = critRawMsgs.Next() {
 		localRid := rid.DeepCopy()
 		go func(msg format.Message, rid *id.ID) {
-			jww.INFO.Printf("Resending critical raw message to %s " +
+			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", rid, msg.Digest())
 			//send the message
 			round, _, err := m.SendCMIX(msg, rid, param)
@@ -114,13 +114,13 @@ func (m *Manager) criticalMessages() {
 
 			success, numTimeOut, _ := utility.TrackResults(sendResults, 1)
 			if !success {
-				if numTimeOut>0{
-					jww.ERROR.Printf("critical raw message resend to %s " +
-						"(msgDigest: %s) on round %d failed to transmit due to " +
+				if numTimeOut > 0 {
+					jww.ERROR.Printf("critical raw message resend to %s "+
+						"(msgDigest: %s) on round %d failed to transmit due to "+
 						"timeout", rid, msg.Digest(), round)
-				}else{
-					jww.ERROR.Printf("critical raw message resend to %s " +
-						"(msgDigest: %s) on round %d failed to transmit due to " +
+				} else {
+					jww.ERROR.Printf("critical raw message resend to %s "+
+						"(msgDigest: %s) on round %d failed to transmit due to "+
 						"send failure", rid, msg.Digest(), round)
 				}
 
@@ -128,7 +128,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 
-			jww.INFO.Printf("Sucesfull resend of critical raw message " +
+			jww.INFO.Printf("Sucesfull resend of critical raw message "+
 				"to %s (msgDigest: %s) on round %d", rid, msg.Digest(), round)
 
 			critRawMsgs.Succeeded(msg, rid)

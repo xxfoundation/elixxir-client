@@ -244,10 +244,10 @@ func (r *relationship) getSessionForSending() *Session {
 	}
 
 	jww.INFO.Printf("Details about %v sessions which are invalid:", len(sessions))
-	for i, s := range sessions{
-		if s==nil{
+	for i, s := range sessions {
+		if s == nil {
 			jww.INFO.Printf("\tSession %v is nil", i)
-		}else{
+		} else {
 			jww.INFO.Printf("\tSession %v: status: %v, confimred: %v", i, s.Status(), s.IsConfirmed())
 		}
 	}

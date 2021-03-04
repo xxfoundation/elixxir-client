@@ -44,7 +44,7 @@ func TestStore_Delete(t *testing.T) {
 		store.Get(pid)
 	}
 
-	// Delete conversations with IDs with even numbered indexes
+	// delete conversations with IDs with even numbered indexes
 	for i := 0; i < len(pids); i += 2 {
 		store.Delete(pids[i])
 	}
@@ -54,11 +54,11 @@ func TestStore_Delete(t *testing.T) {
 		_, exists := store.loadedConversations[*pid]
 		if i%2 == 0 {
 			if exists {
-				t.Errorf("%d. Delete() failed to delete the conversation "+
+				t.Errorf("%d. delete() failed to delete the conversation "+
 					"(ID %s) from memory.", i, pid)
 			}
 		} else if !exists {
-			t.Errorf("%d. Delete() unexpetedly deleted the conversation "+
+			t.Errorf("%d. delete() unexpetedly deleted the conversation "+
 				"(ID %s) from memory.", i, pid)
 		}
 	}

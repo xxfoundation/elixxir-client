@@ -99,6 +99,10 @@ func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 	return &stoppable.Multi{}
 }
 
+func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
+	return 0
+}
+
 func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
@@ -200,6 +204,10 @@ func (t *testNetworkManagerFullExchange) GetRemoteVersion() (string, error) {
 }
 func (t *testNetworkManagerFullExchange) GetStoppable() stoppable.Stoppable {
 	return &stoppable.Multi{}
+}
+
+func (t *testNetworkManagerFullExchange) InProgressRegistrations() int {
+	return 0
 }
 
 func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {

@@ -318,6 +318,10 @@ func (tnm *testNetworkManager) Follow() (stoppable.Stoppable, error) {
 
 func (tnm *testNetworkManager) CheckGarbledMessages() {}
 
+func (tnm *testNetworkManager) InProgressRegistrations() int {
+	return 0
+}
+
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{
 		E2E: ndf.Group{

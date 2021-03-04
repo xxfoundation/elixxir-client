@@ -167,3 +167,8 @@ func (m *manager) GetInstance() *network.Instance {
 func (m *manager) CheckGarbledMessages() {
 	m.message.CheckGarbledMessages()
 }
+
+// InProgressRegistrations returns the number of in progress node registrations.
+func (m *manager) InProgressRegistrations() int {
+	return len(m.Internal.NodeRegistration) + 1
+}

@@ -12,15 +12,37 @@ package rounds
 import (
 	"crypto/md5"
 	"encoding/binary"
+	"fmt"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"sync"
 )
 
+type Status uint8
+
+const (
+	NotProcessing Status = iota
+	Processing
+	Done
+)
+
+func (s Status)String()string{
+	switch s{
+	case NotProcessing:
+		return "NotProcessing"
+	case Processing:
+		return "Processing"
+	case Done:
+		return "Done"
+	default:
+		return fmt.Sprintf("Unknown Status: %d", s)
+	}
+}
+
+
 type status struct {
 	failCount  uint
-	processing bool
-	done       bool
+	Status
 }
 
 // processing struct with a lock so it can be managed with concurrent threads.
@@ -55,29 +77,28 @@ func newProcessingRounds() *processing {
 // Process adds a round to the list of processing rounds. The returned boolean
 // is true when the round changes from "not processing" to "processing". The
 // returned count is the number of times the round has been processed.
-func (pr *processing) Process(round id.Round, eph ephemeral.Id, source *id.ID) (bool, bool, uint) {
+func (pr *processing) Process(round id.Round, eph ephemeral.Id, source *id.ID) (Status, uint) {
 	hid := makeHashID(round, eph, source)
 
 	pr.Lock()
 	defer pr.Unlock()
 
-	if rs, ok := pr.rounds[hid]; ok {
-		if rs.processing {
-			return false, false, rs.failCount
-		} else if rs.done {
-			return false, true, 0
+	var rs *status
+	var ok bool
+
+	if rs, ok = pr.rounds[hid]; ok && rs.Status == NotProcessing {
+		rs.Status = Processing
+		return NotProcessing, rs.failCount
+	}else if !ok{
+		rs = &status{
+			failCount: 0,
+			Status:    Processing,
 		}
-		rs.processing = true
-
-		return true, false, rs.failCount
+		pr.rounds[hid] = rs
+		return NotProcessing, rs.failCount
 	}
 
-	pr.rounds[hid] = &status{
-		failCount:  0,
-		processing: true,
-	}
-
-	return true, false, 0
+	return rs.Status, rs.failCount
 }
 
 // IsProcessing determines if a round ID is marked as processing.
@@ -87,7 +108,7 @@ func (pr *processing) IsProcessing(round id.Round, eph ephemeral.Id, source *id.
 	defer pr.RUnlock()
 
 	if rs, ok := pr.rounds[hid]; ok {
-		return rs.processing
+		return rs.Status == Processing
 	}
 
 	return false
@@ -100,7 +121,7 @@ func (pr *processing) Fail(round id.Round, eph ephemeral.Id, source *id.ID) {
 	pr.Lock()
 	defer pr.Unlock()
 	if rs, ok := pr.rounds[hid]; ok {
-		rs.processing = false
+		rs.Status = NotProcessing
 		rs.failCount++
 	}
 }
@@ -111,8 +132,7 @@ func (pr *processing) Done(round id.Round, eph ephemeral.Id, source *id.ID) {
 	pr.Lock()
 	defer pr.Unlock()
 	if rs, ok := pr.rounds[hid]; ok {
-		rs.processing = false
-		rs.done = true
+		rs.Status = Done
 	}
 }
 
@@ -123,7 +143,7 @@ func (pr *processing) NotProcessing(round id.Round, eph ephemeral.Id, source *id
 	pr.Lock()
 	defer pr.Unlock()
 	if rs, ok := pr.rounds[hid]; ok {
-		rs.processing = false
+		rs.Status = NotProcessing
 	}
 }
 

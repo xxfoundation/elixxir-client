@@ -310,15 +310,15 @@ func (c *Client) WaitForRoundCompletion(marshaledSendReport []byte,
 
 	sr, err := UnmarshalSendReport(marshaledSendReport)
 	if err != nil {
-		 return errors.New(fmt.Sprintf("Failed to "+
+		return errors.New(fmt.Sprintf("Failed to "+
 			"WaitForRoundCompletion callback due to bad Send Report: %+v", err))
 	}
 
-	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult){
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
 
-		for i, r := range sr.rl.list{
-			if result, exists := rounds[r]; exists{
+		for i, r := range sr.rl.list {
+			if result, exists := rounds[r]; exists {
 				results[i] = byte(result)
 			}
 		}
@@ -326,7 +326,7 @@ func (c *Client) WaitForRoundCompletion(marshaledSendReport []byte,
 		mdc.EventCallback(sr.mid.Marshal(), allRoundsSucceeded, timedOut, results)
 	}
 
-	timeout := time.Duration(timeoutMS)*time.Millisecond
+	timeout := time.Duration(timeoutMS) * time.Millisecond
 
 	return c.api.GetRoundResults(sr.rl.list, timeout, f)
 }

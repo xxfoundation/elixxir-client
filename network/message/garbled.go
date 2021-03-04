@@ -8,10 +8,10 @@
 package message
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/primitives/format"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Messages can arrive in the network out of order. When message handling fails
@@ -61,7 +61,7 @@ func (m *Manager) handleGarbledMessages() {
 				//remove from the buffer if decryption is successful
 				garbledMsgs.Remove(grbldMsg)
 
-				jww.INFO.Printf("Garbled message decoded as E2E from " +
+				jww.INFO.Printf("Garbled message decoded as E2E from "+
 					"%s, msgDigest: %s", sender, grbldMsg.Digest())
 
 				//handle the successfully decrypted message

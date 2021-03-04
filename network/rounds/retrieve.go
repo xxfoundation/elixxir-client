@@ -132,8 +132,8 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		return message.Bundle{}, nil
 	}
 
-	jww.INFO.Printf("Received %d messages in Round %v via Gateway: %s",
-		len(msgs), roundID, gwHost.GetId())
+	jww.INFO.Printf("Received %d messages in Round %v via Gateway %s for %d (%s)",
+		len(msgs), roundID, gwHost.GetId(), identity.EphId.Int64(), identity.Source)
 
 	//build the bundle of messages to send to the message processor
 	bundle := message.Bundle{

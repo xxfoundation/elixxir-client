@@ -80,7 +80,7 @@ func TestNewRegistration_Persistent(t *testing.T) {
 	LoadUnknownRound(reg.kv)
 
 	if _, err = reg.kv.Get(identityStorageKey); err != nil {
-		t.Errorf("Persistent identity did not store the identity when " +
+		t.Errorf("Persistent identity did not store the identity when "+
 			"it should: %+v.", err)
 	}
 }

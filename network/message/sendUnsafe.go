@@ -52,7 +52,6 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 	jww.INFO.Printf("Unsafe sending %d messages to %s",
 		len(partitions), msg.Recipient)
 
-
 	for i, p := range partitions {
 		myID := m.Session.User().GetCryptographicIdentity()
 		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
@@ -82,7 +81,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 			numFail, len(partitions), msg.Recipient)
 		return nil, errors.Errorf("Failed to send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
-	}else{
+	} else {
 		jww.INFO.Printf("Sucesfully Unsafe sent %d/%d to %s",
 			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}

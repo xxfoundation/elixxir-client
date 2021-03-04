@@ -7,14 +7,14 @@
 
 package rounds
 
-// Testing functions for Processing Round structure
-
 import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"reflect"
 	"testing"
 )
+
+// Testing functions for Processing Round structure
 
 // Tests happy path of newProcessingRounds.
 func Test_newProcessingRounds(t *testing.T) {
@@ -38,29 +38,28 @@ func TestProcessing_Process(t *testing.T) {
 	source := &id.ID{}
 
 	testData := []struct {
-		rid        id.Round
-		processing bool
-		change     bool
-		count      uint
+		rid    id.Round
+		status Status
+		count  uint
 	}{
-		{10, true, true, 0},
-		{10, true, false, 0},
-		{10, false, true, 0},
-		{100, true, true, 0},
-		{100, true, false, 0},
-		{100, false, true, 0},
+		{10, NotProcessing, 0},
+		{10, NotProcessing, 0},
+		{10, Processing, 0},
+		{100, NotProcessing, 0},
+		{100, NotProcessing, 0},
+		{100, Processing, 0},
 	}
 
 	for i, d := range testData {
 		hid := makeHashID(d.rid, ephID, source)
 		if _, exists := pr.rounds[hid]; exists {
-			pr.rounds[hid].processing = d.processing
+			pr.rounds[hid].Status = d.status
 		}
-		change, _, count := pr.Process(d.rid, ephID, source)
-		if change != d.change {
+		status, count := pr.Process(d.rid, ephID, source)
+		if status != d.status {
 			t.Errorf("Process() did not return the correct boolean for round "+
-				"ID %d (%d).\n\texpected: %v\n\trecieved: %v",
-				d.rid, i, d.change, change)
+				"ID %d (%d).\nexpected: %s\nrecieved: %s",
+				d.rid, i, d.status, status)
 		}
 		if count != d.count {
 			t.Errorf("Process did not return the expected count for round ID "+
@@ -83,13 +82,13 @@ func TestProcessing_IsProcessing(t *testing.T) {
 	source := &id.ID{}
 	rid := id.Round(10)
 	hid := makeHashID(rid, ephID, source)
-	pr.rounds[hid] = &status{0, true, false}
+	pr.rounds[hid] = &status{0, Processing}
 	if !pr.IsProcessing(rid, ephID, source) {
-		t.Errorf("IsProcessing() should have returned true for round ID %d.", rid)
+		t.Errorf("IsProcessing() should have returned %s for round ID %d.", Processing, rid)
 	}
-	pr.rounds[hid].processing = false
+	pr.rounds[hid].Status = NotProcessing
 	if pr.IsProcessing(rid, ephID, source) {
-		t.Errorf("IsProcessing() should have returned false for round ID %d.", rid)
+		t.Errorf("IsProcessing() should have returned %s for round ID %d.", NotProcessing, rid)
 	}
 }
 
@@ -100,9 +99,9 @@ func TestProcessing_Fail(t *testing.T) {
 	ephID := ephemeral.Id{}
 	source := &id.ID{}
 	hid := makeHashID(rid, ephID, source)
-	pr.rounds[hid] = &status{0, true, false}
+	pr.rounds[hid] = &status{0, Processing}
 	pr.Fail(rid, ephID, source)
-	if pr.rounds[hid].processing {
+	if pr.rounds[hid].Status == Processing {
 		t.Errorf("Fail() did not mark processing as false for round id %d.", rid)
 	}
 	if pr.rounds[hid].failCount != 1 {
@@ -117,9 +116,9 @@ func TestProcessing_Done(t *testing.T) {
 	ephID := ephemeral.Id{}
 	source := &id.ID{}
 	hid := makeHashID(rid, ephID, source)
-	pr.rounds[hid] = &status{0, true, false}
+	pr.rounds[hid] = &status{0, Processing}
 	pr.Done(rid, ephID, source)
-	if s, _ := pr.rounds[hid]; !s.done {
+	if s, _ := pr.rounds[hid]; s.Status != Done {
 		t.Errorf("Done() failed to flag round ID %d.", rid)
 	}
 }

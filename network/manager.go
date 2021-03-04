@@ -87,7 +87,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		NodeRegistration: make(chan network.NodeGateway, params.RegNodesBufferLen),
 		Instance:         instance,
 		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
-		ReceptionID: 	  session.User().GetCryptographicIdentity().GetReceptionID(),
+		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
 	//create sub managers

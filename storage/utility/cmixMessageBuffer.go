@@ -22,15 +22,15 @@ const currentCmixMessageVersion = 0
 
 type cmixMessageHandler struct{}
 
-type storedMessage struct{
+type storedMessage struct {
 	Msg       []byte
 	Recipient []byte
 }
 
-func (sm storedMessage)Marshal()[]byte{
+func (sm storedMessage) Marshal() []byte {
 
 	data, err := json.Marshal(&sm)
-	if err!=nil{
+	if err != nil {
 		jww.FATAL.Panicf("Failed to marshal stored message: %s", err)
 	}
 
@@ -64,7 +64,7 @@ func (cmh *cmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (interf
 	}
 
 	sm := storedMessage{}
-	if err = json.Unmarshal(vo.Data, &sm); err!=nil{
+	if err = json.Unmarshal(vo.Data, &sm); err != nil {
 		return nil, errors.Wrap(err, "Failed to unmarshal stored message")
 	}
 
@@ -133,8 +133,8 @@ func (cmb *CmixMessageBuffer) Next() (format.Message, *id.ID, bool) {
 	sm := m.(storedMessage)
 	msg := format.Unmarshal(sm.Msg)
 	recpient, err := id.Unmarshal(sm.Recipient)
-	if err!=nil{
-		jww.FATAL.Panicf("Could nto get an id for stored cmix " +
+	if err != nil {
+		jww.FATAL.Panicf("Could nto get an id for stored cmix "+
 			"message buffer: %+v", err)
 	}
 	return msg, recpient, true

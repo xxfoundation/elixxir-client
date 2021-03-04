@@ -27,11 +27,13 @@ import (
 // Retrieval
 func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
 	// Set round to processing, if we can
-	notProcessing, completed, count := m.p.Process(roundID, identity.EphId, identity.Source)
-	if !notProcessing {
-		// if is already processing, ignore
+	status, count := m.p.Process(roundID, identity.EphId, identity.Source)
+	jww.INFO.Printf("checking: %d, status: %s", roundID, status)
+
+	switch status{
+	case Processing:
 		return false
-	} else if completed {
+	case Done:
 		return true
 	}
 
@@ -83,7 +85,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 			identity: identity,
 		}
 	} else {
-		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
+		jww.INFO.Printf("Messages found in round %d for %d (%s), looking " +
 			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		// If found, send to Message Retrieval Workers

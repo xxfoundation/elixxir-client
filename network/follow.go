@@ -37,7 +37,7 @@ import (
 	"time"
 )
 
-const debugTrackPeriod = 1*time.Minute
+const debugTrackPeriod = 1 * time.Minute
 const maxChecked = 100000
 
 //comms interface makes testing easier
@@ -61,7 +61,7 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 			done = true
 		case <-ticker.C:
 			m.follow(rng, m.Comms)
-		case <- TrackTicker.C:
+		case <-TrackTicker.C:
 			jww.INFO.Println(m.tracker.Report())
 			m.tracker = newPollTracker()
 		}
@@ -70,7 +70,6 @@ func (m *manager) followNetwork(quitCh <-chan struct{}) {
 
 // executes each iteration of the follower
 func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
-
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
@@ -232,12 +231,9 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
-	deletionStart := identity.UR.Get()
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	updated := identity.UR.Set(earliestTrackedRound)
-	if updated-deletionStart>maxChecked{
-		deletionStart = updated
-	}
+
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
@@ -245,9 +241,13 @@ func (m *manager) follow(rng csprng.Source, comms followNetworkComms) {
 	earliestRemaining := gwRoundsState.RangeUnchecked(updated,
 		maxChecked, roundChecker)
 	identity.UR.Set(earliestRemaining)
+	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
+
 
 	//delete any old rounds from processing
-	for i:=deletionStart;i<=earliestRemaining;i++{
-		m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+	if earliestRemaining>updated{
+		for i:=updated;i<=earliestRemaining;i++{
+			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+		}
 	}
 }

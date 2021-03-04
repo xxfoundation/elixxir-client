@@ -83,6 +83,8 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				break
 
 			}
+			// After trying all gateways, if none returned we mark the round as a
+			// failure
 			if err != nil {
 				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
 

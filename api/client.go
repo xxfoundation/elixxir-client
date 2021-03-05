@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -79,10 +80,16 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 
 	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
 
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.WithMessage(err, "Could not parse version string.")
+	}
+
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return err
 	}
@@ -124,10 +131,16 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.WithMessage(err, "Could not parse version string.")
+	}
+
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return err
 	}
@@ -151,12 +164,18 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
-		csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Could not parse version string.")
+	}
 
 	// Load Storage
 	passwordStr := string(password)
-	storageSess, err := storage.Load(storageDir, passwordStr, rngStreamGen)
+	storageSess, err := storage.Load(storageDir, passwordStr, currentVersion,
+		rngStreamGen)
 	if err != nil {
 		return nil, err
 	}

@@ -485,6 +485,26 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
+// GetNodeRegistrationStatus gets the current status of node registration. It
+// returns the number of nodes that the client is registered and the number of
+// in progress node registrations. An error is returned if the network is not
+// healthy.
+func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
+	// Return an error if the network is not healthy
+	if !c.GetHealth().IsHealthy() {
+		return 0, 0, errors.New("Cannot get number of node registrations when " +
+			"network is not healthy")
+	}
+
+	// Get the number of nodes that client is registered with
+	registeredNodes := c.storage.Cmix().Count()
+
+	// Get the number of in progress node registrations
+	inProgress := c.network.InProgressRegistrations()
+
+	return registeredNodes, inProgress, nil
+}
+
 // ----- Utility Functions -----
 // parseNDF parses the initial ndf string for the client. do not check the
 // signature, it is deprecated.

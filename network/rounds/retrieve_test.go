@@ -192,6 +192,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 		iu := reception.IdentityUse{
 			Identity: reception.Identity{
 				EphId: expectedEphID,
+				Source: id.NewIdFromString("Source", id.User, t),
 			},
 		}
 

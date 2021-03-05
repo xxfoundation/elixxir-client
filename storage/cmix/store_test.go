@@ -160,7 +160,33 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 	}
 }
 
-// Main testing function
+// Happy path.
+func TestStore_Count(t *testing.T) {
+	vkv := versioned.NewKV(make(ekv.Memstore))
+	grp := cyclic.NewGroup(large.NewInt(173), large.NewInt(2))
+
+	store, err := NewStore(grp, vkv, grp.NewInt(2))
+	if err != nil {
+		t.Fatalf("Failed to generate new Store: %+v", err)
+	}
+
+	if store.Count() != 0 {
+		t.Errorf("Count() did not return the expected value for a new Store."+
+			"\nexpected: %d\nreceived: %d", 0, store.Count())
+	}
+
+	count := 50
+	for i := 0; i < count; i++ {
+		store.Add(id.NewIdFromUInt(uint64(i), id.Node, t), grp.NewInt(int64(42+i)))
+	}
+
+	if store.Count() != count {
+		t.Errorf("Count() did not return the expected value."+
+			"\nexpected: %d\nreceived: %d", count, store.Count())
+	}
+}
+
+// Main testing function.
 func makeTestStore() (*Store, *versioned.KV) {
 
 	kv := make(ekv.Memstore)

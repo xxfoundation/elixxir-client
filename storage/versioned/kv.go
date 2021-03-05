@@ -92,10 +92,6 @@ func (v *KV) GetUpgrade(key string, table []Upgrade) (*Object, error) {
 		}
 	}
 
-	if initialVersion<uint64(len(table)){
-		//save the upgraded file?
-	}
-
 	return result, nil
 }
 

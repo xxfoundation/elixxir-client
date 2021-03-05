@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"strings"
 )
 
 type messageRetrievalComms interface {
@@ -63,6 +64,14 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwHost)
 				if err != nil {
 
+					// If the round is not in the gateway, this is an error
+					// in which there are no retries
+					if strings.Contains(err.Error(), noRoundError) {
+						jww.WARN.Printf("Failed to get messages for round %v: %s",
+							ri.ID, err)
+						break
+					}
+
 					jww.WARN.Printf("Failed on gateway [%d/%d] to get messages for round %v",
 						i, len(gwHosts), ri.ID)
 
@@ -94,8 +103,8 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.IdentityUse,
 	comms messageRetrievalComms, gwHost *connect.Host) (message.Bundle, error) {
 
-	jww.DEBUG.Printf("Trying to get messages for RoundID %v for EphID %d "+
-		"via Gateway: %s", roundID, identity.EphId, gwHost.GetId())
+	jww.DEBUG.Printf("Trying to get messages for round %v for ephmeralID %d (%v)  "+
+		"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), gwHost.GetId())
 
 	// send the request
 	msgReq := &pb.GetMessages{

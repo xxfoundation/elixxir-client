@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 type messageRetrievalComms interface {
@@ -63,14 +62,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwHost)
 				if err != nil {
-
-					// If the round is not in the gateway, this is an error
-					// in which there are no retries
-					if strings.Contains(err.Error(), noRoundError) {
-						jww.WARN.Printf("Failed to get messages for round %v: %s",
-							ri.ID, err)
-						break
-					}
 
 					jww.WARN.Printf("Failed on gateway [%d/%d] to get messages for round %v",
 						i, len(gwHosts), ri.ID)

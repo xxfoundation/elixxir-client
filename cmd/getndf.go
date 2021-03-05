@@ -79,6 +79,7 @@ var getNDFCmd = &cobra.Command{
 			fmt.Printf("%s", resp.PartialNDF.Ndf)
 			return
 		}
+
 		if permHost != "" {
 			host, _ := connect.NewHost(&id.Permissioning, permHost,
 				cert, params)

@@ -154,6 +154,9 @@ func loadSession(ship *relationship, kv *versioned.KV,
 		return nil, errors.WithMessagef(err, "Failed to load %s", kv.GetFullKey(sessionKey))
 	}
 
+	obj, err := sessionUpgradeTable.Upgrade(obj)
+
+
 	err = session.unmarshal(obj.Data)
 	if err != nil {
 		return nil, err

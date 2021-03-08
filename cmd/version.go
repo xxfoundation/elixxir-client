@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/xx_network/primitives/utils"
@@ -24,10 +25,6 @@ func Version() string {
 		api.GITVERSION)
 	out += fmt.Sprintf("Dependencies:\n\n%s\n", api.DEPENDENCIES)
 	return out
-}
-
-func GetVersion() string {
-	return currentVersion
 }
 
 func init() {

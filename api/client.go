@@ -235,7 +235,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def, SEMVER)
+		parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -298,7 +298,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def, SEMVER)
+		parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -335,6 +335,12 @@ func (c *Client) initComms() error {
 
 func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
+	//initialize permissioning
+	c.permissioning, err = permissioning.Init(c.comms, def)
+	if err != nil {
+		return errors.WithMessage(err, "failed to init "+
+			"permissioning handler")
+	}
 
 	//register with permissioning if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {

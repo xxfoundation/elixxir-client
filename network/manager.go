@@ -56,7 +56,7 @@ type manager struct {
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	rng *fastRNG.StreamGenerator, comms *client.Comms,
-	params params.Network, ndf *ndf.NetworkDefinition, clientVersion string) (interfaces.NetworkManager, error) {
+	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
 	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)

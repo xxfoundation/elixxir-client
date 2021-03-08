@@ -91,6 +91,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			"data: %s", err)
 	}
 
+	// Get client version for poll
+	version := m.Session.GetClientVersion()
+
 	// Poll network updates
 	pollReq := pb.GatewayPoll{
 		Partial: &pb.NDFHash{
@@ -100,7 +103,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		ReceptionID:    identity.EphId[:],
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
-		ClientVersion:  []byte(m.clientVersion),
+		ClientVersion:  []byte(version.String()),
 	}
 	jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 		identity.EphId.Int64(), identity.Source, identity.StartRequest,

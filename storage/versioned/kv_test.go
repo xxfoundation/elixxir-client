@@ -9,9 +9,11 @@ package versioned
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/ekv"
+	"errors"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/ekv"
 )
 
 // KV Get should call the Upgrade function when it's available
@@ -30,8 +32,8 @@ func TestVersionedKV_Get_Err(t *testing.T) {
 	}
 }
 
-// Test versioned KV Upgrade path
-func TestVersionedKV_Get_Upgrade(t *testing.T) {
+// Test versioned KV happy path
+func TestVersionedKV_GetUpgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
@@ -44,7 +46,15 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	originalSerialized := original.Marshal()
 	kv[key] = originalSerialized
 
-	result, err := vkv.Get(key)
+	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
+		return &Object{
+			Version:   1,
+			Timestamp: time.Now(),
+			Data:      []byte("this object was upgraded from v0 to v1"),
+		}, nil
+	}}
+
+	result, err := vkv.GetUpgrade(key, upgrade)
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
@@ -53,6 +63,80 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 		[]byte("this object was upgraded from v0 to v1")) {
 		t.Errorf("Upgrade should have overwritten data."+
 			" result data: %q", result.Data)
+	}
+}
+
+// Test versioned KV key not found path
+func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
+	// Set up a dummy KV with the required data
+	kv := make(ekv.Memstore)
+	vkv := NewKV(kv)
+	key := MakeKeyWithPrefix("test", "12345")
+
+	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
+		return &Object{
+			Version:   1,
+			Timestamp: time.Now(),
+			Data:      []byte("this object was upgraded from v0 to v1"),
+		}, nil
+	}}
+
+	_, err := vkv.GetUpgrade(key, upgrade)
+	if err == nil {
+		t.Fatalf("Error getting something that should have been in: %v",
+			err)
+	}
+}
+
+// Test versioned KV upgrade func returns error path
+func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
+	// Set up a dummy KV with the required data
+	kv := make(ekv.Memstore)
+	vkv := NewKV(kv)
+	key := MakeKeyWithPrefix("test", "12345")
+	original := Object{
+		Version:   0,
+		Timestamp: time.Now(),
+		Data:      []byte("not upgraded"),
+	}
+	originalSerialized := original.Marshal()
+	kv[key] = originalSerialized
+
+	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
+		return &Object{}, errors.New("test error")
+	}}
+
+	defer func() {
+        if r := recover(); r == nil {
+            t.Errorf("The code did not panic")
+        }
+    }()
+
+	_, _ = vkv.GetUpgrade(key, upgrade)
+}
+
+// Test delete key happy path
+func TestVersionedKV_Delete(t *testing.T) {
+	// Set up a dummy KV with the required data
+	kv := make(ekv.Memstore)
+	vkv := NewKV(kv)
+	key := MakeKeyWithPrefix("test", "12345")
+	original := Object{
+		Version:   0,
+		Timestamp: time.Now(),
+		Data:      []byte("not upgraded"),
+	}
+	originalSerialized := original.Marshal()
+	kv[key] = originalSerialized
+
+	err := vkv.Delete(key)
+	if err != nil {
+		t.Fatalf("Error getting something that should have been in: %v",
+			err)
+	}
+
+	if _, ok := kv[key]; ok {
+		t.Fatal("Key still exists in kv map")
 	}
 }
 

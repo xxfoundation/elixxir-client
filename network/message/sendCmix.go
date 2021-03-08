@@ -175,7 +175,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 				"Failed to generate salt, this should never happen")
 		}
 
-		encMsg, kmacs := roundKeys.Encrypt(msg, salt)
+		encMsg, kmacs := roundKeys.Encrypt(msg, salt, id.Round(bestRound.ID))
 
 		//build the message payload
 		msgPacket := &pb.Slot{

@@ -11,6 +11,10 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"sync/atomic"
+
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -27,9 +31,6 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync/atomic"
-
-	"time"
 )
 
 // Manager implements the NetworkManager interface inside context. It
@@ -50,8 +51,6 @@ type manager struct {
 
 	//map of polls for debugging
 	tracker *pollTracker
-
-	clientVersion string
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -78,7 +77,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		param:         params,
 		running:       &running,
 		tracker:       newPollTracker(),
-		clientVersion: clientVersion,
 	}
 
 	m.Internal = internal.Internal{

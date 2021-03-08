@@ -21,12 +21,12 @@ import (
 // semicolons. If it is not well formed, it will be rejected.  Phone numbers
 // must have the two letter country codes appended.  For the complete set of
 // validation, see /elixxir/primitives/fact/fact.go
-func NewFact(factType int, factStr string)(*Fact, error){
+func NewFact(factType int, factStr string) (*Fact, error) {
 	f, err := fact.NewFact(fact.FactType(factType), factStr)
-	if err!=nil{
+	if err != nil {
 		return nil, err
 	}
-	return &Fact{f:&f}, nil
+	return &Fact{f: &f}, nil
 }
 
 type Fact struct {

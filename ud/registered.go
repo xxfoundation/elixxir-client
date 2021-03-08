@@ -14,13 +14,13 @@ const isRegisteredVersion = 0
 
 // loadRegistered loads from storage if the client is registered with user
 // discovery.
-func (m *Manager) loadRegistered()  {
+func (m *Manager) loadRegistered() {
 	var isReg = uint32(0)
 	obj, err := m.storage.Get(isRegisteredKey)
 	if err != nil {
-		jww.INFO.Printf("Failed to load is registered; " +
+		jww.INFO.Printf("Failed to load is registered; "+
 			"assuming un-registered: %s", err)
-	}else{
+	} else {
 		isReg = binary.BigEndian.Uint32(obj.Data)
 	}
 
@@ -28,13 +28,13 @@ func (m *Manager) loadRegistered()  {
 }
 
 // IsRegistered returns if the client is registered with user discovery
-func (m *Manager) IsRegistered()bool {
-	return atomic.LoadUint32(m.registered)==1
+func (m *Manager) IsRegistered() bool {
+	return atomic.LoadUint32(m.registered) == 1
 }
 
 // IsRegistered returns if the client is registered with user discovery
-func (m *Manager) setRegistered()error {
-	if !atomic.CompareAndSwapUint32(m.registered,0,1){
+func (m *Manager) setRegistered() error {
+	if !atomic.CompareAndSwapUint32(m.registered, 0, 1) {
 		return errors.New("cannot register with User Discovery when " +
 			"already registered")
 	}
@@ -49,7 +49,7 @@ func (m *Manager) setRegistered()error {
 	}
 
 	if err := m.storage.Set(isRegisteredKey, obj); err != nil {
-		jww.FATAL.Panicf("Failed to store that the client is " +
+		jww.FATAL.Panicf("Failed to store that the client is "+
 			"registered: %+v", err)
 	}
 	return nil

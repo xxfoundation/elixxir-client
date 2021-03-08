@@ -248,7 +248,7 @@ func (s *Store) AddReceived(c contact.Contact) error {
 // GetFingerprint can return either a private key or a sentRequest if the
 // fingerprint is found. If it returns a sentRequest, then it takes the lock to
 // ensure there is only one operator at a time. The user of the API must release
-// the lock by calling store.Delete() or store.Failed() with the partner ID.
+// the lock by calling store.delete() or store.Failed() with the partner ID.
 func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 	*SentRequest, *cyclic.Int, error) {
 
@@ -289,7 +289,7 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 // GetReceivedRequest returns the contact representing the receive request, if
 // it exists. If it returns, then it takes the lock to ensure that there is only
 // one operator at a time. The user of the API must release the lock by calling
-// store.Delete() or store.Failed() with the partner ID.
+// store.delete() or store.Failed() with the partner ID.
 func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
 	s.mux.RLock()
 	r, ok := s.requests[*partner]
@@ -372,7 +372,7 @@ func (s *Store) Fail(partner *id.ID) {
 	r.mux.Unlock()
 }
 
-// Delete is one of two calls after using a request. This one is to be used when
+// delete is one of two calls after using a request. This one is to be used when
 // the use is unsuccessful. It deletes all references to the request associated
 // with the passed partner, if it exists. It will allow any thread waiting on
 // access to continue. They should fail due to the deletion of the structure.

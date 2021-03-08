@@ -300,7 +300,7 @@ func TestSession_PopKey(t *testing.T) {
 	}
 }
 
-// Delete should remove unused keys from this session
+// delete should remove unused keys from this session
 func TestSession_Delete(t *testing.T) {
 	s, _ := makeTestSession()
 	err := s.save()

@@ -7,15 +7,7 @@
 
 package utility
 
-import (
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/ekv"
-	"gitlab.com/elixxir/primitives/knownRounds"
-	"gitlab.com/xx_network/primitives/id"
-	"reflect"
-	"testing"
-)
-
+/*
 // Tests happy path of NewKnownRounds.
 func TestNewKnownRounds(t *testing.T) {
 	// Set up expected value
@@ -204,4 +196,4 @@ func TestKnownRounds_Smoke(t *testing.T) {
 		t.Errorf("Checked() on round ID %d did not return the expected value."+
 			"\n\texpected: %v\n\treceived: %v", 15, true, kr.Checked(15))
 	}
-}
+}*/

@@ -74,10 +74,6 @@ func (i Identity) delete(kv *versioned.KV) error {
 	return kv.Delete(identityStorageKey)
 }
 
-func (i Identity) calculateKrSize() int {
-	return int(i.EndValid.Sub(i.StartValid).Seconds()+1) * maxRoundsPerSecond
-}
-
 func (i *Identity) String() string {
 	return strconv.FormatInt(i.EphId.Int64(), 16) + " " + i.Source.String()
 }

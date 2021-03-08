@@ -30,8 +30,8 @@ func TestManager_confirmFact(t *testing.T) {
 
 	// Set up manager
 	m := &Manager{
-		host: host,
-		registered:&isReg,
+		host:       host,
+		registered: &isReg,
 	}
 
 	c := &testComm{}

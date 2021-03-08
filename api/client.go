@@ -25,6 +25,7 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -82,10 +83,16 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 
 	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
 
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.WithMessage(err, "Could not parse version string.")
+	}
+
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return err
 	}
@@ -127,10 +134,16 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.WithMessage(err, "Could not parse version string.")
+	}
+
 	// Create Storage
 	passwordStr := string(password)
 	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		cmixGrp, e2eGrp, rngStreamGen)
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
 	if err != nil {
 		return err
 	}
@@ -154,12 +167,18 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3,
-		csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Could not parse version string.")
+	}
 
 	// Load Storage
 	passwordStr := string(password)
-	storageSess, err := storage.Load(storageDir, passwordStr, rngStreamGen)
+	storageSess, err := storage.Load(storageDir, passwordStr, currentVersion,
+		rngStreamGen)
 	if err != nil {
 		return nil, err
 	}
@@ -489,6 +508,26 @@ func (c *Client) GetStorage() *storage.Session {
 // GetNetworkInterface returns the client Network Interface
 func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
+}
+
+// GetNodeRegistrationStatus gets the current status of node registration. It
+// returns the number of nodes that the client is registered and the number of
+// in progress node registrations. An error is returned if the network is not
+// healthy.
+func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
+	// Return an error if the network is not healthy
+	if !c.GetHealth().IsHealthy() {
+		return 0, 0, errors.New("Cannot get number of node registrations when " +
+			"network is not healthy")
+	}
+
+	// Get the number of nodes that client is registered with
+	registeredNodes := c.storage.Cmix().Count()
+
+	// Get the number of in progress node registrations
+	inProgress := c.network.InProgressRegistrations()
+
+	return registeredNodes, inProgress, nil
 }
 
 // ----- Utility Functions -----

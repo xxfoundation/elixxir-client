@@ -26,6 +26,7 @@ type NetworkManager interface {
 	GetHealthTracker() HealthTracker
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 	CheckGarbledMessages()
+	InProgressRegistrations() int
 }
 
 //for use in key exchange which needs to be callable inside of network

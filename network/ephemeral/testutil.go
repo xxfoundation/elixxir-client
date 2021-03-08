@@ -74,6 +74,10 @@ func (t *testNetworkManager) Follow(report interfaces.ClientErrorReport) (stoppa
 
 func (t *testNetworkManager) CheckGarbledMessages() {}
 
+func (t *testNetworkManager) InProgressRegistrations() int {
+	return 0
+}
+
 func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B:

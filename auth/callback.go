@@ -38,7 +38,7 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			fp := cmixMsg.GetKeyFP()
 			jww.INFO.Printf("RAW AUTH FP: %v", fp)
 			// this takes the request lock if it is a specific fp,
-			// all exits after this need to call fail or Delete if it is
+			// all exits after this need to call fail or delete if it is
 			// specific
 			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
 			if err != nil {
@@ -58,7 +58,7 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 			// if it is specific, that means the original request was sent
 			// by this users and a confirmation has been received
 			case auth.Specific:
-				jww.INFO.Printf("Received AutConfirm from %s," +
+				jww.INFO.Printf("Received AutConfirm from %s,"+
 					" msgDigest: %s", sr.GetPartner(), cmixMsg.Digest())
 				m.handleConfirm(cmixMsg, sr, grp)
 			}
@@ -115,7 +115,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	}
 
-	jww.INFO.Printf("Received AuthRequest from %s," +
+	jww.INFO.Printf("Received AuthRequest from %s,"+
 		" msgDigest: %s", partnerID, cmixMsg.Digest())
 
 	/*do state edge checks*/
@@ -148,7 +148,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			// if we sent a request, then automatically confirm
 			// then exit, nothing else needed
 			case auth.Sent:
-				jww.INFO.Printf("Received AuthRequest from %s," +
+				jww.INFO.Printf("Received AuthRequest from %s,"+
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
 				// do the confirmation

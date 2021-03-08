@@ -40,7 +40,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
 	sendTimeout time.Duration) {
 	var negotiatingSession *e2e.Session
-	jww.INFO.Printf("Negotation triggered for session %s with " +
+	jww.INFO.Printf("Negotation triggered for session %s with "+
 		"status: %s", session, session.NegotiationStatus())
 	switch session.NegotiationStatus() {
 	// If the passed session is triggering a negotiation on a new session to
@@ -65,7 +65,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
-		jww.ERROR.Printf("Failed to do Key Negotiation with " +
+		jww.ERROR.Printf("Failed to do Key Negotiation with "+
 			"session %s: %s", session, err)
 	}
 }

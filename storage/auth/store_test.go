@@ -560,11 +560,11 @@ func TestStore_Delete_ReceiveRequest(t *testing.T) {
 
 	err := s.Delete(c.ID)
 	if err != nil {
-		t.Errorf("Delete() returned an error: %+v", err)
+		t.Errorf("delete() returned an error: %+v", err)
 	}
 
 	if s.requests[*c.ID] != nil {
-		t.Errorf("Delete() failed to delete request for user %s.", c.ID)
+		t.Errorf("delete() failed to delete request for user %s.", c.ID)
 	}
 }
 
@@ -589,15 +589,15 @@ func TestStore_Delete_SentRequest(t *testing.T) {
 
 	err := s.Delete(sr.partner)
 	if err != nil {
-		t.Errorf("Delete() returned an error: %+v", err)
+		t.Errorf("delete() returned an error: %+v", err)
 	}
 
 	if s.requests[*sr.partner] != nil {
-		t.Errorf("Delete() failed to delete request for user %s.", sr.partner)
+		t.Errorf("delete() failed to delete request for user %s.", sr.partner)
 	}
 
 	if _, exists := s.fingerprints[sr.fingerprint]; exists {
-		t.Errorf("Delete() failed to delete fingerprint for fp %v.", sr.fingerprint)
+		t.Errorf("delete() failed to delete fingerprint for fp %v.", sr.fingerprint)
 	}
 }
 
@@ -607,7 +607,7 @@ func TestStore_Delete_RequestNotInMap(t *testing.T) {
 
 	err := s.Delete(id.NewIdFromUInt(rand.Uint64(), id.User, t))
 	if err == nil {
-		t.Errorf("Delete() did not return an error when the request was not " +
+		t.Errorf("delete() did not return an error when the request was not " +
 			"in the map.")
 	}
 }

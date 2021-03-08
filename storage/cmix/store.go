@@ -23,10 +23,12 @@ import (
 
 const prefix = "cmix"
 const currentStoreVersion = 0
-const storeKey = "KeyStore"
-const pubKeyKey = "DhPubKey"
-const privKeyKey = "DhPrivKey"
-const grpKey = "GroupKey"
+const (
+	storeKey   = "KeyStore"
+	pubKeyKey  = "DhPubKey"
+	privKeyKey = "DhPrivKey"
+	grpKey     = "GroupKey"
+)
 
 type Store struct {
 	nodes        map[id.ID]*key
@@ -34,15 +36,13 @@ type Store struct {
 	dhPublicKey  *cyclic.Int
 
 	grp *cyclic.Group
-
-	kv *versioned.KV
-
+	kv  *versioned.KV
 	mux sync.RWMutex
 }
 
-// returns a new cmix storage object
+// NewStore returns a new cMix storage object.
 func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, error) {
-	//generate public key
+	// Generate public key
 	pub := diffieHellman.GeneratePublicKey(priv, grp)
 	kv = kv.Prefix(prefix)
 
@@ -57,26 +57,24 @@ func NewStore(grp *cyclic.Group, kv *versioned.KV, priv *cyclic.Int) (*Store, er
 	err := utility.StoreCyclicKey(kv, pub, pubKeyKey)
 	if err != nil {
 		return nil,
-			errors.WithMessage(err,
-				"Failed to store cmix DH public key")
+			errors.WithMessage(err, "Failed to store cMix DH public key")
 	}
 
 	err = utility.StoreCyclicKey(kv, priv, privKeyKey)
 	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to store cmix DH private key")
+		return nil,
+			errors.WithMessage(err, "Failed to store cMix DH private key")
 	}
 
 	err = utility.StoreGroup(kv, grp, grpKey)
 	if err != nil {
-		return nil, errors.WithMessage(err,
-			"Failed to store cmix group")
+		return nil, errors.WithMessage(err, "Failed to store cMix group")
 	}
 
 	return s, s.save()
 }
 
-// loads the cmix storage object
+// LoadStore loads the cMix storage object.
 func LoadStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(prefix)
 	s := &Store{
@@ -98,41 +96,41 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 	return s, nil
 }
 
-// adds the key for a round to the cmix storage object. Saves the updated list
-// of nodes and the key to disk
+// Add adds the key for a round to the cMix storage object. Saves the updated
+// list of nodes and the key to disk.
 func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	nodekey := newKey(s.kv, k, nid)
+	nodeKey := newKey(s.kv, k, nid)
 
-	s.nodes[*nid] = nodekey
+	s.nodes[*nid] = nodeKey
 	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed to save nodeKey list for %s: %s", nid, err)
+		jww.FATAL.Panicf("Failed to save nodeKey list for %s: %+v", nid, err)
 	}
 }
 
-// Done a Node key from the nodes map and save
+// Remove removes a node key from the nodes map and saves.
 func (s *Store) Remove(nid *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	nodekey, ok := s.nodes[*nid]
+	nodeKey, ok := s.nodes[*nid]
 	if !ok {
 		return
 	}
 
-	nodekey.delete(s.kv, nid)
+	nodeKey.delete(s.kv, nid)
 
 	delete(s.nodes, *nid)
 
 	if err := s.save(); err != nil {
-		jww.FATAL.Panicf("Failed    make nodeKey for %s: %s", nid, err)
+		jww.FATAL.Panicf("Failed to make nodeKey for %s: %+v", nid, err)
 	}
 }
 
-//Returns a RoundKeys for the topology and a list of nodes it did not have a key for
-// If there are missing keys, returns nil RoundKeys
+// GetRoundKeys returns a RoundKeys for the topology and a list of nodes it did
+// not have a key for. If there are missing keys, then returns nil RoundKeys.
 func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
@@ -164,17 +162,17 @@ func (s *Store) GetRoundKeys(topology *connect.Circuit) (*RoundKeys, []*id.ID) {
 	return rk, missingNodes
 }
 
-//Returns the diffie hellman private key
+// GetDHPrivateKey returns the diffie hellman private key
 func (s *Store) GetDHPrivateKey() *cyclic.Int {
 	return s.dhPrivateKey
 }
 
-//Returns the diffie hellman public key
+// GetDHPublicKey returns the diffie hellman public key.
 func (s *Store) GetDHPublicKey() *cyclic.Int {
 	return s.dhPublicKey
 }
 
-//Returns the cyclic group used for cmix
+// GetGroup returns the cyclic group used for cMix.
 func (s *Store) GetGroup() *cyclic.Group {
 	return s.grp
 }
@@ -187,7 +185,14 @@ func (s *Store) IsRegistered(nid *id.ID) bool {
 	return ok
 }
 
-// stores the cmix store
+// Count returns the number of registered nodes.
+func (s *Store) Count() int {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return len(s.nodes)
+}
+
+// save stores the cMix store.
 func (s *Store) save() error {
 	now := time.Now()
 
@@ -205,7 +210,7 @@ func (s *Store) save() error {
 	return s.kv.Set(storeKey, &obj)
 }
 
-// builds a byte representation of the store
+// marshal builds a byte representation of the Store.
 func (s *Store) marshal() ([]byte, error) {
 	nodes := make([]id.ID, len(s.nodes))
 
@@ -218,7 +223,8 @@ func (s *Store) marshal() ([]byte, error) {
 	return json.Marshal(&nodes)
 }
 
-// restores the data for a store from the byte representation of the store
+// unmarshal restores the data for a Store from the byte representation of the
+// Store
 func (s *Store) unmarshal(b []byte) error {
 	var nodes []id.ID
 
@@ -237,20 +243,17 @@ func (s *Store) unmarshal(b []byte) error {
 
 	s.dhPrivateKey, err = utility.LoadCyclicKey(s.kv, privKeyKey)
 	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load cmix DH private key")
+		return errors.WithMessage(err, "Failed to load cMix DH private key")
 	}
 
 	s.dhPublicKey, err = utility.LoadCyclicKey(s.kv, pubKeyKey)
 	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load cmix DH public key")
+		return errors.WithMessage(err, "Failed to load cMix DH public key")
 	}
 
 	s.grp, err = utility.LoadGroup(s.kv, grpKey)
 	if err != nil {
-		return errors.WithMessage(err,
-			"Failed to load cmix group")
+		return errors.WithMessage(err, "Failed to load cMix group")
 	}
 
 	return nil

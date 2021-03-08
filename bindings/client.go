@@ -345,6 +345,14 @@ func (c *Client) GetUser() *User {
 	return &User{u: &u}
 }
 
+// GetNodeRegistrationStatus returns a struct with the number of nodes the
+// client is registered with and the number of in progress registrations.
+func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
+	registered, inProgress, err := c.api.GetNodeRegistrationStatus()
+
+	return &NodeRegistrationsStatus{registered, inProgress}, err
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.

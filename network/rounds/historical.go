@@ -62,7 +62,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 				select {
 				case m.historicalRounds <- r:
 				default:
-					m.p.NotProcessing(r.rid)
+					m.p.NotProcessing(r.rid, r.identity.EphId, r.identity.Source)
 				}
 			}
 			done = true
@@ -73,7 +73,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			}
 		// get new round to lookup and force a lookup if
 		case r := <-m.historicalRounds:
-			jww.DEBUG.Printf("Recieved and quing round %d for " +
+			jww.DEBUG.Printf("Recieved and quing round %d for "+
 				"historical rounds lookup", r.rid)
 			roundRequests = append(roundRequests, r)
 			if len(roundRequests) > int(m.params.MaxHistoricalRounds) {
@@ -104,7 +104,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
-		jww.DEBUG.Printf("Requesting Historical rounds %v from " +
+		jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 			"gateway %s", rounds, gwHost.GetId())
 
 		response, err := comm.RequestHistoricalRounds(gwHost, hr)
@@ -125,7 +125,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			if roundInfo == nil {
 				jww.ERROR.Printf("Failed to retreive "+
 					"historical round %d", roundRequests[i].rid)
-				m.p.Fail(roundRequests[i].rid)
+				m.p.Fail(roundRequests[i].rid, roundRequests[i].identity.EphId, roundRequests[i].identity.Source)
 				continue
 			}
 			// Successfully retrieved roundRequests are sent to the Message

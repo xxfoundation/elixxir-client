@@ -25,6 +25,9 @@ package network
 import (
 	"bytes"
 	"fmt"
+	"math"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -35,11 +38,10 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
-	"math"
-	"time"
 )
 
 const debugTrackPeriod = 1 * time.Minute
+const maxChecked = 100000
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -184,7 +186,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					update.State = uint32(states.FAILED)
 					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
 
-					// Delete all existing keys and trigger a re-registration with the relevant Node
+					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
 					m.Instance.GetAddGatewayChan() <- nGw
 				}
@@ -236,9 +238,25 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		return m.round.Checker(rid, filterList, identity)
 	}
 
+	// move the earliest unknown round tracker forward to the earliest
+	// tracked round if it is behind
+	earliestTrackedRound := id.Round(pollResp.EarliestRound)
+	updated := identity.UR.Set(earliestTrackedRound)
+
+
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	identity.KR.RangeUncheckedMaskedRange(gwRoundsState, roundChecker,
-		firstRound, lastRound+1, int(m.param.MaxCheckedRounds))
+	earliestRemaining := gwRoundsState.RangeUnchecked(updated,
+		maxChecked, roundChecker)
+	identity.UR.Set(earliestRemaining)
+	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
+
+
+	//delete any old rounds from processing
+	if earliestRemaining>updated{
+		for i:=updated;i<=earliestRemaining;i++{
+			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+		}
+	}
 }

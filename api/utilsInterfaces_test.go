@@ -115,3 +115,7 @@ func (t *testNetworkManagerGeneric) GetRemoteVersion() (string, error) {
 func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 	return &stoppable.Multi{}
 }
+
+func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
+	return 0
+}

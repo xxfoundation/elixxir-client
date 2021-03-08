@@ -7,15 +7,7 @@
 
 package utility
 
-import (
-	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/storage/versioned"
-	"gitlab.com/elixxir/primitives/knownRounds"
-	"gitlab.com/xx_network/primitives/id"
-	"sync"
-	"time"
-)
-
+/*
 // Sub key used in building keys for saving the message to the key value store
 const knownRoundsPrefix = "knownRound"
 
@@ -191,4 +183,4 @@ func (kr *KnownRounds) RangeUncheckedMaskedRange(mask *knownRounds.KnownRounds,
 	if err != nil {
 		jww.FATAL.Panicf("Error saving list of checked rounds: %v", err)
 	}
-}
+}*/

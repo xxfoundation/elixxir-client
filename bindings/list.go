@@ -78,16 +78,16 @@ func (cl *ContactList) Get(i int) (*Contact, error) {
 			" list len")
 	}
 
-	return &Contact{c:&cl.list[i]}, nil
+	return &Contact{c: &cl.list[i]}, nil
 }
 
 /*FactList*/
-func NewFactList()*FactList{
-	return &FactList{ c: &contact.Contact{
+func NewFactList() *FactList {
+	return &FactList{c: &contact.Contact{
 		ID:             nil,
 		DhPubKey:       nil,
 		OwnershipProof: nil,
-		Facts:          make([]fact.Fact,0),
+		Facts:          make([]fact.Fact, 0),
 	}}
 }
 
@@ -105,7 +105,7 @@ func (fl *FactList) Get(i int) Fact {
 
 func (fl *FactList) Add(factData string, factType int) error {
 	f, err := fact.NewFact(fact.FactType(factType), factData)
-	if err!=nil{
+	if err != nil {
 		return err
 	}
 	fl.c.Facts = append(fl.c.Facts, f)

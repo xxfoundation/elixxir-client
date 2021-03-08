@@ -101,7 +101,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	baseKey *cyclic.Int, trigger SessionID, relationshipFingerprint []byte,
 	negotiationStatus Negotiation, e2eParams params.E2ESessionParams) *Session {
 
-	if e2eParams.MinKeys<10{
+	if e2eParams.MinKeys < 10 {
 		jww.FATAL.Panicf("Cannot create a session with a minnimum number " +
 			"of keys less than 10")
 	}
@@ -188,7 +188,7 @@ func (s *Session) save() error {
 
 /*METHODS*/
 // Done all unused key fingerprints
-// Delete this session and its key states from the storage
+// delete this session and its key states from the storage
 func (s *Session) Delete() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -552,7 +552,7 @@ func (s *Session) generate(kv *versioned.KV) *versioned.KV {
 		s.baseKey.Bytes(), h).Int64() + int64(p.MinKeys))
 
 	// start rekeying when 75% of keys have been used
-	s.rekeyThreshold = (numKeys*3)/4
+	s.rekeyThreshold = (numKeys * 3) / 4
 
 	// the total number of keys should be the number of rekeys plus the
 	// number of keys to use

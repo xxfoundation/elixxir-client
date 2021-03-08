@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/globals"
 	userInterface "gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/storage/auth"
+	"gitlab.com/elixxir/client/storage/clientVersion"
 	"gitlab.com/elixxir/client/storage/cmix"
 	"gitlab.com/elixxir/client/storage/conversation"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -25,6 +26,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/elixxir/primitives/version"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
@@ -57,6 +59,7 @@ type Session struct {
 	criticalRawMessages *utility.CmixMessageBuffer
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	reception           *reception.Store
+	clientVersion       *clientVersion.Store
 }
 
 // Initialize a new Session object
@@ -76,9 +79,8 @@ func initStore(baseDir, password string) (*Session, error) {
 }
 
 // Creates new UserData in the session
-
-func New(baseDir, password string, u userInterface.User, cmixGrp,
-	e2eGrp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
+func New(baseDir, password string, u userInterface.User, currentVersion version.Version,
+	cmixGrp, e2eGrp *cyclic.Group, rng *fastRNG.StreamGenerator) (*Session, error) {
 
 	s, err := initStore(baseDir, password)
 	if err != nil {
@@ -132,11 +134,18 @@ func New(baseDir, password string, u userInterface.User, cmixGrp,
 
 	s.reception = reception.NewStore(s.kv)
 
+	s.clientVersion, err = clientVersion.NewStore(currentVersion, s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create client version store.")
+	}
+
 	return s, nil
 }
 
 // Loads existing user data into the session
-func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, error) {
+func Load(baseDir, password string, currentVersion version.Version,
+	rng *fastRNG.StreamGenerator) (*Session, error) {
+
 	s, err := initStore(baseDir, password)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
@@ -145,6 +154,17 @@ func Load(baseDir, password string, rng *fastRNG.StreamGenerator) (*Session, err
 	err = s.loadRegStatus()
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load Session")
+	}
+
+	s.clientVersion, err = clientVersion.LoadStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load client version store.")
+	}
+
+	// Determine if the storage needs to be updated to the current version
+	_, _, err = s.clientVersion.CheckUpdateRequired(currentVersion)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load client version store.")
 	}
 
 	s.user, err = user.LoadUser(s.kv)
@@ -241,6 +261,13 @@ func (s *Session) GetGarbledMessages() *utility.MeteredCmixMessageBuffer {
 	return s.garbledMessages
 }
 
+// GetClientVersion returns the version of the client storage.
+func (s *Session) GetClientVersion() version.Version {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.clientVersion.Get()
+}
+
 func (s *Session) Conversations() *conversation.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
@@ -263,7 +290,7 @@ func (s *Session) Set(key string, object *versioned.Object) error {
 	return s.kv.Set(key, object)
 }
 
-// Delete a value in the session
+// delete a value in the session
 func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key)
 }
@@ -307,11 +334,11 @@ func InitTestingSession(i interface{}) *Session {
 			"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71"+
 			"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0"+
 			"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7", 16))
-	cmix, err := cmix.NewStore(cmixGrp, kv, cmixGrp.NewInt(2))
+	cmixStore, err := cmix.NewStore(cmixGrp, kv, cmixGrp.NewInt(2))
 	if err != nil {
 		globals.Log.FATAL.Panicf("InitTestingSession failed to create dummy cmix session: %+v", err)
 	}
-	s.cmix = cmix
+	s.cmix = cmixStore
 
 	e2eStore, err := e2e.NewStore(cmixGrp, kv, cmixGrp.NewInt(2), uid,
 		fastRNG.NewStreamGenerator(7, 3, csprng.NewSystemRNG))

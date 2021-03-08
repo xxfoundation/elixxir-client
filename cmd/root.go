@@ -374,7 +374,7 @@ func printChanRequest(requestor contact.Contact, message string) {
 	fmt.Printf(msg)
 	msg = fmt.Sprintf("Authentication channel request message: %s\n", message)
 	jww.INFO.Printf(msg)
-	fmt.Printf(msg)
+	//fmt.Printf(msg)
 }
 
 func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
@@ -560,15 +560,15 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogOutput(logOutput)
 	}
 
-	if threshold>1{
+	if threshold > 1 {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
-	}else if threshold == 1{
+	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
-	}else{
+	} else {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)

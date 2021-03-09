@@ -175,5 +175,5 @@ func (m *manager) CheckGarbledMessages() {
 
 // InProgressRegistrations returns the number of in progress node registrations.
 func (m *manager) InProgressRegistrations() int {
-	return len(m.Internal.NodeRegistration) + 1
+	return len(m.Internal.NodeRegistration) + int(m.param.ParallelNodeRegistrations)
 }

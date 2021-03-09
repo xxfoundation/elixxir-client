@@ -70,7 +70,7 @@ type UpgradeTable struct {
 
 // Get gets and upgrades data stored in the key/value store
 // Make sure to inspect the version returned in the versioned object
-func (v *KV) GetUpgrade(key string, ut UpgradeTable) (*Object, error) {
+func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	version := ut.CurrentVersion
 	key = v.makeKey(key, version)
 
@@ -83,6 +83,7 @@ func (v *KV) GetUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	// NOTE: Upgrades do not happen on the current version, so we check to
 	// see if version-1, version-2, and so on exist to find out if an
 	// earlier version of this object exists.
+	version++
 	for version != 0 {
 		version--
 		key = v.makeKey(key, version)
@@ -98,7 +99,7 @@ func (v *KV) GetUpgrade(key string, ut UpgradeTable) (*Object, error) {
 		}
 	}
 
-	if version < 0 {
+	if result==nil || len(result.Data)==0 {
 		return nil, errors.Errorf("Failed to get key and upgrade it for %s", v.makeKey(key, ut.CurrentVersion))
 	}
 

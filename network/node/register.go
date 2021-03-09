@@ -45,8 +45,6 @@ func StartRegistration(instance *network.Instance, session *storage.Session, rng
 
 	multi := stoppable.NewMulti("NodeRegistrations")
 
-	instance.SetAddGatewayChan(c)
-
 	for i:=uint(0);i<numParallel;i++{
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 

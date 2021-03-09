@@ -11,6 +11,10 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"sync/atomic"
+
+	"time"
+
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -27,9 +31,6 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
-	"sync/atomic"
-
-	"time"
 )
 
 // Manager implements the NetworkManager interface inside context. It
@@ -73,9 +74,9 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	//create manager object
 	m := manager{
-		param:   params,
-		running: &running,
-		tracker: newPollTracker(),
+		param:         params,
+		running:       &running,
+		tracker:       newPollTracker(),
 	}
 
 	m.Internal = internal.Internal{
@@ -107,7 +108,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Garbled Messages (/network/message/garbled.go)
 //	 - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/ephemeral/tracker.go)
-func (m *manager) Follow() (stoppable.Stoppable, error) {
+func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
 		return nil, errors.Errorf("network routines are already running")
 	}
@@ -129,7 +130,7 @@ func (m *manager) Follow() (stoppable.Stoppable, error) {
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(trackNetworkStopper.Quit())
+	go m.followNetwork(report, trackNetworkStopper.Quit())
 	multi.Add(trackNetworkStopper)
 
 	// Message reception

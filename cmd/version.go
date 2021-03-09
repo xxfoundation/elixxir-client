@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/spf13/cobra"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/xx_network/primitives/utils"

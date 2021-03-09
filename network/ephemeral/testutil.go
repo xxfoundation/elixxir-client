@@ -68,7 +68,7 @@ func (t *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {
 	return nil
 }
 
-func (t *testNetworkManager) Follow() (stoppable.Stoppable, error) {
+func (t *testNetworkManager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 

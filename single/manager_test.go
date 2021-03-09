@@ -312,7 +312,7 @@ func (tnm *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {
 	return nil
 }
 
-func (tnm *testNetworkManager) Follow() (stoppable.Stoppable, error) {
+func (tnm *testNetworkManager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 

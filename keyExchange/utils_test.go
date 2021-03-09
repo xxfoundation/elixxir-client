@@ -57,7 +57,7 @@ func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker 
 	return nil
 }
 
-func (t *testNetworkManagerGeneric) Follow() (stoppable.Stoppable, error) {
+func (t *testNetworkManagerGeneric) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 
@@ -140,7 +140,7 @@ func (t *testNetworkManagerFullExchange) GetHealthTracker() interfaces.HealthTra
 	return nil
 }
 
-func (t *testNetworkManagerFullExchange) Follow() (stoppable.Stoppable, error) {
+func (t *testNetworkManagerFullExchange) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 

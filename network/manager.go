@@ -91,6 +91,10 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
+	// register the node registration channel early so login connection updates
+	// get triggered for registration if necessary
+	instance.SetAddGatewayChan(m.NodeRegistration)
+
 	//create sub managers
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)
 	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel())

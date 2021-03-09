@@ -41,14 +41,18 @@ type RegisterNodeCommsInterface interface {
 }
 
 func StartRegistration(instance *network.Instance, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	c chan network.NodeGateway) stoppable.Stoppable {
-	stop := stoppable.NewSingle("NodeRegistration")
+	c chan network.NodeGateway, numParallel uint) stoppable.Stoppable {
 
-	instance.SetAddGatewayChan(c)
+	multi := stoppable.NewMulti("NodeRegistrations")
 
-	go registerNodes(session, rngGen, comms, stop, c)
+	for i:=uint(0);i<numParallel;i++{
+		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-	return stop
+		go registerNodes(session, rngGen, comms, stop, c)
+		multi.Add(stop)
+	}
+
+	return multi
 }
 
 func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
@@ -74,7 +78,6 @@ func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, co
 		case <-t.C:
 		}
 	}
-
 }
 
 //registerWithNode serves as a helper for RegisterWithNodes

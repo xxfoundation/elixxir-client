@@ -25,6 +25,7 @@ package network
 import (
 	"bytes"
 	"fmt"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"math"
 	"time"
 
@@ -145,6 +146,14 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		}
 	}
 
+	// Pull out the permisisoning key for use in round handling
+	permHost, ok := comms.GetHost(&id.Permissioning)
+	if !ok {
+		jww.ERROR.Printf("Failed to get permissioning host: %v", err)
+		return
+	}
+	permissioningPubKey := permHost.GetPubKey()
+
 	//check that the stored address space is correct
 	m.Session.Reception().UpdateIdSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
 	// Updates any id size readers of a network compliant id size
@@ -187,7 +196,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					// FIXME: without mutating the RoundInfo. Signature also needs verified
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
-					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
+					rnd := ds.NewRound(update, permissioningPubKey)
+					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
 
 					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
@@ -246,7 +256,6 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	updated := identity.UR.Set(earliestTrackedRound)
 
-
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
@@ -255,10 +264,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	identity.UR.Set(earliestRemaining)
 	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
 
-
 	//delete any old rounds from processing
-	if earliestRemaining>updated{
-		for i:=updated;i<=earliestRemaining;i++{
+	if earliestRemaining > updated {
+		for i := updated; i <= earliestRemaining; i++ {
 			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
 		}
 	}

@@ -59,7 +59,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
-	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
+	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
@@ -74,9 +74,9 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	//create manager object
 	m := manager{
-		param:         params,
-		running:       &running,
-		tracker:       newPollTracker(),
+		param:   params,
+		running: &running,
+		tracker: newPollTracker(),
 	}
 
 	m.Internal = internal.Internal{

@@ -26,8 +26,8 @@ const (
 	Done
 )
 
-func (s Status)String()string{
-	switch s{
+func (s Status) String() string {
+	switch s {
 	case NotProcessing:
 		return "NotProcessing"
 	case Processing:
@@ -39,9 +39,8 @@ func (s Status)String()string{
 	}
 }
 
-
 type status struct {
-	failCount  uint
+	failCount uint
 	Status
 }
 
@@ -89,7 +88,7 @@ func (pr *processing) Process(round id.Round, eph ephemeral.Id, source *id.ID) (
 	if rs, ok = pr.rounds[hid]; ok && rs.Status == NotProcessing {
 		rs.Status = Processing
 		return NotProcessing, rs.failCount
-	}else if !ok{
+	} else if !ok {
 		rs = &status{
 			failCount: 0,
 			Status:    Processing,

@@ -9,6 +9,8 @@ import (
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
+	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/elixxir/comms/testutils"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -78,7 +80,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		uint64(now.Add(5 * time.Second).UnixNano()),   //QUEUED
 		0} //REALTIME
 
-	inst.GetWaitingRounds().Insert(&mixmessages.RoundInfo{
+	ri := &mixmessages.RoundInfo{
 		ID:                         3,
 		UpdateID:                   0,
 		State:                      uint32(states.QUEUED),
@@ -90,7 +92,18 @@ func Test_attemptSendCmix(t *testing.T) {
 		ResourceQueueTimeoutMillis: 0,
 		Signature:                  nil,
 		AddressSpaceSize:           4,
-	})
+	}
+
+	if err = testutils.SignRoundInfo(ri, t); err != nil {
+		t.Errorf("Failed to sign mock round info: %v", err)
+	}
+
+	pubKey, err := testutils.LoadPublicKeyTesting(t)
+	if err != nil {
+		t.Errorf("Failed to load a key for testing: %v", err)
+	}
+	rnd := ds.NewRound(ri, pubKey)
+	inst.GetWaitingRounds().Insert(rnd)
 	i := internal.Internal{
 		Session:          sess1,
 		Switchboard:      sw,

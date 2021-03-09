@@ -65,7 +65,7 @@ func loadStateVector(kv *versioned.KV, key string) (*stateVector, error) {
 		key: stateVectorKey + key,
 	}
 
-	obj, err := kv.Get(sv.key)
+	obj, err := kv.Get(sv.key, currentStateVectorVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (sv *stateVector) save() error {
 		Data:      data,
 	}
 
-	return sv.kv.Set(sv.key, &obj)
+	return sv.kv.Set(sv.key, currentStateVectorVersion, &obj)
 }
 
 func (sv *stateVector) Use(keynum uint32) {
@@ -205,7 +205,7 @@ func (sv *stateVector) String() string {
 
 //Deletes the state vector from storage
 func (sv *stateVector) Delete() error {
-	return sv.kv.Delete(sv.key)
+	return sv.kv.Delete(sv.key, currentStateVectorVersion)
 }
 
 // finds the next used state and sets that as firstAvailable. This does not

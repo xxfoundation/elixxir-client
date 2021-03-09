@@ -149,13 +149,14 @@ func loadSession(ship *relationship, kv *versioned.KV,
 		kv:           kv,
 	}
 
-	obj, err := kv.Get(sessionKey)
+	obj, err := kv.Get(sessionKey, currentSessionVersion)
 	if err != nil {
-		return nil, errors.WithMessagef(err, "Failed to load %s", kv.GetFullKey(sessionKey))
+		return nil, errors.WithMessagef(err, "Failed to load %s",
+			kv.GetFullKey(sessionKey, currentSessionVersion))
 	}
 
-	obj, err := sessionUpgradeTable.Upgrade(obj)
-
+	// TODO: Not necessary until we have versions on this object...
+	//obj, err := sessionUpgradeTable.Upgrade(obj)
 
 	err = session.unmarshal(obj.Data)
 	if err != nil {
@@ -186,7 +187,7 @@ func (s *Session) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(sessionKey, &obj)
+	return s.kv.Set(sessionKey, currentSessionVersion, &obj)
 }
 
 /*METHODS*/
@@ -199,7 +200,7 @@ func (s *Session) Delete() {
 	s.relationship.manager.ctx.fa.remove(s.getUnusedKeys())
 
 	stateVectorErr := s.keyState.Delete()
-	sessionErr := s.kv.Delete(sessionKey)
+	sessionErr := s.kv.Delete(sessionKey, currentSessionVersion)
 
 	if stateVectorErr != nil && sessionErr != nil {
 		jww.ERROR.Printf("Error deleting state vector with key %v: %v", stateVectorKey, stateVectorErr.Error())

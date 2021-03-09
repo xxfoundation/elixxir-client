@@ -63,7 +63,8 @@ func newCryptographicIdentity(transmissionID, receptionID *id.ID, transmissionSa
 }
 
 func loadCryptographicIdentity(kv *versioned.KV) (*CryptographicIdentity, error) {
-	obj, err := kv.Get(cryptographicIdentityKey)
+	obj, err := kv.Get(cryptographicIdentityKey,
+		currentCryptographicIdentityVersion)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to get user "+
 			"cryptographic identity from EKV")
@@ -115,7 +116,8 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 		Data:      userDataBuffer.Bytes(),
 	}
 
-	return kv.Set(cryptographicIdentityKey, obj)
+	return kv.Set(cryptographicIdentityKey,
+		currentCryptographicIdentityVersion, obj)
 }
 
 func (ci *CryptographicIdentity) GetTransmissionID() *id.ID {

@@ -36,6 +36,7 @@ import (
 
 // Number of rounds to store in the CheckedRound buffer
 const CheckRoundsMaxSize = 1000000 / 64
+const currentSessionVersion = 0
 
 // Session object, backed by encrypted filestore
 type Session struct {
@@ -255,17 +256,17 @@ func (s *Session) Partition() *partition.Store {
 
 // Get an object from the session
 func (s *Session) Get(key string) (*versioned.Object, error) {
-	return s.kv.Get(key)
+	return s.kv.Get(key, currentSessionVersion)
 }
 
 // Set a value in the session
 func (s *Session) Set(key string, object *versioned.Object) error {
-	return s.kv.Set(key, object)
+	return s.kv.Set(key, currentSessionVersion, object)
 }
 
 // delete a value in the session
 func (s *Session) Delete(key string) error {
-	return s.kv.Delete(key)
+	return s.kv.Delete(key, currentSessionVersion)
 }
 
 // Initializes a Session object wrapped around a MemStore object.

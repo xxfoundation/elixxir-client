@@ -133,7 +133,7 @@ func (c *Conversation) GetNextSendID() (uint64, uint32) {
 func loadConversation(kv *versioned.KV, partner *id.ID) (*Conversation, error) {
 	key := makeConversationKey(partner)
 
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(key, 0)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to Load conversation")
 	}
@@ -164,13 +164,13 @@ func (c *Conversation) save() error {
 	}
 
 	key := makeConversationKey(c.partner)
-	return c.kv.Set(key, &obj)
+	return c.kv.Set(key, 0, &obj)
 }
 
 // delete removes the Conversation from KV storage.
 func (c *Conversation) delete() error {
 	key := makeConversationKey(c.partner)
-	return c.kv.Delete(key)
+	return c.kv.Delete(key, currentConversationVersion)
 }
 
 func (c *Conversation) unmarshal(b []byte) error {

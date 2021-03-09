@@ -49,7 +49,7 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key s
 	}
 
 	// Save versioned object
-	return kv.Set(key, &obj)
+	return kv.Set(key, currentE2EMessageVersion, &obj)
 }
 
 // LoadMessage returns the e2eMessage with the specified key from the key value
@@ -57,7 +57,7 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key s
 // retrieved.
 func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
 	// Load the versioned object
-	vo, err := kv.Get(key)
+	vo, err := kv.Get(key, currentE2EMessageVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +74,7 @@ func (emh *e2eMessageHandler) LoadMessage(kv *versioned.KV, key string) (interfa
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
 func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
-	return kv.Delete(key)
+	return kv.Delete(key, currentE2EMessageVersion)
 }
 
 // HashMessage generates a hash of the e2eMessage.

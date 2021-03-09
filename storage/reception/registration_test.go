@@ -48,7 +48,7 @@ func TestNewRegistration_Ephemeral(t *testing.T) {
 		t.Error("Ephemeral identity does not have a known rounds.")
 	}
 
-	if _, err = reg.kv.Get(identityStorageKey); err == nil {
+	if _, err = reg.kv.Get(identityStorageKey, 0); err == nil {
 		t.Error("Ephemeral identity stored the identity when it should not have.")
 	}
 }
@@ -79,7 +79,7 @@ func TestNewRegistration_Persistent(t *testing.T) {
 	// if it isnt
 	LoadUnknownRound(reg.kv)
 
-	if _, err = reg.kv.Get(identityStorageKey); err != nil {
+	if _, err = reg.kv.Get(identityStorageKey, 0); err != nil {
 		t.Errorf("Persistent identity did not store the identity when "+
 			"it should: %+v.", err)
 	}

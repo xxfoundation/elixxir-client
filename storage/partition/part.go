@@ -18,7 +18,7 @@ const currentMultiPartMessagePartVersion = 0
 func loadPart(kv *versioned.KV, partNum uint8) ([]byte, error) {
 	key := makeMultiPartMessagePartKey(partNum)
 
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(key, currentMultiPartMessageVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -35,12 +35,12 @@ func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
 		Data:      part,
 	}
 
-	return kv.Set(key, &obj)
+	return kv.Set(key, currentMultiPartMessageVersion, &obj)
 }
 
 func deletePart(kv *versioned.KV, partNum uint8) error {
 	key := makeMultiPartMessagePartKey(partNum)
-	return kv.Delete(key)
+	return kv.Delete(key, currentMultiPartMessageVersion)
 }
 
 // Make the key for a part

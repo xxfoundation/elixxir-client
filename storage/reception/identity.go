@@ -34,7 +34,7 @@ type Identity struct {
 }
 
 func loadIdentity(kv *versioned.KV) (Identity, error) {
-	obj, err := kv.Get(identityStorageKey)
+	obj, err := kv.Get(identityStorageKey, identityStorageVersion)
 	if err != nil {
 		return Identity{}, errors.WithMessage(err, "Failed to load Identity")
 	}
@@ -62,7 +62,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	}
 
 	// Store the data
-	err = kv.Set(identityStorageKey, obj)
+	err = kv.Set(identityStorageKey, identityStorageVersion, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store Identity")
 	}
@@ -71,7 +71,7 @@ func (i Identity) store(kv *versioned.KV) error {
 }
 
 func (i Identity) delete(kv *versioned.KV) error {
-	return kv.Delete(identityStorageKey)
+	return kv.Delete(identityStorageKey, identityStorageVersion)
 }
 
 func (i *Identity) String() string {

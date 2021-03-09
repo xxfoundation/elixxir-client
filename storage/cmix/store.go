@@ -82,7 +82,7 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 		kv:    kv,
 	}
 
-	obj, err := kv.Get(storeKey)
+	obj, err := kv.Get(storeKey, currentKeyVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(storeKey, &obj)
+	return s.kv.Set(storeKey, currentKeyVersion, &obj)
 }
 
 // marshal builds a byte representation of the Store.

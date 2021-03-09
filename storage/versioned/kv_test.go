@@ -20,8 +20,8 @@ import (
 func TestVersionedKV_Get_Err(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
-	result, err := vkv.Get(key)
+	key := vkv.GetFullKey("test", 0)
+	result, err := vkv.Get(key, 0)
 	if err == nil {
 		t.Error("Getting a key that didn't exist should have" +
 			" returned an error")
@@ -37,7 +37,7 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
 		Timestamp: time.Now(),
@@ -54,7 +54,8 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 		}, nil
 	}}
 
-	result, err := vkv.GetUpgrade(key, upgrade)
+	result, err := vkv.GetUpgrade(key, UpgradeTable{CurrentVersion: 1,
+		Table: upgrade})
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
@@ -71,7 +72,7 @@ func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := "test"
 
 	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
 		return &Object{
@@ -81,8 +82,9 @@ func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
 		}, nil
 	}}
 
-	_, err := vkv.GetUpgrade(key, upgrade)
-	if err == nil {
+	_, err := vkv.GetUpgrade(key, UpgradeTable{CurrentVersion: 1,
+		Table: upgrade})
+	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
 	}
@@ -93,7 +95,7 @@ func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
 		Timestamp: time.Now(),
@@ -107,12 +109,13 @@ func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
 	}}
 
 	defer func() {
-        if r := recover(); r == nil {
-            t.Errorf("The code did not panic")
-        }
-    }()
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
 
-	_, _ = vkv.GetUpgrade(key, upgrade)
+	_, _ = vkv.GetUpgrade("test", UpgradeTable{CurrentVersion: 1,
+		Table: upgrade})
 }
 
 // Test delete key happy path
@@ -120,7 +123,7 @@ func TestVersionedKV_Delete(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
 		Timestamp: time.Now(),
@@ -129,7 +132,7 @@ func TestVersionedKV_Delete(t *testing.T) {
 	originalSerialized := original.Marshal()
 	kv[key] = originalSerialized
 
-	err := vkv.Delete(key)
+	err := vkv.Delete("test", 0)
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
@@ -145,8 +148,8 @@ func TestVersionedKV_Get(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	originalVersion := uint64(1)
-	key := MakeKeyWithPrefix("test", "12345")
+	originalVersion := uint64(0)
+	key := vkv.GetFullKey("test", originalVersion)
 	original := Object{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
@@ -155,7 +158,7 @@ func TestVersionedKV_Get(t *testing.T) {
 	originalSerialized := original.Marshal()
 	kv[key] = originalSerialized
 
-	result, err := vkv.Get(key)
+	result, err := vkv.Get("test", originalVersion)
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
@@ -171,13 +174,13 @@ func TestVersionedKV_Set(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
 	originalVersion := uint64(1)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := vkv.GetFullKey("test", originalVersion)
 	original := Object{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	err := vkv.Set(key, &original)
+	err := vkv.Set("test", originalVersion, &original)
 	if err != nil {
 		t.Fatal(err)
 	}

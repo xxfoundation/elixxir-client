@@ -62,7 +62,7 @@ func TestNewStore(t *testing.T) {
 			"\n\texpected: %+v\n\treceived: %+v", expectedStore, store)
 	}
 
-	key, err := expectedStore.kv.Get(storeKey)
+	key, err := expectedStore.kv.Get(storeKey, 0)
 	if err != nil {
 		t.Errorf("Get() encoutnered an error when getting Store from KV: %v", err)
 	}

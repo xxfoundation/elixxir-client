@@ -29,11 +29,11 @@ func StoreGroup(kv *versioned.KV, grp *cyclic.Group, key string) error {
 		Data:      data,
 	}
 
-	return kv.Set(key, &obj)
+	return kv.Set(key, currentE2EMessageVersion, &obj)
 }
 
 func LoadGroup(kv *versioned.KV, key string) (*cyclic.Group, error) {
-	vo, err := kv.Get(key)
+	vo, err := kv.Get(key, currentE2EMessageVersion)
 	if err != nil {
 		return nil, err
 	}

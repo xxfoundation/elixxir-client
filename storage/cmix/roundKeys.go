@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -24,7 +25,7 @@ type RoundKeys struct {
 // Encrypts the given message for CMIX
 // Panics if the passed message is not sized correctly for the group
 func (rk *RoundKeys) Encrypt(msg format.Message,
-	salt []byte) (format.Message, [][]byte) {
+	salt []byte, roundID id.Round) (format.Message, [][]byte) {
 
 	if msg.GetPrimeByteLen() != rk.g.GetP().ByteLen() {
 		jww.FATAL.Panicf("Cannot encrypt message whose size does not " +
@@ -38,14 +39,14 @@ func (rk *RoundKeys) Encrypt(msg format.Message,
 		keys[i] = k.Get()
 	}
 
-	ecrMsg := ClientEncrypt(rk.g, msg, salt, keys)
+	ecrMsg := ClientEncrypt(rk.g, msg, salt, roundID, keys)
 
 	h, err := hash.NewCMixHash()
 	if err != nil {
 		jww.FATAL.Panicf("Cound not get hash for KMAC generation: %+v", h)
 	}
 
-	KMAC := cmix.GenerateKMACs(salt, keys, h)
+	KMAC := cmix.GenerateKMACs(salt, keys, roundID, h)
 
 	return ecrMsg, KMAC
 }
@@ -63,7 +64,7 @@ func (rk *RoundKeys) MakeClientGatewayKey(salt, digest []byte) []byte {
 }
 
 func ClientEncrypt(grp *cyclic.Group, msg format.Message,
-	salt []byte, baseKeys []*cyclic.Int) format.Message {
+	salt []byte, roundID id.Round, baseKeys []*cyclic.Int) format.Message {
 
 	// Get the salt for associated data
 	hash, err := blake2b.New256(nil)
@@ -75,8 +76,8 @@ func ClientEncrypt(grp *cyclic.Group, msg format.Message,
 	salt2 := hash.Sum(nil)
 
 	// Get encryption keys
-	keyEcrA := cmix.ClientKeyGen(grp, salt, baseKeys)
-	keyEcrB := cmix.ClientKeyGen(grp, salt2, baseKeys)
+	keyEcrA := cmix.ClientKeyGen(grp, salt, roundID, baseKeys)
+	keyEcrB := cmix.ClientKeyGen(grp, salt2, roundID, baseKeys)
 
 	// Get message payloads as cyclic integers
 	payloadA := grp.NewIntFromBytes(msg.GetPayloadA())

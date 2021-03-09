@@ -21,6 +21,8 @@ type Network struct {
 	// Longest delay between network events for Health tracker to denote that
 	// the network is in a bad state
 	NetworkHealthTimeout time.Duration
+	//Number of parallel node registration the client is capable of
+	ParallelNodeRegistrations uint
 
 	Rounds
 	Messages
@@ -36,6 +38,7 @@ func GetDefaultNetwork() Network {
 		RegNodesBufferLen:    500,
 		NetworkHealthTimeout: 30 * time.Second,
 		E2EParams:            GetDefaultE2ESessionParams(),
+		ParallelNodeRegistrations: 8,
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

@@ -40,7 +40,7 @@ func TestUser_SetUsername(t *testing.T) {
 		t.Error("Did not error when attempting to set a new username")
 	}
 
-	o, err := u.kv.Get(usernameKey)
+	o, err := u.kv.Get(usernameKey, 0)
 	if err != nil {
 		t.Errorf("Didn't get username from user kv store: %+v", err)
 	}
@@ -92,7 +92,7 @@ func TestUser_loadUsername(t *testing.T) {
 
 	u1 := "zezima"
 
-	err = u.kv.Set(usernameKey, &versioned.Object{
+	err = u.kv.Set(usernameKey, currentUsernameVersion, &versioned.Object{
 		Version:   currentUsernameVersion,
 		Timestamp: time.Now(),
 		Data:      []byte(u1),

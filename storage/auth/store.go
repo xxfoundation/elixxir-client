@@ -65,7 +65,7 @@ func NewStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Sto
 // fingerprints so they can be used to trigger requests.
 func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*Store, error) {
 	kv = kv.Prefix(storePrefix)
-	sentObj, err := kv.Get(requestMapKey)
+	sentObj, err := kv.Get(requestMapKey, requestMapVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to load requestMap")
 	}
@@ -165,7 +165,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(requestMapKey, &obj)
+	return s.kv.Set(requestMapKey, requestMapVersion, &obj)
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,

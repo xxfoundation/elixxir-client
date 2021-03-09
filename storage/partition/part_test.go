@@ -33,7 +33,7 @@ func Test_savePart(t *testing.T) {
 	}
 
 	// Attempt to get from key value store
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(key, 0)
 	if err != nil {
 		t.Errorf("Get() produced an error: %v", err)
 	}
@@ -56,7 +56,7 @@ func Test_loadPart(t *testing.T) {
 	key := makeMultiPartMessagePartKey(partNum)
 
 	// Save part to key value store
-	err := rootKv.Set(key, &versioned.Object{Timestamp: time.Now(), Data: part})
+	err := rootKv.Set(key, 0, &versioned.Object{Timestamp: time.Now(), Data: part})
 	if err != nil {
 		t.Fatalf("Failed to set object: %v", err)
 	}

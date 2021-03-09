@@ -95,7 +95,7 @@ func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, erro
 		kv:          kv,
 	}
 
-	obj, err := kv.Get(relationshipKey)
+	obj, err := kv.Get(relationshipKey, currentRelationshipVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +124,7 @@ func (r *relationship) save() error {
 		Data:      data,
 	}
 
-	return r.kv.Set(relationshipKey, &obj)
+	return r.kv.Set(relationshipKey, currentRelationshipVersion, &obj)
 }
 
 //ekv functions
@@ -362,7 +362,8 @@ func (r *relationship) clean() {
 
 		if err := r.save(); err != nil {
 			jww.FATAL.Printf("Failed to save Session Buffer %s after "+
-				"clean: %s", r.kv.GetFullKey(relationshipKey), err)
+				"clean: %s", r.kv.GetFullKey(relationshipKey,
+				currentRelationshipVersion), err)
 		}
 	}
 }

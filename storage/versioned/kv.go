@@ -72,7 +72,8 @@ type UpgradeTable struct {
 // Make sure to inspect the version returned in the versioned object
 func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	version := ut.CurrentVersion
-	key = v.makeKey(key, version)
+	baseKey := key
+	key = v.makeKey(baseKey, version)
 
 	if uint64(len(ut.Table)) != version {
 		jww.FATAL.Panicf("Cannot get upgrade for %s: table lengh (%d) "+
@@ -86,7 +87,7 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 	version++
 	for version != 0 {
 		version--
-		key = v.makeKey(key, version)
+		key = v.makeKey(baseKey, version)
 		jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
 
 		// Get raw data
@@ -99,8 +100,10 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 		}
 	}
 
-	if result==nil || len(result.Data)==0 {
-		return nil, errors.Errorf("Failed to get key and upgrade it for %s", v.makeKey(key, ut.CurrentVersion))
+	if result == nil || len(result.Data) == 0 {
+		return nil, errors.Errorf(
+			"Failed to get key and upgrade it for %s",
+			v.makeKey(baseKey, ut.CurrentVersion))
 	}
 
 	var err error
@@ -110,8 +113,8 @@ func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
 		result, err = ut.Table[oldVersion](result)
 		if err != nil || oldVersion == result.Version {
 			jww.FATAL.Panicf("failed to upgrade key %s from "+
-				"version %v, initla version %v", key, oldVersion,
-				initialVersion)
+				"version %v, initial version %v", key,
+				oldVersion, initialVersion)
 		}
 	}
 

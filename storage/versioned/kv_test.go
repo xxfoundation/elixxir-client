@@ -54,7 +54,7 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 		}, nil
 	}}
 
-	result, err := vkv.GetAndUpgrade(key, UpgradeTable{CurrentVersion: 1,
+	result, err := vkv.GetAndUpgrade("test", UpgradeTable{CurrentVersion: 1,
 		Table: upgrade})
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
@@ -84,9 +84,8 @@ func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
 
 	_, err := vkv.GetAndUpgrade(key, UpgradeTable{CurrentVersion: 1,
 		Table: upgrade})
-	if err != nil {
-		t.Fatalf("Error getting something that should have been in: %v",
-			err)
+	if err == nil {
+		t.Fatalf("Error getting something that shouldn't be there!")
 	}
 }
 

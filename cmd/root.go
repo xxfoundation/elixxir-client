@@ -101,9 +101,7 @@ var rootCmd = &cobra.Command{
 		numReg := 1
 		numNotReg := 100
 		for numReg < 3*numNotReg {
-			if numReg != 0 {
-				time.Sleep(1 * time.Second)
-			}
+			time.Sleep(1 * time.Second)
 			numReg, numNotReg, err = client.GetNodeRegistrationStatus()
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)

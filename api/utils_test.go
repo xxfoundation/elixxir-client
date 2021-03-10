@@ -8,8 +8,10 @@
 package api
 
 import (
+	"testing"
+
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/globals"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -21,7 +23,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/utils"
-	"testing"
 )
 
 func newTestingClient(face interface{}) (*Client, error) {
@@ -29,7 +30,7 @@ func newTestingClient(face interface{}) (*Client, error) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", face)
+		jww.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", face)
 	}
 
 	def := getNDF(face)
@@ -50,7 +51,7 @@ func newTestingClient(face interface{}) (*Client, error) {
 
 	cert, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
-		globals.Log.FATAL.Panicf("Failed to create new test Instance: %v", err)
+		jww.FATAL.Panicf("Failed to create new test Instance: %v", err)
 	}
 
 	commsManager.AddHost(&id.Permissioning, "", cert, connect.GetDefaultHostParams())
@@ -74,7 +75,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", face)
+		jww.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", face)
 	}
 
 	cert, _ := utils.ReadFile(testkeys.GetNodeCertPath())

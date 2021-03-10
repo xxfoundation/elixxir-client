@@ -10,9 +10,13 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"sync"
+	"testing"
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -20,10 +24,6 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
 )
 
 const currentSessionVersion = 0
@@ -250,7 +250,7 @@ func GetSessionIDFromBaseKeyForTesting(baseKey *cyclic.Int, i interface{}) Sessi
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		globals.Log.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)
+		jww.FATAL.Panicf("GetSessionIDFromBaseKeyForTesting is restricted to testing only. Got %T", i)
 	}
 	return getSessionIDFromBaseKey(baseKey)
 }

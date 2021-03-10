@@ -80,6 +80,10 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			continue
 		}
 
+		//add the round on to the list of attempted so it is not tried again
+		attempted.Insert(bestRound)
+
+		//compute if the round is too close to send to
 		roundCutoffTime := time.Unix(0,
 			int64(bestRound.Timestamps[states.QUEUED]))
 		roundCutoffTime.Add(sendTimeBuffer)
@@ -93,7 +97,6 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 				"received which has already started realtime: \n\t started: "+
 				"%s \n\t now: %s", bestRound.ID, recipient, msg.Digest(),
 				roundCutoffTime, now)
-			attempted.Insert(bestRound)
 			continue
 		}
 
@@ -195,9 +198,6 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		wrappedMsg.MAC = roundKeys.MakeClientGatewayKey(salt,
 			network.GenerateSlotDigest(wrappedMsg))
 
-		//add the round on to the list of attempted so it is not tried again
-		attempted.Insert(bestRound)
-
 		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
 			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
@@ -210,8 +210,18 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 			if strings.Contains(err.Error(),
 				"try a different round.") {
 				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
-					"due to round error with rougn %d, retrying: %+v",
+					"due to round error with round %d, retrying: %+v",
 					recipient, msg.Digest(), bestRound.ID, err)
+				continue
+			}else if strings.Contains(err.Error(),
+				"Could not authenticate client. Is the client registered " +
+				"with this node?"){
+				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
+					"via %s due to failed authentication: %s",
+					recipient, msg.Digest(), transmitGateway.GetId(), err)
+				nodeID := transmitGateway.GetId().DeepCopy()
+				nodeID.SetType(id.Node)
+				go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
 				continue
 			}
 			jww.ERROR.Printf("Failed to send to EphID %d (%s) on "+

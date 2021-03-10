@@ -8,7 +8,9 @@
 package ephemeral
 
 import (
-	"gitlab.com/elixxir/client/globals"
+	"testing"
+
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -22,7 +24,6 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/utils"
-	"testing"
 )
 
 // testNetworkManager is a test implementation of NetworkManager interface.
@@ -83,7 +84,7 @@ func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 	case *testing.T, *testing.M, *testing.B:
 		break
 	default:
-		globals.Log.FATAL.Panicf("initTesting is restricted to testing only."+
+		jww.FATAL.Panicf("initTesting is restricted to testing only."+
 			"Got %T", i)
 	}
 
@@ -91,7 +92,7 @@ func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 
 	cert, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
-		globals.Log.FATAL.Panicf("Failed to create new test Instance: %v", err)
+		jww.FATAL.Panicf("Failed to create new test Instance: %v", err)
 	}
 
 	commsManager.AddHost(&id.Permissioning, "", cert, connect.GetDefaultHostParams())
@@ -101,7 +102,7 @@ func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 
 	thisInstance, err := network.NewInstanceTesting(instanceComms, getNDF(), getNDF(), nil, nil, i)
 	if err != nil {
-		globals.Log.FATAL.Panicf("Failed to create new test Instance: %v", err)
+		jww.FATAL.Panicf("Failed to create new test Instance: %v", err)
 	}
 
 	thisManager := &testNetworkManager{instance: thisInstance}

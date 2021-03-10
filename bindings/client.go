@@ -174,11 +174,18 @@ func UnmarshalSendReport(b []byte) (*SendReport, error) {
 //		Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
-func (c *Client) StartNetworkFollower() error {
-	if err := c.api.StartNetworkFollower(); err != nil {
+func (c *Client) StartNetworkFollower(clientError ClientError) error {
+	errChan, err := c.api.StartNetworkFollower()
+	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to start the "+
 			"network follower: %+v", err))
 	}
+
+	go func() {
+		for report := range errChan {
+			go clientError.Report(report.Source, report.Message, report.Trace)
+		}
+	}()
 	return nil
 }
 

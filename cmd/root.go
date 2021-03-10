@@ -86,7 +86,7 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
-		err := client.StartNetworkFollower()
+		_, err := client.StartNetworkFollower()
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -95,6 +95,20 @@ var rootCmd = &cobra.Command{
 		connected := make(chan bool, 10)
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
+
+		// After connection, make sure we have registered with at least
+		// 85% of the nodes
+		numReg := 1
+		numNotReg := 100
+		for numReg < 3*numNotReg {
+			time.Sleep(1 * time.Second)
+			numReg, numNotReg, err = client.GetNodeRegistrationStatus()
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			jww.INFO.Printf("Registering with nodes (%d/%d)...",
+				numReg, (numReg + numNotReg))
+		}
 
 		// Send Messages
 		msgBody := viper.GetString("message")

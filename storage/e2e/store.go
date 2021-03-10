@@ -128,7 +128,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 		e2eParams: params.GetDefaultE2ESessionParams(),
 	}
 
-	obj, err := kv.Get(storeKey)
+	obj, err := kv.Get(storeKey, currentStoreVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	return s.kv.Set(storeKey, &obj)
+	return s.kv.Set(storeKey, currentStoreVersion, &obj)
 }
 
 func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.Int,

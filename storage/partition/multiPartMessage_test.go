@@ -45,7 +45,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 
 	CheckMultiPartMessages(expectedMpm, mpm, t)
 
-	obj, err := mpm.kv.Get(messageKey)
+	obj, err := mpm.kv.Get(messageKey, 0)
 	if err != nil {
 		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
 	}
@@ -141,7 +141,7 @@ func TestMultiPartMessage_Add(t *testing.T) {
 		t.Fatalf("Failed to marshal expected multiPartMessage: %v", err)
 	}
 
-	obj, err := mpm.kv.Get(messageKey)
+	obj, err := mpm.kv.Get(messageKey, 0)
 	if err != nil {
 		t.Errorf("Get() failed to get multiPartMessage from key value store: %v", err)
 	}
@@ -243,7 +243,7 @@ func TestMultiPartMessage_delete(t *testing.T) {
 		prng.Uint64(), kv)
 
 	mpm.delete()
-	obj, err := kv.Get(messageKey)
+	obj, err := kv.Get(messageKey, 0)
 	if ekv.Exists(err) {
 		t.Errorf("delete() did not properly delete key %s."+
 			"\n\tobject received: %+v", messageKey, obj)

@@ -24,7 +24,7 @@ func TestNewCryptographicIdentity(t *testing.T) {
 	salt := []byte("salt")
 	_ = newCryptographicIdentity(uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false, kv)
 
-	_, err := kv.Get(cryptographicIdentityKey)
+	_, err := kv.Get(cryptographicIdentityKey, 0)
 	if err != nil {
 		t.Errorf("Did not store cryptographic identity")
 	}

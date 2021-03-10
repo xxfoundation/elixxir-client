@@ -9,17 +9,19 @@ package versioned
 
 import (
 	"bytes"
-	"gitlab.com/elixxir/ekv"
+	"errors"
 	"testing"
 	"time"
+
+	"gitlab.com/elixxir/ekv"
 )
 
 // KV Get should call the Upgrade function when it's available
 func TestVersionedKV_Get_Err(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
-	result, err := vkv.Get(key)
+	key := vkv.GetFullKey("test", 0)
+	result, err := vkv.Get(key, 0)
 	if err == nil {
 		t.Error("Getting a key that didn't exist should have" +
 			" returned an error")
@@ -30,12 +32,12 @@ func TestVersionedKV_Get_Err(t *testing.T) {
 	}
 }
 
-// Test versioned KV Upgrade path
-func TestVersionedKV_Get_Upgrade(t *testing.T) {
+// Test versioned KV happy path
+func TestVersionedKV_GetUpgrade(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
 		Timestamp: time.Now(),
@@ -44,7 +46,16 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	originalSerialized := original.Marshal()
 	kv[key] = originalSerialized
 
-	result, err := vkv.Get(key)
+	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
+		return &Object{
+			Version:   1,
+			Timestamp: time.Now(),
+			Data:      []byte("this object was upgraded from v0 to v1"),
+		}, nil
+	}}
+
+	result, err := vkv.GetAndUpgrade("test", UpgradeTable{CurrentVersion: 1,
+		Table: upgrade})
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
@@ -56,13 +67,88 @@ func TestVersionedKV_Get_Upgrade(t *testing.T) {
 	}
 }
 
+// Test versioned KV key not found path
+func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
+	// Set up a dummy KV with the required data
+	kv := make(ekv.Memstore)
+	vkv := NewKV(kv)
+	key := "test"
+
+	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
+		return &Object{
+			Version:   1,
+			Timestamp: time.Now(),
+			Data:      []byte("this object was upgraded from v0 to v1"),
+		}, nil
+	}}
+
+	_, err := vkv.GetAndUpgrade(key, UpgradeTable{CurrentVersion: 1,
+		Table: upgrade})
+	if err == nil {
+		t.Fatalf("Error getting something that shouldn't be there!")
+	}
+}
+
+// Test versioned KV upgrade func returns error path
+func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
+	// Set up a dummy KV with the required data
+	kv := make(ekv.Memstore)
+	vkv := NewKV(kv)
+	key := vkv.GetFullKey("test", 0)
+	original := Object{
+		Version:   0,
+		Timestamp: time.Now(),
+		Data:      []byte("not upgraded"),
+	}
+	originalSerialized := original.Marshal()
+	kv[key] = originalSerialized
+
+	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
+		return &Object{}, errors.New("test error")
+	}}
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("The code did not panic")
+		}
+	}()
+
+	_, _ = vkv.GetAndUpgrade("test", UpgradeTable{CurrentVersion: 1,
+		Table: upgrade})
+}
+
+// Test delete key happy path
+func TestVersionedKV_Delete(t *testing.T) {
+	// Set up a dummy KV with the required data
+	kv := make(ekv.Memstore)
+	vkv := NewKV(kv)
+	key := vkv.GetFullKey("test", 0)
+	original := Object{
+		Version:   0,
+		Timestamp: time.Now(),
+		Data:      []byte("not upgraded"),
+	}
+	originalSerialized := original.Marshal()
+	kv[key] = originalSerialized
+
+	err := vkv.Delete("test", 0)
+	if err != nil {
+		t.Fatalf("Error getting something that should have been in: %v",
+			err)
+	}
+
+	if _, ok := kv[key]; ok {
+		t.Fatal("Key still exists in kv map")
+	}
+}
+
 // Test Get without Upgrade path
 func TestVersionedKV_Get(t *testing.T) {
 	// Set up a dummy KV with the required data
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
-	originalVersion := uint64(1)
-	key := MakeKeyWithPrefix("test", "12345")
+	originalVersion := uint64(0)
+	key := vkv.GetFullKey("test", originalVersion)
 	original := Object{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
@@ -71,7 +157,7 @@ func TestVersionedKV_Get(t *testing.T) {
 	originalSerialized := original.Marshal()
 	kv[key] = originalSerialized
 
-	result, err := vkv.Get(key)
+	result, err := vkv.Get("test", originalVersion)
 	if err != nil {
 		t.Fatalf("Error getting something that should have been in: %v",
 			err)
@@ -87,13 +173,13 @@ func TestVersionedKV_Set(t *testing.T) {
 	kv := make(ekv.Memstore)
 	vkv := NewKV(kv)
 	originalVersion := uint64(1)
-	key := MakeKeyWithPrefix("test", "12345")
+	key := vkv.GetFullKey("test", originalVersion)
 	original := Object{
 		Version:   originalVersion,
 		Timestamp: time.Now(),
 		Data:      []byte("not upgraded"),
 	}
-	err := vkv.Set(key, &original)
+	err := vkv.Set("test", originalVersion, &original)
 	if err != nil {
 		t.Fatal(err)
 	}

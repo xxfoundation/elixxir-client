@@ -36,7 +36,7 @@ func LoadUnknownRound(kv *versioned.KV) *UnknownRound {
 		rid:    0,
 	}
 
-	obj, err := kv.Get(unknownRoundStorageKey)
+	obj, err := kv.Get(unknownRoundStorageKey, unknownRoundStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get the unknown round: %+v", err)
 	}
@@ -62,7 +62,8 @@ func (ur *UnknownRound) save() {
 			Data:      urStr,
 		}
 
-		err = ur.kv.Set(unknownRoundStorageKey, obj)
+		err = ur.kv.Set(unknownRoundStorageKey,
+			unknownRoundStorageVersion, obj)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to store the unknown round: %+v", err)
 		}
@@ -89,7 +90,7 @@ func (ur *UnknownRound) Get() id.Round {
 func (ur *UnknownRound) delete() {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
-	err := ur.kv.Delete(unknownRoundStorageKey)
+	err := ur.kv.Delete(unknownRoundStorageKey, unknownRoundStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to delete unknownRound storage: %+v", err)
 	}

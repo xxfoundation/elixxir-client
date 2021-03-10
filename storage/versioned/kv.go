@@ -9,19 +9,13 @@ package versioned
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 const PrefixSeparator = "/"
-
-// MakeKeyWithPrefix creates a key for a type of data with a unique
-// identifier using a globally defined separator character.
-func MakeKeyWithPrefix(dataType string, uniqueID string) string {
-	return fmt.Sprintf("%s%s%s", dataType, PrefixSeparator, uniqueID)
-}
 
 // MakePartnerPrefix creates a string prefix
 // to denote who a conversation or relationship is with
@@ -30,12 +24,11 @@ func MakePartnerPrefix(id *id.ID) string {
 }
 
 // Upgrade functions must be of this type
-type Upgrade func(key string, oldObject *Object) (*Object,
+type Upgrade func(oldObject *Object) (*Object,
 	error)
 
 type root struct {
-	upgradeTable map[string]Upgrade
-	data         ekv.KeyValue
+	data ekv.KeyValue
 }
 
 // KV stores versioned data and Upgrade functions
@@ -48,29 +41,7 @@ type KV struct {
 func NewKV(data ekv.KeyValue) *KV {
 	newKV := KV{}
 	root := root{}
-	// Add new Upgrade functions to this Upgrade table
-	root.upgradeTable = make(map[string]Upgrade)
-	// All Upgrade functions should Upgrade to the latest version. You can
-	// call older Upgrade functions if you need to. Upgrade functions don't
-	// change the key or store the upgraded version of the data in the
-	// key/value store. There's no mechanism built in for this -- users
-	// should always make the key prefix before calling Set, and if they
-	// want the upgraded data persisted they should call Set with the
-	// upgraded data.
-	root.upgradeTable[MakeKeyWithPrefix("test", "")] = func(key string,
-		oldObject *Object) (*Object, error) {
-		if oldObject.Version == 1 {
-			return oldObject, nil
-		}
-		return &Object{
-			Version: 1,
-			// Upgrade functions don't need to update
-			// the timestamp
-			Timestamp: oldObject.Timestamp,
-			Data: []byte("this object was upgraded from" +
-				" v0 to v1"),
-		}, nil
-	}
+
 	root.data = data
 
 	newKV.r = &root
@@ -80,8 +51,8 @@ func NewKV(data ekv.KeyValue) *KV {
 
 // Get gets and upgrades data stored in the key/value store
 // Make sure to inspect the version returned in the versioned object
-func (v *KV) Get(key string) (*Object, error) {
-	key = v.prefix + key
+func (v *KV) Get(key string, version uint64) (*Object, error) {
+	key = v.makeKey(key, version)
 	jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
 	// Get raw data
 	result := Object{}
@@ -89,23 +60,70 @@ func (v *KV) Get(key string) (*Object, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If the key starts with a version tag that we can find in the table,
-	// we should call that function to Upgrade it
-	for version, upgrade := range v.r.upgradeTable {
-		if strings.HasPrefix(key, version) {
-			// We should run this Upgrade function
-			// The user of this function must update the key
-			// based on the version returned in this
-			// versioned object!
-			return upgrade(key, &result)
-		}
-	}
 	return &result, nil
 }
 
+type UpgradeTable struct {
+	CurrentVersion uint64
+	Table          []Upgrade
+}
+
+// Get gets and upgrades data stored in the key/value store
+// Make sure to inspect the version returned in the versioned object
+func (v *KV) GetAndUpgrade(key string, ut UpgradeTable) (*Object, error) {
+	version := ut.CurrentVersion
+	baseKey := key
+	key = v.makeKey(baseKey, version)
+
+	if uint64(len(ut.Table)) != version {
+		jww.FATAL.Panicf("Cannot get upgrade for %s: table lengh (%d) "+
+			"does not match current version (%d)", key, len(ut.Table),
+			version)
+	}
+	var result *Object
+	// NOTE: Upgrades do not happen on the current version, so we check to
+	// see if version-1, version-2, and so on exist to find out if an
+	// earlier version of this object exists.
+	version++
+	for version != 0 {
+		version--
+		key = v.makeKey(baseKey, version)
+		jww.TRACE.Printf("Get %p with key %v", v.r.data, key)
+
+		// Get raw data
+		result = &Object{}
+		err := v.r.data.Get(key, result)
+		// Break when we find the *newest* version of the object
+		// in the data store.
+		if err == nil {
+			break
+		}
+	}
+
+	if result == nil || len(result.Data) == 0 {
+		return nil, errors.Errorf(
+			"Failed to get key and upgrade it for %s",
+			v.makeKey(baseKey, ut.CurrentVersion))
+	}
+
+	var err error
+	initialVersion := result.Version
+	for result.Version < uint64(len(ut.Table)) {
+		oldVersion := result.Version
+		result, err = ut.Table[oldVersion](result)
+		if err != nil || oldVersion == result.Version {
+			jww.FATAL.Panicf("failed to upgrade key %s from "+
+				"version %v, initial version %v", key,
+				oldVersion, initialVersion)
+		}
+	}
+
+	return result, nil
+}
+
 // delete removes a given key from the data store
-func (v *KV) Delete(key string) error {
-	key = v.prefix + key
+func (v *KV) Delete(key string, version uint64) error {
+	key = v.makeKey(key, version)
 	jww.TRACE.Printf("delete %p with key %v", v.r.data, key)
 	return v.r.data.Delete(key)
 }
@@ -113,8 +131,8 @@ func (v *KV) Delete(key string) error {
 // Set upserts new data into the storage
 // When calling this, you are responsible for prefixing the key with the correct
 // type optionally unique id! Call MakeKeyWithPrefix() to do so.
-func (v *KV) Set(key string, object *Object) error {
-	key = v.prefix + key
+func (v *KV) Set(key string, version uint64, object *Object) error {
+	key = v.makeKey(key, version)
 	jww.TRACE.Printf("Set %p with key %v", v.r.data, key)
 	return v.r.data.Set(key, object)
 }
@@ -129,6 +147,10 @@ func (v *KV) Prefix(prefix string) *KV {
 }
 
 //Returns the key with all prefixes appended
-func (v *KV) GetFullKey(key string) string {
-	return v.prefix + key
+func (v *KV) GetFullKey(key string, version uint64) string {
+	return v.makeKey(key, version)
+}
+
+func (v *KV) makeKey(key string, version uint64) string {
+	return fmt.Sprintf("%s%s_%d", v.prefix, key, version)
 }

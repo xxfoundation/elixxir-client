@@ -18,7 +18,7 @@ func (m *Manager) loadRegistered() {
 	var isReg = uint32(0)
 	obj, err := m.storage.Get(isRegisteredKey)
 	if err != nil {
-		jww.INFO.Printf("Failed to load is registered; "+
+		jww.INFO.Printf("Failed to load is registered, "+
 			"assuming un-registered: %s", err)
 	} else {
 		isReg = binary.BigEndian.Uint32(obj.Data)

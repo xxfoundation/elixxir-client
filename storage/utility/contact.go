@@ -26,11 +26,11 @@ func StoreContact(kv *versioned.KV, c contact.Contact) error {
 		Data:      c.Marshal(),
 	}
 
-	return kv.Set(makeContactKey(c.ID), &obj)
+	return kv.Set(makeContactKey(c.ID), currentContactVersion, &obj)
 }
 
 func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, error) {
-	vo, err := kv.Get(makeContactKey(cid))
+	vo, err := kv.Get(makeContactKey(cid), currentContactVersion)
 	if err != nil {
 		return contact.Contact{}, err
 	}
@@ -39,7 +39,7 @@ func LoadContact(kv *versioned.KV, cid *id.ID) (contact.Contact, error) {
 }
 
 func DeleteContact(kv *versioned.KV, cid *id.ID) error {
-	return kv.Delete(makeContactKey(cid))
+	return kv.Delete(makeContactKey(cid), currentContactVersion)
 }
 
 func makeContactKey(cid *id.ID) string {

@@ -26,7 +26,7 @@ const defaultIDSize = 12
 type Store struct {
 	// Identities which are being actively checked
 	active      []*registration
-	present 	map[idHash]interface{}
+	present     map[idHash]interface{}
 	idSize      int
 	idSizeCond  *sync.Cond
 	isIdSizeSet bool
@@ -43,7 +43,8 @@ type storedReference struct {
 }
 
 type idHash [16]byte
-func makeIdHash(ephID ephemeral.Id, source *id.ID)idHash{
+
+func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
 	h := md5.New()
 	h.Write(ephID[:])
 	h.Write(source.Bytes())
@@ -58,7 +59,7 @@ func NewStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		active:     make([]*registration, 0),
-		present: 	make(map[idHash]interface{}),
+		present:    make(map[idHash]interface{}),
 		idSize:     defaultIDSize * 2,
 		kv:         kv,
 		idSizeCond: sync.NewCond(&sync.Mutex{}),
@@ -79,12 +80,13 @@ func LoadStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
 		kv:         kv,
-		present: make(map[idHash]interface{}),
+		present:    make(map[idHash]interface{}),
 		idSizeCond: sync.NewCond(&sync.Mutex{}),
 	}
 
 	// Load the versioned object for the reception list
-	vo, err := kv.Get(receptionStoreStorageKey)
+	vo, err := kv.Get(receptionStoreStorageKey,
+		receptionStoreStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get the reception storage list: %+v", err)
 	}
@@ -106,7 +108,8 @@ func LoadStore(kv *versioned.KV) *Store {
 	}
 
 	// Load the ephemeral ID length
-	vo, err = kv.Get(receptionIDSizeStorageKey)
+	vo, err = kv.Get(receptionIDSizeStorageKey,
+		receptionIDSizeStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get the reception ID size: %+v", err)
 	}
@@ -134,7 +137,7 @@ func (s *Store) save() error {
 		Data:      data,
 	}
 
-	err = s.kv.Set(receptionStoreStorageKey, obj)
+	err = s.kv.Set(receptionStoreStorageKey, receptionStoreStorageVersion, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store reception store")
 	}
@@ -207,7 +210,7 @@ func (s *Store) AddIdentity(identity Identity) error {
 	defer s.mux.Unlock()
 
 	//do not make duplicates of IDs
-	if _, ok := s.present[idH]; ok{
+	if _, ok := s.present[idH]; ok {
 		jww.DEBUG.Printf("Ignoring duplicate identity for %d (%s)",
 			identity.EphId, identity.Source)
 		return nil
@@ -308,7 +311,8 @@ func (s *Store) UpdateIdSize(idSize uint) {
 		Data:      []byte(strconv.Itoa(s.idSize)),
 	}
 
-	err := s.kv.Set(receptionIDSizeStorageKey, obj)
+	err := s.kv.Set(receptionIDSizeStorageKey,
+		receptionIDSizeStorageVersion, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store reception ID size: %+v", err)
 	}

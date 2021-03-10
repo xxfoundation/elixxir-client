@@ -43,7 +43,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 	kv *versioned.KV) *multiPartMessage {
 	kv = kv.Prefix(versioned.MakePartnerPrefix(sender)).Prefix(fmt.Sprintf("MessageID:%d", messageID))
 
-	obj, err := kv.Get(messageKey)
+	obj, err := kv.Get(messageKey, currentMultiPartMessageVersion)
 	if err != nil {
 		if !ekv.Exists(err) {
 			mpm := &multiPartMessage{
@@ -89,7 +89,7 @@ func (mpm *multiPartMessage) save() error {
 		Data:      data,
 	}
 
-	return mpm.kv.Set(messageKey, &obj)
+	return mpm.kv.Set(messageKey, currentMultiPartMessageVersion, &obj)
 }
 
 func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {
@@ -210,7 +210,8 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 
 func (mpm *multiPartMessage) delete() {
 	//key := makeMultiPartMessageKey(mpm.MessageID)
-	if err := mpm.kv.Delete(messageKey); err != nil {
+	if err := mpm.kv.Delete(messageKey,
+		currentMultiPartMessageVersion); err != nil {
 		jww.FATAL.Panicf("Failed to delete multi part "+
 			"message from %s messageID %v: %s", mpm.Sender,
 			mpm.MessageID, err)

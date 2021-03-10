@@ -133,7 +133,7 @@ func TestMessageBuffer_save_NewMB(t *testing.T) {
 		t.Errorf("save() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
 	}
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(key, 0)
 	if err != nil {
 		t.Errorf("save() did not correctly save buffer with key %+v to storage."+
 			"\n\terror: %v", key, err)
@@ -164,7 +164,7 @@ func TestMessageBuffer_save(t *testing.T) {
 		t.Errorf("save() returned an error."+
 			"\n\texpected: %v\n\treceived: %v", nil, err)
 	}
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(key, 0)
 	if err != nil {
 		t.Errorf("save() did not correctly save buffer with key %+v to storage."+
 			"\n\terror: %v", key, err)

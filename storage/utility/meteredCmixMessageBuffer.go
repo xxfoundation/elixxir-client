@@ -45,7 +45,7 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, k
 	}
 
 	// Save versioned object
-	return kv.Set(key, &obj)
+	return kv.Set(key, currentMessageBufferVersion, &obj)
 }
 
 // LoadMessage returns the message with the specified key from the key value
@@ -53,7 +53,7 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, k
 // retrieved.
 func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (interface{}, error) {
 	// Load the versioned object
-	vo, err := kv.Get(key)
+	vo, err := kv.Get(key, currentMeteredCmixMessageVersion)
 	if err != nil {
 		return format.Message{}, err
 	}
@@ -71,7 +71,7 @@ func (*meteredCmixMessageHandler) LoadMessage(kv *versioned.KV, key string) (int
 // DeleteMessage deletes the message with the specified key from the key value
 // store.
 func (*meteredCmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) error {
-	return kv.Delete(key)
+	return kv.Delete(key, currentMeteredCmixMessageVersion)
 }
 
 // HashMessage generates a hash of the message.

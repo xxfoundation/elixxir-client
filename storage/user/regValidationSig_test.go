@@ -69,7 +69,7 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 			sig, u.transmissionRegValidationSig)
 	}
 
-	obj, err := u.kv.Get(transmissionRegValidationSigKey)
+	obj, err := u.kv.Get(transmissionRegValidationSigKey, 0)
 	if err != nil {
 		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
 	}
@@ -85,7 +85,7 @@ func TestUser_SetRegistrationValidationSignature(t *testing.T) {
 			sig, u.receptionRegValidationSig)
 	}
 
-	obj, err = u.kv.Get(receptionRegValidationSigKey)
+	obj, err = u.kv.Get(receptionRegValidationSigKey, 0)
 	if err != nil {
 		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
 	}
@@ -106,11 +106,12 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	}
 
 	sig := []byte("transmissionsignature")
-	err = kv.Set(transmissionRegValidationSigKey, &versioned.Object{
-		Version:   currentRegValidationSigVersion,
-		Timestamp: time.Now(),
-		Data:      sig,
-	})
+	err = kv.Set(transmissionRegValidationSigKey,
+		currentRegValidationSigVersion, &versioned.Object{
+			Version:   currentRegValidationSigVersion,
+			Timestamp: time.Now(),
+			Data:      sig,
+		})
 	if err != nil {
 		t.Errorf("Failed to set reg validation sig key in kv store: %+v", err)
 	}
@@ -121,11 +122,12 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	}
 
 	sig = []byte("receptionsignature")
-	err = kv.Set(receptionRegValidationSigKey, &versioned.Object{
-		Version:   currentRegValidationSigVersion,
-		Timestamp: time.Now(),
-		Data:      sig,
-	})
+	err = kv.Set(receptionRegValidationSigKey,
+		currentRegValidationSigVersion, &versioned.Object{
+			Version:   currentRegValidationSigVersion,
+			Timestamp: time.Now(),
+			Data:      sig,
+		})
 	if err != nil {
 		t.Errorf("Failed to set reg validation sig key in kv store: %+v", err)
 	}

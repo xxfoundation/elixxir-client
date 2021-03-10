@@ -71,7 +71,7 @@ func TestLoadStore_ParseVersionError(t *testing.T) {
 		Data:      []byte("invalid version"),
 	}
 
-	err := kv.Prefix(prefix).Set(storeKey, &obj)
+	err := kv.Prefix(prefix).Set(storeKey, storeVersion, &obj)
 	if err != nil {
 		t.Fatalf("Failed to save Store: %+v", err)
 	}
@@ -219,7 +219,7 @@ func TestStore_save(t *testing.T) {
 		t.Errorf("save() returned an error: %+v", err)
 	}
 
-	obj, err := s.kv.Get(storeKey)
+	obj, err := s.kv.Get(storeKey, storeVersion)
 	if err != nil {
 		t.Errorf("Failed to load clientVersion store: %+v", err)
 	}

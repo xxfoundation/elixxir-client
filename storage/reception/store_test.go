@@ -26,7 +26,7 @@ func TestNewStore(t *testing.T) {
 			"\nexpected: %+v\nreceived: %+v", expected, s)
 	}
 
-	obj, err := s.kv.Get(receptionStoreStorageKey)
+	obj, err := s.kv.Get(receptionStoreStorageKey, 0)
 	if err != nil {
 		t.Fatalf("Failed to load store from KV: %+v", err)
 	}
@@ -96,7 +96,7 @@ func TestStore_save(t *testing.T) {
 		t.Errorf("save() produced an error: %+v", err)
 	}
 
-	obj, err := kv.Prefix(receptionPrefix).Get(receptionStoreStorageKey)
+	obj, err := kv.Prefix(receptionPrefix).Get(receptionStoreStorageKey, 0)
 	if err != nil {
 		t.Errorf("Get() produced an error: %+v", err)
 	}

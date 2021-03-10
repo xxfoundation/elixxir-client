@@ -310,11 +310,11 @@ func TestSession_Delete(t *testing.T) {
 	s.Delete()
 
 	// Getting the keys that should have been stored should now result in an error
-	_, err = s.kv.Get(stateVectorKey)
+	_, err = s.kv.Get(stateVectorKey, 0)
 	if err == nil {
 		t.Error("State vector was gettable")
 	}
-	_, err = s.kv.Get(sessionKey)
+	_, err = s.kv.Get(sessionKey, 0)
 	if err == nil {
 		t.Error("Session was gettable")
 	}
@@ -466,7 +466,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Sent {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err := s.kv.Get(sessionKey)
+	object, err := s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +480,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey)
+	object, err = s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -495,7 +495,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != NewSessionCreated {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey)
+	object, err = s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -512,7 +512,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Unconfirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey)
+	object, err = s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +525,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	if s.negotiationStatus != Confirmed {
 		t.Error("SetNegotiationStatus didn't set the negotiation status")
 	}
-	object, err = s.kv.Get(sessionKey)
+	object, err = s.kv.Get(sessionKey, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -43,14 +43,17 @@ func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
 		Data:      fp,
 	}
 
-	return kv.Set(relationshipFingerprintKey, &obj)
+	return kv.Set(relationshipFingerprintKey, currentRelationshipVersion,
+		&obj)
 }
 
 func loadRelationshipFingerprint(kv *versioned.KV) []byte {
-	obj, err := kv.Get(relationshipFingerprintKey)
+	obj, err := kv.Get(relationshipFingerprintKey,
+		currentRelationshipVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to load relationshipFingerprint at %s: "+
-			"%s", kv.GetFullKey(relationshipFingerprintKey), err)
+			"%s", kv.GetFullKey(relationshipFingerprintKey,
+			currentRelationshipFingerprintVersion), err)
 	}
 	return obj.Data
 }

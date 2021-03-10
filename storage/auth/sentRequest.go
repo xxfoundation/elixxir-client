@@ -37,7 +37,8 @@ type sentRequestDisk struct {
 }
 
 func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*SentRequest, error) {
-	obj, err := kv.Get(versioned.MakePartnerPrefix(partner))
+	obj, err := kv.Get(versioned.MakePartnerPrefix(partner),
+		currentSentRequestVersion)
 	if err != nil {
 		return nil, errors.WithMessagef(err, "Failed to Load "+
 			"SentRequest Auth with %s", partner)
@@ -115,11 +116,13 @@ func (sr *SentRequest) save() error {
 		Data:      data,
 	}
 
-	return sr.kv.Set(versioned.MakePartnerPrefix(sr.partner), &obj)
+	return sr.kv.Set(versioned.MakePartnerPrefix(sr.partner),
+		currentSentRequestVersion, &obj)
 }
 
 func (sr *SentRequest) delete() error {
-	return sr.kv.Delete(versioned.MakePartnerPrefix(sr.partner))
+	return sr.kv.Delete(versioned.MakePartnerPrefix(sr.partner),
+		currentSentRequestVersion)
 }
 
 func (sr *SentRequest) GetPartner() *id.ID {

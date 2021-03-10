@@ -45,7 +45,7 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 		kv: kv.Prefix(prefix),
 	}
 
-	obj, err := s.kv.Get(storeKey)
+	obj, err := s.kv.Get(storeKey, storeVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -113,5 +113,5 @@ func (s *Store) save() error {
 		Data:      []byte(s.version.String()),
 	}
 
-	return s.kv.Set(storeKey, &obj)
+	return s.kv.Set(storeKey, storeVersion, &obj)
 }

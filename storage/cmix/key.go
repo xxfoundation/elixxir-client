@@ -49,7 +49,7 @@ func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 
 	key := keyKey(id)
 
-	obj, err := kv.Get(key)
+	obj, err := kv.Get(key, currentKeyVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -78,13 +78,13 @@ func (k *key) save() error {
 		Data:      data,
 	}
 
-	return k.kv.Set(k.storeKey, &obj)
+	return k.kv.Set(k.storeKey, currentKeyVersion, &obj)
 }
 
 // deletes the key from the versioned keystore
 func (k *key) delete(kv *versioned.KV, id *id.ID) {
 	key := keyKey(id)
-	if err := kv.Delete(key); err != nil {
+	if err := kv.Delete(key, currentKeyVersion); err != nil {
 		jww.FATAL.Panicf("Failed to delete key %s: %s", k, err)
 	}
 }

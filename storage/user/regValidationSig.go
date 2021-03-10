@@ -36,7 +36,8 @@ func (u *User) GetReceptionRegistrationValidationSignature() []byte {
 // Loads the transmission Identity Validation Signature if it exists in the ekv
 func (u *User) loadTransmissionRegistrationValidationSignature() {
 	u.rvsMux.Lock()
-	obj, err := u.kv.Get(transmissionRegValidationSigKey)
+	obj, err := u.kv.Get(transmissionRegValidationSigKey,
+		currentRegValidationSigVersion)
 	if err == nil {
 		u.transmissionRegValidationSig = obj.Data
 	}
@@ -46,7 +47,8 @@ func (u *User) loadTransmissionRegistrationValidationSignature() {
 // Loads the reception Identity Validation Signature if it exists in the ekv
 func (u *User) loadReceptionRegistrationValidationSignature() {
 	u.rvsMux.Lock()
-	obj, err := u.kv.Get(receptionRegValidationSigKey)
+	obj, err := u.kv.Get(receptionRegValidationSigKey,
+		currentRegValidationSigVersion)
 	if err == nil {
 		u.receptionRegValidationSig = obj.Data
 	}
@@ -70,7 +72,8 @@ func (u *User) SetTransmissionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(transmissionRegValidationSigKey, obj)
+	err := u.kv.Set(transmissionRegValidationSigKey,
+		currentRegValidationSigVersion, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the transmission Identity Validation "+
 			"Signature: %s", err)
@@ -96,7 +99,8 @@ func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
 		Data:      b,
 	}
 
-	err := u.kv.Set(receptionRegValidationSigKey, obj)
+	err := u.kv.Set(receptionRegValidationSigKey,
+		currentRegValidationSigVersion, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception Identity Validation "+
 			"Signature: %s", err)

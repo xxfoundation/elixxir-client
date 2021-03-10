@@ -8,6 +8,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -28,7 +30,6 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/ndf"
-	"time"
 )
 
 type Client struct {
@@ -59,6 +60,8 @@ type Client struct {
 
 	//handler for external services
 	services *serviceProcessiesList
+
+	clientErrorChannel chan interfaces.ClientError
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -339,12 +342,6 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 			"permissioning handler")
 	}
 
-	// check the client version is up to date to the network
-	err = c.checkVersion()
-	if err != nil {
-		return errors.WithMessage(err, "failed to load client")
-	}
-
 	//register with permissioning if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
@@ -389,20 +386,34 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower() error {
+func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 	jww.INFO.Printf("StartNetworkFollower()")
+
+	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
+
+	cer := func(source, message, trace string) {
+		select {
+		case c.clientErrorChannel <- interfaces.ClientError{
+			Source:  source,
+			Message: message,
+			Trace:   trace,
+		}:
+		default:
+			jww.WARN.Printf("Failed to notify about ClientError from %s: %s", source, message)
+		}
+	}
 
 	err := c.status.toStarting()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to Start the Network Follower")
+		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
 	stopAuth := c.auth.StartProcessies()
 	c.runner.Add(stopAuth)
 
-	stopFollow, err := c.network.Follow()
+	stopFollow, err := c.network.Follow(cer)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to start following "+
+		return nil, errors.WithMessage(err, "Failed to start following "+
 			"the network")
 	}
 	c.runner.Add(stopFollow)
@@ -411,12 +422,12 @@ func (c *Client) StartNetworkFollower() error {
 
 	err = c.status.toRunning()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to Start the Network Follower")
+		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
 	c.services.run(c.runner)
 
-	return nil
+	return c.clientErrorChannel, nil
 }
 
 // StopNetworkFollower stops the network follower if it is running.
@@ -429,6 +440,7 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
+	close(c.clientErrorChannel)
 	err = c.runner.Close(timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")

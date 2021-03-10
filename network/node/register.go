@@ -97,11 +97,11 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		return err
 	}
 
-	jww.INFO.Printf("registerWithNode() begin registration with node: %s", nodeID)
-
 	if store.IsRegistered(nodeID) {
 		return nil
 	}
+
+	jww.INFO.Printf("registerWithNode() begin registration with node: %s", nodeID)
 
 	var transmissionKey *cyclic.Int
 	// TODO: should move this to a precanned user initialization

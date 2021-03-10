@@ -219,8 +219,13 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
 					"via %s due to failed authentication: %s",
 					recipient, msg.Digest(), transmitGateway.GetId(), err)
+				//if we failed to send due to the gateway not recognizing our
+				// authorization, renegotiate with the node to refresh it
 				nodeID := transmitGateway.GetId().DeepCopy()
 				nodeID.SetType(id.Node)
+				//delete the keys
+				session.Cmix().Remove(nodeID)
+				//trigger
 				go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
 				continue
 			}

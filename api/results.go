@@ -8,8 +8,9 @@ package api
 
 import (
 	"fmt"
+	"time"
+
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/globals"
 	"gitlab.com/elixxir/client/network/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -17,7 +18,6 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // Enum of possible round results to pass back
@@ -186,7 +186,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 		// Find a gateway to request about the roundRequests
 		gwHost, err := gateway.Get(instance.GetPartialNdf().Get(), comms, c.rng.GetStream())
 		if err != nil {
-			globals.Log.FATAL.Panicf("Failed to track network, NDF has corrupt "+
+			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
 				"data: %s", err)
 		}
 

@@ -30,6 +30,10 @@ type roundLookup struct {
 	identity  reception.IdentityUse
 }
 
+const noRoundError = "does not have round"
+
+// processMessageRetrieval received a roundLookup request and pings the gateways
+// of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
 
@@ -40,14 +44,50 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			done = true
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
-			bundle, err := m.getMessagesFromGateway(ri, comms, rl.identity)
+			var bundle message.Bundle
+
+			// Get a shuffled list of gateways in the round
+			gwHosts, err := gateway.GetAllShuffled(comms, ri)
 			if err != nil {
-				jww.WARN.Printf("Failed to get messages for round %v: %s",
-					ri.ID, err)
+				jww.WARN.Printf("Failed to get gateway hosts from "+
+					"round %v, not requesting from them",
+					ri.ID)
 				break
 			}
 
-			if len(bundle.Messages) != 0 {
+			// Attempt to request messages for every gateway in the list.
+			// If we retrieve without error, then we exit. If we error, then
+			// we retry with the next gateway in the list until we exhaust the list
+			for i, gwHost := range gwHosts {
+				// Attempt to request for this gateway
+				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwHost)
+				if err != nil {
+
+					jww.WARN.Printf("Failed on gateway [%d/%d] to get messages for round %v",
+						i, len(gwHosts), ri.ID)
+
+					// Retry for the next gateway in the list
+					continue
+				}
+
+				// If a non-error request, no longer retry
+				break
+
+			}
+			gwIDs := make([]*id.ID, 0)
+			for _, gwHost := range gwHosts {
+				gwIDs = append(gwIDs, gwHost.GetId())
+			}
+
+			// After trying all gateways, if none returned we mark the round as a
+			// failure and print out the last error
+			if err != nil {
+				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
+				jww.ERROR.Printf("Failed to get pickup round %d "+
+					"from all gateways (%v): final gateway %s returned : %s",
+					id.Round(ri.ID), gwIDs, gwHosts[len(gwHosts)-1].GetId(), err)
+			} else if len(bundle.Messages) != 0 {
+				// If successful and there are messages, we send them to another thread
 				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
 			}
@@ -55,38 +95,29 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	}
 }
 
-func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
-	comms messageRetrievalComms, identity reception.IdentityUse) (message.Bundle, error) {
+// getMessagesFromGateway attempts to get messages from their assigned
+// gateway host in the round specified. If successful
+func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.IdentityUse,
+	comms messageRetrievalComms, gwHost *connect.Host) (message.Bundle, error) {
 
-	rid := id.Round(roundInfo.ID)
-
-	//Get the host object for the gateway to send to
-	gwHost, err := gateway.GetLast(comms, roundInfo)
-	if err != nil {
-		return message.Bundle{}, errors.WithMessage(err, "Failed to get Gateway "+
-			"to request from")
-	}
-
-	jww.INFO.Printf("Getting messages for RoundID %v for EphID %d "+
-		"via Gateway: %s", rid, identity.EphId, gwHost.GetId())
+	jww.DEBUG.Printf("Trying to get messages for round %v for ephmeralID %d (%v)  "+
+		"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), gwHost.GetId())
 
 	// send the request
 	msgReq := &pb.GetMessages{
 		ClientID: identity.EphId[:],
-		RoundID:  uint64(rid),
+		RoundID:  uint64(roundID),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
-		m.p.Fail(id.Round(roundInfo.ID), identity.EphId, identity.Source)
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
-			"request messages from %s for round %d", gwHost.GetId(), rid)
+			"request messages from %s for round %d", gwHost.GetId(), roundID)
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
-		m.p.Done(id.Round(roundInfo.ID), identity.EphId, identity.Source)
-		return message.Bundle{}, errors.Errorf("host %s does not have "+
-			"roundID: %d", gwHost.String(), rid)
+		m.p.Done(roundID, identity.EphId, identity.Source)
+		return message.Bundle{}, errors.Errorf(noRoundError)
 	}
 
 	// If there are no messages print a warning. Due to the probabilistic nature
@@ -96,19 +127,19 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 		jww.WARN.Printf("host %s has no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicitive of a problem if it is consistant", gwHost,
-			m.TransmissionID, rid)
+			m.TransmissionID, roundID)
 		return message.Bundle{}, nil
 	}
 
 	jww.INFO.Printf("Received %d messages in Round %v via Gateway %s for %d (%s)",
-		len(msgs), rid, gwHost.GetId(), identity.EphId.Int64(), identity.Source)
+		len(msgs), roundID, gwHost.GetId(), identity.EphId.Int64(), identity.Source)
 
 	//build the bundle of messages to send to the message processor
 	bundle := message.Bundle{
-		Round:    rid,
+		Round:    roundID,
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
-			m.p.Done(rid, identity.EphId, identity.Source)
+			m.p.Done(roundID, identity.EphId, identity.Source)
 		},
 	}
 
@@ -120,4 +151,5 @@ func (m *Manager) getMessagesFromGateway(roundInfo *pb.RoundInfo,
 	}
 
 	return bundle, nil
+
 }

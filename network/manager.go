@@ -91,6 +91,10 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
+	// register the node registration channel early so login connection updates
+	// get triggered for registration if necessary
+	instance.SetAddGatewayChan(m.NodeRegistration)
+
 	//create sub managers
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)
 	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel())
@@ -124,7 +128,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 
 	// Node Updates
 	multi.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,
-		m.Comms, m.NodeRegistration)) // Adding/Keys
+		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/Keys
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
 
@@ -169,7 +173,8 @@ func (m *manager) CheckGarbledMessages() {
 	m.message.CheckGarbledMessages()
 }
 
-// InProgressRegistrations returns the number of in progress node registrations.
+// InProgressRegistrations returns an approximation of the number of in progress
+// node registrations.
 func (m *manager) InProgressRegistrations() int {
-	return len(m.Internal.NodeRegistration) + 1
+	return len(m.Internal.NodeRegistration)
 }

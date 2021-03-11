@@ -8,8 +8,11 @@
 package keyExchange
 
 import (
+	"testing"
+	"time"
+
 	"github.com/golang/protobuf/proto"
-	"gitlab.com/elixxir/client/globals"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -28,8 +31,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
-	"testing"
-	"time"
 )
 
 // Generate partner ID for two people, used for smoke tests
@@ -108,7 +109,7 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
+		jww.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
 	}
 
 	thisSession := storage.InitTestingSession(i)
@@ -215,7 +216,7 @@ func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboa
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
 	default:
-		globals.Log.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
+		jww.FATAL.Panicf("InitTestingSession is restricted to testing only. Got %T", i)
 	}
 
 	thisSession := storage.InitTestingSession(i)

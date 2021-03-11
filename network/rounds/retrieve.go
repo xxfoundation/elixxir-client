@@ -87,10 +87,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// failure
 			if err != nil {
 				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
-
-			}
-
-			if err == nil && len(bundle.Messages) != 0 {
+			} else if  len(bundle.Messages) != 0 {
 				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
 			}

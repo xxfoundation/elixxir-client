@@ -17,7 +17,6 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
-	"strings"
 )
 
 type messageRetrievalComms interface {
@@ -64,14 +63,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwHost)
 				if err != nil {
 
-					// If the round is not in the gateway, this is an error
-					// in which there are no retries
-					if strings.Contains(err.Error(), noRoundError) {
-						jww.WARN.Printf("Failed to get messages for round %v: %s",
-							ri.ID, err)
-						break
-					}
-
 					jww.WARN.Printf("Failed on gateway [%d/%d] to get messages for round %v",
 						i, len(gwHosts), ri.ID)
 
@@ -83,11 +74,20 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				break
 
 			}
+			gwIDs := make([]*id.ID, 0)
+			for _, gwHost := range gwHosts {
+				gwIDs = append(gwIDs, gwHost.GetId())
+			}
+
 			// After trying all gateways, if none returned we mark the round as a
-			// failure
+			// failure and print out the last error
 			if err != nil {
 				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
-			} else if  len(bundle.Messages) != 0 {
+				jww.ERROR.Printf("Failed to get pickup round %d "+
+					"from all gateways (%v): final gateway %s returned : %s",
+					id.Round(ri.ID), gwIDs, gwHosts[len(gwHosts)-1].GetId(), err)
+			} else if len(bundle.Messages) != 0 {
+				// If successful and there are messages, we send them to another thread
 				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
 			}

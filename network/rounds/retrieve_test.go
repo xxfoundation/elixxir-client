@@ -191,7 +191,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 		// Construct the round lookup
 		iu := reception.IdentityUse{
 			Identity: reception.Identity{
-				EphId: expectedEphID,
+				EphId:  expectedEphID,
 				Source: id.NewIdFromString("Source", id.User, t),
 			},
 		}
@@ -300,7 +300,7 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 }
 
 // Path in which multiple error comms are encountered before a happy path comms
-func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T)  {
+func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	roundId := id.Round(5)

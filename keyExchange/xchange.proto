@@ -1,0 +1,25 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+// Call ./generate.sh to generate the protocol buffer code
+
+syntax = "proto3";
+
+package parse;
+option go_package = "keyExchange";
+
+message RekeyTrigger {
+    // PublicKey used in the registration
+    bytes publicKey = 1;
+    // ID of the session used to create this session
+    bytes sessionID = 2;
+}
+
+message RekeyConfirm {
+    // ID of the session created
+    bytes sessionID = 1;
+}

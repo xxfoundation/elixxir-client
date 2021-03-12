@@ -3,8 +3,8 @@
 variables:
   REPO_DIR: gitlab.com/elixxir
   REPO_NAME: client
-  DOCKER_IMAGE: elixxirlabs/cuda-go:latest
-  MIN_CODE_COVERAGE: "74"
+  DOCKER_IMAGE: elixxirlabs/cuda-go:go1.13-cuda11.1-mc
+  MIN_CODE_COVERAGE: "35"
 
 before_script:
   ##
@@ -21,7 +21,7 @@ before_script:
   - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
   - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
   - export PATH=$HOME/go/bin:$PATH
-  - export GOPRIVATE=gitlab.com/elixxir/*,gitlab.com/xx_network/*
+  - export GOPRIVATE="*gitlab.com/elixxir/*,*gitlab.com/xx_network/*"
 
 
 stages:
@@ -70,6 +70,7 @@ build:
     - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
     - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
+    - /upload-artifacts.sh release/
   artifacts:
     paths:
      - release/
@@ -91,6 +92,7 @@ bindings:
   tags:
     - ios
   script:
+    - export PATH="/usr/local/opt/go@1.13/bin:$PATH"
     - go get -u golang.org/x/mobile/cmd/gomobile
     - go get -u golang.org/x/mobile/bind
     - rm -rf $HOME/go/src/gitlab.com/elixxir/client/

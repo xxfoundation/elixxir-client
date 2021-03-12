@@ -1,52 +1,58 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package api
 
-import (
-	"github.com/pkg/errors"
-	"gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/primitives/id"
-)
+import jww "github.com/spf13/jwalterweatherman"
 
-// RegisterForNotifications sends a message to notification bot indicating it
-// is registering for notifications
-func (cl *Client) RegisterForNotifications(notificationToken []byte) error {
-	// Pull the host from the manage
-	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(&id.NotificationBot)
-	if !ok {
-		return errors.New("Failed to retrieve host for notification bot")
-	}
+// RegisterForNotifications allows a client to register for push
+// notifications.
+// Note that clients are not required to register for push notifications
+// especially as these rely on third parties (i.e., Firebase *cough*
+// *cough* google's palantir *cough*) that may represent a security
+// risk to the user.
+func (c *Client) RegisterForNotifications(token []byte) error {
+	jww.INFO.Printf("RegisterForNotifications(%s)", token)
+	// // Pull the host from the manage
+	// notificationBotHost, ok := cl.receptionManager.Comms.GetHost(&id.NotificationBot)
+	// if !ok {
+	// 	return errors.New("Failed to retrieve host for notification bot")
+	// }
 
-	// Send the register message
-	_, err := cl.receptionManager.Comms.RegisterForNotifications(notificationBotHost,
-		&mixmessages.NotificationToken{
-			Token: notificationToken,
-		})
-	if err != nil {
-		err := errors.Errorf(
-			"RegisterForNotifications: Unable to register for notifications! %s", err)
-		return err
-	}
+	// // Send the register message
+	// _, err := cl.receptionManager.Comms.RegisterForNotifications(notificationBotHost,
+	// 	&mixmessages.NotificationToken{
+	// 		Token: notificationToken,
+	// 	})
+	// if err != nil {
+	// 	err := errors.Errorf(
+	// 		"RegisterForNotifications: Unable to register for notifications! %s", err)
+	// 	return err
+	// }
 
 	return nil
-
 }
 
-// UnregisterForNotifications sends a message to notification bot indicating it
-// no longer wants to be registered for notifications
-func (cl *Client) UnregisterForNotifications() error {
-	// Pull the host from the manage
-	notificationBotHost, ok := cl.receptionManager.Comms.GetHost(&id.NotificationBot)
-	if !ok {
-		return errors.New("Failed to retrieve host for notification bot")
-	}
+// UnregisterForNotifications turns of notifications for this client
+func (c *Client) UnregisterForNotifications() error {
+	jww.INFO.Printf("UnregisterForNotifications()")
+	// // Pull the host from the manage
+	// notificationBotHost, ok := cl.receptionManager.Comms.GetHost(&id.NotificationBot)
+	// if !ok {
+	// 	return errors.New("Failed to retrieve host for notification bot")
+	// }
 
-	// Send the unregister message
-	_, err := cl.receptionManager.Comms.UnregisterForNotifications(notificationBotHost)
-	if err != nil {
-		err := errors.Errorf(
-			"RegisterForNotifications: Unable to register for notifications! %s", err)
-		return err
-	}
+	// // Send the unregister message
+	// _, err := cl.receptionManager.Comms.UnregisterForNotifications(notificationBotHost)
+	// if err != nil {
+	// 	err := errors.Errorf(
+	// 		"RegisterForNotifications: Unable to register for notifications! %s", err)
+	// 	return err
+	// }
 
 	return nil
-
 }

@@ -455,10 +455,12 @@ func (s *Session) triggerNegotiation() bool {
 	// the checked cases will turn out to be false.
 	s.mux.RLock()
 	// If we've used more keys than the RekeyThreshold, it's time for a rekey
-	if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
+	if s.keyState.GetNumUsed() >= s.rekeyThreshold &&
+		s.negotiationStatus < NewSessionTriggered {
 		s.mux.RUnlock()
 		s.mux.Lock()
-		if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
+		if s.keyState.GetNumUsed() >= s.rekeyThreshold &&
+			s.negotiationStatus < NewSessionTriggered {
 			//partnerSource a rekey to create a new session
 			s.negotiationStatus = NewSessionTriggered
 			// no save is make after the update because we do not want this state

@@ -27,6 +27,8 @@ func (m *Manager) CheckGarbledMessages() {
 	select {
 	case m.triggerGarbled <- struct{}{}:
 	default:
+		jww.WARN.Println("Failed to check garbled messages " +
+			"due to full channel")
 	}
 }
 

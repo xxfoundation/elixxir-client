@@ -219,9 +219,13 @@ func (r *relationship) getSessionForSending() *Session {
 	var unconfirmedActive []*Session
 	var unconfirmedRekey []*Session
 
+	jww.TRACE.Printf("[REKEY] Sessions Available: %d", len(sessions))
+
 	for _, s := range sessions {
 		status := s.Status()
 		confirmed := s.IsConfirmed()
+		jww.TRACE.Printf("[REKEY] Session Status/Confirmed: %v, %v",
+			status, confirmed)
 		if status == Active && confirmed {
 			//always return the first confirmed active, happy path
 			return s
@@ -243,12 +247,13 @@ func (r *relationship) getSessionForSending() *Session {
 		return unconfirmedRekey[0]
 	}
 
-	jww.INFO.Printf("Details about %v sessions which are invalid:", len(sessions))
+	jww.INFO.Printf("[REKEY] Details about %v sessions which are invalid:", len(sessions))
 	for i, s := range sessions {
 		if s == nil {
-			jww.INFO.Printf("\tSession %v is nil", i)
+			jww.INFO.Printf("[REKEY]\tSession %v is nil", i)
 		} else {
-			jww.INFO.Printf("\tSession %v: status: %v, confimred: %v", i, s.Status(), s.IsConfirmed())
+			jww.INFO.Printf("[REKEY]\tSession %v: status: %v,"+
+				" confirmed: %v", i, s.Status(), s.IsConfirmed())
 		}
 	}
 

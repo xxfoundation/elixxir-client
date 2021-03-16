@@ -197,9 +197,9 @@ var rootCmd = &cobra.Command{
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
 		waitTimeout := time.Duration(waitSecs)
-		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done && expectedCnt != 0 {
+			timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")

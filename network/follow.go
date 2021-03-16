@@ -25,7 +25,6 @@ package network
 import (
 	"bytes"
 	"fmt"
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"math"
 	"time"
 
@@ -146,14 +145,6 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		}
 	}
 
-	// Pull out the permisisoning key for use in round handling
-	permHost, ok := comms.GetHost(&id.Permissioning)
-	if !ok {
-		jww.ERROR.Printf("Failed to get permissioning host: %v", err)
-		return
-	}
-	permissioningPubKey := permHost.GetPubKey()
-
 	//check that the stored address space is correct
 	m.Session.Reception().UpdateIdSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
 	// Updates any id size readers of a network compliant id size
@@ -196,7 +187,12 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					// FIXME: without mutating the RoundInfo. Signature also needs verified
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
-					rnd := ds.NewRound(update, permissioningPubKey)
+					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
+					if err != nil {
+						jww.ERROR.Printf("Unable to get round %d from instance: %+v",
+							id.Round(update.ID), err)
+						return
+					}
 					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
 
 					// delete all existing keys and trigger a re-registration with the relevant Node

@@ -189,9 +189,10 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					update.State = uint32(states.FAILED)
 					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
 					if err != nil {
-						jww.ERROR.Printf("Unable to get round %d from instance: %+v",
+						jww.ERROR.Printf("Could not get round for event triggering:" +
+							"Unable to get round %d from instance: %+v",
 							id.Round(update.ID), err)
-						return
+						break
 					}
 					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
 

@@ -393,10 +393,10 @@ var legalStateChanges = [][]bool{
 	// Unconf  Sending  Sent   Confi  NewTrig  NewCreat
 	{false, false, false, false, false, false}, // Unc
 	{true, false, true, true, false, false},    // Sending
-	{false, false, false, true, false, true},   // Sent
+	{false, false, false, true, false, false},  // Sent
 	{false, false, false, false, true, false},  // Confi
 	{false, false, false, true, false, true},   // NewTrig
-	{false, false, false, false, false, false}, // NewCreat
+	{false, false, true, false, false, false},  // NewCreat
 }
 
 func (s *Session) SetNegotiationStatus(status Negotiation) {

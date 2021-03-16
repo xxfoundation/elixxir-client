@@ -187,7 +187,15 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					// FIXME: without mutating the RoundInfo. Signature also needs verified
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
-					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
+					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
+					if err != nil {
+						jww.ERROR.Printf("Failed to report client error: " +
+							"Could not get round for event triggering: " +
+							"Unable to get round %d from instance: %+v",
+							id.Round(update.ID), err)
+						break
+					}
+					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
 
 					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
@@ -246,7 +254,6 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	updated := identity.UR.Set(earliestTrackedRound)
 
-
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
@@ -255,10 +262,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	identity.UR.Set(earliestRemaining)
 	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
 
-
 	//delete any old rounds from processing
-	if earliestRemaining>updated{
-		for i:=updated;i<=earliestRemaining;i++{
+	if earliestRemaining > updated {
+		for i := updated; i <= earliestRemaining; i++ {
 			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
 		}
 	}

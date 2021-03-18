@@ -28,7 +28,6 @@ import (
 func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
 	// Set round to processing, if we can
 	status, count := m.p.Process(roundID, identity.EphId, identity.Source)
-	jww.INFO.Printf("checking: %d, status: %s", roundID, status)
 
 	switch status {
 	case Processing:

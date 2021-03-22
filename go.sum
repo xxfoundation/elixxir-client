@@ -245,6 +245,7 @@ github.com/zeebo/blake3 v0.0.4 h1:vtZ4X8B2lKXZFg2Xyg6Wo36mvmnJvc2VQYTtA4RDCkI=
 github.com/zeebo/blake3 v0.0.4/go.mod h1:YOZo8A49yNqM0X/Y+JmDUZshJWLt1laHsNSn5ny2i34=
 github.com/zeebo/blake3 v0.1.0 h1:sP3n5SxSbzU8x4Svc4ZcQv7SmQOqCkiKBeAZWP+hePo=
 github.com/zeebo/blake3 v0.1.0/go.mod h1:YOZo8A49yNqM0X/Y+JmDUZshJWLt1laHsNSn5ny2i34=
+github.com/zeebo/blake3 v0.1.1 h1:Nbsts7DdKThRHHd+YNlqiGlRqGEF2bE2eXN+xQ1hsEs=
 github.com/zeebo/blake3 v0.1.1/go.mod h1:G9pM4qQwjRzF1/v7+vabMj/c5mWpGZ2Wzo3Eb4z0pb4=
 github.com/zeebo/pcg v0.0.0-20181207190024-3cdc6b625a05 h1:4pW5fMvVkrgkMXdvIsVRRTs69DWYA8uNNQsu1stfVKU=
 github.com/zeebo/pcg v0.0.0-20181207190024-3cdc6b625a05/go.mod h1:Gr+78ptB0MwXxm//LBaEvBiaXY7hXJ6KGe2V32X2F6E=
@@ -278,6 +279,8 @@ gitlab.com/elixxir/comms v0.0.4-0.20210319231719-9a044394c8c3 h1:+DFYvgbPhxeMiKW
 gitlab.com/elixxir/comms v0.0.4-0.20210319231719-9a044394c8c3/go.mod h1:3yOQzjNPjxcxX2z3mB1Jb5rmykKGqG/UHMgx9S3MNbw=
 gitlab.com/elixxir/comms v0.0.4-0.20210322194725-bbb90528aeef h1:+ipNaV9WV4o0lW4XlU4LG0FIm1D5ifvuZeK8kiZzzhE=
 gitlab.com/elixxir/comms v0.0.4-0.20210322194725-bbb90528aeef/go.mod h1:qKAgl88wr5EP2E5dvboXCrHkKglDBmF5pxRXzJlhz9M=
+gitlab.com/elixxir/comms v0.0.4-0.20210322232324-970b3693e9ec h1:hOTVE23ZzrzKwgfoj6S4KHzpGbwQ1SJb4YB3kdiesX0=
+gitlab.com/elixxir/comms v0.0.4-0.20210322232324-970b3693e9ec/go.mod h1:qKAgl88wr5EP2E5dvboXCrHkKglDBmF5pxRXzJlhz9M=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4 h1:28ftZDeYEko7xptCZzeFWS1Iam95dj46TWFVVlKmw6A=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4/go.mod h1:ucm9SFKJo+K0N2GwRRpaNr+tKXMIOVWzmyUD0SbOu2c=
 gitlab.com/elixxir/crypto v0.0.3 h1:znCt/x2bL4y8czTPaaFkwzdgSgW3BJc/1+dxyf1jqVw=
@@ -420,6 +423,7 @@ golang.org/x/sys v0.0.0-20201029080932-201ba4db2418/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210105210732-16f7687f5001 h1:/dSxr6gT0FNI1MO5WLJo8mTmItROeOKTkDn+7OwWBos=
 golang.org/x/sys v0.0.0-20210105210732-16f7687f5001/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210319071255-635bc2c9138d h1:jbzgAvDZn8aEnytae+4ou0J0GwFZoHR0hOrTg4qH8GA=
 golang.org/x/sys v0.0.0-20210319071255-635bc2c9138d/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
 golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=

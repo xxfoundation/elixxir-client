@@ -18,7 +18,7 @@ import (
 )
 
 // Change this value to set the version for this build
-const currentVersion = "2.2.0"
+const currentVersion = "2.2.1"
 
 func Version() string {
 	out := fmt.Sprintf("Elixxir Client v%s -- %s\n\n", api.SEMVER,

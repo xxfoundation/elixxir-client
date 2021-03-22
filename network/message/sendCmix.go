@@ -32,7 +32,7 @@ type sendCmixCommsInterface interface {
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
 }
 
-const sendTimeBuffer = 100 * time.Millisecond
+const sendTimeBuffer = 500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
@@ -75,30 +75,13 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 
 		remainingTime := param.Timeout - elapsed
 		//find the best round to send to, excluding attempted rounds
-		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
+		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if bestRound == nil {
 			continue
 		}
 
 		//add the round on to the list of attempted so it is not tried again
 		attempted.Insert(bestRound)
-
-		//compute if the round is too close to send to
-		roundCutoffTime := time.Unix(0,
-			int64(bestRound.Timestamps[states.QUEUED]))
-		roundCutoffTime.Add(sendTimeBuffer)
-		now := time.Now()
-
-		jww.DEBUG.Printf("Found round %d to send to %s (msgDigest: %s)",
-			bestRound.ID, recipient, msg.Digest())
-
-		if now.After(roundCutoffTime) {
-			jww.WARN.Printf("Round %d for sending to %s (msgDigest: %s) "+
-				"received which has already started realtime: \n\t started: "+
-				"%s \n\t now: %s", bestRound.ID, recipient, msg.Digest(),
-				roundCutoffTime, now)
-			continue
-		}
 
 		//set the ephemeral ID
 		ephID, _, _, err := ephemeral.GetId(recipient,

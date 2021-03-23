@@ -38,6 +38,7 @@ type HostPool struct {
 	getter   HostGetter
 }
 
+//
 func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostGetter) (*HostPool, error) {
 	result := &HostPool{
 		getter:   getter,
@@ -48,20 +49,20 @@ func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, get
 		rng:      rng,
 	}
 
-	// Convert the gate
-	var err error
+	// Build the initial HostPool
+	err := result.pruneHostPool()
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert the NDF into a set object
 	result.ndfSet, err = convertNdfToSet(ndf)
 	if err != nil {
 		return nil, err
 	}
 
-	// Build the initial HostPool
-	err = result.buildHostPool()
-	if err != nil {
-		return nil, err
-	}
 	// Start the long-running thread and return
-	result.manageHostPool()
+	go result.manageHostPool()
 	return result, nil
 }
 
@@ -82,13 +83,18 @@ func (g *HostPool) manageHostPool() {
 // Iterate over the hostList, replacing any Hosts with errors
 // with new, randomly-selected Hosts from the NDF
 func (g *HostPool) pruneHostPool() error {
+	// TODO: Verify this logic chunk
+	ndfLen := uint32(len(g.ndf.Gateways))
+	if ndfLen == 0 || ndfLen < g.poolSize {
+		return errors.Errorf("no gateways available")
+	}
+
 	for poolIdx := uint32(0); poolIdx < g.poolSize; {
 		host := g.hostList[poolIdx]
-		errCounter := *host.GetMetrics().ErrCounter
 
 		// Check the Host for errors
 		// TODO: Configurable error threshold?
-		if errCounter > 0 {
+		if host == nil || *host.GetMetrics().ErrCounter > 0 {
 			// If errors occurred, randomly select a new Gw by index in the NDF
 			ndfIdx := readRangeUint32(0, uint32(len(g.ndf.Gateways)), g.rng)
 			// Use the random ndfIdx to obtain a GwId from the NDF
@@ -112,56 +118,12 @@ func (g *HostPool) pruneHostPool() error {
 				g.hostMap[gwId] = poolIdx
 
 				// Clean up and move onto next Host
-				host.Disconnect()
+				if host != nil {
+					host.Disconnect()
+				}
 				poolIdx++
 			}
 		}
-	}
-	return nil
-}
-
-// Create the initial hostList and hostMap
-func (g *HostPool) buildHostPool() error {
-	// TODO: Verify this logic chunk
-	ndfLen := uint32(len(g.ndf.Gateways))
-	if ndfLen == 0 || ndfLen < g.poolSize {
-		return errors.Errorf("no gateways available")
-	}
-
-	// Map random NDF indexes to indexes in the hostList
-	indices := make(map[uint32]uint32) // map[ndfIdx]poolIdx
-	for poolIdx := uint32(0); poolIdx < g.poolSize; {
-
-		// Randomly select a Gw by index in the NDF
-		ndfIdx := readRangeUint32(0, ndfLen, g.rng)
-
-		// If that ndfIdx has already been chosen, skip and try again
-		if _, ok := indices[ndfIdx]; !ok {
-			// If not, record the Gw NDF index corresponding to its index in the hostList
-			indices[ndfIdx] = poolIdx
-			poolIdx++
-		}
-	}
-
-	for ndfIdx, poolIdx := range indices {
-
-		// Use the random ndfIdx to obtain a GwId from the NDF
-		gwId, err := id.Unmarshal(g.ndf.Gateways[ndfIdx].ID)
-		if err != nil {
-			return errors.WithMessage(err, "failed to get Gateway")
-		}
-
-		// Then obtain that GwId's Host object
-		gwHost, ok := g.getter.GetHost(gwId)
-		if !ok {
-			return errors.Errorf("host for gateway %s could not be "+
-				"retrieved", gwId)
-		}
-
-		// Use the poolIdx to assign the random Host to an index in the hostList
-		g.hostList[poolIdx] = gwHost
-		// Use the GwId to keep track of the Host's random index in the hostList
-		g.hostMap[gwId] = poolIdx
 	}
 	return nil
 }

@@ -11,7 +11,7 @@ package bindings
 // for bindings.
 type NodeRegistrationsStatus struct {
 	registered int
-	inProgress int
+	total      int
 }
 
 // GetRegistered returns the number of nodes registered with the client.
@@ -21,5 +21,5 @@ func (nrs *NodeRegistrationsStatus) GetRegistered() int {
 
 // GetInProgress return the number of nodes currently registering.
 func (nrs *NodeRegistrationsStatus) GetInProgress() int {
-	return nrs.inProgress
+	return nrs.total
 }

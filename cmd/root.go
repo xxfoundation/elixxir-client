@@ -99,15 +99,15 @@ var rootCmd = &cobra.Command{
 		// After connection, make sure we have registered with at least
 		// 85% of the nodes
 		numReg := 1
-		numNotReg := 100
-		for numReg < 3*numNotReg {
+		total := 100
+		for numReg < (total*3)/4 {
 			time.Sleep(1 * time.Second)
-			numReg, numNotReg, err = client.GetNodeRegistrationStatus()
+			numReg, total, err = client.GetNodeRegistrationStatus()
 			if err != nil {
 				jww.FATAL.Panicf("%+v", err)
 			}
 			jww.INFO.Printf("Registering with nodes (%d/%d)...",
-				numReg, (numReg + numNotReg))
+				numReg, total)
 		}
 
 		// Send Messages

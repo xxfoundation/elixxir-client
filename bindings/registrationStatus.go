@@ -19,7 +19,7 @@ func (nrs *NodeRegistrationsStatus) GetRegistered() int {
 	return nrs.registered
 }
 
-// GetInProgress return the number of nodes currently registering.
-func (nrs *NodeRegistrationsStatus) GetInProgress() int {
+// GetTotal return the total of nodes currently in the network.
+func (nrs *NodeRegistrationsStatus) GetTotal() int {
 	return nrs.total
 }

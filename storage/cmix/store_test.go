@@ -70,6 +70,41 @@ func TestStore_AddRemove(t *testing.T) {
 	}
 }
 
+
+// Happy path Add/Has test
+func TestStore_AddHas(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	// jww.SetStdoutThreshold(jww.LevelTrace)
+
+	testStore, _ := makeTestStore()
+
+	nodeId := id.NewIdFromString("test", id.Node, t)
+	key := testStore.grp.NewInt(5)
+
+	testStore.Add(nodeId, key)
+	if _, exists := testStore.nodes[*nodeId]; !exists {
+		t.Fatal("Failed to add node key")
+	}
+
+	if !testStore.Has(nodeId) {
+		t.Fatal("cannot find the node id that that was added")
+	}
+}
+
+// Tests that has returns false when it doesnt have
+func TestStore_DoesntHave(t *testing.T) {
+	// Uncomment to print keys that Set and Get are called on
+	// jww.SetStdoutThreshold(jww.LevelTrace)
+
+	testStore, _ := makeTestStore()
+
+	nodeId := id.NewIdFromString("test", id.Node, t)
+
+	if testStore.Has(nodeId) {
+		t.Fatal("found the node when it shouldnt have been found")
+	}
+}
+
 // Happy path
 func TestLoadStore(t *testing.T) {
 	// Uncomment to print keys that Set and Get are called on

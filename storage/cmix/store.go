@@ -110,6 +110,14 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	}
 }
 
+// Returns if the store has the node
+func (s *Store) Has(nid *id.ID)bool {
+	s.mux.RLock()
+	_, exists := s.nodes[*nid]
+	s.mux.RUnlock()
+	return exists
+}
+
 // Remove removes a node key from the nodes map and saves.
 func (s *Store) Remove(nid *id.ID) {
 	s.mux.Lock()

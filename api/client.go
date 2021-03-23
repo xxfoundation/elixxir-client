@@ -8,6 +8,7 @@
 package api
 
 import (
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 
 	"github.com/pkg/errors"
@@ -517,9 +518,9 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 }
 
 // GetNodeRegistrationStatus gets the current status of node registration. It
-// returns the number of nodes that the client is registered and the number of
-// in progress node registrations. An error is returned if the network is not
-// healthy.
+// returns the the total number of nodes in the NDF and the number of those
+// which are currently registers with. An error is returned if the network is
+// not healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {
@@ -527,13 +528,24 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 			"network is not healthy")
 	}
 
-	// Get the number of nodes that client is registered with
-	registeredNodes := c.storage.Cmix().Count()
+	nodes := c.GetNetworkInterface().GetInstance().GetPartialNdf().Get().Nodes
+
+	cmixStore := c.storage.Cmix()
+
+	var numRegistered int
+	for i, n := range nodes{
+		nid, err := id.Unmarshal(n.ID)
+		if err!=nil{
+			return 0,0, errors.Errorf("Failed to unmarshal node ID %v " +
+				"(#%d): %s", n.ID, i, err.Error())
+		}
+		if cmixStore.Has(nid){
+			numRegistered++
+		}
+	}
 
 	// Get the number of in progress node registrations
-	inProgress := c.network.InProgressRegistrations()
-
-	return registeredNodes, inProgress, nil
+	return numRegistered, len(nodes), nil
 }
 
 // ----- Utility Functions -----

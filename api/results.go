@@ -184,7 +184,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 
 	for {
 		// Find a gateway to request about the roundRequests
-		gwHost, err := gateway.Get(instance.GetPartialNdf().Get(), comms, c.rng.GetStream())
+		gwHost, err := gateway.Get(instance.GetPartialNdf().Get(), c.comms, c.rng.GetStream())
 		if err != nil {
 			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
 				"data: %s", err)

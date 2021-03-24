@@ -36,26 +36,26 @@ type HostPool struct {
 	hostList []*connect.Host   // each index in the slice contains the value
 	ndfSet   *set.Set
 
-	poolSize   uint32
-	rng        io.Reader
-	ndf        *ndf.NetworkDefinition
-	storage    *storage.Session
-	getter     HostGetter
-	addGateway chan network.NodeGateway
+	poolSize       uint32
+	rng            io.Reader
+	ndf            *ndf.NetworkDefinition
+	storage        *storage.Session
+	getter         HostGetter
+	addGatewayChan chan network.NodeGateway
 }
 
 //
 func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostGetter,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
 	result := &HostPool{
-		getter:     getter,
-		hostMap:    make(map[*id.ID]uint32),
-		hostList:   make([]*connect.Host, poolSize),
-		poolSize:   poolSize,
-		ndf:        ndf,
-		rng:        rng,
-		storage:    storage,
-		addGateway: addGateway,
+		getter:         getter,
+		hostMap:        make(map[*id.ID]uint32),
+		hostList:       make([]*connect.Host, poolSize),
+		poolSize:       poolSize,
+		ndf:            ndf,
+		rng:            rng,
+		storage:        storage,
+		addGatewayChan: addGateway,
 	}
 
 	// Build the initial HostPool
@@ -73,6 +73,21 @@ func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, get
 	// Start the long-running thread and return
 	go result.manageHostPool()
 	return result, nil
+}
+
+// Return a random GwHost from the HostPool
+func (h *HostPool) GetAny() *connect.Host {
+	gwIdx := readRangeUint32(0, h.poolSize, h.rng)
+	return h.hostList[gwIdx]
+}
+
+// Try to obtain a specific host from the HostPool.
+// If that GwId is not in the HostPool, return a random GwHost from the HostPool
+func (h *HostPool) GetSpecific(gwId *id.ID) *connect.Host {
+	if hostIdx, ok := h.hostMap[gwId]; ok {
+		return h.hostList[hostIdx]
+	}
+	return h.GetAny()
 }
 
 // Long-running thread that manages the HostPool on a timer
@@ -153,73 +168,89 @@ func (h *HostPool) updateConns() error {
 
 	// Handle removing Gateways
 	removeSet := h.ndfSet.Difference(unchangedSet)
-	removeSet.Do(func(setItem interface{}) {
-		gwItem := setItem.(SetItem)
-		h.getter.RemoveHost(gwItem.GatewayId)
-	})
+	removeSet.Do(h.removeGateway)
 
 	// Handle adding Gateways
 	addSet := newSet.Difference(unchangedSet)
-	addSet.Do(func(setItem interface{}) {
-		gwItem := setItem.(SetItem)
-		gw := h.ndf.Gateways[gwItem.NdfIndex]
-
-		//check if the host exists
-		host, ok := h.getter.GetHost(gwItem.GatewayId)
-		if !ok {
-
-			// Check if gateway ID collides with an existing hard coded ID
-			if id.CollidesWithHardCodedID(gwItem.GatewayId) {
-				jww.ERROR.Printf("Gateway ID invalid, collides with a "+
-					"hard coded ID. Invalid ID: %v", gwItem.GatewayId.Marshal())
-			}
-
-			// TODO: Make configurable
-			gwParams := connect.GetDefaultHostParams()
-			gwParams.MaxRetries = 3
-			gwParams.EnableCoolOff = true
-			_, err := h.getter.AddHost(gwItem.GatewayId, gw.Address, []byte(gw.TlsCertificate), gwParams)
-			if err != nil {
-				jww.ERROR.Printf("Could not add gateway host %s: %+v", gwItem.GatewayId, err)
-			}
-
-			// Send AddGateway event if we do not already possess keys for the GW
-			if !h.storage.Cmix().Has(gwItem.GatewayId) {
-				ng := network.NodeGateway{
-					Node:    h.ndf.Nodes[gwItem.NdfIndex],
-					Gateway: gw,
-				}
-
-				select {
-				case h.addGateway <- ng:
-				default:
-					jww.WARN.Printf("Unable to send AddGateway event for id %s", gwItem.GatewayId.String())
-				}
-			}
-
-		} else if host.GetAddress() != gw.Address {
-			host.UpdateAddress(gw.Address)
-		}
-	})
+	addSet.Do(h.addGateway)
 
 	// Update the internal NDF set
 	h.ndfSet = newSet
 	return nil
 }
 
-// Return a random GwHost from the HostPool
-func (h *HostPool) GetAny() *connect.Host {
-	gwIdx := readRangeUint32(0, h.poolSize, h.rng)
-	return h.hostList[gwIdx]
+// updateConns helper for adding new Gateways
+func (h *HostPool) addGateway(setItem interface{}) {
+	gwItem := setItem.(SetItem)
+	gw := h.ndf.Gateways[gwItem.NdfIndex]
+
+	//check if the host exists
+	host, ok := h.getter.GetHost(gwItem.GatewayId)
+	if !ok {
+
+		// Check if gateway ID collides with an existing hard coded ID
+		if id.CollidesWithHardCodedID(gwItem.GatewayId) {
+			jww.ERROR.Printf("Gateway ID invalid, collides with a "+
+				"hard coded ID. Invalid ID: %v", gwItem.GatewayId.Marshal())
+		}
+
+		// TODO: Make configurable
+		gwParams := connect.GetDefaultHostParams()
+		gwParams.MaxRetries = 3
+		gwParams.EnableCoolOff = true
+		_, err := h.getter.AddHost(gwItem.GatewayId, gw.Address, []byte(gw.TlsCertificate), gwParams)
+		if err != nil {
+			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwItem.GatewayId, err)
+		}
+
+		// Send AddGateway event if we do not already possess keys for the GW
+		if !h.storage.Cmix().Has(gwItem.GatewayId) {
+			ng := network.NodeGateway{
+				Node:    h.ndf.Nodes[gwItem.NdfIndex],
+				Gateway: gw,
+			}
+
+			select {
+			case h.addGatewayChan <- ng:
+			default:
+				jww.WARN.Printf("Unable to send AddGateway event for id %s", gwItem.GatewayId.String())
+			}
+		}
+
+	} else if host.GetAddress() != gw.Address {
+		host.UpdateAddress(gw.Address)
+	}
 }
 
-// Try to obtain a specific host from the HostPool.
-// If that GwId is not in the HostPool, return a random GwHost from the HostPool
-func (h *HostPool) GetSpecific(gwId *id.ID) *connect.Host {
-	if hostIdx, ok := h.hostMap[gwId]; ok {
-		return h.hostList[hostIdx]
+// Used to store information when converting ndf object to set object
+type SetItem struct {
+	GatewayId *id.ID
+	NdfIndex  uint32
+}
+
+// Takes ndf.Gateways and puts their IDs into a set.Set object
+func convertNdfToSet(ndf *ndf.NetworkDefinition) (*set.Set, error) {
+	ndfSet := set.New()
+
+	// Process gateway Id's into set
+	for i, gw := range ndf.Gateways {
+		gwId, err := id.Unmarshal(gw.ID)
+		if err != nil {
+			return nil, err
+		}
+		ndfSet.Insert(SetItem{
+			GatewayId: gwId,
+			NdfIndex:  uint32(i),
+		})
 	}
-	return h.GetAny()
+
+	return ndfSet, nil
+}
+
+// updateConns helper for removing old Gateways
+func (h *HostPool) removeGateway(setItem interface{}) {
+	gwItem := setItem.(SetItem)
+	h.getter.RemoveHost(gwItem.GatewayId)
 }
 
 // Get the Host of a random gateway in the NDF
@@ -279,31 +310,6 @@ func GetAllShuffled(hg HostGetter, ri *mixmessages.RoundInfo) ([]*connect.Host, 
 
 	return returnHosts, nil
 
-}
-
-// Used to store information when converting ndf object to set object
-type SetItem struct {
-	GatewayId *id.ID
-	NdfIndex  uint32
-}
-
-// Takes ndf.Gateways and puts their IDs into a set.Set object
-func convertNdfToSet(ndf *ndf.NetworkDefinition) (*set.Set, error) {
-	ndfSet := set.New()
-
-	// Process gateway Id's into set
-	for i, gw := range ndf.Gateways {
-		gwId, err := id.Unmarshal(gw.ID)
-		if err != nil {
-			return nil, err
-		}
-		ndfSet.Insert(SetItem{
-			GatewayId: gwId,
-			NdfIndex:  uint32(i),
-		})
-	}
-
-	return ndfSet, nil
 }
 
 // readUint32 reads an integer from an io.Reader (which should be a CSPRNG)

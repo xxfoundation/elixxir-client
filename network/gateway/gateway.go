@@ -38,9 +38,10 @@ type HostPool struct {
 	hostList []*connect.Host   // each index in the slice contains the value
 	hostMux  sync.RWMutex      // Mutex for the above map/list combination
 
-	ndfMap map[*id.ID]int // map gateway ID to its index in the ndf
-	ndf    *ndf.NetworkDefinition
-	ndfMux sync.RWMutex
+	ndfMap       map[*id.ID]int // map gateway ID to its index in the ndf
+	ndf          *ndf.NetworkDefinition
+	isNdfUpdated bool // indicates the NDF has been updated and needs processed
+	ndfMux       sync.RWMutex
 
 	poolParams     PoolParams
 	rng            io.Reader
@@ -101,6 +102,7 @@ func NewHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 // Mutates internal ndf to the given ndf
 func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	h.ndfMux.Lock()
+	h.isNdfUpdated = true
 	h.ndf = ndf
 	h.ndfMux.Unlock()
 }
@@ -132,12 +134,16 @@ func (h *HostPool) manageHostPool() {
 		select {
 		case <-tick:
 			h.ndfMux.RLock()
-			err := h.updateConns()
-			if err != nil {
-				jww.ERROR.Printf("Unable to updateConns: %+v", err)
+			if h.isNdfUpdated {
+				err := h.updateConns()
+				if err != nil {
+					jww.ERROR.Printf("Unable to updateConns: %+v", err)
+				}
+				h.isNdfUpdated = false
 			}
+
 			h.hostMux.Lock()
-			err = h.pruneHostPool()
+			err := h.pruneHostPool()
 			h.hostMux.Unlock()
 			if err != nil {
 				jww.ERROR.Printf("Unable to pruneHostPool: %+v", err)

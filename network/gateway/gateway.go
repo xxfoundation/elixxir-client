@@ -10,7 +10,6 @@ package gateway
 import (
 	"encoding/binary"
 	"fmt"
-	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -22,36 +21,60 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"io"
 	"math"
+	"sync"
 	"time"
 )
 
-type HostGetter interface {
+// Interface allowing storage and retrieval of Host objects
+type HostManager interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error)
 	RemoveHost(hid *id.ID)
 }
 
+// Handles providing hosts to the Client
 type HostPool struct {
 	hostMap  map[*id.ID]uint32 // map key to its index in the slice
 	hostList []*connect.Host   // each index in the slice contains the value
-	ndfSet   *set.Set
+	hostMux  sync.RWMutex      // Mutex for the above map/list combination
 
-	poolSize       uint32
+	ndfMap map[*id.ID]int // map gateway ID to its index in the ndf
+	ndf    *ndf.NetworkDefinition
+	ndfMux sync.RWMutex
+
+	poolParams     PoolParams
 	rng            io.Reader
-	ndf            *ndf.NetworkDefinition
 	storage        *storage.Session
-	getter         HostGetter
+	manager        HostManager
 	addGatewayChan chan network.NodeGateway
 }
 
-//
-func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostGetter,
+// Allows configuration of HostPool parameters
+type PoolParams struct {
+	poolSize      uint32
+	errThreshold  uint64
+	pruneInterval time.Duration
+	hostParams    connect.HostParams
+}
+
+// Returns a default set of PoolParams
+func DefaultPoolParams() PoolParams {
+	return PoolParams{
+		poolSize:      30,
+		errThreshold:  1,
+		pruneInterval: 10 * time.Second,
+		hostParams:    connect.GetDefaultHostParams(),
+	}
+}
+
+// Build and return new HostPool object
+func NewHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
 	result := &HostPool{
-		getter:         getter,
+		manager:        getter,
 		hostMap:        make(map[*id.ID]uint32),
-		hostList:       make([]*connect.Host, poolSize),
-		poolSize:       poolSize,
+		hostList:       make([]*connect.Host, poolParams.poolSize),
+		poolParams:     poolParams,
 		ndf:            ndf,
 		rng:            rng,
 		storage:        storage,
@@ -64,8 +87,8 @@ func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, get
 		return nil, err
 	}
 
-	// Convert the NDF into a set object
-	result.ndfSet, err = convertNdfToSet(ndf)
+	// Convert the NDF into a map object for future comparison
+	result.ndfMap, err = convertNdfToMap(ndf)
 	if err != nil {
 		return nil, err
 	}
@@ -75,28 +98,40 @@ func NewHostPool(poolSize uint32, rng io.Reader, ndf *ndf.NetworkDefinition, get
 	return result, nil
 }
 
+// Mutates internal ndf to the given ndf
+func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
+	h.ndfMux.Lock()
+	h.ndf = ndf
+	h.ndfMux.Unlock()
+}
+
 // Return a random GwHost from the HostPool
 func (h *HostPool) GetAny() *connect.Host {
-	gwIdx := readRangeUint32(0, h.poolSize, h.rng)
+	gwIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
+	h.hostMux.RLock()
+	defer h.hostMux.RUnlock()
 	return h.hostList[gwIdx]
 }
 
 // Try to obtain a specific host from the HostPool.
 // If that GwId is not in the HostPool, return a random GwHost from the HostPool
 func (h *HostPool) GetSpecific(gwId *id.ID) *connect.Host {
+	h.hostMux.RLock()
 	if hostIdx, ok := h.hostMap[gwId]; ok {
+		defer h.hostMux.RUnlock()
 		return h.hostList[hostIdx]
 	}
+	h.hostMux.RUnlock()
 	return h.GetAny()
 }
 
 // Long-running thread that manages the HostPool on a timer
 func (h *HostPool) manageHostPool() {
-	// TODO: Configurable timer?
-	tick := time.Tick(10 * time.Second)
+	tick := time.Tick(h.poolParams.pruneInterval)
 	for {
 		select {
 		case <-tick:
+			h.ndfMux.RLock()
 			err := h.updateConns()
 			if err != nil {
 				jww.ERROR.Printf("Unable to updateConns: %+v", err)
@@ -105,6 +140,7 @@ func (h *HostPool) manageHostPool() {
 			if err != nil {
 				jww.ERROR.Printf("Unable to pruneHostPool: %+v", err)
 			}
+			h.ndfMux.RUnlock()
 		}
 	}
 }
@@ -114,18 +150,19 @@ func (h *HostPool) manageHostPool() {
 func (h *HostPool) pruneHostPool() error {
 	// TODO: Verify this logic chunk
 	ndfLen := uint32(len(h.ndf.Gateways))
-	if ndfLen == 0 || ndfLen < h.poolSize {
+	if ndfLen == 0 || ndfLen < h.poolParams.poolSize {
 		return errors.Errorf("no gateways available")
 	}
 
-	for poolIdx := uint32(0); poolIdx < h.poolSize; {
+	for poolIdx := uint32(0); poolIdx < h.poolParams.poolSize; {
 		host := h.hostList[poolIdx]
 
 		// Check the Host for errors
-		// TODO: Configurable error threshold?
-		if host == nil || *host.GetMetrics().ErrCounter > 0 {
+		if host == nil || *host.GetMetrics().ErrCounter >= h.poolParams.errThreshold {
+
 			// If errors occurred, randomly select a new Gw by index in the NDF
 			ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), h.rng)
+
 			// Use the random ndfIdx to obtain a GwId from the NDF
 			gwId, err := id.Unmarshal(h.ndf.Gateways[ndfIdx].ID)
 			if err != nil {
@@ -135,7 +172,7 @@ func (h *HostPool) pruneHostPool() error {
 			// Verify the GwId is not already in the hostMap
 			if _, ok := h.hostMap[gwId]; !ok {
 				// If it is a new GwId, then obtain that GwId's Host object
-				gwHost, ok := h.getter.GetHost(gwId)
+				gwHost, ok := h.manager.GetHost(gwId)
 				if !ok {
 					return errors.Errorf("host for gateway %s could not be "+
 						"retrieved", gwId)
@@ -160,91 +197,83 @@ func (h *HostPool) pruneHostPool() error {
 // Updates the internal HostPool with any changes to the NDF
 func (h *HostPool) updateConns() error {
 	// Prepare NDFs for comparison
-	newSet, err := convertNdfToSet(h.ndf)
+	newMap, err := convertNdfToMap(h.ndf)
 	if err != nil {
 		return errors.Errorf("Unable to convert new NDF to set: %+v", err)
 	}
-	unchangedSet := h.ndfSet.Intersection(newSet)
 
 	// Handle removing Gateways
-	removeSet := h.ndfSet.Difference(unchangedSet)
-	removeSet.Do(h.removeGateway)
+	for gwId := range h.ndfMap {
+		if _, ok := newMap[gwId]; !ok {
+			// If GwId in ndfMap is not in newMap, remove the Gateway
+			h.removeGateway(gwId)
+		}
+	}
 
 	// Handle adding Gateways
-	addSet := newSet.Difference(unchangedSet)
-	addSet.Do(h.addGateway)
+	for gwId, ndfIdx := range newMap {
+		if _, ok := h.ndfMap[gwId]; !ok {
+			// If GwId in newMap is not in ndfMap, add the Gateway
+			h.addGateway(gwId, ndfIdx)
+		}
+	}
 
 	// Update the internal NDF set
-	h.ndfSet = newSet
+	h.ndfMap = newMap
 	return nil
 }
 
-// Used to store information when converting ndf object to set object
-type SetItem struct {
-	GatewayId *id.ID
-	NdfIndex  uint32
-}
-
-// Takes ndf.Gateways and puts their IDs into a set.Set object
-func convertNdfToSet(ndf *ndf.NetworkDefinition) (*set.Set, error) {
-	ndfSet := set.New()
-
+// Takes ndf.Gateways and puts their IDs into a map object
+func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[*id.ID]int, error) {
+	result := make(map[*id.ID]int)
 	// Process gateway Id's into set
 	for i, gw := range ndf.Gateways {
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
 			return nil, err
 		}
-		ndfSet.Insert(SetItem{
-			GatewayId: gwId,
-			NdfIndex:  uint32(i),
-		})
+		result[gwId] = i
 	}
 
-	return ndfSet, nil
+	return result, nil
 }
 
 // updateConns helper for removing old Gateways
-func (h *HostPool) removeGateway(setItem interface{}) {
-	gwItem := setItem.(SetItem)
-	h.getter.RemoveHost(gwItem.GatewayId)
+func (h *HostPool) removeGateway(gwId *id.ID) {
+	h.manager.RemoveHost(gwId)
 }
 
 // updateConns helper for adding new Gateways
-func (h *HostPool) addGateway(setItem interface{}) {
-	gwItem := setItem.(SetItem)
-	gw := h.ndf.Gateways[gwItem.NdfIndex]
+func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
+	gw := h.ndf.Gateways[ndfIndex]
 
 	//check if the host exists
-	host, ok := h.getter.GetHost(gwItem.GatewayId)
+	host, ok := h.manager.GetHost(gwId)
 	if !ok {
 
 		// Check if gateway ID collides with an existing hard coded ID
-		if id.CollidesWithHardCodedID(gwItem.GatewayId) {
+		if id.CollidesWithHardCodedID(gwId) {
 			jww.ERROR.Printf("Gateway ID invalid, collides with a "+
-				"hard coded ID. Invalid ID: %v", gwItem.GatewayId.Marshal())
+				"hard coded ID. Invalid ID: %v", gwId.Marshal())
 		}
 
-		// TODO: Make configurable
-		gwParams := connect.GetDefaultHostParams()
-		gwParams.MaxRetries = 3
-		gwParams.EnableCoolOff = true
-		_, err := h.getter.AddHost(gwItem.GatewayId, gw.Address, []byte(gw.TlsCertificate), gwParams)
+		// Add the new gateway host
+		_, err := h.manager.AddHost(gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.hostParams)
 		if err != nil {
-			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwItem.GatewayId, err)
+			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
 		}
 
 		// Send AddGateway event if we do not already possess keys for the GW
-		if !h.storage.Cmix().Has(gwItem.GatewayId) {
+		if !h.storage.Cmix().Has(gwId) {
 			ng := network.NodeGateway{
-				Node:    h.ndf.Nodes[gwItem.NdfIndex],
+				Node:    h.ndf.Nodes[ndfIndex],
 				Gateway: gw,
 			}
 
 			select {
 			case h.addGatewayChan <- ng:
 			default:
-				jww.WARN.Printf("Unable to send AddGateway event for id %s", gwItem.GatewayId.String())
+				jww.WARN.Printf("Unable to send AddGateway event for id %s", gwId.String())
 			}
 		}
 
@@ -254,7 +283,7 @@ func (h *HostPool) addGateway(setItem interface{}) {
 }
 
 // Get the Host of a random gateway in the NDF
-func Get(ndf *ndf.NetworkDefinition, hg HostGetter, rng io.Reader) (*connect.Host, error) {
+func Get(ndf *ndf.NetworkDefinition, hg HostManager, rng io.Reader) (*connect.Host, error) {
 	gwLen := uint32(len(ndf.Gateways))
 	if gwLen == 0 {
 		return nil, errors.Errorf("no gateways available")
@@ -275,7 +304,7 @@ func Get(ndf *ndf.NetworkDefinition, hg HostGetter, rng io.Reader) (*connect.Hos
 }
 
 // GetAllShuffled returns a shuffled list of gateway hosts from the specified round
-func GetAllShuffled(hg HostGetter, ri *mixmessages.RoundInfo) ([]*connect.Host, error) {
+func GetAllShuffled(hg HostManager, ri *mixmessages.RoundInfo) ([]*connect.Host, error) {
 	roundTop := ri.GetTopology()
 	hosts := make([]*connect.Host, 0)
 	shuffledList := make([]uint64, 0)

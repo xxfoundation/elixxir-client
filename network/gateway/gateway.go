@@ -51,10 +51,10 @@ type HostPool struct {
 
 // Allows configuration of HostPool parameters
 type PoolParams struct {
-	poolSize      uint32
-	errThreshold  uint64
-	pruneInterval time.Duration
-	hostParams    connect.HostParams
+	poolSize      uint32             // Quantity of Hosts in the HostPool
+	errThreshold  uint64             // How many errors will cause a Host to be ejected from the HostPool
+	pruneInterval time.Duration      // How frequently the HostPool updates the pool
+	hostParams    connect.HostParams // Parameters for the creation of new Host objects
 }
 
 // Returns a default set of PoolParams

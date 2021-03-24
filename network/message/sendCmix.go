@@ -32,7 +32,8 @@ type sendCmixCommsInterface interface {
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
 }
 
-const sendTimeBuffer = 500 * time.Millisecond
+// 1.5 seconds
+const sendTimeBuffer = 1500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
@@ -196,9 +197,9 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 					"due to round error with round %d, retrying: %+v",
 					recipient, msg.Digest(), bestRound.ID, err)
 				continue
-			}else if strings.Contains(err.Error(),
-				"Could not authenticate client. Is the client registered " +
-				"with this node?"){
+			} else if strings.Contains(err.Error(),
+				"Could not authenticate client. Is the client registered "+
+					"with this node?") {
 				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
 					"via %s due to failed authentication: %s",
 					recipient, msg.Digest(), transmitGateway.GetId(), err)

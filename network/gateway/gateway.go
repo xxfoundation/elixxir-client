@@ -179,6 +179,37 @@ func (h *HostPool) updateConns() error {
 	return nil
 }
 
+// Used to store information when converting ndf object to set object
+type SetItem struct {
+	GatewayId *id.ID
+	NdfIndex  uint32
+}
+
+// Takes ndf.Gateways and puts their IDs into a set.Set object
+func convertNdfToSet(ndf *ndf.NetworkDefinition) (*set.Set, error) {
+	ndfSet := set.New()
+
+	// Process gateway Id's into set
+	for i, gw := range ndf.Gateways {
+		gwId, err := id.Unmarshal(gw.ID)
+		if err != nil {
+			return nil, err
+		}
+		ndfSet.Insert(SetItem{
+			GatewayId: gwId,
+			NdfIndex:  uint32(i),
+		})
+	}
+
+	return ndfSet, nil
+}
+
+// updateConns helper for removing old Gateways
+func (h *HostPool) removeGateway(setItem interface{}) {
+	gwItem := setItem.(SetItem)
+	h.getter.RemoveHost(gwItem.GatewayId)
+}
+
 // updateConns helper for adding new Gateways
 func (h *HostPool) addGateway(setItem interface{}) {
 	gwItem := setItem.(SetItem)
@@ -220,37 +251,6 @@ func (h *HostPool) addGateway(setItem interface{}) {
 	} else if host.GetAddress() != gw.Address {
 		host.UpdateAddress(gw.Address)
 	}
-}
-
-// Used to store information when converting ndf object to set object
-type SetItem struct {
-	GatewayId *id.ID
-	NdfIndex  uint32
-}
-
-// Takes ndf.Gateways and puts their IDs into a set.Set object
-func convertNdfToSet(ndf *ndf.NetworkDefinition) (*set.Set, error) {
-	ndfSet := set.New()
-
-	// Process gateway Id's into set
-	for i, gw := range ndf.Gateways {
-		gwId, err := id.Unmarshal(gw.ID)
-		if err != nil {
-			return nil, err
-		}
-		ndfSet.Insert(SetItem{
-			GatewayId: gwId,
-			NdfIndex:  uint32(i),
-		})
-	}
-
-	return ndfSet, nil
-}
-
-// updateConns helper for removing old Gateways
-func (h *HostPool) removeGateway(setItem interface{}) {
-	gwItem := setItem.(SetItem)
-	h.getter.RemoveHost(gwItem.GatewayId)
 }
 
 // Get the Host of a random gateway in the NDF

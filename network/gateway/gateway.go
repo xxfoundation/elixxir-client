@@ -136,7 +136,9 @@ func (h *HostPool) manageHostPool() {
 			if err != nil {
 				jww.ERROR.Printf("Unable to updateConns: %+v", err)
 			}
+			h.hostMux.Lock()
 			err = h.pruneHostPool()
+			h.hostMux.Unlock()
 			if err != nil {
 				jww.ERROR.Printf("Unable to pruneHostPool: %+v", err)
 			}

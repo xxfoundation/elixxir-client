@@ -203,6 +203,21 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 	return nil
 }
 
+// WaitForNewtwork will block until either the network is healthy or the
+// passed timeout. It will return true if the network is healthy
+func (c *Client) WaitForNetwork(timeoutMS int) bool {
+	timeout := time.NewTimer(time.Duration(timeoutMS) * time.Millisecond)
+	healthyChan := make(chan bool, 1)
+	c.api.GetHealth().AddChannel(healthyChan)
+	select{
+	case <- healthyChan:
+		return true
+	case <-timeout.C:
+		return false
+	}
+}
+
+
 // Gets the state of the network follower. Returns:
 // Stopped 	- 0
 // Starting - 1000

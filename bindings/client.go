@@ -85,7 +85,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
-	return &Client{*client}, nil
+	return &Client{api: *client}, nil
 }
 
 // sets level of logging. All logs the set level and above will be displayed

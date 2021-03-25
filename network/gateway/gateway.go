@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -93,9 +94,6 @@ func NewHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 	if err != nil {
 		return nil, err
 	}
-
-	// Start the long-running thread and return
-	go result.manageHostPool()
 	return result, nil
 }
 
@@ -127,11 +125,20 @@ func (h *HostPool) GetSpecific(gwId *id.ID) *connect.Host {
 	return h.GetAny()
 }
 
+// Start long-running thread and return the thread controller to the caller
+func (h *HostPool) StartHostPool() stoppable.Stoppable {
+	stopper := stoppable.NewSingle("HostPool")
+	go h.manageHostPool(stopper)
+	return stopper
+}
+
 // Long-running thread that manages the HostPool on a timer
-func (h *HostPool) manageHostPool() {
+func (h *HostPool) manageHostPool(stopper *stoppable.Single) {
 	tick := time.Tick(h.poolParams.pruneInterval)
 	for {
 		select {
+		case <-stopper.Quit():
+			break
 		case <-tick:
 			h.ndfMux.RLock()
 			if h.isNdfUpdated {
@@ -156,7 +163,7 @@ func (h *HostPool) manageHostPool() {
 // Iterate over the hostList, replacing any empty Hosts or Hosts with errors
 // with new, randomly-selected Hosts from the NDF
 func (h *HostPool) pruneHostPool() error {
-	// TODO: Verify this logic chunk
+	// Verify the NDF has at least as many Gateways as needed for the HostPool
 	ndfLen := uint32(len(h.ndf.Gateways))
 	if ndfLen == 0 || ndfLen < h.poolParams.poolSize {
 		return errors.Errorf("no gateways available")
@@ -179,27 +186,57 @@ func (h *HostPool) pruneHostPool() error {
 
 			// Verify the GwId is not already in the hostMap
 			if _, ok := h.hostMap[gwId]; !ok {
-				// If it is a new GwId, then obtain that GwId's Host object
-				gwHost, ok := h.manager.GetHost(gwId)
-				if !ok {
-					return errors.Errorf("host for gateway %s could not be "+
-						"retrieved", gwId)
-				}
-
-				// Use the poolIdx to overwrite the random Host in the corresponding index in the hostList
-				h.hostList[poolIdx] = gwHost
-				// Use the GwId to keep track of the new random Host's index in the hostList
-				h.hostMap[gwId] = poolIdx
-
-				// Clean up and move onto next Host
-				if host != nil {
-					host.Disconnect()
+				// If it is a new GwId, replace the old Host with the new Host
+				err = h.replaceHost(gwId, poolIdx)
+				if err != nil {
+					return err
 				}
 				poolIdx++
 			}
 		}
 	}
 	return nil
+}
+
+// Replace the given slot in the HostPool with a new Gateway with the specified ID
+func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
+	// Obtain that GwId's Host object
+	newHost, ok := h.manager.GetHost(newId)
+	if !ok {
+		return errors.Errorf("host for gateway %s could not be "+
+			"retrieved", newId)
+	}
+
+	// Keep track of oldHost for cleanup
+	oldHost := h.hostList[oldPoolIndex]
+
+	// Use the poolIdx to overwrite the random Host in the corresponding index in the hostList
+	h.hostList[oldPoolIndex] = newHost
+	// Use the GwId to keep track of the new random Host's index in the hostList
+	h.hostMap[newId] = oldPoolIndex
+
+	// Clean up and move onto next Host
+	if oldHost != nil {
+		delete(h.hostMap, oldHost.GetId())
+		oldHost.Disconnect()
+	}
+	return nil
+}
+
+// Force-add the specified Gateway to the HostPool, replacing a random Gateway
+// TODO: Possibly needs to take a list?
+func (h *HostPool) ForceAdd(gwId *id.ID) error {
+	h.hostMux.Lock()
+	defer h.hostMux.Unlock()
+
+	// Verify the GwId is not already in the hostMap
+	if _, ok := h.hostMap[gwId]; ok {
+		return nil
+	}
+
+	// Randomly select another Gateway in the HostPool for replacement
+	poolIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
+	return h.replaceHost(gwId, poolIdx)
 }
 
 // Updates the internal HostPool with any changes to the NDF
@@ -249,6 +286,11 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[*id.ID]int, error) {
 // updateConns helper for removing old Gateways
 func (h *HostPool) removeGateway(gwId *id.ID) {
 	h.manager.RemoveHost(gwId)
+	// If needed, flag the Host for deletion from the HostPool
+	if poolIndex, ok := h.hostMap[gwId]; ok {
+		h.hostList[poolIndex] = nil
+		delete(h.hostMap, gwId)
+	}
 }
 
 // updateConns helper for adding new Gateways

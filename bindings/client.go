@@ -389,9 +389,9 @@ func (c *Client) GetUser() *User {
 // GetNodeRegistrationStatus returns a struct with the number of nodes the
 // client is registered with and the number total.
 func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
-	registered, inProgress, err := c.api.GetNodeRegistrationStatus()
+	registered, total, err := c.api.GetNodeRegistrationStatus()
 
-	return &NodeRegistrationsStatus{registered, inProgress}, err
+	return &NodeRegistrationsStatus{registered, total}, err
 }
 
 /*

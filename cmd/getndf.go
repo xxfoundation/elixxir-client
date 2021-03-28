@@ -18,11 +18,13 @@ import (
 	// "gitlab.com/elixxir/client/switchboard"
 	// "gitlab.com/elixxir/client/ud"
 	// "gitlab.com/elixxir/primitives/fact"
+	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/xx_network/comms/connect"
 	//"time"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/utils"
 )
 
@@ -63,12 +65,14 @@ var getNDFCmd = &cobra.Command{
 		if gwHost != "" {
 			host, _ := connect.NewHost(&id.TempGateway, gwHost,
 				cert, params)
+			dummyID := ephemeral.ReservedIDs[0]
 			pollMsg := &pb.GatewayPoll{
 				Partial: &pb.NDFHash{
 					Hash: nil,
 				},
 				LastUpdate:  uint64(0),
-				ReceptionID: id.DummyUser.Marshal(),
+				ReceptionID: dummyID[:],
+				ClientVersion: []byte(api.SEMVER),
 			}
 			resp, err := comms.SendPoll(host, pollMsg)
 			if err != nil {

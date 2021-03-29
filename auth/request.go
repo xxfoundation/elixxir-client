@@ -149,14 +149,14 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 		if err != nil {
 			// if the send fails just set it to failed, it will
 			// but automatically retried
-			jww.WARN.Printf("Auth Request with %s (msgDigest: %s)" +
+			jww.WARN.Printf("Auth Request with %s (msgDigest: %s)"+
 				" failed to transmit: %+v", partner.ID,
 				cmixMsg.Digest(), err)
 			storage.GetCriticalRawMessages().Failed(cmixMsg,
 				partner.ID)
 		}
 
-		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) sent" +
+		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) sent"+
 			" on round %d", partner.ID, cmixMsg.Digest(), round)
 
 		/*check message delivery*/
@@ -169,28 +169,28 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 		success, numFailed, _ := utility.TrackResults(sendResults, 1)
 		if !success {
 			if numFailed > 0 {
-				jww.WARN.Printf("Auth Request with %s " +
+				jww.WARN.Printf("Auth Request with %s "+
 					"(msgDigest: %s) failed "+
-					"delivery due to round failure, " +
+					"delivery due to round failure, "+
 					"will retry on reconnect",
 					partner.ID, cmixMsg.Digest())
 			} else {
-				jww.WARN.Printf("Auth Request with %s " +
+				jww.WARN.Printf("Auth Request with %s "+
 					"(msgDigest: %s) failed "+
-					"delivery due to timeout, " +
+					"delivery due to timeout, "+
 					"will retry on reconnect",
 					partner.ID, cmixMsg.Digest())
 			}
 			storage.GetCriticalRawMessages().Failed(cmixMsg,
 				partner.ID)
 		} else {
-			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) " +
+			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) "+
 				"delivered sucessfully", partner.ID,
 				cmixMsg.Digest())
 			storage.GetCriticalRawMessages().Succeeded(cmixMsg,
 				partner.ID)
 		}
-	}
+	}()
 
 	return nil
 }

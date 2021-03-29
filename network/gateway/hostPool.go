@@ -5,6 +5,9 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
+// Handles functionality related to providing Gateway connect.Host objects
+// for message sending to the rest of the client repo
+
 package gateway
 
 import (
@@ -106,7 +109,7 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 }
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool
-func (h *HostPool) GetAnyList(length int) []*connect.Host {
+func (h *HostPool) GetAny(length int) []*connect.Host {
 	checked := make(map[uint32]interface{})
 	result := make([]*connect.Host, length)
 
@@ -124,13 +127,9 @@ func (h *HostPool) GetAnyList(length int) []*connect.Host {
 	return result
 }
 
-// Obtain a specific list of Hosts from the manager, irrespective of the HostPool
-func (h *HostPool) GetSpecific(targets []*id.ID) []*connect.Host {
-	result := make([]*connect.Host, len(targets))
-	for i := 0; i < len(targets); i++ {
-		result[i], _ = h.manager.GetHost(targets[i])
-	}
-	return result
+// Obtain a specific connect.Host from the manager, irrespective of the HostPool
+func (h *HostPool) GetSpecific(target *id.ID) (*connect.Host, bool) {
+	return h.manager.GetHost(target)
 }
 
 // Try to obtain the given targets from the HostPool

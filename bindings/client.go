@@ -32,6 +32,7 @@ func init() {
 // to support the gomobile Client interface
 type Client struct {
 	api api.Client
+	waitForNetwork chan bool
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -84,7 +85,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
-	return &Client{*client}, nil
+	return &Client{api: *client}, nil
 }
 
 // sets level of logging. All logs the set level and above will be displayed
@@ -201,6 +202,46 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 			"network follower: %+v", err))
 	}
 	return nil
+}
+
+// WaitForNewtwork will block until either the network is healthy or the
+// passed timeout. It will return true if the network is healthy
+func (c *Client) WaitForNetwork(timeoutMS int) bool {
+	timeout := time.NewTimer(time.Duration(timeoutMS) * time.Millisecond)
+	if c.waitForNetwork == nil{
+		c.waitForNetwork = make(chan bool, 1)
+		c.api.GetHealth().AddChannel(c.waitForNetwork)
+	}
+
+	//flush the channel if it is already full
+	select{
+	case <- c.waitForNetwork:
+	default:
+	}
+
+	// start a thread to check if healthy in a second in order to handle
+	// race conditions
+	go func() {
+		time.Sleep(1*time.Second)
+		if c.api.GetHealth().IsHealthy() {
+			select{
+			case c.waitForNetwork<-true:
+			default:
+			}
+		}
+	}()
+
+	//wait for network to be healthy or the timer to time out
+	for  {
+		select{
+		case result := <- c.waitForNetwork:
+			if result {
+				return true
+			}
+		case <-timeout.C:
+			return false
+		}
+	}
 }
 
 // Gets the state of the network follower. Returns:
@@ -348,9 +389,9 @@ func (c *Client) GetUser() *User {
 // GetNodeRegistrationStatus returns a struct with the number of nodes the
 // client is registered with and the number total.
 func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
-	registered, inProgress, err := c.api.GetNodeRegistrationStatus()
+	registered, total, err := c.api.GetNodeRegistrationStatus()
 
-	return &NodeRegistrationsStatus{registered, inProgress}, err
+	return &NodeRegistrationsStatus{registered, total}, err
 }
 
 /*

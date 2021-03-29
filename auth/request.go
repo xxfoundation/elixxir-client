@@ -33,12 +33,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) error {
 	/*edge checks generation*/
 
-	// check that messages can be sent over the network
-	if !net.GetHealthTracker().IsHealthy() {
-		return errors.New("Cannot create authenticated message " +
-			"when the network is not healthy")
-	}
-
 	// check that an authenticated channel does not already exists
 	if _, err := storage.E2e().GetPartner(partner.ID); err == nil ||
 		!strings.Contains(err.Error(), e2e.NoPartnerErrorStr) {
@@ -145,46 +139,57 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//store the message as a critical message so it will always be sent
 	storage.GetCriticalRawMessages().AddProcessing(cmixMsg, partner.ID)
 
-	jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
-		partner.ID, cmixMsg.Digest())
+	go func() {
+		jww.INFO.Printf("Requesting Auth with %s, msgDigest: %s",
+			partner.ID, cmixMsg.Digest())
 
-	/*send message*/
-	round, _, err := net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
-	if err != nil {
-		// if the send fails just set it to failed, it will but automatically
-		// retried
-		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) failed "+
-			"to transmit: %+v", partner.ID, cmixMsg.Digest(), err)
-		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
-		return errors.WithMessage(err, "Auth Request Failed to transmit")
-	}
-
-	jww.INFO.Printf("Auth Request with %s (msgDigest: %s) sent on round %d",
-		partner.ID, cmixMsg.Digest(), round)
-
-	/*check message delivery*/
-	sendResults := make(chan ds.EventReturn, 1)
-	roundEvents := net.GetInstance().GetRoundEvents()
-
-	roundEvents.AddRoundEventChan(round, sendResults, 1*time.Minute,
-		states.COMPLETED, states.FAILED)
-
-	success, numFailed, _ := utility.TrackResults(sendResults, 1)
-	if !success {
-		if numFailed > 0 {
-			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) failed "+
-				"delivery due to round failure, will retry on reconnect",
-				partner.ID, cmixMsg.Digest())
-		} else {
-			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) failed "+
-				"delivery due to timeout, will retry on reconnect",
-				partner.ID, cmixMsg.Digest())
+		/*send message*/
+		round, _, err := net.SendCMIX(cmixMsg, partner.ID,
+			params.GetDefaultCMIX())
+		if err != nil {
+			// if the send fails just set it to failed, it will
+			// but automatically retried
+			jww.WARN.Printf("Auth Request with %s (msgDigest: %s)" +
+				" failed to transmit: %+v", partner.ID,
+				cmixMsg.Digest(), err)
+			storage.GetCriticalRawMessages().Failed(cmixMsg,
+				partner.ID)
 		}
-		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
-	} else {
-		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) delivered "+
-			"sucesfully", partner.ID, cmixMsg.Digest())
-		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
+
+		jww.INFO.Printf("Auth Request with %s (msgDigest: %s) sent" +
+			" on round %d", partner.ID, cmixMsg.Digest(), round)
+
+		/*check message delivery*/
+		sendResults := make(chan ds.EventReturn, 1)
+		roundEvents := net.GetInstance().GetRoundEvents()
+
+		roundEvents.AddRoundEventChan(round, sendResults, 1*time.Minute,
+			states.COMPLETED, states.FAILED)
+
+		success, numFailed, _ := utility.TrackResults(sendResults, 1)
+		if !success {
+			if numFailed > 0 {
+				jww.WARN.Printf("Auth Request with %s " +
+					"(msgDigest: %s) failed "+
+					"delivery due to round failure, " +
+					"will retry on reconnect",
+					partner.ID, cmixMsg.Digest())
+			} else {
+				jww.WARN.Printf("Auth Request with %s " +
+					"(msgDigest: %s) failed "+
+					"delivery due to timeout, " +
+					"will retry on reconnect",
+					partner.ID, cmixMsg.Digest())
+			}
+			storage.GetCriticalRawMessages().Failed(cmixMsg,
+				partner.ID)
+		} else {
+			jww.INFO.Printf("Auth Request with %s (msgDigest: %s) " +
+				"delivered sucessfully", partner.ID,
+				cmixMsg.Digest())
+			storage.GetCriticalRawMessages().Succeeded(cmixMsg,
+				partner.ID)
+		}
 	}
 
 	return nil

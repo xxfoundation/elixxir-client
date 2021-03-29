@@ -205,9 +205,8 @@ func (h *HostPool) pruneHostPool() error {
 
 	for poolIdx := uint32(0); poolIdx < h.poolParams.poolSize; {
 		host := h.hostList[poolIdx]
-
 		// Check the Host for errors
-		if host == nil || *host.GetMetrics().ErrCounter >= h.poolParams.errThreshold {
+		if host == nil || host.GetMetrics().GetErrorCounter() >= h.poolParams.errThreshold {
 
 			// If errors occurred, randomly select a new Gw by index in the NDF
 			ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), h.rng)
@@ -220,6 +219,7 @@ func (h *HostPool) pruneHostPool() error {
 
 			// Verify the GwId is not already in the hostMap
 			if _, ok := h.hostMap[*gwId]; !ok {
+
 				// If it is a new GwId, replace the old Host with the new Host
 				err = h.replaceHost(gwId, poolIdx)
 				if err != nil {

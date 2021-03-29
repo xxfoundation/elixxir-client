@@ -28,11 +28,6 @@ func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
 	message string) error {
 	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
 
-	if !c.network.GetHealthTracker().IsHealthy() {
-		return errors.New("Cannot request authenticated channel " +
-			"creation when the network is not healthy")
-	}
-
 	return auth.RequestAuth(recipient, me, message, c.rng.GetStream(),
 		c.storage, c.network)
 }

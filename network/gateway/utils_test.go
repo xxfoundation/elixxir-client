@@ -1,49 +1,29 @@
 package gateway
 
 import (
-	"errors"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-// Mock structure adhering to HostManager which returns the error
-// path for all it's methods
-type MangerErrorPath struct{}
-
-// Constructor for MangerErrorPath
-func newErrorManager() *MangerErrorPath {
-	return &MangerErrorPath{}
-}
-
-func (mep *MangerErrorPath) GetHost(hostId *id.ID) (*connect.Host, bool) {
-	return nil, false
-}
-func (mep *MangerErrorPath) AddHost(hid *id.ID, address string,
-	cert []byte, params connect.HostParams) (host *connect.Host, err error) {
-	return nil, errors.New("Failed to add host")
-}
-
-func (mep *MangerErrorPath) RemoveHost(hid *id.ID) {}
-
 // Mock structure adhering to HostManager to be used for happy path
-type ManagerHappyPath struct {
+type mockManager struct {
 	hosts map[string]*connect.Host
 }
 
-// Constructor for ManagerHappyPath
-func newHappyManager() *ManagerHappyPath {
-	return &ManagerHappyPath{
+// Constructor for mockManager
+func newMockManager() *mockManager {
+	return &mockManager{
 		hosts: make(map[string]*connect.Host),
 	}
 }
 
-func (mhp *ManagerHappyPath) GetHost(hostId *id.ID) (*connect.Host, bool) {
+func (mhp *mockManager) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	h, ok := mhp.hosts[hostId.String()]
 	return h, ok
 }
 
-func (mhp *ManagerHappyPath) AddHost(hid *id.ID, address string,
+func (mhp *mockManager) AddHost(hid *id.ID, address string,
 	cert []byte, params connect.HostParams) (host *connect.Host, err error) {
 	host, err = connect.NewHost(hid, address, cert, params)
 	if err != nil {
@@ -55,7 +35,7 @@ func (mhp *ManagerHappyPath) AddHost(hid *id.ID, address string,
 	return
 }
 
-func (mhp *ManagerHappyPath) RemoveHost(hid *id.ID) {
+func (mhp *mockManager) RemoveHost(hid *id.ID) {
 	delete(mhp.hosts, hid.String())
 }
 

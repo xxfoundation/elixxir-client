@@ -22,7 +22,7 @@ import (
 
 // Unit test
 func TestNewHostPool(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -56,7 +56,7 @@ func TestNewHostPool(t *testing.T) {
 
 // Unit test
 func TestHostPool_ManageHostPool(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -131,7 +131,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 
 // Full happy path test
 func TestHostPool_ReplaceHost(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 
@@ -238,7 +238,7 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 
 // Error path, could not get host
 func TestHostPool_ReplaceHost_Error(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
@@ -259,7 +259,7 @@ func TestHostPool_ReplaceHost_Error(t *testing.T) {
 
 // Happy path
 func TestHostPool_PruneHostPool(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
@@ -329,7 +329,7 @@ func TestHostPool_PruneHostPool(t *testing.T) {
 // Error path: not enough gateways in ndf compared to
 // required pool size
 func TestHostPool_PruneHostPool_Error(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
@@ -359,7 +359,7 @@ func TestHostPool_PruneHostPool_Error(t *testing.T) {
 
 // Unit test
 func TestHostPool_UpdateNdf(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 
@@ -394,7 +394,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 // Full test
 func TestHostPool_GetPreferred(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -466,7 +466,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 
 // Unit test
 func TestHostPool_GetAny(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -523,7 +523,7 @@ func TestHostPool_GetAny(t *testing.T) {
 
 // Unit test
 func TestHostPool_ForceAdd(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -584,7 +584,7 @@ func TestHostPool_ForceAdd(t *testing.T) {
 
 // Unit test which only adds information to ndf
 func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -659,7 +659,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 
 // Unit test which only adds information to ndf
 func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	rng := csprng.NewSystemRNG()
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
@@ -732,7 +732,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 
 // Unit test
 func TestHostPool_AddGateway(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
@@ -765,7 +765,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 
 // Unit test
 func TestHostPool_RemoveGateway(t *testing.T) {
-	manager := newHappyManager()
+	manager := newMockManager()
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()

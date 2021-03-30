@@ -5,6 +5,9 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
+// Handles functionality related to providing Gateway connect.Host objects
+// for message sending to the rest of the client repo
+
 package gateway
 
 import (
@@ -106,8 +109,13 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 }
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool
-func (h *HostPool) GetAnyList(length int) []*connect.Host {
-	checked := make(map[uint32]interface{})
+func (h *HostPool) GetAny(length int) []*connect.Host {
+	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
+	if length > int(h.poolParams.poolSize) {
+		length = int(h.poolParams.poolSize)
+	}
+	result := make([]*connect.Host, length)
+
 	h.hostMux.RLock()
 	if len(h.hostList) <= length {
 		length = len(h.hostList)
@@ -128,23 +136,23 @@ func (h *HostPool) GetAnyList(length int) []*connect.Host {
 	return result
 }
 
-// Obtain a specific list of Hosts from the manager, irrespective of the HostPool
-func (h *HostPool) GetSpecific(targets []*id.ID) []*connect.Host {
-	result := make([]*connect.Host, len(targets))
-	for i := 0; i < len(targets); i++ {
-		result[i], _ = h.manager.GetHost(targets[i])
-	}
-	return result
+// Obtain a specific connect.Host from the manager, irrespective of the HostPool
+func (h *HostPool) GetSpecific(target *id.ID) (*connect.Host, bool) {
+	return h.manager.GetHost(target)
 }
 
 // Try to obtain the given targets from the HostPool
 // If each is not present, obtain a random replacement from the HostPool
 func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
-	result := make([]*connect.Host, len(targets))
+	length := len(targets)
+	if length > int(h.poolParams.poolSize) {
+		length = int(h.poolParams.poolSize)
+	}
+	result := make([]*connect.Host, length)
 
 	h.hostMux.RLock()
-	for i := 0; i < len(targets); i++ {
+	for i := 0; i < length; {
 		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
 			result[i] = h.hostList[hostIdx]
 			i++

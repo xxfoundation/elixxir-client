@@ -46,6 +46,8 @@ const maxChecked = 100000
 //comms interface makes testing easier
 type followNetworkComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
+	AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error)
+	RemoveHost(hid *id.ID)
 	SendPoll(host *connect.Host, message *pb.GatewayPoll) (*pb.GatewayPollResponse, error)
 }
 
@@ -189,8 +191,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					update.State = uint32(states.FAILED)
 					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
 					if err != nil {
-						jww.ERROR.Printf("Failed to report client error: " +
-							"Could not get round for event triggering: " +
+						jww.ERROR.Printf("Failed to report client error: "+
+							"Could not get round for event triggering: "+
 							"Unable to get round %d from instance: %+v",
 							id.Round(update.ID), err)
 						break

@@ -28,8 +28,6 @@ import (
 //interface to increase east of testing of historical rounds
 type historicalRoundsComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
-	AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error)
-	RemoveHost(hid *id.ID)
 	RequestHistoricalRounds(host *connect.Host,
 		message *pb.HistoricalRounds) (*pb.HistoricalRoundsResponse, error)
 }

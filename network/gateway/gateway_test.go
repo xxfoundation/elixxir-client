@@ -298,8 +298,7 @@ func TestHostPool_PruneHostPool(t *testing.T) {
 	// Construct a host past the error threshold
 	errorThresholdIndex := 0
 	overThreshold := params.errThreshold + 25
-	badMetric := &connect.Metric{ErrCounter: &overThreshold}
-	hostList[errorThresholdIndex].SetMetricsTesting(badMetric, t)
+	hostList[errorThresholdIndex].SetMetricsTesting(overThreshold, t)
 	oldHost := hostList[0]
 
 	// Call prune host pool

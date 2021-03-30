@@ -42,28 +42,14 @@ const ErrorGateway = "Error"
 
 type mockMessageRetrievalComms struct {
 	testingSignature *testing.T
-	hosts map[string]*connect.Host
-}
-
-func (mmrc *mockMessageRetrievalComms) AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error) {
-	host, err = connect.NewHost(hid, address, cert, params)
-	if err != nil {
-		return nil, err
-	}
-
-	mmrc.hosts[hid.String()] = host
-
-	return host, err
-}
-
-func (mmrc *mockMessageRetrievalComms) RemoveHost(hid *id.ID) {
-	return
 }
 
 func (mmrc *mockMessageRetrievalComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
-	h, ok := mmrc.hosts[hostId.String()]
-	return h, ok
-
+	h, _ := connect.NewHost(hostId, "0.0.0.0", []byte(""), connect.HostParams{
+		MaxRetries:  0,
+		AuthEnabled: false,
+	})
+	return h, true
 }
 
 // Mock comm which returns differently based on the host ID

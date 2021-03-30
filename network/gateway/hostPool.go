@@ -270,7 +270,7 @@ func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
 	h.hostMux.Lock()
 	defer h.hostMux.Unlock()
 
-	checked := make(map[int]interface{}) // Keep track of Hosts already replaced
+	checked := make(map[uint32]interface{}) // Keep track of Hosts already replaced
 	for i := 0; i < len(gwIds); {
 		// Verify the GwId is not already in the hostMap
 		if _, ok := h.hostMap[*gwIds[i]]; ok {
@@ -279,12 +279,12 @@ func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
 
 		// Randomly select another Gateway in the HostPool for replacement
 		poolIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
-		if _, ok := checked[i]; !ok {
+		if _, ok := checked[poolIdx]; !ok {
 			err := h.replaceHost(gwIds[i], poolIdx)
 			if err != nil {
 				return err
 			}
-			checked[i] = nil
+			checked[poolIdx] = nil
 			i++
 		}
 	}

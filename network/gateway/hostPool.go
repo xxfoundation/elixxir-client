@@ -115,14 +115,7 @@ func (h *HostPool) GetAny(length int) []*connect.Host {
 		length = int(h.poolParams.poolSize)
 	}
 	result := make([]*connect.Host, length)
-
 	h.hostMux.RLock()
-	if len(h.hostList) <= length {
-		length = len(h.hostList)
-	}
-
-	result := make([]*connect.Host, length)
-
 	for i := 0; i < length; {
 		gwIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
 		if _, ok := checked[gwIdx]; !ok {
@@ -156,6 +149,7 @@ func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
 		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
 			result[i] = h.hostList[hostIdx]
 			i++
+			continue
 		}
 
 		gwIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
@@ -275,7 +269,7 @@ func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
 	h.hostMux.Lock()
 	defer h.hostMux.Unlock()
 
-	checked := make(map[int]interface{}) // Keep track of Hosts already replaced
+	checked := make(map[uint32]interface{}) // Keep track of Hosts already replaced
 	for i := 0; i < len(gwIds); {
 		// Verify the GwId is not already in the hostMap
 		if _, ok := h.hostMap[*gwIds[i]]; ok {
@@ -284,12 +278,12 @@ func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
 
 		// Randomly select another Gateway in the HostPool for replacement
 		poolIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
-		if _, ok := checked[i]; !ok {
+		if _, ok := checked[poolIdx]; !ok {
 			err := h.replaceHost(gwIds[i], poolIdx)
 			if err != nil {
 				return err
 			}
-			checked[i] = nil
+			checked[poolIdx] = nil
 			i++
 		}
 	}

@@ -108,11 +108,14 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 
 	}
 
+	newNdf := getTestNdf(t)
 	// Update the ndf, removing some gateways at a cutoff
-	testPool.ndf.Gateways = newGateways
-	testPool.ndf.Nodes = newNodes
+	newNdf.Gateways = newGateways
+	newNdf.Nodes = newNodes
 
-	time.Sleep(1 * time.Second)
+	testPool.UpdateNdf(newNdf)
+
+	time.Sleep(2 * time.Second)
 
 	// Check that old gateways are not in pool
 	for _, ndfGw := range testNdf.Gateways {
@@ -627,9 +630,12 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 
 	}
 
-	// Update the ndf, removing some gateways at a cutoff
-	testPool.ndf.Gateways = append(testPool.ndf.Gateways, newGateways...)
-	testPool.ndf.Nodes = append(testPool.ndf.Nodes, newNodes...)
+	// Update the ndf
+	newNdf := getTestNdf(t)
+	newNdf.Gateways = append(newNdf.Gateways, newGateways...)
+	newNdf.Nodes = append(newNdf.Nodes, newNodes...)
+
+	testPool.UpdateNdf(newNdf)
 
 	// Update the connections
 	err = testPool.updateConns()
@@ -699,9 +705,12 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 
 	}
 
-	// Update the ndf, removing some gateways at a cutoff
-	testPool.ndf.Gateways = newGateways
-	testPool.ndf.Nodes = newNodes
+	// Update the ndf, replacing old data entirely
+	newNdf := getTestNdf(t)
+	newNdf.Gateways = newGateways
+	newNdf.Nodes = newNodes
+
+	testPool.UpdateNdf(newNdf)
 
 	// Update the connections
 	err = testPool.updateConns()

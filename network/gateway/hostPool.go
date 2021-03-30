@@ -150,6 +150,7 @@ func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
 		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
 			result[i] = h.hostList[hostIdx]
 			i++
+			continue
 		}
 
 		gwIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)

@@ -9,28 +9,26 @@ import (
 
 // Mock structure adhering to HostManager which returns the error
 // path for all it's methods
-type MangerErrorPath struct {}
+type MangerErrorPath struct{}
 
 // Constructor for MangerErrorPath
 func newErrorManager() *MangerErrorPath {
 	return &MangerErrorPath{}
 }
 
-
 func (mep *MangerErrorPath) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	return nil, false
 }
-func (mep *MangerErrorPath)  AddHost(hid *id.ID, address string,
+func (mep *MangerErrorPath) AddHost(hid *id.ID, address string,
 	cert []byte, params connect.HostParams) (host *connect.Host, err error) {
 	return nil, errors.New("Failed to add host")
 }
 
 func (mep *MangerErrorPath) RemoveHost(hid *id.ID) {}
 
-
 // Mock structure adhering to HostManager to be used for happy path
 type ManagerHappyPath struct {
-	hosts  map[string]*connect.Host
+	hosts map[string]*connect.Host
 }
 
 // Constructor for ManagerHappyPath
@@ -45,7 +43,7 @@ func (mhp *ManagerHappyPath) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	return h, ok
 }
 
-func (mhp *ManagerHappyPath)  AddHost(hid *id.ID, address string,
+func (mhp *ManagerHappyPath) AddHost(hid *id.ID, address string,
 	cert []byte, params connect.HostParams) (host *connect.Host, err error) {
 	host, err = connect.NewHost(hid, address, cert, params)
 	if err != nil {
@@ -99,6 +97,43 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 			Address: "0.0.0.2",
 		}, {
 			ID:      id.NewIdFromUInt(11, id.Gateway, face)[:],
+			Address: "0.0.0.3",
+		}},
+		Nodes: []ndf.Node{{
+			ID:      id.NewIdFromUInt(0, id.Node, face)[:],
+			Address: "0.0.0.1",
+		}, {
+			ID:      id.NewIdFromUInt(1, id.Node, face)[:],
+			Address: "0.0.0.2",
+		}, {
+			ID:      id.NewIdFromUInt(2, id.Node, face)[:],
+			Address: "0.0.0.3",
+		}, {
+			ID:      id.NewIdFromUInt(3, id.Node, face)[:],
+			Address: "0.0.0.1",
+		}, {
+			ID:      id.NewIdFromUInt(4, id.Node, face)[:],
+			Address: "0.0.0.2",
+		}, {
+			ID:      id.NewIdFromUInt(5, id.Node, face)[:],
+			Address: "0.0.0.3",
+		}, {
+			ID:      id.NewIdFromUInt(6, id.Node, face)[:],
+			Address: "0.0.0.1",
+		}, {
+			ID:      id.NewIdFromUInt(7, id.Node, face)[:],
+			Address: "0.0.0.2",
+		}, {
+			ID:      id.NewIdFromUInt(8, id.Node, face)[:],
+			Address: "0.0.0.3",
+		}, {
+			ID:      id.NewIdFromUInt(9, id.Node, face)[:],
+			Address: "0.0.0.1",
+		}, {
+			ID:      id.NewIdFromUInt(10, id.Node, face)[:],
+			Address: "0.0.0.2",
+		}, {
+			ID:      id.NewIdFromUInt(11, id.Node, face)[:],
 			Address: "0.0.0.3",
 		}},
 	}

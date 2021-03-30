@@ -21,6 +21,8 @@ import (
 
 type messageRetrievalComms interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
+	AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error)
+	RemoveHost(hid *id.ID)
 	RequestMessages(host *connect.Host,
 		message *pb.GetMessages) (*pb.GetMessagesResponse, error)
 }

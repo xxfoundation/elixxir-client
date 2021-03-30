@@ -45,11 +45,11 @@ type mockMessageRetrievalComms struct {
 }
 
 func (mmrc *mockMessageRetrievalComms) AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error) {
-	panic("implement me")
+	return nil, err
 }
 
 func (mmrc *mockMessageRetrievalComms) RemoveHost(hid *id.ID) {
-	panic("implement me")
+	return
 }
 
 func (mmrc *mockMessageRetrievalComms) GetHost(hostId *id.ID) (*connect.Host, bool) {

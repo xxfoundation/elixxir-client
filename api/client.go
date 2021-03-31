@@ -84,7 +84,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 
 	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser, 
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser, 
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, true, "")
 	if err != nil {
 		return err
@@ -143,7 +143,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCo
 
 	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
 
-	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser, 
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err

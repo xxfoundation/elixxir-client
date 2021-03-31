@@ -16,9 +16,12 @@ import (
 	"time"
 )
 
-const unknownRoundsStorageKey = "UnknownRoundsKey"
-const unknownRoundsStorageVersion = 0
-const unknownRoundPrefix = "UnknownRoundPrefix"
+const (
+	unknownRoundsStorageKey = "UnknownRoundsKey"
+
+	unknownRoundsStorageVersion = 0
+	unknownRoundPrefix          = "UnknownRoundPrefix"
+)
 
 type UnknownRounds interface {
 	Iterate(checker func(rid id.Round) bool, roundsToAdd ...[]id.Round) ([]id.Round, error)

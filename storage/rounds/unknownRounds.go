@@ -17,8 +17,7 @@ import (
 )
 
 const (
-	unknownRoundsStorageKey = "UnknownRoundsKey"
-
+	unknownRoundsStorageKey     = "UnknownRoundsKey"
 	unknownRoundsStorageVersion = 0
 	unknownRoundPrefix          = "UnknownRoundPrefix"
 )
@@ -55,13 +54,13 @@ func DefaultUnknownRoundsParams() UnknownRoundsParams {
 }
 
 // Build and return new UnknownRounds object
-func NewUnknownRoundsStore(kv *versioned.KV, params UnknownRoundsParams) *UnknownRoundsStore {
+func NewUnknownRoundsStore(kv *versioned.KV,
+	params UnknownRoundsParams) *UnknownRoundsStore {
 	// Build the UnmixedMessagesMap
-	kv.Prefix(unknownRoundPrefix)
 	return &UnknownRoundsStore{
 		Round:  make(map[id.Round]*uint64),
 		Params: params,
-		kv:     kv,
+		kv:     kv.Prefix(unknownRoundPrefix),
 	}
 }
 

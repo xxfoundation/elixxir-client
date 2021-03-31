@@ -19,7 +19,7 @@ const (
 	unknownRoundsStorageKey     = "UnknownRoundsKey"
 	unknownRoundsStorageVersion = 0
 	unknownRoundPrefix          = "UnknownRoundPrefix"
-	defaultMaxCheck = 3
+	defaultMaxCheck             = 3
 )
 
 // UnknownRoundsStore tracks data for unknown rounds

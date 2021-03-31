@@ -38,7 +38,8 @@ const sendTimeBuffer = 1500 * time.Millisecond
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
 func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
-	return sendCmixHelper(msg, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
+	msgCopy := msg.Copy()
+	return sendCmixHelper(msgCopy, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
 }
 
 // Payloads send are not End to End encrypted, MetaData is NOT protected with

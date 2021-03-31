@@ -9,7 +9,6 @@ package rounds
 
 import (
 	"encoding/json"
-	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"sync/atomic"
@@ -130,49 +129,24 @@ func (urs *UnknownRoundsStore) Iterate(checker func(rid id.Round) bool,
 func (urs *UnknownRoundsStore) save() error {
 	now := time.Now()
 
-	data, err := urs.marshal()
+	// Serialize the map
+	data, err := json.Marshal(urs.Round)
 	if err != nil {
 		return err
 	}
 
+	// Construct versioning object
 	obj := versioned.Object{
 		Version:   unknownRoundsStorageVersion,
 		Timestamp: now,
 		Data:      data,
 	}
 
+	// Save to disk
 	return urs.kv.Set(unknownRoundsStorageKey, unknownRoundsStorageVersion, &obj)
 }
 
-// marshal serializes the round map for disk storage
-func (urs *UnknownRoundsStore) marshal() ([]byte, error) {
-	rounds := make([]roundDisk, len(urs.Round))
-	index := 0
-	for rnd, checks := range urs.Round {
-		rounds[index] = roundDisk{
-			Checks:  atomic.LoadUint64(checks),
-			RoundId: uint64(rnd),
-		}
-		index++
-	}
-
-	return json.Marshal(&rounds)
-}
-
-// unmarshal loads the serialized round data into the
-// UnknownRoundsStore map
+// unmarshal loads the serialized round data into the UnknownRoundsStore map
 func (urs *UnknownRoundsStore) unmarshal(b []byte) error {
-
-	var roundsDisk []roundDisk
-	if err := json.Unmarshal(b, &roundsDisk); err != nil {
-		return errors.WithMessagef(err, "Failed to "+
-			"unmarshal UnknownRoundStore")
-	}
-
-	for _, rndDisk := range roundsDisk {
-		urs.Round[id.Round(rndDisk.RoundId)] = &rndDisk.Checks
-
-	}
-
-	return nil
+	return json.Unmarshal(b, &urs.Round)
 }

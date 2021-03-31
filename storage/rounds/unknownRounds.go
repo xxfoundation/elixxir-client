@@ -165,8 +165,8 @@ func (urs *UnknownRoundsStore) unmarshal(b []byte) error {
 			"unmarshal UnknownRoundStore")
 	}
 
-	for _, roundDisk := range roundsDisk {
-		urs.Round[id.Round(roundDisk.RoundId)] = &roundDisk.Checks
+	for _, rndDisk := range roundsDisk {
+		urs.Round[id.Round(rndDisk.RoundId)] = &rndDisk.Checks
 
 	}
 

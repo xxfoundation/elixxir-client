@@ -19,6 +19,7 @@ const (
 	unknownRoundsStorageKey     = "UnknownRoundsKey"
 	unknownRoundsStorageVersion = 0
 	unknownRoundPrefix          = "UnknownRoundPrefix"
+	defaultMaxCheck = 3
 )
 
 // UnknownRoundsStore tracks data for unknown rounds
@@ -44,7 +45,7 @@ type UnknownRoundsParams struct {
 // Returns a default set of UnknownRoundsParams
 func DefaultUnknownRoundsParams() UnknownRoundsParams {
 	return UnknownRoundsParams{
-		MaxChecks: 3,
+		MaxChecks: defaultMaxCheck,
 	}
 }
 

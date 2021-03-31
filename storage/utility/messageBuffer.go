@@ -8,6 +8,7 @@
 package utility
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -207,6 +208,8 @@ func (mb *MessageBuffer) Add(m interface{}) {
 // Add adds a message to the buffer in "processing" state.
 func (mb *MessageBuffer) AddProcessing(m interface{}) {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages AddProcessing(%s)",
+		base64.StdEncoding.EncodeToString(h[:]))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
@@ -247,6 +250,9 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 
 	// Pop the next MessageHash from the "not processing" list
 	h := next(mb.messages)
+	jww.TRACE.Printf("Critical Messages Next returned %s",
+		base64.StdEncoding.EncodeToString(h[:]))
+
 	delete(mb.messages, h)
 
 	// Add message to list of processing messages
@@ -272,6 +278,8 @@ func next(msgMap map[MessageHash]struct{}) MessageHash {
 // Remove sets a messaged as processed and removed it from the buffer.
 func (mb *MessageBuffer) Succeeded(m interface{}) {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages Succeeded(%s)",
+		base64.StdEncoding.EncodeToString((h[:])))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
@@ -297,6 +305,8 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 // the "not processed" state.
 func (mb *MessageBuffer) Failed(m interface{}) {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages Failed(%s)",
+		base64.StdEncoding.EncodeToString(h[:]))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()

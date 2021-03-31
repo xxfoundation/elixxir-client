@@ -53,15 +53,19 @@ func DefaultUnknownRoundsParams() UnknownRoundsParams {
 func NewUnknownRoundsStore(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRoundsStore {
 	// Build the UnmixedMessagesMap
+	// Modify the prefix of the KV
+	kv = kv.Prefix(unknownRoundPrefix)
+
 	return &UnknownRoundsStore{
 		rounds: make(map[id.Round]*uint64),
 		params: params,
-		kv:     kv.Prefix(unknownRoundPrefix),
+		kv:     kv,
 	}
 }
 
 // LoadUnknownRoundsStore loads the data for a UnknownRoundStore from disk into an object
 func LoadUnknownRoundsStore(kv *versioned.KV, params UnknownRoundsParams) (*UnknownRoundsStore, error) {
+	kv = kv.Prefix(unknownRoundPrefix)
 
 	urs := NewUnknownRoundsStore(kv, params)
 

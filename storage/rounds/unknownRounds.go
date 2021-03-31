@@ -22,10 +22,6 @@ const (
 	unknownRoundPrefix          = "UnknownRoundPrefix"
 )
 
-type UnknownRounds interface {
-	Iterate(checker func(rid id.Round) bool, roundsToAdd ...[]id.Round) ([]id.Round, error)
-}
-
 // UnknownRoundsStore tracks data for unknown rounds
 // Should adhere to UnknownRounds interface
 type UnknownRoundsStore struct {
@@ -84,17 +80,37 @@ func LoadUnknownRoundsStore(kv *versioned.KV, params UnknownRoundsParams) (*Unkn
 	return urs, nil
 }
 
-// Iterate iterates over all rounds. First it adds the round
-// rounds to the map if an entry isn't present. Then  it
-// runs the checker function on them:
+// Iterate iterates over all rounds. First it runs the
+// checker function on the stored rounds:
 // If true, it removes from the map and adds to the return slice
 // If false, it increments the counter and if it has passed the maxChecks
 // in params, it removes from the map
-// Finally it saves the map to disk.
+// Afterwards it adds the roundToAdd to the map if an entry isn't present
+// Finally it saves the modified map to disk.
 func (urs *UnknownRoundsStore) Iterate(checker func(rid id.Round) bool,
 	roundsToAdd ...[]id.Round) ([]id.Round, error) {
 
 	returnSlice := make([]id.Round, 0)
+	// Check the rounds stored
+	for rnd := range urs.Round {
+		ok := checker(rnd)
+		if ok {
+			// If true, Append to the return list and remove from the map
+			returnSlice = append(returnSlice, rnd)
+			delete(urs.Round, rnd)
+		} else {
+			// If false, we increment the check counter for that round
+			totalChecks := atomic.AddUint64(urs.Round[rnd], 1)
+
+			// If the round has been checked the maximum amount,
+			// the rond is removed from the map
+			if totalChecks > urs.Params.MaxChecks {
+				delete(urs.Round, rnd)
+			}
+		}
+
+	}
+
 	// Iterate over all rounds passed in
 	for _, roundSlice := range roundsToAdd {
 		for _, rnd := range roundSlice {
@@ -104,22 +120,6 @@ func (urs *UnknownRoundsStore) Iterate(checker func(rid id.Round) bool,
 				urs.Round[rnd] = &newCheck
 			}
 
-			// Check the round
-			ok := checker(rnd)
-			if ok {
-				// If true, Append to the return list and remove from the map
-				returnSlice = append(returnSlice, rnd)
-				delete(urs.Round, rnd)
-			} else {
-				// If false, we increment the check counter for that round
-				totalChecks := atomic.AddUint64(urs.Round[rnd], 1)
-
-				// If the round has been checked the maximum amount,
-				// the rond is removed from the map
-				if totalChecks > urs.Params.MaxChecks {
-					delete(urs.Round, rnd)
-				}
-			}
 		}
 	}
 

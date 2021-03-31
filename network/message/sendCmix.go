@@ -33,7 +33,7 @@ type sendCmixCommsInterface interface {
 }
 
 // 1.5 seconds
-const sendTimeBuffer = 1500 * time.Millisecond
+const sendTimeBuffer = 2500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX

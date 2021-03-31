@@ -135,6 +135,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	}
 }
 
+// Unit test
 func TestLoadUnknownRoundsStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	store := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())

@@ -26,9 +26,9 @@ const (
 type UnknownRoundsStore struct {
 	// Maps an unknown round to how many times the round
 	// has been checked
-	Round map[id.Round]*uint64
+	rounds map[id.Round]*uint64
 	// Configurations of UnknownRoundStore
-	Params UnknownRoundsParams
+	params UnknownRoundsParams
 
 	// Key Value store to save data to disk
 	kv *versioned.KV
@@ -53,8 +53,8 @@ func NewUnknownRoundsStore(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRoundsStore {
 	// Build the UnmixedMessagesMap
 	return &UnknownRoundsStore{
-		Round:  make(map[id.Round]*uint64),
-		Params: params,
+		rounds: make(map[id.Round]*uint64),
+		params: params,
 		kv:     kv.Prefix(unknownRoundPrefix),
 	}
 }
@@ -91,20 +91,20 @@ func (urs *UnknownRoundsStore) Iterate(checker func(rid id.Round) bool,
 
 	returnSlice := make([]id.Round, 0)
 	// Check the rounds stored
-	for rnd := range urs.Round {
+	for rnd := range urs.rounds {
 		ok := checker(rnd)
 		if ok {
 			// If true, Append to the return list and remove from the map
 			returnSlice = append(returnSlice, rnd)
-			delete(urs.Round, rnd)
+			delete(urs.rounds, rnd)
 		} else {
 			// If false, we increment the check counter for that round
-			totalChecks := atomic.AddUint64(urs.Round[rnd], 1)
+			totalChecks := atomic.AddUint64(urs.rounds[rnd], 1)
 
 			// If the round has been checked the maximum amount,
 			// the rond is removed from the map
-			if totalChecks > urs.Params.MaxChecks {
-				delete(urs.Round, rnd)
+			if totalChecks > urs.params.MaxChecks {
+				delete(urs.rounds, rnd)
 			}
 		}
 
@@ -114,9 +114,9 @@ func (urs *UnknownRoundsStore) Iterate(checker func(rid id.Round) bool,
 	for _, roundSlice := range roundsToAdd {
 		for _, rnd := range roundSlice {
 			// Process non-tracked rounds into map
-			if _, ok := urs.Round[rnd]; !ok {
+			if _, ok := urs.rounds[rnd]; !ok {
 				newCheck := uint64(0)
-				urs.Round[rnd] = &newCheck
+				urs.rounds[rnd] = &newCheck
 			}
 
 		}
@@ -130,7 +130,7 @@ func (urs *UnknownRoundsStore) save() error {
 	now := time.Now()
 
 	// Serialize the map
-	data, err := json.Marshal(urs.Round)
+	data, err := json.Marshal(urs.rounds)
 	if err != nil {
 		return err
 	}
@@ -148,5 +148,5 @@ func (urs *UnknownRoundsStore) save() error {
 
 // unmarshal loads the serialized round data into the UnknownRoundsStore map
 func (urs *UnknownRoundsStore) unmarshal(b []byte) error {
-	return json.Unmarshal(b, &urs.Round)
+	return json.Unmarshal(b, &urs.rounds)
 }

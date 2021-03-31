@@ -213,7 +213,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
 
-	//initilize comms
+	// initialize comms
 	err = c.initComms()
 	if err != nil {
 		return nil, err
@@ -241,13 +241,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -304,13 +298,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -533,13 +521,13 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	cmixStore := c.storage.Cmix()
 
 	var numRegistered int
-	for i, n := range nodes{
+	for i, n := range nodes {
 		nid, err := id.Unmarshal(n.ID)
-		if err!=nil{
-			return 0,0, errors.Errorf("Failed to unmarshal node ID %v " +
+		if err != nil {
+			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+
 				"(#%d): %s", n.ID, i, err.Error())
 		}
-		if cmixStore.Has(nid){
+		if cmixStore.Has(nid) {
 			numRegistered++
 		}
 	}

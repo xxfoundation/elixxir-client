@@ -30,7 +30,6 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
@@ -83,14 +82,6 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	m.tracker.Track(identity.EphId, identity.Source)
 
-	//randomly select a gateway to poll
-	//TODO: make this more intelligent
-	gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comms, rng)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to follow network, NDF has corrupt "+
-			"data: %s", err)
-	}
-
 	// Get client version for poll
 	version := m.Session.GetClientVersion()
 
@@ -105,20 +96,26 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 		ClientVersion:  []byte(version.String()),
 	}
-	jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
-		identity.EphId.Int64(), identity.Source, identity.StartRequest,
-		identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), gwHost.GetId())
 
-	pollResp, err := comms.SendPoll(gwHost, &pollReq)
+	result, err := m.GetSender().SendToAny(1, func(host *connect.Host) (interface{}, error) {
+		jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+			identity.EphId.Int64(), identity.Source, identity.StartRequest,
+			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
+		result, err := comms.SendPoll(host, &pollReq)
+		if err != nil {
+			report(
+				"NetworkFollower",
+				fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), host.String()),
+				fmt.Sprintf("%+v", err),
+			)
+			jww.ERROR.Printf("Unable to poll %s for NDF: %+v", host, err)
+		}
+		return result, err
+	})
 	if err != nil {
-		report(
-			"NetworkFollower",
-			fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), gwHost.String()),
-			fmt.Sprintf("%+v", err),
-		)
-		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)
 		return
 	}
+	pollResp := result.(*pb.GatewayPollResponse)
 
 	// ---- Process Network State Update Data ----
 	gwRoundsState := &knownRounds.KnownRounds{}
@@ -138,11 +135,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			return
 		}
 
-		err = m.Instance.UpdateGatewayConnections()
-		if err != nil {
-			jww.ERROR.Printf("Unable to update gateway connections: %+v", err)
-			return
-		}
+		// update gateway connections
+		m.GetSender().UpdateNdf(m.GetInstance().GetPartialNdf().Get())
 	}
 
 	//check that the stored address space is correct
@@ -172,6 +166,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
 
 					// Obtain relevant NodeGateway information
+					// TODO ???
 					nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())
 					if err != nil {
 						jww.ERROR.Printf("Unable to get NodeGateway: %+v", err)

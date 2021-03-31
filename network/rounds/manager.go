@@ -10,6 +10,7 @@ package rounds
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -23,6 +24,7 @@ type Manager struct {
 	p *processing
 
 	internal.Internal
+	sender *gateway.Sender
 
 	historicalRounds    chan historicalRoundRequest
 	lookupRoundMessages chan roundLookup
@@ -30,7 +32,7 @@ type Manager struct {
 }
 
 func NewManager(internal internal.Internal, params params.Rounds,
-	bundles chan<- message.Bundle) *Manager {
+	bundles chan<- message.Bundle, sender *gateway.Sender) *Manager {
 	m := &Manager{
 		params: params,
 		p:      newProcessingRounds(),
@@ -38,6 +40,7 @@ func NewManager(internal internal.Internal, params params.Rounds,
 		historicalRounds:    make(chan historicalRoundRequest, params.HistoricalRoundsBufferLen),
 		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
 		messageBundles:      bundles,
+		sender:              sender,
 	}
 
 	m.Internal = internal

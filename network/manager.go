@@ -11,6 +11,7 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"gitlab.com/elixxir/client/network/gateway"
 	"sync/atomic"
 
 	"time"
@@ -39,6 +40,8 @@ import (
 type manager struct {
 	// parameters of the network
 	param params.Network
+	//
+	sender *gateway.Sender
 
 	//Shared data with all sub managers
 	internal.Internal
@@ -91,13 +94,15 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
-	// register the node registration channel early so login connection updates
-	// get triggered for registration if necessary
-	instance.SetAddGatewayChan(m.NodeRegistration)
+	// Set up gateway.Sender
+	poolParams := gateway.DefaultPoolParams()
+	poolParams.HostParams.MaxRetries = 3
+	m.sender, err = gateway.NewSender(poolParams, rng.GetStream(),
+		ndf, comms, session, m.NodeRegistration)
 
 	//create sub managers
-	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)
-	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel())
+	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)
+	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel(), m.sender)
 
 	return &m, nil
 }
@@ -164,6 +169,11 @@ func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 // GetInstance returns the network instance object (ndf state)
 func (m *manager) GetInstance() *network.Instance {
 	return m.Instance
+}
+
+// GetSender returns the gateway.Sender object
+func (m *manager) GetSender() *gateway.Sender {
+	return m.sender
 }
 
 // triggers a check on garbled messages to see if they can be decrypted

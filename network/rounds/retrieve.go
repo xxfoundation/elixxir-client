@@ -10,7 +10,6 @@ package rounds
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -44,52 +43,42 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			done = true
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
-			var bundle message.Bundle
 
-			// Get a shuffled list of gateways in the round
-			gwHosts, err := gateway.GetAllShuffled(comms, ri)
-			if err != nil {
-				jww.WARN.Printf("Failed to get gateway hosts from "+
-					"round %v, not requesting from them",
-					ri.ID)
-				break
-			}
-
-			// Attempt to request messages for every gateway in the list.
-			// If we retrieve without error, then we exit. If we error, then
-			// we retry with the next gateway in the list until we exhaust the list
-			for i, gwHost := range gwHosts {
-				// Attempt to request for this gateway
-				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwHost)
+			// Convert gateways in round to proper ID format
+			gwIds := make([]*id.ID, len(ri.Topology))
+			for i, idBytes := range ri.Topology {
+				gwId, err := id.Unmarshal(idBytes)
 				if err != nil {
-
-					jww.WARN.Printf("Failed on gateway [%d/%d] to get messages for round %v",
-						i, len(gwHosts), ri.ID)
-
-					// Retry for the next gateway in the list
-					continue
+					// TODO
 				}
-
-				// If a non-error request, no longer retry
-				break
-
+				gwIds[i] = gwId
 			}
-			gwIDs := make([]*id.ID, 0)
-			for _, gwHost := range gwHosts {
-				gwIDs = append(gwIDs, gwHost.GetId())
-			}
+
+			// Send to the gateways using backup proxies
+			result, err := m.sender.SendToSpecific(gwIds, 5, func(host *connect.Host) (interface{}, error) {
+				// Attempt to request for this gateway
+				result, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, host)
+				if err != nil {
+					jww.WARN.Printf("Failed on gateway %s to get messages for round %v",
+						host.GetId().String(), ri.ID)
+				}
+				return result, err
+			})
 
 			// After trying all gateways, if none returned we mark the round as a
 			// failure and print out the last error
 			if err != nil {
 				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
 				jww.ERROR.Printf("Failed to get pickup round %d "+
-					"from all gateways (%v): final gateway %s returned : %s",
-					id.Round(ri.ID), gwIDs, gwHosts[len(gwHosts)-1].GetId(), err)
-			} else if len(bundle.Messages) != 0 {
-				// If successful and there are messages, we send them to another thread
-				bundle.Identity = rl.identity
-				m.messageBundles <- bundle
+					"from all gateways (%v): %s",
+					id.Round(ri.ID), gwIds, err)
+			} else if result != nil {
+				bundle := result.(message.Bundle)
+				if len(bundle.Messages) != 0 {
+					// If successful and there are messages, we send them to another thread
+					bundle.Identity = rl.identity
+					m.messageBundles <- bundle
+				}
 			}
 		}
 	}

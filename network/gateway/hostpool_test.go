@@ -28,7 +28,7 @@ func TestNewHostPool(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -47,7 +47,7 @@ func TestNewHostPool(t *testing.T) {
 	}
 
 	// Call the constructor
-	_, err := NewHostPool(params, rng, testNdf, manager,
+	_, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -64,8 +64,8 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 
 	// Construct custom params
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
-	params.pruneInterval = 1 * time.Second
+	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.PruneInterval = 1 * time.Second
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -84,7 +84,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := NewHostPool(params, rng, testNdf, manager,
+	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -263,7 +263,7 @@ func TestHostPool_PruneHostPool(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 	rng := csprng.NewSystemRNG()
 
 	// Construct a manager (bypass business logic in constructor)
@@ -297,7 +297,7 @@ func TestHostPool_PruneHostPool(t *testing.T) {
 
 	// Construct a host past the error threshold
 	errorThresholdIndex := 0
-	overThreshold := params.errThreshold + 25
+	overThreshold := params.ErrThreshold + 25
 	hostList[errorThresholdIndex].SetMetricsTesting(connect.NewMetricTesting(overThreshold, t), t)
 	oldHost := hostList[0]
 
@@ -334,7 +334,7 @@ func TestHostPool_PruneHostPool_Error(t *testing.T) {
 	params := DefaultPoolParams()
 
 	// Trigger the case where the Ndf doesn't have enough gateways
-	params.poolSize = uint32(len(testNdf.Gateways)) + 1
+	params.PoolSize = uint32(len(testNdf.Gateways)) + 1
 	rng := csprng.NewSystemRNG()
 
 	// Construct a manager (bypass business logic in constructor)
@@ -399,7 +399,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	hostMap := make(map[id.ID]bool, 0)
@@ -423,7 +423,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := NewHostPool(params, rng, testNdf, manager,
+	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -471,7 +471,7 @@ func TestHostPool_GetAny(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -490,7 +490,7 @@ func TestHostPool_GetAny(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := NewHostPool(params, rng, testNdf, manager,
+	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -528,7 +528,7 @@ func TestHostPool_ForceAdd(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -547,7 +547,7 @@ func TestHostPool_ForceAdd(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := NewHostPool(params, rng, testNdf, manager,
+	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -589,7 +589,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -608,7 +608,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := NewHostPool(params, rng, testNdf, manager,
+	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -664,7 +664,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -683,7 +683,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	}
 
 	// Call the constructor
-	testPool, err := NewHostPool(params, rng, testNdf, manager,
+	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
 		t.Errorf("Failed to create mock host pool: %v", err)
@@ -735,7 +735,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
@@ -768,7 +768,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
-	params.poolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways))
 
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
@@ -788,7 +788,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 	}
 
 	// Add the new gateway host
-	h, err := hostPool.manager.AddHost(gwId, "", nil, params.hostParams)
+	h, err := hostPool.manager.AddHost(gwId, "", nil, params.HostParams)
 	if err != nil {
 		jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
 	}

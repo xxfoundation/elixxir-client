@@ -9,7 +9,6 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
@@ -87,13 +86,6 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			continue
 		}
 
-		//find a gateway to request about the roundRequests
-		gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comm, rng)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
-				"data: %s", err)
-		}
-
 		rounds := make([]uint64, len(roundRequests))
 		for i, rr := range roundRequests {
 			rounds[i] = uint64(rr.rid)
@@ -104,18 +96,21 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
-		jww.DEBUG.Printf("Requesting Historical rounds %v from "+
-			"gateway %s", rounds, gwHost.GetId())
+		result, err := m.sender.SendToAny(1, func(host *connect.Host) (interface{}, error) {
+			jww.DEBUG.Printf("Requesting Historical rounds %v from "+
+				"gateway %s", rounds, host.GetId())
+			return comm.RequestHistoricalRounds(host, hr)
+		})
 
-		response, err := comm.RequestHistoricalRounds(gwHost, hr)
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+
-				"data for rounds %v: %s", rounds, response)
+				"data for rounds %v: %s", rounds, err)
 			// if the check fails to resolve, break the loop and so they will be
 			// checked again
 			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			continue
 		}
+		response := result.(*pb.HistoricalRoundsResponse)
 
 		// process the returned historical roundRequests.
 		for i, roundInfo := range response.Rounds {

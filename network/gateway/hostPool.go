@@ -17,9 +17,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
-	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -56,29 +54,29 @@ type HostPool struct {
 
 // Allows configuration of HostPool parameters
 type PoolParams struct {
-	poolSize      uint32             // Quantity of Hosts in the HostPool
-	errThreshold  uint64             // How many errors will cause a Host to be ejected from the HostPool
-	pruneInterval time.Duration      // How frequently the HostPool updates the pool
-	hostParams    connect.HostParams // Parameters for the creation of new Host objects
+	PoolSize      uint32             // Quantity of Hosts in the HostPool
+	ErrThreshold  uint64             // How many errors will cause a Host to be ejected from the HostPool
+	PruneInterval time.Duration      // How frequently the HostPool updates the pool
+	HostParams    connect.HostParams // Parameters for the creation of new Host objects
 }
 
 // Returns a default set of PoolParams
 func DefaultPoolParams() PoolParams {
 	return PoolParams{
-		poolSize:      30,
-		errThreshold:  1,
-		pruneInterval: 10 * time.Second,
-		hostParams:    connect.GetDefaultHostParams(),
+		PoolSize:      30,
+		ErrThreshold:  1,
+		PruneInterval: 10 * time.Second,
+		HostParams:    connect.GetDefaultHostParams(),
 	}
 }
 
 // Build and return new HostPool object
-func NewHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
+func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
 	result := &HostPool{
 		manager:        getter,
 		hostMap:        make(map[id.ID]uint32),
-		hostList:       make([]*connect.Host, poolParams.poolSize),
+		hostList:       make([]*connect.Host, poolParams.PoolSize),
 		poolParams:     poolParams,
 		ndf:            ndf,
 		rng:            rng,
@@ -92,12 +90,11 @@ func NewHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 		return nil, err
 	}
 
-	// Convert the NDF into a map object for future comparison
-	result.ndfMap, err = convertNdfToMap(ndf)
-	if err != nil {
-		return nil, err
-	}
-	return result, nil
+	// Convert the NDF into an empty map object in order to allow updateConns
+	result.ndfMap, _ = convertNdfToMap(nil)
+
+	// Propagate the NDF and return
+	return result, result.updateConns()
 }
 
 // Mutates internal ndf to the given ndf
@@ -111,13 +108,13 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 // Obtain a random, unique list of Hosts of the given length from the HostPool
 func (h *HostPool) GetAny(length int) []*connect.Host {
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
-	if length > int(h.poolParams.poolSize) {
-		length = int(h.poolParams.poolSize)
+	if length > int(h.poolParams.PoolSize) {
+		length = int(h.poolParams.PoolSize)
 	}
 	result := make([]*connect.Host, length)
 	h.hostMux.RLock()
 	for i := 0; i < length; {
-		gwIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
+		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -139,8 +136,8 @@ func (h *HostPool) GetSpecific(target *id.ID) (*connect.Host, bool) {
 func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
 	length := len(targets)
-	if length > int(h.poolParams.poolSize) {
-		length = int(h.poolParams.poolSize)
+	if length > int(h.poolParams.PoolSize) {
+		length = int(h.poolParams.PoolSize)
 	}
 	result := make([]*connect.Host, length)
 
@@ -152,7 +149,7 @@ func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
 			continue
 		}
 
-		gwIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
+		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -174,7 +171,7 @@ func (h *HostPool) StartHostPool() stoppable.Stoppable {
 
 // Long-running thread that manages the HostPool on a timer
 func (h *HostPool) manageHostPool(stopper *stoppable.Single) {
-	tick := time.Tick(h.poolParams.pruneInterval)
+	tick := time.Tick(h.poolParams.PruneInterval)
 	for {
 		select {
 		case <-stopper.Quit():
@@ -205,14 +202,14 @@ func (h *HostPool) manageHostPool(stopper *stoppable.Single) {
 func (h *HostPool) pruneHostPool() error {
 	// Verify the NDF has at least as many Gateways as needed for the HostPool
 	ndfLen := uint32(len(h.ndf.Gateways))
-	if ndfLen == 0 || ndfLen < h.poolParams.poolSize {
+	if ndfLen == 0 || ndfLen < h.poolParams.PoolSize {
 		return errors.Errorf("no gateways available")
 	}
 
-	for poolIdx := uint32(0); poolIdx < h.poolParams.poolSize; {
+	for poolIdx := uint32(0); poolIdx < h.poolParams.PoolSize; {
 		host := h.hostList[poolIdx]
 		// Check the Host for errors
-		if host == nil || host.GetMetrics().GetErrorCounter() >= h.poolParams.errThreshold {
+		if host == nil || host.GetMetrics().GetErrorCounter() >= h.poolParams.ErrThreshold {
 
 			// If errors occurred, randomly select a new Gw by index in the NDF
 			ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), h.rng)
@@ -277,7 +274,7 @@ func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
 		}
 
 		// Randomly select another Gateway in the HostPool for replacement
-		poolIdx := readRangeUint32(0, h.poolParams.poolSize, h.rng)
+		poolIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
 		if _, ok := checked[poolIdx]; !ok {
 			err := h.replaceHost(gwIds[i], poolIdx)
 			if err != nil {
@@ -322,6 +319,10 @@ func (h *HostPool) updateConns() error {
 // Takes ndf.Gateways and puts their IDs into a map object
 func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 	result := make(map[id.ID]int)
+	if ndf == nil {
+		return result, nil
+	}
+
 	// Process gateway Id's into set
 	for i, gw := range ndf.Gateways {
 		gwId, err := id.Unmarshal(gw.ID)
@@ -359,7 +360,7 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 		}
 
 		// Add the new gateway host
-		_, err := h.manager.AddHost(gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.hostParams)
+		_, err := h.manager.AddHost(gwId, gw.Address, []byte(gw.TlsCertificate), h.poolParams.HostParams)
 		if err != nil {
 			jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
 		}
@@ -381,65 +382,6 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 	} else if host.GetAddress() != gw.Address {
 		host.UpdateAddress(gw.Address)
 	}
-}
-
-// Get the Host of a random gateway in the NDF
-func Get(ndf *ndf.NetworkDefinition, hg HostManager, rng io.Reader) (*connect.Host, error) {
-	gwLen := uint32(len(ndf.Gateways))
-	if gwLen == 0 {
-		return nil, errors.Errorf("no gateways available")
-	}
-
-	gwIdx := readRangeUint32(0, gwLen, rng)
-	gwID, err := id.Unmarshal(ndf.Nodes[gwIdx].ID)
-	if err != nil {
-		return nil, errors.WithMessage(err, "failed to get Gateway")
-	}
-	gwID.SetType(id.Gateway)
-	gwHost, ok := hg.GetHost(gwID)
-	if !ok {
-		return nil, errors.Errorf("host for gateway %s could not be "+
-			"retrieved", gwID)
-	}
-	return gwHost, nil
-}
-
-// GetAllShuffled returns a shuffled list of gateway hosts from the specified round
-func GetAllShuffled(hg HostManager, ri *mixmessages.RoundInfo) ([]*connect.Host, error) {
-	roundTop := ri.GetTopology()
-	hosts := make([]*connect.Host, 0)
-	shuffledList := make([]uint64, 0)
-
-	// Collect all host information from the round
-	for index := range roundTop {
-		selectedId, err := id.Unmarshal(roundTop[index])
-		if err != nil {
-			return nil, err
-		}
-
-		selectedId.SetType(id.Gateway)
-
-		gwHost, ok := hg.GetHost(selectedId)
-		if !ok {
-			return nil, errors.Errorf("Could not find host for gateway %s", selectedId)
-		}
-		hosts = append(hosts, gwHost)
-		shuffledList = append(shuffledList, uint64(index))
-	}
-
-	returnHosts := make([]*connect.Host, len(hosts))
-
-	// Shuffle a list corresponding to the valid gateway hosts
-	shuffle.Shuffle(&shuffledList)
-
-	// Index through the shuffled list, building a list
-	// of shuffled gateways from the round
-	for index, shuffledIndex := range shuffledList {
-		returnHosts[index] = hosts[shuffledIndex]
-	}
-
-	return returnHosts, nil
-
 }
 
 // readUint32 reads an integer from an io.Reader (which should be a CSPRNG)

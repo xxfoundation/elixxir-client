@@ -16,8 +16,9 @@ import (
 	"time"
 )
 
-const unknownRoundsStorageKey = "UnknownRounds"
+const unknownRoundsStorageKey = "UnknownRoundsKey"
 const unknownRoundsStorageVersion = 0
+const unknownRoundPrefix = "UnknownRoundPrefix"
 
 type UnknownRounds interface {
 	Iterate(checker func(rid id.Round) bool, roundsToAdd ...[]id.Round) ([]id.Round, error)
@@ -53,6 +54,7 @@ func DefaultUnknownRoundsParams() UnknownRoundsParams {
 // Build and return new UnknownRounds object
 func NewUnknownRoundsStore(kv *versioned.KV, params UnknownRoundsParams) *UnknownRoundsStore {
 	// Build the UnmixedMessagesMap
+	kv.Prefix(unknownRoundPrefix)
 	return &UnknownRoundsStore{
 		Round:  make(map[id.Round]*uint64),
 		Params: params,

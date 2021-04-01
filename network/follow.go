@@ -41,7 +41,6 @@ import (
 )
 
 const debugTrackPeriod = 1 * time.Minute
-const maxChecked = 100000
 
 //comms interface makes testing easier
 type followNetworkComms interface {

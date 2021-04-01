@@ -152,7 +152,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
 				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey, myPubKey,
+				if err := m.doConfirm(sr2, grp, partnerPubKey, sr2.GetPartnerHistoricalPubKey(),
 					ecrFmt.GetOwnership()); err != nil {
 					jww.WARN.Printf("Auto Confirmation with %s failed: %s",
 						partnerID, err)
@@ -250,10 +250,10 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey, myPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, partnerPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
 	// verify the message came from the intended recipient
 	if !cAuth.VerifyOwnershipProof(sr.GetMyPrivKey(),
-		myPubKeyOwnershipProof, grp, ownershipProof) {
+		partnerPubKeyOwnershipProof, grp, ownershipProof) {
 		return errors.Errorf("Failed authenticate identity for auth "+
 			"confirmation of %s", sr.GetPartner())
 	}

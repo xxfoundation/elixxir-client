@@ -82,7 +82,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// After trying all gateways, if none returned we mark the round as a
 			// failure and print out the last error
 			if err != nil {
-				m.p.Fail(id.Round(ri.ID), rl.identity.EphId, rl.identity.Source)
 				jww.ERROR.Printf("Failed to get pickup round %d "+
 					"from all gateways (%v): final gateway %s returned : %s",
 					id.Round(ri.ID), gwIDs, gwHosts[len(gwHosts)-1].GetId(), err)
@@ -116,7 +115,6 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	}
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
-		m.p.Done(roundID, identity.EphId, identity.Source)
 		return message.Bundle{}, errors.Errorf(noRoundError)
 	}
 
@@ -139,7 +137,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		Round:    roundID,
 		Messages: make([]format.Message, len(msgs)),
 		Finish: func() {
-			m.p.Done(roundID, identity.EphId, identity.Source)
+			return
 		},
 	}
 

@@ -61,6 +61,7 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 		m.historicalRounds <- historicalRoundRequest{
 			rid:      roundID,
 			identity: identity,
+			numAttempts: 0,
 		}
 	} else {
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+

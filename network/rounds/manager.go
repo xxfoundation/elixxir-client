@@ -13,14 +13,10 @@ import (
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/xx_network/primitives/id"
-	"gitlab.com/xx_network/primitives/id/ephemeral"
 )
 
 type Manager struct {
 	params params.Rounds
-
-	p *processing
 
 	internal.Internal
 
@@ -33,7 +29,6 @@ func NewManager(internal internal.Internal, params params.Rounds,
 	bundles chan<- message.Bundle) *Manager {
 	m := &Manager{
 		params: params,
-		p:      newProcessingRounds(),
 
 		historicalRounds:    make(chan historicalRoundRequest, params.HistoricalRoundsBufferLen),
 		lookupRoundMessages: make(chan roundLookup, params.LookupRoundsBufferLen),
@@ -60,9 +55,4 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 		multi.Add(stopper)
 	}
 	return multi
-}
-
-func (m *Manager) DeleteProcessingRoundDelete(round id.Round, eph ephemeral.Id, source *id.ID) {
-
-	m.p.Delete(round, eph, source)
 }

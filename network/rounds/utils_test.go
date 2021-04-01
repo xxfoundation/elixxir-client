@@ -23,7 +23,6 @@ func newManager(face interface{}) *Manager {
 	testManager := &Manager{
 		lookupRoundMessages: make(chan roundLookup),
 		messageBundles:      make(chan message.Bundle),
-		p:                   newProcessingRounds(),
 		Internal: internal.Internal{
 			Session:        sess1,
 			TransmissionID: sess1.GetUser().TransmissionID,

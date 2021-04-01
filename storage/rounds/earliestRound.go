@@ -71,14 +71,16 @@ func (ur *EarliestRound) save() {
 	}
 }
 
-func (ur *EarliestRound) Set(rid id.Round) id.Round {
+func (ur *EarliestRound) Set(rid id.Round) (id.Round, bool) {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
+	changed := false
 	if rid > ur.rid {
+		changed = true
 		ur.rid = rid
 		ur.save()
 	}
-	return ur.rid
+	return ur.rid, changed
 }
 
 func (ur *EarliestRound) Get() id.Round {

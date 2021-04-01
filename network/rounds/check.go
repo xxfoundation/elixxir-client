@@ -28,7 +28,6 @@ import (
 // false: no message
 // true: message
 func Checker(roundID id.Round, filters []*RemoteFilter) bool {
-
 	//find filters that could have the round and check them
 	serialRid := serializeRound(roundID)
 	for _, filter := range filters {

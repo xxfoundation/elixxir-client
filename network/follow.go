@@ -252,7 +252,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
-	updated := identity.ER.Set(earliestTrackedRound)
+	updated, _ := identity.ER.Set(earliestTrackedRound)
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
@@ -260,9 +260,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	//threshold is the earliest round that will not be excluded from earliest remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
 		m.param.KnownRoundsThreshold, roundChecker)
-
-	identity.ER.Set(earliestRemaining)
-	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
+	_, changed := identity.ER.Set(earliestRemaining)
+	if changed{
+		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
+		jww.INFO.Printf("New Earliest Remaining: %d", earliestRemaining)
+	}
 
 	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round)bool{
 		if gwRoundsState.Checked(rid){
@@ -271,12 +273,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		return false
 	}, roundsUnknown)
 
-	for rid := range roundsWithMessages{
-		m.round.GetMessagesFromRound(id.Round(rid), identity)
+	for _, rid := range roundsWithMessages{
+		m.round.GetMessagesFromRound(rid, identity)
 	}
-
-	for rid := range roundsWithMessages2{
-		m.round.GetMessagesFromRound(id.Round(rid), identity)
+	for _, rid := range roundsWithMessages2{
+		m.round.GetMessagesFromRound(rid, identity)
 	}
 }
 

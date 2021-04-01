@@ -10,7 +10,6 @@
 package storage
 
 import (
-	"gitlab.com/elixxir/client/storage/rounds"
 	"sync"
 	"testing"
 
@@ -63,7 +62,6 @@ type Session struct {
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	reception           *reception.Store
 	clientVersion       *clientVersion.Store
-	unknownRounds       *rounds.UnknownRoundsStore
 }
 
 // Initialize a new Session object
@@ -143,11 +141,6 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 		return nil, errors.WithMessage(err, "Failed to create client version store.")
 	}
 
-	s.unknownRounds, err = rounds.NewUnknownRoundsStore(s.kv, rounds.DefaultUnknownRoundsParams())
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to create unknown round store.")
-	}
-
 	return s, nil
 }
 
@@ -219,11 +212,6 @@ func Load(baseDir, password string, currentVersion version.Version,
 
 	s.reception = reception.LoadStore(s.kv)
 
-	s.unknownRounds, err = rounds.LoadUnknownRoundsStore(s.kv, rounds.DefaultUnknownRoundsParams())
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to load unknown rounds")
-	}
-
 	return s, nil
 }
 
@@ -292,12 +280,6 @@ func (s *Session) Partition() *partition.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.partition
-}
-
-func (s *Session) UnknownRounds() *rounds.UnknownRoundsStore  {
-	s.mux.RUnlock()
-	defer s.mux.RUnlock()
-	return s.unknownRounds
 }
 
 // Get an object from the session
@@ -382,9 +364,5 @@ func InitTestingSession(i interface{}) *Session {
 
 	s.reception = reception.NewStore(s.kv)
 
-	s.unknownRounds, err = rounds.NewUnknownRoundsStore(s.kv, rounds.DefaultUnknownRoundsParams())
-	if err != nil {
-		jww.FATAL.Panicf("Failed to create unknown rounds store: %+v", err)
-	}
 	return s
 }

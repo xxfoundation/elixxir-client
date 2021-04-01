@@ -2,6 +2,7 @@ package reception
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/randomness"
 	"io"
@@ -19,8 +20,8 @@ type IdentityUse struct {
 	// Denotes if the identity is fake, in which case we do not process messages
 	Fake bool
 
-	// rounds data
-	UR *UnknownRound
+	UR *rounds.UnknownRounds
+	ER *rounds.EarliestRound
 }
 
 // setSamplingPeriod add the Request mask as a random buffer around the sampling

@@ -2,6 +2,7 @@ package reception
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
@@ -13,7 +14,8 @@ const knownRoundsStorageKey = "krStorage"
 
 type registration struct {
 	Identity
-	ur *UnknownRound
+	UR *rounds.UnknownRounds
+	ER *rounds.EarliestRound
 	kv *versioned.KV
 }
 
@@ -36,9 +38,13 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 
 	r := &registration{
 		Identity: reg,
-		ur:       NewUnknownRound(!reg.Ephemeral, kv),
 		kv:       kv,
 	}
+
+	urParams := rounds.DefaultUnknownRoundsParams()
+	urParams.Stored = !reg.Ephemeral
+	r.UR = rounds.NewUnknownRounds(kv, urParams)
+	r.ER = rounds.NewEarliestRound(!reg.Ephemeral, kv)
 
 	// If this is not ephemeral, then store everything
 	if !reg.Ephemeral {
@@ -64,12 +70,11 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 			"for %s", regPrefix(EphId, Source, startValid))
 	}
 
-	ur := LoadUnknownRound(kv)
-
 	r := &registration{
 		Identity: reg,
-		ur:       ur,
 		kv:       kv,
+		UR:       rounds.LoadUnknownRounds(kv,rounds.DefaultUnknownRoundsParams()),
+		ER:       rounds.LoadEarliestRound(kv),
 	}
 
 	return r, nil
@@ -77,7 +82,7 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 
 func (r *registration) Delete() error {
 	if !r.Ephemeral {
-		r.ur.delete()
+		r.UR.Delete()
 		if err := r.delete(r.kv); err != nil {
 			return errors.WithMessagef(err, "Failed to delete registration "+
 				"public data %s", r)

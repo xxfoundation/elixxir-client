@@ -6,7 +6,7 @@ require (
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.4.3
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
-	github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea // indirect
+	github.com/liyue201/goqr v0.0.0-20200803022322-df443203d4ea
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/mapstructure v1.4.0 // indirect
 	github.com/pelletier/go-toml v1.8.1 // indirect
@@ -22,7 +22,7 @@ require (
 	gitlab.com/elixxir/comms v0.0.4-0.20210401161030-7ace84f51ba1
 	gitlab.com/elixxir/crypto v0.0.7-0.20210401160850-96cbf25fc59e
 	gitlab.com/elixxir/ekv v0.1.4
-	gitlab.com/elixxir/primitives v0.0.3-0.20210401160752-2fe779c9fb2a
+	gitlab.com/elixxir/primitives v0.0.3-0.20210401175645-9b7b92f74ec4
 	gitlab.com/xx_network/comms v0.0.4-0.20210401160731-7b8890cdd8ad
 	gitlab.com/xx_network/crypto v0.0.5-0.20210401160648-4f06cace9123
 	gitlab.com/xx_network/primitives v0.0.4-0.20210331161816-ed23858bdb93

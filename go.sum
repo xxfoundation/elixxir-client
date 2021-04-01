@@ -286,6 +286,8 @@ gitlab.com/elixxir/primitives v0.0.3-0.20210326022836-1143187bd2fe h1:fOZONg2RIi
 gitlab.com/elixxir/primitives v0.0.3-0.20210326022836-1143187bd2fe/go.mod h1:/e3a4KPqmA9V22qKSZ9prfYYNzIzvLI8xh7noVV091w=
 gitlab.com/elixxir/primitives v0.0.3-0.20210401160752-2fe779c9fb2a h1:EyBlFKVP5905RCA9Rf18EfZwYurUW4b8LmZLv9TOC4I=
 gitlab.com/elixxir/primitives v0.0.3-0.20210401160752-2fe779c9fb2a/go.mod h1:9qqDucNbLP9ArL1VKCXQuqYrcAbJIUcI8uzbP7NmKDw=
+gitlab.com/elixxir/primitives v0.0.3-0.20210401175645-9b7b92f74ec4 h1:PFrOIpax1IMXS7jVGFhOF3bSOWh3IWhNUD18n1DzSZM=
+gitlab.com/elixxir/primitives v0.0.3-0.20210401175645-9b7b92f74ec4/go.mod h1:9qqDucNbLP9ArL1VKCXQuqYrcAbJIUcI8uzbP7NmKDw=
 gitlab.com/xx_network/comms v0.0.0-20200805174823-841427dd5023/go.mod h1:owEcxTRl7gsoM8c3RQ5KAm5GstxrJp5tn+6JfQ4z5Hw=
 gitlab.com/xx_network/comms v0.0.4-0.20210323233204-5acf90f56550 h1:pLEE4KyitAexCMenkTA2BnPP5McXmLp/LVXrful7pZQ=
 gitlab.com/xx_network/comms v0.0.4-0.20210323233204-5acf90f56550/go.mod h1:0Hx+zO3Pr4uYw4RZXFnPM3ocjY6bPIKDiHCjWTZLOSI=
@@ -468,6 +470,7 @@ google.golang.org/protobuf v1.23.1-0.20200526195155-81db48ad09cc/go.mod h1:EGpAD
 google.golang.org/protobuf v1.24.0/go.mod h1:r/3tXBNzIEhYS9I1OUVjXDlt8tc493IdKGjtUeSXeh4=
 google.golang.org/protobuf v1.25.0 h1:Ejskq+SyPohKW+1uil0JJMtmHCgJPJ/qWTxr8qp+R4c=
 google.golang.org/protobuf v1.25.0/go.mod h1:9JNX74DMeImyA3h4bdi1ymwjUzf21/xIlbajtzgsN7c=
+google.golang.org/protobuf v1.26.0-rc.1 h1:7QnIQpGRHE5RnLKnESfDoxm2dTapTZua5a0kS0A+VXQ=
 google.golang.org/protobuf v1.26.0-rc.1/go.mod h1:jlhhOSvTdKEhbULTjvd4ARK9grFBp09yW+WbY/TyQbw=
 gopkg.in/alecthomas/kingpin.v2 v2.2.6/go.mod h1:FMv+mEhP44yOT+4EoQTLFTRgOQ1FBLkstjWtayDeSgw=
 gopkg.in/check.v1 v0.0.0-20161208181325-20d25e280405/go.mod h1:Co6ibVJAznAaIkqp8huTwlJQCZ016jof/cbN4VW5Yz0=

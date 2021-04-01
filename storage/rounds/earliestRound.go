@@ -1,4 +1,4 @@
-package reception
+package rounds
 
 import (
 	"encoding/json"
@@ -12,15 +12,15 @@ import (
 const unknownRoundStorageKey = "unknownRoundStorage"
 const unknownRoundStorageVersion = 0
 
-type UnknownRound struct {
+type EarliestRound struct {
 	stored bool
 	kv     *versioned.KV
 	rid    id.Round
 	mux    sync.Mutex
 }
 
-func NewUnknownRound(stored bool, kv *versioned.KV) *UnknownRound {
-	ur := &UnknownRound{
+func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
+	ur := &EarliestRound{
 		stored: stored,
 		kv:     kv,
 		rid:    0,
@@ -29,8 +29,8 @@ func NewUnknownRound(stored bool, kv *versioned.KV) *UnknownRound {
 	return ur
 }
 
-func LoadUnknownRound(kv *versioned.KV) *UnknownRound {
-	ur := &UnknownRound{
+func LoadEarliestRound(kv *versioned.KV) *EarliestRound {
+	ur := &EarliestRound{
 		stored: true,
 		kv:     kv,
 		rid:    0,
@@ -48,7 +48,7 @@ func LoadUnknownRound(kv *versioned.KV) *UnknownRound {
 	return ur
 }
 
-func (ur *UnknownRound) save() {
+func (ur *EarliestRound) save() {
 	if ur.stored {
 		urStr, err := json.Marshal(&ur.rid)
 		if err != nil {
@@ -71,7 +71,7 @@ func (ur *UnknownRound) save() {
 	}
 }
 
-func (ur *UnknownRound) Set(rid id.Round) id.Round {
+func (ur *EarliestRound) Set(rid id.Round) id.Round {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	if rid > ur.rid {
@@ -81,13 +81,13 @@ func (ur *UnknownRound) Set(rid id.Round) id.Round {
 	return ur.rid
 }
 
-func (ur *UnknownRound) Get() id.Round {
+func (ur *EarliestRound) Get() id.Round {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	return ur.rid
 }
 
-func (ur *UnknownRound) delete() {
+func (ur *EarliestRound) delete() {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	err := ur.kv.Delete(unknownRoundStorageKey, unknownRoundStorageVersion)

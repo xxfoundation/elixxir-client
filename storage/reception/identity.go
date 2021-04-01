@@ -44,6 +44,7 @@ func loadIdentity(kv *versioned.KV) (Identity, error) {
 	if err != nil {
 		return Identity{}, errors.WithMessage(err, "Failed to unmarshal Identity")
 	}
+
 	return r, nil
 }
 

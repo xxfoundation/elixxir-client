@@ -246,26 +246,37 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid, filterList, identity)
+		return rounds.Checker(rid, filterList)
 	}
 
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
-	updated := identity.UR.Set(earliestTrackedRound)
+	updated := identity.ER.Set(earliestTrackedRound)
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	earliestRemaining := gwRoundsState.RangeUnchecked(updated,
-		maxChecked, roundChecker)
-	identity.UR.Set(earliestRemaining)
+	//threshold is the earliest round that will not be excluded from earliest remaining
+	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
+		m.param.KnownRoundsThreshold, roundChecker)
+
+	identity.ER.Set(earliestRemaining)
 	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
 
-	//delete any old rounds from processing
-	if earliestRemaining > updated {
-		for i := updated; i <= earliestRemaining; i++ {
-			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round)bool{
+		if gwRoundsState.Checked(rid){
+			return rounds.Checker(rid, filterList)
 		}
+		return false
+	}, roundsUnknown)
+
+	for rid := range roundsWithMessages{
+		m.round.GetMessagesFromRound(id.Round(rid), identity)
+	}
+
+	for rid := range roundsWithMessages2{
+		m.round.GetMessagesFromRound(id.Round(rid), identity)
 	}
 }
+

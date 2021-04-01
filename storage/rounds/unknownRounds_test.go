@@ -21,16 +21,13 @@ import (
 // Happy path
 func TestNewUnknownRoundsStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	expectedStore := &UnknownRoundsStore{
+	expectedStore := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
 		kv:     kv.Prefix(unknownRoundPrefix),
 		params: DefaultUnknownRoundsParams(),
 	}
 
-	store, err := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
-	if err != nil {
-		t.Fatalf("Failed to create known round store: %v", err)
-	}
+	store := NewUnknownRounds(kv,  DefaultUnknownRoundsParams())
 
 	// Compare manually created object with NewUnknownRoundsStore
 	if !reflect.DeepEqual(expectedStore, store) {
@@ -63,10 +60,7 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 // Full test
 func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	store, err := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
-	if err != nil {
-		t.Fatalf("Failed to create known round store: %v", err)
-	}
+	store := NewUnknownRounds(kv,  DefaultUnknownRoundsParams())
 
 	// Return true only for rounds that are even
 	mockChecker := func(rid id.Round) bool {
@@ -92,10 +86,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	}
 
 	// Iterate over initial map
-	received, err := store.Iterate(mockChecker, nil)
-	if err != nil {
-		t.Fatalf("Iterate returned an error: %v", err)
-	}
+	received := store.Iterate(mockChecker, nil)
 
 	// Check the received list for 2 conditions:
 	// a) that returned rounds are no longer in the map
@@ -115,10 +106,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	}
 
 	// Add even round list to map
-	received, err = store.Iterate(mockChecker, roundListEven)
-	if err != nil {
-		t.Fatalf("Iterate returned an error: %v", err)
-	}
+	received = store.Iterate(mockChecker, roundListEven)
 
 	if len(received) != 0 {
 		t.Errorf("Second iteration should return an empty list (no even rounds are left)."+
@@ -128,10 +116,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	// Iterate over map until all rounds have checks incremented over
 	// maxCheck
 	for i := 0; i < defaultMaxCheck+1; i++ {
-		_, err = store.Iterate(mockChecker)
-		if err != nil {
-			t.Fatalf("Iterate returned an error: %v", err)
-		}
+		_ = store.Iterate(mockChecker,[]id.Round{})
 
 	}
 
@@ -144,10 +129,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 // Unit test
 func TestLoadUnknownRoundsStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	store, err := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
-	if err != nil {
-		t.Fatalf("Failed to create known round store: %v", err)
-	}
+	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Construct 3 lists of round IDs
 	roundListLen := 25
@@ -170,10 +152,7 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 	}
 
 	// Load the store from kv
-	receivedStore, err := LoadUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
-	if err != nil {
-		t.Fatalf("LoadUnknownRoundsStore produced an error: %v", err)
-	}
+	receivedStore := LoadUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Check the state of the map of the loaded store
 	for _, rnd := range expectedRounds {
@@ -193,10 +172,7 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 
 	// Check that LoadStore works after iterate call (which implicitly saves)
 	mockChecker := func(round id.Round) bool { return false }
-	received, err := store.Iterate(mockChecker, nil)
-	if err != nil {
-		t.Fatalf("Iterate returned an unexpected error: %v", err)
-	}
+	received := store.Iterate(mockChecker, nil)
 
 	// Iterate is being called as a dummy, should not return anything
 	if len(received) != 0 {
@@ -208,10 +184,7 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 	expectedCheckVal++
 
 	// Load the store from kv
-	receivedStore, err = LoadUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
-	if err != nil {
-		t.Fatalf("LoadUnknownRoundsStore produced an error: %v", err)
-	}
+	receivedStore = LoadUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Check the state of the map of the loaded store
 	for _, rnd := range expectedRounds {

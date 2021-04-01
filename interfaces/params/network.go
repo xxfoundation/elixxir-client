@@ -23,6 +23,8 @@ type Network struct {
 	NetworkHealthTimeout time.Duration
 	//Number of parallel node registration the client is capable of
 	ParallelNodeRegistrations uint
+	//How far back in rounds the network should actually check
+	KnownRoundsThreshold uint
 
 	Rounds
 	Messages
@@ -39,6 +41,7 @@ func GetDefaultNetwork() Network {
 		NetworkHealthTimeout: 30 * time.Second,
 		E2EParams:            GetDefaultE2ESessionParams(),
 		ParallelNodeRegistrations: 8,
+		KnownRoundsThreshold: 1500, //5 rounds/sec * 60 sec/min * 5 min
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

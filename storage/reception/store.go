@@ -379,6 +379,7 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	return IdentityUse{
 		Identity: selected.Identity,
 		Fake:     false,
-		UR:       selected.ur,
+		UR: 	  selected.UR,
+		ER: 	  selected.ER,
 	}, nil
 }

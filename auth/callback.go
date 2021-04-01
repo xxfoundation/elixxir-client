@@ -152,8 +152,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
 				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey, sr2.GetPartnerHistoricalPubKey(),
-					ecrFmt.GetOwnership()); err != nil {
+				if err := m.doConfirm(sr2, grp, partnerPubKey, m.storage.E2e().GetDHPrivateKey(),
+					sr2.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
 					jww.WARN.Printf("Auto Confirmation with %s failed: %s",
 						partnerID, err)
 				}
@@ -241,8 +241,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// finalize the confirmation
-	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetPartnerHistoricalPubKey(),
-		ecrFmt.GetOwnership()); err != nil {
+	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
+		sr.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
 		jww.WARN.Printf("Confirmation failed: %s", err)
 		m.storage.Auth().Fail(sr.GetPartner())
 		return
@@ -250,9 +250,9 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey, partnerPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
 	// verify the message came from the intended recipient
-	if !cAuth.VerifyOwnershipProof(sr.GetMyPrivKey(),
+	if !cAuth.VerifyOwnershipProof(myPrivateKeyOwnershipProof,
 		partnerPubKeyOwnershipProof, grp, ownershipProof) {
 		return errors.Errorf("Failed authenticate identity for auth "+
 			"confirmation of %s", sr.GetPartner())

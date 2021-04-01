@@ -27,7 +27,10 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 		params: DefaultUnknownRoundsParams(),
 	}
 
-	store := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
+	store, err := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
+	if err != nil {
+		t.Fatalf("Failed to create known round store: %v", err)
+	}
 
 	// Compare manually created object with NewUnknownRoundsStore
 	if !reflect.DeepEqual(expectedStore, store) {
@@ -60,7 +63,10 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 // Full test
 func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	store := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
+	store, err := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
+	if err != nil {
+		t.Fatalf("Failed to create known round store: %v", err)
+	}
 
 	// Return true only for rounds that are even
 	mockChecker := func(rid id.Round) bool {
@@ -138,7 +144,10 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 // Unit test
 func TestLoadUnknownRoundsStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	store := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
+	store, err := NewUnknownRoundsStore(kv, DefaultUnknownRoundsParams())
+	if err != nil {
+		t.Fatalf("Failed to create known round store: %v", err)
+	}
 
 	// Construct 3 lists of round IDs
 	roundListLen := 25

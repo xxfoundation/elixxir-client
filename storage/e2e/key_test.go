@@ -17,10 +17,10 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // Happy path of newKey().
@@ -212,7 +212,7 @@ func getSession(t *testing.T) *Session {
 }
 
 func getFingerprint() *format.Fingerprint {
-	rand.Seed(time.Now().UnixNano())
+	rand.Seed(netTime.Now().UnixNano())
 	fp := format.Fingerprint{}
 	rand.Read(fp[:])
 

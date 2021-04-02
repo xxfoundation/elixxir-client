@@ -14,8 +14,8 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const maxUnconfirmed uint = 3
@@ -111,7 +111,7 @@ func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, erro
 
 func (r *relationship) save() error {
 
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := r.marshal()
 	if err != nil {

@@ -15,7 +15,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentCryptographicIdentityVersion = 0
@@ -112,7 +112,7 @@ func (ci *CryptographicIdentity) save(kv *versioned.KV) error {
 
 	obj := &versioned.Object{
 		Version:   currentCryptographicIdentityVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      userDataBuffer.Bytes(),
 	}
 

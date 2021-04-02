@@ -19,8 +19,8 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const (
@@ -144,7 +144,7 @@ func LoadStore(kv *versioned.KV, myID *id.ID, rng *fastRNG.StreamGenerator) (*St
 }
 
 func (s *Store) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := s.marshal()
 	if err != nil {

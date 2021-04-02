@@ -12,8 +12,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/version"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const (
@@ -105,7 +105,7 @@ func (s *Store) update(newVersion version.Version) error {
 // save stores the clientVersion store. Note that this function does not take
 // a lock.
 func (s *Store) save() error {
-	timeNow := time.Now()
+	timeNow := netTime.Now()
 
 	obj := versioned.Object{
 		Version:   storeVersion,

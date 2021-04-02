@@ -10,13 +10,13 @@ package utility
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentCyclicVersion = 0
 
 func StoreCyclicKey(kv *versioned.KV, cy *cyclic.Int, key string) error {
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := cy.GobEncode()
 	if err != nil {

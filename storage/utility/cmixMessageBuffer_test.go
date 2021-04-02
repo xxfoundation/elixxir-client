@@ -13,10 +13,10 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // Test happy path of cmixMessageHandler.SaveMessage().
@@ -159,7 +159,7 @@ func TestCmixMessageBuffer_Smoke(t *testing.T) {
 // expected map after they are added to the buffer.
 func makeTestCmixMessages(n int) ([]format.Message, []*id.ID, map[MessageHash]struct{}) {
 	cmh := &cmixMessageHandler{}
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mh := map[MessageHash]struct{}{}
 	msgs := make([]format.Message, n)
 	ids := make([]*id.ID, n)

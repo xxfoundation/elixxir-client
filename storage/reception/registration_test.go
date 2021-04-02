@@ -3,6 +3,7 @@ package reception
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func TestNewRegistration_Ephemeral(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = true
 
@@ -57,7 +58,7 @@ func TestNewRegistration_Persistent(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = false
 
@@ -81,7 +82,7 @@ func TestLoadRegistration(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = false
 
@@ -107,7 +108,7 @@ func Test_registration_Delete(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = false
 

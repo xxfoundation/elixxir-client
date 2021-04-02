@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentKeyVersion = 0
@@ -65,7 +65,7 @@ func loadKey(kv *versioned.KV, id *id.ID) (*key, error) {
 
 // saves the key as the key for the given node ID in the passed keystore
 func (k *key) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := k.marshal()
 	if err != nil {

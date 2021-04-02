@@ -10,7 +10,7 @@ package user
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentRegValidationSigVersion = 0
@@ -68,7 +68,7 @@ func (u *User) SetTransmissionRegistrationValidationSignature(b []byte) {
 
 	obj := &versioned.Object{
 		Version:   currentRegValidationSigVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      b,
 	}
 
@@ -95,7 +95,7 @@ func (u *User) SetReceptionRegistrationValidationSignature(b []byte) {
 
 	obj := &versioned.Object{
 		Version:   currentRegValidationSigVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      b,
 	}
 

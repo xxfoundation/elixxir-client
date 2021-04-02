@@ -13,7 +13,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 func makeRelationshipFingerprint(t RelationshipType, grp *cyclic.Group,
@@ -36,7 +36,7 @@ func makeRelationshipFingerprint(t RelationshipType, grp *cyclic.Group,
 }
 
 func storeRelationshipFingerprint(fp []byte, kv *versioned.KV) error {
-	now := time.Now()
+	now := netTime.Now()
 	obj := versioned.Object{
 		Version:   currentRelationshipFingerprintVersion,
 		Timestamp: now,

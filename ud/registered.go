@@ -5,8 +5,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync/atomic"
-	"time"
 )
 
 const isRegisteredKey = "isRegisteredKey"
@@ -44,7 +44,7 @@ func (m *Manager) setRegistered() error {
 
 	obj := &versioned.Object{
 		Version:   isRegisteredVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 

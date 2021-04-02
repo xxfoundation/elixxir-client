@@ -17,6 +17,7 @@ import (
 	"gitlab.com/xx_network/comms/signature"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
 	"testing"
 	"time"
@@ -31,7 +32,7 @@ func TestCheck(t *testing.T) {
 	}
 
 	/// Store a mock initial timestamp the store
-	now := time.Now()
+	now := netTime.Now()
 	twoDaysAgo := now.Add(-2 * 24 * time.Hour)
 	twoDaysTimestamp, err := marshalTimestamp(twoDaysAgo)
 	if err != nil {
@@ -65,7 +66,7 @@ func TestCheck_Thread(t *testing.T) {
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
 	/// Store a mock initial timestamp the store
-	now := time.Now()
+	now := netTime.Now()
 	yesterday := now.Add(-24 * time.Hour)
 	yesterdayTimestamp, err := marshalTimestamp(yesterday)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"time"
 )
@@ -25,7 +26,7 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	reg.EndValid = reg.EndValid.Round(0)
 	reg.End = reg.End.Round(0)
 
-	now := time.Now()
+	now := netTime.Now()
 
 	// Do edge checks to determine if the identity is valid
 	if now.After(reg.End) && reg.ExtraChecks < 1 {
@@ -73,7 +74,7 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 	r := &registration{
 		Identity: reg,
 		kv:       kv,
-		UR:       rounds.LoadUnknownRounds(kv,rounds.DefaultUnknownRoundsParams()),
+		UR:       rounds.LoadUnknownRounds(kv, rounds.DefaultUnknownRoundsParams()),
 		ER:       rounds.LoadEarliestRound(kv),
 	}
 

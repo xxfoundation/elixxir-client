@@ -12,9 +12,9 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 const (
@@ -52,7 +52,7 @@ type UnknownRoundsParams struct {
 func DefaultUnknownRoundsParams() UnknownRoundsParams {
 	return UnknownRoundsParams{
 		MaxChecks: defaultMaxCheck,
-		Stored: true,
+		Stored:    true,
 	}
 }
 
@@ -60,9 +60,9 @@ func DefaultUnknownRoundsParams() UnknownRoundsParams {
 func NewUnknownRounds(kv *versioned.KV,
 	params UnknownRoundsParams) *UnknownRounds {
 
-	urs:=  newUnknownRounds(kv, params)
+	urs := newUnknownRounds(kv, params)
 
-	if err := urs.save(); err!=nil{
+	if err := urs.save(); err != nil {
 		jww.FATAL.Printf("Failed to store New Unknown Rounds: %+v", err)
 	}
 
@@ -75,7 +75,7 @@ func newUnknownRounds(kv *versioned.KV,
 	// Modify the prefix of the KV
 	kv = kv.Prefix(unknownRoundPrefix)
 
-	urs:=  &UnknownRounds{
+	urs := &UnknownRounds{
 		rounds: make(map[id.Round]*uint64),
 		params: params,
 		kv:     kv,
@@ -147,8 +147,8 @@ func (urs *UnknownRounds) Iterate(checker func(rid id.Round) bool,
 		}
 	}
 
-	if err := urs.save(); err!=nil{
-		jww.FATAL.Panicf("Failed to save unknown reounds after " +
+	if err := urs.save(); err != nil {
+		jww.FATAL.Panicf("Failed to save unknown reounds after "+
 			"edit: %+v", err)
 	}
 
@@ -157,10 +157,10 @@ func (urs *UnknownRounds) Iterate(checker func(rid id.Round) bool,
 
 // save stores the unknown rounds store.
 func (urs *UnknownRounds) save() error {
-	if !urs.params.Stored{
+	if !urs.params.Stored {
 		return nil
 	}
-	now := time.Now()
+	now := netTime.Now()
 
 	// Serialize the map
 	data, err := json.Marshal(urs.rounds)
@@ -179,14 +179,12 @@ func (urs *UnknownRounds) save() error {
 	return urs.kv.Set(unknownRoundsStorageKey, unknownRoundsStorageVersion, &obj)
 }
 
-
 // save stores the unknown rounds store.
-func (urs *UnknownRounds) Delete()  {
+func (urs *UnknownRounds) Delete() {
 	urs.mux.Lock()
 	defer urs.mux.Unlock()
-	if urs.params.Stored{
-		if err := urs.kv.Delete(unknownRoundPrefix,unknownRoundsStorageVersion);
-			err!=nil{
+	if urs.params.Stored {
+		if err := urs.kv.Delete(unknownRoundPrefix, unknownRoundsStorageVersion); err != nil {
 			jww.FATAL.Panicf("Failed to delete unknown rounds: %+v", err)
 		}
 	}

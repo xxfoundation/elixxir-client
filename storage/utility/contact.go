@@ -12,13 +12,13 @@ import (
 	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentContactVersion = 0
 
 func StoreContact(kv *versioned.KV, c contact.Contact) error {
-	now := time.Now()
+	now := netTime.Now()
 
 	obj := versioned.Object{
 		Version:   currentContactVersion,

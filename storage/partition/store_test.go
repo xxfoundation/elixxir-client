@@ -13,9 +13,9 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // Tests happy path of New().
@@ -40,7 +40,7 @@ func TestStore_AddFirst(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 1, time.Now(), part,
+		message.Text, 5, 0, 1, netTime.Now(), part,
 		[]byte{0})
 
 	if !complete {
@@ -60,7 +60,7 @@ func TestStore_Add(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 2, time.Now(), part1,
+		message.Text, 5, 0, 2, netTime.Now(), part1,
 		[]byte{0})
 
 	if complete {

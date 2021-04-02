@@ -13,8 +13,8 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
-	"time"
 )
 
 // Test User GetRegistrationValidationSignature function
@@ -109,7 +109,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	err = kv.Set(transmissionRegValidationSigKey,
 		currentRegValidationSigVersion, &versioned.Object{
 			Version:   currentRegValidationSigVersion,
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 			Data:      sig,
 		})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	err = kv.Set(receptionRegValidationSigKey,
 		currentRegValidationSigVersion, &versioned.Object{
 			Version:   currentRegValidationSigVersion,
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 			Data:      sig,
 		})
 	if err != nil {

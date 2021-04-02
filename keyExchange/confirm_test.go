@@ -13,8 +13,8 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
-	"time"
 )
 
 // Smoke test for handleTrigger
@@ -57,7 +57,7 @@ func TestHandleConfirm(t *testing.T) {
 		Payload:     rekey,
 		MessageType: message.KeyExchangeConfirm,
 		Sender:      bobID,
-		Timestamp:   time.Now(),
+		Timestamp:   netTime.Now(),
 		Encryption:  message.E2E,
 	}
 

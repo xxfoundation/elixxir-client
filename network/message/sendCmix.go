@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	"time"
 )
@@ -54,14 +55,14 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 	session *storage.Session, nodeRegistration chan network.NodeGateway, rng *fastRNG.StreamGenerator, senderId *id.ID,
 	comms sendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
-	timeStart := time.Now()
+	timeStart := netTime.Now()
 	attempted := set.New()
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
-		elapsed := time.Now().Sub(timeStart)
+		elapsed := netTime.Now().Sub(timeStart)
 
 		if elapsed > param.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+

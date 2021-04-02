@@ -14,6 +14,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
@@ -40,7 +41,7 @@ func (*meteredCmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, k
 	// Create versioned object
 	obj := versioned.Object{
 		Version:   currentMeteredCmixMessageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      marshaled,
 	}
 
@@ -111,7 +112,7 @@ func (mcmb *MeteredCmixMessageBuffer) Add(m format.Message) {
 	msg := meteredCmixMessage{
 		M:         m.Marshal(),
 		Count:     0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 	}
 	mcmb.mb.Add(msg)
 }
@@ -120,7 +121,7 @@ func (mcmb *MeteredCmixMessageBuffer) AddProcessing(m format.Message) {
 	msg := meteredCmixMessage{
 		M:         m.Marshal(),
 		Count:     0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 	}
 	mcmb.mb.AddProcessing(msg)
 }

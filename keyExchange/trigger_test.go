@@ -14,6 +14,7 @@ import (
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"google.golang.org/protobuf/proto"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func TestHandleTrigger(t *testing.T) {
 		Payload:     rekey,
 		MessageType: message.NoType,
 		Sender:      bobID,
-		Timestamp:   time.Now(),
+		Timestamp:   netTime.Now(),
 		Encryption:  message.E2E,
 	}
 

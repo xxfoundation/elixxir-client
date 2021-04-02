@@ -11,15 +11,15 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
-	"time"
 )
 
 // Tests happy path of savePart().
 func Test_savePart(t *testing.T) {
 	// Set up test values
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
@@ -48,7 +48,7 @@ func Test_savePart(t *testing.T) {
 // Tests happy path of loadPart().
 func Test_loadPart(t *testing.T) {
 	// Set up test values
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	rootKv := versioned.NewKV(make(ekv.Memstore))
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
@@ -56,7 +56,7 @@ func Test_loadPart(t *testing.T) {
 	key := makeMultiPartMessagePartKey(partNum)
 
 	// Save part to key value store
-	err := rootKv.Set(key, 0, &versioned.Object{Timestamp: time.Now(), Data: part})
+	err := rootKv.Set(key, 0, &versioned.Object{Timestamp: netTime.Now(), Data: part})
 	if err != nil {
 		t.Fatalf("Failed to set object: %v", err)
 	}
@@ -78,7 +78,7 @@ func Test_loadPart(t *testing.T) {
 // key.
 func Test_loadPart_NotFoundError(t *testing.T) {
 	// Set up test values
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))
@@ -100,7 +100,7 @@ func Test_loadPart_NotFoundError(t *testing.T) {
 // Test happy path of deletePart().
 func TestDeletePart(t *testing.T) {
 	// Set up test values
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partNum := uint8(prng.Uint32())
 	part := make([]byte, prng.Int31n(500))

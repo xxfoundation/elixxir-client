@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentRegistrationStatusVersion = 0
@@ -59,7 +59,7 @@ func (rs RegistrationStatus) marshalBinary() []byte {
 func (s *Session) newRegStatus() error {
 	s.regStatus = NotStarted
 
-	now := time.Now()
+	now := netTime.Now()
 
 	obj := versioned.Object{
 		Version:   currentRegistrationStatusVersion,
@@ -98,7 +98,7 @@ func (s *Session) ForwardRegistrationStatus(regStatus RegistrationStatus) error 
 			s.regStatus, regStatus)
 	}
 
-	now := time.Now()
+	now := netTime.Now()
 
 	obj := versioned.Object{
 		Version:   currentRegistrationStatusVersion,

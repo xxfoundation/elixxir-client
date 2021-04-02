@@ -10,6 +10,7 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"strconv"
 	"sync"
@@ -133,7 +134,7 @@ func (s *Store) save() error {
 	// Create versioned object with data
 	obj := &versioned.Object{
 		Version:   receptionStoreStorageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
@@ -169,7 +170,7 @@ func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	now := time.Now()
+	now := netTime.Now()
 
 	// Remove any now expired identities
 	s.prune(now)
@@ -307,7 +308,7 @@ func (s *Store) UpdateIdSize(idSize uint) {
 	// Store the ID size
 	obj := &versioned.Object{
 		Version:   receptionIDSizeStorageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte(strconv.Itoa(s.idSize)),
 	}
 
@@ -379,7 +380,7 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	return IdentityUse{
 		Identity: selected.Identity,
 		Fake:     false,
-		UR: 	  selected.UR,
-		ER: 	  selected.ER,
+		UR:       selected.UR,
+		ER:       selected.ER,
 	}, nil
 }

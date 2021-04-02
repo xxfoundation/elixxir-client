@@ -10,10 +10,9 @@ package versioned
 import (
 	"bytes"
 	"errors"
-	"testing"
-	"time"
-
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
+	"testing"
 )
 
 // KV Get should call the Upgrade function when it's available
@@ -40,7 +39,7 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	originalSerialized := original.Marshal()
@@ -49,7 +48,7 @@ func TestVersionedKV_GetUpgrade(t *testing.T) {
 	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
 		return &Object{
 			Version:   1,
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 			Data:      []byte("this object was upgraded from v0 to v1"),
 		}, nil
 	}}
@@ -77,7 +76,7 @@ func TestVersionedKV_GetUpgrade_KeyNotFound(t *testing.T) {
 	upgrade := []Upgrade{func(oldObject *Object) (*Object, error) {
 		return &Object{
 			Version:   1,
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 			Data:      []byte("this object was upgraded from v0 to v1"),
 		}, nil
 	}}
@@ -97,7 +96,7 @@ func TestVersionedKV_GetUpgrade_UpgradeReturnsError(t *testing.T) {
 	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	originalSerialized := original.Marshal()
@@ -125,7 +124,7 @@ func TestVersionedKV_Delete(t *testing.T) {
 	key := vkv.GetFullKey("test", 0)
 	original := Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	originalSerialized := original.Marshal()
@@ -151,7 +150,7 @@ func TestVersionedKV_Get(t *testing.T) {
 	key := vkv.GetFullKey("test", originalVersion)
 	original := Object{
 		Version:   originalVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	originalSerialized := original.Marshal()
@@ -176,7 +175,7 @@ func TestVersionedKV_Set(t *testing.T) {
 	key := vkv.GetFullKey("test", originalVersion)
 	original := Object{
 		Version:   originalVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("not upgraded"),
 	}
 	err := vkv.Set("test", originalVersion, &original)

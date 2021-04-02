@@ -16,8 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
-
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentE2EMessageVersion = 0
@@ -44,7 +43,7 @@ func (emh *e2eMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key s
 	// Create versioned object
 	obj := versioned.Object{
 		Version:   currentE2EMessageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      b,
 	}
 

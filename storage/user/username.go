@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentUsernameVersion = 0
@@ -35,7 +35,7 @@ func (u *User) SetUsername(username string) error {
 
 	obj := &versioned.Object{
 		Version:   currentUsernameVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte(username),
 	}
 

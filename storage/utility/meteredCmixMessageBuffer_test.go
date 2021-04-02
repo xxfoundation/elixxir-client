@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -188,7 +189,7 @@ func Test_meteredCmixMessageHandler_Smoke(t *testing.T) {
 // expected map after they are added to the buffer.
 func makeTestMeteredCmixMessage(n int) ([]meteredCmixMessage, map[MessageHash]struct{}) {
 	mcmh := &meteredCmixMessageHandler{}
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mh := map[MessageHash]struct{}{}
 	msgs := make([]meteredCmixMessage, n)
 	for i := range msgs {
@@ -207,7 +208,7 @@ func makeTestMeteredCmixMessage(n int) ([]meteredCmixMessage, map[MessageHash]st
 
 // makeTestFormatMessages creates a list of messages with random data.
 func makeTestFormatMessages(n int) []format.Message {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	msgs := make([]format.Message, n)
 	for i := range msgs {
 		msgs[i] = format.NewMessage(128)

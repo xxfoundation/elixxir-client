@@ -14,10 +14,10 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // Test happy path of e2eMessageHandler.SaveMessage().
@@ -155,7 +155,7 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 // makeTestE2EMessages creates a list of messages with random data and the
 // expected map after they are added to the buffer.
 func makeTestE2EMessages(n int, t *testing.T) ([]e2eMessage, []message.Send) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	msgs := make([]e2eMessage, n)
 	send := make([]message.Send, n)
 	for i := range msgs {

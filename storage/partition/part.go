@@ -10,7 +10,7 @@ package partition
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentMultiPartMessagePartVersion = 0
@@ -31,7 +31,7 @@ func savePart(kv *versioned.KV, partNum uint8, part []byte) error {
 
 	obj := versioned.Object{
 		Version:   currentMultiPartMessagePartVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      part,
 	}
 

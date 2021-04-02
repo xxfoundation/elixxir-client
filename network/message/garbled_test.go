@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/crypto/csprng"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -102,7 +103,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	fmp.NumParts[0] = uint8(1)
 	binary.BigEndian.PutUint16(fmp.Len, 256)
 	fmp.Part[0] = 0
-	ts, err := time.Now().MarshalBinary()
+	ts, err := netTime.Now().MarshalBinary()
 	if err != nil {
 		t.Errorf("failed to martial ts: %+v", err)
 	}

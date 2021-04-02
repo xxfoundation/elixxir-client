@@ -187,7 +187,6 @@ var rootCmd = &cobra.Command{
 				jww.FATAL.Panicf("%+v", err)
 			}
 
-			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
 

@@ -405,6 +405,5 @@ func (s *Store) Delete(partner *id.ID) error {
 			"deletion: %+v", err)
 	}
 
-	r.mux.Unlock()
 	return nil
 }

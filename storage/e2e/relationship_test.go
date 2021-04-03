@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"reflect"
+	"sync"
 	"testing"
 )
 
@@ -196,8 +197,8 @@ func TestRelationship_GetNewestRekeyableSession(t *testing.T) {
 	sb.sessions[0].negotiationStatus = Unconfirmed
 	// no available rekeyable sessions: nil
 	session2 := sb.getNewestRekeyableSession()
-	if session2 != nil {
-		t.Error("newest rekeyable session should be nil")
+	if session2 != sb.sessions[0] {
+		t.Error("newest rekeyable session should be the unconfired session")
 	}
 
 	// add a rekeyable session: that session
@@ -533,4 +534,41 @@ func relationshipsEqual(buff *relationship, buff2 *relationship) bool {
 		}
 	}
 	return true
+}
+
+func Test_relationship_getNewestRekeyableSession(t *testing.T) {
+	type fields struct {
+		manager     *Manager
+		t           RelationshipType
+		kv          *versioned.KV
+		sessions    []*Session
+		sessionByID map[SessionID]*Session
+		fingerprint []byte
+		mux         sync.RWMutex
+		sendMux     sync.Mutex
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   *Session
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := &relationship{
+				manager:     tt.fields.manager,
+				t:           tt.fields.t,
+				kv:          tt.fields.kv,
+				sessions:    tt.fields.sessions,
+				sessionByID: tt.fields.sessionByID,
+				fingerprint: tt.fields.fingerprint,
+				mux:         tt.fields.mux,
+				sendMux:     tt.fields.sendMux,
+			}
+			if got := r.getNewestRekeyableSession(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getNewestRekeyableSession() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

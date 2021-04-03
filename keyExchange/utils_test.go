@@ -8,9 +8,6 @@
 package keyExchange
 
 import (
-	"testing"
-	"time"
-
 	"github.com/golang/protobuf/proto"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -31,6 +28,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/netTime"
+	"testing"
 )
 
 // Generate partner ID for two people, used for smoke tests
@@ -170,7 +169,7 @@ func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
 		Payload:     payload,
 		MessageType: message.KeyExchangeConfirm,
 		Sender:      exchangeAliceId,
-		Timestamp:   time.Now(),
+		Timestamp:   netTime.Now(),
 		Encryption:  message.E2E,
 	}
 

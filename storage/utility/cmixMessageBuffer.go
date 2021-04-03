@@ -15,7 +15,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentCmixMessageVersion = 0
@@ -45,7 +45,7 @@ func (cmh *cmixMessageHandler) SaveMessage(kv *versioned.KV, m interface{}, key 
 	// Create versioned object
 	obj := versioned.Object{
 		Version:   currentCmixMessageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      sm.Marshal(),
 	}
 

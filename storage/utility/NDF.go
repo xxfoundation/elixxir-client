@@ -10,7 +10,7 @@ package utility
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/ndf"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentNDFVersion = 0
@@ -35,7 +35,7 @@ func SaveNDF(kv *versioned.KV, key string, ndf *ndf.NetworkDefinition) error {
 		return err
 	}
 
-	now := time.Now()
+	now := netTime.Now()
 
 	obj := versioned.Object{
 		Version:   currentNDFVersion,

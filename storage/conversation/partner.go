@@ -13,10 +13,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math"
 	"strings"
 	"sync"
-	"time"
 )
 
 const (
@@ -159,7 +159,7 @@ func (c *Conversation) save() error {
 
 	obj := versioned.Object{
 		Version:   currentConversationVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 

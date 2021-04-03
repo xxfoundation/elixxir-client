@@ -10,11 +10,6 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -24,6 +19,10 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"math/big"
+	"sync"
+	"testing"
 )
 
 const currentSessionVersion = 0
@@ -174,7 +173,7 @@ func loadSession(ship *relationship, kv *versioned.KV,
 
 func (s *Session) save() error {
 
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := s.marshal()
 	if err != nil {

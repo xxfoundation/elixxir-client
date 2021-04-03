@@ -5,6 +5,7 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -15,10 +16,10 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 	r := Identity{
 		EphId:       ephemeral.Id{},
 		Source:      &id.Permissioning,
-		End:         time.Now().Round(0),
+		End:         netTime.Now().Round(0),
 		ExtraChecks: 12,
-		StartValid:  time.Now().Round(0),
-		EndValid:    time.Now().Round(0),
+		StartValid:  netTime.Now().Round(0),
+		EndValid:    netTime.Now().Round(0),
 		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
@@ -44,10 +45,10 @@ func TestIdentity_Delete(t *testing.T) {
 	r := Identity{
 		EphId:       ephemeral.Id{},
 		Source:      &id.Permissioning,
-		End:         time.Now().Round(0),
+		End:         netTime.Now().Round(0),
 		ExtraChecks: 12,
-		StartValid:  time.Now().Round(0),
-		EndValid:    time.Now().Round(0),
+		StartValid:  netTime.Now().Round(0),
+		EndValid:    netTime.Now().Round(0),
 		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
@@ -85,7 +86,7 @@ func TestIdentity_Equal(t *testing.T) {
 	timestamp := time.Date(2009, 11, 17, 20, 34, 58, 651387237, time.UTC)
 	a, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, timestamp)
 	b, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, timestamp)
-	c, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, time.Now())
+	c, _ := generateFakeIdentity(rand.New(rand.NewSource(42)), 15, netTime.Now())
 
 	if !a.Identity.Equal(b.Identity) {
 		t.Errorf("Equal() found two equal identities as unequal."+

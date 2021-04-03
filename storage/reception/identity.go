@@ -6,6 +6,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"time"
 )
@@ -58,7 +59,7 @@ func (i Identity) store(kv *versioned.KV) error {
 	// Create versioned object with data
 	obj := &versioned.Object{
 		Version:   identityStorageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      regStr,
 	}
 

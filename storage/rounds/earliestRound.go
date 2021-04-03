@@ -5,8 +5,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const unknownRoundStorageKey = "unknownRoundStorage"
@@ -58,7 +58,7 @@ func (ur *EarliestRound) save() {
 		// Create versioned object with data
 		obj := &versioned.Object{
 			Version:   unknownRoundStorageVersion,
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 			Data:      urStr,
 		}
 

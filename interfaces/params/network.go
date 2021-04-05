@@ -25,6 +25,10 @@ type Network struct {
 	ParallelNodeRegistrations uint
 	//How far back in rounds the network should actually check
 	KnownRoundsThreshold uint
+	// Determines verbosity of network updates while polling
+	// If true, client receives a filtered set of updates
+	// If false, client receives the full list of network updates
+	FastPolling bool
 
 	Rounds
 	Messages
@@ -42,6 +46,7 @@ func GetDefaultNetwork() Network {
 		E2EParams:            GetDefaultE2ESessionParams(),
 		ParallelNodeRegistrations: 8,
 		KnownRoundsThreshold: 1500, //5 rounds/sec * 60 sec/min * 5 min
+		FastPolling: true,
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

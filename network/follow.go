@@ -103,6 +103,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 		ClientVersion:  []byte(version.String()),
+		FastPolling:    m.param.FastPolling,
 	}
 	jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 		identity.EphId.Int64(), identity.Source, identity.StartRequest,

@@ -309,6 +309,7 @@ func createClient() *api.Client {
 	netParams.E2EParams.NumRekeys = uint16(
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+	netParams.FastPolling = viper.GetBool("fastPolling")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -329,6 +330,7 @@ func initClient() *api.Client {
 	netParams.E2EParams.NumRekeys = uint16(
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
+	netParams.FastPolling = viper.GetBool("fastPolling")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -721,6 +723,12 @@ func init() {
 		"Force all rounds to be sent to historical round retrieval")
 	viper.BindPFlag("forceHistoricalRounds",
 		rootCmd.Flags().Lookup("forceHistoricalRounds"))
+
+	// Network params
+	rootCmd.Flags().BoolP("fastPolling", "", true,
+		"Enables polling for filtered network updates")
+	viper.BindPFlag("fastPolling",
+		rootCmd.Flags().Lookup("fastPolling"))
 
 	// E2E Params
 	defaultE2EParams := params.GetDefaultE2ESessionParams()

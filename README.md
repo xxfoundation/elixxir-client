@@ -160,6 +160,8 @@ Flags:
                                   base64 representations) (default "0")
       --forceHistoricalRounds     Force all rounds to be sent to historical
                                   round retrieval
+      --fastPolling bool          Enables polling for filtered network updates.
+                                  Defaults to true if not set
   -h, --help                      help for client
   -l, --log string                Path to the log output path (- is stdout)
                                   (default "-")

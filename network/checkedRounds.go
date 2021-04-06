@@ -1,6 +1,7 @@
 package network
 
 import (
+	"container/list"
 	"crypto/md5"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/xx_network/primitives/id"
@@ -10,26 +11,34 @@ import (
 type idFingerprint [16]byte
 
 type checkedRounds struct{
-	lookup map[idFingerprint]map[id.Round]interface{}
+	lookup map[idFingerprint]*checklist
+}
+
+type checklist struct{
+	m map[id.Round]interface{}
+	l *list.List
 }
 
 func newCheckedRounds()*checkedRounds{
 	return &checkedRounds{
-		lookup: make(map[idFingerprint]map[id.Round]interface{}),
+		lookup: make(map[idFingerprint]*checklist),
 	}
 }
 
-
 func (cr *checkedRounds)Check(identity reception.IdentityUse, rid id.Round)bool{
 	idFp := getIdFingerprint(identity)
-	if _, exists := cr.lookup[idFp]; !exists{
-		cr.lookup[idFp] = make(map[id.Round]interface{})
-		cr.lookup[idFp][rid] = nil
-		return true
+	cl, exists := cr.lookup[idFp]
+	if !exists{
+		cl = &checklist{
+			m: make(map[id.Round]interface{}),
+			l: list.New().Init(),
+		}
+		cr.lookup[idFp]=cl
 	}
 
-	if _, exists := cr.lookup[idFp][rid]; !exists{
-		cr.lookup[idFp][rid] = nil
+	if _, exists := cl.m[rid]; !exists{
+		cl.m[rid] = nil
+		cl.l.PushBack(rid)
 		return true
 	}
 	return false
@@ -37,13 +46,20 @@ func (cr *checkedRounds)Check(identity reception.IdentityUse, rid id.Round)bool{
 
 func (cr *checkedRounds)Prune(identity reception.IdentityUse, earliestAllowed id.Round){
 	idFp := getIdFingerprint(identity)
-	if _, exists := cr.lookup[idFp]; !exists{
+	cl, exists := cr.lookup[idFp]
+	if !exists {
 		return
 	}
 
-	for rid, _ := range cr.lookup[idFp]{
-		if rid<earliestAllowed{
-			delete(cr.lookup[idFp],rid)
+	e := cl.l.Front()
+	for e!=nil {
+		if  e.Value.(id.Round)<earliestAllowed{
+			delete(cl.m,e.Value.(id.Round))
+			lastE := e
+			e = e.Next()
+			cl.l.Remove(lastE)
+		}else{
+			break
 		}
 	}
 }

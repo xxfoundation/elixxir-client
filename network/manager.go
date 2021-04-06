@@ -51,6 +51,9 @@ type manager struct {
 
 	//map of polls for debugging
 	tracker *pollTracker
+
+	//tracks already checked rounds
+	checked *checkedRounds
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -77,6 +80,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		param:   params,
 		running: &running,
 		tracker: newPollTracker(),
+		checked: newCheckedRounds(),
 	}
 
 	m.Internal = internal.Internal{

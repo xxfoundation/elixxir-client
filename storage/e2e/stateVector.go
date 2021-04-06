@@ -13,8 +13,8 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const currentStateVectorVersion = 0
@@ -79,7 +79,7 @@ func loadStateVector(kv *versioned.KV, key string) (*stateVector, error) {
 }
 
 func (sv *stateVector) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := sv.marshal()
 	if err != nil {

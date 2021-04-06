@@ -9,6 +9,7 @@ package stoppable
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -55,7 +56,7 @@ func (c *Cleanup) Close(timeout time.Duration) error {
 	c.once.Do(
 		func() {
 			defer atomic.StoreUint32(&c.running, 0)
-			start := time.Now()
+			start := netTime.Now()
 
 			// Run the stoppable
 			if err := c.stop.Close(timeout); err != nil {

@@ -14,7 +14,7 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const currentSentRequestVersion = 0
@@ -112,7 +112,7 @@ func (sr *SentRequest) save() error {
 
 	obj := versioned.Object{
 		Version:   currentSentRequestVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 

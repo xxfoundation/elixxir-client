@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"strings"
 	"testing"
@@ -29,7 +30,7 @@ func TestManager_ReceiveResponseHandler(t *testing.T) {
 	partner := NewContact(id.NewIdFromString("recipientID", id.User, t),
 		m.store.E2e().GetGroup().NewInt(43), m.store.E2e().GetGroup().NewInt(42),
 		singleUse.TagFP{}, 8)
-	ephID, _, _, err := ephemeral.GetId(partner.partner, id.ArrIDLen, time.Now().UnixNano())
+	ephID, _, _, err := ephemeral.GetId(partner.partner, id.ArrIDLen, netTime.Now().UnixNano())
 	payload := make([]byte, 2000)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReplyComm()
@@ -88,7 +89,7 @@ func TestManager_ReceiveResponseHandler_CmixMessageError(t *testing.T) {
 	partner := NewContact(id.NewIdFromString("recipientID", id.User, t),
 		m.store.E2e().GetGroup().NewInt(43), m.store.E2e().GetGroup().NewInt(42),
 		singleUse.TagFP{}, 8)
-	ephID, _, _, _ := ephemeral.GetId(partner.partner, id.ArrIDLen, time.Now().UnixNano())
+	ephID, _, _, _ := ephemeral.GetId(partner.partner, id.ArrIDLen, netTime.Now().UnixNano())
 	payload := make([]byte, 2000)
 	rand.New(rand.NewSource(42)).Read(payload)
 	callback, callbackChan := createReplyComm()
@@ -130,7 +131,7 @@ func TestManager_ReceiveResponseHandler_CmixMessageError(t *testing.T) {
 func TestManager_processesResponse(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rid := id.NewIdFromString("test RID", id.User, t)
-	ephID, _, _, err := ephemeral.GetId(rid, id.ArrIDLen, time.Now().UnixNano())
+	ephID, _, _, err := ephemeral.GetId(rid, id.ArrIDLen, netTime.Now().UnixNano())
 	if err != nil {
 		t.Fatalf("Failed to create ephemeral ID: %+v", err)
 	}

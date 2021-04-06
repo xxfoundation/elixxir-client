@@ -27,7 +27,7 @@ func TestSession_Smoke(t *testing.T) {
 
 	err := s.Set("testkey", &versioned.Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("test"),
 	})
 	if err != nil {

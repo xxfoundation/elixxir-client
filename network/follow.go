@@ -273,10 +273,25 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}, roundsUnknown)
 
 	for _, rid := range roundsWithMessages{
-		m.round.GetMessagesFromRound(rid, identity)
+		if m.checked.Check(identity, rid){
+			m.round.GetMessagesFromRound(rid, identity)
+		}
 	}
 	for _, rid := range roundsWithMessages2{
 		m.round.GetMessagesFromRound(rid, identity)
 	}
+
+	earliestToKeep := getEarliestToKeep(m.param.KnownRoundsThreshold,
+		gwRoundsState.GetLastChecked())
+
+	m.checked.Prune(identity, earliestToKeep)
+
 }
 
+
+func getEarliestToKeep(delta uint, lastchecked id.Round)id.Round{
+	if uint(lastchecked)<delta{
+		return 0
+	}
+	return  lastchecked - id.Round(delta)
+}

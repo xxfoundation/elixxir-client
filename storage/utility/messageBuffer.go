@@ -13,8 +13,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 // MessageHash stores the hash of a message, which is used as the key for each
@@ -106,7 +106,7 @@ func LoadMessageBuffer(kv *versioned.KV, handler MessageHandler,
 // are in the "not processed" or "processing" state are stored together and
 // considered "not processed".
 func (mb *MessageBuffer) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	// Build a combined list of message hashes in messages + processingMessages
 	allMessages := mb.getMessageList()

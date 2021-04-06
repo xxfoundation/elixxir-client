@@ -14,8 +14,8 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 // WARNING: Unsafe
@@ -33,7 +33,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 			msg.MessageType)
 	}
 	//timestamp the message
-	ts := time.Now()
+	ts := netTime.Now()
 
 	//partition the message
 	partitions, _, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,

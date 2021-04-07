@@ -19,13 +19,18 @@ import (
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"sync/atomic"
 	"time"
 )
+
+var extantClient *uint32
 
 // sets the log level
 func init() {
 	jww.SetLogThreshold(jww.LevelInfo)
 	jww.SetStdoutThreshold(jww.LevelInfo)
+	extant := uint32(0)
+	extantClient = &extant
 }
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -76,6 +81,11 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 func Login(storageDir string, password []byte, parameters string) (*Client, error) {
+	// check if a client is already logged in, refuse to login if one is
+	if atomic.CompareAndSwapUint32(extantClient,0,1){
+		return nil, errors.New("Cannot login when a session already exists")
+	}
+
 	p, err := params.GetNetworkParameters(parameters)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))

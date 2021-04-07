@@ -21,6 +21,7 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
 )
@@ -64,7 +65,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to start instance: %+v", err)
 	}
-	now := time.Now()
+	now := netTime.Now()
 	nid1 := id.NewIdFromString("zezima", id.Node, t)
 	nid2 := id.NewIdFromString("jakexx360", id.Node, t)
 	nid3 := id.NewIdFromString("westparkhome", id.Node, t)

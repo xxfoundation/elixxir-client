@@ -11,10 +11,10 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/elixxir/primitives/version"
+	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"strings"
 	"testing"
-	"time"
 )
 
 // Happy path.
@@ -67,7 +67,7 @@ func TestLoadStore_ParseVersionError(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	obj := versioned.Object{
 		Version:   storeVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte("invalid version"),
 	}
 

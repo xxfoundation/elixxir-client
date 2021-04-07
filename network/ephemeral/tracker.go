@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
@@ -59,7 +60,7 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 	receptionStore.WaitForIdSizeUpdate()
 
 	for true {
-		now := time.Now()
+		now := netTime.Now()
 		// Generates the IDs since the last track
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now, now.Sub(lastCheck))
@@ -148,7 +149,7 @@ func checkTimestampStore(session *storage.Session) error {
 	if _, err := session.Get(TimestampKey); err != nil {
 		// only generate from the last hour because this is a new id, it
 		// couldn't receive messages yet
-		now, err := marshalTimestamp(time.Now().Add(-1 * time.Hour))
+		now, err := marshalTimestamp(netTime.Now().Add(-1 * time.Hour))
 		if err != nil {
 			return errors.Errorf("Could not marshal new timestamp for storage: %v", err)
 		}
@@ -161,7 +162,7 @@ func checkTimestampStore(session *storage.Session) error {
 // Takes the stored timestamp and unmarshal into a time object
 func unmarshalTimestamp(lastTimestampObj *versioned.Object) (time.Time, error) {
 	if lastTimestampObj == nil || lastTimestampObj.Data == nil {
-		return time.Now(), nil
+		return netTime.Now(), nil
 	}
 
 	lastTimestamp := time.Time{}
@@ -175,7 +176,7 @@ func marshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 
 	return &versioned.Object{
 		Version:   0,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}, err
 }

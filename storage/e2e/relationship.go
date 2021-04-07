@@ -14,8 +14,8 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const maxUnconfirmed uint = 3
@@ -111,7 +111,7 @@ func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, erro
 
 func (r *relationship) save() error {
 
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := r.marshal()
 	if err != nil {
@@ -293,17 +293,24 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 	if len(sessions) == 0 {
 		return nil
 	}
+
+	var unconfirmed *Session
+
 	for _, s := range r.sessions {
 		//fmt.Println(i)
 		// This looks like it might not be thread safe, I think it is because
 		// the failure mode is it skips to a lower key to rekey with, which is
 		// always valid. It isn't clear it can fail though because we are
 		// accessing the data in the same order it would be written (i think)
-		if s.Status() != RekeyEmpty && s.IsConfirmed() {
-			return s
+		if s.Status() != RekeyEmpty {
+			if s.IsConfirmed(){
+				return s
+			}else if unconfirmed == nil{
+				unconfirmed = s
+			}
 		}
 	}
-	return nil
+	return unconfirmed
 }
 
 func (r *relationship) GetByID(id SessionID) *Session {

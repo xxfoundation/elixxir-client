@@ -61,7 +61,7 @@ func LoadKnownRounds(kv *versioned.KV, key string, size int) (*KnownRounds, erro
 
 // save saves the round buffer as a versioned object to the key value store.
 func (kr *KnownRounds) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	// Marshal list of rounds
 	data, err := kr.rounds.Marshal()

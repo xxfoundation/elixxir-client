@@ -1,26 +1,26 @@
-package reception
+package rounds
 
 import (
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const unknownRoundStorageKey = "unknownRoundStorage"
 const unknownRoundStorageVersion = 0
 
-type UnknownRound struct {
+type EarliestRound struct {
 	stored bool
 	kv     *versioned.KV
 	rid    id.Round
 	mux    sync.Mutex
 }
 
-func NewUnknownRound(stored bool, kv *versioned.KV) *UnknownRound {
-	ur := &UnknownRound{
+func NewEarliestRound(stored bool, kv *versioned.KV) *EarliestRound {
+	ur := &EarliestRound{
 		stored: stored,
 		kv:     kv,
 		rid:    0,
@@ -29,8 +29,8 @@ func NewUnknownRound(stored bool, kv *versioned.KV) *UnknownRound {
 	return ur
 }
 
-func LoadUnknownRound(kv *versioned.KV) *UnknownRound {
-	ur := &UnknownRound{
+func LoadEarliestRound(kv *versioned.KV) *EarliestRound {
+	ur := &EarliestRound{
 		stored: true,
 		kv:     kv,
 		rid:    0,
@@ -48,7 +48,7 @@ func LoadUnknownRound(kv *versioned.KV) *UnknownRound {
 	return ur
 }
 
-func (ur *UnknownRound) save() {
+func (ur *EarliestRound) save() {
 	if ur.stored {
 		urStr, err := json.Marshal(&ur.rid)
 		if err != nil {
@@ -58,7 +58,7 @@ func (ur *UnknownRound) save() {
 		// Create versioned object with data
 		obj := &versioned.Object{
 			Version:   unknownRoundStorageVersion,
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 			Data:      urStr,
 		}
 
@@ -71,23 +71,25 @@ func (ur *UnknownRound) save() {
 	}
 }
 
-func (ur *UnknownRound) Set(rid id.Round) id.Round {
+func (ur *EarliestRound) Set(rid id.Round) (id.Round, bool) {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
+	changed := false
 	if rid > ur.rid {
+		changed = true
 		ur.rid = rid
 		ur.save()
 	}
-	return ur.rid
+	return ur.rid, changed
 }
 
-func (ur *UnknownRound) Get() id.Round {
+func (ur *EarliestRound) Get() id.Round {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	return ur.rid
 }
 
-func (ur *UnknownRound) delete() {
+func (ur *EarliestRound) delete() {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	err := ur.kv.Delete(unknownRoundStorageKey, unknownRoundStorageVersion)

@@ -25,52 +25,31 @@ import (
 // if the information about that round is already present, if it is the data is
 // sent to Message Retrieval Workers, otherwise it is sent to Historical Round
 // Retrieval
-func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity reception.IdentityUse) bool {
-	// Set round to processing, if we can
-	status, count := m.p.Process(roundID, identity.EphId, identity.Source)
-
-	switch status {
-	case Processing:
-		return false
-	case Done:
-		return true
-	}
-
-	//if the number of times the round has been checked has hit the max, drop it
-	if count == m.params.MaxAttemptsCheckingARound {
-		jww.ERROR.Printf("Looking up Round %v for %d (%s) failed "+
-			"the maximum number of times (%v), stopping retrval attempt",
-			roundID, identity.EphId, identity.Source,
-			m.params.MaxAttemptsCheckingARound)
-		m.p.Done(roundID, identity.EphId, identity.Source)
-		return true
-	}
-
-	hasRound := false
+// false: no message
+// true: message
+func Checker(roundID id.Round, filters []*RemoteFilter) bool {
 	//find filters that could have the round and check them
 	serialRid := serializeRound(roundID)
 	for _, filter := range filters {
 		if filter != nil && filter.FirstRound() <= roundID &&
 			filter.LastRound() >= roundID {
 			if filter.GetFilter().Test(serialRid) {
-				hasRound = true
-				break
+				return true
 			}
 		}
 	}
+	return false
+}
 
-	//if it is not present, set the round as checked
-	//that means no messages are available for the user in the round
-	if !hasRound {
-		jww.DEBUG.Printf("No messages found for %d (%s) in round %d, "+
-			"will not check again", identity.EphId.Int64(), identity.Source, roundID)
-		m.p.Done(roundID, identity.EphId, identity.Source)
-		return true
-	}
+func serializeRound(roundId id.Round) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(roundId))
+	return b
+}
 
-	// Go get the round from the round infos, if it exists
+func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.IdentityUse){
 	ri, err := m.Instance.GetRound(roundID)
-	if err != nil || m.params.ForceHistoricalRounds {
+	if err !=nil || m.params.ForceHistoricalRounds {
 		if m.params.ForceHistoricalRounds {
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)
@@ -82,6 +61,7 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 		m.historicalRounds <- historicalRoundRequest{
 			rid:      roundID,
 			identity: identity,
+			numAttempts: 0,
 		}
 	} else {
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
@@ -94,11 +74,4 @@ func (m *Manager) Checker(roundID id.Round, filters []*RemoteFilter, identity re
 		}
 	}
 
-	return false
-}
-
-func serializeRound(roundId id.Round) []byte {
-	b := make([]byte, 8)
-	binary.LittleEndian.PutUint64(b, uint64(roundId))
-	return b
 }

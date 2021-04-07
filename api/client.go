@@ -429,7 +429,6 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
-	close(c.clientErrorChannel)
 	err = c.runner.Close(timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")

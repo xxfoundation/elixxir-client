@@ -19,6 +19,7 @@ import (
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
 	"time"
 )
@@ -74,7 +75,7 @@ func TestFullExchange(t *testing.T) {
 		Payload:     rekeyTrigger,
 		MessageType: message.KeyExchangeTrigger,
 		Sender:      exchangeBobId,
-		Timestamp:   time.Now(),
+		Timestamp:   netTime.Now(),
 		Encryption:  message.E2E,
 	}
 

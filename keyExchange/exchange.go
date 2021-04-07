@@ -39,7 +39,7 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net inte
 		})
 
 	// start the trigger thread
-	go startTrigger(sess, net, triggerCh, triggerStop.Quit(), params)
+	go startTrigger(sess, net, triggerCh, triggerStop, params)
 
 	//register the rekey confirm thread
 	confirmCh := make(chan message.Receive, 100)

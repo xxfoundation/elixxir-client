@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -49,7 +50,7 @@ func TestLoadStore(t *testing.T) {
 
 	// Fill active registration with fake identities
 	for i := 0; i < 10; i++ {
-		testID, err := generateFakeIdentity(prng, 15, time.Now())
+		testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 		if err != nil {
 			t.Fatalf("Failed to generate fake ID: %+v", err)
 		}
@@ -66,7 +67,6 @@ func TestLoadStore(t *testing.T) {
 
 	testStore := LoadStore(kv)
 	for i, active := range testStore.active {
-		s.active[i].ur = nil
 		if !s.active[i].Equal(active.Identity) {
 			t.Errorf("Failed to generate expected Store."+
 				"\nexpected: %#v\nreceived: %#v", s.active[i], active)
@@ -81,7 +81,7 @@ func TestStore_save(t *testing.T) {
 
 	// Fill active registration with fake identities
 	for i := 0; i < 10; i++ {
-		testID, err := generateFakeIdentity(prng, 15, time.Now())
+		testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 		if err != nil {
 			t.Fatalf("Failed to generate fake ID: %+v", err)
 		}
@@ -120,7 +120,7 @@ func TestStore_makeStoredReferences(t *testing.T) {
 
 	// Fill active registration with fake identities
 	for i := 0; i < 10; i++ {
-		testID, err := generateFakeIdentity(prng, 15, time.Now())
+		testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 		if err != nil {
 			t.Fatalf("Failed to generate fake ID: %+v", err)
 		}
@@ -146,7 +146,7 @@ func TestStore_GetIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	s := NewStore(kv)
 	prng := rand.New(rand.NewSource(42))
-	testID, err := generateFakeIdentity(prng, 15, time.Now())
+	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 	if err != nil {
 		t.Fatalf("Failed to generate fake ID: %+v", err)
 	}
@@ -169,7 +169,7 @@ func TestStore_AddIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	s := NewStore(kv)
 	prng := rand.New(rand.NewSource(42))
-	testID, err := generateFakeIdentity(prng, 15, time.Now())
+	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 	if err != nil {
 		t.Fatalf("Failed to generate fake ID: %+v", err)
 	}
@@ -189,7 +189,7 @@ func TestStore_RemoveIdentity(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	s := NewStore(kv)
 	prng := rand.New(rand.NewSource(42))
-	testID, err := generateFakeIdentity(prng, 15, time.Now())
+	testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 	if err != nil {
 		t.Fatalf("Failed to generate fake ID: %+v", err)
 	}
@@ -225,7 +225,7 @@ func TestStore_prune(t *testing.T) {
 	expected := make([]*registration, runs/2)
 
 	for i := 0; i < runs; i++ {
-		timestamp := time.Now()
+		timestamp := netTime.Now()
 		if i%2 == 0 {
 			timestamp = timestamp.Add(24 * time.Hour)
 		}
@@ -242,7 +242,7 @@ func TestStore_prune(t *testing.T) {
 		}
 	}
 
-	s.prune(time.Now().Add(24 * time.Hour))
+	s.prune(netTime.Now().Add(24 * time.Hour))
 
 	for i, reg := range s.active {
 		if !reg.Equal(expected[i].Identity) {
@@ -260,7 +260,7 @@ func TestStore_selectIdentity(t *testing.T) {
 	expectedReg := make([]*registration, runs)
 
 	for i := 0; i < runs; i++ {
-		testID, err := generateFakeIdentity(prng, 15, time.Now())
+		testID, err := generateFakeIdentity(prng, 15, netTime.Now())
 		if err != nil {
 			t.Fatalf("Failed to generate fake ID: %+v", err)
 		}
@@ -272,7 +272,7 @@ func TestStore_selectIdentity(t *testing.T) {
 	}
 
 	for i := 0; i < runs; i++ {
-		idu, err := s.selectIdentity(prng, time.Now())
+		idu, err := s.selectIdentity(prng, netTime.Now())
 		if err != nil {
 			t.Errorf("selectIdentity() produced an error: %+v", err)
 		}

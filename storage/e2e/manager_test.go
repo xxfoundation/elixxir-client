@@ -14,10 +14,10 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // Tests happy path of newManager.
@@ -234,7 +234,7 @@ func TestManager_TriggerNegotiations(t *testing.T) {
 
 // newTestManager returns a new relationship for testing.
 func newTestManager(t *testing.T) (*Manager, *versioned.KV) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	s, ctx := makeTestSession()
 	kv := versioned.NewKV(make(ekv.Memstore))
 	partnerID := id.NewIdFromUInts([4]uint64{prng.Uint64(), prng.Uint64(),

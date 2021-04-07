@@ -13,11 +13,11 @@ import (
 	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"os"
 	"reflect"
 	"testing"
-	"time"
 )
 
 type testHandler struct {
@@ -294,7 +294,7 @@ func TestMessageBuffer_Failed(t *testing.T) {
 
 // addTestMessages adds random messages to the buffer.
 func addTestMessages(mb *MessageBuffer, n int) []MessageHash {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	msgs := make([]MessageHash, n)
 	for i := 0; i < n; i++ {
 		keyData := make([]byte, 16)
@@ -337,7 +337,7 @@ func cmpMessageHash(arrA, arrB []MessageHash) bool {
 // makeTestMessages creates a list of messages with random data and the expected
 // map after they are added to the buffer.
 func makeTestMessages(n int) ([][]byte, map[MessageHash]struct{}) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mh := map[MessageHash]struct{}{}
 	msgs := make([][]byte, n)
 	for i := range msgs {

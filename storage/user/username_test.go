@@ -12,8 +12,8 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
-	"time"
 )
 
 // Test normal function and errors for User's SetUsername function
@@ -94,7 +94,7 @@ func TestUser_loadUsername(t *testing.T) {
 
 	err = u.kv.Set(usernameKey, currentUsernameVersion, &versioned.Object{
 		Version:   currentUsernameVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      []byte(u1),
 	})
 	u.loadUsername()

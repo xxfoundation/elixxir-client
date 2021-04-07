@@ -108,11 +108,19 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 }
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool
-func (h *HostPool) GetAny(length uint32) []*connect.Host {
+func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
 	if length > h.poolParams.PoolSize {
 		length = h.poolParams.PoolSize
 	}
+	if excluded != nil {
+		for _, gwId := range excluded {
+			if idx, ok := h.hostMap[*gwId]; ok {
+				checked[idx] = nil
+			}
+		}
+	}
+
 	result := make([]*connect.Host, length)
 	h.hostMux.RLock()
 	for i := uint32(0); i < length; {

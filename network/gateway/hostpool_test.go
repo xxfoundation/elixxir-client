@@ -497,7 +497,7 @@ func TestHostPool_GetAny(t *testing.T) {
 	}
 
 	requested := 3
-	anyList := testPool.GetAny(requested)
+	anyList := testPool.getAny(uint32(requested), nil)
 	if len(anyList) != requested {
 		t.Errorf("GetAnyList did not get requested length."+
 			"\n\tExpected: %v"+
@@ -512,8 +512,8 @@ func TestHostPool_GetAny(t *testing.T) {
 	}
 
 	// Request more than are in host list
-	largeRequest := requested * 1000
-	largeRetrieved := testPool.GetAny(largeRequest)
+	largeRequest := uint32(requested * 1000)
+	largeRetrieved := testPool.getAny(largeRequest, nil)
 	if len(largeRetrieved) != len(testPool.hostList) {
 		t.Errorf("Large request should result in a list of all in host list")
 	}

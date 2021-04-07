@@ -181,7 +181,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		result, err := sender.SendToSpecific([]*id.ID{firstGateway}, 3, func(host *connect.Host, target *id.ID) (interface{}, error) {
+		result, err := sender.SendToSpecific(firstGateway, func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 			return comms.SendPutMessage(host, wrappedMsg)
 		})

@@ -118,32 +118,25 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
-		_, err := sender.SendToAny(1, func(host *connect.Host) (interface{}, error) {
-
-			nonce, dhPub, err := requestNonce(comms, host, gatewayID, regSig, uci, store, rng)
-			if err != nil {
-				return nil, errors.Errorf("Failed to request nonce: %+v", err)
-			}
-
-			// Load server DH pubkey
-			serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
-
-			// Confirm received nonce
-			jww.INFO.Println("Register: Confirming received nonce")
-			err = confirmNonce(comms, uci.GetTransmissionID().Bytes(),
-				nonce, uci.GetTransmissionRSA(), host, gatewayID)
-			if err != nil {
-				errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
-				return nil, errors.New(errMsg)
-			}
-			transmissionKey = registration.GenerateBaseKey(store.GetGroup(),
-				serverPubDH, store.GetDHPrivateKey(), transmissionHash)
-			return nil, nil
-		})
+		nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig, uci, store, rng)
 		if err != nil {
-			jww.ERROR.Printf("registerNode failed: %+v", err)
-			return err
+			return errors.Errorf("Failed to request nonce: %+v", err)
 		}
+
+		// Load server DH pubkey
+		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
+
+		// Confirm received nonce
+		jww.INFO.Println("Register: Confirming received nonce")
+		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
+			nonce, uci.GetTransmissionRSA(), gatewayID)
+		if err != nil {
+			errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
+			return errors.New(errMsg)
+		}
+		transmissionKey = registration.GenerateBaseKey(store.GetGroup(),
+			serverPubDH, store.GetDHPrivateKey(), transmissionHash)
+		return nil
 	}
 
 	store.Add(nodeID, transmissionKey)
@@ -153,7 +146,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 	return nil
 }
 
-func requestNonce(comms RegisterNodeCommsInterface, host *connect.Host, gwId *id.ID, regHash []byte,
+func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
 	dhPub := store.GetDHPublicKey().Bytes()
 	opts := rsa.NewDefaultOptions()
@@ -173,28 +166,35 @@ func requestNonce(comms RegisterNodeCommsInterface, host *connect.Host, gwId *id
 	jww.INFO.Printf("Register: Requesting nonce from gateway %v",
 		gwId.Bytes())
 
-	nonceResponse, err := comms.SendRequestNonceMessage(host,
-		&pb.NonceRequest{
-			Salt:            uci.GetTransmissionSalt(),
-			ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())),
-			ClientSignedByServer: &messages.RSASignature{
-				Signature: regHash,
-			},
-			ClientDHPubKey: dhPub,
-			RequestSignature: &messages.RSASignature{
-				Signature: clientSig,
-			},
-			Target: gwId.Marshal(),
-		})
-
+	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		nonceResponse, err := comms.SendRequestNonceMessage(host,
+			&pb.NonceRequest{
+				Salt:            uci.GetTransmissionSalt(),
+				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())),
+				ClientSignedByServer: &messages.RSASignature{
+					Signature: regHash,
+				},
+				ClientDHPubKey: dhPub,
+				RequestSignature: &messages.RSASignature{
+					Signature: clientSig,
+				},
+				Target: gwId.Marshal(),
+			})
+		if err != nil {
+			errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
+			return nil, errors.New(errMsg)
+		}
+		if nonceResponse.Error != "" {
+			err := errors.New(fmt.Sprintf("requestNonce: nonceResponse error: %s", nonceResponse.Error))
+			return nil, err
+		}
+		return nonceResponse, nil
+	})
 	if err != nil {
-		errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
-		return nil, nil, errors.New(errMsg)
-	}
-	if nonceResponse.Error != "" {
-		err := errors.New(fmt.Sprintf("requestNonce: nonceResponse error: %s", nonceResponse.Error))
 		return nil, nil, err
 	}
+	nonceResponse := result.(*pb.Nonce)
+
 	// Use Client keypair to sign Server nonce
 	return nonceResponse.Nonce, nonceResponse.DHPubKey, nil
 }
@@ -202,8 +202,8 @@ func requestNonce(comms RegisterNodeCommsInterface, host *connect.Host, gwId *id
 // confirmNonce is a helper for the Register function
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
-func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
-	privateKeyRSA *rsa.PrivateKey, host *connect.Host, gwID *id.ID) error {
+func confirmNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, UID, nonce []byte,
+	privateKeyRSA *rsa.PrivateKey, gwID *id.ID) error {
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = hash.CMixHash
 	h, _ := hash.NewCMixHash()
@@ -232,16 +232,16 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 		Target: gwID.Marshal(),
 	}
 
-	confirmResponse, err := comms.SendConfirmNonceMessage(host, msg)
-	if err != nil {
-		err := errors.New(fmt.Sprintf(
-			"confirmNonce: Unable to send signed nonce! %s", err))
-		return err
-	}
-	if confirmResponse.Error != "" {
-		err := errors.New(fmt.Sprintf(
-			"confirmNonce: Error confirming nonce: %s", confirmResponse.Error))
-		return err
-	}
-	return nil
+	_, err = sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		confirmResponse, err := comms.SendConfirmNonceMessage(host, msg)
+		if err != nil {
+			return nil, err
+		} else if confirmResponse.Error != "" {
+			err := errors.New(fmt.Sprintf(
+				"confirmNonce: Error confirming nonce: %s", confirmResponse.Error))
+			return nil, err
+		}
+		return confirmResponse, nil
+	})
+	return err
 }

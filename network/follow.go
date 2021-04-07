@@ -96,7 +96,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		ClientVersion:  []byte(version.String()),
 	}
 
-	result, err := m.GetSender().SendToAny(1, func(host *connect.Host) (interface{}, error) {
+	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartRequest,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
@@ -255,24 +255,24 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
 		m.param.KnownRoundsThreshold, roundChecker)
 	_, changed := identity.ER.Set(earliestRemaining)
-	if changed{
+	if changed {
 		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
 		jww.INFO.Printf("New Earliest Remaining: %d", earliestRemaining)
 	}
 
-	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round)bool{
-		if gwRoundsState.Checked(rid){
+	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round) bool {
+		if gwRoundsState.Checked(rid) {
 			return rounds.Checker(rid, filterList)
 		}
 		return false
 	}, roundsUnknown)
 
-	for _, rid := range roundsWithMessages{
-		if m.checked.Check(identity, rid){
+	for _, rid := range roundsWithMessages {
+		if m.checked.Check(identity, rid) {
 			m.round.GetMessagesFromRound(rid, identity)
 		}
 	}
-	for _, rid := range roundsWithMessages2{
+	for _, rid := range roundsWithMessages2 {
 		m.round.GetMessagesFromRound(rid, identity)
 	}
 
@@ -283,10 +283,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 }
 
-
-func getEarliestToKeep(delta uint, lastchecked id.Round)id.Round{
-	if uint(lastchecked)<delta{
+func getEarliestToKeep(delta uint, lastchecked id.Round) id.Round {
+	if uint(lastchecked) < delta {
 		return 0
 	}
-	return  lastchecked - id.Round(delta)
+	return lastchecked - id.Round(delta)
 }

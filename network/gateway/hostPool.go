@@ -57,6 +57,7 @@ type PoolParams struct {
 	PoolSize      uint32             // Quantity of Hosts in the HostPool
 	ErrThreshold  uint64             // How many errors will cause a Host to be ejected from the HostPool
 	PruneInterval time.Duration      // How frequently the HostPool updates the pool
+	ProxyAttempts uint32             // How many proxies will be used in event of send failure
 	HostParams    connect.HostParams // Parameters for the creation of new Host objects
 }
 
@@ -66,6 +67,7 @@ func DefaultPoolParams() PoolParams {
 		PoolSize:      30,
 		ErrThreshold:  1,
 		PruneInterval: 10 * time.Second,
+		ProxyAttempts: 5,
 		HostParams:    connect.GetDefaultHostParams(),
 	}
 }
@@ -106,14 +108,14 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 }
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool
-func (h *HostPool) GetAny(length int) []*connect.Host {
+func (h *HostPool) GetAny(length uint32) []*connect.Host {
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
-	if length > int(h.poolParams.PoolSize) {
-		length = int(h.poolParams.PoolSize)
+	if length > h.poolParams.PoolSize {
+		length = h.poolParams.PoolSize
 	}
 	result := make([]*connect.Host, length)
 	h.hostMux.RLock()
-	for i := 0; i < length; {
+	for i := uint32(0); i < length; {
 		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]

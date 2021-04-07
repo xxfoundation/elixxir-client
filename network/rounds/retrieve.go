@@ -54,16 +54,8 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				gwIds[i] = gwId
 			}
 
-			// Send to the gateways using backup proxies
-			result, err := m.sender.SendToPreferred(gwIds, 5, func(host *connect.Host, target *id.ID) (interface{}, error) {
-				// Attempt to request for this gateway
-				result, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, host, target)
-				if err != nil {
-					jww.WARN.Printf("Failed on gateway %s to get messages for round %v",
-						host.GetId().String(), ri.ID)
-				}
-				return result, err
-			})
+			// Attempt to request for this gateway
+			bundle, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
 
 			// After trying all gateways, if none returned we mark the round as a
 			// failure and print out the last error
@@ -71,14 +63,14 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				jww.ERROR.Printf("Failed to get pickup round %d "+
 					"from all gateways (%v): %s",
 					id.Round(ri.ID), gwIds, err)
-			} else if result != nil {
-				bundle := result.(message.Bundle)
-				if len(bundle.Messages) != 0 {
-					// If successful and there are messages, we send them to another thread
-					bundle.Identity = rl.identity
-					m.messageBundles <- bundle
-				}
 			}
+
+			if len(bundle.Messages) != 0 {
+				// If successful and there are messages, we send them to another thread
+				bundle.Identity = rl.identity
+				m.messageBundles <- bundle
+			}
+
 		}
 	}
 }
@@ -86,23 +78,29 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 // getMessagesFromGateway attempts to get messages from their assigned
 // gateway host in the round specified. If successful
 func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.IdentityUse,
-	comms messageRetrievalComms, gwHost *connect.Host, target *id.ID) (message.Bundle, error) {
+	comms messageRetrievalComms, gwIds []*id.ID) (message.Bundle, error) {
 
-	jww.DEBUG.Printf("Trying to get messages for round %v for ephmeralID %d (%v)  "+
-		"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), gwHost.GetId())
+	// Send to the gateways using backup proxies
+	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, error) {
+		jww.DEBUG.Printf("Trying to get messages for round %v for ephmeralID %d (%v)  "+
+			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
 
-	// send the request
-	msgReq := &pb.GetMessages{
-		ClientID: identity.EphId[:],
-		RoundID:  uint64(roundID),
-		Target:   target.Marshal(),
-	}
-	msgResp, err := comms.RequestMessages(gwHost, msgReq)
+		// send the request
+		msgReq := &pb.GetMessages{
+			ClientID: identity.EphId[:],
+			RoundID:  uint64(roundID),
+			Target:   target.Marshal(),
+		}
+
+		return comms.RequestMessages(host, msgReq)
+	})
+
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
-			"request messages from %s for round %d", gwHost.GetId(), roundID)
+			"request messages for round %d", roundID)
 	}
+	msgResp := result.(*pb.GetMessagesResponse)
 	// if the gateway doesnt have the round, return an error
 	if !msgResp.GetHasRound() {
 		return message.Bundle{}, errors.Errorf(noRoundError)
@@ -112,15 +110,15 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	// of the bloom filters, false positives will happen some times
 	msgs := msgResp.GetMessages()
 	if msgs == nil || len(msgs) == 0 {
-		jww.WARN.Printf("host %s has no messages for client %s "+
+		jww.WARN.Printf("no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
-			" but can be indicitive of a problem if it is consistant", gwHost,
+			" but can be indicative of a problem if it is consistent",
 			m.TransmissionID, roundID)
 		return message.Bundle{}, nil
 	}
 
-	jww.INFO.Printf("Received %d messages in Round %v via Gateway %s for %d (%s)",
-		len(msgs), roundID, gwHost.GetId(), identity.EphId.Int64(), identity.Source)
+	jww.INFO.Printf("Received %d messages in Round %v for %d (%s)",
+		len(msgs), roundID, identity.EphId.Int64(), identity.Source)
 
 	//build the bundle of messages to send to the message processor
 	bundle := message.Bundle{

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/cmix"
@@ -33,14 +34,13 @@ import (
 )
 
 type RegisterNodeCommsInterface interface {
-	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendRequestNonceMessage(host *connect.Host,
 		message *pb.NonceRequest) (*pb.Nonce, error)
 	SendConfirmNonceMessage(host *connect.Host,
 		message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error)
 }
 
-func StartRegistration(instance *network.Instance, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
+func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
 	c chan network.NodeGateway, numParallel uint) stoppable.Stoppable {
 
 	multi := stoppable.NewMulti("NodeRegistrations")
@@ -48,14 +48,14 @@ func StartRegistration(instance *network.Instance, session *storage.Session, rng
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(session, rngGen, comms, stop, c)
+		go registerNodes(sender, session, rngGen, comms, stop, c)
 		multi.Add(stop)
 	}
 
 	return multi
 }
 
-func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
+func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
@@ -71,7 +71,7 @@ func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, co
 			t.Stop()
 			return
 		case gw := <-c:
-			err := registerWithNode(comms, gw, regSignature, uci, cmix, rng)
+			err := registerWithNode(sender, comms, gw, regSignature, uci, cmix, rng)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register node: %+v", err)
 			}
@@ -82,7 +82,7 @@ func registerNodes(session *storage.Session, rngGen *fastRNG.StreamGenerator, co
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
-func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway, regSig []byte,
+func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, ngw network.NodeGateway, regSig []byte,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) error {
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
@@ -109,7 +109,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		userNum := int(uci.GetTransmissionID().Bytes()[7])
 		h := sha256.New()
 		h.Reset()
-		h.Write([]byte(strconv.Itoa(int(4000 + userNum))))
+		h.Write([]byte(strconv.Itoa(4000 + userNum)))
 
 		transmissionKey = store.GetGroup().NewIntFromBytes(h.Sum(nil))
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
@@ -118,24 +118,32 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
-		nonce, dhPub, err := requestNonce(comms, gatewayID, regSig, uci, store, rng)
-		if err != nil {
-			return errors.Errorf("Failed to request nonce: %+v", err)
-		}
+		_, err := sender.SendToAny(1, func(host *connect.Host) (interface{}, error) {
 
-		// Load server DH pubkey
-		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
+			nonce, dhPub, err := requestNonce(comms, host, gatewayID, regSig, uci, store, rng)
+			if err != nil {
+				return nil, errors.Errorf("Failed to request nonce: %+v", err)
+			}
 
-		// Confirm received nonce
-		jww.INFO.Println("Register: Confirming received nonce")
-		err = confirmNonce(comms, uci.GetTransmissionID().Bytes(),
-			nonce, uci.GetTransmissionRSA(), gatewayID)
+			// Load server DH pubkey
+			serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
+
+			// Confirm received nonce
+			jww.INFO.Println("Register: Confirming received nonce")
+			err = confirmNonce(comms, uci.GetTransmissionID().Bytes(),
+				nonce, uci.GetTransmissionRSA(), host, gatewayID)
+			if err != nil {
+				errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
+				return nil, errors.New(errMsg)
+			}
+			transmissionKey = registration.GenerateBaseKey(store.GetGroup(),
+				serverPubDH, store.GetDHPrivateKey(), transmissionHash)
+			return nil, nil
+		})
 		if err != nil {
-			errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
-			return errors.New(errMsg)
+			jww.ERROR.Printf("registerNode failed: %+v", err)
+			return err
 		}
-		transmissionKey = registration.GenerateBaseKey(store.GetGroup(),
-			serverPubDH, store.GetDHPrivateKey(), transmissionHash)
 	}
 
 	store.Add(nodeID, transmissionKey)
@@ -145,7 +153,7 @@ func registerWithNode(comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 	return nil
 }
 
-func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
+func requestNonce(comms RegisterNodeCommsInterface, host *connect.Host, gwId *id.ID, regHash []byte,
 	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
 	dhPub := store.GetDHPublicKey().Bytes()
 	opts := rsa.NewDefaultOptions()
@@ -165,10 +173,6 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 	jww.INFO.Printf("Register: Requesting nonce from gateway %v",
 		gwId.Bytes())
 
-	host, ok := comms.GetHost(gwId)
-	if !ok {
-		return nil, nil, errors.Errorf("Failed to find host with ID %s", gwId.String())
-	}
 	nonceResponse, err := comms.SendRequestNonceMessage(host,
 		&pb.NonceRequest{
 			Salt:            uci.GetTransmissionSalt(),
@@ -180,6 +184,7 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 			RequestSignature: &messages.RSASignature{
 				Signature: clientSig,
 			},
+			Target: gwId.Marshal(),
 		})
 
 	if err != nil {
@@ -198,7 +203,7 @@ func requestNonce(comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
 func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
-	privateKeyRSA *rsa.PrivateKey, gwID *id.ID) error {
+	privateKeyRSA *rsa.PrivateKey, host *connect.Host, gwID *id.ID) error {
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = hash.CMixHash
 	h, _ := hash.NewCMixHash()
@@ -224,12 +229,9 @@ func confirmNonce(comms RegisterNodeCommsInterface, UID, nonce []byte,
 		NonceSignedByClient: &messages.RSASignature{
 			Signature: sig,
 		},
+		Target: gwID.Marshal(),
 	}
 
-	host, ok := comms.GetHost(gwID)
-	if !ok {
-		return errors.Errorf("Failed to find host with ID %s", gwID.String())
-	}
 	confirmResponse, err := comms.SendConfirmNonceMessage(host, msg)
 	if err != nil {
 		err := errors.New(fmt.Sprintf(

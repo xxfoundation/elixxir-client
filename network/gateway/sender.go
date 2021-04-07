@@ -37,12 +37,12 @@ func NewSender(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition,
 // Call given sendFunc to a specific Host in the HostPool,
 // attempting with up to numProxies destinations in case of failure
 func (m *Sender) SendToSpecific(targets []*id.ID, numProxies int,
-	sendFunc func(host *connect.Host) (interface{}, error)) (interface{}, error) {
+	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
 	for _, target := range targets {
 		host, ok := m.GetSpecific(target)
 
 		if ok {
-			result, err := sendFunc(host)
+			result, err := sendFunc(host, target)
 			if err == nil {
 				return result, m.ForceAdd([]*id.ID{host.GetId()})
 			}
@@ -68,12 +68,12 @@ func (m *Sender) SendToAny(numProxies int,
 }
 
 // Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
-func (m *Sender) SendToPreferred(targets []*id.ID,
-	sendFunc func(host *connect.Host) (interface{}, error)) (interface{}, error) {
+func (m *Sender) SendToPreferred(targets []*id.ID, numProxies int,
+	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
 
 	targetHosts := m.GetPreferred(targets)
-	for _, host := range targetHosts {
-		result, err := sendFunc(host)
+	for i, host := range targetHosts {
+		result, err := sendFunc(host, targets[i])
 		if err == nil {
 			return result, nil
 		}

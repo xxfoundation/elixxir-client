@@ -136,7 +136,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(healthStop)
 
 	// Node Updates
-	multi.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,
+	multi.Add(node.StartRegistration(m.GetSender(), m.Session, m.Rng,
 		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/Keys
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing

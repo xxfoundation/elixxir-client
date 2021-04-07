@@ -55,9 +55,9 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 
 			// Send to the gateways using backup proxies
-			result, err := m.sender.SendToSpecific(gwIds, 5, func(host *connect.Host) (interface{}, error) {
+			result, err := m.sender.SendToPreferred(gwIds, 5, func(host *connect.Host, target *id.ID) (interface{}, error) {
 				// Attempt to request for this gateway
-				result, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, host)
+				result, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, host, target)
 				if err != nil {
 					jww.WARN.Printf("Failed on gateway %s to get messages for round %v",
 						host.GetId().String(), ri.ID)
@@ -86,7 +86,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 // getMessagesFromGateway attempts to get messages from their assigned
 // gateway host in the round specified. If successful
 func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.IdentityUse,
-	comms messageRetrievalComms, gwHost *connect.Host) (message.Bundle, error) {
+	comms messageRetrievalComms, gwHost *connect.Host, target *id.ID) (message.Bundle, error) {
 
 	jww.DEBUG.Printf("Trying to get messages for round %v for ephmeralID %d (%v)  "+
 		"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), gwHost.GetId())
@@ -95,6 +95,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	msgReq := &pb.GetMessages{
 		ClientID: identity.EphId[:],
 		RoundID:  uint64(roundID),
+		Target:   target.Marshal(),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
 	// Fail the round if an error occurs so it can be tried again later

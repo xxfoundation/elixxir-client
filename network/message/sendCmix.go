@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -29,7 +30,6 @@ import (
 
 // interface for SendCMIX comms; allows mocking this in testing
 type sendCmixCommsInterface interface {
-	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
 }
 
@@ -38,9 +38,9 @@ const sendTimeBuffer = 2500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
-func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
+func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
 	msgCopy := msg.Copy()
-	return sendCmixHelper(msgCopy, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
+	return sendCmixHelper(sender, msgCopy, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
 }
 
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
@@ -51,7 +51,7 @@ func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 // If the message is successfully sent, the id of the round sent it is returned,
 // which can be registered with the network instance to get a callback on
 // its status
-func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, instance *network.Instance,
+func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID, param params.CMIX, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway, rng *fastRNG.StreamGenerator, senderId *id.ID,
 	comms sendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
@@ -142,15 +142,6 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		firstGateway := topology.GetNodeAtIndex(0).DeepCopy()
 		firstGateway.SetType(id.Gateway)
 
-		transmitGateway, ok := comms.GetHost(firstGateway)
-		if !ok {
-			jww.ERROR.Printf("Failed to get host for gateway %s when "+
-				"sending to %s (msgDigest: %s)", transmitGateway, recipient,
-				msg.Digest())
-			time.Sleep(param.RetryDelay)
-			continue
-		}
-
 		//encrypt the message
 		stream = rng.GetStream()
 		salt := make([]byte, 32)
@@ -187,9 +178,15 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
 			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
-			encMsg.Digest(), transmitGateway.GetId())
-		//		//Send the payload
-		gwSlotResp, err := comms.SendPutMessage(transmitGateway, wrappedMsg)
+			encMsg.Digest(), firstGateway.String())
+
+		// Send the payload
+		result, err := sender.SendToSpecific([]*id.ID{firstGateway}, 3, func(host *connect.Host, target *id.ID) (interface{}, error) {
+			wrappedMsg.Target = target.Marshal()
+			return comms.SendPutMessage(host, wrappedMsg)
+		})
+		gwSlotResp := result.(*pb.GatewaySlotResponse)
+
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly
 		if err != nil {
@@ -204,10 +201,10 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 					"with this node?") {
 				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
 					"via %s due to failed authentication: %s",
-					recipient, msg.Digest(), transmitGateway.GetId(), err)
+					recipient, msg.Digest(), firstGateway.String(), err)
 				//if we failed to send due to the gateway not recognizing our
 				// authorization, renegotiate with the node to refresh it
-				nodeID := transmitGateway.GetId().DeepCopy()
+				nodeID := firstGateway.DeepCopy()
 				nodeID.SetType(id.Node)
 				//delete the keys
 				session.Cmix().Remove(nodeID)
@@ -226,7 +223,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+
 				"to accept message when sending to EphID %d (%s) on round %d",
-				transmitGateway.GetId(), ephID.Int64(), recipient, bestRound.ID)
+				firstGateway.String(), ephID.Int64(), recipient, bestRound.ID)
 		}
 	}
 	return 0, ephemeral.Id{}, errors.New("failed to send the message, " +

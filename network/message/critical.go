@@ -95,7 +95,7 @@ func (m *Manager) criticalMessages() {
 			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", rid, msg.Digest())
 			//send the message
-			round, _, err := m.SendCMIX(msg, rid, param)
+			round, _, err := m.SendCMIX(m.sender, msg, rid, param)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {

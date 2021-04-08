@@ -27,14 +27,14 @@ import (
 	"time"
 )
 
-// Interface allowing storage and retrieval of Host objects
+// HostManager Interface allowing storage and retrieval of Host objects
 type HostManager interface {
 	GetHost(hostId *id.ID) (*connect.Host, bool)
 	AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error)
 	RemoveHost(hid *id.ID)
 }
 
-// Handles providing hosts to the Client
+// HostPool Handles providing hosts to the Client
 type HostPool struct {
 	hostMap  map[id.ID]uint32 // map key to its index in the slice
 	hostList []*connect.Host  // each index in the slice contains the value
@@ -52,24 +52,29 @@ type HostPool struct {
 	addGatewayChan chan network.NodeGateway
 }
 
-// Allows configuration of HostPool parameters
+// PoolParams Allows configuration of HostPool parameters
 type PoolParams struct {
-	PoolSize      uint32             // Quantity of Hosts in the HostPool
-	ErrThreshold  uint64             // How many errors will cause a Host to be ejected from the HostPool
-	PruneInterval time.Duration      // How frequently the HostPool updates the pool
+	PoolSize      uint32        // Quantity of Hosts in the HostPool
+	ErrThreshold  uint64        // How many errors will cause a Host to be ejected from the HostPool
+	PruneInterval time.Duration // How frequently the HostPool updates the pool
+	// TODO: Move up a layer
 	ProxyAttempts uint32             // How many proxies will be used in event of send failure
 	HostParams    connect.HostParams // Parameters for the creation of new Host objects
 }
 
-// Returns a default set of PoolParams
+// DefaultPoolParams Returns a default set of PoolParams
 func DefaultPoolParams() PoolParams {
-	return PoolParams{
+	p := PoolParams{
 		PoolSize:      30,
 		ErrThreshold:  1,
 		PruneInterval: 10 * time.Second,
 		ProxyAttempts: 5,
 		HostParams:    connect.GetDefaultHostParams(),
 	}
+	p.HostParams.EnableMetrics = true
+	p.HostParams.MaxRetries = 1
+	p.HostParams.AuthEnabled = false
+	return p
 }
 
 // Build and return new HostPool object
@@ -86,20 +91,24 @@ func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 		addGatewayChan: addGateway,
 	}
 
+	// Propagate the NDF and return
+	err := result.updateConns()
+	if err != nil {
+		return nil, err
+	}
+
 	// Build the initial HostPool
-	err := result.pruneHostPool()
+	err = result.pruneHostPool()
 	if err != nil {
 		return nil, err
 	}
 
 	// Convert the NDF into an empty map object in order to allow updateConns
-	result.ndfMap, _ = convertNdfToMap(nil)
-
-	// Propagate the NDF and return
-	return result, result.updateConns()
+	result.ndfMap, err = convertNdfToMap(nil)
+	return result, err
 }
 
-// Mutates internal ndf to the given ndf
+// UpdateNdf Mutates internal ndf to the given ndf
 func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	h.ndfMux.Lock()
 	h.isNdfUpdated = true
@@ -137,13 +146,13 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 }
 
 // Obtain a specific connect.Host from the manager, irrespective of the HostPool
-func (h *HostPool) GetSpecific(target *id.ID) (*connect.Host, bool) {
+func (h *HostPool) getSpecific(target *id.ID) (*connect.Host, bool) {
 	return h.manager.GetHost(target)
 }
 
 // Try to obtain the given targets from the HostPool
 // If each is not present, obtain a random replacement from the HostPool
-func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
+func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
 	length := len(targets)
 	if length > int(h.poolParams.PoolSize) {
@@ -171,7 +180,7 @@ func (h *HostPool) GetPreferred(targets []*id.ID) []*connect.Host {
 	return result
 }
 
-// Start long-running thread and return the thread controller to the caller
+// StartHostPool Start long-running thread and return the thread controller to the caller
 func (h *HostPool) StartHostPool() stoppable.Stoppable {
 	stopper := stoppable.NewSingle("HostPool")
 	jww.INFO.Printf("Starting Host Pool...")
@@ -272,7 +281,7 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 }
 
 // Force-add the Gateways to the HostPool, each replacing a random Gateway
-func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
+func (h *HostPool) forceAdd(gwIds []*id.ID) error {
 	h.hostMux.Lock()
 	defer h.hostMux.Unlock()
 
@@ -280,6 +289,8 @@ func (h *HostPool) ForceAdd(gwIds []*id.ID) error {
 	for i := 0; i < len(gwIds); {
 		// Verify the GwId is not already in the hostMap
 		if _, ok := h.hostMap[*gwIds[i]]; ok {
+			// If it is, skip
+			i++
 			continue
 		}
 

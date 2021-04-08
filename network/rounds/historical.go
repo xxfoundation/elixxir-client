@@ -33,8 +33,8 @@ type historicalRoundsComms interface {
 
 //structure which contains a historical round lookup
 type historicalRoundRequest struct {
-	rid      id.Round
-	identity reception.IdentityUse
+	rid         id.Round
+	identity    reception.IdentityUse
 	numAttempts uint
 }
 
@@ -96,7 +96,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
-		result, err := m.sender.SendToAny(1, func(host *connect.Host) (interface{}, error) {
+		result, err := m.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 			jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 				"gateway %s", rounds, host.GetId())
 			return comm.RequestHistoricalRounds(host, hr)
@@ -119,19 +119,19 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			// pick them up in the future.
 			if roundInfo == nil {
 				roundRequests[i].numAttempts++
-				if roundRequests[i].numAttempts==m.params.MaxHistoricalRoundsRetries{
-					jww.ERROR.Printf("Failed to retreive historical " +
+				if roundRequests[i].numAttempts == m.params.MaxHistoricalRoundsRetries {
+					jww.ERROR.Printf("Failed to retreive historical "+
 						"round %d on last attempt, will not try again",
 						roundRequests[i].rid)
-				}else{
+				} else {
 					select {
-					case m.historicalRounds <-roundRequests[i]:
-						jww.WARN.Printf("Failed to retreive historical " +
+					case m.historicalRounds <- roundRequests[i]:
+						jww.WARN.Printf("Failed to retreive historical "+
 							"round %d, will try up to %d more times",
 							roundRequests[i].rid, m.params.MaxHistoricalRoundsRetries-roundRequests[i].numAttempts)
 					default:
-						jww.WARN.Printf("Failed to retreive historical " +
-							"round %d, failed to try again, round will not be " +
+						jww.WARN.Printf("Failed to retreive historical "+
+							"round %d, failed to try again, round will not be "+
 							"retreived", roundRequests[i].rid)
 					}
 				}

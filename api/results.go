@@ -182,7 +182,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 
 	for {
 		// Find a gateway to request about the roundRequests
-		result, err := c.GetNetworkInterface().GetSender().SendToAny(1, func(host *connect.Host) (interface{}, error) {
+		result, err := c.GetNetworkInterface().GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 			return comms.RequestHistoricalRounds(host, msg)
 		})
 

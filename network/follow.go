@@ -23,7 +23,6 @@ package network
 //		instance
 
 import (
-	"bytes"
 	"fmt"
 	"math"
 	"time"
@@ -33,7 +32,6 @@ import (
 	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
-	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -151,52 +149,52 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			return
 		}
 
+		// TODO: ClientErr needs to know the source of the error and it doesn't yet
 		// Iterate over ClientErrors for each RoundUpdate
-		for _, update := range pollResp.Updates {
-
-			// Ignore irrelevant updates
-			if update.State != uint32(states.COMPLETED) && update.State != uint32(states.FAILED) {
-				continue
-			}
-
-			for _, clientErr := range update.ClientErrors {
-
-				// If this Client appears in the ClientError
-				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
-
-					// Obtain relevant NodeGateway information
-					// TODO ???
-					nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())
-					if err != nil {
-						jww.ERROR.Printf("Unable to get NodeGateway: %+v", err)
-						return
-					}
-					nid, err := nGw.Node.GetNodeId()
-					if err != nil {
-						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
-						return
-					}
-
-					// FIXME: Should be able to trigger proper type of round event
-					// FIXME: without mutating the RoundInfo. Signature also needs verified
-					// FIXME: before keys are deleted
-					update.State = uint32(states.FAILED)
-					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
-					if err != nil {
-						jww.ERROR.Printf("Failed to report client error: "+
-							"Could not get round for event triggering: "+
-							"Unable to get round %d from instance: %+v",
-							id.Round(update.ID), err)
-						break
-					}
-					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
-
-					// delete all existing keys and trigger a re-registration with the relevant Node
-					m.Session.Cmix().Remove(nid)
-					m.Instance.GetAddGatewayChan() <- nGw
-				}
-			}
-		}
+		//for _, update := range pollResp.Updates {
+		//
+		//	// Ignore irrelevant updates
+		//	if update.State != uint32(states.COMPLETED) && update.State != uint32(states.FAILED) {
+		//		continue
+		//	}
+		//
+		//	for _, clientErr := range update.ClientErrors {
+		//		// If this Client appears in the ClientError
+		//		if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
+		//
+		//			// Obtain relevant NodeGateway information
+		//			// TODO ???
+		//			nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())
+		//			if err != nil {
+		//				jww.ERROR.Printf("Unable to get NodeGateway: %+v", err)
+		//				return
+		//			}
+		//			nid, err := nGw.Node.GetNodeId()
+		//			if err != nil {
+		//				jww.ERROR.Printf("Unable to get NodeID: %+v", err)
+		//				return
+		//			}
+		//
+		//			// FIXME: Should be able to trigger proper type of round event
+		//			// FIXME: without mutating the RoundInfo. Signature also needs verified
+		//			// FIXME: before keys are deleted
+		//			update.State = uint32(states.FAILED)
+		//			rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
+		//			if err != nil {
+		//				jww.ERROR.Printf("Failed to report client error: "+
+		//					"Could not get round for event triggering: "+
+		//					"Unable to get round %d from instance: %+v",
+		//					id.Round(update.ID), err)
+		//				break
+		//			}
+		//			m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
+		//
+		//			// delete all existing keys and trigger a re-registration with the relevant Node
+		//			m.Session.Cmix().Remove(nid)
+		//			m.Instance.GetAddGatewayChan() <- nGw
+		//		}
+		//	}
+		//}
 	}
 
 	// ---- Identity Specific Round Processing -----

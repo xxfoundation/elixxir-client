@@ -429,7 +429,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 		t.Errorf("Failed to create mock host pool: %v", err)
 	}
 
-	retrievedList := testPool.GetPreferred(targets)
+	retrievedList := testPool.getPreferred(targets)
 	if len(retrievedList) != len(targets) {
 		t.Errorf("Requested list did not output requested length."+
 			"\n\tExpected: %d"+
@@ -447,7 +447,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 
 	// Replace a request with a gateway not in pool
 	targets[3] = id.NewIdFromUInt(74, id.Gateway, t)
-	retrievedList = testPool.GetPreferred(targets)
+	retrievedList = testPool.getPreferred(targets)
 	if len(retrievedList) != len(targets) {
 		t.Errorf("Requested list did not output requested length."+
 			"\n\tExpected: %d"+
@@ -567,8 +567,8 @@ func TestHostPool_ForceAdd(t *testing.T) {
 		newGateways[i] = gwId
 	}
 
-	// ForceAdd list of gateways
-	err = testPool.ForceAdd(newGateways)
+	// forceAdd list of gateways
+	err = testPool.forceAdd(newGateways)
 	if err != nil {
 		t.Errorf("Could not add gateways: %v", err)
 	}
@@ -648,7 +648,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 		if err != nil {
 			t.Errorf("Failed to marshal gateway id for %v", ndfGw)
 		}
-		_, ok := testPool.GetSpecific(gwId)
+		_, ok := testPool.getSpecific(gwId)
 		if !ok {
 			t.Errorf("Failed to find gateway %v in manager", gwId)
 		}

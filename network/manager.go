@@ -100,7 +100,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
-	poolParams.HostParams.MaxRetries = 3
 	m.sender, err = gateway.NewSender(poolParams, rng.GetStream(),
 		ndf, comms, session, m.NodeRegistration)
 

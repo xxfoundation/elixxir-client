@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -101,6 +102,10 @@ func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 
 func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 	return 0
+}
+
+func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
+	return nil
 }
 
 func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
@@ -208,6 +213,10 @@ func (t *testNetworkManagerFullExchange) GetStoppable() stoppable.Stoppable {
 
 func (t *testNetworkManagerFullExchange) InProgressRegistrations() int {
 	return 0
+}
+
+func (t *testNetworkManagerFullExchange) GetSender() *gateway.Sender {
+	return nil
 }
 
 func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {

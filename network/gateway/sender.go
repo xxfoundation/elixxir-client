@@ -18,12 +18,12 @@ import (
 	"io"
 )
 
-// Object used for sending that wraps the HostPool for providing destinations
+// Sender Object used for sending that wraps the HostPool for providing destinations
 type Sender struct {
 	*HostPool
 }
 
-// Create a new Sender object wrapping a HostPool object
+// NewSender Create a new Sender object wrapping a HostPool object
 func NewSender(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*Sender, error) {
 
@@ -34,16 +34,15 @@ func NewSender(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition,
 	return &Sender{hostPool}, nil
 }
 
-// Call given sendFunc to a specific Host in the HostPool,
+// SendToSpecific Call given sendFunc to a specific Host in the HostPool,
 // attempting with up to numProxies destinations in case of failure
 func (m *Sender) SendToSpecific(target *id.ID,
 	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
-
-	host, ok := m.GetSpecific(target)
+	host, ok := m.getSpecific(target)
 	if ok {
 		result, err := sendFunc(host, target)
 		if err == nil {
-			return result, m.ForceAdd([]*id.ID{host.GetId()})
+			return result, m.forceAdd([]*id.ID{host.GetId()})
 		}
 	}
 
@@ -58,7 +57,7 @@ func (m *Sender) SendToSpecific(target *id.ID,
 	return nil, errors.Errorf("Unable to send to any specifics with proxies")
 }
 
-// Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
+// SendToAny Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
 func (m *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error)) (interface{}, error) {
 
 	proxies := m.getAny(m.poolParams.ProxyAttempts, nil)
@@ -72,11 +71,11 @@ func (m *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 	return nil, errors.Errorf("Unable to send to any proxies")
 }
 
-// Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
+// SendToPreferred Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
 func (m *Sender) SendToPreferred(targets []*id.ID,
 	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
 
-	targetHosts := m.GetPreferred(targets)
+	targetHosts := m.getPreferred(targets)
 	for i, host := range targetHosts {
 		result, err := sendFunc(host, targets[i])
 		if err == nil {

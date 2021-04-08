@@ -15,6 +15,7 @@ import (
 	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -321,6 +322,10 @@ func (tnm *testNetworkManager) CheckGarbledMessages() {}
 
 func (tnm *testNetworkManager) InProgressRegistrations() int {
 	return 0
+}
+
+func (t *testNetworkManager) GetSender() *gateway.Sender {
+	return nil
 }
 
 func getNDF() *ndf.NetworkDefinition {

@@ -96,3 +96,17 @@ func newRoundListUnregister(rounds []id.Round, ec []*dataStructures.EventCallbac
 type ClientError interface {
 	Report(source, message, trace string)
 }
+
+
+type LogWriter interface{
+	Log(string)
+}
+
+type writerAdapter struct{
+	lw LogWriter
+}
+
+func (wa *writerAdapter)Write(p []byte) (n int, err error){
+	wa.lw.Log(string(p))
+	return len(p), nil
+}

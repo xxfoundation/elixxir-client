@@ -137,6 +137,11 @@ func LogLevel(level int) error {
 	return nil
 }
 
+//RegisterLogWriter registers a callback on which logs are written.
+func RegisterLogWriter(writer LogWriter){
+	jww.SetLogOutput(&writerAdapter{lw:writer})
+}
+
 //Unmarshals a marshaled contact object, returns an error if it fails
 func UnmarshalContact(b []byte) (*Contact, error) {
 	c, err := contact.Unmarshal(b)

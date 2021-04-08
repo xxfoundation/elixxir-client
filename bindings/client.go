@@ -19,18 +19,17 @@ import (
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
-	"sync/atomic"
+	"sync"
 	"time"
 )
 
-var extantClient *uint32
+var extantClient bool
+var loginMux sync.Mutex
 
 // sets the log level
 func init() {
 	jww.SetLogThreshold(jww.LevelInfo)
 	jww.SetStdoutThreshold(jww.LevelInfo)
-	extant := uint32(0)
-	extantClient = &extant
 }
 
 // BindingsClient wraps the api.Client, implementing additional functions
@@ -81,11 +80,14 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 func Login(storageDir string, password []byte, parameters string) (*Client, error) {
-	// check if a client is already logged in, refuse to login if one is
-	if atomic.CompareAndSwapUint32(extantClient,0,1){
-		return nil, errors.New("Cannot login when a session already exists")
-	}
+	loginMux.Lock()
+	defer loginMux.Unlock()
 
+	if extantClient{
+		return nil, errors.New("cannot login when another session " +
+			"already exists")
+	}
+	// check if a client is already logged in, refuse to login if one is
 	p, err := params.GetNetworkParameters(parameters)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
@@ -95,6 +97,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
+	extantClient=true
 	return &Client{api: *client}, nil
 }
 
@@ -135,6 +138,11 @@ func LogLevel(level int) error {
 	}
 
 	return nil
+}
+
+//RegisterLogWriter registers a callback on which logs are written.
+func RegisterLogWriter(writer LogWriter){
+	jww.SetLogOutput(&writerAdapter{lw:writer})
 }
 
 //Unmarshals a marshaled contact object, returns an error if it fails

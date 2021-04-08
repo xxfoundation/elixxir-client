@@ -80,6 +80,7 @@ func (ht *historicalRounds) GetHost(hostId *id.ID) (*connect.Host, bool) {
 // Contains a test implementation of the networkManager interface.
 type testNetworkManagerGeneric struct {
 	instance *network.Instance
+	sender   *gateway.Sender
 }
 
 /* Below methods built for interface adherence */
@@ -122,5 +123,5 @@ func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 }
 
 func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
-	return nil
+	return t.sender
 }

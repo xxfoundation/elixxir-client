@@ -49,7 +49,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			for i, idBytes := range ri.Topology {
 				gwId, err := id.Unmarshal(idBytes)
 				if err != nil {
-					// TODO
+					jww.FATAL.Panicf("processMessageRetrieval: Unable to unmarshal: %+v", err)
 				}
 				gwIds[i] = gwId
 			}

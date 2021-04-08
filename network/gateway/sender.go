@@ -74,7 +74,6 @@ func (m *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 // SendToPreferred Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
 func (m *Sender) SendToPreferred(targets []*id.ID,
 	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
-
 	targetHosts := m.getPreferred(targets)
 	for i, host := range targetHosts {
 		result, err := sendFunc(host, targets[i])

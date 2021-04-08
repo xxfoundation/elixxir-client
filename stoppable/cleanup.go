@@ -13,6 +13,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Cleanup wraps any stoppable and runs a callback after to stop for cleanup
@@ -85,6 +86,10 @@ func (c *Cleanup) Close(timeout time.Duration) error {
 				err = errors.Errorf("Clean up for %s timeout", c.stop.Name())
 			}
 		})
+
+	if err!=nil{
+		jww.ERROR.Printf(err.Error())
+	}
 
 	return err
 }

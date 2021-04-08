@@ -9,11 +9,11 @@ package stoppable
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"sync/atomic"
 	"time"
-	jww "github.com/spf13/jwalterweatherman"
 )
 
 // Cleanup wraps any stoppable and runs a callback after to stop for cleanup

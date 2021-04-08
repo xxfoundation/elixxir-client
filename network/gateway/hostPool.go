@@ -91,21 +91,14 @@ func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 		addGatewayChan: addGateway,
 	}
 
-	// Propagate the NDF and return
+	// Propagate the NDF
 	err := result.updateConns()
 	if err != nil {
 		return nil, err
 	}
 
-	// Build the initial HostPool
-	err = result.pruneHostPool()
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert the NDF into an empty map object in order to allow updateConns
-	result.ndfMap, err = convertNdfToMap(nil)
-	return result, err
+	// Build the initial HostPool and return
+	return result, result.pruneHostPool()
 }
 
 // UpdateNdf Mutates internal ndf to the given ndf

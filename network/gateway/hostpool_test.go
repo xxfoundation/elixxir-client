@@ -115,7 +115,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 
 	testPool.UpdateNdf(newNdf)
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(testPool.poolParams.PruneInterval + 1*time.Second)
 
 	// Check that old gateways are not in pool
 	for _, ndfGw := range testNdf.Gateways {

@@ -255,7 +255,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	_, changed := identity.ER.Set(earliestRemaining)
 	if changed {
 		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
-		jww.INFO.Printf("New Earliest Remaining: %d", earliestRemaining)
+		jww.DEBUG.Printf("New Earliest Remaining: %d", earliestRemaining)
 	}
 
 	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round) bool {

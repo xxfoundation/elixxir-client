@@ -103,7 +103,6 @@ func (t *Tracker) setHealth(h bool) {
 
 func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.mux.Lock()
-	defer t.mux.Unlock()
 	if t.running {
 		return nil, errors.New("cannot start Health tracker threads, " +
 			"they are already running")
@@ -111,20 +110,13 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.running = true
 
 	t.isHealthy = false
+	t.mux.Unlock()
 
 	stop := stoppable.NewSingle("Health Tracker")
-	stopCleanup := stoppable.NewCleanup(stop, func(duration time.Duration) error {
-		t.mux.Lock()
-		defer t.mux.Unlock()
-		t.isHealthy = false
-		t.transmit(false)
-		t.running = false
-		return nil
-	})
 
 	go t.start(stop.Quit())
 
-	return stopCleanup, nil
+	return stop, nil
 }
 
 // Long-running thread used to monitor and report on network health
@@ -135,7 +127,11 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 		var heartbeat network.Heartbeat
 		select {
 		case <-quitCh:
-			// Handle thread kill
+			t.mux.Lock()
+			t.isHealthy = false
+			t.running = false
+			t.mux.Unlock()
+			t.transmit(false)
 			break
 		case heartbeat = <-t.heartbeat:
 			if healthy(heartbeat) {
@@ -163,7 +159,7 @@ func (t *Tracker) transmit(health bool) {
 		select {
 		case c <- health:
 		default:
-			jww.WARN.Printf("Unable to send Health event")
+			jww.DEBUG.Printf("Unable to send Health event")
 		}
 	}
 

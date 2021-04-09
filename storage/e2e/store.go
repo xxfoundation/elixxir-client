@@ -249,16 +249,24 @@ func (s *Store) unmarshal(b []byte) error {
 		return err
 	}
 
-	for _, partnerID := range contacts {
+	for i := range contacts {
+		//load the contact separately to ensure pointers do not get swapped
+		partnerID := (&contacts[i]).DeepCopy()
 		// Load the relationship. The relationship handles adding the fingerprints via the
 		// context object
-		manager, err := loadManager(s.context, s.kv, &partnerID)
+		manager, err := loadManager(s.context, s.kv, partnerID)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
-				&partnerID, err.Error())
+				partnerID, err.Error())
 		}
 
-		s.managers[partnerID] = manager
+		if !manager.GetPartnerID().Cmp(partnerID){
+			jww.FATAL.Panicf("Loaded a manager with the wrong partner " +
+				"ID: \n\t loaded: %s \n\t present: %s",
+				partnerID, manager.GetPartnerID())
+		}
+
+		s.managers[*partnerID] = manager
 	}
 
 	s.dhPrivateKey, err = utility.LoadCyclicKey(s.kv, privKeyKey)

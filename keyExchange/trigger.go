@@ -31,10 +31,11 @@ const (
 )
 
 func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	c chan message.Receive, stop *stoppable.Single, params params.Rekey) {
+	c chan message.Receive, stop *stoppable.Single, params params.Rekey, cleanup func()) {
 	for true {
 		select {
 		case <-stop.Quit():
+			cleanup()
 			return
 		case request := <-c:
 			go func() {

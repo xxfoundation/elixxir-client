@@ -205,10 +205,13 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	//Open the client
 	c, err := OpenClient(storageDir, password, parameters)
-
 	if err != nil {
 		return nil, err
 	}
+
+	u := c.storage.GetUser()
+	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s " +
+		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
@@ -376,7 +379,9 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
-	jww.INFO.Printf("StartNetworkFollower()")
+	u := c.GetUser()
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s " +
+		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
 

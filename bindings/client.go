@@ -36,7 +36,6 @@ func init() {
 // to support the gomobile Client interface
 type Client struct {
 	api api.Client
-	waitForNetwork chan bool
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -225,41 +224,15 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 // WaitForNewtwork will block until either the network is healthy or the
 // passed timeout. It will return true if the network is healthy
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
-	timeout := time.NewTimer(time.Duration(timeoutMS) * time.Millisecond)
-	if c.waitForNetwork == nil{
-		c.waitForNetwork = make(chan bool, 1)
-		c.api.GetHealth().AddChannel(c.waitForNetwork)
-	}
-
-	//flush the channel if it is already full
-	select{
-	case <- c.waitForNetwork:
-	default:
-	}
-
-	// start a thread to check if healthy in a second in order to handle
-	// race conditions
-	go func() {
-		time.Sleep(1*time.Second)
-		if c.api.GetHealth().IsHealthy() {
-			select{
-			case c.waitForNetwork<-true:
-			default:
-			}
+	start := time.Now()
+	timeout := time.Duration(timeoutMS)*time.Millisecond
+	for time.Now().Sub(start)<timeout{
+		if c.api.GetHealth().IsHealthy(){
+			return true
 		}
-	}()
-
-	//wait for network to be healthy or the timer to time out
-	for  {
-		select{
-		case result := <- c.waitForNetwork:
-			if result {
-				return true
-			}
-		case <-timeout.C:
-			return false
-		}
+		time.Sleep(250*time.Millisecond)
 	}
+	return false
 }
 
 // Gets the state of the network follower. Returns:

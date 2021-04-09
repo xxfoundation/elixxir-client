@@ -178,7 +178,7 @@ var rootCmd = &cobra.Command{
 					waitSecs)
 			}
 			jww.INFO.Printf("Authentication channel confirmation"+
-				" took %d seconds", waitSecs)
+				" took %d seconds", scnt)
 		}
 
 		msg := message.Send{

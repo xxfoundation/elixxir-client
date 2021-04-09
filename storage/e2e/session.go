@@ -37,6 +37,8 @@ type Session struct {
 	//params
 	e2eParams params.E2ESessionParams
 
+	partner *id.ID
+
 	//type
 	t RelationshipType
 
@@ -92,6 +94,8 @@ type SessionDisk struct {
 
 	// Number of keys usable before rekey
 	RekeyThreshold uint32
+
+	Partner []byte
 }
 
 /*CONSTRUCTORS*/
@@ -115,6 +119,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		relationshipFingerprint: relationshipFingerprint,
 		negotiationStatus:       negotiationStatus,
 		partnerSource:           trigger,
+		partner: 				 ship.manager.partner.DeepCopy(),
 	}
 
 	session.kv = session.generate(ship.kv)
@@ -167,6 +172,11 @@ func loadSession(ship *relationship, kv *versioned.KV,
 		ship.manager.ctx.fa.add(session.getUnusedKeys())
 	}
 	session.relationshipFingerprint = relationshipFingerprint
+
+	if !session.partner.Cmp(ship.manager.partner){
+		return nil, errors.Errorf("Stored partner (%s) did not match " +
+			"relationship partner (%s)", session.partner, ship.manager.partner)
+	}
 
 	return &session, nil
 }
@@ -262,7 +272,7 @@ func (s *Session) GetID() SessionID {
 // returns the ID of the partner for this session
 func (s *Session) GetPartner() *id.ID {
 	if s.relationship != nil {
-		return s.relationship.manager.partner
+		return s.relationship.manager.partner.DeepCopy()
 	} else {
 		return nil
 	}
@@ -279,6 +289,7 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
 	sd.Trigger = s.partnerSource[:]
 	sd.RelationshipFingerprint = s.relationshipFingerprint
+	sd.Partner = s.partner.Bytes()
 
 	// assume in progress confirmations and session creations have failed on
 	// reset, therefore do not store their pending progress
@@ -315,6 +326,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.negotiationStatus = Negotiation(sd.Confirmation)
 	s.rekeyThreshold = sd.RekeyThreshold
 	s.relationshipFingerprint = sd.RelationshipFingerprint
+	s.partner, _ = id.Unmarshal(sd.Partner)
 	copy(s.partnerSource[:], sd.Trigger)
 
 	s.keyState, err = loadStateVector(s.kv, "")

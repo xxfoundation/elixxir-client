@@ -18,10 +18,11 @@ import (
 )
 
 func startConfirm(sess *storage.Session, c chan message.Receive,
-	stop *stoppable.Single) {
+	stop *stoppable.Single, cleanup func()) {
 	for true {
 		select {
 		case <-stop.Quit():
+			cleanup()
 			return
 		case confirmation := <-c:
 			handleConfirm(sess, confirmation)

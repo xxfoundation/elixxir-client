@@ -15,7 +15,6 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 const keyExchangeTriggerName = "KeyExchangeTrigger"
@@ -32,14 +31,13 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net inte
 
 	// create the trigger stoppable
 	triggerStop := stoppable.NewSingle(keyExchangeTriggerName)
-	triggerStopCleanup := stoppable.NewCleanup(triggerStop,
-		func(duration time.Duration) error {
-			switchboard.Unregister(triggerID)
-			return nil
-		})
+
+	cleanupTrigger := func(){
+		switchboard.Unregister(triggerID)
+	}
 
 	// start the trigger thread
-	go startTrigger(sess, net, triggerCh, triggerStop, params)
+	go startTrigger(sess, net, triggerCh, triggerStop, params, cleanupTrigger)
 
 	//register the rekey confirm thread
 	confirmCh := make(chan message.Receive, 100)
@@ -48,18 +46,16 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net inte
 
 	// register the confirm stoppable
 	confirmStop := stoppable.NewSingle(keyExchangeConfirmName)
-	confirmStopCleanup := stoppable.NewCleanup(confirmStop,
-		func(duration time.Duration) error {
-			switchboard.Unregister(confirmID)
-			return nil
-		})
+	cleanupConfirm := func(){
+		switchboard.Unregister(confirmID)
+	}
 
 	// start the confirm thread
-	go startConfirm(sess, confirmCh, confirmStop)
+	go startConfirm(sess, confirmCh, confirmStop, cleanupConfirm)
 
 	//bundle the stoppables and return
 	exchangeStop := stoppable.NewMulti(keyExchangeMulti)
-	exchangeStop.Add(triggerStopCleanup)
-	exchangeStop.Add(confirmStopCleanup)
+	exchangeStop.Add(triggerStop)
+	exchangeStop.Add(confirmStop)
 	return exchangeStop
 }

@@ -159,7 +159,7 @@ func (t *Tracker) transmit(health bool) {
 		select {
 		case c <- health:
 		default:
-			jww.WARN.Printf("Unable to send Health event")
+			jww.DEBUG.Printf("Unable to send Health event")
 		}
 	}
 

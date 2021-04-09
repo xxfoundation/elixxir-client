@@ -9,6 +9,7 @@ package stoppable
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"sync/atomic"
@@ -85,6 +86,10 @@ func (c *Cleanup) Close(timeout time.Duration) error {
 				err = errors.Errorf("Clean up for %s timeout", c.stop.Name())
 			}
 		})
+
+	if err!=nil{
+		jww.ERROR.Printf(err.Error())
+	}
 
 	return err
 }

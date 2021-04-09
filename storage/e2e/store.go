@@ -257,13 +257,13 @@ func (s *Store) unmarshal(b []byte) error {
 		manager, err := loadManager(s.context, s.kv, partnerID)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load relationship for partner %s: %s",
-				&partnerID, err.Error())
+				partnerID, err.Error())
 		}
 
 		if !manager.GetPartnerID().Cmp(partnerID){
 			jww.FATAL.Panicf("Loaded a manager with the wrong partner " +
 				"ID: \n\t loaded: %s \n\t present: %s",
-				&partnerID, manager.GetPartnerID())
+				partnerID, manager.GetPartnerID())
 		}
 
 		s.managers[*partnerID] = manager

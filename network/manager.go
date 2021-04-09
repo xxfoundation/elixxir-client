@@ -91,8 +91,12 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
+	poolParams.PoolSize = 10
 	m.sender, err = gateway.NewSender(poolParams, rng.GetStream(),
 		ndf, comms, session, m.NodeRegistration)
+	if err != nil {
+		return nil, err
+	}
 
 	//create sub managers
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)
@@ -137,6 +141,9 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 
 	// Round processing
 	multi.Add(m.round.StartProcessors())
+
+	// Message sending
+	multi.Add(m.sender.StartHostPool())
 
 	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
 

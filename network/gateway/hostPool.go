@@ -215,7 +215,8 @@ func (h *HostPool) pruneHostPool() error {
 	// Verify the NDF has at least as many Gateways as needed for the HostPool
 	ndfLen := uint32(len(h.ndf.Gateways))
 	if ndfLen == 0 || ndfLen < h.poolParams.PoolSize {
-		return errors.Errorf("no gateways available")
+		return errors.Errorf("Unable to pruneHostPool: %d/%d gateways available",
+			len(h.ndf.Gateways), h.poolParams.PoolSize)
 	}
 
 	for poolIdx := uint32(0); poolIdx < h.poolParams.PoolSize; {

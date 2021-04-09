@@ -199,7 +199,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	return c, nil
 }
 
-// Login initalizes a client object from existing storage.
+// Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
@@ -210,7 +210,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	u := c.storage.GetUser()
-	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s " +
+	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	//Attach the services interface
@@ -233,7 +233,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		}
 	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
-			"blank permissionign address. Client will not be able to register " +
+			"blank permissioning address. Client will not be able to register " +
 			"or track network.")
 	}
 
@@ -342,7 +342,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 			jww.ERROR.Printf("Client has failed registration: %s", err)
 			return errors.WithMessage(err, "failed to load client")
 		}
-		jww.INFO.Printf("Client sucsecfully registered with the network")
+		jww.INFO.Printf("Client successfully registered with the network")
 	}
 	return nil
 }
@@ -380,7 +380,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 	u := c.GetUser()
-	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s " +
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)

@@ -11,13 +11,11 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
-	"gitlab.com/elixxir/client/network/gateway"
-	"sync/atomic"
-	"time"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/ephemeral"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
@@ -103,7 +101,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	return &m, nil
 }
 
-// StartRunners kicks off all network reception goroutines ("threads").
+// Follow StartRunners kicks off all network reception goroutines ("threads").
 // Started Threads are:
 //   - Network Follower (/network/follow.go)
 //   - Historical Round Retrieval (/network/rounds/historical.go)
@@ -160,7 +158,7 @@ func (m *manager) GetSender() *gateway.Sender {
 	return m.sender
 }
 
-// triggers a check on garbled messages to see if they can be decrypted
+// CheckGarbledMessages triggers a check on garbled messages to see if they can be decrypted
 // this should be done when a new e2e client is added in case messages were
 // received early or arrived out of order
 func (m *manager) CheckGarbledMessages() {

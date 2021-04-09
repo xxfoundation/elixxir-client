@@ -630,6 +630,7 @@ func makeTestSession() (*Session, *context) {
 			manager: &Manager{
 				ctx: ctx,
 				kv:  kv,
+				partner: &id.ID{},
 			},
 			kv: kv,
 		},
@@ -637,6 +638,7 @@ func makeTestSession() (*Session, *context) {
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		rekeyThreshold:    5,
+		partner: &id.ID{},
 	}
 	var err error
 	s.keyState, err = newStateVector(s.kv,

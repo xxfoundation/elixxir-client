@@ -159,8 +159,7 @@ func (m *Manager) GetKeyForSending(st params.SendType) (*Key, error) {
 
 // GetPartnerID returns a copy of the ID of the partner.
 func (m *Manager) GetPartnerID() *id.ID {
-	p := m.partner
-	return p
+	return m.partner.DeepCopy()
 }
 
 // GetSendSession gets the Send session of the passed ID. Returns nil if no

@@ -38,23 +38,30 @@ func NewSender(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition,
 // SendToSpecific Call given sendFunc to a specific Host in the HostPool,
 // attempting with up to numProxies destinations in case of failure
 func (m *Sender) SendToSpecific(target *id.ID,
-	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
+	sendFunc func(host *connect.Host, target *id.ID) (interface{}, bool, error)) (interface{}, error) {
 	host, ok := m.getSpecific(target)
 	if ok {
-		result, err := sendFunc(host, target)
+		result, didAbort, err := sendFunc(host, target)
 		if err == nil {
 			return result, m.forceAdd([]*id.ID{host.GetId()})
 		} else {
+			if didAbort {
+				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway %s", host.GetId().String())
+			}
 			jww.WARN.Printf("Unable to SendToSpecific %s: %+v", host.GetId().String(), err)
 		}
 	}
 
 	proxies := m.getAny(m.poolParams.ProxyAttempts, []*id.ID{target})
 	for proxyIdx := 0; proxyIdx < len(proxies); proxyIdx++ {
-		result, err := sendFunc(proxies[proxyIdx], target)
+		result, didAbort, err := sendFunc(proxies[proxyIdx], target)
 		if err == nil {
 			return result, nil
 		} else {
+			if didAbort {
+				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway proxy %s",
+					host.GetId().String())
+			}
 			jww.WARN.Printf("Unable to SendToSpecific proxy %s: %+v", proxies[proxyIdx].GetId().String(), err)
 		}
 	}

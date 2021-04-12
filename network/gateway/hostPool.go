@@ -244,6 +244,8 @@ func (h *HostPool) pruneHostPool() error {
 				}
 				poolIdx++
 			}
+		} else {
+			poolIdx++
 		}
 	}
 	return nil

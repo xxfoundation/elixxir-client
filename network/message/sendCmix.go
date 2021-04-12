@@ -181,41 +181,45 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		result, err := sender.SendToSpecific(firstGateway, func(host *connect.Host, target *id.ID) (interface{}, error) {
+		result, err := sender.SendToSpecific(firstGateway, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
 			wrappedMsg.Target = target.Marshal()
-			return comms.SendPutMessage(host, wrappedMsg)
+			result, err := comms.SendPutMessage(host, wrappedMsg)
+			if err != nil {
+				if strings.Contains(err.Error(),
+					"try a different round.") {
+					jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
+						"due to round error with round %d, retrying: %+v",
+						recipient, msg.Digest(), bestRound.ID, err)
+					return nil, true, err
+				} else if strings.Contains(err.Error(),
+					"Could not authenticate client. Is the client registered "+
+						"with this node?") {
+					jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
+						"via %s due to failed authentication: %s",
+						recipient, msg.Digest(), firstGateway.String(), err)
+					//if we failed to send due to the gateway not recognizing our
+					// authorization, renegotiate with the node to refresh it
+					nodeID := firstGateway.DeepCopy()
+					nodeID.SetType(id.Node)
+					//delete the keys
+					session.Cmix().Remove(nodeID)
+					//trigger
+					go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
+					return nil, true, err
+				}
+			}
+			return result, false, err
 		})
+		jww.FATAL.Printf("TEST500")
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly
 		if err != nil {
-			if strings.Contains(err.Error(),
-				"try a different round.") {
-				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
-					"due to round error with round %d, retrying: %+v",
-					recipient, msg.Digest(), bestRound.ID, err)
-				continue
-			} else if strings.Contains(err.Error(),
-				"Could not authenticate client. Is the client registered "+
-					"with this node?") {
-				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
-					"via %s due to failed authentication: %s",
-					recipient, msg.Digest(), firstGateway.String(), err)
-				//if we failed to send due to the gateway not recognizing our
-				// authorization, renegotiate with the node to refresh it
-				nodeID := firstGateway.DeepCopy()
-				nodeID.SetType(id.Node)
-				//delete the keys
-				session.Cmix().Remove(nodeID)
-				//trigger
-				go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
-				continue
-			}
 			jww.ERROR.Printf("Failed to send to EphID %d (%s) on "+
-				"round %d, bailing: %+v", ephID.Int64(), recipient,
+				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
 				bestRound.ID, err)
-			return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to put cmix message")
+			continue
 		} else if gwSlotResp.Accepted {
 			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) "+
 				"in round %d", ephID.Int64(), recipient, bestRound.ID)

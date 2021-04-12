@@ -127,7 +127,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
 
 		// Confirm received nonce
-		jww.INFO.Println("Register: Confirming received nonce from node %s", nodeID.String())
+		jww.INFO.Printf("Register: Confirming received nonce from node %s", nodeID.String())
 		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
 			nonce, uci.GetTransmissionRSA(), gatewayID)
 		if err != nil {

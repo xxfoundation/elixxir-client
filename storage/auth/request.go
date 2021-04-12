@@ -8,7 +8,7 @@
 package auth
 
 import (
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/crypto/contact"
 	"sync"
 )
 

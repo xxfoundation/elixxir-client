@@ -13,10 +13,10 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
@@ -82,7 +82,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	loginMux.Lock()
 	defer loginMux.Unlock()
 
-	if extantClient{
+	if extantClient {
 		return nil, errors.New("cannot login when another session " +
 			"already exists")
 	}
@@ -96,7 +96,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
-	extantClient=true
+	extantClient = true
 	return &Client{api: *client}, nil
 }
 
@@ -140,8 +140,8 @@ func LogLevel(level int) error {
 }
 
 //RegisterLogWriter registers a callback on which logs are written.
-func RegisterLogWriter(writer LogWriter){
-	jww.SetLogOutput(&writerAdapter{lw:writer})
+func RegisterLogWriter(writer LogWriter) {
+	jww.SetLogOutput(&writerAdapter{lw: writer})
 }
 
 //Unmarshals a marshaled contact object, returns an error if it fails
@@ -225,12 +225,12 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 // passed timeout. It will return true if the network is healthy
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
 	start := time.Now()
-	timeout := time.Duration(timeoutMS)*time.Millisecond
-	for time.Now().Sub(start)<timeout{
-		if c.api.GetHealth().IsHealthy(){
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	for time.Now().Sub(start) < timeout {
+		if c.api.GetHealth().IsHealthy() {
 			return true
 		}
-		time.Sleep(250*time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 	}
 	return false
 }

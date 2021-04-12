@@ -9,9 +9,9 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 	"time"

@@ -163,7 +163,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !unsafe && !authConfirmed {
-			jww.INFO.Printf("Waiting for authentication channel "+
+			jww.INFO.Printf("Waiting for authentication channel"+
 				" confirmation with partner %s", recipientID)
 			scnt := uint(0)
 			waitSecs := viper.GetUint("auth-timeout")

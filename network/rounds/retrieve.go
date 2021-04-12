@@ -51,6 +51,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				if err != nil {
 					jww.FATAL.Panicf("processMessageRetrieval: Unable to unmarshal: %+v", err)
 				}
+				gwId.SetType(id.Gateway)
 				gwIds[i] = gwId
 			}
 

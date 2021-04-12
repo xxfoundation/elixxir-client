@@ -116,7 +116,8 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		length = h.poolParams.PoolSize
 	}
 	if excluded != nil {
-		for _, gwId := range excluded {
+		for i := range excluded {
+			gwId := excluded[i]
 			if idx, ok := h.hostMap[*gwId]; ok {
 				checked[idx] = nil
 			}
@@ -314,7 +315,7 @@ func (h *HostPool) updateConns() error {
 	for gwId := range h.ndfMap {
 		if _, ok := newMap[gwId]; !ok {
 			// If GwId in ndfMap is not in newMap, remove the Gateway
-			h.removeGateway(&gwId)
+			h.removeGateway(gwId.DeepCopy())
 		}
 	}
 
@@ -322,7 +323,7 @@ func (h *HostPool) updateConns() error {
 	for gwId, ndfIdx := range newMap {
 		if _, ok := h.ndfMap[gwId]; !ok {
 			// If GwId in newMap is not in ndfMap, add the Gateway
-			h.addGateway(&gwId, ndfIdx)
+			h.addGateway(gwId.DeepCopy(), ndfIdx)
 		}
 	}
 
@@ -339,7 +340,8 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 	}
 
 	// Process gateway Id's into set
-	for i, gw := range ndf.Gateways {
+	for i := range ndf.Gateways {
+		gw := ndf.Gateways[i]
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
 			return nil, err

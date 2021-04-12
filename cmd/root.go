@@ -78,7 +78,7 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 		// Set up auth request handler, which simply prints the
-		// user id of the requestor.
+		// user id of the requester.
 		authMgr := client.GetAuthRegistrar()
 		authMgr.AddGeneralRequestCallback(printChanRequest)
 

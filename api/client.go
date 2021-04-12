@@ -446,7 +446,7 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	return nil
 }
 
-// Gets the state of the network follower. Returns:
+// NetworkFollowerStatus Gets the state of the network follower. Returns:
 // Stopped 	- 0
 // Starting - 1000
 // Running	- 2000

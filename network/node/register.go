@@ -127,7 +127,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
 
 		// Confirm received nonce
-		jww.INFO.Println("Register: Confirming received nonce")
+		jww.INFO.Println("Register: Confirming received nonce from node %s", nodeID.String())
 		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
 			nonce, uci.GetTransmissionRSA(), gatewayID)
 		if err != nil {
@@ -136,7 +136,6 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		}
 		transmissionKey = registration.GenerateBaseKey(store.GetGroup(),
 			serverPubDH, store.GetDHPrivateKey(), transmissionHash)
-		return nil
 	}
 
 	store.Add(nodeID, transmissionKey)

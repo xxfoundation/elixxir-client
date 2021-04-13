@@ -9,8 +9,8 @@ import (
 	"sync"
 )
 
-const unknownRoundStorageKey = "unknownRoundStorage"
-const unknownRoundStorageVersion = 0
+const earliestRoundStorageKey = "unknownRoundStorage"
+const earliestRoundStorageVersion = 0
 
 type EarliestRound struct {
 	stored bool
@@ -36,14 +36,14 @@ func LoadEarliestRound(kv *versioned.KV) *EarliestRound {
 		rid:    0,
 	}
 
-	obj, err := kv.Get(unknownRoundStorageKey, unknownRoundStorageVersion)
+	obj, err := kv.Get(earliestRoundStorageKey, earliestRoundStorageVersion)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to get the unknown round: %+v", err)
+		jww.FATAL.Panicf("Failed to get the earlest round: %+v", err)
 	}
 
 	err = json.Unmarshal(obj.Data, &ur.rid)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal the unknown round: %+v", err)
+		jww.FATAL.Panicf("Failed to unmarshal the earliest round: %+v", err)
 	}
 	return ur
 }
@@ -52,20 +52,20 @@ func (ur *EarliestRound) save() {
 	if ur.stored {
 		urStr, err := json.Marshal(&ur.rid)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to marshal the unknown round: %+v", err)
+			jww.FATAL.Panicf("Failed to marshal the earliest round: %+v", err)
 		}
 
 		// Create versioned object with data
 		obj := &versioned.Object{
-			Version:   unknownRoundStorageVersion,
+			Version:   earliestRoundStorageVersion,
 			Timestamp: netTime.Now(),
 			Data:      urStr,
 		}
 
-		err = ur.kv.Set(unknownRoundStorageKey,
-			unknownRoundStorageVersion, obj)
+		err = ur.kv.Set(earliestRoundStorageKey,
+			earliestRoundStorageVersion, obj)
 		if err != nil {
-			jww.FATAL.Panicf("Failed to store the unknown round: %+v", err)
+			jww.FATAL.Panicf("Failed to store the earliest round: %+v", err)
 		}
 
 	}
@@ -92,8 +92,8 @@ func (ur *EarliestRound) Get() id.Round {
 func (ur *EarliestRound) delete() {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
-	err := ur.kv.Delete(unknownRoundStorageKey, unknownRoundStorageVersion)
+	err := ur.kv.Delete(earliestRoundStorageKey, earliestRoundStorageVersion)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to delete unknownRound storage: %+v", err)
+		jww.FATAL.Panicf("Failed to delete earliest storage: %+v", err)
 	}
 }

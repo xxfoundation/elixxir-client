@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -26,20 +27,23 @@ import (
 const (
 	errBadTrigger = "non-e2e trigger from partner %s"
 	errUnknown    = "unknown trigger from partner %s"
+	errFailed     = "Failed to handle rekey trigger: %s"
 )
 
 func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	c chan message.Receive, quitCh <-chan struct{}, params params.Rekey) {
+	c chan message.Receive, stop *stoppable.Single, params params.Rekey, cleanup func()) {
 	for true {
 		select {
-		case <-quitCh:
+		case <-stop.Quit():
+			cleanup()
 			return
 		case request := <-c:
-			err := handleTrigger(sess, net, request, params)
-			if err != nil {
-				jww.ERROR.Printf("Failed to handle rekey trigger: %s",
-					err)
-			}
+			go func() {
+				err := handleTrigger(sess, net, request, params)
+				if err != nil {
+					jww.ERROR.Printf(errFailed, err)
+				}
+			}()
 		}
 	}
 }

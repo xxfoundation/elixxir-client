@@ -13,14 +13,18 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"sync"
 	"time"
 )
+
+var extantClient bool
+var loginMux sync.Mutex
 
 // sets the log level
 func init() {
@@ -32,7 +36,6 @@ func init() {
 // to support the gomobile Client interface
 type Client struct {
 	api api.Client
-	waitForNetwork chan bool
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -76,6 +79,14 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 func Login(storageDir string, password []byte, parameters string) (*Client, error) {
+	loginMux.Lock()
+	defer loginMux.Unlock()
+
+	if extantClient {
+		return nil, errors.New("cannot login when another session " +
+			"already exists")
+	}
+	// check if a client is already logged in, refuse to login if one is
 	p, err := params.GetNetworkParameters(parameters)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
@@ -85,6 +96,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
+	extantClient = true
 	return &Client{api: *client}, nil
 }
 
@@ -125,6 +137,11 @@ func LogLevel(level int) error {
 	}
 
 	return nil
+}
+
+//RegisterLogWriter registers a callback on which logs are written.
+func RegisterLogWriter(writer LogWriter) {
+	jww.SetLogOutput(&writerAdapter{lw: writer})
 }
 
 //Unmarshals a marshaled contact object, returns an error if it fails
@@ -207,41 +224,15 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 // WaitForNewtwork will block until either the network is healthy or the
 // passed timeout. It will return true if the network is healthy
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
-	timeout := time.NewTimer(time.Duration(timeoutMS) * time.Millisecond)
-	if c.waitForNetwork == nil{
-		c.waitForNetwork = make(chan bool, 1)
-		c.api.GetHealth().AddChannel(c.waitForNetwork)
-	}
-
-	//flush the channel if it is already full
-	select{
-	case <- c.waitForNetwork:
-	default:
-	}
-
-	// start a thread to check if healthy in a second in order to handle
-	// race conditions
-	go func() {
-		time.Sleep(1*time.Second)
+	start := time.Now()
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	for time.Now().Sub(start) < timeout {
 		if c.api.GetHealth().IsHealthy() {
-			select{
-			case c.waitForNetwork<-true:
-			default:
-			}
+			return true
 		}
-	}()
-
-	//wait for network to be healthy or the timer to time out
-	for  {
-		select{
-		case result := <- c.waitForNetwork:
-			if result {
-				return true
-			}
-		case <-timeout.C:
-			return false
-		}
+		time.Sleep(250 * time.Millisecond)
 	}
+	return false
 }
 
 // Gets the state of the network follower. Returns:

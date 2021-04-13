@@ -108,13 +108,7 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		msg.SetEphemeralRID(ephIdFilled[:])
 
 		//set the identity fingerprint
-		ifp, err := fingerprint.IdentityFP(msg.GetContents(), recipient)
-		if err != nil {
-			jww.FATAL.Panicf("failed to generate the Identity "+
-				"fingerprint due to unrecoverable error when sending to %s "+
-				"(msgDigest: %s): %+v", recipient, msg.Digest(), err)
-		}
-
+		ifp := fingerprint.IdentityFP(msg.GetContents(), recipient)
 		msg.SetIdentityFP(ifp)
 
 		//build the topology

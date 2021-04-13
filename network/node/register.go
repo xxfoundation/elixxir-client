@@ -162,8 +162,7 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 	}
 
 	// Request nonce message from gateway
-	jww.INFO.Printf("Register: Requesting nonce from gateway %v",
-		gwId.Bytes())
+	jww.INFO.Printf("Register: Requesting nonce from gateway %v", gwId.String())
 
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 		nonceResponse, err := comms.SendRequestNonceMessage(host,

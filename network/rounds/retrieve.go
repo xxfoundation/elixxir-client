@@ -83,7 +83,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 
 	// Send to the gateways using backup proxies
 	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, error) {
-		jww.DEBUG.Printf("Trying to get messages for round %v for ephmeralID %d (%v)  "+
+		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
 
 		// send the request
@@ -93,7 +93,13 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 			Target:   target.Marshal(),
 		}
 
-		return comms.RequestMessages(host, msgReq)
+		// If the gateway doesnt have the round, return an error
+		msgResp, err := comms.RequestMessages(host, msgReq)
+		if err == nil && !msgResp.GetHasRound() {
+			return message.Bundle{}, errors.Errorf(noRoundError)
+		}
+
+		return msgResp, err
 	})
 
 	// Fail the round if an error occurs so it can be tried again later
@@ -102,10 +108,6 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 			"request messages for round %d", roundID)
 	}
 	msgResp := result.(*pb.GetMessagesResponse)
-	// if the gateway doesnt have the round, return an error
-	if !msgResp.GetHasRound() {
-		return message.Bundle{}, errors.Errorf(noRoundError)
-	}
 
 	// If there are no messages print a warning. Due to the probabilistic nature
 	// of the bloom filters, false positives will happen some times

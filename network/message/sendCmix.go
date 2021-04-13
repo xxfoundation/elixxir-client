@@ -210,7 +210,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 			}
 			return result, false, err
 		})
-		jww.FATAL.Printf("TEST500")
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 
 		//if the comm errors or the message fails to send, continue retrying.

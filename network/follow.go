@@ -166,6 +166,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 				continue
 			}
 
+
+
 			for _, clientErr := range update.ClientErrors {
 
 				// If this Client appears in the ClientError

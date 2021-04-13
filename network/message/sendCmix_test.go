@@ -95,7 +95,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		AddressSpaceSize:           4,
 	}
 
-	if err = testutils.SignRoundInfo(ri, t); err != nil {
+	if err = testutils.SignRoundInfoRsa(ri, t); err != nil {
 		t.Errorf("Failed to sign mock round info: %v", err)
 	}
 
@@ -103,7 +103,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to load a key for testing: %v", err)
 	}
-	rnd := ds.NewRound(ri, pubKey)
+	rnd := ds.NewRound(ri, pubKey, nil)
 	inst.GetWaitingRounds().Insert(rnd)
 	i := internal.Internal{
 		Session:          sess1,

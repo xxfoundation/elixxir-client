@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 )
 

@@ -2,9 +2,9 @@ package single
 
 import (
 	"bytes"
-	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"

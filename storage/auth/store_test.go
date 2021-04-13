@@ -8,8 +8,8 @@
 package auth
 
 import (
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/ekv"

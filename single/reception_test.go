@@ -2,8 +2,8 @@ package single
 
 import (
 	"bytes"
-	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
+	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"

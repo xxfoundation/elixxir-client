@@ -10,7 +10,7 @@ package bindings
 import (
 	"errors"
 	"fmt"
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/crypto/contact"
 )
 
 // Create an insecure e2e relationship with a precanned user

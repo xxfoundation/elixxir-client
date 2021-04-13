@@ -27,7 +27,7 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 		params: DefaultUnknownRoundsParams(),
 	}
 
-	store := NewUnknownRounds(kv,  DefaultUnknownRoundsParams())
+	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Compare manually created object with NewUnknownRoundsStore
 	if !reflect.DeepEqual(expectedStore, store) {
@@ -60,7 +60,7 @@ func TestNewUnknownRoundsStore(t *testing.T) {
 // Full test
 func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
-	store := NewUnknownRounds(kv,  DefaultUnknownRoundsParams())
+	store := NewUnknownRounds(kv, DefaultUnknownRoundsParams())
 
 	// Return true only for rounds that are even
 	mockChecker := func(rid id.Round) bool {
@@ -116,7 +116,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	// Iterate over map until all rounds have checks incremented over
 	// maxCheck
 	for i := 0; i < defaultMaxCheck+1; i++ {
-		_ = store.Iterate(mockChecker,[]id.Round{})
+		_ = store.Iterate(mockChecker, []id.Round{})
 
 	}
 

@@ -119,7 +119,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		relationshipFingerprint: relationshipFingerprint,
 		negotiationStatus:       negotiationStatus,
 		partnerSource:           trigger,
-		partner: 				 ship.manager.partner.DeepCopy(),
+		partner:                 ship.manager.partner.DeepCopy(),
 	}
 
 	session.kv = session.generate(ship.kv)
@@ -173,8 +173,8 @@ func loadSession(ship *relationship, kv *versioned.KV,
 	}
 	session.relationshipFingerprint = relationshipFingerprint
 
-	if !session.partner.Cmp(ship.manager.partner){
-		return nil, errors.Errorf("Stored partner (%s) did not match " +
+	if !session.partner.Cmp(ship.manager.partner) {
+		return nil, errors.Errorf("Stored partner (%s) did not match "+
 			"relationship partner (%s)", session.partner, ship.manager.partner)
 	}
 

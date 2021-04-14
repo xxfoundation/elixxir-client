@@ -303,9 +303,9 @@ func (r *relationship) getNewestRekeyableSession() *Session {
 		// always valid. It isn't clear it can fail though because we are
 		// accessing the data in the same order it would be written (i think)
 		if s.Status() != RekeyEmpty {
-			if s.IsConfirmed(){
+			if s.IsConfirmed() {
 				return s
-			}else if unconfirmed == nil{
+			} else if unconfirmed == nil {
 				unconfirmed = s
 			}
 		}

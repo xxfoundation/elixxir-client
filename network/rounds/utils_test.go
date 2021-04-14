@@ -38,6 +38,7 @@ const ReturningGateway = "GetMessageRequest"
 const FalsePositive = "FalsePositive"
 const PayloadMessage = "Payload"
 const ErrorGateway = "Error"
+
 type mockMessageRetrievalComms struct {
 	testingSignature *testing.T
 }

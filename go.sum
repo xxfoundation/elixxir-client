@@ -283,6 +283,10 @@ gitlab.com/elixxir/comms v0.0.4-0.20210405183148-930ea17a1b5f h1:ZUY46FcnA7BOd9p
 gitlab.com/elixxir/comms v0.0.4-0.20210405183148-930ea17a1b5f/go.mod h1:jqqUYnsftpfQXJ57BPYp5A+i7qfA5IXhKUE9ZOSrqaE=
 gitlab.com/elixxir/comms v0.0.4-0.20210413194022-f5422be88efb h1:mPwoG9nAhihK4Rfl6Hph/DzMmkePv4zJ4nzTC+ewnEc=
 gitlab.com/elixxir/comms v0.0.4-0.20210413194022-f5422be88efb/go.mod h1:2meX6DKpVJAUcgt1d727t1I28C8qsZNSn9Vm8dlkgmA=
+gitlab.com/elixxir/comms v0.0.4-0.20210414195240-0a29afe5c282 h1:sv1Yiv18o8Q/tpBSP3Bpm2GrbQYdWcGaXELIU6OGxVc=
+gitlab.com/elixxir/comms v0.0.4-0.20210414195240-0a29afe5c282/go.mod h1:K0sExgT6vTjMY/agP7hRSutveJzGSNOuFjSsAl2vmz8=
+gitlab.com/elixxir/comms v0.0.4-0.20210414200820-10e888270d4d h1:bHhOyckCTs0mRdgasEWgyxSz3JgK1J0ZBaV5cp2IjLk=
+gitlab.com/elixxir/comms v0.0.4-0.20210414200820-10e888270d4d/go.mod h1:K0sExgT6vTjMY/agP7hRSutveJzGSNOuFjSsAl2vmz8=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4 h1:28ftZDeYEko7xptCZzeFWS1Iam95dj46TWFVVlKmw6A=
 gitlab.com/elixxir/crypto v0.0.0-20200804182833-984246dea2c4/go.mod h1:ucm9SFKJo+K0N2GwRRpaNr+tKXMIOVWzmyUD0SbOu2c=
 gitlab.com/elixxir/crypto v0.0.3 h1:znCt/x2bL4y8czTPaaFkwzdgSgW3BJc/1+dxyf1jqVw=
@@ -311,6 +315,8 @@ gitlab.com/xx_network/comms v0.0.4-0.20210401160731-7b8890cdd8ad/go.mod h1:inre/
 gitlab.com/xx_network/comms v0.0.4-0.20210407173545-dafd47029306/go.mod h1:PXbUpBMUcDygpEV1ptEc/pych07YkYQ/tv0AQPw+BRk=
 gitlab.com/xx_network/comms v0.0.4-0.20210413200413-41a493c32b06 h1:ejoRHig0h5oEXLbEqQbE3wjcJtEoK0q7mHkfZjphtRo=
 gitlab.com/xx_network/comms v0.0.4-0.20210413200413-41a493c32b06/go.mod h1:PXbUpBMUcDygpEV1ptEc/pych07YkYQ/tv0AQPw+BRk=
+gitlab.com/xx_network/comms v0.0.4-0.20210414191603-0904bc6eeda2 h1:4Xhw5zO9ggeD66z5SajzRcgkQ0RNdAENETwPlawo5aU=
+gitlab.com/xx_network/comms v0.0.4-0.20210414191603-0904bc6eeda2/go.mod h1:PXbUpBMUcDygpEV1ptEc/pych07YkYQ/tv0AQPw+BRk=
 gitlab.com/xx_network/crypto v0.0.3/go.mod h1:DF2HYvvCw9wkBybXcXAgQMzX+MiGbFPjwt3t17VRqRE=
 gitlab.com/xx_network/crypto v0.0.4 h1:lpKOL5mTJ2awWMfgBy30oD/UvJVrWZzUimSHlOdZZxo=
 gitlab.com/xx_network/crypto v0.0.4/go.mod h1:+lcQEy+Th4eswFgQDwT0EXKp4AXrlubxalwQFH5O0Mk=

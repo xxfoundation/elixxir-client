@@ -32,7 +32,7 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net inte
 	// create the trigger stoppable
 	triggerStop := stoppable.NewSingle(keyExchangeTriggerName)
 
-	cleanupTrigger := func(){
+	cleanupTrigger := func() {
 		switchboard.Unregister(triggerID)
 	}
 
@@ -46,7 +46,7 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net inte
 
 	// register the confirm stoppable
 	confirmStop := stoppable.NewSingle(keyExchangeConfirmName)
-	cleanupConfirm := func(){
+	cleanupConfirm := func() {
 		switchboard.Unregister(confirmID)
 	}
 

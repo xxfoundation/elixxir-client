@@ -210,7 +210,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	u := c.storage.GetUser()
-	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s " +
+	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	//Attach the services interface
@@ -392,7 +392,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 	u := c.GetUser()
-	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s " +
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
@@ -537,13 +537,13 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	cmixStore := c.storage.Cmix()
 
 	var numRegistered int
-	for i, n := range nodes{
+	for i, n := range nodes {
 		nid, err := id.Unmarshal(n.ID)
-		if err!=nil{
-			return 0,0, errors.Errorf("Failed to unmarshal node ID %v " +
+		if err != nil {
+			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+
 				"(#%d): %s", n.ID, i, err.Error())
 		}
-		if cmixStore.Has(nid){
+		if cmixStore.Has(nid) {
 			numRegistered++
 		}
 	}

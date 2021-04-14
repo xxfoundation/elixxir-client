@@ -105,7 +105,7 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	if err != nil {
 		return errors.Errorf("Failed to load cert from from file: %v", err)
 	}
-	if err = signature.Sign(ri, testCert); err != nil {
+	if err = signature.SignRsa(ri, testCert); err != nil {
 		return errors.Errorf("Failed to sign round info: %v", err)
 	}
 	if err = instance.GetInstance().RoundUpdate(ri); err != nil {
@@ -115,7 +115,7 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	ri = &mixmessages.RoundInfo{
 		ID: 2,
 	}
-	if err = signature.Sign(ri, testCert); err != nil {
+	if err = signature.SignRsa(ri, testCert); err != nil {
 		return errors.Errorf("Failed to sign round info: %v", err)
 	}
 	if err = instance.GetInstance().RoundUpdate(ri); err != nil {

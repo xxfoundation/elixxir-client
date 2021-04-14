@@ -103,7 +103,7 @@ func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 	return 0
 }
 
-func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
+func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager, error) {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -120,12 +120,12 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 
 	thisManager := &testNetworkManagerGeneric{instance: thisInstance}
 
-	return thisSession, thisManager
+	return thisSession, thisManager, nil
 
 }
 
@@ -294,6 +294,9 @@ func getNDF() *ndf.NetworkDefinition {
 				"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71" +
 				"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0" +
 				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
+		},
+		Registration: ndf.Registration{
+			EllipticPubKey: "/WRtT+mDZGC3FXQbvuQgfqOonAjJ47IKE0zhaGTQQ70=",
 		},
 	}
 }

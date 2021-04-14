@@ -306,7 +306,7 @@ func createClient() *api.Client {
 	storeDir := viper.GetString("session")
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
-
+	userIDprefix := viper.GetString("userid-prefix")
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -320,8 +320,14 @@ func createClient() *api.Client {
 			err = api.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, []byte(pass))
 		} else {
-			err = api.NewClient(string(ndfJSON), storeDir,
+			if userIDprefix != "" {
+				err = api.NewVanityClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode, userIDprefix)
+			} else {
+				err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
+			}
+			
 		}
 
 		if err != nil {

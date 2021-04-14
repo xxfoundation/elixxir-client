@@ -12,26 +12,23 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
-	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage"
-	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
-	"gitlab.com/elixxir/primitives/states"
 	"io"
-	"time"
 )
 
 func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
-	storage *storage.Session, net interfaces.NetworkManager) error {
+	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
 
 	/*edge checking*/
 
 	// check that messages can be sent over the network
 	if !net.GetHealthTracker().IsHealthy() {
-		return errors.New("Cannot confirm authenticated message " +
+		return 0, errors.New("Cannot confirm authenticated message " +
 			"when the network is not healthy")
 	}
 
@@ -40,14 +37,14 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// the lock
 	storedContact, err := storage.Auth().GetReceivedRequest(partner.ID)
 	if err != nil {
-		return errors.Errorf("failed to find a pending Auth Request: %s",
+		return 0, errors.Errorf("failed to find a pending Auth Request: %s",
 			err)
 	}
 
 	// verify the passed contact matches what is stored
 	if storedContact.DhPubKey.Cmp(partner.DhPubKey) != 0 {
 		storage.Auth().Fail(partner.ID)
-		return errors.WithMessage(err, "Pending Auth Request has different "+
+		return 0, errors.WithMessage(err, "Pending Auth Request has different "+
 			"pubkey than stored")
 	}
 
@@ -68,7 +65,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	_, err = rng.Read(salt)
 	if err != nil {
 		storage.Auth().Fail(partner.ID)
-		return errors.Wrap(err, "Failed to generate salt for "+
+		return 0, errors.Wrap(err, "Failed to generate salt for "+
 			"confirmation")
 	}
 
@@ -108,21 +105,19 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
 		p, p); err != nil {
 		storage.Auth().Fail(partner.ID)
-		return errors.Errorf("Failed to create channel with partner (%s) "+
+		return 0, errors.Errorf("Failed to create channel with partner (%s) "+
 			"on confirmation: %+v",
 			partner.ID, err)
 	}
 
 	// delete the in progress negotiation
 	// this unlocks the request lock
-	if err := storage.Auth().Delete(partner.ID); err != nil {
-		return errors.Errorf("UNRECOVERABLE! Failed to delete in "+
+	//fixme - do these deletes at a later date
+	/*if err := storage.Auth().Delete(partner.ID); err != nil {
+		return 0, errors.Errorf("UNRECOVERABLE! Failed to delete in "+
 			"progress negotiation with partner (%s) after creating confirmation: %+v",
 			partner.ID, err)
-	}
-
-	//store the message as a critical message so it will always be sent
-	storage.GetCriticalRawMessages().AddProcessing(cmixMsg, partner.ID)
+	}*/
 
 	jww.INFO.Printf("Confirming Auth with %s, msgDigest: %s",
 		partner.ID, cmixMsg.Digest())
@@ -134,39 +129,11 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		// retried
 		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
 			"to transmit: %+v", partner.ID, cmixMsg.Digest(), err)
-		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
-		return errors.WithMessage(err, "Auth Confirm Failed to transmit")
+		return 0, errors.WithMessage(err, "Auth Confirm Failed to transmit")
 	}
 
 	jww.INFO.Printf("Confirm Request with %s (msgDigest: %s) sent on round %d",
 		partner.ID, cmixMsg.Digest(), round)
 
-	/*check message delivery*/
-	sendResults := make(chan ds.EventReturn, 1)
-	roundEvents := net.GetInstance().GetRoundEvents()
-
-	roundEvents.AddRoundEventChan(round, sendResults, 1*time.Minute,
-		states.COMPLETED, states.FAILED)
-
-	success, numFailed, _ := utility.TrackResults(sendResults, 1)
-	if !success {
-		if numFailed > 0 {
-			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
-				"delivery due to round failure, will retry on reconnect",
-				partner.ID, cmixMsg.Digest())
-		} else {
-			jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) failed "+
-				"delivery due to timeout, will retry on reconnect",
-				partner.ID, cmixMsg.Digest())
-		}
-		jww.ERROR.Printf("auth confirm failed to transmit, will be " +
-			"handled on reconnect")
-		storage.GetCriticalRawMessages().Failed(cmixMsg, partner.ID)
-	} else {
-		jww.INFO.Printf("Auth Confirm with %s (msgDigest: %s) delivered "+
-			"sucesfully", partner.ID, cmixMsg.Digest())
-		storage.GetCriticalRawMessages().Succeeded(cmixMsg, partner.ID)
-	}
-
-	return nil
+	return round, nil
 }

@@ -95,7 +95,7 @@ var rootCmd = &cobra.Command{
 				requestor contact.Contact, message string) {
 				jww.INFO.Printf("Channel Request: %s",
 					requestor.ID)
-				err := client.ConfirmAuthenticatedChannel(
+				_, err := client.ConfirmAuthenticatedChannel(
 					requestor)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
@@ -399,7 +399,7 @@ func acceptChannel(client *api.Client, recipientID *id.ID) {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	err = client.ConfirmAuthenticatedChannel(
+	_, err = client.ConfirmAuthenticatedChannel(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -461,7 +461,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		err := client.RequestAuthenticatedChannel(recipientContact,
+		_, err := client.RequestAuthenticatedChannel(recipientContact,
 			me, msg)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

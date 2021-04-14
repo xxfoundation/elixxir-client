@@ -55,7 +55,7 @@ var udCmd = &cobra.Command{
 			authMgr.AddGeneralRequestCallback(func(
 				requester contact.Contact, message string) {
 				jww.INFO.Printf("Got Request: %s", requester.ID)
-				err := client.ConfirmAuthenticatedChannel(requester)
+				_, err := client.ConfirmAuthenticatedChannel(requester)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}

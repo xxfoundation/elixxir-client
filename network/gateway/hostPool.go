@@ -74,6 +74,9 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.EnableMetrics = true
 	p.HostParams.MaxRetries = 1
 	p.HostParams.AuthEnabled = false
+	p.HostParams.EnableCoolOff = true
+	p.HostParams.NumSendsBeforeCoolOff = 1
+	p.HostParams.CoolOffTimeout = 5 * time.Minute
 	return p
 }
 
@@ -220,6 +223,7 @@ func (h *HostPool) pruneHostPool() error {
 			len(h.ndf.Gateways), h.poolParams.PoolSize)
 	}
 
+	jww.FATAL.Printf("CAT: 0")
 	for poolIdx := uint32(0); poolIdx < h.poolParams.PoolSize; {
 		host := h.hostList[poolIdx]
 		// Check the Host for errors
@@ -271,7 +275,7 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 	// Clean up and move onto next Host
 	if oldHost != nil {
 		delete(h.hostMap, *oldHost.GetId())
-		oldHost.Disconnect()
+		go oldHost.Disconnect()
 	}
 	jww.DEBUG.Printf("Replaced Host at %d with new Host %s", oldPoolIndex, newId.String())
 	return nil

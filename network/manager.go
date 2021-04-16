@@ -28,6 +28,7 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math/rand"
 )
 
 // Manager implements the NetworkManager interface inside context. It
@@ -92,7 +93,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
 	poolParams.PoolSize = 10
-	m.sender, err = gateway.NewSender(poolParams, rng.GetStream(),
+	m.sender, err = gateway.NewSender(poolParams, rand.New(rand.NewSource(42)),
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {
 		return nil, err

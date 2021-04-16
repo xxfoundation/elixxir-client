@@ -210,7 +210,6 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 			}
 			return result, false, err
 		})
-		gwSlotResp := result.(*pb.GatewaySlotResponse)
 
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly
@@ -219,7 +218,10 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
 				bestRound.ID, err)
 			continue
-		} else if gwSlotResp.Accepted {
+		}
+
+		gwSlotResp := result.(*pb.GatewaySlotResponse)
+		if gwSlotResp.Accepted {
 			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) "+
 				"in round %d", ephID.Int64(), recipient, bestRound.ID)
 			return id.Round(bestRound.ID), ephID, nil

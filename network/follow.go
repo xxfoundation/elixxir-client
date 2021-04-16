@@ -95,7 +95,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
-		jww.TRACE.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
+		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartRequest,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
 		result, err := comms.SendPoll(host, &pollReq)
@@ -196,6 +196,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		//	}
 		//}
 	}
+	jww.ERROR.Printf("TEST: 10")
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {

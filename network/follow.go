@@ -196,7 +196,6 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		//	}
 		//}
 	}
-	jww.ERROR.Printf("TEST: 10")
 
 	// ---- Identity Specific Round Processing -----
 	if identity.Fake {

@@ -13,10 +13,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
-	"io"
 )
 
 // Sender Object used for sending that wraps the HostPool for providing destinations
@@ -25,7 +25,7 @@ type Sender struct {
 }
 
 // NewSender Create a new Sender object wrapping a HostPool object
-func NewSender(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
+func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*Sender, error) {
 
 	hostPool, err := newHostPool(poolParams, rng, ndf, getter, storage, addGateway)

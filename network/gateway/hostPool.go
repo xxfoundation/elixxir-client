@@ -17,6 +17,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -49,7 +50,7 @@ type HostPool struct {
 	ndfMux sync.RWMutex
 
 	poolParams     PoolParams
-	rng            io.Reader
+	rng            *fastRNG.StreamGenerator
 	storage        *storage.Session
 	manager        HostManager
 	addGatewayChan chan network.NodeGateway
@@ -79,7 +80,7 @@ func DefaultPoolParams() PoolParams {
 }
 
 // Build and return new HostPool object
-func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
+func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
 	result := &HostPool{
 		manager:        getter,
@@ -145,9 +146,10 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 	}
 
 	result := make([]*connect.Host, length)
+	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := uint32(0); i < length; {
-		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
+		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -155,6 +157,7 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		}
 	}
 	h.hostMux.RUnlock()
+	rng.Close()
 
 	return result
 }
@@ -174,6 +177,7 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 	}
 	result := make([]*connect.Host, length)
 
+	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := 0; i < length; {
 		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
@@ -182,7 +186,7 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 			continue
 		}
 
-		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
+		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -190,6 +194,7 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 		}
 	}
 	h.hostMux.RUnlock()
+	rng.Close()
 
 	return result
 }
@@ -220,13 +225,15 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 
 // Replace given Host index with a new, randomly-selected Host from the NDF
 func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
+	rng := h.rng.GetStream()
 	h.ndfMux.RLock()
 	defer h.ndfMux.RUnlock()
+	defer rng.Close()
 
 	// Loop until a replacement Host is found
 	for {
 		// Randomly select a new Gw by index in the NDF
-		ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), h.rng)
+		ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), rng)
 		jww.DEBUG.Printf("Attempting to replace Host at HostPool %d with Host at NDF %d...", oldPoolIndex, ndfIdx)
 
 		// Use the random ndfIdx to obtain a GwId from the NDF
@@ -271,8 +278,10 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 
 // Force-add the Gateways to the HostPool, each replacing a random Gateway
 func (h *HostPool) forceAdd(gwIds []*id.ID) error {
+	rng := h.rng.GetStream()
 	h.hostMux.Lock()
 	defer h.hostMux.Unlock()
+	defer rng.Close()
 
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already replaced
 	for i := 0; i < len(gwIds); {
@@ -284,7 +293,7 @@ func (h *HostPool) forceAdd(gwIds []*id.ID) error {
 		}
 
 		// Randomly select another Gateway in the HostPool for replacement
-		poolIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
+		poolIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[poolIdx]; !ok {
 			err := h.replaceHost(gwIds[i], poolIdx)
 			if err != nil {

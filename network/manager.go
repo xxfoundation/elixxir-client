@@ -143,9 +143,6 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	// Message sending
-	multi.Add(m.sender.StartHostPool())
-
 	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
 
 	return multi, nil

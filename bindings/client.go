@@ -333,18 +333,35 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 	return newRoundUnregister(roundID, ec, c.api.GetRoundEvents())
 }
 
-// RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
-// message was sent in successfully completed. Under the hood, this uses the same
-// interface as RegisterRoundEventsHandler, but provides a convenient way to use
-// the interface in its most common form, looking up the result of message
-// retrieval
+// WaitForRoundCompletion allows the caller to get notified if a round
+// has completed (or failed). Under the hood, this uses an API which uses the internal
+// round data, network historical round lookup, and waiting on network events
+// to determine what has (or will) occur.
+//
+// The callbacks will return at timeoutMS if no state update occurs
+func (c *Client) WaitForRoundCompletion(roundID int,
+	rec RoundCompletionCallback, timeoutMS int) error {
+
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
+		rec.EventCallback(roundID, allRoundsSucceeded, timedOut)
+	}
+
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+
+	return c.api.GetRoundResults([]id.Round{id.Round(roundID)}, timeout, f)
+}
+
+// WaitForMessageDelivery allows the caller to get notified if the rounds a
+// message was sent in successfully completed. Under the hood, this uses an API
+// which uses the internal round data, network historical round lookup, and
+// waiting on network events to determine what has (or will) occur.
 //
 // The callbacks will return at timeoutMS if no state update occurs
 //
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
-func (c *Client) WaitForRoundCompletion(marshaledSendReport []byte,
+func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) error {
 
 	sr, err := UnmarshalSendReport(marshaledSendReport)

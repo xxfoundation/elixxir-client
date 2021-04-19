@@ -199,10 +199,19 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 	if hostErr != nil {
 		for _, errString := range errorsList {
 			if strings.Contains(hostErr.Error(), errString) {
-				h.hostMux.RLock()
-				oldPoolIndex := h.hostMap[*hostId]
-				h.hostMux.RUnlock()
-				return h.forceReplace(oldPoolIndex)
+				h.hostMux.Lock()
+
+				// If the Host is still in the pool
+				if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
+					// Replace it
+					err := h.forceReplace(oldPoolIndex)
+					h.hostMux.Unlock()
+					return err
+				}
+
+				// If the Host is NOT still in the pool, return
+				h.hostMux.Unlock()
+				return nil
 			}
 		}
 	}
@@ -212,8 +221,6 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 // Replace given Host index with a new, randomly-selected Host from the NDF
 func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
 	h.ndfMux.RLock()
-	h.hostMux.Lock()
-	defer h.hostMux.Unlock()
 	defer h.ndfMux.RUnlock()
 
 	// Loop until a replacement Host is found

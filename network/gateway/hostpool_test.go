@@ -17,7 +17,6 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"reflect"
 	"testing"
-	"time"
 )
 
 // Unit test
@@ -65,7 +64,6 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	// Construct custom params
 	params := DefaultPoolParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
-	params.PruneInterval = 1 * time.Second
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -90,9 +88,6 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 		t.Errorf("Failed to create mock host pool: %v", err)
 	}
 
-	stopper := testPool.StartHostPool()
-	stopper.Close(3 * time.Second)
-
 	// Construct a list of new gateways/nodes to add to ndf
 	newGatewayLen := len(testNdf.Gateways)
 	newGateways := make([]ndf.Gateway, newGatewayLen)
@@ -114,8 +109,6 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	newNdf.Nodes = newNodes
 
 	testPool.UpdateNdf(newNdf)
-
-	time.Sleep(testPool.poolParams.PruneInterval + 1*time.Second)
 
 	// Check that old gateways are not in pool
 	for _, ndfGw := range testNdf.Gateways {
@@ -257,104 +250,105 @@ func TestHostPool_ReplaceHost_Error(t *testing.T) {
 
 }
 
-// Happy path
-func TestHostPool_PruneHostPool(t *testing.T) {
-	manager := newMockManager()
-	testNdf := getTestNdf(t)
-	newIndex := uint32(20)
-	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
-	rng := csprng.NewSystemRNG()
-
-	// Construct a manager (bypass business logic in constructor)
-	hostPool := &HostPool{
-		manager:    manager,
-		hostList:   make([]*connect.Host, newIndex+1),
-		hostMap:    make(map[id.ID]uint32),
-		ndf:        testNdf,
-		poolParams: params,
-		rng:        rng,
-	}
-
-	// Pull all gateways from ndf into host manager
-	hostList := make([]*connect.Host, 0)
-	for _, gw := range testNdf.Gateways {
-
-		gwId, err := id.Unmarshal(gw.ID)
-		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
-		}
-		// Add mock gateway to manager
-		h, err := manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
-		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
-		}
-
-		hostList = append(hostList, h)
-
-	}
-
-	// Construct a host past the error threshold
-	errorThresholdIndex := 0
-	overThreshold := params.ErrThreshold + 25
-	hostList[errorThresholdIndex].SetMetricsTesting(connect.NewMetricTesting(overThreshold, t), t)
-	oldHost := hostList[0]
-
-	// Call prune host pool
-	err := hostPool.pruneHostPool()
-	if err != nil {
-		t.Errorf("Unexpected error in happy path: %v", err)
-	}
-
-	// Check that the host map has been properly updated
-	for _, h := range hostList {
-		_, ok := hostPool.hostMap[*h.GetId()]
-		if !ok {
-			t.Errorf("Gateway %s was not placed in host map after pruning", h.GetId().String())
-		}
-	}
-
-	// Check that the host list has been has been properly updated
-	// at the index with a host past the error threshold
-	retrievedHost := hostPool.hostList[errorThresholdIndex]
-	if reflect.DeepEqual(oldHost, retrievedHost) {
-		t.Errorf("Expected host list to have it's bad host replaced. " +
-			"Contains old host information after pruning")
-	}
-
-}
-
-// Error path: not enough gateways in ndf compared to
-// required pool size
-func TestHostPool_PruneHostPool_Error(t *testing.T) {
-	manager := newMockManager()
-	testNdf := getTestNdf(t)
-	newIndex := uint32(20)
-	params := DefaultPoolParams()
-
-	// Trigger the case where the Ndf doesn't have enough gateways
-	params.PoolSize = uint32(len(testNdf.Gateways)) + 1
-	rng := csprng.NewSystemRNG()
-
-	// Construct a manager (bypass business logic in constructor)
-	hostPool := &HostPool{
-		manager:    manager,
-		hostList:   make([]*connect.Host, newIndex+1),
-		hostMap:    make(map[id.ID]uint32),
-		ndf:        testNdf,
-		poolParams: params,
-		rng:        rng,
-	}
-
-	// Call prune
-	err := hostPool.pruneHostPool()
-	if err == nil {
-		t.Errorf("Gateways should not be available: " +
-			"not enough gateways in ndf compared to param's pool size")
-	}
-
-}
+// TODO: Adapt to new methods
+//// Happy path
+//func TestHostPool_PruneHostPool(t *testing.T) {
+//	manager := newMockManager()
+//	testNdf := getTestNdf(t)
+//	newIndex := uint32(20)
+//	params := DefaultPoolParams()
+//	params.PoolSize = uint32(len(testNdf.Gateways))
+//	rng := csprng.NewSystemRNG()
+//
+//	// Construct a manager (bypass business logic in constructor)
+//	hostPool := &HostPool{
+//		manager:    manager,
+//		hostList:   make([]*connect.Host, newIndex+1),
+//		hostMap:    make(map[id.ID]uint32),
+//		ndf:        testNdf,
+//		poolParams: params,
+//		rng:        rng,
+//	}
+//
+//	// Pull all gateways from ndf into host manager
+//	hostList := make([]*connect.Host, 0)
+//	for _, gw := range testNdf.Gateways {
+//
+//		gwId, err := id.Unmarshal(gw.ID)
+//		if err != nil {
+//			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+//		}
+//		// Add mock gateway to manager
+//		h, err := manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
+//		if err != nil {
+//			t.Errorf("Could not add mock host to manager: %v", err)
+//			t.FailNow()
+//		}
+//
+//		hostList = append(hostList, h)
+//
+//	}
+//
+//	// Construct a host past the error threshold
+//	errorThresholdIndex := 0
+//	overThreshold := params.ErrThreshold + 25
+//	hostList[errorThresholdIndex].SetMetricsTesting(connect.NewMetricTesting(overThreshold, t), t)
+//	oldHost := hostList[0]
+//
+//	// Call prune host pool
+//	err := hostPool.pruneHostPool()
+//	if err != nil {
+//		t.Errorf("Unexpected error in happy path: %v", err)
+//	}
+//
+//	// Check that the host map has been properly updated
+//	for _, h := range hostList {
+//		_, ok := hostPool.hostMap[*h.GetId()]
+//		if !ok {
+//			t.Errorf("Gateway %s was not placed in host map after pruning", h.GetId().String())
+//		}
+//	}
+//
+//	// Check that the host list has been has been properly updated
+//	// at the index with a host past the error threshold
+//	retrievedHost := hostPool.hostList[errorThresholdIndex]
+//	if reflect.DeepEqual(oldHost, retrievedHost) {
+//		t.Errorf("Expected host list to have it's bad host replaced. " +
+//			"Contains old host information after pruning")
+//	}
+//
+//}
+//
+//// Error path: not enough gateways in ndf compared to
+//// required pool size
+//func TestHostPool_PruneHostPool_Error(t *testing.T) {
+//	manager := newMockManager()
+//	testNdf := getTestNdf(t)
+//	newIndex := uint32(20)
+//	params := DefaultPoolParams()
+//
+//	// Trigger the case where the Ndf doesn't have enough gateways
+//	params.PoolSize = uint32(len(testNdf.Gateways)) + 1
+//	rng := csprng.NewSystemRNG()
+//
+//	// Construct a manager (bypass business logic in constructor)
+//	hostPool := &HostPool{
+//		manager:    manager,
+//		hostList:   make([]*connect.Host, newIndex+1),
+//		hostMap:    make(map[id.ID]uint32),
+//		ndf:        testNdf,
+//		poolParams: params,
+//		rng:        rng,
+//	}
+//
+//	// Call prune
+//	err := hostPool.pruneHostPool()
+//	if err == nil {
+//		t.Errorf("Gateways should not be available: " +
+//			"not enough gateways in ndf compared to param's pool size")
+//	}
+//
+//}
 
 // Unit test
 func TestHostPool_UpdateNdf(t *testing.T) {
@@ -368,6 +362,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 		hostList: make([]*connect.Host, newIndex+1),
 		hostMap:  make(map[id.ID]uint32),
 		ndf:      testNdf,
+		storage:  storage.InitTestingSession(t),
 	}
 
 	// Construct a new Ndf different from original one above
@@ -375,15 +370,14 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	newGateway := ndf.Gateway{
 		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
 	}
+	newNode := ndf.Node{
+		ID: id.NewIdFromUInt(27, id.Node, t).Bytes(),
+	}
 	newNdf.Gateways = append(newNdf.Gateways, newGateway)
+	newNdf.Nodes = append(newNdf.Nodes, newNode)
 
 	// Update pool with the new Ndf
 	hostPool.UpdateNdf(newNdf)
-
-	// Check that the ndf update flag has been set
-	if !hostPool.isNdfUpdated {
-		t.Errorf("Expected ndf updated flag to be set after updateNdf call")
-	}
 
 	// Check that the host pool's ndf has been modified properly
 	if !reflect.DeepEqual(newNdf, hostPool.ndf) {

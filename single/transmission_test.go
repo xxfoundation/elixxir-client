@@ -2,9 +2,9 @@ package single
 
 import (
 	"bytes"
-	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"strings"
@@ -60,7 +61,7 @@ func TestManager_transmitSingleUse(t *testing.T) {
 	}
 
 	expectedMsg, _, _, _, err := m.makeTransmitCmixMessage(partner, payload,
-		tag, maxMsgs, 32, 30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		tag, maxMsgs, 32, 30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to make expected message: %+v", err)
 	}
@@ -204,7 +205,7 @@ func TestManager_transmitSingleUse_AddStateError(t *testing.T) {
 
 	// Create new CMIX and add a state
 	_, dhKey, rid, _, err := m.makeTransmitCmixMessage(partner, payload, tag,
-		maxMsgs, 32, 30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		maxMsgs, 32, 30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create new CMIX message: %+v", err)
 	}
@@ -262,7 +263,7 @@ func TestManager_makeTransmitCmixMessage(t *testing.T) {
 	payload := make([]byte, 132)
 	rand.New(rand.NewSource(42)).Read(payload)
 	maxMsgs := uint8(8)
-	timeNow := time.Now()
+	timeNow := netTime.Now()
 
 	msg, dhKey, rid, _, err := m.makeTransmitCmixMessage(partner, payload,
 		tag, maxMsgs, 32, 30*time.Second, timeNow, prng)
@@ -325,7 +326,7 @@ func TestManager_makeTransmitCmixMessage_PayloadTooLargeError(t *testing.T) {
 	rand.New(rand.NewSource(42)).Read(payload)
 
 	_, _, _, _, err := m.makeTransmitCmixMessage(contact2.Contact{}, payload, "", 8, 32,
-		30*time.Second, time.Now(), prng)
+		30*time.Second, netTime.Now(), prng)
 
 	if !check(err, "too long for message payload capacity") {
 		t.Errorf("makeTransmitCmixMessage() failed to error when the payload is too "+
@@ -343,7 +344,7 @@ func TestManager_makeTransmitCmixMessage_KeyGenerationError(t *testing.T) {
 	}
 
 	_, _, _, _, err := m.makeTransmitCmixMessage(partner, nil, "", 8, 32,
-		30*time.Second, time.Now(), prng)
+		30*time.Second, netTime.Now(), prng)
 
 	if !check(err, "failed to generate key in group") {
 		t.Errorf("makeTransmitCmixMessage() failed to error when key "+
@@ -377,7 +378,7 @@ func Test_makeIDs_Consistency(t *testing.T) {
 		t.Fatalf("Failed to set nonce: %+v", err)
 	}
 
-	timeNow := time.Now()
+	timeNow := netTime.Now()
 
 	rid, ephID, err := makeIDs(&msgPayload, publicKey, addressSize,
 		30*time.Second, timeNow, rand.New(rand.NewSource(42)))
@@ -412,7 +413,7 @@ func Test_makeIDs_NonceError(t *testing.T) {
 	msgPayload := newTransmitMessagePayload(transmitPlMinSize)
 
 	_, _, err := makeIDs(&msgPayload, &cyclic.Int{}, 32, 30*time.Second,
-		time.Now(), strings.NewReader(""))
+		netTime.Now(), strings.NewReader(""))
 	if !check(err, "failed to generate nonce") {
 		t.Errorf("makeIDs() did not return an error when failing to make nonce: %+v", err)
 	}

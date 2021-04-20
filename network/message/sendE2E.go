@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -26,7 +27,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 			"message type", msg.MessageType)
 	}
 	//timestamp the message
-	ts := time.Now()
+	ts := netTime.Now()
 
 	//partition the message
 	partitions, internalMsgId, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
@@ -42,8 +43,9 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	// get the key manager for the partner
 	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
-		return nil, e2e.MessageID{}, errors.WithMessagef(err, "Could not send End to End encrypted "+
-			"message, no relationship found with %s", msg.Recipient)
+		return nil, e2e.MessageID{}, errors.WithMessagef(err,
+			"Could not send End to End encrypted "+
+				"message, no relationship found with %s", msg.Recipient)
 	}
 
 	wg := sync.WaitGroup{}
@@ -52,8 +54,16 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		len(partitions), msg.Recipient)
 
 	for i, p := range partitions {
+
+		if msg.MessageType != message.KeyExchangeTrigger {
+			// check if any rekeys need to happen and trigger them
+			keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E,
+				m.Session, partner, 1*time.Minute)
+		}
+
 		//create the cmix message
-		msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
+		msgLen := m.Session.Cmix().GetGroup().GetP().ByteLen()
+		msgCmix := format.NewMessage(msgLen)
 		msgCmix.SetContents(p)
 
 		//get a key to end to end encrypt
@@ -71,8 +81,8 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 			key, err = partner.GetKeyForSending(param.Type)
 		}
 		if err != nil {
-			return nil, e2e.MessageID{}, errors.WithMessagef(err, "Failed to get key "+
-				"for end to end encryption")
+			return nil, e2e.MessageID{}, errors.WithMessagef(err,
+				"Failed to get key for end to end encryption")
 		}
 
 		//end to end encrypt the cmix message
@@ -85,18 +95,14 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], _, err = m.SendCMIX(msgEnc, msg.Recipient, param.CMIX)
+			roundIds[i], _, err = m.SendCMIX(msgEnc, msg.Recipient,
+				param.CMIX)
 			if err != nil {
 				errCh <- err
 			}
 			wg.Done()
 		}(i)
 	}
-
-	// while waiting check if any rekeys need to happen and trigger them. This
-	// can happen now because the key popping happens in this thread,
-	// only the sending is parallelized
-	keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E, m.Session, partner, 1*time.Minute)
 
 	wg.Wait()
 

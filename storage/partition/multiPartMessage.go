@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -85,7 +86,7 @@ func (mpm *multiPartMessage) save() error {
 
 	obj := versioned.Object{
 		Version:   currentMultiPartMessageVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 

@@ -8,12 +8,13 @@
 package utility
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 // MessageHash stores the hash of a message, which is used as the key for each
@@ -105,7 +106,7 @@ func LoadMessageBuffer(kv *versioned.KV, handler MessageHandler,
 // are in the "not processed" or "processing" state are stored together and
 // considered "not processed".
 func (mb *MessageBuffer) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	// Build a combined list of message hashes in messages + processingMessages
 	allMessages := mb.getMessageList()
@@ -207,6 +208,8 @@ func (mb *MessageBuffer) Add(m interface{}) {
 // Add adds a message to the buffer in "processing" state.
 func (mb *MessageBuffer) AddProcessing(m interface{}) {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages AddProcessing(%s)",
+		base64.StdEncoding.EncodeToString(h[:]))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
@@ -247,6 +250,9 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 
 	// Pop the next MessageHash from the "not processing" list
 	h := next(mb.messages)
+	jww.TRACE.Printf("Critical Messages Next returned %s",
+		base64.StdEncoding.EncodeToString(h[:]))
+
 	delete(mb.messages, h)
 
 	// Add message to list of processing messages
@@ -272,6 +278,8 @@ func next(msgMap map[MessageHash]struct{}) MessageHash {
 // Remove sets a messaged as processed and removed it from the buffer.
 func (mb *MessageBuffer) Succeeded(m interface{}) {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages Succeeded(%s)",
+		base64.StdEncoding.EncodeToString((h[:])))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
@@ -297,6 +305,8 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 // the "not processed" state.
 func (mb *MessageBuffer) Failed(m interface{}) {
 	h := mb.handler.HashMessage(m)
+	jww.TRACE.Printf("Critical Messages Failed(%s)",
+		base64.StdEncoding.EncodeToString(h[:]))
 
 	mb.mux.Lock()
 	defer mb.mux.Unlock()

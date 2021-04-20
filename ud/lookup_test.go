@@ -3,9 +3,9 @@ package ud
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"

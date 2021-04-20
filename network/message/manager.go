@@ -36,7 +36,7 @@ func NewManager(internal internal.Internal, param params.Messages,
 		partitioner:      parse.NewPartitioner(dummyMessage.ContentsSize(), internal.Session),
 		messageReception: make(chan Bundle, param.MessageReceptionBuffLen),
 		networkIsHealthy: make(chan bool, 1),
-		triggerGarbled:   make(chan struct{}, 1),
+		triggerGarbled:   make(chan struct{}, 100),
 		nodeRegistration: nodeRegistration,
 	}
 	m.Internal = internal

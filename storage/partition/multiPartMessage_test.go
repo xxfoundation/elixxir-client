@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"testing"
@@ -24,7 +25,7 @@ import (
 // Tests the creation part of loadOrCreateMultiPartMessage().
 func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 	// Set up expected test value
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
 		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		MessageID:    prng.Uint64(),
@@ -60,7 +61,7 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 // Tests the loading part of loadOrCreateMultiPartMessage().
 func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 	// Set up expected test value
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
 		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		MessageID:    prng.Uint64(),
@@ -115,7 +116,7 @@ func CheckMultiPartMessages(expectedMpm *multiPartMessage, mpm *multiPartMessage
 // Tests happy path of multiPartMessage.Add().
 func TestMultiPartMessage_Add(t *testing.T) {
 	// Generate test values
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mpm := loadOrCreateMultiPartMessage(id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		prng.Uint64(), versioned.NewKV(make(ekv.Memstore)))
 	partNums, parts := generateParts(prng, 0)
@@ -156,13 +157,13 @@ func TestMultiPartMessage_Add(t *testing.T) {
 // Tests happy path of multiPartMessage.AddFirst().
 func TestMultiPartMessage_AddFirst(t *testing.T) {
 	// Generate test values
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
 		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		MessageID:    prng.Uint64(),
 		NumParts:     uint8(prng.Uint32()),
 		PresentParts: 1,
-		Timestamp:    time.Now(),
+		Timestamp:    netTime.Now(),
 		MessageType:  message.NoType,
 		parts:        make([][]byte, 3),
 		kv:           versioned.NewKV(make(ekv.Memstore)),
@@ -190,7 +191,7 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 // Tests happy path of multiPartMessage.IsComplete().
 func TestMultiPartMessage_IsComplete(t *testing.T) {
 	// Create multiPartMessage and fill with random parts
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	mid := prng.Uint64()
 	mpm := loadOrCreateMultiPartMessage(id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		mid, versioned.NewKV(make(ekv.Memstore)))
@@ -202,7 +203,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 		t.Error("IsComplete() returned true when NumParts == 0.")
 	}
 
-	mpm.AddFirst(message.Text, partNums[0], 75, time.Now(), parts[0])
+	mpm.AddFirst(message.Text, partNums[0], 75, netTime.Now(), parts[0])
 	for i := range partNums {
 		if i > 0 {
 			mpm.Add(partNums[i], parts[i])
@@ -237,7 +238,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 
 // Tests happy path of multiPartMessage.delete().
 func TestMultiPartMessage_delete(t *testing.T) {
-	prng := rand.New(rand.NewSource(time.Now().UnixNano()))
+	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	kv := versioned.NewKV(make(ekv.Memstore))
 	mpm := loadOrCreateMultiPartMessage(id.NewIdFromUInt(prng.Uint64(), id.User, t),
 		prng.Uint64(), kv)

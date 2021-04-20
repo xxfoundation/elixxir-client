@@ -11,8 +11,8 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
-	"time"
 )
 
 var ipsumTestStr = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Cras sit amet euismod est. Donec dolor " +
@@ -67,7 +67,7 @@ func TestPartitioner_Partition(t *testing.T) {
 	p := NewPartitioner(len(ipsumTestStr), storeSession)
 
 	_, _, err := p.Partition(&id.DummyUser, message.Text,
-		time.Now(), []byte(ipsumTestStr))
+		netTime.Now(), []byte(ipsumTestStr))
 	if err != nil {
 		t.Error(err)
 	}
@@ -94,7 +94,7 @@ func TestPartitioner_HandleFirstPartition(t *testing.T) {
 	storeSession := storage.InitTestingSession(t)
 	p := NewPartitioner(len(ipsumTestStr), storeSession)
 
-	m := newFirstMessagePart(message.Text, 1107, 1, time.Now(), []byte(ipsumTestStr))
+	m := newFirstMessagePart(message.Text, 1107, 1, netTime.Now(), []byte(ipsumTestStr))
 
 	_, _ = p.HandlePartition(
 		&id.DummyUser,

@@ -12,7 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -20,16 +20,17 @@ import (
 // RequestAuthenticatedChannel sends a request to another party to establish an
 // authenticated channel
 // It will not run if the network status is not healthy
-// An error will be returned if a channel already exists, if a request was
-// already received, or if a request was already sent
+// An error will be returned if a channel already exists or if a request was
+// already received
 // When a confirmation occurs, the channel will be created and the callback
 // will be called
+// Can be retried.
 func (c *Client) RequestAuthenticatedChannel(recipient, me contact.Contact,
-	message string) error {
+	message string) (id.Round, error) {
 	jww.INFO.Printf("RequestAuthenticatedChannel(%s)", recipient.ID)
 
 	if !c.network.GetHealthTracker().IsHealthy() {
-		return errors.New("Cannot request authenticated channel " +
+		return 0, errors.New("Cannot request authenticated channel " +
 			"creation when the network is not healthy")
 	}
 
@@ -60,11 +61,12 @@ func (c *Client) GetAuthenticatedChannelRequest(partner *id.ID) (contact.Contact
 // An error will be returned if a channel already exists, if a request doest
 // exist, or if the passed in contact does not exactly match the received
 // request
-func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) error {
+// Can be retried.
+func (c *Client) ConfirmAuthenticatedChannel(recipient contact.Contact) (id.Round, error) {
 	jww.INFO.Printf("ConfirmAuthenticatedChannel(%s)", recipient.ID)
 
 	if !c.network.GetHealthTracker().IsHealthy() {
-		return errors.New("Cannot request authenticated channel " +
+		return 0, errors.New("Cannot request authenticated channel " +
 			"creation when the network is not healthy")
 	}
 

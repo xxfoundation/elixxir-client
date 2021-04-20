@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"reflect"
 	"testing"
 	"time"
@@ -460,7 +461,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 	//	Normal paths: SetNegotiationStatus should not fail
 	// Use timestamps to determine whether a save has occurred
 	s.negotiationStatus = Sending
-	now := time.Now()
+	now := netTime.Now()
 	time.Sleep(time.Millisecond)
 	s.SetNegotiationStatus(Sent)
 	if s.negotiationStatus != Sent {
@@ -474,7 +475,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 		t.Errorf("save didn't occur after switching Sending to Sent")
 	}
 
-	now = time.Now()
+	now = netTime.Now()
 	time.Sleep(time.Millisecond)
 	s.SetNegotiationStatus(Confirmed)
 	if s.negotiationStatus != Confirmed {
@@ -488,7 +489,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 		t.Errorf("save didn't occur after switching Sent to Confirmed")
 	}
 
-	now = time.Now()
+	now = netTime.Now()
 	time.Sleep(time.Millisecond)
 	s.negotiationStatus = NewSessionTriggered
 	s.SetNegotiationStatus(NewSessionCreated)
@@ -505,7 +506,7 @@ func TestSession_SetNegotiationStatus(t *testing.T) {
 
 	// Reverting paths: SetNegotiationStatus should not fail, and a save should not take place
 	time.Sleep(time.Millisecond)
-	now = time.Now()
+	now = netTime.Now()
 	time.Sleep(time.Millisecond)
 	s.negotiationStatus = Sending
 	s.SetNegotiationStatus(Unconfirmed)
@@ -629,6 +630,7 @@ func makeTestSession() (*Session, *context) {
 			manager: &Manager{
 				ctx: ctx,
 				kv:  kv,
+				partner: &id.ID{},
 			},
 			kv: kv,
 		},
@@ -636,6 +638,7 @@ func makeTestSession() (*Session, *context) {
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		rekeyThreshold:    5,
+		partner: &id.ID{},
 	}
 	var err error
 	s.keyState, err = newStateVector(s.kv,

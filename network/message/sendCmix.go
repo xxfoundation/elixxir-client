@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strings"
 	"time"
 )
@@ -32,12 +33,14 @@ type sendCmixCommsInterface interface {
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
 }
 
-const sendTimeBuffer = 100 * time.Millisecond
+// 1.5 seconds
+const sendTimeBuffer = 2500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
 func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
-	return sendCmixHelper(msg, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
+	msgCopy := msg.Copy()
+	return sendCmixHelper(msgCopy, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
 }
 
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
@@ -52,14 +55,14 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 	session *storage.Session, nodeRegistration chan network.NodeGateway, rng *fastRNG.StreamGenerator, senderId *id.ID,
 	comms sendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
-	timeStart := time.Now()
+	timeStart := netTime.Now()
 	attempted := set.New()
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
-		elapsed := time.Now().Sub(timeStart)
+		elapsed := netTime.Now().Sub(timeStart)
 
 		if elapsed > param.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+
@@ -75,30 +78,13 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 
 		remainingTime := param.Timeout - elapsed
 		//find the best round to send to, excluding attempted rounds
-		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted)
+		bestRound, _ := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
 		if bestRound == nil {
 			continue
 		}
 
 		//add the round on to the list of attempted so it is not tried again
 		attempted.Insert(bestRound)
-
-		//compute if the round is too close to send to
-		roundCutoffTime := time.Unix(0,
-			int64(bestRound.Timestamps[states.QUEUED]))
-		roundCutoffTime.Add(sendTimeBuffer)
-		now := time.Now()
-
-		jww.DEBUG.Printf("Found round %d to send to %s (msgDigest: %s)",
-			bestRound.ID, recipient, msg.Digest())
-
-		if now.After(roundCutoffTime) {
-			jww.WARN.Printf("Round %d for sending to %s (msgDigest: %s) "+
-				"received which has already started realtime: \n\t started: "+
-				"%s \n\t now: %s", bestRound.ID, recipient, msg.Digest(),
-				roundCutoffTime, now)
-			continue
-		}
 
 		//set the ephemeral ID
 		ephID, _, _, err := ephemeral.GetId(recipient,
@@ -213,9 +199,9 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 					"due to round error with round %d, retrying: %+v",
 					recipient, msg.Digest(), bestRound.ID, err)
 				continue
-			}else if strings.Contains(err.Error(),
-				"Could not authenticate client. Is the client registered " +
-				"with this node?"){
+			} else if strings.Contains(err.Error(),
+				"Could not authenticate client. Is the client registered "+
+					"with this node?") {
 				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
 					"via %s due to failed authentication: %s",
 					recipient, msg.Digest(), transmitGateway.GetId(), err)

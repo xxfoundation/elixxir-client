@@ -3,6 +3,7 @@ package reception
 import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"strings"
 	"testing"
@@ -34,7 +35,7 @@ func TestNewRegistration_Ephemeral(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = true
 
@@ -42,10 +43,6 @@ func TestNewRegistration_Ephemeral(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Registration creation failed when it should have "+
 			"succeeded: %+v", err)
-	}
-
-	if reg.ur == nil {
-		t.Error("Ephemeral identity does not have a known rounds.")
 	}
 
 	if _, err = reg.kv.Get(identityStorageKey, 0); err == nil {
@@ -61,7 +58,7 @@ func TestNewRegistration_Persistent(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = false
 
@@ -70,14 +67,6 @@ func TestNewRegistration_Persistent(t *testing.T) {
 		t.Fatalf("Registration creation failed when it should have "+
 			"succeeded: %+v", err)
 	}
-
-	if reg.ur == nil {
-		t.Error("Persistent identity does not have a known rounds.")
-	}
-
-	// Check if the known rounds is stored, it should not be. this will panic
-	// if it isnt
-	LoadUnknownRound(reg.kv)
 
 	if _, err = reg.kv.Get(identityStorageKey, 0); err != nil {
 		t.Errorf("Persistent identity did not store the identity when "+
@@ -93,7 +82,7 @@ func TestLoadRegistration(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = false
 
@@ -103,13 +92,9 @@ func TestLoadRegistration(t *testing.T) {
 			"succeeded: %+v", err)
 	}
 
-	reg, err := loadRegistration(idu.EphId, idu.Source, idu.StartValid, kv)
+	_, err = loadRegistration(idu.EphId, idu.Source, idu.StartValid, kv)
 	if err != nil {
 		t.Fatalf("Registration loading failed: %+v", err)
-	}
-
-	if reg.ur == nil {
-		t.Error("Loading should have a UR.")
 	}
 
 }
@@ -123,7 +108,7 @@ func Test_registration_Delete(t *testing.T) {
 	id := idu.Identity
 	kv := versioned.NewKV(make(ekv.Memstore))
 
-	id.End = time.Now().Add(1 * time.Hour)
+	id.End = netTime.Now().Add(1 * time.Hour)
 	id.ExtraChecks = 2
 	id.Ephemeral = false
 

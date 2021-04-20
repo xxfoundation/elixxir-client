@@ -2,11 +2,12 @@ package single
 
 import (
 	"bytes"
-	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
+	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestManager_receiveTransmissionHandler(t *testing.T) {
 	callback, callbackChan := createReceiveComm()
 
 	msg, _, _, _, err := m.makeTransmitCmixMessage(partner, payload, tag, 8, 32,
-		30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
@@ -92,7 +93,7 @@ func TestManager_receiveTransmissionHandler_FingerPrintError(t *testing.T) {
 	callback, callbackChan := createReceiveComm()
 
 	msg, _, _, _, err := m.makeTransmitCmixMessage(partner, payload, tag, 8, 32,
-		30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
@@ -129,7 +130,7 @@ func TestManager_receiveTransmissionHandler_ProcessMessageError(t *testing.T) {
 	callback, callbackChan := createReceiveComm()
 
 	msg, _, _, _, err := m.makeTransmitCmixMessage(partner, payload, tag, 8, 32,
-		30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
@@ -167,7 +168,7 @@ func TestManager_receiveTransmissionHandler_TagFpError(t *testing.T) {
 	rand.New(rand.NewSource(42)).Read(payload)
 
 	msg, _, _, _, err := m.makeTransmitCmixMessage(partner, payload, tag, 8, 32,
-		30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
@@ -189,7 +190,7 @@ func TestManager_processTransmission(t *testing.T) {
 	payload := []byte("This is the payload.")
 	maxMsgs := uint8(6)
 	cmixMsg, dhKey, rid, _, err := m.makeTransmitCmixMessage(partner, payload,
-		tag, maxMsgs, 32, 30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		tag, maxMsgs, 32, 30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to generate expected CMIX message: %+v", err)
 	}
@@ -240,7 +241,7 @@ func TestManager_processTransmission_MacVerifyError(t *testing.T) {
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
 	}
 	cmixMsg, _, _, _, err := m.makeTransmitCmixMessage(partner, []byte{}, "", 6,
-		32, 30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		32, 30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to generate expected CMIX message: %+v", err)
 	}

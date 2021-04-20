@@ -7,19 +7,18 @@
 
 package bindings
 
-// NodeRegistrationsStatus structure for returning node registration statuses
-// for bindings.
-type NodeRegistrationsStatus struct {
-	registered int
-	total      int
+import (
+	"gitlab.com/xx_network/primitives/netTime"
+	"time"
+)
+
+type TimeSource interface {
+	NowMs() int
 }
 
-// GetRegistered returns the number of nodes registered with the client.
-func (nrs *NodeRegistrationsStatus) GetRegistered() int {
-	return nrs.registered
-}
-
-// GetTotal return the total of nodes currently in the network.
-func (nrs *NodeRegistrationsStatus) GetTotal() int {
-	return nrs.total
+// SetTimeSource sets the network time to a custom source.
+func SetTimeSource(timeNow TimeSource) {
+	netTime.Now = func() time.Time {
+		return time.Unix(0, int64(timeNow.NowMs()*int(time.Millisecond)))
+	}
 }

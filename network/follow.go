@@ -41,7 +41,6 @@ import (
 )
 
 const debugTrackPeriod = 1 * time.Minute
-const maxChecked = 100000
 
 //comms interface makes testing easier
 type followNetworkComms interface {
@@ -187,7 +186,15 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 					// FIXME: without mutating the RoundInfo. Signature also needs verified
 					// FIXME: before keys are deleted
 					update.State = uint32(states.FAILED)
-					m.Instance.GetRoundEvents().TriggerRoundEvent(update)
+					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
+					if err != nil {
+						jww.ERROR.Printf("Failed to report client error: " +
+							"Could not get round for event triggering: " +
+							"Unable to get round %d from instance: %+v",
+							id.Round(update.ID), err)
+						break
+					}
+					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
 
 					// delete all existing keys and trigger a re-registration with the relevant Node
 					m.Session.Cmix().Remove(nid)
@@ -238,28 +245,53 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return m.round.Checker(rid, filterList, identity)
+		return rounds.Checker(rid, filterList)
 	}
 
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
-	updated := identity.UR.Set(earliestTrackedRound)
-
+	updated, _ := identity.ER.Set(earliestTrackedRound)
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
 	// messages for the user (bloom not implemented yet)
-	earliestRemaining := gwRoundsState.RangeUnchecked(updated,
-		maxChecked, roundChecker)
-	identity.UR.Set(earliestRemaining)
-	jww.INFO.Printf("Earliest Remaining: %d", earliestRemaining)
+	//threshold is the earliest round that will not be excluded from earliest remaining
+	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
+		m.param.KnownRoundsThreshold, roundChecker)
+	_, changed := identity.ER.Set(earliestRemaining)
+	if changed{
+		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
+		jww.DEBUG.Printf("New Earliest Remaining: %d", earliestRemaining)
+	}
 
+	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round)bool{
+		if gwRoundsState.Checked(rid){
+			return rounds.Checker(rid, filterList)
+		}
+		return false
+	}, roundsUnknown)
 
-	//delete any old rounds from processing
-	if earliestRemaining>updated{
-		for i:=updated;i<=earliestRemaining;i++{
-			m.round.DeleteProcessingRoundDelete(i, identity.EphId, identity.Source)
+	for _, rid := range roundsWithMessages{
+		if m.checked.Check(identity, rid){
+			m.round.GetMessagesFromRound(rid, identity)
 		}
 	}
+	for _, rid := range roundsWithMessages2{
+		m.round.GetMessagesFromRound(rid, identity)
+	}
+
+	earliestToKeep := getEarliestToKeep(m.param.KnownRoundsThreshold,
+		gwRoundsState.GetLastChecked())
+
+	m.checked.Prune(identity, earliestToKeep)
+
+}
+
+
+func getEarliestToKeep(delta uint, lastchecked id.Round)id.Round{
+	if uint(lastchecked)<delta{
+		return 0
+	}
+	return  lastchecked - id.Round(delta)
 }

@@ -17,8 +17,8 @@ import (
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const prefix = "cmix"
@@ -110,6 +110,14 @@ func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
 	}
 }
 
+// Returns if the store has the node
+func (s *Store) Has(nid *id.ID) bool {
+	s.mux.RLock()
+	_, exists := s.nodes[*nid]
+	s.mux.RUnlock()
+	return exists
+}
+
 // Remove removes a node key from the nodes map and saves.
 func (s *Store) Remove(nid *id.ID) {
 	s.mux.Lock()
@@ -194,7 +202,7 @@ func (s *Store) Count() int {
 
 // save stores the cMix store.
 func (s *Store) save() error {
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := s.marshal()
 	if err != nil {

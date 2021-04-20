@@ -17,9 +17,9 @@ func newPollTracker() *pollTracker {
 func (pt *pollTracker) Track(ephID ephemeral.Id, source *id.ID) {
 	if _, exists := (*pt)[*source]; !exists {
 		(*pt)[*source] = make(map[int64]uint)
-		(*pt)[*source][ephID.Int64()] = 0
+		(*pt)[*source][ephID.Int64()] = 1
 	} else if _, exists := (*pt)[*source][ephID.Int64()]; !exists {
-		(*pt)[*source][ephID.Int64()] = 0
+		(*pt)[*source][ephID.Int64()] = 1
 	} else {
 		(*pt)[*source][ephID.Int64()] = (*pt)[*source][ephID.Int64()] + 1
 	}

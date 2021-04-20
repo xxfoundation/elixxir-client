@@ -11,10 +11,6 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
-	"sync/atomic"
-
-	"time"
-
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -46,11 +42,12 @@ type manager struct {
 	//sub-managers
 	round   *rounds.Manager
 	message *message.Manager
-	//atomic denotes if the network is running
-	running *uint32
 
 	//map of polls for debugging
 	tracker *pollTracker
+
+	//tracks already checked rounds
+	checked *checkedRounds
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -59,13 +56,11 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
-	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil)
+	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
 	}
-
-	running := uint32(0)
 
 	// Note: These are not loaded/stored in E2E Store, but the
 	// E2E Session Params are a part of the network parameters, so we
@@ -74,9 +69,9 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	//create manager object
 	m := manager{
-		param:         params,
-		running:       &running,
-		tracker:       newPollTracker(),
+		param:   params,
+		tracker: newPollTracker(),
+		checked: newCheckedRounds(),
 	}
 
 	m.Internal = internal.Internal{
@@ -113,10 +108,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 //	 - Critical Messages (/network/message/critical.go)
 //   - Ephemeral ID tracking (network/ephemeral/tracker.go)
 func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
-	if !atomic.CompareAndSwapUint32(m.running, 0, 1) {
-		return nil, errors.Errorf("network routines are already running")
-	}
-
 	multi := stoppable.NewMulti("networkManager")
 
 	// health tracker
@@ -145,15 +136,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 
 	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
 
-	//set the running status back to 0 so it can be started again
-	closer := stoppable.NewCleanup(multi, func(time.Duration) error {
-		if !atomic.CompareAndSwapUint32(m.running, 1, 0) {
-			return errors.Errorf("network routines are already stopped")
-		}
-		return nil
-	})
-
-	return closer, nil
+	return multi, nil
 }
 
 // GetHealthTracker returns the health tracker

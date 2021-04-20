@@ -36,6 +36,7 @@ type historicalRoundsComms interface {
 type historicalRoundRequest struct {
 	rid      id.Round
 	identity reception.IdentityUse
+	numAttempts uint
 }
 
 // Long running thread which process historical rounds
@@ -62,7 +63,6 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 				select {
 				case m.historicalRounds <- r:
 				default:
-					m.p.NotProcessing(r.rid, r.identity.EphId, r.identity.Source)
 				}
 			}
 			done = true
@@ -123,9 +123,23 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			// need be be removes as processing so the network follower will
 			// pick them up in the future.
 			if roundInfo == nil {
-				jww.ERROR.Printf("Failed to retreive "+
-					"historical round %d", roundRequests[i].rid)
-				m.p.Fail(roundRequests[i].rid, roundRequests[i].identity.EphId, roundRequests[i].identity.Source)
+				roundRequests[i].numAttempts++
+				if roundRequests[i].numAttempts==m.params.MaxHistoricalRoundsRetries{
+					jww.ERROR.Printf("Failed to retreive historical " +
+						"round %d on last attempt, will not try again",
+						roundRequests[i].rid)
+				}else{
+					select {
+					case m.historicalRounds <-roundRequests[i]:
+						jww.WARN.Printf("Failed to retreive historical " +
+							"round %d, will try up to %d more times",
+							roundRequests[i].rid, m.params.MaxHistoricalRoundsRetries-roundRequests[i].numAttempts)
+					default:
+						jww.WARN.Printf("Failed to retreive historical " +
+							"round %d, failed to try again, round will not be " +
+							"retreived", roundRequests[i].rid)
+					}
+				}
 				continue
 			}
 			// Successfully retrieved roundRequests are sent to the Message

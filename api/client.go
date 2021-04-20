@@ -8,6 +8,7 @@
 package api
 
 import (
+	"gitlab.com/xx_network/primitives/id"
 	"time"
 
 	"github.com/pkg/errors"
@@ -83,31 +84,10 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 
 	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
 
-	// Get current client version
-	currentVersion, err := version.ParseVersion(SEMVER)
-	if err != nil {
-		return errors.WithMessage(err, "Could not parse version string.")
-	}
-
-	// Create Storage
-	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
-	}
-
-	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
-
-	//store the registration code for later use
-	storageSess.SetRegCode(registrationCode)
-
-	//move the registration state to keys generated
-	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to denote state "+
-			"change in session")
 	}
 
 	//TODO: close the session
@@ -134,29 +114,39 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
-	// Get current client version
-	currentVersion, err := version.ParseVersion(SEMVER)
-	if err != nil {
-		return errors.WithMessage(err, "Could not parse version string.")
-	}
-
-	// Create Storage
-	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen, true, "")
 	if err != nil {
 		return err
 	}
+	//TODO: close the session
+	return nil
+}
 
-	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
+// NewVanityClient creates a user with a receptionID that starts with the supplied prefix
+// It creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information
+// at a later date.
+func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCode string, userIdPrefix string) error {
+	jww.INFO.Printf("NewVanityClient()")
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
 
-	//move the registration state to indicate registered with permissioning
-	err = storageSess.ForwardRegistrationStatus(
-		storage.PermissioningComplete)
+	// Parse the NDF
+	def, err := parseNDF(ndfJSON)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to denote state "+
-			"change in session")
+		return err
+	}
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
+
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
+	if err != nil {
+		return err
 	}
 
 	//TODO: close the session
@@ -204,10 +194,13 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	//Open the client
 	c, err := OpenClient(storageDir, password, parameters)
-
 	if err != nil {
 		return nil, err
 	}
+
+	u := c.storage.GetUser()
+	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s " +
+		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
@@ -387,7 +380,9 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
-	jww.INFO.Printf("StartNetworkFollower()")
+	u := c.GetUser()
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s " +
+		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
 
@@ -440,7 +435,6 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
-	close(c.clientErrorChannel)
 	err = c.runner.Close(timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
@@ -517,9 +511,9 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 }
 
 // GetNodeRegistrationStatus gets the current status of node registration. It
-// returns the number of nodes that the client is registered and the number of
-// in progress node registrations. An error is returned if the network is not
-// healthy.
+// returns the the total number of nodes in the NDF and the number of those
+// which are currently registers with. An error is returned if the network is
+// not healthy.
 func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	// Return an error if the network is not healthy
 	if !c.GetHealth().IsHealthy() {
@@ -527,13 +521,24 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 			"network is not healthy")
 	}
 
-	// Get the number of nodes that client is registered with
-	registeredNodes := c.storage.Cmix().Count()
+	nodes := c.GetNetworkInterface().GetInstance().GetPartialNdf().Get().Nodes
+
+	cmixStore := c.storage.Cmix()
+
+	var numRegistered int
+	for i, n := range nodes{
+		nid, err := id.Unmarshal(n.ID)
+		if err!=nil{
+			return 0,0, errors.Errorf("Failed to unmarshal node ID %v " +
+				"(#%d): %s", n.ID, i, err.Error())
+		}
+		if cmixStore.Has(nid){
+			numRegistered++
+		}
+	}
 
 	// Get the number of in progress node registrations
-	inProgress := c.network.InProgressRegistrations()
-
-	return registeredNodes, inProgress, nil
+	return numRegistered, len(nodes), nil
 }
 
 // ----- Utility Functions -----
@@ -566,4 +571,44 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 		large.NewIntFromString(ndf.E2E.Generator, largeIntBits))
 
 	return cmixGrp, e2eGrp
+}
+
+// checkVersionAndSetupStorage is common code shared by NewClient, NewPrecannedClient and NewVanityClient
+// it checks client version and creates a new storage for user data
+func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, password []byte,
+	protoUser user.User, cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
+	isPrecanned bool, registrationCode string) error {
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.WithMessage(err, "Could not parse version string.")
+	}
+
+	// Create Storage
+	passwordStr := string(password)
+	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+	if err != nil {
+		return err
+	}
+
+	// Save NDF to be used in the future
+	storageSess.SetBaseNDF(def)
+
+	if !isPrecanned {
+		//store the registration code for later use
+		storageSess.SetRegCode(registrationCode)
+		//move the registration state to keys generated
+		err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	} else {
+		//move the registration state to indicate registered with permissioning
+		err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
+	}
+
+	if err != nil {
+		return errors.WithMessage(err, "Failed to denote state "+
+			"change in session")
+	}
+
+	return nil
 }

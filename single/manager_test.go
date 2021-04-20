@@ -12,7 +12,6 @@ import (
 	"errors"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces"
-	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/stoppable"
@@ -21,6 +20,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/network"
+	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -31,6 +31,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/netTime"
 	"math/rand"
 	"reflect"
 	"sync"
@@ -67,7 +68,7 @@ func TestManager_StartProcesses(t *testing.T) {
 	callback, callbackChan := createReceiveComm()
 
 	transmitMsg, _, rid, _, err := m.makeTransmitCmixMessage(partner, payload,
-		tag, 8, 32, 30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		tag, 8, 32, 30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
@@ -107,7 +108,7 @@ func TestManager_StartProcesses(t *testing.T) {
 	m.p.Lock()
 	m.p.singleUse[*rid] = newState(sender.dhKey, sender.maxParts, callbackFunc)
 	m.p.Unlock()
-	eid, _, _, _ := ephemeral.GetId(partner.ID, id.ArrIDLen, time.Now().UnixNano())
+	eid, _, _, _ := ephemeral.GetId(partner.ID, id.ArrIDLen, netTime.Now().UnixNano())
 	replyMsg := message.Receive{
 		Payload:     replyMsgs[0].Marshal(),
 		MessageType: message.Raw,
@@ -153,7 +154,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 	callback, callbackChan := createReceiveComm()
 
 	transmitMsg, _, rid, _, err := m.makeTransmitCmixMessage(partner, payload,
-		tag, 8, 32, 30*time.Second, time.Now(), rand.New(rand.NewSource(42)))
+		tag, 8, 32, 30*time.Second, netTime.Now(), rand.New(rand.NewSource(42)))
 	if err != nil {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
@@ -199,7 +200,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 	m.p.Lock()
 	m.p.singleUse[*rid] = newState(sender.dhKey, sender.maxParts, callbackFunc)
 	m.p.Unlock()
-	eid, _, _, _ := ephemeral.GetId(partner.ID, id.ArrIDLen, time.Now().UnixNano())
+	eid, _, _, _ := ephemeral.GetId(partner.ID, id.ArrIDLen, netTime.Now().UnixNano())
 	replyMsg := message.Receive{
 		Payload:     replyMsgs[0].Marshal(),
 		MessageType: message.Raw,

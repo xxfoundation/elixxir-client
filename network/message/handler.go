@@ -37,6 +37,7 @@ func (m *Manager) handleMessages(quitCh <-chan struct{}) {
 func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.IdentityUse) {
 	// We've done all the networking, now process the message
 	fingerprint := ecrMsg.GetKeyFP()
+	msgDigest := ecrMsg.Digest()
 
 	e2eKv := m.Session.E2e()
 
@@ -113,7 +114,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	}
 
 	jww.INFO.Printf("Received message of type %s from %s,"+
-		" msgDigest: %s", encTy, sender, ecrMsg.Digest())
+		" msgDigest: %s", encTy, sender, msgDigest)
 
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message

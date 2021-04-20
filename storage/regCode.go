@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 const regCodeKey = "regCode"
@@ -23,7 +23,7 @@ func (s *Session) SetRegCode(regCode string) {
 		&versioned.Object{
 			Version:   regCodeVersion,
 			Data:      []byte(regCode),
-			Timestamp: time.Now(),
+			Timestamp: netTime.Now(),
 		}); err != nil {
 		jww.FATAL.Panicf("Failed to set the registration code: %s", err)
 	}

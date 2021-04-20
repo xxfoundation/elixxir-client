@@ -11,11 +11,11 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	contact2 "gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
 	"gitlab.com/elixxir/client/storage/reception"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
+	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
@@ -24,6 +24,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/netTime"
 	"io"
 	"sync/atomic"
 	"time"
@@ -72,7 +73,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 
 	// Create new CMIX message containing the transmission payload
 	cmixMsg, dhKey, rid, ephID, err := m.makeTransmitCmixMessage(partner,
-		payload, tag, MaxMsgs, addressSize, timeout, time.Now(), rng)
+		payload, tag, MaxMsgs, addressSize, timeout, netTime.Now(), rng)
 	if err != nil {
 		return errors.Errorf("failed to create new CMIX message: %+v", err)
 	}
@@ -80,7 +81,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 	jww.DEBUG.Printf("Created single-use transmission CMIX message with new ID "+
 		"%s and ephemeral ID %d", rid, ephID.Int64())
 
-	timeStart := time.Now()
+	timeStart := netTime.Now()
 
 	// Add message state to map
 	quitChan, quit, err := m.p.addState(rid, dhKey, MaxMsgs, callback, timeout)
@@ -139,7 +140,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		}
 
 		// Update the timeout for the elapsed time
-		roundEventTimeout := timeout - time.Now().Sub(timeStart) - time.Millisecond
+		roundEventTimeout := timeout - netTime.Now().Sub(timeStart) - time.Millisecond
 
 		// Check message delivery
 		sendResults := make(chan ds.EventReturn, 1)

@@ -11,9 +11,10 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/auth"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -25,46 +26,53 @@ import (
 func (m *Manager) StartProcessies() stoppable.Stoppable {
 
 	stop := stoppable.NewSingle("Auth")
-	authStore := m.storage.Auth()
-	grp := m.storage.E2e().GetGroup()
 
 	go func() {
-		select {
-		case <-stop.Quit():
-			return
-		case msg := <-m.rawMessages:
-			//lookup the message, check if it is an auth request
-			cmixMsg := format.Unmarshal(msg.Payload)
-			fp := cmixMsg.GetKeyFP()
-			jww.INFO.Printf("RAW AUTH FP: %v", fp)
-			// this takes the request lock if it is a specific fp,
-			// all exits after this need to call fail or delete if it is
-			// specific
-			fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
-			if err != nil {
-				jww.TRACE.Printf("FINGERPRINT FAILURE: %s", err.Error())
-				// if the lookup fails, ignore the message. It is likely
-				// garbled or for a different protocol
-				break
-			}
-
-			//denote that the message is not garbled
-			m.storage.GetGarbledMessages().Remove(cmixMsg)
-
-			switch fpType {
-			// if it is general, that means a new request has been received
-			case auth.General:
-				m.handleRequest(cmixMsg, myHistoricalPrivKey, grp)
-			// if it is specific, that means the original request was sent
-			// by this users and a confirmation has been received
-			case auth.Specific:
-				jww.INFO.Printf("Received AutConfirm from %s,"+
-					" msgDigest: %s", sr.GetPartner(), cmixMsg.Digest())
-				m.handleConfirm(cmixMsg, sr, grp)
+		for {
+			select {
+			case <-stop.Quit():
+				return
+			case msg := <-m.rawMessages:
+				m.processAuthMessage(msg)
 			}
 		}
 	}()
 	return stop
+}
+
+func (m *Manager) processAuthMessage(msg message.Receive) {
+	authStore := m.storage.Auth()
+	//lookup the message, check if it is an auth request
+	cmixMsg := format.Unmarshal(msg.Payload)
+	fp := cmixMsg.GetKeyFP()
+	jww.INFO.Printf("RAW AUTH FP: %v", fp)
+	// this takes the request lock if it is a specific fp, all
+	// exits after this need to call fail or delete if it is
+	// specific
+	fpType, sr, myHistoricalPrivKey, err := authStore.GetFingerprint(fp)
+	if err != nil {
+		jww.TRACE.Printf("FINGERPRINT FAILURE: %s", err.Error())
+		// if the lookup fails, ignore the message. It is
+		// likely garbled or for a different protocol
+		return
+	}
+
+	//denote that the message is not garbled
+	m.storage.GetGarbledMessages().Remove(cmixMsg)
+	grp := m.storage.E2e().GetGroup()
+
+	switch fpType {
+	case auth.General:
+		// if it is general, that means a new request has
+		// been received
+		m.handleRequest(cmixMsg, myHistoricalPrivKey, grp)
+	case auth.Specific:
+		// if it is specific, that means the original request was sent
+		// by this users and a confirmation has been received
+		jww.INFO.Printf("Received AutConfirm from %s, msgDigest: %s",
+			sr.GetPartner(), cmixMsg.Digest())
+		m.handleConfirm(cmixMsg, sr, grp)
+	}
 }
 
 func (m *Manager) handleRequest(cmixMsg format.Message,
@@ -152,8 +160,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 					" msgDigest: %s which has been requested, auto-confirming",
 					partnerID, cmixMsg.Digest())
 				// do the confirmation
-				if err := m.doConfirm(sr2, grp, partnerPubKey, myPubKey,
-					ecrFmt.GetOwnership()); err != nil {
+				if err := m.doConfirm(sr2, grp, partnerPubKey, m.storage.E2e().GetDHPrivateKey(),
+					sr2.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
 					jww.WARN.Printf("Auto Confirmation with %s failed: %s",
 						partnerID, err)
 				}
@@ -241,8 +249,8 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	}
 
 	// finalize the confirmation
-	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetPartnerHistoricalPubKey(),
-		ecrFmt.GetOwnership()); err != nil {
+	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
+		sr.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
 		jww.WARN.Printf("Confirmation failed: %s", err)
 		m.storage.Auth().Fail(sr.GetPartner())
 		return
@@ -250,10 +258,10 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 }
 
 func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
-	partnerPubKey, myPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
+	partnerPubKey, myPrivateKeyOwnershipProof, partnerPubKeyOwnershipProof *cyclic.Int, ownershipProof []byte) error {
 	// verify the message came from the intended recipient
-	if !cAuth.VerifyOwnershipProof(sr.GetMyPrivKey(),
-		myPubKeyOwnershipProof, grp, ownershipProof) {
+	if !cAuth.VerifyOwnershipProof(myPrivateKeyOwnershipProof,
+		partnerPubKeyOwnershipProof, grp, ownershipProof) {
 		return errors.Errorf("Failed authenticate identity for auth "+
 			"confirmation of %s", sr.GetPartner())
 	}

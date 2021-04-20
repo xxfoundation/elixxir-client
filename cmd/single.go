@@ -14,10 +14,10 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/utils"
 	"time"
 )
@@ -55,7 +55,7 @@ var singleCmd = &cobra.Command{
 			authMgr.AddGeneralRequestCallback(func(
 				requester contact.Contact, message string) {
 				jww.INFO.Printf("Got request: %s", requester.ID)
-				err := client.ConfirmAuthenticatedChannel(requester)
+				_, err := client.ConfirmAuthenticatedChannel(requester)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}
@@ -75,12 +75,15 @@ var singleCmd = &cobra.Command{
 		// Make single-use manager and start receiving process
 		singleMng := single.NewManager(client)
 
+		// Get the tag
+		tag := viper.GetString("tag")
+
 		// Register the callback
 		callbackChan := make(chan responseCallbackChan)
 		callback := func(payload []byte, c single.Contact) {
 			callbackChan <- responseCallbackChan{payload, c}
 		}
-		singleMng.RegisterCallback("tag", callback)
+		singleMng.RegisterCallback(tag, callback)
 		client.AddService(singleMng.StartProcesses)
 
 		timeout := viper.GetDuration("timeout")
@@ -92,7 +95,7 @@ var singleCmd = &cobra.Command{
 			partner := readSingleUseContact("contact")
 			maxMessages := uint8(viper.GetUint("maxMessages"))
 
-			sendSingleUse(singleMng, partner, payload, maxMessages, timeout)
+			sendSingleUse(singleMng, partner, payload, maxMessages, timeout, tag)
 		}
 
 		// If the reply flag is set, then start waiting for a message and reply
@@ -117,6 +120,10 @@ func init() {
 		"Path to contact file to send message to.")
 	_ = viper.BindPFlag("contact", singleCmd.Flags().Lookup("contact"))
 
+	singleCmd.Flags().StringP("tag", "", "testTag",
+		"The tag that specifies the callback to trigger on reception.")
+	_ = viper.BindPFlag("tag", singleCmd.Flags().Lookup("tag"))
+
 	singleCmd.Flags().Uint8("maxMessages", 1,
 		"The max number of single-use response messages.")
 	_ = viper.BindPFlag("maxMessages", singleCmd.Flags().Lookup("maxMessages"))
@@ -130,7 +137,7 @@ func init() {
 
 // sendSingleUse sends a single use message.
 func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
-	maxMessages uint8, timeout time.Duration) {
+	maxMessages uint8, timeout time.Duration, tag string) {
 	// Construct callback
 	callbackChan := make(chan struct {
 		payload []byte
@@ -151,7 +158,7 @@ func sendSingleUse(m *single.Manager, partner contact.Contact, payload []byte,
 	// Send single-use message
 	fmt.Printf("Sending single-use transmission message: %s\n", payload)
 	jww.DEBUG.Printf("Sending single-use transmission to %s: %s", partner.ID, payload)
-	err := m.TransmitSingleUse(partner, payload, "tag", maxMessages, callback, timeout)
+	err := m.TransmitSingleUse(partner, payload, tag, maxMessages, callback, timeout)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to transmit single-use message: %+v", err)
 	}

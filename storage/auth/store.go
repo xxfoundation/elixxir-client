@@ -11,15 +11,15 @@ import (
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
-	"time"
 )
 
 const NoRequest = "Request Not Found"
@@ -161,7 +161,7 @@ func (s *Store) save() error {
 
 	obj := versioned.Object{
 		Version:   requestMapVersion,
-		Timestamp: time.Now(),
+		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
@@ -405,6 +405,5 @@ func (s *Store) Delete(partner *id.ID) error {
 			"deletion: %+v", err)
 	}
 
-	r.mux.Unlock()
 	return nil
 }

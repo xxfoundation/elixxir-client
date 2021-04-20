@@ -10,11 +10,6 @@ package e2e
 import (
 	"encoding/json"
 	"fmt"
-	"math/big"
-	"sync"
-	"testing"
-	"time"
-
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -24,6 +19,10 @@ import (
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/randomness"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
+	"math/big"
+	"sync"
+	"testing"
 )
 
 const currentSessionVersion = 0
@@ -37,6 +36,8 @@ type Session struct {
 	kv *versioned.KV
 	//params
 	e2eParams params.E2ESessionParams
+
+	partner *id.ID
 
 	//type
 	t RelationshipType
@@ -93,6 +94,8 @@ type SessionDisk struct {
 
 	// Number of keys usable before rekey
 	RekeyThreshold uint32
+
+	Partner []byte
 }
 
 /*CONSTRUCTORS*/
@@ -116,6 +119,7 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 		relationshipFingerprint: relationshipFingerprint,
 		negotiationStatus:       negotiationStatus,
 		partnerSource:           trigger,
+		partner: 				 ship.manager.partner.DeepCopy(),
 	}
 
 	session.kv = session.generate(ship.kv)
@@ -169,12 +173,17 @@ func loadSession(ship *relationship, kv *versioned.KV,
 	}
 	session.relationshipFingerprint = relationshipFingerprint
 
+	if !session.partner.Cmp(ship.manager.partner){
+		return nil, errors.Errorf("Stored partner (%s) did not match " +
+			"relationship partner (%s)", session.partner, ship.manager.partner)
+	}
+
 	return &session, nil
 }
 
 func (s *Session) save() error {
 
-	now := time.Now()
+	now := netTime.Now()
 
 	data, err := s.marshal()
 	if err != nil {
@@ -263,7 +272,7 @@ func (s *Session) GetID() SessionID {
 // returns the ID of the partner for this session
 func (s *Session) GetPartner() *id.ID {
 	if s.relationship != nil {
-		return s.relationship.manager.partner
+		return s.relationship.manager.partner.DeepCopy()
 	} else {
 		return nil
 	}
@@ -280,6 +289,7 @@ func (s *Session) marshal() ([]byte, error) {
 	sd.PartnerPubKey = s.partnerPubKey.Bytes()
 	sd.Trigger = s.partnerSource[:]
 	sd.RelationshipFingerprint = s.relationshipFingerprint
+	sd.Partner = s.partner.Bytes()
 
 	// assume in progress confirmations and session creations have failed on
 	// reset, therefore do not store their pending progress
@@ -316,6 +326,7 @@ func (s *Session) unmarshal(b []byte) error {
 	s.negotiationStatus = Negotiation(sd.Confirmation)
 	s.rekeyThreshold = sd.RekeyThreshold
 	s.relationshipFingerprint = sd.RelationshipFingerprint
+	s.partner, _ = id.Unmarshal(sd.Partner)
 	copy(s.partnerSource[:], sd.Trigger)
 
 	s.keyState, err = loadStateVector(s.kv, "")
@@ -390,12 +401,13 @@ func (s *Session) Status() Status {
 // from this function
 
 var legalStateChanges = [][]bool{
-	{false, false, false, false, false, false},
-	{true, false, true, true, false, false},
-	{false, false, false, true, false, false},
-	{false, false, false, false, true, false},
-	{false, false, false, true, false, true},
-	{false, false, false, false, false, false},
+	// Unconf  Sending  Sent   Confi  NewTrig  NewCreat
+	{false, false, false, false, false, false}, // Unc
+	{true, false, true, true, false, false},    // Sending
+	{false, false, false, true, false, false},  // Sent
+	{false, false, false, false, true, false},  // Confi
+	{false, false, false, true, false, true},   // NewTrig
+	{false, false, true, false, false, false},  // NewCreat
 }
 
 func (s *Session) SetNegotiationStatus(status Negotiation) {
@@ -455,10 +467,12 @@ func (s *Session) triggerNegotiation() bool {
 	// the checked cases will turn out to be false.
 	s.mux.RLock()
 	// If we've used more keys than the RekeyThreshold, it's time for a rekey
-	if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
+	if s.keyState.GetNumUsed() >= s.rekeyThreshold &&
+		s.negotiationStatus < NewSessionTriggered {
 		s.mux.RUnlock()
 		s.mux.Lock()
-		if s.keyState.GetNumUsed() >= s.rekeyThreshold && s.negotiationStatus == Confirmed {
+		if s.keyState.GetNumUsed() >= s.rekeyThreshold &&
+			s.negotiationStatus < NewSessionTriggered {
 			//partnerSource a rekey to create a new session
 			s.negotiationStatus = NewSessionTriggered
 			// no save is make after the update because we do not want this state

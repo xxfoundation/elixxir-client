@@ -17,10 +17,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/switchboard"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
 	"os"
@@ -52,67 +52,7 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("User: %s", user.ReceptionID)
 		writeContact(user.GetContact())
 
-		// Set up reception handler
-		swboard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.Text, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
-
-		// Set up auth request handler, which simply prints the
-		// user id of the requestor.
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// If unsafe channels, add auto-acceptor
-		num_channels_confirmed := 0
-		authMgr.AddGeneralConfirmCallback(func(
-			partner contact.Contact) {
-			jww.INFO.Printf("Channel Confirmed: %s",
-				partner.ID)
-			num_channels_confirmed++
-		})
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requestor contact.Contact, message string) {
-				jww.INFO.Printf("Channel Request: %s",
-					requestor.ID)
-				err := client.ConfirmAuthenticatedChannel(
-					requestor)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-				num_channels_confirmed++
-			})
-		}
-
-		_, err := client.StartNetworkFollower()
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-
-		// Wait until connected or crash on timeout
-		connected := make(chan bool, 10)
-		client.GetHealth().AddChannel(connected)
-		waitUntilConnected(connected)
-
-		// After connection, make sure we have registered with at least
-		// 85% of the nodes
-		numReg := 1
-		numNotReg := 100
-		for numReg < 3*numNotReg {
-			time.Sleep(1 * time.Second)
-			numReg, numNotReg, err = client.GetNodeRegistrationStatus()
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
-			jww.INFO.Printf("Registering with nodes (%d/%d)...",
-				numReg, (numReg + numNotReg))
-		}
-
-		// Send Messages
-		msgBody := viper.GetString("message")
-
+		// Get Recipient and/or set it to myself
 		isPrecanPartner := false
 		recipientContact := readContact()
 		recipientID := recipientContact.ID
@@ -130,22 +70,115 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
+		// Set up reception handler
+		swboard := client.GetSwitchboard()
+		recvCh := make(chan message.Receive, 10000)
+		listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
+			switchboard.AnyUser(), message.Text, recvCh)
+		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+
+		// Set up auth request handler, which simply prints the
+		// user id of the requestor.
+		authMgr := client.GetAuthRegistrar()
+		authMgr.AddGeneralRequestCallback(printChanRequest)
+
+		// If unsafe channels, add auto-acceptor
+		authConfirmed := false
+		authMgr.AddGeneralConfirmCallback(func(
+			partner contact.Contact) {
+			jww.INFO.Printf("Channel Confirmed: %s",
+				partner.ID)
+			authConfirmed = recipientID.Cmp(partner.ID)
+		})
+		if viper.GetBool("unsafe-channel-creation") {
+			authMgr.AddGeneralRequestCallback(func(
+				requestor contact.Contact, message string) {
+				jww.INFO.Printf("Channel Request: %s",
+					requestor.ID)
+				_, err := client.ConfirmAuthenticatedChannel(
+					requestor)
+				if err != nil {
+					jww.FATAL.Panicf("%+v", err)
+				}
+				authConfirmed = recipientID.Cmp(
+					requestor.ID)
+			})
+		}
+
+		_, err := client.StartNetworkFollower()
+		if err != nil {
+			jww.FATAL.Panicf("%+v", err)
+		}
+
+		// Wait until connected or crash on timeout
+		connected := make(chan bool, 10)
+		client.GetHealth().AddChannel(connected)
+		waitUntilConnected(connected)
+
+		// After connection, make sure we have registered with at least
+		// 85% of the nodes
+		numReg := 1
+		total := 100
+		for numReg < (total*3)/4 {
+			time.Sleep(1 * time.Second)
+			numReg, total, err = client.GetNodeRegistrationStatus()
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			jww.INFO.Printf("Registering with nodes (%d/%d)...",
+				numReg, total)
+		}
+
+		// Send Messages
+		msgBody := viper.GetString("message")
+
 		time.Sleep(10 * time.Second)
 
 		// Accept auth request for this recipient
 		if viper.GetBool("accept-channel") {
 			acceptChannel(client, recipientID)
+			// Do not wait for channel confirmations if we
+			// accepted one
+			authConfirmed = true
+		}
+
+		if client.HasAuthenticatedChannel(recipientID) {
+			jww.INFO.Printf("Authenticated channel already in "+
+				"place for %s", recipientID)
+			authConfirmed = true
 		}
 
 		// Send unsafe messages or not?
 		unsafe := viper.GetBool("unsafe")
-		assumeAuth := viper.GetBool("assume-auth-channel")
-		if !unsafe && !assumeAuth {
+
+		sendAuthReq := viper.GetBool("send-auth-request")
+		if !unsafe && !authConfirmed && !isPrecanPartner &&
+			sendAuthReq {
 			addAuthenticatedChannel(client, recipientID,
-				recipientContact, isPrecanPartner)
-			// Do not wait for channel confirmations if we
-			// tried to add a channel
-			num_channels_confirmed++
+				recipientContact)
+		} else if !unsafe && !authConfirmed && isPrecanPartner {
+			addPrecanAuthenticatedChannel(client,
+				recipientID, recipientContact)
+			authConfirmed = true
+		}
+
+		if !unsafe && !authConfirmed {
+			jww.INFO.Printf("Waiting for authentication channel "+
+				" confirmation with partner %s", recipientID)
+			scnt := uint(0)
+			waitSecs := viper.GetUint("auth-timeout")
+			for !authConfirmed && scnt < waitSecs {
+				time.Sleep(1 * time.Second)
+				scnt++
+			}
+			if scnt == waitSecs {
+				jww.FATAL.Panicf("Could not confirm "+
+					"authentication channel for %s, "+
+					"waited %d seconds.", recipientID,
+					waitSecs)
+			}
+			jww.INFO.Printf("Authentication channel confirmation"+
+				" took %d seconds", scnt)
 		}
 
 		msg := message.Send{
@@ -187,7 +220,6 @@ var rootCmd = &cobra.Command{
 				jww.FATAL.Panicf("%+v", err)
 			}
 
-			jww.INFO.Printf("RoundIDs: %+v\n", roundIDs)
 			time.Sleep(sendDelay * time.Millisecond)
 		}
 
@@ -197,9 +229,9 @@ var rootCmd = &cobra.Command{
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
 		waitTimeout := time.Duration(waitSecs)
-		timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 		done := false
 		for !done && expectedCnt != 0 {
+			timeoutTimer := time.NewTimer(waitTimeout * time.Second)
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
@@ -217,13 +249,6 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		if receiveCnt == 0 && sendCnt == 0 {
-			scnt := uint(0)
-			for num_channels_confirmed == 0 && scnt < waitSecs {
-				time.Sleep(1 * time.Second)
-				scnt++
-			}
-		}
 		err = client.StopNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.WARN.Printf(
@@ -281,7 +306,7 @@ func createClient() *api.Client {
 	storeDir := viper.GetString("session")
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
-
+	userIDprefix := viper.GetString("userid-prefix")
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -295,8 +320,14 @@ func createClient() *api.Client {
 			err = api.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, []byte(pass))
 		} else {
-			err = api.NewClient(string(ndfJSON), storeDir,
+			if userIDprefix != "" {
+				err = api.NewVanityClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode, userIDprefix)
+			} else {
+				err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
+			}
+			
 		}
 
 		if err != nil {
@@ -374,7 +405,7 @@ func acceptChannel(client *api.Client, recipientID *id.ID) {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	err = client.ConfirmAuthenticatedChannel(
+	_, err = client.ConfirmAuthenticatedChannel(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -391,14 +422,27 @@ func printChanRequest(requestor contact.Contact, message string) {
 	//fmt.Printf(msg)
 }
 
-func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
-	recipient contact.Contact, isPrecanPartner bool) {
-	if client.HasAuthenticatedChannel(recipientID) {
-		jww.INFO.Printf("Authenticated channel already in place for %s",
-			recipientID)
-		return
+func addPrecanAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+	recipient contact.Contact) {
+	jww.WARN.Printf("Precanned user id detected: %s", recipientID)
+	preUsr, err := client.MakePrecannedAuthenticatedChannel(
+		getPrecanID(recipientID))
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
 	}
+	// Sanity check, make sure user id's haven't changed
+	preBytes := preUsr.ID.Bytes()
+	idBytes := recipientID.Bytes()
+	for i := 0; i < len(preBytes); i++ {
+		if idBytes[i] != preBytes[i] {
+			jww.FATAL.Panicf("no id match: %v %v",
+				preBytes, idBytes)
+		}
+	}
+}
 
+func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
+	recipient contact.Contact) {
 	var allowed bool
 	if viper.GetBool("unsafe-channel-creation") {
 		msg := "unsafe channel creation enabled\n"
@@ -419,28 +463,11 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 
 	recipientContact := recipient
 
-	if isPrecanPartner {
-		jww.WARN.Printf("Precanned user id detected: %s",
-			recipientID)
-		preUsr, err := client.MakePrecannedAuthenticatedChannel(
-			getPrecanID(recipientID))
-		if err != nil {
-			jww.FATAL.Panicf("%+v", err)
-		}
-		// Sanity check, make sure user id's haven't changed
-		preBytes := preUsr.ID.Bytes()
-		idBytes := recipientID.Bytes()
-		for i := 0; i < len(preBytes); i++ {
-			if idBytes[i] != preBytes[i] {
-				jww.FATAL.Panicf("no id match: %v %v",
-					preBytes, idBytes)
-			}
-		}
-	} else if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
+	if recipientContact.ID != nil && recipientContact.DhPubKey != nil {
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		err := client.RequestAuthenticatedChannel(recipientContact,
+		_, err := client.RequestAuthenticatedChannel(recipientContact,
 			me, msg)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
@@ -708,15 +735,21 @@ func init() {
 	viper.BindPFlag("unsafe-channel-creation",
 		rootCmd.Flags().Lookup("unsafe-channel-creation"))
 
-	rootCmd.Flags().BoolP("assume-auth-channel", "", false,
-		"Do not check for an authentication channel for this user")
-	viper.BindPFlag("assume-auth-channel",
-		rootCmd.Flags().Lookup("assume-auth-channel"))
-
 	rootCmd.Flags().BoolP("accept-channel", "", false,
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
+
+	rootCmd.Flags().BoolP("send-auth-request", "", false,
+		"Send an auth request to the specified destination and wait"+
+			"for confirmation")
+	viper.BindPFlag("send-auth-request",
+		rootCmd.Flags().Lookup("send-auth-request"))
+	rootCmd.Flags().UintP("auth-timeout", "", 120,
+		"The number of seconds to wait for an authentication channel"+
+			"to confirm")
+	viper.BindPFlag("auth-timeout",
+		rootCmd.Flags().Lookup("auth-timeout"))
 
 	rootCmd.Flags().BoolP("forceHistoricalRounds", "", false,
 		"Force all rounds to be sent to historical round retrieval")

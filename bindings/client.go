@@ -13,14 +13,18 @@ import (
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"sync"
 	"time"
 )
+
+var extantClient bool
+var loginMux sync.Mutex
 
 // sets the log level
 func init() {
@@ -75,6 +79,14 @@ func NewPrecannedClient(precannedID int, network, storageDir string, password []
 // Login does not block on network connection, and instead loads and
 // starts subprocesses to perform network operations.
 func Login(storageDir string, password []byte, parameters string) (*Client, error) {
+	loginMux.Lock()
+	defer loginMux.Unlock()
+
+	if extantClient {
+		return nil, errors.New("cannot login when another session " +
+			"already exists")
+	}
+	// check if a client is already logged in, refuse to login if one is
 	p, err := params.GetNetworkParameters(parameters)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
@@ -84,7 +96,8 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
-	return &Client{*client}, nil
+	extantClient = true
+	return &Client{api: *client}, nil
 }
 
 // sets level of logging. All logs the set level and above will be displayed
@@ -124,6 +137,11 @@ func LogLevel(level int) error {
 	}
 
 	return nil
+}
+
+//RegisterLogWriter registers a callback on which logs are written.
+func RegisterLogWriter(writer LogWriter) {
+	jww.SetLogOutput(&writerAdapter{lw: writer})
 }
 
 //Unmarshals a marshaled contact object, returns an error if it fails
@@ -201,6 +219,20 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 			"network follower: %+v", err))
 	}
 	return nil
+}
+
+// WaitForNewtwork will block until either the network is healthy or the
+// passed timeout. It will return true if the network is healthy
+func (c *Client) WaitForNetwork(timeoutMS int) bool {
+	start := time.Now()
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	for time.Now().Sub(start) < timeout {
+		if c.api.GetHealth().IsHealthy() {
+			return true
+		}
+		time.Sleep(250 * time.Millisecond)
+	}
+	return false
 }
 
 // Gets the state of the network follower. Returns:
@@ -301,18 +333,35 @@ func (c *Client) RegisterRoundEventsHandler(rid int, cb RoundEventCallback,
 	return newRoundUnregister(roundID, ec, c.api.GetRoundEvents())
 }
 
-// RegisterMessageDeliveryCB allows the caller to get notified if the rounds a
-// message was sent in successfully completed. Under the hood, this uses the same
-// interface as RegisterRoundEventsHandler, but provides a convenient way to use
-// the interface in its most common form, looking up the result of message
-// retrieval
+// WaitForRoundCompletion allows the caller to get notified if a round
+// has completed (or failed). Under the hood, this uses an API which uses the internal
+// round data, network historical round lookup, and waiting on network events
+// to determine what has (or will) occur.
+//
+// The callbacks will return at timeoutMS if no state update occurs
+func (c *Client) WaitForRoundCompletion(roundID int,
+	rec RoundCompletionCallback, timeoutMS int) error {
+
+	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
+		rec.EventCallback(roundID, allRoundsSucceeded, timedOut)
+	}
+
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+
+	return c.api.GetRoundResults([]id.Round{id.Round(roundID)}, timeout, f)
+}
+
+// WaitForMessageDelivery allows the caller to get notified if the rounds a
+// message was sent in successfully completed. Under the hood, this uses an API
+// which uses the internal round data, network historical round lookup, and
+// waiting on network events to determine what has (or will) occur.
 //
 // The callbacks will return at timeoutMS if no state update occurs
 //
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a reference to
 // the same pointer.
-func (c *Client) WaitForRoundCompletion(marshaledSendReport []byte,
+func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) error {
 
 	sr, err := UnmarshalSendReport(marshaledSendReport)
@@ -346,11 +395,11 @@ func (c *Client) GetUser() *User {
 }
 
 // GetNodeRegistrationStatus returns a struct with the number of nodes the
-// client is registered with and the number of in progress registrations.
+// client is registered with and the number total.
 func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
-	registered, inProgress, err := c.api.GetNodeRegistrationStatus()
+	registered, total, err := c.api.GetNodeRegistrationStatus()
 
-	return &NodeRegistrationsStatus{registered, inProgress}, err
+	return &NodeRegistrationsStatus{registered, total}, err
 }
 
 /*

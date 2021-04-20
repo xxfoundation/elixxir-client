@@ -9,7 +9,7 @@ package bindings
 
 import (
 	"errors"
-	"gitlab.com/elixxir/client/interfaces/contact"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 )
@@ -99,8 +99,8 @@ func (fl *FactList) Num() int {
 	return len(fl.c.Facts)
 }
 
-func (fl *FactList) Get(i int) Fact {
-	return Fact{f: &(fl.c.Facts)[i]}
+func (fl *FactList) Get(i int) *Fact {
+	return &Fact{f: &(fl.c.Facts)[i]}
 }
 
 func (fl *FactList) Add(factData string, factType int) error {

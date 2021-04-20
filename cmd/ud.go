@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"gitlab.com/elixxir/client/interfaces/contact"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/client/ud"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"time"
 )
@@ -55,7 +55,7 @@ var udCmd = &cobra.Command{
 			authMgr.AddGeneralRequestCallback(func(
 				requester contact.Contact, message string) {
 				jww.INFO.Printf("Got Request: %s", requester.ID)
-				err := client.ConfirmAuthenticatedChannel(requester)
+				_, err := client.ConfirmAuthenticatedChannel(requester)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
 				}

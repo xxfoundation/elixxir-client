@@ -50,7 +50,7 @@ func TestNewHostPool(t *testing.T) {
 	_, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
-		t.Errorf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 }
 
@@ -86,7 +86,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
-		t.Errorf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
 	// Construct a list of new gateways/nodes to add to ndf
@@ -447,13 +447,12 @@ func TestHostPool_GetPreferred(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 		hostMap[*gwId] = true
@@ -465,7 +464,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
-		t.Errorf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
 	retrievedList := testPool.getPreferred(targets)
@@ -517,13 +516,12 @@ func TestHostPool_GetAny(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 	}
@@ -532,7 +530,7 @@ func TestHostPool_GetAny(t *testing.T) {
 	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
-		t.Errorf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
 	requested := 3
@@ -574,13 +572,12 @@ func TestHostPool_ForceAdd(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 	}
@@ -635,13 +632,12 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 	}
@@ -650,7 +646,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
-		t.Errorf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
 	// Construct a list of new gateways/nodes to add to ndf
@@ -725,7 +721,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	testPool, err := newHostPool(params, rng, testNdf, manager,
 		testStorage, addGwChan)
 	if err != nil {
-		t.Errorf("Failed to create mock host pool: %v", err)
+		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
 	// Construct a list of new gateways/nodes to add to ndf

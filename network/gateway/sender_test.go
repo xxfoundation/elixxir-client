@@ -48,13 +48,12 @@ func TestSender_SendToAny(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 	}
@@ -120,13 +119,12 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 	}
@@ -207,13 +205,12 @@ func TestSender_SendToSpecific(t *testing.T) {
 
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
-			t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
+			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 		// Add mock gateway to manager
 		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
 		if err != nil {
-			t.Errorf("Could not add mock host to manager: %v", err)
-			t.FailNow()
+			t.Fatalf("Could not add mock host to manager: %v", err)
 		}
 
 	}

@@ -120,14 +120,14 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	h.ndfMux.Lock()
 	h.ndf = ndf
-	h.ndfMux.Unlock()
 
-	h.ndfMux.RLock()
+	h.hostMux.Lock()
 	err := h.updateConns()
+	h.hostMux.Unlock()
 	if err != nil {
 		jww.ERROR.Printf("Unable to updateConns: %+v", err)
 	}
-	h.ndfMux.RUnlock()
+	h.ndfMux.Unlock()
 }
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool

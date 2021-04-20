@@ -24,7 +24,6 @@ package network
 
 import (
 	"fmt"
-	"math"
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -217,20 +216,12 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		return
 	}
 
-	firstRound := id.Round(math.MaxUint64)
-	lastRound := id.Round(0)
 
 	//prepare the filter objects for processing
-	filterList := make([]*rounds.RemoteFilter, filtersEnd-filtersStart)
+	filterList := make([]*rounds.RemoteFilter, 0, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
 		if len(pollResp.Filters.Filters[i].Filter) != 0 {
-			filterList[i-filtersStart] = rounds.NewRemoteFilter(pollResp.Filters.Filters[i])
-			if filterList[i-filtersStart].FirstRound() < firstRound {
-				firstRound = filterList[i-filtersStart].FirstRound()
-			}
-			if filterList[i-filtersStart].LastRound() > lastRound {
-				lastRound = filterList[i-filtersStart].LastRound()
-			}
+			filterList= append(filterList,rounds.NewRemoteFilter(pollResp.Filters.Filters[i]))
 		}
 	}
 

@@ -103,7 +103,8 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 		if err == nil {
 			return result, nil
 		} else {
-			jww.WARN.Printf("Unable to SendToPreferred %s: %+v", targetHosts[i].GetId().String(), err)
+			jww.WARN.Printf("Unable to SendToPreferred %s via %s: %+v",
+				targets[i], targetHosts[i].GetId(), err)
 			err = s.checkReplace(targetHosts[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
@@ -113,11 +114,13 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 
 	proxies := s.getAny(s.poolParams.ProxyAttempts, targets)
 	for i := range proxies {
-		result, err := sendFunc(proxies[i], targets[i%len(targets)])
+		target := targets[i%len(targets)].DeepCopy()
+		result, err := sendFunc(proxies[i], target)
 		if err == nil {
 			return result, nil
 		} else {
-			jww.WARN.Printf("Unable to SendToPreferred proxy %s: %+v", proxies[i].GetId().String(), err)
+			jww.WARN.Printf("Unable to SendToPreferred %s via proxy "+
+				"%s: %+v", target, proxies[i].GetId(), err)
 			err = s.checkReplace(proxies[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)

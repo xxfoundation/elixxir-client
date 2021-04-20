@@ -209,7 +209,9 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 				// If the Host is still in the pool
 				if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
 					// Replace it
+					h.ndfMux.RLock()
 					err := h.forceReplace(oldPoolIndex)
+					h.ndfMux.RUnlock()
 					h.hostMux.Unlock()
 					return err
 				}
@@ -226,8 +228,6 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 // Replace given Host index with a new, randomly-selected Host from the NDF
 func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
 	rng := h.rng.GetStream()
-	h.ndfMux.RLock()
-	defer h.ndfMux.RUnlock()
 	defer rng.Close()
 
 	// Loop until a replacement Host is found
@@ -360,8 +360,10 @@ func (h *HostPool) removeGateway(gwId *id.ID) {
 	h.manager.RemoveHost(gwId)
 	// If needed, flag the Host for deletion from the HostPool
 	if poolIndex, ok := h.hostMap[*gwId]; ok {
-		h.hostList[poolIndex] = nil
-		delete(h.hostMap, *gwId)
+		err := h.forceReplace(poolIndex)
+		if err != nil {
+			jww.ERROR.Printf("Unable to replace n removeGateway: %+v", err)
+		}
 	}
 }
 

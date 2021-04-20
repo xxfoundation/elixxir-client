@@ -48,7 +48,7 @@ func (s *Sender) SendToSpecific(target *id.ID,
 			if didAbort {
 				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway %s", host.GetId().String())
 			}
-			jww.WARN.Printf("Unable to SendToSpecific %s: %+v", host.GetId().String(), err)
+			jww.WARN.Printf("Unable to SendToSpecific %s: %s", host.GetId().String(), err)
 		}
 	}
 
@@ -62,7 +62,7 @@ func (s *Sender) SendToSpecific(target *id.ID,
 				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway proxy %s",
 					host.GetId().String())
 			}
-			jww.WARN.Printf("Unable to SendToSpecific proxy %s: %+v", proxies[i].GetId().String(), err)
+			jww.WARN.Printf("Unable to SendToSpecific proxy %s: %s", proxies[i].GetId().String(), err)
 			err = s.checkReplace(proxies[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
@@ -82,7 +82,7 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 		if err == nil {
 			return result, nil
 		} else {
-			jww.WARN.Printf("Unable to SendToAny %s: %+v", proxies[i].GetId().String(), err)
+			jww.WARN.Printf("Unable to SendToAny %s: %s", proxies[i].GetId().String(), err)
 			err = s.checkReplace(proxies[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
@@ -103,7 +103,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 		if err == nil {
 			return result, nil
 		} else {
-			jww.WARN.Printf("Unable to SendToPreferred %s via %s: %+v",
+			jww.WARN.Printf("Unable to SendToPreferred %s via %s: %s",
 				targets[i], targetHosts[i].GetId(), err)
 			err = s.checkReplace(targetHosts[i].GetId(), err)
 			if err != nil {
@@ -120,7 +120,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 			return result, nil
 		} else {
 			jww.WARN.Printf("Unable to SendToPreferred %s via proxy "+
-				"%s: %+v", target, proxies[i].GetId(), err)
+				"%s: %s", target, proxies[i].GetId(), err)
 			err = s.checkReplace(proxies[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)

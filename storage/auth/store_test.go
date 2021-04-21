@@ -526,11 +526,11 @@ func TestStore_Fail(t *testing.T) {
 		}
 	}()
 
-	s.Fail(c.ID)
+	s.Done(c.ID)
 
 	// Check if the request's mutex is locked
 	if reflect.ValueOf(&s.requests[*c.ID].mux).Elem().FieldByName("state").Int() != 0 {
-		t.Errorf("Fail() did not unlock mutex.")
+		t.Errorf("Done() did not unlock mutex.")
 	}
 }
 
@@ -540,11 +540,11 @@ func TestStore_Fail_RequestNotInMap(t *testing.T) {
 
 	defer func() {
 		if r := recover(); r == nil {
-			t.Errorf("Fail() did not panic when the request is not in map.")
+			t.Errorf("Done() did not panic when the request is not in map.")
 		}
 	}()
 
-	s.Fail(id.NewIdFromUInt(rand.Uint64(), id.User, t))
+	s.Done(id.NewIdFromUInt(rand.Uint64(), id.User, t))
 }
 
 // Happy path: receive request.

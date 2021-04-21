@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -23,7 +24,7 @@ import (
 // Unit test
 func TestNewHostPool(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -57,7 +58,7 @@ func TestNewHostPool(t *testing.T) {
 // Unit test
 func TestHostPool_ManageHostPool(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -254,7 +255,7 @@ func TestHostPool_ReplaceHost_Error(t *testing.T) {
 // Unit test
 func TestHostPool_ForceReplace(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -323,7 +324,7 @@ func TestHostPool_ForceReplace(t *testing.T) {
 // Unit test
 func TestHostPool_CheckReplace(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -377,7 +378,7 @@ func TestHostPool_CheckReplace(t *testing.T) {
 	// Check that an error not in the global list results in a no-op
 	goodGatewayIndex := 0
 	goodGateway := testPool.hostList[goodGatewayIndex]
-	unexpectedErr := fmt.Errorf("Not in global error list")
+	unexpectedErr := fmt.Errorf("not in global error list")
 	err = testPool.checkReplace(oldHost.GetId(), unexpectedErr)
 	if err != nil {
 		t.Errorf("Failed to check replace: %v", err)
@@ -433,7 +434,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 // Full test
 func TestHostPool_GetPreferred(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -504,7 +505,7 @@ func TestHostPool_GetPreferred(t *testing.T) {
 // Unit test
 func TestHostPool_GetAny(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -560,7 +561,7 @@ func TestHostPool_GetAny(t *testing.T) {
 // Unit test
 func TestHostPool_ForceAdd(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -620,7 +621,7 @@ func TestHostPool_ForceAdd(t *testing.T) {
 // Unit test which only adds information to ndf
 func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -694,7 +695,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 // Unit test which only adds information to ndf
 func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -813,6 +814,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 		ndf:            testNdf,
 		addGatewayChan: make(chan network.NodeGateway),
 		storage:        storage.InitTestingSession(t),
+		rng:            fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 	}
 
 	ndfIndex := 0

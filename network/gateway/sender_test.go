@@ -10,6 +10,7 @@ package gateway
 import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -20,7 +21,7 @@ import (
 // Unit test
 func TestNewSender(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -36,7 +37,7 @@ func TestNewSender(t *testing.T) {
 // Unit test
 func TestSender_SendToAny(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -103,7 +104,7 @@ func TestSender_SendToAny(t *testing.T) {
 // Unit test
 func TestSender_SendToPreferred(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
@@ -189,7 +190,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 
 func TestSender_SendToSpecific(t *testing.T) {
 	manager := newMockManager()
-	rng := csprng.NewSystemRNG()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)

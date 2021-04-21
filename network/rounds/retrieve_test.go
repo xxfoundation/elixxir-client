@@ -38,7 +38,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.PoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG).GetStream(),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
@@ -129,7 +129,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 
 	testManager.sender, _ = gateway.NewSender(p,
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG).GetStream(),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)
 	quitChan := make(chan struct{})
 
@@ -207,7 +207,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.PoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG).GetStream(),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
@@ -352,7 +352,7 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	p := gateway.DefaultPoolParams()
 	p.PoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
-		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG).GetStream(),
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is

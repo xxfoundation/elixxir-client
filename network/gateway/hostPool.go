@@ -358,11 +358,11 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 // updateConns helper for removing old Gateways
 func (h *HostPool) removeGateway(gwId *id.ID) {
 	h.manager.RemoveHost(gwId)
-	// If needed, flag the Host for deletion from the HostPool
+	// If needed, replace the removed Gateway in the HostPool with a new one
 	if poolIndex, ok := h.hostMap[*gwId]; ok {
 		err := h.forceReplace(poolIndex)
 		if err != nil {
-			jww.ERROR.Printf("Unable to replace n removeGateway: %+v", err)
+			jww.ERROR.Printf("Unable to removeGateway: %+v", err)
 		}
 	}
 }

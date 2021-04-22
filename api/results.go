@@ -105,30 +105,24 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			// Check if the round is done (completed or failed) or in progress
 			if states.Round(roundInfo.State) == states.COMPLETED {
 				roundsResults[rnd] = Succeeded
-				jww.INFO.Printf("Round %v succeeded", rnd)
 			} else if states.Round(roundInfo.State) == states.FAILED {
 				roundsResults[rnd] = Failed
 				allRoundsSucceeded = false
-				jww.INFO.Printf("Round %v failed", rnd)
 			} else {
-				jww.INFO.Printf("Round %v is being waited on", rnd)
 				// If in progress, add a channel monitoring its status
 				roundEvents.AddRoundEventChan(rnd, sendResults,
 					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
 				numResults++
 			}
 		} else {
-			jww.INFO.Printf("Failed to get round [%d] in buffer: %v", rnd, err)
 			// Update oldest round (buffer may have updated externally)
 			if rnd < oldestRound {
-				jww.INFO.Printf("Getting round [%d] via historical lookup", rnd)
 				// If round is older that oldest round in our buffer
 				// Add it to the historical round request (performed later)
 				historicalRequest.Rounds = append(historicalRequest.Rounds, uint64(rnd))
 				numResults++
 			} else {
 				// Otherwise, monitor it's progress
-				jww.INFO.Printf("Getting round [%d] via wait:", rnd)
 				roundEvents.AddRoundEventChan(rnd, sendResults,
 					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
 				numResults++
@@ -138,20 +132,17 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 	// Find out what happened to old (historical) rounds if any are needed
 	if len(historicalRequest.Rounds) > 0 {
-		jww.INFO.Printf("Requesting %v rounds via historical lookup", historicalRequest.Rounds)
 		go c.getHistoricalRounds(historicalRequest, networkInstance, sendResults, commsInterface)
 	}
 
 	// Determine the results of all rounds requested
 	go func() {
-		jww.INFO.Printf("waiting for %v rounds to respond", numResults)
 		// Create the results timer
 		timer := time.NewTimer(timeout)
 		for {
 
 			// If we know about all rounds, return
 			if numResults == 0 {
-				jww.INFO.Printf("Got response from all results")
 				roundCallback(allRoundsSucceeded, false, roundsResults)
 				return
 			}
@@ -159,7 +150,6 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 			// Wait for info about rounds or the timeout to occur
 			select {
 			case <-timer.C:
-				jww.INFO.Printf("Got timeout before all results returned")
 				roundCallback(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
@@ -169,10 +159,8 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				// Skip if the round is nil (unknown from historical rounds)
 				// they default to timed out, so correct behavior is preserved
 				if  roundReport.RoundInfo == nil || roundReport.TimedOut {
-					jww.INFO.Printf("Got result from unknown, %v remain", numResults)
 					allRoundsSucceeded = false
 				} else {
-					jww.INFO.Printf("Got result from %v, %v remain", roundReport.RoundInfo.ID, numResults)
 					// If available, denote the result
 					roundId := id.Round(roundReport.RoundInfo.ID)
 					if states.Round(roundReport.RoundInfo.State) == states.COMPLETED {
@@ -215,6 +203,8 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 		if err == nil {
 			jww.ERROR.Printf("Failed to lookup historical rounds: %s",
 				err)
+		}else{
+			break
 		}
 	}
 

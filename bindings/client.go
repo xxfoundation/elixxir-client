@@ -372,9 +372,6 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 			"unmarshal: %s", string(marshaledSendReport)))
 	}
 
-	jww.INFO.Printf("WaitForMessageDelivery, send report unmarsheled, " +
-		"building func")
-
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
 		jww.INFO.Printf("Processing WaitForMessageDelivery report " +
@@ -389,18 +386,9 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 		mdc.EventCallback(sr.mid.Marshal(), allRoundsSucceeded, timedOut, results)
 	}
 
-	jww.INFO.Printf("WaitForMessageDelivery, func built, " +
-		"calculating time")
-
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	jww.INFO.Printf("WaitForMessageDelivery, time calculated, " +
-		"calling internal API")
-
 	err = c.api.GetRoundResults(sr.rl.list, timeout, f)
-
-	jww.INFO.Printf("WaitForMessageDelivery, internal API called, " +
-		"returning result")
 
 	return err
 }

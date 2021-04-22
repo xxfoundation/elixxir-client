@@ -110,11 +110,13 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	pollResp, err := comms.SendPoll(gwHost, &pollReq)
 	if err != nil {
-		report(
-			"NetworkFollower",
-			fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), gwHost.String()),
-			fmt.Sprintf("%+v", err),
-		)
+		if report!=nil{
+			report(
+				"NetworkFollower",
+				fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), gwHost.String()),
+				fmt.Sprintf("%+v", err),
+			)
+		}
 		jww.ERROR.Printf("Unable to poll %s for NDF: %+v", gwHost, err)
 		return
 	}

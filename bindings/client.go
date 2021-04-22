@@ -367,12 +367,14 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 	sr, err := UnmarshalSendReport(marshaledSendReport)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to "+
-			"WaitForRoundCompletion callback due to bad Send Report: %+v", err))
+			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
 	}
 
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
-
+		jww.INFO.Printf("Processing WaitForMessageDelivery report " +
+			"for %v, success: %v, timedout: %v", sr.mid, allRoundsSucceeded,
+			timedOut)
 		for i, r := range sr.rl.list {
 			if result, exists := rounds[r]; exists {
 				results[i] = byte(result)

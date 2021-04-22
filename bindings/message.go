@@ -7,7 +7,10 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/interfaces/message"
+import (
+	"gitlab.com/elixxir/client/interfaces/message"
+	jww "github.com/spf13/jwalterweatherman"
+)
 
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.
@@ -37,7 +40,11 @@ func (m *Message) GetMessageType() int {
 
 // Returns the message's timestamp in ms
 func (m *Message) GetTimestampMS() int {
-	return int(m.r.Timestamp.UnixNano()/1000000)
+	ts := m.r.Timestamp.UnixNano()
+	jww.INFO.Printf("Received Timestamp: %d", ts)
+	ts = ts/1000000
+	jww.INFO.Printf("Converted Timestamp: %d", ts)
+	return int(ts)
 }
 
 func (m *Message) GetTimestampNano() int {

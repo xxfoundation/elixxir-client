@@ -363,12 +363,16 @@ func (c *Client) WaitForRoundCompletion(roundID int,
 // the same pointer.
 func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) error {
-
+	jww.INFO.Printf("WaitForMessageDelivery(%v, _, %v)",
+		marshaledSendReport, timeoutMS)
 	sr, err := UnmarshalSendReport(marshaledSendReport)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to "+
 			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
 	}
+
+	jww.INFO.Printf("WaitForMessageDelivery, send report unmarsheled, " +
+		"building func")
 
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
@@ -384,9 +388,20 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 		mdc.EventCallback(sr.mid.Marshal(), allRoundsSucceeded, timedOut, results)
 	}
 
+	jww.INFO.Printf("WaitForMessageDelivery, func built, " +
+		"calculating time")
+
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	return c.api.GetRoundResults(sr.rl.list, timeout, f)
+	jww.INFO.Printf("WaitForMessageDelivery, time calculated, " +
+		"calling internal API")
+
+	err = c.api.GetRoundResults(sr.rl.list, timeout, f)
+
+	jww.INFO.Printf("WaitForMessageDelivery, internal API called, " +
+		"returning result")
+
+	return err
 }
 
 // Returns a user object from which all information about the current user

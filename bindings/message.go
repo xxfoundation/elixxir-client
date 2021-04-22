@@ -39,14 +39,14 @@ func (m *Message) GetMessageType() int {
 }
 
 // Returns the message's timestamp in ms
-func (m *Message) GetTimestampMS() int {
+func (m *Message) GetTimestampMS() int64 {
 	ts := m.r.Timestamp.UnixNano()
 	jww.INFO.Printf("Received Timestamp: %d", ts)
-	ts = ts/1000000
+	ts = (ts+999999)/1000000
 	jww.INFO.Printf("Converted Timestamp: %d", ts)
-	return int(ts)
+	return ts
 }
 
-func (m *Message) GetTimestampNano() int {
-	return int(m.r.Timestamp.UnixNano())
+func (m *Message) GetTimestampNano() int64 {
+	return m.r.Timestamp.UnixNano()
 }

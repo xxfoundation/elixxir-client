@@ -67,6 +67,8 @@ type historicalRoundsComm interface {
 func (c *Client) GetRoundResults(roundList []id.Round, timeout time.Duration,
 	roundCallback RoundEventCallback) error {
 
+	jww.INFO.Printf("GetRoundResults(%v, %s)", roundList, timeout)
+
 	sendResults := make(chan ds.EventReturn, len(roundList))
 
 	return c.getRoundResults(roundList, timeout, roundCallback,
@@ -91,6 +93,8 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 	allRoundsSucceeded := true
 	numResults := 0
 
+	oldestRound := networkInstance.GetOldestRoundID()
+
 	// Parse and adjudicate every round
 	for _, rnd := range roundList {
 		// Every round is timed out by default, until proven to have finished
@@ -111,9 +115,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				numResults++
 			}
 		} else {
-			jww.DEBUG.Printf("Failed to ger round [%d] in buffer: %v", rnd, err)
 			// Update oldest round (buffer may have updated externally)
-			oldestRound := networkInstance.GetOldestRoundID()
 			if rnd < oldestRound {
 				// If round is older that oldest round in our buffer
 				// Add it to the historical round request (performed later)
@@ -151,10 +153,12 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				roundCallback(false, true, roundsResults)
 				return
 			case roundReport := <-sendResults:
+
 				numResults--
+
 				// Skip if the round is nil (unknown from historical rounds)
 				// they default to timed out, so correct behavior is preserved
-				if roundReport.RoundInfo == nil || roundReport.TimedOut {
+				if  roundReport.RoundInfo == nil || roundReport.TimedOut {
 					allRoundsSucceeded = false
 				} else {
 					// If available, denote the result
@@ -182,12 +186,14 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 
 	var resp *pb.HistoricalRoundsResponse
 
-	for {
+	//retry 5 times
+	for i:=0;i<5;i++{
 		// Find a gateway to request about the roundRequests
 		gwHost, err := gateway.Get(instance.GetPartialNdf().Get(), comms, c.rng.GetStream())
 		if err != nil {
-			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
+			jww.ERROR.Printf("Failed to track network, NDF has corrupt "+
 				"data: %s", err)
+			continue
 		}
 
 		// If an error, retry with (potentially) a different gw host.
@@ -195,8 +201,15 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 		// and process rounds
 		resp, err = comms.RequestHistoricalRounds(gwHost, msg)
 		if err == nil {
+			jww.ERROR.Printf("Failed to lookup historical rounds: %s",
+				err)
+		}else{
 			break
 		}
+	}
+
+	if resp == nil{
+		return
 	}
 
 	// Process historical rounds, sending back to the caller thread

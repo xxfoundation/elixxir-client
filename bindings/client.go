@@ -8,7 +8,6 @@
 package bindings
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -157,11 +156,7 @@ func UnmarshalContact(b []byte) (*Contact, error) {
 //Unmarshals a marshaled send report object, returns an error if it fails
 func UnmarshalSendReport(b []byte) (*SendReport, error) {
 	sr := &SendReport{}
-	if err := json.Unmarshal(b, sr); err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to Unmarshal "+
-			"Send Report: %+v", err))
-	}
-	return sr, nil
+	return sr, sr.Unmarshal(b)
 }
 
 // StartNetworkFollower kicks off the tracking of the network. It starts
@@ -369,6 +364,12 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to "+
 			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
+	}
+
+	if sr==nil || sr.rl == nil || len(sr.rl.list) == 0{
+		return errors.New(fmt.Sprintf("Failed to "+
+			"WaitForMessageDelivery callback due to invalid Send Report " +
+			"unmarshal: %s", string(marshaledSendReport)))
 	}
 
 	jww.INFO.Printf("WaitForMessageDelivery, send report unmarsheled, " +

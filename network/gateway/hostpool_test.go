@@ -9,7 +9,6 @@ package gateway
 
 import (
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -824,15 +823,9 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 		t.Errorf("Failed to unmarshal ID in mock ndf: %v", err)
 	}
 
-	// Add the new gateway host
-	h, err := hostPool.manager.AddHost(gwId, "", nil, params.HostParams)
-	if err != nil {
-		jww.ERROR.Printf("Could not add gateway host %s: %+v", gwId, err)
-	}
-
 	// Manually add host information
-	hostPool.hostMap[*gwId] = uint32(ndfIndex)
-	hostPool.hostList[ndfIndex] = h
+	 hostPool.addGateway(gwId, ndfIndex)
+
 
 	// Call the removal
 	hostPool.removeGateway(gwId)

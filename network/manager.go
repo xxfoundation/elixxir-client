@@ -43,8 +43,8 @@ type manager struct {
 	round   *rounds.Manager
 	message *message.Manager
 
-	//map of polls for debugging
-	tracker *pollTracker
+	//number of polls done in a period of time
+	tracker *uint64
 
 	//tracks already checked rounds
 	checked *checkedRounds
@@ -67,10 +67,12 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	// set them here when they are needed on startup
 	session.E2e().SetE2ESessionParams(params.E2EParams)
 
+	tracker := uint64(0)
+
 	//create manager object
 	m := manager{
 		param:   params,
-		tracker: newPollTracker(),
+		tracker: &tracker,
 		checked: newCheckedRounds(),
 	}
 

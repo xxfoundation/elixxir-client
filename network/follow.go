@@ -52,7 +52,7 @@ type followNetworkComms interface {
 // round status, and informs the client when messages can be retrieved.
 func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
-	TrackTicker := time.NewTicker(debugTrackPeriod)
+	//TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
 
 	done := false
@@ -63,9 +63,9 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 			done = true
 		case <-ticker.C:
 			m.follow(report, rng, m.Comms)
-		case <-TrackTicker.C:
-			jww.INFO.Println(m.tracker.Report())
-			m.tracker = newPollTracker()
+		//case <-TrackTicker.C:
+		//	jww.INFO.Println(m.tracker.Report())
+		//	m.tracker = newPollTracker()
 		}
 	}
 }
@@ -80,7 +80,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			"impossible: %+v", err)
 	}
 
-	m.tracker.Track(identity.EphId, identity.Source)
+	//m.tracker.Track(identity.EphId, identity.Source)
 
 	//randomly select a gateway to poll
 	//TODO: make this more intelligent

@@ -108,7 +108,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		RoundID:  uint64(roundID),
 	}
 	msgResp, err := comms.RequestMessages(gwHost, msgReq)
-	// Done the round if an error occurs so it can be tried again later
+	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
 			"request messages from %s for round %d", gwHost.GetId(), roundID)

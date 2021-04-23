@@ -27,19 +27,20 @@ func (c *Client) MakePrecannedAuthenticatedChannel(precannedID int) (*Contact, e
 // authenticated channel
 // It will not run if the network status is not healthy
 // An error will be returned if a channel already exists, if a request was
-// already received, or if a request was already sent
+// already received.
 // When a confirmation occurs, the channel will be created and the callback
 // will be called
+// This can be called many times and retried.
 //
 // This function takes the marshaled send report to ensure a memory leak does
 // not occur as a result of both sides of the bindings holding a refrence to
 // the same pointer.
 func (c *Client) RequestAuthenticatedChannel(recipientMarshaled,
-	meMarshaled []byte, message string) error {
+	meMarshaled []byte, message string) (int, error) {
 	recipent, err := contact.Unmarshal(recipientMarshaled)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to "+
+		return 0, errors.New(fmt.Sprintf("Failed to "+
 			"RequestAuthenticatedChannel: Failed to Unmarshal Recipent: "+
 			"%+v", err))
 	}
@@ -47,11 +48,13 @@ func (c *Client) RequestAuthenticatedChannel(recipientMarshaled,
 	me, err := contact.Unmarshal(meMarshaled)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to "+
+		return 0, errors.New(fmt.Sprintf("Failed to "+
 			"RequestAuthenticatedChannel: Failed to Unmarshal Me: %+v", err))
 	}
 
-	return c.api.RequestAuthenticatedChannel(recipent, me, message)
+	rid, err := c.api.RequestAuthenticatedChannel(recipent, me, message)
+
+	return int(rid), err
 }
 
 // RegisterAuthCallbacks registers both callbacks for authenticated channels.
@@ -79,19 +82,26 @@ func (c *Client) RegisterAuthCallbacks(request AuthRequestCallback,
 // received request and sends a message to the requestor that the request has
 // been confirmed
 // It will not run if the network status is not healthy
-// An error will be returned if a channel already exists, if a request doest
+// An error will be returned if a request doest
 // exist, or if the passed in contact does not exactly match the received
-// request
-func (c *Client) ConfirmAuthenticatedChannel(recipientMarshaled []byte) error {
+// request.
+// This can be called many times and retried.
+//
+// This function takes the marshaled send report to ensure a memory leak does
+// not occur as a result of both sides of the bindings holding a refrence to
+// the same pointer.
+func (c *Client) ConfirmAuthenticatedChannel(recipientMarshaled []byte) (int, error) {
 	recipent, err := contact.Unmarshal(recipientMarshaled)
 
 	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to "+
+		return 0, errors.New(fmt.Sprintf("Failed to "+
 			"ConfirmAuthenticatedChannel: Failed to Unmarshal Recipient: "+
 			"%+v", err))
 	}
 
-	return c.api.ConfirmAuthenticatedChannel(recipent)
+	rid, err := c.api.ConfirmAuthenticatedChannel(recipent)
+
+	return int(rid), err
 }
 
 // VerifyOwnership checks if the ownership proof on a passed contact matches the

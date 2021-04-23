@@ -24,8 +24,8 @@ package network
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
-
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/rounds"
@@ -60,8 +60,9 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 		case <-ticker.C:
 			m.follow(report, rng, m.Comms)
 		case <-TrackTicker.C:
-			jww.INFO.Println(m.tracker.Report())
-			m.tracker = newPollTracker()
+			numPolls := atomic.SwapUint64(m.tracker, 0)
+			jww.INFO.Printf("Polled the network %d times in the " +
+				"last %s", numPolls, debugTrackPeriod)
 		}
 	}
 }
@@ -76,7 +77,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			"impossible: %+v", err)
 	}
 
-	m.tracker.Track(identity.EphId, identity.Source)
+	atomic.AddUint64(m.tracker, 1)
 
 	// Get client version for poll
 	version := m.Session.GetClientVersion()
@@ -99,11 +100,13 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
 		result, err := comms.SendPoll(host, &pollReq)
 		if err != nil {
-			report(
-				"NetworkFollower",
-				fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), host.String()),
-				fmt.Sprintf("%+v", err),
-			)
+			if report != nil {
+				report(
+					"NetworkFollower",
+					fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), host.String()),
+					fmt.Sprintf("%+v", err),
+				)
+			}
 			jww.ERROR.Printf("Unable to poll %s for NDF: %+v", host, err)
 		}
 		return result, err

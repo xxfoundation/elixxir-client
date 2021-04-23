@@ -31,12 +31,19 @@ type NetworkHealthCallback interface {
 	Callback(bool)
 }
 
-// RoundEventHandler handles round events happening on the cMix network.
+// RoundEventCallback handles waiting on the exact state of a round on
+// the cMix network.
 type RoundEventCallback interface {
 	EventCallback(rid, state int, timedOut bool)
 }
 
-// RoundEventHandler handles round events happening on the cMix network.
+// RoundCompletionCallback is returned when the completion of a round is known.
+type RoundCompletionCallback interface {
+	EventCallback(rid int, success, timedOut bool)
+}
+
+// MessageDeliveryCallback gets called on the determination if all events
+// related to a message send were successful.
 type MessageDeliveryCallback interface {
 	EventCallback(msgID []byte, delivered, timedOut bool, roundResults []byte)
 }

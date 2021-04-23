@@ -70,7 +70,6 @@ func TestStore_AddRemove(t *testing.T) {
 	}
 }
 
-
 // Happy path Add/Has test
 func TestStore_AddHas(t *testing.T) {
 	// Uncomment to print keys that Set and Get are called on

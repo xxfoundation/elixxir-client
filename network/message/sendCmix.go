@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -29,7 +30,6 @@ import (
 
 // interface for SendCMIX comms; allows mocking this in testing
 type sendCmixCommsInterface interface {
-	GetHost(hostId *id.ID) (*connect.Host, bool)
 	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
 }
 
@@ -38,9 +38,9 @@ const sendTimeBuffer = 2500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
-func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
+func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
 	msgCopy := msg.Copy()
-	return sendCmixHelper(msgCopy, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
+	return sendCmixHelper(sender, msgCopy, recipient, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
 }
 
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
@@ -51,7 +51,7 @@ func (m *Manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 // If the message is successfully sent, the id of the round sent it is returned,
 // which can be registered with the network instance to get a callback on
 // its status
-func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, instance *network.Instance,
+func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID, param params.CMIX, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway, rng *fastRNG.StreamGenerator, senderId *id.ID,
 	comms sendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
 
@@ -142,15 +142,6 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		firstGateway := topology.GetNodeAtIndex(0).DeepCopy()
 		firstGateway.SetType(id.Gateway)
 
-		transmitGateway, ok := comms.GetHost(firstGateway)
-		if !ok {
-			jww.ERROR.Printf("Failed to get host for gateway %s when "+
-				"sending to %s (msgDigest: %s)", transmitGateway, recipient,
-				msg.Digest())
-			time.Sleep(param.RetryDelay)
-			continue
-		}
-
 		//encrypt the message
 		stream = rng.GetStream()
 		salt := make([]byte, 32)
@@ -187,46 +178,57 @@ func sendCmixHelper(msg format.Message, recipient *id.ID, param params.CMIX, ins
 		jww.INFO.Printf("Sending to EphID %d (%s) on round %d, "+
 			"(msgDigest: %s, ecrMsgDigest: %s) via gateway %s",
 			ephID.Int64(), recipient, bestRound.ID, msg.Digest(),
-			encMsg.Digest(), transmitGateway.GetId())
-		//		//Send the payload
-		gwSlotResp, err := comms.SendPutMessage(transmitGateway, wrappedMsg)
+			encMsg.Digest(), firstGateway.String())
+
+		// Send the payload
+		result, err := sender.SendToSpecific(firstGateway, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+			wrappedMsg.Target = target.Marshal()
+			result, err := comms.SendPutMessage(host, wrappedMsg)
+			if err != nil {
+				if strings.Contains(err.Error(),
+					"try a different round.") {
+					jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
+						"due to round error with round %d, retrying: %+v",
+						recipient, msg.Digest(), bestRound.ID, err)
+					return nil, true, err
+				} else if strings.Contains(err.Error(),
+					"Could not authenticate client. Is the client registered "+
+						"with this node?") {
+					jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
+						"via %s due to failed authentication: %s",
+						recipient, msg.Digest(), firstGateway.String(), err)
+					//if we failed to send due to the gateway not recognizing our
+					// authorization, renegotiate with the node to refresh it
+					nodeID := firstGateway.DeepCopy()
+					nodeID.SetType(id.Node)
+					//delete the keys
+					session.Cmix().Remove(nodeID)
+					//trigger
+					go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
+					return nil, true, err
+				}
+			}
+			return result, false, err
+		})
+
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly
 		if err != nil {
-			if strings.Contains(err.Error(),
-				"try a different round.") {
-				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
-					"due to round error with round %d, retrying: %+v",
-					recipient, msg.Digest(), bestRound.ID, err)
-				continue
-			} else if strings.Contains(err.Error(),
-				"Could not authenticate client. Is the client registered "+
-					"with this node?") {
-				jww.WARN.Printf("Failed to send to %s (msgDigest: %s) "+
-					"via %s due to failed authentication: %s",
-					recipient, msg.Digest(), transmitGateway.GetId(), err)
-				//if we failed to send due to the gateway not recognizing our
-				// authorization, renegotiate with the node to refresh it
-				nodeID := transmitGateway.GetId().DeepCopy()
-				nodeID.SetType(id.Node)
-				//delete the keys
-				session.Cmix().Remove(nodeID)
-				//trigger
-				go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
-				continue
-			}
 			jww.ERROR.Printf("Failed to send to EphID %d (%s) on "+
-				"round %d, bailing: %+v", ephID.Int64(), recipient,
+				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
 				bestRound.ID, err)
-			return 0, ephemeral.Id{}, errors.WithMessage(err, "Failed to put cmix message")
-		} else if gwSlotResp.Accepted {
+			continue
+		}
+
+		gwSlotResp := result.(*pb.GatewaySlotResponse)
+		if gwSlotResp.Accepted {
 			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) "+
 				"in round %d", ephID.Int64(), recipient, bestRound.ID)
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+
 				"to accept message when sending to EphID %d (%s) on round %d",
-				transmitGateway.GetId(), ephID.Int64(), recipient, bestRound.ID)
+				firstGateway.String(), ephID.Int64(), recipient, bestRound.ID)
 		}
 	}
 	return 0, ephemeral.Id{}, errors.New("failed to send the message, " +

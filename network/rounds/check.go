@@ -47,9 +47,9 @@ func serializeRound(roundId id.Round) []byte {
 	return b
 }
 
-func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.IdentityUse){
+func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.IdentityUse) {
 	ri, err := m.Instance.GetRound(roundID)
-	if err !=nil || m.params.ForceHistoricalRounds {
+	if err != nil || m.params.ForceHistoricalRounds {
 		if m.params.ForceHistoricalRounds {
 			jww.WARN.Printf("Forcing use of historical rounds for round ID %d.",
 				roundID)
@@ -59,8 +59,8 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 			identity.Source)
 		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- historicalRoundRequest{
-			rid:      roundID,
-			identity: identity,
+			rid:         roundID,
+			identity:    identity,
 			numAttempts: 0,
 		}
 	} else {

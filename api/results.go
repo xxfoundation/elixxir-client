@@ -11,7 +11,6 @@ import (
 	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/gateway"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
@@ -181,30 +180,25 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 // Helper function which asynchronously pings a random gateway until
 // it gets information on it's requested historical rounds
 func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
-	instance *network.Instance, sendResults chan ds.EventReturn,
-	comms historicalRoundsComm) {
+	instance *network.Instance, sendResults chan ds.EventReturn, comms historicalRoundsComm) {
 
 	var resp *pb.HistoricalRoundsResponse
 
 	//retry 5 times
-	for i:=0;i<5;i++{
+	for i := 0; i < 5; i++ {
 		// Find a gateway to request about the roundRequests
-		gwHost, err := gateway.Get(instance.GetPartialNdf().Get(), comms, c.rng.GetStream())
-		if err != nil {
-			jww.ERROR.Printf("Failed to track network, NDF has corrupt "+
-				"data: %s", err)
-			continue
-		}
+		result, err := c.GetNetworkInterface().GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
+			return comms.RequestHistoricalRounds(host, msg)
+		})
 
 		// If an error, retry with (potentially) a different gw host.
 		// If no error from received gateway request, exit loop
 		// and process rounds
-		resp, err = comms.RequestHistoricalRounds(gwHost, msg)
 		if err == nil {
-			jww.ERROR.Printf("Failed to lookup historical rounds: %s",
-				err)
-		}else{
+			resp = result.(*pb.HistoricalRoundsResponse)
 			break
+		} else {
+			jww.ERROR.Printf("Failed to lookup historical rounds: %s", err)
 		}
 	}
 
@@ -215,8 +209,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 	// Process historical rounds, sending back to the caller thread
 	for _, ri := range resp.Rounds {
 		sendResults <- ds.EventReturn{
-			ri,
-			false,
+			RoundInfo: ri,
 		}
 	}
 }

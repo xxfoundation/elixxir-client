@@ -260,8 +260,8 @@ func (s *Store) unmarshal(b []byte) error {
 				partnerID, err.Error())
 		}
 
-		if !manager.GetPartnerID().Cmp(partnerID){
-			jww.FATAL.Panicf("Loaded a manager with the wrong partner " +
+		if !manager.GetPartnerID().Cmp(partnerID) {
+			jww.FATAL.Panicf("Loaded a manager with the wrong partner "+
 				"ID: \n\t loaded: %s \n\t present: %s",
 				partnerID, manager.GetPartnerID())
 		}

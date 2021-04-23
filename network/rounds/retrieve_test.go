@@ -8,11 +8,15 @@ package rounds
 
 import (
 	"bytes"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"gitlab.com/xx_network/primitives/ndf"
 	"reflect"
 	"testing"
 	"time"
@@ -25,6 +29,17 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
 	quitChan := make(chan struct{})
+	testNdf := getNDF()
+	nodeId := id.NewIdFromString(ReturningGateway, id.Node, &testing.T{})
+	gwId := nodeId.DeepCopy()
+	gwId.SetType(id.Gateway)
+	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
+
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
+	testManager.sender, _ = gateway.NewSender(p,
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		testNdf, mockComms, testManager.Session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -103,8 +118,19 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
+	testNdf := getNDF()
+	nodeId := id.NewIdFromString(FalsePositive, id.Node, &testing.T{})
+	gwId := nodeId.DeepCopy()
+	gwId.SetType(id.Gateway)
+	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
+
+	testManager.sender, _ = gateway.NewSender(p,
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		testNdf, mockComms, testManager.Session, nil)
 	quitChan := make(chan struct{})
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
@@ -130,7 +156,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 			},
 		}
 
-		idList := [][]byte{dummyGateway.Bytes()}
+		idList := [][]byte{dummyGateway.Marshal()}
 
 		roundInfo := &pb.RoundInfo{
 			ID:       uint64(roundId),
@@ -172,6 +198,17 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
 	quitChan := make(chan struct{})
+	testNdf := getNDF()
+	nodeId := id.NewIdFromString(FalsePositive, id.Node, &testing.T{})
+	gwId := nodeId.DeepCopy()
+	gwId.SetType(id.Gateway)
+	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
+
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
+	testManager.sender, _ = gateway.NewSender(p,
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		testNdf, mockComms, testManager.Session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -306,6 +343,17 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
 	quitChan := make(chan struct{})
+	testNdf := getNDF()
+	nodeId := id.NewIdFromString(ReturningGateway, id.Node, &testing.T{})
+	gwId := nodeId.DeepCopy()
+	gwId.SetType(id.Gateway)
+	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
+
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
+	testManager.sender, _ = gateway.NewSender(p,
+		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+		testNdf, mockComms, testManager.Session, nil)
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)

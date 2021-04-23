@@ -35,13 +35,13 @@ type Network struct {
 
 func GetDefaultNetwork() Network {
 	n := Network{
-		TrackNetworkPeriod:   100 * time.Millisecond,
-		MaxCheckedRounds:     500,
-		RegNodesBufferLen:    500,
-		NetworkHealthTimeout: 30 * time.Second,
-		E2EParams:            GetDefaultE2ESessionParams(),
+		TrackNetworkPeriod:        100 * time.Millisecond,
+		MaxCheckedRounds:          500,
+		RegNodesBufferLen:         500,
+		NetworkHealthTimeout:      30 * time.Second,
+		E2EParams:                 GetDefaultE2ESessionParams(),
 		ParallelNodeRegistrations: 8,
-		KnownRoundsThreshold: 1500, //5 rounds/sec * 60 sec/min * 5 min
+		KnownRoundsThreshold:      1500, //5 rounds/sec * 60 sec/min * 5 min
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

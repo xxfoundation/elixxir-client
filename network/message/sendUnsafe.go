@@ -64,7 +64,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], _, err = m.SendCMIX(msgCmix, msg.Recipient, param.CMIX)
+			roundIds[i], _, err = m.SendCMIX(m.sender, msgCmix, msg.Recipient, param.CMIX)
 			if err != nil {
 				errCh <- err
 			}

@@ -628,8 +628,8 @@ func makeTestSession() (*Session, *context) {
 		e2eParams:     params.GetDefaultE2ESessionParams(),
 		relationship: &relationship{
 			manager: &Manager{
-				ctx: ctx,
-				kv:  kv,
+				ctx:     ctx,
+				kv:      kv,
 				partner: &id.ID{},
 			},
 			kv: kv,
@@ -638,7 +638,7 @@ func makeTestSession() (*Session, *context) {
 		t:                 Receive,
 		negotiationStatus: Confirmed,
 		rekeyThreshold:    5,
-		partner: &id.ID{},
+		partner:           &id.ID{},
 	}
 	var err error
 	s.keyState, err = newStateVector(s.kv,

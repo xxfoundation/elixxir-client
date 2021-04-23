@@ -7,36 +7,35 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-
 type idFingerprint [16]byte
 
-type checkedRounds struct{
+type checkedRounds struct {
 	lookup map[idFingerprint]*checklist
 }
 
-type checklist struct{
+type checklist struct {
 	m map[id.Round]interface{}
 	l *list.List
 }
 
-func newCheckedRounds()*checkedRounds{
+func newCheckedRounds() *checkedRounds {
 	return &checkedRounds{
 		lookup: make(map[idFingerprint]*checklist),
 	}
 }
 
-func (cr *checkedRounds)Check(identity reception.IdentityUse, rid id.Round)bool{
+func (cr *checkedRounds) Check(identity reception.IdentityUse, rid id.Round) bool {
 	idFp := getIdFingerprint(identity)
 	cl, exists := cr.lookup[idFp]
-	if !exists{
+	if !exists {
 		cl = &checklist{
 			m: make(map[id.Round]interface{}),
 			l: list.New().Init(),
 		}
-		cr.lookup[idFp]=cl
+		cr.lookup[idFp] = cl
 	}
 
-	if _, exists := cl.m[rid]; !exists{
+	if _, exists := cl.m[rid]; !exists {
 		cl.m[rid] = nil
 		cl.l.PushBack(rid)
 		return true
@@ -44,7 +43,7 @@ func (cr *checkedRounds)Check(identity reception.IdentityUse, rid id.Round)bool{
 	return false
 }
 
-func (cr *checkedRounds)Prune(identity reception.IdentityUse, earliestAllowed id.Round){
+func (cr *checkedRounds) Prune(identity reception.IdentityUse, earliestAllowed id.Round) {
 	idFp := getIdFingerprint(identity)
 	cl, exists := cr.lookup[idFp]
 	if !exists {
@@ -52,19 +51,19 @@ func (cr *checkedRounds)Prune(identity reception.IdentityUse, earliestAllowed id
 	}
 
 	e := cl.l.Front()
-	for e!=nil {
-		if  e.Value.(id.Round)<earliestAllowed{
-			delete(cl.m,e.Value.(id.Round))
+	for e != nil {
+		if e.Value.(id.Round) < earliestAllowed {
+			delete(cl.m, e.Value.(id.Round))
 			lastE := e
 			e = e.Next()
 			cl.l.Remove(lastE)
-		}else{
+		} else {
 			break
 		}
 	}
 }
 
-func getIdFingerprint(identity reception.IdentityUse)idFingerprint{
+func getIdFingerprint(identity reception.IdentityUse) idFingerprint {
 	h := md5.New()
 	h.Write(identity.EphId[:])
 	h.Write(identity.Source[:])

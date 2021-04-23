@@ -22,6 +22,7 @@ type IdentityUse struct {
 
 	UR *rounds.UnknownRounds
 	ER *rounds.EarliestRound
+	CR *rounds.CheckedRounds
 }
 
 // setSamplingPeriod add the Request mask as a random buffer around the sampling

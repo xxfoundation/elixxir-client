@@ -61,7 +61,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 			m.follow(report, rng, m.Comms)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
-			jww.INFO.Printf("Polled the network %d times in the " +
+			jww.INFO.Printf("Polled the network %d times in the "+
 				"last %s", numPolls, debugTrackPeriod)
 		}
 	}
@@ -232,7 +232,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return rounds.Checker(rid, filterList)
+		return rounds.Checker(rid, filterList, identity.CR)
 	}
 
 	// move the earliest unknown round tracker forward to the earliest
@@ -254,30 +254,25 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round) bool {
 		if gwRoundsState.Checked(rid) {
-			return rounds.Checker(rid, filterList)
+			return rounds.Checker(rid, filterList, identity.CR)
 		}
 		return false
 	}, roundsUnknown)
 
 	for _, rid := range roundsWithMessages {
-		if m.checked.Check(identity, rid) {
+		if identity.CR.Check(rid) {
 			m.round.GetMessagesFromRound(rid, identity)
 		}
 	}
+
+	identity.CR.Prune()
+	err = identity.CR.SaveCheckedRounds()
+	if err != nil {
+		jww.ERROR.Printf("Could not save rounds for identity %d (%s): %+v",
+			identity.EphId.Int64(), identity.Source, err)
+	}
+
 	for _, rid := range roundsWithMessages2 {
 		m.round.GetMessagesFromRound(rid, identity)
 	}
-
-	earliestToKeep := getEarliestToKeep(m.param.KnownRoundsThreshold,
-		gwRoundsState.GetLastChecked())
-
-	m.checked.Prune(identity, earliestToKeep)
-
-}
-
-func getEarliestToKeep(delta uint, lastchecked id.Round) id.Round {
-	if uint(lastchecked) < delta {
-		return 0
-	}
-	return lastchecked - id.Round(delta)
 }

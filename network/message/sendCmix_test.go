@@ -128,7 +128,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		NodeRegistration: nil,
 	}
 	p := gateway.DefaultPoolParams()
-	p.PoolSize = 1
+	p.MaxPoolSize = 1
 	sender, err := gateway.NewSender(p, i.Rng, getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
 	if err != nil {
 		t.Errorf("%+v", errors.New(err.Error()))

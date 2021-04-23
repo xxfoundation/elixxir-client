@@ -26,7 +26,7 @@ func TestNewSender(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	_, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
 	if err != nil {
@@ -42,7 +42,7 @@ func TestSender_SendToAny(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -109,7 +109,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways)) - 5
+	params.MaxPoolSize = uint32(len(testNdf.Gateways)) - 5
 
 	// Do not test proxy attempts code in this test
 	// (self contain to code specific in sendPreferred)
@@ -195,7 +195,7 @@ func TestSender_SendToSpecific(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways)) - 5
+	params.MaxPoolSize = uint32(len(testNdf.Gateways)) - 5
 
 	// Do not test proxy attempts code in this test
 	// (self contain to code specific in sendPreferred)

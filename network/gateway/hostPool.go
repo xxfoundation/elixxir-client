@@ -58,7 +58,8 @@ type HostPool struct {
 
 // PoolParams Allows configuration of HostPool parameters
 type PoolParams struct {
-	PoolSize uint32 // Quantity of Hosts in the HostPool
+	MaxPoolSize uint32 // Maximum number of Hosts in the HostPool
+	PoolSize    uint32 // Allows override of HostPool size. Set to zero for dynamic size calculation
 	// TODO: Move up a layer
 	ProxyAttempts uint32             // How many proxies will be used in event of send failure
 	HostParams    connect.HostParams // Parameters for the creation of new Host objects
@@ -67,8 +68,9 @@ type PoolParams struct {
 // DefaultPoolParams Returns a default set of PoolParams
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
-		PoolSize:      30,
+		MaxPoolSize:   30,
 		ProxyAttempts: 5,
+		PoolSize:      0,
 		HostParams:    connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
@@ -82,6 +84,16 @@ func DefaultPoolParams() PoolParams {
 // Build and return new HostPool object
 func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
+	var err error
+
+	// Determine size of HostPool
+	if poolParams.PoolSize == 0 {
+		poolParams.PoolSize, err = getPoolSize(uint32(len(ndf.Gateways)), poolParams.MaxPoolSize)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	result := &HostPool{
 		manager:        getter,
 		hostMap:        make(map[id.ID]uint32),
@@ -93,15 +105,8 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 		addGatewayChan: addGateway,
 	}
 
-	// Verify the NDF has at least as many Gateways as needed for the HostPool
-	ndfLen := uint32(len(result.ndf.Gateways))
-	if ndfLen == 0 || ndfLen < result.poolParams.PoolSize {
-		return nil, errors.Errorf("Unable to create HostPool: %d/%d gateways available",
-			len(result.ndf.Gateways), result.poolParams.PoolSize)
-	}
-
 	// Propagate the NDF
-	err := result.updateConns()
+	err = result.updateConns()
 	if err != nil {
 		return nil, err
 	}
@@ -113,6 +118,8 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 			return nil, err
 		}
 	}
+
+	jww.INFO.Printf("Initialized HostPool with size: %d/%d", poolParams.PoolSize, len(ndf.Gateways))
 	return result, nil
 }
 
@@ -404,6 +411,21 @@ func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 	} else if host.GetAddress() != gw.Address {
 		host.UpdateAddress(gw.Address)
 	}
+}
+
+// getPoolSize determines the size of the HostPool based on the size of the NDF
+func getPoolSize(ndfLen, maxSize uint32) (uint32, error) {
+	// Verify the NDF has at least one Gateway for the HostPool
+	if ndfLen == 0 {
+		return 0, errors.Errorf("Unable to create HostPool: no gateways available")
+	}
+
+	// PoolSize = ceil(sqrt(len(ndf,Gateways)))
+	poolSize := uint32(math.Ceil(math.Sqrt(float64(ndfLen))))
+	if poolSize > maxSize {
+		return maxSize, nil
+	}
+	return poolSize, nil
 }
 
 // readUint32 reads an integer from an io.Reader (which should be a CSPRNG)

@@ -36,7 +36,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 
 	p := gateway.DefaultPoolParams()
-	p.PoolSize = 1
+	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)
@@ -119,7 +119,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	// General initializations
 	testManager := newManager(t)
 	p := gateway.DefaultPoolParams()
-	p.PoolSize = 1
+	p.MaxPoolSize = 1
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
 	testNdf := getNDF()
@@ -205,7 +205,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 
 	p := gateway.DefaultPoolParams()
-	p.PoolSize = 1
+	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)
@@ -350,7 +350,7 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
 
 	p := gateway.DefaultPoolParams()
-	p.PoolSize = 1
+	p.MaxPoolSize = 1
 	testManager.sender, _ = gateway.NewSender(p,
 		fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		testNdf, mockComms, testManager.Session, nil)

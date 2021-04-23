@@ -93,7 +93,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
-	poolParams.PoolSize = 10
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {

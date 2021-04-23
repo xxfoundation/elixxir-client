@@ -28,7 +28,7 @@ func TestNewHostPool(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -64,7 +64,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 
 	// Construct custom params
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -330,7 +330,7 @@ func TestHostPool_CheckReplace(t *testing.T) {
 
 	// Construct custom params
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways)) - 5
+	params.MaxPoolSize = uint32(len(testNdf.Gateways)) - 5
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -509,7 +509,7 @@ func TestHostPool_GetAny(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -625,7 +625,7 @@ func TestHostPool_UpdateConns_AddGateways(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -699,7 +699,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -770,7 +770,7 @@ func TestHostPool_AddGateway(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
@@ -803,7 +803,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 	testNdf := getTestNdf(t)
 	newIndex := uint32(20)
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
 
 	// Construct a manager (bypass business logic in constructor)
 	hostPool := &HostPool{
@@ -824,8 +824,7 @@ func TestHostPool_RemoveGateway(t *testing.T) {
 	}
 
 	// Manually add host information
-	 hostPool.addGateway(gwId, ndfIndex)
-
+	hostPool.addGateway(gwId, ndfIndex)
 
 	// Call the removal
 	hostPool.removeGateway(gwId)

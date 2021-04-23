@@ -66,7 +66,7 @@ func newTestingClient(face interface{}) (*Client, error) {
 	}
 
 	p := gateway.DefaultPoolParams()
-	p.PoolSize = 1
+	p.MaxPoolSize = 1
 	sender, _ := gateway.NewSender(p, c.rng, def, commsManager, c.storage, nil)
 	c.network = &testNetworkManagerGeneric{instance: thisInstance, sender: sender}
 

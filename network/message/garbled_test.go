@@ -60,7 +60,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	}
 	p := gateway.DefaultPoolParams()
 	p.PoolSize = 1
-	sender, err := gateway.NewSender(p, i.Rng.GetStream(), getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
+	sender, err := gateway.NewSender(p, i.Rng, getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
 	if err != nil {
 		t.Errorf(err.Error())
 	}

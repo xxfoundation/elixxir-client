@@ -1,6 +1,14 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package gateway
 
 import (
+	"fmt"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -117,4 +125,38 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 			Address: "0.0.0.3",
 		}},
 	}
+}
+
+const happyPathReturn = "happyPathReturn"
+
+func SendToPreferred_HappyPath(host *connect.Host, target *id.ID) (interface{}, error) {
+	return happyPathReturn, nil
+}
+
+func SendToPreferred_KnownError(host *connect.Host, target *id.ID) (interface{}, error) {
+	return nil, fmt.Errorf(errorsList[0])
+}
+
+func SendToPreferred_UnknownError(host *connect.Host, target *id.ID) (interface{}, error) {
+	return nil, fmt.Errorf("Unexpected error: Oopsie")
+}
+
+func SendToAny_HappyPath(host *connect.Host) (interface{}, error) {
+	return happyPathReturn, nil
+}
+
+func SendToAny_KnownError(host *connect.Host) (interface{}, error) {
+	return nil, fmt.Errorf(errorsList[0])
+}
+
+func SendToAny_UnknownError(host *connect.Host) (interface{}, error) {
+	return nil, fmt.Errorf("Unexpected error: Oopsie")
+}
+
+func SendToSpecific_HappyPath(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+	return happyPathReturn, false, nil
+}
+
+func SendToSpecific_Abort(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+	return nil, true, fmt.Errorf(errorsList[0])
 }

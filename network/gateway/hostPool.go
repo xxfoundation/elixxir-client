@@ -15,17 +15,22 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"io"
 	"math"
+	"strings"
 	"sync"
 	"time"
 )
+
+// List of errors that initiate a Host replacement
+var errorsList = []string{"context deadline exceeded", "connection refused", "host disconnected",
+	"transport is closing", "all SubConns are in TransientFailure", ndf.NO_NDF}
 
 // HostManager Interface allowing storage and retrieval of Host objects
 type HostManager interface {
@@ -40,13 +45,12 @@ type HostPool struct {
 	hostList []*connect.Host  // each index in the slice contains the value
 	hostMux  sync.RWMutex     // Mutex for the above map/list combination
 
-	ndfMap       map[id.ID]int // map gateway ID to its index in the ndf
-	ndf          *ndf.NetworkDefinition
-	isNdfUpdated bool // indicates the NDF has been updated and needs processed
-	ndfMux       sync.RWMutex
+	ndfMap map[id.ID]int // map gateway ID to its index in the ndf
+	ndf    *ndf.NetworkDefinition
+	ndfMux sync.RWMutex
 
 	poolParams     PoolParams
-	rng            io.Reader
+	rng            *fastRNG.StreamGenerator
 	storage        *storage.Session
 	manager        HostManager
 	addGatewayChan chan network.NodeGateway
@@ -54,9 +58,7 @@ type HostPool struct {
 
 // PoolParams Allows configuration of HostPool parameters
 type PoolParams struct {
-	PoolSize      uint32        // Quantity of Hosts in the HostPool
-	ErrThreshold  uint64        // How many errors will cause a Host to be ejected from the HostPool
-	PruneInterval time.Duration // How frequently the HostPool updates the pool
+	PoolSize uint32 // Quantity of Hosts in the HostPool
 	// TODO: Move up a layer
 	ProxyAttempts uint32             // How many proxies will be used in event of send failure
 	HostParams    connect.HostParams // Parameters for the creation of new Host objects
@@ -66,12 +68,9 @@ type PoolParams struct {
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
 		PoolSize:      30,
-		ErrThreshold:  1,
-		PruneInterval: 10 * time.Second,
 		ProxyAttempts: 5,
 		HostParams:    connect.GetDefaultHostParams(),
 	}
-	p.HostParams.EnableMetrics = true
 	p.HostParams.MaxRetries = 1
 	p.HostParams.AuthEnabled = false
 	p.HostParams.EnableCoolOff = true
@@ -81,7 +80,7 @@ func DefaultPoolParams() PoolParams {
 }
 
 // Build and return new HostPool object
-func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinition, getter HostManager,
+func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
 	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
 	result := &HostPool{
 		manager:        getter,
@@ -94,6 +93,13 @@ func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 		addGatewayChan: addGateway,
 	}
 
+	// Verify the NDF has at least as many Gateways as needed for the HostPool
+	ndfLen := uint32(len(result.ndf.Gateways))
+	if ndfLen == 0 || ndfLen < result.poolParams.PoolSize {
+		return nil, errors.Errorf("Unable to create HostPool: %d/%d gateways available",
+			len(result.ndf.Gateways), result.poolParams.PoolSize)
+	}
+
 	// Propagate the NDF
 	err := result.updateConns()
 	if err != nil {
@@ -101,14 +107,26 @@ func newHostPool(poolParams PoolParams, rng io.Reader, ndf *ndf.NetworkDefinitio
 	}
 
 	// Build the initial HostPool and return
-	return result, result.pruneHostPool()
+	for i := 0; i < len(result.hostList); i++ {
+		err := result.forceReplace(uint32(i))
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 // UpdateNdf Mutates internal ndf to the given ndf
 func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	h.ndfMux.Lock()
-	h.isNdfUpdated = true
 	h.ndf = ndf
+
+	h.hostMux.Lock()
+	err := h.updateConns()
+	h.hostMux.Unlock()
+	if err != nil {
+		jww.ERROR.Printf("Unable to updateConns: %+v", err)
+	}
 	h.ndfMux.Unlock()
 }
 
@@ -128,9 +146,10 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 	}
 
 	result := make([]*connect.Host, length)
+	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := uint32(0); i < length; {
-		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
+		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -138,6 +157,7 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		}
 	}
 	h.hostMux.RUnlock()
+	rng.Close()
 
 	return result
 }
@@ -157,6 +177,7 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 	}
 	result := make([]*connect.Host, length)
 
+	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := 0; i < length; {
 		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
@@ -165,7 +186,7 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 			continue
 		}
 
-		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
+		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[gwIdx]; !ok {
 			result[i] = h.hostList[gwIdx]
 			checked[gwIdx] = nil
@@ -173,86 +194,60 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 		}
 	}
 	h.hostMux.RUnlock()
+	rng.Close()
 
 	return result
 }
 
-// StartHostPool Start long-running thread and return the thread controller to the caller
-func (h *HostPool) StartHostPool() stoppable.Stoppable {
-	stopper := stoppable.NewSingle("HostPool")
-	jww.INFO.Printf("Starting Host Pool...")
-	go h.manageHostPool(stopper)
-	return stopper
-}
+// Replaces the given hostId in the HostPool if the given hostErr is in errorList
+func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
+	if hostErr != nil {
+		for _, errString := range errorsList {
+			if strings.Contains(hostErr.Error(), errString) {
+				h.hostMux.Lock()
 
-// Long-running thread that manages the HostPool on a timer
-func (h *HostPool) manageHostPool(stopper *stoppable.Single) {
-	tick := time.Tick(h.poolParams.PruneInterval)
-	for {
-		select {
-		case <-stopper.Quit():
-			break
-		case <-tick:
-			h.ndfMux.RLock()
-			if h.isNdfUpdated {
-				err := h.updateConns()
-				if err != nil {
-					jww.ERROR.Printf("Unable to updateConns: %+v", err)
-				}
-				h.isNdfUpdated = false
-			}
-
-			h.hostMux.Lock()
-			err := h.pruneHostPool()
-			h.hostMux.Unlock()
-			if err != nil {
-				jww.ERROR.Printf("Unable to pruneHostPool: %+v", err)
-			}
-			h.ndfMux.RUnlock()
-		}
-	}
-}
-
-// Iterate over the hostList, replacing any empty Hosts or Hosts with errors
-// with new, randomly-selected Hosts from the NDF
-func (h *HostPool) pruneHostPool() error {
-	// Verify the NDF has at least as many Gateways as needed for the HostPool
-	ndfLen := uint32(len(h.ndf.Gateways))
-	if ndfLen == 0 || ndfLen < h.poolParams.PoolSize {
-		return errors.Errorf("Unable to pruneHostPool: %d/%d gateways available",
-			len(h.ndf.Gateways), h.poolParams.PoolSize)
-	}
-
-	jww.FATAL.Printf("CAT: 0")
-	for poolIdx := uint32(0); poolIdx < h.poolParams.PoolSize; {
-		host := h.hostList[poolIdx]
-		// Check the Host for errors
-		if host == nil || host.GetMetrics().GetErrorCounter() >= h.poolParams.ErrThreshold {
-
-			// If errors occurred, randomly select a new Gw by index in the NDF
-			ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), h.rng)
-
-			// Use the random ndfIdx to obtain a GwId from the NDF
-			gwId, err := id.Unmarshal(h.ndf.Gateways[ndfIdx].ID)
-			if err != nil {
-				return errors.WithMessage(err, "failed to get Gateway for pruning")
-			}
-
-			// Verify the GwId is not already in the hostMap
-			if _, ok := h.hostMap[*gwId]; !ok {
-
-				// If it is a new GwId, replace the old Host with the new Host
-				err = h.replaceHost(gwId, poolIdx)
-				if err != nil {
+				// If the Host is still in the pool
+				if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
+					// Replace it
+					h.ndfMux.RLock()
+					err := h.forceReplace(oldPoolIndex)
+					h.ndfMux.RUnlock()
+					h.hostMux.Unlock()
 					return err
 				}
-				poolIdx++
+
+				// If the Host is NOT still in the pool, return
+				h.hostMux.Unlock()
+				return nil
 			}
-		} else {
-			poolIdx++
 		}
 	}
 	return nil
+}
+
+// Replace given Host index with a new, randomly-selected Host from the NDF
+func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
+	rng := h.rng.GetStream()
+	defer rng.Close()
+
+	// Loop until a replacement Host is found
+	for {
+		// Randomly select a new Gw by index in the NDF
+		ndfIdx := readRangeUint32(0, uint32(len(h.ndf.Gateways)), rng)
+		jww.DEBUG.Printf("Attempting to replace Host at HostPool %d with Host at NDF %d...", oldPoolIndex, ndfIdx)
+
+		// Use the random ndfIdx to obtain a GwId from the NDF
+		gwId, err := id.Unmarshal(h.ndf.Gateways[ndfIdx].ID)
+		if err != nil {
+			return errors.WithMessage(err, "failed to get Gateway for pruning")
+		}
+
+		// Verify the new GwId is not already in the hostMap
+		if _, ok := h.hostMap[*gwId]; !ok {
+			// If it is a new GwId, replace the old Host with the new Host
+			return h.replaceHost(gwId, oldPoolIndex)
+		}
+	}
 }
 
 // Replace the given slot in the HostPool with a new Gateway with the specified ID
@@ -283,8 +278,10 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 
 // Force-add the Gateways to the HostPool, each replacing a random Gateway
 func (h *HostPool) forceAdd(gwIds []*id.ID) error {
+	rng := h.rng.GetStream()
 	h.hostMux.Lock()
 	defer h.hostMux.Unlock()
+	defer rng.Close()
 
 	checked := make(map[uint32]interface{}) // Keep track of Hosts already replaced
 	for i := 0; i < len(gwIds); {
@@ -296,7 +293,7 @@ func (h *HostPool) forceAdd(gwIds []*id.ID) error {
 		}
 
 		// Randomly select another Gateway in the HostPool for replacement
-		poolIdx := readRangeUint32(0, h.poolParams.PoolSize, h.rng)
+		poolIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[poolIdx]; !ok {
 			err := h.replaceHost(gwIds[i], poolIdx)
 			if err != nil {
@@ -317,19 +314,19 @@ func (h *HostPool) updateConns() error {
 		return errors.Errorf("Unable to convert new NDF to set: %+v", err)
 	}
 
-	// Handle removing Gateways
-	for gwId := range h.ndfMap {
-		if _, ok := newMap[gwId]; !ok {
-			// If GwId in ndfMap is not in newMap, remove the Gateway
-			h.removeGateway(gwId.DeepCopy())
-		}
-	}
-
 	// Handle adding Gateways
 	for gwId, ndfIdx := range newMap {
 		if _, ok := h.ndfMap[gwId]; !ok {
 			// If GwId in newMap is not in ndfMap, add the Gateway
 			h.addGateway(gwId.DeepCopy(), ndfIdx)
+		}
+	}
+
+	// Handle removing Gateways
+	for gwId := range h.ndfMap {
+		if _, ok := newMap[gwId]; !ok {
+			// If GwId in ndfMap is not in newMap, remove the Gateway
+			h.removeGateway(gwId.DeepCopy())
 		}
 	}
 
@@ -361,10 +358,12 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 // updateConns helper for removing old Gateways
 func (h *HostPool) removeGateway(gwId *id.ID) {
 	h.manager.RemoveHost(gwId)
-	// If needed, flag the Host for deletion from the HostPool
+	// If needed, replace the removed Gateway in the HostPool with a new one
 	if poolIndex, ok := h.hostMap[*gwId]; ok {
-		h.hostList[poolIndex] = nil
-		delete(h.hostMap, *gwId)
+		err := h.forceReplace(poolIndex)
+		if err != nil {
+			jww.ERROR.Printf("Unable to removeGateway: %+v", err)
+		}
 	}
 }
 

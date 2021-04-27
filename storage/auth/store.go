@@ -355,17 +355,18 @@ func (s *Store) GetRequest(partner *id.ID) (RequestType, *SentRequest, contact.C
 	}
 }
 
-// Fail is one of two calls after using a request. This one is to be used when
+// Done is one of two calls after using a request. This one is to be used when
 // the use is unsuccessful. It will allow any thread waiting on access to
 // continue using the structure.
 // It does not return an error because an error is not handleable.
-func (s *Store) Fail(partner *id.ID) {
+func (s *Store) Done(partner *id.ID) {
 	s.mux.RLock()
 	r, ok := s.requests[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
-		jww.ERROR.Panicf("Request cannot be failed, not found: %s", partner)
+		jww.ERROR.Panicf("Request cannot be finished, not "+
+			"found: %s", partner)
 		return
 	}
 

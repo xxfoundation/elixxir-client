@@ -2,6 +2,8 @@ package reception
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
@@ -17,6 +19,7 @@ type registration struct {
 	Identity
 	UR *rounds.UnknownRounds
 	ER *rounds.EarliestRound
+	CR *rounds.CheckedRounds
 	kv *versioned.KV
 }
 
@@ -46,6 +49,11 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	urParams.Stored = !reg.Ephemeral
 	r.UR = rounds.NewUnknownRounds(kv, urParams)
 	r.ER = rounds.NewEarliestRound(!reg.Ephemeral, kv)
+	cr, err := rounds.NewCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
+	if err != nil {
+		jww.FATAL.Printf("Failed to create new CheckedRounds for registration: %+v", err)
+	}
+	r.CR = cr
 
 	// If this is not ephemeral, then store everything
 	if !reg.Ephemeral {
@@ -71,11 +79,24 @@ func loadRegistration(EphId ephemeral.Id, Source *id.ID, startValid time.Time,
 			"for %s", regPrefix(EphId, Source, startValid))
 	}
 
+	cr, err := rounds.LoadCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
+	if err != nil {
+		jww.ERROR.Printf("Making new CheckedRounds, loading of CheckedRounds "+
+			"failed: %+v", err)
+
+		cr, err = rounds.NewCheckedRounds(int(params.GetDefaultNetwork().KnownRoundsThreshold), kv)
+		if err != nil {
+			jww.FATAL.Printf("Failed to create new CheckedRounds for "+
+				"registration after CheckedRounds load failure: %+v", err)
+		}
+	}
+
 	r := &registration{
 		Identity: reg,
 		kv:       kv,
 		UR:       rounds.LoadUnknownRounds(kv, rounds.DefaultUnknownRoundsParams()),
 		ER:       rounds.LoadEarliestRound(kv),
+		CR:       cr,
 	}
 
 	return r, nil

@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/storage"
@@ -57,12 +58,18 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 		Instance:         nil,
 		NodeRegistration: nil,
 	}
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
+	sender, err := gateway.NewSender(p, i.Rng, getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
+	if err != nil {
+		t.Errorf(err.Error())
+	}
 	m := NewManager(i, params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksGarbledMessage:        20,
 		GarbledMessageWait:             time.Hour,
-	}, nil)
+	}, nil, sender)
 
 	e2ekv := i.Session.E2e()
 	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),

@@ -79,7 +79,7 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 		// Set up auth request handler, which simply prints the
-		// user id of the requestor.
+		// user id of the requester.
 		authMgr := client.GetAuthRegistrar()
 		authMgr.AddGeneralRequestCallback(printChanRequest)
 
@@ -169,7 +169,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !unsafe && !authConfirmed {
-			jww.INFO.Printf("Waiting for authentication channel "+
+			jww.INFO.Printf("Waiting for authentication channel"+
 				" confirmation with partner %s", recipientID)
 			scnt := uint(0)
 			waitSecs := viper.GetUint("auth-timeout")

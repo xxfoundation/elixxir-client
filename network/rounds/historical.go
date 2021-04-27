@@ -9,7 +9,6 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
-	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
@@ -34,8 +33,8 @@ type historicalRoundsComms interface {
 
 //structure which contains a historical round lookup
 type historicalRoundRequest struct {
-	rid      id.Round
-	identity reception.IdentityUse
+	rid         id.Round
+	identity    reception.IdentityUse
 	numAttempts uint
 }
 
@@ -87,13 +86,6 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			continue
 		}
 
-		//find a gateway to request about the roundRequests
-		gwHost, err := gateway.Get(m.Instance.GetPartialNdf().Get(), comm, rng)
-		if err != nil {
-			jww.FATAL.Panicf("Failed to track network, NDF has corrupt "+
-				"data: %s", err)
-		}
-
 		rounds := make([]uint64, len(roundRequests))
 		for i, rr := range roundRequests {
 			rounds[i] = uint64(rr.rid)
@@ -104,18 +96,21 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			Rounds: rounds,
 		}
 
-		jww.DEBUG.Printf("Requesting Historical rounds %v from "+
-			"gateway %s", rounds, gwHost.GetId())
+		result, err := m.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+			jww.DEBUG.Printf("Requesting Historical rounds %v from "+
+				"gateway %s", rounds, host.GetId())
+			return comm.RequestHistoricalRounds(host, hr)
+		})
 
-		response, err := comm.RequestHistoricalRounds(gwHost, hr)
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+
-				"data for rounds %v: %s", rounds, response)
+				"data for rounds %v: %s", rounds, err)
 			// if the check fails to resolve, break the loop and so they will be
 			// checked again
 			timerCh = time.NewTimer(m.params.HistoricalRoundsPeriod).C
 			continue
 		}
+		response := result.(*pb.HistoricalRoundsResponse)
 
 		// process the returned historical roundRequests.
 		for i, roundInfo := range response.Rounds {
@@ -124,19 +119,19 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			// pick them up in the future.
 			if roundInfo == nil {
 				roundRequests[i].numAttempts++
-				if roundRequests[i].numAttempts==m.params.MaxHistoricalRoundsRetries{
-					jww.ERROR.Printf("Failed to retreive historical " +
+				if roundRequests[i].numAttempts == m.params.MaxHistoricalRoundsRetries {
+					jww.ERROR.Printf("Failed to retreive historical "+
 						"round %d on last attempt, will not try again",
 						roundRequests[i].rid)
-				}else{
+				} else {
 					select {
-					case m.historicalRounds <-roundRequests[i]:
-						jww.WARN.Printf("Failed to retreive historical " +
+					case m.historicalRounds <- roundRequests[i]:
+						jww.WARN.Printf("Failed to retreive historical "+
 							"round %d, will try up to %d more times",
 							roundRequests[i].rid, m.params.MaxHistoricalRoundsRetries-roundRequests[i].numAttempts)
 					default:
-						jww.WARN.Printf("Failed to retreive historical " +
-							"round %d, failed to try again, round will not be " +
+						jww.WARN.Printf("Failed to retreive historical "+
+							"round %d, failed to try again, round will not be "+
 							"retreived", roundRequests[i].rid)
 					}
 				}

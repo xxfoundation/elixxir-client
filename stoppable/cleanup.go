@@ -87,7 +87,7 @@ func (c *Cleanup) Close(timeout time.Duration) error {
 			}
 		})
 
-	if err!=nil{
+	if err != nil {
 		jww.ERROR.Printf(err.Error())
 	}
 

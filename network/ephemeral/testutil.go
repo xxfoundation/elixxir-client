@@ -8,6 +8,7 @@
 package ephemeral
 
 import (
+	"gitlab.com/elixxir/client/network/gateway"
 	"testing"
 
 	jww "github.com/spf13/jwalterweatherman"
@@ -77,6 +78,10 @@ func (t *testNetworkManager) CheckGarbledMessages() {}
 
 func (t *testNetworkManager) InProgressRegistrations() int {
 	return 0
+}
+
+func (t *testNetworkManager) GetSender() *gateway.Sender {
+	return nil
 }
 
 func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {

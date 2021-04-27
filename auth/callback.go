@@ -213,7 +213,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if mgr, err := m.storage.E2e().GetPartner(sr.GetPartner()); mgr != nil || err == nil {
 		jww.WARN.Printf("Cannot confirm auth for %s, channel already "+
 			"exists.", sr.GetPartner())
-		m.storage.Auth().Fail(sr.GetPartner())
+		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -221,7 +221,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
 	if err != nil {
 		jww.WARN.Printf("Failed to handle auth confirm: %s", err)
-		m.storage.Auth().Fail(sr.GetPartner())
+		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -236,7 +236,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if !success {
 		jww.WARN.Printf("Recieved auth confirmation failed its mac " +
 			"check")
-		m.storage.Auth().Fail(sr.GetPartner())
+		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -244,7 +244,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if err != nil {
 		jww.WARN.Printf("Failed to unmarshal auth confirmation's "+
 			"encrypted payload: %s", err)
-		m.storage.Auth().Fail(sr.GetPartner())
+		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
@@ -252,7 +252,7 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
 		sr.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
 		jww.WARN.Printf("Confirmation failed: %s", err)
-		m.storage.Auth().Fail(sr.GetPartner())
+		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 }

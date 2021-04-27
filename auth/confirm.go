@@ -13,11 +13,11 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
-	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/xx_network/primitives/id"
 	"io"
 )
 
@@ -40,10 +40,11 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		return 0, errors.Errorf("failed to find a pending Auth Request: %s",
 			err)
 	}
+	defer storage.Auth().Done(partner.ID)
 
 	// verify the passed contact matches what is stored
 	if storedContact.DhPubKey.Cmp(partner.DhPubKey) != 0 {
-		storage.Auth().Fail(partner.ID)
+		storage.Auth().Done(partner.ID)
 		return 0, errors.WithMessage(err, "Pending Auth Request has different "+
 			"pubkey than stored")
 	}
@@ -64,7 +65,6 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	salt := make([]byte, saltSize)
 	_, err = rng.Read(salt)
 	if err != nil {
-		storage.Auth().Fail(partner.ID)
 		return 0, errors.Wrap(err, "Failed to generate salt for "+
 			"confirmation")
 	}
@@ -104,10 +104,9 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	p := storage.E2e().GetE2ESessionParams()
 	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
 		p, p); err != nil {
-		storage.Auth().Fail(partner.ID)
-		return 0, errors.Errorf("Failed to create channel with partner (%s) "+
-			"on confirmation: %+v",
-			partner.ID, err)
+		jww.WARN.Printf("Failed to create channel with partner (%s) "+
+			"on confirmation, this is likley a replay: %s",
+			partner.ID, err.Error())
 	}
 
 	// delete the in progress negotiation

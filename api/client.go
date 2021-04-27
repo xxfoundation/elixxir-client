@@ -189,7 +189,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	return c, nil
 }
 
-// Login initalizes a client object from existing storage.
+// Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
@@ -206,7 +206,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
 
-	//initilize comms
+	// initialize comms
 	err = c.initComms()
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		}
 	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
-			"blank permissionign address. Client will not be able to register " +
+			"blank permissioning address. Client will not be able to register " +
 			"or track network.")
 	}
 
@@ -241,13 +241,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -304,13 +298,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -351,7 +339,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 			jww.ERROR.Printf("Client has failed registration: %s", err)
 			return errors.WithMessage(err, "failed to load client")
 		}
-		jww.INFO.Printf("Client sucsecfully registered with the network")
+		jww.INFO.Printf("Client successfully registered with the network")
 	}
 	return nil
 }
@@ -455,7 +443,7 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	return nil
 }
 
-// Gets the state of the network follower. Returns:
+// NetworkFollowerStatus Gets the state of the network follower. Returns:
 // Stopped 	- 0
 // Starting - 1000
 // Running	- 2000

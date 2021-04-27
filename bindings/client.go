@@ -8,7 +8,6 @@
 package bindings
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -157,11 +156,7 @@ func UnmarshalContact(b []byte) (*Contact, error) {
 //Unmarshals a marshaled send report object, returns an error if it fails
 func UnmarshalSendReport(b []byte) (*SendReport, error) {
 	sr := &SendReport{}
-	if err := json.Unmarshal(b, sr); err != nil {
-		return nil, errors.New(fmt.Sprintf("Failed to Unmarshal "+
-			"Send Report: %+v", err))
-	}
-	return sr, nil
+	return sr, sr.Unmarshal(b)
 }
 
 // StartNetworkFollower kicks off the tracking of the network. It starts
@@ -363,16 +358,25 @@ func (c *Client) WaitForRoundCompletion(roundID int,
 // the same pointer.
 func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 	mdc MessageDeliveryCallback, timeoutMS int) error {
-
+	jww.INFO.Printf("WaitForMessageDelivery(%v, _, %v)",
+		marshaledSendReport, timeoutMS)
 	sr, err := UnmarshalSendReport(marshaledSendReport)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to "+
-			"WaitForRoundCompletion callback due to bad Send Report: %+v", err))
+			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
+	}
+
+	if sr == nil || sr.rl == nil || len(sr.rl.list) == 0 {
+		return errors.New(fmt.Sprintf("Failed to "+
+			"WaitForMessageDelivery callback due to invalid Send Report "+
+			"unmarshal: %s", string(marshaledSendReport)))
 	}
 
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
-
+		jww.INFO.Printf("Processing WaitForMessageDelivery report "+
+			"for %v, success: %v, timedout: %v", sr.mid, allRoundsSucceeded,
+			timedOut)
 		for i, r := range sr.rl.list {
 			if result, exists := rounds[r]; exists {
 				results[i] = byte(result)
@@ -384,7 +388,9 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 
-	return c.api.GetRoundResults(sr.rl.list, timeout, f)
+	err = c.api.GetRoundResults(sr.rl.list, timeout, f)
+
+	return err
 }
 
 // Returns a user object from which all information about the current user

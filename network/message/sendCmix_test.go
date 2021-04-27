@@ -1,8 +1,10 @@
 package message
 
 import (
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
@@ -40,6 +42,16 @@ func (mc *MockSendCMIXComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	})
 	return h, true
 }
+
+func (mc *MockSendCMIXComms) AddHost(hid *id.ID, address string, cert []byte, params connect.HostParams) (host *connect.Host, err error) {
+	host, _ = mc.GetHost(nil)
+	return host, nil
+}
+
+func (mc *MockSendCMIXComms) RemoveHost(hid *id.ID) {
+
+}
+
 func (mc *MockSendCMIXComms) SendPutMessage(host *connect.Host, message *mixmessages.GatewaySlot) (*mixmessages.GatewaySlotResponse, error) {
 	return &mixmessages.GatewaySlotResponse{
 		Accepted: true,
@@ -115,24 +127,36 @@ func Test_attemptSendCmix(t *testing.T) {
 		Instance:         inst,
 		NodeRegistration: nil,
 	}
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
+	sender, err := gateway.NewSender(p, i.Rng, getNDF(), &MockSendCMIXComms{t: t}, i.Session, nil)
+	if err != nil {
+		t.Errorf("%+v", errors.New(err.Error()))
+		return
+	}
 	m := NewManager(i, params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksGarbledMessage:        20,
 		GarbledMessageWait:             time.Hour,
-	}, nil)
+	}, nil, sender)
 	msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 	msgCmix.SetContents([]byte("test"))
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
-	_, _, err = sendCmixHelper(msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultCMIX(),
+	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultCMIX(),
 		m.Instance, m.Session, m.nodeRegistration, m.Rng,
 		m.TransmissionID, &MockSendCMIXComms{t: t})
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)
+		panic("t")
+		return
 	}
 }
 
 func getNDF() *ndf.NetworkDefinition {
+	nodeId := id.NewIdFromString("zezima", id.Node, &testing.T{})
+	gwId := nodeId.DeepCopy()
+	gwId.SetType(id.Gateway)
 	return &ndf.NetworkDefinition{
 		E2E: ndf.Group{
 			Prime: "E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B" +
@@ -167,6 +191,20 @@ func getNDF() *ndf.NetworkDefinition {
 				"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71" +
 				"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0" +
 				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
+		},
+		Gateways: []ndf.Gateway{
+			{
+				ID:             gwId.Marshal(),
+				Address:        "0.0.0.0",
+				TlsCertificate: "",
+			},
+		},
+		Nodes: []ndf.Node{
+			{
+				ID:             nodeId.Marshal(),
+				Address:        "0.0.0.0",
+				TlsCertificate: "",
+			},
 		},
 	}
 }

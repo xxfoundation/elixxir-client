@@ -8,6 +8,7 @@
 package api
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -25,6 +26,7 @@ import (
 // risk to the user.
 func (c *Client) RegisterForNotifications(token []byte) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
+	fmt.Println("RegisterforNotifications")
 	// Pull the host from the manage
 	notificationBotHost, ok := c.comms.GetHost(&id.NotificationBot)
 	if !ok {
@@ -34,14 +36,16 @@ func (c *Client) RegisterForNotifications(token []byte) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("Sending message")
 	// Send the register message
 	_, err = c.comms.RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{
-			Token:              token,
-			IntermediaryId:     intermediaryReceptionID,
-			TransmissionRsa:    rsa.CreatePublicKeyPem(c.GetUser().TransmissionRSA.GetPublic()),
-			TransmissionRsaSig: sig,
-			TransmissionSalt:   c.GetUser().TransmissionSalt,
+			Token:                 token,
+			IntermediaryId:        intermediaryReceptionID,
+			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetUser().TransmissionRSA.GetPublic()),
+			TransmissionRsaSig:    sig,
+			TransmissionSalt:      c.GetUser().TransmissionSalt,
+			IIDTransmissionRsaSig: []byte("temp"),
 		})
 	if err != nil {
 		err := errors.Errorf(

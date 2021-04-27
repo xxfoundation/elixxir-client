@@ -139,11 +139,13 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool
 func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
-	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
 	if length > h.poolParams.PoolSize {
 		length = h.poolParams.PoolSize
 	}
+
+	checked := make(map[uint32]interface{}) // Keep track of Hosts already selected to avoid duplicates
 	if excluded != nil {
+		// Add excluded Hosts to already-checked list
 		for i := range excluded {
 			gwId := excluded[i]
 			if idx, ok := h.hostMap[*gwId]; ok {
@@ -152,13 +154,19 @@ func (h *HostPool) getAny(length uint32, excluded []*id.ID) []*connect.Host {
 		}
 	}
 
-	result := make([]*connect.Host, length)
+	result := make([]*connect.Host, 0, length)
 	rng := h.rng.GetStream()
 	h.hostMux.RLock()
 	for i := uint32(0); i < length; {
+		// If we've checked the entire HostPool, bail
+		if uint32(len(checked)) >= h.poolParams.PoolSize {
+			break
+		}
+
+		// Check the next HostPool index
 		gwIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
 		if _, ok := checked[gwIdx]; !ok {
-			result[i] = h.hostList[gwIdx]
+			result = append(result, h.hostList[gwIdx])
 			checked[gwIdx] = nil
 			i++
 		}
@@ -208,25 +216,29 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 
 // Replaces the given hostId in the HostPool if the given hostErr is in errorList
 func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
+	// Check if Host should be replaced
+	doReplace := false
 	if hostErr != nil {
 		for _, errString := range errorsList {
 			if strings.Contains(hostErr.Error(), errString) {
-				h.hostMux.Lock()
-
-				// If the Host is still in the pool
-				if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
-					// Replace it
-					h.ndfMux.RLock()
-					err := h.forceReplace(oldPoolIndex)
-					h.ndfMux.RUnlock()
-					h.hostMux.Unlock()
-					return err
-				}
-
-				// If the Host is NOT still in the pool, return
-				h.hostMux.Unlock()
-				return nil
+				// Host needs replaced, flag and continue
+				doReplace = true
+				break
 			}
+		}
+	}
+
+	if doReplace {
+		h.hostMux.Lock()
+		defer h.hostMux.Unlock()
+
+		// If the Host is still in the pool
+		if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
+			// Replace it
+			h.ndfMux.RLock()
+			err := h.forceReplace(oldPoolIndex)
+			h.ndfMux.RUnlock()
+			return err
 		}
 	}
 	return nil

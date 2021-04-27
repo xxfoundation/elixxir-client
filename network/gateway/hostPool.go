@@ -284,33 +284,21 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 }
 
 // Force-add the Gateways to the HostPool, each replacing a random Gateway
-func (h *HostPool) forceAdd(gwIds []*id.ID) error {
+func (h *HostPool) forceAdd(gwId *id.ID) error {
 	rng := h.rng.GetStream()
 	h.hostMux.Lock()
 	defer h.hostMux.Unlock()
 	defer rng.Close()
 
-	checked := make(map[uint32]interface{}) // Keep track of Hosts already replaced
-	for i := 0; i < len(gwIds); {
-		// Verify the GwId is not already in the hostMap
-		if _, ok := h.hostMap[*gwIds[i]]; ok {
-			// If it is, skip
-			i++
-			continue
-		}
-
-		// Randomly select another Gateway in the HostPool for replacement
-		poolIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
-		if _, ok := checked[poolIdx]; !ok {
-			err := h.replaceHost(gwIds[i], poolIdx)
-			if err != nil {
-				return err
-			}
-			checked[poolIdx] = nil
-			i++
-		}
+	// Verify the GwId is not already in the hostMap
+	if _, ok := h.hostMap[*gwId]; ok {
+		// If it is, skip
+		return nil
 	}
-	return nil
+
+	// Randomly select another Gateway in the HostPool for replacement
+	poolIdx := readRangeUint32(0, h.poolParams.PoolSize, rng)
+	return h.replaceHost(gwId, poolIdx)
 }
 
 // Updates the internal HostPool with any changes to the NDF

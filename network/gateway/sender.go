@@ -43,7 +43,7 @@ func (s *Sender) SendToSpecific(target *id.ID,
 	if ok {
 		result, didAbort, err := sendFunc(host, target)
 		if err == nil {
-			return result, s.forceAdd([]*id.ID{host.GetId()})
+			return result, s.forceAdd(target)
 		} else {
 			if didAbort {
 				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway %s", host.GetId().String())

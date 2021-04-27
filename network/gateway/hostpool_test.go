@@ -589,32 +589,24 @@ func TestHostPool_ForceAdd(t *testing.T) {
 		t.Fatalf("Failed to create mock host pool: %v", err)
 	}
 
-	// Construct a list of new gateways to add
-	newGatewayLen := 10
-	newGateways := make([]*id.ID, newGatewayLen)
-	for i := 0; i < newGatewayLen; i++ {
-		gwId := id.NewIdFromUInt(uint64(100+i), id.Gateway, t)
-		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
-		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
-		}
-		newGateways[i] = gwId
+	// Construct a new gateway to add
+	gwId := id.NewIdFromUInt(uint64(100), id.Gateway, t)
+	// Add mock gateway to manager
+	_, err = manager.AddHost(gwId, "", nil, connect.GetDefaultHostParams())
+	if err != nil {
+		t.Fatalf("Could not add mock host to manager: %v", err)
 	}
 
-	// forceAdd list of gateways
-	err = testPool.forceAdd(newGateways)
+	// forceAdd gateway
+	err = testPool.forceAdd(gwId)
 	if err != nil {
 		t.Errorf("Could not add gateways: %v", err)
 	}
 
 	// check that gateways have been added to the map
-	for _, gw := range newGateways {
-		if _, ok := testPool.hostMap[*gw]; !ok {
-			t.Errorf("Failed to forcefully add new gateway ID: %v", gw)
-		}
+	if _, ok := testPool.hostMap[*gwId]; !ok {
+		t.Errorf("Failed to forcefully add new gateway ID: %v", gwId)
 	}
-
 }
 
 // Unit test which only adds information to ndf

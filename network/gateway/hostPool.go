@@ -197,6 +197,7 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 	for i := 0; i < length; {
 		if hostIdx, ok := h.hostMap[*targets[i]]; ok {
 			result[i] = h.hostList[hostIdx]
+			checked[hostIdx] = nil
 			i++
 			continue
 		}

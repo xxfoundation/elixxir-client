@@ -14,7 +14,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-// Check if a notification received is for me
+// NotificationForMe Check if a notification received is for me
 func NotificationForMe(messageHash, idFP string, receptionId []byte) (bool, error) {
 	messageHashBytes, err := base64.StdEncoding.DecodeString(messageHash)
 	if err != nil {
@@ -31,12 +31,12 @@ func NotificationForMe(messageHash, idFP string, receptionId []byte) (bool, erro
 	return fingerprint.CheckIdentityFpFromMessageHash(idFpBytes, messageHashBytes, rid), nil
 }
 
-// Register for notifications, accepts firebase messaging token
+// RegisterForNotifications accepts firebase messaging token
 func (c *Client) RegisterForNotifications(token []byte) error {
 	return c.api.RegisterForNotifications(token)
 }
 
-// Unregister for notifications
+// UnregisterForNotifications unregister user for notifications
 func (c *Client) UnregisterForNotifications() error {
 	return c.api.UnregisterForNotifications()
 }

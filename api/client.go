@@ -228,7 +228,9 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	if def.Notification.Address != "" {
-		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), connect.GetDefaultHostParams())
+		hp := connect.GetDefaultHostParams()
+		hp.AuthEnabled = false
+		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
 		if err != nil {
 			jww.WARN.Printf("Failed adding host for notifications: %+v", err)
 		}

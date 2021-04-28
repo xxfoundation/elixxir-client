@@ -69,19 +69,19 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 
 // executes each iteration of the follower
 func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source, comms followNetworkComms) {
-	jww.FATAL.Println("A")
+
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
 	}
-	jww.FATAL.Println("B")
+
 	atomic.AddUint64(m.tracker, 1)
-	jww.FATAL.Println("C")
+
 	// Get client version for poll
 	version := m.Session.GetClientVersion()
-	jww.FATAL.Println("D")
+
 	// Poll network updates
 	pollReq := pb.GatewayPoll{
 		Partial: &pb.NDFHash{
@@ -93,7 +93,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 		ClientVersion:  []byte(version.String()),
 	}
-	jww.FATAL.Println("E")
+
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartRequest,
@@ -114,7 +114,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	if err != nil {
 		return
 	}
-	jww.FATAL.Println("F")
+
 	pollResp := result.(*pb.GatewayPollResponse)
 
 	// ---- Process Network State Update Data ----

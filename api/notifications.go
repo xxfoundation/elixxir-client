@@ -24,7 +24,7 @@ import (
 // especially as these rely on third parties (i.e., Firebase *cough*
 // *cough* google's palantir *cough*) that may represent a security
 // risk to the user.
-func (c *Client) RegisterForNotifications(token []byte) error {
+func (c *Client) RegisterForNotifications(token string) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
 	fmt.Println("RegisterforNotifications")
 	// Pull the host from the manage

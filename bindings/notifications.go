@@ -32,7 +32,7 @@ func NotificationForMe(messageHash, idFP string, receptionId []byte) (bool, erro
 }
 
 // RegisterForNotifications accepts firebase messaging token
-func (c *Client) RegisterForNotifications(token []byte) error {
+func (c *Client) RegisterForNotifications(token string) error {
 	return c.api.RegisterForNotifications(token)
 }
 

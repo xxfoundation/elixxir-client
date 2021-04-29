@@ -5,9 +5,10 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-// Handles functionality related to providing Gateway connect.Host objects
+// Package gateway Handles functionality related to providing Gateway connect.Host objects
 // for message sending to the rest of the client repo
 // Used to minimize # of open connections on mobile clients
+
 package gateway
 
 import (
@@ -30,7 +31,8 @@ import (
 
 // List of errors that initiate a Host replacement
 var errorsList = []string{"context deadline exceeded", "connection refused", "host disconnected",
-	"transport is closing", "all SubConns are in TransientFailure", ndf.NO_NDF}
+	"transport is closing", "all SubConns are in TransientFailure", "Last try to connect",
+	ndf.NO_NDF, "Host is in cool down"}
 
 // HostManager Interface allowing storage and retrieval of Host objects
 type HostManager interface {

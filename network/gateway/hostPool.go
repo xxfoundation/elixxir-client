@@ -125,6 +125,11 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 
 // UpdateNdf Mutates internal ndf to the given ndf
 func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
+	if len(ndf.Gateways) == 0 {
+		jww.WARN.Printf("Unable to UpdateNdf: no gateways available")
+		return
+	}
+
 	h.ndfMux.Lock()
 	h.ndf = ndf
 

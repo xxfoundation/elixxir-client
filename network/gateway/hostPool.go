@@ -7,7 +7,7 @@
 
 // Handles functionality related to providing Gateway connect.Host objects
 // for message sending to the rest of the client repo
-
+// Used to minimize # of open connections on mobile clients
 package gateway
 
 import (

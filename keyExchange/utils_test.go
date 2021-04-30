@@ -108,7 +108,7 @@ func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
 	return nil
 }
 
-func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
+func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager, error) {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -125,12 +125,12 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 
 	thisManager := &testNetworkManagerGeneric{instance: thisInstance}
 
-	return thisSession, thisManager
+	return thisSession, thisManager, nil
 
 }
 

@@ -28,7 +28,7 @@ func (m *manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 			"network is not healthy")
 	}
 
-	return m.message.SendCMIX(msg, recipient, param)
+	return m.message.SendCMIX(m.GetSender(), msg, recipient, param)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient

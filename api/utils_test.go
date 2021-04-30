@@ -8,6 +8,7 @@
 package api
 
 import (
+	"gitlab.com/elixxir/client/network/gateway"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -64,7 +65,10 @@ func newTestingClient(face interface{}) (*Client, error) {
 		return nil, err
 	}
 
-	c.network = &testNetworkManagerGeneric{instance: thisInstance}
+	p := gateway.DefaultPoolParams()
+	p.MaxPoolSize = 1
+	sender, _ := gateway.NewSender(p, c.rng, def, commsManager, c.storage, nil)
+	c.network = &testNetworkManagerGeneric{instance: thisInstance, sender: sender}
 
 	return c, nil
 }

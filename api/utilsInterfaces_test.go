@@ -10,6 +10,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -79,6 +80,7 @@ func (ht *historicalRounds) GetHost(hostId *id.ID) (*connect.Host, bool) {
 // Contains a test implementation of the networkManager interface.
 type testNetworkManagerGeneric struct {
 	instance *network.Instance
+	sender   *gateway.Sender
 }
 
 /* Below methods built for interface adherence */
@@ -118,4 +120,8 @@ func (t *testNetworkManagerGeneric) GetStoppable() stoppable.Stoppable {
 
 func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 	return 0
+}
+
+func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
+	return t.sender
 }

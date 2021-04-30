@@ -84,31 +84,10 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 
 	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
 
-	// Get current client version
-	currentVersion, err := version.ParseVersion(SEMVER)
-	if err != nil {
-		return errors.WithMessage(err, "Could not parse version string.")
-	}
-
-	// Create Storage
-	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
-	}
-
-	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
-
-	//store the registration code for later use
-	storageSess.SetRegCode(registrationCode)
-
-	//move the registration state to keys generated
-	err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to denote state "+
-			"change in session")
 	}
 
 	//TODO: close the session
@@ -135,29 +114,39 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 
 	protoUser := createPrecannedUser(precannedID, rngStream, cmixGrp, e2eGrp)
 
-	// Get current client version
-	currentVersion, err := version.ParseVersion(SEMVER)
-	if err != nil {
-		return errors.WithMessage(err, "Could not parse version string.")
-	}
-
-	// Create Storage
-	passwordStr := string(password)
-	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
-		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen, true, "")
 	if err != nil {
 		return err
 	}
+	//TODO: close the session
+	return nil
+}
 
-	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
+// NewVanityClient creates a user with a receptionID that starts with the supplied prefix
+// It creates client storage, generates keys, connects, and registers
+// with the network. Note that this does not register a username/identity, but
+// merely creates a new cryptographic identity for adding such information
+// at a later date.
+func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCode string, userIdPrefix string) error {
+	jww.INFO.Printf("NewVanityClient()")
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStream := rngStreamGen.GetStream()
 
-	//move the registration state to indicate registered with permissioning
-	err = storageSess.ForwardRegistrationStatus(
-		storage.PermissioningComplete)
+	// Parse the NDF
+	def, err := parseNDF(ndfJSON)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to denote state "+
-			"change in session")
+		return err
+	}
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	protoUser := createNewVanityUser(rngStream, cmixGrp, e2eGrp, userIdPrefix)
+
+	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
+		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
+	if err != nil {
+		return err
 	}
 
 	//TODO: close the session
@@ -199,7 +188,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	return c, nil
 }
 
-// Login initalizes a client object from existing storage.
+// Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
@@ -216,7 +205,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
 
-	//initilize comms
+	// initialize comms
 	err = c.initComms()
 	if err != nil {
 		return nil, err
@@ -233,7 +222,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		}
 	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
-			"blank permissionign address. Client will not be able to register " +
+			"blank permissioning address. Client will not be able to register " +
 			"or track network.")
 	}
 
@@ -244,13 +233,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -307,13 +290,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -354,7 +331,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 			jww.ERROR.Printf("Client has failed registration: %s", err)
 			return errors.WithMessage(err, "failed to load client")
 		}
-		jww.INFO.Printf("Client sucsecfully registered with the network")
+		jww.INFO.Printf("Client successfully registered with the network")
 	}
 	return nil
 }
@@ -458,7 +435,7 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 	return nil
 }
 
-// Gets the state of the network follower. Returns:
+// NetworkFollowerStatus Gets the state of the network follower. Returns:
 // Stopped 	- 0
 // Starting - 1000
 // Running	- 2000
@@ -582,4 +559,44 @@ func decodeGroups(ndf *ndf.NetworkDefinition) (cmixGrp, e2eGrp *cyclic.Group) {
 		large.NewIntFromString(ndf.E2E.Generator, largeIntBits))
 
 	return cmixGrp, e2eGrp
+}
+
+// checkVersionAndSetupStorage is common code shared by NewClient, NewPrecannedClient and NewVanityClient
+// it checks client version and creates a new storage for user data
+func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, password []byte,
+	protoUser user.User, cmixGrp, e2eGrp *cyclic.Group, rngStreamGen *fastRNG.StreamGenerator,
+	isPrecanned bool, registrationCode string) error {
+	// Get current client version
+	currentVersion, err := version.ParseVersion(SEMVER)
+	if err != nil {
+		return errors.WithMessage(err, "Could not parse version string.")
+	}
+
+	// Create Storage
+	passwordStr := string(password)
+	storageSess, err := storage.New(storageDir, passwordStr, protoUser,
+		currentVersion, cmixGrp, e2eGrp, rngStreamGen)
+	if err != nil {
+		return err
+	}
+
+	// Save NDF to be used in the future
+	storageSess.SetBaseNDF(def)
+
+	if !isPrecanned {
+		//store the registration code for later use
+		storageSess.SetRegCode(registrationCode)
+		//move the registration state to keys generated
+		err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
+	} else {
+		//move the registration state to indicate registered with permissioning
+		err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
+	}
+
+	if err != nil {
+		return errors.WithMessage(err, "Failed to denote state "+
+			"change in session")
+	}
+
+	return nil
 }

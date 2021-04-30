@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
@@ -103,7 +104,11 @@ func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 	return 0
 }
 
-func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager, error) {
+func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
+	return nil
+}
+
+func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -120,12 +125,12 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil
 	}
 
 	thisManager := &testNetworkManagerGeneric{instance: thisInstance}
 
-	return thisSession, thisManager, nil
+	return thisSession, thisManager
 
 }
 
@@ -208,6 +213,10 @@ func (t *testNetworkManagerFullExchange) GetStoppable() stoppable.Stoppable {
 
 func (t *testNetworkManagerFullExchange) InProgressRegistrations() int {
 	return 0
+}
+
+func (t *testNetworkManagerFullExchange) GetSender() *gateway.Sender {
+	return nil
 }
 
 func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {

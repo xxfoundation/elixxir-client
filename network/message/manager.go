@@ -10,6 +10,7 @@ package message
 import (
 	"fmt"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message/parse"
 	"gitlab.com/elixxir/client/stoppable"
@@ -21,6 +22,7 @@ type Manager struct {
 	param       params.Messages
 	partitioner parse.Partitioner
 	internal.Internal
+	sender *gateway.Sender
 
 	messageReception chan Bundle
 	nodeRegistration chan network.NodeGateway
@@ -29,7 +31,7 @@ type Manager struct {
 }
 
 func NewManager(internal internal.Internal, param params.Messages,
-	nodeRegistration chan network.NodeGateway) *Manager {
+	nodeRegistration chan network.NodeGateway, sender *gateway.Sender) *Manager {
 	dummyMessage := format.NewMessage(internal.Session.Cmix().GetGroup().GetP().ByteLen())
 	m := Manager{
 		param:            param,
@@ -38,6 +40,7 @@ func NewManager(internal internal.Internal, param params.Messages,
 		networkIsHealthy: make(chan bool, 1),
 		triggerGarbled:   make(chan struct{}, 100),
 		nodeRegistration: nodeRegistration,
+		sender:           sender,
 	}
 	m.Internal = internal
 	return &m

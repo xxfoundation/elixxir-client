@@ -7,7 +7,9 @@
 
 package bindings
 
-import "gitlab.com/elixxir/client/interfaces/message"
+import (
+	"gitlab.com/elixxir/client/interfaces/message"
+)
 
 // Message is a message received from the cMix network in the clear
 // or that has been decrypted using established E2E keys.
@@ -36,10 +38,12 @@ func (m *Message) GetMessageType() int {
 }
 
 // Returns the message's timestamp in ms
-func (m *Message) GetTimestampMS() int {
-	return int(m.r.Timestamp.Unix())
+func (m *Message) GetTimestampMS() int64 {
+	ts := m.r.Timestamp.UnixNano()
+	ts = (ts+999999)/1000000
+	return ts
 }
 
-func (m *Message) GetTimestampNano() int {
-	return int(m.r.Timestamp.UnixNano())
+func (m *Message) GetTimestampNano() int64 {
+	return m.r.Timestamp.UnixNano()
 }

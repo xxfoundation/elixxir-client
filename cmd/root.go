@@ -78,7 +78,7 @@ var rootCmd = &cobra.Command{
 		jww.INFO.Printf("Message ListenerID: %v", listenerID)
 
 		// Set up auth request handler, which simply prints the
-		// user id of the requestor.
+		// user id of the requester.
 		authMgr := client.GetAuthRegistrar()
 		authMgr.AddGeneralRequestCallback(printChanRequest)
 
@@ -95,7 +95,7 @@ var rootCmd = &cobra.Command{
 				requestor contact.Contact, message string) {
 				jww.INFO.Printf("Channel Request: %s",
 					requestor.ID)
-				err := client.ConfirmAuthenticatedChannel(
+				_, err := client.ConfirmAuthenticatedChannel(
 					requestor)
 				if err != nil {
 					jww.FATAL.Panicf("%+v", err)
@@ -163,7 +163,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		if !unsafe && !authConfirmed {
-			jww.INFO.Printf("Waiting for authentication channel "+
+			jww.INFO.Printf("Waiting for authentication channel"+
 				" confirmation with partner %s", recipientID)
 			scnt := uint(0)
 			waitSecs := viper.GetUint("auth-timeout")
@@ -306,7 +306,7 @@ func createClient() *api.Client {
 	storeDir := viper.GetString("session")
 	regCode := viper.GetString("regcode")
 	precannedID := viper.GetUint("sendid")
-
+	userIDprefix := viper.GetString("userid-prefix")
 	//create a new client if none exist
 	if _, err := os.Stat(storeDir); os.IsNotExist(err) {
 		// Load NDF
@@ -320,8 +320,14 @@ func createClient() *api.Client {
 			err = api.NewPrecannedClient(precannedID,
 				string(ndfJSON), storeDir, []byte(pass))
 		} else {
-			err = api.NewClient(string(ndfJSON), storeDir,
+			if userIDprefix != "" {
+				err = api.NewVanityClient(string(ndfJSON), storeDir,
+				[]byte(pass), regCode, userIDprefix)
+			} else {
+				err = api.NewClient(string(ndfJSON), storeDir,
 				[]byte(pass), regCode)
+			}
+			
 		}
 
 		if err != nil {
@@ -401,7 +407,7 @@ func acceptChannel(client *api.Client, recipientID *id.ID) {
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
-	err = client.ConfirmAuthenticatedChannel(
+	_, err = client.ConfirmAuthenticatedChannel(
 		recipientContact)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
@@ -463,7 +469,7 @@ func addAuthenticatedChannel(client *api.Client, recipientID *id.ID,
 		me := client.GetUser().GetContact()
 		jww.INFO.Printf("Requesting auth channel from: %s",
 			recipientID)
-		err := client.RequestAuthenticatedChannel(recipientContact,
+		_, err := client.RequestAuthenticatedChannel(recipientContact,
 			me, msg)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)

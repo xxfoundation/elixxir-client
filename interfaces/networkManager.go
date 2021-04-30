@@ -10,6 +10,7 @@ package interfaces
 import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/e2e"
@@ -24,6 +25,7 @@ type NetworkManager interface {
 	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
 	GetInstance() *network.Instance
 	GetHealthTracker() HealthTracker
+	GetSender() *gateway.Sender
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 	CheckGarbledMessages()
 	InProgressRegistrations() int

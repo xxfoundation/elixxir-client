@@ -16,11 +16,11 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0
 	github.com/spf13/viper v1.7.1
 	gitlab.com/elixxir/bloomfilter v0.0.0-20200930191214-10e9ac31b228
-	gitlab.com/elixxir/comms v0.0.4-0.20210430033534-b978056834d9
+	gitlab.com/elixxir/comms v0.0.4-0.20210430224352-4432862b23ff
 	gitlab.com/elixxir/crypto v0.0.7-0.20210429182057-898c75770293
 	gitlab.com/elixxir/ekv v0.1.5
 	gitlab.com/elixxir/primitives v0.0.3-0.20210429180244-cdbb97da0c16
-	gitlab.com/xx_network/comms v0.0.4-0.20210430180107-c97ee79f41c0
+	gitlab.com/xx_network/comms v0.0.4-0.20210430223459-153529214b90
 	gitlab.com/xx_network/crypto v0.0.5-0.20210430180000-985aa4140eb2
 	gitlab.com/xx_network/primitives v0.0.4-0.20210412170941-7ef69bce5a5c
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2

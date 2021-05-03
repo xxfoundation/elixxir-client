@@ -141,6 +141,7 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) {
 	rnd.NumTries++
 }
 
+// Remove deletes a round from UncheckedRoundStore's list and from storage
 func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -150,12 +151,14 @@ func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 
 }
 
+// save stores the round list and individual rounds to storage
 func (s *UncheckedRoundStore) save() error {
 	// Store list of rounds
 	err := s.saveRoundList()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to save list of rounds")
 	}
+
 	// Store individual rounds
 	for rid, rnd := range s.list {
 		if err = rnd.store(s.kv); err != nil {

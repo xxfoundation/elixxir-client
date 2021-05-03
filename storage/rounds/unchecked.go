@@ -16,8 +16,11 @@ import (
 const (
 	uncheckRoundVersion   = 0
 	uncheckRoundPrefix    = "uncheckedRoundPrefix"
+	// Key to store round list
 	uncheckedRoundListKey = "uncheckRounds"
+	// Key to store individual round
 	uncheckedRoundKey     = "uncheckedRound-"
+	// Housekeeping constant (used for storage of uint64 ie id.Round)
 	uint64Size            = 8
 )
 

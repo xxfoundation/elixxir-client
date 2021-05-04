@@ -62,6 +62,7 @@ var rootCmd = &cobra.Command{
 			recipientID, isPrecanPartner = parseRecipient(
 				viper.GetString("destid"))
 		}
+		fmt.Println(isPrecanPartner)
 
 		// Set it to myself
 		if recipientID == nil {
@@ -114,6 +115,11 @@ var rootCmd = &cobra.Command{
 		connected := make(chan bool, 10)
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
+
+		//err = client.RegisterForNotifications([]byte("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN"))
+		//if err != nil {
+		//	jww.FATAL.Panicf("Failed to register for notifications: %+v", err)
+		//}
 
 		// After connection, make sure we have registered with at least
 		// 85% of the nodes
@@ -249,6 +255,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
+
 		err = client.StopNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.WARN.Printf(
@@ -322,12 +329,12 @@ func createClient() *api.Client {
 		} else {
 			if userIDprefix != "" {
 				err = api.NewVanityClient(string(ndfJSON), storeDir,
-				[]byte(pass), regCode, userIDprefix)
+					[]byte(pass), regCode, userIDprefix)
 			} else {
 				err = api.NewClient(string(ndfJSON), storeDir,
-				[]byte(pass), regCode)
+					[]byte(pass), regCode)
 			}
-			
+
 		}
 
 		if err != nil {

@@ -48,14 +48,11 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 	var relationshipFingerprint []byte
 
 	//check if the identity fingerprint matches
-	forMe, err := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+	forMe := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
 		ecrMsg.GetContents(), identity.Source)
-	if err != nil {
-		jww.FATAL.Panicf("Could not check IdentityFingerprint: %+v", err)
-	}
 	if !forMe {
 		if jww.GetLogThreshold() == jww.LevelTrace {
-			expectedFP, _ := fingerprint2.IdentityFP(ecrMsg.GetContents(),
+			expectedFP := fingerprint2.IdentityFP(ecrMsg.GetContents(),
 				identity.Source)
 			jww.TRACE.Printf("Message for %d (%s) failed identity "+
 				"check: %v (expected) vs %v (received)", identity.EphId,

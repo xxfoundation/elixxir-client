@@ -40,7 +40,7 @@ func (m *Message) GetMessageType() int {
 // Returns the message's timestamp in ms
 func (m *Message) GetTimestampMS() int64 {
 	ts := m.r.Timestamp.UnixNano()
-	ts = (ts+999999)/1000000
+	ts = (ts + 999999) / 1000000
 	return ts
 }
 

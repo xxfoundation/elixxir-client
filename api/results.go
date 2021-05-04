@@ -157,7 +157,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 				// Skip if the round is nil (unknown from historical rounds)
 				// they default to timed out, so correct behavior is preserved
-				if  roundReport.RoundInfo == nil || roundReport.TimedOut {
+				if roundReport.RoundInfo == nil || roundReport.TimedOut {
 					allRoundsSucceeded = false
 				} else {
 					// If available, denote the result
@@ -202,7 +202,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 		}
 	}
 
-	if resp == nil{
+	if resp == nil {
 		return
 	}
 

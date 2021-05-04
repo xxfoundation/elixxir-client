@@ -26,7 +26,6 @@ import (
 // risk to the user.
 func (c *Client) RegisterForNotifications(token string) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
-	fmt.Println("RegisterforNotifications")
 	// Pull the host from the manage
 	notificationBotHost, ok := c.comms.GetHost(&id.NotificationBot)
 	if !ok {
@@ -43,9 +42,9 @@ func (c *Client) RegisterForNotifications(token string) error {
 			Token:                 token,
 			IntermediaryId:        intermediaryReceptionID,
 			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetUser().TransmissionRSA.GetPublic()),
-			TransmissionRsaSig:    sig,
 			TransmissionSalt:      c.GetUser().TransmissionSalt,
-			IIDTransmissionRsaSig: []byte("temp"),
+			TransmissionRsaSig:    c.GetStorage().User().GetTransmissionRegistrationValidationSignature(),
+			IIDTransmissionRsaSig: sig,
 		})
 	if err != nil {
 		err := errors.Errorf(

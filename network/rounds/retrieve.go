@@ -44,7 +44,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			// wrap this around the pickup logic
 			ri := rl.roundInfo
-			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID),
+			err := m.Session.UncheckedRounds().AddRound(ri,
 				rl.identity.EphId, rl.identity.Source)
 			if err != nil {
 				jww.ERROR.Printf("Could not find round %d in unchecked rounds store: %v",

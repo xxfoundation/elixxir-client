@@ -14,10 +14,30 @@ import (
 	"time"
 )
 
-func (m *Manager) UncheckedRoundScheduler(checkInterval time.Duration,
+// Constants for message retrieval backoff delays
+const (
+	tryZero  = 10 * time.Second
+	tryOne   = 30 * time.Second
+	tryTwo   = 5 * time.Minute
+	tryThree = 30 * time.Minute
+	tryFour  = 3 * time.Hour
+	tryFive  = 12 * time.Hour
+	trySix   = 24 * time.Hour
+	// Amount of tries past which the
+	// backoff will not increase
+	cappedTries = 7
+)
+
+// uncheckedRoundScheduler will (periodically) check every checkInterval
+// for rounds that failed message retrieval in processMessageRetrieval.
+// Rounds will have a backoff duration in which they will be tried again.
+// If a round is found to be due on a periodical check, the round is sent
+// back to processMessageRetrieval.
+func (m *Manager) uncheckedRoundScheduler(checkInterval time.Duration,
 	quitCh <-chan struct{}) {
 	ticker := time.NewTicker(checkInterval)
 	uncheckedRoundStore := m.Session.UncheckedRounds()
+	backoffTable := newBackoffTable()
 	done := false
 	for !done {
 		select {
@@ -25,20 +45,16 @@ func (m *Manager) UncheckedRoundScheduler(checkInterval time.Duration,
 			done = true
 
 		case <-ticker.C:
+			// Pull and iterate through uncheckedRound list
 			roundList := m.Session.UncheckedRounds().GetList()
 			for rid, rnd := range roundList {
 				// If this round is due for a round check, send the round over
-				// to the retrieval thread
-				if isRoundCheckDue(rnd.NumTries, rnd.StoredTimestamp) {
-					ri, err := m.Instance.GetRound(rid)
-					if err != nil {
-						jww.WARN.Printf("Could not get round %s from instance", err)
-						continue
-					}
+				// to the retrieval thread. If not due, check next round.
+				if isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {
 
 					// Construct roundLookup object to send
 					rl := roundLookup{
-						roundInfo: ri,
+						roundInfo: rnd.Info,
 						identity: reception.IdentityUse{
 							Identity: reception.Identity{
 								EphId:  rnd.EpdId,
@@ -47,10 +63,13 @@ func (m *Manager) UncheckedRoundScheduler(checkInterval time.Duration,
 						},
 					}
 
+					// Send to processMessageRetrieval
 					m.lookupRoundMessages <- rl
-					err = uncheckedRoundStore.IncrementCheck(rid)
+
+					// Update the state of the round for next look-up (if needed)
+					err := uncheckedRoundStore.IncrementCheck(rid)
 					if err != nil {
-						jww.ERROR.Printf("UncheckedRoundScheduler error: Could not " +
+						jww.ERROR.Printf("uncheckedRoundScheduler error: Could not "+
 							"increment check attempts for round %d: %v", rid, err)
 					}
 
@@ -64,19 +83,28 @@ func (m *Manager) UncheckedRoundScheduler(checkInterval time.Duration,
 // isRoundCheckDue given the amount of tries and the timestamp the round
 // was stored, determines whether this round is due for another check.
 // Returns true if a new check is due
-func isRoundCheckDue(tries uint, ts time.Time) bool {
+func isRoundCheckDue(tries uint64, ts time.Time, backoffTable map[uint64]time.Duration) bool {
 	now := netTime.Now()
 
-	roundCheckTime := ts.Add(calculateBackoff(tries))
-
+	if tries > cappedTries {
+		tries = cappedTries
+	}
+	roundCheckTime := ts.Add(backoffTable[tries])
 
 	return now.After(roundCheckTime)
 }
 
-// calculateBackoff is a helper function which returns
-// the total time interval
-func calculateBackoff(tries uint) time.Duration {
-	// todo: implement me
-	return 0
-}
+// Constructs a backoff table mapping the amount of tries to
+// backoff delay for trying to retrieve messages
+func newBackoffTable() map[uint64]time.Duration {
+	backoffTable := make(map[uint64]time.Duration)
+	backoffTable[0] = tryZero
+	backoffTable[1] = tryOne
+	backoffTable[2] = tryTwo
+	backoffTable[3] = tryThree
+	backoffTable[4] = tryFour
+	backoffTable[5] = tryFive
+	backoffTable[6] = trySix
 
+	return backoffTable
+}

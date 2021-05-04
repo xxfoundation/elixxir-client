@@ -42,7 +42,14 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case <-quitCh:
 			done = true
 		case rl := <-m.lookupRoundMessages:
+			// wrap this around the pickup logic
 			ri := rl.roundInfo
+			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID),
+				rl.identity.EphId, rl.identity.Source)
+			if err != nil {
+				jww.ERROR.Printf("Could not find round %d in unchecked rounds store: %v",
+					rl.roundInfo.ID, err)
+			}
 
 			// Convert gateways in round to proper ID format
 			gwIds := make([]*id.ID, len(ri.Topology))
@@ -67,9 +74,17 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 
 			if len(bundle.Messages) != 0 {
+				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
+				if err != nil {
+					jww.ERROR.Printf("Could not remove round %d " +
+						"from unchecked rounds store: %v", ri.ID, err)
+				}
+
 				// If successful and there are messages, we send them to another thread
 				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
+			} else {
+
 			}
 
 		}

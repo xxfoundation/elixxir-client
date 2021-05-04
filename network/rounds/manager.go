@@ -16,6 +16,8 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 )
 
+
+
 type Manager struct {
 	params params.Rounds
 
@@ -57,5 +59,9 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 		go m.processMessageRetrieval(m.Comms, stopper.Quit())
 		multi.Add(stopper)
 	}
+
+	stopper := stoppable.NewSingle("UncheckRound")
+	go m.UncheckedRoundScheduler(m.params.UncheckRoundPeriod, stopper.Quit())
+
 	return multi
 }

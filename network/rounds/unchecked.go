@@ -30,12 +30,12 @@ const (
 
 type backOffTable map[uint64]time.Duration
 
-// uncheckedRoundScheduler will (periodically) check every checkInterval
+// processUncheckedRounds will (periodically) check every checkInterval
 // for rounds that failed message retrieval in processMessageRetrieval.
 // Rounds will have a backoff duration in which they will be tried again.
 // If a round is found to be due on a periodical check, the round is sent
 // back to processMessageRetrieval.
-func (m *Manager) uncheckedRoundScheduler(checkInterval time.Duration, backoffTable backOffTable,
+func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTable backOffTable,
 	quitCh <-chan struct{}) {
 	ticker := time.NewTicker(checkInterval)
 	uncheckedRoundStore := m.Session.UncheckedRounds()
@@ -70,7 +70,7 @@ func (m *Manager) uncheckedRoundScheduler(checkInterval time.Duration, backoffTa
 					// Update the state of the round for next look-up (if needed)
 					err := uncheckedRoundStore.IncrementCheck(rid)
 					if err != nil {
-						jww.ERROR.Printf("uncheckedRoundScheduler error: Could not "+
+						jww.ERROR.Printf("processUncheckedRounds error: Could not "+
 							"increment check attempts for round %d: %v", rid, err)
 					}
 

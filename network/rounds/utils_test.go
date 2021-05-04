@@ -8,6 +8,7 @@ package rounds
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
+	"time"
 )
 
 func newManager(face interface{}) *Manager {
@@ -100,6 +102,23 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	}
 
 	return nil, nil
+}
+
+func newTestBackoffTable(face interface{}) backOffTable {
+	switch face.(type) {
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
+		break
+	default:
+		jww.FATAL.Panicf("newTestBackoffTable is restricted to testing only. Got %T", face)
+	}
+
+	backoffMap := make(backOffTable)
+	for i := 0; i < cappedTries; i++ {
+		backoffMap[uint64(i)] = 1 * time.Millisecond
+	}
+
+	return backoffMap
+
 }
 
 func getNDF() *ndf.NetworkDefinition {

@@ -16,8 +16,6 @@ import (
 	"gitlab.com/elixxir/client/stoppable"
 )
 
-
-
 type Manager struct {
 	params params.Rounds
 
@@ -60,8 +58,9 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 		multi.Add(stopper)
 	}
 
+	// Start the periodic unchecked round worker
 	stopper := stoppable.NewSingle("UncheckRound")
-	go m.uncheckedRoundScheduler(m.params.UncheckRoundPeriod, newBackoffTable(), stopper.Quit())
+	go m.processUncheckedRounds(m.params.UncheckRoundPeriod, newBackoffTable(), stopper.Quit())
 	multi.Add(stopper)
 
 	return multi

@@ -17,7 +17,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -25,10 +24,9 @@ import (
 const (
 	uncheckedRoundVersion = 0
 	uncheckedRoundPrefix  = "uncheckedRoundPrefix"
-	// Key to store round list
-	uncheckedRoundListKey = "uncheckRounds"
+	// Key to store rounds
+	uncheckedRoundKey = "uncheckRounds"
 	// Key to store individual round
-	uncheckedRoundKey = "uncheckedRound-"
 	// Housekeeping constant (used for serializing uint64 ie id.Round)
 	uint64Size = 8
 )
@@ -49,7 +47,78 @@ type UncheckedRound struct {
 	// Timestamp in which round has last been checked
 	LastCheck time.Time
 	// Number of times a round has been checked
-	NumTries uint64
+	NumChecks uint64
+}
+
+// marshal serializes UncheckedRound r into a byte slice
+func (r UncheckedRound) marshal() ([]byte, error) {
+	buf := bytes.NewBuffer(nil)
+	// Write the round info
+	b := make([]byte, uint64Size)
+	infoBytes, err := proto.Marshal(r.Info)
+	binary.LittleEndian.PutUint64(b, uint64(len(infoBytes)))
+	buf.Write(b)
+	buf.Write(infoBytes)
+
+	b = make([]byte, uint64Size)
+
+	// Write the round identity info
+	buf.Write(r.Identity.EpdId[:])
+	if r.Source != nil {
+		buf.Write(r.Identity.Source.Marshal())
+	} else {
+		buf.Write(make([]byte, id.ArrIDLen))
+	}
+
+	// Write the time stamp bytes
+	tsBytes, err := r.LastCheck.MarshalBinary()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Could not marshal timestamp ")
+	}
+	b = make([]byte, uint64Size)
+	binary.LittleEndian.PutUint64(b, uint64(len(tsBytes)))
+	buf.Write(b)
+	buf.Write(tsBytes)
+
+	// Write the number of tries for this round
+	b = make([]byte, uint64Size)
+	binary.LittleEndian.PutUint64(b, r.NumChecks)
+	buf.Write(b)
+
+	return buf.Bytes(), nil
+}
+
+// unmarshal deserializes round data from buff into UncheckedRound r
+func (r *UncheckedRound) unmarshal(buff *bytes.Buffer) error {
+	// Deserialize the roundInfo
+	roundInfoLen := binary.LittleEndian.Uint64(buff.Next(uint64Size))
+	roundInfoBytes := buff.Next(int(roundInfoLen))
+	ri := &pb.RoundInfo{}
+	if err := proto.Unmarshal(roundInfoBytes, ri); err != nil {
+		return errors.WithMessagef(err, "Failed to unmarshal roundInfo")
+	}
+	r.Info = ri
+
+	// Deserialize the round identity information
+	copy(r.EpdId[:], buff.Next(uint64Size))
+
+	sourceId, err := id.Unmarshal(buff.Next(id.ArrIDLen))
+	if err != nil {
+		return errors.WithMessage(err, "Failed to unmarshal round identity.source")
+	}
+
+	r.Source = sourceId
+
+	// Deserialize the timestamp bytes
+	timestampLen := binary.LittleEndian.Uint64(buff.Next(uint64Size))
+	tsByes := buff.Next(int(uint64(timestampLen)))
+	if err = r.LastCheck.UnmarshalBinary(tsByes); err != nil {
+		return errors.WithMessage(err, "Failed to unmarshal round timestamp")
+	}
+
+	r.NumChecks = binary.LittleEndian.Uint64(buff.Next(uint64Size))
+
+	return nil
 }
 
 // Storage object saving rounds to retry for message retrieval
@@ -76,32 +145,19 @@ func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 
 	kv = kv.Prefix(uncheckedRoundPrefix)
-	vo, err := kv.Get(uncheckedRoundListKey, uncheckedRoundVersion)
+	vo, err := kv.Get(uncheckedRoundKey, uncheckedRoundVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	// Unmarshal list of round IDs
-	var roundIDs []id.Round
-	buff := bytes.NewBuffer(vo.Data)
-	for next := buff.Next(uint64Size); len(next) == uint64Size; next = buff.Next(uint64Size) {
-		rid, _ := binary.Varint(next)
-		roundIDs = append(roundIDs, id.Round(rid))
-	}
-
 	urs := &UncheckedRoundStore{
-		list: make(map[id.Round]UncheckedRound, len(roundIDs)),
+		list: make(map[id.Round]UncheckedRound),
 		kv:   kv,
 	}
 
-	// Load each round from storage
-	for _, roundId := range roundIDs {
-		rnd, err := loadRound(roundId, kv)
-		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to load round %d from storage", roundId)
-		}
-
-		urs.list[roundId] = rnd
+	err = urs.unmarshal(vo.Data)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load rounds from storage")
 	}
 
 	return urs, err
@@ -121,7 +177,7 @@ func (s *UncheckedRoundStore) AddRound(ri *pb.RoundInfo, ephID ephemeral.Id, sou
 				Source: source,
 			},
 			LastCheck: netTime.Now(),
-			NumTries:  0,
+			NumChecks: 0,
 		}
 
 		s.list[rid] = newUncheckedRound
@@ -157,10 +213,10 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 	}
 
 	rnd.LastCheck = netTime.Now()
-	rnd.NumTries++
+	rnd.NumChecks++
 	s.list[rid] = rnd
 
-	return rnd.store(s.kv)
+	return s.save()
 
 }
 
@@ -174,168 +230,71 @@ func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	}
 
 	delete(s.list, rid)
-	if err := s.saveRoundList(); err != nil {
-		return err
-	}
-	return s.kv.Delete(roundStoreKey(rid), uncheckedRoundVersion)
+
+	return s.save()
 
 }
 
-// save stores the round list and individual rounds to storage
+// save stores the information from the round list into storage
 func (s *UncheckedRoundStore) save() error {
 	// Store list of rounds
-	err := s.saveRoundList()
+	data, err := s.marshal()
 	if err != nil {
-		return errors.WithMessage(err, "Failed to save list of rounds")
+		return errors.WithMessagef(err, "Could not marshal data for unchecked rounds")
 	}
-
-	// Store individual rounds
-	for rid, rnd := range s.list {
-		if err = rnd.store(s.kv); err != nil {
-			return errors.WithMessagef(err, "Failed to save round %d to storage", rid)
-		}
-	}
-
-	return nil
-}
-
-// saveRoundList saves the list of rounds to storage
-func (s *UncheckedRoundStore) saveRoundList() error {
 
 	// Create the versioned object
-	obj := &versioned.Object{
-		Version:   uncheckedRoundVersion,
-		Timestamp: netTime.Now(),
-		Data:      serializeRoundList(s.list),
-	}
-
-	// Save to storage
-	err := s.kv.Set(uncheckedRoundListKey, uncheckedRoundVersion, obj)
-	if err != nil {
-		return errors.WithMessagef(err, "Failed to store roundID list")
-	}
-
-	return nil
-}
-
-// serializeRoundList is a helper function which serializes the list of rounds
-// to bytes
-func serializeRoundList(list map[id.Round]UncheckedRound) []byte {
-	buff := bytes.NewBuffer(nil)
-	buff.Grow(uint64Size * len(list))
-	for rid := range list {
-		b := make([]byte, uint64Size)
-		binary.LittleEndian.PutUint64(b, uint64(rid))
-		buff.Write(b)
-	}
-	return buff.Bytes()
-}
-
-// store puts serialized UncheckedRound r into storage
-func (r UncheckedRound) store(kv *versioned.KV) error {
-	data, err := r.Marshal()
-	if err != nil {
-
-	}
 	obj := &versioned.Object{
 		Version:   uncheckedRoundVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	return kv.Set(roundStoreKey(id.Round(r.Info.ID)), uncheckedRoundVersion, obj)
+	// Save to storage
+	err = s.kv.Set(uncheckedRoundKey, uncheckedRoundVersion, obj)
+	if err != nil {
+		return errors.WithMessagef(err, "Could not store data for unchecked rounds")
+	}
 
+	return nil
 }
 
-// Marshal serializes UncheckedRound r into a byte slice
-func (r UncheckedRound) Marshal() ([]byte, error) {
+// marshal is a helper function which serializes all rounds in list to bytes
+func (s *UncheckedRoundStore) marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
-	// Write the round info
-	b := make([]byte, uint64Size)
-	infoBytes, err := proto.Marshal(r.Info)
-	binary.LittleEndian.PutUint64(b, uint64(len(infoBytes)))
+	// Write number of rounds the buffer
+	b := make([]byte, 8)
+	binary.PutVarint(b, int64(len(s.list)))
 	buf.Write(b)
-	buf.Write(infoBytes)
 
-	b = make([]byte, uint64Size)
+	for rid, rnd := range s.list {
+		rndData, err := rnd.marshal()
+		if err != nil {
+			return nil, errors.WithMessagef(err, "Failed to marshal round %d", rid)
+		}
 
-	// Write the round identity info
-	buf.Write(r.Identity.EpdId[:])
-	if r.Source != nil {
-		buf.Write(r.Identity.Source.Marshal())
-	} else {
-		buf.Write(make([]byte, id.ArrIDLen))
+		buf.Write(rndData)
+
 	}
-
-	// Write the time stamp bytes
-	tsBytes, err := r.LastCheck.MarshalBinary()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Could not marshal timestamp ")
-	}
-	b = make([]byte, uint64Size)
-	binary.LittleEndian.PutUint64(b, uint64(len(tsBytes)))
-	buf.Write(b)
-	buf.Write(tsBytes)
-
-	// Write the number of tries for this round
-	b = make([]byte, uint64Size)
-	binary.LittleEndian.PutUint64(b, uint64(r.NumTries))
-	buf.Write(b)
 
 	return buf.Bytes(), nil
 }
 
-// loadRound pulls an UncheckedRound corresponding to roundId from storage
-func loadRound(roundId id.Round, kv *versioned.KV) (UncheckedRound, error) {
-	vo, err := kv.Get(roundStoreKey(roundId), uncheckedRoundVersion)
-	if err != nil {
-		return UncheckedRound{}, errors.WithMessagef(err, "Could not find %d in storage", roundId)
-	}
-
-	ur, err := deserializeRound(vo.Data)
-	if err != nil {
-		return UncheckedRound{}, errors.WithMessagef(err, "Could not deserialize round %d", roundId)
-	}
-
-	return ur, nil
-}
-
-// deserializeRound deserializes an UncheckedRound from its stored byte data
-func deserializeRound(data []byte) (UncheckedRound, error) {
+// unmarshal deserializes an UncheckedRound from its stored byte data
+func (s *UncheckedRoundStore) unmarshal(data []byte) error {
 	buff := bytes.NewBuffer(data)
-	rnd := UncheckedRound{}
-	// Deserialize the roundInfo
-	roundInfoLen := binary.LittleEndian.Uint64(buff.Next(uint64Size))
-	roundInfoBytes := buff.Next(int(roundInfoLen))
-	ri := &pb.RoundInfo{}
-	if err := proto.Unmarshal(roundInfoBytes, ri); err != nil {
-		return UncheckedRound{}, errors.WithMessagef(err, "Failed to unmarshal roundInfo")
-	}
-	rnd.Info = ri
+	// Get number of rounds in list
+	length, _ := binary.Varint(buff.Next(8))
 
-	// Deserialize the round identity information
-	copy(rnd.EpdId[:], buff.Next(uint64Size))
+	for i := 0; i < int(length); i++ {
+		rnd := UncheckedRound{}
+		err := rnd.unmarshal(buff)
+		if err != nil {
+			return errors.WithMessage(err, "Failed to unmarshal rounds in storage")
+		}
 
-	sourceId, err := id.Unmarshal(buff.Next(id.ArrIDLen))
-	if err != nil {
-		return UncheckedRound{}, errors.WithMessage(err, "Failed to unmarshal round identity.source")
+		s.list[id.Round(rnd.Info.ID)] = rnd
 	}
 
-	rnd.Source = sourceId
-
-	// Deserialize the timestamp bytes
-	timestampLen := binary.LittleEndian.Uint64(buff.Next(uint64Size))
-	tsByes := buff.Next(int(uint64(timestampLen)))
-	if err = rnd.LastCheck.UnmarshalBinary(tsByes); err != nil {
-		return UncheckedRound{}, errors.WithMessage(err, "Failed to unmarshal round timestamp")
-	}
-
-	rnd.NumTries = binary.LittleEndian.Uint64(buff.Next(uint64Size))
-
-	return rnd, nil
-}
-
-// roundStoreKey generates a unique key to save and load a round to/from storage.
-func roundStoreKey(roundId id.Round) string {
-	return uncheckedRoundKey + strconv.Itoa(int(roundId))
+	return nil
 }

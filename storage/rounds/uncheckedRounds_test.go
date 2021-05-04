@@ -48,44 +48,28 @@ func TestNewUncheckedStore(t *testing.T) {
 	uncheckedRound := UncheckedRound{
 		Info:      roundInfo,
 		LastCheck: netTime.Now(),
-		NumTries:  0,
+		NumChecks: 0,
 	}
 
 	store.list[rid] = uncheckedRound
-
 	if err = store.save(); err != nil {
 		t.Fatalf("NewUncheckedStore error: "+
 			"Could not save store: %v", err)
 	}
 
-	// Check if round data matches
-	expectedRoundData, err := uncheckedRound.Marshal()
-	if err != nil {
-		t.Fatalf("NewUncheckedStore error: "+
-			"Failed to serialize uncheckedRound: %v", err)
-	}
-
-	roundData, err := store.kv.Get(roundStoreKey(rid), uncheckedRoundVersion)
-	if err != nil {
-		t.Fatalf("NewUncheckedStore error: "+
-			"Could not retrieve round %d from storage: %v", rid, err)
-	}
-
-	if !bytes.Equal(expectedRoundData, roundData.Data) {
-		t.Fatalf("NewUncheckedStore error: "+
-			"Data from store was not expected"+
-			"\n\tExpected %v\n\tReceived: %v", expectedRoundData, roundData.Data)
-	}
-
 	// Test if round list data matches
-	expectedRoundListData := serializeRoundList(store.list)
-	roundListData, err := store.kv.Get(uncheckedRoundListKey, uncheckedRoundVersion)
+	expectedRoundData, err := store.marshal()
+	if err != nil {
+		t.Fatalf("NewUncheckedStore error: "+
+			"Could not marshal data: %v", err)
+	}
+	roundData, err := store.kv.Get(uncheckedRoundKey, uncheckedRoundVersion)
 	if err != nil {
 		t.Fatalf("NewUncheckedStore error: "+
 			"Could not retrieve round list form storage: %v", err)
 	}
 
-	if !bytes.Equal(expectedRoundListData, roundListData.Data) {
+	if !bytes.Equal(expectedRoundData, roundData.Data) {
 		t.Fatalf("NewUncheckedStore error: "+
 			"Data from store was not expected"+
 			"\n\tExpected %v\n\tReceived: %v", expectedRoundData, roundData.Data)
@@ -172,12 +156,6 @@ func TestUncheckedRoundStore_AddRound(t *testing.T) {
 	if _, exists := testStore.list[rid]; !exists {
 		t.Errorf("AddRound error: " +
 			"Could not find added round in list")
-	}
-
-	_, err = testStore.kv.Get(roundStoreKey(rid), uncheckedRoundVersion)
-	if err != nil {
-		t.Errorf("AddRound error: "+
-			"Could not find added round in storage: %v", err)
 	}
 
 }
@@ -315,10 +293,10 @@ func TestUncheckedRoundStore_IncrementCheck(t *testing.T) {
 	}
 
 	rnd, _ := testStore.GetRound(testRound)
-	if rnd.NumTries != uint64(numChecks) {
+	if rnd.NumChecks != uint64(numChecks) {
 		t.Errorf("IncrementCheck error: "+
 			"Round %d did not have expected number of checks."+
-			"\n\tExpected: %v\n\tReceived: %v", testRound, numChecks, rnd.NumTries)
+			"\n\tExpected: %v\n\tReceived: %v", testRound, numChecks, rnd.NumChecks)
 	}
 
 	// Error path: check unknown round can not be incremented

@@ -8,7 +8,6 @@
 package api
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -35,7 +34,7 @@ func (c *Client) RegisterForNotifications(token string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Sending message")
+	jww.INFO.Printf("Sending RegisterForNotifications message")
 	// Send the register message
 	_, err = c.comms.RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{

@@ -28,16 +28,17 @@ const (
 	cappedTries = 7
 )
 
+type backOffTable map[uint64]time.Duration
+
 // uncheckedRoundScheduler will (periodically) check every checkInterval
 // for rounds that failed message retrieval in processMessageRetrieval.
 // Rounds will have a backoff duration in which they will be tried again.
 // If a round is found to be due on a periodical check, the round is sent
 // back to processMessageRetrieval.
-func (m *Manager) uncheckedRoundScheduler(checkInterval time.Duration,
+func (m *Manager) uncheckedRoundScheduler(checkInterval time.Duration, backoffTable backOffTable,
 	quitCh <-chan struct{}) {
 	ticker := time.NewTicker(checkInterval)
 	uncheckedRoundStore := m.Session.UncheckedRounds()
-	backoffTable := newBackoffTable()
 	done := false
 	for !done {
 		select {
@@ -83,7 +84,7 @@ func (m *Manager) uncheckedRoundScheduler(checkInterval time.Duration,
 // isRoundCheckDue given the amount of tries and the timestamp the round
 // was stored, determines whether this round is due for another check.
 // Returns true if a new check is due
-func isRoundCheckDue(tries uint64, ts time.Time, backoffTable map[uint64]time.Duration) bool {
+func isRoundCheckDue(tries uint64, ts time.Time, backoffTable backOffTable) bool {
 	now := netTime.Now()
 
 	if tries > cappedTries {
@@ -96,8 +97,8 @@ func isRoundCheckDue(tries uint64, ts time.Time, backoffTable map[uint64]time.Du
 
 // Constructs a backoff table mapping the amount of tries to
 // backoff delay for trying to retrieve messages
-func newBackoffTable() map[uint64]time.Duration {
-	backoffTable := make(map[uint64]time.Duration)
+func newBackoffTable() backOffTable {
+	backoffTable := make(backOffTable)
 	backoffTable[0] = tryZero
 	backoffTable[1] = tryOne
 	backoffTable[2] = tryTwo

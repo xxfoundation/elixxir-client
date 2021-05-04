@@ -61,7 +61,7 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 	}
 
 	stopper := stoppable.NewSingle("UncheckRound")
-	go m.uncheckedRoundScheduler(m.params.UncheckRoundPeriod, stopper.Quit())
+	go m.uncheckedRoundScheduler(m.params.UncheckRoundPeriod, newBackoffTable(), stopper.Quit())
 	multi.Add(stopper)
 
 	return multi

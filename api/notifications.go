@@ -95,9 +95,11 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to write intermediary ID to hash")
 	}
 
-	sig, err := rsa.Sign(c.rng.GetStream(), c.GetUser().TransmissionRSA, hash.CMixHash, h.Sum(nil), nil)
+	stream := c.rng.GetStream()
+	sig, err := rsa.Sign(stream, c.GetUser().TransmissionRSA, hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to sign intermediary ID")
 	}
+	stream.Close()
 	return intermediaryReceptionID, sig, nil
 }

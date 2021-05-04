@@ -32,7 +32,8 @@ type Rounds struct {
 	// Maximum number of times a historical round lookup will be attempted
 	MaxHistoricalRoundsRetries uint
 
-	// Period uncheckedRound's scheduler to check for rounds to retry
+	// Interval between checking for rounds in UncheckedRoundStore
+	// due for a message retrieval retry
 	UncheckRoundPeriod time.Duration
 }
 
@@ -46,6 +47,6 @@ func GetDefaultRounds() Rounds {
 		LookupRoundsBufferLen:      2000,
 		ForceHistoricalRounds:      false,
 		MaxHistoricalRoundsRetries: 3,
-		UncheckRoundPeriod: 1 * time.Second,
+		UncheckRoundPeriod: 20 * time.Second,
 	}
 }

@@ -2,7 +2,6 @@ package reception
 
 import (
 	"bytes"
-	"crypto/md5"
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -11,6 +10,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 	"io"
 	"strconv"
 	"sync"
@@ -46,12 +46,11 @@ type storedReference struct {
 type idHash [16]byte
 
 func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
-	h := md5.New()
+	h, _ := blake2b.New256(nil)
 	h.Write(ephID[:])
 	h.Write(source.Bytes())
-	idHashBytes := h.Sum(nil)
 	idH := idHash{}
-	copy(idH[:], idHashBytes)
+	copy(idH[:], h.Sum(nil))
 	return idH
 }
 

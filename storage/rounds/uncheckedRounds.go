@@ -1,3 +1,10 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
 package rounds
 
 import (
@@ -14,15 +21,22 @@ import (
 )
 
 const (
-	uncheckRoundVersion   = 0
-	uncheckRoundPrefix    = "uncheckedRoundPrefix"
+	uncheckedRoundVersion = 0
+	uncheckedRoundPrefix  = "uncheckedRoundPrefix"
 	// Key to store round list
 	uncheckedRoundListKey = "uncheckRounds"
 	// Key to store individual round
-	uncheckedRoundKey     = "uncheckedRound-"
-	// Housekeeping constant (used for storage of uint64 ie id.Round)
-	uint64Size            = 8
+	uncheckedRoundKey = "uncheckedRound-"
+	// Housekeeping constant (used for serializing uint64 ie id.Round)
+	uint64Size = 8
 )
+
+// Round identity information used in message retrieval
+// Derived from reception.Identity
+type Identity struct {
+	EpdId  ephemeral.Id
+	Source *id.ID
+}
 
 // Unchecked round structure is rounds which failed on message retrieval
 // These rounds are stored for retry of message retrieval
@@ -36,13 +50,6 @@ type UncheckedRound struct {
 	NumTries uint
 }
 
-// Round identity information used in message retrieval
-// Derived from reception.Identity
-type Identity struct {
-	EpdId  ephemeral.Id
-	Source *id.ID
-}
-
 // Storage object saving rounds to retry for message retrieval
 type UncheckedRoundStore struct {
 	list map[id.Round]UncheckedRound
@@ -52,7 +59,7 @@ type UncheckedRoundStore struct {
 
 // Constructor for a UncheckedRoundStore
 func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
-	kv = kv.Prefix(uncheckRoundPrefix)
+	kv = kv.Prefix(uncheckedRoundPrefix)
 
 	urs := &UncheckedRoundStore{
 		list: make(map[id.Round]UncheckedRound, 0),
@@ -66,8 +73,8 @@ func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 // Loads an deserializes a UncheckedRoundStore from memory
 func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 
-	kv = kv.Prefix(uncheckRoundPrefix)
-	vo, err := kv.Get(uncheckedRoundListKey, uncheckRoundVersion)
+	kv = kv.Prefix(uncheckedRoundPrefix)
+	vo, err := kv.Get(uncheckedRoundListKey, uncheckedRoundVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -102,19 +109,24 @@ func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 func (s *UncheckedRoundStore) AddRound(rid id.Round, ephID ephemeral.Id, source *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	newUncheckedRound := UncheckedRound{
-		Rid: rid,
-		Identity: Identity{
-			EpdId:  ephID,
-			Source: source,
-		},
-		StoredTimestamp: netTime.Now(),
-		NumTries:        0,
+
+	if _, exists := s.list[rid]; !exists {
+		newUncheckedRound := UncheckedRound{
+			Rid: rid,
+			Identity: Identity{
+				EpdId:  ephID,
+				Source: source,
+			},
+			StoredTimestamp: netTime.Now(),
+			NumTries:        0,
+		}
+
+		s.list[rid] = newUncheckedRound
+
+		return s.save()
 	}
 
-	s.list[rid] = newUncheckedRound
-
-	return s.save()
+	return nil
 }
 
 // Retrieves an UncheckedRound from the map, if it exists
@@ -133,15 +145,18 @@ func (s *UncheckedRoundStore) GetList() map[id.Round]UncheckedRound {
 }
 
 // Increments the amount of checks performed on this stored round
-func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) {
+func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	rnd, exists := s.list[rid]
 	if !exists {
-		return
+		return errors.Errorf("round %d could not be found in RAM", rid)
 	}
 
 	rnd.NumTries++
+
+	return rnd.store(s.kv)
+
 }
 
 // Remove deletes a round from UncheckedRoundStore's list and from storage
@@ -150,7 +165,7 @@ func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	defer s.mux.Unlock()
 	delete(s.list, rid)
 
-	return s.kv.Delete(roundStoreKey(rid), uncheckRoundVersion)
+	return s.kv.Delete(roundStoreKey(rid), uncheckedRoundVersion)
 
 }
 
@@ -177,13 +192,13 @@ func (s *UncheckedRoundStore) saveRoundList() error {
 
 	// Create the versioned object
 	obj := &versioned.Object{
-		Version:   uncheckRoundVersion,
+		Version:   uncheckedRoundVersion,
 		Timestamp: netTime.Now(),
 		Data:      serializeRoundList(s.list),
 	}
 
 	// Save to storage
-	err := s.kv.Set(uncheckedRoundListKey, uncheckRoundVersion, obj)
+	err := s.kv.Set(uncheckedRoundListKey, uncheckedRoundVersion, obj)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to store round ID list")
 	}
@@ -211,12 +226,12 @@ func (r UncheckedRound) store(kv *versioned.KV) error {
 
 	}
 	obj := &versioned.Object{
-		Version:   uncheckRoundVersion,
+		Version:   uncheckedRoundVersion,
 		Timestamp: netTime.Now(),
 		Data:      data,
 	}
 
-	return kv.Set(roundStoreKey(r.Rid), uncheckRoundVersion, obj)
+	return kv.Set(roundStoreKey(r.Rid), uncheckedRoundVersion, obj)
 
 }
 
@@ -256,7 +271,7 @@ func (r UncheckedRound) Serialize() ([]byte, error) {
 
 // loadRound pulls an UncheckedRound corresponding to roundId from storage
 func loadRound(roundId id.Round, kv *versioned.KV) (UncheckedRound, error) {
-	vo, err := kv.Get(roundStoreKey(roundId), uncheckRoundVersion)
+	vo, err := kv.Get(roundStoreKey(roundId), uncheckedRoundVersion)
 	if err != nil {
 		return UncheckedRound{}, errors.WithMessagef(err, "Could not find %d in storage", roundId)
 	}

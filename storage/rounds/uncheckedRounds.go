@@ -49,7 +49,7 @@ type UncheckedRound struct {
 	// Timestamp in which round has last been checked
 	LastCheck time.Time
 	// Number of times a round has been checked
-	NumTries uint
+	NumTries uint64
 }
 
 // Storage object saving rounds to retry for message retrieval
@@ -112,6 +112,7 @@ func (s *UncheckedRoundStore) AddRound(ri *pb.RoundInfo, ephID ephemeral.Id, sou
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	rid := id.Round(ri.ID)
+
 	if _, exists := s.list[rid]; !exists {
 		newUncheckedRound := UncheckedRound{
 			Info: ri,
@@ -157,6 +158,7 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 
 	rnd.LastCheck = netTime.Now()
 	rnd.NumTries++
+	s.list[rid] = rnd
 
 	return rnd.store(s.kv)
 
@@ -166,6 +168,11 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
+	if _, exists := s.list[rid]; !exists {
+		return errors.Errorf("round %d does not exist in store", rid)
+	}
+
 	delete(s.list, rid)
 	if err := s.saveRoundList(); err != nil {
 		return err
@@ -323,8 +330,7 @@ func deserializeRound(data []byte) (UncheckedRound, error) {
 		return UncheckedRound{}, errors.WithMessage(err, "Failed to unmarshal round timestamp")
 	}
 
-	numTries, _ := binary.Varint(buff.Next(uint64Size))
-	rnd.NumTries = uint(numTries)
+	rnd.NumTries = binary.LittleEndian.Uint64(buff.Next(uint64Size))
 
 	return rnd, nil
 }

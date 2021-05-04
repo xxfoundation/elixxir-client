@@ -164,7 +164,9 @@ func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	delete(s.list, rid)
-
+	if err := s.saveRoundList(); err != nil {
+		return err
+	}
 	return s.kv.Delete(roundStoreKey(rid), uncheckedRoundVersion)
 
 }
@@ -200,7 +202,7 @@ func (s *UncheckedRoundStore) saveRoundList() error {
 	// Save to storage
 	err := s.kv.Set(uncheckedRoundListKey, uncheckedRoundVersion, obj)
 	if err != nil {
-		return errors.WithMessage(err, "Failed to store round ID list")
+		return errors.WithMessagef(err, "Failed to store roundID list")
 	}
 
 	return nil

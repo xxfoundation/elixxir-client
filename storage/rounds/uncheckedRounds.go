@@ -302,8 +302,8 @@ func deserializeRound(data []byte) (UncheckedRound, error) {
 	rnd.Source = sourceId
 
 	// Deserialize the timestamp bytes
-	timestampLen, _ := binary.Varint(buff.Next(uint64Size))
-	tsByes := buff.Next(int(timestampLen))
+	timestampLen := binary.LittleEndian.Uint64(buff.Next(uint64Size))
+	tsByes := buff.Next(int(uint64(timestampLen)))
 	if err = rnd.StoredTimestamp.UnmarshalBinary(tsByes); err != nil {
 		return UncheckedRound{}, errors.WithMessage(err, "Failed to unmarshal round timestamp")
 	}

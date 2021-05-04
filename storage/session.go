@@ -381,5 +381,10 @@ func InitTestingSession(i interface{}) *Session {
 
 	s.reception = reception.NewStore(s.kv)
 
+	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create uncheckRound store: %v", err)
+	}
+
 	return s
 }

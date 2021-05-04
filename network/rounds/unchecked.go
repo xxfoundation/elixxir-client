@@ -51,7 +51,7 @@ func (m *Manager) UncheckedRoundScheduler(checkInterval time.Duration,
 					err = uncheckedRoundStore.IncrementCheck(rid)
 					if err != nil {
 						jww.ERROR.Printf("UncheckedRoundScheduler error: Could not " +
-							"increment check attempts for round %s: %v", rid, err)
+							"increment check attempts for round %d: %v", rid, err)
 					}
 
 				}

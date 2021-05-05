@@ -83,8 +83,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				// If successful and there are messages, we send them to another thread
 				bundle.Identity = rl.identity
 				m.messageBundles <- bundle
-			} else {
-
 			}
 
 		}

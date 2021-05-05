@@ -27,7 +27,6 @@ type registrationMessageSender interface {
 // Returns an error if registration fails.
 func register(comms registrationMessageSender, host *connect.Host,
 	transmissionPublicKey, receptionPublicKey *rsa.PublicKey, registrationCode string) ([]byte, []byte, error) {
-
 	response, err := comms.
 		SendRegistrationMessage(host,
 			&pb.UserRegistration{
@@ -35,8 +34,9 @@ func register(comms registrationMessageSender, host *connect.Host,
 				ClientRSAPubKey:          string(rsa.CreatePublicKeyPem(transmissionPublicKey)),
 				ClientReceptionRSAPubKey: string(rsa.CreatePublicKeyPem(receptionPublicKey)),
 			})
+
 	if err != nil {
-		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Identity Server!")
+		err = errors.WithMessage(err, "sendRegistrationMessage: Unable to contact Identity Server!")
 		return nil, nil, err
 	}
 	if response.Error != "" {

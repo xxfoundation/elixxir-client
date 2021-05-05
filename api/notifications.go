@@ -40,7 +40,7 @@ func (c *Client) RegisterForNotifications(token string) error {
 		&mixmessages.NotificationRegisterRequest{
 			Token:                 token,
 			IntermediaryId:        intermediaryReceptionID,
-			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetUser().TransmissionRSA.GetPublic()),
+			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetStorage().User().GetCryptographicIdentity().GetTransmissionRSA().GetPublic()),
 			TransmissionSalt:      c.GetUser().TransmissionSalt,
 			TransmissionRsaSig:    c.GetStorage().User().GetTransmissionRegistrationValidationSignature(),
 			IIDTransmissionRsaSig: sig,
@@ -95,7 +95,8 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 	}
 
 	stream := c.rng.GetStream()
-	sig, err := rsa.Sign(stream, c.GetUser().TransmissionRSA, hash.CMixHash, h.Sum(nil), nil)
+	c.GetUser()
+	sig, err := rsa.Sign(stream, c.storage.User().GetCryptographicIdentity().GetTransmissionRSA(), hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to sign intermediary ID")
 	}

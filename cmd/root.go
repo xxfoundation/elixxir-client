@@ -62,7 +62,6 @@ var rootCmd = &cobra.Command{
 			recipientID, isPrecanPartner = parseRecipient(
 				viper.GetString("destid"))
 		}
-		fmt.Println(isPrecanPartner)
 
 		// Set it to myself
 		if recipientID == nil {

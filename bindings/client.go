@@ -366,15 +366,15 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
 	}
 
-	if sr==nil || sr.rl == nil || len(sr.rl.list) == 0{
+	if sr == nil || sr.rl == nil || len(sr.rl.list) == 0 {
 		return errors.New(fmt.Sprintf("Failed to "+
-			"WaitForMessageDelivery callback due to invalid Send Report " +
+			"WaitForMessageDelivery callback due to invalid Send Report "+
 			"unmarshal: %s", string(marshaledSendReport)))
 	}
 
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
-		jww.INFO.Printf("Processing WaitForMessageDelivery report " +
+		jww.INFO.Printf("Processing WaitForMessageDelivery report "+
 			"for %v, success: %v, timedout: %v", sr.mid, allRoundsSucceeded,
 			timedOut)
 		for i, r := range sr.rl.list {

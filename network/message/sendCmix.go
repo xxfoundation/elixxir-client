@@ -34,7 +34,7 @@ type sendCmixCommsInterface interface {
 }
 
 // 1.5 seconds
-const sendTimeBuffer = 2500 * time.Millisecond
+const sendTimeBuffer = 1500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
@@ -108,13 +108,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 		msg.SetEphemeralRID(ephIdFilled[:])
 
 		//set the identity fingerprint
-		ifp, err := fingerprint.IdentityFP(msg.GetContents(), recipient)
-		if err != nil {
-			jww.FATAL.Panicf("failed to generate the Identity "+
-				"fingerprint due to unrecoverable error when sending to %s "+
-				"(msgDigest: %s): %+v", recipient, msg.Digest(), err)
-		}
-
+		ifp := fingerprint.IdentityFP(msg.GetContents(), recipient)
 		msg.SetIdentityFP(ifp)
 
 		//build the topology

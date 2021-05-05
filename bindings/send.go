@@ -135,9 +135,9 @@ type SendReport struct {
 	mid e2e.MessageID
 }
 
-type SendReportDisk struct{
+type SendReportDisk struct {
 	List []id.Round
-	Mid []byte
+	Mid  []byte
 }
 
 func (sr *SendReport) GetRoundList() *RoundList {
@@ -157,14 +157,13 @@ func (sr *SendReport) Marshal() ([]byte, error) {
 }
 
 func (sr *SendReport) Unmarshal(b []byte) error {
-	srd := SendReportDisk{
-	}
-	if err := json.Unmarshal(b, &srd); err!=nil{
-		return errors.New(fmt.Sprintf("Failed to unmarshal send " +
+	srd := SendReportDisk{}
+	if err := json.Unmarshal(b, &srd); err != nil {
+		return errors.New(fmt.Sprintf("Failed to unmarshal send "+
 			"report: %s", err.Error()))
 	}
 
-	copy(sr.mid[:],srd.Mid)
-	sr.rl = &RoundList{list:srd.List}
+	copy(sr.mid[:], srd.Mid)
+	sr.rl = &RoundList{list: srd.List}
 	return nil
 }

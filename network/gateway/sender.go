@@ -63,7 +63,7 @@ func (s *Sender) SendToSpecific(target *id.ID,
 					host.GetId().String())
 			}
 			jww.WARN.Printf("Unable to SendToSpecific proxy %s: %s", proxies[i].GetId().String(), err)
-			err = s.checkReplace(proxies[i].GetId(), err)
+			_, err = s.checkReplace(proxies[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
 			}
@@ -83,7 +83,7 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 			return result, nil
 		} else {
 			jww.WARN.Printf("Unable to SendToAny %s: %s", proxies[i].GetId().String(), err)
-			err = s.checkReplace(proxies[i].GetId(), err)
+			_, err = s.checkReplace(proxies[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
 			}
@@ -97,6 +97,7 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 func (s *Sender) SendToPreferred(targets []*id.ID,
 	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
 
+	// Attempt to send directly to targets if they are in the HostPool
 	targetHosts := s.getPreferred(targets)
 	for i := range targetHosts {
 		result, err := sendFunc(targetHosts[i], targets[i])
@@ -105,25 +106,48 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 		} else {
 			jww.WARN.Printf("Unable to SendToPreferred %s via %s: %s",
 				targets[i], targetHosts[i].GetId(), err)
-			err = s.checkReplace(targetHosts[i].GetId(), err)
+			_, err = s.checkReplace(targetHosts[i].GetId(), err)
 			if err != nil {
 				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
 			}
 		}
 	}
 
-	proxies := s.getAny(s.poolParams.ProxyAttempts, targets)
-	for i := range proxies {
-		target := targets[i%len(targets)].DeepCopy()
-		result, err := sendFunc(proxies[i], target)
-		if err == nil {
-			return result, nil
-		} else {
-			jww.WARN.Printf("Unable to SendToPreferred %s via proxy "+
-				"%s: %s", target, proxies[i].GetId(), err)
-			err = s.checkReplace(proxies[i].GetId(), err)
-			if err != nil {
-				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
+	// Build a list of proxies for every target
+	proxies := make([][]*connect.Host, len(targets))
+	for i := 0; i < len(targets); i++ {
+		proxies[i] = s.getAny(s.poolParams.ProxyAttempts, targets)
+	}
+
+	// Build a map of bad proxies
+	badProxies := make(map[string]interface{})
+
+	// Iterate between each target's list of proxies, using the next target for each proxy
+	for proxyIdx := uint32(0); proxyIdx < s.poolParams.ProxyAttempts; proxyIdx++ {
+		for targetIdx := range proxies {
+			target := targets[targetIdx]
+			targetProxies := proxies[targetIdx]
+			proxy := targetProxies[proxyIdx]
+
+			// Skip bad proxies
+			if _, ok := badProxies[proxy.String()]; ok {
+				continue
+			}
+
+			result, err := sendFunc(targetProxies[proxyIdx], target)
+			if err == nil {
+				return result, nil
+			} else {
+				jww.WARN.Printf("Unable to SendToPreferred %s via proxy "+
+					"%s: %s", target, proxy.GetId(), err)
+				wasReplaced, err := s.checkReplace(proxy.GetId(), err)
+				if err != nil {
+					jww.ERROR.Printf("Unable to checkReplace: %+v", err)
+				}
+				// If the proxy was replaced, add as a bad proxy
+				if wasReplaced {
+					badProxies[proxy.String()] = nil
+				}
 			}
 		}
 	}

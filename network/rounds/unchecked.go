@@ -66,7 +66,11 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					}
 
 					// Send to processMessageRetrieval
-					m.lookupRoundMessages <- rl
+					select {
+					case m.lookupRoundMessages <- rl:
+					case <- time.After(500*time.Second):
+
+					}
 
 					// Update the state of the round for next look-up (if needed)
 					err := uncheckedRoundStore.IncrementCheck(rid)

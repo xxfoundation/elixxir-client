@@ -104,7 +104,7 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	return nil, nil
 }
 
-func newTestBackoffTable(face interface{}) backOffTable {
+func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
 	switch face.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -112,12 +112,12 @@ func newTestBackoffTable(face interface{}) backOffTable {
 		jww.FATAL.Panicf("newTestBackoffTable is restricted to testing only. Got %T", face)
 	}
 
-	backoffMap := make(backOffTable)
+	var backoff [cappedTries]time.Duration
 	for i := 0; i < cappedTries; i++ {
-		backoffMap[uint64(i)] = 1 * time.Millisecond
+		backoff[uint64(i)] = 1 * time.Millisecond
 	}
 
-	return backoffMap
+	return backoff
 
 }
 

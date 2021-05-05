@@ -307,6 +307,17 @@ func TestUncheckedRoundStore_IncrementCheck(t *testing.T) {
 			"Should not find round %d which was not added to store", unknownRound)
 	}
 
+	// Reach max checks, ensure that round is removed
+	maxRound := id.Round(7)
+	for i := 0; i < maxChecks+1; i++ {
+		err = testStore.IncrementCheck(maxRound)
+		if err != nil {
+			t.Errorf("IncrementCheck error: "+
+				"Could not increment check for round %d: %v", maxRound, err)
+		}
+
+	}
+
 }
 
 // Unit test

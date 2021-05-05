@@ -29,6 +29,9 @@ const (
 	// Key to store individual round
 	// Housekeeping constant (used for serializing uint64 ie id.Round)
 	uint64Size = 8
+	// Maximum checks that can be performed on a round. Intended so that
+	// a round is checked no more than 1 week approximately (network/rounds.cappedTries + 7)
+	maxChecks = 14
 )
 
 // Round identity information used in message retrieval
@@ -212,6 +215,18 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 		return errors.Errorf("round %d could not be found in RAM", rid)
 	}
 
+	// If a round has been checked the maximum amount of times,
+	// we bail the round by removing it from store and no longer checking
+	if rnd.NumChecks >= maxChecks {
+		err := s.remove(rid)
+		if err != nil {
+			return errors.WithMessagef(err, "Round %d reached maximum checks "+
+				"but could not be removed", rid)
+		}
+		return nil
+	}
+
+	// Update the rounds state
 	rnd.LastCheck = netTime.Now()
 	rnd.NumChecks++
 	s.list[rid] = rnd
@@ -225,14 +240,23 @@ func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
+	if err := s.remove(rid); err != nil {
+		return err
+	}
+
+	return s.save()
+
+}
+
+// Remove is a helper function which removes the round from UncheckedRoundStore's list
+// Note this method is unsafe and should only be used by methods with a lock
+func (s *UncheckedRoundStore) remove(rid id.Round) error {
 	if _, exists := s.list[rid]; !exists {
 		return errors.Errorf("round %d does not exist in store", rid)
 	}
 
 	delete(s.list, rid)
-
-	return s.save()
-
+	return nil
 }
 
 // save stores the information from the round list into storage

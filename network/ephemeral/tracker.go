@@ -63,7 +63,7 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 		now := netTime.Now()
 
 		//hack for inconsistent time on android
-		if lastCheck.Sub(now) <=0{
+		if now.Sub(lastCheck) <=0{
 			now = lastCheck.Add(time.Nanosecond)
 		}
 

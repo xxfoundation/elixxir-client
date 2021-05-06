@@ -168,18 +168,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
 
 					// Obtain relevant NodeGateway information
-					// TODO ???
 					nid, err := id.Unmarshal(clientErr.Source)
 					if err != nil {
 						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
 						return
 					}
-					//m.Instance.GetNodeAndGateway(gwHost.GetId())
-					//if err != nil {
-					//	jww.ERROR.Printf("Unable to get NodeGateway: %+v", err)
-					//	return
-					//}
-					//nid, err := nGw.Node.GetNodeId()
 					nGw, err := m.Instance.GetNodeAndGateway(nid)
 					if err != nil {
 						jww.ERROR.Printf("Unable to get gateway: %+v", err)

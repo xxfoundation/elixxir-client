@@ -18,12 +18,15 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
 
 var extantClient bool
 var loginMux sync.Mutex
+
+var clientSingleton *Client
 
 // sets the log level
 func init() {
@@ -96,7 +99,15 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
 	extantClient = true
-	return &Client{api: *client}, nil
+	clientSingleton := &Client{api: *client}
+	return clientSingleton, nil
+}
+
+// returns a previously created client. IF be used if the garbage collector
+// removes the client instance on the app side.  Is NOT thread safe relative to
+// login, newClient, or newPrecannedClient
+func GetClientSingleton() *Client {
+	return clientSingleton
 }
 
 // sets level of logging. All logs the set level and above will be displayed
@@ -219,9 +230,9 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 // WaitForNewtwork will block until either the network is healthy or the
 // passed timeout. It will return true if the network is healthy
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
-	start := time.Now()
+	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	for time.Now().Sub(start) < timeout {
+	for netTime.Now().Sub(start) < timeout {
 		if c.api.GetHealth().IsHealthy() {
 			return true
 		}
@@ -366,15 +377,15 @@ func (c *Client) WaitForMessageDelivery(marshaledSendReport []byte,
 			"WaitForMessageDelivery callback due to bad Send Report: %+v", err))
 	}
 
-	if sr==nil || sr.rl == nil || len(sr.rl.list) == 0{
+	if sr == nil || sr.rl == nil || len(sr.rl.list) == 0 {
 		return errors.New(fmt.Sprintf("Failed to "+
-			"WaitForMessageDelivery callback due to invalid Send Report " +
+			"WaitForMessageDelivery callback due to invalid Send Report "+
 			"unmarshal: %s", string(marshaledSendReport)))
 	}
 
 	f := func(allRoundsSucceeded, timedOut bool, rounds map[id.Round]api.RoundResult) {
 		results := make([]byte, len(sr.rl.list))
-		jww.INFO.Printf("Processing WaitForMessageDelivery report " +
+		jww.INFO.Printf("Processing WaitForMessageDelivery report "+
 			"for %v, success: %v, timedout: %v", sr.mid, allRoundsSucceeded,
 			timedOut)
 		for i, r := range sr.rl.list {

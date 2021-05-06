@@ -8,6 +8,7 @@
 package api
 
 import (
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 
@@ -224,6 +225,16 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
 			"blank permissioning address. Client will not be able to register " +
 			"or track network.")
+	}
+
+	if def.Notification.Address != "" {
+		hp := connect.GetDefaultHostParams()
+		hp.AuthEnabled = false
+		hp.MaxRetries = 5
+		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
+		if err != nil {
+			jww.WARN.Printf("Failed adding host for notifications: %+v", err)
+		}
 	}
 
 	// Initialize network and link it to context

@@ -24,8 +24,6 @@ package network
 
 import (
 	"fmt"
-	"sync/atomic"
-	"time"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/rounds"
@@ -34,6 +32,8 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
+	"sync/atomic"
+	"time"
 )
 
 const debugTrackPeriod = 1 * time.Minute
@@ -115,6 +115,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	if err != nil {
 		return
 	}
+
 	pollResp := result.(*pb.GatewayPollResponse)
 
 	// ---- Process Network State Update Data ----
@@ -220,12 +221,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		return
 	}
 
-
 	//prepare the filter objects for processing
 	filterList := make([]*rounds.RemoteFilter, 0, filtersEnd-filtersStart)
 	for i := filtersStart; i < filtersEnd; i++ {
 		if len(pollResp.Filters.Filters[i].Filter) != 0 {
-			filterList= append(filterList,rounds.NewRemoteFilter(pollResp.Filters.Filters[i]))
+			filterList = append(filterList, rounds.NewRemoteFilter(pollResp.Filters.Filters[i]))
 		}
 	}
 

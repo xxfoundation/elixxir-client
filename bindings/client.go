@@ -25,6 +25,8 @@ import (
 var extantClient bool
 var loginMux sync.Mutex
 
+var clientSingleton *Client
+
 // sets the log level
 func init() {
 	jww.SetLogThreshold(jww.LevelInfo)
@@ -96,7 +98,15 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
 	extantClient = true
-	return &Client{api: *client}, nil
+	clientSingleton :=&Client{api: *client}
+	return clientSingleton, nil
+}
+
+// returns a previously created client. IF be used if the garbage collector
+// removes the client instance on the app side.  Is NOT thread safe relative to
+// login, newClient, or newPrecannedClient
+func GetClientSingleton() *Client {
+	return clientSingleton
 }
 
 // sets level of logging. All logs the set level and above will be displayed

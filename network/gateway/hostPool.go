@@ -80,7 +80,7 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.EnableCoolOff = true
 	p.HostParams.NumSendsBeforeCoolOff = 1
 	p.HostParams.CoolOffTimeout = 5 * time.Minute
-	p.HostParams.SendTimeout = 2 * time.Second
+	p.HostParams.SendTimeout = 3500*time.Millisecond
 	return p
 }
 

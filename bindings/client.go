@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
 	"time"
 )
@@ -98,7 +99,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 		return nil, errors.New(fmt.Sprintf("Failed to login: %+v", err))
 	}
 	extantClient = true
-	clientSingleton :=&Client{api: *client}
+	clientSingleton := &Client{api: *client}
 	return clientSingleton, nil
 }
 
@@ -229,9 +230,9 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 // WaitForNewtwork will block until either the network is healthy or the
 // passed timeout. It will return true if the network is healthy
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
-	start := time.Now()
+	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	for time.Now().Sub(start) < timeout {
+	for netTime.Now().Sub(start) < timeout {
 		if c.api.GetHealth().IsHealthy() {
 			return true
 		}

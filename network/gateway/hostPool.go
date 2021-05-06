@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"golang.org/x/net/context"
 	"io"
 	"math"
 	"strings"
@@ -30,7 +31,7 @@ import (
 )
 
 // List of errors that initiate a Host replacement
-var errorsList = []string{"context deadline exceeded", "connection refused", "host disconnected",
+var errorsList = []string{context.DeadlineExceeded.Error(), "connection refused", "host disconnected",
 	"transport is closing", "all SubConns are in TransientFailure", "Last try to connect",
 	ndf.NO_NDF, "Host is in cool down"}
 
@@ -80,7 +81,7 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.EnableCoolOff = true
 	p.HostParams.NumSendsBeforeCoolOff = 1
 	p.HostParams.CoolOffTimeout = 5 * time.Minute
-	p.HostParams.SendTimeout = 2 * time.Second
+	p.HostParams.SendTimeout = 3500 * time.Millisecond
 	return p
 }
 

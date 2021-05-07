@@ -9,12 +9,14 @@ package user
 
 import (
 	"bytes"
+	"encoding/binary"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
+	"time"
 )
 
 // Test User GetRegistrationValidationSignature function
@@ -135,5 +137,90 @@ func TestUser_loadRegistrationValidationSignature(t *testing.T) {
 	u.loadReceptionRegistrationValidationSignature()
 	if bytes.Compare(u.receptionRegValidationSig, sig) != 0 {
 		t.Errorf("Expected sig did not match loaded.  Expected: %+v, Received: %+v", sig, u.receptionRegValidationSig)
+	}
+}
+
+// Test User's getter/setter functions for TimeStamp
+func TestUser_GetRegistrationTimestamp(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	uid := id.NewIdFromString("test", id.User, t)
+	salt := []byte("salt")
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+	if err != nil || u == nil {
+		t.Errorf("Failed to create new user: %+v", err)
+	}
+
+	testTime, err := time.Parse(time.RFC3339,
+		"2012-12-21T22:08:41+00:00")
+	if err != nil {
+		t.Fatalf("Could not parse precanned time: %v", err.Error())
+	}
+
+	// Test that User has been modified for timestamp
+	u.SetRegistrationTimestamp(testTime.UnixNano())
+	if !testTime.Equal(u.registrationTimestamp) {
+		t.Errorf("SetRegistrationTimestamp did not set user's timestamp value."+
+			"\n\tExpected: %s\n\tReceieved: %s", testTime.String(), u.registrationTimestamp)
+	}
+
+	// Pull timestamp from kv
+	obj, err := u.kv.Get(registrationTimestampKey, 0)
+	if err != nil {
+		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
+	}
+
+	// Check if kv data is expected
+	unixNano := binary.BigEndian.Uint64(obj.Data)
+	if testTime.UnixNano() != int64(unixNano) {
+		t.Errorf("Timestamp pulled from kv was not expected."+
+			"\n\tExpected: %d\n\tReceieved: %d", testTime.UnixNano(), unixNano)
+	}
+
+	if testTime.UnixNano() != u.GetRegistrationTimestampNano() {
+		t.Errorf("Timestamp from GetRegistrationTimestampNano was not expected."+
+			"\n\tExpected: %d\n\tReceieved: %d", testTime.UnixNano(), u.GetRegistrationTimestampNano())
+	}
+
+	if !testTime.Equal(u.GetRegistrationTimestamp()) {
+		t.Errorf("Timestamp from GetRegistrationTimestamp was not expected."+
+			"\n\tExpected: %s\n\tReceieved: %s", testTime, u.GetRegistrationTimestamp())
+
+	}
+
+}
+
+// Test loading registrationTimestamp from the KV store
+func TestUser_loadRegistrationTimestamp(t *testing.T) {
+	kv := versioned.NewKV(make(ekv.Memstore))
+	uid := id.NewIdFromString("test", id.User, t)
+	salt := []byte("salt")
+	u, err := NewUser(kv, uid, uid, salt, salt, &rsa.PrivateKey{}, &rsa.PrivateKey{}, false)
+	if err != nil || u == nil {
+		t.Errorf("Failed to create new user: %+v", err)
+	}
+
+	testTime, err := time.Parse(time.RFC3339,
+		"2012-12-21T22:08:41+00:00")
+	if err != nil {
+		t.Fatalf("Could not parse precanned time: %v", err.Error())
+	}
+
+	data := make([]byte, 8)
+	binary.BigEndian.PutUint64(data, uint64(testTime.UnixNano()))
+	vo := &versioned.Object{
+		Version:   currentRegValidationSigVersion,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	}
+	err = kv.Set(registrationTimestampKey,
+		currentRegValidationSigVersion, vo)
+	if err != nil {
+		t.Errorf("Failed to set reg validation sig key in kv store: %+v", err)
+	}
+
+	u.loadRegistrationTimestamp()
+	if !testTime.Equal(u.registrationTimestamp) {
+		t.Errorf("SetRegistrationTimestamp did not set user's timestamp value."+
+			"\n\tExpected: %s\n\tReceieved: %s", testTime.String(), u.registrationTimestamp)
 	}
 }

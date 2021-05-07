@@ -59,6 +59,8 @@ func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fas
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
+	// Timestamp in which user has registered with permissioning
+	regTimestamp := u.GetRegistrationTimestampNano()
 	uci := u.GetCryptographicIdentity()
 	cmix := session.Cmix()
 
@@ -71,7 +73,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fas
 			t.Stop()
 			return
 		case gw := <-c:
-			err := registerWithNode(sender, comms, gw, regSignature, uci, cmix, rng)
+			err := registerWithNode(sender, comms, gw, regSignature, regTimestamp, uci, cmix, rng)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register node: %+v", err)
 			}
@@ -82,8 +84,10 @@ func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fas
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
-func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, ngw network.NodeGateway, regSig []byte,
-	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) error {
+func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, ngw network.NodeGateway,
+	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
+	store *cmix.Store, rng csprng.Source) error {
+
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
 		jww.ERROR.Println("registerWithNode() failed to decode nodeId")
@@ -118,7 +122,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
-		nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig, uci, store, rng)
+		nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig, registrationTimestampNano, uci, store, rng)
 		if err != nil {
 			return errors.Errorf("Failed to request nonce: %+v", err)
 		}
@@ -145,8 +149,10 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 	return nil
 }
 
-func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID, regHash []byte,
-	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
+func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
+	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
+	store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
+
 	dhPub := store.GetDHPublicKey().Bytes()
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = hash.CMixHash
@@ -170,13 +176,15 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 				Salt:            uci.GetTransmissionSalt(),
 				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())),
 				ClientSignedByServer: &messages.RSASignature{
-					Signature: regHash,
+					Signature: regSig,
 				},
 				ClientDHPubKey: dhPub,
 				RequestSignature: &messages.RSASignature{
 					Signature: clientSig,
 				},
 				Target: gwId.Marshal(),
+				// Timestamp in which user has registered with permissioning
+				TimeStamp: registrationTimestampNano,
 			})
 		if err != nil {
 			errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)

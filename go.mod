@@ -25,6 +25,7 @@ require (
 	gitlab.com/xx_network/crypto v0.0.5-0.20210504210244-9ddabbad25fd
 	gitlab.com/xx_network/primitives v0.0.4-0.20210504205835-db68f11de78a
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/net v0.0.0-20210226172049-e18ecbb05110
 	golang.org/x/sys v0.0.0-20210403161142-5e06dd20ab57 // indirect
 	google.golang.org/genproto v0.0.0-20210105202744-fe13368bc0e1 // indirect
 	google.golang.org/grpc v1.34.0 // indirect

@@ -100,7 +100,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 
 	// Get the hosts and shuffle randomly
 	targetHosts := s.getPreferred(targets)
-	var rndBytes [8]byte
+	var rndBytes [32]byte
 	stream := s.rng.GetStream()
 	_, err := stream.Read(rndBytes[:])
 	stream.Close()

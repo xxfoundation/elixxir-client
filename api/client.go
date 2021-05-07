@@ -435,15 +435,16 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
 	err = c.runner.Close(timeout)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to Stop the Network Follower")
-	}
 	c.runner = stoppable.NewMulti("client")
-	err = c.status.toStopped()
-	if err != nil {
-		return errors.WithMessage(err, "Failed to Stop the Network Follower")
+	err2 := c.status.toStopped()
+	if err2 != nil {
+		if err ==nil{
+			err = err2
+		}else{
+			err = errors.WithMessage(err,err2.Error())
+		}
 	}
-	return nil
+	return err
 }
 
 // NetworkFollowerStatus Gets the state of the network follower. Returns:

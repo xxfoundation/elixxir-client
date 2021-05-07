@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -97,8 +98,20 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 func (s *Sender) SendToPreferred(targets []*id.ID,
 	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
 
-	// Attempt to send directly to targets if they are in the HostPool
+	// Get the hosts and shuffle randomly
 	targetHosts := s.getPreferred(targets)
+	var rndBytes [8]byte
+	stream := s.rng.GetStream()
+	_, err := stream.Read(rndBytes[:])
+	stream.Close()
+	if err != nil {
+		return nil, err
+	}
+	shuffle.ShuffleSwap(rndBytes[:], len(targetHosts), func(i, j int) {
+		targetHosts[i], targetHosts[j] = targetHosts[j], targetHosts[i]
+	})
+
+	// Attempt to send directly to targets if they are in the HostPool
 	for i := range targetHosts {
 		result, err := sendFunc(targetHosts[i], targets[i])
 		if err == nil {

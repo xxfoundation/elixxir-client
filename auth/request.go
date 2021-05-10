@@ -57,10 +57,13 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	if err == nil {
 		if rqType == auth.Receive {
-			return 0, errors.WithMessage(err,
-				"Cannot send a request after receiving a request")
+			return 0, errors.Errorf("Cannot send a request after " +
+				"receiving a request")
 		} else if rqType == auth.Sent {
 			resend = true
+		}else{
+			return 0, errors.Errorf("Cannot send a request after " +
+				" a stored request with unknown rqType: %d", rqType)
 		}
 	}else if !strings.Contains(err.Error(), auth.NoRequest){
 		return 0, errors.WithMessage(err,

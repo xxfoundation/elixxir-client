@@ -21,6 +21,7 @@ const (
 const (
 	bsBuffLengthErr   = "length of buffer %d != %d expected"
 	bsKvSaveErr       = "failed to save blockStore to KV: %+v"
+	bsKvInitSaveErr   = "failed to save initial block: %+v"
 	bsKvLoadErr       = "failed to get BlockStore from storage: %+v"
 	bsKvUnmarshalErr  = "failed to unmarshal BlockStore loaded from storage: %+v"
 	bJsonMarshalErr   = "failed to JSON marshal block %d: %+v"
@@ -216,6 +217,12 @@ func (bs *BlockStore) save() error {
 	err := bs.kv.Set(blockStoreKey, blockStoreVersion, &obj)
 	if err != nil {
 		return errors.Errorf(bsKvSaveErr, err)
+	}
+
+	// Save initial block
+	err = bs.saveBlock()
+	if err != nil {
+		return errors.Errorf(bsKvInitSaveErr, err)
 	}
 
 	return nil

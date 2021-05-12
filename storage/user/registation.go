@@ -36,13 +36,6 @@ func (u *User) GetReceptionRegistrationValidationSignature() []byte {
 	return u.receptionRegValidationSig
 }
 
-// Returns the registration timestamp stored in RAM as int64
-func (u *User) GetRegistrationTimestampNano() int64 {
-	u.rvsMux.RLock()
-	defer u.rvsMux.RUnlock()
-	return u.registrationTimestamp.UnixNano()
-}
-
 // Returns the registration timestamp stored in RAM as
 func (u *User) GetRegistrationTimestamp() time.Time {
 	u.rvsMux.RLock()

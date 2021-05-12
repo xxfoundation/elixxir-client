@@ -49,7 +49,7 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 			Salt:     cryptoUser.GetReceptionSalt(),
 		},
 		UID: cryptoUser.GetReceptionID().Marshal(),
-		Timestamp: user.GetRegistrationTimestampNano(),
+		Timestamp: user.GetRegistrationTimestamp().UnixNano(),
 	}
 
 	// Sign the identity data and add to user registration message

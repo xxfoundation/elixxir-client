@@ -176,9 +176,9 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 			"\n\tExpected: %d\n\tReceieved: %d", testTime.UnixNano(), unixNano)
 	}
 
-	if testTime.UnixNano() != u.GetRegistrationTimestampNano() {
+	if testTime.UnixNano() != u.GetRegistrationTimestamp().UnixNano() {
 		t.Errorf("Timestamp from GetRegistrationTimestampNano was not expected."+
-			"\n\tExpected: %d\n\tReceieved: %d", testTime.UnixNano(), u.GetRegistrationTimestampNano())
+			"\n\tExpected: %d\n\tReceieved: %d", testTime.UnixNano(), u.GetRegistrationTimestamp().UnixNano())
 	}
 
 	if !testTime.Equal(u.GetRegistrationTimestamp()) {

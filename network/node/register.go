@@ -60,7 +60,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fas
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	// Timestamp in which user has registered with permissioning
-	regTimestamp := u.GetRegistrationTimestampNano()
+	regTimestamp := u.GetRegistrationTimestamp().UnixNano()
 	uci := u.GetCryptographicIdentity()
 	cmix := session.Cmix()
 

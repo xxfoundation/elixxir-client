@@ -164,7 +164,7 @@ func TestUser_GetRegistrationTimestamp(t *testing.T) {
 	}
 
 	// Pull timestamp from kv
-	obj, err := u.kv.Get(registrationTimestampKey, 0)
+	obj, err := u.kv.Get(registrationTimestampKey, registrationTimestampVersion)
 	if err != nil {
 		t.Errorf("Failed to get reg vaildation signature key: %+v", err)
 	}
@@ -213,7 +213,7 @@ func TestUser_loadRegistrationTimestamp(t *testing.T) {
 		Data:      data,
 	}
 	err = kv.Set(registrationTimestampKey,
-		currentRegValidationSigVersion, vo)
+		registrationTimestampVersion, vo)
 	if err != nil {
 		t.Errorf("Failed to set reg validation sig key in kv store: %+v", err)
 	}

@@ -16,6 +16,7 @@ import (
 )
 
 const currentRegValidationSigVersion = 0
+const registrationTimestampVersion = 0
 const transmissionRegValidationSigKey = "transmissionRegistrationValidationSignature"
 const receptionRegValidationSigKey = "receptionRegistrationValidationSignature"
 const registrationTimestampKey = "registrationTimestamp"
@@ -69,7 +70,7 @@ func (u *User) loadReceptionRegistrationValidationSignature() {
 func (u *User) loadRegistrationTimestamp() {
 	u.rvsMux.Lock()
 	obj, err := u.kv.Get(registrationTimestampKey,
-		currentRegValidationSigVersion)
+		registrationTimestampVersion)
 	if err == nil {
 		tsNano := binary.BigEndian.Uint64(obj.Data)
 		u.registrationTimestamp = time.Unix(0, int64(tsNano))
@@ -153,7 +154,7 @@ func (u *User) SetRegistrationTimestamp(tsNano int64) {
 	}
 
 	err := u.kv.Set(registrationTimestampKey,
-		currentRegValidationSigVersion, obj)
+		registrationTimestampVersion, obj)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to store the reception timestamp: %s", err)
 	}

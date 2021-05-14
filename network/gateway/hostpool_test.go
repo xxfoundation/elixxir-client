@@ -359,9 +359,12 @@ func TestHostPool_CheckReplace(t *testing.T) {
 	oldGatewayIndex := 0
 	oldHost := testPool.hostList[oldGatewayIndex]
 	expectedError := fmt.Errorf(errorsList[0])
-	err = testPool.checkReplace(oldHost.GetId(), expectedError)
+	wasReplaced, err := testPool.checkReplace(oldHost.GetId(), expectedError)
 	if err != nil {
 		t.Errorf("Failed to check replace: %v", err)
+	}
+	if !wasReplaced {
+		t.Errorf("Expected to replace")
 	}
 
 	// Ensure that old gateway has been removed from the map
@@ -378,9 +381,12 @@ func TestHostPool_CheckReplace(t *testing.T) {
 	goodGatewayIndex := 0
 	goodGateway := testPool.hostList[goodGatewayIndex]
 	unexpectedErr := fmt.Errorf("not in global error list")
-	err = testPool.checkReplace(oldHost.GetId(), unexpectedErr)
+	wasReplaced, err = testPool.checkReplace(oldHost.GetId(), unexpectedErr)
 	if err != nil {
 		t.Errorf("Failed to check replace: %v", err)
+	}
+	if wasReplaced {
+		t.Errorf("Expected not to replace")
 	}
 
 	// Ensure that gateway with an unexpected error was not modified

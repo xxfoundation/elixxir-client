@@ -8,7 +8,6 @@
 package utility
 
 import (
-	"crypto/md5"
 	"encoding/binary"
 	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
@@ -17,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 )
 
 const currentE2EMessageVersion = 0
@@ -80,17 +80,19 @@ func (emh *e2eMessageHandler) DeleteMessage(kv *versioned.KV, key string) error 
 // Do not include the params in the hash so it is not needed to resubmit the
 // message into succeeded or failed
 func (emh *e2eMessageHandler) HashMessage(m interface{}) MessageHash {
+	h, _ := blake2b.New256(nil)
+
 	msg := m.(e2eMessage)
-
-	var digest []byte
-	digest = append(digest, msg.Recipient...)
-	digest = append(digest, msg.Payload...)
-
+	h.Write(msg.Recipient)
+	h.Write(msg.Payload)
 	mtBytes := make([]byte, 4)
 	binary.BigEndian.PutUint32(mtBytes, msg.MessageType)
-	digest = append(digest, mtBytes...)
+	h.Write(mtBytes)
 
-	return md5.Sum(digest)
+	var messageHash MessageHash
+	copy(messageHash[:], h.Sum(nil))
+
+	return messageHash
 }
 
 // E2eMessageBuffer wraps the message buffer to store and load raw e2eMessages.

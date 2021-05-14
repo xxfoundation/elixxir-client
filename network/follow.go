@@ -48,7 +48,7 @@ type followNetworkComms interface {
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}) {
+func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}, isRunning interfaces.Running) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
@@ -60,17 +60,23 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 			rng.Close()
 			done = true
 		case <-ticker.C:
-			m.follow(report, rng, m.Comms)
+			m.follow(report, rng, m.Comms, isRunning)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			jww.INFO.Printf("Polled the network %d times in the "+
 				"last %s", numPolls, debugTrackPeriod)
 		}
+		if !isRunning.IsRunning(){
+			jww.ERROR.Printf("Killing network follower " +
+				"due to failed exit")
+			return
+		}
 	}
 }
 
 // executes each iteration of the follower
-func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source, comms followNetworkComms) {
+func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
+	comms followNetworkComms, isRunning interfaces.Running) {
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
@@ -102,6 +108,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
 		return comms.SendPoll(host, &pollReq)
 	})
+	if !isRunning.IsRunning(){
+		jww.ERROR.Printf("Killing network follower " +
+			"due to failed exit")
+		return
+	}
 	if err != nil {
 		if report != nil {
 			report(

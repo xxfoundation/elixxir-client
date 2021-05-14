@@ -225,7 +225,9 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 }
 
 // Replaces the given hostId in the HostPool if the given hostErr is in errorList
-func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
+// Returns whether the host was replaced
+func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
+	var err error
 	// Check if Host should be replaced
 	doReplace := false
 	if hostErr != nil {
@@ -239,19 +241,17 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 	}
 
 	if doReplace {
-		h.hostMux.Lock()
-		defer h.hostMux.Unlock()
-
 		// If the Host is still in the pool
+		h.hostMux.Lock()
 		if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
 			// Replace it
 			h.ndfMux.RLock()
-			err := h.forceReplace(oldPoolIndex)
+			err = h.forceReplace(oldPoolIndex)
 			h.ndfMux.RUnlock()
-			return err
 		}
+		h.hostMux.Unlock()
 	}
-	return nil
+	return doReplace, err
 }
 
 // Replace given Host index with a new, randomly-selected Host from the NDF

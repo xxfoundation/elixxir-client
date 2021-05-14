@@ -82,7 +82,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 		return nil, errors.Errorf("Failed to send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
 	} else {
-		jww.INFO.Printf("Sucesfully Unsafe sent %d/%d to %s",
+		jww.INFO.Printf("Successfully Unsafe sent %d/%d to %s",
 			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 

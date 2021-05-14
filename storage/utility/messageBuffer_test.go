@@ -9,11 +9,11 @@ package utility
 
 import (
 	"bytes"
-	"crypto/md5"
 	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 	"math/rand"
 	"os"
 	"reflect"
@@ -48,10 +48,14 @@ func (th *testHandler) DeleteMessage(kv *versioned.KV, key string) error {
 }
 
 func (th *testHandler) HashMessage(m interface{}) MessageHash {
-	mBytes := m.([]byte)
-	// Sum returns a array that is the exact same size as the MessageHash and Go
-	// apparently automatically casts it
-	return md5.Sum(mBytes)
+	h, _ := blake2b.New256(nil)
+
+	h.Write(m.([]byte))
+
+	var messageHash MessageHash
+	copy(messageHash[:], h.Sum(nil))
+
+	return messageHash
 }
 
 func newTestHandler() *testHandler {
@@ -343,7 +347,13 @@ func makeTestMessages(n int) ([][]byte, map[MessageHash]struct{}) {
 	for i := range msgs {
 		msgs[i] = make([]byte, 256)
 		prng.Read(msgs[i])
-		mh[md5.Sum(msgs[i])] = struct{}{}
+
+		h, _ := blake2b.New256(nil)
+		h.Write(msgs[i])
+		var messageHash MessageHash
+		copy(messageHash[:], h.Sum(nil))
+
+		mh[messageHash] = struct{}{}
 	}
 
 	return msgs, mh

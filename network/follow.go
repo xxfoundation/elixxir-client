@@ -100,20 +100,17 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartRequest,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
-		result, err := comms.SendPoll(host, &pollReq)
-		if err != nil {
-			if report != nil {
-				report(
-					"NetworkFollower",
-					fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), host.String()),
-					fmt.Sprintf("%+v", err),
-				)
-			}
-			jww.ERROR.Printf("Unable to poll %s for NDF: %+v", host, err)
-		}
-		return result, err
+		return comms.SendPoll(host, &pollReq)
 	})
 	if err != nil {
+		if report != nil {
+			report(
+				"NetworkFollower",
+				fmt.Sprintf("Failed to poll network, \"%s\":", err.Error()),
+				fmt.Sprintf("%+v", err),
+			)
+		}
+		jww.ERROR.Printf("Unable to poll gateways: %+v", err)
 		return
 	}
 

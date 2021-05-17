@@ -40,7 +40,7 @@ func TestClient_GetRoundResults(t *testing.T) {
 	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
-		t.Errorf("Failed in setup: %v", err)
+		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Construct the round call back function signature
@@ -103,7 +103,7 @@ func TestClient_GetRoundResults_FailedRounds(t *testing.T) {
 	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
-		t.Errorf("Failed in setup: %v", err)
+		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Construct the round call back function signature
@@ -161,7 +161,7 @@ func TestClient_GetRoundResults_HistoricalRounds(t *testing.T) {
 	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
-		t.Errorf("Failed in setup: %v", err)
+		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Overpopulate the round buffer, ensuring a circle back of the ring buffer
@@ -219,7 +219,7 @@ func TestClient_GetRoundResults_Timeout(t *testing.T) {
 	// Create a new copy of the test client for this test
 	client, err := newTestingClient(t)
 	if err != nil {
-		t.Errorf("Failed in setup: %v", err)
+		t.Fatalf("Failed in setup: %v", err)
 	}
 
 	// Construct the round call back function signature

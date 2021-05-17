@@ -20,8 +20,14 @@ import (
 // Smoke test for handleTrigger
 func TestHandleConfirm(t *testing.T) {
 	// Generate alice and bob's session
-	aliceSession, _ := InitTestingContextGeneric(t)
-	bobSession, _ := InitTestingContextGeneric(t)
+	aliceSession, _, err := InitTestingContextGeneric(t)
+	if err != nil {
+		t.Fatalf("Failed to create alice session: %v", err)
+	}
+	bobSession, _, err := InitTestingContextGeneric(t)
+	if err != nil {
+		t.Fatalf("Failed to create bob session: %v", err)
+	}
 
 	// Maintain an ID for bob
 	bobID := id.NewIdFromBytes([]byte("test"), t)

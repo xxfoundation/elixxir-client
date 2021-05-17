@@ -23,9 +23,14 @@ import (
 // Smoke test for handleTrigger
 func TestHandleTrigger(t *testing.T) {
 	// Generate alice and bob's session
-	aliceSession, aliceManager := InitTestingContextGeneric(t)
-	bobSession, _ := InitTestingContextGeneric(t)
-
+	aliceSession, aliceManager, err := InitTestingContextGeneric(t)
+	if err != nil {
+		t.Fatalf("Failed to create alice session: %v", err)
+	}
+	bobSession, _, err := InitTestingContextGeneric(t)
+	if err != nil {
+		t.Fatalf("Failed to create bob session: %v", err)
+	}
 	// Pull the keys for Alice and Bob
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
 	bobPubKey := bobSession.E2e().GetDHPublicKey()
@@ -62,7 +67,7 @@ func TestHandleTrigger(t *testing.T) {
 	// Handle the trigger and check for an error
 	rekeyParams := params.GetDefaultRekey()
 	rekeyParams.RoundTimeout = 0 * time.Second
-	err := handleTrigger(aliceSession, aliceManager, receiveMsg, rekeyParams)
+	err = handleTrigger(aliceSession, aliceManager, receiveMsg, rekeyParams)
 	if err != nil {
 		t.Errorf("Handle trigger error: %v", err)
 	}

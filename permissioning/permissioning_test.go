@@ -22,7 +22,9 @@ func TestInit(t *testing.T) {
 		t.Fatal(err)
 	}
 	def := &ndf.NetworkDefinition{
-		Registration: ndf.Registration{},
+		Registration: ndf.Registration{
+			EllipticPubKey: "MqaJJ3GjFisNRM6LRedRnooi14gepMaQxyWctXVU",
+		},
 	}
 	reg, err := Init(comms, def)
 	if err != nil {

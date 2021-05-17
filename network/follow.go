@@ -100,6 +100,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 		ClientVersion:  []byte(version.String()),
+		FastPolling:    m.param.FastPolling,
 	}
 
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {

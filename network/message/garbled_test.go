@@ -105,6 +105,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	contents := make([]byte, msg.ContentsSize())
 	prng := rand.New(rand.NewSource(42))
 	prng.Read(contents)
+	contents[len(contents)-1] = 0
 	fmp := parse.FirstMessagePartFromBytes(contents)
 	binary.BigEndian.PutUint32(fmp.Type, uint32(message.Raw))
 	fmp.NumParts[0] = uint8(1)

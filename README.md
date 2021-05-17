@@ -176,6 +176,9 @@ Flags:
                                   (default 500)
       --sendid uint               Use precanned user id (must be between 1 and
                                   40, inclusive)
+      --slowPolling bool          Enables polling for all network updates and RSA signed rounds.
+                                  Defaults to true (filtered updates with ECC signed rounds) if not set
+
   -s, --session string            Sets the initial directory for client storage
       --unsafe                    Send raw, unsafe messages without e2e
                                   encryption.

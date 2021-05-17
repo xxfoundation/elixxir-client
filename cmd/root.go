@@ -368,7 +368,7 @@ func initClient() *api.Client {
 	netParams.E2EParams.NumRekeys = uint16(
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
-	netParams.FastPolling = viper.GetBool("fastPolling")
+	netParams.FastPolling = viper.GetBool(" slowPolling")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -765,10 +765,10 @@ func init() {
 		rootCmd.Flags().Lookup("forceHistoricalRounds"))
 
 	// Network params
-	rootCmd.Flags().BoolP("fastPolling", "", true,
-		"Enables polling for filtered network updates")
-	viper.BindPFlag("fastPolling",
-		rootCmd.Flags().Lookup("fastPolling"))
+	rootCmd.Flags().BoolP("slowPolling", "", true,
+		"Enables polling for unfiltered network updates with RSA signatures")
+	viper.BindPFlag("slowPolling",
+		rootCmd.Flags().Lookup("slowPolling"))
 
 	// E2E Params
 	defaultE2EParams := params.GetDefaultE2ESessionParams()

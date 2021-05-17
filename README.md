@@ -160,8 +160,6 @@ Flags:
                                   base64 representations) (default "0")
       --forceHistoricalRounds     Force all rounds to be sent to historical
                                   round retrieval
-      --fastPolling bool          Enables polling for filtered network updates.
-                                  Defaults to true if not set
   -h, --help                      help for client
   -l, --log string                Path to the log output path (- is stdout)
                                   (default "-")
@@ -178,6 +176,9 @@ Flags:
                                   (default 500)
       --sendid uint               Use precanned user id (must be between 1 and
                                   40, inclusive)
+      --slowPolling bool          Enables polling for all network updates and RSA signed rounds.
+                                  Defaults to true (filtered updates with ECC signed rounds) if not set
+
   -s, --session string            Sets the initial directory for client storage
       --unsafe                    Send raw, unsafe messages without e2e
                                   encryption.

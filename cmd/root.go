@@ -765,7 +765,7 @@ func init() {
 		rootCmd.Flags().Lookup("forceHistoricalRounds"))
 
 	// Network params
-	rootCmd.Flags().BoolP("slowPolling", "", true,
+	rootCmd.Flags().BoolP("slowPolling", "", false,
 		"Enables polling for unfiltered network updates with RSA signatures")
 	viper.BindPFlag("slowPolling",
 		rootCmd.Flags().Lookup("slowPolling"))

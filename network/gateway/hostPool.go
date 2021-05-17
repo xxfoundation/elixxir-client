@@ -22,6 +22,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"golang.org/x/net/context"
 	"io"
 	"math"
 	"strings"
@@ -30,7 +31,7 @@ import (
 )
 
 // List of errors that initiate a Host replacement
-var errorsList = []string{"context deadline exceeded", "connection refused", "host disconnected",
+var errorsList = []string{context.DeadlineExceeded.Error(), "connection refused", "host disconnected",
 	"transport is closing", "all SubConns are in TransientFailure", "Last try to connect",
 	ndf.NO_NDF, "Host is in cool down"}
 
@@ -80,7 +81,7 @@ func DefaultPoolParams() PoolParams {
 	p.HostParams.EnableCoolOff = true
 	p.HostParams.NumSendsBeforeCoolOff = 1
 	p.HostParams.CoolOffTimeout = 5 * time.Minute
-	p.HostParams.SendTimeout = 3500*time.Millisecond
+	p.HostParams.SendTimeout = 3500 * time.Millisecond
 	return p
 }
 
@@ -224,7 +225,9 @@ func (h *HostPool) getPreferred(targets []*id.ID) []*connect.Host {
 }
 
 // Replaces the given hostId in the HostPool if the given hostErr is in errorList
-func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
+// Returns whether the host was replaced
+func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
+	var err error
 	// Check if Host should be replaced
 	doReplace := false
 	if hostErr != nil {
@@ -238,19 +241,17 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) error {
 	}
 
 	if doReplace {
-		h.hostMux.Lock()
-		defer h.hostMux.Unlock()
-
 		// If the Host is still in the pool
+		h.hostMux.Lock()
 		if oldPoolIndex, ok := h.hostMap[*hostId]; ok {
 			// Replace it
 			h.ndfMux.RLock()
-			err := h.forceReplace(oldPoolIndex)
+			err = h.forceReplace(oldPoolIndex)
 			h.ndfMux.RUnlock()
-			return err
 		}
+		h.hostMux.Unlock()
 	}
-	return nil
+	return doReplace, err
 }
 
 // Replace given Host index with a new, randomly-selected Host from the NDF

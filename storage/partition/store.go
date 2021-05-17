@@ -8,11 +8,11 @@
 package partition
 
 import (
-	"crypto/md5"
 	"encoding/binary"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"golang.org/x/crypto/blake2b"
 	"sync"
 	"time"
 )
@@ -69,7 +69,15 @@ func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 }
 
 func getMultiPartID(partner *id.ID, messageID uint64) multiPartID {
+	h, _ := blake2b.New256(nil)
+
+	h.Write(partner.Bytes())
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, messageID)
-	return md5.Sum(append(partner[:], b...))
+	h.Write(b)
+
+	var mpID multiPartID
+	copy(mpID[:], h.Sum(nil))
+
+	return mpID
 }

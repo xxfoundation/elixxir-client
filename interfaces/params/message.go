@@ -16,6 +16,8 @@ type Messages struct {
 	MessageReceptionWorkerPoolSize uint
 	MaxChecksGarbledMessage        uint
 	GarbledMessageWait             time.Duration
+	// Use proxied (rather than direct) message sending
+	ProxySending bool
 }
 
 func GetDefaultMessage() Messages {
@@ -24,5 +26,6 @@ func GetDefaultMessage() Messages {
 		MessageReceptionWorkerPoolSize: 4,
 		MaxChecksGarbledMessage:        10,
 		GarbledMessageWait:             15 * time.Minute,
+		ProxySending:                   false,
 	}
 }

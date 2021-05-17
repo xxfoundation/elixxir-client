@@ -143,7 +143,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 	msgCmix.SetContents([]byte("test"))
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
-	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultCMIX(),
+	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultMessage(), params.GetDefaultCMIX(),
 		m.Instance, m.Session, m.nodeRegistration, m.Rng,
 		m.TransmissionID, &MockSendCMIXComms{t: t})
 	if err != nil {

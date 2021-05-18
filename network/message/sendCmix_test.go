@@ -107,7 +107,7 @@ func Test_attemptSendCmix(t *testing.T) {
 		AddressSpaceSize:           4,
 	}
 
-	if err = testutils.SignRoundInfo(ri, t); err != nil {
+	if err = testutils.SignRoundInfoRsa(ri, t); err != nil {
 		t.Errorf("Failed to sign mock round info: %v", err)
 	}
 
@@ -115,7 +115,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to load a key for testing: %v", err)
 	}
-	rnd := ds.NewRound(ri, pubKey)
+	rnd := ds.NewRound(ri, pubKey, nil)
 	inst.GetWaitingRounds().Insert(rnd)
 	i := internal.Internal{
 		Session:          sess1,
@@ -143,7 +143,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 	msgCmix.SetContents([]byte("test"))
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
-	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultCMIX(),
+	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID, params.GetDefaultMessage(), params.GetDefaultCMIX(),
 		m.Instance, m.Session, m.nodeRegistration, m.Rng,
 		m.TransmissionID, &MockSendCMIXComms{t: t})
 	if err != nil {

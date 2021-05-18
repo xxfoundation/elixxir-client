@@ -23,12 +23,14 @@ package network
 //		instance
 
 import (
+	"bytes"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/rounds"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
@@ -46,7 +48,7 @@ type followNetworkComms interface {
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}) {
+func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}, isRunning interfaces.Running) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
@@ -58,17 +60,23 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 			rng.Close()
 			done = true
 		case <-ticker.C:
-			m.follow(report, rng, m.Comms)
+			m.follow(report, rng, m.Comms, isRunning)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			jww.INFO.Printf("Polled the network %d times in the "+
 				"last %s", numPolls, debugTrackPeriod)
 		}
+		if !isRunning.IsRunning(){
+			jww.ERROR.Printf("Killing network follower " +
+				"due to failed exit")
+			return
+		}
 	}
 }
 
 // executes each iteration of the follower
-func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source, comms followNetworkComms) {
+func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
+	comms followNetworkComms, isRunning interfaces.Running) {
 
 	//get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng)
@@ -92,26 +100,29 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		StartTimestamp: identity.StartRequest.UnixNano(),
 		EndTimestamp:   identity.EndRequest.UnixNano(),
 		ClientVersion:  []byte(version.String()),
+		FastPolling:    m.param.FastPolling,
 	}
 
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
 			identity.EphId.Int64(), identity.Source, identity.StartRequest,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
-		result, err := comms.SendPoll(host, &pollReq)
-		if err != nil {
-			if report != nil {
-				report(
-					"NetworkFollower",
-					fmt.Sprintf("Failed to poll network, \"%s\", Gateway: %s", err.Error(), host.String()),
-					fmt.Sprintf("%+v", err),
-				)
-			}
-			jww.ERROR.Printf("Unable to poll %s for NDF: %+v", host, err)
-		}
-		return result, err
+		return comms.SendPoll(host, &pollReq)
 	})
+	if !isRunning.IsRunning(){
+		jww.ERROR.Printf("Killing network follower " +
+			"due to failed exit")
+		return
+	}
 	if err != nil {
+		if report != nil {
+			report(
+				"NetworkFollower",
+				fmt.Sprintf("Failed to poll network, \"%s\":", err.Error()),
+				fmt.Sprintf("%+v", err),
+			)
+		}
+		jww.ERROR.Printf("Unable to poll gateways: %+v", err)
 		return
 	}
 
@@ -154,50 +165,49 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 		// TODO: ClientErr needs to know the source of the error and it doesn't yet
 		// Iterate over ClientErrors for each RoundUpdate
-		//for _, update := range pollResp.Updates {
-		//
-		//	// Ignore irrelevant updates
-		//	if update.State != uint32(states.COMPLETED) && update.State != uint32(states.FAILED) {
-		//		continue
-		//	}
-		//
-		//	for _, clientErr := range update.ClientErrors {
-		//		// If this Client appears in the ClientError
-		//		if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
-		//
-		//			// Obtain relevant NodeGateway information
-		//			// TODO ???
-		//			nGw, err := m.Instance.GetNodeAndGateway(gwHost.GetId())
-		//			if err != nil {
-		//				jww.ERROR.Printf("Unable to get NodeGateway: %+v", err)
-		//				return
-		//			}
-		//			nid, err := nGw.Node.GetNodeId()
-		//			if err != nil {
-		//				jww.ERROR.Printf("Unable to get NodeID: %+v", err)
-		//				return
-		//			}
-		//
-		//			// FIXME: Should be able to trigger proper type of round event
-		//			// FIXME: without mutating the RoundInfo. Signature also needs verified
-		//			// FIXME: before keys are deleted
-		//			update.State = uint32(states.FAILED)
-		//			rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
-		//			if err != nil {
-		//				jww.ERROR.Printf("Failed to report client error: "+
-		//					"Could not get round for event triggering: "+
-		//					"Unable to get round %d from instance: %+v",
-		//					id.Round(update.ID), err)
-		//				break
-		//			}
-		//			m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
-		//
-		//			// delete all existing keys and trigger a re-registration with the relevant Node
-		//			m.Session.Cmix().Remove(nid)
-		//			m.Instance.GetAddGatewayChan() <- nGw
-		//		}
-		//	}
-		//}
+		for _, update := range pollResp.Updates {
+
+			// Ignore irrelevant updates
+			if update.State != uint32(states.COMPLETED) && update.State != uint32(states.FAILED) {
+				continue
+			}
+
+			for _, clientErr := range update.ClientErrors {
+				// If this Client appears in the ClientError
+				if bytes.Equal(clientErr.ClientId, m.Session.GetUser().TransmissionID.Marshal()) {
+
+					// Obtain relevant NodeGateway information
+					nid, err := id.Unmarshal(clientErr.Source)
+					if err != nil {
+						jww.ERROR.Printf("Unable to get NodeID: %+v", err)
+						return
+					}
+					nGw, err := m.Instance.GetNodeAndGateway(nid)
+					if err != nil {
+						jww.ERROR.Printf("Unable to get gateway: %+v", err)
+						return
+					}
+
+					// FIXME: Should be able to trigger proper type of round event
+					// FIXME: without mutating the RoundInfo. Signature also needs verified
+					// FIXME: before keys are deleted
+					update.State = uint32(states.FAILED)
+					rnd, err := m.Instance.GetWrappedRound(id.Round(update.ID))
+					if err != nil {
+						jww.ERROR.Printf("Failed to report client error: "+
+							"Could not get round for event triggering: "+
+							"Unable to get round %d from instance: %+v",
+							id.Round(update.ID), err)
+						break
+					}
+					m.Instance.GetRoundEvents().TriggerRoundEvent(rnd)
+
+					// delete all existing keys and trigger a re-registration with the relevant Node
+					m.Session.Cmix().Remove(nid)
+					m.Instance.GetAddGatewayChan() <- nGw
+				}
+			}
+		}
 	}
 
 	// ---- Identity Specific Round Processing -----

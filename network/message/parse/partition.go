@@ -9,7 +9,6 @@ package parse
 
 import (
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/xx_network/primitives/id"
@@ -44,23 +43,23 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 
 	if len(payload) > p.maxSize {
 		return nil, 0, errors.Errorf("Payload is too long, max payload "+
-			"length is %v, received %v", p.maxSize, len(payload))
+			"length is %d, received %d", p.maxSize, len(payload))
 	}
 
-	//Get the ID of the sent message
+	// Get the ID of the sent message
 	fullMessageID, messageID := p.session.Conversations().Get(recipient).GetNextSendID()
 
-	// get the number of parts of the message. This equates to just a linear
+	// Get the number of parts of the message; this equates to just a linear
 	// equation
 	numParts := uint8((len(payload) + p.deltaFirstPart + p.partContentsSize - 1) / p.partContentsSize)
 	parts := make([][]byte, numParts)
 
-	//Create the first message part
+	// Create the first message part
 	var sub []byte
 	sub, payload = splitPayload(payload, p.firstContentsSize)
 	parts[0] = newFirstMessagePart(mt, messageID, numParts, timestamp, sub).Bytes()
 
-	//create all subsiquent message parts
+	// Create all subsequent message parts
 	for i := uint8(1); i < numParts; i++ {
 		sub, payload = splitPayload(payload, p.partContentsSize)
 		parts[i] = newMessagePart(messageID, i, sub).Bytes()
@@ -69,31 +68,25 @@ func (p Partitioner) Partition(recipient *id.ID, mt message.Type,
 	return parts, fullMessageID, nil
 }
 
-func (p Partitioner) HandlePartition(sender *id.ID, e message.EncryptionType,
+func (p Partitioner) HandlePartition(sender *id.ID, _ message.EncryptionType,
 	contents []byte, relationshipFingerprint []byte) (message.Receive, bool) {
 
-	//If it is the first message in a set, handle it as so
 	if isFirst(contents) {
-		//decode the message structure
-		fm := FirstMessagePartFromBytes(contents)
-		timestamp, err := fm.GetTimestamp()
-		if err != nil {
-			jww.FATAL.Panicf("Failed Handle Partition, failed to get "+
-				"timestamp message from %s messageID %v: %s", sender,
-				fm.Timestamp, err)
-		}
+		// If it is the first message in a set, then handle it as so
 
-		//Handle the message ID
+		// Decode the message structure
+		fm := FirstMessagePartFromBytes(contents)
+
+		// Handle the message ID
 		messageID := p.session.Conversations().Get(sender).
 			ProcessReceivedMessageID(fm.GetID())
 
-		//Return the
 		return p.session.Partition().AddFirst(sender, fm.GetType(),
-			messageID, fm.GetPart(), fm.GetNumParts(), timestamp,
+			messageID, fm.GetPart(), fm.GetNumParts(), fm.GetTimestamp(),
 			fm.GetSizedContents(), relationshipFingerprint)
-		//If it is a subsiquent message part, handle it as so
 	} else {
-		mp := MessagePartFromBytes(contents)
+		// If it is a subsequent message part, handle it as so
+		mp := messagePartFromBytes(contents)
 		messageID := p.session.Conversations().Get(sender).
 			ProcessReceivedMessageID(mp.GetID())
 

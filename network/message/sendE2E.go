@@ -114,7 +114,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		return nil, e2e.MessageID{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
 	} else {
-		jww.INFO.Printf("Sucesfully E2E sent %d/%d to %s",
+		jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
 			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 

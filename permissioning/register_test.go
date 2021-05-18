@@ -68,7 +68,7 @@ func TestRegisterWithPermissioning(t *testing.T) {
 	}
 
 	regCode := "flooble doodle"
-	sig1, sig2, err := register(&sender, sender.getHost, key.GetPublic(), key.GetPublic(), regCode)
+	sig1, sig2, _, err := register(&sender, sender.getHost, key.GetPublic(), key.GetPublic(), regCode)
 	if err != nil {
 		t.Error(err)
 	}
@@ -105,7 +105,7 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
 	sender.errInReply = "failure occurred on permissioning"
-	_, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
+	_, _, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
 	if err == nil {
 		t.Error("no error if registration fails on permissioning")
 	}
@@ -122,7 +122,7 @@ func TestRegisterWithPermissioning_ConnectionErr(t *testing.T) {
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
 	sender.errSendRegistration = errors.New("connection problem")
-	_, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
+	_, _, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
 	if err == nil {
 		t.Error("no error if e.g. context deadline exceeded")
 	}

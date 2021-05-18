@@ -8,13 +8,13 @@
 package utility
 
 import (
-	"crypto/md5"
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 	"time"
 )
 
@@ -77,9 +77,14 @@ func (*meteredCmixMessageHandler) DeleteMessage(kv *versioned.KV, key string) er
 
 // HashMessage generates a hash of the message.
 func (*meteredCmixMessageHandler) HashMessage(m interface{}) MessageHash {
-	msg := m.(meteredCmixMessage)
+	h, _ := blake2b.New256(nil)
 
-	return md5.Sum(msg.M)
+	h.Write(m.(meteredCmixMessage).M)
+
+	var messageHash MessageHash
+	copy(messageHash[:], h.Sum(nil))
+
+	return messageHash
 }
 
 // CmixMessageBuffer wraps the message buffer to store and load raw cmix

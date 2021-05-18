@@ -61,6 +61,12 @@ func track(session *storage.Session, ourId *id.ID, stop *stoppable.Single) {
 
 	for true {
 		now := netTime.Now()
+
+		//hack for inconsistent time on android
+		if now.Sub(lastCheck) <=0{
+			now = lastCheck.Add(time.Nanosecond)
+		}
+
 		// Generates the IDs since the last track
 		protoIds, err := ephemeral.GetIdsByRange(ourId, receptionStore.GetIDSize(),
 			now, now.Sub(lastCheck))

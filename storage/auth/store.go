@@ -365,7 +365,7 @@ func (s *Store) Done(partner *id.ID) {
 	s.mux.RUnlock()
 
 	if !ok {
-		jww.ERROR.Panicf("Request cannot be finished, not " +
+		jww.ERROR.Panicf("Request cannot be finished, not "+
 			"found: %s", partner)
 		return
 	}

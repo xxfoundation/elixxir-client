@@ -8,6 +8,7 @@
 package api
 
 import (
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 
@@ -188,7 +189,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	return c, nil
 }
 
-// Login initalizes a client object from existing storage.
+// Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
 
@@ -199,13 +200,13 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	u := c.storage.GetUser()
-	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s " +
+	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	//Attach the services interface
 	c.services = newServiceProcessiesList(c.runner)
 
-	//initilize comms
+	// initialize comms
 	err = c.initComms()
 	if err != nil {
 		return nil, err
@@ -222,8 +223,18 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		}
 	} else {
 		jww.WARN.Printf("Registration with permissioning skipped due to " +
-			"blank permissionign address. Client will not be able to register " +
+			"blank permissioning address. Client will not be able to register " +
 			"or track network.")
+	}
+
+	if def.Notification.Address != "" {
+		hp := connect.GetDefaultHostParams()
+		hp.AuthEnabled = false
+		hp.MaxRetries = 5
+		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
+		if err != nil {
+			jww.WARN.Printf("Failed adding host for notifications: %+v", err)
+		}
 	}
 
 	// Initialize network and link it to context
@@ -233,13 +244,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -296,13 +301,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	//update gateway connections
-	err = c.network.GetInstance().UpdateGatewayConnections()
-	if err != nil {
-		return nil, err
-	}
-
-	//initilize the auth tracker
+	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
 	return c, nil
@@ -343,7 +342,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 			jww.ERROR.Printf("Client has failed registration: %s", err)
 			return errors.WithMessage(err, "failed to load client")
 		}
-		jww.INFO.Printf("Client sucsecfully registered with the network")
+		jww.INFO.Printf("Client successfully registered with the network")
 	}
 	return nil
 }
@@ -381,7 +380,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 	u := c.GetUser()
-	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s " +
+	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
@@ -436,18 +435,19 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
 	err = c.runner.Close(timeout)
-	if err != nil {
-		return errors.WithMessage(err, "Failed to Stop the Network Follower")
-	}
 	c.runner = stoppable.NewMulti("client")
-	err = c.status.toStopped()
-	if err != nil {
-		return errors.WithMessage(err, "Failed to Stop the Network Follower")
+	err2 := c.status.toStopped()
+	if err2 != nil {
+		if err ==nil{
+			err = err2
+		}else{
+			err = errors.WithMessage(err,err2.Error())
+		}
 	}
-	return nil
+	return err
 }
 
-// Gets the state of the network follower. Returns:
+// NetworkFollowerStatus Gets the state of the network follower. Returns:
 // Stopped 	- 0
 // Starting - 1000
 // Running	- 2000
@@ -526,13 +526,13 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	cmixStore := c.storage.Cmix()
 
 	var numRegistered int
-	for i, n := range nodes{
+	for i, n := range nodes {
 		nid, err := id.Unmarshal(n.ID)
-		if err!=nil{
-			return 0,0, errors.Errorf("Failed to unmarshal node ID %v " +
+		if err != nil {
+			return 0, 0, errors.Errorf("Failed to unmarshal node ID %v "+
 				"(#%d): %s", n.ID, i, err.Error())
 		}
-		if cmixStore.Has(nid){
+		if cmixStore.Has(nid) {
 			numRegistered++
 		}
 	}

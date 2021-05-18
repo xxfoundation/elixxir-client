@@ -64,7 +64,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 		wg.Add(1)
 		go func(i int) {
 			var err error
-			roundIds[i], _, err = m.SendCMIX(msgCmix, msg.Recipient, param.CMIX)
+			roundIds[i], _, err = m.SendCMIX(m.sender, msgCmix, msg.Recipient, param.CMIX)
 			if err != nil {
 				errCh <- err
 			}
@@ -82,7 +82,7 @@ func (m *Manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 		return nil, errors.Errorf("Failed to send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
 	} else {
-		jww.INFO.Printf("Sucesfully Unsafe sent %d/%d to %s",
+		jww.INFO.Printf("Successfully Unsafe sent %d/%d to %s",
 			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 

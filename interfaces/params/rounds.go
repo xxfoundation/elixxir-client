@@ -39,9 +39,9 @@ func GetDefaultRounds() Rounds {
 		HistoricalRoundsPeriod:     100 * time.Millisecond,
 		NumMessageRetrievalWorkers: 8,
 
-		HistoricalRoundsBufferLen: 1000,
-		LookupRoundsBufferLen:     2000,
-		ForceHistoricalRounds:     false,
+		HistoricalRoundsBufferLen:  1000,
+		LookupRoundsBufferLen:      2000,
+		ForceHistoricalRounds:      false,
 		MaxHistoricalRoundsRetries: 3,
 	}
 }

@@ -382,5 +382,6 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		Fake:     false,
 		UR:       selected.UR,
 		ER:       selected.ER,
+		CR:       selected.CR,
 	}, nil
 }

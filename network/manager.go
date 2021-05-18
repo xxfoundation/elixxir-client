@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/ephemeral"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
@@ -35,6 +36,8 @@ import (
 type manager struct {
 	// parameters of the network
 	param params.Network
+	// handles message sending
+	sender *gateway.Sender
 
 	//Shared data with all sub managers
 	internal.Internal
@@ -45,9 +48,6 @@ type manager struct {
 
 	//number of polls done in a period of time
 	tracker *uint64
-
-	//tracks already checked rounds
-	checked *checkedRounds
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -73,7 +73,6 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	m := manager{
 		param:   params,
 		tracker: &tracker,
-		checked: newCheckedRounds(),
 	}
 
 	m.Internal = internal.Internal{
@@ -88,18 +87,22 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
 	}
 
-	// register the node registration channel early so login connection updates
-	// get triggered for registration if necessary
-	instance.SetAddGatewayChan(m.NodeRegistration)
+	// Set up gateway.Sender
+	poolParams := gateway.DefaultPoolParams()
+	m.sender, err = gateway.NewSender(poolParams, rng,
+		ndf, comms, session, m.NodeRegistration)
+	if err != nil {
+		return nil, err
+	}
 
 	//create sub managers
-	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration)
-	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel())
+	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)
+	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel(), m.sender)
 
 	return &m, nil
 }
 
-// StartRunners kicks off all network reception goroutines ("threads").
+// Follow StartRunners kicks off all network reception goroutines ("threads").
 // Started Threads are:
 //   - Network Follower (/network/follow.go)
 //   - Historical Round Retrieval (/network/rounds/historical.go)
@@ -120,14 +123,14 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(healthStop)
 
 	// Node Updates
-	multi.Add(node.StartRegistration(m.Instance, m.Session, m.Rng,
+	multi.Add(node.StartRegistration(m.GetSender(), m.Session, m.Rng,
 		m.Comms, m.NodeRegistration, m.param.ParallelNodeRegistrations)) // Adding/Keys
 	//TODO-remover
 	//m.runners.Add(StartNodeRemover(m.Context))        // Removing
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(report, trackNetworkStopper.Quit())
+	go m.followNetwork(report, trackNetworkStopper.Quit(), trackNetworkStopper)
 	multi.Add(trackNetworkStopper)
 
 	// Message reception
@@ -151,7 +154,12 @@ func (m *manager) GetInstance() *network.Instance {
 	return m.Instance
 }
 
-// triggers a check on garbled messages to see if they can be decrypted
+// GetSender returns the gateway.Sender object
+func (m *manager) GetSender() *gateway.Sender {
+	return m.sender
+}
+
+// CheckGarbledMessages triggers a check on garbled messages to see if they can be decrypted
 // this should be done when a new e2e client is added in case messages were
 // received early or arrived out of order
 func (m *manager) CheckGarbledMessages() {

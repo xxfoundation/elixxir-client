@@ -124,7 +124,7 @@ client --password user1-password --ndf ndf.json -l client1.log -s user1session -
 client --password user2-password --ndf ndf.json -l client2.log -s user2session --writeContact user2-contact.json --unsafe -m "Hi"
 
 # Send E2E Messages
-client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user2-contact.json --unsafe-channel-creation -m "Hi User 2, from User 1 with E2E Encryption" &
+client --password user1-password --ndf ndf.json -l client1.log -s user1session --destfile user1-contact.json --unsafe-channel-creation -m "Hi User 2, from User 1 with E2E Encryption" &
 client --password user2-password --ndf ndf.json -l client2.log -s user2session --destfile user1-contact.json --unsafe-channel-creation -m "Hi User 1, from User 2 with E2E Encryption" &
 ```
 

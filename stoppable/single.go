@@ -52,7 +52,6 @@ func (s *Single) Name() string {
 func (s *Single) Close(timeout time.Duration) error {
 	var err error
 	s.once.Do(func() {
-		atomic.StoreUint32(&s.running, 0)
 		timer := time.NewTimer(timeout)
 		select {
 		case <-timer.C:
@@ -61,6 +60,7 @@ func (s *Single) Close(timeout time.Duration) error {
 			err = errors.Errorf("%s failed to close", s.name)
 		case s.quit <- struct{}{}:
 		}
+		atomic.StoreUint32(&s.running, 0)
 	})
 	return err
 }

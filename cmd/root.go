@@ -769,6 +769,9 @@ func init() {
 		"Enables polling for unfiltered network updates with RSA signatures")
 	viper.BindPFlag("slowPolling",
 		rootCmd.Flags().Lookup("slowPolling"))
+	rootCmd.Flags().Bool("forceMessagePickupRetry", false,
+		"Enable a mechanism which forces a 50% chance of no message pickup, " +
+		"instead triggering the message pickup retry mechanism")
 
 	// E2E Params
 	defaultE2EParams := params.GetDefaultE2ESessionParams()

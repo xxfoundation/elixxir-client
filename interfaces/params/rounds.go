@@ -35,6 +35,10 @@ type Rounds struct {
 	// Interval between checking for rounds in UncheckedRoundStore
 	// due for a message retrieval retry
 	UncheckRoundPeriod time.Duration
+
+	// Toggles if message pickup retrying mechanism if forced
+	// by intentionally not looking up messages
+	ForceMessagePickupRetry bool
 }
 
 func GetDefaultRounds() Rounds {

@@ -13,6 +13,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"sync"
+	"time"
 )
 
 type User struct {
@@ -20,7 +21,9 @@ type User struct {
 
 	transmissionRegValidationSig []byte
 	receptionRegValidationSig    []byte
-	rvsMux                       sync.RWMutex
+	// Time in which user registered with the network
+	registrationTimestamp time.Time
+	rvsMux                sync.RWMutex
 
 	username    string
 	usernameMux sync.RWMutex
@@ -48,6 +51,7 @@ func LoadUser(kv *versioned.KV) (*User, error) {
 	u.loadTransmissionRegistrationValidationSignature()
 	u.loadReceptionRegistrationValidationSignature()
 	u.loadUsername()
+	u.loadRegistrationTimestamp()
 
 	return u, nil
 }

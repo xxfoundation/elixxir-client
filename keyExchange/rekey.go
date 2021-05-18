@@ -137,7 +137,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
-	jww.INFO.Printf("Key Negotiation transmission for %s sucesful",
+	jww.INFO.Printf("Key Negotiation transmission for %s successful",
 		session)
 	session.SetNegotiationStatus(e2e.Sent)
 

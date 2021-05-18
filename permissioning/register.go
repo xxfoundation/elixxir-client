@@ -14,7 +14,8 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func (perm *Permissioning) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey, registrationCode string) ([]byte, []byte, error) {
+func (perm *Permissioning) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey,
+	registrationCode string) ([]byte, []byte, int64, error) {
 	return register(perm.comms, perm.host, transmissionPublicKey, receptionPublicKey, registrationCode)
 }
 
@@ -26,7 +27,7 @@ type registrationMessageSender interface {
 //register registers the user with optional registration code
 // Returns an error if registration fails.
 func register(comms registrationMessageSender, host *connect.Host,
-	transmissionPublicKey, receptionPublicKey *rsa.PublicKey, registrationCode string) ([]byte, []byte, error) {
+	transmissionPublicKey, receptionPublicKey *rsa.PublicKey, registrationCode string) ([]byte, []byte, int64, error) {
 
 	response, err := comms.
 		SendRegistrationMessage(host,
@@ -37,10 +38,12 @@ func register(comms registrationMessageSender, host *connect.Host,
 			})
 	if err != nil {
 		err = errors.Wrap(err, "sendRegistrationMessage: Unable to contact Identity Server!")
-		return nil, nil, err
+		return nil, nil, 0, err
 	}
 	if response.Error != "" {
-		return nil, nil, errors.Errorf("sendRegistrationMessage: error handling message: %s", response.Error)
+		return nil, nil, 0, errors.Errorf("sendRegistrationMessage: error handling message: %s", response.Error)
 	}
-	return response.ClientSignedByServer.Signature, response.ClientReceptionSignedByServer.Signature, nil
+
+	return response.ClientSignedByServer.Signature, 
+	response.ClientReceptionSignedByServer.Signature, response.Timestamp, nil
 }

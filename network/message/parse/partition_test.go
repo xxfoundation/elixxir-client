@@ -32,28 +32,28 @@ func TestNewPartitioner(t *testing.T) {
 			4096, p.baseMessageSize)
 	}
 
-	if p.deltaFirstPart != 20 {
+	if p.deltaFirstPart != firstHeaderLen-headerLen {
 		t.Errorf("deltaFirstPart content mismatch"+
 			"\n\texpected: %v\n\treceived: %v",
-			20, p.deltaFirstPart)
+			firstHeaderLen-headerLen, p.deltaFirstPart)
 	}
 
-	if p.firstContentsSize != 4069 {
+	if p.firstContentsSize != 4096-firstHeaderLen {
 		t.Errorf("firstContentsSize content mismatch"+
 			"\n\texpected: %v\n\treceived: %v",
-			4069, p.firstContentsSize)
+			4096-firstHeaderLen, p.firstContentsSize)
 	}
 
-	if p.maxSize != 1042675 {
+	if p.maxSize != (4096-firstHeaderLen)+(MaxMessageParts-1)*(4096-headerLen) {
 		t.Errorf("maxSize content mismatch"+
 			"\n\texpected: %v\n\treceived: %v",
-			1042675, p.maxSize)
+			(4096-firstHeaderLen)+(MaxMessageParts-1)*(4096-headerLen), p.maxSize)
 	}
 
-	if p.partContentsSize != 4089 {
+	if p.partContentsSize != 4088 {
 		t.Errorf("partContentsSize content mismatch"+
 			"\n\texpected: %v\n\treceived: %v",
-			4089, p.partContentsSize)
+			4088, p.partContentsSize)
 	}
 
 	if p.session != storeSession {

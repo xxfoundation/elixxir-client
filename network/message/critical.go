@@ -80,7 +80,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 
-			jww.INFO.Printf("Sucesfull resend of critical message "+
+			jww.INFO.Printf("Successful resend of critical message "+
 				"to %s on rounds %d", msg.Recipient, rounds)
 			critMsgs.Succeeded(msg)
 		}(msg, param)
@@ -128,7 +128,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 
-			jww.INFO.Printf("Sucesfull resend of critical raw message "+
+			jww.INFO.Printf("Successful resend of critical raw message "+
 				"to %s (msgDigest: %s) on round %d", rid, msg.Digest(), round)
 
 			critRawMsgs.Succeeded(msg, rid)

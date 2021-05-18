@@ -46,6 +46,7 @@ func (c *Client) RegisterForNotifications(token string) error {
 			TransmissionRsaSig:    sig,
 			TransmissionSalt:      c.GetUser().TransmissionSalt,
 			IIDTransmissionRsaSig: []byte("temp"),
+			RegistrationTimestamp: c.GetUser().RegistrationTimestamp.UnixNano(),
 		})
 	if err != nil {
 		err := errors.Errorf(

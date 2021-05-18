@@ -348,6 +348,7 @@ func createClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
+	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -369,6 +370,7 @@ func initClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = viper.GetBool(" slowPolling")
+	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)

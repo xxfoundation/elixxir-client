@@ -223,7 +223,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
 			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) "+
-				"in round %d", ephID.Int64(), recipient, bestRound.ID)
+				"in round %d (msgDigest: %s)", ephID.Int64(), recipient, bestRound.ID, msg.Digest())
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+

@@ -53,7 +53,7 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 				// If this round is due for a round check, send the round over
 				// to the retrieval thread. If not due, check next round.
 				if isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {
-
+					jww.DEBUG.Printf("Round %d due for a message lookup, retrying...", rid)
 					// Construct roundLookup object to send
 					rl := roundLookup{
 						roundInfo: rnd.Info,

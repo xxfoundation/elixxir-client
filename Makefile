@@ -13,7 +13,7 @@ clean:
 	go mod vendor
 
 update:
-	-GOFLAGS="" go get -u all
+	-GOFLAGS="" go get all
 
 build:
 	go build ./...

@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 type messageRetrievalComms interface {
@@ -29,7 +30,7 @@ type roundLookup struct {
 	identity  reception.IdentityUse
 }
 
-const noRoundError = "does not have round"
+const noRoundError = "does not have round %d"
 
 // processMessageRetrieval received a roundLookup request and pings the gateways
 // of that round for messages for the requested identity in the roundLookup
@@ -42,6 +43,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case <-quitCh:
 			done = true
 		case rl := <-m.lookupRoundMessages:
+
 			ri := rl.roundInfo
 
 			// Convert gateways in round to proper ID format
@@ -80,9 +82,9 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 // gateway host in the round specified. If successful
 func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.IdentityUse,
 	comms messageRetrievalComms, gwIds []*id.ID) (message.Bundle, error) {
-
+	start := time.Now()
 	// Send to the gateways using backup proxies
-	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, error) {
+	result, err := m.sender.SendToPreferred([]*id.ID{gwIds[len(gwIds)-1]}, func(host *connect.Host, target *id.ID) (interface{}, error) {
 		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
 
@@ -96,7 +98,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
 		if err == nil && !msgResp.GetHasRound() {
-			return message.Bundle{}, errors.Errorf(noRoundError)
+			return message.Bundle{}, errors.Errorf(noRoundError, roundID)
 		}
 
 		return msgResp, err
@@ -120,8 +122,8 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		return message.Bundle{}, nil
 	}
 
-	jww.INFO.Printf("Received %d messages in Round %v for %d (%s)",
-		len(msgs), roundID, identity.EphId.Int64(), identity.Source)
+	jww.INFO.Printf("Received %d messages in Round %v for %d (%s) in %s",
+		len(msgs), roundID, identity.EphId.Int64(), identity.Source, time.Now().Sub(start))
 
 	//build the bundle of messages to send to the message processor
 	bundle := message.Bundle{

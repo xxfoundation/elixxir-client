@@ -34,7 +34,6 @@ func (c *Client) RegisterForNotifications(token string) error {
 	if err != nil {
 		return err
 	}
-	jww.INFO.Printf("Sending RegisterForNotifications message")
 	// Send the register message
 	_, err = c.comms.RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{
@@ -44,6 +43,7 @@ func (c *Client) RegisterForNotifications(token string) error {
 			TransmissionSalt:      c.GetUser().TransmissionSalt,
 			TransmissionRsaSig:    c.GetStorage().User().GetTransmissionRegistrationValidationSignature(),
 			IIDTransmissionRsaSig: sig,
+			RegistrationTimestamp: c.GetUser().RegistrationTimestamp.UnixNano(),
 		})
 	if err != nil {
 		err := errors.Errorf(

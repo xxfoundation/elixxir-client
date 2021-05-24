@@ -12,6 +12,7 @@ package storage
 import (
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -318,6 +319,13 @@ func InitTestingSession(i interface{}) *Session {
 	}
 	u.SetTransmissionRegistrationValidationSignature([]byte("sig"))
 	u.SetReceptionRegistrationValidationSignature([]byte("sig"))
+	testTime, err := time.Parse(time.RFC3339,
+		"2012-12-21T22:08:41+00:00")
+	if err != nil {
+		jww.FATAL.Panicf("Could not parse precanned time: %v", err.Error())
+	}
+	u.SetRegistrationTimestamp(testTime.UnixNano())
+
 	s.user = u
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+

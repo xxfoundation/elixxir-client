@@ -153,7 +153,7 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
 	sess.GetCriticalMessages().Succeeded(m)
-	jww.INFO.Printf("Key Negotiation transmission for %s sucesfull",
+	jww.INFO.Printf("Key Negotiation transmission for %s successfully",
 		session)
 
 	return nil

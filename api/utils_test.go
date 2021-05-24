@@ -62,7 +62,7 @@ func newTestingClient(face interface{}) (*Client, error) {
 
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, face)
 	if err != nil {
-		return nil, nil
+		return nil, err
 	}
 
 	p := gateway.DefaultPoolParams()
@@ -87,6 +87,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{
 		Registration: ndf.Registration{
 			TlsCertificate: string(cert),
+			EllipticPubKey: "/WRtT+mDZGC3FXQbvuQgfqOonAjJ47IKE0zhaGTQQ70=",
 		},
 		Nodes: []ndf.Node{
 			{
@@ -151,6 +152,6 @@ func signRoundInfo(ri *pb.RoundInfo) error {
 
 	ourPrivateKey := &rsa.PrivateKey{PrivateKey: *pk}
 
-	return signature.Sign(ri, ourPrivateKey)
+	return signature.SignRsa(ri, ourPrivateKey)
 
 }

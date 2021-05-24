@@ -56,6 +56,22 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				gwIds[i] = gwId
 			}
 
+			// Target the last node in the team first because it has
+			// messages first, randomize other members of the team
+			var rndBytes [32]byte
+			stream := m.Rng.GetStream()
+			_, err := stream.Read(rndBytes[:])
+			stream.Close()
+			if err != nil {
+				jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
+					"from all gateways (%v): %s",
+					id.Round(ri.ID), gwIds, err)
+			}
+			gwIds[0], gwIds[len(gwIds)-1] = gwIds[len(gwIds)-1], gwIds[0]
+			shuffle.ShuffleSwap(rndBytes[:], len(gwIds)-1, func(i, j int) {
+				gwIds[i+1], gwIds[j+1] = gwIds[j+1], gwIds[i+1]
+			})
+
 			// Attempt to request for this gateway
 			bundle, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
 

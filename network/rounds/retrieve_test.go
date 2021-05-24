@@ -34,6 +34,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	gwId := nodeId.DeepCopy()
 	gwId.SetType(id.Gateway)
 	testNdf.Gateways = []ndf.Gateway{{ID: gwId.Marshal()}}
+	testManager.Rng = fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 
 	p := gateway.DefaultPoolParams()
 	p.MaxPoolSize = 1

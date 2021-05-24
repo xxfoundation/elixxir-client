@@ -97,7 +97,10 @@ func TestStore_AddPartner(t *testing.T) {
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
 
-	s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	err := s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	if err != nil {
+		t.Fatalf("AddPartner returned an error: %v", err)
+	}
 
 	m, exists := s.managers[*partnerID]
 	if !exists {
@@ -108,6 +111,30 @@ func TestStore_AddPartner(t *testing.T) {
 		t.Errorf("Added Manager not expected.\n\texpected: %v\n\treceived: %v",
 			expectedManager, m)
 	}
+}
+
+// Unit test for DeletePartner
+func TestStore_DeletePartner(t *testing.T) {
+	s, _, _ := makeTestStore()
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
+	p := params.GetDefaultE2ESessionParams()
+
+	err := s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	if err != nil {
+		t.Fatalf("DeletePartner error: Could not add partner in set up: %v", err)
+	}
+
+	err = s.DeletePartner(partnerID)
+	if err != nil {
+		t.Fatalf("DeletePartner received an error: %v", err)
+	}
+
+	_, err = s.GetPartner(partnerID)
+	if err== nil {
+		t.Errorf("DeletePartner error: Should not be able to pull deleted partner from store")
+	}
+
 }
 
 // Tests happy path of Store.GetPartner.

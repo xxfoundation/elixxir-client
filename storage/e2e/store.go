@@ -187,6 +187,21 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 	return nil
 }
 
+// DeletePartner removes the associated contact from the E2E store
+func (s *Store) DeletePartner(partnerId *id.ID) error {
+	m, ok := s.managers[*partnerId]
+	if !ok {
+		return errors.New(NoPartnerErrorStr)
+	}
+
+	if err := clearManager(m, s.kv); err != nil {
+		return errors.WithMessagef(err, "Could not remove partner %s from store", partnerId)
+	}
+
+	delete(s.managers, *partnerId)
+	return s.save()
+}
+
 func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()

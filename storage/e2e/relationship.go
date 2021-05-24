@@ -84,6 +84,16 @@ func NewRelationship(manager *Manager, t RelationshipType,
 	return r
 }
 
+// DeleteRelationship is a function which removes
+// the relationship and relationship fingerprint from the store
+func DeleteRelationship(manager *Manager, t RelationshipType) error {
+	kv := manager.kv.Prefix(t.prefix())
+	if err := deleteRelationshipFingerprint(kv); err != nil {
+		return err
+	}
+	return kv.Delete(relationshipKey, currentRelationshipVersion)
+}
+
 func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, error) {
 
 	kv := manager.kv.Prefix(t.prefix())

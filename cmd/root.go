@@ -23,6 +23,7 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
+	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -613,32 +614,17 @@ func initLog(threshold uint, logPath string) {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	} else {
-		jww.INFO.Printf("log level set to: TRACE")
+		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
-}
-
-func isValidUser(usr []byte) (bool, *id.ID) {
-	if len(usr) != id.ArrIDLen {
-		return false, nil
-	}
-	for _, b := range usr {
-		if b != 0 {
-			uid, err := id.Unmarshal(usr)
-			if err != nil {
-				jww.WARN.Printf("Could not unmarshal user: %s", err)
-				return false, nil
-			}
-			return true, uid
-		}
-	}
-	return false, nil
 }
 
 func askToCreateChannel(recipientID *id.ID) bool {

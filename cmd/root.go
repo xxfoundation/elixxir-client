@@ -46,6 +46,14 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		profileOut := viper.GetString("profile-cpu")
+		if profileOut != "" {
+			f, err := os.Create(profileOut)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			pprof.StartCPUProfile(f)
+		}
 
 		client := initClient()
 
@@ -262,6 +270,10 @@ var rootCmd = &cobra.Command{
 				"Failed to cleanly close threads: %+v\n",
 				err)
 		}
+		if profileOut != "" {
+			pprof.StopCPUProfile()
+		}
+
 	},
 }
 
@@ -770,6 +782,10 @@ func init() {
 		"", uint(defaultE2EParams.NumRekeys),
 		"Number of rekeys reserved for rekey operations")
 	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
+
+	rootCmd.Flags().String("profile-cpu", "",
+		"Enable cpu profiling to this file")
+	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
 }
 
 // initConfig reads in config file and ENV variables if set.

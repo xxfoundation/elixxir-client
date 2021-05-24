@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
@@ -55,6 +56,22 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				gwIds[i] = gwId
 			}
 
+			// Target the last node in the team first because it has
+			// messages first, randomize other members of the team
+			var rndBytes [32]byte
+			stream := m.Rng.GetStream()
+			_, err := stream.Read(rndBytes[:])
+			stream.Close()
+			if err != nil {
+				jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+
+					"from all gateways (%v): %s",
+					id.Round(ri.ID), gwIds, err)
+			}
+			gwIds[0], gwIds[len(gwIds)-1] = gwIds[len(gwIds)-1], gwIds[0]
+			shuffle.ShuffleSwap(rndBytes[:], len(gwIds)-1, func(i, j int) {
+				gwIds[i+1], gwIds[j+1] = gwIds[j+1], gwIds[i+1]
+			})
+
 			// Attempt to request for this gateway
 			bundle, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
 
@@ -82,7 +99,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	comms messageRetrievalComms, gwIds []*id.ID) (message.Bundle, error) {
 
 	// Send to the gateways using backup proxies
-	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, error) {
+	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
 		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
 
@@ -96,10 +113,10 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
 		if err == nil && !msgResp.GetHasRound() {
-			return message.Bundle{}, errors.Errorf(noRoundError)
+			return message.Bundle{}, false, errors.Errorf(noRoundError)
 		}
 
-		return msgResp, err
+		return msgResp, false, err
 	})
 
 	// Fail the round if an error occurs so it can be tried again later

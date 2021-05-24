@@ -204,12 +204,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 			}
 			return result, false, err
 		}
-		var result interface{}
-		if messageParams.ProxySending {
-			result, err = sender.SendToSpecific(firstGateway, sendFunc)
-		} else {
-			result, err = sender.SendToSpecific(firstGateway, sendFunc)
-		}
+		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc)
 
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly

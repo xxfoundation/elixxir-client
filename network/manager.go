@@ -47,9 +47,12 @@ type manager struct {
 	message *message.Manager
 
 	//number of polls done in a period of time
-	tracker *uint64
-	latencySum uint64
+	tracker      *uint64
+	latencySum   uint64
 	numLatencies uint64
+
+	// Address space size
+	addrSpace *ephemeral.AddressSpace
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -71,10 +74,11 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	tracker := uint64(0)
 
-	//create manager object
+	// create manager object
 	m := manager{
-		param:   params,
-		tracker: &tracker,
+		param:     params,
+		tracker:   &tracker,
+		addrSpace: ephemeral.NewAddressSpace(),
 	}
 
 	m.Internal = internal.Internal{
@@ -141,7 +145,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
+	multi.Add(ephemeral.Track(m.Session, m.addrSpace, m.ReceptionID))
 
 	return multi, nil
 }
@@ -172,4 +176,23 @@ func (m *manager) CheckGarbledMessages() {
 // node registrations.
 func (m *manager) InProgressRegistrations() int {
 	return len(m.Internal.NodeRegistration)
+}
+
+// GetAddressSize returns the current address space size. It blocks until an
+// address space size is set.
+func (m *manager) GetAddressSize() uint8 {
+	return m.addrSpace.Get()
+}
+
+// RegisterAddressSizeNotification returns a channel that will trigger for every
+// address space size update. The provided tag is the unique ID for the channel.
+// Returns an error if the tag is already used.
+func (m *manager) RegisterAddressSizeNotification(tag string) (chan uint8, error) {
+	return m.addrSpace.RegisterNotification(tag)
+}
+
+// UnregisterAddressSizeNotification stops broadcasting address space size
+// updates on the channel with the specified tag.
+func (m *manager) UnregisterAddressSizeNotification(tag string) {
+	m.addrSpace.UnregisterNotification(tag)
 }

@@ -324,9 +324,17 @@ func (tnm *testNetworkManager) InProgressRegistrations() int {
 	return 0
 }
 
-func (t *testNetworkManager) GetSender() *gateway.Sender {
+func (tnm *testNetworkManager) GetSender() *gateway.Sender {
 	return nil
 }
+
+func (tnm *testNetworkManager) GetAddressSize() uint8 { return 16 }
+
+func (tnm *testNetworkManager) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (tnm *testNetworkManager) UnregisterAddressSizeNotification(string) {}
 
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{

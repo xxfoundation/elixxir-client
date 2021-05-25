@@ -55,6 +55,15 @@ func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
 	return mpm.IsComplete(relationshipFingerprint)
 }
 
+// todo: may need a way to clean up partitioned messages when deleting a contact
+// todo: Possible options:
+// todo: Store partition w/ a timestamp, periodically clear old timestamps
+// todo: Don't clean, storage space is negligible
+// todo: Misc: Store partitions in individual files under a folder?
+//func (s *Store) Delete() error  {
+//
+//}
+
 func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 	mpID := getMultiPartID(partner, messageID)
 	s.mux.Lock()

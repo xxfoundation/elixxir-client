@@ -69,7 +69,7 @@ func (m *Manager) processAuthMessage(msg message.Receive) {
 	case auth.Specific:
 		// if it is specific, that means the original request was sent
 		// by this users and a confirmation has been received
-		jww.INFO.Printf("Received AutConfirm from %s, msgDigest: %s",
+		jww.INFO.Printf("Received AuthConfirm from %s, msgDigest: %s",
 			sr.GetPartner(), cmixMsg.Digest())
 		m.handleConfirm(cmixMsg, sr, grp)
 	}

@@ -541,6 +541,20 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes), nil
 }
 
+// DeleteContact is a function which removes a partner from Client's storage
+func (c *Client) DeleteContact(partnerId *id.ID) error  {
+	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
+		return err
+	}
+	if err := c.storage.Auth().Delete(partnerId); err != nil {
+		return err
+	}
+
+    // todo: find a way to clean partition up?
+	//c.storage.Partition().Clean()
+	return nil
+}
+
 // ----- Utility Functions -----
 // parseNDF parses the initial ndf string for the client. do not check the
 // signature, it is deprecated.

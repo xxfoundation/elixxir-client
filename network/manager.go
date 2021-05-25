@@ -48,6 +48,8 @@ type manager struct {
 
 	//number of polls done in a period of time
 	tracker *uint64
+	latencySum uint64
+	numLatencies uint64
 }
 
 // NewManager builds a new reception manager object using inputted key fields

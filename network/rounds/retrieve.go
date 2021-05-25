@@ -13,9 +13,11 @@ import (
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 type messageRetrievalComms interface {

@@ -28,35 +28,34 @@ func TestCheck(t *testing.T) {
 	session := storage.InitTestingSession(t)
 	instance := NewTestNetworkManager(t)
 	if err := setupInstance(instance); err != nil {
-		t.Errorf("Could not set up instance: %v", err)
+		t.Errorf("Could not set up instance: %+v", err)
 	}
 
-	/// Store a mock initial timestamp the store
+	// Store a mock initial timestamp the store
 	now := netTime.Now()
 	twoDaysAgo := now.Add(-2 * 24 * time.Hour)
 	twoDaysTimestamp, err := marshalTimestamp(twoDaysAgo)
 	if err != nil {
-		t.Errorf("Could not marshal timestamp for test setup: %v", err)
+		t.Errorf("Could not marshal timestamp for test setup: %+v", err)
 	}
+
 	err = session.Set(TimestampKey, twoDaysTimestamp)
 	if err != nil {
-		t.Errorf("Could not set mock timestamp for test setup: %v", err)
+		t.Errorf("Could not set mock timestamp for test setup: %+v", err)
 	}
 
 	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
-	stop := Track(session, ourId)
-	session.Reception().MarkIdSizeAsSet()
+	stop := Track(session, NewTestAddressSpace(15, t), ourId)
 
 	err = stop.Close(3 * time.Second)
 	if err != nil {
-		t.Errorf("Could not close thread: %v", err)
+		t.Errorf("Could not close thread: %+v", err)
 	}
 
 }
 
-// Unit test for track
+// Unit test for track.
 func TestCheck_Thread(t *testing.T) {
-
 	session := storage.InitTestingSession(t)
 	instance := NewTestNetworkManager(t)
 	if err := setupInstance(instance); err != nil {
@@ -65,25 +64,24 @@ func TestCheck_Thread(t *testing.T) {
 	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
 	stop := stoppable.NewSingle(ephemeralStoppable)
 
-	/// Store a mock initial timestamp the store
+	// Store a mock initial timestamp the store
 	now := netTime.Now()
 	yesterday := now.Add(-24 * time.Hour)
 	yesterdayTimestamp, err := marshalTimestamp(yesterday)
 	if err != nil {
-		t.Errorf("Could not marshal timestamp for test setup: %v", err)
+		t.Errorf("Could not marshal timestamp for test setup: %+v", err)
 	}
+
 	err = session.Set(TimestampKey, yesterdayTimestamp)
 	if err != nil {
-		t.Errorf("Could not set mock timestamp for test setup: %v", err)
+		t.Errorf("Could not set mock timestamp for test setup: %+v", err)
 	}
 
 	// Run the tracker
 	go func() {
-		track(session, ourId, stop)
+		track(session, NewTestAddressSpace(15, t), ourId, stop)
 	}()
 	time.Sleep(3 * time.Second)
-
-	session.Reception().MarkIdSizeAsSet()
 
 	err = stop.Close(3 * time.Second)
 	if err != nil {
@@ -95,7 +93,7 @@ func TestCheck_Thread(t *testing.T) {
 func setupInstance(instance interfaces.NetworkManager) error {
 	cert, err := utils.ReadFile(testkeys.GetNodeKeyPath())
 	if err != nil {
-		return errors.Errorf("Failed to read cert from from file: %v", err)
+		return errors.Errorf("Failed to read cert from from file: %+v", err)
 	}
 	ri := &mixmessages.RoundInfo{
 		ID: 1,
@@ -103,20 +101,20 @@ func setupInstance(instance interfaces.NetworkManager) error {
 
 	testCert, err := rsa.LoadPrivateKeyFromPem(cert)
 	if err != nil {
-		return errors.Errorf("Failed to load cert from from file: %v", err)
+		return errors.Errorf("Failed to load cert from from file: %+v", err)
 	}
 	if err = signature.SignRsa(ri, testCert); err != nil {
-		return errors.Errorf("Failed to sign round info: %v", err)
+		return errors.Errorf("Failed to sign round info: %+v", err)
 	}
 	if err = instance.GetInstance().RoundUpdate(ri); err != nil {
-		return errors.Errorf("Failed to RoundUpdate from from file: %v", err)
+		return errors.Errorf("Failed to RoundUpdate from from file: %+v", err)
 	}
 
 	ri = &mixmessages.RoundInfo{
 		ID: 2,
 	}
 	if err = signature.SignRsa(ri, testCert); err != nil {
-		return errors.Errorf("Failed to sign round info: %v", err)
+		return errors.Errorf("Failed to sign round info: %+v", err)
 	}
 	if err = instance.GetInstance().RoundUpdate(ri); err != nil {
 		return errors.Errorf("Failed to RoundUpdate from from file: %v", err)

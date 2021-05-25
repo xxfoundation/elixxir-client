@@ -16,13 +16,12 @@ func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	expected := &Store{
 		active: make([]*registration, 0),
-		idSize: defaultIDSize,
 		kv:     kv,
 	}
 
 	s := NewStore(kv)
 
-	if !reflect.DeepEqual([]*registration{}, s.active) || s.idSize != defaultIDSize {
+	if !reflect.DeepEqual([]*registration{}, s.active) {
 		t.Errorf("NewStore() failed to return the expected Store."+
 			"\nexpected: %+v\nreceived: %+v", expected, s)
 	}
@@ -154,14 +153,14 @@ func TestStore_GetIdentity(t *testing.T) {
 		t.Errorf("AddIdentity() produced an error: %+v", err)
 	}
 
-	idu, err := s.GetIdentity(prng)
+	idu, err := s.GetIdentity(prng, 15)
 	if err != nil {
 		t.Errorf("GetIdentity() produced an error: %+v", err)
 	}
 
 	if !testID.Equal(idu.Identity) {
 		t.Errorf("GetIdentity() did not return the expected Identity."+
-			"\nexpected: %s\nreceived: %s", testID.String(), idu.String())
+			"\nexpected: %s\nreceived: %s", testID, idu)
 	}
 }
 
@@ -181,7 +180,7 @@ func TestStore_AddIdentity(t *testing.T) {
 
 	if !s.active[0].Identity.Equal(testID.Identity) {
 		t.Errorf("Failed to get expected Identity.\nexpected: %s\nreceived: %s",
-			testID.Identity.String(), s.active[0])
+			testID.Identity, s.active[0])
 	}
 }
 
@@ -201,19 +200,6 @@ func TestStore_RemoveIdentity(t *testing.T) {
 
 	if len(s.active) != 0 {
 		t.Errorf("RemoveIdentity() failed to remove: %+v", s.active)
-	}
-}
-
-func TestStore_UpdateIdSize(t *testing.T) {
-	kv := versioned.NewKV(make(ekv.Memstore))
-	s := NewStore(kv)
-	newSize := s.idSize * 2
-
-	s.UpdateIdSize(uint(newSize))
-
-	if s.idSize != newSize {
-		t.Errorf("UpdateIdSize() failed to update the size."+
-			"\nexpected: %d\nrecieved: %d", newSize, s.idSize)
 	}
 }
 

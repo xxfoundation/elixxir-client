@@ -64,20 +64,20 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 			m.follow(report, rng, m.Comms, isRunning)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
-			if m.numLatencies !=0{
-				latencyAvg := time.Nanosecond*time.Duration(m.latencySum/m.numLatencies)
+			if m.numLatencies != 0 {
+				latencyAvg := time.Nanosecond * time.Duration(m.latencySum/m.numLatencies)
 				m.latencySum, m.numLatencies = 0, 0
 
 				jww.INFO.Printf("Polled the network %d times in the "+
 					"last %s, with an average newest packet latency of %s", numPolls,
 					debugTrackPeriod, latencyAvg)
-			}else{
+			} else {
 				jww.INFO.Printf("Polled the network %d times in the "+
 					"last %s", numPolls, debugTrackPeriod)
 			}
 
 		}
-		if !isRunning.IsRunning(){
+		if !isRunning.IsRunning() {
 			jww.ERROR.Printf("Killing network follower " +
 				"due to failed exit")
 			return
@@ -89,9 +89,8 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	comms followNetworkComms, isRunning interfaces.Running) {
 
-
-	//get the identity we will poll for
-	identity, err := m.Session.Reception().GetIdentity(rng)
+	//Get the identity we will poll for
+	identity, err := m.Session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get an identity, this should be "+
 			"impossible: %+v", err)
@@ -121,7 +120,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
 		return comms.SendPoll(host, &pollReq)
 	})
-	if !isRunning.IsRunning(){
+	if !isRunning.IsRunning() {
 		jww.ERROR.Printf("Killing network follower " +
 			"due to failed exit")
 		return
@@ -165,10 +164,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		m.GetSender().UpdateNdf(m.GetInstance().GetPartialNdf().Get())
 	}
 
-	//check that the stored address space is correct
-	m.Session.Reception().UpdateIdSize(uint(m.Instance.GetPartialNdf().Get().AddressSpaceSize))
-	// Updates any id size readers of a network compliant id size
-	m.Session.Reception().MarkIdSizeAsSet()
+	// Update the address space size
+	m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
+
 	// NOTE: this updates rounds and updates the tracking of the health of the
 	// network
 	if pollResp.Updates != nil {
@@ -224,17 +222,16 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			}
 		}
 
-
 		newestTS := uint64(0)
-		for i:=0;i<len(pollResp.Updates[len(pollResp.Updates)-1].Timestamps);i++{
-			if pollResp.Updates[len(pollResp.Updates)-1].Timestamps[i]!=0{
+		for i := 0; i < len(pollResp.Updates[len(pollResp.Updates)-1].Timestamps); i++ {
+			if pollResp.Updates[len(pollResp.Updates)-1].Timestamps[i] != 0 {
 				newestTS = pollResp.Updates[len(pollResp.Updates)-1].Timestamps[i]
 			}
 		}
 
-		newest := time.Unix(0,int64(newestTS))
+		newest := time.Unix(0, int64(newestTS))
 
-		if newest.After(now){
+		if newest.After(now) {
 			deltaDur := newest.Sub(now)
 			m.latencySum = uint64(deltaDur)
 			m.numLatencies++

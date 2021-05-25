@@ -70,7 +70,7 @@ func (t *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {
 	return nil
 }
 
-func (t *testNetworkManager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
+func (t *testNetworkManager) Follow(_ interfaces.ClientErrorReport) (stoppable.Stoppable, error) {
 	return nil, nil
 }
 
@@ -84,12 +84,19 @@ func (t *testNetworkManager) GetSender() *gateway.Sender {
 	return nil
 }
 
+func (t *testNetworkManager) GetAddressSize() uint8 { return 15 }
+func (t *testNetworkManager) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManager) UnregisterAddressSizeNotification(string) {}
+
 func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B:
 		break
 	default:
-		jww.FATAL.Panicf("initTesting is restricted to testing only."+
+		jww.FATAL.Panicf("NewTestNetworkManager is restricted to testing only."+
 			"Got %T", i)
 	}
 
@@ -97,17 +104,22 @@ func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 
 	cert, err := utils.ReadFile(testkeys.GetNodeCertPath())
 	if err != nil {
-		jww.FATAL.Panicf("Failed to create new test Instance: %v", err)
+		jww.FATAL.Panicf("Failed to create new test Instance: %+v", err)
 	}
 
-	commsManager.AddHost(&id.Permissioning, "", cert, connect.GetDefaultHostParams())
+	_, err = commsManager.AddHost(
+		&id.Permissioning, "", cert, connect.GetDefaultHostParams())
+	if err != nil {
+		jww.FATAL.Panicf("Failed to add host: %+v", err)
+	}
 	instanceComms := &connect.ProtoComms{
 		Manager: commsManager,
 	}
 
-	thisInstance, err := network.NewInstanceTesting(instanceComms, getNDF(), getNDF(), nil, nil, i)
+	thisInstance, err := network.NewInstanceTesting(
+		instanceComms, getNDF(), getNDF(), nil, nil, i)
 	if err != nil {
-		jww.FATAL.Panicf("Failed to create new test Instance: %v", err)
+		jww.FATAL.Panicf("Failed to create new test Instance: %+v", err)
 	}
 
 	thisManager := &testNetworkManager{instance: thisInstance}

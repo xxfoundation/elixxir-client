@@ -149,6 +149,7 @@ var rootCmd = &cobra.Command{
 
 		// Delete this recipient
 		if viper.GetBool("delete-channel") {
+			jww.FATAL.Printf("Deleting contact with ID %s", recipientID)
 			deleteChannel(client, recipientID)
 		}
 
@@ -762,7 +763,8 @@ func init() {
 
 	rootCmd.Flags().Bool("delete-channel", false,
 		"Delete the channel information for the corresponding recipient ID")
-	viper.BindPFlag("delete-channel", rootCmd.Flags().Lookup("delete-channel"))
+	viper.BindPFlag("delete-channel",
+		rootCmd.Flags().Lookup("delete-channel"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

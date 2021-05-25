@@ -147,6 +147,11 @@ var rootCmd = &cobra.Command{
 			authConfirmed = true
 		}
 
+		// Delete this recipient
+		if viper.GetBool("delete-channel") {
+			deleteChannel(client, recipientID)
+		}
+
 		if client.HasAuthenticatedChannel(recipientID) {
 			jww.INFO.Printf("Authenticated channel already in "+
 				"place for %s", recipientID)
@@ -415,6 +420,13 @@ func acceptChannel(client *api.Client, recipientID *id.ID) {
 	}
 	_, err = client.ConfirmAuthenticatedChannel(
 		recipientContact)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+}
+
+func deleteChannel(client *api.Client, partnerId *id.ID)  {
+	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -747,6 +759,10 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
+
+	rootCmd.Flags().Bool("delete-channel", false,
+		"Delete the channel information for the corresponding recipient ID")
+	viper.BindPFlag("delete-channel", rootCmd.Flags().Lookup("delete-channel"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

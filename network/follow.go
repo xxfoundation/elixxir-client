@@ -165,7 +165,14 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	// Update the address space size
-	m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
+	// todo: this is a fix for incompatibility with the live network
+	// remove once the live network has been pushed to
+	if len(m.Instance.GetPartialNdf().Get().AddressSpace)==0{
+		m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
+	}else{
+		m.addrSpace.Update(18)
+	}
+
 
 	// NOTE: this updates rounds and updates the tracking of the health of the
 	// network

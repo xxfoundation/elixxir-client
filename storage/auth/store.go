@@ -92,7 +92,8 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 		return nil, errors.WithMessagef(err, "Failed to "+
 			"unmarshal SentRequestMap")
 	}
-
+	jww.INFO.Printf("Loaded requestIDlist: %s", string(sentObj.Data))
+	jww.INFO.Printf("Loading Auth Store for %d contacts", len(requestList))
 	for _, rDisk := range requestList {
 		r := &request{
 			rt: RequestType(rDisk.T),
@@ -146,7 +147,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, len(s.requests))
-
+	jww.INFO.Printf("Saving Auth Store")
 	index := 0
 	for pid, r := range s.requests {
 		rDisk := requestDisk{
@@ -161,7 +162,6 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-
 	obj := versioned.Object{
 		Version:   requestMapVersion,
 		Timestamp: netTime.Now(),
@@ -223,7 +223,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 func (s *Store) AddReceived(c contact.Contact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-
+	jww.INFO.Printf("AddReceived contact %s", c.ID)
 	if _, ok := s.requests[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)

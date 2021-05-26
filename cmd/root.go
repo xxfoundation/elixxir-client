@@ -362,6 +362,7 @@ func createClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
+	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -383,6 +384,7 @@ func initClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = viper.GetBool(" slowPolling")
+	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -768,6 +770,11 @@ func init() {
 		"Enables polling for unfiltered network updates with RSA signatures")
 	viper.BindPFlag("slowPolling",
 		rootCmd.Flags().Lookup("slowPolling"))
+	rootCmd.Flags().Bool("forceMessagePickupRetry", false,
+		"Enable a mechanism which forces a 50% chance of no message pickup, " +
+		"instead triggering the message pickup retry mechanism")
+	viper.BindPFlag("forceMessagePickupRetry",
+		rootCmd.Flags().Lookup("forceMessagePickupRetry"))
 
 	// E2E Params
 	defaultE2EParams := params.GetDefaultE2ESessionParams()

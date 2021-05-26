@@ -157,12 +157,6 @@ var rootCmd = &cobra.Command{
 			authConfirmed = true
 		}
 
-		// Delete this recipient
-		if viper.GetBool("delete-channel") {
-			jww.FATAL.Printf("Deleting contact with ID %s", recipientID)
-			deleteChannel(client, recipientID)
-		}
-
 		if client.HasAuthenticatedChannel(recipientID) {
 			jww.INFO.Printf("Authenticated channel already in "+
 				"place for %s", recipientID)
@@ -200,6 +194,12 @@ var rootCmd = &cobra.Command{
 			}
 			jww.INFO.Printf("Authentication channel confirmation"+
 				" took %d seconds", scnt)
+		}
+
+		// Delete this recipient
+		if viper.GetBool("delete-channel") {
+			jww.FATAL.Printf("Deleting contact with ID %s", recipientID)
+			deleteChannel(client, recipientID)
 		}
 
 		msg := message.Send{

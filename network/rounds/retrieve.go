@@ -68,7 +68,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// messages first, randomize other members of the team
 			var rndBytes [32]byte
 			stream := m.Rng.GetStream()
-			_, err := stream.Read(rndBytes[:])
+			_, err = stream.Read(rndBytes[:])
 			stream.Close()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to randomize shuffle in round %d "+

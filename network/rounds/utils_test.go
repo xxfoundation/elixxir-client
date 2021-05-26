@@ -13,7 +13,9 @@ import (
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
@@ -29,6 +31,7 @@ func newManager(face interface{}) *Manager {
 		Internal: internal.Internal{
 			Session:        sess1,
 			TransmissionID: sess1.GetUser().TransmissionID,
+			Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		},
 	}
 	return testManager

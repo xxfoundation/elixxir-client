@@ -108,6 +108,14 @@ func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
 	return nil
 }
 
+func (t *testNetworkManagerGeneric) GetAddressSize() uint8 { return 0 }
+
+func (t *testNetworkManagerGeneric) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManagerGeneric) UnregisterAddressSizeNotification(string) {}
+
 func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager, error) {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
@@ -218,6 +226,14 @@ func (t *testNetworkManagerFullExchange) InProgressRegistrations() int {
 func (t *testNetworkManagerFullExchange) GetSender() *gateway.Sender {
 	return nil
 }
+
+func (t *testNetworkManagerFullExchange) GetAddressSize() uint8 { return 0 }
+
+func (t *testNetworkManagerFullExchange) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManagerFullExchange) UnregisterAddressSizeNotification(string) {}
 
 func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {
 	switch i.(type) {

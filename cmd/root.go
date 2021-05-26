@@ -23,7 +23,9 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
+	"log"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +47,14 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		profileOut := viper.GetString("profile-cpu")
+		if profileOut != "" {
+			f, err := os.Create(profileOut)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			pprof.StartCPUProfile(f)
+		}
 
 		client := initClient()
 
@@ -261,6 +271,10 @@ var rootCmd = &cobra.Command{
 				"Failed to cleanly close threads: %+v\n",
 				err)
 		}
+		if profileOut != "" {
+			pprof.StopCPUProfile()
+		}
+
 	},
 }
 
@@ -500,7 +514,7 @@ func waitUntilConnected(connected chan bool) {
 				isConnected)
 			break
 		case <-timeoutTimer.C:
-			jww.FATAL.Panic("timeout on connection")
+			jww.FATAL.Panicf("timeout on connection after %s", waitTimeout*time.Second)
 		}
 	}
 
@@ -615,32 +629,17 @@ func initLog(threshold uint, logPath string) {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	} else {
-		jww.INFO.Printf("log level set to: TRACE")
+		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
-}
-
-func isValidUser(usr []byte) (bool, *id.ID) {
-	if len(usr) != id.ArrIDLen {
-		return false, nil
-	}
-	for _, b := range usr {
-		if b != 0 {
-			uid, err := id.Unmarshal(usr)
-			if err != nil {
-				jww.WARN.Printf("Could not unmarshal user: %s", err)
-				return false, nil
-			}
-			return true, uid
-		}
-	}
-	return false, nil
 }
 
 func askToCreateChannel(recipientID *id.ID) bool {
@@ -791,6 +790,10 @@ func init() {
 		"", uint(defaultE2EParams.NumRekeys),
 		"Number of rekeys reserved for rekey operations")
 	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
+
+	rootCmd.Flags().String("profile-cpu", "",
+		"Enable cpu profiling to this file")
+	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
 }
 
 // initConfig reads in config file and ENV variables if set.

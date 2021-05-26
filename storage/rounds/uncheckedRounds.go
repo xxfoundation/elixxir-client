@@ -218,8 +218,7 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 	// If a round has been checked the maximum amount of times,
 	// we bail the round by removing it from store and no longer checking
 	if rnd.NumChecks >= maxChecks {
-		err := s.remove(rid)
-		if err != nil {
+		if err := s.remove(rid); err != nil {
 			return errors.WithMessagef(err, "Round %d reached maximum checks "+
 				"but could not be removed", rid)
 		}
@@ -230,22 +229,14 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 	rnd.LastCheck = netTime.Now()
 	rnd.NumChecks++
 	s.list[rid] = rnd
-
 	return s.save()
-
 }
 
 // Remove deletes a round from UncheckedRoundStore's list and from storage
 func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-
-	if err := s.remove(rid); err != nil {
-		return err
-	}
-
-	return s.save()
-
+	return s.remove(rid)
 }
 
 // Remove is a helper function which removes the round from UncheckedRoundStore's list
@@ -254,9 +245,8 @@ func (s *UncheckedRoundStore) remove(rid id.Round) error {
 	if _, exists := s.list[rid]; !exists {
 		return errors.Errorf("round %d does not exist in store", rid)
 	}
-
 	delete(s.list, rid)
-	return nil
+	return s.save()
 }
 
 // save stores the information from the round list into storage

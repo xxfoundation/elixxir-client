@@ -8,6 +8,7 @@
 package rounds
 
 import (
+	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/message"
@@ -44,7 +45,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			// wrap this around the pickup logic
 			ri := rl.roundInfo
-			err := m.Session.UncheckedRounds().AddRound(ri,
+			err := m.Session.UncheckedRounds().AddRound(rl.roundInfo,
 				rl.identity.EphId, rl.identity.Source)
 			if err != nil {
 				jww.ERROR.Printf("Could not find round %d in unchecked rounds store: %v",
@@ -62,16 +63,30 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				gwIds[i] = gwId
 			}
 
-			// Attempt to request for this gateway
-			bundle, err := m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
+			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds by
+			// randomly not picking up messages
+			var bundle message.Bundle
+			if m.params.ForceMessagePickupRetry {
+				jww.DEBUG.Printf("Forcing message pickup retry")
+				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds)
+				if err != nil {
+					jww.ERROR.Printf("Failed to get pickup round %d "+
+						"from all gateways (%v): %s",
+						id.Round(ri.ID), gwIds, err)
+				}
+			} else {
+				// Attempt to request for this gateway
+				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
+				// After trying all gateways, if none returned we mark the round as a
+				// failure and print out the last error
+				if err != nil {
+					jww.ERROR.Printf("Failed to get pickup round %d "+
+						"from all gateways (%v): %s",
+						id.Round(ri.ID), gwIds, err)
+				}
 
-			// After trying all gateways, if none returned we mark the round as a
-			// failure and print out the last error
-			if err != nil {
-				jww.ERROR.Printf("Failed to get pickup round %d "+
-					"from all gateways (%v): %s",
-					id.Round(ri.ID), gwIds, err)
 			}
+
 
 			if len(bundle.Messages) != 0 {
 				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
@@ -154,4 +169,27 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 
 	return bundle, nil
 
+}
+
+// Helper function which forces processUncheckedRounds by randomly
+// not looking up messages
+func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
+	comms messageRetrievalComms,  gwIds []*id.ID) (bundle message.Bundle, err error) {
+	// Flip a coin to determine whether to pick up message
+	stream := m.Rng.GetStream()
+	defer stream.Close()
+	b := make([]byte, 8)
+	_, err = stream.Read(b)
+	if err != nil {
+		jww.FATAL.Panic(err.Error())
+	}
+	result := binary.BigEndian.Uint64(b)
+	if result%2 == 0 {
+		// Do not call get message, leaving the round to be picked up
+		// in unchecked round scheduler process
+		return
+	}
+
+	// Attempt to request for this gateway
+	return m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
 }

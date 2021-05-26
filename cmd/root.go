@@ -774,6 +774,8 @@ func init() {
 	rootCmd.Flags().Bool("forceMessagePickupRetry", false,
 		"Enable a mechanism which forces a 50% chance of no message pickup, " +
 		"instead triggering the message pickup retry mechanism")
+	viper.BindPFlag("forceMessagePickupRetry",
+		rootCmd.Flags().Lookup("forceMessagePickupRetry"))
 
 	// E2E Params
 	defaultE2EParams := params.GetDefaultE2ESessionParams()

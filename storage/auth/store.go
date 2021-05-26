@@ -105,6 +105,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
 		}
 
+
 		switch r.rt {
 		case Sent:
 			sr, err := loadSentRequest(kv, partner, grp)
@@ -117,7 +118,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				PrivKey: nil,
 				Request: r,
 			}
-
+			jww.INFO.Printf("Loaded send request for %s", sr.partner)
 			rid = sr.partner
 			r.sent = sr
 
@@ -126,6 +127,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
+			jww.INFO.Printf("Loaded send request for %s", c.ID)
 
 			rid = c.ID
 			r.receive = &c
@@ -133,6 +135,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
+		jww.INFO.Printf("LoadStore partner: %s", partner)
 
 		//store in the request map
 		s.requests[*rid] = r
@@ -206,6 +209,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 
 	jww.INFO.Printf("AddSent PUBKEY FINGERPRINT: %v", sr.fingerprint)
 	jww.INFO.Printf("AddSent PUBKEY: %v", sr.myPubKey.Bytes())
+	jww.INFO.Printf("AddSent Partner: %s", partner)
 
 	s.fingerprints[sr.fingerprint] = fingerprint{
 		Type:    Specific,

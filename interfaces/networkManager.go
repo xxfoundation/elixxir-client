@@ -29,6 +29,19 @@ type NetworkManager interface {
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 	CheckGarbledMessages()
 	InProgressRegistrations() int
+
+	// GetAddressSize returns the current address size of IDs. Blocks until an
+	// address size is known.
+	GetAddressSize() uint8
+
+	// RegisterAddressSizeNotification returns a channel that will trigger for
+	// every address space size update. The provided tag is the unique ID for
+	// the channel. Returns an error if the tag is already used.
+	RegisterAddressSizeNotification(tag string) (chan uint8, error)
+
+	// UnregisterAddressSizeNotification stops broadcasting address space size
+	// updates on the channel with the specified tag.
+	UnregisterAddressSizeNotification(tag string)
 }
 
 //for use in key exchange which needs to be callable inside of network

@@ -8,6 +8,7 @@ import (
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -16,8 +17,9 @@ const identityStorageVersion = 0
 
 type Identity struct {
 	// Identity
-	EphId  ephemeral.Id
-	Source *id.ID
+	EphId       ephemeral.Id
+	Source      *id.ID
+	AddressSize uint8
 
 	// Usage variables
 	End         time.Time // Timestamp when active polling will stop
@@ -76,13 +78,30 @@ func (i Identity) delete(kv *versioned.KV) error {
 	return kv.Delete(identityStorageKey, identityStorageVersion)
 }
 
-func (i *Identity) String() string {
+func (i Identity) String() string {
 	return strconv.FormatInt(i.EphId.Int64(), 16) + " " + i.Source.String()
+}
+
+func (i Identity) GoString() string {
+	str := make([]string, 0, 9)
+
+	str = append(str, "EphId:"+strconv.FormatInt(i.EphId.Int64(), 16))
+	str = append(str, "Source:"+i.Source.String())
+	str = append(str, "AddressSize:"+strconv.FormatUint(uint64(i.AddressSize), 10))
+	str = append(str, "End:"+i.End.String())
+	str = append(str, "ExtraChecks:"+strconv.FormatUint(uint64(i.ExtraChecks), 10))
+	str = append(str, "StartValid:"+i.StartValid.String())
+	str = append(str, "EndValid:"+i.EndValid.String())
+	str = append(str, "RequestMask:"+i.RequestMask.String())
+	str = append(str, "Ephemeral:"+strconv.FormatBool(i.Ephemeral))
+
+	return "{" + strings.Join(str, ", ") + "}"
 }
 
 func (i Identity) Equal(b Identity) bool {
 	return i.EphId == b.EphId &&
 		i.Source.Cmp(b.Source) &&
+		i.AddressSize == b.AddressSize &&
 		i.End.Equal(b.End) &&
 		i.ExtraChecks == b.ExtraChecks &&
 		i.StartValid.Equal(b.StartValid) &&

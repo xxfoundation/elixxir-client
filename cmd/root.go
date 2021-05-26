@@ -525,7 +525,7 @@ func waitUntilConnected(connected chan bool) {
 				isConnected)
 			break
 		case <-timeoutTimer.C:
-			jww.FATAL.Panic("timeout on connection")
+			jww.FATAL.Panicf("timeout on connection after %s", waitTimeout*time.Second)
 		}
 	}
 

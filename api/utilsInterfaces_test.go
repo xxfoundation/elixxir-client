@@ -125,3 +125,11 @@ func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
 	return t.sender
 }
+
+func (t *testNetworkManagerGeneric) GetAddressSize() uint8 { return 0 }
+
+func (t *testNetworkManagerGeneric) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManagerGeneric) UnregisterAddressSizeNotification(string) {}

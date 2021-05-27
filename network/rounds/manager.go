@@ -57,5 +57,11 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 		go m.processMessageRetrieval(m.Comms, stopper.Quit())
 		multi.Add(stopper)
 	}
+
+	// Start the periodic unchecked round worker
+	stopper := stoppable.NewSingle("UncheckRound")
+	go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper.Quit())
+	multi.Add(stopper)
+
 	return multi
 }

@@ -10,6 +10,7 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/client/storage/rounds"
 	"sync"
 	"testing"
 	"time"
@@ -63,6 +64,7 @@ type Session struct {
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	reception           *reception.Store
 	clientVersion       *clientVersion.Store
+	uncheckedRounds     *rounds.UncheckedRoundStore
 }
 
 // Initialize a new Session object
@@ -142,6 +144,10 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 		return nil, errors.WithMessage(err, "Failed to create client version store.")
 	}
 
+	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create unchecked round store")
+	}
 	return s, nil
 }
 
@@ -213,6 +219,11 @@ func Load(baseDir, password string, currentVersion version.Version,
 
 	s.reception = reception.LoadStore(s.kv)
 
+	s.uncheckedRounds, err = rounds.LoadUncheckedStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load unchecked round store")
+	}
+
 	return s, nil
 }
 
@@ -281,6 +292,12 @@ func (s *Session) Partition() *partition.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.partition
+}
+
+func (s *Session) UncheckedRounds() *rounds.UncheckedRoundStore {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.uncheckedRounds
 }
 
 // Get an object from the session
@@ -372,6 +389,11 @@ func InitTestingSession(i interface{}) *Session {
 	s.partition = partition.New(s.kv)
 
 	s.reception = reception.NewStore(s.kv)
+
+	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create uncheckRound store: %v", err)
+	}
 
 	return s
 }

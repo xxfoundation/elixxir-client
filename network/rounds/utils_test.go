@@ -8,14 +8,18 @@ package rounds
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
+	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"testing"
+	"time"
 )
 
 func newManager(face interface{}) *Manager {
@@ -27,6 +31,7 @@ func newManager(face interface{}) *Manager {
 		Internal: internal.Internal{
 			Session:        sess1,
 			TransmissionID: sess1.GetUser().TransmissionID,
+			Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		},
 	}
 	return testManager
@@ -100,6 +105,23 @@ func (mmrc *mockMessageRetrievalComms) RequestMessages(host *connect.Host,
 	}
 
 	return nil, nil
+}
+
+func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
+	switch face.(type) {
+	case *testing.T, *testing.M, *testing.B, *testing.PB:
+		break
+	default:
+		jww.FATAL.Panicf("newTestBackoffTable is restricted to testing only. Got %T", face)
+	}
+
+	var backoff [cappedTries]time.Duration
+	for i := 0; i < cappedTries; i++ {
+		backoff[uint64(i)] = 1 * time.Millisecond
+	}
+
+	return backoff
+
 }
 
 func getNDF() *ndf.NetworkDefinition {

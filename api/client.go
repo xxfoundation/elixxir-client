@@ -543,6 +543,7 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 // DeleteContact is a function which removes a partner from Client's storage
 func (c *Client) DeleteContact(partnerId *id.ID) error  {
+	jww.DEBUG.Printf("Deleting contact ID %s", partnerId)
 	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
 		return err
 	}

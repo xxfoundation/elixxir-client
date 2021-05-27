@@ -198,7 +198,6 @@ var rootCmd = &cobra.Command{
 
 		// Delete this recipient
 		if viper.GetBool("delete-channel") {
-			jww.FATAL.Printf("Deleting contact with ID %s", recipientID)
 			deleteChannel(client, recipientID)
 		}
 

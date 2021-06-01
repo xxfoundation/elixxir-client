@@ -386,7 +386,9 @@ func initClient() *api.Client {
 	netParams.FastPolling = viper.GetBool(" slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 	if netParams.ForceMessagePickupRetry {
-		netParams.UncheckRoundPeriod = 5 *time.Second
+		period := 5 *time.Second
+		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
+		netParams.UncheckRoundPeriod = period
 	}
 
 	//load the client

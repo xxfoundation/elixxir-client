@@ -9,7 +9,6 @@ package rounds
 
 import (
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
@@ -61,7 +60,6 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 
 	// Start the periodic unchecked round worker
 	stopper := stoppable.NewSingle("UncheckRound")
-	jww.FATAL.Printf("** Uncheck round period: %v", m.params.UncheckRoundPeriod)
 	go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper.Quit())
 	multi.Add(stopper)
 

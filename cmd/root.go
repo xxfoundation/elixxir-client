@@ -385,6 +385,9 @@ func initClient() *api.Client {
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = viper.GetBool(" slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
+	if netParams.ForceMessagePickupRetry {
+		netParams.UncheckRoundPeriod = 5 *time.Second
+	}
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)

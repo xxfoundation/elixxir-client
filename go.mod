@@ -32,5 +32,3 @@ require (
 	google.golang.org/protobuf v1.26.0
 	gopkg.in/ini.v1 v1.62.0 // indirect
 )
-
-replace google.golang.org/grpc => github.com/grpc/grpc-go v1.27.1

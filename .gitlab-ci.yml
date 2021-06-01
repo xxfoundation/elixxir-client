@@ -92,13 +92,13 @@ bindings-ios:
   tags:
     - ios-staging
   script:
-    - export PATH="/usr/local/opt/go@1.13/bin:$PATH"
+    - brew install go
     - go get -u golang.org/x/mobile/cmd/gomobile
-    - go get -u golang.org/x/mobile/bind
-    - rm -rf $HOME/go/src/gitlab.com/elixxir/client/
-    - mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
-    - cp -r * $HOME/go/src/gitlab.com/elixxir/client/
-    - GO111MODULE=on gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    #- go get -u golang.org/x/mobile/bind
+    #- rm -rf $HOME/go/src/gitlab.com/elixxir/client/
+    #- mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
+    #- cp -r * $HOME/go/src/gitlab.com/elixxir/client/
+    - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - zip -r iOS.zip Bindings.framework
   artifacts:
     paths:

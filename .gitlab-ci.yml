@@ -94,6 +94,7 @@ bindings-ios:
   script:
     - brew install go
     - go get -u golang.org/x/mobile/cmd/gomobile
+    - gomobile init
     #- go get -u golang.org/x/mobile/bind
     #- rm -rf $HOME/go/src/gitlab.com/elixxir/client/
     #- mkdir -p $HOME/go/src/gitlab.com/elixxir/client/

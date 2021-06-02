@@ -9,7 +9,12 @@ package stoppable
 
 import "time"
 
-// Interface for stopping a goroutine.
+const (
+	stopped = 0
+	running = 1
+)
+
+// Stoppable interface for stopping a goroutine.
 type Stoppable interface {
 	Close(timeout time.Duration) error
 	IsRunning() bool

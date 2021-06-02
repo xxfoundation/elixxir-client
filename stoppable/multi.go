@@ -8,13 +8,16 @@
 package stoppable
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 )
+
+// Error message.
+const closeMultiErr = "MultiStopper %s failed to close %d/%d stoppers"
 
 type Multi struct {
 	stoppables []Stoppable
@@ -24,17 +27,17 @@ type Multi struct {
 	once       sync.Once
 }
 
-// NewMulti returns a new multi stoppable.
+// NewMulti returns a new multi Stoppable.
 func NewMulti(name string) *Multi {
 	return &Multi{
 		name:    name,
-		running: 1,
+		running: running,
 	}
 }
 
-// IsRunning returns true if the thread is still running.
+// IsRunning returns true if stoppable is marked as running.
 func (m *Multi) IsRunning() bool {
-	return atomic.LoadUint32(&m.running) == 1
+	return atomic.LoadUint32(&m.running) == running
 }
 
 // Add adds the given stoppable to the list of stoppables.
@@ -44,21 +47,18 @@ func (m *Multi) Add(stoppable Stoppable) {
 	m.mux.Unlock()
 }
 
-// Name returns the name of the multi stoppable and the names of all stoppables
+// Name returns the name of the Multi Stoppable and the names of all stoppables
 // it contains.
 func (m *Multi) Name() string {
 	m.mux.RLock()
-	names := m.name + ": {"
-	for _, s := range m.stoppables {
-		names += s.Name() + ", "
-	}
-	if len(m.stoppables) > 0 {
-		names = names[:len(names)-2]
-	}
-	names += "}"
-	m.mux.RUnlock()
+	defer m.mux.RUnlock()
 
-	return names
+	names := make([]string, len(m.stoppables))
+	for i, s := range m.stoppables {
+		names[i] = s.Name()
+	}
+
+	return m.name + ": {" + strings.Join(names, ", ") + "}"
 }
 
 // Close closes all child stoppers. It does not return their errors and assumes
@@ -67,10 +67,10 @@ func (m *Multi) Close(timeout time.Duration) error {
 	var err error
 	m.once.Do(
 		func() {
-			atomic.StoreUint32(&m.running, 0)
+			atomic.StoreUint32(&m.running, stopped)
 
-			numErrors := uint32(0)
-			wg := &sync.WaitGroup{}
+			var numErrors uint32
+			var wg sync.WaitGroup
 
 			m.mux.Lock()
 			for _, stoppable := range m.stoppables {
@@ -87,10 +87,9 @@ func (m *Multi) Close(timeout time.Duration) error {
 			wg.Wait()
 
 			if numErrors > 0 {
-				errStr := fmt.Sprintf("MultiStopper %s failed to close "+
-					"%v/%v stoppers", m.name, numErrors, len(m.stoppables))
-				jww.ERROR.Println(errStr)
-				err = errors.New(errStr)
+				err = errors.Errorf(
+					closeMultiErr, m.name, numErrors, len(m.stoppables))
+				jww.ERROR.Print(err.Error())
 			}
 		})
 

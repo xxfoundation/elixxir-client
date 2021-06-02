@@ -8,96 +8,104 @@
 package stoppable
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
 
-// Tests happy path of NewSingle().
+// Tests that NewSingle returns a Single with the correct name and running.
 func TestNewSingle(t *testing.T) {
-	name := "test name"
+	name := "threadName"
 	single := NewSingle(name)
 
-	if single.name != name || single.running != 1 {
-		t.Errorf("NewSingle() returned Single with incorrect values."+
-			"\n\texpected:  name: %s  running: %d\n\treceived:  name: %s  running: %d",
-			name, 1, single.name, single.running)
+	if single.name != name {
+		t.Errorf("NewSingle returned Single with incorrect name."+
+			"\nexpected: %s\nreceived: %s", name, single.name)
+	}
+
+	if single.running != running {
+		t.Errorf("NewSingle returned Single with incorrect running."+
+			"\nexpected: %d\nreceived: %d", running, single.running)
 	}
 }
 
-// Tests happy path of Single.IsRunning().
+// Tests that Single.IsRunning returns the expected value when the Single is
+// marked as both running and not running.
 func TestSingle_IsRunning(t *testing.T) {
-	single := NewSingle("name")
+	single := NewSingle("threadName")
 
 	if !single.IsRunning() {
-		t.Errorf("IsRunning() returned false when it should be running.")
+		t.Errorf("IsRunning returned the wrong value when running."+
+			"\nexpected: %t\nreceived: %t", true, single.IsRunning())
 	}
 
-	single.running = 0
+	single.running = stopped
 	if single.IsRunning() {
-		t.Errorf("IsRunning() returned true when it should not be running.")
+		t.Errorf("IsRunning returned the wrong value when not running."+
+			"\nexpected: %t\nreceived: %t", false, single.IsRunning())
 	}
 }
 
-// Tests happy path of Single.Quit().
+// Tests that Single.Quit returns a channel that is triggered when the Single
+// quit channel is triggered.
 func TestSingle_Quit(t *testing.T) {
-	single := NewSingle("name")
+	single := NewSingle("threadName")
 
 	go func() {
-		time.Sleep(150 * time.Nanosecond)
-		single.quit <- struct{}{}
+		select {
+		case <-time.NewTimer(5 * time.Millisecond).C:
+			t.Error("Timed out waiting for quit channel.")
+		case <-single.Quit():
+		}
 	}()
 
-	timer := time.NewTimer(2 * time.Millisecond)
-	select {
-	case <-timer.C:
-		t.Errorf("Quit signal not received.")
-	case <-single.quit:
-	}
+	single.quit <- struct{}{}
 }
 
-// Tests happy path of Single.Name().
+// Unit test of Single.Name.
 func TestSingle_Name(t *testing.T) {
-	name := "test name"
+	name := "threadName"
 	single := NewSingle(name)
 
 	if name != single.Name() {
-		t.Errorf("Name() returned the incorrect string."+
-			"\n\texpected: %s\n\treceived: %s", name, single.Name())
+		t.Errorf("Name did not return the expected name."+
+			"\nexpected: %s\nreceived: %s", name, single.Name())
 	}
 }
 
 // Test happy path of Single.Close().
 func TestSingle_Close(t *testing.T) {
-	single := NewSingle("name")
+	single := NewSingle("threadName")
 
 	go func() {
-		time.Sleep(150 * time.Nanosecond)
 		select {
-		case <-single.quit:
+		case <-time.NewTimer(10 * time.Millisecond).C:
+			t.Error("Timed out waiting for quit channel.")
+		case <-single.Quit():
 		}
 	}()
 
 	err := single.Close(5 * time.Millisecond)
 	if err != nil {
-		t.Errorf("Close() returned an error: %v", err)
+		t.Errorf("Close returned an error: %v", err)
 	}
 }
 
-// Tests that Single.Close() returns an error when the timeout is reached.
+// Error path: tests that Single.Close returns an error when the timeout is
+// reached.
 func TestSingle_Close_Error(t *testing.T) {
-	single := NewSingle("name")
-	expectedErr := single.name + " failed to close"
+	single := NewSingle("threadName")
+	timeout := time.Millisecond
+	expectedErr := fmt.Sprintf(closeTimeoutErr, single.Name(), timeout)
 
 	go func() {
-		time.Sleep(3 * time.Millisecond)
-		select {
-		case <-single.quit:
-		}
+		time.Sleep(5 * time.Millisecond)
+		<-single.Quit()
 	}()
 
-	err := single.Close(2 * time.Millisecond)
-	if err == nil {
-		t.Errorf("Close() did not return the expected error."+
-			"\n\texpected: %v\n\treceived: %v", expectedErr, err)
+	err := single.Close(timeout)
+	if err == nil || err.Error() != expectedErr {
+		t.Errorf("Close did not return the expected error."+
+			"\nexpected: %s\nreceived: %v", expectedErr, err)
 	}
 }

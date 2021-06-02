@@ -386,7 +386,7 @@ func initClient() *api.Client {
 	netParams.FastPolling = viper.GetBool(" slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 	if netParams.ForceMessagePickupRetry {
-		period := 5 *time.Second
+		period := 1 * time.Second
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		netParams.UncheckRoundPeriod = period
 	}
@@ -776,8 +776,8 @@ func init() {
 	viper.BindPFlag("slowPolling",
 		rootCmd.Flags().Lookup("slowPolling"))
 	rootCmd.Flags().Bool("forceMessagePickupRetry", false,
-		"Enable a mechanism which forces a 50% chance of no message pickup, " +
-		"instead triggering the message pickup retry mechanism")
+		"Enable a mechanism which forces a 50% chance of no message pickup, "+
+			"instead triggering the message pickup retry mechanism")
 	viper.BindPFlag("forceMessagePickupRetry",
 		rootCmd.Flags().Lookup("forceMessagePickupRetry"))
 

@@ -28,7 +28,6 @@ const (
 	cappedTries = 7
 )
 
-
 var backOffTable = [cappedTries]time.Duration{tryZero, tryOne, tryTwo, tryThree, tryFour, tryFive, trySix}
 
 // processUncheckedRounds will (periodically) check every checkInterval
@@ -53,7 +52,7 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 				// If this round is due for a round check, send the round over
 				// to the retrieval thread. If not due, check next round.
 				if isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {
-					jww.DEBUG.Printf("Round %d due for a message lookup, retrying...", rid)
+					jww.INFO.Printf("Round %d due for a message lookup, retrying...", rid)
 					// Construct roundLookup object to send
 					rl := roundLookup{
 						roundInfo: rnd.Info,
@@ -68,7 +67,7 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					// Send to processMessageRetrieval
 					select {
 					case m.lookupRoundMessages <- rl:
-					case <- time.After(500*time.Second):
+					case <-time.After(500 * time.Second):
 					}
 
 					// Update the state of the round for next look-up (if needed)

@@ -8,111 +8,187 @@
 package stoppable
 
 import (
+	"fmt"
 	"reflect"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
 
-// Tests happy path of NewMulti().
+// Tests that NewMulti returns a Multi that is running with the given name.
 func TestNewMulti(t *testing.T) {
-	name := "test name"
+	name := "testMulti"
 	multi := NewMulti(name)
 
-	if multi.name != name || multi.running != 1 {
-		t.Errorf("NewMulti() returned Multi with incorrect values."+
-			"\n\texpected:  name: %s  running: %d\n\treceived:  name: %s  running: %d",
-			name, 1, multi.name, multi.running)
+	if multi.name != name {
+		t.Errorf("NewMulti returned Multi with incorrect name."+
+			"\nexpected: %s\nreceived: %s", name, multi.name)
+	}
+
+	if multi.running != running {
+		t.Errorf("NewMulti returned Multi with incorrect running."+
+			"\nexpected: %d\nreceived: %d", running, multi.running)
 	}
 }
 
-// Tests happy path of Multi.IsRunning().
+// Tests that Multi.IsRunning returns the expected value when the Multi is
+// marked as both running and not running.
 func TestMulti_IsRunning(t *testing.T) {
-	multi := NewMulti("name")
+	multi := NewMulti("testMulti")
 
 	if !multi.IsRunning() {
-		t.Errorf("IsRunning() returned false when it should be running.")
+		t.Errorf("IsRunning returned the wrong value when running."+
+			"\nexpected: %t\nreceived: %t", true, multi.IsRunning())
 	}
 
-	multi.running = 0
+	multi.running = stopped
 	if multi.IsRunning() {
-		t.Errorf("IsRunning() returned true when it should not be running.")
+		t.Errorf("IsRunning returned the wrong value when not running."+
+			"\nexpected: %t\nreceived: %t", false, multi.IsRunning())
 	}
 }
 
-// Tests happy path of Multi.Add().
+// Tests that Multi.Add adds all the stoppables to the list.
 func TestMulti_Add(t *testing.T) {
-	multi := NewMulti("multi name")
-	singles := []*Single{
-		NewSingle("single name 1"),
-		NewSingle("single name 2"),
-		NewSingle("single name 3"),
+	multi := NewMulti("testMulti")
+	expected := []Stoppable{
+		NewSingle("testSingle0"),
+		NewMulti("testMulti0"),
+		NewSingle("testSingle1"),
+		NewMulti("testMulti1"),
 	}
 
-	for _, single := range singles {
-		multi.Add(single)
+	for _, stoppable := range expected {
+		multi.Add(stoppable)
 	}
 
-	for i, single := range singles {
-		if !reflect.DeepEqual(single, multi.stoppables[i]) {
-			t.Errorf("Add() did not add the correct Stoppables."+
-				"\n\texpected: %#v\n\treceived: %#v", single, multi.stoppables[i])
-		}
+	if !reflect.DeepEqual(multi.stoppables, expected) {
+		t.Errorf("Add did not add the correct Stoppables."+
+			"\nexpected: %+v\nreceived: %+v", multi.stoppables, expected)
 	}
 }
 
-// Tests happy path of Multi.Name().
+// Unit test of Multi.Name.
 func TestMulti_Name(t *testing.T) {
-	name := "test name"
+	name := "testMulti"
 	multi := NewMulti(name)
-	singles := []*Single{
-		NewSingle("single name 1"),
-		NewSingle("single name 2"),
-		NewSingle("single name 3"),
-	}
-	expectedNames := []string{
-		name + ": {}",
-		name + ": {" + singles[0].name + "}",
-		name + ": {" + singles[0].name + ", " + singles[1].name + "}",
-		name + ": {" + singles[0].name + ", " + singles[1].name + ", " + singles[2].name + "}",
+
+	// Add stoppables and created list of their names
+	var nameList []string
+	for i := 0; i < 10; i++ {
+		newName := ""
+		if i%2 == 0 {
+			newName = "single" + strconv.Itoa(i)
+			multi.Add(NewSingle(newName))
+		} else {
+			newMulti := NewMulti("multi" + strconv.Itoa(i))
+			if i != 5 {
+				newMulti.Add(NewMulti("multiA"))
+				newMulti.Add(NewMulti("multiB"))
+			}
+			multi.Add(newMulti)
+			newName = newMulti.Name()
+		}
+		nameList = append(nameList, newName)
 	}
 
-	for i, single := range singles {
-		if expectedNames[i] != multi.Name() {
-			t.Errorf("Name() returned the incorrect string."+
-				"\n\texpected: %s\n\treceived: %s", expectedNames[0], multi.Name())
-		}
-		multi.Add(single)
+	expected := name + ": {" + strings.Join(nameList, ", ") + "}"
+
+	if multi.Name() != expected {
+		t.Errorf("Name failed to return the expected string."+
+			"\nexpected: %s\nreceived: %s", expected, multi.Name())
 	}
 }
 
-// Tests happy path of Multi.Close().
-func TestMulti_Close(t *testing.T) {
-	// Create new Multi and add Singles to it
-	multi := NewMulti("name")
-	singles := []*Single{
-		NewSingle("single name 1"),
-		NewSingle("single name 2"),
-		NewSingle("single name 3"),
+// Tests that Multi.Name returns the expected string when it has no stoppables.
+func TestMulti_Name_NoStoppables(t *testing.T) {
+	name := "testMulti"
+	multi := NewMulti(name)
+
+	expected := name + ": {" + "}"
+
+	if multi.Name() != expected {
+		t.Errorf("Name failed to return the expected string."+
+			"\nexpected: %s\nreceived: %s", expected, multi.Name())
 	}
-	for _, single := range singles {
+}
+
+// Tests that Multi.Close sends on all Single quit channels.
+func TestMulti_Close(t *testing.T) {
+	multi := NewMulti("testMulti")
+	singles := []*Single{
+		NewSingle("testSingle0"),
+		NewSingle("testSingle1"),
+		NewSingle("testSingle2"),
+		NewSingle("testSingle3"),
+		NewSingle("testSingle4"),
+	}
+	for _, single := range singles[:3] {
 		multi.Add(single)
 	}
+	subMulti := NewMulti("subMulti")
+	for _, single := range singles[3:] {
+		subMulti.Add(single)
+	}
+	multi.Add(subMulti)
 
-	go func() {
-		select {
-		case <-singles[0].quit:
-		}
-		select {
-		case <-singles[1].quit:
-		}
-		select {
-		case <-singles[2].quit:
-		}
-	}()
+	for _, single := range singles {
+		go func(single *Single) {
+			select {
+			case <-time.NewTimer(5 * time.Millisecond).C:
+				t.Errorf("Single %s failed to quit.", single.Name())
+			case <-single.Quit():
+			}
+		}(single)
+	}
 
 	err := multi.Close(5 * time.Millisecond)
 	if err != nil {
 		t.Errorf("Close() returned an error: %v", err)
+	}
+
+	err = multi.Close(0)
+	if err != nil {
+		t.Errorf("Close() returned an error: %v", err)
+	}
+}
+
+// Tests that Multi.Close sends on all Single quit channels.
+func TestMulti_Close_Error(t *testing.T) {
+	multi := NewMulti("testMulti")
+	singles := []*Single{
+		NewSingle("testSingle0"),
+		NewSingle("testSingle1"),
+		NewSingle("testSingle2"),
+		NewSingle("testSingle3"),
+		NewSingle("testSingle4"),
+	}
+	for _, single := range singles[:3] {
+		multi.Add(single)
+	}
+	subMulti := NewMulti("subMulti")
+	for _, single := range singles[3:] {
+		subMulti.Add(single)
+	}
+	multi.Add(subMulti)
+
+	for _, single := range singles[:2] {
+		go func(single *Single) {
+			select {
+			case <-time.NewTimer(5 * time.Millisecond).C:
+				t.Errorf("Single %s failed to quit.", single.Name())
+			case <-single.Quit():
+			}
+		}(single)
+	}
+	expectedErr := fmt.Sprintf(closeMultiErr, multi.name, 0, 0)
+	expectedErr = strings.SplitN(expectedErr, " 0/0", 2)[0]
+
+	err := multi.Close(5 * time.Millisecond)
+	if err == nil || !strings.Contains(err.Error(), expectedErr) {
+		t.Errorf("Close() did not return the expected error."+
+			"\nexpected: %s\nreceived: %v", expectedErr, err)
 	}
 
 	err = multi.Close(0)

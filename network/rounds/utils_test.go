@@ -31,7 +31,7 @@ func newManager(face interface{}) *Manager {
 		Internal: internal.Internal{
 			Session:        sess1,
 			TransmissionID: sess1.GetUser().TransmissionID,
-			Rng:              fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
+			Rng:            fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG),
 		},
 	}
 	return testManager

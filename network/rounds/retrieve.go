@@ -84,7 +84,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// randomly not picking up messages
 			var bundle message.Bundle
 			if m.params.ForceMessagePickupRetry {
-				jww.DEBUG.Printf("Forcing message pickup retry")
+				jww.INFO.Printf("Forcing message pickup retry for round %d", ri.ID)
 				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds)
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d "+
@@ -104,11 +104,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 
 			}
 
-
 			if len(bundle.Messages) != 0 {
 				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
 				if err != nil {
-					jww.ERROR.Printf("Could not remove round %d " +
+					jww.ERROR.Printf("Could not remove round %d "+
 						"from unchecked rounds store: %v", ri.ID, err)
 				}
 
@@ -191,7 +190,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 // Helper function which forces processUncheckedRounds by randomly
 // not looking up messages
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
-	comms messageRetrievalComms,  gwIds []*id.ID) (bundle message.Bundle, err error) {
+	comms messageRetrievalComms, gwIds []*id.ID) (bundle message.Bundle, err error) {
 	// Flip a coin to determine whether to pick up message
 	stream := m.Rng.GetStream()
 	defer stream.Close()

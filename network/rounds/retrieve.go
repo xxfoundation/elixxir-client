@@ -38,7 +38,7 @@ const noRoundError = "does not have round %d"
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
-
+	ForceMessagePickupRetry := make(map[uint64]struct{})
 	done := false
 	for !done {
 		select {
@@ -47,10 +47,11 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			// wrap this around the pickup logic
 			ri := rl.roundInfo
+			jww.INFO.Printf("Checking for messages in round %d", ri.ID)
 			err := m.Session.UncheckedRounds().AddRound(rl.roundInfo,
 				rl.identity.EphId, rl.identity.Source)
 			if err != nil {
-				jww.ERROR.Printf("Could not find round %d in unchecked rounds store: %v",
+				jww.ERROR.Printf("Could not add round %d in unchecked rounds store: %v",
 					rl.roundInfo.ID, err)
 			}
 
@@ -190,20 +191,24 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 // Helper function which forces processUncheckedRounds by randomly
 // not looking up messages
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
-	comms messageRetrievalComms, gwIds []*id.ID) (bundle message.Bundle, err error) {
-	// Flip a coin to determine whether to pick up message
-	stream := m.Rng.GetStream()
-	defer stream.Close()
-	b := make([]byte, 8)
-	_, err = stream.Read(b)
-	if err != nil {
-		jww.FATAL.Panic(err.Error())
-	}
-	result := binary.BigEndian.Uint64(b)
-	if result%2 == 0 {
-		// Do not call get message, leaving the round to be picked up
-		// in unchecked round scheduler process
-		return
+	comms messageRetrievalComms, gwIds []*id.ID, tracker map[uint64]struct{}) (bundle message.Bundle, err error) {
+	// Check if round has been ignored before
+	if _, ok := tracker[ri.ID]; !ok {
+		tracker[ri.ID] = struct{}{}
+		// Flip a coin to determine whether to pick up message
+		stream := m.Rng.GetStream()
+		defer stream.Close()
+		b := make([]byte, 8)
+		_, err = stream.Read(b)
+		if err != nil {
+			jww.FATAL.Panic(err.Error())
+		}
+		result := binary.BigEndian.Uint64(b)
+		if result%2 == 0 {
+			// Do not call get message, leaving the round to be picked up
+			// in unchecked round scheduler process
+			return
+		}
 	}
 
 	// Attempt to request for this gateway

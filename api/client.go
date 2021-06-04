@@ -186,6 +186,8 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		parameters:  parameters,
 	}
 
+	c.runner.Add(c.storage.Partition().ClearMessages())
+
 	return c, nil
 }
 

@@ -38,14 +38,13 @@ const noRoundError = "does not have round %d"
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
-	forceMessagePickupTracker := make(map[uint64]struct{})
+	forceLookupRetryTracker := make(map[uint64]struct{})
 	done := false
 	for !done {
 		select {
 		case <-quitCh:
 			done = true
 		case rl := <-m.lookupRoundMessages:
-			// wrap this around the pickup logic
 			ri := rl.roundInfo
 			jww.INFO.Printf("Checking for messages in round %d", ri.ID)
 			err := m.Session.UncheckedRounds().AddRound(rl.roundInfo,
@@ -82,15 +81,18 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			})
 
 			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds by
-			// randomly not picking up messages (FOR INTEGRATION TEST)
+			// randomly not picking up messages (FOR INTEGRATION TEST). Only done if
+			// round has not been ignored before
 			var bundle message.Bundle
-			if m.params.ForceMessagePickupRetry {
-				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds, forceMessagePickupTracker)
+			_, ok := forceLookupRetryTracker[ri.ID]
+			if !ok && m.params.ForceMessagePickupRetry {
+				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds)
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d "+
 						"from all gateways (%v): %s",
 						id.Round(ri.ID), gwIds, err)
 				}
+				forceLookupRetryTracker[ri.ID] = struct{}{}
 			} else {
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
@@ -105,6 +107,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 
 			if len(bundle.Messages) != 0 {
+				jww.INFO.Printf("Removing round %d from unchecked store", ri.ID)
 				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
 				if err != nil {
 					jww.ERROR.Printf("Could not remove round %d "+
@@ -193,10 +196,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 // Helper function which forces processUncheckedRounds by randomly
 // not looking up messages
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
-	comms messageRetrievalComms, gwIds []*id.ID, tracker map[uint64]struct{}) (bundle message.Bundle, err error) {
-	// Check if round has been ignored before
-	if _, ok := tracker[ri.ID]; !ok {
-		tracker[ri.ID] = struct{}{}
+	comms messageRetrievalComms, gwIds []*id.ID) (bundle message.Bundle, err error) {
 		// Flip a coin to determine whether to pick up message
 		stream := m.Rng.GetStream()
 		defer stream.Close()
@@ -212,7 +212,7 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 			// in unchecked round scheduler process
 			return
 		}
-	}
+
 
 	// Attempt to request for this gateway
 	return m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)

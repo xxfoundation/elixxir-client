@@ -38,7 +38,7 @@ const noRoundError = "does not have round %d"
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
-	ForceMessagePickupRetry := make(map[uint64]struct{})
+	forceMessagePickupTracker := make(map[uint64]struct{})
 	done := false
 	for !done {
 		select {
@@ -86,7 +86,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			var bundle message.Bundle
 			if m.params.ForceMessagePickupRetry {
 				jww.INFO.Printf("Forcing message pickup retry for round %d", ri.ID)
-				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds)
+				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds, forceMessagePickupTracker)
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d "+
 						"from all gateways (%v): %s",

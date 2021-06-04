@@ -67,9 +67,9 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					// Send to processMessageRetrieval
 					select {
 					case m.lookupRoundMessages <- rl:
-						jww.INFO.Printf("Sending round %d to lookup", rl.roundInfo)
+						jww.INFO.Printf("Sending round %d to lookup", rl.roundInfo.ID)
 					case <-time.After(500 * time.Second):
-						jww.INFO.Printf("Timing out, not sending", rl.roundInfo)
+						jww.INFO.Printf("Timing out, not retrying round %d", rl.roundInfo.ID)
 					}
 
 					// Update the state of the round for next look-up (if needed)

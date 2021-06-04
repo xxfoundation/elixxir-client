@@ -82,7 +82,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			})
 
 			// If ForceMessagePickupRetry, we are forcing processUncheckedRounds by
-			// randomly not picking up messages
+			// randomly not picking up messages (FOR INTEGRATION TEST)
 			var bundle message.Bundle
 			if m.params.ForceMessagePickupRetry {
 				jww.INFO.Printf("Forcing message pickup retry for round %d", ri.ID)

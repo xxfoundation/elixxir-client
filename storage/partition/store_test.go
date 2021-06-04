@@ -40,7 +40,7 @@ func TestStore_AddFirst(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 1, netTime.Now(), part,
+		message.Text, 5, 0, 1, netTime.Now(), netTime.Now(), part,
 		[]byte{0})
 
 	if !complete {
@@ -60,7 +60,7 @@ func TestStore_Add(t *testing.T) {
 	s := New(versioned.NewKV(ekv.Memstore{}))
 
 	msg, complete := s.AddFirst(id.NewIdFromString("User", id.User, t),
-		message.Text, 5, 0, 2, netTime.Now(), part1,
+		message.Text, 5, 0, 2, netTime.Now(), netTime.Now(), part1,
 		[]byte{0})
 
 	if complete {
@@ -77,5 +77,49 @@ func TestStore_Add(t *testing.T) {
 	if !bytes.Equal(part, msg.Payload) {
 		t.Errorf("AddFirst() returned message with invalid payload."+
 			"\n\texpected: %v\n\treceived: %v", part, msg.Payload)
+	}
+}
+
+// Unit test of clearMessages
+func TestStore_ClearMessages(t *testing.T) {
+	// Setup: Add 2 message to store: an old message past the threshold and a new message
+	part1 := []byte("Test message.")
+	part2 := []byte("Second Sentence.")
+	s := New(versioned.NewKV(ekv.Memstore{}))
+
+	partner1 := id.NewIdFromString("User", id.User, t)
+	messageId1 := uint64(5)
+	oldTimestamp := netTime.Now().Add(-2*clearPartitionThreshold)
+	s.AddFirst(partner1,
+		message.Text, messageId1, 0, 2, netTime.Now(),
+		oldTimestamp, part1,
+		[]byte{0})
+	s.Add(partner1, messageId1, 1, part2, []byte{0})
+
+	partner2 := id.NewIdFromString("User1", id.User, t)
+	messageId2 := uint64(6)
+	newTimestamp := netTime.Now()
+	s.AddFirst(partner2, message.Text, messageId2, 0, 2, netTime.Now(),
+		newTimestamp, part1,
+		[]byte{0})
+	s.Add(partner2, messageId2, 1, part2, []byte{0})
+
+
+
+	// Call clear messages
+	s.clearMessages()
+
+	// Check if old message cleared
+	mpmId := getMultiPartID(partner1, messageId1)
+	if _, ok := s.multiParts[mpmId]; ok {
+		t.Errorf("ClearMessages error: " +
+			"Expected old message to be cleared out of store")
+	}
+
+	// Check if new message remains
+	mpmId2 := getMultiPartID(partner2, messageId2)
+	if _, ok := s.multiParts[mpmId2]; !ok {
+		t.Errorf("ClearMessages error: " +
+			"Expected new message to be remain in store")
 	}
 }

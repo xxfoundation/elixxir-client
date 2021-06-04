@@ -10,8 +10,10 @@ package partition
 import (
 	"encoding/binary"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"golang.org/x/crypto/blake2b"
 	"sync"
 	"time"
@@ -20,6 +22,8 @@ import (
 type multiPartID [16]byte
 
 const packagePrefix = "Partition"
+const clearPartitionInterval = 12*time.Hour
+const clearPartitionThreshold = 24*time.Hour
 
 type Store struct {
 	multiParts map[multiPartID]*multiPartMessage
@@ -35,12 +39,12 @@ func New(kv *versioned.KV) *Store {
 }
 
 func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
-	partNum, numParts uint8, timestamp time.Time,
+	partNum, numParts uint8, senderTimestamp, storageTimestamp time.Time,
 	part []byte, relationshipFingerprint []byte) (message.Receive, bool) {
 
 	mpm := s.load(partner, messageID)
 
-	mpm.AddFirst(mt, partNum, numParts, timestamp, part)
+	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
 
 	return mpm.IsComplete(relationshipFingerprint)
 }
@@ -55,14 +59,37 @@ func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
 	return mpm.IsComplete(relationshipFingerprint)
 }
 
-// todo: may need a way to clean up partitioned messages when deleting a contact
-// todo: Possible options:
-// todo: Store partition w/ a timestamp, periodically clear old timestamps
-// todo: Don't clean, storage space is negligible
-// todo: Misc: Store partitions in individual files under a folder?
-//func (s *Store) Delete() error  {
-//
-//}
+// ClearMessages periodically clear old messages on it's stored timestamp
+func (s *Store) ClearMessages() stoppable.Stoppable  {
+	stop := stoppable.NewSingle("clearPartition")
+	t := time.NewTicker(clearPartitionInterval)
+	go func() {
+		for {
+			select {
+			case <-stop.Quit():
+				t.Stop()
+				return
+			case <-t.C:
+				s.clearMessages()
+			}
+		}
+	}()
+	return stop
+}
+
+// clearMessages is a helper function which clears
+// old messages from storage
+func (s *Store) clearMessages()  {
+	s.mux.Lock()
+	now := netTime.Now()
+	for mpmId, mpm := range s.multiParts {
+		if now.Sub(mpm.StorageTimestamp) >= clearPartitionThreshold {
+			mpm.delete()
+			delete(s.multiParts, mpmId)
+		}
+	}
+	s.mux.Unlock()
+}
 
 func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 	mpID := getMultiPartID(partner, messageID)

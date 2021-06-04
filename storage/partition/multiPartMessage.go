@@ -30,7 +30,10 @@ type multiPartMessage struct {
 	MessageID    uint64
 	NumParts     uint8
 	PresentParts uint8
-	Timestamp    time.Time
+	// Timestamp of message from sender
+	SenderTimestamp    time.Time
+	// Timestamp in which message was stored in RAM
+	StorageTimestamp time.Time
 	MessageType  message.Type
 
 	parts [][]byte
@@ -52,7 +55,7 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 				MessageID:    messageID,
 				NumParts:     0,
 				PresentParts: 0,
-				Timestamp:    time.Time{},
+				SenderTimestamp:    time.Time{},
 				MessageType:  0,
 				kv:           kv,
 			}
@@ -119,7 +122,7 @@ func (mpm *multiPartMessage) Add(partNumber uint8, part []byte) {
 }
 
 func (mpm *multiPartMessage) AddFirst(mt message.Type, partNumber uint8,
-	numParts uint8, timestamp time.Time, part []byte) {
+	numParts uint8, senderTimestamp, storageTimestamp time.Time, part []byte) {
 	mpm.mux.Lock()
 	defer mpm.mux.Unlock()
 
@@ -129,10 +132,11 @@ func (mpm *multiPartMessage) AddFirst(mt message.Type, partNumber uint8,
 	}
 
 	mpm.NumParts = numParts
-	mpm.Timestamp = timestamp
+	mpm.SenderTimestamp = senderTimestamp
 	mpm.MessageType = mt
 	mpm.parts[partNumber] = part
 	mpm.PresentParts++
+	mpm.StorageTimestamp = storageTimestamp
 
 	if err := savePart(mpm.kv, partNumber, part); err != nil {
 		jww.FATAL.Panicf("Failed to save multi part "+
@@ -159,27 +163,8 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 		mpm.parts = append(mpm.parts, make([][]byte, int(mpm.NumParts)-len(mpm.parts))...)
 	}
 
-	var err error
-	lenMsg := 0
-	// Load all parts from disk, deleting files from disk as we go along
-	for i := uint8(0); i < mpm.NumParts; i++ {
-		if mpm.parts[i] == nil {
-			if mpm.parts[i], err = loadPart(mpm.kv, i); err != nil {
-				jww.FATAL.Panicf("Failed to load multi part "+
-					"message part %v from %s messageID %v: %s", i, mpm.Sender,
-					mpm.MessageID, err)
-			}
-			if err = deletePart(mpm.kv, i); err != nil {
-				jww.FATAL.Panicf("Failed to delete  multi part "+
-					"message part %v from %s messageID %v: %s", i, mpm.Sender,
-					mpm.MessageID, err)
-			}
-		}
-		lenMsg += len(mpm.parts[i])
-	}
-
 	// delete the multipart message
-	mpm.delete()
+	lenMsg := mpm.delete()
 	mpm.mux.Unlock()
 
 	// Reconstruct the message
@@ -200,7 +185,7 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 		Payload:     reconstructed,
 		MessageType: mpm.MessageType,
 		Sender:      mpm.Sender,
-		Timestamp:   mpm.Timestamp,
+		Timestamp:   mpm.SenderTimestamp,
 		// Encryption will be set externally
 		Encryption: 0,
 		ID:         mid,
@@ -209,7 +194,27 @@ func (mpm *multiPartMessage) IsComplete(relationshipFingerprint []byte) (message
 	return m, true
 }
 
-func (mpm *multiPartMessage) delete() {
+// deletes all parts from disk and RAM. Returns the message length for reconstruction
+func (mpm *multiPartMessage) delete() int {
+	// Load all parts from disk, deleting files from disk as we go along
+	var err error
+	lenMsg := 0
+	for i := uint8(0); i < mpm.NumParts; i++ {
+		if mpm.parts[i] == nil {
+			if mpm.parts[i], err = loadPart(mpm.kv, i); err != nil {
+				jww.FATAL.Panicf("Failed to load multi part "+
+					"message part %v from %s messageID %v: %s", i, mpm.Sender,
+					mpm.MessageID, err)
+			}
+			if err = deletePart(mpm.kv, i); err != nil {
+				jww.FATAL.Panicf("Failed to delete  multi part "+
+					"message part %v from %s messageID %v: %s", i, mpm.Sender,
+					mpm.MessageID, err)
+			}
+		}
+		lenMsg += len(mpm.parts[i])
+	}
+
 	//key := makeMultiPartMessageKey(mpm.MessageID)
 	if err := mpm.kv.Delete(messageKey,
 		currentMultiPartMessageVersion); err != nil {
@@ -217,4 +222,6 @@ func (mpm *multiPartMessage) delete() {
 			"message from %s messageID %v: %s", mpm.Sender,
 			mpm.MessageID, err)
 	}
+
+	return lenMsg
 }

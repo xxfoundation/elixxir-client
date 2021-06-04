@@ -94,7 +94,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				}
 				forceLookupRetryTracker[ri.ID] = struct{}{}
 				_, ok = forceLookupRetryTracker[ri.ID]
-				jww.INFO.Printf("After adding round %d to tracker entry is %s", ok)
+				jww.INFO.Printf("After adding round %d to tracker entry is %v", ri.ID, ok)
 			} else {
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)

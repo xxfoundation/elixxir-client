@@ -85,7 +85,6 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// randomly not picking up messages (FOR INTEGRATION TEST)
 			var bundle message.Bundle
 			if m.params.ForceMessagePickupRetry {
-				jww.INFO.Printf("Forcing message pickup retry for round %d", ri.ID)
 				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds, forceMessagePickupTracker)
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d "+
@@ -205,6 +204,7 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 		}
 		result := binary.BigEndian.Uint64(b)
 		if result%2 == 0 {
+			jww.INFO.Printf("Forcing a message pickup retry for round %d", ri.ID)
 			// Do not call get message, leaving the round to be picked up
 			// in unchecked round scheduler process
 			return

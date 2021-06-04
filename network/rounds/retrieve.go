@@ -38,7 +38,6 @@ const noRoundError = "does not have round %d"
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 	quitCh <-chan struct{}) {
-	forceLookupRetryTracker := make(map[uint64]struct{})
 	done := false
 	for !done {
 		select {
@@ -84,7 +83,8 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// randomly not picking up messages (FOR INTEGRATION TEST). Only done if
 			// round has not been ignored before
 			var bundle message.Bundle
-			_, ok := forceLookupRetryTracker[ri.ID]
+			_, ok := m.lookupRetryTracker.Load(ri.ID)
+			jww.INFO.Printf("After adding round %d to tracker entry is %v", ri.ID, ok)
 			if !ok && m.params.ForceMessagePickupRetry {
 				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds)
 				if err != nil {
@@ -92,9 +92,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 						"from all gateways (%v): %s",
 						id.Round(ri.ID), gwIds, err)
 				}
-				forceLookupRetryTracker[ri.ID] = struct{}{}
-				_, ok = forceLookupRetryTracker[ri.ID]
-				jww.INFO.Printf("After adding round %d to tracker entry is %v", ri.ID, ok)
+				m.lookupRetryTracker.Store(ri.ID, struct{}{})
 			} else {
 				// Attempt to request for this gateway
 				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)

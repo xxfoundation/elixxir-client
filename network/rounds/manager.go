@@ -14,16 +14,17 @@ import (
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
+	"sync"
 )
 
 type Manager struct {
 	params params.Rounds
-
 	internal.Internal
 	sender *gateway.Sender
 
 	historicalRounds    chan historicalRoundRequest
 	lookupRoundMessages chan roundLookup
+	lookupRetryTracker  sync.Map
 	messageBundles      chan<- message.Bundle
 }
 

@@ -126,6 +126,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	comms messageRetrievalComms, gwIds []*id.ID) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies
+	jww.INFO.Printf("Getting messages for round %d from %v", roundID, gwIds)
 	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
 		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
@@ -140,14 +141,16 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
 		if err == nil && !msgResp.GetHasRound() {
+			jww.INFO.Printf("No round error for round %d received from %s", roundID, target)
 			return message.Bundle{}, false, errors.Errorf(noRoundError, roundID)
 		}
 
 		return msgResp, false, err
 	})
-
+	jww.INFO.Printf("Received message for round %d, processing...", roundID)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
+		jww.INFO.Printf("GetMessage error for round %d", roundID)
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
 			"request messages for round %d", roundID)
 	}

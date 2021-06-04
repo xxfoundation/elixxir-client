@@ -206,7 +206,7 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 		jww.FATAL.Panic(err.Error())
 	}
 	result := binary.BigEndian.Uint64(b)
-	jww.INFO.Printf("Random result: %d", result)
+	jww.INFO.Printf("*** Random result: %d", result)
 	if result%2 == 0 {
 		jww.INFO.Printf("Forcing a message pickup retry for round %d", ri.ID)
 		// Do not call get message, leaving the round to be picked up

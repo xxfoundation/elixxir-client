@@ -92,6 +92,7 @@ bindings-ios:
   tags:
     - ios
   script:
+    - go get -u golang.org/x/mobile/cmd/gomobile
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - zip -r iOS.zip Bindings.framework
   artifacts:
@@ -107,6 +108,7 @@ bindings-android:
   script:
     - export ANDROID_HOME=/android-sdk
     - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
+    - go get -u golang.org/x/mobile/cmd/gomobile
     - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:
     paths:

@@ -109,6 +109,8 @@ bindings-android:
   stage: build
   except:
     - tags
+  tags:
+    - android
   script:
     - export ANDROID_HOME=/android-sdk
     - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin

@@ -90,7 +90,7 @@ bindings-ios:
   except:
     - tags
   tags:
-    - ios-staging
+    - ios
   script:
     - brew install go
     - go get -u golang.org/x/mobile/cmd/gomobile

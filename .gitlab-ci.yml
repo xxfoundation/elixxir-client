@@ -110,13 +110,11 @@ bindings-android:
   except:
     - tags
   script:
-    - export PATH="/usr/local/opt/go@1.13/bin:$PATH"
+    - export ANDROID_HOME=/android-sdk
+    - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
     - go get -u golang.org/x/mobile/cmd/gomobile
-    - go get -u golang.org/x/mobile/bind
-    - rm -rf $HOME/go/src/gitlab.com/elixxir/client/
-    - mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
-    - cp -r * $HOME/go/src/gitlab.com/elixxir/client/
-    - GO111MODULE=on gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+    - gomobile init
+    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:
     paths:
       - bindings.aar

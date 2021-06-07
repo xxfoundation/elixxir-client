@@ -133,7 +133,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// confirmation in case there are state issues.
 	// do not store
 	if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
-		jww.WARN.Printf("Recieved Auth request for %s, "+
+		jww.WARN.Printf("Received Auth request for %s, "+
 			"channel already exists. Ignoring", partnerID)
 		//exit
 		return
@@ -141,8 +141,8 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		//check if the relationship already exists,
 		rType, sr2, _, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
-			// if another error is recieved, print it and exit
-			jww.WARN.Printf("Recieved new Auth request for %s, "+
+			// if another error is received, print it and exit
+			jww.WARN.Printf("Received new Auth request for %s, "+
 				"internal lookup produced bad result: %+v",
 				partnerID, err)
 			return

@@ -9,13 +9,15 @@ package message
 
 import (
 	"gitlab.com/elixxir/client/storage/reception"
+	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 )
 
 type Bundle struct {
-	Round    id.Round
-	Messages []format.Message
-	Finish   func()
-	Identity reception.IdentityUse
+	Round     id.Round
+	RoundInfo *pb.RoundInfo
+	Messages  []format.Message
+	Finish    func()
+	Identity  reception.IdentityUse
 }

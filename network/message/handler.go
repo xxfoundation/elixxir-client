@@ -11,10 +11,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
-	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/crypto/e2e"
 	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -27,7 +27,7 @@ func (m *Manager) handleMessages(stop *stoppable.Single) {
 			return
 		case bundle := <-m.messageReception:
 			for _, msg := range bundle.Messages {
-				m.handleMessage(msg, bundle.Identity)
+				m.handleMessage(msg, bundle)
 			}
 			bundle.Finish()
 		}
@@ -35,10 +35,11 @@ func (m *Manager) handleMessages(stop *stoppable.Single) {
 
 }
 
-func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.IdentityUse) {
+func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 	// We've done all the networking, now process the message
 	fingerprint := ecrMsg.GetKeyFP()
 	msgDigest := ecrMsg.Digest()
+	identity := bundle.Identity
 
 	e2eKv := m.Session.E2e()
 
@@ -91,18 +92,16 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		// if it doesnt match any form of encrypted, hear it as a raw message
 		// and add it to garbled messages to be handled later
 		msg = ecrMsg
-		if err != nil {
-			jww.DEBUG.Printf("Failed to unmarshal ephemeral ID "+
-				"on unknown message: %+v", err)
-		}
 		raw := message.Receive{
-			Payload:     msg.Marshal(),
-			MessageType: message.Raw,
-			Sender:      &id.ID{},
-			EphemeralID: identity.EphId,
-			Timestamp:   time.Time{},
-			Encryption:  message.None,
-			RecipientID: identity.Source,
+			Payload:        msg.Marshal(),
+			MessageType:    message.Raw,
+			Sender:         &id.ID{},
+			EphemeralID:    identity.EphId,
+			Timestamp:      time.Time{},
+			Encryption:     message.None,
+			RecipientID:    identity.Source,
+			RoundId:        id.Round(bundle.RoundInfo.ID),
+			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED])),
 		}
 		jww.INFO.Printf("Garbled/RAW Message: keyFP: %v, msgDigest: %s",
 			msg.GetKeyFP(), msg.Digest())
@@ -125,6 +124,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, identity reception.Identi
 		xxMsg.RecipientID = identity.Source
 		xxMsg.EphemeralID = identity.EphId
 		xxMsg.Encryption = encTy
+		xxMsg.RoundId = id.Round(bundle.RoundInfo.ID)
+		xxMsg.RoundTimestamp = time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED]))
 		if xxMsg.MessageType == message.Raw {
 			jww.WARN.Panicf("Recieved a message of type 'Raw' from %s."+
 				"Message Ignored, 'Raw' is a reserved type. Message supressed.",

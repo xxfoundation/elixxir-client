@@ -117,7 +117,7 @@ func Test_pending_addState_TimeoutError(t *testing.T) {
 			*expectedState, *state)
 	}
 
-	timer := time.NewTimer(timeout * 4)
+	timerTimeout := timeout * 4
 
 	select {
 	case results := <-callbackChan:
@@ -132,8 +132,8 @@ func Test_pending_addState_TimeoutError(t *testing.T) {
 		if results.err == nil || !strings.Contains(results.err.Error(), "timed out") {
 			t.Errorf("Callback did not return a time out error on return: %+v", results.err)
 		}
-	case <-timer.C:
-		t.Error("Failed to time out.")
+	case <-time.NewTimer(timerTimeout).C:
+		t.Errorf("Failed to time out after %s.", timerTimeout)
 	}
 }
 

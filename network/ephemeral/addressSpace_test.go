@@ -137,7 +137,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 					t.Errorf("Thread %d received unexpected size."+
 						"\nexpected: %d\nreceived: %d", i, expectedSize, size)
 				}
-			case <-time.NewTimer(15 * time.Millisecond).C:
+			case <-time.NewTimer(20 * time.Millisecond).C:
 				t.Errorf("Timed out waiting for Get to return on thread %d.", i)
 			}
 		}(i, waitChan)
@@ -166,7 +166,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 			case size := <-notifyChan:
 				t.Errorf("Received size %d on channel %s when it should not have.",
 					size, chanID)
-			case <-time.NewTimer(15 * time.Millisecond).C:
+			case <-time.NewTimer(20 * time.Millisecond).C:
 			}
 		}(chanID, notifyChan)
 	}
@@ -196,7 +196,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 					t.Errorf("Failed to receive expected size on channel %s."+
 						"\nexpected: %d\nreceived: %d", chanID, expectedSize, size)
 				}
-			case <-time.NewTimer(15 * time.Millisecond).C:
+			case <-time.NewTimer(20 * time.Millisecond).C:
 				t.Errorf("Timed out waiting on channel %s", chanID)
 			}
 		}(chanID, notifyChan)
@@ -211,7 +211,7 @@ func Test_addressSpace_update_GetAndChannels(t *testing.T) {
 		case size := <-notifyChan:
 			t.Errorf("Received size %d on channel %s when it should not have.",
 				size, chanID)
-		case <-time.NewTimer(15 * time.Millisecond).C:
+		case <-time.NewTimer(20 * time.Millisecond).C:
 		}
 	}()
 

@@ -27,7 +27,7 @@ func (c *Client) SendE2E(m message.Send, param params.E2E) ([]id.Round,
 	e2e.MessageID, error) {
 	jww.INFO.Printf("SendE2E(%s, %d. %v)", m.Recipient,
 		m.MessageType, m.Payload)
-	return c.network.SendE2E(m, param)
+	return c.network.SendE2E(m, param, nil)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient

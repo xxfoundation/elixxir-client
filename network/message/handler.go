@@ -10,6 +10,7 @@ package message
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/elixxir/crypto/e2e"
 	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
@@ -18,12 +19,12 @@ import (
 	"time"
 )
 
-func (m *Manager) handleMessages(quitCh <-chan struct{}) {
-	done := false
-	for !done {
+func (m *Manager) handleMessages(stop *stoppable.Single) {
+	for {
 		select {
-		case <-quitCh:
-			done = true
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
 		case bundle := <-m.messageReception:
 			for _, msg := range bundle.Messages {
 				m.handleMessage(msg, bundle.Identity)

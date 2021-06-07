@@ -12,7 +12,6 @@ import (
 
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
-	"gitlab.com/elixxir/comms/network"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
@@ -131,7 +130,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 
 	// Find out what happened to old (historical) rounds if any are needed
 	if len(historicalRequest.Rounds) > 0 {
-		go c.getHistoricalRounds(historicalRequest, networkInstance, sendResults, commsInterface)
+		go c.getHistoricalRounds(historicalRequest, sendResults, commsInterface)
 	}
 
 	// Determine the results of all rounds requested
@@ -180,7 +179,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 // Helper function which asynchronously pings a random gateway until
 // it gets information on it's requested historical rounds
 func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
-	instance *network.Instance, sendResults chan ds.EventReturn, comms historicalRoundsComm) {
+	sendResults chan ds.EventReturn, comms historicalRoundsComm) {
 
 	var resp *pb.HistoricalRoundsResponse
 
@@ -189,7 +188,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 		// Find a gateway to request about the roundRequests
 		result, err := c.GetNetworkInterface().GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 			return comms.RequestHistoricalRounds(host, msg)
-		})
+		}, nil)
 
 		// If an error, retry with (potentially) a different gw host.
 		// If no error from received gateway request, exit loop

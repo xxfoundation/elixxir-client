@@ -72,7 +72,7 @@ func Test_addressSpace_Get_WaitBroadcast(t *testing.T) {
 				t.Errorf("Get returned the wrong size.\nexpected: %d\nreceived: %d",
 					initSize, size)
 			}
-		case <-time.NewTimer(15 * time.Millisecond).C:
+		case <-time.NewTimer(25 * time.Millisecond).C:
 			t.Error("Get blocking when the Cond has broadcast.")
 		}
 	}()

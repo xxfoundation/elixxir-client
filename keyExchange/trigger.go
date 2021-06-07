@@ -32,14 +32,15 @@ const (
 
 func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	c chan message.Receive, stop *stoppable.Single, params params.Rekey, cleanup func()) {
-	for true {
+	for {
 		select {
 		case <-stop.Quit():
 			cleanup()
+			stop.ToStopped()
 			return
 		case request := <-c:
 			go func() {
-				err := handleTrigger(sess, net, request, params)
+				err := handleTrigger(sess, net, request, params, stop)
 				if err != nil {
 					jww.ERROR.Printf(errFailed, err)
 				}
@@ -49,7 +50,7 @@ func startTrigger(sess *storage.Session, net interfaces.NetworkManager,
 }
 
 func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
-	request message.Receive, param params.Rekey) error {
+	request message.Receive, param params.Rekey, stop *stoppable.Single) error {
 	//ensure the message was encrypted properly
 	if request.Encryption != message.E2E {
 		errMsg := fmt.Sprintf(errBadTrigger, request.Sender)
@@ -126,7 +127,10 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 	// send fails
 	sess.GetCriticalMessages().AddProcessing(m, e2eParams)
 
-	rounds, _, err := net.SendE2E(m, e2eParams)
+	rounds, _, err := net.SendE2E(m, e2eParams, stop)
+	if err != nil {
+		return err
+	}
 
 	//Register the event for all rounds
 	sendResults := make(chan ds.EventReturn, len(rounds))

@@ -117,7 +117,7 @@ func Test_pending_addState_TimeoutError(t *testing.T) {
 			*expectedState, *state)
 	}
 
-	timer := time.NewTimer(timeout * 2)
+	timer := time.NewTimer(timeout * 4)
 
 	select {
 	case results := <-callbackChan:

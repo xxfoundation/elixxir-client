@@ -10,6 +10,7 @@ package message
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
 	"time"
 )
@@ -33,12 +34,12 @@ func (m *Manager) CheckGarbledMessages() {
 }
 
 //long running thread which processes garbled messages
-func (m *Manager) processGarbledMessages(quitCh <-chan struct{}) {
-	done := false
-	for !done {
+func (m *Manager) processGarbledMessages(stop *stoppable.Single) {
+	for {
 		select {
-		case <-quitCh:
-			done = true
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
 		case <-m.triggerGarbled:
 			m.handleGarbledMessages()
 		}

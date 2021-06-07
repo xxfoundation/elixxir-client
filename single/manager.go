@@ -74,13 +74,13 @@ func (m *Manager) StartProcesses() stoppable.Stoppable {
 	transmissionStop := stoppable.NewSingle(singleUseTransmission)
 	transmissionChan := make(chan message.Receive, rawMessageBuffSize)
 	m.swb.RegisterChannel(singleUseReceiveTransmission, &id.ID{}, message.Raw, transmissionChan)
-	go m.receiveTransmissionHandler(transmissionChan, transmissionStop.Quit())
+	go m.receiveTransmissionHandler(transmissionChan, transmissionStop)
 
 	// Start waiting for single-use response
 	responseStop := stoppable.NewSingle(singleUseResponse)
 	responseChan := make(chan message.Receive, rawMessageBuffSize)
 	m.swb.RegisterChannel(singleUseReceiveResponse, &id.ID{}, message.Raw, responseChan)
-	go m.receiveResponseHandler(responseChan, responseStop.Quit())
+	go m.receiveResponseHandler(responseChan, responseStop)
 
 	// Create a multi stoppable
 	singleUseMulti := stoppable.NewMulti(singleUseStop)

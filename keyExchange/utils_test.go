@@ -66,7 +66,7 @@ func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
 
-func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) (
+func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
 	[]id.Round, cE2e.MessageID, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	return rounds, cE2e.MessageID{}, nil
@@ -163,7 +163,7 @@ func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
 
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
 // together
-func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
+func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stoppable.Single) (
 	[]id.Round, cE2e.MessageID, error) {
 
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}

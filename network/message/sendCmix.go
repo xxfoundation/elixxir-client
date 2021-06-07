@@ -13,6 +13,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/comms/network"
@@ -38,9 +39,11 @@ const sendTimeBuffer = 500 * time.Millisecond
 
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
-func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message, recipient *id.ID, param params.CMIX) (id.Round, ephemeral.Id, error) {
+func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
+	recipient *id.ID, param params.CMIX, stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 	msgCopy := msg.Copy()
-	return sendCmixHelper(sender, msgCopy, recipient, m.param, param, m.Instance, m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms)
+	return sendCmixHelper(sender, msgCopy, recipient, param, m.Instance,
+		m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms, stop)
 }
 
 // Payloads send are not End to End encrypted, MetaData is NOT protected with
@@ -51,9 +54,11 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message, recipient
 // If the message is successfully sent, the id of the round sent it is returned,
 // which can be registered with the network instance to get a callback on
 // its status
-func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID, messageParams params.Messages, cmixParams params.CMIX, instance *network.Instance,
-	session *storage.Session, nodeRegistration chan network.NodeGateway, rng *fastRNG.StreamGenerator, senderId *id.ID,
-	comms sendCmixCommsInterface) (id.Round, ephemeral.Id, error) {
+func sendCmixHelper(sender *gateway.Sender, msg format.Message,
+	recipient *id.ID, cmixParams params.CMIX, instance *network.Instance,
+	session *storage.Session, nodeRegistration chan network.NodeGateway,
+	rng *fastRNG.StreamGenerator, senderId *id.ID, comms sendCmixCommsInterface,
+	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
 	attempted := set.New()
@@ -204,7 +209,12 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message, recipient *id.ID
 			}
 			return result, false, err
 		}
-		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc)
+		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
+
+		// Exit if the thread has been stopped
+		if stoppable.CheckErr(err) {
+			return 0, ephemeral.Id{}, err
+		}
 
 		//if the comm errors or the message fails to send, continue retrying.
 		//return if it sends properly

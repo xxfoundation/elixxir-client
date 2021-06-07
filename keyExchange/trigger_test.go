@@ -10,6 +10,7 @@ package keyExchange
 import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/e2e"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -66,8 +67,9 @@ func TestHandleTrigger(t *testing.T) {
 
 	// Handle the trigger and check for an error
 	rekeyParams := params.GetDefaultRekey()
+	stop := stoppable.NewSingle("stoppable")
 	rekeyParams.RoundTimeout = 0 * time.Second
-	err = handleTrigger(aliceSession, aliceManager, receiveMsg, rekeyParams)
+	err = handleTrigger(aliceSession, aliceManager, receiveMsg, rekeyParams, stop)
 	if err != nil {
 		t.Errorf("Handle trigger error: %v", err)
 	}

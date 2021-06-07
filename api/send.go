@@ -52,6 +52,14 @@ func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
 	return c.network.SendCMIX(msg, recipientID, param)
 }
 
+// SendManyCMIX sends many "raw" CMIX message payloads to each of the
+// provided recipients. Used for group chat functionality. Returns the
+// round ID of the round the payload was sent or an error if it fails.
+func (c *Client) SendManyCMIX(messages map[id.ID]format.Message,
+	params params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return c.network.SendManyCMIX(messages, params)
+}
+
 // NewCMIXMessage Creates a new cMix message with the right properties
 // for the current cMix network.
 // FIXME: this is weird and shouldn't be necessary, but it is.

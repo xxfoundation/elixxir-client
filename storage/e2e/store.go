@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -180,7 +181,7 @@ func (s *Store) AddPartner(partnerID *id.ID, partnerPubKey, myPrivKey *cyclic.In
 
 	s.managers[*partnerID] = m
 	if err := s.save(); err != nil {
-		jww.FATAL.Printf("Failed to add Parter %s: Save of store failed: %s",
+		jww.FATAL.Printf("Failed to add Partner %s: Save of store failed: %s",
 			partnerID, err)
 	}
 
@@ -198,6 +199,28 @@ func (s *Store) GetPartner(partnerID *id.ID) (*Manager, error) {
 	}
 
 	return m, nil
+}
+
+// GetPartnerContact find the partner with the given ID and assembles and
+// returns a contact.Contact with their ID and DH key. An error is returned if
+// no partner exists for the given ID.
+func (s *Store) GetPartnerContact(partnerID *id.ID) (contact.Contact, error) {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+
+	// Get partner
+	m, exists := s.managers[*partnerID]
+	if !exists {
+		return contact.Contact{}, errors.New(NoPartnerErrorStr)
+	}
+
+	// Assemble Contact
+	c := contact.Contact{
+		ID:       m.GetPartnerID(),
+		DhPubKey: m.GetPartnerOriginPublicKey(),
+	}
+
+	return c, nil
 }
 
 // PopKey pops a key for use based upon its fingerprint.

@@ -306,6 +306,23 @@ func (tnm *testNetworkManager) SendCMIX(msg format.Message, _ *id.ID, _ params.C
 	return id.Round(rand.Uint64()), ephemeral.Id{}, nil
 }
 
+func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	if tnm.cmixTimeout != 0 {
+		time.Sleep(tnm.cmixTimeout)
+	} else if tnm.cmixErr {
+		return 0, []ephemeral.Id{}, errors.New("sendCMIX error")
+	}
+
+	tnm.Lock()
+	defer tnm.Unlock()
+
+	for _, msg := range messages {
+		tnm.msgs = append(tnm.msgs, msg)
+	}
+
+	return id.Round(rand.Uint64()), []ephemeral.Id{}, nil
+}
+
 func (tnm *testNetworkManager) GetInstance() *network.Instance {
 	return tnm.instance
 }

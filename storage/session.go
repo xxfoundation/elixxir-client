@@ -315,6 +315,13 @@ func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key, currentSessionVersion)
 }
 
+// GetKV returns the Session versioned.KV.
+func (s *Session) GetKV() *versioned.KV {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.kv
+}
+
 // Initializes a Session object wrapped around a MemStore object.
 // FOR TESTING ONLY
 func InitTestingSession(i interface{}) *Session {
@@ -342,7 +349,6 @@ func InitTestingSession(i interface{}) *Session {
 		jww.FATAL.Panicf("Could not parse precanned time: %v", err.Error())
 	}
 	u.SetRegistrationTimestamp(testTime.UnixNano())
-
 
 	s.user = u
 	cmixGrp := cyclic.NewGroup(

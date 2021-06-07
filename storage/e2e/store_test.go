@@ -11,6 +11,7 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage/versioned"
+	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -118,7 +119,7 @@ func TestStore_GetPartner(t *testing.T) {
 	p := params.GetDefaultE2ESessionParams()
 	expectedManager := newManager(s.context, s.kv, partnerID, s.dhPrivateKey,
 		pubKey, p, p)
-	s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
 
 	m, err := s.GetPartner(partnerID)
 	if err != nil {
@@ -144,6 +145,41 @@ func TestStore_GetPartner_Error(t *testing.T) {
 	if m != nil {
 		t.Errorf("GetPartner() did not return a nil relationship."+
 			"\n\texpected: %v\n\treceived: %v", nil, m)
+	}
+}
+
+// Tests happy path of Store.GetPartnerContact.
+func TestStore_GetPartnerContact(t *testing.T) {
+	s, _, _ := makeTestStore()
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+	pubKey := diffieHellman.GeneratePublicKey(s.dhPrivateKey, s.grp)
+	p := params.GetDefaultE2ESessionParams()
+	expected := contact.Contact{
+		ID:       partnerID,
+		DhPubKey: pubKey,
+	}
+	_ = s.AddPartner(partnerID, pubKey, s.dhPrivateKey, p, p)
+
+	c, err := s.GetPartnerContact(partnerID)
+	if err != nil {
+		t.Errorf("GetPartnerContact() produced an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(expected, c) {
+		t.Errorf("GetPartnerContact() returned wrong Contact."+
+			"\nexpected: %s\nreceived: %s", expected, c)
+	}
+}
+
+// Tests that Store.GetPartnerContact returns an error for non existent partnerID.
+func TestStore_GetPartnerContact_Error(t *testing.T) {
+	s, _, _ := makeTestStore()
+	partnerID := id.NewIdFromUInt(rand.Uint64(), id.User, t)
+
+	_, err := s.GetPartnerContact(partnerID)
+	if err == nil || err.Error() != NoPartnerErrorStr {
+		t.Errorf("GetPartnerContact() did not produce the expected error."+
+			"\nexpected: %s\nreceived: %+v", NoPartnerErrorStr, err)
 	}
 }
 

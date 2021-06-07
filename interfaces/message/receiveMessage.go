@@ -15,12 +15,14 @@ import (
 )
 
 type Receive struct {
-	ID          e2e.MessageID
-	Payload     []byte
-	MessageType Type
-	Sender      *id.ID
-	RecipientID *id.ID
-	EphemeralID ephemeral.Id
-	Timestamp   time.Time
-	Encryption  EncryptionType
+	ID             e2e.MessageID
+	Payload        []byte
+	MessageType    Type
+	Sender         *id.ID
+	RecipientID    *id.ID
+	EphemeralID    ephemeral.Id
+	RoundId        id.Round
+	RoundTimestamp time.Time
+	Timestamp      time.Time // Message timestamp of when the user sent
+	Encryption     EncryptionType
 }

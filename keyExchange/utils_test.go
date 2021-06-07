@@ -84,6 +84,10 @@ func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID,
 
 }
 
+func (t *testNetworkManagerGeneric) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return id.Round(0), []ephemeral.Id{}, nil
+}
+
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 	return t.instance
 
@@ -189,18 +193,18 @@ func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stop
 	bobSwitchboard.Speak(confirmMessage)
 
 	return rounds, cE2e.MessageID{}, nil
-
 }
 
 func (t *testNetworkManagerFullExchange) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {
-
 	return nil, nil
 }
 
 func (t *testNetworkManagerFullExchange) SendCMIX(message format.Message, eid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
-
 	return id.Round(0), ephemeral.Id{}, nil
+}
 
+func (t *testNetworkManagerFullExchange) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return id.Round(0), []ephemeral.Id{}, nil
 }
 
 func (t *testNetworkManagerFullExchange) GetInstance() *network.Instance {

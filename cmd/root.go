@@ -115,7 +115,7 @@ var rootCmd = &cobra.Command{
 			})
 		}
 
-		_, err := client.StartNetworkFollower()
+		_, err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -265,7 +265,7 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
 
-		err = client.StopNetworkFollower(5 * time.Second)
+		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
 				"Failed to cleanly close threads: %+v\n",

@@ -12,6 +12,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/shuffle"
@@ -37,12 +38,13 @@ const noRoundError = "does not have round %d"
 // processMessageRetrieval received a roundLookup request and pings the gateways
 // of that round for messages for the requested identity in the roundLookup
 func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
-	quitCh <-chan struct{}) {
-	done := false
-	for !done {
+	stop *stoppable.Single) {
+
+	for {
 		select {
-		case <-quitCh:
-			done = true
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
@@ -84,7 +86,13 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			// round has not been ignored before
 			var bundle message.Bundle
 			if m.params.ForceMessagePickupRetry {
-				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds)
+				bundle, err = m.forceMessagePickupRetry(ri, rl, comms, gwIds, stop)
+
+				// Exit if the thread has been stopped
+				if stoppable.CheckErr(err) {
+					jww.ERROR.Print(err)
+					continue
+				}
 				if err != nil {
 					jww.ERROR.Printf("Failed to get pickup round %d "+
 						"from all gateways (%v): %s",
@@ -92,7 +100,14 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 				}
 			} else {
 				// Attempt to request for this gateway
-				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
+				bundle, err = m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds, stop)
+
+				// Exit if the thread has been stopped
+				if stoppable.CheckErr(err) {
+					jww.ERROR.Print(err)
+					continue
+				}
+
 				// After trying all gateways, if none returned we mark the round as a
 				// failure and print out the last error
 				if err != nil {
@@ -122,8 +137,9 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 
 // getMessagesFromGateway attempts to get messages from their assigned
 // gateway host in the round specified. If successful
-func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.IdentityUse,
-	comms messageRetrievalComms, gwIds []*id.ID) (message.Bundle, error) {
+func (m *Manager) getMessagesFromGateway(roundID id.Round,
+	identity reception.IdentityUse, comms messageRetrievalComms, gwIds []*id.ID,
+	stop *stoppable.Single) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies
 	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
@@ -145,7 +161,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 		}
 
 		return msgResp, false, err
-	})
+	}, stop)
 	jww.INFO.Printf("Received message for round %d, processing...", roundID)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
@@ -191,7 +207,8 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 // Helper function which forces processUncheckedRounds by randomly
 // not looking up messages
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
-	comms messageRetrievalComms, gwIds []*id.ID) (bundle message.Bundle, err error) {
+	comms messageRetrievalComms, gwIds []*id.ID,
+	stop *stoppable.Single) (bundle message.Bundle, err error) {
 	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID))
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
@@ -213,5 +230,5 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 	}
 
 	// Attempt to request for this gateway
-	return m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
+	return m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds, stop)
 }

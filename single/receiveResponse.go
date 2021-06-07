@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
@@ -20,13 +21,14 @@ import (
 
 // receiveResponseHandler handles the reception of single-use response messages.
 func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
-	quitChan <-chan struct{}) {
+	stop *stoppable.Single) {
 	jww.DEBUG.Print("Waiting to receive single-use response messages.")
 	for {
 		select {
-		case <-quitChan:
+		case <-stop.Quit():
 			jww.DEBUG.Printf("Stopping waiting to receive single-use " +
 				"response message.")
+			stop.ToStopped()
 			return
 		case msg := <-rawMessages:
 			jww.DEBUG.Printf("Received CMIX message; checking if it is a " +

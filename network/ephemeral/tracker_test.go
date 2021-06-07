@@ -47,7 +47,7 @@ func TestCheck(t *testing.T) {
 	ourId := id.NewIdFromBytes([]byte("Sauron"), t)
 	stop := Track(session, NewTestAddressSpace(15, t), ourId)
 
-	err = stop.Close(3 * time.Second)
+	err = stop.Close()
 	if err != nil {
 		t.Errorf("Could not close thread: %+v", err)
 	}
@@ -83,7 +83,7 @@ func TestCheck_Thread(t *testing.T) {
 	}()
 	time.Sleep(3 * time.Second)
 
-	err = stop.Close(3 * time.Second)
+	err = stop.Close()
 	if err != nil {
 		t.Errorf("Could not close thread: %v", err)
 	}

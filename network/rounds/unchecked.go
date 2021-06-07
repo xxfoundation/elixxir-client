@@ -9,6 +9,7 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
@@ -36,14 +37,14 @@ var backOffTable = [cappedTries]time.Duration{tryZero, tryOne, tryTwo, tryThree,
 // If a round is found to be due on a periodical check, the round is sent
 // back to processMessageRetrieval.
 func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTable [cappedTries]time.Duration,
-	quitCh <-chan struct{}) {
+	stop *stoppable.Single) {
 	ticker := time.NewTicker(checkInterval)
 	uncheckedRoundStore := m.Session.UncheckedRounds()
-	done := false
-	for !done {
+	for {
 		select {
-		case <-quitCh:
-			done = true
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
 
 		case <-ticker.C:
 			// Pull and iterate through uncheckedRound list
@@ -67,7 +68,7 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					// Send to processMessageRetrieval
 					select {
 					case m.lookupRoundMessages <- rl:
-					case <-time.After(500 * time.Second):
+					case <-time.After(1 * time.Second):
 						jww.WARN.Printf("Timing out, not retrying round %d", rl.roundInfo.ID)
 					}
 

@@ -181,7 +181,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 		t.Error("Stoppable is not running.")
 	}
 
-	err = stop.Close(1 * time.Millisecond)
+	err = stop.Close()
 	if err != nil {
 		t.Errorf("Failed to close: %+v", err)
 	}
@@ -283,8 +283,8 @@ func (tnm *testNetworkManager) GetMsg(i int) format.Message {
 	return tnm.msgs[i]
 }
 
-func (tnm *testNetworkManager) SendE2E(_ message.Send, _ params.E2E) ([]id.Round, e2e.MessageID, error) {
-	return nil, [32]byte{}, nil
+func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
+	return nil, e2e.MessageID{}, nil
 }
 
 func (tnm *testNetworkManager) SendUnsafe(_ message.Send, _ params.Unsafe) ([]id.Round, error) {

@@ -8,12 +8,12 @@
 package rounds
 
 import (
-	"fmt"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
+	"strconv"
 )
 
 type Manager struct {
@@ -47,19 +47,19 @@ func (m *Manager) StartProcessors() stoppable.Stoppable {
 
 	//start the historical rounds thread
 	historicalRoundsStopper := stoppable.NewSingle("ProcessHistoricalRounds")
-	go m.processHistoricalRounds(m.Comms, historicalRoundsStopper.Quit())
+	go m.processHistoricalRounds(m.Comms, historicalRoundsStopper)
 	multi.Add(historicalRoundsStopper)
 
 	//start the message retrieval worker pool
 	for i := uint(0); i < m.params.NumMessageRetrievalWorkers; i++ {
-		stopper := stoppable.NewSingle(fmt.Sprintf("Messager Retriever %v", i))
-		go m.processMessageRetrieval(m.Comms, stopper.Quit())
+		stopper := stoppable.NewSingle("Message Retriever " + strconv.Itoa(int(i)))
+		go m.processMessageRetrieval(m.Comms, stopper)
 		multi.Add(stopper)
 	}
 
 	// Start the periodic unchecked round worker
 	stopper := stoppable.NewSingle("UncheckRound")
-	go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper.Quit())
+	go m.processUncheckedRounds(m.params.UncheckRoundPeriod, backOffTable, stopper)
 	multi.Add(stopper)
 
 	return multi

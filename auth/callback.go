@@ -23,20 +23,21 @@ import (
 	"strings"
 )
 
-func (m *Manager) StartProcessies() stoppable.Stoppable {
-
+func (m *Manager) StartProcesses() stoppable.Stoppable {
 	stop := stoppable.NewSingle("Auth")
 
 	go func() {
 		for {
 			select {
 			case <-stop.Quit():
+				stop.ToStopped()
 				return
 			case msg := <-m.rawMessages:
 				m.processAuthMessage(msg)
 			}
 		}
 	}()
+
 	return stop
 }
 

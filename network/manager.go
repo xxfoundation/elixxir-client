@@ -136,7 +136,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(report, trackNetworkStopper.Quit(), trackNetworkStopper)
+	go m.followNetwork(report, trackNetworkStopper)
 	multi.Add(trackNetworkStopper)
 
 	// Message reception

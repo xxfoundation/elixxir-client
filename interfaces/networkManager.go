@@ -20,7 +20,8 @@ import (
 )
 
 type NetworkManager interface {
-	SendE2E(m message.Send, p params.E2E) ([]id.Round, e2e.MessageID, error)
+	// The stoppable can be nil.
+	SendE2E(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, error)
 	SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error)
 	SendCMIX(message format.Message, recipient *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error)
 	GetInstance() *network.Instance
@@ -45,4 +46,4 @@ type NetworkManager interface {
 }
 
 //for use in key exchange which needs to be callable inside of network
-type SendE2E func(m message.Send, p params.E2E) ([]id.Round, e2e.MessageID, error)
+type SendE2E func(m message.Send, p params.E2E, stop *stoppable.Single) ([]id.Round, e2e.MessageID, error)

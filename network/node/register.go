@@ -55,7 +55,8 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 	return multi
 }
 
-func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
+func registerNodes(sender *gateway.Sender, session *storage.Session,
+	rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
@@ -67,13 +68,15 @@ func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fas
 	rng := rngGen.GetStream()
 	interval := time.Duration(500) * time.Millisecond
 	t := time.NewTicker(interval)
-	for true {
+	for {
 		select {
 		case <-stop.Quit():
 			t.Stop()
+			stop.ToStopped()
 			return
 		case gw := <-c:
-			err := registerWithNode(sender, comms, gw, regSignature, regTimestamp, uci, cmix, rng)
+			err := registerWithNode(sender, comms, gw, regSignature,
+				regTimestamp, uci, cmix, rng, stop)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register node: %+v", err)
 			}
@@ -84,9 +87,10 @@ func registerNodes(sender *gateway.Sender, session *storage.Session, rngGen *fas
 
 //registerWithNode serves as a helper for RegisterWithNodes
 // It registers a user with a specific in the client's ndf.
-func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, ngw network.NodeGateway,
-	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
-	store *cmix.Store, rng csprng.Source) error {
+func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
+	ngw network.NodeGateway, regSig []byte, registrationTimestampNano int64,
+	uci *user.CryptographicIdentity, store *cmix.Store, rng csprng.Source,
+	stop *stoppable.Single) error {
 
 	nodeID, err := ngw.Node.GetNodeId()
 	if err != nil {
@@ -122,7 +126,9 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
-		nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig, registrationTimestampNano, uci, store, rng)
+		nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig,
+			registrationTimestampNano, uci, store, rng, stop)
+
 		if err != nil {
 			return errors.Errorf("Failed to request nonce: %+v", err)
 		}
@@ -133,7 +139,8 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 		// Confirm received nonce
 		jww.INFO.Printf("Register: Confirming received nonce from node %s", nodeID.String())
 		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
-			nonce, uci.GetTransmissionRSA(), gatewayID)
+			nonce, uci.GetTransmissionRSA(), gatewayID, stop)
+
 		if err != nil {
 			errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
 			return errors.New(errMsg)
@@ -151,7 +158,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface, 
 
 func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
 	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
-	store *cmix.Store, rng csprng.Source) ([]byte, []byte, error) {
+	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) ([]byte, []byte, error) {
 
 	dhPub := store.GetDHPublicKey().Bytes()
 	opts := rsa.NewDefaultOptions()
@@ -195,7 +202,8 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 			return nil, err
 		}
 		return nonceResponse, nil
-	})
+	}, stop)
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -208,8 +216,9 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 // confirmNonce is a helper for the Register function
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
-func confirmNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, UID, nonce []byte,
-	privateKeyRSA *rsa.PrivateKey, gwID *id.ID) error {
+func confirmNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, UID,
+	nonce []byte, privateKeyRSA *rsa.PrivateKey, gwID *id.ID,
+	stop *stoppable.Single) error {
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = hash.CMixHash
 	h, _ := hash.NewCMixHash()
@@ -248,6 +257,7 @@ func confirmNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, UID,
 			return nil, err
 		}
 		return confirmResponse, nil
-	})
+	}, stop)
+
 	return err
 }

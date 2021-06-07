@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -28,7 +29,7 @@ func (m *manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 			"network is not healthy")
 	}
 
-	return m.message.SendCMIX(m.GetSender(), msg, recipient, param)
+	return m.message.SendCMIX(m.GetSender(), msg, recipient, param, nil)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient
@@ -52,7 +53,7 @@ func (m *manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 // SendE2E sends an end-to-end payload to the provided recipient with
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
-func (m *manager) SendE2E(msg message.Send, e2eP params.E2E) (
+func (m *manager) SendE2E(msg message.Send, e2eP params.E2E, stop *stoppable.Single) (
 	[]id.Round, e2e.MessageID, error) {
 
 	if !m.Health.IsHealthy() {
@@ -60,5 +61,5 @@ func (m *manager) SendE2E(msg message.Send, e2eP params.E2E) (
 			"message when the network is not healthy")
 	}
 
-	return m.message.SendE2E(msg, e2eP)
+	return m.message.SendE2E(msg, e2eP, stop)
 }

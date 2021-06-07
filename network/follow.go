@@ -28,6 +28,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/rounds"
+	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/knownRounds"
 	"gitlab.com/elixxir/primitives/states"
@@ -49,19 +50,20 @@ type followNetworkComms interface {
 
 // followNetwork polls the network to get updated on the state of nodes, the
 // round status, and informs the client when messages can be retrieved.
-func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-chan struct{}, isRunning interfaces.Running) {
+func (m *manager) followNetwork(report interfaces.ClientErrorReport,
+	stop *stoppable.Single) {
 	ticker := time.NewTicker(m.param.TrackNetworkPeriod)
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
 
-	done := false
-	for !done {
+	for {
 		select {
-		case <-quitCh:
+		case <-stop.Quit():
 			rng.Close()
-			done = true
+			stop.ToStopped()
+			return
 		case <-ticker.C:
-			m.follow(report, rng, m.Comms, isRunning)
+			m.follow(report, rng, m.Comms, stop)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			if m.numLatencies != 0 {
@@ -75,19 +77,13 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport, quitCh <-ch
 				jww.INFO.Printf("Polled the network %d times in the "+
 					"last %s", numPolls, debugTrackPeriod)
 			}
-
-		}
-		if !isRunning.IsRunning() {
-			jww.ERROR.Printf("Killing network follower " +
-				"due to failed exit")
-			return
 		}
 	}
 }
 
 // executes each iteration of the follower
 func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
-	comms followNetworkComms, isRunning interfaces.Running) {
+	comms followNetworkComms, stop *stoppable.Single) {
 
 	//Get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
@@ -119,10 +115,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			identity.EphId.Int64(), identity.Source, identity.StartRequest,
 			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
 		return comms.SendPoll(host, &pollReq)
-	})
-	if !isRunning.IsRunning() {
-		jww.ERROR.Printf("Killing network follower " +
-			"due to failed exit")
+	}, stop)
+
+	// Exit if the thread has been stopped
+	if stoppable.CheckErr(err) {
+		jww.INFO.Print(err)
 		return
 	}
 
@@ -167,9 +164,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// Update the address space size
 	// todo: this is a fix for incompatibility with the live network
 	// remove once the live network has been pushed to
-	if len(m.Instance.GetPartialNdf().Get().AddressSpace)!=0{
+	if len(m.Instance.GetPartialNdf().Get().AddressSpace) != 0 {
 		m.addrSpace.Update(m.Instance.GetPartialNdf().Get().AddressSpace[0].Size)
-	}else{
+	} else {
 		m.addrSpace.Update(18)
 	}
 

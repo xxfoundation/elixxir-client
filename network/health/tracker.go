@@ -114,25 +114,26 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 
 	stop := stoppable.NewSingle("Health Tracker")
 
-	go t.start(stop.Quit())
+	go t.start(stop)
 
 	return stop, nil
 }
 
 // Long-running thread used to monitor and report on network health
-func (t *Tracker) start(quitCh <-chan struct{}) {
+func (t *Tracker) start(stop *stoppable.Single) {
 	timer := time.NewTimer(t.timeout)
 
 	for {
 		var heartbeat network.Heartbeat
 		select {
-		case <-quitCh:
+		case <-stop.Quit():
 			t.mux.Lock()
 			t.isHealthy = false
 			t.running = false
 			t.mux.Unlock()
 			t.transmit(false)
-			break
+			stop.ToStopped()
+			return
 		case heartbeat = <-t.heartbeat:
 			if healthy(heartbeat) {
 				// Stop and reset timer
@@ -146,10 +147,9 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 				timer.Reset(t.timeout)
 				t.setHealth(true)
 			}
-			break
 		case <-timer.C:
 			t.setHealth(false)
-			break
+			return
 		}
 	}
 }

@@ -33,7 +33,7 @@ type testNetworkManager struct {
 	msg      message.Send
 }
 
-func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E) ([]id.Round,
+func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round,
 	e2e.MessageID, error) {
 	rounds := []id.Round{
 		id.Round(0),

@@ -294,15 +294,17 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	messageBundleChan := make(chan message.Bundle)
 	testManager.messageBundles = messageBundleChan
 
+	// Initialize the message retrieval
+	go testManager.processMessageRetrieval(mockComms, stop)
+
 	// Close the process early, before any logic below can be completed
 	if err := stop.Close(); err != nil {
 		t.Errorf("Failed to signal close to process: %+v", err)
 	}
 
-	time.Sleep(250 * time.Millisecond)
-
-	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, stop)
+	if err := stoppable.WaitForStopped(stop, 300*time.Millisecond); err != nil {
+		t.Fatalf("Failed to stop stoppable: %+v", err)
+	}
 
 	// Construct expected values for checking
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}

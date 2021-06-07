@@ -18,7 +18,6 @@ import (
 
 type Manager struct {
 	params params.Rounds
-
 	internal.Internal
 	sender *gateway.Sender
 

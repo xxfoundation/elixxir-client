@@ -38,13 +38,13 @@ var groupCmd = &cobra.Command{
 
 		_, _ = initClientCallbacks(client)
 
-		// Initialize the group chat manager
-		groupManager, recChan, reqChan := initGroupManager(client)
-
 		_, err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
+		// Initialize the group chat manager
+		groupManager, recChan, reqChan := initGroupManager(client)
 
 		// Wait until connected or crash on timeout
 		connected := make(chan bool, 10)

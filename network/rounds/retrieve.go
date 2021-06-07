@@ -194,8 +194,9 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 // not looking up messages
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 	comms messageRetrievalComms, gwIds []*id.ID) (bundle message.Bundle, err error) {
-	_, ok := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID))
-	if !ok {
+	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID))
+	jww.INFO.Printf("Num checks for round %d", rnd.NumChecks)
+	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
 		stream := m.Rng.GetStream()
 		defer stream.Close()
@@ -214,6 +215,7 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 		}
 
 	}
+	jww.INFO.Printf("Getting messages for round %d", ri.ID)
 	// Attempt to request for this gateway
 	return m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
 }

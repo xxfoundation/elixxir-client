@@ -125,3 +125,17 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 		Facts:          make([]fact.Fact, 0),
 	}
 }
+
+// GetRelationshipFingerprint returns a unique 15 character fingerprint for an
+// E2E relationship. An error is returned if no relationship with the partner
+// is found.
+func (c *Client) GetRelationshipFingerprint(partner *id.ID) (string, error) {
+	m, err := c.storage.E2e().GetPartner(partner)
+	if err != nil {
+		return "", errors.Errorf("could not get partner %s: %+v", partner, err)
+	} else if m == nil {
+		return "", errors.Errorf("manager for partner %s is nil.", partner)
+	}
+
+	return m.GetRelationshipFingerprint(), nil
+}

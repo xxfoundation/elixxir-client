@@ -8,6 +8,8 @@
 package e2e
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -17,6 +19,8 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/primitives/id"
+	"golang.org/x/crypto/blake2b"
+	"sort"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -197,4 +201,25 @@ func (m *Manager) GetMyOriginPrivateKey() *cyclic.Int {
 
 func (m *Manager) GetPartnerOriginPublicKey() *cyclic.Int {
 	return m.originPartnerPubKey.DeepCopy()
+}
+
+const relationshipFpLength = 15
+
+// GetRelationshipFingerprint returns a unique fingerprint for an E2E
+// relationship. The fingerprint is a base 64 encoded hash of of the two
+// relationship fingerprints truncated to 15 characters.
+func (m *Manager) GetRelationshipFingerprint() string {
+	// Sort fingerprints
+	fps := [][]byte{m.receive.fingerprint, m.send.fingerprint}
+	less := func(i, j int) bool { return bytes.Compare(fps[i], fps[j]) == -1 }
+	sort.Slice(fps, less)
+
+	// Hash fingerprints
+	h, _ := blake2b.New256(nil)
+	for _, fp := range fps {
+		h.Write(fp)
+	}
+
+	// Base 64 encode hash and truncate
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))[:relationshipFpLength]
 }

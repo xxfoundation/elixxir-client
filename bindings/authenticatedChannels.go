@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/xx_network/primitives/id"
 )
 
 // Create an insecure e2e relationship with a precanned user
@@ -122,4 +123,16 @@ func (c *Client) VerifyOwnership(receivedMarshaled, verifiedMarshaled []byte) (b
 	}
 
 	return c.api.VerifyOwnership(received, verified), nil
+}
+
+// GetRelationshipFingerprint returns a unique 15 character fingerprint for an
+// E2E relationship. An error is returned if no relationship with the partner
+// is found.
+func (c *Client) GetRelationshipFingerprint(partnerID []byte) (string, error) {
+	partner, err := id.Unmarshal(partnerID)
+	if err != nil {
+		return "", err
+	}
+
+	return c.api.GetRelationshipFingerprint(partner)
 }

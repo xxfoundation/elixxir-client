@@ -45,7 +45,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			done = true
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
-			jww.INFO.Printf("Checking for messages in round %d", ri.ID)
+			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
 			err := m.Session.UncheckedRounds().AddRound(rl.roundInfo,
 				rl.identity.EphId, rl.identity.Source)
 			if err != nil {
@@ -104,7 +104,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 			}
 
 			if len(bundle.Messages) != 0 {
-				jww.INFO.Printf("Removing round %d from unchecked store", ri.ID)
+				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
 				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
 				if err != nil {
 					jww.ERROR.Printf("Could not remove round %d "+
@@ -126,7 +126,6 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	comms messageRetrievalComms, gwIds []*id.ID) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies
-	jww.INFO.Printf("Getting messages for round %d from %v", roundID, gwIds)
 	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
 		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
@@ -150,7 +149,6 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 	jww.INFO.Printf("Received message for round %d, processing...", roundID)
 	// Fail the round if an error occurs so it can be tried again later
 	if err != nil {
-		jww.INFO.Printf("GetMessage error for round %d", roundID)
 		return message.Bundle{}, errors.WithMessagef(err, "Failed to "+
 			"request messages for round %d", roundID)
 	}
@@ -195,7 +193,6 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round, identity reception.Id
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 	comms messageRetrievalComms, gwIds []*id.ID) (bundle message.Bundle, err error) {
 	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID))
-	jww.INFO.Printf("Num checks for round %d", rnd.NumChecks)
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
 		stream := m.Rng.GetStream()
@@ -206,7 +203,6 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 			jww.FATAL.Panic(err.Error())
 		}
 		result := binary.BigEndian.Uint64(b)
-		jww.INFO.Printf("*** Random result: %d", result)
 		if result%2 == 0 {
 			jww.INFO.Printf("Forcing a message pickup retry for round %d", ri.ID)
 			// Do not call get message, leaving the round to be picked up
@@ -215,7 +211,7 @@ func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 		}
 
 	}
-	jww.INFO.Printf("Getting messages for round %d", ri.ID)
+
 	// Attempt to request for this gateway
 	return m.getMessagesFromGateway(id.Round(ri.ID), rl.identity, comms, gwIds)
 }

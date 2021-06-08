@@ -9,6 +9,7 @@ package partition
 
 import (
 	"encoding/binary"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -67,6 +68,7 @@ func (s *Store) ClearMessages() stoppable.Stoppable  {
 		for {
 			select {
 			case <-stop.Quit():
+				jww.INFO.Printf("Received stop signal in clear messages")
 				stop.ToStopped()
 				t.Stop()
 				return

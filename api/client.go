@@ -187,8 +187,6 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		parameters:  parameters,
 	}
 
-	c.runner.Add(c.storage.Partition().ClearMessages())
-
 	return c, nil
 }
 
@@ -409,6 +407,9 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 	} else {
 		c.runner = stoppable.NewMulti(followerStoppableName)
 	}
+
+	jww.INFO.Printf("Adding partition cleaner")
+	c.runner.Add(c.storage.Partition().ClearMessages())
 
 	err = c.status.toStarting()
 	if err != nil {

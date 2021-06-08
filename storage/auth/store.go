@@ -118,7 +118,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				PrivKey: nil,
 				Request: r,
 			}
-			jww.INFO.Printf("Loaded send request for %s", sr.partner)
+			jww.DEBUG.Printf("Loaded send request for %s", sr.partner)
 			rid = sr.partner
 			r.sent = sr
 
@@ -135,7 +135,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
 		}
-		jww.INFO.Printf("LoadStore partner: %s", partner)
 
 		//store in the request map
 		s.requests[*rid] = r
@@ -146,7 +145,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, len(s.requests))
-	jww.INFO.Printf("Saving Auth Store")
 	index := 0
 	for pid, r := range s.requests {
 		rDisk := requestDisk{

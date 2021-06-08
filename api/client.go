@@ -563,9 +563,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error  {
 		return err
 	}
 	c.storage.Conversations().Delete(partnerId)
-    // todo: find a way to clean partition up?
-	//c.storage.Partition().Clean()
-	return nil
+		return nil
 }
 
 // ----- Utility Functions -----

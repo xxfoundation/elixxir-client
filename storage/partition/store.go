@@ -22,7 +22,7 @@ import (
 type multiPartID [16]byte
 
 const packagePrefix = "Partition"
-const clearPartitionInterval = 12*time.Hour
+const clearPartitionInterval = 5*time.Hour
 const clearPartitionThreshold = 24*time.Hour
 
 type Store struct {

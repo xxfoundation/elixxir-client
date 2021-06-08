@@ -67,6 +67,7 @@ func (s *Store) ClearMessages() stoppable.Stoppable  {
 		for {
 			select {
 			case <-stop.Quit():
+				stop.ToStopped()
 				t.Stop()
 				return
 			case <-t.C:

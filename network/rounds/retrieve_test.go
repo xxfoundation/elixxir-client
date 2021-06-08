@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -28,7 +29,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	testNdf := getNDF()
 	nodeId := id.NewIdFromString(ReturningGateway, id.Node, &testing.T{})
 	gwId := nodeId.DeepCopy()
@@ -51,7 +52,7 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 	testManager.messageBundles = messageBundleChan
 
 	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, quitChan)
+	go testManager.processMessageRetrieval(mockComms, stop)
 
 	// Construct expected values for checking
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
@@ -92,8 +93,10 @@ func TestManager_ProcessMessageRetrieval(t *testing.T) {
 		testBundle = <-messageBundleChan
 
 		// Close the process
-		quitChan <- struct{}{}
-
+		err := stop.Close()
+		if err != nil {
+			t.Errorf("Failed to signal close to process: %+v", err)
+		}
 	}()
 
 	// Ensure bundle received and has expected values
@@ -136,7 +139,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	testManager.sender, _ = gateway.NewSender(p,
 		testManager.Rng,
 		testNdf, mockComms, testManager.Session, nil)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -144,7 +147,7 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 	testManager.messageBundles = messageBundleChan
 
 	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, quitChan)
+	go testManager.processMessageRetrieval(mockComms, stop)
 
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 
@@ -183,8 +186,9 @@ func TestManager_ProcessMessageRetrieval_NoRound(t *testing.T) {
 		testBundle = <-messageBundleChan
 
 		// Close the process
-		quitChan <- struct{}{}
-
+		if err := stop.Close(); err != nil {
+			t.Errorf("Failed to signal close to process: %+v", err)
+		}
 	}()
 
 	time.Sleep(2 * time.Second)
@@ -202,7 +206,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	testNdf := getNDF()
 	nodeId := id.NewIdFromString(FalsePositive, id.Node, &testing.T{})
 	gwId := nodeId.DeepCopy()
@@ -222,7 +226,7 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 	testManager.messageBundles = messageBundleChan
 
 	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, quitChan)
+	go testManager.processMessageRetrieval(mockComms, stop)
 
 	// Construct expected values for checking
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
@@ -263,8 +267,9 @@ func TestManager_ProcessMessageRetrieval_FalsePositive(t *testing.T) {
 		testBundle = <-messageBundleChan
 
 		// Close the process
-		quitChan <- struct{}{}
-
+		if err := stop.Close(); err != nil {
+			t.Errorf("Failed to signal close to process: %+v", err)
+		}
 	}()
 
 	// Ensure no bundle was received due to false positive test
@@ -282,7 +287,7 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 
 	// Create a local channel so reception is possible (testManager.messageBundles is
 	// send only via newManager call above)
@@ -290,10 +295,16 @@ func TestManager_ProcessMessageRetrieval_Quit(t *testing.T) {
 	testManager.messageBundles = messageBundleChan
 
 	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, quitChan)
+	go testManager.processMessageRetrieval(mockComms, stop)
 
 	// Close the process early, before any logic below can be completed
-	quitChan <- struct{}{}
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
+
+	if err := stoppable.WaitForStopped(stop, 300*time.Millisecond); err != nil {
+		t.Fatalf("Failed to stop stoppable: %+v", err)
+	}
 
 	// Construct expected values for checking
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
@@ -348,7 +359,7 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	testNdf := getNDF()
 	nodeId := id.NewIdFromString(ReturningGateway, id.Node, &testing.T{})
 	gwId := nodeId.DeepCopy()
@@ -368,7 +379,7 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 	testManager.messageBundles = messageBundleChan
 
 	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, quitChan)
+	go testManager.processMessageRetrieval(mockComms, stop)
 
 	// Construct expected values for checking
 	expectedEphID := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
@@ -410,8 +421,9 @@ func TestManager_ProcessMessageRetrieval_MultipleGateways(t *testing.T) {
 		testBundle = <-messageBundleChan
 
 		// Close the process
-		quitChan <- struct{}{}
-
+		if err := stop.Close(); err != nil {
+			t.Errorf("Failed to signal close to process: %+v", err)
+		}
 	}()
 
 	// Ensure that expected bundle is still received from happy comm

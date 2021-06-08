@@ -49,4 +49,8 @@ const (
 	KeyExchangeTrigger = 30
 	// Rekey confirmation message. Sent by partner to confirm completion of a rekey
 	KeyExchangeConfirm = 31
+
+	/* Group chat message types */
+	// A group chat request message sent to all members in a group.
+	GroupCreationRequest = 40
 )

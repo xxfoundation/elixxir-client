@@ -33,7 +33,7 @@ type testNetworkManager struct {
 	msg      message.Send
 }
 
-func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E) ([]id.Round,
+func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round,
 	e2e.MessageID, error) {
 	rounds := []id.Round{
 		id.Round(0),
@@ -60,6 +60,10 @@ func (t *testNetworkManager) SendUnsafe(m message.Send, _ params.Unsafe) ([]id.R
 
 func (t *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id.Round, ephemeral.Id, error) {
 	return 0, ephemeral.Id{}, nil
+}
+
+func (t *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return 0, []ephemeral.Id{}, nil
 }
 
 func (t *testNetworkManager) GetInstance() *network.Instance {

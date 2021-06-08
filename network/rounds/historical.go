@@ -9,6 +9,7 @@ package rounds
 
 import (
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
@@ -41,19 +42,18 @@ type historicalRoundRequest struct {
 // Long running thread which process historical rounds
 // Can be killed by sending a signal to the quit channel
 // takes a comms interface to aid in testing
-func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-chan struct{}) {
+func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stoppable.Single) {
 
 	timerCh := make(<-chan time.Time)
 
 	rng := m.Rng.GetStream()
 	var roundRequests []historicalRoundRequest
 
-	done := false
-	for !done {
+	for {
 		shouldProcess := false
 		// wait for a quit or new round to check
 		select {
-		case <-quitCh:
+		case <-stop.Quit():
 			rng.Close()
 			// return all roundRequests in the queue to the input channel so they can
 			// be checked in the future. If the queue is full, disable them as
@@ -64,7 +64,8 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 				default:
 				}
 			}
-			done = true
+			stop.ToStopped()
+			return
 		// if the timer elapses process roundRequests to ensure the delay isn't too long
 		case <-timerCh:
 			if len(roundRequests) > 0 {
@@ -100,7 +101,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, quitCh <-c
 			jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 				"gateway %s", rounds, host.GetId())
 			return comm.RequestHistoricalRounds(host, hr)
-		})
+		}, stop)
 
 		if err != nil {
 			jww.ERROR.Printf("Failed to request historical roundRequests "+

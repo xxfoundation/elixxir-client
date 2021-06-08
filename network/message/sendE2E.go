@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/keyExchange"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -21,7 +22,8 @@ import (
 	"time"
 )
 
-func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.MessageID, error) {
+func (m *Manager) SendE2E(msg message.Send, param params.E2E,
+	stop *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
 	if msg.MessageType == message.Raw {
 		return nil, e2e.MessageID{}, errors.Errorf("Raw (%d) is a reserved "+
 			"message type", msg.MessageType)
@@ -58,7 +60,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		if msg.MessageType != message.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
 			keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E,
-				m.Session, partner, 1*time.Minute)
+				m.Session, partner, 1*time.Minute, stop)
 		}
 
 		//create the cmix message
@@ -96,7 +98,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		go func(i int) {
 			var err error
 			roundIds[i], _, err = m.SendCMIX(m.sender, msgEnc, msg.Recipient,
-				param.CMIX)
+				param.CMIX, stop)
 			if err != nil {
 				errCh <- err
 			}

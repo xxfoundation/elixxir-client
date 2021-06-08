@@ -10,6 +10,7 @@ package rounds
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
+	"gitlab.com/elixxir/client/stoppable"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
@@ -27,7 +28,8 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	testManager := newManager(t)
 	roundId := id.Round(5)
 	mockComms := &mockMessageRetrievalComms{testingSignature: t}
-	quitChan := make(chan struct{})
+	stop1 := stoppable.NewSingle("singleStoppable1")
+	stop2 := stoppable.NewSingle("singleStoppable2")
 	testNdf := getNDF()
 	nodeId := id.NewIdFromString(ReturningGateway, id.Node, &testing.T{})
 	gwId := nodeId.DeepCopy()
@@ -47,8 +49,8 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	testBackoffTable := newTestBackoffTable(t)
 	checkInterval := 250 * time.Millisecond
 	// Initialize the message retrieval
-	go testManager.processMessageRetrieval(mockComms, quitChan)
-	go testManager.processUncheckedRounds(checkInterval, testBackoffTable, quitChan)
+	go testManager.processMessageRetrieval(mockComms, stop1)
+	go testManager.processUncheckedRounds(checkInterval, testBackoffTable, stop2)
 
 	requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 
@@ -73,7 +75,12 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 		testBundle = <-messageBundleChan
 
 		// Close the process
-		quitChan <- struct{}{}
+		if err := stop1.Close(); err != nil {
+			t.Errorf("Failed to signal close to process: %+v", err)
+		}
+		if err := stop2.Close(); err != nil {
+			t.Errorf("Failed to signal close to process: %+v", err)
+		}
 
 	}()
 

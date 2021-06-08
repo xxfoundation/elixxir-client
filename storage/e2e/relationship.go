@@ -71,7 +71,7 @@ func NewRelationship(manager *Manager, t RelationshipType,
 
 	if err := s.save(); err != nil {
 		jww.FATAL.Panicf("Failed to Send session after setting to "+
-			"confimred: %+v", err)
+			"confirmed: %+v", err)
 	}
 
 	r.addSession(s)

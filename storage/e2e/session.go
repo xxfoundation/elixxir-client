@@ -105,8 +105,8 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	negotiationStatus Negotiation, e2eParams params.E2ESessionParams) *Session {
 
 	if e2eParams.MinKeys < 10 {
-		jww.FATAL.Panicf("Cannot create a session with a minnimum number " +
-			"of keys less than 10")
+		jww.FATAL.Panicf("Cannot create a session with a minimum number "+
+			"of keys (%d) less than 10", e2eParams.MinKeys)
 	}
 
 	session := &Session{

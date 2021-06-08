@@ -10,6 +10,7 @@ package single
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
@@ -26,7 +27,7 @@ import (
 func TestManager_ReceiveResponseHandler(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	partner := NewContact(id.NewIdFromString("recipientID", id.User, t),
 		m.store.E2e().GetGroup().NewInt(43), m.store.E2e().GetGroup().NewInt(42),
 		singleUse.TagFP{}, 8)
@@ -52,7 +53,7 @@ func TestManager_ReceiveResponseHandler(t *testing.T) {
 		}
 	}()
 
-	go m.receiveResponseHandler(rawMessages, quitChan)
+	go m.receiveResponseHandler(rawMessages, stop)
 
 	for _, msg := range msgs {
 		rawMessages <- message.Receive{
@@ -78,14 +79,16 @@ func TestManager_ReceiveResponseHandler(t *testing.T) {
 		t.Errorf("Callback failed to be called.")
 	}
 
-	quitChan <- struct{}{}
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 }
 
 // Error path: invalid CMIX message.
 func TestManager_ReceiveResponseHandler_CmixMessageError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	partner := NewContact(id.NewIdFromString("recipientID", id.User, t),
 		m.store.E2e().GetGroup().NewInt(43), m.store.E2e().GetGroup().NewInt(42),
 		singleUse.TagFP{}, 8)
@@ -106,7 +109,7 @@ func TestManager_ReceiveResponseHandler_CmixMessageError(t *testing.T) {
 		}
 	}()
 
-	go m.receiveResponseHandler(rawMessages, quitChan)
+	go m.receiveResponseHandler(rawMessages, stop)
 
 	rawMessages <- message.Receive{
 		Payload:     make([]byte, format.MinimumPrimeSize*2),
@@ -124,7 +127,9 @@ func TestManager_ReceiveResponseHandler_CmixMessageError(t *testing.T) {
 	case <-timer.C:
 	}
 
-	quitChan <- struct{}{}
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 }
 
 // Happy path.

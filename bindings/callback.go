@@ -16,7 +16,7 @@ import (
 
 // Listener provides a callback to hear a message
 // An object implementing this interface can be called back when the client
-// gets a message of the type that the regi    sterer specified at registration
+// gets a message of the type that the registerer specified at registration
 // time.
 type Listener interface {
 	// Hear is called to receive a message in the UI

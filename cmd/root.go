@@ -80,42 +80,20 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
-		// Set up reception handler
-		swboard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.Text, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+		confCh, recvCh := initClientCallbacks(client)
 
-		// Set up auth request handler, which simply prints the
-		// user id of the requester.
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// If unsafe channels, add auto-acceptor
+		// The following block is used to check if the request from
+		// a channel authorization is from the recipient we intend in
+		// this run.
 		authConfirmed := false
-		authMgr.AddGeneralConfirmCallback(func(
-			partner contact.Contact) {
-			jww.INFO.Printf("Channel Confirmed: %s",
-				partner.ID)
-			authConfirmed = recipientID.Cmp(partner.ID)
-		})
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requestor contact.Contact, message string) {
-				jww.INFO.Printf("Channel Request: %s",
-					requestor.ID)
-				_, err := client.ConfirmAuthenticatedChannel(
-					requestor)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-				authConfirmed = recipientID.Cmp(
-					requestor.ID)
-			})
-		}
+		go func() {
+			for {
+				requestor := <-confCh
+				authConfirmed = recipientID.Cmp(requestor)
+			}
+		}()
 
-		_, err := client.StartNetworkFollower()
+		_, err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -270,7 +248,7 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
 
-		err = client.StopNetworkFollower(5 * time.Second)
+		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
 				"Failed to cleanly close threads: %+v\n",
@@ -281,6 +259,44 @@ var rootCmd = &cobra.Command{
 		}
 
 	},
+}
+
+func initClientCallbacks(client *api.Client) (chan *id.ID,
+	chan message.Receive) {
+	// Set up reception handler
+	swboard := client.GetSwitchboard()
+	recvCh := make(chan message.Receive, 10000)
+	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
+		switchboard.AnyUser(), message.Text, recvCh)
+	jww.INFO.Printf("Message ListenerID: %v", listenerID)
+
+	// Set up auth request handler, which simply prints the
+	// user id of the requester.
+	authMgr := client.GetAuthRegistrar()
+	authMgr.AddGeneralRequestCallback(printChanRequest)
+
+	// If unsafe channels, add auto-acceptor
+	authConfirmed := make(chan *id.ID, 10)
+	authMgr.AddGeneralConfirmCallback(func(
+		partner contact.Contact) {
+		jww.INFO.Printf("Channel Confirmed: %s",
+			partner.ID)
+		authConfirmed <- partner.ID
+	})
+	if viper.GetBool("unsafe-channel-creation") {
+		authMgr.AddGeneralRequestCallback(func(
+			requestor contact.Contact, message string) {
+			jww.INFO.Printf("Channel Request: %s",
+				requestor.ID)
+			_, err := client.ConfirmAuthenticatedChannel(
+				requestor)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			authConfirmed <- requestor.ID
+		})
+	}
+	return authConfirmed, recvCh
 }
 
 // Helper function which prints the round resuls
@@ -352,7 +368,6 @@ func createClient() *api.Client {
 				err = api.NewClient(string(ndfJSON), storeDir,
 					[]byte(pass), regCode)
 			}
-
 		}
 
 		if err != nil {

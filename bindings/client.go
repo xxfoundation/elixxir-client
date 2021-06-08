@@ -198,8 +198,9 @@ func UnmarshalSendReport(b []byte) (*SendReport, error) {
 //		Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
-func (c *Client) StartNetworkFollower(clientError ClientError) error {
-	errChan, err := c.api.StartNetworkFollower()
+func (c *Client) StartNetworkFollower(clientError ClientError, timeoutMS int) error {
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	errChan, err := c.api.StartNetworkFollower(timeout)
 	if err != nil {
 		return errors.New(fmt.Sprintf("Failed to start the "+
 			"network follower: %+v", err))
@@ -218,9 +219,8 @@ func (c *Client) StartNetworkFollower(clientError ClientError) error {
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
-func (c *Client) StopNetworkFollower(timeoutMS int) error {
-	timeout := time.Duration(timeoutMS) * time.Millisecond
-	if err := c.api.StopNetworkFollower(timeout); err != nil {
+func (c *Client) StopNetworkFollower() error {
+	if err := c.api.StopNetworkFollower(); err != nil {
 		return errors.New(fmt.Sprintf("Failed to stop the "+
 			"network follower: %+v", err))
 	}

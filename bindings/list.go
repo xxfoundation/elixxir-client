@@ -8,7 +8,7 @@
 package bindings
 
 import (
-	"errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
@@ -114,4 +114,42 @@ func (fl *FactList) Add(factData string, factType int) error {
 
 func (fl *FactList) Stringify() (string, error) {
 	return fl.c.Facts.Stringify(), nil
+}
+
+/* ID list */
+// IdList contains a list of IDs.
+type IdList struct {
+	list []*id.ID
+}
+
+// MakeIdList creates a new empty IdList.
+func MakeIdList() IdList {
+	return IdList{[]*id.ID{}}
+}
+
+// Len returns the number of IDs in the list.
+func (idl IdList) Len() int {
+	return len(idl.list)
+}
+
+// Add appends the ID bytes to the end of the list.
+func (idl IdList) Add(idBytes []byte) error {
+	newID, err := id.Unmarshal(idBytes)
+	if err != nil {
+		return err
+	}
+
+	idl.list = append(idl.list, newID)
+	return nil
+}
+
+// Get returns the ID at the index. An error is returned if the index is out of
+// range.
+func (idl IdList) Get(i int) ([]byte, error) {
+	if i < 0 || i > len(idl.list) {
+		return nil, errors.Errorf("ID list index must be between %d and the "+
+			"last element %d.", 0, len(idl.list))
+	}
+
+	return idl.list[i].Bytes(), nil
 }

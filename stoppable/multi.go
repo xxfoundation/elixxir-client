@@ -13,16 +13,14 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 )
 
 // Error message.
-const closeMultiErr = "MultiStopper %s failed to close %d/%d stoppers"
+const closeMultiErr = "multi stoppable %q failed to close %d/%d stoppables"
 
 type Multi struct {
 	stoppables []Stoppable
 	name       string
-	running    uint32
 	mux        sync.RWMutex
 	once       sync.Once
 }
@@ -30,17 +28,11 @@ type Multi struct {
 // NewMulti returns a new multi Stoppable.
 func NewMulti(name string) *Multi {
 	return &Multi{
-		name:    name,
-		running: running,
+		name: name,
 	}
 }
 
-// IsRunning returns true if stoppable is marked as running.
-func (m *Multi) IsRunning() bool {
-	return atomic.LoadUint32(&m.running) == running
-}
-
-// Add adds the given stoppable to the list of stoppables.
+// Add adds the given Stoppable to the list of stoppables.
 func (m *Multi) Add(stoppable Stoppable) {
 	m.mux.Lock()
 	m.stoppables = append(m.stoppables, stoppable)
@@ -51,47 +43,85 @@ func (m *Multi) Add(stoppable Stoppable) {
 // it contains.
 func (m *Multi) Name() string {
 	m.mux.RLock()
-	defer m.mux.RUnlock()
 
 	names := make([]string, len(m.stoppables))
 	for i, s := range m.stoppables {
 		names[i] = s.Name()
 	}
 
-	return m.name + ": {" + strings.Join(names, ", ") + "}"
+	m.mux.RUnlock()
+
+	return m.name + "{" + strings.Join(names, ", ") + "}"
 }
 
-// Close closes all child stoppers. It does not return their errors and assumes
-// they print them to the log.
-func (m *Multi) Close(timeout time.Duration) error {
-	var err error
-	m.once.Do(
-		func() {
-			atomic.StoreUint32(&m.running, stopped)
+// GetStatus returns the lowest status of all of the Stoppable children. The
+// status is not the status of all Stoppables, but the status of the Stoppable
+// with the lowest status.
+func (m *Multi) GetStatus() Status {
+	lowestStatus := Stopped
+	m.mux.RLock()
 
-			var numErrors uint32
-			var wg sync.WaitGroup
+	for _, s := range m.stoppables {
+		status := s.GetStatus()
+		if status < lowestStatus {
+			lowestStatus = status
+		}
+	}
 
-			m.mux.Lock()
-			for _, stoppable := range m.stoppables {
-				wg.Add(1)
-				go func(stoppable Stoppable) {
-					if stoppable.Close(timeout) != nil {
-						atomic.AddUint32(&numErrors, 1)
-					}
-					wg.Done()
-				}(stoppable)
-			}
-			m.mux.Unlock()
+	m.mux.RUnlock()
 
-			wg.Wait()
+	return lowestStatus
+}
 
-			if numErrors > 0 {
-				err = errors.Errorf(
-					closeMultiErr, m.name, numErrors, len(m.stoppables))
-				jww.ERROR.Print(err.Error())
-			}
-		})
+// IsRunning returns true if Stoppable is marked as running.
+func (m *Multi) IsRunning() bool {
+	return m.GetStatus() == Running
+}
 
-	return err
+// IsStopping returns true if Stoppable is marked as stopping.
+func (m *Multi) IsStopping() bool {
+	return m.GetStatus() == Stopping
+}
+
+// IsStopped returns true if Stoppable is marked as stopped.
+func (m *Multi) IsStopped() bool {
+	return m.GetStatus() == Stopped
+}
+
+// Close issues a close signal to all child stoppables and marks the status of
+// the Multi Stoppable as stopping. Returns an error if one or more child
+// stoppables failed to close but it does not return their specific errors and
+// assumes they print them to the log.
+func (m *Multi) Close() error {
+	var numErrors uint32
+
+	m.once.Do(func() {
+		var wg sync.WaitGroup
+
+		jww.TRACE.Printf("Sending on quit channel to multi stoppable %q.",
+			m.Name())
+
+		m.mux.Lock()
+		// Attempt to stop each stoppable in its own goroutine
+		for _, stoppable := range m.stoppables {
+			wg.Add(1)
+			go func(stoppable Stoppable) {
+				if stoppable.Close() != nil {
+					atomic.AddUint32(&numErrors, 1)
+				}
+				wg.Done()
+			}(stoppable)
+		}
+		m.mux.Unlock()
+
+		wg.Wait()
+	})
+
+	if numErrors > 0 {
+		err := errors.Errorf(closeMultiErr, m.name, numErrors, len(m.stoppables))
+		jww.ERROR.Print(err.Error())
+		return err
+	}
+
+	return nil
 }

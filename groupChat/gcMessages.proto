@@ -1,0 +1,20 @@
+///////////////////////////////////////////////////////////////////////////////
+// Copyright © 2020 xx network SEZC                                          //
+//                                                                           //
+// Use of this source code is governed by a license that can be found in the //
+// LICENSE file                                                              //
+///////////////////////////////////////////////////////////////////////////////
+
+syntax = "proto3";
+package gcRequestMessages;
+option go_package = "gitlab.com/elixxir/client/groupChat";
+
+
+// Request to join the group sent from leader to all members.
+message Request {
+    bytes name = 1;
+    bytes idPreimage = 2;
+    bytes keyPreimage = 3;
+    bytes members = 4;
+    bytes message = 5;
+}

@@ -78,7 +78,7 @@ func TestSender_SendToAny(t *testing.T) {
 	}
 
 	// Test sendToAny with test interfaces
-	result, err := sender.SendToAny(SendToAny_HappyPath)
+	result, err := sender.SendToAny(SendToAny_HappyPath, nil)
 	if err != nil {
 		t.Errorf("Should not error in SendToAny happy path: %v", err)
 	}
@@ -89,12 +89,12 @@ func TestSender_SendToAny(t *testing.T) {
 			"\n\tReceived: %v", happyPathReturn, result)
 	}
 
-	_, err = sender.SendToAny(SendToAny_KnownError)
+	_, err = sender.SendToAny(SendToAny_KnownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
 
-	_, err = sender.SendToAny(SendToAny_UnknownError)
+	_, err = sender.SendToAny(SendToAny_UnknownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -139,7 +139,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	preferredHost := sender.hostList[preferredIndex]
 
 	// Happy path
-	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_HappyPath)
+	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_HappyPath, nil)
 	if err != nil {
 		t.Errorf("Should not error in SendToPreferred happy path: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	}
 
 	// Call a send which returns an error which triggers replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_KnownError)
+	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_KnownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -171,7 +171,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	preferredHost = sender.hostList[preferredIndex]
 
 	// Unknown error return will not trigger replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_UnknownError)
+	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_UnknownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}

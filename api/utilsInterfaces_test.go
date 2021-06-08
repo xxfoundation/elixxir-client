@@ -93,7 +93,7 @@ func (t *testNetworkManagerGeneric) Follow(report interfaces.ClientErrorReport) 
 func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
-func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) (
+func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
 	[]id.Round, cE2e.MessageID, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	return rounds, cE2e.MessageID{}, nil
@@ -104,6 +104,9 @@ func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) 
 }
 func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
 	return id.Round(0), ephemeral.Id{}, nil
+}
+func (t *testNetworkManagerGeneric) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return 0, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 	return t.instance

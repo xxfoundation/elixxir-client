@@ -11,6 +11,7 @@ package gateway
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -36,12 +37,14 @@ func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.Net
 }
 
 // SendToAny Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
-func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error)) (interface{}, error) {
+func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
 
 	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
 	for i := range proxies {
 		result, err := sendFunc(proxies[i])
-		if err == nil {
+		if stop != nil && !stop.IsRunning() {
+			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToAny")
+		} else if err == nil {
 			return result, nil
 		} else {
 			jww.WARN.Printf("Unable to SendToAny %s: %s", proxies[i].GetId().String(), err)
@@ -57,7 +60,8 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 
 // SendToPreferred Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
 func (s *Sender) SendToPreferred(targets []*id.ID,
-	sendFunc func(host *connect.Host, target *id.ID) (interface{}, bool, error)) (interface{}, error) {
+	sendFunc func(host *connect.Host, target *id.ID) (interface{}, bool, error),
+	stop *stoppable.Single) (interface{}, error) {
 
 	// Get the hosts and shuffle randomly
 	targetHosts := s.getPreferred(targets)
@@ -65,7 +69,9 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 	// Attempt to send directly to targets if they are in the HostPool
 	for i := range targetHosts {
 		result, didAbort, err := sendFunc(targetHosts[i], targets[i])
-		if err == nil {
+		if stop != nil && !stop.IsRunning() {
+			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
+		} else if err == nil {
 			return result, nil
 		} else {
 			if didAbort {
@@ -103,7 +109,9 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 			}
 
 			result, didAbort, err := sendFunc(targetProxies[proxyIdx], target)
-			if err == nil {
+			if stop != nil && !stop.IsRunning() {
+				return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
+			} else if err == nil {
 				return result, nil
 			} else {
 				if didAbort {

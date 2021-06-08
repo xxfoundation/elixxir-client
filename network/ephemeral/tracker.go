@@ -122,6 +122,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 		case addressSize = <-addressSizeUpdate:
 			receptionStore.SetToExpire(addressSize)
 		case <-stop.Quit():
+			addrSpace.UnregisterNotification(addressSpaceSizeChanTag)
 			stop.ToStopped()
 			return
 		}

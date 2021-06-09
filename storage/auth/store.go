@@ -92,7 +92,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 		return nil, errors.WithMessagef(err, "Failed to "+
 			"unmarshal SentRequestMap")
 	}
-	jww.DEBUG.Printf("Loading Auth Store for %d contact(s)", len(requestList))
+	jww.TRACE.Printf("%d found when loading AuthStore", len(requestList))
 	for _, rDisk := range requestList {
 		r := &request{
 			rt: RequestType(rDisk.T),
@@ -118,7 +118,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				PrivKey: nil,
 				Request: r,
 			}
-			jww.DEBUG.Printf("Loaded send request for %s", sr.partner)
 			rid = sr.partner
 			r.sent = sr
 
@@ -127,7 +126,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			if err != nil {
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
-			jww.INFO.Printf("Loaded send request for %s", c.ID)
 
 			rid = c.ID
 			r.receive = &c

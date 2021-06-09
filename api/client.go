@@ -564,7 +564,7 @@ func (c *Client) DeleteContact(partnerId *id.ID) error  {
 		return err
 	}
 	c.storage.Conversations().Delete(partnerId)
-		return nil
+	return nil
 }
 
 // ----- Utility Functions -----

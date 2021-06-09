@@ -59,7 +59,7 @@ func loadRelationshipFingerprint(kv *versioned.KV) []byte {
 }
 
 // deleteRelationshipFingerprint is a helper function which deletes a fingerprint from store
-func deleteRelationshipFingerprint(kv *versioned.KV) error  {
+func deleteRelationshipFingerprint(kv *versioned.KV) error {
 	return kv.Delete(relationshipFingerprintKey,
 		currentRelationshipVersion)
 }

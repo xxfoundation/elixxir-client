@@ -113,20 +113,14 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 }
 
 // clearManager removes the relationship between the partner
-// and deletes the Send and Receive sessions
+// and deletes the Send and Receive sessions. This includes the
+// sessions and the key vectors
 func clearManager(m *Manager, kv *versioned.KV) error {
 	kv = kv.Prefix(fmt.Sprintf(managerPrefix, m.partner))
 
-	if err := DeleteRelationship(m, Send); err != nil {
+	if err := DeleteRelationship(m); err != nil {
 		return errors.WithMessage(err,
-			"Failed to delete remove partner key relationship due to failure to " +
-			"delete the Send session buffer")
-	}
-
-	if err := DeleteRelationship(m, Receive); err != nil {
-		return errors.WithMessage(err,
-			"Failed to delete remove partner key relationship due to failure to " +
-				"delete the Receive session buffer")
+			"Failed to delete relationship")
 	}
 
 	if err := utility.DeleteCyclicKey(m.kv, originPartnerPubKey); err != nil {

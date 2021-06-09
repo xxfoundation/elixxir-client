@@ -84,14 +84,31 @@ func NewRelationship(manager *Manager, t RelationshipType,
 	return r
 }
 
-// DeleteRelationship is a function which removes
-// the relationship and relationship fingerprint from the store
-func DeleteRelationship(manager *Manager, t RelationshipType) error {
-	kv := manager.kv.Prefix(t.prefix())
-	if err := deleteRelationshipFingerprint(kv); err != nil {
+// DeleteRelationship removes all relationship and
+// relationship adjacent information from storage
+func DeleteRelationship(manager *Manager) error {
+
+	// Delete the send information
+	sendKv := manager.kv.Prefix(Send.prefix())
+	manager.send.Delete()
+	if err := deleteRelationshipFingerprint(sendKv); err != nil {
 		return err
 	}
-	return kv.Delete(relationshipKey, currentRelationshipVersion)
+	if err := sendKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
+		return errors.Errorf("Could not delete send relationship: %v", err)
+	}
+
+	// Delete the receive information
+	receiveKv := manager.kv.Prefix(Receive.prefix())
+	manager.receive.Delete()
+	if err := deleteRelationshipFingerprint(receiveKv); err != nil {
+		return err
+	}
+	if err := receiveKv.Delete(relationshipKey, currentRelationshipVersion); err != nil {
+		return errors.Errorf("Could not delete receive relationship: %v", err)
+	}
+
+	return nil
 }
 
 func LoadRelationship(manager *Manager, t RelationshipType) (*relationship, error) {
@@ -174,6 +191,16 @@ func (r *relationship) unmarshal(b []byte) error {
 	}
 
 	return nil
+}
+
+func (r *relationship) Delete() {
+	r.mux.Lock()
+	defer r.mux.Unlock()
+	for _, s := range r.sessions {
+		delete(r.sessionByID, s.GetID())
+		s.Delete()
+	}
+
 }
 
 func (r *relationship) AddSession(myPrivKey, partnerPubKey, baseKey *cyclic.Int,

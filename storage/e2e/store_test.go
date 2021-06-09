@@ -132,7 +132,7 @@ func TestStore_DeletePartner(t *testing.T) {
 	}
 
 	_, err = s.GetPartner(partnerID)
-	if err== nil {
+	if err == nil {
 		t.Errorf("DeletePartner error: Should not be able to pull deleted partner from store")
 	}
 

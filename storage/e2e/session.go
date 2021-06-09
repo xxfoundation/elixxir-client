@@ -201,7 +201,8 @@ func (s *Session) save() error {
 
 /*METHODS*/
 // Done all unused key fingerprints
-// delete this session and its key states from the storage
+
+// Delete removes this session and its key states from the storage
 func (s *Session) Delete() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -221,7 +222,7 @@ func (s *Session) Delete() {
 	}
 }
 
-//Gets the base key.
+// GetBaseKey retrieves the base key.
 func (s *Session) GetBaseKey() *cyclic.Int {
 	// no lock is needed because this cannot be edited
 	return s.baseKey.DeepCopy()

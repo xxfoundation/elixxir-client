@@ -30,6 +30,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"sync"
 	"time"
 )
 
@@ -65,6 +66,10 @@ type Client struct {
 	services *serviceProcessiesList
 
 	clientErrorChannel chan interfaces.ClientError
+
+	//lock to ensure only once instance of stop/start network follower is
+	//going at a time
+	followerLock sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -381,6 +386,8 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.ClientError, error) {
+	c.followerLock.Lock()
+	defer c.followerLock.Unlock()
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
@@ -441,6 +448,8 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Client) StopNetworkFollower() error {
+	c.followerLock.Lock()
+	defer c.followerLock.Unlock()
 	err := c.status.toStopping()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")

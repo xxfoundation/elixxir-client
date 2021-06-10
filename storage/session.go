@@ -10,6 +10,7 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"sync"
 	"testing"
@@ -65,6 +66,7 @@ type Session struct {
 	reception           *reception.Store
 	clientVersion       *clientVersion.Store
 	uncheckedRounds     *rounds.UncheckedRoundStore
+	hostList            *hostList.Store
 }
 
 // Initialize a new Session object
@@ -148,6 +150,9 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create unchecked round store")
 	}
+
+	s.hostList = hostList.NewStore(s.kv)
+
 	return s, nil
 }
 
@@ -224,6 +229,8 @@ func Load(baseDir, password string, currentVersion version.Version,
 		return nil, errors.WithMessage(err, "Failed to load unchecked round store")
 	}
 
+	s.hostList = hostList.NewStore(s.kv)
+
 	return s, nil
 }
 
@@ -298,6 +305,12 @@ func (s *Session) UncheckedRounds() *rounds.UncheckedRoundStore {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.uncheckedRounds
+}
+
+func (s *Session) HostList() *hostList.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.hostList
 }
 
 // Get an object from the session

@@ -106,7 +106,7 @@ func TestStore_ClearMessages(t *testing.T) {
 	s.Add(partner2, messageId2, 1, part2, []byte{0})
 
 	// Call clear messages
-	s.Prune()
+	s.prune()
 
 	// Check if old message cleared
 	mpmId := getMultiPartID(partner1, messageId1)

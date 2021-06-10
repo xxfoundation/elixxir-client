@@ -51,7 +51,7 @@ func Load(kv *versioned.KV) *Store {
 
 	partitionStore.loadActivePartitions()
 
-	partitionStore.Prune()
+	partitionStore.prune()
 
 	return partitionStore
 }
@@ -90,7 +90,7 @@ func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
 }
 
 // Prune clear old messages on it's stored timestamp
-func (s *Store) Prune() {
+func (s *Store) prune() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	now := netTime.Now()

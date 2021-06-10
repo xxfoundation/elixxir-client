@@ -392,6 +392,11 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
+	if c.status.get() != Stopping{
+		return nil, errors.Errorf("Cannot Start the Network Follower when it is not stopped")
+	}
+
+
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
 
 	cer := func(source, message, trace string) {
@@ -450,6 +455,11 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 func (c *Client) StopNetworkFollower() error {
 	c.followerLock.Lock()
 	defer c.followerLock.Unlock()
+
+	if c.status.get() != Running{
+		return errors.Errorf("Cannot Stop the Network Follower when it is not running")
+	}
+
 	err := c.status.toStopping()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")

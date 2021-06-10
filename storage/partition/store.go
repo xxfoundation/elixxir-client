@@ -130,8 +130,10 @@ func (s *Store) saveActiveParts() {
 	jww.INFO.Printf("Saving %d active partitions", len(s.activeParts))
 	activeList := make([]*multiPartMessage, 0, len(s.activeParts))
 	for mpm := range s.activeParts {
+		mpm.mux.Lock()
 		jww.INFO.Printf("saveActiveParts saving %v", mpm)
 		activeList = append(activeList, mpm)
+		mpm.mux.Unlock()
 	}
 
 	data, err := json.Marshal(&activeList)
@@ -167,8 +169,8 @@ func (s *Store) loadActivePartitions() {
 	}
 	jww.INFO.Printf("loadActivePartitions found %d active", len(activeList))
 
-	for i, mpm := range activeList {
-		jww.INFO.Printf("loaded %d partition: %v", i, mpm)
+	for _, activeMpm := range activeList {
+		mpm := loadOrCreateMultiPartMessage(activeMpm.Sender, activeMpm.MessageID, s.kv)
 		s.activeParts[mpm] = true
 	}
 

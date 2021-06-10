@@ -23,7 +23,7 @@ func TestNew(t *testing.T) {
 	rootKv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
-		activeParts: make([]*multiPartMessage, 0),
+		activeParts: make(map[*multiPartMessage]bool),
 		kv:          rootKv.Prefix(packagePrefix),
 	}
 
@@ -103,7 +103,6 @@ func TestStore_ClearMessages(t *testing.T) {
 	s.AddFirst(partner2, message.Text, messageId2, 0, 2, netTime.Now(),
 		newTimestamp, part1,
 		[]byte{0})
-	s.Add(partner2, messageId2, 1, part2, []byte{0})
 
 	// Call clear messages
 	s.prune()

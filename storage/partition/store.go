@@ -10,6 +10,7 @@ package partition
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -29,7 +30,7 @@ const activePartitionVersion = 0
 
 type Store struct {
 	multiParts  map[multiPartID]*multiPartMessage
-	activeParts []*multiPartMessage
+	activeParts map[*multiPartMessage]bool
 	kv          *versioned.KV
 	mux         sync.Mutex
 }
@@ -37,7 +38,7 @@ type Store struct {
 func New(kv *versioned.KV) *Store {
 	return &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
-		activeParts: make([]*multiPartMessage, 0),
+		activeParts: make(map[*multiPartMessage]bool),
 		kv:          kv.Prefix(packagePrefix),
 	}
 }
@@ -45,7 +46,7 @@ func New(kv *versioned.KV) *Store {
 func Load(kv *versioned.KV) *Store {
 	partitionStore := &Store{
 		multiParts:  make(map[multiPartID]*multiPartMessage),
-		activeParts: make([]*multiPartMessage, 0),
+		activeParts: make(map[*multiPartMessage]bool),
 		kv:          kv.Prefix(packagePrefix),
 	}
 
@@ -66,8 +67,11 @@ func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
 
 	if !ok {
-		s.activeParts = append(s.activeParts, mpm)
+		s.activeParts[mpm] = true
 		s.saveActiveParts()
+	} else {
+		mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
+		delete(s.multiParts, mpID)
 	}
 
 	return msg, ok
@@ -82,8 +86,11 @@ func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
 
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
 	if !ok {
-		s.activeParts = append(s.activeParts, mpm)
+		s.activeParts[mpm] = true
 		s.saveActiveParts()
+	} else {
+		mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
+		delete(s.multiParts, mpID)
 	}
 
 	return msg, ok
@@ -94,10 +101,13 @@ func (s *Store) prune() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	now := netTime.Now()
-	for _, mpm := range s.activeParts {
+	for mpm, _ := range s.activeParts {
 		if now.Sub(mpm.StorageTimestamp) >= clearPartitionThreshold {
+			fmt.Printf("pruning mpm with timestamp: %v\n", mpm.StorageTimestamp)
+			mpm.mux.Lock()
 			mpm.delete()
 			mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
+			mpm.mux.Unlock()
 			delete(s.multiParts, mpID)
 		}
 	}
@@ -117,7 +127,15 @@ func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 }
 
 func (s *Store) saveActiveParts() {
-	data, err := json.Marshal(s.activeParts)
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	activeList := make([]*multiPartMessage, 0, len(s.activeParts))
+	for mpm := range s.activeParts {
+		activeList = append(activeList, mpm)
+	}
+
+	data, err := json.Marshal(&activeList)
 	if err != nil {
 		jww.FATAL.Panicf("Could not save active partitions: %v", err)
 	}
@@ -143,9 +161,14 @@ func (s *Store) loadActivePartitions() {
 		return
 	}
 
-	err = json.Unmarshal(obj.Data, &s.activeParts)
-	if err != nil {
-		jww.FATAL.Panicf("Could not load active partitions: %v", err)
+	activeList := make([]*multiPartMessage, 0)
+	if err := json.Unmarshal(obj.Data, &activeList); err != nil {
+		jww.FATAL.Panicf("Failed to "+
+			"unmarshal active partitions: %v", err)
+	}
+
+	for _, mpm := range activeList {
+		s.activeParts[mpm] = true
 	}
 
 }

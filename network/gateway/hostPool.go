@@ -13,7 +13,6 @@ package gateway
 
 import (
 	"encoding/binary"
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
@@ -115,8 +114,24 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 		return nil, err
 	}
 
+	// Get the last used list of hosts and use it to seed the host pool list
+	hostList, err := storage.HostList().Get()
+	numHostsAdded := 0
+	if err == nil {
+		for _, hid := range hostList {
+			err := result.replaceHostNoStore(hid, uint32(numHostsAdded))
+			if err != nil {
+				jww.WARN.Printf("Unable to add stored host %s: %s", hid, err.Error())
+			} else {
+				numHostsAdded++
+			}
+		}
+	} else {
+		jww.WARN.Printf("Building new HostPool because no HostList stored: %+v", err)
+	}
+
 	// Build the initial HostPool and return
-	for i := 0; i < len(result.hostList); i++ {
+	for i := numHostsAdded; i < len(result.hostList); i++ {
 		err := result.forceReplace(uint32(i))
 		if err != nil {
 			return nil, err
@@ -279,8 +294,29 @@ func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
 	}
 }
 
-// Replace the given slot in the HostPool with a new Gateway with the specified ID
+// replaceHost replaces the given slot in the HostPool with a new Gateway with
+// the specified ID. The resulting host list is saved to storage.
 func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
+	err := h.replaceHostNoStore(newId, oldPoolIndex)
+	if err != nil {
+		return err
+	}
+
+	// Convert list of of non-nil and non-zero hosts to ID list
+	idList := make([]*id.ID, 0, len(h.hostList))
+	for _, host := range h.hostList {
+		if host.GetId() != nil && !host.GetId().Cmp(&id.ID{}) {
+			idList = append(idList, host.GetId())
+		}
+	}
+
+	// Save the list to storage
+	return h.storage.HostList().Store(idList)
+}
+
+// replaceHostNoStore replaces the given slot in the HostPool with a new Gateway
+// with the specified ID.
+func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 	// Obtain that GwId's Host object
 	newHost, ok := h.manager.GetHost(newId)
 	if !ok {
@@ -291,7 +327,8 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 	// Keep track of oldHost for cleanup
 	oldHost := h.hostList[oldPoolIndex]
 
-	// Use the poolIdx to overwrite the random Host in the corresponding index in the hostList
+	// Use the poolIdx to overwrite the random Host in the corresponding index
+	// in the hostList
 	h.hostList[oldPoolIndex] = newHost
 	// Use the GwId to keep track of the new random Host's index in the hostList
 	h.hostMap[*newId] = oldPoolIndex
@@ -301,7 +338,9 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 		delete(h.hostMap, *oldHost.GetId())
 		go oldHost.Disconnect()
 	}
-	jww.DEBUG.Printf("Replaced Host at %d with new Host %s", oldPoolIndex, newId.String())
+	jww.DEBUG.Printf("Replaced Host at %d with new Host %s", oldPoolIndex,
+		newId.String())
+
 	return nil
 }
 
@@ -388,7 +427,7 @@ func (h *HostPool) removeGateway(gwId *id.ID) {
 func (h *HostPool) addGateway(gwId *id.ID, ndfIndex int) {
 	gw := h.ndf.Gateways[ndfIndex]
 
-	//check if the host exists
+	// Check if the host exists
 	host, ok := h.manager.GetHost(gwId)
 	if !ok {
 
@@ -443,7 +482,7 @@ func readUint32(rng io.Reader) uint32 {
 	var rndBytes [4]byte
 	i, err := rng.Read(rndBytes[:])
 	if i != 4 || err != nil {
-		panic(fmt.Sprintf("cannot read from rng: %+v", err))
+		jww.FATAL.Panicf("cannot read from rng: %+v", err)
 	}
 	return binary.BigEndian.Uint32(rndBytes[:])
 }

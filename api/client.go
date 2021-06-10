@@ -392,8 +392,8 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
-	if c.status.get() != Stopping{
-		return nil, errors.Errorf("Cannot Start the Network Follower when it is not stopped")
+	if status := c.status.get(); status != Stopped{
+		return nil, errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
 	}
 
 
@@ -456,8 +456,8 @@ func (c *Client) StopNetworkFollower() error {
 	c.followerLock.Lock()
 	defer c.followerLock.Unlock()
 
-	if c.status.get() != Running{
-		return errors.Errorf("Cannot Stop the Network Follower when it is not running")
+	if status := c.status.get(); status != Running{
+		return errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
 	}
 
 	err := c.status.toStopping()

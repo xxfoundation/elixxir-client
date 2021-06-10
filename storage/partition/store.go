@@ -10,7 +10,6 @@ package partition
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -65,7 +64,8 @@ func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
 
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
 	msg, ok := mpm.IsComplete(relationshipFingerprint)
-
+	s.mux.Lock()
+	defer s.mux.Unlock()
 	if !ok {
 		s.activeParts[mpm] = true
 		s.saveActiveParts()
@@ -103,7 +103,7 @@ func (s *Store) prune() {
 	now := netTime.Now()
 	for mpm, _ := range s.activeParts {
 		if now.Sub(mpm.StorageTimestamp) >= clearPartitionThreshold {
-			fmt.Printf("pruning mpm with timestamp: %v\n", mpm.StorageTimestamp)
+			jww.INFO.Printf("prune partition: %v", mpm)
 			mpm.mux.Lock()
 			mpm.delete()
 			mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
@@ -129,9 +129,10 @@ func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 func (s *Store) saveActiveParts() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-
+	jww.INFO.Printf("Saving %d active partitions", len(s.activeParts))
 	activeList := make([]*multiPartMessage, 0, len(s.activeParts))
 	for mpm := range s.activeParts {
+		jww.INFO.Printf("saveActiveParts saving %v", mpm)
 		activeList = append(activeList, mpm)
 	}
 
@@ -166,8 +167,10 @@ func (s *Store) loadActivePartitions() {
 		jww.FATAL.Panicf("Failed to "+
 			"unmarshal active partitions: %v", err)
 	}
+	jww.INFO.Printf("loadActivePartitions found %d active", len(activeList))
 
-	for _, mpm := range activeList {
+	for i, mpm := range activeList {
+		jww.INFO.Printf("loaded %d partition: %v", i, mpm)
 		s.activeParts[mpm] = true
 	}
 

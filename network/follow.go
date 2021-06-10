@@ -159,6 +159,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 		// update gateway connections
 		m.GetSender().UpdateNdf(m.GetInstance().GetPartialNdf().Get())
+		m.Session.SetNDF(m.GetInstance().GetPartialNdf().Get())
 	}
 
 	// Update the address space size

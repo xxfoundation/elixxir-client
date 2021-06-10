@@ -13,25 +13,25 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 )
 
-const baseNdfKey = "baseNdf"
+const ndfKey = "ndf"
 
-func (s *Session) SetBaseNDF(def *ndf.NetworkDefinition) {
-	err := utility.SaveNDF(s.kv, baseNdfKey, def)
+func (s *Session) SetNDF(def *ndf.NetworkDefinition) {
+	err := utility.SaveNDF(s.kv, ndfKey, def)
 	if err != nil {
-		jww.FATAL.Printf("Failed to dave the base NDF: %s", err)
+		jww.FATAL.Printf("Failed to dave the NDF: %+v", err)
 	}
-	s.baseNdf = def
+	s.ndf = def
 }
 
-func (s *Session) GetBaseNDF() *ndf.NetworkDefinition {
-	if s.baseNdf != nil {
-		return s.baseNdf
+func (s *Session) GetNDF() *ndf.NetworkDefinition {
+	if s.ndf != nil {
+		return s.ndf
 	}
-	def, err := utility.LoadNDF(s.kv, baseNdfKey)
+	def, err := utility.LoadNDF(s.kv, ndfKey)
 	if err != nil {
-		jww.FATAL.Printf("Could not load the base NDF: %s", err)
+		jww.FATAL.Printf("Could not load the NDF: %+v", err)
 	}
 
-	s.baseNdf = def
+	s.ndf = def
 	return def
 }

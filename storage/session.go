@@ -51,7 +51,7 @@ type Session struct {
 
 	//memoized data
 	regStatus RegistrationStatus
-	baseNdf   *ndf.NetworkDefinition
+	ndf       *ndf.NetworkDefinition
 
 	//sub-stores
 	e2e                 *e2e.Store
@@ -413,6 +413,8 @@ func InitTestingSession(i interface{}) *Session {
 	if err != nil {
 		jww.FATAL.Panicf("Failed to create uncheckRound store: %v", err)
 	}
+
+	s.hostList = hostList.NewStore(s.kv)
 
 	return s
 }

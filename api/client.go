@@ -219,7 +219,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	//get the NDF to pass into permissioning and the network manager
-	def := c.storage.GetBaseNDF()
+	def := c.storage.GetNDF()
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
@@ -286,7 +286,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	//store the updated base NDF
-	c.storage.SetBaseNDF(def)
+	c.storage.SetNDF(def)
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
@@ -622,7 +622,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	}
 
 	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
+	storageSess.SetNDF(def)
 
 	if !isPrecanned {
 		//store the registration code for later use

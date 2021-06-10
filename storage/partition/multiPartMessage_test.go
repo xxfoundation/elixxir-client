@@ -27,13 +27,13 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
-		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		MessageID:    prng.Uint64(),
-		NumParts:     0,
-		PresentParts: 0,
-		SenderTimestamp:    time.Time{},
-		MessageType:  0,
-		kv:           versioned.NewKV(make(ekv.Memstore)),
+		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
+		MessageID:       prng.Uint64(),
+		NumParts:        0,
+		PresentParts:    0,
+		SenderTimestamp: time.Time{},
+		MessageType:     0,
+		kv:              versioned.NewKV(make(ekv.Memstore)),
 	}
 	expectedData, err := json.Marshal(expectedMpm)
 	if err != nil {
@@ -63,13 +63,13 @@ func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
-		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		MessageID:    prng.Uint64(),
-		NumParts:     0,
-		PresentParts: 0,
-		SenderTimestamp:    time.Time{},
-		MessageType:  0,
-		kv:           versioned.NewKV(make(ekv.Memstore)),
+		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
+		MessageID:       prng.Uint64(),
+		NumParts:        0,
+		PresentParts:    0,
+		SenderTimestamp: time.Time{},
+		MessageType:     0,
+		kv:              versioned.NewKV(make(ekv.Memstore)),
 	}
 	err := expectedMpm.save()
 	if err != nil {
@@ -159,14 +159,14 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 	// Generate test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
-		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		MessageID:    prng.Uint64(),
-		NumParts:     uint8(prng.Uint32()),
-		PresentParts: 1,
-		SenderTimestamp:    netTime.Now(),
-		MessageType:  message.NoType,
-		parts:        make([][]byte, 3),
-		kv:           versioned.NewKV(make(ekv.Memstore)),
+		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
+		MessageID:       prng.Uint64(),
+		NumParts:        uint8(prng.Uint32()),
+		PresentParts:    1,
+		SenderTimestamp: netTime.Now(),
+		MessageType:     message.NoType,
+		parts:           make([][]byte, 3),
+		kv:              versioned.NewKV(make(ekv.Memstore)),
 	}
 	expectedMpm.parts[2] = []byte{5, 8, 78, 9}
 	npm := loadOrCreateMultiPartMessage(expectedMpm.Sender,

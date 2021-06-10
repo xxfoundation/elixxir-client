@@ -9,9 +9,9 @@ package partition
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
-	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
@@ -23,20 +23,37 @@ import (
 type multiPartID [16]byte
 
 const packagePrefix = "Partition"
-const clearPartitionInterval = 5*time.Hour
-const clearPartitionThreshold = 24*time.Hour
+const clearPartitionThreshold = 24 * time.Hour
+const activePartitions = "activePartitions"
+const activePartitionVersion = 0
 
 type Store struct {
-	multiParts map[multiPartID]*multiPartMessage
-	kv         *versioned.KV
-	mux        sync.Mutex
+	multiParts  map[multiPartID]*multiPartMessage
+	activeParts []*multiPartMessage
+	kv          *versioned.KV
+	mux         sync.Mutex
 }
 
 func New(kv *versioned.KV) *Store {
 	return &Store{
-		multiParts: make(map[multiPartID]*multiPartMessage),
-		kv:         kv.Prefix(packagePrefix),
+		multiParts:  make(map[multiPartID]*multiPartMessage),
+		activeParts: make([]*multiPartMessage, 0),
+		kv:          kv.Prefix(packagePrefix),
 	}
+}
+
+func Load(kv *versioned.KV) *Store {
+	partitionStore := &Store{
+		multiParts:  make(map[multiPartID]*multiPartMessage),
+		activeParts: make([]*multiPartMessage, 0),
+		kv:          kv.Prefix(packagePrefix),
+	}
+
+	partitionStore.loadActivePartitions()
+
+	partitionStore.Prune()
+
+	return partitionStore
 }
 
 func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
@@ -46,8 +63,14 @@ func (s *Store) AddFirst(partner *id.ID, mt message.Type, messageID uint64,
 	mpm := s.load(partner, messageID)
 
 	mpm.AddFirst(mt, partNum, numParts, senderTimestamp, storageTimestamp, part)
+	msg, ok := mpm.IsComplete(relationshipFingerprint)
 
-	return mpm.IsComplete(relationshipFingerprint)
+	if !ok {
+		s.activeParts = append(s.activeParts, mpm)
+		s.saveActiveParts()
+	}
+
+	return msg, ok
 }
 
 func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
@@ -57,41 +80,27 @@ func (s *Store) Add(partner *id.ID, messageID uint64, partNum uint8,
 
 	mpm.Add(partNum, part)
 
-	return mpm.IsComplete(relationshipFingerprint)
+	msg, ok := mpm.IsComplete(relationshipFingerprint)
+	if !ok {
+		s.activeParts = append(s.activeParts, mpm)
+		s.saveActiveParts()
+	}
+
+	return msg, ok
 }
 
-// ClearMessages periodically clear old messages on it's stored timestamp
-func (s *Store) ClearMessages() stoppable.Stoppable  {
-	stop := stoppable.NewSingle("clearPartition")
-	t := time.NewTicker(clearPartitionInterval)
-	go func() {
-		for {
-			select {
-			case <-stop.Quit():
-				jww.INFO.Printf("Received stop signal in clear messages")
-				stop.ToStopped()
-				t.Stop()
-				return
-			case <-t.C:
-				s.clearMessages()
-			}
-		}
-	}()
-	return stop
-}
-
-// clearMessages is a helper function which clears
-// old messages from storage
-func (s *Store) clearMessages()  {
+// Prune clear old messages on it's stored timestamp
+func (s *Store) Prune() {
 	s.mux.Lock()
+	defer s.mux.Unlock()
 	now := netTime.Now()
-	for mpmId, mpm := range s.multiParts {
+	for _, mpm := range s.activeParts {
 		if now.Sub(mpm.StorageTimestamp) >= clearPartitionThreshold {
 			mpm.delete()
-			delete(s.multiParts, mpmId)
+			mpID := getMultiPartID(mpm.Sender, mpm.MessageID)
+			delete(s.multiParts, mpID)
 		}
 	}
-	s.mux.Unlock()
 }
 
 func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
@@ -105,6 +114,40 @@ func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 	s.mux.Unlock()
 
 	return mpm
+}
+
+func (s *Store) saveActiveParts() {
+	data, err := json.Marshal(s.activeParts)
+	if err != nil {
+		jww.FATAL.Panicf("Could not save active partitions: %v", err)
+	}
+
+	obj := versioned.Object{
+		Version:   activePartitionVersion,
+		Timestamp: netTime.Now(),
+		Data:      data,
+	}
+
+	err = s.kv.Set(activePartitions, activePartitionVersion, &obj)
+	if err != nil {
+		jww.FATAL.Panicf("Could not save active partitions: %v", err)
+	}
+}
+
+func (s *Store) loadActivePartitions() {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+	obj, err := s.kv.Get(activePartitions, activePartitionVersion)
+	if err != nil {
+		jww.DEBUG.Printf("Could not load active partitions: %v", err)
+		return
+	}
+
+	err = json.Unmarshal(obj.Data, &s.activeParts)
+	if err != nil {
+		jww.FATAL.Panicf("Could not load active partitions: %v", err)
+	}
+
 }
 
 func getMultiPartID(partner *id.ID, messageID uint64) multiPartID {

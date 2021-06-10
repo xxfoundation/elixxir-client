@@ -22,8 +22,9 @@ import (
 func TestNew(t *testing.T) {
 	rootKv := versioned.NewKV(make(ekv.Memstore))
 	expectedStore := &Store{
-		multiParts: make(map[multiPartID]*multiPartMessage),
-		kv:         rootKv.Prefix(packagePrefix),
+		multiParts:  make(map[multiPartID]*multiPartMessage),
+		activeParts: make([]*multiPartMessage, 0),
+		kv:          rootKv.Prefix(packagePrefix),
 	}
 
 	store := New(rootKv)
@@ -80,7 +81,7 @@ func TestStore_Add(t *testing.T) {
 	}
 }
 
-// Unit test of clearMessages
+// Unit test of prune
 func TestStore_ClearMessages(t *testing.T) {
 	// Setup: Add 2 message to store: an old message past the threshold and a new message
 	part1 := []byte("Test message.")
@@ -89,7 +90,7 @@ func TestStore_ClearMessages(t *testing.T) {
 
 	partner1 := id.NewIdFromString("User", id.User, t)
 	messageId1 := uint64(5)
-	oldTimestamp := netTime.Now().Add(-2*clearPartitionThreshold)
+	oldTimestamp := netTime.Now().Add(-2 * clearPartitionThreshold)
 	s.AddFirst(partner1,
 		message.Text, messageId1, 0, 2, netTime.Now(),
 		oldTimestamp, part1,
@@ -104,22 +105,20 @@ func TestStore_ClearMessages(t *testing.T) {
 		[]byte{0})
 	s.Add(partner2, messageId2, 1, part2, []byte{0})
 
-
-
 	// Call clear messages
-	s.clearMessages()
+	s.Prune()
 
 	// Check if old message cleared
 	mpmId := getMultiPartID(partner1, messageId1)
 	if _, ok := s.multiParts[mpmId]; ok {
-		t.Errorf("ClearMessages error: " +
+		t.Errorf("Prune error: " +
 			"Expected old message to be cleared out of store")
 	}
 
 	// Check if new message remains
 	mpmId2 := getMultiPartID(partner2, messageId2)
 	if _, ok := s.multiParts[mpmId2]; !ok {
-		t.Errorf("ClearMessages error: " +
+		t.Errorf("Prune error: " +
 			"Expected new message to be remain in store")
 	}
 }

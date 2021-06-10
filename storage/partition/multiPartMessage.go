@@ -31,10 +31,10 @@ type multiPartMessage struct {
 	NumParts     uint8
 	PresentParts uint8
 	// Timestamp of message from sender
-	SenderTimestamp    time.Time
+	SenderTimestamp time.Time
 	// Timestamp in which message was stored in RAM
 	StorageTimestamp time.Time
-	MessageType  message.Type
+	MessageType      message.Type
 
 	parts [][]byte
 	kv    *versioned.KV
@@ -51,13 +51,13 @@ func loadOrCreateMultiPartMessage(sender *id.ID, messageID uint64,
 	if err != nil {
 		if !ekv.Exists(err) {
 			mpm := &multiPartMessage{
-				Sender:       sender,
-				MessageID:    messageID,
-				NumParts:     0,
-				PresentParts: 0,
-				SenderTimestamp:    time.Time{},
-				MessageType:  0,
-				kv:           kv,
+				Sender:          sender,
+				MessageID:       messageID,
+				NumParts:        0,
+				PresentParts:    0,
+				SenderTimestamp: time.Time{},
+				MessageType:     0,
+				kv:              kv,
 			}
 			if err = mpm.save(); err != nil {
 				jww.FATAL.Panicf("Failed to save new multi part "+

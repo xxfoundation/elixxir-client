@@ -105,7 +105,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 			jww.FATAL.Panicf("Failed to load stored id: %+v", err)
 		}
 
-
 		switch r.rt {
 		case Sent:
 			sr, err := loadSentRequest(kv, partner, grp)

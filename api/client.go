@@ -408,9 +408,6 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 		c.runner = stoppable.NewMulti(followerStoppableName)
 	}
 
-	jww.INFO.Printf("Adding partition cleaner")
-	c.runner.Add(c.storage.Partition().ClearMessages())
-
 	err = c.status.toStarting()
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")

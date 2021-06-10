@@ -127,8 +127,6 @@ func (s *Store) load(partner *id.ID, messageID uint64) *multiPartMessage {
 }
 
 func (s *Store) saveActiveParts() {
-	s.mux.Lock()
-	defer s.mux.Unlock()
 	jww.INFO.Printf("Saving %d active partitions", len(s.activeParts))
 	activeList := make([]*multiPartMessage, 0, len(s.activeParts))
 	for mpm := range s.activeParts {

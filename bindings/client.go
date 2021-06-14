@@ -208,7 +208,11 @@ func (c *Client) StartNetworkFollower(clientError ClientError, timeoutMS int) er
 
 	go func() {
 		for report := range errChan {
-			go clientError.Report(report.Source, report.Message, report.Trace)
+			if report == nil {
+				jww.WARN.Printf("Received nil report!\n")
+			} else {
+				go clientError.Report(report.Source, report.Message, report.Trace)
+			}
 		}
 	}()
 	return nil

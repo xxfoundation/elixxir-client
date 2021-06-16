@@ -87,16 +87,20 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 	myPubKey := diffieHellman.GeneratePublicKey(myHistoricalPrivKey, grp)
 
-	jww.TRACE.Printf("handleRequest MYPUBKEY: %v", myPubKey.Bytes())
-	jww.TRACE.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("handleRequest MYPUBKEY: %v", myPubKey.Bytes())
+	jww.INFO.Printf("handleRequest PARTNERPUBKEY: %v", partnerPubKey.Bytes())
 
 	//decrypt the message
+	jww.INFO.Printf("handleRequest SALT: %v", baseFmt.GetSalt())
+	jww.INFO.Printf("handleRequest ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+	jww.INFO.Printf("handleRequest MAC: %v", cmixMsg.GetMac())
+
 	success, payload := cAuth.Decrypt(myHistoricalPrivKey,
 		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {
-		jww.WARN.Printf("Recieved auth request failed " +
+		jww.WARN.Printf("Received auth request failed " +
 			"its mac check")
 		return
 	}
@@ -151,7 +155,7 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 			switch rType {
 			// if this is a duplicate, ignore the message
 			case auth.Receive:
-				jww.WARN.Printf("Recieved new Auth request for %s, "+
+				jww.WARN.Printf("Received new Auth request for %s, "+
 					"is a duplicate", partnerID)
 				return
 			// if we sent a request, then automatically confirm
@@ -226,16 +230,19 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		return
 	}
 
-	jww.TRACE.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
-	jww.TRACE.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
+	jww.INFO.Printf("handleConfirm PARTNERPUBKEY: %v", partnerPubKey.Bytes())
+	jww.INFO.Printf("handleConfirm SRMYPUBKEY: %v", sr.GetMyPubKey().Bytes())
 
 	// decrypt the payload
+	jww.INFO.Printf("handleConfirm SALT: %v", baseFmt.GetSalt())
+	jww.INFO.Printf("handleConfirm ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+	jww.INFO.Printf("handleConfirm MAC: %v", cmixMsg.GetMac())
 	success, payload := cAuth.Decrypt(sr.GetMyPrivKey(),
 		partnerPubKey, baseFmt.GetSalt(), baseFmt.GetEcrPayload(),
 		cmixMsg.GetMac(), grp)
 
 	if !success {
-		jww.WARN.Printf("Recieved auth confirmation failed its mac " +
+		jww.WARN.Printf("Received auth confirmation failed its mac " +
 			"check")
 		m.storage.Auth().Done(sr.GetPartner())
 		return

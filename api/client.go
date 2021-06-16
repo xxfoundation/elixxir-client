@@ -30,6 +30,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"sync"
 	"time"
 )
 
@@ -65,6 +66,10 @@ type Client struct {
 	services *serviceProcessiesList
 
 	clientErrorChannel chan interfaces.ClientError
+
+	//lock to ensure only once instance of stop/start network follower is
+	//going at a time
+	followerLock sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -214,7 +219,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	//get the NDF to pass into permissioning and the network manager
-	def := c.storage.GetBaseNDF()
+	def := c.storage.GetNDF()
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
@@ -281,7 +286,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	//store the updated base NDF
-	c.storage.SetBaseNDF(def)
+	c.storage.SetNDF(def)
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
@@ -381,9 +386,16 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
 func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.ClientError, error) {
+	c.followerLock.Lock()
+	defer c.followerLock.Unlock()
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
+
+	if status := c.status.get(); status != Stopped{
+		return nil, errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
+	}
+
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
 
@@ -441,6 +453,13 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Client) StopNetworkFollower() error {
+	c.followerLock.Lock()
+	defer c.followerLock.Unlock()
+
+	if status := c.status.get(); status != Running{
+		return errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
+	}
+
 	err := c.status.toStopping()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
@@ -616,7 +635,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	}
 
 	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
+	storageSess.SetNDF(def)
 
 	if !isPrecanned {
 		//store the registration code for later use

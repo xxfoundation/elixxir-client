@@ -13,22 +13,22 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 )
 
-func (c *Client) GetCMIXParams() (string, error) {
+func GetCMIXParams() (string, error) {
 	p, err := params.GetDefaultCMIX().Marshal()
 	return string(p), err
 }
 
-func (c *Client) GetE2EParams() (string, error) {
+func GetE2EParams() (string, error) {
 	p, err := params.GetDefaultE2E().Marshal()
 	return string(p), err
 }
 
-func (c *Client) GetNetworkParams() (string, error) {
+func GetNetworkParams() (string, error) {
 	p, err := params.GetDefaultNetwork().Marshal()
 	return string(p), err
 }
 
-func (c *Client) GetUnsafeParams() (string, error) {
+func GetUnsafeParams() (string, error) {
 	p, err := params.GetDefaultUnsafe().Marshal()
 	return string(p), err
 }

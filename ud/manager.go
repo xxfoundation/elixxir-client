@@ -15,6 +15,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"time"
 )
 
@@ -89,6 +90,8 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 
 	// Create the user discovery host object
 	hp := connect.GetDefaultHostParams()
+	// Client will not send KeepAlive packets
+	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	hp.MaxRetries = 3
 	hp.SendTimeout = 3 * time.Second
 	m.host, err = m.comms.AddHost(&id.UDB, def.UDB.Address, []byte(def.UDB.Cert), hp)

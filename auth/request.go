@@ -119,8 +119,8 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	ownership := cAuth.MakeOwnershipProof(storage.E2e().GetDHPrivateKey(),
 		partner.DhPubKey, storage.E2e().GetGroup())
 
-	jww.INFO.Printf("RequestAuth MYPUBKEY: %v", newPubKey.Bytes())
-	jww.INFO.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
+	jww.TRACE.Printf("RequestAuth MYPUBKEY: %v", newPubKey.Bytes())
+	jww.TRACE.Printf("RequestAuth THEIRPUBKEY: %v", partner.DhPubKey.Bytes())
 
 	/*encrypt payload*/
 	requestFmt.SetID(storage.GetUser().ReceptionID)
@@ -140,9 +140,9 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
 
-	jww.INFO.Printf("RequestAuth SALT: %v", salt)
-	jww.INFO.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
-	jww.INFO.Printf("RequestAuth MAC: %v", mac)
+	jww.TRACE.Printf("RequestAuth SALT: %v", salt)
+	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
 
 	/*store state*/
 	//fixme: channel is bricked if the first store succedes but the second fails

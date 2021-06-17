@@ -13,9 +13,6 @@ import (
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
 	"github.com/spf13/viper"
-	"math"
-	"time"
-
 	// "gitlab.com/elixxir/crypto/contact"
 	// "gitlab.com/elixxir/client/interfaces/message"
 	// "gitlab.com/elixxir/client/switchboard"
@@ -62,8 +59,6 @@ var getNDFCmd = &cobra.Command{
 		}
 
 		params := connect.GetDefaultHostParams()
-		// Client will not send KeepAlive packets
-		params.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		params.AuthEnabled = false
 		comms, _ := client.NewClientComms(nil, nil, nil, nil)
 		// Gateway lookup

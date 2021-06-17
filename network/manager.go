@@ -28,6 +28,8 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math"
+	"time"
 )
 
 // Manager implements the NetworkManager interface inside context. It
@@ -95,6 +97,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
+	// Client will not send KeepAlive packets
+	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {

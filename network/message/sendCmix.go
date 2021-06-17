@@ -57,7 +57,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		"(msgDigest: %s)", recipient, msg.Digest())
 
 	for numRoundTries := uint(0); numRoundTries < cmixParams.RoundTries; numRoundTries++ {
-		elapsed := netTime.Now().Sub(timeStart)
+		elapsed := netTime.Since(timeStart)
 
 		if elapsed > cmixParams.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) "+

@@ -149,7 +149,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//store the in progress auth
 	if !resend {
 		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
-			newPrivKey, confirmFp)
+			newPubKey, confirmFp)
 		if err != nil {
 			return 0, errors.Errorf("Failed to store auth request: %s", err)
 		}

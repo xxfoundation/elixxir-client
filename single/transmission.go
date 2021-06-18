@@ -138,7 +138,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		}
 
 		// Update the timeout for the elapsed time
-		roundEventTimeout := timeout - netTime.Now().Sub(timeStart) - time.Millisecond
+		roundEventTimeout := timeout - netTime.Since(timeStart) - time.Millisecond
 
 		// Check message delivery
 		sendResults := make(chan ds.EventReturn, 1)

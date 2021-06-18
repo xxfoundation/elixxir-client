@@ -232,7 +232,7 @@ func (c *Client) StopNetworkFollower() error {
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
 	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	for netTime.Now().Sub(start) < timeout {
+	for netTime.Since(start) < timeout {
 		if c.api.GetHealth().IsHealthy() {
 			return true
 		}

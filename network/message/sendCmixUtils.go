@@ -32,8 +32,8 @@ type sendCmixCommsInterface interface {
 	SendPutManyMessages(host *connect.Host, messages *pb.GatewaySlots) (*pb.GatewaySlotResponse, error)
 }
 
-// 2.5 seconds
-const sendTimeBuffer = 2500 * time.Millisecond
+// how much in the future a round needs to be to send to it
+const sendTimeBuffer = 1000 * time.Millisecond
 const unrecoverableError = "failed with an unrecoverable error"
 
 // handlePutMessageError handles errors received from a PutMessage or a

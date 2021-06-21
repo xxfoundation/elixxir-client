@@ -24,8 +24,10 @@ type Tracker struct {
 
 	heartbeat chan network.Heartbeat
 
-	channels []chan bool
-	funcs    []func(isHealthy bool)
+	channels   map[uint64]chan bool
+	funcs      map[uint64]func(isHealthy bool)
+	channelsID uint64
+	funcsID    uint64
 
 	running bool
 
@@ -51,7 +53,8 @@ func Init(instance *network.Instance, timeout time.Duration) *Tracker {
 func newTracker(timeout time.Duration) *Tracker {
 	return &Tracker{
 		timeout:   timeout,
-		channels:  []chan bool{},
+		channels:  map[uint64]chan bool{},
+		funcs:     map[uint64]func(isHealthy bool){},
 		heartbeat: make(chan network.Heartbeat, 100),
 		isHealthy: false,
 		running:   false,
@@ -59,26 +62,56 @@ func newTracker(timeout time.Duration) *Tracker {
 }
 
 // AddChannel adds a channel to the list of Tracker channels such that each
-// channel can be notified of network changes.
-func (t *Tracker) AddChannel(c chan bool) {
+// channel can be notified of network changes.  Returns a unique ID for the
+// channel.
+func (t *Tracker) AddChannel(c chan bool) uint64 {
+	var currentID uint64
+
 	t.mux.Lock()
-	t.channels = append(t.channels, c)
+	t.channels[t.channelsID] = c
+	currentID = t.channelsID
+	t.channelsID++
 	t.mux.Unlock()
 
 	select {
 	case c <- t.IsHealthy():
 	default:
 	}
+
+	return currentID
+}
+
+// RemoveChannel removes the channel with the given ID from the list of Tracker
+// channels so that it will not longer be notified of network changes.
+func (t *Tracker) RemoveChannel(chanID uint64) {
+	t.mux.Lock()
+	delete(t.channels, chanID)
+	t.mux.Unlock()
 }
 
 // AddFunc adds a function to the list of Tracker functions such that each
-// function can be run after network changes.
-func (t *Tracker) AddFunc(f func(isHealthy bool)) {
+// function can be run after network changes. Returns a unique ID for the
+// function.
+func (t *Tracker) AddFunc(f func(isHealthy bool)) uint64 {
+	var currentID uint64
+
 	t.mux.Lock()
-	t.funcs = append(t.funcs, f)
+	t.funcs[t.funcsID] = f
+	currentID = t.funcsID
+	t.funcsID++
 	t.mux.Unlock()
 
 	go f(t.IsHealthy())
+
+	return currentID
+}
+
+// RemoveFunc removes the function with the given ID from the list of Tracker
+// functions so that it will not longer be run.
+func (t *Tracker) RemoveFunc(chanID uint64) {
+	t.mux.Lock()
+	delete(t.channels, chanID)
+	t.mux.Unlock()
 }
 
 func (t *Tracker) IsHealthy() bool {

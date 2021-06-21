@@ -5,7 +5,8 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-// Contains functionality related to the event model driven network health tracker
+// Contains functionality related to the event model driven network health
+// tracker.
 
 package health
 
@@ -30,63 +31,68 @@ type Tracker struct {
 
 	// Determines the current health status
 	isHealthy bool
-	// Denotes the past health status
-	// wasHealthy is true if isHealthy has ever been true
+
+	// Denotes that the past health status wasHealthy is true if isHealthy has
+	// ever been true
 	wasHealthy bool
 	mux        sync.RWMutex
 }
 
-// Creates a single HealthTracker thread, starts it, and returns a tracker and a stoppable
+// Init creates a single HealthTracker thread, starts it, and returns a tracker
+// and a stoppable.
 func Init(instance *network.Instance, timeout time.Duration) *Tracker {
-
 	tracker := newTracker(timeout)
 	instance.SetNetworkHealthChan(tracker.heartbeat)
 
 	return tracker
 }
 
-// Builds and returns a new Tracker object given a Context
+// newTracker builds and returns a new Tracker object given a Context.
 func newTracker(timeout time.Duration) *Tracker {
 	return &Tracker{
 		timeout:   timeout,
-		channels:  make([]chan bool, 0),
+		channels:  []chan bool{},
 		heartbeat: make(chan network.Heartbeat, 100),
 		isHealthy: false,
 		running:   false,
 	}
 }
 
-// Add a channel to the list of Tracker channels
-// such that each channel can be notified of network changes
+// AddChannel adds a channel to the list of Tracker channels such that each
+// channel can be notified of network changes.
 func (t *Tracker) AddChannel(c chan bool) {
 	t.mux.Lock()
 	t.channels = append(t.channels, c)
 	t.mux.Unlock()
+
 	select {
 	case c <- t.IsHealthy():
 	default:
 	}
 }
 
-// Add a function to the list of Tracker function
-// such that each function can be run after network changes
+// AddFunc adds a function to the list of Tracker functions such that each
+// function can be run after network changes.
 func (t *Tracker) AddFunc(f func(isHealthy bool)) {
 	t.mux.Lock()
 	t.funcs = append(t.funcs, f)
 	t.mux.Unlock()
+
 	go f(t.IsHealthy())
 }
 
 func (t *Tracker) IsHealthy() bool {
 	t.mux.RLock()
 	defer t.mux.RUnlock()
+
 	return t.isHealthy
 }
 
-// Returns true if isHealthy has ever been true
+// WasHealthy returns true if isHealthy has ever been true.
 func (t *Tracker) WasHealthy() bool {
 	t.mux.RLock()
 	defer t.mux.RUnlock()
+
 	return t.wasHealthy
 }
 
@@ -94,10 +100,11 @@ func (t *Tracker) setHealth(h bool) {
 	t.mux.Lock()
 	// Only set wasHealthy to true if either
 	//  wasHealthy is true or
-	//  wasHealthy false but h value is true
+	//  wasHealthy is false but h value is true
 	t.wasHealthy = t.wasHealthy || h
 	t.isHealthy = h
 	t.mux.Unlock()
+
 	t.transmit(h)
 }
 
@@ -119,7 +126,8 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	return stop, nil
 }
 
-// Long-running thread used to monitor and report on network health
+// start starts a long-running thread used to monitor and report on network
+// health.
 func (t *Tracker) start(stop *stoppable.Single) {
 	timer := time.NewTimer(t.timeout)
 
@@ -131,8 +139,10 @@ func (t *Tracker) start(stop *stoppable.Single) {
 			t.isHealthy = false
 			t.running = false
 			t.mux.Unlock()
+
 			t.transmit(false)
 			stop.ToStopped()
+
 			return
 		case heartbeat = <-t.heartbeat:
 			if healthy(heartbeat) {

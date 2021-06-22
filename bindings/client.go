@@ -424,6 +424,15 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 	return &NodeRegistrationsStatus{registered, total}, err
 }
 
+// DeleteContact is a function which removes a contact from Client's storage
+func (c *Client) DeleteContact(b []byte) error {
+	contactObj, err :=  UnmarshalContact(b)
+	if err != nil {
+		return err
+	}
+	return c.api.DeleteContact(contactObj.c.ID)
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.

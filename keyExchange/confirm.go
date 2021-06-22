@@ -83,11 +83,11 @@ func unmarshalConfirm(payload []byte) (e2e.SessionID, error) {
 			"unmarshal payload: %s", err)
 	}
 
-	confimedSessionID := e2e.SessionID{}
-	if err := confimedSessionID.Unmarshal(msg.SessionID); err != nil {
+	confirmedSessionID := e2e.SessionID{}
+	if err := confirmedSessionID.Unmarshal(msg.SessionID); err != nil {
 		return e2e.SessionID{}, errors.Errorf("Failed to unmarshal"+
 			" sessionID: %s", err)
 	}
 
-	return confimedSessionID, nil
+	return confirmedSessionID, nil
 }

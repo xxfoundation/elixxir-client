@@ -232,7 +232,7 @@ func (c *Client) StopNetworkFollower() error {
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
 	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	for netTime.Now().Sub(start) < timeout {
+	for netTime.Since(start) < timeout {
 		if c.api.GetHealth().IsHealthy() {
 			return true
 		}
@@ -256,10 +256,15 @@ func (c *Client) IsNetworkHealthy() bool {
 	return c.api.GetHealth().IsHealthy()
 }
 
-// registers the network health callback to be called any time the network
-// health changes
-func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
-	c.api.GetHealth().AddFunc(nhc.Callback)
+// RegisterNetworkHealthCB registers the network health callback to be called
+// any time the network health changes. Returns a unique ID that can be used to
+// unregister the network health callback.
+func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) int64 {
+	return int64(c.api.GetHealth().AddFunc(nhc.Callback))
+}
+
+func (c *Client) UnregisterNetworkHealthCB(funcID int64) {
+	c.api.GetHealth().RemoveFunc(uint64(funcID))
 }
 
 // RegisterListener records and installs a listener for messages

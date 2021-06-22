@@ -51,9 +51,9 @@ type Manager struct {
 // updated NDF is available and will error if one is not.
 func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
-	if !client.GetHealth().IsHealthy() {
-		return nil, errors.New("cannot start UD Manager when network was " +
-			"never healthy.")
+	if client.NetworkFollowerStatus() != api.Running {
+		return nil, errors.New("cannot start UD Manager when network follower is not " +
+			"running.")
 	}
 
 	m := &Manager{

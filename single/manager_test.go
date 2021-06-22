@@ -181,7 +181,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 		t.Error("Stoppable is not running.")
 	}
 
-	err = stop.Close(1 * time.Millisecond)
+	err = stop.Close()
 	if err != nil {
 		t.Errorf("Failed to close: %+v", err)
 	}
@@ -283,8 +283,8 @@ func (tnm *testNetworkManager) GetMsg(i int) format.Message {
 	return tnm.msgs[i]
 }
 
-func (tnm *testNetworkManager) SendE2E(_ message.Send, _ params.E2E) ([]id.Round, e2e.MessageID, error) {
-	return nil, [32]byte{}, nil
+func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
+	return nil, e2e.MessageID{}, nil
 }
 
 func (tnm *testNetworkManager) SendUnsafe(_ message.Send, _ params.Unsafe) ([]id.Round, error) {
@@ -306,6 +306,23 @@ func (tnm *testNetworkManager) SendCMIX(msg format.Message, _ *id.ID, _ params.C
 	return id.Round(rand.Uint64()), ephemeral.Id{}, nil
 }
 
+func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	if tnm.cmixTimeout != 0 {
+		time.Sleep(tnm.cmixTimeout)
+	} else if tnm.cmixErr {
+		return 0, []ephemeral.Id{}, errors.New("sendCMIX error")
+	}
+
+	tnm.Lock()
+	defer tnm.Unlock()
+
+	for _, msg := range messages {
+		tnm.msgs = append(tnm.msgs, msg)
+	}
+
+	return id.Round(rand.Uint64()), []ephemeral.Id{}, nil
+}
+
 func (tnm *testNetworkManager) GetInstance() *network.Instance {
 	return tnm.instance
 }
@@ -324,9 +341,17 @@ func (tnm *testNetworkManager) InProgressRegistrations() int {
 	return 0
 }
 
-func (t *testNetworkManager) GetSender() *gateway.Sender {
+func (tnm *testNetworkManager) GetSender() *gateway.Sender {
 	return nil
 }
+
+func (tnm *testNetworkManager) GetAddressSize() uint8 { return 16 }
+
+func (tnm *testNetworkManager) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (tnm *testNetworkManager) UnregisterAddressSizeNotification(string) {}
 
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{

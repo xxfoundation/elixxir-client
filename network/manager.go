@@ -28,6 +28,8 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math"
+	"time"
 )
 
 // Manager implements the NetworkManager interface inside context. It
@@ -50,6 +52,9 @@ type manager struct {
 	tracker      *uint64
 	latencySum   uint64
 	numLatencies uint64
+
+	// Address space size
+	addrSpace *ephemeral.AddressSpace
 }
 
 // NewManager builds a new reception manager object using inputted key fields
@@ -71,10 +76,11 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	tracker := uint64(0)
 
-	//create manager object
+	// create manager object
 	m := manager{
-		param:   params,
-		tracker: &tracker,
+		param:     params,
+		tracker:   &tracker,
+		addrSpace: ephemeral.NewAddressSpace(),
 	}
 
 	m.Internal = internal.Internal{
@@ -91,6 +97,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
+	// Client will not send KeepAlive packets
+	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {
@@ -132,7 +140,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(report, trackNetworkStopper.Quit(), trackNetworkStopper)
+	go m.followNetwork(report, trackNetworkStopper)
 	multi.Add(trackNetworkStopper)
 
 	// Message reception
@@ -141,7 +149,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
+	multi.Add(ephemeral.Track(m.Session, m.addrSpace, m.ReceptionID))
 
 	return multi, nil
 }
@@ -172,4 +180,23 @@ func (m *manager) CheckGarbledMessages() {
 // node registrations.
 func (m *manager) InProgressRegistrations() int {
 	return len(m.Internal.NodeRegistration)
+}
+
+// GetAddressSize returns the current address space size. It blocks until an
+// address space size is set.
+func (m *manager) GetAddressSize() uint8 {
+	return m.addrSpace.Get()
+}
+
+// RegisterAddressSizeNotification returns a channel that will trigger for every
+// address space size update. The provided tag is the unique ID for the channel.
+// Returns an error if the tag is already used.
+func (m *manager) RegisterAddressSizeNotification(tag string) (chan uint8, error) {
+	return m.addrSpace.RegisterNotification(tag)
+}
+
+// UnregisterAddressSizeNotification stops broadcasting address space size
+// updates on the channel with the specified tag.
+func (m *manager) UnregisterAddressSizeNotification(tag string) {
+	m.addrSpace.UnregisterNotification(tag)
 }

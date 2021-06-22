@@ -57,6 +57,53 @@ func (c *Client) SendCmix(recipient, contents []byte, parameters string) (int, e
 	return int(rid), nil
 }
 
+// SendManyCMIX sends many "raw" CMIX message payloads to each of the
+// provided recipients. Used for group chat functionality. Returns the
+// round ID of the round the payload was sent or an error if it fails.
+// This will return an error if:
+//  - any recipient ID is invalid
+//  - any of the the message contents are too long for the message structure
+//  - the message cannot be sent
+
+// This will return the round the message was sent on if it is successfully sent
+// This can be used to register a round event to learn about message delivery.
+// on failure a round id of -1 is returned
+// fixme: cannot use a slice of slices over bindings. Will need to modify this function once
+//  a proper input format has been specified
+//func (c *Client) SendManyCMIX(recipients, contents [][]byte, parameters string) (int, error) {
+//
+//	p, err := params.GetCMIXParameters(parameters)
+//	if err != nil {
+//		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+//			err))
+//	}
+//
+//	// Build messages
+//	messages := make(map[id.ID]format.Message, len(contents))
+//	for i := 0; i < len(contents); i++ {
+//		msg, err := c.api.NewCMIXMessage(contents[i])
+//		if err != nil {
+//			return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+//				err))
+//		}
+//
+//		u, err := id.Unmarshal(recipients[i])
+//		if err != nil {
+//			return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+//				err))
+//		}
+//
+//		messages[*u] = msg
+//	}
+//
+//	rid, _, err := c.api.SendManyCMIX(messages, p)
+//	if err != nil {
+//		return -1, errors.New(fmt.Sprintf("Failed to sendCmix: %+v",
+//			err))
+//	}
+//	return int(rid), nil
+//}
+
 // SendUnsafe sends an unencrypted payload to the provided recipient
 // with the provided msgType. Returns the list of rounds in which parts
 // of the message were sent or an error if it fails.

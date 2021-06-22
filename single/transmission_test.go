@@ -366,7 +366,7 @@ func Test_makeIDs_Consistency(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to generate public key: %+v", err)
 	}
-	addressSize := uint(32)
+	addressSize := uint8(32)
 
 	expectedPayload, err := unmarshalTransmitMessagePayload(msgPayload.Marshal())
 	if err != nil {
@@ -397,7 +397,7 @@ func Test_makeIDs_Consistency(t *testing.T) {
 	}
 
 	expectedEphID, _, _, err := ephemeral.GetId(expectedPayload.GetRID(publicKey),
-		addressSize, timeNow.UnixNano())
+		uint(addressSize), timeNow.UnixNano())
 	if err != nil {
 		t.Fatalf("Failed to generate expected ephemeral ID: %+v", err)
 	}

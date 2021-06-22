@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
@@ -19,14 +20,15 @@ import (
 // receiveTransmissionHandler waits to receive single-use transmissions. When
 // a message is received, its is returned via its registered callback.
 func (m *Manager) receiveTransmissionHandler(rawMessages chan message.Receive,
-	quitChan <-chan struct{}) {
+	stop *stoppable.Single) {
 	fp := singleUse.NewTransmitFingerprint(m.store.E2e().GetDHPublicKey())
 	jww.DEBUG.Print("Waiting to receive single-use transmission messages.")
 	for {
 		select {
-		case <-quitChan:
+		case <-stop.Quit():
 			jww.DEBUG.Printf("Stopping waiting to receive single-use " +
 				"transmission message.")
+			stop.ToStopped()
 			return
 		case msg := <-rawMessages:
 			jww.DEBUG.Printf("Received CMIX message; checking if it is a " +

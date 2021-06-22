@@ -160,6 +160,9 @@ Flags:
                                   base64 representations) (default "0")
       --forceHistoricalRounds     Force all rounds to be sent to historical
                                   round retrieval
+      --forceMessagePickupRetry   Enable a mechanism which forces a 50% chance 
+                                  of no message pickup, instead triggering the 
+                                  message pickup retry mechanism
   -h, --help                      help for client
   -l, --log string                Path to the log output path (- is stdout)
                                   (default "-")

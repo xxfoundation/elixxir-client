@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/e2e"
 	"gitlab.com/elixxir/comms/network"
@@ -25,10 +26,11 @@ import (
 )
 
 func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, manager *e2e.Manager, sendTimeout time.Duration) {
+	sess *storage.Session, manager *e2e.Manager, sendTimeout time.Duration,
+	stop *stoppable.Single) {
 	sessions := manager.TriggerNegotiations()
 	for _, session := range sessions {
-		go trigger(instance, sendE2E, sess, manager, session, sendTimeout)
+		go trigger(instance, sendE2E, sess, manager, session, sendTimeout, stop)
 	}
 }
 
@@ -38,7 +40,7 @@ func CheckKeyExchanges(instance *network.Instance, sendE2E interfaces.SendE2E,
 // session while the latter on an extant session
 func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	sess *storage.Session, manager *e2e.Manager, session *e2e.Session,
-	sendTimeout time.Duration) {
+	sendTimeout time.Duration, stop *stoppable.Single) {
 	var negotiatingSession *e2e.Session
 	jww.INFO.Printf("Negotation triggered for session %s with "+
 		"status: %s", session, session.NegotiationStatus())
@@ -61,7 +63,7 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 	}
 
 	// send the rekey notification to the partner
-	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout)
+	err := negotiate(instance, sendE2E, sess, negotiatingSession, sendTimeout, stop)
 	// if sending the negotiation fails, revert the state of the session to
 	// unconfirmed so it will be triggered in the future
 	if err != nil {
@@ -71,8 +73,8 @@ func trigger(instance *network.Instance, sendE2E interfaces.SendE2E,
 }
 
 func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
-	sess *storage.Session, session *e2e.Session,
-	sendTimeout time.Duration) error {
+	sess *storage.Session, session *e2e.Session, sendTimeout time.Duration,
+	stop *stoppable.Single) error {
 	e2eStore := sess.E2e()
 
 	//generate public key
@@ -102,7 +104,7 @@ func negotiate(instance *network.Instance, sendE2E interfaces.SendE2E,
 	e2eParams := params.GetDefaultE2E()
 	e2eParams.Type = params.KeyExchange
 
-	rounds, _, err := sendE2E(m, e2eParams)
+	rounds, _, err := sendE2E(m, e2eParams, stop)
 	// If the send fails, returns the error so it can be handled. The caller
 	// should ensure the calling session is in a state where the Rekey will
 	// be triggered next time a key is used

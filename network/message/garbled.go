@@ -10,8 +10,9 @@ package message
 import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Messages can arrive in the network out of order. When message handling fails
@@ -33,12 +34,12 @@ func (m *Manager) CheckGarbledMessages() {
 }
 
 //long running thread which processes garbled messages
-func (m *Manager) processGarbledMessages(quitCh <-chan struct{}) {
-	done := false
-	for !done {
+func (m *Manager) processGarbledMessages(stop *stoppable.Single) {
+	for {
 		select {
-		case <-quitCh:
-			done = true
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
 		case <-m.triggerGarbled:
 			m.handleGarbledMessages()
 		}
@@ -80,7 +81,7 @@ func (m *Manager) handleGarbledMessages() {
 		// unless it is the last attempts and has been in the buffer long
 		// enough, in which case remove it
 		if count == m.param.MaxChecksGarbledMessage &&
-			time.Since(timestamp) > m.param.GarbledMessageWait {
+			netTime.Since(timestamp) > m.param.GarbledMessageWait {
 			garbledMsgs.Remove(grbldMsg)
 		} else {
 			failedMsgs = append(failedMsgs, grbldMsg)

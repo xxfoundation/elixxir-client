@@ -62,7 +62,7 @@ var udCmd = &cobra.Command{
 			})
 		}
 
-		_, err := client.StartNetworkFollower()
+		_, err := client.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -176,7 +176,7 @@ var udCmd = &cobra.Command{
 		}
 
 		if len(facts) == 0 {
-			err = client.StopNetworkFollower(10 * time.Second)
+			err = client.StopNetworkFollower()
 			if err != nil {
 				jww.WARN.Print(err)
 			}
@@ -196,7 +196,7 @@ var udCmd = &cobra.Command{
 			jww.FATAL.Panicf("%+v", err)
 		}
 		time.Sleep(91 * time.Second)
-		err = client.StopNetworkFollower(90 * time.Second)
+		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Print(err)
 		}

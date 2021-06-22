@@ -58,19 +58,19 @@ func (m *Manager) StartProcessies() stoppable.Stoppable {
 	//create the message handler workers
 	for i := uint(0); i < m.param.MessageReceptionWorkerPoolSize; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("MessageReception Worker %v", i))
-		go m.handleMessages(stop.Quit())
+		go m.handleMessages(stop)
 		multi.Add(stop)
 	}
 
 	//create the critical messages thread
 	critStop := stoppable.NewSingle("CriticalMessages")
-	go m.processCriticalMessages(critStop.Quit())
+	go m.processCriticalMessages(critStop)
 	m.Health.AddChannel(m.networkIsHealthy)
 	multi.Add(critStop)
 
 	//create the garbled messages thread
 	garbledStop := stoppable.NewSingle("GarbledMessages")
-	go m.processGarbledMessages(garbledStop.Quit())
+	go m.processGarbledMessages(garbledStop)
 	multi.Add(garbledStop)
 
 	return multi

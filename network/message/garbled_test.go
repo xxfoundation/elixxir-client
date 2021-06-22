@@ -7,6 +7,7 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message/parse"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
@@ -120,8 +121,8 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	encryptedMsg := key.Encrypt(msg)
 	i.Session.GetGarbledMessages().Add(encryptedMsg)
 
-	quitch := make(chan struct{})
-	go m.processGarbledMessages(quitch)
+	stop := stoppable.NewSingle("stop")
+	go m.processGarbledMessages(stop)
 
 	m.CheckGarbledMessages()
 

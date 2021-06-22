@@ -11,10 +11,10 @@ package gateway
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
-	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -36,51 +36,15 @@ func NewSender(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.Net
 	return &Sender{hostPool}, nil
 }
 
-// SendToSpecific Call given sendFunc to a specific Host in the HostPool,
-// attempting with up to numProxies destinations in case of failure
-func (s *Sender) SendToSpecific(target *id.ID,
-	sendFunc func(host *connect.Host, target *id.ID) (interface{}, bool, error)) (interface{}, error) {
-	host, ok := s.getSpecific(target)
-	if ok {
-		result, didAbort, err := sendFunc(host, target)
-		if err == nil {
-			return result, s.forceAdd(target)
-		} else {
-			if didAbort {
-				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway %s", host.GetId().String())
-			}
-			jww.WARN.Printf("Unable to SendToSpecific %s: %s", host.GetId().String(), err)
-		}
-	}
-
-	proxies := s.getAny(s.poolParams.ProxyAttempts, []*id.ID{target})
-	for i := range proxies {
-		result, didAbort, err := sendFunc(proxies[i], target)
-		if err == nil {
-			return result, nil
-		} else {
-			if didAbort {
-				return nil, errors.WithMessagef(err, "Aborted SendToSpecific gateway proxy %s",
-					host.GetId().String())
-			}
-			jww.WARN.Printf("Unable to SendToSpecific proxy %s: %s", proxies[i].GetId().String(), err)
-			_, err = s.checkReplace(proxies[i].GetId(), err)
-			if err != nil {
-				jww.ERROR.Printf("Unable to checkReplace: %+v", err)
-			}
-		}
-	}
-
-	return nil, errors.Errorf("Unable to send to specific with proxies")
-}
-
 // SendToAny Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
-func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error)) (interface{}, error) {
+func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error), stop *stoppable.Single) (interface{}, error) {
 
 	proxies := s.getAny(s.poolParams.ProxyAttempts, nil)
 	for i := range proxies {
 		result, err := sendFunc(proxies[i])
-		if err == nil {
+		if stop != nil && !stop.IsRunning() {
+			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToAny")
+		} else if err == nil {
 			return result, nil
 		} else {
 			jww.WARN.Printf("Unable to SendToAny %s: %s", proxies[i].GetId().String(), err)
@@ -96,27 +60,24 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 
 // SendToPreferred Call given sendFunc to any Host in the HostPool, attempting with up to numProxies destinations
 func (s *Sender) SendToPreferred(targets []*id.ID,
-	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error)) (interface{}, error) {
+	sendFunc func(host *connect.Host, target *id.ID) (interface{}, bool, error),
+	stop *stoppable.Single) (interface{}, error) {
 
 	// Get the hosts and shuffle randomly
 	targetHosts := s.getPreferred(targets)
-	var rndBytes [32]byte
-	stream := s.rng.GetStream()
-	_, err := stream.Read(rndBytes[:])
-	stream.Close()
-	if err != nil {
-		return nil, err
-	}
-	shuffle.ShuffleSwap(rndBytes[:], len(targetHosts), func(i, j int) {
-		targetHosts[i], targetHosts[j] = targetHosts[j], targetHosts[i]
-	})
 
 	// Attempt to send directly to targets if they are in the HostPool
 	for i := range targetHosts {
-		result, err := sendFunc(targetHosts[i], targets[i])
-		if err == nil {
+		result, didAbort, err := sendFunc(targetHosts[i], targets[i])
+		if stop != nil && !stop.IsRunning() {
+			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
+		} else if err == nil {
 			return result, nil
 		} else {
+			if didAbort {
+				return nil, errors.WithMessagef(err, "Aborted SendToPreferred gateway %s",
+					targetHosts[i].GetId().String())
+			}
 			jww.WARN.Printf("Unable to SendToPreferred %s via %s: %s",
 				targets[i], targetHosts[i].GetId(), err)
 			_, err = s.checkReplace(targetHosts[i].GetId(), err)
@@ -147,10 +108,16 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 				continue
 			}
 
-			result, err := sendFunc(targetProxies[proxyIdx], target)
-			if err == nil {
+			result, didAbort, err := sendFunc(targetProxies[proxyIdx], target)
+			if stop != nil && !stop.IsRunning() {
+				return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
+			} else if err == nil {
 				return result, nil
 			} else {
+				if didAbort {
+					return nil, errors.WithMessagef(err, "Aborted SendToPreferred gateway proxy %s",
+						proxy.GetId().String())
+				}
 				jww.WARN.Printf("Unable to SendToPreferred %s via proxy "+
 					"%s: %s", target, proxy.GetId(), err)
 				wasReplaced, err := s.checkReplace(proxy.GetId(), err)

@@ -5,7 +5,8 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-// Contains functionality related to the event model driven network health tracker
+// Contains functionality related to the event model driven network health
+// tracker.
 
 package health
 
@@ -23,70 +24,108 @@ type Tracker struct {
 
 	heartbeat chan network.Heartbeat
 
-	channels []chan bool
-	funcs    []func(isHealthy bool)
+	channels   map[uint64]chan bool
+	funcs      map[uint64]func(isHealthy bool)
+	channelsID uint64
+	funcsID    uint64
 
 	running bool
 
 	// Determines the current health status
 	isHealthy bool
-	// Denotes the past health status
-	// wasHealthy is true if isHealthy has ever been true
+
+	// Denotes that the past health status wasHealthy is true if isHealthy has
+	// ever been true
 	wasHealthy bool
 	mux        sync.RWMutex
 }
 
-// Creates a single HealthTracker thread, starts it, and returns a tracker and a stoppable
+// Init creates a single HealthTracker thread, starts it, and returns a tracker
+// and a stoppable.
 func Init(instance *network.Instance, timeout time.Duration) *Tracker {
-
 	tracker := newTracker(timeout)
 	instance.SetNetworkHealthChan(tracker.heartbeat)
 
 	return tracker
 }
 
-// Builds and returns a new Tracker object given a Context
+// newTracker builds and returns a new Tracker object given a Context.
 func newTracker(timeout time.Duration) *Tracker {
 	return &Tracker{
 		timeout:   timeout,
-		channels:  make([]chan bool, 0),
+		channels:  map[uint64]chan bool{},
+		funcs:     map[uint64]func(isHealthy bool){},
 		heartbeat: make(chan network.Heartbeat, 100),
 		isHealthy: false,
 		running:   false,
 	}
 }
 
-// Add a channel to the list of Tracker channels
-// such that each channel can be notified of network changes
-func (t *Tracker) AddChannel(c chan bool) {
+// AddChannel adds a channel to the list of Tracker channels such that each
+// channel can be notified of network changes.  Returns a unique ID for the
+// channel.
+func (t *Tracker) AddChannel(c chan bool) uint64 {
+	var currentID uint64
+
 	t.mux.Lock()
-	t.channels = append(t.channels, c)
+	t.channels[t.channelsID] = c
+	currentID = t.channelsID
+	t.channelsID++
 	t.mux.Unlock()
+
 	select {
 	case c <- t.IsHealthy():
 	default:
 	}
+
+	return currentID
 }
 
-// Add a function to the list of Tracker function
-// such that each function can be run after network changes
-func (t *Tracker) AddFunc(f func(isHealthy bool)) {
+// RemoveChannel removes the channel with the given ID from the list of Tracker
+// channels so that it will not longer be notified of network changes.
+func (t *Tracker) RemoveChannel(chanID uint64) {
 	t.mux.Lock()
-	t.funcs = append(t.funcs, f)
+	delete(t.channels, chanID)
 	t.mux.Unlock()
+}
+
+// AddFunc adds a function to the list of Tracker functions such that each
+// function can be run after network changes. Returns a unique ID for the
+// function.
+func (t *Tracker) AddFunc(f func(isHealthy bool)) uint64 {
+	var currentID uint64
+
+	t.mux.Lock()
+	t.funcs[t.funcsID] = f
+	currentID = t.funcsID
+	t.funcsID++
+	t.mux.Unlock()
+
 	go f(t.IsHealthy())
+
+	return currentID
+}
+
+// RemoveFunc removes the function with the given ID from the list of Tracker
+// functions so that it will not longer be run.
+func (t *Tracker) RemoveFunc(chanID uint64) {
+	t.mux.Lock()
+	delete(t.channels, chanID)
+	t.mux.Unlock()
 }
 
 func (t *Tracker) IsHealthy() bool {
 	t.mux.RLock()
 	defer t.mux.RUnlock()
+
 	return t.isHealthy
 }
 
-// Returns true if isHealthy has ever been true
+// WasHealthy returns true if isHealthy has ever been true.
 func (t *Tracker) WasHealthy() bool {
 	t.mux.RLock()
 	defer t.mux.RUnlock()
+
 	return t.wasHealthy
 }
 
@@ -94,10 +133,11 @@ func (t *Tracker) setHealth(h bool) {
 	t.mux.Lock()
 	// Only set wasHealthy to true if either
 	//  wasHealthy is true or
-	//  wasHealthy false but h value is true
+	//  wasHealthy is false but h value is true
 	t.wasHealthy = t.wasHealthy || h
 	t.isHealthy = h
 	t.mux.Unlock()
+
 	t.transmit(h)
 }
 
@@ -114,25 +154,29 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 
 	stop := stoppable.NewSingle("Health Tracker")
 
-	go t.start(stop.Quit())
+	go t.start(stop)
 
 	return stop, nil
 }
 
-// Long-running thread used to monitor and report on network health
-func (t *Tracker) start(quitCh <-chan struct{}) {
+// start starts a long-running thread used to monitor and report on network
+// health.
+func (t *Tracker) start(stop *stoppable.Single) {
 	timer := time.NewTimer(t.timeout)
 
 	for {
 		var heartbeat network.Heartbeat
 		select {
-		case <-quitCh:
+		case <-stop.Quit():
 			t.mux.Lock()
 			t.isHealthy = false
 			t.running = false
 			t.mux.Unlock()
+
 			t.transmit(false)
-			break
+			stop.ToStopped()
+
+			return
 		case heartbeat = <-t.heartbeat:
 			if healthy(heartbeat) {
 				// Stop and reset timer
@@ -146,10 +190,9 @@ func (t *Tracker) start(quitCh <-chan struct{}) {
 				timer.Reset(t.timeout)
 				t.setHealth(true)
 			}
-			break
 		case <-timer.C:
 			t.setHealth(false)
-			break
+			return
 		}
 	}
 }

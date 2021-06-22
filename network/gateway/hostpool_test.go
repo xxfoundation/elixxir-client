@@ -54,6 +54,49 @@ func TestNewHostPool(t *testing.T) {
 	}
 }
 
+// Tests that the hosts are loaded from storage, if they exist.
+func TestNewHostPool_HostListStore(t *testing.T) {
+	manager := newMockManager()
+	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
+	testNdf := getTestNdf(t)
+	testStorage := storage.InitTestingSession(t)
+	addGwChan := make(chan network.NodeGateway)
+	params := DefaultPoolParams()
+	params.MaxPoolSize = uint32(len(testNdf.Gateways))
+
+	addedIDs := []*id.ID{
+		id.NewIdFromString("testID0", id.Gateway, t),
+		id.NewIdFromString("testID1", id.Gateway, t),
+		id.NewIdFromString("testID2", id.Gateway, t),
+		id.NewIdFromString("testID3", id.Gateway, t),
+	}
+	err := testStorage.HostList().Store(addedIDs)
+	if err != nil {
+		t.Fatalf("Failed to store host list: %+v", err)
+	}
+
+	for i, hid := range addedIDs {
+		testNdf.Gateways[i].ID = hid.Marshal()
+	}
+
+	// Call the constructor
+	hp, err := newHostPool(params, rng, testNdf, manager, testStorage, addGwChan)
+	if err != nil {
+		t.Fatalf("Failed to create mock host pool: %v", err)
+	}
+
+	// Check that the host list was saved to storage
+	hostList, err := hp.storage.HostList().Get()
+	if err != nil {
+		t.Errorf("Failed to get host list: %+v", err)
+	}
+
+	if !reflect.DeepEqual(addedIDs, hostList) {
+		t.Errorf("Failed to save expected host list to storage."+
+			"\nexpected: %+v\nreceived: %+v", addedIDs, hostList)
+	}
+}
+
 // Unit test
 func TestHostPool_ManageHostPool(t *testing.T) {
 	manager := newMockManager()
@@ -115,7 +158,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 	for _, ndfGw := range testNdf.Gateways {
 		gwId, err := id.Unmarshal(ndfGw.ID)
 		if err != nil {
-			t.Errorf("Failed to marshal gateway id for %v", ndfGw)
+			t.Fatalf("Failed to marshal gateway id for %v", ndfGw)
 		}
 		if _, ok := testPool.hostMap[*gwId]; ok {
 			t.Errorf("Expected gateway %v to be removed from pool", gwId)
@@ -135,6 +178,7 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 		hostList: make([]*connect.Host, newIndex+1),
 		hostMap:  make(map[id.ID]uint32),
 		ndf:      testNdf,
+		storage:  storage.InitTestingSession(t),
 	}
 
 	/* "Replace" a host with no entry */
@@ -228,6 +272,18 @@ func TestHostPool_ReplaceHost(t *testing.T) {
 			"\n\tReceived: %d", newIndex, retrievedIndex)
 	}
 
+	// Check that the host list was saved to storage
+	hostList, err := hostPool.storage.HostList().Get()
+	if err != nil {
+		t.Errorf("Failed to get host list: %+v", err)
+	}
+
+	expectedList := []*id.ID{gwIdTwo}
+
+	if !reflect.DeepEqual(expectedList, hostList) {
+		t.Errorf("Failed to save expected host list to storage."+
+			"\nexpected: %+v\nreceived: %+v", expectedList, hostList)
+	}
 }
 
 // Error path, could not get host
@@ -754,7 +810,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 	for _, ndfGw := range testNdf.Gateways {
 		gwId, err := id.Unmarshal(ndfGw.ID)
 		if err != nil {
-			t.Errorf("Failed to marshal gateway id for %v", ndfGw)
+			t.Fatalf("Failed to marshal gateway id for %v", ndfGw)
 		}
 		if _, ok := testPool.hostMap[*gwId]; ok {
 			t.Errorf("Expected gateway %v to be removed from pool", gwId)

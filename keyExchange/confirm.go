@@ -23,6 +23,7 @@ func startConfirm(sess *storage.Session, c chan message.Receive,
 		select {
 		case <-stop.Quit():
 			cleanup()
+			stop.ToStopped()
 			return
 		case confirmation := <-c:
 			handleConfirm(sess, confirmation)

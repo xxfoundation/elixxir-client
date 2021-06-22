@@ -1,12 +1,15 @@
 package reception
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/xx_network/crypto/randomness"
 	"io"
 	"math/big"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -47,4 +50,18 @@ func (iu IdentityUse) setSamplingPeriod(rng io.Reader) (IdentityUse, error) {
 	iu.StartRequest = iu.StartValid.Add(-time.Duration(periodOffset))
 	iu.EndRequest = iu.EndValid.Add(iu.RequestMask - time.Duration(periodOffset))
 	return iu, nil
+}
+
+func (iu IdentityUse) GoString() string {
+	str := make([]string, 0, 7)
+
+	str = append(str, "Identity:"+iu.Identity.GoString())
+	str = append(str, "StartRequest:"+iu.StartRequest.String())
+	str = append(str, "EndRequest:"+iu.EndRequest.String())
+	str = append(str, "Fake:"+strconv.FormatBool(iu.Fake))
+	str = append(str, "UR:"+fmt.Sprintf("%+v", iu.UR))
+	str = append(str, "ER:"+fmt.Sprintf("%+v", iu.ER))
+	str = append(str, "CR:"+fmt.Sprintf("%+v", iu.CR))
+
+	return "{" + strings.Join(str, ", ") + "}"
 }

@@ -27,7 +27,7 @@ func (c *Client) SendE2E(m message.Send, param params.E2E) ([]id.Round,
 	e2e.MessageID, error) {
 	jww.INFO.Printf("SendE2E(%s, %d. %v)", m.Recipient,
 		m.MessageType, m.Payload)
-	return c.network.SendE2E(m, param)
+	return c.network.SendE2E(m, param, nil)
 }
 
 // SendUnsafe sends an unencrypted payload to the provided recipient
@@ -50,6 +50,14 @@ func (c *Client) SendCMIX(msg format.Message, recipientID *id.ID,
 	param params.CMIX) (id.Round, ephemeral.Id, error) {
 	jww.INFO.Printf("SendCMIX(%s)", string(msg.GetContents()))
 	return c.network.SendCMIX(msg, recipientID, param)
+}
+
+// SendManyCMIX sends many "raw" CMIX message payloads to each of the
+// provided recipients. Used for group chat functionality. Returns the
+// round ID of the round the payload was sent or an error if it fails.
+func (c *Client) SendManyCMIX(messages map[id.ID]format.Message,
+	params params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return c.network.SendManyCMIX(messages, params)
 }
 
 // NewCMIXMessage Creates a new cMix message with the right properties

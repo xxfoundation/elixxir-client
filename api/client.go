@@ -8,10 +8,6 @@
 package api
 
 import (
-	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/primitives/id"
-	"time"
-
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -28,11 +24,18 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/version"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math"
+	"sync"
+	"time"
 )
+
+const followerStoppableName = "client"
 
 type Client struct {
 	//generic RNG for client
@@ -64,6 +67,10 @@ type Client struct {
 	services *serviceProcessiesList
 
 	clientErrorChannel chan interfaces.ClientError
+
+	//lock to ensure only once instance of stop/start network follower is
+	//going at a time
+	followerLock sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -181,7 +188,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		rng:         rngStreamGen,
 		comms:       nil,
 		network:     nil,
-		runner:      stoppable.NewMulti("client"),
+		runner:      stoppable.NewMulti(followerStoppableName),
 		status:      newStatusTracker(),
 		parameters:  parameters,
 	}
@@ -213,7 +220,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	//get the NDF to pass into permissioning and the network manager
-	def := c.storage.GetBaseNDF()
+	def := c.storage.GetNDF()
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
@@ -229,6 +236,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	if def.Notification.Address != "" {
 		hp := connect.GetDefaultHostParams()
+		// Client will not send KeepAlive packets
+		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5
 		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
@@ -280,7 +289,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	//store the updated base NDF
-	c.storage.SetBaseNDF(def)
+	c.storage.SetNDF(def)
 
 	//initialize permissioning
 	if def.Registration.Address != "" {
@@ -348,6 +357,7 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 }
 
 // ----- Client Functions -----
+
 // StartNetworkFollower kicks off the tracking of the network. It starts
 // long running network client threads and returns an object for checking
 // state and stopping those threads.
@@ -378,10 +388,16 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
+func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.ClientError, error) {
+	c.followerLock.Lock()
+	defer c.followerLock.Unlock()
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
+
+	if status := c.status.get(); status != Stopped {
+		return nil, errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
+	}
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
 
@@ -397,12 +413,21 @@ func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 		}
 	}
 
-	err := c.status.toStarting()
+	// Wait for any threads from the previous follower to close and then create
+	// a new stoppable
+	err := stoppable.WaitForStopped(c.runner, timeout)
+	if err != nil {
+		return nil, err
+	} else {
+		c.runner = stoppable.NewMulti(followerStoppableName)
+	}
+
+	err = c.status.toStarting()
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
 	}
 
-	stopAuth := c.auth.StartProcessies()
+	stopAuth := c.auth.StartProcesses()
 	c.runner.Add(stopAuth)
 
 	stopFollow, err := c.network.Follow(cer)
@@ -429,13 +454,19 @@ func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
-func (c *Client) StopNetworkFollower(timeout time.Duration) error {
+func (c *Client) StopNetworkFollower() error {
+	c.followerLock.Lock()
+	defer c.followerLock.Unlock()
+
+	if status := c.status.get(); status != Running {
+		return errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
+	}
+
 	err := c.status.toStopping()
 	if err != nil {
 		return errors.WithMessage(err, "Failed to Stop the Network Follower")
 	}
-	err = c.runner.Close(timeout)
-	c.runner = stoppable.NewMulti("client")
+	err = c.runner.Close()
 	err2 := c.status.toStopped()
 	if err2 != nil {
 		if err == nil {
@@ -593,7 +624,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	}
 
 	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
+	storageSess.SetNDF(def)
 
 	if !isPrecanned {
 		//store the registration code for later use

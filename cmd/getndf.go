@@ -70,8 +70,8 @@ var getNDFCmd = &cobra.Command{
 				Partial: &pb.NDFHash{
 					Hash: nil,
 				},
-				LastUpdate:  uint64(0),
-				ReceptionID: dummyID[:],
+				LastUpdate:    uint64(0),
+				ReceptionID:   dummyID[:],
 				ClientVersion: []byte(api.SEMVER),
 			}
 			resp, err := comms.SendPoll(host, pollMsg)

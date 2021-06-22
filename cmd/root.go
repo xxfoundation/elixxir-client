@@ -23,7 +23,9 @@ import (
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/xx_network/primitives/id"
 	"io/ioutil"
+	"log"
 	"os"
+	"runtime/pprof"
 	"strconv"
 	"strings"
 	"time"
@@ -45,6 +47,14 @@ var rootCmd = &cobra.Command{
 	Short: "Runs a client for cMix anonymous communication platform",
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
+		profileOut := viper.GetString("profile-cpu")
+		if profileOut != "" {
+			f, err := os.Create(profileOut)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			pprof.StartCPUProfile(f)
+		}
 
 		client := initClient()
 
@@ -70,42 +80,20 @@ var rootCmd = &cobra.Command{
 			recipientContact = user.GetContact()
 		}
 
-		// Set up reception handler
-		swboard := client.GetSwitchboard()
-		recvCh := make(chan message.Receive, 10000)
-		listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
-			switchboard.AnyUser(), message.Text, recvCh)
-		jww.INFO.Printf("Message ListenerID: %v", listenerID)
+		confCh, recvCh := initClientCallbacks(client)
 
-		// Set up auth request handler, which simply prints the
-		// user id of the requester.
-		authMgr := client.GetAuthRegistrar()
-		authMgr.AddGeneralRequestCallback(printChanRequest)
-
-		// If unsafe channels, add auto-acceptor
+		// The following block is used to check if the request from
+		// a channel authorization is from the recipient we intend in
+		// this run.
 		authConfirmed := false
-		authMgr.AddGeneralConfirmCallback(func(
-			partner contact.Contact) {
-			jww.INFO.Printf("Channel Confirmed: %s",
-				partner.ID)
-			authConfirmed = recipientID.Cmp(partner.ID)
-		})
-		if viper.GetBool("unsafe-channel-creation") {
-			authMgr.AddGeneralRequestCallback(func(
-				requestor contact.Contact, message string) {
-				jww.INFO.Printf("Channel Request: %s",
-					requestor.ID)
-				_, err := client.ConfirmAuthenticatedChannel(
-					requestor)
-				if err != nil {
-					jww.FATAL.Panicf("%+v", err)
-				}
-				authConfirmed = recipientID.Cmp(
-					requestor.ID)
-			})
-		}
+		go func() {
+			for {
+				requestor := <-confCh
+				authConfirmed = recipientID.Cmp(requestor)
+			}
+		}()
 
-		_, err := client.StartNetworkFollower()
+		_, err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -255,13 +243,55 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
 
-		err = client.StopNetworkFollower(5 * time.Second)
+		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
 				"Failed to cleanly close threads: %+v\n",
 				err)
 		}
+		if profileOut != "" {
+			pprof.StopCPUProfile()
+		}
+
 	},
+}
+
+func initClientCallbacks(client *api.Client) (chan *id.ID,
+	chan message.Receive) {
+	// Set up reception handler
+	swboard := client.GetSwitchboard()
+	recvCh := make(chan message.Receive, 10000)
+	listenerID := swboard.RegisterChannel("DefaultCLIReceiver",
+		switchboard.AnyUser(), message.Text, recvCh)
+	jww.INFO.Printf("Message ListenerID: %v", listenerID)
+
+	// Set up auth request handler, which simply prints the
+	// user id of the requester.
+	authMgr := client.GetAuthRegistrar()
+	authMgr.AddGeneralRequestCallback(printChanRequest)
+
+	// If unsafe channels, add auto-acceptor
+	authConfirmed := make(chan *id.ID, 10)
+	authMgr.AddGeneralConfirmCallback(func(
+		partner contact.Contact) {
+		jww.INFO.Printf("Channel Confirmed: %s",
+			partner.ID)
+		authConfirmed <- partner.ID
+	})
+	if viper.GetBool("unsafe-channel-creation") {
+		authMgr.AddGeneralRequestCallback(func(
+			requestor contact.Contact, message string) {
+			jww.INFO.Printf("Channel Request: %s",
+				requestor.ID)
+			_, err := client.ConfirmAuthenticatedChannel(
+				requestor)
+			if err != nil {
+				jww.FATAL.Panicf("%+v", err)
+			}
+			authConfirmed <- requestor.ID
+		})
+	}
+	return authConfirmed, recvCh
 }
 
 // Helper function which prints the round resuls
@@ -333,7 +363,6 @@ func createClient() *api.Client {
 				err = api.NewClient(string(ndfJSON), storeDir,
 					[]byte(pass), regCode)
 			}
-
 		}
 
 		if err != nil {
@@ -348,6 +377,7 @@ func createClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
+	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -369,6 +399,12 @@ func initClient() *api.Client {
 		viper.GetUint("e2eNumReKeys"))
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = viper.GetBool(" slowPolling")
+	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
+	if netParams.ForceMessagePickupRetry {
+		period := 3 * time.Second
+		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
+		netParams.UncheckRoundPeriod = period
+	}
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -498,7 +534,7 @@ func waitUntilConnected(connected chan bool) {
 				isConnected)
 			break
 		case <-timeoutTimer.C:
-			jww.FATAL.Panic("timeout on connection")
+			jww.FATAL.Panicf("timeout on connection after %s", waitTimeout*time.Second)
 		}
 	}
 
@@ -613,32 +649,17 @@ func initLog(threshold uint, logPath string) {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
+		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
 	} else {
-		jww.INFO.Printf("log level set to: TRACE")
+		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
-}
-
-func isValidUser(usr []byte) (bool, *id.ID) {
-	if len(usr) != id.ArrIDLen {
-		return false, nil
-	}
-	for _, b := range usr {
-		if b != 0 {
-			uid, err := id.Unmarshal(usr)
-			if err != nil {
-				jww.WARN.Printf("Could not unmarshal user: %s", err)
-				return false, nil
-			}
-			return true, uid
-		}
-	}
-	return false, nil
 }
 
 func askToCreateChannel(recipientID *id.ID) bool {
@@ -769,6 +790,11 @@ func init() {
 		"Enables polling for unfiltered network updates with RSA signatures")
 	viper.BindPFlag("slowPolling",
 		rootCmd.Flags().Lookup("slowPolling"))
+	rootCmd.Flags().Bool("forceMessagePickupRetry", false,
+		"Enable a mechanism which forces a 50% chance of no message pickup, "+
+			"instead triggering the message pickup retry mechanism")
+	viper.BindPFlag("forceMessagePickupRetry",
+		rootCmd.Flags().Lookup("forceMessagePickupRetry"))
 
 	// E2E Params
 	defaultE2EParams := params.GetDefaultE2ESessionParams()
@@ -784,6 +810,10 @@ func init() {
 		"", uint(defaultE2EParams.NumRekeys),
 		"Number of rekeys reserved for rekey operations")
 	viper.BindPFlag("e2eNumReKeys", rootCmd.Flags().Lookup("e2eNumReKeys"))
+
+	rootCmd.Flags().String("profile-cpu", "",
+		"Enable cpu profiling to this file")
+	viper.BindPFlag("profile-cpu", rootCmd.Flags().Lookup("profile-cpu"))
 }
 
 // initConfig reads in config file and ENV variables if set.

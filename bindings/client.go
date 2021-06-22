@@ -259,12 +259,12 @@ func (c *Client) IsNetworkHealthy() bool {
 // RegisterNetworkHealthCB registers the network health callback to be called
 // any time the network health changes. Returns a unique ID that can be used to
 // unregister the network health callback.
-func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) uint64 {
-	return c.api.GetHealth().AddFunc(nhc.Callback)
+func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) int64 {
+	return int64(c.api.GetHealth().AddFunc(nhc.Callback))
 }
 
-func (c *Client) UnregisterNetworkHealthCB(funcID uint64) {
-	c.api.GetHealth().RemoveFunc(funcID)
+func (c *Client) UnregisterNetworkHealthCB(funcID int64) {
+	c.api.GetHealth().RemoveFunc(uint64(funcID))
 }
 
 // RegisterListener records and installs a listener for messages

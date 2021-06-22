@@ -12,7 +12,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/primitives/format"
-	"time"
+	"gitlab.com/xx_network/primitives/netTime"
 )
 
 // Messages can arrive in the network out of order. When message handling fails
@@ -81,7 +81,7 @@ func (m *Manager) handleGarbledMessages() {
 		// unless it is the last attempts and has been in the buffer long
 		// enough, in which case remove it
 		if count == m.param.MaxChecksGarbledMessage &&
-			time.Since(timestamp) > m.param.GarbledMessageWait {
+			netTime.Since(timestamp) > m.param.GarbledMessageWait {
 			garbledMsgs.Remove(grbldMsg)
 		} else {
 			failedMsgs = append(failedMsgs, grbldMsg)

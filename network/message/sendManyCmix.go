@@ -71,7 +71,7 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 		"(msgDigest: %s)", recipientString, msgDigests)
 
 	for numRoundTries := uint(0); numRoundTries < param.RoundTries; numRoundTries++ {
-		elapsed := netTime.Now().Sub(timeStart)
+		elapsed := netTime.Since(timeStart)
 
 		if elapsed > param.Timeout {
 			jww.INFO.Printf("No rounds to send to %s (msgDigest: %s) were found "+

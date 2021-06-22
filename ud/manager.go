@@ -15,6 +15,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"math"
 	"time"
 )
 
@@ -50,9 +51,9 @@ type Manager struct {
 // updated NDF is available and will error if one is not.
 func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
-	if !client.GetHealth().IsHealthy() {
-		return nil, errors.New("cannot start UD Manager when network was " +
-			"never healthy.")
+	if client.NetworkFollowerStatus() != api.Running {
+		return nil, errors.New("cannot start UD Manager when network follower is not " +
+			"running.")
 	}
 
 	m := &Manager{
@@ -89,6 +90,8 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 
 	// Create the user discovery host object
 	hp := connect.GetDefaultHostParams()
+	// Client will not send KeepAlive packets
+	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	hp.MaxRetries = 3
 	hp.SendTimeout = 3 * time.Second
 	m.host, err = m.comms.AddHost(&id.UDB, def.UDB.Address, []byte(def.UDB.Cert), hp)

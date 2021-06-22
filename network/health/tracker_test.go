@@ -9,12 +9,11 @@ package health
 
 import (
 	"gitlab.com/elixxir/comms/network"
-	//	"gitlab.com/elixxir/comms/network"
 	"testing"
 	"time"
 )
 
-// Happy path smoke test
+// Happy path smoke test.
 func TestNewTracker(t *testing.T) {
 	// Initialize required variables
 	timeout := 250 * time.Millisecond
@@ -49,8 +48,7 @@ func TestNewTracker(t *testing.T) {
 	// Begin the health tracker
 	_, err := tracker.Start()
 	if err != nil {
-		t.Errorf("Unable to start tracker: %+v", err)
-		return
+		t.Fatalf("Unable to start tracker: %+v", err)
 	}
 
 	// Send a positive health heartbeat
@@ -68,14 +66,12 @@ func TestNewTracker(t *testing.T) {
 
 	// Verify the network was marked as healthy
 	if !tracker.IsHealthy() {
-		t.Errorf("Tracker did not become healthy")
-		return
+		t.Fatal("Tracker did not become healthy.")
 	}
 
 	// Check if the tracker was ever healthy
 	if !tracker.WasHealthy() {
-		t.Errorf("Tracker did not become healthy")
-		return
+		t.Fatal("Tracker did not become healthy.")
 	}
 
 	// Verify the heartbeat triggered the listening chan/func
@@ -89,15 +85,12 @@ func TestNewTracker(t *testing.T) {
 
 	// Verify the network was marked as NOT healthy
 	if tracker.IsHealthy() {
-		t.Errorf("Tracker should not report healthy")
-		return
+		t.Fatal("Tracker should not report healthy.")
 	}
 
-	// Check if the tracker was ever healthy,
-	// after setting healthy to false
+	// Check if the tracker was ever healthy, after setting healthy to false
 	if !tracker.WasHealthy() {
-		t.Errorf("Tracker was healthy previously but not reported healthy")
-		return
+		t.Fatal("Tracker was healthy previously but not reported healthy.")
 	}
 
 	// Verify the timeout triggered the listening chan/func

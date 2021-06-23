@@ -572,6 +572,19 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 	return numRegistered, len(nodes), nil
 }
 
+// DeleteContact is a function which removes a partner from Client's storage
+func (c *Client) DeleteContact(partnerId *id.ID) error {
+	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
+	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
+		return err
+	}
+	if err := c.storage.Auth().Delete(partnerId); err != nil {
+		return err
+	}
+	c.storage.Conversations().Delete(partnerId)
+	return nil
+}
+
 // ----- Utility Functions -----
 // parseNDF parses the initial ndf string for the client. do not check the
 // signature, it is deprecated.

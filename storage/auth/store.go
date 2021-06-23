@@ -92,7 +92,7 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 		return nil, errors.WithMessagef(err, "Failed to "+
 			"unmarshal SentRequestMap")
 	}
-
+	jww.TRACE.Printf("%d found when loading AuthStore", len(requestList))
 	for _, rDisk := range requestList {
 		r := &request{
 			rt: RequestType(rDisk.T),
@@ -117,7 +117,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				PrivKey: nil,
 				Request: r,
 			}
-
 			rid = sr.partner
 			r.sent = sr
 
@@ -143,7 +142,6 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 
 func (s *Store) save() error {
 	requestIDList := make([]requestDisk, len(s.requests))
-
 	index := 0
 	for pid, r := range s.requests {
 		rDisk := requestDisk{
@@ -158,7 +156,6 @@ func (s *Store) save() error {
 	if err != nil {
 		return err
 	}
-
 	obj := versioned.Object{
 		Version:   requestMapVersion,
 		Timestamp: netTime.Now(),
@@ -206,6 +203,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 
 	jww.INFO.Printf("AddSent PUBKEY FINGERPRINT: %v", sr.fingerprint)
 	jww.INFO.Printf("AddSent PUBKEY: %v", sr.myPubKey.Bytes())
+	jww.INFO.Printf("AddSent Partner: %s", partner)
 
 	s.fingerprints[sr.fingerprint] = fingerprint{
 		Type:    Specific,
@@ -219,7 +217,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 func (s *Store) AddReceived(c contact.Contact) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-
+	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)
 	if _, ok := s.requests[*c.ID]; ok {
 		return errors.Errorf("Cannot add contact for partner "+
 			"%s, one already exists", c.ID)

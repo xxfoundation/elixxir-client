@@ -68,6 +68,64 @@ func TestLoadRelationship(t *testing.T) {
 	}
 }
 
+// Shows that a deleted Relationship can no longer be pulled from store
+func TestDeleteRelationship(t *testing.T) {
+	mgr := makeTestRelationshipManager(t)
+
+	// Generate send relationship
+	mgr.send = NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
+	if err := mgr.send.save(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Generate receive relationship
+	mgr.receive = NewRelationship(mgr, Receive, params.GetDefaultE2ESessionParams())
+	if err := mgr.receive.save(); err != nil {
+		t.Fatal(err)
+	}
+
+	err := DeleteRelationship(mgr)
+	if err != nil {
+		t.Fatalf("DeleteRelationship error: Could not delete manager: %v", err)
+	}
+
+	_, err = LoadRelationship(mgr, Send)
+	if err == nil {
+		t.Fatalf("DeleteRelationship error: Should not have loaded deleted relationship: %v", err)
+	}
+
+	_, err = LoadRelationship(mgr, Receive)
+	if err == nil {
+		t.Fatalf("DeleteRelationship error: Should not have loaded deleted relationship: %v", err)
+	}
+}
+
+// Shows that a deleted relationship fingerprint can no longer be pulled from store
+func TestRelationship_deleteRelationshipFingerprint(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("deleteRelationshipFingerprint error: " +
+				"Did not panic when loading deleted fingerprint")
+		}
+	}()
+
+	mgr := makeTestRelationshipManager(t)
+	sb := NewRelationship(mgr, Send, params.GetDefaultE2ESessionParams())
+
+	err := sb.save()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = deleteRelationshipFingerprint(mgr.kv)
+	if err != nil {
+		t.Fatalf("deleteRelationshipFingerprint error: "+
+			"Could not delete fingerprint: %v", err)
+	}
+
+	loadRelationshipFingerprint(mgr.kv)
+}
+
 // Shows that Relationship returns a valid session buff
 func TestNewRelationshipBuff(t *testing.T) {
 	mgr := makeTestRelationshipManager(t)

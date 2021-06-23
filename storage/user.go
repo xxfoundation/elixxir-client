@@ -16,7 +16,7 @@ func (s *Session) GetUser() user.User {
 	return user.User{
 		TransmissionID:        ci.GetTransmissionID().DeepCopy(),
 		TransmissionSalt:      copySlice(ci.GetTransmissionSalt()),
-		TransmissionRSA:       ci.GetTransmissionRSA(),
+		TransmissionRSA:       ci.GetReceptionRSA(),
 		ReceptionID:           ci.GetReceptionID().DeepCopy(),
 		RegistrationTimestamp: s.user.GetRegistrationTimestamp(),
 		ReceptionSalt:         copySlice(ci.GetReceptionSalt()),

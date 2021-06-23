@@ -220,7 +220,7 @@ func Load(baseDir, password string, currentVersion version.Version,
 	}
 
 	s.conversations = conversation.NewStore(s.kv)
-	s.partition = partition.New(s.kv)
+	s.partition = partition.Load(s.kv)
 
 	s.reception = reception.LoadStore(s.kv)
 

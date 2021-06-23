@@ -426,7 +426,7 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 
 // DeleteContact is a function which removes a contact from Client's storage
 func (c *Client) DeleteContact(b []byte) error {
-	contactObj, err :=  UnmarshalContact(b)
+	contactObj, err := UnmarshalContact(b)
 	if err != nil {
 		return err
 	}

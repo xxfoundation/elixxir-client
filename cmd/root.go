@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
 
-		//err = client.RegisterForNotifications([]byte("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN"))
+		//err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
 		//if err != nil {
 		//	jww.FATAL.Panicf("Failed to register for notifications: %+v", err)
 		//}
@@ -461,7 +461,7 @@ func acceptChannel(client *api.Client, recipientID *id.ID) {
 	}
 }
 
-func deleteChannel(client *api.Client, partnerId *id.ID)  {
+func deleteChannel(client *api.Client, partnerId *id.ID) {
 	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)

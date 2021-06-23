@@ -19,6 +19,6 @@ type TimeSource interface {
 // SetTimeSource sets the network time to a custom source.
 func SetTimeSource(timeNow TimeSource) {
 	netTime.Now = func() time.Time {
-		return time.Unix(0,timeNow.NowMs()*int64(time.Millisecond))
+		return time.Unix(0, timeNow.NowMs()*int64(time.Millisecond))
 	}
 }

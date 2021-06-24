@@ -3,6 +3,8 @@ package auth
 import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/large"
+	"gitlab.com/xx_network/primitives/id"
+	"math/rand"
 )
 
 func getGroup() *cyclic.Group {
@@ -23,13 +25,19 @@ func getGroup() *cyclic.Group {
 		large.NewIntFromString("2", 16))
 }
 
+// randID returns a new random ID of the specified type.
+func randID(rng *rand.Rand, t id.Type) *id.ID {
+	newID, _ := id.NewRandomID(rng, t)
+	return newID
+}
+
 func newSalt(s string) []byte {
 	salt := make([]byte, saltSize)
 	copy(salt[:], s)
 	return salt
 }
 
-func newEcrPayload(size int, s string) []byte {
+func newPayload(size int, s string) []byte {
 	b := make([]byte, size)
 	copy(b[:], s)
 	return b

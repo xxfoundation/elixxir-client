@@ -17,7 +17,7 @@ type removeFactComms interface {
 // associated with this client.
 func (m *Manager) RemoveFact(fact fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveFact(%s)", fact.Stringify())
-	return m.removeFact(fact, nil)
+	return m.removeFact(fact, m.comms)
 }
 
 func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {

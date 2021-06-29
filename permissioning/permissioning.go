@@ -13,6 +13,8 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math"
+	"time"
 )
 
 type Permissioning struct {
@@ -31,7 +33,8 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Permissioning, erro
 	//add the permissioning host to comms
 	hParam := connect.GetDefaultHostParams()
 	hParam.AuthEnabled = false
-
+	// Client will not send KeepAlive packets
+	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	perm.host, err = comms.AddHost(&id.Permissioning, def.Registration.Address,
 		[]byte(def.Registration.TlsCertificate), hParam)
 

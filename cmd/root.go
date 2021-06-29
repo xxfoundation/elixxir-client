@@ -103,7 +103,7 @@ var rootCmd = &cobra.Command{
 		client.GetHealth().AddChannel(connected)
 		waitUntilConnected(connected)
 
-		//err = client.RegisterForNotifications([]byte("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN"))
+		//err = client.RegisterForNotifications("dJwuGGX3KUyKldWK5PgQH8:APA91bFjuvimRc4LqOyMDiy124aLedifA8DhldtaB_b76ggphnFYQWJc_fq0hzQ-Jk4iYp2wPpkwlpE1fsOjs7XWBexWcNZoU-zgMiM0Mso9vTN53RhbXUferCbAiEylucEOacy9pniN")
 		//if err != nil {
 		//	jww.FATAL.Panicf("Failed to register for notifications: %+v", err)
 		//}
@@ -172,6 +172,11 @@ var rootCmd = &cobra.Command{
 			}
 			jww.INFO.Printf("Authentication channel confirmation"+
 				" took %d seconds", scnt)
+		}
+
+		// Delete this recipient
+		if viper.GetBool("delete-channel") {
+			deleteChannel(client, recipientID)
 		}
 
 		msg := message.Send{
@@ -451,6 +456,13 @@ func acceptChannel(client *api.Client, recipientID *id.ID) {
 	}
 	_, err = client.ConfirmAuthenticatedChannel(
 		recipientContact)
+	if err != nil {
+		jww.FATAL.Panicf("%+v", err)
+	}
+}
+
+func deleteChannel(client *api.Client, partnerId *id.ID) {
+	err := client.DeleteContact(partnerId)
 	if err != nil {
 		jww.FATAL.Panicf("%+v", err)
 	}
@@ -768,6 +780,11 @@ func init() {
 		"Accept the channel request for the corresponding recipient ID")
 	viper.BindPFlag("accept-channel",
 		rootCmd.Flags().Lookup("accept-channel"))
+
+	rootCmd.Flags().Bool("delete-channel", false,
+		"Delete the channel information for the corresponding recipient ID")
+	viper.BindPFlag("delete-channel",
+		rootCmd.Flags().Lookup("delete-channel"))
 
 	rootCmd.Flags().BoolP("send-auth-request", "", false,
 		"Send an auth request to the specified destination and wait"+

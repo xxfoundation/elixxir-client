@@ -70,6 +70,30 @@ func TestLoadManager(t *testing.T) {
 	}
 }
 
+// Unit test for clearManager
+func TestManager_ClearManager(t *testing.T) {
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatalf("clearManager error: " +
+				"Did not panic when loading deleted manager")
+		}
+	}()
+
+	// Set up expected and test values
+	expectedM, kv := newTestManager(t)
+
+	err := clearManager(expectedM, kv)
+	if err != nil {
+		t.Fatalf("clearManager returned an error: %v", err)
+	}
+
+	// Attempt to load relationship
+	_, err = loadManager(expectedM.ctx, kv, expectedM.partner)
+	if err != nil {
+		t.Errorf("loadManager() returned an error: %v", err)
+	}
+}
+
 // Tests happy path of Manager.NewReceiveSession.
 func TestManager_NewReceiveSession(t *testing.T) {
 	// Set up test values

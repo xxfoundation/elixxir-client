@@ -44,6 +44,6 @@ func register(comms registrationMessageSender, host *connect.Host,
 		return nil, nil, 0, errors.Errorf("sendRegistrationMessage: error handling message: %s", response.Error)
 	}
 
-	return response.ClientSignedByServer.Signature, 
-	response.ClientReceptionSignedByServer.Signature, response.Timestamp, nil
+	return response.ClientSignedByServer.Signature,
+		response.ClientReceptionSignedByServer.Signature, response.Timestamp, nil
 }

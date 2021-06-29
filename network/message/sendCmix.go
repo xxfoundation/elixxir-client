@@ -74,13 +74,12 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		remainingTime := cmixParams.Timeout - elapsed
 		//find the best round to send to, excluding attempted rounds
 		bestRound, err := instance.GetWaitingRounds().GetUpcomingRealtime(remainingTime, attempted, sendTimeBuffer)
-		if err!=nil{
+		if err != nil {
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
 		}
 		if bestRound == nil {
 			continue
 		}
-
 
 		//add the round on to the list of attempted so it is not tried again
 		attempted.Insert(bestRound)

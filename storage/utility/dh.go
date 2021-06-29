@@ -42,3 +42,8 @@ func LoadCyclicKey(kv *versioned.KV, key string) (*cyclic.Int, error) {
 
 	return cy, cy.GobDecode(vo.Data)
 }
+
+// DeleteCyclicKey deletes a given cyclic key from storage
+func DeleteCyclicKey(kv *versioned.KV, key string) error {
+	return kv.Delete(key, currentCyclicVersion)
+}

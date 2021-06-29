@@ -112,6 +112,25 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 	return m, nil
 }
 
+// clearManager removes the relationship between the partner
+// and deletes the Send and Receive sessions. This includes the
+// sessions and the key vectors
+func clearManager(m *Manager, kv *versioned.KV) error {
+	kv = kv.Prefix(fmt.Sprintf(managerPrefix, m.partner))
+
+	if err := DeleteRelationship(m); err != nil {
+		return errors.WithMessage(err,
+			"Failed to delete relationship")
+	}
+
+	if err := utility.DeleteCyclicKey(m.kv, originPartnerPubKey); err != nil {
+		jww.FATAL.Panicf("Failed to delete %s: %+v", originPartnerPubKey,
+			err)
+	}
+
+	return nil
+}
+
 // NewReceiveSession creates a new Receive session using the latest private key
 // this user has sent and the new public key received from the partner. If the
 // session already exists, then it will not be overwritten and the extant

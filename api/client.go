@@ -30,6 +30,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math"
 	"sync"
 	"time"
 )
@@ -235,6 +236,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	if def.Notification.Address != "" {
 		hp := connect.GetDefaultHostParams()
+		// Client will not send KeepAlive packets
+		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5
 		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
@@ -392,10 +395,9 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
-	if status := c.status.get(); status != Stopped{
+	if status := c.status.get(); status != Stopped {
 		return nil, errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
 	}
-
 
 	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
 
@@ -456,7 +458,7 @@ func (c *Client) StopNetworkFollower() error {
 	c.followerLock.Lock()
 	defer c.followerLock.Unlock()
 
-	if status := c.status.get(); status != Running{
+	if status := c.status.get(); status != Running {
 		return errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
 	}
 
@@ -568,6 +570,19 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 	// Get the number of in progress node registrations
 	return numRegistered, len(nodes), nil
+}
+
+// DeleteContact is a function which removes a partner from Client's storage
+func (c *Client) DeleteContact(partnerId *id.ID) error {
+	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
+	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
+		return err
+	}
+	if err := c.storage.Auth().Delete(partnerId); err != nil {
+		return err
+	}
+	c.storage.Conversations().Delete(partnerId)
+	return nil
 }
 
 // ----- Utility Functions -----

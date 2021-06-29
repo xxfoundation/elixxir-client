@@ -61,13 +61,13 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 				"receiving a request")
 		} else if rqType == auth.Sent {
 			resend = true
-		}else{
-			return 0, errors.Errorf("Cannot send a request after " +
+		} else {
+			return 0, errors.Errorf("Cannot send a request after "+
 				" a stored request with unknown rqType: %d", rqType)
 		}
-	}else if !strings.Contains(err.Error(), auth.NoRequest){
+	} else if !strings.Contains(err.Error(), auth.NoRequest) {
 		return 0, errors.WithMessage(err,
-			"Cannot send a request after receiving unknown error " +
+			"Cannot send a request after receiving unknown error "+
 				"on requesting contact status")
 	}
 
@@ -105,11 +105,11 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	// in this case we have an ongoing request so we can resend the extant
 	// request
-	if resend{
+	if resend {
 		newPrivKey = sr.GetMyPrivKey()
 		newPubKey = sr.GetMyPubKey()
-	//in this case it is a new request and we must generate new keys
-	}else{
+		//in this case it is a new request and we must generate new keys
+	} else {
 		//generate new keypair
 		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
 		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
@@ -143,7 +143,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	/*store state*/
 	//fixme: channel is bricked if the first store succedes but the second fails
 	//store the in progress auth
-	if !resend{
+	if !resend {
 		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
 			newPrivKey, confirmFp)
 		if err != nil {
@@ -160,7 +160,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	if err != nil {
 		// if the send fails just set it to failed, it will
 		// but automatically retried
-		return 0, errors.WithMessagef(err, "Auth Request with %s " +
+		return 0, errors.WithMessagef(err, "Auth Request with %s "+
 			"(msgDigest: %s) failed to transmit: %+v", partner.ID,
 			cmixMsg.Digest(), err)
 	}

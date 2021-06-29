@@ -48,7 +48,7 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 			DhPubKey: m.storage.E2e().GetDHPublicKey().Bytes(),
 			Salt:     cryptoUser.GetReceptionSalt(),
 		},
-		UID: cryptoUser.GetReceptionID().Marshal(),
+		UID:       cryptoUser.GetReceptionID().Marshal(),
 		Timestamp: user.GetRegistrationTimestamp().UnixNano(),
 	}
 

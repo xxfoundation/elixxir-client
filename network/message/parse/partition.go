@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
 
@@ -80,9 +81,9 @@ func (p Partitioner) HandlePartition(sender *id.ID, _ message.EncryptionType,
 		// Handle the message ID
 		messageID := p.session.Conversations().Get(sender).
 			ProcessReceivedMessageID(fm.GetID())
-
+		storeageTimestamp := netTime.Now()
 		return p.session.Partition().AddFirst(sender, fm.GetType(),
-			messageID, fm.GetPart(), fm.GetNumParts(), fm.GetTimestamp(),
+			messageID, fm.GetPart(), fm.GetNumParts(), fm.GetTimestamp(), storeageTimestamp,
 			fm.GetSizedContents(), relationshipFingerprint)
 	} else {
 		// If it is a subsequent message part, handle it as so

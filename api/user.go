@@ -38,7 +38,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 
 	wg := sync.WaitGroup{}
 
-	wg.Add(6)
+	wg.Add(4)
 
 	go func(){
 		defer wg.Done()
@@ -91,38 +91,33 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 			jww.FATAL.Panicf(err.Error())
 		}
 	}()
+	wg.Wait()
 
 	// Salt, UID, etc gen
-	go func(){
-		defer wg.Done()
-		transmissionSalt = make([]byte, SaltSize)
-		stream := rng.GetStream()
-		n, err := stream.Read(transmissionSalt)
-		stream.Close()
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-		if n != SaltSize {
-			jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-		}
-	}()
+	stream := rng.GetStream()
+	transmissionSalt = make([]byte, SaltSize)
 
+	n, err := stream.Read(transmissionSalt)
 
-	go func(){
-		defer wg.Done()
-		receptionSalt = make([]byte, SaltSize)
-		stream := rng.GetStream()
-		n, err := stream.Read(receptionSalt)
-		stream.Close()
-		if err != nil {
-			jww.FATAL.Panicf(err.Error())
-		}
-		if n != SaltSize {
-			jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
-		}
-	}()
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	if n != SaltSize {
+		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
+	}
 
-	wg.Wait()
+	receptionSalt = make([]byte, SaltSize)
+
+	n, err = stream.Read(receptionSalt)
+
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	if n != SaltSize {
+		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
+	}
+
+	stream.Close()
 
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
 	if err != nil {

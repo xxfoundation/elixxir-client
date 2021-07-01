@@ -80,24 +80,26 @@ type Client struct {
 func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
 	jww.INFO.Printf("NewClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	jww.INFO.Printf("RNG Creation")
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
-
+	jww.INFO.Printf("Parsing NDF")
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
 	if err != nil {
 		return err
 	}
+	jww.INFO.Printf("Decoding Groups")
 	cmixGrp, e2eGrp := decodeGroups(def)
-
+	jww.INFO.Printf("Creating New User")
 	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
-
+	jww.INFO.Printf("Setting Up Storage")
 	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
 	if err != nil {
 		return err
 	}
-
+	jww.INFO.Printf("Returning")
 	//TODO: close the session
 	return nil
 }

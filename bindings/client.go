@@ -102,7 +102,6 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	}
 	extantClient = true
 	clientSingleton := &Client{api: *client}
-	clientSingleton.single = single.NewManager(&clientSingleton.api)
 
 	return clientSingleton, nil
 }

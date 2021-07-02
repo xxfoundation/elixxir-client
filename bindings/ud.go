@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -31,6 +32,10 @@ type UserDiscovery struct {
 // In general this is not an issue because the client object should exist
 // for the life of the program.
 func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
+	if client.single == nil{
+		client.single = single.NewManager(&client.api)
+	}
+
 	m, err := ud.NewManager(&client.api, client.single)
 
 	if err != nil {

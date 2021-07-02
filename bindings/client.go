@@ -14,6 +14,7 @@ import (
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
@@ -38,6 +39,7 @@ func init() {
 // to support the gomobile Client interface
 type Client struct {
 	api api.Client
+	single *single.Manager
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -100,6 +102,8 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	}
 	extantClient = true
 	clientSingleton := &Client{api: *client}
+	clientSingleton.single = single.NewManager(&clientSingleton.api)
+
 	return clientSingleton, nil
 }
 

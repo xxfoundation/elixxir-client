@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -111,7 +110,6 @@ func (ud UserDiscovery) Search(fl string, callback SearchCallback,
 	}
 	timeout := time.Duration(timeoutMS) * time.Millisecond
 	cb := func(cl []contact.Contact, err error) {
-		jww.INFO.Printf("Full contact list: %+v", cl)
 		var contactList *ContactList
 		var errStr string
 		if err == nil {

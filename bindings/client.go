@@ -40,6 +40,7 @@ func init() {
 type Client struct {
 	api api.Client
 	single *single.Manager
+	singleMux sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -102,7 +103,6 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	}
 	extantClient = true
 	clientSingleton := &Client{api: *client}
-	clientSingleton.single = single.NewManager(&clientSingleton.api)
 
 	return clientSingleton, nil
 }
@@ -457,3 +457,21 @@ func (b *BindingsClient) Search(data, separator string,
 	searchTypes []byte) ContactList {
 	return nil
 }*/
+
+// getSingle is a function which returns the single mananger if it
+// exists or creates a new one, checking appropriate constraints
+// (that the network follower is running) if it needs to make one
+func (c *Client) getSingle() (*single.Manager, error) {
+	c.singleMux.Lock()
+	defer c.singleMux.Unlock()
+	if c.single==nil{
+		if !c.IsNetworkHealthy(){
+			return nil, errors.New("cannot return single manager, network si not healthy")
+		}
+		apiClient := &c.api
+		c.single = single.NewManager(apiClient)
+		apiClient.AddService(c.single.StartProcesses)
+	}
+
+	return c.single, nil
+}

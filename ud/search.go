@@ -73,6 +73,11 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 		return
 	}
 
+	//return an error if no facts are found
+	if len(searchResponse.Contacts)==0{
+		go callback(nil, errors.New("No contacts found in search"))
+	}
+
 	c, err := m.parseContacts(searchResponse.Contacts, factMap)
 	if err != nil {
 		go callback(nil, errors.WithMessage(err, "Failed to parse contacts from "+

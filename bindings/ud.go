@@ -30,11 +30,16 @@ type UserDiscovery struct {
 // the bindings to think the other is in charge of the client object.
 // In general this is not an issue because the client object should exist
 // for the life of the program.
+// This must be called while start network follower is running.
 func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
-	m, err := ud.NewManager(&client.api, client.single)
+	single, err := client.getSingle()
+	if err!=nil{
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+	}
+	m, err := ud.NewManager(&client.api, single)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	} else {
 		return &UserDiscovery{ud: m}, nil
 	}

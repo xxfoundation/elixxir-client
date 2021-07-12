@@ -81,16 +81,17 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
 	if err != nil {
 		return err
 	}
-	cmixGrp, e2eGrp := decodeGroups(def)
 
-	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
+	cmixGrp, e2eGrp := decodeGroups(def)
+	start := time.Now()
+	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
+	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
 
 	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)

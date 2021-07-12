@@ -140,12 +140,16 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetMac(mac)
 	cmixMsg.SetContents(baseFmt.Marshal())
 
+	jww.TRACE.Printf("RequestAuth SALT: %v", salt)
+	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())
+	jww.TRACE.Printf("RequestAuth MAC: %v", mac)
+
 	/*store state*/
 	//fixme: channel is bricked if the first store succedes but the second fails
 	//store the in progress auth
 	if !resend {
 		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
-			newPrivKey, confirmFp)
+			newPubKey, confirmFp)
 		if err != nil {
 			return 0, errors.Errorf("Failed to store auth request: %s", err)
 		}

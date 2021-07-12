@@ -95,7 +95,6 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		ExtraChecks: 10,
 		StartValid:  timeStart.Add(-2 * timeout),
 		EndValid:    timeStart.Add(2 * timeout),
-		RequestMask: 48*time.Hour - timeout,
 		Ephemeral:   true,
 	})
 	if err != nil {

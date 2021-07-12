@@ -165,12 +165,6 @@ func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, erro
 		}
 	}
 
-	// Calculate the sampling period
-	identity, err = identity.setSamplingPeriod(rng)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to calculate the sampling period: %+v", err)
-	}
-
 	return identity, nil
 }
 

@@ -94,6 +94,7 @@ bindings-ios:
   script:
     - go get -u golang.org/x/mobile/cmd/gomobile
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    - ls
     - zip -r iOS.zip Bindings.framework
   artifacts:
     paths:

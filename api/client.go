@@ -16,7 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/permissioning"
+	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
@@ -55,7 +55,7 @@ type Client struct {
 	// loop
 	network interfaces.NetworkManager
 	//object used to register and communicate with permissioning
-	permissioning *permissioning.Permissioning
+	permissioning *registration.Registration
 	//object containing auth interactions
 	auth *auth.Manager
 
@@ -220,10 +220,10 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		return nil, err
 	}
 
-	//get the NDF to pass into permissioning and the network manager
+	//get the NDF to pass into registration and the network manager
 	def := c.storage.GetNDF()
 
-	//initialize permissioning
+	//initialize registration
 	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
@@ -292,7 +292,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	//store the updated base NDF
 	c.storage.SetNDF(def)
 
-	//initialize permissioning
+	//initialize registration
 	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
@@ -337,14 +337,14 @@ func (c *Client) initComms() error {
 
 func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
-	//initialize permissioning
-	c.permissioning, err = permissioning.Init(c.comms, def)
+	//initialize registration
+	c.permissioning, err = registration.Init(c.comms, def)
 	if err != nil {
 		return errors.WithMessage(err, "failed to init "+
 			"permissioning handler")
 	}
 
-	//register with permissioning if necessary
+	//register with registration if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
@@ -646,7 +646,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 		//move the registration state to keys generated
 		err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 	} else {
-		//move the registration state to indicate registered with permissioning
+		//move the registration state to indicate registered with registration
 		err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	}
 

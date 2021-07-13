@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package permissioning
+package registration
 
 import (
 	"github.com/pkg/errors"
@@ -51,7 +51,7 @@ func (s *MockRegistrationSender) GetHost(*id.ID) (*connect.Host, bool) {
 }
 
 // Shows that we get expected result from happy path
-// Shows that permissioning gets RPCs with the correct parameters
+// Shows that registration gets RPCs with the correct parameters
 func TestRegisterWithPermissioning(t *testing.T) {
 	rng := csprng.NewSystemRNG()
 	key, err := rsa.GenerateKey(rng, 256)
@@ -94,7 +94,7 @@ func TestRegisterWithPermissioning(t *testing.T) {
 	}
 }
 
-// Shows that returning an error from the permissioning server results in an
+// Shows that returning an error from the registration server results in an
 // error from register
 func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	rng := csprng.NewSystemRNG()
@@ -104,10 +104,10 @@ func TestRegisterWithPermissioning_ResponseErr(t *testing.T) {
 	}
 	var sender MockRegistrationSender
 	sender.succeedGetHost = true
-	sender.errInReply = "failure occurred on permissioning"
+	sender.errInReply = "failure occurred on registration"
 	_, _, _, err = register(&sender, nil, key.GetPublic(), key.GetPublic(), "")
 	if err == nil {
-		t.Error("no error if registration fails on permissioning")
+		t.Error("no error if registration fails on registration")
 	}
 }
 

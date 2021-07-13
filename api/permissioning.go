@@ -26,7 +26,7 @@ func (c *Client) registerWithPermissioning() error {
 			"permissioning")
 	}
 
-	//register with permissioning
+	//register with registration
 	transmissionRegValidationSignature, receptionRegValidationSignature,
 		registrationTimestamp, err := c.permissioning.Register(transmissionPubKey, receptionPubKey, regCode)
 	if err != nil {

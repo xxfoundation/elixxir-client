@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package permissioning
+package registration
 
 import (
 	"github.com/pkg/errors"
@@ -14,7 +14,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
-func (perm *Permissioning) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey,
+func (perm *Registration) Register(transmissionPublicKey, receptionPublicKey *rsa.PublicKey,
 	registrationCode string) ([]byte, []byte, int64, error) {
 	return register(perm.comms, perm.host, transmissionPublicKey, receptionPublicKey, registrationCode)
 }

@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package permissioning
+package registration
 
 import (
 	"github.com/pkg/errors"
@@ -17,29 +17,29 @@ import (
 	"time"
 )
 
-type Permissioning struct {
+type Registration struct {
 	host  *connect.Host
 	comms *client.Comms
 }
 
-func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Permissioning, error) {
+func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Registration, error) {
 
-	perm := Permissioning{
+	perm := Registration{
 		host:  nil,
 		comms: comms,
 	}
 
 	var err error
-	//add the permissioning host to comms
+	//add the registration host to comms
 	hParam := connect.GetDefaultHostParams()
 	hParam.AuthEnabled = false
 	// Client will not send KeepAlive packets
 	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
-	perm.host, err = comms.AddHost(&id.Permissioning, def.Registration.Address,
-		[]byte(def.Registration.TlsCertificate), hParam)
+	perm.host, err = comms.AddHost(&id.ClientRegistration, def.ClientRegistration.Address,
+		[]byte(def.ClientRegistration.TlsCertificate), hParam)
 
 	if err != nil {
-		return nil, errors.WithMessage(err, "failed to create permissioning")
+		return nil, errors.WithMessage(err, "failed to create registration")
 	}
 
 	return &perm, nil

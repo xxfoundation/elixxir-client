@@ -110,7 +110,7 @@ func init() {
 	viper.BindPFlag("gwhost",
 		getNDFCmd.Flags().Lookup("gwhost"))
 	getNDFCmd.Flags().StringP("permhost", "", "",
-		"Poll this permissioning host:port for the NDF")
+		"Poll this registration host:port for the NDF")
 	viper.BindPFlag("permhost",
 		getNDFCmd.Flags().Lookup("permhost"))
 

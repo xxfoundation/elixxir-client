@@ -44,6 +44,9 @@ type NetworkManager interface {
 	// UnregisterAddressSizeNotification stops broadcasting address space size
 	// updates on the channel with the specified tag.
 	UnregisterAddressSizeNotification(tag string)
+
+	// SetPoolFilter sets the filter used to filter gateway IDs.
+	SetPoolFilter(f gateway.Filter)
 }
 
 //for use in key exchange which needs to be callable inside of network

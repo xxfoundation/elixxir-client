@@ -200,3 +200,8 @@ func (m *manager) RegisterAddressSizeNotification(tag string) (chan uint8, error
 func (m *manager) UnregisterAddressSizeNotification(tag string) {
 	m.addrSpace.UnregisterNotification(tag)
 }
+
+// SetPoolFilter sets the filter used to filter gateway IDs.
+func (m *manager) SetPoolFilter(f gateway.Filter) {
+	m.sender.SetFilter(f)
+}

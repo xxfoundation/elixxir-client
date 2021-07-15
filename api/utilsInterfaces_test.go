@@ -136,3 +136,4 @@ func (t *testNetworkManagerGeneric) RegisterAddressSizeNotification(string) (cha
 }
 
 func (t *testNetworkManagerGeneric) UnregisterAddressSizeNotification(string) {}
+func (t *testNetworkManagerGeneric) SetPoolFilter(gateway.Filter)             {}

@@ -290,6 +290,7 @@ func (tnm *testNetworkManager) RegisterAddressSizeNotification(string) (chan uin
 	return nil, nil
 }
 func (tnm *testNetworkManager) UnregisterAddressSizeNotification(string) {}
+func (tnm *testNetworkManager) SetPoolFilter(gateway.Filter)             {}
 
 func getNDF() *ndf.NetworkDefinition {
 	return &ndf.NetworkDefinition{

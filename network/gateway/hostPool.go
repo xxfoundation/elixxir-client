@@ -41,6 +41,13 @@ type HostManager interface {
 	RemoveHost(hid *id.ID)
 }
 
+// Filter filters out IDs from the provided map based on criteria in the NDF.
+// The passed in map is a map of the NDF for easier acesss.  The map is ID -> index in the NDF
+// There is no multithreading, the filter function can either edit the passed map or make a new one 
+// and return it.  The general pattern is to loop through the map, then look up data about the node 
+// in the ndf to make a filtering decision, then add them to a new map if they are accepted. 
+type Filter func(map[id.ID]int, *ndf.NetworkDefinition) map[id.ID]int
+
 // HostPool Handles providing hosts to the Client
 type HostPool struct {
 	hostMap  map[id.ID]uint32 // map key to its index in the slice
@@ -56,6 +63,9 @@ type HostPool struct {
 	storage        *storage.Session
 	manager        HostManager
 	addGatewayChan chan network.NodeGateway
+
+	filterMux sync.Mutex
+	filter    Filter
 }
 
 // PoolParams Allows configuration of HostPool parameters
@@ -85,13 +95,15 @@ func DefaultPoolParams() PoolParams {
 }
 
 // Build and return new HostPool object
-func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.NetworkDefinition, getter HostManager,
-	storage *storage.Session, addGateway chan network.NodeGateway) (*HostPool, error) {
+func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
+	netDef *ndf.NetworkDefinition, getter HostManager, storage *storage.Session,
+	addGateway chan network.NodeGateway) (*HostPool, error) {
 	var err error
 
 	// Determine size of HostPool
 	if poolParams.PoolSize == 0 {
-		poolParams.PoolSize, err = getPoolSize(uint32(len(ndf.Gateways)), poolParams.MaxPoolSize)
+		poolParams.PoolSize, err = getPoolSize(uint32(len(netDef.Gateways)),
+			poolParams.MaxPoolSize)
 		if err != nil {
 			return nil, err
 		}
@@ -102,10 +114,15 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 		hostMap:        make(map[id.ID]uint32),
 		hostList:       make([]*connect.Host, poolParams.PoolSize),
 		poolParams:     poolParams,
-		ndf:            ndf,
+		ndf:            netDef,
 		rng:            rng,
 		storage:        storage,
 		addGatewayChan: addGateway,
+
+		// Initialise the filter so it does not filter any IDs
+		filter: func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
+			return m
+		},
 	}
 
 	// Propagate the NDF
@@ -138,7 +155,7 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator, ndf *ndf.N
 		}
 	}
 
-	jww.INFO.Printf("Initialized HostPool with size: %d/%d", poolParams.PoolSize, len(ndf.Gateways))
+	jww.INFO.Printf("Initialized HostPool with size: %d/%d", poolParams.PoolSize, len(netDef.Gateways))
 	return result, nil
 }
 
@@ -159,6 +176,22 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 		jww.ERROR.Printf("Unable to updateConns: %+v", err)
 	}
 	h.ndfMux.Unlock()
+}
+
+// SetFilter sets the filter used to filter gateways from the ID map.
+func (h *HostPool) SetFilter(f Filter) {
+	h.filterMux.Lock()
+	defer h.filterMux.Unlock()
+
+	h.filter = f
+}
+
+// getFilter returns the filter used to filter gateways from the ID map.
+func (h *HostPool) getFilter() Filter {
+	h.filterMux.Lock()
+	defer h.filterMux.Unlock()
+
+	return h.filter
 }
 
 // Obtain a random, unique list of Hosts of the given length from the HostPool
@@ -369,6 +402,9 @@ func (h *HostPool) updateConns() error {
 	if err != nil {
 		return errors.Errorf("Unable to convert new NDF to set: %+v", err)
 	}
+
+	// Filter out gateway IDs
+	newMap = h.getFilter()(newMap, h.ndf)
 
 	// Handle adding Gateways
 	for gwId, ndfIdx := range newMap {

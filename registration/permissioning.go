@@ -35,11 +35,17 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Registration, error
 	hParam.AuthEnabled = false
 	// Client will not send KeepAlive packets
 	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
-	perm.host, err = comms.AddHost(&id.ClientRegistration, def.ClientRegistration.Address,
-		[]byte(def.ClientRegistration.TlsCertificate), hParam)
+	perm.host, err = comms.AddHost(&id.ClientRegistration, def.Registration.ClientRegistrationAddress,
+		[]byte(def.Registration.TlsCertificate), hParam)
 
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create registration")
+	}
+
+	_, err = comms.AddHost(&id.Permissioning, def.Registration.Address, // We need to add this for round updates to work
+		[]byte(def.Registration.TlsCertificate), hParam)
+	if err != nil {
+		return nil, errors.WithMessage(err, "failed to create permissioning")
 	}
 
 	return &perm, nil

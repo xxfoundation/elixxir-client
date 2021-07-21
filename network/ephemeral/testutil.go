@@ -94,6 +94,7 @@ func (t *testNetworkManager) RegisterAddressSizeNotification(string) (chan uint8
 }
 
 func (t *testNetworkManager) UnregisterAddressSizeNotification(string) {}
+func (t *testNetworkManager) SetPoolFilter(gateway.Filter)             {}
 
 func NewTestNetworkManager(i interface{}) interfaces.NetworkManager {
 	switch i.(type) {

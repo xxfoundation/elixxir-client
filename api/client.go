@@ -30,6 +30,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/region"
 	"math"
 	"sync"
 	"time"
@@ -584,6 +585,61 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	}
 	c.storage.Conversations().Delete(partnerId)
 	return nil
+}
+
+// SetProxiedBins updates the host pool filter that filters out gateways that
+// are not in one of the specified bins.
+func (c *Client) SetProxiedBins(binStrings []string) error {
+	// Convert each region string into a region.GeoBin and place in a map for
+	// easy lookup
+	bins := make(map[region.GeoBin]bool, len(binStrings))
+	for i, binStr := range binStrings {
+		bin, err := region.GetRegion(binStr)
+		if err != nil {
+			return errors.Errorf("failed to parse geographic bin #%d: %+v", i, err)
+		}
+
+		bins[bin] = true
+	}
+
+	// Create filter func
+	f := func(m map[id.ID]int, netDef *ndf.NetworkDefinition) map[id.ID]int {
+		prunedList := make(map[id.ID]int, len(m))
+		for gwID, i := range m {
+			if bins[netDef.Gateways[i].Bin] {
+				prunedList[gwID] = i
+			}
+		}
+		return prunedList
+	}
+
+	c.network.SetPoolFilter(f)
+
+	return nil
+}
+
+// GetPreferredBins returns the geographic bin or bins that the provided two
+// character country code is a part of.
+func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
+	// Get the bin that the country is in
+	bin, exists := region.GetCountryBin(countryCode)
+	if !exists {
+		return nil, errors.Errorf("failed to find geographic bin for country %q",
+			countryCode)
+	}
+
+	// Add bin to list of geographic bins
+	bins := []string{bin.String()}
+
+	// Add additional bins in special cases
+	switch bin {
+	case region.Africa:
+		bins = append(bins, region.WesternEurope.String())
+	case region.MiddleEast:
+		bins = append(bins, region.EasternEurope.String())
+	}
+
+	return bins, nil
 }
 
 // ----- Utility Functions -----

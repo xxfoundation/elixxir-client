@@ -104,16 +104,16 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		},
 		LastUpdate:     uint64(m.Instance.GetLastUpdateID()),
 		ReceptionID:    identity.EphId[:],
-		StartTimestamp: identity.StartRequest.UnixNano(),
-		EndTimestamp:   identity.EndRequest.UnixNano(),
+		StartTimestamp: identity.StartValid.UnixNano(),
+		EndTimestamp:   identity.EndValid.UnixNano(),
 		ClientVersion:  []byte(version.String()),
 		FastPolling:    m.param.FastPolling,
 	}
 
 	result, err := m.GetSender().SendToAny(func(host *connect.Host) (interface{}, error) {
 		jww.DEBUG.Printf("Executing poll for %v(%s) range: %s-%s(%s) from %s",
-			identity.EphId.Int64(), identity.Source, identity.StartRequest,
-			identity.EndRequest, identity.EndRequest.Sub(identity.StartRequest), host.GetId())
+			identity.EphId.Int64(), identity.Source, identity.StartValid,
+			identity.EndValid, identity.StartValid.Sub(identity.EndValid), host.GetId())
 		return comms.SendPoll(host, &pollReq)
 	}, stop)
 

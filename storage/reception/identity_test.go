@@ -21,7 +21,6 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 		ExtraChecks: 12,
 		StartValid:  netTime.Now().Round(0),
 		EndValid:    netTime.Now().Round(0),
-		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
 
@@ -51,7 +50,6 @@ func TestIdentity_Delete(t *testing.T) {
 		ExtraChecks: 12,
 		StartValid:  netTime.Now().Round(0),
 		EndValid:    netTime.Now().Round(0),
-		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
 

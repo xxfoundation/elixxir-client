@@ -35,6 +35,7 @@ func Init(comms *client.Comms, def *ndf.NetworkDefinition) (*Registration, error
 	hParam.AuthEnabled = false
 	// Client will not send KeepAlive packets
 	hParam.KaClientOpts.Time = time.Duration(math.MaxInt64)
+	hParam.MaxRetries = 3
 	perm.host, err = comms.AddHost(&id.ClientRegistration, def.Registration.ClientRegistrationAddress,
 		[]byte(def.Registration.TlsCertificate), hParam)
 

@@ -470,6 +470,9 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 		hostMap:  make(map[id.ID]uint32),
 		ndf:      testNdf,
 		storage:  storage.InitTestingSession(t),
+		filter: func(m map[id.ID]int, _ *ndf.NetworkDefinition) map[id.ID]int {
+			return m
+		},
 	}
 
 	// Construct a new Ndf different from original one above

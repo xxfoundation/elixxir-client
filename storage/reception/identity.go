@@ -27,10 +27,8 @@ type Identity struct {
 	// ID exits active
 
 	// Polling parameters
-	StartValid  time.Time     // Timestamp when the ephID begins being valid
-	EndValid    time.Time     // Timestamp when the ephID stops being valid
-	RequestMask time.Duration // Amount of extra time requested for the poll in
-	// order to mask the exact valid time for the ID
+	StartValid time.Time // Timestamp when the ephID begins being valid
+	EndValid   time.Time // Timestamp when the ephID stops being valid
 
 	// Makes the identity not store on disk
 	Ephemeral bool
@@ -92,7 +90,6 @@ func (i Identity) GoString() string {
 	str = append(str, "ExtraChecks:"+strconv.FormatUint(uint64(i.ExtraChecks), 10))
 	str = append(str, "StartValid:"+i.StartValid.String())
 	str = append(str, "EndValid:"+i.EndValid.String())
-	str = append(str, "RequestMask:"+i.RequestMask.String())
 	str = append(str, "Ephemeral:"+strconv.FormatBool(i.Ephemeral))
 
 	return "{" + strings.Join(str, ", ") + "}"
@@ -106,6 +103,5 @@ func (i Identity) Equal(b Identity) bool {
 		i.ExtraChecks == b.ExtraChecks &&
 		i.StartValid.Equal(b.StartValid) &&
 		i.EndValid.Equal(b.EndValid) &&
-		i.RequestMask == b.RequestMask &&
 		i.Ephemeral == b.Ephemeral
 }

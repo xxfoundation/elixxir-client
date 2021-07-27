@@ -8,6 +8,8 @@
 package bindings
 
 import (
+	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
@@ -20,6 +22,7 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -435,6 +438,43 @@ func (c *Client) DeleteContact(b []byte) error {
 		return err
 	}
 	return c.api.DeleteContact(contactObj.c.ID)
+}
+
+// SetProxiedBins updates the host pool filter that filters out gateways that
+// are not in one of the specified bins. The provided bins should be CSV.
+func (c *Client) SetProxiedBins(binStringsCSV string) error {
+	// Convert CSV to slice of strings
+	all, err := csv.NewReader(strings.NewReader(binStringsCSV)).ReadAll()
+	if err != nil {
+		return err
+	}
+
+	binStrings := make([]string, 0, len(all[0]))
+	for _, a := range all {
+		binStrings = append(binStrings, a...)
+	}
+
+	return c.api.SetProxiedBins(binStrings)
+}
+
+// GetPreferredBins returns the geographic bin or bins that the provided two
+// character country code is a part of. The bins are returned as CSV.
+func (c *Client) GetPreferredBins(countryCode string) (string, error) {
+	bins, err := c.api.GetPreferredBins(countryCode)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert the slice of bins to CSV
+	buff := bytes.NewBuffer(nil)
+	csvWriter := csv.NewWriter(buff)
+	err = csvWriter.Write(bins)
+	if err != nil {
+		return "", err
+	}
+	csvWriter.Flush()
+
+	return buff.String(), nil
 }
 
 /*

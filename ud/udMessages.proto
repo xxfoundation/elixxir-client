@@ -23,7 +23,8 @@ message HashFact {
 message Contact {
   bytes userID = 1;
   bytes pubKey = 2;
-  repeated HashFact trigFacts = 3;
+  string username = 3;
+  repeated HashFact trigFacts = 4;
 }
 
 // Message sent to UDB to search for users

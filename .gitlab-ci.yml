@@ -18,10 +18,10 @@ before_script:
   - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
-  - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
-  - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
+  - ssh-keyscan -t rsa $GITLAB_SERVER > ~/.ssh/known_hosts
+  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://gitlab.com/"
+  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://git.xx.network/"
   - export PATH=$HOME/go/bin:$PATH
-  - export GOPRIVATE="*gitlab.com/elixxir/*,*gitlab.com/xx_network/*"
 
 
 stages:
@@ -92,7 +92,7 @@ bindings-ios:
   tags:
     - ios
   script:
-    - go get -u golang.org/x/mobile/cmd/gomobile
+    - go get -u golang.org/x/mobile/cmd/gomobile@76c259c465ba39f84de7e2751a666612ddca556b
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls
     - zip -r iOS.zip Bindings.xcframework

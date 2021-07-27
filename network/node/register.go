@@ -60,7 +60,7 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 	stop *stoppable.Single, c chan network.NodeGateway) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
-	// Timestamp in which user has registered with permissioning
+	// Timestamp in which user has registered with registration
 	regTimestamp := u.GetRegistrationTimestamp().UnixNano()
 	uci := u.GetCryptographicIdentity()
 	cmix := session.Cmix()
@@ -190,7 +190,7 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 					Signature: clientSig,
 				},
 				Target: gwId.Marshal(),
-				// Timestamp in which user has registered with permissioning
+				// Timestamp in which user has registered with registration
 				TimeStamp: registrationTimestampNano,
 			})
 		if err != nil {

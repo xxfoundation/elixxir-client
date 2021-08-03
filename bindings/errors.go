@@ -17,6 +17,21 @@ import (
 // (Back-end) "Building new HostPool because no HostList stored:":  (Front-end) "Missing host list",
 var ErrToUserErr = map[string]string{
 	// todo populate with common errors
+	// Registration errors
+	"cannot create username when network is not health" :
+		"Cannot create username, unable to connect to network",
+	"failed to add due to malformed fact stringified facts must at least have a type at the start" :
+		"Invalid fact, is the field empty?",
+	// UD failures
+	"failed to create user discovery manager: cannot return single manager, network is not health" :
+		"Could not connect to user discovery",
+	"user discovery returned error on search: no results found" :
+		"No results found",
+	"failed to search.: waiting for response to single-use transmisson timed out after 10s" :
+		"Search timed out",
+	"the phone number supplied was empty" : "Invalid phone number",
+	"failed to create user discovery manager: cannot start ud manager when network follower is not running." :
+		"Could not get network status",
 }
 
 // Error codes
@@ -34,8 +49,7 @@ func ErrorStringToUserFriendlyMessage(errStr string) string {
 	// Go through common errors
 	for backendErr, userFriendly := range ErrToUserErr {
 		// Determine if error contains a common error
-		// Fixme: later versions may be improved by using regex
-		if strings.HasPrefix(errStr, backendErr) {
+		if strings.Contains(errStr, backendErr) {
 			return userFriendly
 		}
 	}
@@ -47,14 +61,14 @@ func ErrorStringToUserFriendlyMessage(errStr string) string {
 		// as context deadline exceeded is not informative
 		rpcErr := "rpc "
 		rpcIdx := strings.Index(errStr, rpcErr)
-		return UnrecognizedCode + errStr[:rpcIdx]
+		return errStr[:rpcIdx]
 	} else if strings.Contains(errStr, descStr) {
 		// If containing an rpc error where context deadline exceeded
 		// is NOT involved, the error returned server-side is often
 		//more informative
 		descIdx := strings.Index(errStr, descStr)
 		// return everything after "desc = "
-		return UnrecognizedCode + errStr[descIdx+len(descStr):]
+		return  errStr[descIdx+len(descStr):]
 	}
 
 	// If a compound error message, return the highest level message

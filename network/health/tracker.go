@@ -191,8 +191,10 @@ func (t *Tracker) start(stop *stoppable.Single) {
 				t.setHealth(true)
 			}
 		case <-timer.C:
+			if !t.isHealthy {
+				jww.WARN.Printf("Network health tracker timed out, network is no longer healthy...")
+			}
 			t.setHealth(false)
-			return
 		}
 	}
 }

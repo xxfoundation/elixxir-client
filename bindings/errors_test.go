@@ -39,7 +39,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	rpcPrefix := "rpc error: desc = "
 	rpcErr := expected + rpcPrefix + context.DeadlineExceeded.Error()
 	received = ErrorStringToUserFriendlyMessage(rpcErr)
-	if strings.Compare(UnrecognizedCode+expected, received) != 0 {
+	if strings.Compare(expected, received) != 0 {
 		t.Errorf("Rpc error parsed unxecpectedly with error "+
 			"\n\"%s\" "+
 			"\n\tExpected: %s"+
@@ -50,7 +50,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	serverSideError := "Could not parse message! Please try again with a properly crafted message"
 	rpcErr = rpcPrefix + serverSideError
 	received = ErrorStringToUserFriendlyMessage(rpcErr)
-	if strings.Compare(UnrecognizedCode+serverSideError, received) != 0 {
+	if strings.Compare(serverSideError, received) != 0 {
 		t.Errorf("RPC error parsed unexpectedly with error "+
 			"\n\"%s\" "+
 			"\n\tExpected: %s"+

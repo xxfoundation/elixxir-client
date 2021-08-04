@@ -22,7 +22,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 		"Failed to pull up friend requests"}
 
 	for i, exampleErr := range backendErrs {
-		ErrToUserErr[exampleErr] = userErrs[i]
+		errToUserErr[exampleErr] = userErrs[i]
 	}
 
 	// Check if a mapped common error returns the expected user friendly error
@@ -72,11 +72,36 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// should hardcoded error message
 	uncommonErr = "failed to register with permissioning"
 	received = ErrorStringToUserFriendlyMessage(uncommonErr)
-	if strings.Compare(UnrecognizedMessage, received) != 0 {
+	if strings.Compare(UnrecognizedCode+": "+uncommonErr, received) != 0 {
 		t.Errorf("Uncommon error parsed unexpectedly with error "+
 			"\n\"%s\" "+
 			"\n\tExpected: %s"+
 			"\n\tReceived: %s", uncommonErr, UnrecognizedMessage, received)
+	}
+
+}
+
+// Unit test
+func TestClient_UpdateCommonErrors(t *testing.T) {
+
+	key, expectedVal := "failed to create group key preimage", "Failed to initiate group chat"
+
+	jsonData := "{\"Failed to Unmarshal Conversation\":\"Could not retrieve conversation\",\"Failed to unmarshal SentRequestMap\":\"Failed to pull up friend requests\",\"failed to create group key preimage\":\"Failed to initiate group chat\"}\n"
+
+	err := UpdateCommonErrors(jsonData)
+	if err != nil {
+		t.Fatalf("UpdateCommonErrors error: %v", err)
+	}
+
+	val, ok := errToUserErr[key]
+	if !ok {
+		t.Fatalf("Expected entry was not populated")
+	}
+
+	if strings.Compare(expectedVal, val) != 0 {
+		t.Fatalf("Entry in updated error map was not expected."+
+			"\n\tExpected: %s"+
+			"\n\tReceived: %s", expectedVal, val)
 	}
 
 }

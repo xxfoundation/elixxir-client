@@ -41,8 +41,8 @@ func init() {
 // BindingsClient wraps the api.Client, implementing additional functions
 // to support the gomobile Client interface
 type Client struct {
-	api api.Client
-	single *single.Manager
+	api       api.Client
+	single    *single.Manager
 	singleMux sync.Mutex
 }
 
@@ -504,8 +504,8 @@ func (b *BindingsClient) Search(data, separator string,
 func (c *Client) getSingle() (*single.Manager, error) {
 	c.singleMux.Lock()
 	defer c.singleMux.Unlock()
-	if c.single==nil{
-		if !c.IsNetworkHealthy(){
+	if c.single == nil {
+		if !c.IsNetworkHealthy() {
 			return nil, errors.New("cannot return single manager, network si not healthy")
 		}
 		apiClient := &c.api

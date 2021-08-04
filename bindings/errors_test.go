@@ -21,12 +21,14 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	userErrs := []string{"Could not retrieve conversation", "Failed to initiate group chat",
 		"Failed to pull up friend requests"}
 
+	c := &Client{errToUserErr: make(map[string]string)}
+
 	for i, exampleErr := range backendErrs {
-		ErrToUserErr[exampleErr] = userErrs[i]
+		c.errToUserErr[exampleErr] = userErrs[i]
 	}
 
 	// Check if a mapped common error returns the expected user friendly error
-	received := ErrorStringToUserFriendlyMessage(backendErrs[0])
+	received := c.ErrorStringToUserFriendlyMessage(backendErrs[0])
 	if strings.Compare(received, userErrs[0]) != 0 {
 		t.Errorf("Unexpected user friendly message returned from common error mapping."+
 			"\n\tExpected: %s"+
@@ -38,7 +40,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	expected := "Could not poll network: "
 	rpcPrefix := "rpc error: desc = "
 	rpcErr := expected + rpcPrefix + context.DeadlineExceeded.Error()
-	received = ErrorStringToUserFriendlyMessage(rpcErr)
+	received = c.ErrorStringToUserFriendlyMessage(rpcErr)
 	if strings.Compare(expected, received) != 0 {
 		t.Errorf("Rpc error parsed unxecpectedly with error "+
 			"\n\"%s\" "+
@@ -49,7 +51,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// Test RPC error where server side error information is provided
 	serverSideError := "Could not parse message! Please try again with a properly crafted message"
 	rpcErr = rpcPrefix + serverSideError
-	received = ErrorStringToUserFriendlyMessage(rpcErr)
+	received = c.ErrorStringToUserFriendlyMessage(rpcErr)
 	if strings.Compare(serverSideError, received) != 0 {
 		t.Errorf("RPC error parsed unexpectedly with error "+
 			"\n\"%s\" "+
@@ -60,7 +62,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// Test uncommon error, should return highest level message
 	expected = "failed to register with permissioning"
 	uncommonErr := expected + ": sendRegistrationMessage: Unable to contact Identity Server"
-	received = ErrorStringToUserFriendlyMessage(uncommonErr)
+	received = c.ErrorStringToUserFriendlyMessage(uncommonErr)
 	if strings.Compare(received, UnrecognizedCode+expected) != 0 {
 		t.Errorf("Uncommon error parsed unexpectedly with error "+
 			"\n\"%s\" "+
@@ -71,12 +73,38 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 	// Test fully unrecognizable and un-parsable message,
 	// should hardcoded error message
 	uncommonErr = "failed to register with permissioning"
-	received = ErrorStringToUserFriendlyMessage(uncommonErr)
-	if strings.Compare(UnrecognizedMessage, received) != 0 {
+	received = c.ErrorStringToUserFriendlyMessage(uncommonErr)
+	if strings.Compare(UnrecognizedCode+": "+uncommonErr, received) != 0 {
 		t.Errorf("Uncommon error parsed unexpectedly with error "+
 			"\n\"%s\" "+
 			"\n\tExpected: %s"+
 			"\n\tReceived: %s", uncommonErr, UnrecognizedMessage, received)
+	}
+
+}
+
+// Unit test
+func TestClient_UpdateCommonErrors(t *testing.T) {
+	c := &Client{errToUserErr: make(map[string]string)}
+
+	key, expectedVal := "failed to create group key preimage", "Failed to initiate group chat"
+
+	jsonData := "{\"Failed to Unmarshal Conversation\":\"Could not retrieve conversation\",\"Failed to unmarshal SentRequestMap\":\"Failed to pull up friend requests\",\"failed to create group key preimage\":\"Failed to initiate group chat\"}\n"
+
+	err := c.UpdateCommonErrors(jsonData)
+	if err != nil {
+		t.Fatalf("UpdateCommonErrors error: %v", err)
+	}
+
+	val, ok := c.errToUserErr[key]
+	if !ok {
+		t.Fatalf("Expected entry was not populated")
+	}
+
+	if strings.Compare(expectedVal, val) != 0 {
+		t.Fatalf("Entry in updated error map was not expected."+
+			"\n\tExpected: %s"+
+			"\n\tReceived: %s", expectedVal, val)
 	}
 
 }

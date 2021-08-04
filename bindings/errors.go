@@ -9,30 +9,32 @@ package bindings
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"github.com/pkg/errors"
 	"strings"
 )
 
 // ErrToUserErr maps backend patterns to user friendly error messages.
 // Example format:
 // (Back-end) "Building new HostPool because no HostList stored:":  (Front-end) "Missing host list",
-var ErrToUserErr = map[string]string{
-	// todo populate with common errors
-	// Registration errors
-	"cannot create username when network is not health" :
-		"Cannot create username, unable to connect to network",
-	"failed to add due to malformed fact stringified facts must at least have a type at the start" :
-		"Invalid fact, is the field empty?",
-	// UD failures
-	"failed to create user discovery manager: cannot return single manager, network is not health" :
-		"Could not connect to user discovery",
-	"user discovery returned error on search: no results found" :
-		"No results found",
-	"failed to search.: waiting for response to single-use transmisson timed out after 10s" :
-		"Search timed out",
-	"the phone number supplied was empty" : "Invalid phone number",
-	"failed to create user discovery manager: cannot start ud manager when network follower is not running." :
-		"Could not get network status",
-}
+//var ErrToUserErr = map[string]string{
+//// Registration errors
+//"cannot create username when network is not health" :
+//	"Cannot create username, unable to connect to network",
+//"failed to add due to malformed fact stringified facts must at least have a type at the start" :
+//	"Invalid fact, is the field empty?",
+//// UD failures
+//"failed to create user discovery manager: cannot return single manager, network is not health" :
+//	"Could not connect to user discovery",
+//"user discovery returned error on search: no results found" :
+//	"No results found",
+//"failed to search.: waiting for response to single-use transmisson timed out after 10s" :
+//	"Search timed out",
+//"the phone number supplied was empty" : "Invalid phone number",
+//"failed to create user discovery manager: cannot start ud manager when network follower is not running." :
+//	"Could not get network status",
+//}
 
 // Error codes
 const UnrecognizedCode = "UR: "
@@ -45,9 +47,11 @@ const UnrecognizedMessage = UnrecognizedCode + "Unrecognized error from XX backe
 // ErrToUserErr to provide a more user-friendly error message for the front end.
 // If the error is not common, some simple parsing is done on the error message
 // to make it more user-accessible, removing backend specific jargon.
-func ErrorStringToUserFriendlyMessage(errStr string) string {
+func (c *Client) ErrorStringToUserFriendlyMessage(errStr string) string {
+	c.errorMux.RLock()
+	defer c.errorMux.RUnlock()
 	// Go through common errors
-	for backendErr, userFriendly := range ErrToUserErr {
+	for backendErr, userFriendly := range c.errToUserErr {
 		// Determine if error contains a common error
 		if strings.Contains(errStr, backendErr) {
 			return userFriendly
@@ -68,7 +72,7 @@ func ErrorStringToUserFriendlyMessage(errStr string) string {
 		//more informative
 		descIdx := strings.Index(errStr, descStr)
 		// return everything after "desc = "
-		return  errStr[descIdx+len(descStr):]
+		return errStr[descIdx+len(descStr):]
 	}
 
 	// If a compound error message, return the highest level message
@@ -78,5 +82,21 @@ func ErrorStringToUserFriendlyMessage(errStr string) string {
 		return UnrecognizedCode + errParts[0]
 	}
 
-	return UnrecognizedMessage
+	return fmt.Sprintf("%s: %v", UnrecognizedCode, errStr)
+}
+
+// UpdateCommonErrors takes the passed in contents of a JSON file and updates the
+// ErrToUserErr map with the contents of the json file. The JSON's expected format
+// conform with the commented examples provides in ErrToUserErr above.
+// NOTE that you should not pass in a file path, but a preloaded JSON file
+func (c *Client) UpdateCommonErrors(jsonFile string) error {
+	c.errorMux.Lock()
+	defer c.errorMux.Unlock()
+	err := json.Unmarshal([]byte(jsonFile), &c.errToUserErr)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to unmarshal json file, "+
+			"did you pass in the contents or the path?")
+	}
+
+	return nil
 }

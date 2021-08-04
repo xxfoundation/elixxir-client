@@ -22,7 +22,7 @@ func TestErrorStringToUserFriendlyMessage(t *testing.T) {
 		"Failed to pull up friend requests"}
 
 	for i, exampleErr := range backendErrs {
-		ErrToUserErr[exampleErr] = userErrs[i]
+		errToUserErr[exampleErr] = userErrs[i]
 	}
 
 	// Check if a mapped common error returns the expected user friendly error
@@ -93,7 +93,7 @@ func TestClient_UpdateCommonErrors(t *testing.T) {
 		t.Fatalf("UpdateCommonErrors error: %v", err)
 	}
 
-	val, ok := ErrToUserErr[key]
+	val, ok := errToUserErr[key]
 	if !ok {
 		t.Fatalf("Expected entry was not populated")
 	}

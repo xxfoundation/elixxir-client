@@ -16,10 +16,10 @@ import (
 	"sync"
 )
 
-// ErrToUserErr maps backend patterns to user friendly error messages.
+// errToUserErr maps backend patterns to user friendly error messages.
 // Example format:
 // (Back-end) "Building new HostPool because no HostList stored:":  (Front-end) "Missing host list",
-var ErrToUserErr = map[string]string{
+var errToUserErr = map[string]string{
 	// Registration errors
 	//"cannot create username when network is not health" :
 	//	"Cannot create username, unable to connect to network",
@@ -37,7 +37,7 @@ var ErrToUserErr = map[string]string{
 	//	"Could not get network status",
 }
 
-var ErrorMux sync.RWMutex
+var errorMux sync.RWMutex
 
 // Error codes
 const UnrecognizedCode = "UR: "
@@ -47,14 +47,14 @@ const UnrecognizedMessage = UnrecognizedCode + "Unrecognized error from XX backe
 // a backend generated error. These may be error specifically written by
 // the backend team or lower level errors gotten from low level dependencies.
 // This function will parse the error string for common errors provided from
-// ErrToUserErr to provide a more user-friendly error message for the front end.
+// errToUserErr to provide a more user-friendly error message for the front end.
 // If the error is not common, some simple parsing is done on the error message
 // to make it more user-accessible, removing backend specific jargon.
 func ErrorStringToUserFriendlyMessage(errStr string) string {
-	ErrorMux.RLock()
-	defer ErrorMux.RUnlock()
+	errorMux.RLock()
+	defer errorMux.RUnlock()
 	// Go through common errors
-	for backendErr, userFriendly := range ErrToUserErr {
+	for backendErr, userFriendly := range errToUserErr {
 		// Determine if error contains a common error
 		if strings.Contains(errStr, backendErr) {
 			return userFriendly
@@ -89,13 +89,13 @@ func ErrorStringToUserFriendlyMessage(errStr string) string {
 }
 
 // UpdateCommonErrors takes the passed in contents of a JSON file and updates the
-// ErrToUserErr map with the contents of the json file. The JSON's expected format
-// conform with the commented examples provides in ErrToUserErr above.
+// errToUserErr map with the contents of the json file. The JSON's expected format
+// conform with the commented examples provides in errToUserErr above.
 // NOTE that you should not pass in a file path, but a preloaded JSON file
 func UpdateCommonErrors(jsonFile string) error {
-	ErrorMux.Lock()
-	defer ErrorMux.Unlock()
-	err := json.Unmarshal([]byte(jsonFile), &ErrToUserErr)
+	errorMux.Lock()
+	defer errorMux.Unlock()
+	err := json.Unmarshal([]byte(jsonFile), &errToUserErr)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to unmarshal json file, "+
 			"did you pass in the contents or the path?")

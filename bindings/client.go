@@ -41,11 +41,9 @@ func init() {
 // BindingsClient wraps the api.Client, implementing additional functions
 // to support the gomobile Client interface
 type Client struct {
-	api          api.Client
-	single       *single.Manager
-	singleMux    sync.Mutex
-	errorMux     sync.RWMutex
-	errToUserErr map[string]string
+	api       api.Client
+	single    *single.Manager
+	singleMux sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers

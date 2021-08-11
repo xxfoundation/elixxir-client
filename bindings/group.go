@@ -50,7 +50,10 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 	}
 
 	// Start group request and message retrieval workers
-	client.api.AddService(m.StartProcesses)
+	err = client.api.AddService(m.StartProcesses)
+	if err != nil {
+		return GroupChat{}, err
+	}
 
 	return GroupChat{m}, nil
 }

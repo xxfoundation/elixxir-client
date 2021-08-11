@@ -107,7 +107,7 @@ func (c *Client) getRoundResults(roundList []id.Round, timeout time.Duration,
 				roundsResults[rnd] = Failed
 				allRoundsSucceeded = false
 			} else {
-				// If in progress, add a channel monitoring its status
+				// If in progress, add a channel monitoring its state
 				roundEvents.AddRoundEventChan(rnd, sendResults,
 					timeout-time.Millisecond, states.COMPLETED, states.FAILED)
 				numResults++
@@ -205,7 +205,7 @@ func (c *Client) getHistoricalRounds(msg *pb.HistoricalRounds,
 		return
 	}
 
-	// Process historical rounds, sending back to the caller thread
+	// Service historical rounds, sending back to the caller thread
 	for _, ri := range resp.Rounds {
 		sendResults <- ds.EventReturn{
 			RoundInfo: ri,

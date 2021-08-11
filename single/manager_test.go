@@ -90,7 +90,7 @@ func TestManager_StartProcesses(t *testing.T) {
 
 	m.callbackMap.registerCallback(tag, callback)
 
-	_ = m.StartProcesses()
+	_, _ = m.StartProcesses()
 	m.swb.(*switchboard.Switchboard).Speak(receiveMsg)
 
 	timer := time.NewTimer(50 * time.Millisecond)
@@ -176,7 +176,7 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 
 	m.callbackMap.registerCallback(tag, callback)
 
-	stop := m.StartProcesses()
+	stop, _ := m.StartProcesses()
 	if !stop.IsRunning() {
 		t.Error("Stoppable is not running.")
 	}

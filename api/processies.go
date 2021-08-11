@@ -1,48 +1,113 @@
 package api
 
 import (
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/stoppable"
 	"sync"
+	"time"
 )
 
 // a service process starts itself in a new thread, returning from the
 // originator a stopable to control it
-type ServiceProcess func() stoppable.Stoppable
+type Service func() (stoppable.Stoppable, error)
 
-type serviceProcessiesList struct {
-	serviceProcessies []ServiceProcess
-	multiStopable     *stoppable.Multi
-	mux               sync.Mutex
+type services struct {
+	services  []Service
+	stoppable *stoppable.Multi
+	state     Status
+	mux       sync.Mutex
 }
 
-// newServiceProcessiesList creates a new processies list which will add its
-// processies to the passed mux
-func newServiceProcessiesList(m *stoppable.Multi) *serviceProcessiesList {
-	return &serviceProcessiesList{
-		serviceProcessies: make([]ServiceProcess, 0),
-		multiStopable:     m,
+// newServiceProcessiesList creates a new services list which will add its
+// services to the passed mux
+func newServices() *services {
+	return &services{
+		services:  make([]Service, 0),
+		stoppable: stoppable.NewMulti("services"),
+		state:     Stopped,
 	}
 }
 
-// Add adds the service process to the list and adds it to the multi-stopable
-func (spl serviceProcessiesList) Add(sp ServiceProcess) {
-	spl.mux.Lock()
-	defer spl.mux.Unlock()
+// Add adds the service process to the list and adds it to the multi-stopable.
+// Start running it if services are running
+func (s *services) add(sp Service) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	spl.serviceProcessies = append(spl.serviceProcessies, sp)
-	// starts the process and adds it to the stopable
-	// there can be a race condition between the execution of the process and
-	// the stopable.
-	spl.multiStopable.Add(sp())
+	//append the process to the list
+	s.services = append(s.services, sp)
+
+	//if services are running, start the process
+	if s.state == Running {
+		stop, err := sp()
+		if err != nil {
+			return errors.WithMessage(err, "Failed to start added service")
+		}
+		s.stoppable.Add(stop)
+	}
+	return nil
 }
 
-// Runs all processies, to be used after a stop. Must use a new stopable
-func (spl serviceProcessiesList) run(m *stoppable.Multi) {
-	spl.mux.Lock()
-	defer spl.mux.Unlock()
+// Runs all services. If they are in the process of stopping,
+// it will wait for the stop to complete or the timeout to ellapse
+// Will error if already running
+func (s *services) start(timeout time.Duration) error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
 
-	spl.multiStopable = m
-	for _, sp := range spl.serviceProcessies {
-		spl.multiStopable.Add(sp())
+	//handle various states
+	switch s.state {
+	case Stopped:
+		break
+	case Running:
+		return errors.New("Cannot start services when already Running")
+	case Stopping:
+		err := stoppable.WaitForStopped(s.stoppable, timeout)
+		if err != nil {
+			return errors.Errorf("Procesies did not all stop within %s, "+
+				"unable to start services: %+v", timeout, err)
+		}
 	}
+
+	//create a new stopable
+	s.stoppable = stoppable.NewMulti(followerStoppableName)
+
+	//start all services and register with the stoppable
+	for _, sp := range s.services {
+		stop, err := sp()
+		if err != nil {
+			return errors.WithMessage(err, "Failed to start added service")
+		}
+		s.stoppable.Add(stop)
+	}
+
+	s.state = Running
+
+	return nil
+}
+
+// Stops all currently running services. Will return an
+// error if the state is not "running"
+func (s *services) stop() error {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	if s.state != Running {
+		return errors.Errorf("cannot stop services when they "+
+			"are not Running, services are: %s", s.state)
+	}
+
+	if err := s.stoppable.Close(); err != nil {
+		return errors.WithMessage(err, "Failed to stop services")
+	}
+
+	return nil
+}
+
+// returns the current state of services
+func (s *services) status() Status {
+	s.mux.Lock()
+	defer s.mux.Unlock()
+
+	return s.state
 }

@@ -22,7 +22,7 @@ import (
 type SingleInterface interface {
 	TransmitSingleUse(contact.Contact, []byte, string, uint8, single.ReplyComm,
 		time.Duration) error
-	StartProcesses() stoppable.Stoppable
+	StartProcesses() (stoppable.Stoppable, error)
 }
 
 type Manager struct {

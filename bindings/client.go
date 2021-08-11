@@ -205,20 +205,20 @@ func UnmarshalSendReport(b []byte) (*SendReport, error) {
 //		Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
-func (c *Client) StartNetworkFollower(clientError ClientError, timeoutMS int) error {
+func (c *Client) StartNetworkFollower(timeoutMS int) error {
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	errChan, err := c.api.StartNetworkFollower(timeout)
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to start the "+
-			"network follower: %+v", err))
-	}
+	return c.api.StartNetworkFollower(timeout)
+}
 
+// RegisterClientErrorCallback registers the callback to handle errors from the
+// long running threads controlled by StartNetworkFollower and StopNetworkFollower
+func (c *Client) RegisterClientErrorCallback(clientError ClientError) {
+	errChan := c.api.GetErrorsChannel()
 	go func() {
 		for report := range errChan {
 			go clientError.Report(report.Source, report.Message, report.Trace)
 		}
 	}()
-	return nil
 }
 
 // StopNetworkFollower stops the network follower if it is running.
@@ -505,12 +505,12 @@ func (c *Client) getSingle() (*single.Manager, error) {
 	c.singleMux.Lock()
 	defer c.singleMux.Unlock()
 	if c.single == nil {
-		if !c.IsNetworkHealthy() {
-			return nil, errors.New("cannot return single manager, network si not healthy")
-		}
 		apiClient := &c.api
 		c.single = single.NewManager(apiClient)
-		apiClient.AddService(c.single.StartProcesses)
+		err := apiClient.AddService(c.single.StartProcesses)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return c.single, nil

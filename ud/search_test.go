@@ -487,6 +487,6 @@ func (s *mockSingleSearch) TransmitSingleUse(partner contact.Contact, payload []
 	return nil
 }
 
-func (s *mockSingleSearch) StartProcesses() stoppable.Stoppable {
-	return stoppable.NewSingle("")
+func (s *mockSingleSearch) StartProcesses() (stoppable.Stoppable, error) {
+	return stoppable.NewSingle(""), nil
 }

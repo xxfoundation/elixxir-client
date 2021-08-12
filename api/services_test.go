@@ -104,7 +104,7 @@ func TestServices_Stop(t *testing.T) {
 			"stop on non-running service")
 	}
 
-	err = mockServices.start(500)
+	err = mockServices.start(500 * time.Millisecond)
 	if err != nil {
 		t.Fatalf("Failed to start mock services: %v", err)
 	}

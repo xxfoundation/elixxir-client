@@ -186,12 +186,6 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 	}
 
-	// Add all processes to the followerServices
-	err = c.registerFollower()
-	if err != nil {
-		return nil, err
-	}
-
 	return c, nil
 }
 
@@ -251,6 +245,13 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+
+	// Add all processes to the followerServices
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }

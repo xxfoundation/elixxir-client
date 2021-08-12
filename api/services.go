@@ -101,7 +101,7 @@ func (s *services) stop() error {
 		return errors.WithMessage(err, "Failed to stop services")
 	}
 
-	s.state = Stopped
+	//s.state = Stopped
 
 	return nil
 }

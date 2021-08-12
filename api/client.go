@@ -422,7 +422,10 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
-
+	err := c.registerFollower()
+	if err != nil {
+		return err
+	}
 	return c.followerServices.start(timeout)
 }
 

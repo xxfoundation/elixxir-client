@@ -97,6 +97,8 @@ func (s *services) stop() error {
 			"are not Running, services are: %s", s.state)
 	}
 
+	s.state = Stopping
+
 	if err := s.stoppable.Close(); err != nil {
 		return errors.WithMessage(err, "Failed to stop services")
 	}

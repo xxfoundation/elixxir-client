@@ -186,6 +186,12 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 	}
 
+	// Add all processes to the followerServices
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -343,6 +349,8 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	return nil
 }
 
+// registerFollower adds the follower processes to the client's follower service list.
+// This should only ever be called once
 func (c *Client) registerFollower() error {
 	//build the error callback
 	cer := func(source, message, trace string) {
@@ -422,10 +430,7 @@ func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
-	err := c.registerFollower()
-	if err != nil {
-		return err
-	}
+
 	return c.followerServices.start(timeout)
 }
 

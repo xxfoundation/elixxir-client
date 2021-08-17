@@ -59,6 +59,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 
 	// Wait until we get the ID size from the network
 	receptionStore := session.Reception()
+	addrSpace.UnregisterNotification(addressSpaceSizeChanTag)
 	addressSizeUpdate, err := addrSpace.RegisterNotification(addressSpaceSizeChanTag)
 	if err != nil {
 		jww.FATAL.Panicf("failed to register address size notification "+

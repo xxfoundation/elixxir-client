@@ -39,7 +39,7 @@ func (c *Client) registerWithPermissioning() error {
 	userData.SetReceptionRegistrationValidationSignature(receptionRegValidationSignature)
 	userData.SetRegistrationTimestamp(registrationTimestamp)
 
-	//update the registration status
+	//update the registration state
 	err = c.storage.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return errors.WithMessage(err, "failed to update local state "+

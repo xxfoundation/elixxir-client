@@ -23,7 +23,7 @@ import (
 	"strings"
 )
 
-func (m *Manager) StartProcesses() stoppable.Stoppable {
+func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle("Auth")
 
 	go func() {
@@ -38,7 +38,7 @@ func (m *Manager) StartProcesses() stoppable.Stoppable {
 		}
 	}()
 
-	return stop
+	return stop, nil
 }
 
 func (m *Manager) processAuthMessage(msg message.Receive) {

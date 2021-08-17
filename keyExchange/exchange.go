@@ -22,7 +22,7 @@ const keyExchangeConfirmName = "KeyExchangeConfirm"
 const keyExchangeMulti = "KeyExchange"
 
 func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net interfaces.NetworkManager,
-	params params.Rekey) stoppable.Stoppable {
+	params params.Rekey) (stoppable.Stoppable, error) {
 
 	// register the rekey trigger thread
 	triggerCh := make(chan message.Receive, 100)
@@ -57,5 +57,5 @@ func Start(switchboard *switchboard.Switchboard, sess *storage.Session, net inte
 	exchangeStop := stoppable.NewMulti(keyExchangeMulti)
 	exchangeStop.Add(triggerStop)
 	exchangeStop.Add(confirmStop)
-	return exchangeStop
+	return exchangeStop, nil
 }

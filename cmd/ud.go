@@ -62,7 +62,7 @@ var udCmd = &cobra.Command{
 			})
 		}
 
-		_, err := client.StartNetworkFollower(50 * time.Millisecond)
+		err := client.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}

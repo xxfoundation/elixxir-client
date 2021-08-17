@@ -38,7 +38,7 @@ var groupCmd = &cobra.Command{
 
 		_, _ = initClientCallbacks(client)
 
-		_, err := client.StartNetworkFollower(5 * time.Second)
+		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -129,7 +129,10 @@ func initGroupManager(client *api.Client) (*groupChat.Manager,
 	}
 
 	// Start group request and message receiver
-	client.AddService(manager.StartProcesses)
+	err = client.AddService(manager.StartProcesses)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to start groupchat services: %+v", err)
+	}
 
 	return manager, recChan, reqChan
 }

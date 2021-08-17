@@ -19,7 +19,7 @@ import (
 
 // RequestAuthenticatedChannel sends a request to another party to establish an
 // authenticated channel
-// It will not run if the network status is not healthy
+// It will not run if the network state is not healthy
 // An error will be returned if a channel already exists or if a request was
 // already received
 // When a confirmation occurs, the channel will be created and the callback
@@ -57,7 +57,7 @@ func (c *Client) GetAuthenticatedChannelRequest(partner *id.ID) (contact.Contact
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid
 // received request and sends a message to the requestor that the request has
 // been confirmed
-// It will not run if the network status is not healthy
+// It will not run if the network state is not healthy
 // An error will be returned if a channel already exists, if a request doest
 // exist, or if the passed in contact does not exactly match the received
 // request

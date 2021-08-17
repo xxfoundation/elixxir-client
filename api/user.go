@@ -40,7 +40,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 
 	wg.Add(4)
 
-	go func(){
+	go func() {
 		defer wg.Done()
 		var err error
 		// FIXME: Why 256 bits? -- this is spec but not explained, it has
@@ -54,7 +54,7 @@ func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.U
 		}
 	}()
 
-	go func(){
+	go func() {
 		defer wg.Done()
 		var err error
 		// DH Keygen
@@ -183,7 +183,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 }
 
 // createNewVanityUser generates an identity for cMix
-// The identity's ReceptionID is not random but starts with the supplied prefix 
+// The identity's ReceptionID is not random but starts with the supplied prefix
 func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix string) user.User {
 	// CMIX Keygen
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
@@ -229,14 +229,14 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 	}
 
 	var mu sync.Mutex // just in case more than one go routine tries to access receptionSalt and receptionID
-	done := make(chan struct{}) 
-	found:= make(chan bool)
-	wg:= &sync.WaitGroup{}
+	done := make(chan struct{})
+	found := make(chan bool)
+	wg := &sync.WaitGroup{}
 	cores := runtime.NumCPU()
 
 	var receptionSalt []byte
-	var receptionID *id.ID 
-	
+	var receptionID *id.ID
+
 	pref := prefix
 	ignoreCase := false
 	// check if case-insensitivity is enabled
@@ -250,13 +250,13 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 		jww.FATAL.Panicf("Prefix contains non-Base64 characters")
 	}
 	jww.INFO.Printf("Vanity userID generation started. Prefix: %s Ignore-Case: %v NumCPU: %d", pref, ignoreCase, cores)
-	for w := 0; w < cores; w++{
+	for w := 0; w < cores; w++ {
 		wg.Add(1)
 		go func() {
 			rSalt := make([]byte, SaltSize)
-			for {	
+			for {
 				select {
-				case <- done:
+				case <-done:
 					defer wg.Done()
 					return
 				default:
@@ -274,7 +274,7 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 					id := rID.String()
 					if ignoreCase {
 						id = strings.ToLower(id)
-					} 
+					}
 					if strings.HasPrefix(id, pref) {
 						mu.Lock()
 						receptionID = rID
@@ -284,12 +284,12 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 						defer wg.Done()
 						return
 					}
-				}	
+				}
 			}
 		}()
 	}
 	// wait for a solution then close the done channel to signal the workers to exit
-	<- found
+	<-found
 	close(done)
 	wg.Wait()
 	return user.User{

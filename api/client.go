@@ -32,7 +32,6 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/region"
 	"math"
-	"sync"
 	"time"
 )
 
@@ -60,18 +59,10 @@ type Client struct {
 	//object containing auth interactions
 	auth *auth.Manager
 
-	//contains stopables for all running threads
-	runner *stoppable.Multi
-	status *statusTracker
-
-	//handler for external services
-	services *serviceProcessiesList
+	//services system to track running threads
+	followerServices *services
 
 	clientErrorChannel chan interfaces.ClientError
-
-	//lock to ensure only once instance of stop/start network follower is
-	//going at a time
-	followerLock sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -185,14 +176,14 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 
 	// Set up a new context
 	c := &Client{
-		storage:     storageSess,
-		switchboard: switchboard.New(),
-		rng:         rngStreamGen,
-		comms:       nil,
-		network:     nil,
-		runner:      stoppable.NewMulti(followerStoppableName),
-		status:      newStatusTracker(),
-		parameters:  parameters,
+		storage:            storageSess,
+		switchboard:        switchboard.New(),
+		rng:                rngStreamGen,
+		comms:              nil,
+		network:            nil,
+		followerServices:   newServices(),
+		parameters:         parameters,
+		clientErrorChannel: make(chan interfaces.ClientError, 1000),
 	}
 
 	return c, nil
@@ -211,9 +202,6 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	u := c.storage.GetUser()
 	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
-
-	//Attach the services interface
-	c.services = newServiceProcessiesList(c.runner)
 
 	// initialize comms
 	err = c.initComms()
@@ -258,6 +246,13 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
+
+	// Add all processes to the followerServices
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
+
 	return c, nil
 }
 
@@ -280,9 +275,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	if err != nil {
 		return nil, err
 	}
-
-	//Attach the services interface
-	c.services = newServiceProcessiesList(c.runner)
 
 	//initialize comms
 	err = c.initComms()
@@ -358,7 +350,52 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	return nil
 }
 
+// registerFollower adds the follower processes to the client's follower service list.
+// This should only ever be called once
+func (c *Client) registerFollower() error {
+	//build the error callback
+	cer := func(source, message, trace string) {
+		select {
+		case c.clientErrorChannel <- interfaces.ClientError{
+			Source:  source,
+			Message: message,
+			Trace:   trace,
+		}:
+		default:
+			jww.WARN.Printf("Failed to notify about ClientError from %s: %s", source, message)
+		}
+	}
+
+	//register the core follower service
+	err := c.followerServices.add(func() (stoppable.Stoppable, error) { return c.network.Follow(cer) })
+	if err != nil {
+		return errors.WithMessage(err, "Failed to start following "+
+			"the network")
+	}
+
+	//register the incremental key upgrade service
+	err = c.followerServices.add(c.auth.StartProcesses)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to start following "+
+			"the network")
+	}
+
+	//register the key exchange service
+	keyXchange := func() (stoppable.Stoppable, error) {
+		return keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey)
+	}
+	err = c.followerServices.add(keyXchange)
+
+	return nil
+}
+
 // ----- Client Functions -----
+
+// GetErrorsChannel returns a channel which passess errors from the
+// long running threads controlled by StartNetworkFollower and StopNetworkFollower
+func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
+	return c.clientErrorChannel
+}
 
 // StartNetworkFollower kicks off the tracking of the network. It starts
 // long running network client threads and returns an object for checking
@@ -390,94 +427,22 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower(timeout time.Duration) (<-chan interfaces.ClientError, error) {
-	c.followerLock.Lock()
-	defer c.followerLock.Unlock()
+func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
-	if status := c.status.get(); status != Stopped {
-		return nil, errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
-	}
-
-	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
-
-	cer := func(source, message, trace string) {
-		select {
-		case c.clientErrorChannel <- interfaces.ClientError{
-			Source:  source,
-			Message: message,
-			Trace:   trace,
-		}:
-		default:
-			jww.WARN.Printf("Failed to notify about ClientError from %s: %s", source, message)
-		}
-	}
-
-	// Wait for any threads from the previous follower to close and then create
-	// a new stoppable
-	err := stoppable.WaitForStopped(c.runner, timeout)
-	if err != nil {
-		return nil, err
-	} else {
-		c.runner = stoppable.NewMulti(followerStoppableName)
-	}
-
-	err = c.status.toStarting()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
-	}
-
-	stopAuth := c.auth.StartProcesses()
-	c.runner.Add(stopAuth)
-
-	stopFollow, err := c.network.Follow(cer)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to start following "+
-			"the network")
-	}
-	c.runner.Add(stopFollow)
-	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey))
-
-	err = c.status.toRunning()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
-	}
-
-	c.services.run(c.runner)
-
-	return c.clientErrorChannel, nil
+	return c.followerServices.start(timeout)
 }
 
 // StopNetworkFollower stops the network follower if it is running.
-// It returns errors if the Follower is in the wrong status to stop or if it
+// It returns errors if the Follower is in the wrong state to stop or if it
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
 func (c *Client) StopNetworkFollower() error {
-	c.followerLock.Lock()
-	defer c.followerLock.Unlock()
-
-	if status := c.status.get(); status != Running {
-		return errors.Errorf("Cannot Stop the Network Follower when it is not running, status: %s", status)
-	}
-
-	err := c.status.toStopping()
-	if err != nil {
-		return errors.WithMessage(err, "Failed to Stop the Network Follower")
-	}
-	err = c.runner.Close()
-	err2 := c.status.toStopped()
-	if err2 != nil {
-		if err == nil {
-			err = err2
-		} else {
-			err = errors.WithMessage(err, err2.Error())
-		}
-	}
-	return err
+	jww.INFO.Printf("StopNetworkFollower()")
+	return c.followerServices.stop()
 }
 
 // NetworkFollowerStatus Gets the state of the network follower. Returns:
@@ -487,7 +452,7 @@ func (c *Client) StopNetworkFollower() error {
 // Stopping	- 3000
 func (c *Client) NetworkFollowerStatus() Status {
 	jww.INFO.Printf("NetworkFollowerStatus()")
-	return c.status.get()
+	return c.followerServices.status()
 }
 
 // Returns the health tracker for registration and polling
@@ -512,8 +477,8 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 
 // AddService adds a service ot be controlled by the client thread control,
 // these will be started and stopped with the network follower
-func (c *Client) AddService(sp ServiceProcess) {
-	c.services.Add(sp)
+func (c *Client) AddService(sp Service) error {
+	return c.followerServices.add(sp)
 }
 
 // GetUser returns the current user Identity for this client. This
@@ -543,7 +508,7 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
-// GetNodeRegistrationStatus gets the current status of node registration. It
+// GetNodeRegistrationStatus gets the current state of node registration. It
 // returns the the total number of nodes in the NDF and the number of those
 // which are currently registers with. An error is returned if the network is
 // not healthy.

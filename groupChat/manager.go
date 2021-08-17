@@ -96,7 +96,7 @@ func newManager(client *api.Client, userID *id.ID, userDhKey *cyclic.Int,
 }
 
 // StartProcesses starts the reception worker.
-func (m *Manager) StartProcesses() stoppable.Stoppable {
+func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Start group reception worker
 	receiveStop := stoppable.NewSingle(receiveStoppableName)
 	receiveChan := make(chan message.Receive, rawMessageBuffSize)
@@ -116,7 +116,7 @@ func (m *Manager) StartProcesses() stoppable.Stoppable {
 	multiStoppable.Add(receiveStop)
 	multiStoppable.Add(requestStop)
 
-	return multiStoppable
+	return multiStoppable, nil
 }
 
 // JoinGroup adds the group to the list of group chats the user is a part of.

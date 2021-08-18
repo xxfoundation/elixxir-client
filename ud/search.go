@@ -119,12 +119,15 @@ func (m *Manager) parseContacts(response []*Contact,
 		if err != nil {
 			return nil, errors.Errorf("failed to parse Contact user ID: %+v", err)
 		}
-
+		var facts []fact.Fact
+		if c.Username != "" {
+			facts = []fact.Fact{{c.Username, fact.Username}}
+		}
 		// Create new Contact
 		contacts[i] = contact.Contact{
 			ID:       uid,
 			DhPubKey: m.grp.NewIntFromBytes(c.PubKey),
-			Facts:    []fact.Fact{{c.Username, fact.Username}},
+			Facts:    facts,
 		}
 
 		// Assign each Fact with a matching hash to the Contact

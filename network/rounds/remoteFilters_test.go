@@ -40,13 +40,13 @@ func TestRemoteFilter_GetFilter(t *testing.T) {
 	testFilter, err := bloom.InitByParameters(interfaces.BloomFilterSize,
 		interfaces.BloomFilterHashes)
 	if err != nil {
-		t.Fatalf("GetFilter error: " +
+		t.Fatalf("GetFilter error: "+
 			"Cannot initialize bloom filter for setup: %v", err)
 	}
 
 	data, err := testFilter.MarshalBinary()
 	if err != nil {
-		t.Fatalf("GetFilter error: " +
+		t.Fatalf("GetFilter error: "+
 			"Cannot marshal filter for setup: %v", err)
 	}
 
@@ -59,8 +59,8 @@ func TestRemoteFilter_GetFilter(t *testing.T) {
 	rf := NewRemoteFilter(bloomFilter)
 	retrievedFilter := rf.GetFilter()
 	if !reflect.DeepEqual(retrievedFilter, testFilter) {
-		t.Fatalf("GetFilter error: " +
-			"Did not retrieve expected filter." +
+		t.Fatalf("GetFilter error: "+
+			"Did not retrieve expected filter."+
 			"\n\tExpected: %v\n\tReceived: %v", testFilter, retrievedFilter)
 	}
 }
@@ -79,17 +79,17 @@ func TestRemoteFilter_FirstLastRound(t *testing.T) {
 	// Test FirstRound
 	receivedFirstRound := rf.FirstRound()
 	if receivedFirstRound != id.Round(firstRound) {
-		t.Fatalf("FirstRound error: " +
-			"Did not receive expected round." +
+		t.Fatalf("FirstRound error: "+
+			"Did not receive expected round."+
 			"\n\tExpected: %v\n\tReceived: %v", firstRound, receivedFirstRound)
 	}
 
 	// Test LastRound
 	receivedLastRound := rf.LastRound()
-	if receivedLastRound != id.Round(firstRound + uint64(roundRange)) {
-		t.Fatalf("LastRound error: " +
-			"Did not receive expected round." +
-			"\n\tExpected: %v\n\tReceived: %v", receivedLastRound, firstRound + uint64(roundRange))
+	if receivedLastRound != id.Round(firstRound+uint64(roundRange)) {
+		t.Fatalf("LastRound error: "+
+			"Did not receive expected round."+
+			"\n\tExpected: %v\n\tReceived: %v", receivedLastRound, firstRound+uint64(roundRange))
 	}
 
 }
@@ -101,13 +101,13 @@ func TestValidFilterRange(t *testing.T) {
 	testFilter, err := bloom.InitByParameters(interfaces.BloomFilterSize,
 		interfaces.BloomFilterHashes)
 	if err != nil {
-		t.Fatalf("GetFilter error: " +
+		t.Fatalf("GetFilter error: "+
 			"Cannot initialize bloom filter for setup: %v", err)
 	}
 
 	data, err := testFilter.MarshalBinary()
 	if err != nil {
-		t.Fatalf("GetFilter error: " +
+		t.Fatalf("GetFilter error: "+
 			"Cannot marshal filter for setup: %v", err)
 	}
 
@@ -116,13 +116,12 @@ func TestValidFilterRange(t *testing.T) {
 	requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 	iu := reception.IdentityUse{
 		Identity: reception.Identity{
-			EphId:  expectedEphID,
-			Source: requestGateway,
-			StartValid: time.Now().Add(12*time.Hour),
-			EndValid: time.Now().Add(24*time.Hour),
+			EphId:      expectedEphID,
+			Source:     requestGateway,
+			StartValid: time.Now().Add(12 * time.Hour),
+			EndValid:   time.Now().Add(24 * time.Hour),
 		},
 	}
-
 
 	bloomFilter := &mixmessages.ClientBloom{
 		Filter:     data,
@@ -131,9 +130,9 @@ func TestValidFilterRange(t *testing.T) {
 	}
 
 	msg := &mixmessages.ClientBlooms{
-		Period: int64(12 * time.Hour ),
+		Period:         int64(12 * time.Hour),
 		FirstTimestamp: time.Now().UnixNano(),
-		Filters: []*mixmessages.ClientBloom{bloomFilter},
+		Filters:        []*mixmessages.ClientBloom{bloomFilter},
 	}
 
 	start, end, outOfBounds := ValidFilterRange(iu, msg)
@@ -143,9 +142,9 @@ func TestValidFilterRange(t *testing.T) {
 	}
 
 	if start != 0 && end != 1 {
-		t.Errorf("ValidFilterRange error: " +
-			"Unexpected indices returned. " +
-			"\n\tExpected start: %v\n\tReceived start: %v" +
+		t.Errorf("ValidFilterRange error: "+
+			"Unexpected indices returned. "+
+			"\n\tExpected start: %v\n\tReceived start: %v"+
 			"\n\tExpected end: %v\n\tReceived end: %v", 0, start, 1, end)
 	}
 
@@ -158,13 +157,13 @@ func TestValidFilterRange_OutBounds(t *testing.T) {
 	testFilter, err := bloom.InitByParameters(interfaces.BloomFilterSize,
 		interfaces.BloomFilterHashes)
 	if err != nil {
-		t.Fatalf("GetFilter error: " +
+		t.Fatalf("GetFilter error: "+
 			"Cannot initialize bloom filter for setup: %v", err)
 	}
 
 	data, err := testFilter.MarshalBinary()
 	if err != nil {
-		t.Fatalf("GetFilter error: " +
+		t.Fatalf("GetFilter error: "+
 			"Cannot marshal filter for setup: %v", err)
 	}
 
@@ -173,13 +172,12 @@ func TestValidFilterRange_OutBounds(t *testing.T) {
 	requestGateway := id.NewIdFromString(ReturningGateway, id.Gateway, t)
 	iu := reception.IdentityUse{
 		Identity: reception.Identity{
-			EphId:  expectedEphID,
-			Source: requestGateway,
-			StartValid: time.Now().Add(-24*time.Hour),
-			EndValid: time.Now().Add(-36*time.Hour),
+			EphId:      expectedEphID,
+			Source:     requestGateway,
+			StartValid: time.Now().Add(-24 * time.Hour),
+			EndValid:   time.Now().Add(-36 * time.Hour),
 		},
 	}
-
 
 	bloomFilter := &mixmessages.ClientBloom{
 		Filter:     data,
@@ -188,9 +186,9 @@ func TestValidFilterRange_OutBounds(t *testing.T) {
 	}
 
 	msg := &mixmessages.ClientBlooms{
-		Period: int64(12 * time.Hour ),
+		Period:         int64(12 * time.Hour),
 		FirstTimestamp: time.Now().UnixNano(),
-		Filters: []*mixmessages.ClientBloom{bloomFilter},
+		Filters:        []*mixmessages.ClientBloom{bloomFilter},
 	}
 
 	_, _, outOfBounds := ValidFilterRange(iu, msg)

@@ -94,6 +94,7 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	hp.MaxRetries = 3
 	hp.SendTimeout = 3 * time.Second
+	hp.AuthEnabled = false
 	m.host, err = m.comms.AddHost(&id.UDB, def.UDB.Address, []byte(def.UDB.Cert), hp)
 	if err != nil {
 		return nil, errors.WithMessage(err, "User Discovery host object could "+

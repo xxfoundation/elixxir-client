@@ -74,7 +74,10 @@ var udCmd = &cobra.Command{
 
 		// Make single-use manager and start receiving process
 		singleMng := single.NewManager(client)
-		client.AddService(singleMng.StartProcesses)
+		err = client.AddService(singleMng.StartProcesses)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to add single use process: %+v", err)
+		}
 
 		// Make user discovery manager
 		userDiscoveryMgr, err := ud.NewManager(client, singleMng)

@@ -8,11 +8,11 @@
 package api
 
 import (
+	"fmt"
+	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"sync"
-	"github.com/pkg/errors"
-	"fmt"
 )
 
 // EventCallbackFunction defines the callback functions for client event reports
@@ -20,20 +20,22 @@ type EventCallbackFunction func(priority int, category, evtType, details string)
 
 // ReportableEvent is used to surface events to client users.
 type reportableEvent struct {
-	Priority int
-	Category string
+	Priority  int
+	Category  string
 	EventType string
-	Details string
+	Details   string
 }
+
 // Holds state for the event reporting system
 type eventManager struct {
-	eventCh chan reportableEvent
+	eventCh  chan reportableEvent
 	eventCbs []EventCallbackFunction
 	eventLck sync.Mutex
 }
+
 func newEventManager() eventManager {
-	return eventManager {
-		eventCh: make(chan reportableEvent, 1000),
+	return eventManager{
+		eventCh:  make(chan reportableEvent, 1000),
 		eventCbs: make([]EventCallbackFunction, 0),
 	}
 }
@@ -43,10 +45,10 @@ func newEventManager() eventManager {
 func (e eventManager) ReportEvent(priority int, category, evtType,
 	details string) {
 	re := reportableEvent{
-		Priority: priority,
-		Category: category,
+		Priority:  priority,
+		Category:  category,
 		EventType: evtType,
-		Details: details,
+		Details:   details,
 	}
 	select {
 	case e.eventCh <- re:
@@ -114,12 +116,14 @@ func (e eventManager) reportEventsHandler(stop *stoppable.Single) {
 func (c *Client) ReportEvent(priority int, category, evtType, details string) {
 	c.events.ReportEvent(priority, category, evtType, details)
 }
+
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
 func (c *Client) RegisterEventCallback(myFunc EventCallbackFunction) int {
 	return c.events.RegisterEventCallback(myFunc)
 }
+
 // UnregisterEventCallback deletes the callback identified by the
 // index. It returns an error if it fails.
 func (c *Client) UnregisterEventCallback(index int) error {

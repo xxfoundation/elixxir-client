@@ -13,7 +13,7 @@ import (
 
 type testRFC struct{}
 
-func (rFC *testRFC) SendDeleteMessage(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
+func (rFC *testRFC) SendRemoveFact(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
 	return &messages.Ack{}, nil
 }
 

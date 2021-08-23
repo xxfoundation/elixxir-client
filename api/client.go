@@ -246,7 +246,6 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
-
 	// Add all processes to the followerServices
 	err = c.registerFollower()
 	if err != nil {

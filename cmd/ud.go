@@ -243,10 +243,10 @@ func init() {
 }
 
 func printContact(c contact.Contact) {
-	jww.DEBUG.Printf("Printing client: %+v", c)
+	jww.DEBUG.Printf("Printing contact: %+v", c)
 	cBytes := c.Marshal()
 	if len(cBytes) == 0 {
-		jww.ERROR.Print("Marshaled client has a size of 0.")
+		jww.ERROR.Print("Marshaled contact has a size of 0.")
 	} else {
 		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
 	}

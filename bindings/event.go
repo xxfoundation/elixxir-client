@@ -14,12 +14,13 @@ import (
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
-func (c *Client) RegisterEventCallback(myFunc api.EventCallbackFunction) int {
-	return c.api.RegisterEventCallback(myFunc)
+func (c *Client) RegisterEventCallback(name string,
+	myFunc api.EventCallbackFunction) error {
+	return c.api.RegisterEventCallback(name, myFunc)
 }
 
 // UnregisterEventCallback deletes the callback identified by the
 // index. It returns an error if it fails.
-func (c *Client) UnregisterEventCallback(index int) error {
-	return c.api.UnregisterEventCallback(index)
+func (c *Client) UnregisterEventCallback(name string) {
+	c.api.UnregisterEventCallback(name)
 }

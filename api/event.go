@@ -35,14 +35,12 @@ func (e reportableEvent) String() string {
 // Holds state for the event reporting system
 type eventManager struct {
 	eventCh  chan reportableEvent
-	eventCbs []EventCallbackFunction
-	eventLck sync.Mutex
+	eventCbs sync.Map
 }
 
 func newEventManager() *eventManager {
 	return &eventManager{
-		eventCh:  make(chan reportableEvent, 1000),
-		eventCbs: make([]EventCallbackFunction, 0),
+		eventCh: make(chan reportableEvent, 1000),
 	}
 }
 
@@ -67,25 +65,20 @@ func (e *eventManager) ReportEvent(priority int, category, evtType,
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
-func (e *eventManager) RegisterEventCallback(myFunc EventCallbackFunction) int {
-	e.eventLck.Lock()
-	defer e.eventLck.Unlock()
-	e.eventCbs = append(e.eventCbs, myFunc)
-	return len(e.eventCbs) - 1
+func (e *eventManager) RegisterEventCallback(name string,
+	myFunc EventCallbackFunction) error {
+	_, existsAlready := e.eventCbs.LoadOrStore(name, myFunc)
+	if existsAlready {
+		return errors.Errorf("Key %s already exists as event callback",
+			name)
+	}
+	return nil
 }
 
 // UnregisterEventCallback deletes the callback identified by the
 // index. It returns an error if it fails.
-func (e *eventManager) UnregisterEventCallback(index int) error {
-	e.eventLck.Lock()
-	defer e.eventLck.Unlock()
-	if index > 0 && index < len(e.eventCbs) {
-		e.eventCbs = append(e.eventCbs[:index], e.eventCbs[index+1:]...)
-	} else {
-		return errors.Errorf("Index %d out of bounds: %d -> %d",
-			index, 0, len(e.eventCbs))
-	}
-	return nil
+func (e *eventManager) UnregisterEventCallback(name string) {
+	e.eventCbs.Delete(name)
 }
 
 func (e *eventManager) eventService() (stoppable.Stoppable, error) {
@@ -109,10 +102,12 @@ func (e *eventManager) reportEventsHandler(stop *stoppable.Single) {
 			// against it. It's the users responsibility not to let
 			// the event queue explode. The API will report errors
 			// in the logging any time the event queue gets full.
-			for i := 0; i < len(e.eventCbs); i++ {
-				e.eventCbs[i](evt.Priority, evt.Category,
-					evt.EventType, evt.Details)
-			}
+			e.eventCbs.Range(func(name, myFunc interface{}) bool {
+				f := myFunc.(EventCallbackFunction)
+				f(evt.Priority, evt.Category, evt.EventType,
+					evt.Details)
+				return true
+			})
 		}
 	}
 }
@@ -126,12 +121,13 @@ func (c *Client) ReportEvent(priority int, category, evtType, details string) {
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
-func (c *Client) RegisterEventCallback(myFunc EventCallbackFunction) int {
-	return c.events.RegisterEventCallback(myFunc)
+func (c *Client) RegisterEventCallback(name string,
+	myFunc EventCallbackFunction) error {
+	return c.events.RegisterEventCallback(name, myFunc)
 }
 
 // UnregisterEventCallback deletes the callback identified by the
 // index. It returns an error if it fails.
-func (c *Client) UnregisterEventCallback(index int) error {
-	return c.events.UnregisterEventCallback(index)
+func (c *Client) UnregisterEventCallback(name string) {
+	c.events.UnregisterEventCallback(name)
 }

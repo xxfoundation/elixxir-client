@@ -8,14 +8,14 @@
 package bindings
 
 import (
-	"gitlab.com/elixxir/client/api"
+	"gitlab.com/elixxir/client/interfaces"
 )
 
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
 func (c *Client) RegisterEventCallback(name string,
-	myFunc api.EventCallbackFunction) error {
+	myFunc interfaces.EventCallbackFunction) error {
 	return c.api.RegisterEventCallback(name, myFunc)
 }
 

@@ -11,12 +11,10 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/stoppable"
 	"sync"
 )
-
-// EventCallbackFunction defines the callback functions for client event reports
-type EventCallbackFunction func(priority int, category, evtType, details string)
 
 // ReportableEvent is used to surface events to client users.
 type reportableEvent struct {
@@ -66,7 +64,7 @@ func (e *eventManager) ReportEvent(priority int, category, evtType,
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
 func (e *eventManager) RegisterEventCallback(name string,
-	myFunc EventCallbackFunction) error {
+	myFunc interfaces.EventCallbackFunction) error {
 	_, existsAlready := e.eventCbs.LoadOrStore(name, myFunc)
 	if existsAlready {
 		return errors.Errorf("Key %s already exists as event callback",
@@ -103,7 +101,7 @@ func (e *eventManager) reportEventsHandler(stop *stoppable.Single) {
 			// the event queue explode. The API will report errors
 			// in the logging any time the event queue gets full.
 			e.eventCbs.Range(func(name, myFunc interface{}) bool {
-				f := myFunc.(EventCallbackFunction)
+				f := myFunc.(interfaces.EventCallbackFunction)
 				f(evt.Priority, evt.Category, evt.EventType,
 					evt.Details)
 				return true
@@ -122,7 +120,7 @@ func (c *Client) ReportEvent(priority int, category, evtType, details string) {
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
 func (c *Client) RegisterEventCallback(name string,
-	myFunc EventCallbackFunction) error {
+	myFunc interfaces.EventCallbackFunction) error {
 	return c.events.RegisterEventCallback(name, myFunc)
 }
 

@@ -26,6 +26,12 @@ type reportableEvent struct {
 	Details   string
 }
 
+// String stringer interace implementation
+func (e reportableEvent) String() string {
+	return fmt.Sprintf("Event(%d, %s, %s, %s)", e.Priority, e.Category,
+		e.EventType, e.Details)
+}
+
 // Holds state for the event reporting system
 type eventManager struct {
 	eventCh  chan reportableEvent
@@ -33,8 +39,8 @@ type eventManager struct {
 	eventLck sync.Mutex
 }
 
-func newEventManager() eventManager {
-	return eventManager{
+func newEventManager() *eventManager {
+	return &eventManager{
 		eventCh:  make(chan reportableEvent, 1000),
 		eventCbs: make([]EventCallbackFunction, 0),
 	}
@@ -42,7 +48,7 @@ func newEventManager() eventManager {
 
 // ReportEvent reports an event from the client to api users, providing a
 // priority, category, eventType, and details
-func (e eventManager) ReportEvent(priority int, category, evtType,
+func (e *eventManager) ReportEvent(priority int, category, evtType,
 	details string) {
 	re := reportableEvent{
 		Priority:  priority,
@@ -61,7 +67,7 @@ func (e eventManager) ReportEvent(priority int, category, evtType,
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
-func (e eventManager) RegisterEventCallback(myFunc EventCallbackFunction) int {
+func (e *eventManager) RegisterEventCallback(myFunc EventCallbackFunction) int {
 	e.eventLck.Lock()
 	defer e.eventLck.Unlock()
 	e.eventCbs = append(e.eventCbs, myFunc)
@@ -70,7 +76,7 @@ func (e eventManager) RegisterEventCallback(myFunc EventCallbackFunction) int {
 
 // UnregisterEventCallback deletes the callback identified by the
 // index. It returns an error if it fails.
-func (e eventManager) UnregisterEventCallback(index int) error {
+func (e *eventManager) UnregisterEventCallback(index int) error {
 	e.eventLck.Lock()
 	defer e.eventLck.Unlock()
 	if index > 0 && index < len(e.eventCbs) {
@@ -82,14 +88,14 @@ func (e eventManager) UnregisterEventCallback(index int) error {
 	return nil
 }
 
-func (e eventManager) eventService() (stoppable.Stoppable, error) {
+func (e *eventManager) eventService() (stoppable.Stoppable, error) {
 	stop := stoppable.NewSingle("EventReporting")
 	go e.reportEventsHandler(stop)
 	return stop, nil
 }
 
 // reportEventsHandler reports events to every registered event callback
-func (e eventManager) reportEventsHandler(stop *stoppable.Single) {
+func (e *eventManager) reportEventsHandler(stop *stoppable.Single) {
 	jww.DEBUG.Print("reportEventsHandler routine started")
 	for {
 		select {
@@ -128,9 +134,4 @@ func (c *Client) RegisterEventCallback(myFunc EventCallbackFunction) int {
 // index. It returns an error if it fails.
 func (c *Client) UnregisterEventCallback(index int) error {
 	return c.events.UnregisterEventCallback(index)
-}
-
-func (e reportableEvent) String() string {
-	return fmt.Sprintf("Event(%d, %s, %s, %s)", e.Priority, e.Category,
-		e.EventType, e.Details)
 }

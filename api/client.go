@@ -65,7 +65,7 @@ type Client struct {
 	clientErrorChannel chan interfaces.ClientError
 
 	// Event reporting in event.go
-	events eventManager
+	events *eventManager
 }
 
 // NewClient creates client storage, generates keys, connects, and registers

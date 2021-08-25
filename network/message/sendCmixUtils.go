@@ -49,8 +49,8 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 	// If the comm errors or the message fails to send, then continue retrying;
 	// otherwise, return if it sends properly
 	if strings.Contains(err.Error(), "try a different round.") {
-		return true, errors.WithMessagef(err, "Failed to send to [%s] due to "+
-			"round error with round %d, retrying...",
+		return false, errors.WithMessagef(err, "Failed to send to [%s] due to "+
+			"round error with round %d, bailing...",
 			recipientString, bestRound.ID)
 	} else if strings.Contains(err.Error(), "Could not authenticate client. "+
 		"Is the client registered with this node?") {

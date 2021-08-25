@@ -117,7 +117,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				if warn {
 					jww.WARN.Printf("SendCmix Failed: %+v", err)
 				} else {
-					return result, false, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
+					return result, true, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
 				}
 			}
 			return result, false, err

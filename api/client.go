@@ -246,7 +246,6 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
 
-
 	// Add all processes to the followerServices
 	err = c.registerFollower()
 	if err != nil {
@@ -306,6 +305,11 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }

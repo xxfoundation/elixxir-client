@@ -1,16 +1,20 @@
 package ud
 
 import (
+	"crypto/rand"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/crypto/factID"
+	"gitlab.com/elixxir/crypto/hash"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/crypto/signature/rsa"
 )
 
 type removeFactComms interface {
-	SendDeleteMessage(host *connect.Host, message *mixmessages.FactRemovalRequest) (*messages.Ack, error)
+	SendRemoveFact(host *connect.Host, message *mixmessages.FactRemovalRequest) (*messages.Ack, error)
 }
 
 // Removes a previously confirmed fact.  Will fail if the fact is not
@@ -33,14 +37,24 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 		FactType: uint32(fact.T),
 	}
 
+	// Create a hash of our fact
+	fhash := factID.Fingerprint(fact)
+
+	// Sign our inFact for putting into the request
+	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fhash, nil)
+	if err != nil {
+		return err
+	}
+
 	// Create our Fact Removal Request message data
 	remFactMsg := mixmessages.FactRemovalRequest{
 		UID:         m.myID.Marshal(),
 		RemovalData: &mmFact,
+		FactSig:     fsig,
 	}
 
 	// Send the message
-	_, err := rFC.SendDeleteMessage(m.host, &remFactMsg)
+	_, err = rFC.SendRemoveFact(m.host, &remFactMsg)
 
 	// Return the error
 	return err

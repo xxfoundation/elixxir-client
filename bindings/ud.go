@@ -33,7 +33,7 @@ type UserDiscovery struct {
 // This must be called while start network follower is running.
 func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
 	single, err := client.getSingle()
-	if err!=nil{
+	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	}
 	m, err := ud.NewManager(&client.api, single)

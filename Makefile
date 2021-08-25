@@ -1,7 +1,4 @@
-.PHONY: update master release setup update_master update_release build clean version
-
-setup:
-	git config --global --add url."git@gitlab.com:".insteadOf "https://gitlab.com/"
+.PHONY: update master release update_master update_release build clean version
 
 version:
 	go run main.go generate

@@ -74,7 +74,10 @@ var udCmd = &cobra.Command{
 
 		// Make single-use manager and start receiving process
 		singleMng := single.NewManager(client)
-		client.AddService(singleMng.StartProcesses)
+		err = client.AddService(singleMng.StartProcesses)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to add single use process: %+v", err)
+		}
 
 		// Make user discovery manager
 		userDiscoveryMgr, err := ud.NewManager(client, singleMng)
@@ -240,10 +243,10 @@ func init() {
 }
 
 func printContact(c contact.Contact) {
-	jww.DEBUG.Printf("Printing client: %+v", c)
+	jww.DEBUG.Printf("Printing contact: %+v", c)
 	cBytes := c.Marshal()
 	if len(cBytes) == 0 {
-		jww.ERROR.Print("Marshaled client has a size of 0.")
+		jww.ERROR.Print("Marshaled contact has a size of 0.")
 	} else {
 		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
 	}

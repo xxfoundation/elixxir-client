@@ -74,7 +74,7 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 	}
 
 	//return an error if no facts are found
-	if len(searchResponse.Contacts)==0{
+	if len(searchResponse.Contacts) == 0 {
 		go callback(nil, errors.New("No contacts found in search"))
 	}
 
@@ -119,12 +119,15 @@ func (m *Manager) parseContacts(response []*Contact,
 		if err != nil {
 			return nil, errors.Errorf("failed to parse Contact user ID: %+v", err)
 		}
-
+		var facts []fact.Fact
+		if c.Username != "" {
+			facts = []fact.Fact{{c.Username, fact.Username}}
+		}
 		// Create new Contact
 		contacts[i] = contact.Contact{
 			ID:       uid,
 			DhPubKey: m.grp.NewIntFromBytes(c.PubKey),
-			Facts:    []fact.Fact{},
+			Facts:    facts,
 		}
 
 		// Assign each Fact with a matching hash to the Contact

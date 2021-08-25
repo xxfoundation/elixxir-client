@@ -97,10 +97,17 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 	badProxies := make(map[string]interface{})
 
 	// Iterate between each target's list of proxies, using the next target for each proxy
+
 	for proxyIdx := uint32(0); proxyIdx < s.poolParams.ProxyAttempts; proxyIdx++ {
 		for targetIdx := range proxies {
 			target := targets[targetIdx]
 			targetProxies := proxies[targetIdx]
+			if !(int(proxyIdx)<len(targetProxies)){
+				jww.WARN.Printf("Failed to send to proxy %d on target %d (%s) " +
+					"due to not enough proxies (only %d), skipping attempt", proxyIdx,
+					targetIdx, target, len(targetProxies))
+				continue
+			}
 			proxy := targetProxies[proxyIdx]
 
 			// Skip bad proxies

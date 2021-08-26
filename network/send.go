@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"time"
 )
 
 // SendCMIX sends a "raw" CMIX message payload to the provided
@@ -63,10 +64,10 @@ func (m *manager) SendUnsafe(msg message.Send, param params.Unsafe) ([]id.Round,
 // the provided msgType. Returns the list of rounds in which parts of
 // the message were sent or an error if it fails.
 func (m *manager) SendE2E(msg message.Send, e2eP params.E2E, stop *stoppable.Single) (
-	[]id.Round, e2e.MessageID, error) {
+	[]id.Round, e2e.MessageID, time.Time, error) {
 
 	if !m.Health.IsHealthy() {
-		return nil, e2e.MessageID{}, errors.New("Cannot send e2e " +
+		return nil, e2e.MessageID{}, time.Time{}, errors.New("Cannot send e2e " +
 			"message when the network is not healthy")
 	}
 

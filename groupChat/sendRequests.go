@@ -110,7 +110,7 @@ func (m Manager) sendRequest(memberID *id.ID, request []byte) ([]id.Round, error
 		MessageType: message.GroupCreationRequest,
 	}
 
-	rounds, _, err := m.net.SendE2E(sendMsg, params.GetDefaultE2E(), nil)
+	rounds, _, _, err := m.net.SendE2E(sendMsg, params.GetDefaultE2E(), nil)
 	if err != nil {
 		return nil, errors.Errorf(sendE2eErr, memberID, err)
 	}

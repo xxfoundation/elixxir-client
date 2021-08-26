@@ -23,9 +23,9 @@ import (
 )
 
 func (m *Manager) SendE2E(msg message.Send, param params.E2E,
-	stop *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
+	stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
 	if msg.MessageType == message.Raw {
-		return nil, e2e.MessageID{}, errors.Errorf("Raw (%d) is a reserved "+
+		return nil, e2e.MessageID{}, time.Time{}, errors.Errorf("Raw (%d) is a reserved "+
 			"message type", msg.MessageType)
 	}
 	//timestamp the message
@@ -35,7 +35,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 	partitions, internalMsgId, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
 		msg.Payload)
 	if err != nil {
-		return nil, e2e.MessageID{}, errors.WithMessage(err, "failed to send unsafe message")
+		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessage(err, "failed to send unsafe message")
 	}
 
 	//encrypt then send the partitions over cmix
@@ -45,7 +45,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 	// get the key manager for the partner
 	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
-		return nil, e2e.MessageID{}, errors.WithMessagef(err,
+		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
 			"Could not send End to End encrypted "+
 				"message, no relationship found with %s", msg.Recipient)
 	}
@@ -83,7 +83,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 			key, err = partner.GetKeyForSending(param.Type)
 		}
 		if err != nil {
-			return nil, e2e.MessageID{}, errors.WithMessagef(err,
+			return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
 				"Failed to get key for end to end encryption")
 		}
 
@@ -113,7 +113,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 	if numFail > 0 {
 		jww.INFO.Printf("Failed to E2E send %d/%d to %s",
 			numFail, len(partitions), msg.Recipient)
-		return nil, e2e.MessageID{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
+		return nil, e2e.MessageID{}, time.Time{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
 	} else {
 		jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
@@ -122,5 +122,5 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 
 	//return the rounds if everything send successfully
 	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(), internalMsgId)
-	return roundIds, msgID, nil
+	return roundIds, msgID, ts, nil
 }

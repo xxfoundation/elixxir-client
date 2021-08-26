@@ -36,6 +36,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 )
 
 // newTestManager creates a new Manager for testing.
@@ -240,20 +241,20 @@ func (tnm *testNetworkManager) GetE2eMsg(i int) message.Send {
 	return tnm.e2eMessages[i]
 }
 
-func (tnm *testNetworkManager) SendE2E(msg message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
+func (tnm *testNetworkManager) SendE2E(msg message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
 	tnm.Lock()
 	defer tnm.Unlock()
 
 	tnm.errSkip++
 	if tnm.sendErr == 1 {
-		return nil, e2e.MessageID{}, errors.New("SendE2E error")
+		return nil, e2e.MessageID{}, time.Time{}, errors.New("SendE2E error")
 	} else if tnm.sendErr == 2 && tnm.errSkip%2 == 0 {
-		return nil, e2e.MessageID{}, errors.New("SendE2E error")
+		return nil, e2e.MessageID{}, time.Time{}, errors.New("SendE2E error")
 	}
 
 	tnm.e2eMessages = append(tnm.e2eMessages, msg)
 
-	return []id.Round{0, 1, 2, 3}, e2e.MessageID{}, nil
+	return []id.Round{0, 1, 2, 3}, e2e.MessageID{}, time.Time{}, nil
 }
 
 func (tnm *testNetworkManager) SendUnsafe(message.Send, params.Unsafe) ([]id.Round, error) {

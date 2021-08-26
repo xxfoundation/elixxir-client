@@ -198,7 +198,7 @@ var rootCmd = &cobra.Command{
 					paramsUnsafe)
 				roundTimeout = paramsUnsafe.Timeout
 			} else {
-				roundIDs, _, err = client.SendE2E(msg,
+				roundIDs, _, _, err = client.SendE2E(msg,
 					paramsE2E)
 				roundTimeout = paramsE2E.Timeout
 			}

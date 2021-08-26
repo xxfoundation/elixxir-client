@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"time"
 )
 
 // Mock comm struct which returns no historical round data
@@ -94,9 +95,9 @@ func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
 func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
-	[]id.Round, cE2e.MessageID, error) {
+	[]id.Round, cE2e.MessageID, time.Time, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	return rounds, cE2e.MessageID{}, nil
+	return rounds, cE2e.MessageID{}, time.Time{}, nil
 
 }
 func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {

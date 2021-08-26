@@ -283,8 +283,8 @@ func (tnm *testNetworkManager) GetMsg(i int) format.Message {
 	return tnm.msgs[i]
 }
 
-func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
-	return nil, e2e.MessageID{}, nil
+func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
+	return nil, e2e.MessageID{}, time.Time{}, nil
 }
 
 func (tnm *testNetworkManager) SendUnsafe(_ message.Send, _ params.Unsafe) ([]id.Round, error) {

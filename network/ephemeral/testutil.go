@@ -10,6 +10,7 @@ package ephemeral
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"testing"
+	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -34,7 +35,7 @@ type testNetworkManager struct {
 }
 
 func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round,
-	e2e.MessageID, error) {
+	e2e.MessageID, time.Time, error) {
 	rounds := []id.Round{
 		id.Round(0),
 		id.Round(1),
@@ -43,7 +44,7 @@ func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E, _ *stoppable.
 
 	t.msg = m
 
-	return rounds, e2e.MessageID{}, nil
+	return rounds, e2e.MessageID{}, time.Time{}, nil
 }
 
 func (t *testNetworkManager) SendUnsafe(m message.Send, _ params.Unsafe) ([]id.Round, error) {

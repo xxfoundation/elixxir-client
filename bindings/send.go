@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // SendCMIX sends a "raw" CMIX message payload to the provided
@@ -163,7 +164,7 @@ func (c *Client) SendE2E(recipient, payload []byte, messageType int, parameters 
 		MessageType: message.Type(messageType),
 	}
 
-	rids, mid, err := c.api.SendE2E(m, p)
+	rids, mid, ts, err := c.api.SendE2E(m, p)
 	if err != nil {
 		return nil, errors.New(fmt.Sprintf("Failed SendE2E: %+v", err))
 	}
@@ -171,6 +172,7 @@ func (c *Client) SendE2E(recipient, payload []byte, messageType int, parameters 
 	sr := SendReport{
 		rl:  &RoundList{list: rids},
 		mid: mid,
+		ts:  ts,
 	}
 
 	return &sr, nil
@@ -180,6 +182,7 @@ func (c *Client) SendE2E(recipient, payload []byte, messageType int, parameters 
 type SendReport struct {
 	rl  *RoundList
 	mid e2e.MessageID
+	ts  time.Time
 }
 
 type SendReportDisk struct {
@@ -193,6 +196,18 @@ func (sr *SendReport) GetRoundList() *RoundList {
 
 func (sr *SendReport) GetMessageID() []byte {
 	return sr.mid[:]
+}
+
+// GetTimestampMS returns the message's timestamp in milliseconds
+func (sr *SendReport) GetTimestampMS() int64 {
+	ts := sr.ts.UnixNano()
+	ts = (ts + 500000) / 1000000
+	return ts
+}
+
+// GetTimestampNano returns the message's timestamp in nanoseconds
+func (sr *SendReport) GetTimestampNano() int64 {
+	return sr.ts.UnixNano()
 }
 
 func (sr *SendReport) Marshal() ([]byte, error) {

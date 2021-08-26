@@ -31,6 +31,7 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
+	"time"
 )
 
 // Generate partner ID for two people, used for smoke tests
@@ -67,9 +68,9 @@ func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 }
 
 func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
-	[]id.Round, cE2e.MessageID, error) {
+	[]id.Round, cE2e.MessageID, time.Time, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	return rounds, cE2e.MessageID{}, nil
+	return rounds, cE2e.MessageID{}, time.Time{}, nil
 
 }
 
@@ -169,7 +170,7 @@ func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
 // together
 func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stoppable.Single) (
-	[]id.Round, cE2e.MessageID, error) {
+	[]id.Round, cE2e.MessageID, time.Time, error) {
 
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
@@ -193,7 +194,7 @@ func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stop
 
 	bobSwitchboard.Speak(confirmMessage)
 
-	return rounds, cE2e.MessageID{}, nil
+	return rounds, cE2e.MessageID{}, time.Time{}, nil
 }
 
 func (t *testNetworkManagerFullExchange) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {

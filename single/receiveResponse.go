@@ -8,6 +8,7 @@
 package single
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
@@ -37,8 +38,13 @@ func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
 			// Process CMIX message
 			err := m.processesResponse(msg.RecipientID, msg.EphemeralID, msg.Payload)
 			if err != nil {
-				jww.WARN.Printf("Failed to read single-use CMIX message "+
-					"response: %+v", err)
+				em := fmt.Sprintf("Failed to read single-use "+
+					"CMIX message response: %+v", err)
+				jww.WARN.Print(em)
+				if m.client != nil {
+					m.client.ReportEvent(9, "SingleUse",
+						"Error", em)
+				}
 			}
 		}
 	}
@@ -89,6 +95,11 @@ func (m *Manager) processesResponse(rid *id.ID, ephID ephemeral.Id,
 
 	// Once all message parts have been received delete and close everything
 	if collated {
+		if m.client != nil {
+			m.client.ReportEvent(1, "SingleUse", "MessageReceived",
+				fmt.Sprintf("Single use response received "+
+					"from %s", rid))
+		}
 		jww.DEBUG.Print("Received all parts of single-use response message.")
 		// Exit the timeout handler
 		state.quitChan <- struct{}{}

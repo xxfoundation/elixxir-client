@@ -11,6 +11,7 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -109,6 +110,12 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	if err != nil {
 		return nil, err
 	}
+
+	// Report health events
+	m.Internal.Health.AddFunc(func(isHealthy bool) {
+		m.Internal.Events.Report(5, "Health", "IsHealthy",
+			fmt.Sprintf("%v", isHealthy))
+	})
 
 	//create sub managers
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)

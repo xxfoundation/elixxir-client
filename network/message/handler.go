@@ -8,6 +8,7 @@
 package message
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
@@ -76,8 +77,12 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 		//drop the message is decryption failed
 		if err != nil {
 			//if decryption failed, print an error
-			jww.WARN.Printf("Failed to decrypt message with fp %s "+
-				"from partner %s: %s", key.Fingerprint(), sender, err)
+			msg := fmt.Sprintf("Failed to decrypt message with "+
+				"fp %s from partner %s: %s", key.Fingerprint(),
+				sender, err)
+			jww.WARN.Printf(msg)
+			m.Internal.Events.Report(9, "MessageReception",
+				"DecryptionError", msg)
 			return
 		}
 		//set the type as E2E encrypted
@@ -103,15 +108,19 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 			RoundId:        id.Round(bundle.RoundInfo.ID),
 			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED])),
 		}
-		jww.INFO.Printf("Garbled/RAW Message: keyFP: %v, msgDigest: %s",
-			msg.GetKeyFP(), msg.Digest())
+		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, "+
+			"msgDigest: %s", msg.GetKeyFP(), msg.Digest())
+		jww.INFO.Print(im)
+		m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
 		m.Session.GetGarbledMessages().Add(msg)
 		m.Switchboard.Speak(raw)
 		return
 	}
 
-	jww.INFO.Printf("Received message of type %s from %s,"+
+	im := fmt.Sprintf("Received message of type %s from %s,"+
 		" msgDigest: %s", encTy, sender, msgDigest)
+	jww.INFO.Print(im)
+	m.Internal.Events.Report(2, "MessageReception", "MessagePart", im)
 
 	// Process the decrypted/unencrypted message partition, to see if
 	// we get a full message
@@ -127,9 +136,12 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 		xxMsg.RoundId = id.Round(bundle.RoundInfo.ID)
 		xxMsg.RoundTimestamp = time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED]))
 		if xxMsg.MessageType == message.Raw {
-			jww.WARN.Panicf("Recieved a message of type 'Raw' from %s."+
+			rm := fmt.Sprintf("Recieved a message of type 'Raw' from %s."+
 				"Message Ignored, 'Raw' is a reserved type. Message supressed.",
 				xxMsg.ID)
+			jww.WARN.Print(rm)
+			m.Internal.Events.Report(10, "MessageReception",
+				"Error", rm)
 		} else {
 			m.Switchboard.Speak(xxMsg)
 		}

@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -50,11 +51,17 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		return errors.WithMessage(err, "Failed to transmit search request.")
 	}
 
+	if m.client != nil {
+		m.client.ReportEvent(1, "UserDiscovery", "SearchRequest",
+			fmt.Sprintf("Sent: %+v", request))
+	}
+
 	return nil
 }
 
 func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 	callback searchCallback, payload []byte, err error) {
+
 	if err != nil {
 		go callback(nil, errors.WithMessage(err, "Failed to search."))
 		return
@@ -66,6 +73,12 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 		jww.WARN.Printf("Dropped a search response from user discovery due to "+
 			"failed unmarshal: %s", err)
 	}
+
+	if m.client != nil {
+		m.client.ReportEvent(1, "UserDiscovery", "SearchResponse",
+			fmt.Sprintf("Received: %+v", searchResponse))
+	}
+
 	if searchResponse.Error != "" {
 		err = errors.Errorf("User Discovery returned an error on search: %s",
 			searchResponse.Error)

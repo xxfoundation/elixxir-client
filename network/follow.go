@@ -67,15 +67,26 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			if m.numLatencies != 0 {
-				latencyAvg := time.Nanosecond * time.Duration(m.latencySum/m.numLatencies)
+				latencyAvg := time.Nanosecond * time.Duration(
+					m.latencySum/m.numLatencies)
 				m.latencySum, m.numLatencies = 0, 0
 
-				jww.INFO.Printf("Polled the network %d times in the "+
-					"last %s, with an average newest packet latency of %s", numPolls,
-					debugTrackPeriod, latencyAvg)
+				infoMsg := fmt.Sprintf("Polled the network "+
+					"%d times in the last %s, with an "+
+					"average newest packet latency of %s",
+					numPolls, debugTrackPeriod, latencyAvg)
+
+				jww.INFO.Printf(infoMsg)
+				m.Internal.Events.Report(1, "Polling",
+					"MetricsWithLatency", infoMsg)
 			} else {
-				jww.INFO.Printf("Polled the network %d times in the "+
-					"last %s", numPolls, debugTrackPeriod)
+				infoMsg := fmt.Sprintf("Polled the network "+
+					"%d times in the last %s", numPolls,
+					debugTrackPeriod)
+
+				jww.INFO.Printf(infoMsg)
+				m.Internal.Events.Report(1, "Polling",
+					"Metrics", infoMsg)
 			}
 		}
 	}
@@ -133,7 +144,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 				fmt.Sprintf("%+v", err),
 			)
 		}
-		jww.ERROR.Printf("Unable to poll gateways: %+v", err)
+		errMsg := fmt.Sprintf("Unable to poll gateway: %+v", err)
+		m.Internal.Events.Report(10, "Polling", "Error", errMsg)
+		jww.ERROR.Printf(errMsg)
 		return
 	}
 

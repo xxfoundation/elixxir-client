@@ -71,6 +71,13 @@ func (t *testNetworkManager) GetInstance() *network.Instance {
 	return t.instance
 }
 
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
+}
+
 func (t *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {
 	return nil
 }

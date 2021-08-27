@@ -97,6 +97,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Instance:         instance,
 		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
+		Events:           events,
 	}
 
 	// Set up gateway.Sender

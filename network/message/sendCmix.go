@@ -8,9 +8,11 @@
 package message
 
 import (
+	"fmt"
 	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/stoppable"
@@ -32,7 +34,8 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 	recipient *id.ID, param params.CMIX, stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 	msgCopy := msg.Copy()
 	return sendCmixHelper(sender, msgCopy, recipient, param, m.Instance,
-		m.Session, m.nodeRegistration, m.Rng, m.TransmissionID, m.Comms, stop)
+		m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
+		m.TransmissionID, m.Comms, stop)
 }
 
 // Helper function for sendCmix
@@ -47,7 +50,8 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 	recipient *id.ID, cmixParams params.CMIX, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
-	rng *fastRNG.StreamGenerator, senderId *id.ID, comms sendCmixCommsInterface,
+	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+	senderId *id.ID, comms sendCmixCommsInterface,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	timeStart := netTime.Now()
@@ -144,8 +148,13 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Return if it sends properly
 		gwSlotResp := result.(*pb.GatewaySlotResponse)
 		if gwSlotResp.Accepted {
-			jww.INFO.Printf("Successfully sent to EphID %v (source: %s) "+
-				"in round %d (msgDigest: %s)", ephID.Int64(), recipient, bestRound.ID, msg.Digest())
+			m := fmt.Sprintf("Successfully sent to EphID %v "+
+				"(source: %s) in round %d (msgDigest: %s), "+
+				"elapsed: %s numRoundTries: %d", ephID.Int64(),
+				recipient, bestRound.ID, msg.Digest(),
+				elapsed, numRoundTries)
+			jww.INFO.Print(m)
+			events.Report(1, "MessageSend", "Metric", m)
 			return id.Round(bestRound.ID), ephID, nil
 		} else {
 			jww.FATAL.Panicf("Gateway %s returned no error, but failed "+

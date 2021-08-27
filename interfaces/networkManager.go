@@ -27,6 +27,7 @@ type NetworkManager interface {
 	SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error)
 	GetInstance() *network.Instance
 	GetHealthTracker() HealthTracker
+	GetEventManager() EventManager
 	GetSender() *gateway.Sender
 	Follow(report ClientErrorReport) (stoppable.Stoppable, error)
 	CheckGarbledMessages()

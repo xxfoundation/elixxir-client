@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -169,8 +170,10 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 			cmixMsg.Digest(), err)
 	}
 
-	jww.INFO.Printf("Auth Request with %s (msgDigest: %s) sent"+
+	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
 		" on round %d", partner.ID, cmixMsg.Digest(), round)
+	jww.INFO.Print(em)
+	net.GetEventManager().Report(1, "Auth", "RequestSent", em)
 
 	return round, nil
 }

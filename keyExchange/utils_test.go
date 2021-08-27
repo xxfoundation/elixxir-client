@@ -93,6 +93,10 @@ func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 
 }
 
+func (t *testNetworkManagerGeneric) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
+}
+
 func (t *testNetworkManagerGeneric) RegisterWithPermissioning(string) ([]byte, error) {
 	return nil, nil
 }
@@ -152,6 +156,12 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 // Separated from Generic to allow for a full stack test that doesn't impact the generic one used in smoke tests
 type testNetworkManagerFullExchange struct {
 	instance *network.Instance
+}
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManagerFullExchange) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
 }
 
 func (t *testNetworkManagerFullExchange) GetHealthTracker() interfaces.HealthTracker {

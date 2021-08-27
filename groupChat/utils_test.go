@@ -277,6 +277,13 @@ func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, _
 	return 0, nil, nil
 }
 
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
+}
+
 func (tnm *testNetworkManager) GetInstance() *network.Instance             { return tnm.instance }
 func (tnm *testNetworkManager) GetHealthTracker() interfaces.HealthTracker { return nil }
 func (tnm *testNetworkManager) Follow(interfaces.ClientErrorReport) (stoppable.Stoppable, error) {

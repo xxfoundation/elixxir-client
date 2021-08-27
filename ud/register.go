@@ -88,7 +88,8 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 		err = m.setRegistered()
 		if m.client != nil {
 			m.client.ReportEvent(1, "UserDiscovery", "Registration",
-				fmt.Sprintf("User Registered with UD: %s", user))
+				fmt.Sprintf("User Registered with UD: %+v",
+					user))
 		}
 	}
 

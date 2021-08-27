@@ -166,6 +166,11 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	return multi, nil
 }
 
+// GetEventManager returns the health tracker
+func (m *manager) GetEventManager() interfaces.EventManager {
+	return m.events
+}
+
 // GetHealthTracker returns the health tracker
 func (m *manager) GetHealthTracker() interfaces.HealthTracker {
 	return m.Health

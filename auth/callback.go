@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -128,8 +129,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		return
 	}
 
-	jww.INFO.Printf("Received AuthRequest from %s,"+
+	events := m.net.GetEventManager()
+	em := fmt.Sprintf("Received AuthRequest from %s,"+
 		" msgDigest: %s", partnerID, cmixMsg.Digest())
+	jww.INFO.Print(em)
+	events.Report(1, "Auth", "RequestReceived", em)
 
 	/*do state edge checks*/
 	// check if a relationship already exists.
@@ -137,8 +141,10 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// confirmation in case there are state issues.
 	// do not store
 	if _, err := m.storage.E2e().GetPartner(partnerID); err == nil {
-		jww.WARN.Printf("Received Auth request for %s, "+
+		em := fmt.Sprintf("Received Auth request for %s, "+
 			"channel already exists. Ignoring", partnerID)
+		jww.WARN.Print(em)
+		events.Report(5, "Auth", "RequestIgnored", em)
 		//exit
 		return
 	} else {
@@ -146,17 +152,21 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 		rType, sr2, _, err := m.storage.Auth().GetRequest(partnerID)
 		if err != nil && !strings.Contains(err.Error(), auth.NoRequest) {
 			// if another error is received, print it and exit
-			jww.WARN.Printf("Received new Auth request for %s, "+
+			em := fmt.Sprintf("Received new Auth request for %s, "+
 				"internal lookup produced bad result: %+v",
 				partnerID, err)
+			jww.ERROR.Print(em)
+			events.Report(10, "Auth", "RequestError", em)
 			return
 		} else {
 			//handle the events where the relationship already exists
 			switch rType {
 			// if this is a duplicate, ignore the message
 			case auth.Receive:
-				jww.WARN.Printf("Received new Auth request for %s, "+
+				em := fmt.Sprintf("Received new Auth request for %s, "+
 					"is a duplicate", partnerID)
+				jww.WARN.Print(em)
+				events.Report(5, "Auth", "DuplicateRequest", em)
 				return
 			// if we sent a request, then automatically confirm
 			// then exit, nothing else needed
@@ -167,8 +177,11 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 				// do the confirmation
 				if err := m.doConfirm(sr2, grp, partnerPubKey, m.storage.E2e().GetDHPrivateKey(),
 					sr2.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
-					jww.WARN.Printf("Auto Confirmation with %s failed: %s",
+					em := fmt.Sprintf("Auto Confirmation with %s failed: %s",
 						partnerID, err)
+					jww.WARN.Print(em)
+					events.Report(10, "Auth",
+						"RequestError", em)
 				}
 				//exit
 				return
@@ -180,8 +193,10 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	facts, msg, err := fact.UnstringifyFactList(
 		string(requestFmt.msgPayload))
 	if err != nil {
-		jww.WARN.Printf("failed to parse facts and message "+
+		em := fmt.Sprintf("failed to parse facts and message "+
 			"from Auth Request: %s", err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "RequestError", em)
 		return
 	}
 
@@ -197,8 +212,10 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 	// crash occurs after the store but before the conclusion of the callback
 	//create the auth storage
 	if err = m.storage.Auth().AddReceived(c); err != nil {
-		jww.WARN.Printf("failed to store contact Auth "+
+		em := fmt.Sprintf("failed to store contact Auth "+
 			"Request: %s", err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "RequestError", em)
 		return
 	}
 
@@ -214,10 +231,14 @@ func (m *Manager) handleRequest(cmixMsg format.Message,
 
 func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	grp *cyclic.Group) {
+	events := m.net.GetEventManager()
+
 	// check if relationship already exists
 	if mgr, err := m.storage.E2e().GetPartner(sr.GetPartner()); mgr != nil || err == nil {
-		jww.WARN.Printf("Cannot confirm auth for %s, channel already "+
+		em := fmt.Sprintf("Cannot confirm auth for %s, channel already "+
 			"exists.", sr.GetPartner())
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
 		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
@@ -225,7 +246,9 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	// extract the message
 	baseFmt, partnerPubKey, err := handleBaseFormat(cmixMsg, grp)
 	if err != nil {
-		jww.WARN.Printf("Failed to handle auth confirm: %s", err)
+		em := fmt.Sprintf("Failed to handle auth confirm: %s", err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
 		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
@@ -242,16 +265,20 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 		cmixMsg.GetMac(), grp)
 
 	if !success {
-		jww.WARN.Printf("Received auth confirmation failed its mac " +
+		em := fmt.Sprintf("Received auth confirmation failed its mac " +
 			"check")
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
 		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
 
 	ecrFmt, err := unmarshalEcrFormat(payload)
 	if err != nil {
-		jww.WARN.Printf("Failed to unmarshal auth confirmation's "+
+		em := fmt.Sprintf("Failed to unmarshal auth confirmation's "+
 			"encrypted payload: %s", err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
 		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}
@@ -259,7 +286,9 @@ func (m *Manager) handleConfirm(cmixMsg format.Message, sr *auth.SentRequest,
 	// finalize the confirmation
 	if err := m.doConfirm(sr, grp, partnerPubKey, sr.GetMyPrivKey(),
 		sr.GetPartnerHistoricalPubKey(), ecrFmt.GetOwnership()); err != nil {
-		jww.WARN.Printf("Confirmation failed: %s", err)
+		em := fmt.Sprintf("Confirmation failed: %s", err)
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "ConfirmError", em)
 		m.storage.Auth().Done(sr.GetPartner())
 		return
 	}

@@ -82,6 +82,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   *gateway.Sender
 }
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManagerGeneric) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
+}
 
 /* Below methods built for interface adherence */
 func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker {

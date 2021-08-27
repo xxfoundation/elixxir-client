@@ -9,3 +9,8 @@ package interfaces
 
 // EventCallbackFunction defines the callback functions for client event reports
 type EventCallbackFunction func(priority int, category, evtType, details string)
+
+// EventManager reporting api (used internally)
+type EventManager interface {
+	Report(priority int, category, evtType, details string)
+}

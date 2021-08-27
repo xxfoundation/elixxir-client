@@ -241,8 +241,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -301,8 +301,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
 	}

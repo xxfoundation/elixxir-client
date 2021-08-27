@@ -42,10 +42,9 @@ func newEventManager() *eventManager {
 	}
 }
 
-// ReportEvent reports an event from the client to api users, providing a
+// Report reports an event from the client to api users, providing a
 // priority, category, eventType, and details
-func (e *eventManager) ReportEvent(priority int, category, evtType,
-	details string) {
+func (e *eventManager) Report(priority int, category, evtType, details string) {
 	re := reportableEvent{
 		Priority:  priority,
 		Category:  category,
@@ -113,7 +112,7 @@ func (e *eventManager) reportEventsHandler(stop *stoppable.Single) {
 // ReportEvent reports an event from the client to api users, providing a
 // priority, category, eventType, and details
 func (c *Client) ReportEvent(priority int, category, evtType, details string) {
-	c.events.ReportEvent(priority, category, evtType, details)
+	c.events.Report(priority, category, evtType, details)
 }
 
 // RegisterEventCallback records the given function to receive

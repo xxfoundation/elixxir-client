@@ -55,12 +55,16 @@ type manager struct {
 
 	// Address space size
 	addrSpace *ephemeral.AddressSpace
+
+	// Event reporting api
+	events interfaces.EventManager
 }
 
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
-	rng *fastRNG.StreamGenerator, comms *client.Comms,
-	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
+	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+	comms *client.Comms, params params.Network,
+	ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
 	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None, params.FastPolling)

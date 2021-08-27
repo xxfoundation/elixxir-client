@@ -8,6 +8,7 @@
 package rounds
 
 import (
+	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -73,7 +74,7 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 			}
 		// get new round to lookup and force a lookup if
 		case r := <-m.historicalRounds:
-			jww.DEBUG.Printf("Recieved and quing round %d for "+
+			jww.DEBUG.Printf("Received and queueing round %d for "+
 				"historical rounds lookup", r.rid)
 			roundRequests = append(roundRequests, r)
 			if len(roundRequests) > int(m.params.MaxHistoricalRounds) {
@@ -97,9 +98,11 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 			Rounds: rounds,
 		}
 
+		var gwHost *connect.Host
 		result, err := m.sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 			jww.DEBUG.Printf("Requesting Historical rounds %v from "+
 				"gateway %s", rounds, host.GetId())
+			gwHost = host
 			return comm.RequestHistoricalRounds(host, hr)
 		}, stop)
 
@@ -113,29 +116,34 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 		}
 		response := result.(*pb.HistoricalRoundsResponse)
 
+		rids := make([]uint64, 0)
 		// process the returned historical roundRequests.
 		for i, roundInfo := range response.Rounds {
 			// The interface has missing returns returned as nil, such roundRequests
 			// need be be removes as processing so the network follower will
 			// pick them up in the future.
 			if roundInfo == nil {
+				var errMsg string
 				roundRequests[i].numAttempts++
 				if roundRequests[i].numAttempts == m.params.MaxHistoricalRoundsRetries {
-					jww.ERROR.Printf("Failed to retreive historical "+
+					errMsg = fmt.Sprintf("Failed to retreive historical "+
 						"round %d on last attempt, will not try again",
 						roundRequests[i].rid)
 				} else {
 					select {
 					case m.historicalRounds <- roundRequests[i]:
-						jww.WARN.Printf("Failed to retreive historical "+
+						errMsg = fmt.Sprintf("Failed to retreive historical "+
 							"round %d, will try up to %d more times",
 							roundRequests[i].rid, m.params.MaxHistoricalRoundsRetries-roundRequests[i].numAttempts)
 					default:
-						jww.WARN.Printf("Failed to retreive historical "+
+						errMsg = fmt.Sprintf("Failed to retreive historical "+
 							"round %d, failed to try again, round will not be "+
 							"retreived", roundRequests[i].rid)
 					}
 				}
+				jww.WARN.Printf(errMsg)
+				m.Internal.Events.Report(5, "HistoricalRounds",
+					"Error", errMsg)
 				continue
 			}
 			// Successfully retrieved roundRequests are sent to the Message
@@ -145,7 +153,13 @@ func (m *Manager) processHistoricalRounds(comm historicalRoundsComms, stop *stop
 				identity:  roundRequests[i].identity,
 			}
 			m.lookupRoundMessages <- rl
+			rids = append(rids, roundInfo.ID)
 		}
+
+		m.Internal.Events.Report(1, "HistoricalRounds", "Metrics",
+			fmt.Sprintf("Received %d historical rounds from"+
+				" gateway %s: %v", len(response.Rounds), gwHost,
+				rids))
 
 		//clear the buffer now that all have been checked
 		roundRequests = make([]historicalRoundRequest, 0)

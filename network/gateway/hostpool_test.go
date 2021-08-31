@@ -9,7 +9,6 @@ package gateway
 
 import (
 	"fmt"
-	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -510,7 +509,6 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 // Full test
 func TestHostPool_GetPreferred(t *testing.T) {
-	jww.SetLogThreshold(jww.LevelTrace)
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)

@@ -443,7 +443,8 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 		return result, nil
 	}
 
-	// Process gateway Ids into set
+	// Process Node and Gateway Ids into set
+	// NOTE: We expect len(ndf.Gateways) == len(ndf.Nodes)
 	for i := range ndf.Gateways {
 		gw := ndf.Gateways[i]
 		gwId, err := id.Unmarshal(gw.ID)
@@ -451,10 +452,7 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 			return nil, err
 		}
 		result[*gwId] = i
-	}
 
-	// Process node Ids into set
-	for i := range ndf.Nodes {
 		node := ndf.Nodes[i]
 		nodeId, err := id.Unmarshal(node.ID)
 		if err != nil {

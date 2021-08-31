@@ -323,8 +323,9 @@ func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
 		nodeNdfIdx := h.ndfMap[*nodeId]
-		isNodeStale := h.ndf.Nodes[nodeNdfIdx].Status != ndf.Stale
+		isNodeStale := h.ndf.Nodes[nodeNdfIdx].Status == ndf.Stale
 		if isNodeStale {
+			jww.DEBUG.Printf("Ignoring stale node: %s", nodeId.String())
 			continue
 		}
 

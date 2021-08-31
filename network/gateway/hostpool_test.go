@@ -9,6 +9,7 @@ package gateway
 
 import (
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -143,7 +144,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 		// Construct nodes
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
-		newNodes[i] = ndf.Node{ID: nodeId.Bytes()}
+		newNodes[i] = ndf.Node{ID: nodeId.Bytes(), Status: ndf.Active}
 
 	}
 
@@ -315,9 +316,19 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 
+	newGateway := ndf.Gateway{
+		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
+	}
+	newNode := ndf.Node{
+		ID:     id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		Status: ndf.Stale,
+	}
+	testNdf.Gateways = append(testNdf.Gateways, newGateway)
+	testNdf.Nodes = append(testNdf.Nodes, newNode)
+
 	// Construct custom params
 	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways))
+	params.PoolSize = uint32(len(testNdf.Gateways) - 1) // One of the nodes is set to stale
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -343,13 +354,17 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	}
 
 	// Add all gateways to hostPool's map
-	for index, gw := range testNdf.Gateways {
+	for i := uint32(0); i < params.PoolSize; i++ {
+		gw := testNdf.Gateways[i]
+		if i == 0 {
+			continue
+		}
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
 			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 
-		err = testPool.replaceHost(gwId, uint32(index))
+		err = testPool.replaceHost(gwId, i)
 		if err != nil {
 			t.Fatalf("Failed to replace host in set-up: %v", err)
 		}
@@ -497,6 +512,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 
 // Full test
 func TestHostPool_GetPreferred(t *testing.T) {
+	jww.SetLogThreshold(jww.LevelTrace)
 	manager := newMockManager()
 	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
 	testNdf := getTestNdf(t)
@@ -792,7 +808,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 		// Construct nodes
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
-		newNodes[i] = ndf.Node{ID: nodeId.Bytes()}
+		newNodes[i] = ndf.Node{ID: nodeId.Bytes(), Status: ndf.Active}
 
 	}
 

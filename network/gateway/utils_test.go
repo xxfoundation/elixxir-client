@@ -90,39 +90,51 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 		Nodes: []ndf.Node{{
 			ID:      id.NewIdFromUInt(0, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(1, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(2, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(3, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(4, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(5, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(6, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(7, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(8, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(9, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(10, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(11, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}},
 	}
 }

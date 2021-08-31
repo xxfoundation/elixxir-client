@@ -316,6 +316,11 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	testStorage := storage.InitTestingSession(t)
 	addGwChan := make(chan network.NodeGateway)
 
+	// Construct custom params
+	params := DefaultPoolParams()
+	params.PoolSize = uint32(len(testNdf.Gateways))
+
+	// Add a stale node
 	newGateway := ndf.Gateway{
 		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
 	}
@@ -325,10 +330,6 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	}
 	testNdf.Gateways = append(testNdf.Gateways, newGateway)
 	testNdf.Nodes = append(testNdf.Nodes, newNode)
-
-	// Construct custom params
-	params := DefaultPoolParams()
-	params.PoolSize = uint32(len(testNdf.Gateways) - 1) // One of the nodes is set to stale
 
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
@@ -356,9 +357,6 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	// Add all gateways to hostPool's map
 	for i := uint32(0); i < params.PoolSize; i++ {
 		gw := testNdf.Gateways[i]
-		if i == 0 {
-			continue
-		}
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
 			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)

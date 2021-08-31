@@ -87,7 +87,7 @@ func DefaultPoolParams() PoolParams {
 	}
 	p.HostParams.MaxRetries = 1
 	p.HostParams.AuthEnabled = false
-	p.HostParams.EnableCoolOff = true
+	p.HostParams.EnableCoolOff = false
 	p.HostParams.NumSendsBeforeCoolOff = 1
 	p.HostParams.CoolOffTimeout = 5 * time.Minute
 	p.HostParams.SendTimeout = 2000 * time.Millisecond

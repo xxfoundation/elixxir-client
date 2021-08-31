@@ -77,7 +77,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 
 		// Generates the IDs since the last track
 		protoIds, err := ephemeral.GetIdsByRange(
-			ourId, uint(addressSize), now, now.Sub(lastCheck))
+			ourId, uint(addressSize), lastCheck, now.Sub(lastCheck))
 
 		jww.DEBUG.Printf("Now: %s, LastCheck: %s, Different: %s",
 			now, lastCheck, now.Sub(lastCheck))
@@ -110,6 +110,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 			jww.FATAL.Panicf("Could not marshal timestamp for storage: %+v", err)
 
 		}
+		lastCheck = now
 
 		// Store the timestamp
 		if err = session.Set(TimestampKey, vo); err != nil {
@@ -117,7 +118,7 @@ func track(session *storage.Session, addrSpace *AddressSpace, ourId *id.ID, stop
 		}
 
 		// Sleep until the last ID has expired
-		timeToSleep := calculateTickerTime(protoIds)
+		timeToSleep := calculateTickerTime(protoIds, now)
 		select {
 		case <-time.NewTimer(timeToSleep).C:
 		case addressSize = <-addressSizeUpdate:
@@ -200,7 +201,7 @@ func marshalTimestamp(timeToStore time.Time) (*versioned.Object, error) {
 
 // calculateTickerTime calculates the time for the ticker based off of the last
 // ephemeral ID to expire.
-func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
+func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity, now time.Time) time.Duration {
 	if len(baseIDs) == 0 {
 		return time.Duration(0)
 	}
@@ -210,6 +211,6 @@ func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity) time.Duration {
 
 	// Factor out the grace period previously expanded upon
 	// Calculate and return that duration
-	gracePeriod := lastIdentity.End.Add(-validityGracePeriod)
-	return lastIdentity.End.Sub(gracePeriod)
+	gracePeriod := lastIdentity.End.Add(-2 * validityGracePeriod)
+	return gracePeriod.Sub(now)
 }

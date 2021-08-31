@@ -8,6 +8,7 @@
 package internal
 
 import (
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/network/health"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
@@ -37,4 +38,7 @@ type Internal struct {
 
 	//channels
 	NodeRegistration chan network.NodeGateway
+
+	// Event Reporting
+	Events interfaces.EventManager
 }

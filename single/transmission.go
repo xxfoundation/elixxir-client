@@ -113,7 +113,8 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 
 	go func() {
 		// Send Message
-		jww.DEBUG.Printf("Sending single-use transmission CMIX message to %s.", partner.ID)
+		jww.DEBUG.Printf("Sending single-use transmission CMIX "+
+			"message to %s.", partner.ID)
 		round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
 		if err != nil {
 			errorString := fmt.Sprintf("failed to send single-use transmission "+
@@ -144,8 +145,13 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		roundEvents.AddRoundEventChan(round, sendResults, roundEventTimeout,
 			states.COMPLETED, states.FAILED)
 
-		jww.DEBUG.Printf("Sent single-use transmission CMIX message to %s and "+
-			"ephemeral ID %d on round %d.", partner.ID, ephID.Int64(), round)
+		im := fmt.Sprintf("Sent single-use transmission CMIX "+
+			"message to %s and ephemeral ID %d on round %d.",
+			partner.ID, ephID.Int64(), round)
+		jww.DEBUG.Print(im)
+		if m.client != nil {
+			m.client.ReportEvent(1, "SingleUse", "MessageSend", im)
+		}
 
 		// Wait until the result tracking responds
 		success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, 1)

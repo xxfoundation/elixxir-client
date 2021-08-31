@@ -10,6 +10,7 @@ package ephemeral
 import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"testing"
+	"time"
 
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -34,7 +35,7 @@ type testNetworkManager struct {
 }
 
 func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round,
-	e2e.MessageID, error) {
+	e2e.MessageID, time.Time, error) {
 	rounds := []id.Round{
 		id.Round(0),
 		id.Round(1),
@@ -43,7 +44,7 @@ func (t *testNetworkManager) SendE2E(m message.Send, _ params.E2E, _ *stoppable.
 
 	t.msg = m
 
-	return rounds, e2e.MessageID{}, nil
+	return rounds, e2e.MessageID{}, time.Time{}, nil
 }
 
 func (t *testNetworkManager) SendUnsafe(m message.Send, _ params.Unsafe) ([]id.Round, error) {
@@ -68,6 +69,13 @@ func (t *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p p
 
 func (t *testNetworkManager) GetInstance() *network.Instance {
 	return t.instance
+}
+
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
 }
 
 func (t *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {

@@ -63,6 +63,9 @@ type Client struct {
 	followerServices *services
 
 	clientErrorChannel chan interfaces.ClientError
+
+	// Event reporting in event.go
+	events *eventManager
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -184,6 +187,7 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 		followerServices:   newServices(),
 		parameters:         parameters,
 		clientErrorChannel: make(chan interfaces.ClientError, 1000),
+		events:             newEventManager(),
 	}
 
 	return c, nil
@@ -237,8 +241,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -297,8 +301,8 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -370,8 +374,13 @@ func (c *Client) registerFollower() error {
 		}
 	}
 
+	err := c.followerServices.add(c.events.eventService)
+	if err != nil {
+		return errors.WithMessage(err, "Couldn't start event reporting")
+	}
+
 	//register the core follower service
-	err := c.followerServices.add(func() (stoppable.Stoppable, error) { return c.network.Follow(cer) })
+	err = c.followerServices.add(func() (stoppable.Stoppable, error) { return c.network.Follow(cer) })
 	if err != nil {
 		return errors.WithMessage(err, "Failed to start following "+
 			"the network")

@@ -8,7 +8,7 @@ import (
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
-	"gitlab.com/xx_network/primitives/netTime"
+	// "gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"time"
 )
@@ -29,13 +29,13 @@ func newRegistration(reg Identity, kv *versioned.KV) (*registration, error) {
 	reg.EndValid = reg.EndValid.Round(0)
 	reg.End = reg.End.Round(0)
 
-	now := netTime.Now()
+	// now := netTime.Now()
 
 	// Do edge checks to determine if the identity is valid
-	if now.After(reg.End) && reg.ExtraChecks < 1 {
-		return nil, errors.New("Cannot create a registration for an " +
-			"identity which has expired")
-	}
+	// if now.After(reg.End) && reg.ExtraChecks < 1 {
+	// 	return nil, errors.New("Cannot create a registration for an " +
+	// 		"identity which has expired")
+	// }
 
 	// Set the prefix
 	kv = kv.Prefix(regPrefix(reg.EphId, reg.Source, reg.StartValid))

@@ -54,7 +54,7 @@ func (m *Manager) criticalMessages(stop *stoppable.Single) {
 			jww.INFO.Printf("Resending critical message to %s ",
 				msg.Recipient)
 			//send the message
-			rounds, _, err := m.SendE2E(msg, param, stop)
+			rounds, _, _, err := m.SendE2E(msg, param, stop)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {

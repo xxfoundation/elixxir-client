@@ -283,8 +283,8 @@ func (tnm *testNetworkManager) GetMsg(i int) format.Message {
 	return tnm.msgs[i]
 }
 
-func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, error) {
-	return nil, e2e.MessageID{}, nil
+func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
+	return nil, e2e.MessageID{}, time.Time{}, nil
 }
 
 func (tnm *testNetworkManager) SendUnsafe(_ message.Send, _ params.Unsafe) ([]id.Round, error) {
@@ -325,6 +325,13 @@ func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, p
 
 func (tnm *testNetworkManager) GetInstance() *network.Instance {
 	return tnm.instance
+}
+
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
 }
 
 func (tnm *testNetworkManager) GetHealthTracker() interfaces.HealthTracker {

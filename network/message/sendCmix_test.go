@@ -26,11 +26,17 @@ import (
 	"time"
 )
 
+type dummyEvent struct{}
+
+func (e *dummyEvent) Report(priority int, category, evtType, details string) {}
+
 // Unit test
 func Test_attemptSendCmix(t *testing.T) {
 	sess1 := storage.InitTestingSession(t)
 
 	sess2 := storage.InitTestingSession(t)
+
+	events := &dummyEvent{}
 
 	sw := switchboard.New()
 	l := TestListener{
@@ -113,7 +119,7 @@ func Test_attemptSendCmix(t *testing.T) {
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
 	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID,
 		params.GetDefaultCMIX(), m.Instance, m.Session, m.nodeRegistration,
-		m.Rng, m.TransmissionID, &MockSendCMIXComms{t: t}, nil)
+		m.Rng, events, m.TransmissionID, &MockSendCMIXComms{t: t}, nil)
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)
 		panic("t")

@@ -11,6 +11,7 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -55,12 +56,16 @@ type manager struct {
 
 	// Address space size
 	addrSpace *ephemeral.AddressSpace
+
+	// Event reporting api
+	events interfaces.EventManager
 }
 
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
-	rng *fastRNG.StreamGenerator, comms *client.Comms,
-	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
+	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+	comms *client.Comms, params params.Network,
+	ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
 	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None, params.FastPolling)
@@ -93,6 +98,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Instance:         instance,
 		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
+		Events:           events,
 	}
 
 	// Set up gateway.Sender
@@ -104,6 +110,12 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	if err != nil {
 		return nil, err
 	}
+
+	// Report health events
+	m.Internal.Health.AddFunc(func(isHealthy bool) {
+		m.Internal.Events.Report(5, "Health", "IsHealthy",
+			fmt.Sprintf("%v", isHealthy))
+	})
 
 	//create sub managers
 	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)
@@ -152,6 +164,11 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	multi.Add(ephemeral.Track(m.Session, m.addrSpace, m.ReceptionID))
 
 	return multi, nil
+}
+
+// GetEventManager returns the health tracker
+func (m *manager) GetEventManager() interfaces.EventManager {
+	return m.events
 }
 
 // GetHealthTracker returns the health tracker

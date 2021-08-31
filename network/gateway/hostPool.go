@@ -281,7 +281,7 @@ func (h *HostPool) checkReplace(hostId *id.ID, hostErr error) (bool, error) {
 	if hostErr != nil {
 		for _, errString := range errorsList {
 			if strings.Contains(hostErr.Error(), errString) {
-				// Host needs replaced, flag and continue
+				// Host needs to be replaced, flag and continue
 				doReplace = true
 				break
 			}
@@ -317,6 +317,15 @@ func (h *HostPool) forceReplace(oldPoolIndex uint32) error {
 		gwId, err := id.Unmarshal(h.ndf.Gateways[ndfIdx].ID)
 		if err != nil {
 			return errors.WithMessage(err, "failed to get Gateway for pruning")
+		}
+
+		// Verify the Gateway's Node is not Stale before adding to HostPool
+		nodeId := gwId.DeepCopy()
+		nodeId.SetType(id.Node)
+		nodeNdfIdx := h.ndfMap[*nodeId]
+		isNodeStale := h.ndf.Nodes[nodeNdfIdx].Status != ndf.Stale
+		if isNodeStale {
+			continue
 		}
 
 		// Verify the new GwId is not already in the hostMap
@@ -434,7 +443,7 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 		return result, nil
 	}
 
-	// Process gateway Id's into set
+	// Process gateway Ids into set
 	for i := range ndf.Gateways {
 		gw := ndf.Gateways[i]
 		gwId, err := id.Unmarshal(gw.ID)
@@ -442,6 +451,16 @@ func convertNdfToMap(ndf *ndf.NetworkDefinition) (map[id.ID]int, error) {
 			return nil, err
 		}
 		result[*gwId] = i
+	}
+
+	// Process node Ids into set
+	for i := range ndf.Nodes {
+		node := ndf.Nodes[i]
+		nodeId, err := id.Unmarshal(node.ID)
+		if err != nil {
+			return nil, err
+		}
+		result[*nodeId] = i
 	}
 
 	return result, nil

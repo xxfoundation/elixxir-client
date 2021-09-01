@@ -141,16 +141,13 @@ func generateIdentities(protoIds []ephemeral.ProtoIdentity, ourId *id.ID,
 	// Add identities for every ephemeral ID
 	for i, eid := range protoIds {
 		// Expand the grace period for both start and end
-		//  This does not actually modify anything....   time is not a pointer and even if it were this returns the new value???
-		// eid.End.Add(validityGracePeriod)
-		// eid.Start.Add(-validityGracePeriod)
 		identities[i] = reception.Identity{
 			EphId:       eid.Id,
 			Source:      ourId,
 			AddressSize: addressSize,
 			End:         eid.End,
 			StartValid:  eid.Start.Add(-validityGracePeriod),
-			EndValid:    eid.End.Add(validityGracePeriod), // What is this vs end?  should it be modified??
+			EndValid:    eid.End.Add(validityGracePeriod),
 			Ephemeral:   false,
 		}
 

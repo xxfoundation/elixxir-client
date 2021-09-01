@@ -131,7 +131,7 @@ func TestGenerateIdentities(t *testing.T) {
 	}
 	protoIds := []ephemeral.ProtoIdentity{{eid, s, e}}
 	generated := generateIdentities(protoIds, id.NewIdFromString("escaline", id.Node, t), 16)
-	if generated[0].End != protoIds[0].End.Add(5*time.Minute) {
+	if generated[0].EndValid != protoIds[0].End.Add(5*time.Minute) {
 		t.Errorf("End was not modified.  Orig %+v, Generated %+v", protoIds[0].End, generated[0].End)
 	}
 	if generated[0].StartValid != protoIds[0].Start.Add(-5*time.Minute) {

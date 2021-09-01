@@ -17,6 +17,7 @@ import (
 	"gitlab.com/xx_network/comms/signature"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
 	"gitlab.com/xx_network/primitives/utils"
 	"testing"
@@ -121,4 +122,19 @@ func setupInstance(instance interfaces.NetworkManager) error {
 	}
 
 	return nil
+}
+
+func TestGenerateIdentities(t *testing.T) {
+	eid, s, e, err := ephemeral.GetId(id.NewIdFromString("zezima", id.Node, t), 16, time.Now().UnixNano())
+	if err != nil {
+		t.Errorf("Failed to get eid: %+v", err)
+	}
+	protoIds := []ephemeral.ProtoIdentity{{eid, s, e}}
+	generated := generateIdentities(protoIds, id.NewIdFromString("escaline", id.Node, t), 16)
+	if generated[0].End != protoIds[0].End.Add(5*time.Minute) {
+		t.Errorf("End was not modified.  Orig %+v, Generated %+v", protoIds[0].End, generated[0].End)
+	}
+	if generated[0].StartValid != protoIds[0].Start.Add(-5*time.Minute) {
+		t.Errorf("End was not modified.  Orig %+v, Generated %+v", protoIds[0].End, generated[0].End)
+	}
 }

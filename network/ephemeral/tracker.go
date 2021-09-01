@@ -141,15 +141,16 @@ func generateIdentities(protoIds []ephemeral.ProtoIdentity, ourId *id.ID,
 	// Add identities for every ephemeral ID
 	for i, eid := range protoIds {
 		// Expand the grace period for both start and end
-		eid.End.Add(validityGracePeriod)
-		eid.Start.Add(-validityGracePeriod)
+		//  This does not actually modify anything....   time is not a pointer and even if it were this returns the new value???
+		// eid.End.Add(validityGracePeriod)
+		// eid.Start.Add(-validityGracePeriod)
 		identities[i] = reception.Identity{
 			EphId:       eid.Id,
 			Source:      ourId,
 			AddressSize: addressSize,
 			End:         eid.End,
-			StartValid:  eid.Start,
-			EndValid:    eid.End,
+			StartValid:  eid.Start.Add(-validityGracePeriod),
+			EndValid:    eid.End.Add(validityGracePeriod), // What is this vs end?  should it be modified??
 			Ephemeral:   false,
 		}
 
@@ -211,6 +212,6 @@ func calculateTickerTime(baseIDs []ephemeral.ProtoIdentity, now time.Time) time.
 
 	// Factor out the grace period previously expanded upon
 	// Calculate and return that duration
-	gracePeriod := lastIdentity.End.Add(-2 * validityGracePeriod)
+	gracePeriod := lastIdentity.End.Add(-1 * validityGracePeriod)
 	return gracePeriod.Sub(now)
 }

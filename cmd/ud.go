@@ -198,6 +198,22 @@ var udCmd = &cobra.Command{
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
+		userToRemove := viper.GetString("remove")
+		if userToRemove != "" {
+			f, err := fact.NewFact(fact.Username, usernameSearchStr)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to create new fact: %+v", err)
+			}
+			err = userDiscoveryMgr.RemoveUser(f)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to remove user %s: %+v",
+					userToRemove, err)
+			}
+		}
+
 		time.Sleep(91 * time.Second)
 		err = client.StopNetworkFollower()
 		if err != nil {
@@ -211,6 +227,10 @@ func init() {
 	udCmd.Flags().StringP("register", "r", "",
 		"Register this user with user discovery.")
 	_ = viper.BindPFlag("register", udCmd.Flags().Lookup("register"))
+
+	udCmd.Flags().StringP("remove", "", "",
+		"Remove this user with user discovery.")
+	_ = viper.BindPFlag("remove", udCmd.Flags().Lookup("remove"))
 
 	udCmd.Flags().String("addphone", "",
 		"Add phone number to existing user registration.")

@@ -80,6 +80,7 @@ func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 
 // Removes a previously confirmed fact.  Will fail if the passed fact string is
 // not well formed or if the fact is not associated with this client.
+// Users cannot remove username facts and must instead remove the user.
 func (ud *UserDiscovery) RemoveFact(fStr string) error {
 	f, err := fact.UnstringifyFact(fStr)
 	if err != nil {
@@ -87,6 +88,18 @@ func (ud *UserDiscovery) RemoveFact(fStr string) error {
 			"malformed fact")
 	}
 	return ud.ud.RemoveFact(f)
+}
+
+// RemoveUser deletes a user. The fact sent must be the username.
+// This function preserves the username forever and makes it
+// unusable.
+func (ud *UserDiscovery) RemoveUser(fStr string) error {
+	f, err := fact.UnstringifyFact(fStr)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to remove due to "+
+			"malformed fact")
+	}
+	return ud.ud.RemoveUser(f)
 }
 
 // SearchCallback returns the result of a search

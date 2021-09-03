@@ -85,7 +85,6 @@ var udCmd = &cobra.Command{
 			jww.FATAL.Panicf("Failed to create new UD manager: %+v", err)
 		}
 
-		var newFacts fact.FactList
 		userToRegister := viper.GetString("register")
 		if userToRegister != "" {
 			err = userDiscoveryMgr.Register(userToRegister)
@@ -94,13 +93,9 @@ var udCmd = &cobra.Command{
 					userToRegister, err.Error())
 				jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
 			}
-			f, err := fact.NewFact(fact.Username, userToRegister)
-			if err != nil {
-				jww.FATAL.Panicf("Failed to create new fact: %+v", err)
-			}
-			newFacts = append(newFacts, f)
 		}
 
+		var newFacts fact.FactList
 		phone := viper.GetString("addphone")
 		if phone != "" {
 			f, err := fact.NewFact(fact.Phone, phone)

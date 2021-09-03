@@ -173,10 +173,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	em := fmt.Sprintf("Auth Request with %s (msgDigest: %s) sent"+
 		" on round %d", partner.ID, cmixMsg.Digest(), round)
 	jww.INFO.Print(em)
-	evtMgr = net.GetEventManager()
-	if evtMgr != nil {
-		evtMgr.Report(1, "Auth", "RequestSent", em)
-	}
+	net.GetEventManager().Report(1, "Auth", "RequestSent", em)
 
 	return round, nil
 }

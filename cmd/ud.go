@@ -184,6 +184,25 @@ var udCmd = &cobra.Command{
 			facts = append(facts, f)
 		}
 
+		userToRemove := viper.GetString("remove")
+		if userToRemove != "" {
+			f, err := fact.NewFact(fact.Username, userToRemove)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to create new fact: %+v", err)
+			}
+			err = userDiscoveryMgr.RemoveUser(f)
+			if err != nil {
+				fmt.Printf("Couldn't remove user %s",
+					userToRemove)
+				jww.FATAL.Panicf(
+					"Failed to remove user %s: %+v",
+					userToRemove, err)
+			}
+			fmt.Printf("Removed user from discovery: %s",
+				userToRemove)
+		}
+
 		if len(facts) == 0 {
 			err = client.StopNetworkFollower()
 			if err != nil {
@@ -203,25 +222,6 @@ var udCmd = &cobra.Command{
 			}, 90*time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
-		}
-
-		userToRemove := viper.GetString("remove")
-		if userToRemove != "" {
-			f, err := fact.NewFact(fact.Username, userToRemove)
-			if err != nil {
-				jww.FATAL.Panicf(
-					"Failed to create new fact: %+v", err)
-			}
-			err = userDiscoveryMgr.RemoveUser(f)
-			if err != nil {
-				fmt.Printf("Couldn't remove user %s",
-					userToRemove)
-				jww.FATAL.Panicf(
-					"Failed to remove user %s: %+v",
-					userToRemove, err)
-			}
-			fmt.Printf("Removed user from discovery: %s",
-				userToRemove)
 		}
 
 		time.Sleep(91 * time.Second)

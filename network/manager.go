@@ -86,6 +86,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		param:     params,
 		tracker:   &tracker,
 		addrSpace: ephemeral.NewAddressSpace(),
+		events:    events,
 	}
 
 	m.Internal = internal.Internal{

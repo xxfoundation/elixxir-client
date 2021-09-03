@@ -130,7 +130,7 @@ var udCmd = &cobra.Command{
 			// TODO: Lookup code
 			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
 			if err != nil {
-				fmt.Print("Couldn't confirm fact: %s\n",
+				fmt.Printf("Couldn't confirm fact: %s\n",
 					err.Error())
 				jww.FATAL.Panicf("%+v", err)
 			}

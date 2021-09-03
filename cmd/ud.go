@@ -89,6 +89,8 @@ var udCmd = &cobra.Command{
 		if userToRegister != "" {
 			err = userDiscoveryMgr.Register(userToRegister)
 			if err != nil {
+				fmt.Printf("Failed to register user %s: %s",
+					userToRegister, err.Error())
 				jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
 			}
 		}
@@ -115,6 +117,8 @@ var udCmd = &cobra.Command{
 		for i := 0; i < len(newFacts); i++ {
 			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
 			if err != nil {
+				fmt.Printf("Failed to register fact: %s",
+					newFacts[i])
 				jww.FATAL.Panicf("Failed to send register fact: %+v", err)
 			}
 			// TODO Store the code?
@@ -126,6 +130,8 @@ var udCmd = &cobra.Command{
 			// TODO: Lookup code
 			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
 			if err != nil {
+				fmt.Print("Couldn't confirm fact: %s",
+					err.Error())
 				jww.FATAL.Panicf("%+v", err)
 			}
 		}
@@ -201,17 +207,21 @@ var udCmd = &cobra.Command{
 
 		userToRemove := viper.GetString("remove")
 		if userToRemove != "" {
-			f, err := fact.NewFact(fact.Username, usernameSearchStr)
+			f, err := fact.NewFact(fact.Username, userToRemove)
 			if err != nil {
 				jww.FATAL.Panicf(
 					"Failed to create new fact: %+v", err)
 			}
 			err = userDiscoveryMgr.RemoveUser(f)
 			if err != nil {
+				fmt.Printf("Couldn't remove user %s",
+					userToRemove)
 				jww.FATAL.Panicf(
 					"Failed to remove user %s: %+v",
 					userToRemove, err)
 			}
+			fmt.Printf("Removed user from discovery: %s",
+				userToRemove)
 		}
 
 		time.Sleep(91 * time.Second)

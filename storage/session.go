@@ -46,8 +46,12 @@ const currentSessionVersion = 0
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv  *versioned.KV
-	mux sync.RWMutex
+	kv         *versioned.KV
+	mnemonicKV *versioned.KV
+	mnemonicKv *versioned.KV
+
+	mux         sync.RWMutex
+	mnemonicMux sync.RWMutex
 
 	//memoized data
 	regStatus RegistrationStatus
@@ -78,8 +82,16 @@ func initStore(baseDir, password string) (*Session, error) {
 			"Failed to create storage session")
 	}
 
+	// Create a separate file store system for account recovery
+	mnemonicFS, err := ekv.NewFilestore(baseDir+mnemonicPath, password)
+	if err != nil {
+		return nil, errors.WithMessage(err,
+			"Failed to create mnemonic store")
+	}
+
 	s = &Session{
-		kv: versioned.NewKV(fs),
+		kv:         versioned.NewKV(fs),
+		mnemonicKV: versioned.NewKV(mnemonicFS),
 	}
 
 	return s, nil

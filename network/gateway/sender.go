@@ -102,8 +102,8 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 		for targetIdx := range proxies {
 			target := targets[targetIdx]
 			targetProxies := proxies[targetIdx]
-			if !(int(proxyIdx)<len(targetProxies)){
-				jww.WARN.Printf("Failed to send to proxy %d on target %d (%s) " +
+			if !(int(proxyIdx) < len(targetProxies)) {
+				jww.WARN.Printf("Failed to send to proxy %d on target %d (%s) "+
 					"due to not enough proxies (only %d), skipping attempt", proxyIdx,
 					targetIdx, target, len(targetProxies))
 				continue

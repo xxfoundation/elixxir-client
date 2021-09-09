@@ -239,6 +239,8 @@ github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2 h1:5u+EJUQiosu3JFX0
 github.com/ttacon/builder v0.0.0-20170518171403-c099f663e1c2/go.mod h1:4kyMkleCiLkgY6z8gK5BkI01ChBtxR0ro3I1ZDcGM3w=
 github.com/ttacon/libphonenumber v1.2.1 h1:fzOfY5zUADkCkbIafAed11gL1sW+bJ26p6zWLBMElR4=
 github.com/ttacon/libphonenumber v1.2.1/go.mod h1:E0TpmdVMq5dyVlQ7oenAkhsLu86OkUl+yR4OAxyEg/M=
+github.com/tyler-smith/go-bip39 v1.1.0 h1:5eUemwrMargf3BSLRRCalXT93Ns6pQJIjYQN2nyfOP8=
+github.com/tyler-smith/go-bip39 v1.1.0/go.mod h1:gUYDtqQw1JS3ZJ8UWVcGTGqqr6YIN3CWg+kkNaLt55U=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=
 github.com/zeebo/assert v0.0.0-20181109011804-10f827ce2ed6/go.mod h1:yssERNPivllc1yU3BvpjYI5BUW+zglcz6QWqeVRL5t0=
 github.com/zeebo/assert v1.1.0 h1:hU1L1vLTHsnO8x8c9KAR5GmM5QscxHg5RNU5z5qbUWY=
@@ -272,6 +274,8 @@ gitlab.com/xx_network/crypto v0.0.3/go.mod h1:DF2HYvvCw9wkBybXcXAgQMzX+MiGbFPjwt
 gitlab.com/xx_network/crypto v0.0.4/go.mod h1:+lcQEy+Th4eswFgQDwT0EXKp4AXrlubxalwQFH5O0Mk=
 gitlab.com/xx_network/crypto v0.0.5-0.20210803231814-b18476a2257c h1:pwP50UFdh68KPcP7VopsH34/d6rIuVDwXymgFXnCOjA=
 gitlab.com/xx_network/crypto v0.0.5-0.20210803231814-b18476a2257c/go.mod h1:e/5MGrKDQbCNJnskBeDscrolr2EK5iIatEgTQnEWmOg=
+gitlab.com/xx_network/crypto v0.0.5-0.20210909170042-07755821e8c5 h1:1K+FuxnlOTHI5H2OmoBokh/K9Pbmel8VBaCdP5RW9FU=
+gitlab.com/xx_network/crypto v0.0.5-0.20210909170042-07755821e8c5/go.mod h1:hLNL8YCSiEMof0wgZHuRmN5C98TYZiLaz/rLqUYTdII=
 gitlab.com/xx_network/primitives v0.0.0-20200803231956-9b192c57ea7c/go.mod h1:wtdCMr7DPePz9qwctNoAUzZtbOSHSedcK++3Df3psjA=
 gitlab.com/xx_network/primitives v0.0.0-20200804183002-f99f7a7284da/go.mod h1:OK9xevzWCaPO7b1wiluVJGk7R5ZsuC7pHY5hteZFQug=
 gitlab.com/xx_network/primitives v0.0.2/go.mod h1:cs0QlFpdMDI6lAo61lDRH2JZz+3aVkHy+QogOB6F/qc=

@@ -46,9 +46,9 @@ const currentSessionVersion = 0
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv         *versioned.KV
+	kv *versioned.KV
 
-	mux         sync.RWMutex
+	mux sync.RWMutex
 
 	//memoized data
 	regStatus RegistrationStatus
@@ -79,9 +79,8 @@ func initStore(baseDir, password string) (*Session, error) {
 			"Failed to create storage session")
 	}
 
-
 	s = &Session{
-		kv:         versioned.NewKV(fs),
+		kv: versioned.NewKV(fs),
 	}
 
 	return s, nil

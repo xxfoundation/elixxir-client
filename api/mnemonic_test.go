@@ -19,7 +19,7 @@ import (
 
 func TestStoreSecretWithMnemonic(t *testing.T) {
 	secret := []byte("test123")
-	storageDir := "ignore.1"
+	storageDir := "ignore.1/"
 	mnemonic, err := StoreSecretWithMnemonic(secret, storageDir)
 	if err != nil {
 		t.Errorf("StoreSecretWithMnemonic error; %v", err)
@@ -89,6 +89,12 @@ func TestLoadSecretWithMnemonic(t *testing.T) {
 	if !bytes.Equal(received, secret) {
 		t.Fatalf("Loaded secret does not match original data."+
 			"\n\tExpected: %v\n\tReceived: %v", secret, received)
+	}
+
+	_, err = LoadSecretWithMnemonic(mnemonic, "badDirectory")
+	if err == nil {
+		t.Fatalf("LoadSecretWithMnemonic should error when provided a path " +
+			"where a recovery file does not exist.")
 	}
 }
 

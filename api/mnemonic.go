@@ -14,9 +14,11 @@ import (
 	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
 	"gitlab.com/xx_network/primitives/utils"
 	"golang.org/x/crypto/chacha20poly1305"
+	"path/filepath"
+	"strings"
 )
 
-const mnemonicFile = "/.recovery"
+const mnemonicFile = ".recovery"
 
 // StoreSecretWithMnemonic creates a mnemonic and uses it to encrypt the secret.
 // This encrypted data saved in storage.
@@ -24,12 +26,18 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG).GetStream()
 
+	// Ensure path is appended by filepath separator "/"
+	if !strings.HasSuffix(path, string(filepath.Separator)) {
+		path = path + string(filepath.Separator)
+	}
+
 	// Create a mnemonic
 	mnemonic, err := xxMnemonic.GenerateMnemonic(rng, 32)
 	if err != nil {
 		return "", errors.Errorf("Failed to generate mnemonic: %v", err)
 	}
 
+	// Decode mnemonic
 	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(mnemonic)
 	if err != nil {
 		return "", errors.Errorf("Failed to decode mnemonic: %v", err)
@@ -42,7 +50,8 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	}
 
 	// Save encrypted secret to file
-	err = utils.WriteFileDef(path+mnemonicFile, ciphertext)
+	recoveryFile := path + mnemonicFile
+	err = utils.WriteFileDef(recoveryFile, ciphertext)
 	if err != nil {
 		return "", errors.Errorf("Failed to save mnemonic information to file")
 	}
@@ -53,16 +62,31 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 // LoadSecretWithMnemonic loads the encrypted secret from storage and decrypts
 // the secret using the given mnemonic.
 func LoadSecretWithMnemonic(mnemonic, path string) (secret []byte, err error) {
-	data, err := utils.ReadFile(path + mnemonicFile)
+	// Ensure path is appended by filepath separator "/"
+	if !strings.HasSuffix(path, string(filepath.Separator)) {
+		path = path + string(filepath.Separator)
+	}
+
+	// Ensure that the recovery file exists
+	recoveryFile := path + mnemonicFile
+	if !utils.Exists(recoveryFile) {
+		return nil, errors.Errorf("Recovery file does not exist. " +
+			"Did you properly set up recovery or provide an incorrect filepath?")
+	}
+
+	// Read file from storage
+	data, err := utils.ReadFile(recoveryFile)
 	if err != nil {
 		return nil, errors.Errorf("Failed to load mnemonic information: %v", err)
 	}
 
+	// Decode mnemonic
 	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(mnemonic)
 	if err != nil {
 		return nil, errors.Errorf("Failed to decode mnemonic: %v", err)
 	}
 
+	// Decrypt the stored secret
 	secret, err = decryptWithMnemonic(data, decodedMnemonic)
 	if err != nil {
 		return nil, errors.Errorf("Failed to decrypt secret: %v", err)

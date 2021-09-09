@@ -12,17 +12,17 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
-	"golang.org/x/crypto/salsa20"
+	"gitlab.com/xx_network/primitives/utils"
+	"golang.org/x/crypto/chacha20poly1305"
 )
 
-const (
-	nonceSize = 8
-)
+const mnemonicFile = "/.recovery"
 
 // StoreSecretWithMnemonic creates a mnemonic and uses it to encrypt the secret.
 // This encrypted data saved in storage.
-func (c *Client) StoreSecretWithMnemonic(secret []byte) (string, error) {
-	rng := c.rng.GetStream()
+func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG).GetStream()
 
 	// Create a mnemonic
 	mnemonic, err := xxMnemonic.GenerateMnemonic(rng, 32)
@@ -30,19 +30,21 @@ func (c *Client) StoreSecretWithMnemonic(secret []byte) (string, error) {
 		return "", errors.Errorf("Failed to generate mnemonic: %v", err)
 	}
 
+	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(mnemonic)
+	if err != nil {
+		return "", errors.Errorf("Failed to decode mnemonic: %v", err)
+	}
+
 	// Encrypt secret with mnemonic as key
-	ciphertext, nonce, err := encryptWithMnemonic(mnemonic, secret, rng)
+	ciphertext, err := encryptWithMnemonic(secret, decodedMnemonic, rng)
 	if err != nil {
 		return "", errors.Errorf("Failed to encrypt secret with mnemonic: %v", err)
 	}
 
-	// Concatenate ciphertext with nonce for storage
-	data := marshalMnemonicInformation(nonce, ciphertext)
-
-	// Save data to storage
-	err = c.storage.SaveMnemonicInformation(data)
+	// Save encrypted secret to file
+	err = utils.WriteFileDef(path+mnemonicFile, ciphertext)
 	if err != nil {
-		return "", errors.Errorf("Failed to store mnemonic information: %v", err)
+		return "", errors.Errorf("Failed to save mnemonic information to file")
 	}
 
 	return mnemonic, nil
@@ -50,64 +52,58 @@ func (c *Client) StoreSecretWithMnemonic(secret []byte) (string, error) {
 
 // LoadSecretWithMnemonic loads the encrypted secret from storage and decrypts
 // the secret using the given mnemonic.
-func (c *Client) LoadSecretWithMnemonic(mnemonic string) (secret []byte, err error) {
-	data, err := c.storage.LoadMnemonicInformation()
+func LoadSecretWithMnemonic(mnemonic, path string) (secret []byte, err error) {
+	data, err := utils.ReadFile(path + mnemonicFile)
 	if err != nil {
 		return nil, errors.Errorf("Failed to load mnemonic information: %v", err)
 	}
 
-	nonce, ciphertext := unmarshalMnemonicInformation(data)
+	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(mnemonic)
+	if err != nil {
+		return nil, errors.Errorf("Failed to decode mnemonic: %v", err)
+	}
 
-	secret = decryptWithMnemonic(nonce, ciphertext, mnemonic)
+	secret, err = decryptWithMnemonic(data, decodedMnemonic)
+	if err != nil {
+		return nil, errors.Errorf("Failed to decrypt secret: %v", err)
+	}
 
 	return secret, nil
 }
 
 // encryptWithMnemonic is a helper function which encrypts the given secret
 // using the mnemonic as the key.
-func encryptWithMnemonic(mnemonic string, secret []byte,
-	rng *fastRNG.Stream) (ciphertext, nonce []byte, err error) {
-
-	// Place the key into a 32 byte array for salsa 20
-	var keyArray [32]byte
-	copy(keyArray[:], mnemonic)
-
-	// Generate the nonce
-	nonce, err = csprng.Generate(nonceSize, rng)
+func encryptWithMnemonic(data, decodedMnemonic []byte,
+	rng csprng.Source) (ciphertext []byte, error error) {
+	chaCipher, err := chacha20poly1305.NewX(decodedMnemonic[:])
 	if err != nil {
-		return nil, nil, errors.Errorf("Failed to generate nonce for encryption: %v", err)
+		return nil, errors.Errorf("Failed to initalize encryption algorithm: %v", err)
 	}
 
-	// Encrypt the secret
-	ciphertext = make([]byte, len(secret))
-	salsa20.XORKeyStream(ciphertext, secret, nonce, &keyArray)
+	// Generate the nonce
+	nonce := make([]byte, chaCipher.NonceSize())
+	nonce, err = csprng.Generate(chaCipher.NonceSize(), rng)
+	if err != nil {
+		return nil, errors.Errorf("Failed to generate nonce: %v", err)
+	}
 
-	return ciphertext, nonce, nil
+	ciphertext = chaCipher.Seal(nonce, nonce, data, nil)
+	return ciphertext, nil
 }
 
 // decryptWithMnemonic is a helper function which decrypts the secret
 // from storage, using the mnemonic as the key.
-func decryptWithMnemonic(nonce, ciphertext []byte, mnemonic string) (secret []byte) {
-	// Place the key into a 32 byte array for salsa 20
-	var keyArray [32]byte
-	copy(keyArray[:], mnemonic)
+func decryptWithMnemonic(data, decodedMnemonic []byte) ([]byte, error) {
+	chaCipher, err := chacha20poly1305.NewX(decodedMnemonic[:])
+	if err != nil {
+		return nil, errors.Errorf("Failed to initalize encryption algorithm: %v", err)
+	}
 
-	// Decrypt the secret
-	secret = make([]byte, len(ciphertext))
-	salsa20.XORKeyStream(secret, ciphertext, nonce, &keyArray)
-
-	return secret
-}
-
-// marshalMnemonicInformation is a helper function which concatenates the nonce
-// and ciphertext.
-func marshalMnemonicInformation(nonce, ciphertext []byte) []byte {
-	return append(nonce, ciphertext...)
-}
-
-// unmarshalMnemonicInformation is a helper function which separates the
-// concatenated data containing the nonce and ciphertext of the mnemonic
-// handling. This is the inverse of marshalMnemonicInformation.
-func unmarshalMnemonicInformation(data []byte) (nonce, ciphertext []byte) {
-	return data[:nonceSize], data[nonceSize:]
+	nonceLen := chaCipher.NonceSize()
+	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
+	plaintext, err := chaCipher.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "Cannot decrypt with password!")
+	}
+	return plaintext, nil
 }

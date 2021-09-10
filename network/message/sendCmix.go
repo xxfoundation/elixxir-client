@@ -8,7 +8,6 @@
 package message
 
 import (
-	"bytes"
 	"fmt"
 	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
@@ -32,11 +31,11 @@ import (
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
 func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX, networkParams params.Network,
+	recipient *id.ID, cmixParams params.CMIX,
 	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
 
 	msgCopy := msg.Copy()
-	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, networkParams, m.Instance,
+	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, m.blacklistedNodes, m.Instance,
 		m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
 		m.TransmissionID, m.Comms, stop)
 }
@@ -51,7 +50,7 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 // which can be registered with the network instance to get a callback on
 // its status
 func sendCmixHelper(sender *gateway.Sender, msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX, networkParams params.Network, instance *network.Instance,
+	recipient *id.ID, cmixParams params.CMIX, blacklistedNodes map[string]interface{}, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
 	senderId *id.ID, comms sendCmixCommsInterface,
@@ -84,26 +83,26 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		if err != nil {
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
 		}
-
-		containsBlacklisted := false
-		for _, blacklistedNodeId := range networkParams.BlacklistedNodes {
-			if containsBlacklisted {
-				break
-			}
-			for _, nodeId := range bestRound.Topology {
-				// TODO: Figure out encoding
-				if bytes.Equal(nodeId, []byte(blacklistedNodeId)) {
-					containsBlacklisted = true
-					break
-				}
-			}
-		}
-		if bestRound == nil || containsBlacklisted {
+		if bestRound == nil {
 			continue
 		}
 
 		//add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
+
+		// Determine whether the selected round contains any Nodes
+		// that are blacklisted by the params.Network object
+		containsBlacklisted := false
+		for _, nodeId := range bestRound.Topology {
+			if _, isBlacklisted := blacklistedNodes[string(nodeId)]; isBlacklisted {
+				containsBlacklisted = true
+				break
+			}
+		}
+		if containsBlacklisted {
+			jww.WARN.Printf("Round %d contains blacklisted node, skipping...", bestRound.ID)
+			continue
+		}
 
 		// Retrieve host and key information from round
 		firstGateway, roundKeys, err := processRound(instance, session, nodeRegistration, bestRound, recipient.String(), msg.Digest())

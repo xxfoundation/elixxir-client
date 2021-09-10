@@ -30,7 +30,7 @@ func (m *manager) SendCMIX(msg format.Message, recipient *id.ID, param params.CM
 			"network is not healthy")
 	}
 
-	return m.message.SendCMIX(m.GetSender(), msg, recipient, param, m.param, nil)
+	return m.message.SendCMIX(m.GetSender(), msg, recipient, param, nil)
 }
 
 // SendManyCMIX sends many "raw" CMIX message payloads to each of the

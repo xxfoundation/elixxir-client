@@ -65,12 +65,12 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	m := NewManager(i, params.Messages{
+	m := NewManager(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksGarbledMessage:        20,
 		GarbledMessageWait:             time.Hour,
-	}, nil, sender)
+	}}, nil, sender)
 
 	e2ekv := i.Session.E2e()
 	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),

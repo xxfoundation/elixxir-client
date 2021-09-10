@@ -108,17 +108,17 @@ func Test_attemptSendCmix(t *testing.T) {
 		t.Errorf("%+v", errors.New(err.Error()))
 		return
 	}
-	m := NewManager(i, params.Messages{
+	m := NewManager(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksGarbledMessage:        20,
 		GarbledMessageWait:             time.Hour,
-	}, nil, sender)
+	}}, nil, sender)
 	msgCmix := format.NewMessage(m.Session.Cmix().GetGroup().GetP().ByteLen())
 	msgCmix.SetContents([]byte("test"))
 	e2e.SetUnencrypted(msgCmix, m.Session.User().GetCryptographicIdentity().GetTransmissionID())
 	_, _, err = sendCmixHelper(sender, msgCmix, sess2.GetUser().ReceptionID,
-		params.GetDefaultCMIX(), m.Instance, m.Session, m.nodeRegistration,
+		params.GetDefaultCMIX(), make(map[string]interface{}), m.Instance, m.Session, m.nodeRegistration,
 		m.Rng, events, m.TransmissionID, &MockSendCMIXComms{t: t}, nil)
 	if err != nil {
 		t.Errorf("Failed to sendcmix: %+v", err)

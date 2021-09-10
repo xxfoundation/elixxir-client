@@ -46,7 +46,8 @@ const currentSessionVersion = 0
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv  *versioned.KV
+	kv *versioned.KV
+
 	mux sync.RWMutex
 
 	//memoized data

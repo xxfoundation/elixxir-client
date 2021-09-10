@@ -8,6 +8,7 @@
 package message
 
 import (
+	"bytes"
 	"fmt"
 	"github.com/golang-collections/collections/set"
 	"github.com/pkg/errors"
@@ -31,9 +32,11 @@ import (
 // WARNING: Potentially Unsafe
 // Public manager function to send a message over CMIX
 func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
-	recipient *id.ID, param params.CMIX, stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
+	recipient *id.ID, cmixParams params.CMIX, networkParams params.Network,
+	stop *stoppable.Single) (id.Round, ephemeral.Id, error) {
+
 	msgCopy := msg.Copy()
-	return sendCmixHelper(sender, msgCopy, recipient, param, m.Instance,
+	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, networkParams, m.Instance,
 		m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
 		m.TransmissionID, m.Comms, stop)
 }
@@ -48,7 +51,7 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 // which can be registered with the network instance to get a callback on
 // its status
 func sendCmixHelper(sender *gateway.Sender, msg format.Message,
-	recipient *id.ID, cmixParams params.CMIX, instance *network.Instance,
+	recipient *id.ID, cmixParams params.CMIX, networkParams params.Network, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
 	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
 	senderId *id.ID, comms sendCmixCommsInterface,
@@ -81,11 +84,25 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		if err != nil {
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
 		}
-		if bestRound == nil {
+
+		containsBlacklisted := false
+		for _, blacklistedNodeId := range networkParams.BlacklistedNodes {
+			if containsBlacklisted {
+				break
+			}
+			for _, nodeId := range bestRound.Topology {
+				// TODO: Figure out encoding
+				if bytes.Equal(nodeId, []byte(blacklistedNodeId)) {
+					containsBlacklisted = true
+					break
+				}
+			}
+		}
+		if bestRound == nil || containsBlacklisted {
 			continue
 		}
 
-		//add the round on to the list of attempted so it is not tried again
+		//add the round on to the list of attempted, so it is not tried again
 		attempted.Insert(bestRound)
 
 		// Retrieve host and key information from round

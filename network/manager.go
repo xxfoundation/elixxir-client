@@ -119,7 +119,7 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	})
 
 	//create sub managers
-	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)
+	m.message = message.NewManager(m.Internal, m.param, m.NodeRegistration, m.sender)
 	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel(), m.sender)
 
 	return &m, nil

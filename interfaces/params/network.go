@@ -29,6 +29,8 @@ type Network struct {
 	// If true, client receives a filtered set of updates
 	// If false, client receives the full list of network updates
 	FastPolling bool
+	// Messages will not be sent to Rounds containing these Nodes
+	BlacklistedNodes []string
 
 	Rounds
 	Messages
@@ -47,6 +49,7 @@ func GetDefaultNetwork() Network {
 		ParallelNodeRegistrations: 8,
 		KnownRoundsThreshold:      1500, //5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
+		BlacklistedNodes:          make([]string, 0),
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

@@ -94,6 +94,7 @@ func getNDF(face interface{}) *ndf.NetworkDefinition {
 				ID:             nodeID.Bytes(),
 				Address:        "",
 				TlsCertificate: string(cert),
+				Status:         ndf.Active,
 			},
 		},
 		Gateways: []ndf.Gateway{

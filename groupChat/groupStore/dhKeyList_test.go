@@ -73,8 +73,7 @@ func TestDeserializeDhKeyList_DhKeyBinaryDecodeError(t *testing.T) {
 // Unit test of DhKeyList.GoString.
 func TestDhKeyList_GoString(t *testing.T) {
 	grp := createTestGroup(rand.New(rand.NewSource(42)), t)
-	expected := "{Grcjbkt1IWKQzyvrQsPKJzKFYPGqwGfOpui/RtSrK0YD: 5170411903... in GRP: 6SsQ/HAHUn..., QCxg8d6XgoPUoJo2+WwglBdG4+1NpkaprotPp7T8OiAD: 1754900790... in GRP: 6SsQ/HAHUn..., invD4ElbVxL+/b4MECiH4QDazS2IX2kstgfaAKEcHHAD: 2926033432... in GRP: 6SsQ/HAHUn..., wRYCP6iJdLrAyv2a0FaSsTYZ5ziWTf3Hno1TQ3NmHP0D: 2297312580... in GRP: 6SsQ/HAHUn..., 15ufnw07pVsMwNYUTIiFNYQay+BwmwdYCD9h03W8ArQD: 6199513233... in GRP: 6SsQ/HAHUn..., 3RqsBM4ux44bC6+uiBuCp1EQikLtPJA8qkNGWnhiBhYD: 4604475835... in GRP: 6SsQ/HAHUn..., 55ai4SlwXic/BckjJoKOKwVuOBdljhBhSYlH/fNEQQ4D: 9940605492... in GRP: 6SsQ/HAHUn..., 9PkZKU50joHnnku9b+NM3LqEPujWPoxP/hzr6lRtj6wD: 2451667393... in GRP: 6SsQ/HAHUn..., +hp17fHP0rO1EhnqeVM6v0SNLEedMmB1M5BZFMjMHPAD: 6029441980... in GRP: 6SsQ/HAHUn...}"
-
+	expected := "{Grcjbkt1IWKQzyvrQsPKJzKFYPGqwGfOpui/RtSrK0YD: 6342989043... in GRP: 6SsQ/HAHUn..., QCxg8d6XgoPUoJo2+WwglBdG4+1NpkaprotPp7T8OiAD: 2579328386... in GRP: 6SsQ/HAHUn..., invD4ElbVxL+/b4MECiH4QDazS2IX2kstgfaAKEcHHAD: 1688982497... in GRP: 6SsQ/HAHUn..., o54Okp0CSry8sWk5e7c05+8KbgHxhU3rX+Qk/vesIQgD: 5552242738... in GRP: 6SsQ/HAHUn..., wRYCP6iJdLrAyv2a0FaSsTYZ5ziWTf3Hno1TQ3NmHP0D: 2812078897... in GRP: 6SsQ/HAHUn..., 15ufnw07pVsMwNYUTIiFNYQay+BwmwdYCD9h03W8ArQD: 2588260662... in GRP: 6SsQ/HAHUn..., 3RqsBM4ux44bC6+uiBuCp1EQikLtPJA8qkNGWnhiBhYD: 4967151805... in GRP: 6SsQ/HAHUn..., 55ai4SlwXic/BckjJoKOKwVuOBdljhBhSYlH/fNEQQ4D: 3187530437... in GRP: 6SsQ/HAHUn..., 9PkZKU50joHnnku9b+NM3LqEPujWPoxP/hzr6lRtj6wD: 4832738218... in GRP: 6SsQ/HAHUn...}"
 	if grp.DhKeys.GoString() != expected {
 		t.Errorf("GoString failed to return the expected string."+
 			"\nexpected: %s\nreceived: %s", expected, grp.DhKeys.GoString())

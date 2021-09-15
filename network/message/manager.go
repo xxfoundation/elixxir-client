@@ -8,7 +8,9 @@
 package message
 
 import (
+	"encoding/base64"
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
@@ -19,10 +21,11 @@ import (
 )
 
 type Manager struct {
-	param       params.Messages
+	param       params.Network
 	partitioner parse.Partitioner
 	internal.Internal
-	sender *gateway.Sender
+	sender           *gateway.Sender
+	blacklistedNodes map[string]interface{}
 
 	messageReception chan Bundle
 	nodeRegistration chan network.NodeGateway
@@ -30,7 +33,7 @@ type Manager struct {
 	triggerGarbled   chan struct{}
 }
 
-func NewManager(internal internal.Internal, param params.Messages,
+func NewManager(internal internal.Internal, param params.Network,
 	nodeRegistration chan network.NodeGateway, sender *gateway.Sender) *Manager {
 	dummyMessage := format.NewMessage(internal.Session.Cmix().GetGroup().GetP().ByteLen())
 	m := Manager{
@@ -41,8 +44,16 @@ func NewManager(internal internal.Internal, param params.Messages,
 		triggerGarbled:   make(chan struct{}, 100),
 		nodeRegistration: nodeRegistration,
 		sender:           sender,
+		Internal:         internal,
 	}
-	m.Internal = internal
+	for _, nodeId := range param.BlacklistedNodes {
+		decodedId, err := base64.StdEncoding.DecodeString(nodeId)
+		if err != nil {
+			jww.ERROR.Printf("Unable to decode blacklisted Node ID %s: %+v", decodedId, err)
+			continue
+		}
+		m.blacklistedNodes[string(decodedId)] = nil
+	}
 	return &m
 }
 

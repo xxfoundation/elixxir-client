@@ -51,3 +51,42 @@ func TestRemoveFact(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func (rFC *testRFC) SendRemoveUser(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
+	return &messages.Ack{}, nil
+}
+
+func TestRemoveUser(t *testing.T) {
+	h, err := connect.NewHost(&id.DummyUser, "address", nil, connect.GetDefaultHostParams())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rng := csprng.NewSystemRNG()
+	cpk, err := rsa.GenerateKey(rng, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	isReg := uint32(1)
+
+	m := Manager{
+		comms:      nil,
+		host:       h,
+		privKey:    cpk,
+		registered: &isReg,
+		myID:       &id.ID{},
+	}
+
+	f := fact.Fact{
+		Fact: "testing",
+		T:    2,
+	}
+
+	trfc := testRFC{}
+
+	err = m.removeUser(f, &trfc)
+	if err != nil {
+		t.Fatal(err)
+	}
+}

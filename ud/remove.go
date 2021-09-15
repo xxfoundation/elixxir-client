@@ -59,3 +59,50 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 	// Return the error
 	return err
 }
+
+type removeUserComms interface {
+	SendRemoveUser(host *connect.Host, message *mixmessages.FactRemovalRequest) (*messages.Ack, error)
+}
+
+// Removes a previously confirmed fact.  Will fail if the fact is not
+// associated with this client.
+func (m *Manager) RemoveUser(fact fact.Fact) error {
+	jww.INFO.Printf("ud.RemoveUser(%s)", fact.Stringify())
+	return m.removeUser(fact, m.comms)
+}
+
+func (m *Manager) removeUser(fact fact.Fact, rFC removeUserComms) error {
+	if !m.IsRegistered() {
+		return errors.New("Failed to remove fact: " +
+			"client is not registered")
+	}
+
+	// Construct the message to send
+	// Convert our Fact to a mixmessages Fact for sending
+	mmFact := mixmessages.Fact{
+		Fact:     fact.Fact,
+		FactType: uint32(fact.T),
+	}
+
+	// Create a hash of our fact
+	fhash := factID.Fingerprint(fact)
+
+	// Sign our inFact for putting into the request
+	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fhash, nil)
+	if err != nil {
+		return err
+	}
+
+	// Create our Fact Removal Request message data
+	remFactMsg := mixmessages.FactRemovalRequest{
+		UID:         m.myID.Marshal(),
+		RemovalData: &mmFact,
+		FactSig:     fsig,
+	}
+
+	// Send the message
+	_, err = rFC.SendRemoveUser(m.host, &remFactMsg)
+
+	// Return the error
+	return err
+}

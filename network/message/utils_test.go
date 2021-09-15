@@ -100,6 +100,7 @@ func getNDF() *ndf.NetworkDefinition {
 				ID:             nodeId.Marshal(),
 				Address:        "0.0.0.0",
 				TlsCertificate: "",
+				Status:         ndf.Active,
 			},
 		},
 	}

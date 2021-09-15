@@ -143,7 +143,7 @@ func TestHostPool_ManageHostPool(t *testing.T) {
 		// Construct nodes
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
-		newNodes[i] = ndf.Node{ID: nodeId.Bytes()}
+		newNodes[i] = ndf.Node{ID: nodeId.Bytes(), Status: ndf.Active}
 
 	}
 
@@ -319,6 +319,17 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	params := DefaultPoolParams()
 	params.PoolSize = uint32(len(testNdf.Gateways))
 
+	// Add a stale node
+	newGateway := ndf.Gateway{
+		ID: id.NewIdFromUInt(27, id.Gateway, t).Bytes(),
+	}
+	newNode := ndf.Node{
+		ID:     id.NewIdFromUInt(27, id.Node, t).Bytes(),
+		Status: ndf.Stale,
+	}
+	testNdf.Gateways = append(testNdf.Gateways, newGateway)
+	testNdf.Nodes = append(testNdf.Nodes, newNode)
+
 	// Pull all gateways from ndf into host manager
 	for _, gw := range testNdf.Gateways {
 
@@ -343,13 +354,14 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	}
 
 	// Add all gateways to hostPool's map
-	for index, gw := range testNdf.Gateways {
+	for i := uint32(0); i < params.PoolSize; i++ {
+		gw := testNdf.Gateways[i]
 		gwId, err := id.Unmarshal(gw.ID)
 		if err != nil {
 			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
 		}
 
-		err = testPool.replaceHost(gwId, uint32(index))
+		err = testPool.replaceHost(gwId, i)
 		if err != nil {
 			t.Fatalf("Failed to replace host in set-up: %v", err)
 		}
@@ -792,7 +804,7 @@ func TestHostPool_UpdateConns_RemoveGateways(t *testing.T) {
 		// Construct nodes
 		nodeId := gwId.DeepCopy()
 		nodeId.SetType(id.Node)
-		newNodes[i] = ndf.Node{ID: nodeId.Bytes()}
+		newNodes[i] = ndf.Node{ID: nodeId.Bytes(), Status: ndf.Active}
 
 	}
 

@@ -23,6 +23,7 @@ func startConfirm(sess *storage.Session, c chan message.Receive,
 		select {
 		case <-stop.Quit():
 			cleanup()
+			stop.ToStopped()
 			return
 		case confirmation := <-c:
 			handleConfirm(sess, confirmation)
@@ -82,11 +83,11 @@ func unmarshalConfirm(payload []byte) (e2e.SessionID, error) {
 			"unmarshal payload: %s", err)
 	}
 
-	confimedSessionID := e2e.SessionID{}
-	if err := confimedSessionID.Unmarshal(msg.SessionID); err != nil {
+	confirmedSessionID := e2e.SessionID{}
+	if err := confirmedSessionID.Unmarshal(msg.SessionID); err != nil {
 		return e2e.SessionID{}, errors.Errorf("Failed to unmarshal"+
 			" sessionID: %s", err)
 	}
 
-	return confimedSessionID, nil
+	return confirmedSessionID, nil
 }

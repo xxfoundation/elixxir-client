@@ -5,7 +5,7 @@
 // LICENSE file                                                              //
 ///////////////////////////////////////////////////////////////////////////////
 
-package permissioning
+package registration
 
 import (
 	"gitlab.com/elixxir/comms/client"
@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-// Init should create a valid Permissioning communications struct
+// Init should create a valid Registration communications struct
 func TestInit(t *testing.T) {
 	// Create dummy comms and ndf
 	comms, err := client.NewClientComms(id.NewIdFromUInt(100, id.User, t), nil, nil, nil)
@@ -22,7 +22,9 @@ func TestInit(t *testing.T) {
 		t.Fatal(err)
 	}
 	def := &ndf.NetworkDefinition{
-		Registration: ndf.Registration{},
+		Registration: ndf.Registration{
+			EllipticPubKey: "MqaJJ3GjFisNRM6LRedRnooi14gepMaQxyWctXVU",
+		},
 	}
 	reg, err := Init(comms, def)
 	if err != nil {

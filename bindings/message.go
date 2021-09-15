@@ -17,33 +17,51 @@ type Message struct {
 	r message.Receive
 }
 
-//Returns the id of the message
+// GetID returns the id of the message
 func (m *Message) GetID() []byte {
 	return m.r.ID[:]
 }
 
-// Returns the message's sender ID, if available
+// GetSender returns the message's sender ID, if available
 func (m *Message) GetSender() []byte {
 	return m.r.Sender.Bytes()
 }
 
-// Returns the message's payload/contents
+// GetPayload returns the message's payload/contents
 func (m *Message) GetPayload() []byte {
 	return m.r.Payload
 }
 
-// Returns the message's type
+// GetMessageType returns the message's type
 func (m *Message) GetMessageType() int {
 	return int(m.r.MessageType)
 }
 
-// Returns the message's timestamp in ms
+// GetTimestampMS returns the message's timestamp in milliseconds
 func (m *Message) GetTimestampMS() int64 {
 	ts := m.r.Timestamp.UnixNano()
+	ts = (ts + 500000) / 1000000
+	return ts
+}
+
+// GetTimestampNano returns the message's timestamp in nanoseconds
+func (m *Message) GetTimestampNano() int64 {
+	return m.r.Timestamp.UnixNano()
+}
+
+// GetRoundTimestampMS returns the message's round timestamp in milliseconds
+func (m *Message) GetRoundTimestampMS() int64 {
+	ts := m.r.RoundTimestamp.UnixNano()
 	ts = (ts + 999999) / 1000000
 	return ts
 }
 
-func (m *Message) GetTimestampNano() int64 {
-	return m.r.Timestamp.UnixNano()
+// GetRoundTimestampNano returns the message's round timestamp in nanoseconds
+func (m *Message) GetRoundTimestampNano() int64 {
+	return m.r.RoundTimestamp.UnixNano()
+}
+
+// GetRoundId returns the message's round ID
+func (m *Message) GetRoundId() int64 {
+	return int64(m.r.RoundId)
 }

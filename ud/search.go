@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -50,11 +51,17 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		return errors.WithMessage(err, "Failed to transmit search request.")
 	}
 
+	if m.client != nil {
+		m.client.ReportEvent(1, "UserDiscovery", "SearchRequest",
+			fmt.Sprintf("Sent: %+v", request))
+	}
+
 	return nil
 }
 
 func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 	callback searchCallback, payload []byte, err error) {
+
 	if err != nil {
 		go callback(nil, errors.WithMessage(err, "Failed to search."))
 		return
@@ -66,11 +73,22 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 		jww.WARN.Printf("Dropped a search response from user discovery due to "+
 			"failed unmarshal: %s", err)
 	}
+
+	if m.client != nil {
+		m.client.ReportEvent(1, "UserDiscovery", "SearchResponse",
+			fmt.Sprintf("Received: %+v", searchResponse))
+	}
+
 	if searchResponse.Error != "" {
 		err = errors.Errorf("User Discovery returned an error on search: %s",
 			searchResponse.Error)
 		go callback(nil, err)
 		return
+	}
+
+	//return an error if no facts are found
+	if len(searchResponse.Contacts) == 0 {
+		go callback(nil, errors.New("No contacts found in search"))
 	}
 
 	c, err := m.parseContacts(searchResponse.Contacts, factMap)
@@ -114,12 +132,15 @@ func (m *Manager) parseContacts(response []*Contact,
 		if err != nil {
 			return nil, errors.Errorf("failed to parse Contact user ID: %+v", err)
 		}
-
+		var facts []fact.Fact
+		if c.Username != "" {
+			facts = []fact.Fact{{c.Username, fact.Username}}
+		}
 		// Create new Contact
 		contacts[i] = contact.Contact{
 			ID:       uid,
 			DhPubKey: m.grp.NewIntFromBytes(c.PubKey),
-			Facts:    []fact.Fact{},
+			Facts:    facts,
 		}
 
 		// Assign each Fact with a matching hash to the Contact

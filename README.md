@@ -154,12 +154,17 @@ Available Commands:
 Flags:
       --accept-channel            Accept the channel request for the
                                   corresponding recipient ID
+      --delete-channel            Delete the channel information for the
+                                  corresponding recipient ID                            
       --destfile string           Read this contact file for the destination id
   -d, --destid string             ID to send message to (if below 40, will be
                                   precanned. Use '0x' or 'b64:' for hex and
                                   base64 representations) (default "0")
       --forceHistoricalRounds     Force all rounds to be sent to historical
                                   round retrieval
+      --forceMessagePickupRetry   Enable a mechanism which forces a 50% chance 
+                                  of no message pickup, instead triggering the 
+                                  message pickup retry mechanism
   -h, --help                      help for client
   -l, --log string                Path to the log output path (- is stdout)
                                   (default "-")
@@ -176,6 +181,9 @@ Flags:
                                   (default 500)
       --sendid uint               Use precanned user id (must be between 1 and
                                   40, inclusive)
+      --slowPolling bool          Enables polling for all network updates and RSA signed rounds.
+                                  Defaults to true (filtered updates with ECC signed rounds) if not set
+
   -s, --session string            Sets the initial directory for client storage
       --unsafe                    Send raw, unsafe messages without e2e
                                   encryption.

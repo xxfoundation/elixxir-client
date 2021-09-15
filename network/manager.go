@@ -11,6 +11,7 @@ package network
 // and intraclient state are accessible through the context object.
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -28,6 +29,8 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/primitives/ndf"
+	"math"
+	"time"
 )
 
 // Manager implements the NetworkManager interface inside context. It
@@ -47,16 +50,25 @@ type manager struct {
 	message *message.Manager
 
 	//number of polls done in a period of time
-	tracker *uint64
+	tracker      *uint64
+	latencySum   uint64
+	numLatencies uint64
+
+	// Address space size
+	addrSpace *ephemeral.AddressSpace
+
+	// Event reporting api
+	events interfaces.EventManager
 }
 
 // NewManager builds a new reception manager object using inputted key fields
 func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
-	rng *fastRNG.StreamGenerator, comms *client.Comms,
-	params params.Network, ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
+	rng *fastRNG.StreamGenerator, events interfaces.EventManager,
+	comms *client.Comms, params params.Network,
+	ndf *ndf.NetworkDefinition) (interfaces.NetworkManager, error) {
 
 	//start network instance
-	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None)
+	instance, err := network.NewInstance(comms.ProtoComms, ndf, nil, nil, network.None, params.FastPolling)
 	if err != nil {
 		return nil, errors.WithMessage(err, "failed to create"+
 			" client network manager")
@@ -69,10 +81,12 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 
 	tracker := uint64(0)
 
-	//create manager object
+	// create manager object
 	m := manager{
-		param:   params,
-		tracker: &tracker,
+		param:     params,
+		tracker:   &tracker,
+		addrSpace: ephemeral.NewAddressSpace(),
+		events:    events,
 	}
 
 	m.Internal = internal.Internal{
@@ -85,18 +99,27 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Instance:         instance,
 		TransmissionID:   session.User().GetCryptographicIdentity().GetTransmissionID(),
 		ReceptionID:      session.User().GetCryptographicIdentity().GetReceptionID(),
+		Events:           events,
 	}
 
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
+	// Client will not send KeepAlive packets
+	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {
 		return nil, err
 	}
 
+	// Report health events
+	m.Internal.Health.AddFunc(func(isHealthy bool) {
+		m.Internal.Events.Report(5, "Health", "IsHealthy",
+			fmt.Sprintf("%v", isHealthy))
+	})
+
 	//create sub managers
-	m.message = message.NewManager(m.Internal, m.param.Messages, m.NodeRegistration, m.sender)
+	m.message = message.NewManager(m.Internal, m.param, m.NodeRegistration, m.sender)
 	m.round = rounds.NewManager(m.Internal, m.param.Rounds, m.message.GetMessageReceptionChannel(), m.sender)
 
 	return &m, nil
@@ -130,7 +153,7 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 
 	// Start the Network Tracker
 	trackNetworkStopper := stoppable.NewSingle("TrackNetwork")
-	go m.followNetwork(report, trackNetworkStopper.Quit(), trackNetworkStopper)
+	go m.followNetwork(report, trackNetworkStopper)
 	multi.Add(trackNetworkStopper)
 
 	// Message reception
@@ -139,9 +162,14 @@ func (m *manager) Follow(report interfaces.ClientErrorReport) (stoppable.Stoppab
 	// Round processing
 	multi.Add(m.round.StartProcessors())
 
-	multi.Add(ephemeral.Track(m.Session, m.ReceptionID))
+	multi.Add(ephemeral.Track(m.Session, m.addrSpace, m.ReceptionID))
 
 	return multi, nil
+}
+
+// GetEventManager returns the health tracker
+func (m *manager) GetEventManager() interfaces.EventManager {
+	return m.events
 }
 
 // GetHealthTracker returns the health tracker
@@ -170,4 +198,28 @@ func (m *manager) CheckGarbledMessages() {
 // node registrations.
 func (m *manager) InProgressRegistrations() int {
 	return len(m.Internal.NodeRegistration)
+}
+
+// GetAddressSize returns the current address space size. It blocks until an
+// address space size is set.
+func (m *manager) GetAddressSize() uint8 {
+	return m.addrSpace.Get()
+}
+
+// RegisterAddressSizeNotification returns a channel that will trigger for every
+// address space size update. The provided tag is the unique ID for the channel.
+// Returns an error if the tag is already used.
+func (m *manager) RegisterAddressSizeNotification(tag string) (chan uint8, error) {
+	return m.addrSpace.RegisterNotification(tag)
+}
+
+// UnregisterAddressSizeNotification stops broadcasting address space size
+// updates on the channel with the specified tag.
+func (m *manager) UnregisterAddressSizeNotification(tag string) {
+	m.addrSpace.UnregisterNotification(tag)
+}
+
+// SetPoolFilter sets the filter used to filter gateway IDs.
+func (m *manager) SetPoolFilter(f gateway.Filter) {
+	m.sender.SetFilter(f)
 }

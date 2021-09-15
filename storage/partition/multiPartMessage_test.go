@@ -27,13 +27,13 @@ func Test_loadOrCreateMultiPartMessage_Create(t *testing.T) {
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
-		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		MessageID:    prng.Uint64(),
-		NumParts:     0,
-		PresentParts: 0,
-		Timestamp:    time.Time{},
-		MessageType:  0,
-		kv:           versioned.NewKV(make(ekv.Memstore)),
+		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
+		MessageID:       prng.Uint64(),
+		NumParts:        0,
+		PresentParts:    0,
+		SenderTimestamp: time.Time{},
+		MessageType:     0,
+		kv:              versioned.NewKV(make(ekv.Memstore)),
 	}
 	expectedData, err := json.Marshal(expectedMpm)
 	if err != nil {
@@ -63,13 +63,13 @@ func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 	// Set up expected test value
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
-		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		MessageID:    prng.Uint64(),
-		NumParts:     0,
-		PresentParts: 0,
-		Timestamp:    time.Time{},
-		MessageType:  0,
-		kv:           versioned.NewKV(make(ekv.Memstore)),
+		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
+		MessageID:       prng.Uint64(),
+		NumParts:        0,
+		PresentParts:    0,
+		SenderTimestamp: time.Time{},
+		MessageType:     0,
+		kv:              versioned.NewKV(make(ekv.Memstore)),
 	}
 	err := expectedMpm.save()
 	if err != nil {
@@ -85,8 +85,8 @@ func Test_loadOrCreateMultiPartMessage_Load(t *testing.T) {
 
 func CheckMultiPartMessages(expectedMpm *multiPartMessage, mpm *multiPartMessage, t *testing.T) {
 	// The kv differs because it has prefix called, so we compare fields individually
-	if expectedMpm.Timestamp != mpm.Timestamp {
-		t.Errorf("timestamps mismatch: expected %v, got %v", expectedMpm.Timestamp, mpm.Timestamp)
+	if expectedMpm.SenderTimestamp != mpm.SenderTimestamp {
+		t.Errorf("timestamps mismatch: expected %v, got %v", expectedMpm.SenderTimestamp, mpm.SenderTimestamp)
 	}
 	if expectedMpm.MessageType != mpm.MessageType {
 		t.Errorf("messagetype mismatch: expected %v, got %v", expectedMpm.MessageID, mpm.MessageID)
@@ -159,21 +159,21 @@ func TestMultiPartMessage_AddFirst(t *testing.T) {
 	// Generate test values
 	prng := rand.New(rand.NewSource(netTime.Now().UnixNano()))
 	expectedMpm := &multiPartMessage{
-		Sender:       id.NewIdFromUInt(prng.Uint64(), id.User, t),
-		MessageID:    prng.Uint64(),
-		NumParts:     uint8(prng.Uint32()),
-		PresentParts: 1,
-		Timestamp:    netTime.Now(),
-		MessageType:  message.NoType,
-		parts:        make([][]byte, 3),
-		kv:           versioned.NewKV(make(ekv.Memstore)),
+		Sender:          id.NewIdFromUInt(prng.Uint64(), id.User, t),
+		MessageID:       prng.Uint64(),
+		NumParts:        uint8(prng.Uint32()),
+		PresentParts:    1,
+		SenderTimestamp: netTime.Now(),
+		MessageType:     message.NoType,
+		parts:           make([][]byte, 3),
+		kv:              versioned.NewKV(make(ekv.Memstore)),
 	}
 	expectedMpm.parts[2] = []byte{5, 8, 78, 9}
 	npm := loadOrCreateMultiPartMessage(expectedMpm.Sender,
 		expectedMpm.MessageID, expectedMpm.kv)
 
 	npm.AddFirst(expectedMpm.MessageType, 2, expectedMpm.NumParts,
-		expectedMpm.Timestamp, expectedMpm.parts[2])
+		expectedMpm.SenderTimestamp, netTime.Now(), expectedMpm.parts[2])
 
 	CheckMultiPartMessages(expectedMpm, npm, t)
 
@@ -203,7 +203,7 @@ func TestMultiPartMessage_IsComplete(t *testing.T) {
 		t.Error("IsComplete() returned true when NumParts == 0.")
 	}
 
-	mpm.AddFirst(message.Text, partNums[0], 75, netTime.Now(), parts[0])
+	mpm.AddFirst(message.Text, partNums[0], 75, netTime.Now(), netTime.Now(), parts[0])
 	for i := range partNums {
 		if i > 0 {
 			mpm.Add(partNums[i], parts[i])

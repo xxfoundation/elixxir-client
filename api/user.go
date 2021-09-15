@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/crypto/cyclic"
+	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/crypto/xx"
@@ -29,58 +30,100 @@ const (
 )
 
 // createNewUser generates an identity for cMix
-func createNewUser(rng csprng.Source, cmix, e2e *cyclic.Group) user.User {
+func createNewUser(rng *fastRNG.StreamGenerator, cmix, e2e *cyclic.Group) user.User {
 	// CMIX Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this.
-	cMixKeyBytes, err := csprng.GenerateInGroup(cmix.GetPBytes(), 256, rng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
+	var transmissionRsaKey, receptionRsaKey *rsa.PrivateKey
 
-	// DH Keygen
-	// FIXME: Why 256 bits? -- this is spec but not explained, it has
-	// to do with optimizing operations on one side and still preserves
-	// decent security -- cite this. Why valid for BOTH e2e and cmix?
-	e2eKeyBytes, err := csprng.GenerateInGroup(e2e.GetPBytes(), 256, rng)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
+	var cMixKeyBytes, e2eKeyBytes, transmissionSalt, receptionSalt []byte
+
+	wg := sync.WaitGroup{}
+
+	wg.Add(4)
+
+	go func() {
+		defer wg.Done()
+		var err error
+		// FIXME: Why 256 bits? -- this is spec but not explained, it has
+		// to do with optimizing operations on one side and still preserves
+		// decent security -- cite this.
+		stream := rng.GetStream()
+		cMixKeyBytes, err = csprng.GenerateInGroup(cmix.GetPBytes(), 256, stream)
+		stream.Close()
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		var err error
+		// DH Keygen
+		// FIXME: Why 256 bits? -- this is spec but not explained, it has
+		// to do with optimizing operations on one side and still preserves
+		// decent security -- cite this. Why valid for BOTH e2e and cmix?
+		stream := rng.GetStream()
+		e2eKeyBytes, err = csprng.GenerateInGroup(e2e.GetPBytes(), 256, stream)
+		stream.Close()
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+	}()
 
 	// RSA Keygen (4096 bit defaults)
-	transmissionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	receptionRsaKey, err := rsa.GenerateKey(rng, rsa.DefaultRSABitLen)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
+	go func() {
+		defer wg.Done()
+		var err error
+		stream := rng.GetStream()
+		transmissionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		stream.Close()
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		var err error
+		stream := rng.GetStream()
+		receptionRsaKey, err = rsa.GenerateKey(stream, rsa.DefaultRSABitLen)
+		stream.Close()
+		if err != nil {
+			jww.FATAL.Panicf(err.Error())
+		}
+	}()
+	wg.Wait()
 
 	// Salt, UID, etc gen
-	transmissionSalt := make([]byte, SaltSize)
-	n, err := csprng.NewSystemRNG().Read(transmissionSalt)
+	stream := rng.GetStream()
+	transmissionSalt = make([]byte, SaltSize)
+
+	n, err := stream.Read(transmissionSalt)
+
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 	if n != SaltSize {
 		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
 	}
+
+	receptionSalt = make([]byte, SaltSize)
+
+	n, err = stream.Read(receptionSalt)
+
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	if n != SaltSize {
+		jww.FATAL.Panicf("transmissionSalt size too small: %d", n)
+	}
+
+	stream.Close()
+
 	transmissionID, err := xx.NewID(transmissionRsaKey.GetPublic(), transmissionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
 
-	// Salt, UID, etc gen
-	receptionSalt := make([]byte, SaltSize)
-	n, err = csprng.NewSystemRNG().Read(receptionSalt)
-	if err != nil {
-		jww.FATAL.Panicf(err.Error())
-	}
-	if n != SaltSize {
-		jww.FATAL.Panicf("receptionSalt size too small: %d", n)
-	}
 	receptionID, err := xx.NewID(receptionRsaKey.GetPublic(), receptionSalt, id.User)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
@@ -140,7 +183,7 @@ func createPrecannedUser(precannedID uint, rng csprng.Source, cmix, e2e *cyclic.
 }
 
 // createNewVanityUser generates an identity for cMix
-// The identity's ReceptionID is not random but starts with the supplied prefix 
+// The identity's ReceptionID is not random but starts with the supplied prefix
 func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix string) user.User {
 	// CMIX Keygen
 	// FIXME: Why 256 bits? -- this is spec but not explained, it has
@@ -186,14 +229,14 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 	}
 
 	var mu sync.Mutex // just in case more than one go routine tries to access receptionSalt and receptionID
-	done := make(chan struct{}) 
-	found:= make(chan bool)
-	wg:= &sync.WaitGroup{}
+	done := make(chan struct{})
+	found := make(chan bool)
+	wg := &sync.WaitGroup{}
 	cores := runtime.NumCPU()
 
 	var receptionSalt []byte
-	var receptionID *id.ID 
-	
+	var receptionID *id.ID
+
 	pref := prefix
 	ignoreCase := false
 	// check if case-insensitivity is enabled
@@ -207,13 +250,13 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 		jww.FATAL.Panicf("Prefix contains non-Base64 characters")
 	}
 	jww.INFO.Printf("Vanity userID generation started. Prefix: %s Ignore-Case: %v NumCPU: %d", pref, ignoreCase, cores)
-	for w := 0; w < cores; w++{
+	for w := 0; w < cores; w++ {
 		wg.Add(1)
 		go func() {
 			rSalt := make([]byte, SaltSize)
-			for {	
+			for {
 				select {
-				case <- done:
+				case <-done:
 					defer wg.Done()
 					return
 				default:
@@ -231,7 +274,7 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 					id := rID.String()
 					if ignoreCase {
 						id = strings.ToLower(id)
-					} 
+					}
 					if strings.HasPrefix(id, pref) {
 						mu.Lock()
 						receptionID = rID
@@ -241,12 +284,12 @@ func createNewVanityUser(rng csprng.Source, cmix, e2e *cyclic.Group, prefix stri
 						defer wg.Done()
 						return
 					}
-				}	
+				}
 			}
 		}()
 	}
 	// wait for a solution then close the done channel to signal the workers to exit
-	<- found
+	<-found
 	close(done)
 	wg.Wait()
 	return user.User{

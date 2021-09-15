@@ -8,8 +8,10 @@
 package auth
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -51,8 +53,8 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 			"SentRequest Auth with %s", partner)
 	}
 
-	historicalPrivKey := grp.NewInt(1)
-	if err = historicalPrivKey.GobDecode(srd.PartnerHistoricalPubKey); err != nil {
+	historicalPubKey := grp.NewInt(1)
+	if err = historicalPubKey.GobDecode(srd.PartnerHistoricalPubKey); err != nil {
 		return nil, errors.WithMessagef(err, "Failed to decode historical "+
 			"private key with %s for SentRequest Auth", partner)
 	}
@@ -72,10 +74,21 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 	fp := format.Fingerprint{}
 	copy(fp[:], srd.Fingerprint)
 
+	jww.INFO.Printf("loadSentRequest partner: %s",
+		hex.EncodeToString(partner[:]))
+	jww.INFO.Printf("loadSentRequest historicalPubKey: %s",
+		hex.EncodeToString(historicalPubKey.Bytes()))
+	jww.INFO.Printf("loadSentRequest myPrivKey: %s",
+		hex.EncodeToString(myPrivKey.Bytes()))
+	jww.INFO.Printf("loadSentRequest myPubKey: %s",
+		hex.EncodeToString(myPubKey.Bytes()))
+	jww.INFO.Printf("loadSentRequest fingerprint: %s",
+		hex.EncodeToString(fp[:]))
+
 	return &SentRequest{
 		kv:                      kv,
 		partner:                 partner,
-		partnerHistoricalPubKey: historicalPrivKey,
+		partnerHistoricalPubKey: historicalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
 		fingerprint:             fp,
@@ -93,13 +106,24 @@ func (sr *SentRequest) save() error {
 		return err
 	}
 
-	historicalPrivKey, err := sr.partnerHistoricalPubKey.GobEncode()
+	historicalPubKey, err := sr.partnerHistoricalPubKey.GobEncode()
 	if err != nil {
 		return err
 	}
 
+	jww.INFO.Printf("saveSentRequest partner: %s",
+		hex.EncodeToString(sr.partner[:]))
+	jww.INFO.Printf("saveSentRequest historicalPubKey: %s",
+		hex.EncodeToString(sr.partnerHistoricalPubKey.Bytes()))
+	jww.INFO.Printf("saveSentRequest myPrivKey: %s",
+		hex.EncodeToString(sr.myPrivKey.Bytes()))
+	jww.INFO.Printf("saveSentRequest myPubKey: %s",
+		hex.EncodeToString(sr.myPubKey.Bytes()))
+	jww.INFO.Printf("saveSentRequest fingerprint: %s",
+		hex.EncodeToString(sr.fingerprint[:]))
+
 	ipd := sentRequestDisk{
-		PartnerHistoricalPubKey: historicalPrivKey,
+		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
 		Fingerprint:             sr.fingerprint[:],

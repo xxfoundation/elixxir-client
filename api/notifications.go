@@ -8,7 +8,6 @@
 package api
 
 import (
-	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/comms/mixmessages"
@@ -26,7 +25,6 @@ import (
 // risk to the user.
 func (c *Client) RegisterForNotifications(token string) error {
 	jww.INFO.Printf("RegisterForNotifications(%s)", token)
-	fmt.Println("RegisterforNotifications")
 	// Pull the host from the manage
 	notificationBotHost, ok := c.comms.GetHost(&id.NotificationBot)
 	if !ok {
@@ -36,16 +34,16 @@ func (c *Client) RegisterForNotifications(token string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("Sending message")
 	// Send the register message
 	_, err = c.comms.RegisterForNotifications(notificationBotHost,
 		&mixmessages.NotificationRegisterRequest{
 			Token:                 token,
 			IntermediaryId:        intermediaryReceptionID,
-			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetUser().TransmissionRSA.GetPublic()),
-			TransmissionRsaSig:    sig,
+			TransmissionRsa:       rsa.CreatePublicKeyPem(c.GetStorage().User().GetCryptographicIdentity().GetTransmissionRSA().GetPublic()),
 			TransmissionSalt:      c.GetUser().TransmissionSalt,
-			IIDTransmissionRsaSig: []byte("temp"),
+			TransmissionRsaSig:    c.GetStorage().User().GetTransmissionRegistrationValidationSignature(),
+			IIDTransmissionRsaSig: sig,
+			RegistrationTimestamp: c.GetUser().RegistrationTimestamp.UnixNano(),
 		})
 	if err != nil {
 		err := errors.Errorf(
@@ -96,9 +94,12 @@ func (c *Client) getIidAndSig() ([]byte, []byte, error) {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to write intermediary ID to hash")
 	}
 
-	sig, err := rsa.Sign(c.rng.GetStream(), c.GetUser().TransmissionRSA, hash.CMixHash, h.Sum(nil), nil)
+	stream := c.rng.GetStream()
+	c.GetUser()
+	sig, err := rsa.Sign(stream, c.storage.User().GetCryptographicIdentity().GetTransmissionRSA(), hash.CMixHash, h.Sum(nil), nil)
 	if err != nil {
 		return nil, nil, errors.WithMessage(err, "RegisterForNotifications: Failed to sign intermediary ID")
 	}
+	stream.Close()
 	return intermediaryReceptionID, sig, nil
 }

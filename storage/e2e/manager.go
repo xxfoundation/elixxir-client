@@ -8,6 +8,8 @@
 package e2e
 
 import (
+	"bytes"
+	"encoding/base64"
 	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -17,6 +19,8 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/primitives/id"
+	"golang.org/x/crypto/blake2b"
+	"sort"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -108,6 +112,25 @@ func loadManager(ctx *context, kv *versioned.KV, partnerID *id.ID) (*Manager, er
 	return m, nil
 }
 
+// clearManager removes the relationship between the partner
+// and deletes the Send and Receive sessions. This includes the
+// sessions and the key vectors
+func clearManager(m *Manager, kv *versioned.KV) error {
+	kv = kv.Prefix(fmt.Sprintf(managerPrefix, m.partner))
+
+	if err := DeleteRelationship(m); err != nil {
+		return errors.WithMessage(err,
+			"Failed to delete relationship")
+	}
+
+	if err := utility.DeleteCyclicKey(m.kv, originPartnerPubKey); err != nil {
+		jww.FATAL.Panicf("Failed to delete %s: %+v", originPartnerPubKey,
+			err)
+	}
+
+	return nil
+}
+
 // NewReceiveSession creates a new Receive session using the latest private key
 // this user has sent and the new public key received from the partner. If the
 // session already exists, then it will not be overwritten and the extant
@@ -197,4 +220,25 @@ func (m *Manager) GetMyOriginPrivateKey() *cyclic.Int {
 
 func (m *Manager) GetPartnerOriginPublicKey() *cyclic.Int {
 	return m.originPartnerPubKey.DeepCopy()
+}
+
+const relationshipFpLength = 15
+
+// GetRelationshipFingerprint returns a unique fingerprint for an E2E
+// relationship. The fingerprint is a base 64 encoded hash of of the two
+// relationship fingerprints truncated to 15 characters.
+func (m *Manager) GetRelationshipFingerprint() string {
+	// Sort fingerprints
+	fps := [][]byte{m.receive.fingerprint, m.send.fingerprint}
+	less := func(i, j int) bool { return bytes.Compare(fps[i], fps[j]) == -1 }
+	sort.Slice(fps, less)
+
+	// Hash fingerprints
+	h, _ := blake2b.New256(nil)
+	for _, fp := range fps {
+		h.Write(fp)
+	}
+
+	// Base 64 encode hash and truncate
+	return base64.StdEncoding.EncodeToString(h.Sum(nil))[:relationshipFpLength]
 }

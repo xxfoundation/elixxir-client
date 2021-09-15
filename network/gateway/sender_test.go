@@ -78,7 +78,7 @@ func TestSender_SendToAny(t *testing.T) {
 	}
 
 	// Test sendToAny with test interfaces
-	result, err := sender.SendToAny(SendToAny_HappyPath)
+	result, err := sender.SendToAny(SendToAny_HappyPath, nil)
 	if err != nil {
 		t.Errorf("Should not error in SendToAny happy path: %v", err)
 	}
@@ -89,12 +89,12 @@ func TestSender_SendToAny(t *testing.T) {
 			"\n\tReceived: %v", happyPathReturn, result)
 	}
 
-	_, err = sender.SendToAny(SendToAny_KnownError)
+	_, err = sender.SendToAny(SendToAny_KnownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
 
-	_, err = sender.SendToAny(SendToAny_UnknownError)
+	_, err = sender.SendToAny(SendToAny_UnknownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -139,7 +139,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	preferredHost := sender.hostList[preferredIndex]
 
 	// Happy path
-	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_HappyPath)
+	result, err := sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_HappyPath, nil)
 	if err != nil {
 		t.Errorf("Should not error in SendToPreferred happy path: %v", err)
 	}
@@ -151,7 +151,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	}
 
 	// Call a send which returns an error which triggers replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_KnownError)
+	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_KnownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -171,7 +171,7 @@ func TestSender_SendToPreferred(t *testing.T) {
 	preferredHost = sender.hostList[preferredIndex]
 
 	// Unknown error return will not trigger replacement
-	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_UnknownError)
+	_, err = sender.SendToPreferred([]*id.ID{preferredHost.GetId()}, SendToPreferred_UnknownError, nil)
 	if err == nil {
 		t.Fatalf("Expected error path did not receive error")
 	}
@@ -184,66 +184,6 @@ func TestSender_SendToPreferred(t *testing.T) {
 	// Ensure we are disconnected from the old host
 	if isConnected, _ := preferredHost.Connected(); isConnected {
 		t.Errorf("Should not disconnect from  %s", preferredHost)
-	}
-
-}
-
-func TestSender_SendToSpecific(t *testing.T) {
-	manager := newMockManager()
-	rng := fastRNG.NewStreamGenerator(1, 1, csprng.NewSystemRNG)
-	testNdf := getTestNdf(t)
-	testStorage := storage.InitTestingSession(t)
-	addGwChan := make(chan network.NodeGateway)
-	params := DefaultPoolParams()
-	params.MaxPoolSize = uint32(len(testNdf.Gateways)) - 5
-
-	// Do not test proxy attempts code in this test
-	// (self contain to code specific in sendPreferred)
-	params.ProxyAttempts = 0
-
-	// Pull all gateways from ndf into host manager
-	for _, gw := range testNdf.Gateways {
-
-		gwId, err := id.Unmarshal(gw.ID)
-		if err != nil {
-			t.Fatalf("Failed to unmarshal ID in mock ndf: %v", err)
-		}
-		// Add mock gateway to manager
-		_, err = manager.AddHost(gwId, gw.Address, nil, connect.GetDefaultHostParams())
-		if err != nil {
-			t.Fatalf("Could not add mock host to manager: %v", err)
-		}
-
-	}
-
-	sender, err := NewSender(params, rng, testNdf, manager, testStorage, addGwChan)
-	if err != nil {
-		t.Fatalf("Failed to create mock sender: %v", err)
-	}
-
-	preferredIndex := 0
-	preferredHost := sender.hostList[preferredIndex]
-
-	// Happy path
-	result, err := sender.SendToSpecific(preferredHost.GetId(), SendToSpecific_HappyPath)
-	if err != nil {
-		t.Errorf("Should not error in SendToSpecific happy path: %v", err)
-	}
-
-	if !reflect.DeepEqual(result, happyPathReturn) {
-		t.Errorf("Expected result not returnev via SendToSpecific interface."+
-			"\n\tExpected: %v"+
-			"\n\tReceived: %v", happyPathReturn, result)
-	}
-
-	// Ensure host is now in map
-	if _, ok := sender.hostMap[*preferredHost.GetId()]; !ok {
-		t.Errorf("Failed to forcefully add new gateway ID: %v", preferredHost.GetId())
-	}
-
-	_, err = sender.SendToSpecific(preferredHost.GetId(), SendToSpecific_Abort)
-	if err == nil {
-		t.Errorf("Expected sendSpecific to return an abort")
 	}
 
 }

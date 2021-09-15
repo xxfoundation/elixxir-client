@@ -16,11 +16,11 @@ func TestIdentity_EncodeDecode(t *testing.T) {
 	r := Identity{
 		EphId:       ephemeral.Id{},
 		Source:      &id.Permissioning,
+		AddressSize: 15,
 		End:         netTime.Now().Round(0),
 		ExtraChecks: 12,
 		StartValid:  netTime.Now().Round(0),
 		EndValid:    netTime.Now().Round(0),
-		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
 
@@ -45,11 +45,11 @@ func TestIdentity_Delete(t *testing.T) {
 	r := Identity{
 		EphId:       ephemeral.Id{},
 		Source:      &id.Permissioning,
+		AddressSize: 15,
 		End:         netTime.Now().Round(0),
 		ExtraChecks: 12,
 		StartValid:  netTime.Now().Round(0),
 		EndValid:    netTime.Now().Round(0),
-		RequestMask: 2 * time.Hour,
 		Ephemeral:   false,
 	}
 
@@ -90,11 +90,11 @@ func TestIdentity_Equal(t *testing.T) {
 
 	if !a.Identity.Equal(b.Identity) {
 		t.Errorf("Equal() found two equal identities as unequal."+
-			"\na: %s\nb: %s", a.String(), b.String())
+			"\na: %s\nb: %s", a, b)
 	}
 
 	if a.Identity.Equal(c.Identity) {
 		t.Errorf("Equal() found two unequal identities as equal."+
-			"\na: %s\nc: %s", a.String(), c.String())
+			"\na: %s\nc: %s", a, c)
 	}
 }

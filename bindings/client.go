@@ -8,17 +8,21 @@
 package bindings
 
 import (
+	"bytes"
+	"encoding/csv"
 	"errors"
 	"fmt"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"strings"
 	"sync"
 	"time"
 )
@@ -37,7 +41,9 @@ func init() {
 // BindingsClient wraps the api.Client, implementing additional functions
 // to support the gomobile Client interface
 type Client struct {
-	api api.Client
+	api       api.Client
+	single    *single.Manager
+	singleMux sync.Mutex
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -100,6 +106,7 @@ func Login(storageDir string, password []byte, parameters string) (*Client, erro
 	}
 	extantClient = true
 	clientSingleton := &Client{api: *client}
+
 	return clientSingleton, nil
 }
 
@@ -198,19 +205,20 @@ func UnmarshalSendReport(b []byte) (*SendReport, error) {
 //		Responds to sent rekeys and executes them
 //   - KeyExchange Confirm (/keyExchange/confirm.go)
 //		Responds to confirmations of successful rekey operations
-func (c *Client) StartNetworkFollower(clientError ClientError) error {
-	errChan, err := c.api.StartNetworkFollower()
-	if err != nil {
-		return errors.New(fmt.Sprintf("Failed to start the "+
-			"network follower: %+v", err))
-	}
+func (c *Client) StartNetworkFollower(timeoutMS int) error {
+	timeout := time.Duration(timeoutMS) * time.Millisecond
+	return c.api.StartNetworkFollower(timeout)
+}
 
+// RegisterClientErrorCallback registers the callback to handle errors from the
+// long running threads controlled by StartNetworkFollower and StopNetworkFollower
+func (c *Client) RegisterClientErrorCallback(clientError ClientError) {
+	errChan := c.api.GetErrorsChannel()
 	go func() {
 		for report := range errChan {
 			go clientError.Report(report.Source, report.Message, report.Trace)
 		}
 	}()
-	return nil
 }
 
 // StopNetworkFollower stops the network follower if it is running.
@@ -218,9 +226,8 @@ func (c *Client) StartNetworkFollower(clientError ClientError) error {
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
-func (c *Client) StopNetworkFollower(timeoutMS int) error {
-	timeout := time.Duration(timeoutMS) * time.Millisecond
-	if err := c.api.StopNetworkFollower(timeout); err != nil {
+func (c *Client) StopNetworkFollower() error {
+	if err := c.api.StopNetworkFollower(); err != nil {
 		return errors.New(fmt.Sprintf("Failed to stop the "+
 			"network follower: %+v", err))
 	}
@@ -232,7 +239,7 @@ func (c *Client) StopNetworkFollower(timeoutMS int) error {
 func (c *Client) WaitForNetwork(timeoutMS int) bool {
 	start := netTime.Now()
 	timeout := time.Duration(timeoutMS) * time.Millisecond
-	for netTime.Now().Sub(start) < timeout {
+	for netTime.Since(start) < timeout {
 		if c.api.GetHealth().IsHealthy() {
 			return true
 		}
@@ -256,10 +263,15 @@ func (c *Client) IsNetworkHealthy() bool {
 	return c.api.GetHealth().IsHealthy()
 }
 
-// registers the network health callback to be called any time the network
-// health changes
-func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) {
-	c.api.GetHealth().AddFunc(nhc.Callback)
+// RegisterNetworkHealthCB registers the network health callback to be called
+// any time the network health changes. Returns a unique ID that can be used to
+// unregister the network health callback.
+func (c *Client) RegisterNetworkHealthCB(nhc NetworkHealthCallback) int64 {
+	return int64(c.api.GetHealth().AddFunc(nhc.Callback))
+}
+
+func (c *Client) UnregisterNetworkHealthCB(funcID int64) {
+	c.api.GetHealth().RemoveFunc(uint64(funcID))
 }
 
 // RegisterListener records and installs a listener for messages
@@ -419,6 +431,52 @@ func (c *Client) GetNodeRegistrationStatus() (*NodeRegistrationsStatus, error) {
 	return &NodeRegistrationsStatus{registered, total}, err
 }
 
+// DeleteContact is a function which removes a contact from Client's storage
+func (c *Client) DeleteContact(b []byte) error {
+	contactObj, err := UnmarshalContact(b)
+	if err != nil {
+		return err
+	}
+	return c.api.DeleteContact(contactObj.c.ID)
+}
+
+// SetProxiedBins updates the host pool filter that filters out gateways that
+// are not in one of the specified bins. The provided bins should be CSV.
+func (c *Client) SetProxiedBins(binStringsCSV string) error {
+	// Convert CSV to slice of strings
+	all, err := csv.NewReader(strings.NewReader(binStringsCSV)).ReadAll()
+	if err != nil {
+		return err
+	}
+
+	binStrings := make([]string, 0, len(all[0]))
+	for _, a := range all {
+		binStrings = append(binStrings, a...)
+	}
+
+	return c.api.SetProxiedBins(binStrings)
+}
+
+// GetPreferredBins returns the geographic bin or bins that the provided two
+// character country code is a part of. The bins are returned as CSV.
+func (c *Client) GetPreferredBins(countryCode string) (string, error) {
+	bins, err := c.api.GetPreferredBins(countryCode)
+	if err != nil {
+		return "", err
+	}
+
+	// Convert the slice of bins to CSV
+	buff := bytes.NewBuffer(nil)
+	csvWriter := csv.NewWriter(buff)
+	err = csvWriter.Write(bins)
+	if err != nil {
+		return "", err
+	}
+	csvWriter.Flush()
+
+	return buff.String(), nil
+}
+
 /*
 // SearchWithHandler is a non-blocking search that also registers
 // a callback interface for user disovery events.
@@ -439,3 +497,21 @@ func (b *BindingsClient) Search(data, separator string,
 	searchTypes []byte) ContactList {
 	return nil
 }*/
+
+// getSingle is a function which returns the single mananger if it
+// exists or creates a new one, checking appropriate constraints
+// (that the network follower is running) if it needs to make one
+func (c *Client) getSingle() (*single.Manager, error) {
+	c.singleMux.Lock()
+	defer c.singleMux.Unlock()
+	if c.single == nil {
+		apiClient := &c.api
+		c.single = single.NewManager(apiClient)
+		err := apiClient.AddService(c.single.StartProcesses)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return c.single, nil
+}

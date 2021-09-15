@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -48,7 +49,8 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 			DhPubKey: m.storage.E2e().GetDHPublicKey().Bytes(),
 			Salt:     cryptoUser.GetReceptionSalt(),
 		},
-		UID: cryptoUser.GetReceptionID().Marshal(),
+		UID:       cryptoUser.GetReceptionID().Marshal(),
+		Timestamp: user.GetRegistrationTimestamp().UnixNano(),
 	}
 
 	// Sign the identity data and add to user registration message
@@ -84,6 +86,11 @@ func (m *Manager) register(username string, comm registerUserComms) error {
 
 	if err == nil {
 		err = m.setRegistered()
+		if m.client != nil {
+			m.client.ReportEvent(1, "UserDiscovery", "Registration",
+				fmt.Sprintf("User Registered with UD: %+v",
+					user))
+		}
 	}
 
 	return err

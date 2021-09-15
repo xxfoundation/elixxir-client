@@ -105,8 +105,8 @@ func newSession(ship *relationship, t RelationshipType, myPrivKey, partnerPubKey
 	negotiationStatus Negotiation, e2eParams params.E2ESessionParams) *Session {
 
 	if e2eParams.MinKeys < 10 {
-		jww.FATAL.Panicf("Cannot create a session with a minnimum number " +
-			"of keys less than 10")
+		jww.FATAL.Panicf("Cannot create a session with a minimum number "+
+			"of keys (%d) less than 10", e2eParams.MinKeys)
 	}
 
 	session := &Session{
@@ -201,7 +201,8 @@ func (s *Session) save() error {
 
 /*METHODS*/
 // Done all unused key fingerprints
-// delete this session and its key states from the storage
+
+// Delete removes this session and its key states from the storage
 func (s *Session) Delete() {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -221,7 +222,7 @@ func (s *Session) Delete() {
 	}
 }
 
-//Gets the base key.
+// GetBaseKey retrieves the base key.
 func (s *Session) GetBaseKey() *cyclic.Int {
 	// no lock is needed because this cannot be edited
 	return s.baseKey.DeepCopy()

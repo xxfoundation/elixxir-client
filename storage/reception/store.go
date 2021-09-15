@@ -1,8 +1,6 @@
 package reception
 
 import (
-	"bytes"
-	"crypto/md5"
 	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -11,8 +9,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"golang.org/x/crypto/blake2b"
 	"io"
-	"strconv"
 	"sync"
 	"time"
 )
@@ -20,17 +18,11 @@ import (
 const receptionPrefix = "reception"
 const receptionStoreStorageKey = "receptionStoreKey"
 const receptionStoreStorageVersion = 0
-const receptionIDSizeStorageKey = "receptionIDSizeKey"
-const receptionIDSizeStorageVersion = 0
-const defaultIDSize = 12
 
 type Store struct {
 	// Identities which are being actively checked
-	active      []*registration
-	present     map[idHash]interface{}
-	idSize      int
-	idSizeCond  *sync.Cond
-	isIdSizeSet bool
+	active  []*registration
+	present map[idHash]struct{}
 
 	kv *versioned.KV
 
@@ -46,24 +38,20 @@ type storedReference struct {
 type idHash [16]byte
 
 func makeIdHash(ephID ephemeral.Id, source *id.ID) idHash {
-	h := md5.New()
+	h, _ := blake2b.New256(nil)
 	h.Write(ephID[:])
 	h.Write(source.Bytes())
-	idHashBytes := h.Sum(nil)
 	idH := idHash{}
-	copy(idH[:], idHashBytes)
+	copy(idH[:], h.Sum(nil))
 	return idH
 }
 
 // NewStore creates a new reception store that starts empty.
 func NewStore(kv *versioned.KV) *Store {
-	kv = kv.Prefix(receptionPrefix)
 	s := &Store{
-		active:     make([]*registration, 0),
-		present:    make(map[idHash]interface{}),
-		idSize:     defaultIDSize * 2,
-		kv:         kv,
-		idSizeCond: sync.NewCond(&sync.Mutex{}),
+		active:  []*registration{},
+		present: make(map[idHash]struct{}),
+		kv:      kv.Prefix(receptionPrefix),
 	}
 
 	// Store the empty list
@@ -71,53 +59,37 @@ func NewStore(kv *versioned.KV) *Store {
 		jww.FATAL.Panicf("Failed to save new reception store: %+v", err)
 	}
 
-	// Update the size so queries can be made
-	s.UpdateIdSize(defaultIDSize)
-
 	return s
 }
 
 func LoadStore(kv *versioned.KV) *Store {
 	kv = kv.Prefix(receptionPrefix)
-	s := &Store{
-		kv:         kv,
-		present:    make(map[idHash]interface{}),
-		idSizeCond: sync.NewCond(&sync.Mutex{}),
-	}
 
 	// Load the versioned object for the reception list
-	vo, err := kv.Get(receptionStoreStorageKey,
-		receptionStoreStorageVersion)
+	vo, err := kv.Get(receptionStoreStorageKey, receptionStoreStorageVersion)
 	if err != nil {
 		jww.FATAL.Panicf("Failed to get the reception storage list: %+v", err)
 	}
 
-	identities := make([]storedReference, len(s.active))
-	err = json.Unmarshal(vo.Data, &identities)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal the reception storage list: %+v", err)
+	// JSON unmarshal identities list
+	var identities []storedReference
+	if err = json.Unmarshal(vo.Data, &identities); err != nil {
+		jww.FATAL.Panicf("Failed to unmarshal the stored identity list: %+v", err)
 	}
 
-	s.active = make([]*registration, len(identities))
+	s := &Store{
+		active:  make([]*registration, len(identities)),
+		present: make(map[idHash]struct{}, len(identities)),
+		kv:      kv,
+	}
+
 	for i, sr := range identities {
 		s.active[i], err = loadRegistration(sr.Eph, sr.Source, sr.StartValid, s.kv)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to load registration for %s: %+v",
 				regPrefix(sr.Eph, sr.Source, sr.StartValid), err)
 		}
-		s.present[makeIdHash(sr.Eph, sr.Source)] = nil
-	}
-
-	// Load the ephemeral ID length
-	vo, err = kv.Get(receptionIDSizeStorageKey,
-		receptionIDSizeStorageVersion)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to get the reception ID size: %+v", err)
-	}
-
-	if s.idSize, err = strconv.Atoi(string(vo.Data)); err != nil {
-		jww.FATAL.Panicf("Failed to unmarshal the reception ID size: %+v",
-			err)
+		s.present[makeIdHash(sr.Eph, sr.Source)] = struct{}{}
 	}
 
 	return s
@@ -125,7 +97,6 @@ func LoadStore(kv *versioned.KV) *Store {
 
 func (s *Store) save() error {
 	identities := s.makeStoredReferences()
-
 	data, err := json.Marshal(&identities)
 	if err != nil {
 		return errors.WithMessage(err, "failed to store reception store")
@@ -166,7 +137,7 @@ func (s *Store) makeStoredReferences() []storedReference {
 	return identities[:i]
 }
 
-func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
+func (s *Store) GetIdentity(rng io.Reader, addressSize uint8) (IdentityUse, error) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -182,7 +153,7 @@ func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
 	// poll with so we can continue tracking the network and to further
 	// obfuscate network identities.
 	if len(s.active) == 0 {
-		identity, err = generateFakeIdentity(rng, uint(s.idSize), now)
+		identity, err = generateFakeIdentity(rng, addressSize, now)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to generate a new ID when none "+
 				"available: %+v", err)
@@ -194,23 +165,15 @@ func (s *Store) GetIdentity(rng io.Reader) (IdentityUse, error) {
 		}
 	}
 
-	// Calculate the sampling period
-	identity, err = identity.setSamplingPeriod(rng)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to calculate the sampling period: "+
-			"%+v", err)
-	}
-
 	return identity, nil
 }
 
 func (s *Store) AddIdentity(identity Identity) error {
-
 	idH := makeIdHash(identity.EphId, identity.Source)
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	//do not make duplicates of IDs
+	// Do not make duplicates of IDs
 	if _, ok := s.present[idH]; ok {
 		jww.DEBUG.Printf("Ignoring duplicate identity for %d (%s)",
 			identity.EphId, identity.Source)
@@ -219,7 +182,7 @@ func (s *Store) AddIdentity(identity Identity) error {
 
 	if identity.StartValid.After(identity.EndValid) {
 		return errors.Errorf("Cannot add an identity which start valid "+
-			"time (%s) is after its end valid time(%s)", identity.StartValid,
+			"time (%s) is after its end valid time (%s)", identity.StartValid,
 			identity.EndValid)
 	}
 
@@ -230,11 +193,11 @@ func (s *Store) AddIdentity(identity Identity) error {
 	}
 
 	s.active = append(s.active, reg)
-	s.present[idH] = nil
+	s.present[idH] = struct{}{}
 	if !identity.Ephemeral {
 		if err := s.save(); err != nil {
-			jww.FATAL.Panicf("Failed to save reception store after identity " +
-				"addition")
+			jww.FATAL.Panicf("Failed to save reception store after identity "+
+				"addition: %+v", err)
 		}
 	}
 
@@ -245,84 +208,42 @@ func (s *Store) RemoveIdentity(ephID ephemeral.Id) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	for i := 0; i < len(s.active); i++ {
-		inQuestion := s.active[i]
-		if bytes.Equal(inQuestion.EphId[:], ephID[:]) {
+	for i, inQuestion := range s.active {
+		if inQuestion.EphId == ephID {
 			s.active = append(s.active[:i], s.active[i+1:]...)
+
 			err := inQuestion.Delete()
 			if err != nil {
 				jww.FATAL.Panicf("Failed to delete identity: %+v", err)
 			}
+
 			if !inQuestion.Ephemeral {
 				if err := s.save(); err != nil {
-					jww.FATAL.Panicf("Failed to save reception store after " +
-						"identity removal")
+					jww.FATAL.Panicf("Failed to save reception store after "+
+						"identity removal: %+v", err)
 				}
 			}
+
 			return
 		}
 	}
 }
 
-// Returns whether idSize is set to default
-func (s *Store) IsIdSizeDefault() bool {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	return s.isIdSizeSet
-}
-
-// Updates idSize boolean and broadcasts to any waiting
-// idSize readers that id size is now updated with the network
-func (s *Store) MarkIdSizeAsSet() {
-	s.mux.Lock()
-	s.idSizeCond.L.Lock()
-	defer s.mux.Unlock()
-	defer s.idSizeCond.L.Unlock()
-	s.isIdSizeSet = true
-	s.idSizeCond.Broadcast()
-}
-
-// Wrapper function which calls a
-// sync.Cond wait. Used on any reader of idSize
-// who cannot use the default id size
-func (s *Store) WaitForIdSizeUpdate() {
-	s.idSizeCond.L.Lock()
-	defer s.idSizeCond.L.Unlock()
-	for !s.IsIdSizeDefault() {
-
-		s.idSizeCond.Wait()
-	}
-}
-
-func (s *Store) UpdateIdSize(idSize uint) {
+func (s *Store) SetToExpire(addressSize uint8) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	if s.idSize == int(idSize) {
-		return
+	expire := netTime.Now().Add(5 * time.Minute)
+
+	for i, active := range s.active {
+		if active.AddressSize < addressSize && active.EndValid.After(expire) {
+			s.active[i].EndValid = expire
+			err := s.active[i].store(s.kv)
+			if err != nil {
+				jww.ERROR.Printf("Failed to store identity %d: %+v", i, err)
+			}
+		}
 	}
-	jww.INFO.Printf("Updating address space size to %v", idSize)
-
-	s.idSize = int(idSize)
-
-	// Store the ID size
-	obj := &versioned.Object{
-		Version:   receptionIDSizeStorageVersion,
-		Timestamp: netTime.Now(),
-		Data:      []byte(strconv.Itoa(s.idSize)),
-	}
-
-	err := s.kv.Set(receptionIDSizeStorageKey,
-		receptionIDSizeStorageVersion, obj)
-	if err != nil {
-		jww.FATAL.Panicf("Failed to store reception ID size: %+v", err)
-	}
-}
-
-func (s *Store) GetIDSize() uint {
-	s.mux.Lock()
-	defer s.mux.Unlock()
-	return uint(s.idSize)
 }
 
 func (s *Store) prune(now time.Time) {
@@ -333,8 +254,8 @@ func (s *Store) prune(now time.Time) {
 		inQuestion := s.active[i]
 		if now.After(inQuestion.End) && inQuestion.ExtraChecks == 0 {
 			if err := inQuestion.Delete(); err != nil {
-				jww.ERROR.Printf("Failed to delete Identity for %s: "+
-					"%+v", inQuestion, err)
+				jww.ERROR.Printf("Failed to delete Identity for %s: %+v",
+					inQuestion, err)
 			}
 
 			s.active = append(s.active[:i], s.active[i+1:]...)
@@ -347,7 +268,7 @@ func (s *Store) prune(now time.Time) {
 	if lengthBefore != len(s.active) {
 		jww.INFO.Printf("Pruned %d identities", lengthBefore-len(s.active))
 		if err := s.save(); err != nil {
-			jww.FATAL.Panicf("Failed to store reception storage")
+			jww.FATAL.Panicf("Failed to store reception storage: %+v", err)
 		}
 	}
 }
@@ -361,11 +282,15 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 	} else {
 		seed := make([]byte, 32)
 		if _, err := rng.Read(seed); err != nil {
-			return IdentityUse{}, errors.WithMessage(err, "Failed to "+
-				"choose ID due to rng failure")
+			return IdentityUse{}, errors.WithMessage(err, "Failed to choose "+
+				"ID due to RNG failure")
 		}
 
-		selectedNum := large.NewInt(1).Mod(large.NewIntFromBytes(seed), large.NewInt(int64(len(s.active))))
+		selectedNum := large.NewInt(1).Mod(
+			large.NewIntFromBytes(seed),
+			large.NewInt(int64(len(s.active))),
+		)
+
 		selected = s.active[selectedNum.Uint64()]
 	}
 
@@ -373,9 +298,12 @@ func (s *Store) selectIdentity(rng io.Reader, now time.Time) (IdentityUse, error
 		selected.ExtraChecks--
 	}
 
-	jww.TRACE.Printf("Selected identity: EphId: %d  ID: %s  End: %s  StartValid: %s  EndValid: %s",
-		selected.EphId.Int64(), selected.Source, selected.End.Format("01/02/06 03:04:05 pm"),
-		selected.StartValid.Format("01/02/06 03:04:05 pm"), selected.EndValid.Format("01/02/06 03:04:05 pm"))
+	jww.TRACE.Printf("Selected identity: EphId: %d  ID: %s  End: %s  "+
+		"StartValid: %s  EndValid: %s",
+		selected.EphId.Int64(), selected.Source,
+		selected.End.Format("01/02/06 03:04:05 pm"),
+		selected.StartValid.Format("01/02/06 03:04:05 pm"),
+		selected.EndValid.Format("01/02/06 03:04:05 pm"))
 
 	return IdentityUse{
 		Identity: selected.Identity,

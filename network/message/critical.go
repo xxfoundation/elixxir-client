@@ -12,6 +12,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/interfaces/utility"
+	"gitlab.com/elixxir/client/stoppable"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/elixxir/primitives/states"
@@ -27,22 +28,22 @@ import (
 // Tracker (/network/Health/Tracker.g0)
 
 //Thread loop for processing critical messages
-func (m *Manager) processCriticalMessages(quitCh <-chan struct{}) {
-	done := false
-	for !done {
+func (m *Manager) processCriticalMessages(stop *stoppable.Single) {
+	for {
 		select {
-		case <-quitCh:
-			done = true
+		case <-stop.Quit():
+			stop.ToStopped()
+			return
 		case isHealthy := <-m.networkIsHealthy:
 			if isHealthy {
-				m.criticalMessages()
+				m.criticalMessages(stop)
 			}
 		}
 	}
 }
 
 // processes all critical messages
-func (m *Manager) criticalMessages() {
+func (m *Manager) criticalMessages(stop *stoppable.Single) {
 	critMsgs := m.Session.GetCriticalMessages()
 	// try to send every message in the critical messages and the raw critical
 	// messages buffer in parallel
@@ -53,7 +54,7 @@ func (m *Manager) criticalMessages() {
 			jww.INFO.Printf("Resending critical message to %s ",
 				msg.Recipient)
 			//send the message
-			rounds, _, err := m.SendE2E(msg, param)
+			rounds, _, _, err := m.SendE2E(msg, param, stop)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
@@ -80,7 +81,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 
-			jww.INFO.Printf("Sucesfull resend of critical message "+
+			jww.INFO.Printf("Successful resend of critical message "+
 				"to %s on rounds %d", msg.Recipient, rounds)
 			critMsgs.Succeeded(msg)
 		}(msg, param)
@@ -95,7 +96,7 @@ func (m *Manager) criticalMessages() {
 			jww.INFO.Printf("Resending critical raw message to %s "+
 				"(msgDigest: %s)", rid, msg.Digest())
 			//send the message
-			round, _, err := m.SendCMIX(m.sender, msg, rid, param)
+			round, _, err := m.SendCMIX(m.sender, msg, rid, param, stop)
 			//if the message fail to send, notify the buffer so it can be handled
 			//in the future and exit
 			if err != nil {
@@ -128,7 +129,7 @@ func (m *Manager) criticalMessages() {
 				return
 			}
 
-			jww.INFO.Printf("Sucesfull resend of critical raw message "+
+			jww.INFO.Printf("Successful resend of critical raw message "+
 				"to %s (msgDigest: %s) on round %d", rid, msg.Digest(), round)
 
 			critRawMsgs.Succeeded(msg, rid)

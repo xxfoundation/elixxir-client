@@ -64,12 +64,9 @@ type roundEvents interface {
 func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 	tag string, MaxMsgs uint8, rng io.Reader, callback ReplyComm, timeout time.Duration, roundEvents roundEvents) error {
 
-	// Get ephemeral ID address size; this will block until the client knows the
-	// address size if it is currently unknown
-	if m.store.Reception().IsIdSizeDefault() {
-		m.store.Reception().WaitForIdSizeUpdate()
-	}
-	addressSize := m.store.Reception().GetIDSize()
+	// Get ephemeral ID address space size; this blocks until the address space
+	// size is set for the first time
+	addressSize := m.net.GetAddressSize()
 
 	// Create new CMIX message containing the transmission payload
 	cmixMsg, dhKey, rid, ephID, err := m.makeTransmitCmixMessage(partner,
@@ -93,11 +90,11 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 	err = m.reception.AddIdentity(reception.Identity{
 		EphId:       ephID,
 		Source:      rid,
+		AddressSize: addressSize,
 		End:         timeStart.Add(2 * timeout),
 		ExtraChecks: 10,
 		StartValid:  timeStart.Add(-2 * timeout),
 		EndValid:    timeStart.Add(2 * timeout),
-		RequestMask: 48*time.Hour - timeout,
 		Ephemeral:   true,
 	})
 	if err != nil {
@@ -116,7 +113,8 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 
 	go func() {
 		// Send Message
-		jww.DEBUG.Printf("Sending single-use transmission CMIX message to %s.", partner.ID)
+		jww.DEBUG.Printf("Sending single-use transmission CMIX "+
+			"message to %s.", partner.ID)
 		round, _, err := m.net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
 		if err != nil {
 			errorString := fmt.Sprintf("failed to send single-use transmission "+
@@ -140,15 +138,20 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 		}
 
 		// Update the timeout for the elapsed time
-		roundEventTimeout := timeout - netTime.Now().Sub(timeStart) - time.Millisecond
+		roundEventTimeout := timeout - netTime.Since(timeStart) - time.Millisecond
 
 		// Check message delivery
 		sendResults := make(chan ds.EventReturn, 1)
 		roundEvents.AddRoundEventChan(round, sendResults, roundEventTimeout,
 			states.COMPLETED, states.FAILED)
 
-		jww.DEBUG.Printf("Sent single-use transmission CMIX message to %s and "+
-			"ephemeral ID %d on round %d.", partner.ID, ephID.Int64(), round)
+		im := fmt.Sprintf("Sent single-use transmission CMIX "+
+			"message to %s and ephemeral ID %d on round %d.",
+			partner.ID, ephID.Int64(), round)
+		jww.DEBUG.Print(im)
+		if m.client != nil {
+			m.client.ReportEvent(1, "SingleUse", "MessageSend", im)
+		}
 
 		// Wait until the result tracking responds
 		success, numRoundFail, numTimeOut := utility.TrackResults(sendResults, 1)
@@ -175,7 +178,7 @@ func (m *Manager) transmitSingleUse(partner contact2.Contact, payload []byte,
 // makeTransmitCmixMessage generates a CMIX message containing the transmission message,
 // which contains the encrypted payload.
 func (m *Manager) makeTransmitCmixMessage(partner contact2.Contact,
-	payload []byte, tag string, maxMsgs uint8, addressSize uint,
+	payload []byte, tag string, maxMsgs uint8, addressSize uint8,
 	timeout time.Duration, timeNow time.Time, rng io.Reader) (format.Message,
 	*cyclic.Int, *id.ID, ephemeral.Id, error) {
 	e2eGrp := m.store.E2e().GetGroup()
@@ -255,8 +258,9 @@ func generateDhKeys(grp *cyclic.Group, dhPubKey *cyclic.Int,
 // contains a nonce. If the generated ephemeral ID has a window that is not
 // within +/- the given 2*timeout from now, then the IDs are generated again
 // using a new nonce.
-func makeIDs(msg *transmitMessagePayload, publicKey *cyclic.Int, addressSize uint,
-	timeout time.Duration, timeNow time.Time, rng io.Reader) (*id.ID, ephemeral.Id, error) {
+func makeIDs(msg *transmitMessagePayload, publicKey *cyclic.Int,
+	addressSize uint8, timeout time.Duration, timeNow time.Time,
+	rng io.Reader) (*id.ID, ephemeral.Id, error) {
 	var rid *id.ID
 	var ephID ephemeral.Id
 
@@ -277,7 +281,7 @@ func makeIDs(msg *transmitMessagePayload, publicKey *cyclic.Int, addressSize uin
 		rid = msg.GetRID(publicKey)
 
 		// Generate the ephemeral ID
-		ephID, start, end, err = ephemeral.GetId(rid, addressSize, timeNow.UnixNano())
+		ephID, start, end, err = ephemeral.GetId(rid, uint(addressSize), timeNow.UnixNano())
 		if err != nil {
 			return nil, ephemeral.Id{}, errors.Errorf("failed to generate "+
 				"ephemeral ID from newly generated ID: %+v", err)

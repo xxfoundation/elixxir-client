@@ -31,6 +31,7 @@ import (
 	"gitlab.com/xx_network/primitives/ndf"
 	"gitlab.com/xx_network/primitives/netTime"
 	"testing"
+	"time"
 )
 
 // Generate partner ID for two people, used for smoke tests
@@ -66,10 +67,10 @@ func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
 
-func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) (
-	[]id.Round, cE2e.MessageID, error) {
+func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
+	[]id.Round, cE2e.MessageID, time.Time, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	return rounds, cE2e.MessageID{}, nil
+	return rounds, cE2e.MessageID{}, time.Time{}, nil
 
 }
 
@@ -84,9 +85,17 @@ func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID,
 
 }
 
+func (t *testNetworkManagerGeneric) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return id.Round(0), []ephemeral.Id{}, nil
+}
+
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 	return t.instance
 
+}
+
+func (t *testNetworkManagerGeneric) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
 }
 
 func (t *testNetworkManagerGeneric) RegisterWithPermissioning(string) ([]byte, error) {
@@ -108,7 +117,16 @@ func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
 	return nil
 }
 
-func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager) {
+func (t *testNetworkManagerGeneric) GetAddressSize() uint8 { return 0 }
+
+func (t *testNetworkManagerGeneric) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManagerGeneric) UnregisterAddressSizeNotification(string) {}
+func (t *testNetworkManagerGeneric) SetPoolFilter(gateway.Filter)             {}
+
+func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.NetworkManager, error) {
 	switch i.(type) {
 	case *testing.T, *testing.M, *testing.B, *testing.PB:
 		break
@@ -125,12 +143,12 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 
 	thisInstance, err := network.NewInstanceTesting(instanceComms, def, def, nil, nil, i)
 	if err != nil {
-		return nil, nil
+		return nil, nil, err
 	}
 
 	thisManager := &testNetworkManagerGeneric{instance: thisInstance}
 
-	return thisSession, thisManager
+	return thisSession, thisManager, nil
 
 }
 
@@ -139,6 +157,12 @@ func InitTestingContextGeneric(i interface{}) (*storage.Session, interfaces.Netw
 // Separated from Generic to allow for a full stack test that doesn't impact the generic one used in smoke tests
 type testNetworkManagerFullExchange struct {
 	instance *network.Instance
+}
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManagerFullExchange) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
 }
 
 func (t *testNetworkManagerFullExchange) GetHealthTracker() interfaces.HealthTracker {
@@ -155,8 +179,8 @@ func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
 
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
 // together
-func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
-	[]id.Round, cE2e.MessageID, error) {
+func (t *testNetworkManagerFullExchange) SendE2E(message.Send, params.E2E, *stoppable.Single) (
+	[]id.Round, cE2e.MessageID, time.Time, error) {
 
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
 	alicePrivKey := aliceSession.E2e().GetDHPrivateKey()
@@ -180,19 +204,19 @@ func (t *testNetworkManagerFullExchange) SendE2E(m message.Send, p params.E2E) (
 
 	bobSwitchboard.Speak(confirmMessage)
 
-	return rounds, cE2e.MessageID{}, nil
-
+	return rounds, cE2e.MessageID{}, time.Time{}, nil
 }
 
 func (t *testNetworkManagerFullExchange) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {
-
 	return nil, nil
 }
 
 func (t *testNetworkManagerFullExchange) SendCMIX(message format.Message, eid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
-
 	return id.Round(0), ephemeral.Id{}, nil
+}
 
+func (t *testNetworkManagerFullExchange) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return id.Round(0), []ephemeral.Id{}, nil
 }
 
 func (t *testNetworkManagerFullExchange) GetInstance() *network.Instance {
@@ -218,6 +242,15 @@ func (t *testNetworkManagerFullExchange) InProgressRegistrations() int {
 func (t *testNetworkManagerFullExchange) GetSender() *gateway.Sender {
 	return nil
 }
+
+func (t *testNetworkManagerFullExchange) GetAddressSize() uint8 { return 0 }
+
+func (t *testNetworkManagerFullExchange) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManagerFullExchange) UnregisterAddressSizeNotification(string) {}
+func (t *testNetworkManagerFullExchange) SetPoolFilter(gateway.Filter)             {}
 
 func InitTestingContextFullExchange(i interface{}) (*storage.Session, *switchboard.Switchboard, interfaces.NetworkManager) {
 	switch i.(type) {
@@ -303,6 +336,9 @@ func getNDF() *ndf.NetworkDefinition {
 				"3A10B1C4D203CC76A470A33AFDCBDD92959859ABD8B56E1725252D78EAC66E71" +
 				"BA9AE3F1DD2487199874393CD4D832186800654760E1E34C09E4D155179F9EC0" +
 				"DC4473F996BDCE6EED1CABED8B6F116F7AD9CF505DF0F998E34AB27514B0FFE7",
+		},
+		Registration: ndf.Registration{
+			EllipticPubKey: "/WRtT+mDZGC3FXQbvuQgfqOonAjJ47IKE0zhaGTQQ70=",
 		},
 	}
 }

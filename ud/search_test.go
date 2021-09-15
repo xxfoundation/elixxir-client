@@ -448,6 +448,46 @@ func TestManager_parseContacts(t *testing.T) {
 	}
 }
 
+func TestManager_parseContacts_username(t *testing.T) {
+	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
+
+	// Generate fact list
+	var factList fact.FactList
+	for i := 0; i < 10; i++ {
+		factList = append(factList, fact.Fact{
+			Fact: fmt.Sprintf("fact %d", i),
+			T:    fact.FactType(rand.Intn(4)),
+		})
+	}
+	factHashes, factMap := hashFactList(factList)
+
+	var contacts []*Contact
+	var expectedContacts []contact.Contact
+	for i, hash := range factHashes {
+		contacts = append(contacts, &Contact{
+			UserID:    id.NewIdFromString("user", id.User, t).Marshal(),
+			Username:  "zezima",
+			PubKey:    []byte{byte(i + 1)},
+			TrigFacts: []*HashFact{hash},
+		})
+		expectedContacts = append(expectedContacts, contact.Contact{
+			ID:       id.NewIdFromString("user", id.User, t),
+			DhPubKey: m.grp.NewIntFromBytes([]byte{byte(i + 1)}),
+			Facts:    fact.FactList{{"zezima", fact.Username}, factMap[string(hash.Hash)]},
+		})
+	}
+
+	testContacts, err := m.parseContacts(contacts, factMap)
+	if err != nil {
+		t.Errorf("parseContacts() returned an error: %+v", err)
+	}
+
+	if !reflect.DeepEqual(expectedContacts, testContacts) {
+		t.Errorf("parseContacts() did not return the expected contacts."+
+			"\nexpected: %+v\nreceived: %+v", expectedContacts, testContacts)
+	}
+}
+
 // Error path: provided contact IDs are malformed and cannot be unmarshaled.
 func TestManager_parseContacts_IdUnmarshalError(t *testing.T) {
 	m := &Manager{grp: cyclic.NewGroup(large.NewInt(107), large.NewInt(2))}
@@ -487,6 +527,6 @@ func (s *mockSingleSearch) TransmitSingleUse(partner contact.Contact, payload []
 	return nil
 }
 
-func (s *mockSingleSearch) StartProcesses() stoppable.Stoppable {
-	return stoppable.NewSingle("")
+func (s *mockSingleSearch) StartProcesses() (stoppable.Stoppable, error) {
+	return stoppable.NewSingle(""), nil
 }

@@ -62,7 +62,7 @@ var singleCmd = &cobra.Command{
 			})
 		}
 
-		_, err := client.StartNetworkFollower()
+		err := client.StartNetworkFollower(5 * time.Second)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -84,8 +84,10 @@ var singleCmd = &cobra.Command{
 			callbackChan <- responseCallbackChan{payload, c}
 		}
 		singleMng.RegisterCallback(tag, callback)
-		client.AddService(singleMng.StartProcesses)
-
+		err = client.AddService(singleMng.StartProcesses)
+		if err != nil {
+			jww.FATAL.Panicf("Could not add single use process: %+v", err)
+		}
 		timeout := viper.GetDuration("timeout")
 
 		// If the send flag is set, then send a message

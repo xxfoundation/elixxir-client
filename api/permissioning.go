@@ -26,8 +26,9 @@ func (c *Client) registerWithPermissioning() error {
 			"permissioning")
 	}
 
-	//register with permissioning
-	transmissionRegValidationSignature, receptionRegValidationSignature, err := c.permissioning.Register(transmissionPubKey, receptionPubKey, regCode)
+	//register with registration
+	transmissionRegValidationSignature, receptionRegValidationSignature,
+		registrationTimestamp, err := c.permissioning.Register(transmissionPubKey, receptionPubKey, regCode)
 	if err != nil {
 		return errors.WithMessage(err, "failed to register with "+
 			"permissioning")
@@ -36,8 +37,9 @@ func (c *Client) registerWithPermissioning() error {
 	//store the signature
 	userData.SetTransmissionRegistrationValidationSignature(transmissionRegValidationSignature)
 	userData.SetReceptionRegistrationValidationSignature(receptionRegValidationSignature)
+	userData.SetRegistrationTimestamp(registrationTimestamp)
 
-	//update the registration status
+	//update the registration state
 	err = c.storage.ForwardRegistrationStatus(storage.PermissioningComplete)
 	if err != nil {
 		return errors.WithMessage(err, "failed to update local state "+

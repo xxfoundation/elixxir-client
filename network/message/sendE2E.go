@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/keyExchange"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/e2e"
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
@@ -21,9 +22,10 @@ import (
 	"time"
 )
 
-func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.MessageID, error) {
+func (m *Manager) SendE2E(msg message.Send, param params.E2E,
+	stop *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
 	if msg.MessageType == message.Raw {
-		return nil, e2e.MessageID{}, errors.Errorf("Raw (%d) is a reserved "+
+		return nil, e2e.MessageID{}, time.Time{}, errors.Errorf("Raw (%d) is a reserved "+
 			"message type", msg.MessageType)
 	}
 	//timestamp the message
@@ -33,7 +35,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	partitions, internalMsgId, err := m.partitioner.Partition(msg.Recipient, msg.MessageType, ts,
 		msg.Payload)
 	if err != nil {
-		return nil, e2e.MessageID{}, errors.WithMessage(err, "failed to send unsafe message")
+		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessage(err, "failed to send unsafe message")
 	}
 
 	//encrypt then send the partitions over cmix
@@ -43,7 +45,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	// get the key manager for the partner
 	partner, err := m.Session.E2e().GetPartner(msg.Recipient)
 	if err != nil {
-		return nil, e2e.MessageID{}, errors.WithMessagef(err,
+		return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
 			"Could not send End to End encrypted "+
 				"message, no relationship found with %s", msg.Recipient)
 	}
@@ -58,7 +60,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		if msg.MessageType != message.KeyExchangeTrigger {
 			// check if any rekeys need to happen and trigger them
 			keyExchange.CheckKeyExchanges(m.Instance, m.SendE2E,
-				m.Session, partner, 1*time.Minute)
+				m.Session, partner, 1*time.Minute, stop)
 		}
 
 		//create the cmix message
@@ -81,7 +83,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 			key, err = partner.GetKeyForSending(param.Type)
 		}
 		if err != nil {
-			return nil, e2e.MessageID{}, errors.WithMessagef(err,
+			return nil, e2e.MessageID{}, time.Time{}, errors.WithMessagef(err,
 				"Failed to get key for end to end encryption")
 		}
 
@@ -96,7 +98,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 		go func(i int) {
 			var err error
 			roundIds[i], _, err = m.SendCMIX(m.sender, msgEnc, msg.Recipient,
-				param.CMIX)
+				param.CMIX, stop)
 			if err != nil {
 				errCh <- err
 			}
@@ -111,14 +113,14 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E) ([]id.Round, e2e.M
 	if numFail > 0 {
 		jww.INFO.Printf("Failed to E2E send %d/%d to %s",
 			numFail, len(partitions), msg.Recipient)
-		return nil, e2e.MessageID{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
+		return nil, e2e.MessageID{}, time.Time{}, errors.Errorf("Failed to E2E send %v/%v sub payloads:"+
 			" %s", numFail, len(partitions), errRtn)
 	} else {
-		jww.INFO.Printf("Sucesfully E2E sent %d/%d to %s",
+		jww.INFO.Printf("Successfully E2E sent %d/%d to %s",
 			len(partitions)-numFail, len(partitions), msg.Recipient)
 	}
 
 	//return the rounds if everything send successfully
 	msgID := e2e.NewMessageID(partner.GetSendRelationshipFingerprint(), internalMsgId)
-	return roundIds, msgID, nil
+	return roundIds, msgID, ts, nil
 }

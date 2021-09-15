@@ -198,6 +198,6 @@ func (s *mockSingleLookup) TransmitSingleUse(_ contact.Contact, payload []byte,
 	return nil
 }
 
-func (s *mockSingleLookup) StartProcesses() stoppable.Stoppable {
-	return stoppable.NewSingle("")
+func (s *mockSingleLookup) StartProcesses() (stoppable.Stoppable, error) {
+	return stoppable.NewSingle(""), nil
 }

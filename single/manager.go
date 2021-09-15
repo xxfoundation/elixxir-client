@@ -69,25 +69,25 @@ func newManager(client *api.Client, reception *reception.Store) *Manager {
 
 // StartProcesses starts the process of receiving single-use transmissions and
 // replies.
-func (m *Manager) StartProcesses() stoppable.Stoppable {
+func (m *Manager) StartProcesses() (stoppable.Stoppable, error) {
 	// Start waiting for single-use transmission
 	transmissionStop := stoppable.NewSingle(singleUseTransmission)
 	transmissionChan := make(chan message.Receive, rawMessageBuffSize)
 	m.swb.RegisterChannel(singleUseReceiveTransmission, &id.ID{}, message.Raw, transmissionChan)
-	go m.receiveTransmissionHandler(transmissionChan, transmissionStop.Quit())
+	go m.receiveTransmissionHandler(transmissionChan, transmissionStop)
 
 	// Start waiting for single-use response
 	responseStop := stoppable.NewSingle(singleUseResponse)
 	responseChan := make(chan message.Receive, rawMessageBuffSize)
 	m.swb.RegisterChannel(singleUseReceiveResponse, &id.ID{}, message.Raw, responseChan)
-	go m.receiveResponseHandler(responseChan, responseStop.Quit())
+	go m.receiveResponseHandler(responseChan, responseStop)
 
 	// Create a multi stoppable
 	singleUseMulti := stoppable.NewMulti(singleUseStop)
 	singleUseMulti.Add(transmissionStop)
 	singleUseMulti.Add(responseStop)
 
-	return singleUseMulti
+	return singleUseMulti, nil
 }
 
 // RegisterCallback registers a callback for received messages.

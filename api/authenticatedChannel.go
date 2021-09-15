@@ -19,7 +19,7 @@ import (
 
 // RequestAuthenticatedChannel sends a request to another party to establish an
 // authenticated channel
-// It will not run if the network status is not healthy
+// It will not run if the network state is not healthy
 // An error will be returned if a channel already exists or if a request was
 // already received
 // When a confirmation occurs, the channel will be created and the callback
@@ -57,7 +57,7 @@ func (c *Client) GetAuthenticatedChannelRequest(partner *id.ID) (contact.Contact
 // ConfirmAuthenticatedChannel creates an authenticated channel out of a valid
 // received request and sends a message to the requestor that the request has
 // been confirmed
-// It will not run if the network status is not healthy
+// It will not run if the network state is not healthy
 // An error will be returned if a channel already exists, if a request doest
 // exist, or if the passed in contact does not exactly match the received
 // request
@@ -124,4 +124,18 @@ func (c *Client) MakePrecannedContact(precannedID uint) contact.Contact {
 		OwnershipProof: nil,
 		Facts:          make([]fact.Fact, 0),
 	}
+}
+
+// GetRelationshipFingerprint returns a unique 15 character fingerprint for an
+// E2E relationship. An error is returned if no relationship with the partner
+// is found.
+func (c *Client) GetRelationshipFingerprint(partner *id.ID) (string, error) {
+	m, err := c.storage.E2e().GetPartner(partner)
+	if err != nil {
+		return "", errors.Errorf("could not get partner %s: %+v", partner, err)
+	} else if m == nil {
+		return "", errors.Errorf("manager for partner %s is nil.", partner)
+	}
+
+	return m.GetRelationshipFingerprint(), nil
 }

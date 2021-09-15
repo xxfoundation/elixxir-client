@@ -62,7 +62,7 @@ var udCmd = &cobra.Command{
 			})
 		}
 
-		_, err := client.StartNetworkFollower()
+		err := client.StartNetworkFollower(50 * time.Millisecond)
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
@@ -74,7 +74,10 @@ var udCmd = &cobra.Command{
 
 		// Make single-use manager and start receiving process
 		singleMng := single.NewManager(client)
-		client.AddService(singleMng.StartProcesses)
+		err = client.AddService(singleMng.StartProcesses)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to add single use process: %+v", err)
+		}
 
 		// Make user discovery manager
 		userDiscoveryMgr, err := ud.NewManager(client, singleMng)
@@ -86,6 +89,8 @@ var udCmd = &cobra.Command{
 		if userToRegister != "" {
 			err = userDiscoveryMgr.Register(userToRegister)
 			if err != nil {
+				fmt.Printf("Failed to register user %s: %s\n",
+					userToRegister, err.Error())
 				jww.FATAL.Panicf("Failed to register user %s: %+v", userToRegister, err)
 			}
 		}
@@ -112,6 +117,8 @@ var udCmd = &cobra.Command{
 		for i := 0; i < len(newFacts); i++ {
 			r, err := userDiscoveryMgr.SendRegisterFact(newFacts[i])
 			if err != nil {
+				fmt.Printf("Failed to register fact: %s\n",
+					newFacts[i])
 				jww.FATAL.Panicf("Failed to send register fact: %+v", err)
 			}
 			// TODO Store the code?
@@ -123,6 +130,8 @@ var udCmd = &cobra.Command{
 			// TODO: Lookup code
 			err = userDiscoveryMgr.SendConfirmFact(confirmID, confirmID)
 			if err != nil {
+				fmt.Printf("Couldn't confirm fact: %s\n",
+					err.Error())
 				jww.FATAL.Panicf("%+v", err)
 			}
 		}
@@ -175,8 +184,27 @@ var udCmd = &cobra.Command{
 			facts = append(facts, f)
 		}
 
+		userToRemove := viper.GetString("remove")
+		if userToRemove != "" {
+			f, err := fact.NewFact(fact.Username, userToRemove)
+			if err != nil {
+				jww.FATAL.Panicf(
+					"Failed to create new fact: %+v", err)
+			}
+			err = userDiscoveryMgr.RemoveUser(f)
+			if err != nil {
+				fmt.Printf("Couldn't remove user %s\n",
+					userToRemove)
+				jww.FATAL.Panicf(
+					"Failed to remove user %s: %+v",
+					userToRemove, err)
+			}
+			fmt.Printf("Removed user from discovery: %s\n",
+				userToRemove)
+		}
+
 		if len(facts) == 0 {
-			err = client.StopNetworkFollower(10 * time.Second)
+			err = client.StopNetworkFollower()
 			if err != nil {
 				jww.WARN.Print(err)
 			}
@@ -195,8 +223,9 @@ var udCmd = &cobra.Command{
 		if err != nil {
 			jww.FATAL.Panicf("%+v", err)
 		}
+
 		time.Sleep(91 * time.Second)
-		err = client.StopNetworkFollower(90 * time.Second)
+		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Print(err)
 		}
@@ -208,6 +237,10 @@ func init() {
 	udCmd.Flags().StringP("register", "r", "",
 		"Register this user with user discovery.")
 	_ = viper.BindPFlag("register", udCmd.Flags().Lookup("register"))
+
+	udCmd.Flags().StringP("remove", "", "",
+		"Remove this user with user discovery.")
+	_ = viper.BindPFlag("remove", udCmd.Flags().Lookup("remove"))
 
 	udCmd.Flags().String("addphone", "",
 		"Add phone number to existing user registration.")
@@ -240,10 +273,10 @@ func init() {
 }
 
 func printContact(c contact.Contact) {
-	jww.DEBUG.Printf("Printing client: %+v", c)
+	jww.DEBUG.Printf("Printing contact: %+v", c)
 	cBytes := c.Marshal()
 	if len(cBytes) == 0 {
-		jww.ERROR.Print("Marshaled client has a size of 0.")
+		jww.ERROR.Print("Marshaled contact has a size of 0.")
 	} else {
 		jww.DEBUG.Printf("Printing marshaled contact of size %d.", len(cBytes))
 	}

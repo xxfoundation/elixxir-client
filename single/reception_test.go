@@ -3,6 +3,7 @@ package single
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/stoppable"
 	contact2 "gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/e2e/singleUse"
 	"gitlab.com/elixxir/primitives/format"
@@ -17,7 +18,6 @@ import (
 func TestManager_receiveTransmissionHandler(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
 	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
@@ -35,7 +35,7 @@ func TestManager_receiveTransmissionHandler(t *testing.T) {
 
 	m.callbackMap.registerCallback(tag, callback)
 
-	go m.receiveTransmissionHandler(rawMessages, quitChan)
+	go m.receiveTransmissionHandler(rawMessages, stoppable.NewSingle("singleStoppable"))
 	rawMessages <- message.Receive{
 		Payload: msg.Marshal(),
 	}
@@ -57,7 +57,7 @@ func TestManager_receiveTransmissionHandler(t *testing.T) {
 func TestManager_receiveTransmissionHandler_QuitChan(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	tag := "Test tag"
 	payload := make([]byte, 132)
 	rand.New(rand.NewSource(42)).Read(payload)
@@ -65,8 +65,11 @@ func TestManager_receiveTransmissionHandler_QuitChan(t *testing.T) {
 
 	m.callbackMap.registerCallback(tag, callback)
 
-	go m.receiveTransmissionHandler(rawMessages, quitChan)
-	quitChan <- struct{}{}
+	go m.receiveTransmissionHandler(rawMessages, stop)
+
+	if err := stop.Close(); err != nil {
+		t.Errorf("Failed to signal close to process: %+v", err)
+	}
 
 	timer := time.NewTimer(50 * time.Millisecond)
 
@@ -82,7 +85,7 @@ func TestManager_receiveTransmissionHandler_QuitChan(t *testing.T) {
 func TestManager_receiveTransmissionHandler_FingerPrintError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetGroup().NewInt(42),
@@ -100,7 +103,7 @@ func TestManager_receiveTransmissionHandler_FingerPrintError(t *testing.T) {
 
 	m.callbackMap.registerCallback(tag, callback)
 
-	go m.receiveTransmissionHandler(rawMessages, quitChan)
+	go m.receiveTransmissionHandler(rawMessages, stop)
 	rawMessages <- message.Receive{
 		Payload: msg.Marshal(),
 	}
@@ -119,7 +122,7 @@ func TestManager_receiveTransmissionHandler_FingerPrintError(t *testing.T) {
 func TestManager_receiveTransmissionHandler_ProcessMessageError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
@@ -139,7 +142,7 @@ func TestManager_receiveTransmissionHandler_ProcessMessageError(t *testing.T) {
 
 	m.callbackMap.registerCallback(tag, callback)
 
-	go m.receiveTransmissionHandler(rawMessages, quitChan)
+	go m.receiveTransmissionHandler(rawMessages, stop)
 	rawMessages <- message.Receive{
 		Payload: msg.Marshal(),
 	}
@@ -158,7 +161,7 @@ func TestManager_receiveTransmissionHandler_ProcessMessageError(t *testing.T) {
 func TestManager_receiveTransmissionHandler_TagFpError(t *testing.T) {
 	m := newTestManager(0, false, t)
 	rawMessages := make(chan message.Receive, rawMessageBuffSize)
-	quitChan := make(chan struct{})
+	stop := stoppable.NewSingle("singleStoppable")
 	partner := contact2.Contact{
 		ID:       id.NewIdFromString("recipientID", id.User, t),
 		DhPubKey: m.store.E2e().GetDHPublicKey(),
@@ -173,7 +176,7 @@ func TestManager_receiveTransmissionHandler_TagFpError(t *testing.T) {
 		t.Fatalf("Failed to create tranmission CMIX message: %+v", err)
 	}
 
-	go m.receiveTransmissionHandler(rawMessages, quitChan)
+	go m.receiveTransmissionHandler(rawMessages, stop)
 	rawMessages <- message.Receive{
 		Payload: msg.Marshal(),
 	}

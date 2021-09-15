@@ -1,15 +1,4 @@
-# From: https://about.gitlab.com/2017/09/21/how-to-create-ci-cd-pipeline-with-autodeploy-to-kubernetes-using-gitlab-and-helm/
-
-variables:
-  REPO_DIR: gitlab.com/elixxir
-  REPO_NAME: client
-  DOCKER_IMAGE: elixxirlabs/cuda-go:go1.13-cuda11.1-mc
-  MIN_CODE_COVERAGE: "35"
-
 before_script:
-  ##
-  ## Go Setup
-  ##
   - go version || echo "Go executable not found."
   - echo $CI_BUILD_REF
   - echo $CI_PROJECT_DIR
@@ -18,17 +7,15 @@ before_script:
   - echo "$SSH_PRIVATE_KEY" | tr -d '\r' | ssh-add - > /dev/null
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
-  - ssh-keyscan -t rsa gitlab.com > ~/.ssh/known_hosts
-  - git config --global url."git@gitlab.com:".insteadOf "https://gitlab.com/"
+  - ssh-keyscan -t rsa $GITLAB_SERVER > ~/.ssh/known_hosts
+  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://gitlab.com/"
+  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://git.xx.network/"
   - export PATH=$HOME/go/bin:$PATH
-  - export GOPRIVATE="*gitlab.com/elixxir/*,*gitlab.com/xx_network/*"
-
 
 stages:
   - test
   - build
   - trigger_integration
-  - trigger_release_integration
 
 test:
   stage: test
@@ -65,10 +52,10 @@ build:
     - tags
   script:
     - mkdir -p release
-    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
+#    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.linux64 main.go
-    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
-    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
+#    - GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win64 main.go
+#    - GOOS=windows GOARCH=386 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.win32 main.go
     - GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.darwin64 main.go
     - /upload-artifacts.sh release/
   artifacts:
@@ -81,48 +68,55 @@ tag:
         - master
     image: $DOCKER_IMAGE
     script:
-        - git remote add origin_tags git@gitlab.com:elixxir/client.git || true
+        - git remote add origin_tags git@$GITLAB_SERVER:elixxir/client.git || true
         - git tag $(release/client.linux64 version | grep "Elixxir Client v"| cut -d ' ' -f3) -f
         - git push origin_tags -f --tags
 
-bindings:
+bindings-ios:
   stage: build
   except:
     - tags
   tags:
     - ios
   script:
-    - export PATH="/usr/local/opt/go@1.13/bin:$PATH"
-    - go get -u golang.org/x/mobile/cmd/gomobile
-    - go get -u golang.org/x/mobile/bind
-    - rm -rf $HOME/go/src/gitlab.com/elixxir/client/
-    - mkdir -p $HOME/go/src/gitlab.com/elixxir/client/
-    - cp -r * $HOME/go/src/gitlab.com/elixxir/client/
-    - GO111MODULE=on gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
-    - GO111MODULE=on gomobile bind -target ios gitlab.com/elixxir/client/bindings
-    - zip -r iOS.zip Bindings.framework
+    - go get -u golang.org/x/mobile/cmd/gomobile@76c259c465ba39f84de7e2751a666612ddca556b
+    - gomobile bind -target ios gitlab.com/elixxir/client/bindings
+    - ls
+    - zip -r iOS.zip Bindings.xcframework
   artifacts:
     paths:
       - iOS.zip
+
+bindings-android:
+  stage: build
+  except:
+    - tags
+  tags:
+    - android
+  script:
+    - export ANDROID_HOME=/android-sdk
+    - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
+    - go get -u golang.org/x/mobile/cmd/gomobile
+    - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
+  artifacts:
+    paths:
       - bindings.aar
       - bindings-sources.jar
 
-trigger_integration:
+trigger-integration:
   stage: trigger_integration
-  script:
-    # UDB
-    - "curl -X POST -F token=dcf1a672991bbc2520e96cea271b5a -F ref=master https://gitlab.com/api/v4/projects/6317316/trigger/pipeline"
-    # integration
-    - "curl -X POST -F token=e34aa19ef1530e579c5d590873d3c6 -F ref=master https://gitlab.com/api/v4/projects/5615854/trigger/pipeline"
+  trigger:
+    project: elixxir/integration
+    branch: $CI_COMMIT_REF_NAME
   only:
     - master
+    - release
 
-trigger_release_integration:
-  stage: trigger_release_integration
-  script:
-    # UDB
-    - "curl -X POST -F token=dcf1a672991bbc2520e96cea271b5a -F ref=release https://gitlab.com/api/v4/projects/6317316/trigger/pipeline"
-    # integration
-    - "curl -X POST -F token=e34aa19ef1530e579c5d590873d3c6 -F ref=release -F \"variables[CLIENT_ID]=release\" -F \"variables[GATEWAY_ID]=release\" -F \"variables[REGISTRATION_ID]=release\" -F \"variables[SERVER_ID]=release\" -F \"variables[UDB_ID]=release\" https://gitlab.com/api/v4/projects/5615854/trigger/pipeline"
+trigger-udb:
+  stage: trigger_integration
+  trigger:
+    project: elixxir/user-discovery-bot
+    branch: $CI_COMMIT_REF_NAME
   only:
+    - master
     - release

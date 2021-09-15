@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"time"
 )
 
 // Mock comm struct which returns no historical round data
@@ -82,6 +83,12 @@ type testNetworkManagerGeneric struct {
 	instance *network.Instance
 	sender   *gateway.Sender
 }
+type dummyEventMgr struct{}
+
+func (d *dummyEventMgr) Report(p int, a, b, c string) {}
+func (t *testNetworkManagerGeneric) GetEventManager() interfaces.EventManager {
+	return &dummyEventMgr{}
+}
 
 /* Below methods built for interface adherence */
 func (t *testNetworkManagerGeneric) GetHealthTracker() interfaces.HealthTracker {
@@ -93,10 +100,10 @@ func (t *testNetworkManagerGeneric) Follow(report interfaces.ClientErrorReport) 
 func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
-func (t *testNetworkManagerGeneric) SendE2E(m message.Send, p params.E2E) (
-	[]id.Round, cE2e.MessageID, error) {
+func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
+	[]id.Round, cE2e.MessageID, time.Time, error) {
 	rounds := []id.Round{id.Round(0), id.Round(1), id.Round(2)}
-	return rounds, cE2e.MessageID{}, nil
+	return rounds, cE2e.MessageID{}, time.Time{}, nil
 
 }
 func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) ([]id.Round, error) {
@@ -104,6 +111,9 @@ func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) 
 }
 func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
 	return id.Round(0), ephemeral.Id{}, nil
+}
+func (t *testNetworkManagerGeneric) SendManyCMIX(messages map[id.ID]format.Message, p params.CMIX) (id.Round, []ephemeral.Id, error) {
+	return 0, []ephemeral.Id{}, nil
 }
 func (t *testNetworkManagerGeneric) GetInstance() *network.Instance {
 	return t.instance
@@ -125,3 +135,12 @@ func (t *testNetworkManagerGeneric) InProgressRegistrations() int {
 func (t *testNetworkManagerGeneric) GetSender() *gateway.Sender {
 	return t.sender
 }
+
+func (t *testNetworkManagerGeneric) GetAddressSize() uint8 { return 0 }
+
+func (t *testNetworkManagerGeneric) RegisterAddressSizeNotification(string) (chan uint8, error) {
+	return nil, nil
+}
+
+func (t *testNetworkManagerGeneric) UnregisterAddressSizeNotification(string) {}
+func (t *testNetworkManagerGeneric) SetPoolFilter(gateway.Filter)             {}

@@ -70,8 +70,8 @@ var getNDFCmd = &cobra.Command{
 				Partial: &pb.NDFHash{
 					Hash: nil,
 				},
-				LastUpdate:  uint64(0),
-				ReceptionID: dummyID[:],
+				LastUpdate:    uint64(0),
+				ReceptionID:   dummyID[:],
 				ClientVersion: []byte(api.SEMVER),
 			}
 			resp, err := comms.SendPoll(host, pollMsg)
@@ -110,7 +110,7 @@ func init() {
 	viper.BindPFlag("gwhost",
 		getNDFCmd.Flags().Lookup("gwhost"))
 	getNDFCmd.Flags().StringP("permhost", "", "",
-		"Poll this permissioning host:port for the NDF")
+		"Poll this registration host:port for the NDF")
 	viper.BindPFlag("permhost",
 		getNDFCmd.Flags().Lookup("permhost"))
 

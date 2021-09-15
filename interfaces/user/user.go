@@ -13,6 +13,7 @@ import (
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 type User struct {
@@ -24,6 +25,8 @@ type User struct {
 	ReceptionSalt    []byte
 	ReceptionRSA     *rsa.PrivateKey
 	Precanned        bool
+	// Timestamp in which user has registered with the network
+	RegistrationTimestamp time.Time
 
 	//cmix Identity
 	CmixDhPrivateKey *cyclic.Int

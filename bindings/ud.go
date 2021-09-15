@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/ud"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/primitives/fact"
@@ -31,11 +30,16 @@ type UserDiscovery struct {
 // the bindings to think the other is in charge of the client object.
 // In general this is not an issue because the client object should exist
 // for the life of the program.
+// This must be called while start network follower is running.
 func NewUserDiscovery(client *Client) (*UserDiscovery, error) {
-	m, err := ud.NewManager(&client.api, &single.Manager{})
+	single, err := client.getSingle()
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
+	}
+	m, err := ud.NewManager(&client.api, single)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.WithMessage(err, "Failed to create User Discovery Manager")
 	} else {
 		return &UserDiscovery{ud: m}, nil
 	}
@@ -76,6 +80,7 @@ func (ud *UserDiscovery) ConfirmFact(confirmationID, code string) error {
 
 // Removes a previously confirmed fact.  Will fail if the passed fact string is
 // not well formed or if the fact is not associated with this client.
+// Users cannot remove username facts and must instead remove the user.
 func (ud *UserDiscovery) RemoveFact(fStr string) error {
 	f, err := fact.UnstringifyFact(fStr)
 	if err != nil {
@@ -83,6 +88,18 @@ func (ud *UserDiscovery) RemoveFact(fStr string) error {
 			"malformed fact")
 	}
 	return ud.ud.RemoveFact(f)
+}
+
+// RemoveUser deletes a user. The fact sent must be the username.
+// This function preserves the username forever and makes it
+// unusable.
+func (ud *UserDiscovery) RemoveUser(fStr string) error {
+	f, err := fact.UnstringifyFact(fStr)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to remove due to "+
+			"malformed fact")
+	}
+	return ud.ud.RemoveUser(f)
 }
 
 // SearchCallback returns the result of a search

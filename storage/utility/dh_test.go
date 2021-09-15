@@ -47,3 +47,27 @@ func TestLoadCyclicKey(t *testing.T) {
 		t.Errorf("Stored int did not match received.  Stored: %v, Received: %v", x, loaded)
 	}
 }
+
+// Unit test for DeleteCyclicKey
+func TestDeleteCyclicKey(t *testing.T) {
+	kv := make(ekv.Memstore)
+	vkv := versioned.NewKV(kv)
+	grp := getTestGroup()
+	x := grp.NewInt(77)
+
+	intKey := "testKey"
+	err := StoreCyclicKey(vkv, x, intKey)
+	if err != nil {
+		t.Errorf("Failed to store cyclic key: %+v", err)
+	}
+
+	err = DeleteCyclicKey(vkv, intKey)
+	if err != nil {
+		t.Fatalf("DeleteCyclicKey returned an error: %v", err)
+	}
+
+	_, err = LoadCyclicKey(vkv, intKey)
+	if err == nil {
+		t.Errorf("DeleteCyclicKey error: Should not load deleted key: %+v", err)
+	}
+}

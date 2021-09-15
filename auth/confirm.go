@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -100,13 +101,17 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// the second does not or the two occur and the storage into critical
 	// messages does not occur
 
+	events := net.GetEventManager()
+
 	//create local relationship
 	p := storage.E2e().GetE2ESessionParams()
 	if err := storage.E2e().AddPartner(partner.ID, partner.DhPubKey, newPrivKey,
 		p, p); err != nil {
-		jww.WARN.Printf("Failed to create channel with partner (%s) "+
+		em := fmt.Sprintf("Failed to create channel with partner (%s) "+
 			"on confirmation, this is likley a replay: %s",
 			partner.ID, err.Error())
+		jww.WARN.Print(em)
+		events.Report(10, "Auth", "SendConfirmError", em)
 	}
 
 	// delete the in progress negotiation
@@ -131,8 +136,10 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		return 0, errors.WithMessage(err, "Auth Confirm Failed to transmit")
 	}
 
-	jww.INFO.Printf("Confirm Request with %s (msgDigest: %s) sent on round %d",
+	em := fmt.Sprintf("Confirm Request with %s (msgDigest: %s) sent on round %d",
 		partner.ID, cmixMsg.Digest(), round)
+	jww.INFO.Print(em)
+	events.Report(1, "Auth", "SendConfirm", em)
 
 	return round, nil
 }

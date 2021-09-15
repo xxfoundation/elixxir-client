@@ -10,8 +10,11 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/client/storage/hostList"
+	"gitlab.com/elixxir/client/storage/rounds"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
@@ -43,12 +46,13 @@ const currentSessionVersion = 0
 
 // Session object, backed by encrypted filestore
 type Session struct {
-	kv  *versioned.KV
+	kv *versioned.KV
+
 	mux sync.RWMutex
 
 	//memoized data
 	regStatus RegistrationStatus
-	baseNdf   *ndf.NetworkDefinition
+	ndf       *ndf.NetworkDefinition
 
 	//sub-stores
 	e2e                 *e2e.Store
@@ -62,6 +66,8 @@ type Session struct {
 	garbledMessages     *utility.MeteredCmixMessageBuffer
 	reception           *reception.Store
 	clientVersion       *clientVersion.Store
+	uncheckedRounds     *rounds.UncheckedRoundStore
+	hostList            *hostList.Store
 }
 
 // Initialize a new Session object
@@ -141,6 +147,13 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 		return nil, errors.WithMessage(err, "Failed to create client version store.")
 	}
 
+	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create unchecked round store")
+	}
+
+	s.hostList = hostList.NewStore(s.kv)
+
 	return s, nil
 }
 
@@ -208,9 +221,16 @@ func Load(baseDir, password string, currentVersion version.Version,
 	}
 
 	s.conversations = conversation.NewStore(s.kv)
-	s.partition = partition.New(s.kv)
+	s.partition = partition.Load(s.kv)
 
 	s.reception = reception.LoadStore(s.kv)
+
+	s.uncheckedRounds, err = rounds.LoadUncheckedStore(s.kv)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to load unchecked round store")
+	}
+
+	s.hostList = hostList.NewStore(s.kv)
 
 	return s, nil
 }
@@ -282,6 +302,18 @@ func (s *Session) Partition() *partition.Store {
 	return s.partition
 }
 
+func (s *Session) UncheckedRounds() *rounds.UncheckedRoundStore {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.uncheckedRounds
+}
+
+func (s *Session) HostList() *hostList.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.hostList
+}
+
 // Get an object from the session
 func (s *Session) Get(key string) (*versioned.Object, error) {
 	return s.kv.Get(key, currentSessionVersion)
@@ -295,6 +327,13 @@ func (s *Session) Set(key string, object *versioned.Object) error {
 // delete a value in the session
 func (s *Session) Delete(key string) error {
 	return s.kv.Delete(key, currentSessionVersion)
+}
+
+// GetKV returns the Session versioned.KV.
+func (s *Session) GetKV() *versioned.KV {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.kv
 }
 
 // Initializes a Session object wrapped around a MemStore object.
@@ -318,6 +357,13 @@ func InitTestingSession(i interface{}) *Session {
 	}
 	u.SetTransmissionRegistrationValidationSignature([]byte("sig"))
 	u.SetReceptionRegistrationValidationSignature([]byte("sig"))
+	testTime, err := time.Parse(time.RFC3339,
+		"2012-12-21T22:08:41+00:00")
+	if err != nil {
+		jww.FATAL.Panicf("Could not parse precanned time: %v", err.Error())
+	}
+	u.SetRegistrationTimestamp(testTime.UnixNano())
+
 	s.user = u
 	cmixGrp := cyclic.NewGroup(
 		large.NewIntFromString("9DB6FB5951B66BB6FE1E140F1D2CE5502374161FD6538DF1648218642F0B5C48"+
@@ -363,6 +409,13 @@ func InitTestingSession(i interface{}) *Session {
 	s.partition = partition.New(s.kv)
 
 	s.reception = reception.NewStore(s.kv)
+
+	s.uncheckedRounds, err = rounds.NewUncheckedStore(s.kv)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create uncheckRound store: %v", err)
+	}
+
+	s.hostList = hostList.NewStore(s.kv)
 
 	return s
 }

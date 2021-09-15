@@ -8,10 +8,6 @@
 package api
 
 import (
-	"gitlab.com/xx_network/comms/connect"
-	"gitlab.com/xx_network/primitives/id"
-	"time"
-
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -20,7 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/user"
 	"gitlab.com/elixxir/client/keyExchange"
 	"gitlab.com/elixxir/client/network"
-	"gitlab.com/elixxir/client/permissioning"
+	"gitlab.com/elixxir/client/registration"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
@@ -28,11 +24,18 @@ import (
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/version"
+	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/region"
+	"math"
+	"time"
 )
+
+const followerStoppableName = "client"
 
 type Client struct {
 	//generic RNG for client
@@ -52,18 +55,17 @@ type Client struct {
 	// loop
 	network interfaces.NetworkManager
 	//object used to register and communicate with permissioning
-	permissioning *permissioning.Permissioning
+	permissioning *registration.Registration
 	//object containing auth interactions
 	auth *auth.Manager
 
-	//contains stopables for all running threads
-	runner *stoppable.Multi
-	status *statusTracker
-
-	//handler for external services
-	services *serviceProcessiesList
+	//services system to track running threads
+	followerServices *services
 
 	clientErrorChannel chan interfaces.ClientError
+
+	// Event reporting in event.go
+	events *eventManager
 }
 
 // NewClient creates client storage, generates keys, connects, and registers
@@ -71,19 +73,20 @@ type Client struct {
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
 func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
-	jww.INFO.Printf("NewClient()")
+	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
-	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
 	if err != nil {
 		return err
 	}
-	cmixGrp, e2eGrp := decodeGroups(def)
 
-	protoUser := createNewUser(rngStream, cmixGrp, e2eGrp)
+	cmixGrp, e2eGrp := decodeGroups(def)
+	start := time.Now()
+	protoUser := createNewUser(rngStreamGen, cmixGrp, e2eGrp)
+	jww.DEBUG.Printf("User generation took: %s", time.Now().Sub(start))
 
 	err = checkVersionAndSetupStorage(def, storageDir, password, protoUser,
 		cmixGrp, e2eGrp, rngStreamGen, false, registrationCode)
@@ -176,14 +179,15 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 
 	// Set up a new context
 	c := &Client{
-		storage:     storageSess,
-		switchboard: switchboard.New(),
-		rng:         rngStreamGen,
-		comms:       nil,
-		network:     nil,
-		runner:      stoppable.NewMulti("client"),
-		status:      newStatusTracker(),
-		parameters:  parameters,
+		storage:            storageSess,
+		switchboard:        switchboard.New(),
+		rng:                rngStreamGen,
+		comms:              nil,
+		network:            nil,
+		followerServices:   newServices(),
+		parameters:         parameters,
+		clientErrorChannel: make(chan interfaces.ClientError, 1000),
+		events:             newEventManager(),
 	}
 
 	return c, nil
@@ -203,19 +207,16 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	jww.INFO.Printf("Client Logged in: \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
-	//Attach the services interface
-	c.services = newServiceProcessiesList(c.runner)
-
 	// initialize comms
 	err = c.initComms()
 	if err != nil {
 		return nil, err
 	}
 
-	//get the NDF to pass into permissioning and the network manager
-	def := c.storage.GetBaseNDF()
+	//get the NDF to pass into registration and the network manager
+	def := c.storage.GetNDF()
 
-	//initialize permissioning
+	//initialize registration
 	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
@@ -229,6 +230,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 
 	if def.Notification.Address != "" {
 		hp := connect.GetDefaultHostParams()
+		// Client will not send KeepAlive packets
+		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5
 		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
@@ -238,14 +241,20 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
 	}
 
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	// Add all processes to the followerServices
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }
@@ -270,9 +279,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 		return nil, err
 	}
 
-	//Attach the services interface
-	c.services = newServiceProcessiesList(c.runner)
-
 	//initialize comms
 	err = c.initComms()
 	if err != nil {
@@ -280,9 +286,9 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	//store the updated base NDF
-	c.storage.SetBaseNDF(def)
+	c.storage.SetNDF(def)
 
-	//initialize permissioning
+	//initialize registration
 	if def.Registration.Address != "" {
 		err = c.initPermissioning(def)
 		if err != nil {
@@ -295,14 +301,19 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	// Initialize network and link it to context
-	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng, c.comms,
-		parameters, def)
+	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,
+		c.events, c.comms, parameters, def)
 	if err != nil {
 		return nil, err
 	}
 
 	// initialize the auth tracker
 	c.auth = auth.NewManager(c.switchboard, c.storage, c.network)
+
+	err = c.registerFollower()
+	if err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }
@@ -327,14 +338,14 @@ func (c *Client) initComms() error {
 
 func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	var err error
-	//initialize permissioning
-	c.permissioning, err = permissioning.Init(c.comms, def)
+	//initialize registration
+	c.permissioning, err = registration.Init(c.comms, def)
 	if err != nil {
 		return errors.WithMessage(err, "failed to init "+
 			"permissioning handler")
 	}
 
-	//register with permissioning if necessary
+	//register with registration if necessary
 	if c.storage.GetRegistrationStatus() == storage.KeyGenComplete {
 		jww.INFO.Printf("Client has not registered yet, attempting registration")
 		err = c.registerWithPermissioning()
@@ -347,7 +358,58 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 	return nil
 }
 
+// registerFollower adds the follower processes to the client's follower service list.
+// This should only ever be called once
+func (c *Client) registerFollower() error {
+	//build the error callback
+	cer := func(source, message, trace string) {
+		select {
+		case c.clientErrorChannel <- interfaces.ClientError{
+			Source:  source,
+			Message: message,
+			Trace:   trace,
+		}:
+		default:
+			jww.WARN.Printf("Failed to notify about ClientError from %s: %s", source, message)
+		}
+	}
+
+	err := c.followerServices.add(c.events.eventService)
+	if err != nil {
+		return errors.WithMessage(err, "Couldn't start event reporting")
+	}
+
+	//register the core follower service
+	err = c.followerServices.add(func() (stoppable.Stoppable, error) { return c.network.Follow(cer) })
+	if err != nil {
+		return errors.WithMessage(err, "Failed to start following "+
+			"the network")
+	}
+
+	//register the incremental key upgrade service
+	err = c.followerServices.add(c.auth.StartProcesses)
+	if err != nil {
+		return errors.WithMessage(err, "Failed to start following "+
+			"the network")
+	}
+
+	//register the key exchange service
+	keyXchange := func() (stoppable.Stoppable, error) {
+		return keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey)
+	}
+	err = c.followerServices.add(keyXchange)
+
+	return nil
+}
+
 // ----- Client Functions -----
+
+// GetErrorsChannel returns a channel which passess errors from the
+// long running threads controlled by StartNetworkFollower and StopNetworkFollower
+func (c *Client) GetErrorsChannel() <-chan interfaces.ClientError {
+	return c.clientErrorChannel
+}
+
 // StartNetworkFollower kicks off the tracking of the network. It starts
 // long running network client threads and returns an object for checking
 // state and stopping those threads.
@@ -378,73 +440,22 @@ func (c *Client) initPermissioning(def *ndf.NetworkDefinition) error {
 //		Responds to confirmations of successful rekey operations
 //   - Auth Callback (/auth/callback.go)
 //      Handles both auth confirm and requests
-func (c *Client) StartNetworkFollower() (<-chan interfaces.ClientError, error) {
+func (c *Client) StartNetworkFollower(timeout time.Duration) error {
 	u := c.GetUser()
 	jww.INFO.Printf("StartNetworkFollower() \n\tTransmisstionID: %s "+
 		"\n\tReceptionID: %s", u.TransmissionID, u.ReceptionID)
 
-	c.clientErrorChannel = make(chan interfaces.ClientError, 1000)
-
-	cer := func(source, message, trace string) {
-		select {
-		case c.clientErrorChannel <- interfaces.ClientError{
-			Source:  source,
-			Message: message,
-			Trace:   trace,
-		}:
-		default:
-			jww.WARN.Printf("Failed to notify about ClientError from %s: %s", source, message)
-		}
-	}
-
-	err := c.status.toStarting()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
-	}
-
-	stopAuth := c.auth.StartProcessies()
-	c.runner.Add(stopAuth)
-
-	stopFollow, err := c.network.Follow(cer)
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to start following "+
-			"the network")
-	}
-	c.runner.Add(stopFollow)
-	// Key exchange
-	c.runner.Add(keyExchange.Start(c.switchboard, c.storage, c.network, c.parameters.Rekey))
-
-	err = c.status.toRunning()
-	if err != nil {
-		return nil, errors.WithMessage(err, "Failed to Start the Network Follower")
-	}
-
-	c.services.run(c.runner)
-
-	return c.clientErrorChannel, nil
+	return c.followerServices.start(timeout)
 }
 
 // StopNetworkFollower stops the network follower if it is running.
-// It returns errors if the Follower is in the wrong status to stop or if it
+// It returns errors if the Follower is in the wrong state to stop or if it
 // fails to stop it.
 // if the network follower is running and this fails, the client object will
 // most likely be in an unrecoverable state and need to be trashed.
-func (c *Client) StopNetworkFollower(timeout time.Duration) error {
-	err := c.status.toStopping()
-	if err != nil {
-		return errors.WithMessage(err, "Failed to Stop the Network Follower")
-	}
-	err = c.runner.Close(timeout)
-	c.runner = stoppable.NewMulti("client")
-	err2 := c.status.toStopped()
-	if err2 != nil {
-		if err ==nil{
-			err = err2
-		}else{
-			err = errors.WithMessage(err,err2.Error())
-		}
-	}
-	return err
+func (c *Client) StopNetworkFollower() error {
+	jww.INFO.Printf("StopNetworkFollower()")
+	return c.followerServices.stop()
 }
 
 // NetworkFollowerStatus Gets the state of the network follower. Returns:
@@ -454,7 +465,7 @@ func (c *Client) StopNetworkFollower(timeout time.Duration) error {
 // Stopping	- 3000
 func (c *Client) NetworkFollowerStatus() Status {
 	jww.INFO.Printf("NetworkFollowerStatus()")
-	return c.status.get()
+	return c.followerServices.status()
 }
 
 // Returns the health tracker for registration and polling
@@ -479,8 +490,8 @@ func (c *Client) GetRoundEvents() interfaces.RoundEvents {
 
 // AddService adds a service ot be controlled by the client thread control,
 // these will be started and stopped with the network follower
-func (c *Client) AddService(sp ServiceProcess) {
-	c.services.Add(sp)
+func (c *Client) AddService(sp Service) error {
+	return c.followerServices.add(sp)
 }
 
 // GetUser returns the current user Identity for this client. This
@@ -510,7 +521,7 @@ func (c *Client) GetNetworkInterface() interfaces.NetworkManager {
 	return c.network
 }
 
-// GetNodeRegistrationStatus gets the current status of node registration. It
+// GetNodeRegistrationStatus gets the current state of node registration. It
 // returns the the total number of nodes in the NDF and the number of those
 // which are currently registers with. An error is returned if the network is
 // not healthy.
@@ -539,6 +550,74 @@ func (c *Client) GetNodeRegistrationStatus() (int, int, error) {
 
 	// Get the number of in progress node registrations
 	return numRegistered, len(nodes), nil
+}
+
+// DeleteContact is a function which removes a partner from Client's storage
+func (c *Client) DeleteContact(partnerId *id.ID) error {
+	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
+	if err := c.storage.E2e().DeletePartner(partnerId); err != nil {
+		return err
+	}
+	if err := c.storage.Auth().Delete(partnerId); err != nil {
+		return err
+	}
+	c.storage.Conversations().Delete(partnerId)
+	return nil
+}
+
+// SetProxiedBins updates the host pool filter that filters out gateways that
+// are not in one of the specified bins.
+func (c *Client) SetProxiedBins(binStrings []string) error {
+	// Convert each region string into a region.GeoBin and place in a map for
+	// easy lookup
+	bins := make(map[region.GeoBin]bool, len(binStrings))
+	for i, binStr := range binStrings {
+		bin, err := region.GetRegion(binStr)
+		if err != nil {
+			return errors.Errorf("failed to parse geographic bin #%d: %+v", i, err)
+		}
+
+		bins[bin] = true
+	}
+
+	// Create filter func
+	f := func(m map[id.ID]int, netDef *ndf.NetworkDefinition) map[id.ID]int {
+		prunedList := make(map[id.ID]int, len(m))
+		for gwID, i := range m {
+			if bins[netDef.Gateways[i].Bin] {
+				prunedList[gwID] = i
+			}
+		}
+		return prunedList
+	}
+
+	c.network.SetPoolFilter(f)
+
+	return nil
+}
+
+// GetPreferredBins returns the geographic bin or bins that the provided two
+// character country code is a part of.
+func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
+	// Get the bin that the country is in
+	bin, exists := region.GetCountryBin(countryCode)
+	if !exists {
+		return nil, errors.Errorf("failed to find geographic bin for country %q",
+			countryCode)
+	}
+
+	// Add bin to list of geographic bins
+	bins := []string{bin.String()}
+
+	// Add additional bins in special cases
+	switch bin {
+	case region.Africa:
+		bins = append(bins, region.WesternEurope.String())
+	case region.MiddleEast:
+		bins = append(bins, region.EasternEurope.String())
+	}
+
+	return bins, nil
 }
 
 // ----- Utility Functions -----
@@ -593,7 +672,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 	}
 
 	// Save NDF to be used in the future
-	storageSess.SetBaseNDF(def)
+	storageSess.SetNDF(def)
 
 	if !isPrecanned {
 		//store the registration code for later use
@@ -601,7 +680,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 		//move the registration state to keys generated
 		err = storageSess.ForwardRegistrationStatus(storage.KeyGenComplete)
 	} else {
-		//move the registration state to indicate registered with permissioning
+		//move the registration state to indicate registered with registration
 		err = storageSess.ForwardRegistrationStatus(storage.PermissioningComplete)
 	}
 

@@ -7,6 +7,7 @@ import (
 	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/internal"
 	"gitlab.com/elixxir/client/network/message/parse"
+	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/switchboard"
 	"gitlab.com/elixxir/comms/client"
@@ -64,12 +65,12 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	if err != nil {
 		t.Errorf(err.Error())
 	}
-	m := NewManager(i, params.Messages{
+	m := NewManager(i, params.Network{Messages: params.Messages{
 		MessageReceptionBuffLen:        20,
 		MessageReceptionWorkerPoolSize: 20,
 		MaxChecksGarbledMessage:        20,
 		GarbledMessageWait:             time.Hour,
-	}, nil, sender)
+	}}, nil, sender)
 
 	e2ekv := i.Session.E2e()
 	err = e2ekv.AddPartner(sess2.GetUser().TransmissionID, sess2.E2e().GetDHPublicKey(), e2ekv.GetDHPrivateKey(),
@@ -105,6 +106,7 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	contents := make([]byte, msg.ContentsSize())
 	prng := rand.New(rand.NewSource(42))
 	prng.Read(contents)
+	contents[len(contents)-1] = 0
 	fmp := parse.FirstMessagePartFromBytes(contents)
 	binary.BigEndian.PutUint32(fmp.Type, uint32(message.Raw))
 	fmp.NumParts[0] = uint8(1)
@@ -119,8 +121,8 @@ func TestManager_CheckGarbledMessages(t *testing.T) {
 	encryptedMsg := key.Encrypt(msg)
 	i.Session.GetGarbledMessages().Add(encryptedMsg)
 
-	quitch := make(chan struct{})
-	go m.processGarbledMessages(quitch)
+	stop := stoppable.NewSingle("stop")
+	go m.processGarbledMessages(stop)
 
 	m.CheckGarbledMessages()
 

@@ -11,8 +11,8 @@ package cmd
 import (
 	"fmt"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 	jww "github.com/spf13/jwalterweatherman"
+	"github.com/spf13/viper"
 )
 
 // initCmd creates a new user object with the given NDF
@@ -31,7 +31,7 @@ var initCmd = &cobra.Command{
 
 func init() {
 	initCmd.Flags().StringP("userid-prefix", "", "",
-	"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
+		"Desired prefix of userID to brute force when running init command. Prepend (?i) for case-insensitive. Only Base64 characters are valid.")
 	_ = viper.BindPFlag("userid-prefix", initCmd.Flags().Lookup("userid-prefix"))
 
 	rootCmd.AddCommand(initCmd)

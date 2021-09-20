@@ -56,6 +56,13 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
 
+	abandon := func(round id.Round) { return }
+	if m.verboseRounds != nil {
+		abandon = func(round id.Round) {
+			m.verboseRounds.denote(round, Abandoned)
+		}
+	}
+
 	for {
 		select {
 		case <-stop.Quit():
@@ -63,7 +70,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-			m.follow(report, rng, m.Comms, stop)
+			m.follow(report, rng, m.Comms, stop, abandon)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			if m.numLatencies != 0 {
@@ -94,7 +101,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 
 // executes each iteration of the follower
 func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
-	comms followNetworkComms, stop *stoppable.Single) {
+	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
 	//Get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
@@ -307,13 +314,12 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		jww.DEBUG.Printf("New Earliest Remaining: %d", earliestRemaining)
 	}
 
-bo
 	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round) bool {
 		if gwRoundsState.Checked(rid) {
 			return rounds.Checker(rid, filterList, identity.CR)
 		}
 		return false
-	}, roundsUnknown)
+	}, roundsUnknown, abandon)
 
 	for _, rid := range roundsWithMessages {
 		if identity.CR.Check(rid) {
@@ -331,4 +337,27 @@ bo
 	for _, rid := range roundsWithMessages2 {
 		m.round.GetMessagesFromRound(rid, identity)
 	}
+
+	if m.verboseRounds != nil {
+		for i := earliestTrackedRound; i <= earliestRemaining; i++ {
+			state := Unchecked
+			for _, rid := range roundsWithMessages {
+				if rid == i {
+					state = Checked
+				}
+			}
+			for _, rid := range roundsWithMessages2 {
+				if rid == i {
+					state = Checked
+				}
+			}
+			for _, rid := range roundsUnknown {
+				if rid == i {
+					state = Unknown
+				}
+			}
+			m.verboseRounds.denote(i, RoundState(state))
+		}
+	}
+
 }

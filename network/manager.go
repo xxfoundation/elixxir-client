@@ -34,7 +34,7 @@ import (
 )
 
 // Manager implements the NetworkManager interface inside context. It
-// controls access to network resources and implements all of the communications
+// controls access to network resources and implements all the communications
 // functions used by the client.
 type manager struct {
 	// parameters of the network
@@ -50,9 +50,10 @@ type manager struct {
 	message *message.Manager
 
 	//number of polls done in a period of time
-	tracker      *uint64
-	latencySum   uint64
-	numLatencies uint64
+	tracker       *uint64
+	latencySum    uint64
+	numLatencies  uint64
+	verboseRounds *RoundTracker
 
 	// Address space size
 	addrSpace *ephemeral.AddressSpace
@@ -87,6 +88,10 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		tracker:   &tracker,
 		addrSpace: ephemeral.NewAddressSpace(),
 		events:    events,
+	}
+
+	if params.VerboseRoundTracking {
+		m.verboseRounds = NewRoundTracker()
 	}
 
 	m.Internal = internal.Internal{
@@ -222,4 +227,9 @@ func (m *manager) UnregisterAddressSizeNotification(tag string) {
 // SetPoolFilter sets the filter used to filter gateway IDs.
 func (m *manager) SetPoolFilter(f gateway.Filter) {
 	m.sender.SetFilter(f)
+}
+
+// GetVerboseRounds returns verbose round information
+func (m *manager) GetVerboseRounds() string {
+	return m.verboseRounds.String()
 }

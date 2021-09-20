@@ -248,6 +248,8 @@ var rootCmd = &cobra.Command{
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
 
+		jww.DEBUG.Printf("Verbose round information: \n%s",
+			client.GetNetworkInterface().GetVerboseRounds())
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -340,7 +342,8 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 }
 
 func createClient() *api.Client {
-	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
+	logLevel := viper.GetUint("logLevel")
+	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
 	pass := viper.GetString("password")
@@ -383,6 +386,7 @@ func createClient() *api.Client {
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
+	netParams.VerboseRoundTracking = logLevel > 0
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {

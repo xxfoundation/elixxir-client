@@ -374,7 +374,7 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 		go oldHost.Disconnect()
 	}
 
-	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s", oldPoolIndex,oldHostIDStr,
+	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s", oldPoolIndex, oldHostIDStr,
 		newId.String())
 
 	return nil

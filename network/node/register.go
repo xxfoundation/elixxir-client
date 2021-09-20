@@ -194,12 +194,10 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 				TimeStamp: registrationTimestampNano,
 			})
 		if err != nil {
-			errMsg := fmt.Sprintf("Register: Failed requesting nonce from gateway: %+v", err)
-			return nil, errors.New(errMsg)
+			return nil, errors.WithMessage(err,"Register: Failed requesting nonce from gateway")
 		}
 		if nonceResponse.Error != "" {
-			err := errors.New(fmt.Sprintf("requestNonce: nonceResponse error: %s", nonceResponse.Error))
-			return nil, err
+			return nil, errors.WithMessage(err,"requestNonce: nonceResponse error")
 		}
 		return nonceResponse, nil
 	}, stop)
@@ -207,6 +205,7 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 	if err != nil {
 		return nil, nil, err
 	}
+
 	nonceResponse := result.(*pb.Nonce)
 
 	// Use Client keypair to sign Server nonce

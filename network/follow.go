@@ -294,7 +294,11 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return rounds.Checker(rid, filterList, identity.CR)
+		hasMessage := rounds.Checker(rid, filterList, identity.CR)
+		if !hasMessage && m.verboseRounds != nil{
+			m.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
+		}
+		return hasMessage
 	}
 
 	// move the earliest unknown round tracker forward to the earliest
@@ -339,16 +343,21 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	if m.verboseRounds != nil {
-		for i := earliestTrackedRound; i <= earliestRemaining; i++ {
+		trackingStart := updated
+		if uint(earliestRemaining-updated)>m.param.KnownRoundsThreshold{
+			trackingStart = earliestRemaining-id.Round(m.param.KnownRoundsThreshold)
+		}
+		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)
+		for i := trackingStart; i <= earliestRemaining; i++ {
 			state := Unchecked
 			for _, rid := range roundsWithMessages {
 				if rid == i {
-					state = Checked
+					state = MessageAvailable
 				}
 			}
 			for _, rid := range roundsWithMessages2 {
 				if rid == i {
-					state = Checked
+					state = MessageAvailable
 				}
 			}
 			for _, rid := range roundsUnknown {

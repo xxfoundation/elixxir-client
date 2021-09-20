@@ -129,16 +129,16 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 
 const happyPathReturn = "happyPathReturn"
 
-func SendToPreferred_HappyPath(host *connect.Host, target *id.ID) (interface{}, bool, error) {
-	return happyPathReturn, false, nil
+func SendToPreferred_HappyPath(host *connect.Host, target *id.ID) (interface{}, error) {
+	return happyPathReturn, nil
 }
 
-func SendToPreferred_KnownError(host *connect.Host, target *id.ID) (interface{}, bool, error) {
-	return nil, false, fmt.Errorf(errorsList[0])
+func SendToPreferred_KnownError(host *connect.Host, target *id.ID) (interface{}, error) {
+	return nil, fmt.Errorf(errorsList[0])
 }
 
-func SendToPreferred_UnknownError(host *connect.Host, target *id.ID) (interface{}, bool, error) {
-	return nil, false, fmt.Errorf("Unexpected error: Oopsie")
+func SendToPreferred_UnknownError(host *connect.Host, target *id.ID) (interface{}, error) {
+	return nil, fmt.Errorf("Unexpected error: Oopsie")
 }
 
 func SendToAny_HappyPath(host *connect.Host) (interface{}, error) {

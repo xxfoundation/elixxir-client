@@ -8,6 +8,7 @@ package network
 
 import (
 	"fmt"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/xx_network/primitives/id"
 	"sort"
 	"sync"
@@ -18,7 +19,8 @@ type RoundState uint8
 const (
 	Unchecked = iota
 	Unknown
-	Checked
+	NoMessageAvailable
+	MessageAvailable
 	Abandoned
 )
 
@@ -28,8 +30,10 @@ func (rs RoundState) String() string {
 		return "Unchecked"
 	case Unknown:
 		return "Unknown"
-	case Checked:
-		return "Checked"
+	case MessageAvailable:
+		return "Message Available"
+	case NoMessageAvailable:
+		return "No Message Available"
 	case Abandoned:
 		return "Abandoned"
 	default:
@@ -51,12 +55,16 @@ func NewRoundTracker() *RoundTracker {
 func (rt *RoundTracker) denote(rid id.Round, state RoundState) {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
+	if storedState, exists := rt.state[rid]; exists || storedState > state {
+		return
+	}
 	rt.state[rid] = state
 }
 
 func (rt *RoundTracker) String() string {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
+	jww.DEBUG.Printf("Debug Printing status of %d rounds", len(rt.state))
 	keys := make([]int, 0, len(rt.state))
 	for key := range rt.state {
 		keys = append(keys, int(key))

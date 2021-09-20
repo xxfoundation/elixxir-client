@@ -128,7 +128,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 			result, err := comms.SendPutMessage(host, wrappedMsg)
 			if err != nil {
@@ -137,10 +137,10 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				if warn {
 					jww.WARN.Printf("SendCmix Failed: %+v", err)
 				} else {
-					return result, true, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
+					return result, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
 				}
 			}
-			return result, false, err
+			return result, err
 		}
 		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
 

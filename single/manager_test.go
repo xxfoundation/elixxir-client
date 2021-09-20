@@ -287,6 +287,10 @@ func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Sing
 	return nil, e2e.MessageID{}, time.Time{}, nil
 }
 
+func (tnm *testNetworkManager) GetVerboseRounds()string{
+	return ""
+}
+
 func (tnm *testNetworkManager) SendUnsafe(_ message.Send, _ params.Unsafe) ([]id.Round, error) {
 	return []id.Round{}, nil
 }

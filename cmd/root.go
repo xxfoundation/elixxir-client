@@ -247,9 +247,10 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-
-		jww.DEBUG.Printf("Verbose round information: \n%s",
+		jww.DEBUG.Printf("TestPrintthisshit")
+		fmt.Printf("Verbose round information: %s",
 			client.GetNetworkInterface().GetVerboseRounds())
+		jww.DEBUG.Printf("printedVerboseRounds")
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -414,6 +415,7 @@ func initClient() *api.Client {
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		netParams.UncheckRoundPeriod = period
 	}
+	netParams.VerboseRoundTracking = viper.GetUint("logLevel") > 0
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)

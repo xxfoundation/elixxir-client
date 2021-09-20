@@ -41,6 +41,7 @@ const unrecoverableError = "failed with an unrecoverable error"
 // context. If the error is not among recoverable errors, then the recoverable
 // boolean will be returned false. If the error is among recoverable errors,
 // then the boolean will return true.
+// recoverable means we should try resending to the round
 func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
 	recipientString string, bestRound *pb.RoundInfo,
@@ -65,7 +66,7 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 		// Trigger
 		go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
 
-		return true, errors.WithMessagef(err, "Failed to send to [%s] via %s "+
+		return false, errors.WithMessagef(err, "Failed to send to [%s] via %s "+
 			"due to failed authentication, retrying...",
 			recipientString, firstGateway)
 	}

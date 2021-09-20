@@ -197,3 +197,14 @@ func (urs *UnknownRounds) Delete() {
 func (urs *UnknownRounds) unmarshal(b []byte) error {
 	return json.Unmarshal(b, &urs.rounds)
 }
+
+func (urs *UnknownRounds) Get(round id.Round)(present bool, numchecked uint64){
+	urs.mux.Lock()
+	defer urs.mux.Unlock()
+	numcheck, exist := urs.rounds[round]
+	if !exist{
+		return false, 0
+	}
+	return exist, *numcheck
+
+}

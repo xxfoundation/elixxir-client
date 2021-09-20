@@ -307,6 +307,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 		jww.DEBUG.Printf("New Earliest Remaining: %d", earliestRemaining)
 	}
 
+bo
 	roundsWithMessages2 := identity.UR.Iterate(func(rid id.Round) bool {
 		if gwRoundsState.Checked(rid) {
 			return rounds.Checker(rid, filterList, identity.CR)

@@ -13,11 +13,13 @@ import (
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/storage"
 	pb "gitlab.com/elixxir/comms/mixmessages"
+	"gitlab.com/elixxir/comms/testkeys"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
+	"gitlab.com/xx_network/primitives/utils"
 	"testing"
 	"time"
 )
@@ -125,7 +127,24 @@ func newTestBackoffTable(face interface{}) [cappedTries]time.Duration {
 }
 
 func getNDF() *ndf.NetworkDefinition {
+	cert, _ := utils.ReadFile(testkeys.GetNodeCertPath())
+	nodeID := id.NewIdFromBytes([]byte("gateway"), &testing.T{})
 	return &ndf.NetworkDefinition{
+		Nodes: []ndf.Node{
+			{
+				ID:             nodeID.Bytes(),
+				Address:        "",
+				TlsCertificate: string(cert),
+				Status:         ndf.Active,
+			},
+		},
+		Gateways: []ndf.Gateway{
+			{
+				ID:             nodeID.Bytes(),
+				Address:        "",
+				TlsCertificate: string(cert),
+			},
+		},
 		E2E: ndf.Group{
 			Prime: "E2EE983D031DC1DB6F1A7A67DF0E9A8E5561DB8E8D49413394C049B" +
 				"7A8ACCEDC298708F121951D9CF920EC5D146727AA4AE535B0922C688B55B3DD2AE" +

@@ -7,16 +7,18 @@
 
 package bindings
 
-import (
-	"gitlab.com/elixxir/client/interfaces"
-)
+// EventCallbackFunctionObject bindings interface which contains function
+// that implements the EventCallbackFunction
+type EventCallbackFunctionObject interface {
+	myFunc(priority int, category, evtType, details string)
+}
 
 // RegisterEventCallback records the given function to receive
 // ReportableEvent objects. It returns the internal index
 // of the callback so that it can be deleted later.
 func (c *Client) RegisterEventCallback(name string,
-	myFunc interfaces.EventCallbackFunction) error {
-	return c.api.RegisterEventCallback(name, myFunc)
+	myObj EventCallbackFunctionObject) error {
+	return c.api.RegisterEventCallback(name, myObj.myFunc)
 }
 
 // UnregisterEventCallback deletes the callback identified by the

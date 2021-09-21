@@ -71,16 +71,19 @@ func (ur *EarliestRound) save() {
 	}
 }
 
-func (ur *EarliestRound) Set(rid id.Round) (id.Round, bool) {
+// Set returns the updated earliest round, the old earliest round, and if they are changed.
+// Updates the earliest round if it is newer than stored one
+func (ur *EarliestRound) Set(rid id.Round) (id.Round, id.Round, bool) {
 	ur.mux.Lock()
 	defer ur.mux.Unlock()
 	changed := false
+	old := ur.rid
 	if rid > ur.rid {
 		changed = true
 		ur.rid = rid
 		ur.save()
 	}
-	return ur.rid, changed
+	return ur.rid, old, changed
 }
 
 func (ur *EarliestRound) Get() id.Round {

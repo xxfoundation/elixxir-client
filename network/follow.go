@@ -269,7 +269,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
+		jww.WARN.Printf("No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
@@ -279,6 +279,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	//check if there are any valid filters returned
 	if outOfBounds {
+		jww.WARN.Printf("No filters processed, none in valid range")
 		return
 	}
 
@@ -304,7 +305,15 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
-	updated, _ := identity.ER.Set(earliestTrackedRound)
+	updated, old, _ := identity.ER.Set(earliestTrackedRound)
+	if old == 0 {
+		if gwRoundsState.GetLastChecked()> id.Round(m.param.KnownRoundsThreshold){
+			updated = gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
+		}else{
+			updated = 1
+		}
+		identity.ER.Set(updated)
+	}
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
@@ -312,7 +321,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	//threshold is the earliest round that will not be excluded from earliest remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
 		m.param.KnownRoundsThreshold, roundChecker)
-	_, changed := identity.ER.Set(earliestRemaining)
+
+	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
 		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
 		jww.DEBUG.Printf("New Earliest Remaining: %d", earliestRemaining)

@@ -247,10 +247,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		jww.DEBUG.Printf("TestPrintthisshit")
-		fmt.Printf("Verbose round information: %s",
-			client.GetNetworkInterface().GetVerboseRounds())
-		jww.DEBUG.Printf("printedVerboseRounds")
+		roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -663,16 +660,19 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogOutput(logOutput)
 	}
 
+
 	if threshold > 1 {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		initRoundLog(logPath)
 	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		initRoundLog(logPath)
 	} else {
 		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
@@ -696,6 +696,18 @@ func askToCreateChannel(recipientID *id.ID) bool {
 	}
 }
 
+var roundsNotepad *jww.Notepad
+
+func initRoundLog(logPath string) {
+	parts := strings.Split(logPath,".")
+	path := parts[0] + "-rounds." + parts[1]
+	logOutput, err := os.OpenFile(path,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		panic(err.Error())
+	}
+	roundsNotepad = jww.NewNotepad(jww.LevelInfo,jww.LevelInfo,ioutil.Discard,logOutput,"",log.Ldate|log.Ltime)
+}
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {

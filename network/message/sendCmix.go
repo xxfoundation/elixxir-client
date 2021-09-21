@@ -25,7 +25,6 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
 )
 
 // WARNING: Potentially Unsafe
@@ -151,14 +150,10 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		//if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
-			if !strings.Contains(err.Error(), unrecoverableError) {
-				jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
-					"round %d, trying a new round: %+v", ephID.Int64(), recipient,
-					bestRound.ID, err)
-				continue
-			}
-
-			return 0, ephemeral.Id{}, err
+			jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
+				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
+				bestRound.ID, err)
+			continue
 		}
 
 		// Return if it sends properly

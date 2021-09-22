@@ -696,8 +696,12 @@ func askToCreateChannel(recipientID *id.ID) bool {
 	}
 }
 
+// this the the nodepad used for round logging.
 var roundsNotepad *jww.Notepad
 
+// initRoundLog creates the log output for round tracking. In debug mode,
+// the client will keep track of all rounds it evaluates if it has
+// messages in, and then will dump them to this log on client exit
 func initRoundLog(logPath string) {
 	parts := strings.Split(logPath,".")
 	path := parts[0] + "-rounds." + parts[1]

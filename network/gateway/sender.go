@@ -169,10 +169,3 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 
 	return nil, errors.Errorf("Unable to send to any preferred")
 }
-
-
-func (s *Sender)sendHelper(target  []*id.ID,
-	sendFunc func(host *connect.Host, target *id.ID) (interface{}, error),
-	stop *stoppable.Single){
-
-}

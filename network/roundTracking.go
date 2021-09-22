@@ -4,6 +4,11 @@
 // All rights reserved.                                                        /
 ////////////////////////////////////////////////////////////////////////////////
 
+// this is an in memory track of rounds that have been processed in this run of the
+// xxdk. It only is enabled when loglevel is debug or higher. It will accumulate all
+// rounds and then dump on exist. Is only enabled when run though the command line
+// interface unless enabled explicitly in code.
+
 package network
 
 import (

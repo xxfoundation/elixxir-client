@@ -708,7 +708,7 @@ func initRoundLog(logPath string) {
 	logOutput, err := os.OpenFile(path,
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		panic(err.Error())
+		jww.FATAL.Panicf(err.Error())
 	}
 	roundsNotepad = jww.NewNotepad(jww.LevelInfo,jww.LevelInfo,ioutil.Discard,logOutput,"",log.Ldate|log.Ltime)
 }

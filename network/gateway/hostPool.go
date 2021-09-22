@@ -377,11 +377,14 @@ func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 	h.hostMap[*newId] = oldPoolIndex
 
 	// Clean up and move onto next Host
+	oldHostIDStr := "unknown"
 	if oldHost != nil {
+		oldHostIDStr = oldHost.GetId().String()
 		delete(h.hostMap, *oldHost.GetId())
 		go oldHost.Disconnect()
 	}
-	jww.DEBUG.Printf("Replaced Host at %d with new Host %s", oldPoolIndex,
+
+	jww.DEBUG.Printf("Replaced Host at %d [%s] with new Host %s", oldPoolIndex, oldHostIDStr,
 		newId.String())
 
 	return nil
@@ -558,3 +561,4 @@ func readRangeUint32(start, end uint32, rng io.Reader) uint32 {
 		return (res % size) + start
 	}
 }
+

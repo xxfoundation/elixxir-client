@@ -79,6 +79,8 @@ func (t *testNetworkManagerGeneric) SendUnsafe(m message.Send, p params.Unsafe) 
 	return nil, nil
 }
 
+func (t *testNetworkManagerGeneric) GetVerboseRounds() string { return "" }
+
 func (t *testNetworkManagerGeneric) SendCMIX(message format.Message, rid *id.ID, p params.CMIX) (id.Round, ephemeral.Id, error) {
 
 	return id.Round(0), ephemeral.Id{}, nil
@@ -176,6 +178,8 @@ func (t *testNetworkManagerFullExchange) Follow(report interfaces.ClientErrorRep
 func (t *testNetworkManagerFullExchange) CheckGarbledMessages() {
 	return
 }
+
+func (t *testNetworkManagerFullExchange) GetVerboseRounds() string { return "" }
 
 // Intended for alice to send to bob. Trigger's Bob's confirmation, chaining the operation
 // together

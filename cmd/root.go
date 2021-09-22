@@ -247,7 +247,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-
+		roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -340,7 +340,8 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 }
 
 func createClient() *api.Client {
-	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
+	logLevel := viper.GetUint("logLevel")
+	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
 	pass := viper.GetString("password")
@@ -383,6 +384,7 @@ func createClient() *api.Client {
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
+	netParams.VerboseRoundTracking = logLevel > 0
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -410,6 +412,7 @@ func initClient() *api.Client {
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		netParams.UncheckRoundPeriod = period
 	}
+	netParams.VerboseRoundTracking = viper.GetUint("logLevel") > 0
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -657,16 +660,19 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogOutput(logOutput)
 	}
 
+
 	if threshold > 1 {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		initRoundLog(logPath)
 	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
+		initRoundLog(logPath)
 	} else {
 		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
@@ -690,6 +696,22 @@ func askToCreateChannel(recipientID *id.ID) bool {
 	}
 }
 
+// this the the nodepad used for round logging.
+var roundsNotepad *jww.Notepad
+
+// initRoundLog creates the log output for round tracking. In debug mode,
+// the client will keep track of all rounds it evaluates if it has
+// messages in, and then will dump them to this log on client exit
+func initRoundLog(logPath string) {
+	parts := strings.Split(logPath,".")
+	path := parts[0] + "-rounds." + parts[1]
+	logOutput, err := os.OpenFile(path,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	roundsNotepad = jww.NewNotepad(jww.LevelInfo,jww.LevelInfo,ioutil.Discard,logOutput,"",log.Ldate|log.Ltime)
+}
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {

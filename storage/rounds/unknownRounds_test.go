@@ -86,7 +86,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	}
 
 	// Iterate over initial map
-	received := store.Iterate(mockChecker, nil)
+	received := store.Iterate(mockChecker, nil, func(round id.Round) { return })
 
 	// Check the received list for 2 conditions:
 	// a) that returned rounds are no longer in the map
@@ -106,7 +106,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	}
 
 	// Add even round list to map
-	received = store.Iterate(mockChecker, roundListEven)
+	received = store.Iterate(mockChecker, roundListEven, func(round id.Round) { return })
 
 	if len(received) != 0 {
 		t.Errorf("Second iteration should return an empty list (no even rounds are left)."+
@@ -116,7 +116,7 @@ func TestUnknownRoundsStore_Iterate(t *testing.T) {
 	// Iterate over map until all rounds have checks incremented over
 	// maxCheck
 	for i := 0; i < defaultMaxCheck+1; i++ {
-		_ = store.Iterate(mockChecker, []id.Round{})
+		_ = store.Iterate(mockChecker, []id.Round{}, func(round id.Round) { return })
 
 	}
 
@@ -172,7 +172,7 @@ func TestLoadUnknownRoundsStore(t *testing.T) {
 
 	// Check that LoadStore works after iterate call (which implicitly saves)
 	mockChecker := func(round id.Round) bool { return false }
-	received := store.Iterate(mockChecker, nil)
+	received := store.Iterate(mockChecker, nil, func(round id.Round) { return })
 
 	// Iterate is being called as a dummy, should not return anything
 	if len(received) != 0 {

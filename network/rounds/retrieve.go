@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -157,8 +158,8 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
 		if err == nil && !msgResp.GetHasRound() {
-			jww.INFO.Printf("No round error for round %d received from %s", roundID, target)
-			return message.Bundle{}, errors.Errorf(noRoundError, roundID)
+			errRtn := errors.Errorf(noRoundError, roundID)
+			return message.Bundle{}, errors.WithMessage(errRtn,gateway.RetryableError)
 		}
 
 		return msgResp, err

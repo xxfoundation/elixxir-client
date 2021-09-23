@@ -247,7 +247,10 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
+		if roundsNotepad!=nil{
+			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
+		}
+
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(

@@ -107,6 +107,9 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 		Events:           events,
 	}
 
+	// Set up node registration chan for network instance
+	m.Instance.SetAddGatewayChan(m.NodeRegistration)
+
 	// Set up gateway.Sender
 	poolParams := gateway.DefaultPoolParams()
 	// Client will not send KeepAlive packets

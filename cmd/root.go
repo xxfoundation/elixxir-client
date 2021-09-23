@@ -387,7 +387,7 @@ func createClient() *api.Client {
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
-	netParams.VerboseRoundTracking = logLevel > 0
+	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -415,7 +415,7 @@ func initClient() *api.Client {
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		netParams.UncheckRoundPeriod = period
 	}
-	netParams.VerboseRoundTracking = viper.GetUint("logLevel") > 0
+	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -730,6 +730,11 @@ func init() {
 	rootCmd.PersistentFlags().UintP("logLevel", "v", 0,
 		"Verbose mode for debugging")
 	viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
+
+	rootCmd.PersistentFlags().Bool("verboseRoundTracking", false,
+		"Verbose round tracking, keeps track and prints all rounds the " +
+		"client was aware of while running. Defaults to false if not set.")
+	viper.BindPFlag("verboseRoundTracking", rootCmd.PersistentFlags().Lookup("verboseRoundTracking"))
 
 	rootCmd.PersistentFlags().StringP("session", "s",
 		"", "Sets the initial storage directory for "+

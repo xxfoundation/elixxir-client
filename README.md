@@ -179,7 +179,7 @@ Flags:
                                   (default 1)
       --sendDelay uint            The delay between sending the messages in ms
                                   (default 500)
-      --sendid uint               Use precanned user id (must be between 1 and
+      --sendid uiverboseRoundTrackingnt               Use precanned user id (must be between 1 and
                                   40, inclusive)
       --slowPolling bool          Enables polling for all network updates and RSA signed rounds.
                                   Defaults to true (filtered updates with ECC signed rounds) if not set
@@ -190,6 +190,9 @@ Flags:
       --unsafe-channel-creation   Turns off the user identity authenticated
                                   channel check, automatically approving
                                   authenticated channels
+      --verboseRoundTracking      Verbose round tracking, keeps track and prints 
+                                  all rounds the client was aware of while running. 
+                                  Defaults to false if not set.
   -v, --logLevel uint             Level of debugging to print (0 = info, 
                                   1 = debug, >1 = trace). (Default info)
       --waitTimeout uint          The number of seconds to wait for messages to

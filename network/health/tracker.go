@@ -144,6 +144,7 @@ func (t *Tracker) setHealth(h bool) {
 func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.mux.Lock()
 	if t.running {
+		t.mux.Unlock()
 		return nil, errors.New("cannot start Health tracker threads, " +
 			"they are already running")
 	}

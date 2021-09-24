@@ -177,6 +177,9 @@ func (t *Tracker) start(stop *stoppable.Single) {
 
 			return
 		case heartbeat = <-t.heartbeat:
+			// FIXME: There's no transition to unhealthy here
+			// and there needs to be after some number of bad
+			// polls
 			if healthy(heartbeat) {
 				t.setHealth(true)
 			}

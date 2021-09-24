@@ -660,7 +660,6 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogOutput(logOutput)
 	}
 
-
 	if threshold > 1 {
 		jww.INFO.Printf("log level set to: TRACE")
 		jww.SetStdoutThreshold(jww.LevelTrace)
@@ -703,15 +702,16 @@ var roundsNotepad *jww.Notepad
 // the client will keep track of all rounds it evaluates if it has
 // messages in, and then will dump them to this log on client exit
 func initRoundLog(logPath string) {
-	parts := strings.Split(logPath,".")
+	parts := strings.Split(logPath, ".")
 	path := parts[0] + "-rounds." + parts[1]
 	logOutput, err := os.OpenFile(path,
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		jww.FATAL.Panicf(err.Error())
 	}
-	roundsNotepad = jww.NewNotepad(jww.LevelInfo,jww.LevelInfo,ioutil.Discard,logOutput,"",log.Ldate|log.Ltime)
+	roundsNotepad = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo, ioutil.Discard, logOutput, "", log.Ldate|log.Ltime)
 }
+
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {

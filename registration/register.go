@@ -39,28 +39,26 @@ func register(comms registrationMessageSender, host *connect.Host,
 	response, err := comms.
 		SendRegistrationMessage(host,
 			&pb.ClientRegistration{
-				RegistrationCode:         registrationCode,
-				ClientTransmissionRSAPubKey:          receptionPem,
-				ClientReceptionRSAPubKey: transmissionPem,
+				RegistrationCode:            registrationCode,
+				ClientTransmissionRSAPubKey: receptionPem,
+				ClientReceptionRSAPubKey:    transmissionPem,
 			})
 	if err != nil {
-		err = errors.Wrap(err, "sendRegistrationMessage: Unable to " +
+		err = errors.Wrap(err, "sendRegistrationMessage: Unable to "+
 			"contact Identity Server!")
 		return nil, nil, 0, err
 	}
 	if response.Error != "" {
-		return nil, nil, 0, errors.Errorf("sendRegistrationMessage: " +
+		return nil, nil, 0, errors.Errorf("sendRegistrationMessage: "+
 			"error handling message: %s", response.Error)
 	}
-
-
 
 	// Unmarshal reception confirmation
 	receptionConfirmation := &pb.ClientRegistrationConfirmation{}
 	err = proto.Unmarshal(response.GetClientReceptionConfirmation().
 		ClientRegistrationConfirmation, receptionConfirmation)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal " +
+		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal "+
 			"reception confirmation message")
 	}
 
@@ -68,7 +66,7 @@ func register(comms registrationMessageSender, host *connect.Host,
 	err = proto.Unmarshal(response.GetClientReceptionConfirmation().
 		ClientRegistrationConfirmation, transmissionConfirmation)
 	if err != nil {
-		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal " +
+		return nil, nil, 0, errors.WithMessage(err, "Failed to unmarshal "+
 			"transmission confirmation message")
 	}
 

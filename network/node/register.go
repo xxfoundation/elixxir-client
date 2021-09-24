@@ -194,10 +194,10 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 				TimeStamp: registrationTimestampNano,
 			})
 		if err != nil {
-			return nil, errors.WithMessage(err,"Register: Failed requesting nonce from gateway")
+			return nil, errors.WithMessage(err, "Register: Failed requesting nonce from gateway")
 		}
 		if nonceResponse.Error != "" {
-			return nil, errors.WithMessage(err,"requestNonce: nonceResponse error")
+			return nil, errors.WithMessage(err, "requestNonce: nonceResponse error")
 		}
 		return nonceResponse, nil
 	}, stop)

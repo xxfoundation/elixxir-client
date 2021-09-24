@@ -231,7 +231,7 @@ func (m *manager) SetPoolFilter(f gateway.Filter) {
 
 // GetVerboseRounds returns verbose round information
 func (m *manager) GetVerboseRounds() string {
-	if m.verboseRounds==nil{
+	if m.verboseRounds == nil {
 		return "Verbose Round tracking not enabled"
 	}
 	return m.verboseRounds.String()

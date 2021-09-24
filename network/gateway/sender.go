@@ -45,22 +45,22 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 		result, err := sendFunc(proxies[proxy])
 		if stop != nil && !stop.IsRunning() {
 			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToAny")
-		}else if err==nil{
+		} else if err == nil {
 			return result, nil
-		} else if strings.Contains(err.Error(),"unable to connect to target host") {
+		} else if strings.Contains(err.Error(), "unable to connect to target host") {
 			// Retry of the proxy could not communicate
 			jww.WARN.Printf("Unable to SendToAny via %s: proxy could not contact requested host: %s",
 				proxies[proxy].GetId().String(), err)
-		}else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced{
-			if checkReplaceErr!=nil{
+		} else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced {
+			if checkReplaceErr != nil {
 				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
 					proxies[proxy].GetId().String(), checkReplaceErr)
-			}else{
+			} else {
 				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s",
 					proxies[proxy].GetId().String())
 			}
-		}else{
-			return nil, errors.WithMessage(err,"Received error from remote")
+		} else {
+			return nil, errors.WithMessage(err, "Received error from remote")
 		}
 	}
 
@@ -82,19 +82,19 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 			return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
 		} else if err == nil {
 			return result, nil
-		} else if strings.Contains(err.Error(),"unable to connect to target host") {
+		} else if strings.Contains(err.Error(), "unable to connect to target host") {
 			// Retry of the proxy could not communicate
-			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, " +
+			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, "+
 				"proxy could not contact requested host",
 				targets[i], targetHosts[i].GetId(), err)
 			continue
 		} else if replaced, checkReplaceErr := s.checkReplace(targetHosts[i].GetId(), err); replaced {
-			if checkReplaceErr!=nil{
-				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, " +
+			if checkReplaceErr != nil {
+				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, "+
 					"proxy failed, was replaced with error: %s",
 					targets[i], targetHosts[i].GetId(), checkReplaceErr)
-			}else{
-				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, " +
+			} else {
+				jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s, "+
 					"proxy failed, was replaced",
 					targets[i], targetHosts[i].GetId())
 			}
@@ -141,19 +141,19 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 				return nil, errors.Errorf(stoppable.ErrMsg, stop.Name(), "SendToPreferred")
 			} else if err == nil {
 				return result, nil
-			} else if strings.Contains(err.Error(),"unable to connect to target host") {
+			} else if strings.Contains(err.Error(), "unable to connect to target host") {
 				// Retry of the proxy could not communicate
-				jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s: %s," +
+				jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s: %s,"+
 					" proxy could not contact requested host",
 					target, proxy, err)
 				continue
 			} else if replaced, checkReplaceErr := s.checkReplace(proxy.GetId(), err); replaced {
-				if checkReplaceErr!=nil{
-					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s," +
+				if checkReplaceErr != nil {
+					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s,"+
 						"proxy failed, was replaced with error: %s", target, proxy.GetId(),
 						checkReplaceErr)
-				}else{
-					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s, " +
+				} else {
+					jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s, "+
 						"proxy failed, was replaced", target, proxy.GetId())
 				}
 

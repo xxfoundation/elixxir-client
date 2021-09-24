@@ -287,7 +287,7 @@ func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Sing
 	return nil, e2e.MessageID{}, time.Time{}, nil
 }
 
-func (tnm *testNetworkManager) GetVerboseRounds()string{
+func (tnm *testNetworkManager) GetVerboseRounds() string {
 	return ""
 }
 

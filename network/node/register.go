@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/network/gateway"
@@ -34,8 +35,8 @@ import (
 )
 
 type RegisterNodeCommsInterface interface {
-	SendRequestNonceMessage(host *connect.Host,
-		message *pb.NonceRequest) (*pb.Nonce, error)
+	SendRequestClientKeyMessage(host *connect.Host,
+		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
 	SendConfirmNonceMessage(host *connect.Host,
 		message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error)
 }
@@ -126,7 +127,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		// keys
 		transmissionHash, _ := hash.NewCMixHash()
 
-		nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig,
+		nonce, dhPub, err := requestKey(sender, comms, gatewayID, regSig,
 			registrationTimestampNano, uci, store, rng, stop)
 
 		if err != nil {
@@ -137,6 +138,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
 
 		// Confirm received nonce
+		// fixme: need?
 		jww.INFO.Printf("Register: Confirming received nonce from node %s", nodeID.String())
 		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
 			nonce, uci.GetTransmissionRSA(), gatewayID, stop)
@@ -156,15 +158,30 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	return nil
 }
 
-func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
+func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
 	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
-	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) ([]byte, []byte, error) {
+	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) (keyResponse, clientGatewayKey []byte, err error) {
 
 	dhPub := store.GetDHPublicKey().Bytes()
+
+	keyRequest := &pb.ClientKeyRequest{
+		Salt: uci.GetTransmissionSalt(),
+		ClientTransmissionConfirmation: &pb.SignedRegistrationConfirmation{
+			RegistrarSignature: &messages.RSASignature{Signature: regSig},
+		},
+		ClientDHPubKey:   dhPub,
+		RequestTimestamp: registrationTimestampNano,
+	}
+
+	serializedMessage, err := proto.Marshal(keyRequest)
+	if err != nil {
+		return nil, nil, err
+	}
+
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = hash.CMixHash
-	h, _ := hash.NewCMixHash()
-	h.Write(dhPub)
+	h := opts.Hash.New()
+	h.Write(serializedMessage)
 	data := h.Sum(nil)
 
 	// Sign DH pubkey
@@ -178,26 +195,17 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 	jww.INFO.Printf("Register: Requesting nonce from gateway %v", gwId.String())
 
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
-		nonceResponse, err := comms.SendRequestNonceMessage(host,
-			&pb.NonceRequest{
-				Salt:            uci.GetTransmissionSalt(),
-				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())),
-				ClientSignedByServer: &messages.RSASignature{
-					Signature: regSig,
-				},
-				ClientDHPubKey: dhPub,
-				RequestSignature: &messages.RSASignature{
-					Signature: clientSig,
-				},
-				Target: gwId.Marshal(),
-				// Timestamp in which user has registered with registration
-				TimeStamp: registrationTimestampNano,
+		nonceResponse, err := comms.SendRequestClientKeyMessage(host,
+			&pb.SignedClientKeyRequest{
+				ClientKeyRequest:          serializedMessage,
+				ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
+				Target:                    gwId.Bytes(),
 			})
 		if err != nil {
 			return nil, errors.WithMessage(err, "Register: Failed requesting nonce from gateway")
 		}
 		if nonceResponse.Error != "" {
-			return nil, errors.WithMessage(err, "requestNonce: nonceResponse error")
+			return nil, errors.WithMessage(err, "requestKey: nonceResponse error")
 		}
 		return nonceResponse, nil
 	}, stop)
@@ -206,10 +214,10 @@ func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId
 		return nil, nil, err
 	}
 
-	nonceResponse := result.(*pb.Nonce)
+	nonceResponse := result.(*pb.SignedKeyResponse)
 
 	// Use Client keypair to sign Server nonce
-	return nonceResponse.Nonce, nonceResponse.DHPubKey, nil
+	return nonceResponse.KeyResponse, nonceResponse.ClientGatewayKey, nil
 }
 
 // confirmNonce is a helper for the Register function

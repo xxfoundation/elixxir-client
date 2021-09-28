@@ -30,6 +30,7 @@ import (
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 	"time"
 )
@@ -138,7 +139,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
 
 		// Confirm received nonce
-		// fixme: need?
+		// fixme: need? I think this can be removed. I which case remove from comms as well
 		jww.INFO.Printf("Register: Confirming received nonce from node %s", nodeID.String())
 		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
 			nonce, uci.GetTransmissionRSA(), gatewayID, stop)
@@ -170,7 +171,8 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 			RegistrarSignature: &messages.RSASignature{Signature: regSig},
 		},
 		ClientDHPubKey:   dhPub,
-		RequestTimestamp: registrationTimestampNano,
+		RegistrationTimestamp: registrationTimestampNano,
+		RequestTimestamp: netTime.Now().UnixNano(),
 	}
 
 	serializedMessage, err := proto.Marshal(keyRequest)

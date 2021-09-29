@@ -94,4 +94,3 @@ func LoadSecretWithMnemonic(mnemonic, path string) (secret []byte, err error) {
 
 	return secret, nil
 }
-

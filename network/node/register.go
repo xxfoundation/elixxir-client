@@ -27,8 +27,10 @@ import (
 	"gitlab.com/elixxir/crypto/registration"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
+	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
+	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
@@ -38,8 +40,14 @@ import (
 type RegisterNodeCommsInterface interface {
 	SendRequestClientKeyMessage(host *connect.Host,
 		message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error)
+
+	// ---------------------- Start of deprecated fields ----------- //
+	// TODO: Remove once RequestClientKey is properly tested
+	SendRequestNonceMessage(host *connect.Host, message *pb.NonceRequest) (*pb.Nonce, error)
 	SendConfirmNonceMessage(host *connect.Host,
 		message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error)
+	// ---------------------- End of deprecated fields ----------- //
+
 }
 
 func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
@@ -124,32 +132,73 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		transmissionKey = store.GetGroup().NewIntFromBytes(h.Sum(nil))
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
-		// Initialise blake2b hash for transmission keys and reception
-		// keys
-		transmissionHash, _ := hash.NewCMixHash()
-
-		nonce, dhPub, err := requestKey(sender, comms, gatewayID, regSig,
+		// Request key from server
+		signedKeyResponse, err := requestKey(sender, comms, gatewayID, regSig,
 			registrationTimestampNano, uci, store, rng, stop)
 
 		if err != nil {
+			// TODO: remove old codepath when new registration path is properly tested
+			jww.WARN.Printf("Databaseless registration failed, attempting soon "+
+				"to be deprecated code path. Error: %v", err)
+			transmissionKey, err = registerDepreciated(sender, comms, regSig,
+				registrationTimestampNano, uci, store, rng, stop, gatewayID, nodeID)
 			return errors.Errorf("Failed to request nonce: %+v", err)
 		}
 
-		// Load server DH pubkey
-		serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
+		// Hash the response
+		opts := rsa.NewDefaultOptions()
+		h := opts.Hash.New()
+		h.Write(signedKeyResponse.KeyResponse)
+		hashedResponse := h.Sum(nil)
 
-		// Confirm received nonce
-		// fixme: need? I think this can be removed. I which case remove from comms as well
-		jww.INFO.Printf("Register: Confirming received nonce from node %s", nodeID.String())
-		err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
-			nonce, uci.GetTransmissionRSA(), gatewayID, stop)
-
+		// Load node certificate
+		nodeCert, err := tls.LoadCertificate(ngw.Node.TlsCertificate)
 		if err != nil {
-			errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
-			return errors.New(errMsg)
+			return errors.WithMessagef(err, "Unable to load node's certificate")
 		}
-		transmissionKey = registration.GenerateBaseKey(store.GetGroup(),
-			serverPubDH, store.GetDHPrivateKey(), transmissionHash)
+
+		// Extract public key
+		nodePubKey, err := tls.ExtractPublicKey(nodeCert)
+		if err != nil {
+			return errors.WithMessagef(err, "Unable to load node's public key")
+		}
+
+		// Verify the response signature
+		err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
+			signedKeyResponse.KeyResponseSignedByNode.Signature, opts)
+		if err != nil {
+			return errors.WithMessagef(err, "Could not verify node's signature")
+		}
+
+		// Unmarshal the response
+		keyResponse := &pb.ClientKeyResponse{}
+		err = proto.Unmarshal(signedKeyResponse.KeyResponse, keyResponse)
+		if err != nil {
+			return errors.WithMessagef(err, "Failed to unmarshal client key response")
+		}
+
+		// Construct the session key
+		clientDhPub := store.GetDHPublicKey().Bytes()
+		h.Reset()
+		h.Write(keyResponse.NodeDHPubKey)
+		h.Write(clientDhPub)
+		sessionKey := h.Sum(nil)
+
+		// Verify the HMAC
+		h.Reset()
+		if !registration.VerifyClientHMAC(sessionKey, keyResponse.EncryptedClientKey,
+			h, keyResponse.EncryptedClientKeyHMAC) {
+			return errors.WithMessagef(err, "Failed to verify client HMAC")
+		}
+
+		// Decrypt the client key
+		clientKey, err := chacha.Decrypt(sessionKey, keyResponse.EncryptedClientKey)
+		if err != nil {
+			return errors.WithMessagef(err, "Failed to decrypt client key")
+		}
+
+		// Construct the transmission key from the client key
+		transmissionKey = store.GetGroup().NewIntFromBytes(clientKey)
 	}
 
 	store.Add(nodeID, transmissionKey)
@@ -161,7 +210,7 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 
 func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
 	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
-	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) (keyResponse, clientGatewayKey []byte, err error) {
+	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) (keyResponse *pb.SignedKeyResponse, err error) {
 
 	dhPub := store.GetDHPublicKey().Bytes()
 
@@ -170,14 +219,14 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 		ClientTransmissionConfirmation: &pb.SignedRegistrationConfirmation{
 			RegistrarSignature: &messages.RSASignature{Signature: regSig},
 		},
-		ClientDHPubKey:   dhPub,
+		ClientDHPubKey:        dhPub,
 		RegistrationTimestamp: registrationTimestampNano,
-		RequestTimestamp: netTime.Now().UnixNano(),
+		RequestTimestamp:      netTime.Now().UnixNano(),
 	}
 
 	serializedMessage, err := proto.Marshal(keyRequest)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	opts := rsa.NewDefaultOptions()
@@ -190,7 +239,7 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 	clientSig, err := rsa.Sign(rng, uci.GetTransmissionRSA(), opts.Hash,
 		data, opts)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	// Request nonce message from gateway
@@ -213,21 +262,130 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 	}, stop)
 
 	if err != nil {
+		return nil, err
+	}
+
+	response := result.(*pb.SignedKeyResponse)
+	if response.Error != "" {
+		return nil, errors.New(response.Error)
+	}
+
+	// Use Client keypair to sign Server nonce
+	return response, nil
+}
+
+// ---------------------- Start of deprecated fields ----------- //
+
+// registerDepreciated is a DEPRECATED codepath that registers a user via
+// the request/confirmNonce codepath. This is left for backward compatibility
+// and will be removed.
+// TODO: Remove this once RequestClientKey is properly tested
+func registerDepreciated(sender *gateway.Sender, comms RegisterNodeCommsInterface,
+	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
+	store *cmix.Store, rng csprng.Source, stop *stoppable.Single,
+	gatewayID, nodeID *id.ID) (*cyclic.Int, error) {
+
+	jww.WARN.Printf("DEPRECATED: Registering using soon to be deprecated code path")
+
+	transmissionHash, _ := hash.NewCMixHash()
+
+	// Register nonce
+	nonce, dhPub, err := requestNonce(sender, comms, gatewayID, regSig,
+		registrationTimestampNano, uci, store, rng, stop)
+	if err != nil {
+		return nil, err
+	}
+
+	// Load server DH pubkey
+	serverPubDH := store.GetGroup().NewIntFromBytes(dhPub)
+
+	// Confirm received nonce
+	jww.INFO.Printf("Register: Confirming received nonce from node %s", nodeID.String())
+	err = confirmNonce(sender, comms, uci.GetTransmissionID().Bytes(),
+		nonce, uci.GetTransmissionRSA(), gatewayID, stop)
+
+	if err != nil {
+		errMsg := fmt.Sprintf("Register: Unable to confirm nonce: %v", err)
+		return nil, errors.New(errMsg)
+	}
+	transmissionKey := registration.GenerateBaseKey(store.GetGroup(),
+		serverPubDH, store.GetDHPrivateKey(), transmissionHash)
+
+	return transmissionKey, err
+}
+
+// WARNING DEPRECATED: requestNonce will soon be deprecated and removed. This will only
+// be used for testing with backwards compatibility.
+// TODO: Remove this once RequestClientKey is properly tested
+func requestNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
+	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
+	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) ([]byte, []byte, error) {
+
+	jww.WARN.Printf("DEPRECATED: Registering with a soon to be deprecated function")
+
+	dhPub := store.GetDHPublicKey().Bytes()
+	opts := rsa.NewDefaultOptions()
+	opts.Hash = hash.CMixHash
+	h, _ := hash.NewCMixHash()
+	h.Write(dhPub)
+	data := h.Sum(nil)
+
+	// Sign DH pubkey
+	clientSig, err := rsa.Sign(rng, uci.GetTransmissionRSA(), opts.Hash,
+		data, opts)
+	if err != nil {
 		return nil, nil, err
 	}
 
-	nonceResponse := result.(*pb.SignedKeyResponse)
+	// Request nonce message from gateway
+	jww.INFO.Printf("Register: Requesting nonce from gateway %v", gwId.String())
+
+	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
+		nonceResponse, err := comms.SendRequestNonceMessage(host,
+			&pb.NonceRequest{
+				Salt:            uci.GetTransmissionSalt(),
+				ClientRSAPubKey: string(rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())),
+				ClientSignedByServer: &messages.RSASignature{
+					Signature: regSig,
+				},
+				ClientDHPubKey: dhPub,
+				RequestSignature: &messages.RSASignature{
+					Signature: clientSig,
+				},
+				Target: gwId.Marshal(),
+				// Timestamp in which user has registered with registration
+				TimeStamp: registrationTimestampNano,
+			})
+		if err != nil {
+			return nil, errors.WithMessage(err, "Register: Failed requesting nonce from gateway")
+		}
+		if nonceResponse.Error != "" {
+			return nil, errors.WithMessage(err, "requestNonce: nonceResponse error")
+		}
+		return nonceResponse, nil
+	}, stop)
+
+	if err != nil {
+		return nil, nil, err
+	}
+
+	nonceResponse := result.(*pb.Nonce)
 
 	// Use Client keypair to sign Server nonce
-	return nonceResponse.KeyResponse, nonceResponse.ClientGatewayKey, nil
+	return nonceResponse.Nonce, nonceResponse.DHPubKey, nil
 }
 
+// WARNING DEPRECATED: confirmNonce will soon be deprecated and removed. This will only
+// be used for testing with backwards compatibility.
 // confirmNonce is a helper for the Register function
 // It signs a nonce and sends it for confirmation
 // Returns nil if successful, error otherwise
+// TODO: Remove this once RequestClientKey is properly tested
 func confirmNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, UID,
 	nonce []byte, privateKeyRSA *rsa.PrivateKey, gwID *id.ID,
 	stop *stoppable.Single) error {
+	jww.WARN.Printf("DEPRECATED: ConfirmNonce is a soon to be deprecated function")
+
 	opts := rsa.NewDefaultOptions()
 	opts.Hash = hash.CMixHash
 	h, _ := hash.NewCMixHash()
@@ -270,3 +428,5 @@ func confirmNonce(sender *gateway.Sender, comms RegisterNodeCommsInterface, UID,
 
 	return err
 }
+
+// ---------------------- End of deprecated fields ----------- //

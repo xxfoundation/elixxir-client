@@ -177,22 +177,27 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 			return errors.WithMessagef(err, "Failed to unmarshal client key response")
 		}
 
-		// Construct the session key
-		clientDhPub := store.GetDHPublicKey().Bytes()
 		h.Reset()
-		h.Write(keyResponse.NodeDHPubKey)
-		h.Write(clientDhPub)
-		sessionKey := h.Sum(nil)
+
+		// Convert Node DH Public key to a cyclic.Int
+		grp := store.GetGroup()
+		nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
+
+		// Construct the session key
+		sessionKey := registration.GenerateBaseKey(grp,
+			nodeDHPub, store.GetDHPrivateKey(), h)
+
+
 
 		// Verify the HMAC
 		h.Reset()
-		if !registration.VerifyClientHMAC(sessionKey, keyResponse.EncryptedClientKey,
+		if !registration.VerifyClientHMAC(sessionKey.Bytes(), keyResponse.EncryptedClientKey,
 			h, keyResponse.EncryptedClientKeyHMAC) {
 			return errors.WithMessagef(err, "Failed to verify client HMAC")
 		}
 
 		// Decrypt the client key
-		clientKey, err := chacha.Decrypt(sessionKey, keyResponse.EncryptedClientKey)
+		clientKey, err := chacha.Decrypt(sessionKey.Bytes(), keyResponse.EncryptedClientKey)
 		if err != nil {
 			return errors.WithMessagef(err, "Failed to decrypt client key")
 		}

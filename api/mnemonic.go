@@ -44,7 +44,7 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	}
 
 	// Encrypt secret with mnemonic as key
-	ciphertext, err := chacha.Encrypt(secret, decodedMnemonic, rng)
+	ciphertext, err := chacha.Encrypt(decodedMnemonic, secret, rng)
 	if err != nil {
 		return "", errors.Errorf("Failed to encrypt secret with mnemonic: %v", err)
 	}

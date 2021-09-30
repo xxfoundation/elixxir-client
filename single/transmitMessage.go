@@ -9,6 +9,7 @@ package single
 
 import (
 	"encoding/binary"
+	"fmt"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -245,4 +246,13 @@ func (mp transmitMessagePayload) SetContents(contents []byte) {
 	binary.BigEndian.PutUint16(mp.size, uint16(len(contents)))
 
 	copy(mp.contents, contents)
+}
+
+
+// String returns the contents for printing adhering to the stringer interface.
+func (mp transmitMessagePayload) String()string {
+	return fmt.Sprintf("Data: %x [tagFP: %x, nonce: %x, " +
+		"maxParts: %x, size: %x, content: %x]", mp.data, mp.tagFP,
+		mp.nonce, mp.maxParts, mp.size, mp.contents)
+
 }

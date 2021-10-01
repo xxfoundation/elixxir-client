@@ -40,8 +40,8 @@ func register(comms registrationMessageSender, host *connect.Host,
 		SendRegistrationMessage(host,
 			&pb.ClientRegistration{
 				RegistrationCode:            registrationCode,
-				ClientTransmissionRSAPubKey: receptionPem,
-				ClientReceptionRSAPubKey:    transmissionPem,
+				ClientTransmissionRSAPubKey: transmissionPem,
+				ClientReceptionRSAPubKey:    receptionPem,
 			})
 	if err != nil {
 		err = errors.Wrap(err, "sendRegistrationMessage: Unable to "+

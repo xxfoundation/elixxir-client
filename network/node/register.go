@@ -187,8 +187,6 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		sessionKey := registration.GenerateBaseKey(grp,
 			nodeDHPub, store.GetDHPrivateKey(), h)
 
-
-
 		// Verify the HMAC
 		h.Reset()
 		if !registration.VerifyClientHMAC(sessionKey.Bytes(), keyResponse.EncryptedClientKey,

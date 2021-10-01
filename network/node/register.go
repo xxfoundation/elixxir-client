@@ -246,22 +246,22 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 	}
 
 	// Request nonce message from gateway
-	jww.INFO.Printf("Register: Requesting nonce from gateway %v", gwId.String())
+	jww.INFO.Printf("Register: Requesting client key from gateway %v", gwId.String())
 
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
-		nonceResponse, err := comms.SendRequestClientKeyMessage(host,
+		keyResponse, err := comms.SendRequestClientKeyMessage(host,
 			&pb.SignedClientKeyRequest{
 				ClientKeyRequest:          serializedMessage,
 				ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
 				Target:                    gwId.Bytes(),
 			})
 		if err != nil {
-			return nil, errors.WithMessage(err, "Register: Failed requesting nonce from gateway")
+			return nil, errors.WithMessage(err, "Register: Failed requesting client key from gateway")
 		}
-		if nonceResponse.Error != "" {
-			return nil, errors.WithMessage(err, "requestKey: nonceResponse error")
+		if keyResponse.Error != "" {
+			return nil, errors.WithMessage(err, "requestKey: clientKeyResponse error")
 		}
-		return nonceResponse, nil
+		return keyResponse, nil
 	}, stop)
 
 	if err != nil {

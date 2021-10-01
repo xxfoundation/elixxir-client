@@ -167,7 +167,7 @@ func (h *HostPool) UpdateNdf(ndf *ndf.NetworkDefinition) {
 	}
 
 	h.ndfMux.Lock()
-	h.ndf = ndf
+	h.ndf = ndf.DeepCopy()
 
 	h.hostMux.Lock()
 	err := h.updateConns()
@@ -561,4 +561,3 @@ func readRangeUint32(start, end uint32, rng io.Reader) uint32 {
 		return (res % size) + start
 	}
 }
-

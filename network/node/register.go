@@ -217,10 +217,19 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 
 	dhPub := store.GetDHPublicKey().Bytes()
 
+	// Reconstruct client confirmation message
+	userPubKeyRSA := rsa.CreatePublicKeyPem(uci.GetTransmissionRSA().GetPublic())
+	confirmation := &pb.ClientRegistrationConfirmation{RSAPubKey: string(userPubKeyRSA), Timestamp: registrationTimestampNano}
+	confirmationSerialized, err := proto.Marshal(confirmation)
+	if err != nil {
+		return nil, err
+	}
+
 	keyRequest := &pb.ClientKeyRequest{
 		Salt: uci.GetTransmissionSalt(),
 		ClientTransmissionConfirmation: &pb.SignedRegistrationConfirmation{
-			RegistrarSignature: &messages.RSASignature{Signature: regSig},
+			RegistrarSignature:             &messages.RSASignature{Signature: regSig},
+			ClientRegistrationConfirmation: confirmationSerialized,
 		},
 		ClientDHPubKey:        dhPub,
 		RegistrationTimestamp: registrationTimestampNano,

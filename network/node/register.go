@@ -30,6 +30,7 @@ import (
 	"gitlab.com/xx_network/crypto/signature/rsa"
 	"gitlab.com/xx_network/primitives/id"
 	"strconv"
+	"sync"
 	"time"
 )
 
@@ -45,10 +46,12 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 
 	multi := stoppable.NewMulti("NodeRegistrations")
 
+	inProgess := &sync.Map{}
+
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(sender, session, rngGen, comms, stop, c)
+		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess)
 		multi.Add(stop)
 	}
 
@@ -57,7 +60,7 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 
 func registerNodes(sender *gateway.Sender, session *storage.Session,
 	rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	stop *stoppable.Single, c chan network.NodeGateway) {
+	stop *stoppable.Single, c chan network.NodeGateway, inProgress *sync.Map) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	// Timestamp in which user has registered with registration
@@ -75,8 +78,13 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			stop.ToStopped()
 			return
 		case gw := <-c:
+			nidStr :=  fmt.Sprintf("%x",gw.Node.ID)
+			if _, operating := inProgress.LoadOrStore(nidStr,struct{}{}); operating{
+				continue
+			}
 			err := registerWithNode(sender, comms, gw, regSignature,
 				regTimestamp, uci, cmix, rng, stop)
+			inProgress.Delete(nidStr)
 			if err != nil {
 				jww.ERROR.Printf("Failed to register node: %+v", err)
 			}

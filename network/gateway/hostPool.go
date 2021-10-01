@@ -22,6 +22,8 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/balancer"
 	"io"
 	"math"
 	"strings"
@@ -31,8 +33,8 @@ import (
 
 // List of errors that initiate a Host replacement
 var errorsList = []string{context.DeadlineExceeded.Error(), "connection refused", "host disconnected",
-	"transport is closing", "all SubConns are in TransientFailure", "Last try to connect",
-	ndf.NO_NDF, "Host is in cool down"}
+	"transport is closing", balancer.ErrTransientFailure.Error(), "Last try to connect",
+	ndf.NO_NDF, "Host is in cool down", grpc.ErrClientConnClosing.Error()}
 
 // HostManager Interface allowing storage and retrieval of Host objects
 type HostManager interface {

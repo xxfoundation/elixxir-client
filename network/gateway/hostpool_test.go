@@ -502,7 +502,7 @@ func TestHostPool_UpdateNdf(t *testing.T) {
 	hostPool.UpdateNdf(newNdf)
 
 	// Check that the host pool's ndf has been modified properly
-	if !reflect.DeepEqual(newNdf, hostPool.ndf) {
+	if len(newNdf.Nodes) != len(hostPool.ndf.Nodes) || len(newNdf.Gateways) != len(hostPool.ndf.Gateways) {
 		t.Errorf("Host pool ndf not updated to new ndf.")
 	}
 }

@@ -22,7 +22,7 @@ require (
 	gitlab.com/elixxir/ekv v0.1.5
 	gitlab.com/elixxir/primitives v0.0.3-0.20210920180121-b85bca5212f4
 	gitlab.com/xx_network/comms v0.0.4-0.20210921011654-3b73a40ed3d6
-	gitlab.com/xx_network/crypto v0.0.5-0.20210928175311-49981edf5e69
+	gitlab.com/xx_network/crypto v0.0.5-0.20210929221112-ec12db8f801d
 	gitlab.com/xx_network/primitives v0.0.4-0.20210915220237-70cb4551d6f3
 	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5

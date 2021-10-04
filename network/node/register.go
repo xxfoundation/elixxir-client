@@ -30,7 +30,6 @@ import (
 	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/crypto/tls"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
@@ -88,8 +87,8 @@ func registerNodes(sender *gateway.Sender, session *storage.Session,
 			stop.ToStopped()
 			return
 		case gw := <-c:
-			nidStr :=  fmt.Sprintf("%x",gw.Node.ID)
-			if _, operating := inProgress.LoadOrStore(nidStr,struct{}{}); operating{
+			nidStr := fmt.Sprintf("%x", gw.Node.ID)
+			if _, operating := inProgress.LoadOrStore(nidStr, struct{}{}); operating {
 				continue
 			}
 			err := registerWithNode(sender, comms, gw, regSignature,
@@ -141,75 +140,18 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 		jww.INFO.Printf("transmissionKey: %v", transmissionKey.Bytes())
 	} else {
 		// Request key from server
-		signedKeyResponse, err := requestKey(sender, comms, gatewayID, regSig,
+		transmissionKey, err = requestKey(sender, comms, ngw, regSig,
 			registrationTimestampNano, uci, store, rng, stop)
 
 		if err != nil {
 			// TODO: remove old codepath when new registration path is properly tested
 			jww.WARN.Printf("Databaseless registration failed, attempting soon "+
-				"to be deprecated code path. Error: %v", err)
+				"to be deprecated registration path. Error: %v", err)
 			transmissionKey, err = registerDepreciated(sender, comms, regSig,
 				registrationTimestampNano, uci, store, rng, stop, gatewayID, nodeID)
 			return errors.Errorf("Failed to request nonce: %+v", err)
 		}
 
-		// Hash the response
-		opts := rsa.NewDefaultOptions()
-		h := opts.Hash.New()
-		h.Write(signedKeyResponse.KeyResponse)
-		hashedResponse := h.Sum(nil)
-
-		// Load node certificate
-		nodeCert, err := tls.LoadCertificate(ngw.Node.TlsCertificate)
-		if err != nil {
-			return errors.WithMessagef(err, "Unable to load node's certificate")
-		}
-
-		// Extract public key
-		nodePubKey, err := tls.ExtractPublicKey(nodeCert)
-		if err != nil {
-			return errors.WithMessagef(err, "Unable to load node's public key")
-		}
-
-		// Verify the response signature
-		err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
-			signedKeyResponse.KeyResponseSignedByNode.Signature, opts)
-		if err != nil {
-			return errors.WithMessagef(err, "Could not verify node's signature")
-		}
-
-		// Unmarshal the response
-		keyResponse := &pb.ClientKeyResponse{}
-		err = proto.Unmarshal(signedKeyResponse.KeyResponse, keyResponse)
-		if err != nil {
-			return errors.WithMessagef(err, "Failed to unmarshal client key response")
-		}
-
-		h.Reset()
-
-		// Convert Node DH Public key to a cyclic.Int
-		grp := store.GetGroup()
-		nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
-
-		// Construct the session key
-		sessionKey := registration.GenerateBaseKey(grp,
-			nodeDHPub, store.GetDHPrivateKey(), h)
-
-		// Verify the HMAC
-		h.Reset()
-		if !registration.VerifyClientHMAC(sessionKey.Bytes(), keyResponse.EncryptedClientKey,
-			h, keyResponse.EncryptedClientKeyHMAC) {
-			return errors.WithMessagef(err, "Failed to verify client HMAC")
-		}
-
-		// Decrypt the client key
-		clientKey, err := chacha.Decrypt(sessionKey.Bytes(), keyResponse.EncryptedClientKey)
-		if err != nil {
-			return errors.WithMessagef(err, "Failed to decrypt client key")
-		}
-
-		// Construct the transmission key from the client key
-		transmissionKey = store.GetGroup().NewIntFromBytes(clientKey)
 	}
 
 	store.Add(nodeID, transmissionKey)
@@ -219,9 +161,9 @@ func registerWithNode(sender *gateway.Sender, comms RegisterNodeCommsInterface,
 	return nil
 }
 
-func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *id.ID,
+func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, ngw network.NodeGateway,
 	regSig []byte, registrationTimestampNano int64, uci *user.CryptographicIdentity,
-	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) (keyResponse *pb.SignedKeyResponse, err error) {
+	store *cmix.Store, rng csprng.Source, stop *stoppable.Single) (*cyclic.Int, error) {
 
 	dhPub := store.GetDHPublicKey().Bytes()
 
@@ -262,15 +204,22 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 		return nil, err
 	}
 
+	gwid := ngw.Gateway.ID
+	gatewayID, err := id.Unmarshal(gwid)
+	if err != nil {
+		jww.ERROR.Println("registerWithNode() failed to decode gatewayID")
+		return nil, err
+	}
+
 	// Request nonce message from gateway
-	jww.INFO.Printf("Register: Requesting client key from gateway %v", gwId.String())
+	jww.INFO.Printf("Register: Requesting client key from gateway %v", gatewayID.String())
 
 	result, err := sender.SendToAny(func(host *connect.Host) (interface{}, error) {
 		keyResponse, err := comms.SendRequestClientKeyMessage(host,
 			&pb.SignedClientKeyRequest{
 				ClientKeyRequest:          serializedMessage,
 				ClientKeyRequestSignature: &messages.RSASignature{Signature: clientSig},
-				Target:                    gwId.Bytes(),
+				Target:                    gatewayID.Bytes(),
 			})
 		if err != nil {
 			return nil, errors.WithMessage(err, "Register: Failed requesting client key from gateway")
@@ -285,13 +234,72 @@ func requestKey(sender *gateway.Sender, comms RegisterNodeCommsInterface, gwId *
 		return nil, err
 	}
 
-	response := result.(*pb.SignedKeyResponse)
-	if response.Error != "" {
-		return nil, errors.New(response.Error)
+	signedKeyResponse := result.(*pb.SignedKeyResponse)
+	if signedKeyResponse.Error != "" {
+		return nil, errors.New(signedKeyResponse.Error)
 	}
 
+	// fixme: node signs the response but client has a partial ndf
+	//  w/ no node cert info, so it can't verify the signature
+	//// Hash the response
+	//h.Reset()
+	//h.Write(signedKeyResponse.KeyResponse)
+	//hashedResponse := h.Sum(nil)
+	//
+	//// Load node certificate
+	//nodeCert, err := tls.LoadCertificate(ngw.Node.TlsCertificate)
+	//if err != nil {
+	//	return nil, errors.WithMessagef(err, "Unable to load node's certificate")
+	//}
+	//
+	//// Extract public key
+	//nodePubKey, err := tls.ExtractPublicKey(nodeCert)
+	//if err != nil {
+	//	return nil, errors.WithMessagef(err, "Unable to load node's public key")
+	//}
+	//
+	//// Verify the response signature
+	//err = rsa.Verify(nodePubKey, opts.Hash, hashedResponse,
+	//	signedKeyResponse.KeyResponseSignedByNode.Signature, opts)
+	//if err != nil {
+	//	return nil, errors.WithMessagef(err, "Could not verify node's signature")
+	//}
+
+	// Unmarshal the response
+	keyResponse := &pb.ClientKeyResponse{}
+	err = proto.Unmarshal(signedKeyResponse.KeyResponse, keyResponse)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to unmarshal client key response")
+	}
+
+	h.Reset()
+
+	// Convert Node DH Public key to a cyclic.Int
+	grp := store.GetGroup()
+	nodeDHPub := grp.NewIntFromBytes(keyResponse.NodeDHPubKey)
+
+	// Construct the session key
+	sessionKey := registration.GenerateBaseKey(grp,
+		nodeDHPub, store.GetDHPrivateKey(), h)
+
+	// Verify the HMAC
+	h.Reset()
+	if !registration.VerifyClientHMAC(sessionKey.Bytes(), keyResponse.EncryptedClientKey,
+		h, keyResponse.EncryptedClientKeyHMAC) {
+		return nil, errors.WithMessagef(err, "Failed to verify client HMAC")
+	}
+
+	// Decrypt the client key
+	clientKey, err := chacha.Decrypt(sessionKey.Bytes(), keyResponse.EncryptedClientKey)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decrypt client key")
+	}
+
+	// Construct the transmission key from the client key
+	transmissionKey := store.GetGroup().NewIntFromBytes(clientKey)
+
 	// Use Client keypair to sign Server nonce
-	return response, nil
+	return transmissionKey, nil
 }
 
 // ---------------------- Start of deprecated fields ----------- //

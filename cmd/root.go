@@ -247,7 +247,10 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
+		if roundsNotepad!=nil{
+			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
+		}
+
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -384,7 +387,7 @@ func createClient() *api.Client {
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
-	netParams.VerboseRoundTracking = logLevel > 0
+	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -412,7 +415,7 @@ func initClient() *api.Client {
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		netParams.UncheckRoundPeriod = period
 	}
-	netParams.VerboseRoundTracking = viper.GetUint("logLevel") > 0
+	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -665,17 +668,19 @@ func initLog(threshold uint, logPath string) {
 		jww.SetStdoutThreshold(jww.LevelTrace)
 		jww.SetLogThreshold(jww.LevelTrace)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		initRoundLog(logPath)
 	} else if threshold == 1 {
 		jww.INFO.Printf("log level set to: DEBUG")
 		jww.SetStdoutThreshold(jww.LevelDebug)
 		jww.SetLogThreshold(jww.LevelDebug)
 		jww.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		initRoundLog(logPath)
 	} else {
 		jww.INFO.Printf("log level set to: INFO")
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
+	}
+
+	if viper.GetBool("verboseRoundTracking"){
+		initRoundLog(logPath)
 	}
 }
 
@@ -727,6 +732,11 @@ func init() {
 	rootCmd.PersistentFlags().UintP("logLevel", "v", 0,
 		"Verbose mode for debugging")
 	viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
+
+	rootCmd.PersistentFlags().Bool("verboseRoundTracking", false,
+		"Verbose round tracking, keeps track and prints all rounds the " +
+		"client was aware of while running. Defaults to false if not set.")
+	viper.BindPFlag("verboseRoundTracking", rootCmd.PersistentFlags().Lookup("verboseRoundTracking"))
 
 	rootCmd.PersistentFlags().StringP("session", "s",
 		"", "Sets the initial storage directory for "+

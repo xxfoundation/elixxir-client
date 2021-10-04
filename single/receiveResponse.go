@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/primitives/format"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
+	"strings"
 )
 
 // receiveResponseHandler handles the reception of single-use response messages.
@@ -40,10 +41,13 @@ func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
 			if err != nil {
 				em := fmt.Sprintf("Failed to read single-use "+
 					"CMIX message response: %+v", err)
-				jww.WARN.Print(em)
-				if m.client != nil {
-					m.client.ReportEvent(9, "SingleUse",
-						"Error", em)
+				if strings.Contains(err.Error(), "no state exists for the reception ID") {
+					jww.TRACE.Print(em)
+				} else {
+					if m.client != nil {
+						m.client.ReportEvent(9, "SingleUse",
+							"Error", em)
+					}
 				}
 			}
 		}

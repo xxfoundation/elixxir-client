@@ -53,10 +53,10 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 			// Retry of the proxy could not communicate
 			jww.INFO.Printf("Unable to SendToAny via %s: non-fatal error received, retrying: %s",
 				proxies[proxy].GetId().String(), err)
-		}else if strings.Contains(err.Error(),"unable to connect to target host") {
+		} else if strings.Contains(err.Error(), "unable to connect to target host") {
 
-		}else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced{
-			if checkReplaceErr!=nil{
+		} else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced {
+			if checkReplaceErr != nil {
 				jww.WARN.Printf("Unable to SendToAny, replaced a proxy %s with error %s",
 					proxies[proxy].GetId().String(), checkReplaceErr)
 			} else {
@@ -90,7 +90,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 			// Retry of the proxy could not communicate
 			jww.INFO.Printf("Unable to to SendToPreferred first pass %s via %s: non-fatal error received, retrying: %s",
 				targets[i], targetHosts[i].GetId(), err)
-		}else if strings.Contains(err.Error(),"unable to connect to target host") {
+		} else if strings.Contains(err.Error(), "unable to connect to target host") {
 			// Retry of the proxy could not communicate
 			jww.WARN.Printf("Unable to SendToPreferred first pass %s via %s: %s, "+
 				"proxy could not contact requested host",
@@ -153,7 +153,7 @@ func (s *Sender) SendToPreferred(targets []*id.ID,
 				// Retry of the proxy could not communicate
 				jww.INFO.Printf("Unable to SendToPreferred second pass %s via %s: non-fatal error received, retrying: %s",
 					target, proxy, err)
-			}else if strings.Contains(err.Error(),"unable to connect to target host") {
+			} else if strings.Contains(err.Error(), "unable to connect to target host") {
 				// Retry of the proxy could not communicate
 				jww.WARN.Printf("Unable to SendToPreferred second pass %s via %s: %s,"+
 					" proxy could not contact requested host",

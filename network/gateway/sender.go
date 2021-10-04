@@ -64,7 +64,7 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 					proxies[proxy].GetId().String())
 			}
 		}else{
-			return nil, errors.WithMessage(err,"Received error from remote")
+			return nil, errors.WithMessage(err,"Received error with SendToAny")
 		}
 	}
 

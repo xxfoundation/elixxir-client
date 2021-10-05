@@ -18,6 +18,7 @@ import (
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/elixxir/crypto/shuffle"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/ndf"
@@ -26,6 +27,7 @@ import (
 	"google.golang.org/grpc/balancer"
 	"io"
 	"math"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -155,69 +157,111 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	}
 
 	// Build the initial HostPool and return
-	//for i := numHostsAdded; i < len(result.hostList); i++ {
-	//	err := result.forceReplace(uint32(i))
-	//	if err != nil {
-	//		return nil, err
-	//	}
-	//}
+	err = result.initialize(uint32(numHostsAdded))
+	if err != nil {
+		return nil, err
+	}
 
 	jww.INFO.Printf("Initialized HostPool with size: %d/%d", poolParams.PoolSize, len(netDef.Gateways))
 	return result, nil
 }
 
 // Initialize the HostPool with a performant set of Hosts
-func (h *HostPool) initialize(startIdx uint32) {
-	roundTripDurations := make(map[id.ID]time.Duration)
-	numGatewaysToTry := h.poolParams.PingMultiplier * (h.poolParams.PoolSize - startIdx)
+func (h *HostPool) initialize(startIdx uint32) error {
+	// Randomly shuffle gateways in NDF
+	randomGateways := make([]ndf.Gateway, len(h.ndf.Gateways))
+	copy(randomGateways, h.ndf.Gateways)
+	var rndBytes [32]byte
+	stream := h.rng.GetStream()
+	_, err := stream.Read(rndBytes[:])
+	stream.Close()
+	if err != nil {
+		return errors.Errorf("Failed to randomize shuffle for HostPool initialization: %+v", err)
+	}
+	shuffle.ShuffleSwap(rndBytes[:], len(randomGateways), func(i, j int) {
+		randomGateways[i], randomGateways[j] = randomGateways[j], randomGateways[i]
+	})
 
-	// Begin checking roundTripDurations for numGatewaysToTry
-	for i := uint32(0); i < numGatewaysToTry; i++ {
-		// Select a gateway not yet selected
-		gwId := h.selectGateway()
-		if _, ok := roundTripDurations[*gwId]; ok {
-			continue
-		}
+	// Set constants
+	type gatewayDuration struct {
+		id      *id.ID
+		latency time.Duration
+	}
+	gatewaysNeeded := h.poolParams.PoolSize - startIdx
+	numGatewaysToTry := h.poolParams.PingMultiplier * gatewaysNeeded
+	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
-		// Initialize in the durations map
-		roundTripDurations[*gwId] = 0
-
-		go func() {
-			// Obtain that GwId's Host object
-			newHost, ok := h.manager.GetHost(gwId)
-			if !ok {
-				jww.WARN.Printf("host for gateway %s could not be "+
-					"retrieved", gwId)
-				return
+	// Begin trying gateways
+	c := make(chan gatewayDuration, numGatewaysToTry)
+	exit := false
+	i := uint32(0)
+	for !exit {
+		for ; i < numGatewaysToTry; i++ {
+			// Ran out of Hosts to try
+			if i > uint32(len(randomGateways)) {
+				return errors.Errorf("Unable to initialize enough viable hosts for HostPool")
 			}
 
-			pingDuration, _ := newHost.IsOnline()
-			roundTripDurations[*gwId] = pingDuration
-		}()
+			// Select a gateway not yet selected
+			gwId, err := randomGateways[i].GetGatewayId()
+			if err != nil {
+				jww.WARN.Printf("ID for gateway %s could not be retrieved", gwId)
+			}
+
+			go func() {
+				// Obtain that GwId's Host object
+				newHost, ok := h.manager.GetHost(gwId)
+				if !ok {
+					jww.WARN.Printf("Host for gateway %s could not be "+
+						"retrieved", gwId)
+					return
+				}
+
+				// Ping the Host latency and send the result
+				latency, _ := newHost.IsOnline()
+				c <- gatewayDuration{gwId, latency}
+			}()
+		}
+
+		// Collect ping results
+		timer := time.NewTimer(2 * h.poolParams.HostParams.PingTimeout)
+		for {
+			select {
+			case gw := <-c:
+				// Only add successful pings
+				if gw.latency > 0 {
+					resultList = append(resultList, gw)
+				}
+
+				// Break if we have all needed slots
+				if uint32(len(resultList)) == numGatewaysToTry {
+					exit = true
+					break
+				}
+			case <-timer.C:
+				break
+			}
+		}
 	}
 
-	// TODO ?
-	time.Sleep(2 * h.poolParams.HostParams.PingTimeout)
+	// Sort the resultList by lowest latency
+	sort.Slice(resultList, func(i, j int) bool {
+		return resultList[i].latency < resultList[j].latency
+	})
+	jww.DEBUG.Printf("Gateway pool results: %+v", resultList)
 
-	// Add sufficiently fast gateways
-	for gwId, roundTripDuration := range roundTripDurations {
-		// Ignore failed connectivity checks
-		if roundTripDuration == 0 {
-			continue
-		}
-
-		// Attempt to add to HostPool
-		err := h.replaceHost(&gwId, startIdx)
+	// Process ping results
+	for _, result := range resultList {
+		err = h.replaceHost(result.id, startIdx)
 		if err != nil {
-			jww.WARN.Printf("Unable to initialize host in HostPool: %+v", err)
+			return err
 		}
 		startIdx++
-
-		// Once HostPool is full, break
 		if startIdx >= h.poolParams.PoolSize {
 			break
 		}
 	}
+	return nil
 }
 
 // UpdateNdf Mutates internal ndf to the given ndf

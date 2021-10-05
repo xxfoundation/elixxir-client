@@ -296,7 +296,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
 		hasMessage := rounds.Checker(rid, filterList, identity.CR)
-		if !hasMessage && m.verboseRounds != nil{
+		if !hasMessage && m.verboseRounds != nil {
 			m.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
 		}
 		return hasMessage
@@ -307,9 +307,9 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
 	updated, old, _ := identity.ER.Set(earliestTrackedRound)
 	if old == 0 {
-		if gwRoundsState.GetLastChecked()> id.Round(m.param.KnownRoundsThreshold){
+		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {
 			updated = gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
-		}else{
+		} else {
 			updated = 1
 		}
 		identity.ER.Set(updated)
@@ -354,8 +354,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	if m.verboseRounds != nil {
 		trackingStart := updated
-		if uint(earliestRemaining-updated)>m.param.KnownRoundsThreshold{
-			trackingStart = earliestRemaining-id.Round(m.param.KnownRoundsThreshold)
+		if uint(earliestRemaining-updated) > m.param.KnownRoundsThreshold {
+			trackingStart = earliestRemaining - id.Round(m.param.KnownRoundsThreshold)
 		}
 		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)
 		for i := trackingStart; i <= earliestRemaining; i++ {

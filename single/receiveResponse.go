@@ -41,9 +41,9 @@ func (m *Manager) receiveResponseHandler(rawMessages chan message.Receive,
 			if err != nil {
 				em := fmt.Sprintf("Failed to read single-use "+
 					"CMIX message response: %+v", err)
-				if strings.Contains(err.Error(), "no state exists for the reception ID"){
+				if strings.Contains(err.Error(), "no state exists for the reception ID") {
 					jww.TRACE.Print(em)
-				}else{
+				} else {
 					if m.client != nil {
 						m.client.ReportEvent(9, "SingleUse",
 							"Error", em)

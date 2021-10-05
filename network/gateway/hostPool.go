@@ -143,6 +143,9 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 				jww.WARN.Printf("Unable to add stored host %s: %s", hid, err.Error())
 			} else {
 				numHostsAdded++
+				if numHostsAdded >= len(result.hostList) {
+					break
+				}
 			}
 		}
 	} else {
@@ -347,7 +350,7 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 		return err
 	}
 
-	// Convert list of of non-nil and non-zero hosts to ID list
+	// Convert list of non-nil and non-zero hosts to ID list
 	idList := make([]*id.ID, 0, len(h.hostList))
 	for _, host := range h.hostList {
 		if host.GetId() != nil && !host.GetId().Cmp(&id.ID{}) {
@@ -360,7 +363,7 @@ func (h *HostPool) replaceHost(newId *id.ID, oldPoolIndex uint32) error {
 }
 
 // replaceHostNoStore replaces the given slot in the HostPool with a new Gateway
-// with the specified ID.
+// with the specified ID without saving changes to storage
 func (h *HostPool) replaceHostNoStore(newId *id.ID, oldPoolIndex uint32) error {
 	// Obtain that GwId's Host object
 	newHost, ok := h.manager.GetHost(newId)

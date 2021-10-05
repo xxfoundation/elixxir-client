@@ -101,10 +101,9 @@ func (t *testNetworkManagerGeneric) CheckGarbledMessages() {
 	return
 }
 
-func (t *testNetworkManagerGeneric) GetVerboseRounds()string{
+func (t *testNetworkManagerGeneric) GetVerboseRounds() string {
 	return ""
 }
-
 
 func (t *testNetworkManagerGeneric) SendE2E(message.Send, params.E2E, *stoppable.Single) (
 	[]id.Round, cE2e.MessageID, time.Time, error) {

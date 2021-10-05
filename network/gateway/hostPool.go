@@ -74,21 +74,21 @@ type HostPool struct {
 
 // PoolParams Allows configuration of HostPool parameters
 type PoolParams struct {
-	MaxPoolSize    uint32             // Maximum number of Hosts in the HostPool
-	PoolSize       uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
-	ProxyAttempts  uint32             // How many proxies will be used in event of send failure
-	PingMultiplier uint32             // How many gateways to concurrently test when initializing HostPool
-	HostParams     connect.HostParams // Parameters for the creation of new Host objects
+	MaxPoolSize   uint32             // Maximum number of Hosts in the HostPool
+	PoolSize      uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
+	ProxyAttempts uint32             // How many proxies will be used in event of send failure
+	MaxPings      uint32             // How many gateways to concurrently test when initializing HostPool
+	HostParams    connect.HostParams // Parameters for the creation of new Host objects
 }
 
 // DefaultPoolParams Returns a default set of PoolParams
 func DefaultPoolParams() PoolParams {
 	p := PoolParams{
-		MaxPoolSize:    30,
-		ProxyAttempts:  5,
-		PoolSize:       0,
-		PingMultiplier: 2,
-		HostParams:     connect.GetDefaultHostParams(),
+		MaxPoolSize:   30,
+		ProxyAttempts: 5,
+		PoolSize:      0,
+		MaxPings:      50,
+		HostParams:    connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
 	p.HostParams.AuthEnabled = false
@@ -187,8 +187,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		id      *id.ID
 		latency time.Duration
 	}
-	gatewaysNeeded := h.poolParams.PoolSize - startIdx
-	numGatewaysToTry := h.poolParams.PingMultiplier * gatewaysNeeded
+	numGatewaysToTry := h.poolParams.MaxPings
 	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
 	// Begin trying gateways

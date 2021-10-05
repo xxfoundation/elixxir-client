@@ -199,13 +199,17 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		for ; i < numGatewaysToTry; i++ {
 			// Ran out of Hosts to try
 			if i > uint32(len(randomGateways)) {
-				return errors.Errorf("Unable to initialize enough viable hosts for HostPool")
+				break
 			}
 
 			// Select a gateway not yet selected
 			gwId, err := randomGateways[i].GetGatewayId()
 			if err != nil {
 				jww.WARN.Printf("ID for gateway %s could not be retrieved", gwId)
+			}
+			// Skip if already in HostPool
+			if _, ok := h.hostMap[*gwId]; ok {
+				continue
 			}
 
 			go func() {
@@ -254,13 +258,20 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	for _, result := range resultList {
 		err = h.replaceHost(result.id, startIdx)
 		if err != nil {
-			return err
+			jww.WARN.Printf("Unable to replaceHost: %+v", err)
+			continue
 		}
 		startIdx++
 		if startIdx >= h.poolParams.PoolSize {
 			break
 		}
 	}
+
+	// Ran out of Hosts to try
+	if startIdx < h.poolParams.PoolSize {
+		return errors.Errorf("Unable to initialize enough viable hosts for HostPool")
+	}
+
 	return nil
 }
 

@@ -205,6 +205,9 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	}
 	numGatewaysToTry := h.poolParams.MaxPings
 	numGateways := uint32(len(randomGateways))
+	if numGatewaysToTry>numGateways{
+		numGatewaysToTry = numGateways
+	}
 	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
 	// Begin trying gateways

@@ -57,7 +57,7 @@ func (s *Sender) SendToAny(sendFunc func(host *connect.Host) (interface{}, error
 			// Retry of the proxy could not communicate
 			jww.WARN.Printf("Unable to SendToAny via %s: %s,"+
 				" proxy could not contact requested host",
-				proxy, err)
+				proxies[proxy].GetId(), err)
 			continue
 		} else if replaced, checkReplaceErr := s.checkReplace(proxies[proxy].GetId(), err); replaced {
 			if checkReplaceErr != nil {

@@ -65,6 +65,8 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 	stream := rng.GetStream()
 	defer stream.Close()
 
+	maxTimeout := sender.GetHostParams().SendTimeout
+
 	recipientString, msgDigests := messageMapToStrings(msgs)
 
 	jww.INFO.Printf("Looking for round to send cMix messages to [%s] "+
@@ -139,7 +141,7 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 		// Send the payload
 		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMessage.Target = target.Marshal()
-			timeout := calculateSendTimeout(bestRound)
+			timeout := calculateSendTimeout(bestRound, maxTimeout)
 			result, err := comms.SendPutManyMessages(host,
 				wrappedMessage, timeout)
 			if err != nil {

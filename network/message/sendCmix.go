@@ -41,16 +41,14 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 		m.TransmissionID, m.Comms, stop)
 }
 
-func calculateSendTimeout(bestRound *pb.RoundInfo) time.Duration {
+func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
 	RoundStartTime := time.Unix(0,
-		int64(bestRound.Timestamps[states.QUEUED]))
+		int64(best.Timestamps[states.QUEUED]))
 	// 250ms AFTER the round starts to hear the response.
 	timeout := RoundStartTime.Sub(
 		netTime.Now().Add(250 * time.Millisecond))
-	// Never wait more than 5 seconds
-	maxTimeout := 5 * time.Second
-	if timeout > maxTimeout {
-		timeout = maxTimeout
+	if timeout > max {
+		timeout = max
 	}
 	// time.Duration is a signed int, so check for negative
 	if timeout < 0 {
@@ -78,6 +76,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	timeStart := netTime.Now()
 	attempted := set.New()
+	maxTimeout := sender.GetHostParams().SendTimeout
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
@@ -151,7 +150,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
 
-			timeout := calculateSendTimeout(bestRound)
+			timeout := calculateSendTimeout(bestRound, maxTimeout)
 			result, err := comms.SendPutMessage(host, wrappedMsg,
 				timeout)
 			if err != nil {

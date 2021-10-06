@@ -21,10 +21,12 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
+	"time"
 )
 
 // WARNING: Potentially Unsafe
@@ -37,6 +39,25 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, m.blacklistedNodes, m.Instance,
 		m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
 		m.TransmissionID, m.Comms, stop)
+}
+
+func calculateSendTimeout(bestRound *pb.RoundInfo) time.Duration {
+	RoundStartTime := time.Unix(0,
+		int64(bestRound.Timestamps[states.QUEUED]))
+	// 250ms AFTER the round starts to hear the response.
+	timeout := RoundStartTime.Sub(
+		netTime.Now().Add(250 * time.Millisecond))
+	// Never wait more than 5 seconds
+	maxTimeout := 5 * time.Second
+	if timeout > maxTimeout {
+		timeout = maxTimeout
+	}
+	// time.Duration is a signed int, so check for negative
+	if timeout < 0 {
+		// TODO: should this produce a warning?
+		timeout = 100 * time.Millisecond
+	}
+	return timeout
 }
 
 // Helper function for sendCmix
@@ -129,7 +150,10 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		// Send the payload
 		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
-			result, err := comms.SendPutMessage(host, wrappedMsg)
+
+			timeout := calculateSendTimeout(bestRound)
+			result, err := comms.SendPutMessage(host, wrappedMsg,
+				timeout)
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
 				warn, err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)

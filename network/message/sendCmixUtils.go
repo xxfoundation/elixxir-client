@@ -28,8 +28,14 @@ import (
 
 // Interface for SendCMIX comms; allows mocking this in testing.
 type sendCmixCommsInterface interface {
-	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
-	SendPutManyMessages(host *connect.Host, messages *pb.GatewaySlots) (*pb.GatewaySlotResponse, error)
+	// SendPutMessage places a cMix message on the gateway to be
+	// sent through cMix.
+	SendPutMessage(host *connect.Host, message *pb.GatewaySlot,
+		timeout time.Duration) (*pb.GatewaySlotResponse, error)
+	// SendPutManyMessages places a list of cMix messages on the gateway
+	// to be sent through cMix.
+	SendPutManyMessages(host *connect.Host, messages *pb.GatewaySlots,
+		timeout time.Duration) (*pb.GatewaySlotResponse, error)
 }
 
 // how much in the future a round needs to be to send to it

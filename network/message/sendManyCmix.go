@@ -139,7 +139,9 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 		// Send the payload
 		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMessage.Target = target.Marshal()
-			result, err := comms.SendPutManyMessages(host, wrappedMessage)
+			timeout := calculateSendTimeout(bestRound)
+			result, err := comms.SendPutManyMessages(host,
+				wrappedMessage, timeout)
 			if err != nil {
 				warn, err := handlePutMessageError(firstGateway, instance,
 					session, nodeRegistration, recipientString, bestRound, err)

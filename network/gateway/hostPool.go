@@ -234,8 +234,8 @@ func (h *HostPool) initialize(startIdx uint32) error {
 			case gw := <-c:
 				// Only add successful pings
 				if gw.latency > 0 {
-					jww.DEBUG.Printf("Adding HostPool result: %+v", gw)
 					resultList = append(resultList, gw)
+					jww.DEBUG.Printf("Adding HostPool result %d/%d: %+v", gw, len(resultList), numGatewaysToTry)
 				}
 
 				// Break if we have all needed slots

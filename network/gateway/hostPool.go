@@ -231,23 +231,25 @@ func (h *HostPool) initialize(startIdx uint32) error {
 
 		// Collect ping results
 		timer := time.NewTimer(2 * h.poolParams.HostParams.PingTimeout)
-		for {
+		exitInner := false
+		for !exitInner {
 			select {
 			case gw := <-c:
 				// Only add successful pings
 				if gw.latency > 0 {
 					resultList = append(resultList, gw)
-					jww.DEBUG.Printf("Adding HostPool result %d/%d: %+v", gw, len(resultList), numGatewaysToTry)
+					jww.DEBUG.Printf("Adding HostPool result %d/%d: %s: %d",
+						len(resultList), numGatewaysToTry, gw.id.String(), gw.latency)
 				}
 
 				// Break if we have all needed slots
 				if uint32(len(resultList)) == numGatewaysToTry {
 					exit = true
-					break
+					exitInner = true
 				}
 			case <-timer.C:
 				jww.INFO.Printf("HostPool initialization timed out!")
-				break
+				exitInner = true
 			}
 		}
 	}

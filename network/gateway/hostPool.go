@@ -168,6 +168,11 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 
 // Initialize the HostPool with a performant set of Hosts
 func (h *HostPool) initialize(startIdx uint32) error {
+	// If HostPool is full, don't need to initialize
+	if startIdx == h.poolParams.PoolSize {
+		return nil
+	}
+
 	// Randomly shuffle gateways in NDF
 	randomGateways := make([]ndf.Gateway, len(h.ndf.Gateways))
 	copy(randomGateways, h.ndf.Gateways)
@@ -188,6 +193,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 		latency time.Duration
 	}
 	numGatewaysToTry := h.poolParams.MaxPings
+	numGateways := uint32(len(randomGateways))
 	resultList := make([]gatewayDuration, 0, numGatewaysToTry)
 
 	// Begin trying gateways
@@ -195,9 +201,10 @@ func (h *HostPool) initialize(startIdx uint32) error {
 	exit := false
 	i := uint32(0)
 	for !exit {
-		for ; i < numGatewaysToTry; i++ {
+		for ; i < numGateways; i++ {
 			// Ran out of Hosts to try
-			if i > uint32(len(randomGateways)) {
+			if i >= numGateways {
+				exit = true
 				break
 			}
 
@@ -231,8 +238,8 @@ func (h *HostPool) initialize(startIdx uint32) error {
 
 		// Collect ping results
 		timer := time.NewTimer(2 * h.poolParams.HostParams.PingTimeout)
-		exitInner := false
-		for !exitInner {
+	innerLoop:
+		for {
 			select {
 			case gw := <-c:
 				// Only add successful pings
@@ -245,11 +252,11 @@ func (h *HostPool) initialize(startIdx uint32) error {
 				// Break if we have all needed slots
 				if uint32(len(resultList)) == numGatewaysToTry {
 					exit = true
-					exitInner = true
+					break innerLoop
 				}
 			case <-timer.C:
 				jww.INFO.Printf("HostPool initialization timed out!")
-				exitInner = true
+				break innerLoop
 			}
 		}
 	}

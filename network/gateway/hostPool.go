@@ -326,6 +326,26 @@ func (h *HostPool) SetFilter(f Filter) {
 	h.filter = f
 }
 
+// GetHostParams returns a copy of the host parameters struct
+func (h *HostPool) GetHostParams() connect.HostParams {
+	hp := h.poolParams.HostParams
+	hpCopy := connect.HostParams{
+		MaxRetries:            hp.MaxRetries,
+		AuthEnabled:           hp.AuthEnabled,
+		EnableCoolOff:         hp.EnableCoolOff,
+		NumSendsBeforeCoolOff: hp.NumSendsBeforeCoolOff,
+		CoolOffTimeout:        hp.CoolOffTimeout,
+		SendTimeout:           hp.SendTimeout,
+		EnableMetrics:         hp.EnableMetrics,
+		ExcludeMetricErrors:   make([]string, len(hp.ExcludeMetricErrors)),
+		KaClientOpts:          hp.KaClientOpts,
+	}
+	for i := 0; i < len(hp.ExcludeMetricErrors); i++ {
+		hpCopy.ExcludeMetricErrors[i] = hp.ExcludeMetricErrors[i]
+	}
+	return hpCopy
+}
+
 // getFilter returns the filter used to filter gateways from the ID map.
 func (h *HostPool) getFilter() Filter {
 	h.filterMux.Lock()

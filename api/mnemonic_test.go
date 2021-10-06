@@ -38,41 +38,6 @@ func TestStoreSecretWithMnemonic(t *testing.T) {
 
 }
 
-func TestEncryptDecryptMnemonic(t *testing.T) {
-	prng := NewPrng(32)
-
-	// Generate a test mnemonic
-	testMnemonic, err := xxMnemonic.GenerateMnemonic(prng, 32)
-	if err != nil {
-		t.Fatalf("GenerateMnemonic error: %v", err)
-	}
-
-	decodedMnemonic, err := xxMnemonic.DecodeMnemonic(testMnemonic)
-	if err != nil {
-		t.Fatalf("DecodeMnemonic error: %v", err)
-	}
-
-	secret := []byte("test123")
-
-	// Encrypt the secret
-	ciphertext, err := encryptWithMnemonic(secret, decodedMnemonic, prng)
-	if err != nil {
-		t.Fatalf("encryptWithMnemonic error: %v", err)
-	}
-
-	// Decrypt the secret
-	received, err := decryptWithMnemonic(ciphertext, decodedMnemonic)
-	if err != nil {
-		t.Fatalf("decryptWithMnemonic error: %v", err)
-	}
-
-	// Test if secret matches decrypted data
-	if !bytes.Equal(received, secret) {
-		t.Fatalf("Decrypted data does not match original plaintext."+
-			"\n\tExpected: %v\n\tReceived: %v", secret, received)
-	}
-}
-
 func TestLoadSecretWithMnemonic(t *testing.T) {
 	secret := []byte("test123")
 	storageDir := "ignore.1"

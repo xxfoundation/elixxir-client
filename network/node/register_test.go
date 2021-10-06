@@ -39,23 +39,13 @@ func NewMockClientComms() *MockClientComms {
 func (mcc *MockClientComms) GetHost(hostId *id.ID) (*connect.Host, bool) {
 	return &connect.Host{}, true
 }
-func (mcc *MockClientComms) SendRequestNonceMessage(host *connect.Host,
-	message *pb.NonceRequest) (*pb.Nonce, error) {
+func (mcc *MockClientComms) SendRequestClientKeyMessage(host *connect.Host,
+	message *pb.SignedClientKeyRequest) (*pb.SignedKeyResponse, error) {
 	// Use this channel to confirm that request nonce was called
 	mcc.request <- true
-	return &pb.Nonce{
-		Nonce:    []byte("nonce"),
-		DHPubKey: []byte("dhpub"),
-	}, nil
-}
-func (mcc *MockClientComms) SendConfirmNonceMessage(host *connect.Host,
-	message *pb.RequestRegistrationConfirmation) (*pb.RegistrationConfirmation, error) {
-	// Use this channel to confirm that confirm nonce was called
-	mcc.confirm <- true
-	return &pb.RegistrationConfirmation{
-		ClientSignedByServer: nil,
-		ClientGatewayKey:     nil,
-		Error:                "",
+	return &pb.SignedKeyResponse{
+		KeyResponse:      []byte("nonce"),
+		ClientGatewayKey: []byte("dhpub"),
 	}, nil
 }
 

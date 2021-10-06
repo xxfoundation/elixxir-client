@@ -8,6 +8,8 @@
 package cmix
 
 import (
+	"bytes"
+	"encoding/binary"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -18,17 +20,20 @@ import (
 const currentKeyVersion = 0
 
 type key struct {
-	kv *versioned.KV
-	k  *cyclic.Int
-
-	storeKey string
+	kv         *versioned.KV
+	k          *cyclic.Int
+	keyId      []byte
+	validUntil uint64
+	storeKey   string
 }
 
-func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID) *key {
+func newKey(kv *versioned.KV, k *cyclic.Int, id *id.ID, validUntil uint64, keyId []byte) *key {
 	nk := &key{
-		kv:       kv,
-		k:        k,
-		storeKey: keyKey(id),
+		kv:         kv,
+		k:          k,
+		keyId:      keyId,
+		validUntil: validUntil,
+		storeKey:   keyKey(id),
 	}
 
 	if err := nk.save(); err != nil {
@@ -89,15 +94,59 @@ func (k *key) delete(kv *versioned.KV, id *id.ID) {
 	}
 }
 
-// makes a binary representation of the given key in the keystore
+// makes a binary representation of the given key and key values
+// in the keystore
 func (k *key) marshal() ([]byte, error) {
-	return k.k.GobEncode()
+	buff := bytes.NewBuffer(nil)
+	keyBytes, err := k.k.GobEncode()
+	if err != nil {
+		return nil, err
+	}
+
+	// Write key length
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, uint64(len(keyBytes)))
+	buff.Write(b)
+
+	// Write key
+	buff.Write(keyBytes)
+
+	// Write the keyId length
+	binary.LittleEndian.PutUint64(b, uint64(len(k.keyId)))
+	buff.Write(b)
+
+	// Write keyID
+	buff.Write(k.keyId)
+
+	// Write valid until
+	binary.LittleEndian.PutUint64(b, k.validUntil)
+	buff.Write(b)
+
+	return buff.Bytes(), nil
 }
 
 // resets the data of the key from the binary representation of the key passed in
 func (k *key) unmarshal(b []byte) error {
+	buff := bytes.NewBuffer(b)
+
+	// Get the key length
+	keyLen := int(binary.LittleEndian.Uint64(buff.Next(8)))
+
+	// Decode the key length
 	k.k = &cyclic.Int{}
-	return k.k.GobDecode(b)
+	err := k.k.GobDecode(buff.Next(keyLen))
+	if err != nil {
+		return err
+	}
+
+	// Get the keyID length
+	keyIDLen := int(binary.LittleEndian.Uint64(buff.Next(8)))
+	k.keyId = buff.Next(keyIDLen)
+
+	// Get the valid until value
+	k.validUntil = binary.LittleEndian.Uint64(buff.Next(8))
+
+	return nil
 }
 
 // Adheres to the stringer interface

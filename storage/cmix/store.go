@@ -34,10 +34,11 @@ type Store struct {
 	nodes        map[id.ID]*key
 	dhPrivateKey *cyclic.Int
 	dhPublicKey  *cyclic.Int
-
-	grp *cyclic.Group
-	kv  *versioned.KV
-	mux sync.RWMutex
+	validUntil   uint64
+	keyId        []byte
+	grp          *cyclic.Group
+	kv           *versioned.KV
+	mux          sync.RWMutex
 }
 
 // NewStore returns a new cMix storage object.
@@ -98,11 +99,12 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 
 // Add adds the key for a round to the cMix storage object. Saves the updated
 // list of nodes and the key to disk.
-func (s *Store) Add(nid *id.ID, k *cyclic.Int) {
+func (s *Store) Add(nid *id.ID, k *cyclic.Int,
+	validUntil uint64, keyId []byte) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	nodeKey := newKey(s.kv, k, nid)
+	nodeKey := newKey(s.kv, k, nid, validUntil, keyId)
 
 	s.nodes[*nid] = nodeKey
 	if err := s.save(); err != nil {

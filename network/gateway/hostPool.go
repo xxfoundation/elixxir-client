@@ -208,6 +208,8 @@ func (h *HostPool) initialize(startIdx uint32) error {
 			}
 			// Skip if already in HostPool
 			if _, ok := h.hostMap[*gwId]; ok {
+				// Try another Host instead
+				numGatewaysToTry++
 				continue
 			}
 

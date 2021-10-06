@@ -221,6 +221,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 				}
 
 				// Ping the Host latency and send the result
+				jww.DEBUG.Printf("Testing host %s...", gwId.String())
 				latency, _ := newHost.IsOnline()
 				c <- gatewayDuration{gwId, latency}
 			}()
@@ -233,6 +234,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 			case gw := <-c:
 				// Only add successful pings
 				if gw.latency > 0 {
+					jww.DEBUG.Printf("Adding HostPool result: %+v", gw)
 					resultList = append(resultList, gw)
 				}
 
@@ -242,6 +244,7 @@ func (h *HostPool) initialize(startIdx uint32) error {
 					break
 				}
 			case <-timer.C:
+				jww.INFO.Printf("HostPool initialization timed out!")
 				break
 			}
 		}

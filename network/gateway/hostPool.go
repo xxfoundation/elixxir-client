@@ -77,7 +77,7 @@ type PoolParams struct {
 	MaxPoolSize   uint32             // Maximum number of Hosts in the HostPool
 	PoolSize      uint32             // Allows override of HostPool size. Set to zero for dynamic size calculation
 	ProxyAttempts uint32             // How many proxies will be used in event of send failure
-	MaxPings      uint32             // How many gateways to concurrently test when initializing HostPool
+	MaxPings      uint32             // How many gateways to concurrently test when initializing HostPool. Disabled if zero.
 	HostParams    connect.HostParams // Parameters for the creation of new Host objects
 }
 
@@ -87,7 +87,7 @@ func DefaultPoolParams() PoolParams {
 		MaxPoolSize:   30,
 		ProxyAttempts: 5,
 		PoolSize:      0,
-		MaxPings:      50,
+		MaxPings:      0,
 		HostParams:    connect.GetDefaultHostParams(),
 	}
 	p.HostParams.MaxRetries = 1
@@ -157,9 +157,20 @@ func newHostPool(poolParams PoolParams, rng *fastRNG.StreamGenerator,
 	}
 
 	// Build the initial HostPool and return
-	err = result.initialize(uint32(numHostsAdded))
-	if err != nil {
-		return nil, err
+	if result.poolParams.MaxPings > 0 {
+		// If pinging enabled, select random performant Hosts
+		err = result.initialize(uint32(numHostsAdded))
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		// Else, select random Hosts
+		for i := numHostsAdded; i < len(result.hostList); i++ {
+			err := result.replaceHost(result.selectGateway(), uint32(i))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	jww.INFO.Printf("Initialized HostPool with size: %d/%d", poolParams.PoolSize, len(netDef.Gateways))

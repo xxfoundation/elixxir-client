@@ -159,7 +159,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 		msgResp, err := comms.RequestMessages(host, msgReq)
 		if err == nil && !msgResp.GetHasRound() {
 			errRtn := errors.Errorf(noRoundError, roundID)
-			return message.Bundle{}, errors.WithMessage(errRtn,gateway.RetryableError)
+			return message.Bundle{}, errors.WithMessage(errRtn, gateway.RetryableError)
 		}
 
 		return msgResp, err

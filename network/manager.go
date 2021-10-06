@@ -114,6 +114,8 @@ func NewManager(session *storage.Session, switchboard *switchboard.Switchboard,
 	poolParams := gateway.DefaultPoolParams()
 	// Client will not send KeepAlive packets
 	poolParams.HostParams.KaClientOpts.Time = time.Duration(math.MaxInt64)
+	// Enable optimized HostPool initialization
+	poolParams.MaxPings = 50
 	m.sender, err = gateway.NewSender(poolParams, rng,
 		ndf, comms, session, m.NodeRegistration)
 	if err != nil {
@@ -234,7 +236,7 @@ func (m *manager) SetPoolFilter(f gateway.Filter) {
 
 // GetVerboseRounds returns verbose round information
 func (m *manager) GetVerboseRounds() string {
-	if m.verboseRounds==nil{
+	if m.verboseRounds == nil {
 		return "Verbose Round tracking not enabled"
 	}
 	return m.verboseRounds.String()

@@ -247,7 +247,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		fmt.Printf("Received %d\n", receiveCnt)
-		if roundsNotepad!=nil{
+		if roundsNotepad != nil {
 			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
 		}
 
@@ -679,7 +679,7 @@ func initLog(threshold uint, logPath string) {
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
 
-	if viper.GetBool("verboseRoundTracking"){
+	if viper.GetBool("verboseRoundTracking") {
 		initRoundLog(logPath)
 	}
 }
@@ -734,8 +734,8 @@ func init() {
 	viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
 
 	rootCmd.PersistentFlags().Bool("verboseRoundTracking", false,
-		"Verbose round tracking, keeps track and prints all rounds the " +
-		"client was aware of while running. Defaults to false if not set.")
+		"Verbose round tracking, keeps track and prints all rounds the "+
+			"client was aware of while running. Defaults to false if not set.")
 	viper.BindPFlag("verboseRoundTracking", rootCmd.PersistentFlags().Lookup("verboseRoundTracking"))
 
 	rootCmd.PersistentFlags().StringP("session", "s",

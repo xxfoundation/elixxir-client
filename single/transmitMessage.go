@@ -248,10 +248,9 @@ func (mp transmitMessagePayload) SetContents(contents []byte) {
 	copy(mp.contents, contents)
 }
 
-
 // String returns the contents for printing adhering to the stringer interface.
-func (mp transmitMessagePayload) String()string {
-	return fmt.Sprintf("Data: %x [tagFP: %x, nonce: %x, " +
+func (mp transmitMessagePayload) String() string {
+	return fmt.Sprintf("Data: %x [tagFP: %x, nonce: %x, "+
 		"maxParts: %x, size: %x, content: %x]", mp.data, mp.tagFP,
 		mp.nonce, mp.maxParts, mp.size, mp.contents)
 

@@ -371,7 +371,7 @@ func TestHostPool_ForceReplace(t *testing.T) {
 	oldHost := testPool.hostList[oldGatewayIndex]
 
 	// Force replace the gateway at a given index
-	err = testPool.forceReplace(uint32(oldGatewayIndex))
+	err = testPool.replaceHost(testPool.selectGateway(), uint32(oldGatewayIndex))
 	if err != nil {
 		t.Errorf("Failed to force replace: %v", err)
 	}

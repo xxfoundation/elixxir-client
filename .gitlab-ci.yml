@@ -8,10 +8,10 @@ before_script:
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - ssh-keyscan -t rsa $GITLAB_SERVER > ~/.ssh/known_hosts
-  - git config --global url."git@$GITLAB_SERVER:elixxir/".insteadOf "https://gitlab.com/elixxir/
-  - git config --global url."git@$GITLAB_SERVER:xx_network/".insteadOf "https://gitlab.com/xx_network/ --add
-  - git config --global url."git@$GITLAB_SERVER:elixxir/".insteadOf "https://git.xx.network/elixxir/ --add
-  - git config --global url."git@$GITLAB_SERVER:xx_network/".insteadOf "https://git.xx.network/xx_network/ --add
+  - git config --global url."git@$GITLAB_SERVER:elixxir/".insteadOf "https://gitlab.com/elixxir/"
+  - git config --global url."git@$GITLAB_SERVER:xx_network/".insteadOf "https://gitlab.com/xx_network/" --add
+  - git config --global url."git@$GITLAB_SERVER:elixxir/".insteadOf "https://git.xx.network/elixxir/" --add
+  - git config --global url."git@$GITLAB_SERVER:xx_network/".insteadOf "https://git.xx.network/xx_network/" --add
   - export PATH=$HOME/go/bin:$PATH
 
 stages:

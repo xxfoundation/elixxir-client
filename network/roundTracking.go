@@ -60,7 +60,12 @@ func NewRoundTracker() *RoundTracker {
 func (rt *RoundTracker) denote(rid id.Round, state RoundState) {
 	rt.mux.Lock()
 	defer rt.mux.Unlock()
-	if storedState, exists := rt.state[rid]; exists || storedState > state {
+	// this ensures a lower state will not overwrite a higher state.
+	// eg. Unchecked does not overwrite MessageAvailable
+	if storedState, exists := rt.state[rid]; exists && storedState < state {
+		jww.TRACE.Printf("did not denote round %d because " +
+			"stored state of %s (%d) > passed state %s (%d)",
+			rid, storedState, storedState, state, state)
 		return
 	}
 	rt.state[rid] = state

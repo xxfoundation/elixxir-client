@@ -11,6 +11,8 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
+	"gitlab.com/elixxir/client/storage/rounds"
+	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"time"
 )
@@ -47,9 +49,7 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 			return
 
 		case <-ticker.C:
-			// Pull and iterate through uncheckedRound list
-			roundList := m.Session.UncheckedRounds().GetList()
-			for rid, rnd := range roundList {
+			iterator := func(rid id.Round, rnd rounds.UncheckedRound){
 				// If this round is due for a round check, send the round over
 				// to the retrieval thread. If not due, check next round.
 				if isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {
@@ -80,8 +80,9 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					}
 
 				}
-
 			}
+			// Pull and iterate through uncheckedRound list
+			m.Session.UncheckedRounds().IterateOverList(iterator)
 		}
 	}
 }

@@ -90,8 +90,8 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 		//end to end encrypt the cmix message
 		msgEnc := key.Encrypt(msgCmix)
 
-		jww.INFO.Printf("E2E sending %d/%d to %s with msgDigest: %s",
-			i+i, len(partitions), msg.Recipient, msgEnc.Digest())
+		jww.INFO.Printf("E2E sending %d/%d to %s with msgDigest: %s, key fp: %s",
+			i+i, len(partitions), msg.Recipient, msgEnc.Digest(), key.Fingerprint())
 
 		//send the cmix message, each partition in its own thread
 		wg.Add(1)

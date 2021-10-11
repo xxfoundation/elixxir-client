@@ -51,12 +51,12 @@ const unrecoverableError = "failed with an unrecoverable error"
 func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
 	recipientString string, bestRound *pb.RoundInfo,
-	err error) (recoverable bool, returnErr error) {
+	err error) (returnErr error) {
 
 	// If the comm errors or the message fails to send, then continue retrying;
 	// otherwise, return if it sends properly
 	if strings.Contains(err.Error(), "try a different round.") {
-		return false, errors.WithMessagef(err, "Failed to send to [%s] due to "+
+		return errors.WithMessagef(err, "Failed to send to [%s] due to "+
 			"round error with round %d, bailing...",
 			recipientString, bestRound.ID)
 	} else if strings.Contains(err.Error(), "Could not authenticate client. "+
@@ -72,12 +72,12 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 		// Trigger
 		go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
 
-		return false, errors.WithMessagef(err, "Failed to send to [%s] via %s "+
+		return errors.WithMessagef(err, "Failed to send to [%s] via %s "+
 			"due to failed authentication, retrying...",
 			recipientString, firstGateway)
 	}
 
-	return false, errors.WithMessage(err, "Failed to put cmix message")
+	return errors.WithMessage(err, "Failed to put cmix message")
 
 }
 

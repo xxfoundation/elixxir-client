@@ -200,10 +200,12 @@ func (s *UncheckedRoundStore) GetRound(rid id.Round) (UncheckedRound, bool) {
 }
 
 // Retrieves the list of rounds
-func (s *UncheckedRoundStore) GetList() map[id.Round]UncheckedRound {
+func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round, rnd UncheckedRound)) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	return s.list
+	for rid, rnd := range s.list {
+		go iterator(rid, rnd)
+	}
 }
 
 // Increments the amount of checks performed on this stored round

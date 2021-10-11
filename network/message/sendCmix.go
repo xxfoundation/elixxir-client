@@ -155,12 +155,9 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 				timeout)
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
-				warn, err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)
-				if warn {
-					jww.WARN.Printf("SendCmix Failed: %+v", err)
-				} else {
-					return result, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
-				}
+				err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)
+				return result, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
+
 			}
 			return result, err
 		}

@@ -145,14 +145,11 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 			result, err := comms.SendPutManyMessages(host,
 				wrappedMessage, timeout)
 			if err != nil {
-				warn, err := handlePutMessageError(firstGateway, instance,
+				err := handlePutMessageError(firstGateway, instance,
 					session, nodeRegistration, recipientString, bestRound, err)
-				if warn {
-					jww.WARN.Printf("SendManyCMIX Failed: %+v", err)
-				} else {
-					return result, errors.WithMessagef(err,
+				return result, errors.WithMessagef(err,
 						"SendManyCMIX %s", unrecoverableError)
-				}
+
 			}
 			return result, err
 		}

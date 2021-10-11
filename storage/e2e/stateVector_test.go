@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
+	"math"
 	"math/bits"
 	"reflect"
 	"testing"
@@ -107,6 +108,32 @@ func TestStateVector_Next(t *testing.T) {
 	// firstAvailable should now be beyond the end of the bitfield
 	if sv.firstAvailable < numKeys {
 		t.Error("Last Next() call should have set firstAvailable beyond numKeys")
+	}
+}
+
+
+// Shows that Next mutates vector state as expected
+// Shows that Next can find key indexes all throughout the bitfield
+// A bug was found when the next avalible was in the first index of a word, this tests that case
+func TestStateVector_Next_EdgeCase(t *testing.T) {
+	// Expected results: all keynums, and beyond the last key
+	//expectedFirstAvail := []uint32{139, 145, 300, 360, 420, 761, 868, 875, 893, 995}
+
+	const numKeys = 1000
+	sv, err := newStateVector(versioned.NewKV(make(ekv.Memstore)), "key", numKeys)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Set a few clean bits randomly
+	sv.vect[0] = math.MaxUint64
+
+	sv.firstAvailable = 0
+	sv.nextAvailable()
+
+	// firstAvailable should now be beyond the end of the bitfield
+	if sv.firstAvailable !=64 {
+		t.Errorf("Next avalivle skiped the first of the next word, should be 64, is %d", sv.firstAvailable)
 	}
 }
 

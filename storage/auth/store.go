@@ -9,8 +9,10 @@ package auth
 
 import (
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/contact"
@@ -20,6 +22,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
 	"sync"
+	"time"
 )
 
 const NoRequest = "Request Not Found"
@@ -126,8 +129,14 @@ func LoadStore(kv *versioned.KV, grp *cyclic.Group, privKeys []*cyclic.Int) (*St
 				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
 			}
 
+			key, err := utility.LoadSidHPubKeyA(kv, c.ID)
+			if err != nil {
+				jww.FATAL.Panicf("Failed to load stored contact for: %+v", err)
+			}
+
 			rid = c.ID
 			r.receive = &c
+			r.theirSidHPubKeyA = key
 
 		default:
 			jww.FATAL.Panicf("Unknown request type: %d", r.rt)
@@ -166,7 +175,8 @@ func (s *Store) save() error {
 }
 
 func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
-	myPubKey *cyclic.Int, fp format.Fingerprint) error {
+	myPubKey *cyclic.Int, sidHPrivA *sidh.PrivateKey, sidHPubA *sidh.PublicKey,
+	fp format.Fingerprint) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
@@ -181,6 +191,8 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 		partnerHistoricalPubKey: partnerHistoricalPubKey,
 		myPrivKey:               myPrivKey,
 		myPubKey:                myPubKey,
+		mySidHPubKeyA: sidHPubA,
+		mySidHPrivKeyA: sidHPrivA,
 		fingerprint:             fp,
 	}
 
@@ -214,7 +226,7 @@ func (s *Store) AddSent(partner *id.ID, partnerHistoricalPubKey, myPrivKey,
 	return nil
 }
 
-func (s *Store) AddReceived(c contact.Contact) error {
+func (s *Store) AddReceived(c contact.Contact, key *sidh.PublicKey) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 	jww.DEBUG.Printf("AddReceived new contact: %s", c.ID)
@@ -225,6 +237,23 @@ func (s *Store) AddReceived(c contact.Contact) error {
 
 	if err := utility.StoreContact(s.kv, c); err != nil {
 		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
+	}
+
+	if err := utility.StoreSidHPubKeyA(s.kv, c.ID, key); err != nil {
+		jww.FATAL.Panicf("Failed to save contact for partner %s", c.ID.String())
+	}
+
+	keyBytes :=make([]byte, interfaces.SidHPubKeyByteSize)
+	key.Export(keyBytes)
+	type Object struct {
+		// Used to determine version Upgrade, if any
+		Version uint64
+
+		// Set when this object is written
+		Timestamp time.Time
+
+		// Serialized version of original object
+		Data []byte
 	}
 
 	r := &request{
@@ -288,13 +317,13 @@ func (s *Store) GetFingerprint(fp format.Fingerprint) (FingerprintType,
 // it exists. If it returns, then it takes the lock to ensure that there is only
 // one operator at a time. The user of the API must release the lock by calling
 // store.delete() or store.Failed() with the partner ID.
-func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
+func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, *sidh.PublicKey, error) {
 	s.mux.RLock()
 	r, ok := s.requests[*partner]
 	s.mux.RUnlock()
 
 	if !ok {
-		return contact.Contact{}, errors.Errorf("Received request not "+
+		return contact.Contact{}, nil, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
@@ -309,11 +338,11 @@ func (s *Store) GetReceivedRequest(partner *id.ID) (contact.Contact, error) {
 
 	if !ok {
 		r.mux.Unlock()
-		return contact.Contact{}, errors.Errorf("Received request not "+
+		return contact.Contact{}, nil, errors.Errorf("Received request not "+
 			"found: %s", partner)
 	}
 
-	return *r.receive, nil
+	return *r.receive,r.theirSidHPubKeyA, nil
 }
 
 // GetReceivedRequestData returns the contact representing the receive request

@@ -3,6 +3,8 @@ module gitlab.com/elixxir/client
 go 1.13
 
 require (
+	github.com/cloudflare/circl v1.0.1-0.20211008185751-59b49bc148ce
+	github.com/cloudflare/sidh v0.0.0-20190228162259-d2f0f90e08aa // indirect
 	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3
 	github.com/golang/protobuf v1.5.2
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
@@ -24,7 +26,7 @@ require (
 	gitlab.com/xx_network/comms v0.0.4-0.20211008201730-adc33de72c11
 	gitlab.com/xx_network/crypto v0.0.5-0.20211006222352-8e0ac37b86b0
 	gitlab.com/xx_network/primitives v0.0.4-0.20210915220237-70cb4551d6f3
-	golang.org/x/crypto v0.0.0-20210322153248-0c34fe9e7dc2
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
 	google.golang.org/genproto v0.0.0-20210105202744-fe13368bc0e1 // indirect
 	google.golang.org/grpc v1.38.0

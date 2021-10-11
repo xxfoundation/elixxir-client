@@ -36,7 +36,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// check if the partner has an auth in progress
 	// this takes the lock, from this point forward any errors need to release
 	// the lock
-	storedContact, err := storage.Auth().GetReceivedRequest(partner.ID)
+	storedContact, theirSidHPubkeyA, err := storage.Auth().GetReceivedRequest(partner.ID)
 	if err != nil {
 		return 0, errors.Errorf("failed to find a pending Auth Request: %s",
 			err)
@@ -74,7 +74,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	// we build the payload before we save because it is technically fallible
 	// which can get into a bricked state if it fails
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(), interfaces.SidHPubKeyByteSize)
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 
 	// setup the encrypted payload

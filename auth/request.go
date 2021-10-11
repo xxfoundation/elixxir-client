@@ -9,6 +9,7 @@ package auth
 
 import (
 	"fmt"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
@@ -28,7 +29,7 @@ import (
 
 const terminator = ";"
 
-func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
+func RequestAuth(partner, me contact.Contact, rng io.Reader,
 	storage *storage.Session, net interfaces.NetworkManager) (id.Round, error) {
 	/*edge checks generation*/
 
@@ -43,11 +44,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	if !me.ID.Cmp(storage.GetUser().ReceptionID) {
 		return 0, errors.Errorf("Authenticated channel request " +
 			"can only be sent from user's identity")
-	}
-
-	// check that the message is properly formed
-	if strings.Contains(message, terminator) {
-		return 0, errors.Errorf("Message cannot contain '%s'", terminator)
 	}
 
 	//denote if this is a resend of an old request
@@ -76,22 +72,11 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	/*generate embedded message structures and check payload*/
 	cmixMsg := format.NewMessage(storage.Cmix().GetGroup().GetP().ByteLen())
-	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen())
+	baseFmt := newBaseFormat(cmixMsg.ContentsSize(), grp.GetP().ByteLen(), interfaces.SidHPubKeyByteSize)
 	ecrFmt := newEcrFormat(baseFmt.GetEcrPayloadLen())
 	requestFmt, err := newRequestFormat(ecrFmt)
 	if err != nil {
 		return 0, errors.Errorf("failed to make request format: %+v", err)
-	}
-
-	//check the payload fits
-	facts := me.Facts.Stringify()
-	msgPayload := facts + message + terminator
-	msgPayloadBytes := []byte(msgPayload)
-
-	if len(msgPayloadBytes) > requestFmt.MsgPayloadLen() {
-		return 0, errors.Errorf("Combined message longer than space "+
-			"available in payload; available: %v, length: %v",
-			requestFmt.MsgPayloadLen(), len(msgPayloadBytes))
 	}
 
 	/*cryptographic generation*/
@@ -103,17 +88,31 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	}
 
 	var newPrivKey, newPubKey *cyclic.Int
+	var sidHPrivKeyA *sidh.PrivateKey
+	var sidHPubKeyA *sidh.PublicKey
 
 	// in this case we have an ongoing request so we can resend the extant
 	// request
 	if resend {
 		newPrivKey = sr.GetMyPrivKey()
 		newPubKey = sr.GetMyPubKey()
+		sidHPrivKeyA = sr.GetMySidhPrivKeyA()
+		sidHPubKeyA = sr.GetMySidhPubKeyA()
 		//in this case it is a new request and we must generate new keys
 	} else {
 		//generate new keypair
 		newPrivKey = diffieHellman.GeneratePrivateKey(256, grp, rng)
 		newPubKey = diffieHellman.GeneratePublicKey(newPrivKey, grp)
+
+		sidHPrivKeyA = sidh.NewPrivateKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+		sidHPubKeyA = sidh.NewPublicKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+
+		if err = sidHPrivKeyA.Generate(rng); err!=nil{
+			return 0, errors.WithMessagef(err, "Failed to send requrest due to " +
+				"failure to generate SidH A private key")
+		}
+		sidHPrivKeyA.GeneratePublicKey(sidHPubKeyA)
+
 	}
 
 	//generate ownership proof
@@ -125,7 +124,6 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 
 	/*encrypt payload*/
 	requestFmt.SetID(storage.GetUser().ReceptionID)
-	requestFmt.SetMsgPayload(msgPayloadBytes)
 	ecrFmt.SetOwnership(ownership)
 	ecrPayload, mac := cAuth.Encrypt(newPrivKey, partner.DhPubKey,
 		salt, ecrFmt.data, grp)
@@ -135,6 +133,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	/*construct message*/
 	baseFmt.SetEcrPayload(ecrPayload)
 	baseFmt.SetSalt(salt)
+	baseFmt.SetSidHPubKey(sidHPubKeyA)
 	baseFmt.SetPubKey(newPubKey)
 
 	cmixMsg.SetKeyFP(requestfp)
@@ -150,7 +149,7 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	//store the in progress auth
 	if !resend {
 		err = storage.Auth().AddSent(partner.ID, partner.DhPubKey, newPrivKey,
-			newPubKey, confirmFp)
+			newPubKey, sidHPrivKeyA, sidHPubKeyA, confirmFp)
 		if err != nil {
 			return 0, errors.Errorf("Failed to store auth request: %s", err)
 		}

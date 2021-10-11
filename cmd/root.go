@@ -28,6 +28,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -188,38 +189,51 @@ var rootCmd = &cobra.Command{
 		paramsUnsafe := params.GetDefaultUnsafe()
 
 		sendCnt := int(viper.GetUint("sendCount"))
-		sendDelay := time.Duration(viper.GetUint("sendDelay"))
-		for i := 0; i < sendCnt; i++ {
-			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			var roundIDs []id.Round
-			var roundTimeout time.Duration
-			if unsafe {
-				roundIDs, err = client.SendUnsafe(msg,
-					paramsUnsafe)
-				roundTimeout = paramsUnsafe.Timeout
-			} else {
-				roundIDs, _, _, err = client.SendE2E(msg,
-					paramsE2E)
-				roundTimeout = paramsE2E.Timeout
-			}
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+		//sendDelay := time.Duration(viper.GetUint("sendDelay"))
+		wg := sync.WaitGroup{}
+		go func(){
+			for i := 0; i < sendCnt; i++ {
+				wg.Add(1)
+				go func(locali int) {
+					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
+					var roundIDs []id.Round
+					var roundTimeout time.Duration
+					if unsafe {
+						roundIDs, err = client.SendUnsafe(msg,
+							paramsUnsafe)
+						roundTimeout = paramsUnsafe.Timeout
+					} else {
+						roundIDs, _, _, err = client.SendE2E(msg,
+							paramsE2E)
+						roundTimeout = paramsE2E.Timeout
+					}
+					if err != nil {
+						jww.FATAL.Panicf("%+v", err)
+					}
 
-			// Construct the callback function which prints out the rounds' results
-			f := func(allRoundsSucceeded, timedOut bool,
-				rounds map[id.Round]api.RoundResult) {
-				printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
-			}
+					// Construct the callback function which prints out the rounds' results
+					f := func(allRoundsSucceeded, timedOut bool,
+						rounds map[id.Round]api.RoundResult) {
+						printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+					}
 
-			// Have the client report back the round results
-			err = client.GetRoundResults(roundIDs, roundTimeout, f)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+					// Have the client report back the round results
+					for j:=0;j<5&&(err==nil || i==0);j++{
+						err = client.GetRoundResults(roundIDs, roundTimeout, f)
+						if err != nil {
+							jww.WARN.Printf("Received error on send %d attempt %d: %+v", locali, j, err)
+						}
+					}
 
-			time.Sleep(sendDelay * time.Millisecond)
-		}
+					if err!=nil{
+						jww.FATAL.Panicf("%v",err)
+					}
+
+				}(i)
+
+				//time.Sleep(sendDelay * time.Millisecond)
+			}
+		}()
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
@@ -250,7 +264,9 @@ var rootCmd = &cobra.Command{
 		if roundsNotepad != nil {
 			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
 		}
-
+		jww.INFO.Printf("Waiting on all sending to finish to exit")
+		wg.Done()
+		jww.INFO.Printf("All sending to finished, exiting")
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(

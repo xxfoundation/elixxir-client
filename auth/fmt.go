@@ -8,6 +8,7 @@
 package auth
 
 import (
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/cyclic"
@@ -20,39 +21,43 @@ const saltSize = 32
 type baseFormat struct {
 	data       []byte
 	pubkey     []byte
+	sidHpubkey     []byte
 	salt       []byte
 	ecrPayload []byte
 }
 
-func newBaseFormat(payloadSize, pubkeySize int) baseFormat {
-
-	if payloadSize < pubkeySize+saltSize {
-		jww.FATAL.Panicf("Size of baseFormat is too small, must be big " +
-			"enough to contain public key and salt")
+func newBaseFormat(payloadSize, sidHPubkeySize, pubkeySize int ) baseFormat {
+	total := pubkeySize+sidHPubkeySize+saltSize
+	if payloadSize < total {
+		jww.FATAL.Panicf("Size of baseFormat is too small (%d), must be big " +
+			"enough to contain public key (%d) sidHPublicKey (%d) and salt (%d) " +
+			"which totals to %d", payloadSize, pubkeySize, sidHPubkeySize, saltSize,
+			total)
 	}
 
-	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize)
+	f := buildBaseFormat(make([]byte, payloadSize), pubkeySize, sidHPubkeySize)
 
 	return f
 }
 
-func buildBaseFormat(data []byte, pubkeySize int) baseFormat {
+func buildBaseFormat(data []byte, pubkeySize, sidHPubkeySize int) baseFormat {
 	f := baseFormat{
 		data: data,
 	}
 
 	f.pubkey = f.data[:pubkeySize]
-	f.salt = f.data[pubkeySize : pubkeySize+saltSize]
-	f.ecrPayload = f.data[pubkeySize+saltSize:]
+	f.sidHpubkey = f.data[pubkeySize: pubkeySize + sidHPubkeySize]
+	f.salt = f.data[pubkeySize + sidHPubkeySize: pubkeySize+sidHPubkeySize+saltSize]
+	f.ecrPayload = f.data[pubkeySize+sidHPubkeySize+saltSize:]
 	return f
 }
 
-func unmarshalBaseFormat(b []byte, pubkeySize int) (baseFormat, error) {
+func unmarshalBaseFormat(b []byte, pubkeySize, sidHPubkeySize int) (baseFormat, error) {
 	if len(b) < pubkeySize+saltSize {
 		return baseFormat{}, errors.New("Received baseFormat too small")
 	}
 
-	return buildBaseFormat(b, pubkeySize), nil
+	return buildBaseFormat(b, pubkeySize, sidHPubkeySize), nil
 }
 
 func (f baseFormat) Marshal() []byte {
@@ -66,6 +71,10 @@ func (f baseFormat) GetPubKey(grp *cyclic.Group) *cyclic.Int {
 func (f baseFormat) SetPubKey(pubKey *cyclic.Int) {
 	pubKeyBytes := pubKey.LeftpadBytes(uint64(len(f.pubkey)))
 	copy(f.pubkey, pubKeyBytes)
+}
+
+func (f baseFormat) SetSidHPubKey(pubKey *sidh.PublicKey) {
+	pubKey.Export(f.sidHpubkey)
 }
 
 func (f baseFormat) GetSalt() []byte {
@@ -171,7 +180,6 @@ func (f ecrFormat) SetPayload(p []byte) {
 type requestFormat struct {
 	ecrFormat
 	id         []byte
-	msgPayload []byte
 }
 
 func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
@@ -184,7 +192,6 @@ func newRequestFormat(ecrFmt ecrFormat) (requestFormat, error) {
 	}
 
 	rf.id = rf.payload[:id.ArrIDLen]
-	rf.msgPayload = rf.payload[id.ArrIDLen:]
 
 	return rf, nil
 }
@@ -195,20 +202,4 @@ func (rf requestFormat) GetID() (*id.ID, error) {
 
 func (rf requestFormat) SetID(myId *id.ID) {
 	copy(rf.id, myId.Marshal())
-}
-
-func (rf requestFormat) SetMsgPayload(b []byte) {
-	if len(b) > len(rf.msgPayload) {
-		jww.FATAL.Panicf("Message Payload is too long")
-	}
-
-	copy(rf.msgPayload, b)
-}
-
-func (rf requestFormat) MsgPayloadLen() int {
-	return len(rf.msgPayload)
-}
-
-func (rf requestFormat) GetMsgPayload() []byte {
-	return rf.msgPayload
 }

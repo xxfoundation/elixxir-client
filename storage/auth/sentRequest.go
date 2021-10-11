@@ -10,8 +10,10 @@ package auth
 import (
 	"encoding/hex"
 	"encoding/json"
+	"github.com/cloudflare/circl/dh/sidh"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/primitives/format"
@@ -28,6 +30,8 @@ type SentRequest struct {
 	partnerHistoricalPubKey *cyclic.Int
 	myPrivKey               *cyclic.Int
 	myPubKey                *cyclic.Int
+	mySidHPrivKeyA          *sidh.PrivateKey
+	mySidHPubKeyA           *sidh.PublicKey
 	fingerprint             format.Fingerprint
 }
 
@@ -35,6 +39,8 @@ type sentRequestDisk struct {
 	PartnerHistoricalPubKey []byte
 	MyPrivKey               []byte
 	MyPubKey                []byte
+	MySidHPrivKey			[]byte
+	mySidHPubKey			[]byte
 	Fingerprint             []byte
 }
 
@@ -70,6 +76,19 @@ func loadSentRequest(kv *versioned.KV, partner *id.ID, grp *cyclic.Group) (*Sent
 		return nil, errors.WithMessagef(err, "Failed to decode public "+
 			"key with %s for SentRequest Auth", partner)
 	}
+
+	mySidHPrivKeyA := sidh.NewPrivateKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+	if err = mySidHPrivKeyA.Import(srd.MySidHPrivKey); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decode sidh private key "+
+			"with %s for SentRequest Auth", partner)
+	}
+
+	mySidHPubKeyA := sidh.NewPublicKey(interfaces.SidHKeyId, sidh.KeyVariantSidhA)
+	if err = mySidHPubKeyA.Import(srd.mySidHPubKey); err != nil {
+		return nil, errors.WithMessagef(err, "Failed to decode sidh public "+
+			"key with %s for SentRequest Auth", partner)
+	}
+
 
 	fp := format.Fingerprint{}
 	copy(fp[:], srd.Fingerprint)
@@ -122,10 +141,17 @@ func (sr *SentRequest) save() error {
 	jww.INFO.Printf("saveSentRequest fingerprint: %s",
 		hex.EncodeToString(sr.fingerprint[:]))
 
+	sidHPriv := make([]byte, interfaces.SidHPrivKeyByteSize)
+	sidHPub := make([]byte, interfaces.SidHPubKeyByteSize)
+	sr.mySidHPrivKeyA.Export(sidHPriv)
+	sr.mySidHPubKeyA.Export(sidHPub)
+
 	ipd := sentRequestDisk{
 		PartnerHistoricalPubKey: historicalPubKey,
 		MyPrivKey:               privKey,
 		MyPubKey:                pubKey,
+		MySidHPrivKey: 		     sidHPriv,
+		mySidHPubKey: 			 sidHPub,
 		Fingerprint:             sr.fingerprint[:],
 	}
 
@@ -163,6 +189,14 @@ func (sr *SentRequest) GetMyPrivKey() *cyclic.Int {
 
 func (sr *SentRequest) GetMyPubKey() *cyclic.Int {
 	return sr.myPubKey
+}
+
+func (sr *SentRequest) GetMySidhPrivKeyA() *sidh.PrivateKey {
+	return sr.mySidHPrivKeyA
+}
+
+func (sr *SentRequest) GetMySidhPubKeyA() *sidh.PublicKey {
+	return sr.mySidHPubKeyA
 }
 
 func (sr *SentRequest) GetFingerprint() format.Fingerprint {

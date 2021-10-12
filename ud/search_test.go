@@ -3,9 +3,11 @@ package ud
 import (
 	"fmt"
 	"github.com/golang/protobuf/proto"
-	errors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/factID"
@@ -23,10 +25,19 @@ import (
 func TestManager_Search(t *testing.T) {
 	// Set up manager
 	isReg := uint32(1)
-	grp := cyclic.NewGroup(large.NewInt(107), large.NewInt(2))
+
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Failed to start client comms: %+v", err)
+	}
+
+	store := storage.InitTestingSession(t)
+
 	m := &Manager{
-		grp:        grp,
-		udContact:  contact.Contact{ID: &id.UDB, DhPubKey: grp.NewInt(42)},
+		comms:      comms,
+		storage:    store,
+		net:        newTestNetworkManager(t),
+		grp:        store.E2e().GetGroup(),
 		single:     &mockSingleSearch{},
 		registered: &isReg,
 	}
@@ -62,7 +73,7 @@ func TestManager_Search(t *testing.T) {
 		})
 	}
 
-	err := m.Search(factList, callback, 10*time.Millisecond)
+	err = m.Search(factList, callback, 10*time.Millisecond)
 	if err != nil {
 		t.Errorf("Search() returned an error: %+v", err)
 	}
@@ -74,7 +85,12 @@ func TestManager_Search(t *testing.T) {
 			t.Errorf("Callback returned an error: %+v", cb.err)
 		}
 
-		expectedContacts := []contact.Contact{m.udContact}
+		c, err := m.getContact()
+		if err != nil {
+			t.Errorf("Failed to get UD contact: %+v", err)
+		}
+
+		expectedContacts := []contact.Contact{c}
 		if !contact.Equal(expectedContacts[0], cb.c[0]) {
 			t.Errorf("Failed to get expected Contacts."+
 				"\n\texpected: %+v\n\treceived: %+v", expectedContacts, cb.c)

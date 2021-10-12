@@ -35,57 +35,41 @@ type Manager struct {
 	net     interfaces.NetworkManager
 
 	// Loaded from external access
-	udContact contact.Contact
-	privKey   *rsa.PrivateKey
-	grp       *cyclic.Group
+	privKey *rsa.PrivateKey
+	grp     *cyclic.Group
 
 	// internal structures
-	host   *connect.Host
 	single SingleInterface
 	myID   *id.ID
 
 	registered *uint32
 }
 
-// New manager builds a new user discovery manager. It requires that an
-// updated NDF is available and will error if one is not.
+// NewManager builds a new user discovery manager. It requires that an updated
+// NDF is available and will error if one is not.
 func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	jww.INFO.Println("ud.NewManager()")
 	if client.NetworkFollowerStatus() != api.Running {
-		return nil, errors.New("cannot start UD Manager when network follower is not " +
-			"running.")
+		return nil, errors.New(
+			"cannot start UD Manager when network follower is not running.")
 	}
 
 	m := &Manager{
-		client:    client,
-		comms:     client.GetComms(),
-		rng:       client.GetRng(),
-		sw:        client.GetSwitchboard(),
-		storage:   client.GetStorage(),
-		net:       client.GetNetworkInterface(),
-		udContact: contact.Contact{},
-		single:    single,
+		client:  client,
+		comms:   client.GetComms(),
+		rng:     client.GetRng(),
+		sw:      client.GetSwitchboard(),
+		storage: client.GetStorage(),
+		net:     client.GetNetworkInterface(),
+		single:  single,
 	}
 
-	var err error
-
-	// check that user discovery is available in the ndf
+	// check that user discovery is available in the NDF
 	def := m.net.GetInstance().GetPartialNdf().Get()
-	if m.udContact.ID, err = id.Unmarshal(def.UDB.ID); err != nil {
-		return nil, errors.WithMessage(err, "NDF does not have User Discovery "+
-			"information; is there network access?: ID could not be "+
-			"unmarshaled.")
-	}
 
 	if def.UDB.Cert == "" {
 		return nil, errors.New("NDF does not have User Discovery information, " +
 			"is there network access?: Cert not present.")
-	}
-
-	// Unmarshal UD DH public key
-	m.udContact.DhPubKey = m.storage.E2e().GetGroup().NewInt(1)
-	if err = m.udContact.DhPubKey.UnmarshalJSON(def.UDB.DhPubKey); err != nil {
-		return nil, errors.WithMessage(err, "Failed to unmarshal UD DH public key.")
 	}
 
 	// Create the user discovery host object
@@ -95,11 +79,6 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	hp.MaxRetries = 3
 	hp.SendTimeout = 3 * time.Second
 	hp.AuthEnabled = false
-	m.host, err = m.comms.AddHost(&id.UDB, def.UDB.Address, []byte(def.UDB.Cert), hp)
-	if err != nil {
-		return nil, errors.WithMessage(err, "User Discovery host object could "+
-			"not be constructed.")
-	}
 
 	m.myID = m.storage.User().GetCryptographicIdentity().GetReceptionID()
 
@@ -113,4 +92,58 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 	m.grp = m.storage.E2e().GetGroup()
 
 	return m, nil
+}
+
+// getHost returns the current UD host for the UD ID found in the NDF. If the
+// host does not exist, then it is added and returned
+func (m *Manager) getHost() (*connect.Host, error) {
+	netDef := m.net.GetInstance().GetFullNdf().Get()
+
+	// Unmarshal UD ID from the NDF
+	udID, err := id.Unmarshal(netDef.UDB.ID)
+	if err != nil {
+		return nil, errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
+	}
+
+	// Return the host, if it exists
+	host, exists := m.comms.GetHost(udID)
+	if exists {
+		return host, nil
+	}
+
+	// Add a new host and return it if it does not already exist
+	host, err = m.comms.AddHost(udID, netDef.UDB.Address,
+		[]byte(netDef.UDB.Cert), connect.GetDefaultHostParams())
+	if err != nil {
+		return nil, errors.WithMessage(err, "User Discovery host object could "+
+			"not be constructed.")
+	}
+
+	return host, nil
+}
+
+// getContact returns the contact for UD as retrieved from the NDF.
+func (m *Manager) getContact() (contact.Contact, error) {
+	netDef := m.net.GetInstance().GetFullNdf().Get()
+
+	// Unmarshal UD ID from the NDF
+	udID, err := id.Unmarshal(netDef.UDB.ID)
+	if err != nil {
+		return contact.Contact{},
+			errors.Errorf("failed to unmarshal UD ID from NDF: %+v", err)
+	}
+
+	// Unmarshal UD DH public key
+	dhPubKey := m.storage.E2e().GetGroup().NewInt(1)
+	if err = dhPubKey.UnmarshalJSON(netDef.UDB.DhPubKey); err != nil {
+		return contact.Contact{},
+			errors.WithMessage(err, "Failed to unmarshal UD DH public key.")
+	}
+
+	return contact.Contact{
+		ID:             udID,
+		DhPubKey:       dhPubKey,
+		OwnershipProof: nil,
+		Facts:          nil,
+	}, nil
 }

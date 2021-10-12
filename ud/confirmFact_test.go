@@ -1,10 +1,10 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/comms/messages"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 )
@@ -20,17 +20,17 @@ func (t *testComm) SendConfirmFact(_ *connect.Host, message *pb.FactConfirmReque
 
 // Happy path.
 func TestManager_confirmFact(t *testing.T) {
-	// Create new host
-	host, err := connect.NewHost(&id.UDB, "0.0.0.0", nil, connect.GetDefaultHostParams())
-	if err != nil {
-		t.Fatalf("Could not create a new host: %+v", err)
-	}
-
 	isReg := uint32(1)
+
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Failed to start client comms: %+v", err)
+	}
 
 	// Set up manager
 	m := &Manager{
-		host:       host,
+		comms:      comms,
+		net:        newTestNetworkManager(t),
 		registered: &isReg,
 	}
 

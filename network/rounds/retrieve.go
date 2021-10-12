@@ -49,11 +49,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-			err := m.Session.UncheckedRounds().AddRound(rl.roundInfo,
+			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID),nil,
 				rl.identity.EphId, rl.identity.Source)
 			if err != nil {
-				jww.ERROR.Printf("Could not add round %d in unchecked rounds store: %v",
-					rl.roundInfo.ID, err)
+				jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d",id.Round(ri.ID))
 			}
 
 			// Convert gateways in round to proper ID format

@@ -63,7 +63,7 @@ func TestUncheckedRoundScheduler(t *testing.T) {
 	}
 
 	// Add round ot check
-	err := testManager.Session.UncheckedRounds().AddRound(roundInfo, expectedEphID, requestGateway)
+	err := testManager.Session.UncheckedRounds().AddRound(roundId, roundInfo, expectedEphID, requestGateway)
 	if err != nil {
 		t.Fatalf("Could not add round to session: %v", err)
 	}

@@ -3,6 +3,7 @@ package ud
 import (
 	"bytes"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/crypto/factID"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -12,7 +13,6 @@ import (
 	"gitlab.com/xx_network/comms/messages"
 	"gitlab.com/xx_network/crypto/csprng"
 	"gitlab.com/xx_network/crypto/signature/rsa"
-	"gitlab.com/xx_network/primitives/id"
 	"reflect"
 	"testing"
 )
@@ -28,17 +28,17 @@ func (t *testRegisterComm) SendRegisterUser(_ *connect.Host, msg *pb.UDBUserRegi
 
 // Happy path.
 func TestManager_register(t *testing.T) {
-	// Create new host
-	host, err := connect.NewHost(&id.UDB, "0.0.0.0", nil, connect.GetDefaultHostParams())
-	if err != nil {
-		t.Fatalf("Could not create a new host: %+v", err)
-	}
-
 	isReg := uint32(0)
+
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Failed to start client comms: %+v", err)
+	}
 
 	// Set up manager
 	m := &Manager{
-		host:       host,
+		comms:      comms,
+		net:        newTestNetworkManager(t),
 		rng:        fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG),
 		storage:    storage.InitTestingSession(t),
 		registered: &isReg,

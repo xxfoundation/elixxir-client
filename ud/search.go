@@ -45,7 +45,13 @@ func (m *Manager) Search(list fact.FactList, callback searchCallback, timeout ti
 		m.searchResponseHandler(factMap, callback, payload, err)
 	}
 
-	err = m.single.TransmitSingleUse(m.udContact, requestMarshaled, SearchTag,
+	// Get UD contact
+	c, err := m.getContact()
+	if err != nil {
+		return err
+	}
+
+	err = m.single.TransmitSingleUse(c, requestMarshaled, SearchTag,
 		maxSearchMessages, f, timeout)
 	if err != nil {
 		return errors.WithMessage(err, "Failed to transmit search request.")
@@ -86,7 +92,7 @@ func (m *Manager) searchResponseHandler(factMap map[string]fact.Fact,
 		return
 	}
 
-	//return an error if no facts are found
+	// return an error if no facts are found
 	if len(searchResponse.Contacts) == 0 {
 		go callback(nil, errors.New("No contacts found in search"))
 	}

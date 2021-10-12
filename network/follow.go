@@ -336,6 +336,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}, roundsUnknown, abandon)
 
 	for _, rid := range roundsWithMessages {
+		//denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
 			m.round.GetMessagesFromRound(rid, identity)
 		}

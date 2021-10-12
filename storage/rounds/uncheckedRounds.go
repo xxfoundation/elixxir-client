@@ -255,11 +255,25 @@ func (s *UncheckedRoundStore) Remove(rid id.Round) error {
 // Remove is a helper function which removes the round from UncheckedRoundStore's list
 // Note this method is unsafe and should only be used by methods with a lock
 func (s *UncheckedRoundStore) remove(rid id.Round) error {
-	if _, exists := s.list[rid]; !exists {
+	ur, exists := s.list[rid]
+	if !exists {
 		return errors.Errorf("round %d does not exist in store", rid)
 	}
 	delete(s.list, rid)
-	return s.save()
+	if err := s.save(); err!=nil{
+		return errors.WithMessagef(err,"Failed to delete round %d from unchecked round store", rid)
+	}
+
+	//dont delete round infos if none exist
+	if ur.Info==nil{
+		return nil
+	}
+
+	if err := deleteRoundInfo(s.kv, rid); err!=nil{
+		return errors.WithMessagef(err,"Failed to delete round %d's roundinfo from unchecked round store, " +
+			"round itself deleted. This is a storage leak", rid)
+	}
+	return nil
 }
 
 // save stores the information from the round list into storage
@@ -355,6 +369,10 @@ func loadRoundInfo(kv *versioned.KV, id id.Round)( *pb.RoundInfo, error){
 	}
 
 	return ri, nil
+}
+
+func deleteRoundInfo(kv *versioned.KV, id id.Round)error{
+	return kv.Delete(roundKey(id), roundInfoVersion)
 }
 
 func roundKey(roundID id.Round)string{

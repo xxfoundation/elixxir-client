@@ -108,8 +108,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 			RoundId:        id.Round(bundle.RoundInfo.ID),
 			RoundTimestamp: time.Unix(0, int64(bundle.RoundInfo.Timestamps[states.QUEUED])),
 		}
-		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, "+
-			"msgDigest: %s", msg.GetKeyFP(), msg.Digest())
+		im := fmt.Sprintf("Garbled/RAW Message: keyFP: %v, round: %d"+
+			"msgDigest: %s", msg.GetKeyFP(), bundle.Round, msg.Digest())
 		jww.INFO.Print(im)
 		m.Internal.Events.Report(1, "MessageReception", "Garbled", im)
 		m.Session.GetGarbledMessages().Add(msg)
@@ -117,8 +117,8 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 		return
 	}
 
-	im := fmt.Sprintf("Received message of type %s from %s,"+
-		" msgDigest: %s", encTy, sender, msgDigest)
+	im := fmt.Sprintf("Received message of type %s from %s in round %d,"+
+		" msgDigest: %s", encTy, sender, bundle.Round, msgDigest)
 	jww.INFO.Print(im)
 	m.Internal.Events.Report(2, "MessageReception", "MessagePart", im)
 

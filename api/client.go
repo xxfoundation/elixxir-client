@@ -611,7 +611,9 @@ func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
 
 	// Add additional bins in special cases
 	switch bin {
-	case region.Africa:
+	case region.SouthernAfrica:
+		bins = append(bins, region.WesternEurope.String())
+	case region.NorthernAfrica:
 		bins = append(bins, region.WesternEurope.String())
 	case region.MiddleEast:
 		bins = append(bins, region.EasternEurope.String())

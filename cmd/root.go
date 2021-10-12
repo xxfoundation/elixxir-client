@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -188,37 +189,41 @@ var rootCmd = &cobra.Command{
 		paramsUnsafe := params.GetDefaultUnsafe()
 
 		sendCnt := int(viper.GetUint("sendCount"))
-		sendDelay := time.Duration(viper.GetUint("sendDelay"))
+		//sendDelay := time.Duration(viper.GetUint("sendDelay"))
 		for i := 0; i < sendCnt; i++ {
-			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			var roundIDs []id.Round
-			var roundTimeout time.Duration
-			if unsafe {
-				roundIDs, err = client.SendUnsafe(msg,
-					paramsUnsafe)
-				roundTimeout = paramsUnsafe.Timeout
-			} else {
-				roundIDs, _, _, err = client.SendE2E(msg,
-					paramsE2E)
-				roundTimeout = paramsE2E.Timeout
-			}
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+			go func(){
+				fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
+				var roundIDs []id.Round
+				var roundTimeout time.Duration
+				if unsafe {
+					roundIDs, err = client.SendUnsafe(msg,
+						paramsUnsafe)
+					roundTimeout = paramsUnsafe.Timeout
+				} else {
+					roundIDs, _, _, err = client.SendE2E(msg,
+						paramsE2E)
+					roundTimeout = paramsE2E.Timeout
+				}
+				if err != nil {
+					jww.FATAL.Panicf("%+v", err)
+				}
 
-			// Construct the callback function which prints out the rounds' results
-			f := func(allRoundsSucceeded, timedOut bool,
-				rounds map[id.Round]api.RoundResult) {
-				printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
-			}
+				// Construct the callback function which prints out the rounds' results
+				f := func(allRoundsSucceeded, timedOut bool,
+					rounds map[id.Round]api.RoundResult) {
+					printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+				}
 
-			// Have the client report back the round results
-			err = client.GetRoundResults(roundIDs, roundTimeout, f)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+				// Have the client report back the round results
+				err = errors.New("derp")
+				for j:=0;j<5&&err!=nil;j++{
+					err = client.GetRoundResults(roundIDs, roundTimeout, f)
+				}
 
-			time.Sleep(sendDelay * time.Millisecond)
+				if err != nil {
+					jww.FATAL.Panicf("%+v", err)
+				}
+			}()
 		}
 
 		// Wait until message timeout or we receive enough then exit

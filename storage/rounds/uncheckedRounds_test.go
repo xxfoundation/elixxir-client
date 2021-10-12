@@ -95,7 +95,7 @@ func TestLoadUncheckedStore(t *testing.T) {
 
 	ephId := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 	source := id.NewIdFromBytes([]byte("Sauron"), t)
-	err = testStore.AddRound(roundInfo, ephId, source)
+	err = testStore.AddRound(id.Round(roundInfo.ID), roundInfo, ephId, source)
 	if err != nil {
 		t.Fatalf("LoadUncheckedStore error: "+
 			"Could not add round to store: %v", err)
@@ -147,7 +147,7 @@ func TestUncheckedRoundStore_AddRound(t *testing.T) {
 	}
 	ephId := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 	source := id.NewIdFromBytes([]byte("Sauron"), t)
-	err = testStore.AddRound(roundInfo, ephId, source)
+	err = testStore.AddRound(id.Round(roundInfo.ID), roundInfo, ephId, source)
 	if err != nil {
 		t.Fatalf("AddRound error: "+
 			"Could not add round to store: %v", err)
@@ -177,7 +177,7 @@ func TestUncheckedRoundStore_GetRound(t *testing.T) {
 	}
 	ephId := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 	source := id.NewIdFromBytes([]byte("Sauron"), t)
-	err = testStore.AddRound(roundInfo, ephId, source)
+	err = testStore.AddRound(id.Round(roundInfo.ID), roundInfo, ephId, source)
 	if err != nil {
 		t.Fatalf("GetRound error: "+
 			"Could not add round to store: %v", err)
@@ -231,7 +231,7 @@ func TestUncheckedRoundStore_GetList(t *testing.T) {
 		}
 		ephId := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 		source := id.NewIdFromUInt(uint64(i), id.User, t)
-		err = testStore.AddRound(roundInfo, ephId, source)
+		err = testStore.AddRound(id.Round(roundInfo.ID), roundInfo, ephId, source)
 		if err != nil {
 			t.Errorf("GetList error: "+
 				"Could not add round to store: %v", err)
@@ -239,7 +239,7 @@ func TestUncheckedRoundStore_GetList(t *testing.T) {
 	}
 
 	// Retrieve list
-	retrievedList := testStore.GetList()
+	retrievedList := testStore.GetList(t)
 	if len(retrievedList) != numRounds {
 		t.Errorf("GetList error: "+
 			"List returned is not of expected size."+
@@ -275,7 +275,7 @@ func TestUncheckedRoundStore_IncrementCheck(t *testing.T) {
 		}
 		ephId := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 		source := id.NewIdFromUInt(uint64(i), id.User, t)
-		err = testStore.AddRound(roundInfo, ephId, source)
+		err = testStore.AddRound(id.Round(roundInfo.ID), roundInfo, ephId, source)
 		if err != nil {
 			t.Errorf("IncrementCheck error: "+
 				"Could not add round to store: %v", err)
@@ -338,7 +338,7 @@ func TestUncheckedRoundStore_Remove(t *testing.T) {
 		}
 		ephId := ephemeral.Id{1, 2, 3, 4, 5, 6, 7, 8}
 		source := id.NewIdFromUInt(uint64(i), id.User, t)
-		err = testStore.AddRound(roundInfo, ephId, source)
+		err = testStore.AddRound(id.Round(roundInfo.ID), roundInfo, ephId, source)
 		if err != nil {
 			t.Errorf("Remove error: "+
 				"Could not add round to store: %v", err)

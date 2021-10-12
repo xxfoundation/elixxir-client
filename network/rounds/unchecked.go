@@ -50,6 +50,24 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 
 		case <-ticker.C:
 			iterator := func(rid id.Round, rnd rounds.UncheckedRound){
+				//check if it needs to be processed by historical Rounds
+				if rnd.Info==nil{
+					jww.INFO.Printf("Messages  in round %d for %d (%s), looking "+
+						"up messages via historical lookup", rnd.Id, rnd.EpdId.Int64(),
+						rnd.Source)
+					// If we didn't find it, send to Historical Rounds Retrieval
+					m.historicalRounds <- historicalRoundRequest{
+						rid:         rnd.Id,
+						identity:    reception.IdentityUse{
+										Identity: reception.Identity{
+											EphId:  rnd.EpdId,
+											Source: rnd.Source,
+										},
+									},
+						numAttempts: 0,
+					}
+					return
+				}
 				// If this round is due for a round check, send the round over
 				// to the retrieval thread. If not due, check next round.
 				if isRoundCheckDue(rnd.NumChecks, rnd.LastCheck, backoffTable) {

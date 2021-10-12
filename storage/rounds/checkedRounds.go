@@ -52,9 +52,10 @@ func newCheckedRounds(maxRounds int, store *utility.BlockStore) *CheckedRounds {
 	return &CheckedRounds{
 		m:         make(map[id.Round]interface{}),
 		l:         list.New(),
-		recent:    []id.Round{},
+		recent:    make([]id.Round,0,maxRounds),
 		store:     store,
 		maxRounds: maxRounds,
+
 	}
 }
 

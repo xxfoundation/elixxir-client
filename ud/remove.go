@@ -17,7 +17,7 @@ type removeFactComms interface {
 	SendRemoveFact(host *connect.Host, message *mixmessages.FactRemovalRequest) (*messages.Ack, error)
 }
 
-// Removes a previously confirmed fact.  Will fail if the fact is not
+// RemoveFact removes a previously confirmed fact. Will fail if the fact is not
 // associated with this client.
 func (m *Manager) RemoveFact(fact fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveFact(%s)", fact.Stringify())
@@ -38,10 +38,10 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 	}
 
 	// Create a hash of our fact
-	fhash := factID.Fingerprint(fact)
+	fHash := factID.Fingerprint(fact)
 
 	// Sign our inFact for putting into the request
-	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fhash, nil)
+	fSig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}
@@ -50,11 +50,17 @@ func (m *Manager) removeFact(fact fact.Fact, rFC removeFactComms) error {
 	remFactMsg := mixmessages.FactRemovalRequest{
 		UID:         m.myID.Marshal(),
 		RemovalData: &mmFact,
-		FactSig:     fsig,
+		FactSig:     fSig,
+	}
+
+	// Get UD host
+	host, err := m.getHost()
+	if err != nil {
+		return err
 	}
 
 	// Send the message
-	_, err = rFC.SendRemoveFact(m.host, &remFactMsg)
+	_, err = rFC.SendRemoveFact(host, &remFactMsg)
 
 	// Return the error
 	return err
@@ -64,7 +70,7 @@ type removeUserComms interface {
 	SendRemoveUser(host *connect.Host, message *mixmessages.FactRemovalRequest) (*messages.Ack, error)
 }
 
-// Removes a previously confirmed fact.  Will fail if the fact is not
+// RemoveUser removes a previously confirmed fact. Will fail if the fact is not
 // associated with this client.
 func (m *Manager) RemoveUser(fact fact.Fact) error {
 	jww.INFO.Printf("ud.RemoveUser(%s)", fact.Stringify())
@@ -85,10 +91,10 @@ func (m *Manager) removeUser(fact fact.Fact, rFC removeUserComms) error {
 	}
 
 	// Create a hash of our fact
-	fhash := factID.Fingerprint(fact)
+	fHash := factID.Fingerprint(fact)
 
 	// Sign our inFact for putting into the request
-	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fhash, nil)
+	fsig, err := rsa.Sign(rand.Reader, m.privKey, hash.CMixHash, fHash, nil)
 	if err != nil {
 		return err
 	}
@@ -100,8 +106,14 @@ func (m *Manager) removeUser(fact fact.Fact, rFC removeUserComms) error {
 		FactSig:     fsig,
 	}
 
+	// Get UD host
+	host, err := m.getHost()
+	if err != nil {
+		return err
+	}
+
 	// Send the message
-	_, err = rFC.SendRemoveUser(m.host, &remFactMsg)
+	_, err = rFC.SendRemoveUser(host, &remFactMsg)
 
 	// Return the error
 	return err

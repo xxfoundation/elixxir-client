@@ -244,6 +244,25 @@ func TestMessageBuffer_Next(t *testing.T) {
 	}
 }
 
+func TestMessageBuffer_InvalidNext(t *testing.T) {
+	// Create new MessageBuffer and fill with messages
+	testMB, err := NewMessageBuffer(versioned.NewKV(make(ekv.Memstore)), newTestHandler(), "testKey")
+	if err != nil {
+		t.Fatalf("Failed to create new MessageBuffer: %v", err)
+	}
+	m := []byte("This is a message that should fail")
+	h := testMB.handler.HashMessage(m)
+	testMB.Add(m)
+	err = testMB.handler.DeleteMessage(testMB.kv, makeStoredMessageKey(testMB.key, h))
+	if err != nil {
+		t.Fatalf("Failed to set up test (delete from kv failed): %+v", err)
+	}
+	msg, exists := testMB.Next()
+	if msg != nil || exists {
+		t.Fatalf("This should fail with an invalid message, instead got: %+v, %+v", m, exists)
+	}
+}
+
 // Tests happy path of MessageBuffer.Remove().
 func TestMessageBuffer_Succeeded(t *testing.T) {
 	th := newTestHandler()

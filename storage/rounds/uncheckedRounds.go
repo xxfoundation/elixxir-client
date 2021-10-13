@@ -10,7 +10,6 @@ package rounds
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -27,26 +26,28 @@ const (
 	uncheckedRoundVersion = 0
 	roundInfoVersion      = 0
 	uncheckedRoundPrefix  = "uncheckedRoundPrefix"
+	roundKeyPrefix        = "roundInfo:"
+
 	// Key to store rounds
 	uncheckedRoundKey = "uncheckRounds"
-	// Key to store individual round
+
 	// Housekeeping constant (used for serializing uint64 ie id.Round)
 	uint64Size = 8
-	// Maximum checks that can be performed on a round. Intended so that
-	// a round is checked no more than 1 week approximately (network/rounds.cappedTries + 7)
+
+	// Maximum checks that can be performed on a round. Intended so that a round
+	// is checked no more than 1 week approximately (network/rounds.cappedTries + 7)
 	maxChecks = 14
 )
 
-// Round identity information used in message retrieval
-// Derived from reception.Identity saving data needed
-// for message retrieval
+// Identity contains round identity information used in message retrieval.
+// Derived from reception.Identity saving data needed for message retrieval.
 type Identity struct {
 	EpdId  ephemeral.Id
 	Source *id.ID
 }
 
-// Unchecked round structure is rounds which failed on message retrieval
-// These rounds are stored for retry of message retrieval
+// UncheckedRound contains rounds that failed on message retrieval. These rounds
+// are stored for retry of message retrieval.
 type UncheckedRound struct {
 	Info *pb.RoundInfo
 	Id   id.Round
@@ -58,17 +59,18 @@ type UncheckedRound struct {
 	NumChecks uint64
 }
 
-// marshal serializes UncheckedRound r into a byte slice
+// marshal serializes UncheckedRound r into a byte slice.
 func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
 	// Store teh round info
-	if r.Info !=nil{
-		if err := storeRoundInfo(kv, r.Info); err!=nil{
-			return nil,errors.WithMessagef(err,"failed to marshal unchecked rounds")
+	if r.Info != nil {
+		if err := storeRoundInfo(kv, r.Info, r.Source, r.EpdId); err != nil {
+			return nil, errors.WithMessagef(err,
+				"failed to marshal unchecked rounds")
 		}
 	}
 
-	//marshel the round ID
+	// Marshal the round ID
 	b := make([]byte, uint64Size)
 	binary.LittleEndian.PutUint64(b, uint64(r.Id))
 	buf.Write(b)
@@ -99,7 +101,7 @@ func (r UncheckedRound) marshal(kv *versioned.KV) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// unmarshal deserializes round data from buff into UncheckedRound r
+// unmarshal deserializes round data from buff into UncheckedRound r.
 func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 	// Deserialize the roundInfo
 	r.Id = id.Round(binary.LittleEndian.Uint64(buff.Next(uint64Size)))
@@ -109,46 +111,47 @@ func (r *UncheckedRound) unmarshal(kv *versioned.KV, buff *bytes.Buffer) error {
 
 	sourceId, err := id.Unmarshal(buff.Next(id.ArrIDLen))
 	if err != nil {
-		return errors.WithMessagef(err, "Failed to unmarshal round identity.source of %d", r.Id)
+		return errors.WithMessagef(err,
+			"Failed to unmarshal round identity.source of %d", r.Id)
 	}
 
 	r.Source = sourceId
 
 	// Deserialize the timestamp bytes
 	timestampLen := binary.LittleEndian.Uint64(buff.Next(uint64Size))
-	tsByes := buff.Next(int(uint64(timestampLen)))
+	tsByes := buff.Next(int(timestampLen))
 	if err = r.LastCheck.UnmarshalBinary(tsByes); err != nil {
-		return errors.WithMessagef(err, "Failed to unmarshal round timestamp of %d", r.Id)
+		return errors.WithMessagef(err,
+			"Failed to unmarshal round timestamp of %d", r.Id)
 	}
 
 	r.NumChecks = binary.LittleEndian.Uint64(buff.Next(uint64Size))
 
-	r.Info, _ = loadRoundInfo(kv, id.Round(r.Id))
+	r.Info, _ = loadRoundInfo(kv, r.Id, r.Source, r.EpdId)
 
 	return nil
 }
 
-// Storage object saving rounds to retry for message retrieval
+// UncheckedRoundStore stores rounds to retry for message retrieval.
 type UncheckedRoundStore struct {
-	list map[id.Round]UncheckedRound
+	list map[roundIdentity]UncheckedRound
 	mux  sync.RWMutex
 	kv   *versioned.KV
 }
 
-// Constructor for a UncheckedRoundStore
+// NewUncheckedStore is a constructor for a UncheckedRoundStore.
 func NewUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 	kv = kv.Prefix(uncheckedRoundPrefix)
 
 	urs := &UncheckedRoundStore{
-		list: make(map[id.Round]UncheckedRound, 0),
+		list: make(map[roundIdentity]UncheckedRound, 0),
 		kv:   kv,
 	}
 
 	return urs, urs.save()
-
 }
 
-// Loads an deserializes a UncheckedRoundStore from memory
+// LoadUncheckedStore loads a deserializes a UncheckedRoundStore from memory.
 func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 
 	kv = kv.Prefix(uncheckedRoundPrefix)
@@ -158,7 +161,7 @@ func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 	}
 
 	urs := &UncheckedRoundStore{
-		list: make(map[id.Round]UncheckedRound),
+		list: make(map[roundIdentity]UncheckedRound),
 		kv:   kv,
 	}
 
@@ -170,14 +173,16 @@ func LoadUncheckedStore(kv *versioned.KV) (*UncheckedRoundStore, error) {
 	return urs, err
 }
 
-// Adds a round to check on the list and saves to memory
-func (s *UncheckedRoundStore) AddRound(rid id.Round, ri *pb.RoundInfo, ephID ephemeral.Id, source *id.ID) error {
+// AddRound adds a round to check on the list and saves to memory.
+func (s *UncheckedRoundStore) AddRound(rid id.Round, ri *pb.RoundInfo,
+	source *id.ID, ephID ephemeral.Id) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+	roundId := newRoundIdentity(rid, source, ephID)
 
-	stored, exists := s.list[rid]
+	stored, exists := s.list[roundId]
 
-	if !exists ||stored.Info == nil {
+	if !exists || stored.Info == nil {
 		newUncheckedRound := UncheckedRound{
 			Info: ri,
 			Identity: Identity{
@@ -188,50 +193,55 @@ func (s *UncheckedRoundStore) AddRound(rid id.Round, ri *pb.RoundInfo, ephID eph
 			NumChecks: 0,
 		}
 
-		s.list[rid] = newUncheckedRound
+		s.list[roundId] = newUncheckedRound
 		return s.save()
 	}
 
 	return nil
 }
 
-// Retrieves an UncheckedRound from the map, if it exists
-func (s *UncheckedRoundStore) GetRound(rid id.Round) (UncheckedRound, bool) {
+// GetRound retrieves an UncheckedRound from the map, if it exists.
+func (s *UncheckedRoundStore) GetRound(rid id.Round, recipient *id.ID,
+	ephId ephemeral.Id) (UncheckedRound, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	rnd, exists := s.list[rid]
+	rnd, exists := s.list[newRoundIdentity(rid, recipient, ephId)]
 	return rnd, exists
 }
 
-func (s *UncheckedRoundStore) GetList(t *testing.T) map[id.Round]UncheckedRound{
+func (s *UncheckedRoundStore) GetList(*testing.T) map[roundIdentity]UncheckedRound {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.list
 }
 
-
-// Retrieves the list of rounds
-func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round, rnd UncheckedRound)) {
+// IterateOverList retrieves the list of rounds.
+func (s *UncheckedRoundStore) IterateOverList(iterator func(rid id.Round,
+	rnd UncheckedRound)) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	for rid, rnd := range s.list {
-		go iterator(rid, rnd)
+
+	for _, rnd := range s.list {
+		go iterator(rnd.Id, rnd)
 	}
 }
 
-// Increments the amount of checks performed on this stored round
-func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
+// IncrementCheck increments the amount of checks performed on this stored
+// round.
+func (s *UncheckedRoundStore) IncrementCheck(rid id.Round, recipient *id.ID,
+	ephId ephemeral.Id) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	rnd, exists := s.list[rid]
+	nri := newRoundIdentity(rid, recipient, ephId)
+	rnd, exists := s.list[nri]
 	if !exists {
 		return errors.Errorf("round %d could not be found in RAM", rid)
 	}
 
-	// If a round has been checked the maximum amount of times,
-	// we bail the round by removing it from store and no longer checking
+	// If a round has been checked the maximum amount of times, then bail the
+	// round by removing it from store and no longer checking
 	if rnd.NumChecks >= maxChecks {
-		if err := s.remove(rid); err != nil {
+		if err := s.remove(rid, rnd.Identity.Source, ephId); err != nil {
 			return errors.WithMessagef(err, "Round %d reached maximum checks "+
 				"but could not be removed", rid)
 		}
@@ -241,47 +251,56 @@ func (s *UncheckedRoundStore) IncrementCheck(rid id.Round) error {
 	// Update the rounds state
 	rnd.LastCheck = netTime.Now()
 	rnd.NumChecks++
-	s.list[rid] = rnd
+	s.list[nri] = rnd
 	return s.save()
 }
 
-// Remove deletes a round from UncheckedRoundStore's list and from storage
-func (s *UncheckedRoundStore) Remove(rid id.Round) error {
+// Remove deletes a round from UncheckedRoundStore's list and from storage.
+func (s *UncheckedRoundStore) Remove(rid id.Round, source *id.ID,
+	ephId ephemeral.Id) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
-	return s.remove(rid)
+	return s.remove(rid, source, ephId)
 }
 
-// Remove is a helper function which removes the round from UncheckedRoundStore's list
-// Note this method is unsafe and should only be used by methods with a lock
-func (s *UncheckedRoundStore) remove(rid id.Round) error {
-	ur, exists := s.list[rid]
+// Remove is a helper function which removes the round from
+// UncheckedRoundStore's list. Note that this method is unsafe and should only
+// be used by methods with a lock.
+func (s *UncheckedRoundStore) remove(rid id.Round, recipient *id.ID,
+	ephId ephemeral.Id) error {
+	roundId := newRoundIdentity(rid, recipient, ephId)
+	ur, exists := s.list[roundId]
 	if !exists {
 		return errors.Errorf("round %d does not exist in store", rid)
 	}
-	delete(s.list, rid)
-	if err := s.save(); err!=nil{
-		return errors.WithMessagef(err,"Failed to delete round %d from unchecked round store", rid)
+
+	delete(s.list, roundId)
+	if err := s.save(); err != nil {
+		return errors.WithMessagef(err,
+			"Failed to delete round %d from unchecked round store", rid)
 	}
 
-	//dont delete round infos if none exist
-	if ur.Info==nil{
+	// Do not delete round infos if none exist
+	if ur.Info == nil {
 		return nil
 	}
 
-	if err := deleteRoundInfo(s.kv, rid); err!=nil{
-		return errors.WithMessagef(err,"Failed to delete round %d's roundinfo from unchecked round store, " +
-			"round itself deleted. This is a storage leak", rid)
+	if err := deleteRoundInfo(s.kv, rid, recipient, ephId); err != nil {
+		return errors.WithMessagef(err,
+			"Failed to delete round %d's roundinfo from unchecked round store, "+
+				"round itself deleted. This is a storage leak", rid)
 	}
+
 	return nil
 }
 
-// save stores the information from the round list into storage
+// save stores the information from the round list into storage.
 func (s *UncheckedRoundStore) save() error {
 	// Store list of rounds
 	data, err := s.marshal()
 	if err != nil {
-		return errors.WithMessagef(err, "Could not marshal data for unchecked rounds")
+		return errors.WithMessagef(err,
+			"Could not marshal data for unchecked rounds")
 	}
 
 	// Create the versioned object
@@ -294,15 +313,17 @@ func (s *UncheckedRoundStore) save() error {
 	// Save to storage
 	err = s.kv.Set(uncheckedRoundKey, uncheckedRoundVersion, obj)
 	if err != nil {
-		return errors.WithMessagef(err, "Could not store data for unchecked rounds")
+		return errors.WithMessagef(err,
+			"Could not store data for unchecked rounds")
 	}
 
 	return nil
 }
 
-// marshal is a helper function which serializes all rounds in list to bytes
+// marshal is a helper function which serializes all rounds in list to bytes.
 func (s *UncheckedRoundStore) marshal() ([]byte, error) {
 	buf := bytes.NewBuffer(nil)
+
 	// Write number of rounds the buffer
 	b := make([]byte, 8)
 	binary.PutVarint(b, int64(len(s.list)))
@@ -311,7 +332,8 @@ func (s *UncheckedRoundStore) marshal() ([]byte, error) {
 	for rid, rnd := range s.list {
 		rndData, err := rnd.marshal(s.kv)
 		if err != nil {
-			return nil, errors.WithMessagef(err, "Failed to marshal round %d", rid)
+			return nil, errors.WithMessagef(err,
+				"Failed to marshal round %d", rid)
 		}
 
 		buf.Write(rndData)
@@ -321,9 +343,10 @@ func (s *UncheckedRoundStore) marshal() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// unmarshal deserializes an UncheckedRound from its stored byte data
+// unmarshal deserializes an UncheckedRound from its stored byte data.
 func (s *UncheckedRoundStore) unmarshal(data []byte) error {
 	buff := bytes.NewBuffer(data)
+
 	// Get number of rounds in list
 	length, _ := binary.Varint(buff.Next(8))
 
@@ -331,21 +354,24 @@ func (s *UncheckedRoundStore) unmarshal(data []byte) error {
 		rnd := UncheckedRound{}
 		err := rnd.unmarshal(s.kv, buff)
 		if err != nil {
-			return errors.WithMessage(err, "Failed to unmarshal rounds in storage")
+			return errors.WithMessage(err,
+				"Failed to unmarshal rounds in storage")
 		}
 
-		s.list[rnd.Id] = rnd
+		s.list[newRoundIdentity(rnd.Id, rnd.Source, rnd.EpdId)] = rnd
 	}
 
 	return nil
 }
 
-func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo)error{
+func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo, recipient *id.ID,
+	ephID ephemeral.Id) error {
 	now := netTime.Now()
 
 	data, err := proto.Marshal(info)
-	if err!=nil{
-		return errors.WithMessagef(err, "Failed to store individual unchecked round")
+	if err != nil {
+		return errors.WithMessagef(err,
+			"Failed to store individual unchecked round")
 	}
 
 	obj := versioned.Object{
@@ -354,11 +380,14 @@ func storeRoundInfo(kv *versioned.KV, info *pb.RoundInfo)error{
 		Data:      data,
 	}
 
-	return kv.Set(roundKey(id.Round(info.ID)), roundInfoVersion, &obj)
+	return kv.Set(
+		roundKey(id.Round(info.ID), recipient, ephID), roundInfoVersion, &obj)
 }
 
-func loadRoundInfo(kv *versioned.KV, id id.Round)( *pb.RoundInfo, error){
-	vo, err := kv.Get(roundKey(id), roundInfoVersion)
+func loadRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
+	ephID ephemeral.Id) (*pb.RoundInfo, error) {
+
+	vo, err := kv.Get(roundKey(id, recipient, ephID), roundInfoVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -371,10 +400,11 @@ func loadRoundInfo(kv *versioned.KV, id id.Round)( *pb.RoundInfo, error){
 	return ri, nil
 }
 
-func deleteRoundInfo(kv *versioned.KV, id id.Round)error{
-	return kv.Delete(roundKey(id), roundInfoVersion)
+func deleteRoundInfo(kv *versioned.KV, id id.Round, recipient *id.ID,
+	ephID ephemeral.Id) error {
+	return kv.Delete(roundKey(id, recipient, ephID), roundInfoVersion)
 }
 
-func roundKey(roundID id.Round)string{
-	return fmt.Sprintf("roundInfo:%d", roundID)
+func roundKey(roundID id.Round, recipient *id.ID, ephID ephemeral.Id) string {
+	return roundKeyPrefix + newRoundIdentity(roundID, recipient, ephID).String()
 }

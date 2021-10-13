@@ -49,10 +49,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID),nil,
-				rl.identity.EphId, rl.identity.Source)
+			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), nil,
+				rl.identity.Source, rl.identity.EphId)
 			if err != nil {
-				jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d",id.Round(ri.ID))
+				jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", id.Round(ri.ID))
 			}
 
 			// Convert gateways in round to proper ID format
@@ -120,7 +120,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 
 			if len(bundle.Messages) != 0 {
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
-				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
+				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 				if err != nil {
 					jww.ERROR.Printf("Could not remove round %d "+
 						"from unchecked rounds store: %v", ri.ID, err)
@@ -161,6 +161,11 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 			return message.Bundle{}, errors.WithMessage(errRtn, gateway.RetryableError)
 		}
 
+		if !msgResp.HasRound {
+			return nil, errors.Errorf("cannot pickup messages for round %d "+
+				"from %s, it does not have the round yet", roundID, host.GetId())
+		}
+
 		return msgResp, err
 	}, stop)
 	jww.INFO.Printf("Received message for round %d, processing...", roundID)
@@ -172,13 +177,19 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 	msgResp := result.(*pb.GetMessagesResponse)
 
 	// If there are no messages print a warning. Due to the probabilistic nature
-	// of the bloom filters, false positives will happen some times
+	// of the bloom filters, false positives will happen sometimes
 	msgs := msgResp.GetMessages()
 	if msgs == nil || len(msgs) == 0 {
 		jww.WARN.Printf("no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicative of a problem if it is consistent",
 			m.TransmissionID, roundID)
+
+		err = m.Session.UncheckedRounds().Remove(roundID, identity.Source, identity.EphId)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to remove round %d: %+v", roundID, err)
+		}
+
 		return message.Bundle{}, nil
 	}
 
@@ -210,7 +221,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 	comms messageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (bundle message.Bundle, err error) {
-	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID))
+	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
 		stream := m.Rng.GetStream()

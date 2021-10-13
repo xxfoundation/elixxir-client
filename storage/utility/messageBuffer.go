@@ -276,7 +276,7 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 		}
 	}
 
-	return m, true
+	return m, m != nil
 }
 
 // next returns the first MessageHash in the map returned by range.

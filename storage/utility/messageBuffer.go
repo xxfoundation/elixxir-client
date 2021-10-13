@@ -21,7 +21,7 @@ import (
 // message stored in the buffer.
 type MessageHash [16]byte
 
-func (m MessageHash)String()string{
+func (m MessageHash) String() string {
 	return base64.StdEncoding.EncodeToString(m[:])
 }
 
@@ -248,11 +248,15 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 	mb.mux.Lock()
 	defer mb.mux.Unlock()
 
+	if len(mb.messages) == 0 {
+		return format.Message{}, false
+	}
+
 	var m interface{}
 	var err error
 
 	//run until empty or a valid message is
-	for m==nil && len(mb.messages) > 0 {
+	for m == nil && len(mb.messages) > 0 {
 		// Pop the next MessageHash from the "not processing" list
 		h := next(mb.messages)
 		jww.TRACE.Printf("Critical Messages Next returned %s",
@@ -266,14 +270,10 @@ func (mb *MessageBuffer) Next() (interface{}, bool) {
 		// Retrieve the message for storage
 		m, err = mb.handler.LoadMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 		if err != nil {
-			jww.ERROR.Printf("Failed to load message %s from store, " +
-				"this may happen on occasion due to replays to increase " +
+			jww.ERROR.Printf("Failed to load message %s from store, "+
+				"this may happen on occasion due to replays to increase "+
 				"reliability: %v", h, err)
 		}
-	}
-
-	if len(mb.messages) == 0 {
-		return format.Message{}, false
 	}
 
 	return m, true
@@ -309,11 +309,10 @@ func (mb *MessageBuffer) Succeeded(m interface{}) {
 	// Done message from key value store
 	err = mb.handler.DeleteMessage(mb.kv, makeStoredMessageKey(mb.key, h))
 	if err != nil {
-		jww.ERROR.Printf("Failed to delete message from store, " +
-			"this may happen on occasion due to replays to increase " +
+		jww.ERROR.Printf("Failed to delete message from store, "+
+			"this may happen on occasion due to replays to increase "+
 			"reliability: %v", err)
 	}
-
 
 }
 

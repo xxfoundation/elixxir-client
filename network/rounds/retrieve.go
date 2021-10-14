@@ -156,14 +156,13 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
-		if err == nil && !msgResp.GetHasRound() {
-			errRtn := errors.Errorf(noRoundError, roundID)
-			return message.Bundle{}, errors.WithMessage(errRtn, gateway.RetryableError)
+		if err!=nil{
+			return nil, err
 		}
 
-		if !msgResp.HasRound {
-			return nil, errors.Errorf("cannot pickup messages for round %d "+
-				"from %s, it does not have the round yet", roundID, host.GetId())
+		if !msgResp.GetHasRound() {
+			errRtn := errors.Errorf(noRoundError, roundID)
+			return message.Bundle{}, errors.WithMessage(errRtn, gateway.RetryableError)
 		}
 
 		return msgResp, err

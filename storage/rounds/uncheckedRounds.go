@@ -326,7 +326,7 @@ func (s *UncheckedRoundStore) marshal() ([]byte, error) {
 
 	// Write number of rounds the buffer
 	b := make([]byte, 8)
-	binary.PutVarint(b, int64(len(s.list)))
+	binary.BigEndian.PutUint32(b, uint32(len(s.list)))
 	buf.Write(b)
 
 	for rid, rnd := range s.list {
@@ -348,7 +348,7 @@ func (s *UncheckedRoundStore) unmarshal(data []byte) error {
 	buff := bytes.NewBuffer(data)
 
 	// Get number of rounds in list
-	length, _ := binary.Varint(buff.Next(8))
+	length := binary.BigEndian.Uint32(buff.Next(8))
 
 	for i := 0; i < int(length); i++ {
 		rnd := UncheckedRound{}

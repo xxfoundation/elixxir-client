@@ -156,8 +156,10 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
+
 		if err!=nil{
-			return nil, err
+			//you need to default to a retryable errors because otherwise we cannot enumerate all errors
+			return nil,  errors.WithMessage(err, gateway.RetryableError)
 		}
 
 		if !msgResp.GetHasRound() {
@@ -165,7 +167,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 			return message.Bundle{}, errors.WithMessage(errRtn, gateway.RetryableError)
 		}
 
-		return msgResp, err
+		return msgResp, nil
 	}, stop)
 	jww.INFO.Printf("Received message for round %d, processing...", roundID)
 	// Fail the round if an error occurs so it can be tried again later

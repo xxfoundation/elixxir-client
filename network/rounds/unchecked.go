@@ -95,7 +95,7 @@ func (m *Manager) processUncheckedRounds(checkInterval time.Duration, backoffTab
 					}
 
 					// Update the state of the round for next look-up (if needed)
-					err := uncheckedRoundStore.IncrementCheck(rid)
+					err := uncheckedRoundStore.IncrementCheck(rid, rnd.Source, rnd.EpdId)
 					if err != nil {
 						jww.ERROR.Printf("processUncheckedRounds error: Could not "+
 							"increment check attempts for round %d: %v", rid, err)

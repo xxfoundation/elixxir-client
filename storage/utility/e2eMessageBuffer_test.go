@@ -128,7 +128,7 @@ func TestE2EMessageHandler_Smoke(t *testing.T) {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
 			0, len(cmb.mb.messages))
 	}
-	cmb.Failed(msg,params.E2E{})
+	cmb.Failed(msg, params.E2E{})
 
 	if len(cmb.mb.messages) != 1 {
 		t.Errorf("Unexpected length of buffer.\n\texpected: %d\n\trecieved: %d",
@@ -177,14 +177,14 @@ func makeTestE2EMessages(n int, t *testing.T) ([]e2eMessage, []message.Send) {
 }
 
 func TestE2EParamMarshalUnmarshal(t *testing.T) {
-	msg := e2eMessage{
+	msg := &e2eMessage{
 		Recipient:   id.DummyUser[:],
-		Payload:     []byte{1,2,3,4,5,6,7,8,9},
+		Payload:     []byte{1, 2, 3, 4, 5, 6, 7, 8, 9},
 		MessageType: 42,
-		Params:      params.E2E{
+		Params: params.E2E{
 			Type:       1,
 			RetryCount: 7,
-			CMIX:       params.CMIX{
+			CMIX: params.CMIX{
 				RoundTries: 6,
 				Timeout:    99,
 				RetryDelay: -4,
@@ -192,25 +192,27 @@ func TestE2EParamMarshalUnmarshal(t *testing.T) {
 		},
 	}
 
+	fmt.Printf("msg1: %#v\n", msg)
+
 	b, err := json.Marshal(&msg)
 
-	if err!=nil{
+	if err != nil {
 		t.Errorf("Failed to Marshal E2eMessage")
 	}
 
-	fmt.Printf("%s\n", string(b))
+	fmt.Printf("json: %s\n", string(b))
 
 	msg2 := &e2eMessage{}
 
-	err = json.Unmarshal(b,&msg2)
+	err = json.Unmarshal(b, &msg2)
 
-	if err!=nil{
+	if err != nil {
 		t.Errorf("Failed to Unmarshal E2eMessage")
 	}
 
-	fmt.Printf("%#v\n", msg2)
+	fmt.Printf("msg2: %#v\n", msg2)
 
-	if !reflect.DeepEqual(msg,msg2){
+	if !reflect.DeepEqual(msg, msg2) {
 		t.Errorf("Unmarshaled message is not the same")
 	}
 

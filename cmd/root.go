@@ -191,10 +191,10 @@ var rootCmd = &cobra.Command{
 		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
 		wg.Add(sendCnt)
-		go func(){
+		go func() {
 			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
 			for i := 0; i < sendCnt; i++ {
-				go func(){
+				go func() {
 					defer wg.Done()
 					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 					var roundIDs []id.Round
@@ -220,7 +220,7 @@ var rootCmd = &cobra.Command{
 
 					// Have the client report back the round results
 					err = errors.New("derp")
-					for j:=0;j<5&&err!=nil;j++{
+					for j := 0; j < 5 && err != nil; j++ {
 						err = client.GetRoundResults(roundIDs, roundTimeout, f)
 					}
 

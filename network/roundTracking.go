@@ -63,7 +63,7 @@ func (rt *RoundTracker) denote(rid id.Round, state RoundState) {
 	// this ensures a lower state will not overwrite a higher state.
 	// eg. Unchecked does not overwrite MessageAvailable
 	if storedState, exists := rt.state[rid]; exists && storedState > state {
-		jww.TRACE.Printf("did not denote round %d because " +
+		jww.TRACE.Printf("did not denote round %d because "+
 			"stored state of %s (%d) > passed state %s (%d)",
 			rid, storedState, storedState, state, state)
 		return

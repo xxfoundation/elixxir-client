@@ -120,8 +120,6 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 		MessageType: message.KeyExchangeConfirm,
 	}
 
-
-
 	//send the message under the key exchange
 	e2eParams := params.GetDefaultE2E()
 

@@ -64,7 +64,7 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 			"up messages via historical lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		//store the round as an unretreived round
-		err = m.Session.UncheckedRounds().AddRound(roundID,nil,
+		err = m.Session.UncheckedRounds().AddRound(roundID, nil,
 			identity.Source, identity.EphId)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", roundID)
@@ -80,7 +80,7 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
 		//store the round as an unretreived round
-		err = m.Session.UncheckedRounds().AddRound(roundID,ri,
+		err = m.Session.UncheckedRounds().AddRound(roundID, ri,
 			identity.Source, identity.EphId)
 		if err != nil {
 			jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", roundID)

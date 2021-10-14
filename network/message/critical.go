@@ -51,8 +51,9 @@ func (m *Manager) criticalMessages(stop *stoppable.Single) {
 	//critical messages
 	for msg, param, has := critMsgs.Next(); has; msg, param, has = critMsgs.Next() {
 		go func(msg message.Send, param params.E2E) {
-			jww.INFO.Printf("Resending critical message to %s ",
-				msg.Recipient)
+
+			jww.INFO.Printf("Resending critical message to %s with params %#v",
+				msg.Recipient, param)
 			//send the message
 			rounds, _, _, err := m.SendE2E(msg, param, stop)
 			//if the message fail to send, notify the buffer so it can be handled
@@ -61,7 +62,7 @@ func (m *Manager) criticalMessages(stop *stoppable.Single) {
 				jww.ERROR.Printf("Failed to send critical message to %s "+
 					" on notification of healthy network: %+v", msg.Recipient,
 					err)
-				critMsgs.Failed(msg)
+				critMsgs.Failed(msg, param)
 				return
 			}
 			//wait on the results to make sure the rounds were successful
@@ -77,13 +78,13 @@ func (m *Manager) criticalMessages(stop *stoppable.Single) {
 					"to transmit transmit %v/%v paritions on rounds %d: %v "+
 					"round failures, %v timeouts", msg.Recipient,
 					numRoundFail+numTimeOut, len(rounds), rounds, numRoundFail, numTimeOut)
-				critMsgs.Failed(msg)
+				critMsgs.Failed(msg, param)
 				return
 			}
 
 			jww.INFO.Printf("Successful resend of critical message "+
 				"to %s on rounds %d", msg.Recipient, rounds)
-			critMsgs.Succeeded(msg)
+			critMsgs.Succeeded(msg, param)
 		}(msg, param)
 	}
 

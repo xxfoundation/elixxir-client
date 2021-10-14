@@ -150,13 +150,13 @@ func handleTrigger(sess *storage.Session, net interfaces.NetworkManager,
 			"transmit %v/%v paritions: %v round failures, %v timeouts",
 			session, numRoundFail+numTimeOut, len(rounds), numRoundFail,
 			numTimeOut)
-		sess.GetCriticalMessages().Failed(m)
+		sess.GetCriticalMessages().Failed(m, e2eParams)
 		return nil
 	}
 
 	// otherwise, the transmission is a success and this should be denoted
 	// in the session and the log
-	sess.GetCriticalMessages().Succeeded(m)
+	sess.GetCriticalMessages().Succeeded(m, e2eParams)
 	jww.INFO.Printf("Key Negotiation transmission for %s successfully",
 		session)
 

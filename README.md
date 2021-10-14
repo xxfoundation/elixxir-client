@@ -179,7 +179,7 @@ Flags:
                                   (default 1)
       --sendDelay uint            The delay between sending the messages in ms
                                   (default 500)
-      --sendid uiverboseRoundTrackingnt               Use precanned user id (must be between 1 and
+      --sendid uint               Use precanned user id (must be between 1 and
                                   40, inclusive)
       --slowPolling bool          Enables polling for all network updates and RSA signed rounds.
                                   Defaults to true (filtered updates with ECC signed rounds) if not set

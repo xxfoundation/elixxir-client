@@ -254,10 +254,27 @@ var rootCmd = &cobra.Command{
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
+					break
 				}
-				break
 			}
 		}
+
+		//wait an extra 5 seconds to make sure no messages were missed
+		done = false
+		timer := time.NewTimer(5*time.Second)
+		for !done {
+			select {
+			case <-timer.C:
+				done = true
+				break
+			case m := <-recvCh:
+				fmt.Printf("Message received: %s\n", string(
+					m.Payload))
+				//fmt.Printf("%s", m.Timestamp)
+				receiveCnt++
+			}
+		}
+
 		jww.INFO.Printf("Received %d/%d Messages!", receiveCnt, expectedCnt)
 		fmt.Printf("Received %d\n", receiveCnt)
 		if roundsNotepad != nil {

@@ -5,6 +5,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/crypto/contact"
+	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/primitives/id"
 	"time"
 )
@@ -75,6 +76,13 @@ func (m *Manager) lookupResponseProcess(uid *id.ID, callback lookupCallback,
 	c := contact.Contact{
 		ID:       uid,
 		DhPubKey: m.grp.NewIntFromBytes(lookupResponse.PubKey),
+	}
+
+	if lookupResponse.Username != "" {
+		c.Facts = fact.FactList{{
+			Fact: lookupResponse.Username,
+			T:    fact.Username,
+		}}
 	}
 
 	go callback(c, nil)

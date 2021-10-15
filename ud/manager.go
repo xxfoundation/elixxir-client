@@ -111,9 +111,12 @@ func (m *Manager) getHost() (*connect.Host, error) {
 		return host, nil
 	}
 
+	params := connect.GetDefaultHostParams()
+	params.AuthEnabled = false
+
 	// Add a new host and return it if it does not already exist
 	host, err = m.comms.AddHost(udID, netDef.UDB.Address,
-		[]byte(netDef.UDB.Cert), connect.GetDefaultHostParams())
+		[]byte(netDef.UDB.Cert), params)
 	if err != nil {
 		return nil, errors.WithMessage(err, "User Discovery host object could "+
 			"not be constructed.")

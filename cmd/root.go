@@ -258,7 +258,7 @@ var rootCmd = &cobra.Command{
 				break
 			}
 		}
-		jww.INFO.Printf("Received %d/%d Messages %s!", receiveCnt, expectedCnt)
+		jww.INFO.Printf("Received %d/%d Messages!", receiveCnt, expectedCnt)
 		fmt.Printf("Received %d\n", receiveCnt)
 		if roundsNotepad != nil {
 			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())

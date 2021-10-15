@@ -97,7 +97,7 @@ func NewManager(client *api.Client, single *single.Manager) (*Manager, error) {
 // getHost returns the current UD host for the UD ID found in the NDF. If the
 // host does not exist, then it is added and returned
 func (m *Manager) getHost() (*connect.Host, error) {
-	netDef := m.net.GetInstance().GetFullNdf().Get()
+	netDef := m.net.GetInstance().GetPartialNdf().Get()
 
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)
@@ -124,7 +124,7 @@ func (m *Manager) getHost() (*connect.Host, error) {
 
 // getContact returns the contact for UD as retrieved from the NDF.
 func (m *Manager) getContact() (contact.Contact, error) {
-	netDef := m.net.GetInstance().GetFullNdf().Get()
+	netDef := m.net.GetInstance().GetPartialNdf().Get()
 
 	// Unmarshal UD ID from the NDF
 	udID, err := id.Unmarshal(netDef.UDB.ID)

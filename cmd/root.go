@@ -236,14 +236,15 @@ var rootCmd = &cobra.Command{
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
-		waitTimeout := time.Duration(waitSecs)
+		waitTimeout := time.Duration(waitSecs)* time.Second
 		done := false
 
 		for !done && expectedCnt != 0 {
-			timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+			timeoutTimer := time.NewTimer(waitTimeout)
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
+				jww.ERROR.Printf("Timed out on message reception after %s!", waitTimeout)
 				done = true
 				break
 			case m := <-recvCh:
@@ -257,6 +258,7 @@ var rootCmd = &cobra.Command{
 				break
 			}
 		}
+		jww.INFO.Printf("Received %d/%d Messages %s!", receiveCnt, expectedCnt)
 		fmt.Printf("Received %d\n", receiveCnt)
 		if roundsNotepad != nil {
 			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())

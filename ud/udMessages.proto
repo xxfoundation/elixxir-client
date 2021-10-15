@@ -48,5 +48,6 @@ message LookupSend {
 // Message sent from UDB for looking up a user
 message LookupResponse {
   bytes pubKey = 1;
+  string username = 2;
   string error = 3;
 }

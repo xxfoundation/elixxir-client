@@ -76,10 +76,13 @@ func (m *Manager) lookupResponseProcess(uid *id.ID, callback lookupCallback,
 	c := contact.Contact{
 		ID:       uid,
 		DhPubKey: m.grp.NewIntFromBytes(lookupResponse.PubKey),
-		Facts: fact.FactList{{
+	}
+
+	if lookupResponse.Username != "" {
+		c.Facts = fact.FactList{{
 			Fact: lookupResponse.Username,
 			T:    fact.Username,
-		}},
+		}}
 	}
 
 	go callback(c, nil)

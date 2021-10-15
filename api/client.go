@@ -75,7 +75,7 @@ type Client struct {
 func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
 	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
@@ -106,7 +106,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) error {
 	jww.INFO.Printf("NewPrecannedClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
@@ -135,7 +135,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCode string, userIdPrefix string) error {
 	jww.INFO.Printf("NewVanityClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
@@ -161,7 +161,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCo
 func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)

@@ -43,7 +43,7 @@ type RegisterNodeCommsInterface interface {
 }
 
 func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	c chan network.NodeGateway, numParallel uint) stoppable.Stoppable {
+	c chan network.NodeGateway, numParallel uint, networkInstance *network.Instance) stoppable.Stoppable {
 
 	multi := stoppable.NewMulti("NodeRegistrations")
 
@@ -52,7 +52,7 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 	for i := uint(0); i < numParallel; i++ {
 		stop := stoppable.NewSingle(fmt.Sprintf("NodeRegistration %d", i))
 
-		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess)
+		go registerNodes(sender, session, rngGen, comms, stop, c, inProgess, networkInstance)
 		multi.Add(stop)
 	}
 
@@ -61,7 +61,8 @@ func StartRegistration(sender *gateway.Sender, session *storage.Session, rngGen 
 
 func registerNodes(sender *gateway.Sender, session *storage.Session,
 	rngGen *fastRNG.StreamGenerator, comms RegisterNodeCommsInterface,
-	stop *stoppable.Single, c chan network.NodeGateway, inProgress *sync.Map) {
+	stop *stoppable.Single, c chan network.NodeGateway, inProgress *sync.Map,
+	networkInstance *network.Instance) {
 	u := session.User()
 	regSignature := u.GetTransmissionRegistrationValidationSignature()
 	// Timestamp in which user has registered with registration

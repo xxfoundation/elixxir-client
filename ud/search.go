@@ -14,7 +14,7 @@ import (
 
 // SearchTag specifies which callback to trigger when UD receives a search
 // request.
-const SearchTag = "xxNetwork_UdLookup"
+const SearchTag = "xxNetwork_UdSearch"
 
 // TODO: reconsider where this comes from
 const maxSearchMessages = 20

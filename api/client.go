@@ -8,6 +8,7 @@
 package api
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/auth"
@@ -72,7 +73,8 @@ type Client struct {
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
+func NewClient(ndfJSON, storageDir string, password []byte,
+	registrationCode string) error {
 	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
@@ -103,7 +105,8 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) error {
+func NewPrecannedClient(precannedID uint, defJSON, storageDir string,
+	password []byte) error {
 	jww.INFO.Printf("NewPrecannedClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
@@ -132,7 +135,8 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 // with the network. Note that this does not register a username/identity, but
 // merely creates a new cryptographic identity for adding such information
 // at a later date.
-func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCode string, userIdPrefix string) error {
+func NewVanityClient(ndfJSON, storageDir string, password []byte,
+	registrationCode string, userIdPrefix string) error {
 	jww.INFO.Printf("NewVanityClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
 	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
@@ -193,6 +197,45 @@ func OpenClient(storageDir string, password []byte, parameters params.Network) (
 	return c, nil
 }
 
+// NewProtoClient_Unsafe initializes a client object from a JSON containing
+// predefined cryptographic which defines a user. This is designed for some
+// specific deployment procedures and is generally unsafe.
+func NewProtoClient_Unsafe(storageDir string, password []byte,
+	protoClientJSON []byte,
+	parameters params.Network, def *ndf.NetworkDefinition) (*Client, error) {
+	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+
+	cmixGrp, e2eGrp := decodeGroups(def)
+
+	// Pull the proto user from the JSON
+	protoUser := &user.Proto{}
+	err := json.Unmarshal(protoClientJSON, protoUser)
+	if err != nil {
+		return nil, err
+	}
+
+	// Initialize a user object for storage set up
+	usr := user.NewUserFromProto(protoUser)
+
+	// Set up storage
+	err = checkVersionAndSetupStorage(def, storageDir, password, usr,
+		cmixGrp, e2eGrp, rngStreamGen, false, protoUser.RegCode)
+
+	//Open the client
+	c, err := OpenClient(storageDir, password, parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set registration values in storage
+	c.GetStorage().User().SetReceptionRegistrationValidationSignature(protoUser.ReceptionRegValidationSig)
+	c.GetStorage().User().SetTransmissionRegistrationValidationSignature(protoUser.TransmissionRegValidationSig)
+	c.GetStorage().User().SetRegistrationTimestamp(protoUser.RegistrationTimestamp.UnixNano())
+
+	return c, nil
+}
+
 // Login initializes a client object from existing storage.
 func Login(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("Login()")
@@ -234,7 +277,8 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 		hp.KaClientOpts.Time = time.Duration(math.MaxInt64)
 		hp.AuthEnabled = false
 		hp.MaxRetries = 5
-		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address, []byte(def.Notification.TlsCertificate), hp)
+		_, err = c.comms.AddHost(&id.NotificationBot, def.Notification.Address,
+			[]byte(def.Notification.TlsCertificate), hp)
 		if err != nil {
 			jww.WARN.Printf("Failed adding host for notifications: %+v", err)
 		}
@@ -262,7 +306,7 @@ func Login(storageDir string, password []byte, parameters params.Network) (*Clie
 // LoginWithNewBaseNDF_UNSAFE initializes a client object from existing storage
 // while replacing the base NDF.  This is designed for some specific deployment
 // procedures and is generally unsafe.
-func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
+func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte, protoClientJSON []byte,
 	newBaseNdf string, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("LoginWithNewBaseNDF_UNSAFE()")
 
@@ -273,8 +317,7 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 	}
 
 	//Open the client
-	c, err := OpenClient(storageDir, password, parameters)
-
+	c, err := NewProtoClient_Unsafe(storageDir, password, protoClientJSON, parameters, def)
 	if err != nil {
 		return nil, err
 	}
@@ -287,18 +330,6 @@ func LoginWithNewBaseNDF_UNSAFE(storageDir string, password []byte,
 
 	//store the updated base NDF
 	c.storage.SetNDF(def)
-
-	//initialize registration
-	if def.Registration.Address != "" {
-		err = c.initPermissioning(def)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		jww.WARN.Printf("Registration with permissioning skipped due to " +
-			"blank permissionign address. Client will not be able to register " +
-			"or track network.")
-	}
 
 	// Initialize network and link it to context
 	c.network, err = network.NewManager(c.storage, c.switchboard, c.rng,

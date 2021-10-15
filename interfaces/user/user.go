@@ -44,3 +44,20 @@ func (u User) GetContact() contact.Contact {
 		Facts:    make([]fact.Fact, 0),
 	}
 }
+
+func NewUserFromProto(proto *Proto) User {
+	return User{
+		TransmissionID:        proto.TransmissionID,
+		TransmissionSalt:      proto.TransmissionSalt,
+		TransmissionRSA:       proto.TransmissionRSA,
+		ReceptionID:           proto.ReceptionID,
+		ReceptionSalt:         proto.ReceptionSalt,
+		ReceptionRSA:          proto.ReceptionRSA,
+		Precanned:             proto.Precanned,
+		RegistrationTimestamp: proto.RegistrationTimestamp,
+		CmixDhPrivateKey:      proto.CmixDhPrivateKey,
+		CmixDhPublicKey:       proto.CmixDhPublicKey,
+		E2eDhPrivateKey:       proto.E2eDhPrivateKey,
+		E2eDhPublicKey:        proto.E2eDhPublicKey,
+	}
+}

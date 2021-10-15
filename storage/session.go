@@ -101,7 +101,8 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 			"Create new session")
 	}
 
-	s.user, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt, u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
+	s.user, err = user.NewUser(s.kv, u.TransmissionID, u.ReceptionID, u.TransmissionSalt,
+		u.ReceptionSalt, u.TransmissionRSA, u.ReceptionRSA, u.Precanned)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to create user")
 	}

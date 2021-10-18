@@ -194,7 +194,7 @@ var rootCmd = &cobra.Command{
 		go func() {
 			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
 			for i := 0; i < sendCnt; i++ {
-				go func() {
+				go func(i int) {
 					defer wg.Done()
 					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 					var roundIDs []id.Round
@@ -225,9 +225,9 @@ var rootCmd = &cobra.Command{
 					}
 
 					if err != nil {
-						jww.FATAL.Panicf("%+v", err)
+						jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
 					}
-				}()
+				}(i)
 			}
 		}()
 

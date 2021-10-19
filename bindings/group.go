@@ -289,6 +289,11 @@ func (gmr *GroupMessageReceive) GetTimestampNano() int64 {
 	return gmr.Timestamp.UnixNano()
 }
 
+// GetTimestampMS returns the message timestamp in milliseconds.
+func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
+	return gmr.Timestamp.UnixNano() / 1_000_000
+}
+
 // GetRoundID returns the ID of the round the message was sent on.
 func (gmr *GroupMessageReceive) GetRoundID() int64 {
 	return int64(gmr.RoundID)
@@ -298,4 +303,10 @@ func (gmr *GroupMessageReceive) GetRoundID() int64 {
 // message was sent on.
 func (gmr *GroupMessageReceive) GetRoundTimestampNano() int64 {
 	return gmr.RoundTimestamp.UnixNano()
+}
+
+// GetRoundTimestampMS returns the timestamp, in milliseconds, of the round the
+// message was sent on.
+func (gmr *GroupMessageReceive) GetRoundTimestampMS() int64 {
+	return gmr.RoundTimestamp.UnixNano() / 1_000_000
 }

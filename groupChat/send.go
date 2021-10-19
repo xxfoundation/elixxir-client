@@ -36,36 +36,38 @@ const (
 
 // Send sends a message to all group members using Client.SendManyCMIX. The
 // send fails if the message is too long.
-func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, error) {
+func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
+	error) {
+	timeNow := netTime.Now()
 
 	// Create a cMix message for each group member
-	messages, err := m.createMessages(groupID, message)
+	messages, err := m.createMessages(groupID, message, timeNow)
 	if err != nil {
-		return 0, errors.Errorf(newCmixMsgErr, err)
+		return 0, time.Time{}, errors.Errorf(newCmixMsgErr, err)
 	}
 
 	rid, _, err := m.net.SendManyCMIX(messages, params.GetDefaultCMIX())
 	if err != nil {
-		return 0, errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
+		return 0, time.Time{},
+			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
 	}
 
 	jww.DEBUG.Printf("Sent message to group %s.", groupID)
 
-	return rid, nil
+	return rid, timeNow, nil
 }
 
 // createMessages generates a list of cMix messages and a list of corresponding
 // recipient IDs.
-func (m *Manager) createMessages(groupID *id.ID, msg []byte) (
-	map[id.ID]format.Message, error) {
-	timeNow := netTime.Now()
+func (m *Manager) createMessages(groupID *id.ID, msg []byte,
+	timestamp time.Time) (map[id.ID]format.Message, error) {
 
 	g, exists := m.gs.Get(groupID)
 	if !exists {
 		return map[id.ID]format.Message{}, errors.Errorf(newNoGroupErr, groupID)
 	}
 
-	return m.newMessages(g, msg, timeNow)
+	return m.newMessages(g, msg, timestamp)
 }
 
 // newMessages is a private function that allows the passing in of a timestamp

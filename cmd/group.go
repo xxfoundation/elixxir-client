@@ -218,12 +218,13 @@ func sendGroup(groupIdString string, msg []byte, gm *groupChat.Manager) {
 
 	jww.INFO.Printf("Sending to group %s message %q", groupID, msg)
 
-	rid, err := gm.Send(groupID, msg)
+	rid, timestamp, err := gm.Send(groupID, msg)
 	if err != nil {
 		jww.FATAL.Panicf("Sending message to group %s: %+v", groupID, err)
 	}
 
-	jww.INFO.Printf("Sent to group %s on round %d", groupID, rid)
+	jww.INFO.Printf("Sent to group %s on round %d at %s",
+		groupID, rid, timestamp)
 	fmt.Printf("Sent message %q to group.\n", msg)
 }
 

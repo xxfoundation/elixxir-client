@@ -190,6 +190,11 @@ func (gsr *GroupSendReport) GetRoundID() int64 {
 	return int64(gsr.roundID)
 }
 
+// GetTimestampNano returns the timestamp of the send in nanoseconds.
+func (gsr *GroupSendReport) GetTimestampNano() int64 {
+	return gsr.timestamp.UnixNano()
+}
+
 // GetTimestampMS returns the timestamp of the send in milliseconds.
 func (gsr *GroupSendReport) GetTimestampMS() int64 {
 	ts := uint64(gsr.timestamp.UnixNano()) / uint64(time.Millisecond)

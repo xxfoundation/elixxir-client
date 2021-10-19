@@ -10,6 +10,7 @@ package groupChat
 import (
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/interfaces/params"
@@ -33,6 +34,8 @@ func (m Manager) ResendRequest(groupID *id.ID) ([]id.Round, RequestStatus, error
 	if !exists {
 		return nil, NotSent, errors.Errorf(resendGroupIdErr, groupID)
 	}
+
+	jww.DEBUG.Printf("Resending group requests for group %s.", groupID)
 
 	return m.sendRequests(g)
 }

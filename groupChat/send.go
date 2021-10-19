@@ -9,6 +9,7 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/crypto/group"
@@ -47,6 +48,8 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, error) {
 	if err != nil {
 		return 0, errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
 	}
+
+	jww.DEBUG.Printf("Sent message to group %s.", groupID)
 
 	return rid, nil
 }

@@ -9,6 +9,7 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -78,6 +79,9 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	if err := m.gs.Add(g); err != nil {
 		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
 	}
+
+	jww.DEBUG.Printf("Created new group %q with ID %s and members %s",
+		g.Name, g.ID, g.Members)
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)

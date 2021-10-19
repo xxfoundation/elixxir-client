@@ -9,6 +9,7 @@ package groupChat
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/api"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/client/interfaces"
@@ -127,6 +128,8 @@ func (m Manager) JoinGroup(g gs.Group) error {
 		return errors.Errorf(joinGroupErr, g.ID, err)
 	}
 
+	jww.DEBUG.Printf("Joined group %s.", g.ID)
+
 	return nil
 }
 
@@ -136,17 +139,21 @@ func (m Manager) LeaveGroup(groupID *id.ID) error {
 		return errors.Errorf(leaveGroupErr, groupID, err)
 	}
 
+	jww.DEBUG.Printf("Left group %s.", groupID)
+
 	return nil
 }
 
 // GetGroups returns a list of all registered groupChat IDs.
 func (m Manager) GetGroups() []*id.ID {
+	jww.DEBUG.Print("Getting list of all groups.")
 	return m.gs.GroupIDs()
 }
 
 // GetGroup returns the group with the matching ID or returns false if none
 // exist.
 func (m Manager) GetGroup(groupID *id.ID) (gs.Group, bool) {
+	jww.DEBUG.Printf("Getting group with ID %s.", groupID)
 	return m.gs.Get(groupID)
 }
 

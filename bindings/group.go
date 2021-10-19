@@ -13,7 +13,6 @@ import (
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
-	"time"
 )
 
 // GroupChat object contains the group chat manager.
@@ -292,8 +291,9 @@ func (gmr *GroupMessageReceive) GetTimestampNano() int64 {
 
 // GetTimestampMS returns the message timestamp in milliseconds.
 func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
-	ts := uint64(gmr.Timestamp.UnixNano()) / uint64(time.Millisecond)
-	return int64(ts)
+	ts := gmr.Timestamp.UnixNano()
+	ts = (ts + 500000) / 1000000
+	return ts
 }
 
 // GetRoundID returns the ID of the round the message was sent on.
@@ -310,6 +310,7 @@ func (gmr *GroupMessageReceive) GetRoundTimestampNano() int64 {
 // GetRoundTimestampMS returns the timestamp, in milliseconds, of the round the
 // message was sent on.
 func (gmr *GroupMessageReceive) GetRoundTimestampMS() int64 {
-	ts := uint64(gmr.RoundTimestamp.UnixNano()) / uint64(time.Millisecond)
-	return int64(ts)
+	ts := gmr.RoundTimestamp.UnixNano()
+	ts = (ts + 500000) / 1000000
+	return ts
 }

@@ -20,7 +20,7 @@ update_release:
 	GOFLAGS="" go get gitlab.com/xx_network/primitives@release
 	GOFLAGS="" go get gitlab.com/elixxir/primitives@release
 	GOFLAGS="" go get gitlab.com/xx_network/crypto@release
-	GOFLAGS="" go get gitlab.com/elixxir/crypto@release
+	GOFLAGS="" go get gitlab.com/elixxir/crypto@bob/FileTransfer
 	GOFLAGS="" go get gitlab.com/xx_network/comms@release
 	GOFLAGS="" go get gitlab.com/elixxir/comms@release
 
@@ -34,4 +34,4 @@ update_master:
 
 master: update_master clean build version
 
-release: update_release clean build version
+release: update_release clean build

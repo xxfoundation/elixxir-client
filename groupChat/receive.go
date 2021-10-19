@@ -60,9 +60,9 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 				SenderID:       senderID,
 				RecipientID:    receiveMsg.RecipientID,
 				EphemeralID:    receiveMsg.EphemeralID,
-				Timestamp:      receiveMsg.Timestamp,
+				Timestamp:      timestamp,
 				RoundID:        receiveMsg.RoundId,
-				RoundTimestamp: timestamp,
+				RoundTimestamp: receiveMsg.RoundTimestamp,
 			})
 		}
 	}

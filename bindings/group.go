@@ -63,7 +63,8 @@ func NewGroupManager(client *Client, requestFunc GroupRequestFunc,
 // MakeGroup creates a new group and sends a group request to all members in the
 // group. The ID of the new group, the rounds the requests were sent on, and the
 // status of the send are contained in NewGroupReport.
-func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte) (*NewGroupReport, error) {
+func (g *GroupChat) MakeGroup(membership *IdList, name, message []byte) (
+	*NewGroupReport, error) {
 	grp, rounds, status, err := g.m.MakeGroup(membership.list, name, message)
 	return &NewGroupReport{&Group{grp}, rounds, status}, err
 }

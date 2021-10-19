@@ -42,7 +42,8 @@ func TestManager_receive(t *testing.T) {
 		ID:             group.MessageID{0, 1, 2, 3},
 		Payload:        contents,
 		SenderID:       sender.ID,
-		RoundTimestamp: timestamp.Local(),
+		Timestamp:      timestamp.Local(),
+		RoundTimestamp: timestamp,
 	}
 
 	// Create cMix message and get public message
@@ -51,11 +52,11 @@ func TestManager_receive(t *testing.T) {
 		t.Errorf("Failed to create new cMix message: %+v", err)
 	}
 
-	internalMsg, _ := newInternalMsg(cMixMsg.ContentsSize() - publicMinLen)
-	internalMsg.SetTimestamp(timestamp)
-	internalMsg.SetSenderID(m.gs.GetUser().ID)
-	internalMsg.SetPayload(contents)
-	expectedMsg.ID = group.NewMessageID(g.ID, internalMsg.Marshal())
+	intlMsg, _ := newInternalMsg(cMixMsg.ContentsSize() - publicMinLen)
+	intlMsg.SetTimestamp(timestamp)
+	intlMsg.SetSenderID(m.gs.GetUser().ID)
+	intlMsg.SetPayload(contents)
+	expectedMsg.ID = group.NewMessageID(g.ID, intlMsg.Marshal())
 
 	receiveChan := make(chan message.Receive, 1)
 	stop := stoppable.NewSingle("singleStoppable")

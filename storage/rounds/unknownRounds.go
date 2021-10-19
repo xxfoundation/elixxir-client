@@ -113,8 +113,9 @@ func LoadUnknownRounds(kv *versioned.KV,
 // in params, it removes from the map
 // Afterwards it adds the roundToAdd to the map if an entry isn't present
 // Finally it saves the modified map to disk.
+// The abandon function can be used to pass the abandoned round somewhere else
 func (urs *UnknownRounds) Iterate(checker func(rid id.Round) bool,
-	roundsToAdd []id.Round) []id.Round {
+	roundsToAdd []id.Round, abandon func(round id.Round)) []id.Round {
 	returnSlice := make([]id.Round, 0)
 	urs.mux.Lock()
 	defer urs.mux.Unlock()
@@ -132,6 +133,8 @@ func (urs *UnknownRounds) Iterate(checker func(rid id.Round) bool,
 			// If the round has been checked the maximum amount,
 			// the rond is removed from the map
 			if totalChecks > urs.params.MaxChecks {
+				localRnd := rnd
+				go abandon(localRnd)
 				delete(urs.rounds, rnd)
 			}
 		}
@@ -196,4 +199,15 @@ func (urs *UnknownRounds) Delete() {
 // unmarshal loads the serialized round data into the UnknownRounds map
 func (urs *UnknownRounds) unmarshal(b []byte) error {
 	return json.Unmarshal(b, &urs.rounds)
+}
+
+func (urs *UnknownRounds) Get(round id.Round) (present bool, numchecked uint64) {
+	urs.mux.Lock()
+	defer urs.mux.Unlock()
+	numcheck, exist := urs.rounds[round]
+	if !exist {
+		return false, 0
+	}
+	return exist, *numcheck
+
 }

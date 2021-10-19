@@ -1,6 +1,7 @@
 package ud
 
 import (
+	"gitlab.com/elixxir/comms/client"
 	pb "gitlab.com/elixxir/comms/mixmessages"
 	"gitlab.com/elixxir/primitives/fact"
 	"gitlab.com/xx_network/comms/connect"
@@ -13,16 +14,12 @@ import (
 
 type testRFC struct{}
 
-func (rFC *testRFC) SendRemoveFact(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
+func (rFC *testRFC) SendRemoveFact(*connect.Host, *pb.FactRemovalRequest) (
+	*messages.Ack, error) {
 	return &messages.Ack{}, nil
 }
 
 func TestRemoveFact(t *testing.T) {
-	h, err := connect.NewHost(&id.DummyUser, "address", nil, connect.GetDefaultHostParams())
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	rng := csprng.NewSystemRNG()
 	cpk, err := rsa.GenerateKey(rng, 2048)
 	if err != nil {
@@ -31,9 +28,15 @@ func TestRemoveFact(t *testing.T) {
 
 	isReg := uint32(1)
 
-	m := Manager{
-		comms:      nil,
-		host:       h,
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Failed to start client comms: %+v", err)
+	}
+
+	// Set up manager
+	m := &Manager{
+		comms:      comms,
+		net:        newTestNetworkManager(t),
 		privKey:    cpk,
 		registered: &isReg,
 		myID:       &id.ID{},
@@ -44,23 +47,20 @@ func TestRemoveFact(t *testing.T) {
 		T:    2,
 	}
 
-	trfc := testRFC{}
+	tRFC := testRFC{}
 
-	err = m.removeFact(f, &trfc)
+	err = m.removeFact(f, &tRFC)
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-func (rFC *testRFC) SendRemoveUser(host *connect.Host, message *pb.FactRemovalRequest) (*messages.Ack, error) {
+func (rFC *testRFC) SendRemoveUser(*connect.Host, *pb.FactRemovalRequest) (
+	*messages.Ack, error) {
 	return &messages.Ack{}, nil
 }
 
 func TestRemoveUser(t *testing.T) {
-	h, err := connect.NewHost(&id.DummyUser, "address", nil, connect.GetDefaultHostParams())
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	rng := csprng.NewSystemRNG()
 	cpk, err := rsa.GenerateKey(rng, 2048)
@@ -70,9 +70,15 @@ func TestRemoveUser(t *testing.T) {
 
 	isReg := uint32(1)
 
-	m := Manager{
-		comms:      nil,
-		host:       h,
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Failed to start client comms: %+v", err)
+	}
+
+	// Set up manager
+	m := &Manager{
+		comms:      comms,
+		net:        newTestNetworkManager(t),
 		privKey:    cpk,
 		registered: &isReg,
 		myID:       &id.ID{},
@@ -83,9 +89,9 @@ func TestRemoveUser(t *testing.T) {
 		T:    2,
 	}
 
-	trfc := testRFC{}
+	tRFC := testRFC{}
 
-	err = m.removeUser(f, &trfc)
+	err = m.removeUser(f, &tRFC)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -155,12 +155,12 @@ func (emb *E2eMessageBuffer) Next() (message.Send, params.E2E, bool) {
 		message.Type(msg.MessageType)}, msg.Params, true
 }
 
-func (emb *E2eMessageBuffer) Succeeded(m message.Send) {
+func (emb *E2eMessageBuffer) Succeeded(m message.Send, p params.E2E) {
 	emb.mb.Succeeded(e2eMessage{m.Recipient.Marshal(),
-		m.Payload, uint32(m.MessageType), params.E2E{}})
+		m.Payload, uint32(m.MessageType), p})
 }
 
-func (emb *E2eMessageBuffer) Failed(m message.Send) {
+func (emb *E2eMessageBuffer) Failed(m message.Send, p params.E2E) {
 	emb.mb.Failed(e2eMessage{m.Recipient.Marshal(),
-		m.Payload, uint32(m.MessageType), params.E2E{}})
+		m.Payload, uint32(m.MessageType), p})
 }

@@ -261,6 +261,10 @@ func (tnm *testNetworkManager) SendUnsafe(message.Send, params.Unsafe) ([]id.Rou
 	return []id.Round{}, nil
 }
 
+func (tnm *testNetworkManager) GetVerboseRounds() string {
+	return ""
+}
+
 func (tnm *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id.Round, ephemeral.Id, error) {
 	return 0, ephemeral.Id{}, nil
 }

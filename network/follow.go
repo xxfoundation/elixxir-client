@@ -56,6 +56,13 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 	TrackTicker := time.NewTicker(debugTrackPeriod)
 	rng := m.Rng.GetStream()
 
+	abandon := func(round id.Round) { return }
+	if m.verboseRounds != nil {
+		abandon = func(round id.Round) {
+			m.verboseRounds.denote(round, Abandoned)
+		}
+	}
+
 	for {
 		select {
 		case <-stop.Quit():
@@ -63,7 +70,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 			stop.ToStopped()
 			return
 		case <-ticker.C:
-			m.follow(report, rng, m.Comms, stop)
+			m.follow(report, rng, m.Comms, stop, abandon)
 		case <-TrackTicker.C:
 			numPolls := atomic.SwapUint64(m.tracker, 0)
 			if m.numLatencies != 0 {
@@ -94,7 +101,7 @@ func (m *manager) followNetwork(report interfaces.ClientErrorReport,
 
 // executes each iteration of the follower
 func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
-	comms followNetworkComms, stop *stoppable.Single) {
+	comms followNetworkComms, stop *stoppable.Single, abandon func(round id.Round)) {
 
 	//Get the identity we will poll for
 	identity, err := m.Session.Reception().GetIdentity(rng, m.addrSpace.GetWithoutWait())
@@ -262,7 +269,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	}
 
 	if len(pollResp.Filters.Filters) == 0 {
-		jww.TRACE.Printf("No filters found for the passed ID %d (%s), "+
+		jww.WARN.Printf("No filters found for the passed ID %d (%s), "+
 			"skipping processing.", identity.EphId.Int64(), identity.Source)
 		return
 	}
@@ -272,6 +279,7 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 
 	//check if there are any valid filters returned
 	if outOfBounds {
+		jww.WARN.Printf("No filters processed, none in valid range")
 		return
 	}
 
@@ -287,13 +295,25 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	// are messages waiting in rounds and then sends signals to the appropriate
 	// handling threads
 	roundChecker := func(rid id.Round) bool {
-		return rounds.Checker(rid, filterList, identity.CR)
+		hasMessage := rounds.Checker(rid, filterList, identity.CR)
+		if !hasMessage && m.verboseRounds != nil {
+			m.verboseRounds.denote(rid, RoundState(NoMessageAvailable))
+		}
+		return hasMessage
 	}
 
 	// move the earliest unknown round tracker forward to the earliest
 	// tracked round if it is behind
 	earliestTrackedRound := id.Round(pollResp.EarliestRound)
-	updated, _ := identity.ER.Set(earliestTrackedRound)
+	updated, old, _ := identity.ER.Set(earliestTrackedRound)
+	if old == 0 {
+		if gwRoundsState.GetLastChecked() > id.Round(m.param.KnownRoundsThreshold) {
+			updated = gwRoundsState.GetLastChecked() - id.Round(m.param.KnownRoundsThreshold)
+		} else {
+			updated = 1
+		}
+		identity.ER.Set(updated)
+	}
 
 	// loop through all rounds the client does not know about and the gateway
 	// does, checking the bloom filter for the user to see if there are
@@ -301,7 +321,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	//threshold is the earliest round that will not be excluded from earliest remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
 		m.param.KnownRoundsThreshold, roundChecker)
-	_, changed := identity.ER.Set(earliestRemaining)
+
+	_, _, changed := identity.ER.Set(earliestRemaining)
 	if changed {
 		jww.TRACE.Printf("External returns of RangeUnchecked: %d, %v, %v", earliestRemaining, roundsWithMessages, roundsUnknown)
 		jww.DEBUG.Printf("New Earliest Remaining: %d", earliestRemaining)
@@ -312,9 +333,10 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 			return rounds.Checker(rid, filterList, identity.CR)
 		}
 		return false
-	}, roundsUnknown)
+	}, roundsUnknown, abandon)
 
 	for _, rid := range roundsWithMessages {
+		//denote that the round has been looked at in the tracking store
 		if identity.CR.Check(rid) {
 			m.round.GetMessagesFromRound(rid, identity)
 		}
@@ -330,4 +352,32 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	for _, rid := range roundsWithMessages2 {
 		m.round.GetMessagesFromRound(rid, identity)
 	}
+
+	if m.verboseRounds != nil {
+		trackingStart := updated
+		if uint(earliestRemaining-updated) > m.param.KnownRoundsThreshold {
+			trackingStart = earliestRemaining - id.Round(m.param.KnownRoundsThreshold)
+		}
+		jww.DEBUG.Printf("Rounds tracked: %v to %v", trackingStart, earliestRemaining)
+		for i := trackingStart; i <= earliestRemaining; i++ {
+			state := Unchecked
+			for _, rid := range roundsWithMessages {
+				if rid == i {
+					state = MessageAvailable
+				}
+			}
+			for _, rid := range roundsWithMessages2 {
+				if rid == i {
+					state = MessageAvailable
+				}
+			}
+			for _, rid := range roundsUnknown {
+				if rid == i {
+					state = Unknown
+				}
+			}
+			m.verboseRounds.denote(i, RoundState(state))
+		}
+	}
+
 }

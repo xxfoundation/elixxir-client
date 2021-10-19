@@ -5,6 +5,8 @@ import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/single"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/comms/client"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/xx_network/crypto/large"
@@ -20,9 +22,17 @@ import (
 func TestManager_Lookup(t *testing.T) {
 	// Set up manager
 	isReg := uint32(1)
+
+	comms, err := client.NewClientComms(nil, nil, nil, nil)
+	if err != nil {
+		t.Errorf("Failed to start client comms: %+v", err)
+	}
+
 	m := &Manager{
+		comms:      comms,
+		storage:    storage.InitTestingSession(t),
+		net:        newTestNetworkManager(t),
 		grp:        cyclic.NewGroup(large.NewInt(107), large.NewInt(2)),
-		udContact:  contact.Contact{ID: &id.UDB},
 		single:     &mockSingleLookup{},
 		registered: &isReg,
 	}
@@ -41,7 +51,7 @@ func TestManager_Lookup(t *testing.T) {
 	uid := id.NewIdFromUInt(0x500000000000000, id.User, t)
 
 	// Run the lookup
-	err := m.Lookup(uid, callback, 10*time.Millisecond)
+	err = m.Lookup(uid, callback, 10*time.Millisecond)
 	if err != nil {
 		t.Errorf("Lookup() returned an error: %+v", err)
 	}

@@ -55,9 +55,9 @@ func Test_attemptSendManyCmix(t *testing.T) {
 	nid2 := id.NewIdFromString("jakexx360", id.Node, t)
 	nid3 := id.NewIdFromString("westparkhome", id.Node, t)
 	grp := cyclic.NewGroup(large.NewInt(7), large.NewInt(13))
-	sess1.Cmix().Add(nid1, grp.NewInt(1))
-	sess1.Cmix().Add(nid2, grp.NewInt(2))
-	sess1.Cmix().Add(nid3, grp.NewInt(3))
+	sess1.Cmix().Add(nid1, grp.NewInt(1), 0, nil)
+	sess1.Cmix().Add(nid2, grp.NewInt(2), 0, nil)
+	sess1.Cmix().Add(nid3, grp.NewInt(3), 0, nil)
 
 	timestamps := []uint64{
 		uint64(now.Add(-30 * time.Second).UnixNano()), // PENDING

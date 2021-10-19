@@ -11,6 +11,7 @@ import (
 	"encoding/binary"
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/network/gateway"
 	"gitlab.com/elixxir/client/network/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/reception"
@@ -48,11 +49,10 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 		case rl := <-m.lookupRoundMessages:
 			ri := rl.roundInfo
 			jww.DEBUG.Printf("Checking for messages in round %d", ri.ID)
-			err := m.Session.UncheckedRounds().AddRound(rl.roundInfo,
-				rl.identity.EphId, rl.identity.Source)
+			err := m.Session.UncheckedRounds().AddRound(id.Round(ri.ID), nil,
+				rl.identity.Source, rl.identity.EphId)
 			if err != nil {
-				jww.ERROR.Printf("Could not add round %d in unchecked rounds store: %v",
-					rl.roundInfo.ID, err)
+				jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", id.Round(ri.ID))
 			}
 
 			// Convert gateways in round to proper ID format
@@ -120,7 +120,7 @@ func (m *Manager) processMessageRetrieval(comms messageRetrievalComms,
 
 			if len(bundle.Messages) != 0 {
 				jww.DEBUG.Printf("Removing round %d from unchecked store", ri.ID)
-				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID))
+				err = m.Session.UncheckedRounds().Remove(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 				if err != nil {
 					jww.ERROR.Printf("Could not remove round %d "+
 						"from unchecked rounds store: %v", ri.ID, err)
@@ -143,7 +143,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 	stop *stoppable.Single) (message.Bundle, error) {
 	start := time.Now()
 	// Send to the gateways using backup proxies
-	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+	result, err := m.sender.SendToPreferred(gwIds, func(host *connect.Host, target *id.ID) (interface{}, error) {
 		jww.DEBUG.Printf("Trying to get messages for round %v for ephemeralID %d (%v)  "+
 			"via Gateway: %s", roundID, identity.EphId.Int64(), identity.Source.String(), host.GetId())
 
@@ -156,12 +156,18 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 
 		// If the gateway doesnt have the round, return an error
 		msgResp, err := comms.RequestMessages(host, msgReq)
-		if err == nil && !msgResp.GetHasRound() {
-			jww.INFO.Printf("No round error for round %d received from %s", roundID, target)
-			return message.Bundle{}, false, errors.Errorf(noRoundError, roundID)
+
+		if err != nil {
+			//you need to default to a retryable errors because otherwise we cannot enumerate all errors
+			return nil, errors.WithMessage(err, gateway.RetryableError)
 		}
 
-		return msgResp, false, err
+		if !msgResp.GetHasRound() {
+			errRtn := errors.Errorf(noRoundError, roundID)
+			return message.Bundle{}, errors.WithMessage(errRtn, gateway.RetryableError)
+		}
+
+		return msgResp, nil
 	}, stop)
 	jww.INFO.Printf("Received message for round %d, processing...", roundID)
 	// Fail the round if an error occurs so it can be tried again later
@@ -172,13 +178,19 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 	msgResp := result.(*pb.GetMessagesResponse)
 
 	// If there are no messages print a warning. Due to the probabilistic nature
-	// of the bloom filters, false positives will happen some times
+	// of the bloom filters, false positives will happen sometimes
 	msgs := msgResp.GetMessages()
 	if msgs == nil || len(msgs) == 0 {
 		jww.WARN.Printf("no messages for client %s "+
 			" in round %d. This happening every once in a while is normal,"+
 			" but can be indicative of a problem if it is consistent",
 			m.TransmissionID, roundID)
+
+		err = m.Session.UncheckedRounds().Remove(roundID, identity.Source, identity.EphId)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to remove round %d: %+v", roundID, err)
+		}
+
 		return message.Bundle{}, nil
 	}
 
@@ -210,7 +222,7 @@ func (m *Manager) getMessagesFromGateway(roundID id.Round,
 func (m *Manager) forceMessagePickupRetry(ri *pb.RoundInfo, rl roundLookup,
 	comms messageRetrievalComms, gwIds []*id.ID,
 	stop *stoppable.Single) (bundle message.Bundle, err error) {
-	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID))
+	rnd, _ := m.Session.UncheckedRounds().GetRound(id.Round(ri.ID), rl.identity.Source, rl.identity.EphId)
 	if rnd.NumChecks == 0 {
 		// Flip a coin to determine whether to pick up message
 		stream := m.Rng.GetStream()

@@ -212,17 +212,16 @@ func (sv *stateVector) Delete() error {
 // execute a store and a store must be executed after.
 func (sv *stateVector) nextAvailable() {
 
-	block := (sv.firstAvailable + 1) / 64
-	pos := (sv.firstAvailable + 1) % 64
+	//plus one so we start at the next one
+	pos := sv.firstAvailable + 1
+	block := pos / 64
 
-	for ; block < uint32(len(sv.vect)) && (sv.vect[block]>>pos)&1 == 1; pos++ {
-		if pos == 63 {
-			pos = 0
-			block++
-		}
+	for block < uint32(len(sv.vect)) && (sv.vect[block]>>(pos%64))&1 == 1 {
+		pos++
+		block = pos / 64
 	}
 
-	sv.firstAvailable = block*64 + pos
+	sv.firstAvailable = pos
 }
 
 //ekv functions

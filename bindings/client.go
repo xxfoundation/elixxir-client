@@ -22,6 +22,7 @@ import (
 	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/netTime"
+	"google.golang.org/grpc/grpclog"
 	"strings"
 	"sync"
 	"time"
@@ -159,6 +160,13 @@ func LogLevel(level int) error {
 //RegisterLogWriter registers a callback on which logs are written.
 func RegisterLogWriter(writer LogWriter) {
 	jww.SetLogOutput(&writerAdapter{lw: writer})
+}
+
+// EnableGrpcLogs sets GRPC trace logging
+func EnableGrpcLogs(writer LogWriter) {
+	logger := &writerAdapter{lw: writer}
+	grpclog.SetLoggerV2(grpclog.NewLoggerV2WithVerbosity(
+		logger, logger, logger, 99))
 }
 
 //Unmarshals a marshaled contact object, returns an error if it fails

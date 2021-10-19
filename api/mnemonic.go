@@ -10,10 +10,10 @@ package api
 import (
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/crypto/fastRNG"
+	"gitlab.com/xx_network/crypto/chacha"
 	"gitlab.com/xx_network/crypto/csprng"
 	xxMnemonic "gitlab.com/xx_network/crypto/mnemonic"
 	"gitlab.com/xx_network/primitives/utils"
-	"golang.org/x/crypto/chacha20poly1305"
 	"path/filepath"
 	"strings"
 )
@@ -24,7 +24,7 @@ const mnemonicFile = ".recovery"
 // This encrypted data saved in storage.
 func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rng := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG).GetStream()
+	rng := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG).GetStream()
 
 	// Ensure path is appended by filepath separator "/"
 	if !strings.HasSuffix(path, string(filepath.Separator)) {
@@ -44,7 +44,7 @@ func StoreSecretWithMnemonic(secret []byte, path string) (string, error) {
 	}
 
 	// Encrypt secret with mnemonic as key
-	ciphertext, err := encryptWithMnemonic(secret, decodedMnemonic, rng)
+	ciphertext, err := chacha.Encrypt(decodedMnemonic, secret, rng)
 	if err != nil {
 		return "", errors.Errorf("Failed to encrypt secret with mnemonic: %v", err)
 	}
@@ -87,47 +87,10 @@ func LoadSecretWithMnemonic(mnemonic, path string) (secret []byte, err error) {
 	}
 
 	// Decrypt the stored secret
-	secret, err = decryptWithMnemonic(data, decodedMnemonic)
+	secret, err = chacha.Decrypt(decodedMnemonic, data)
 	if err != nil {
 		return nil, errors.Errorf("Failed to decrypt secret: %v", err)
 	}
 
 	return secret, nil
-}
-
-// encryptWithMnemonic is a helper function which encrypts the given secret
-// using the mnemonic as the key.
-func encryptWithMnemonic(data, decodedMnemonic []byte,
-	rng csprng.Source) (ciphertext []byte, error error) {
-	chaCipher, err := chacha20poly1305.NewX(decodedMnemonic[:])
-	if err != nil {
-		return nil, errors.Errorf("Failed to initalize encryption algorithm: %v", err)
-	}
-
-	// Generate the nonce
-	nonce := make([]byte, chaCipher.NonceSize())
-	nonce, err = csprng.Generate(chaCipher.NonceSize(), rng)
-	if err != nil {
-		return nil, errors.Errorf("Failed to generate nonce: %v", err)
-	}
-
-	ciphertext = chaCipher.Seal(nonce, nonce, data, nil)
-	return ciphertext, nil
-}
-
-// decryptWithMnemonic is a helper function which decrypts the secret
-// from storage, using the mnemonic as the key.
-func decryptWithMnemonic(data, decodedMnemonic []byte) ([]byte, error) {
-	chaCipher, err := chacha20poly1305.NewX(decodedMnemonic[:])
-	if err != nil {
-		return nil, errors.Errorf("Failed to initalize encryption algorithm: %v", err)
-	}
-
-	nonceLen := chaCipher.NonceSize()
-	nonce, ciphertext := data[:nonceLen], data[nonceLen:]
-	plaintext, err := chaCipher.Open(nil, nonce, ciphertext, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "Cannot decrypt with password!")
-	}
-	return plaintext, nil
 }

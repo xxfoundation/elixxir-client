@@ -186,6 +186,11 @@ func TestManager_StartProcesses_Stop(t *testing.T) {
 		t.Errorf("Failed to close: %+v", err)
 	}
 
+	// Wait for the stoppable to close
+	for !stop.IsStopped() {
+		time.Sleep(10 * time.Millisecond)
+	}
+
 	m.swb.(*switchboard.Switchboard).Speak(receiveMsg)
 
 	timer := time.NewTimer(50 * time.Millisecond)
@@ -285,6 +290,10 @@ func (tnm *testNetworkManager) GetMsg(i int) format.Message {
 
 func (tnm *testNetworkManager) SendE2E(message.Send, params.E2E, *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
 	return nil, e2e.MessageID{}, time.Time{}, nil
+}
+
+func (tnm *testNetworkManager) GetVerboseRounds() string {
+	return ""
 }
 
 func (tnm *testNetworkManager) SendUnsafe(_ message.Send, _ params.Unsafe) ([]id.Round, error) {

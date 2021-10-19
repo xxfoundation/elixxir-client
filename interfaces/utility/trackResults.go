@@ -8,6 +8,7 @@
 package utility
 
 import (
+	jww "github.com/spf13/jwalterweatherman"
 	ds "gitlab.com/elixxir/comms/network/dataStructures"
 	"gitlab.com/elixxir/primitives/states"
 )
@@ -22,6 +23,7 @@ func TrackResults(resultsCh chan ds.EventReturn, numResults int) (bool, int, int
 		if er.TimedOut {
 			numTimeOut++
 		} else if states.Round(er.RoundInfo.State) == states.FAILED {
+			jww.ERROR.Printf("RoundInfo FAILED: %+v", er.RoundInfo)
 			numRoundFail++
 		}
 	}

@@ -118,7 +118,7 @@ func TestValidFilterRange(t *testing.T) {
 		Identity: reception.Identity{
 			EphId:      expectedEphID,
 			Source:     requestGateway,
-			StartValid: time.Now().Add(12 * time.Hour),
+			StartValid: time.Now().Add(-12 * time.Hour),
 			EndValid:   time.Now().Add(24 * time.Hour),
 		},
 	}

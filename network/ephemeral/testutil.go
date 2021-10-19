@@ -96,7 +96,8 @@ func (t *testNetworkManager) GetSender() *gateway.Sender {
 	return nil
 }
 
-func (t *testNetworkManager) GetAddressSize() uint8 { return 15 }
+func (t *testNetworkManager) GetAddressSize() uint8    { return 15 }
+func (t *testNetworkManager) GetVerboseRounds() string { return "" }
 func (t *testNetworkManager) RegisterAddressSizeNotification(string) (chan uint8, error) {
 	return nil, nil
 }

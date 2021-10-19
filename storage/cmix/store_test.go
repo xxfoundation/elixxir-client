@@ -8,6 +8,7 @@
 package cmix
 
 import (
+	"bytes"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -16,6 +17,7 @@ import (
 	"gitlab.com/xx_network/crypto/large"
 	"gitlab.com/xx_network/primitives/id"
 	"testing"
+	"time"
 )
 
 // Happy path
@@ -57,9 +59,9 @@ func TestStore_AddRemove(t *testing.T) {
 	testStore, _ := makeTestStore()
 
 	nodeId := id.NewIdFromString("test", id.Node, t)
-	key := testStore.grp.NewInt(5)
-
-	testStore.Add(nodeId, key)
+	k := testStore.grp.NewInt(5)
+	keyId := []byte("keyId")
+	testStore.Add(nodeId, k, 0, keyId)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
 		t.Fatal("Failed to add node key")
 	}
@@ -80,7 +82,7 @@ func TestStore_AddHas(t *testing.T) {
 	nodeId := id.NewIdFromString("test", id.Node, t)
 	key := testStore.grp.NewInt(5)
 
-	testStore.Add(nodeId, key)
+	testStore.Add(nodeId, key, 0, nil)
 	if _, exists := testStore.nodes[*nodeId]; !exists {
 		t.Fatal("Failed to add node key")
 	}
@@ -113,9 +115,17 @@ func TestLoadStore(t *testing.T) {
 
 	// Add a test node key
 	nodeId := id.NewIdFromString("test", id.Node, t)
-	key := testStore.grp.NewInt(5)
+	k := testStore.grp.NewInt(5)
+	testTime, err := time.Parse(time.RFC3339,
+		"2012-12-21T22:08:41+00:00")
+	if err != nil {
+		t.Fatalf("Could not parse precanned time: %v", err.Error())
+	}
+	expectedValid := uint64(testTime.UnixNano())
 
-	testStore.Add(nodeId, key)
+	expectedKeyId := []byte("expectedKeyID")
+
+	testStore.Add(nodeId, k, uint64(expectedValid), expectedKeyId)
 
 	// Load the store and check its attributes
 	store, err := LoadStore(kv)
@@ -131,6 +141,18 @@ func TestLoadStore(t *testing.T) {
 	if len(store.nodes) != len(testStore.nodes) {
 		t.Errorf("LoadStore failed to load node keys")
 	}
+
+	circuit := connect.NewCircuit([]*id.ID{nodeId})
+	keys, _ := store.GetRoundKeys(circuit)
+	if keys.keys[0].validUntil != expectedValid {
+		t.Errorf("Unexpected valid until value loaded from store."+
+			"\n\tExpected: %v\n\tReceived: %v", expectedValid, keys.keys[0].validUntil)
+	}
+	if !bytes.Equal(keys.keys[0].keyId, expectedKeyId) {
+		t.Errorf("Unexpected keyID value loaded from store."+
+			"\n\tExpected: %v\n\tReceived: %v", expectedKeyId, keys.keys[0].keyId)
+	}
+
 }
 
 // Happy path
@@ -145,7 +167,7 @@ func TestStore_GetRoundKeys(t *testing.T) {
 	for i := 0; i < numIds; i++ {
 		nodeIds[i] = id.NewIdFromUInt(uint64(i)+1, id.Node, t)
 		key := testStore.grp.NewInt(int64(i) + 1)
-		testStore.Add(nodeIds[i], key)
+		testStore.Add(nodeIds[i], key, 0, nil)
 
 		// This is wack but it cleans up after the test
 		defer testStore.Remove(nodeIds[i])
@@ -176,8 +198,8 @@ func TestStore_GetRoundKeys_Missing(t *testing.T) {
 
 		// Only add every other node so there are missing nodes
 		if i%2 == 0 {
-			testStore.Add(nodeIds[i], key)
-			testStore.Add(nodeIds[i], key)
+			testStore.Add(nodeIds[i], key, 0, nil)
+			testStore.Add(nodeIds[i], key, 0, nil)
 
 			// This is wack but it cleans up after the test
 			defer testStore.Remove(nodeIds[i])
@@ -211,7 +233,7 @@ func TestStore_Count(t *testing.T) {
 
 	count := 50
 	for i := 0; i < count; i++ {
-		store.Add(id.NewIdFromUInt(uint64(i), id.Node, t), grp.NewInt(int64(42+i)))
+		store.Add(id.NewIdFromUInt(uint64(i), id.Node, t), grp.NewInt(int64(42+i)), 0, nil)
 	}
 
 	if store.Count() != count {

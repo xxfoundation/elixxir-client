@@ -8,8 +8,9 @@ before_script:
   - mkdir -p ~/.ssh
   - chmod 700 ~/.ssh
   - ssh-keyscan -t rsa $GITLAB_SERVER > ~/.ssh/known_hosts
+  - rm -rf ~/.gitconfig
   - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://gitlab.com/"
-  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://git.xx.network/"
+  - git config --global url."git@$GITLAB_SERVER:".insteadOf "https://git.xx.network/" --add
   - export PATH=$HOME/go/bin:$PATH
 
 stages:
@@ -51,6 +52,7 @@ build:
   except:
     - tags
   script:
+    - make version
     - mkdir -p release
 #    - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' ./...
     - GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags '-w -s' -o release/client.linux64 main.go
@@ -80,6 +82,7 @@ bindings-ios:
     - ios
   script:
     - go get -u golang.org/x/mobile/cmd/gomobile@76c259c465ba39f84de7e2751a666612ddca556b
+    - gomobile init
     - gomobile bind -target ios gitlab.com/elixxir/client/bindings
     - ls
     - zip -r iOS.zip Bindings.xcframework
@@ -97,6 +100,7 @@ bindings-android:
     - export ANDROID_HOME=/android-sdk
     - export PATH=$PATH:/android-sdk/platform-tools/:/usr/local/go/bin
     - go get -u golang.org/x/mobile/cmd/gomobile
+    - gomobile init
     - gomobile bind -target android -androidapi 21 gitlab.com/elixxir/client/bindings
   artifacts:
     paths:

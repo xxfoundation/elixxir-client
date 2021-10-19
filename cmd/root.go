@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"github.com/spf13/cobra"
 	jww "github.com/spf13/jwalterweatherman"
@@ -28,6 +29,7 @@ import (
 	"runtime/pprof"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -186,53 +188,63 @@ var rootCmd = &cobra.Command{
 		}
 		paramsE2E := params.GetDefaultE2E()
 		paramsUnsafe := params.GetDefaultUnsafe()
-
+		wg := &sync.WaitGroup{}
 		sendCnt := int(viper.GetUint("sendCount"))
-		sendDelay := time.Duration(viper.GetUint("sendDelay"))
-		for i := 0; i < sendCnt; i++ {
-			fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
-			var roundIDs []id.Round
-			var roundTimeout time.Duration
-			if unsafe {
-				roundIDs, err = client.SendUnsafe(msg,
-					paramsUnsafe)
-				roundTimeout = paramsUnsafe.Timeout
-			} else {
-				roundIDs, _, _, err = client.SendE2E(msg,
-					paramsE2E)
-				roundTimeout = paramsE2E.Timeout
-			}
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+		wg.Add(sendCnt)
+		go func() {
+			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
+			for i := 0; i < sendCnt; i++ {
+				go func(i int) {
+					defer wg.Done()
+					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
+					var roundIDs []id.Round
+					var roundTimeout time.Duration
+					if unsafe {
+						roundIDs, err = client.SendUnsafe(msg,
+							paramsUnsafe)
+						roundTimeout = paramsUnsafe.Timeout
+					} else {
+						roundIDs, _, _, err = client.SendE2E(msg,
+							paramsE2E)
+						roundTimeout = paramsE2E.Timeout
+					}
+					if err != nil {
+						jww.FATAL.Panicf("%+v", err)
+					}
 
-			// Construct the callback function which prints out the rounds' results
-			f := func(allRoundsSucceeded, timedOut bool,
-				rounds map[id.Round]api.RoundResult) {
-				printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
-			}
+					// Construct the callback function which prints out the rounds' results
+					f := func(allRoundsSucceeded, timedOut bool,
+						rounds map[id.Round]api.RoundResult) {
+						printRoundResults(allRoundsSucceeded, timedOut, rounds, roundIDs, msg)
+					}
 
-			// Have the client report back the round results
-			err = client.GetRoundResults(roundIDs, roundTimeout, f)
-			if err != nil {
-				jww.FATAL.Panicf("%+v", err)
-			}
+					// Have the client report back the round results
+					err = errors.New("derp")
+					for j := 0; j < 5 && err != nil; j++ {
+						err = client.GetRoundResults(roundIDs, roundTimeout, f)
+					}
 
-			time.Sleep(sendDelay * time.Millisecond)
-		}
+					if err != nil {
+						jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
+					}
+				}(i)
+			}
+		}()
 
 		// Wait until message timeout or we receive enough then exit
 		// TODO: Actually check for how many messages we've received
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
-		waitTimeout := time.Duration(waitSecs)
+		waitTimeout := time.Duration(waitSecs)* time.Second
 		done := false
+
 		for !done && expectedCnt != 0 {
-			timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+			timeoutTimer := time.NewTimer(waitTimeout)
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
+				jww.ERROR.Printf("Timed out on message reception after %s!", waitTimeout)
 				done = true
 				break
 			case m := <-recvCh:
@@ -242,12 +254,33 @@ var rootCmd = &cobra.Command{
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
+					break
 				}
-				break
 			}
 		}
-		fmt.Printf("Received %d\n", receiveCnt)
 
+		//wait an extra 5 seconds to make sure no messages were missed
+		done = false
+		timer := time.NewTimer(5*time.Second)
+		for !done {
+			select {
+			case <-timer.C:
+				done = true
+				break
+			case m := <-recvCh:
+				fmt.Printf("Message received: %s\n", string(
+					m.Payload))
+				//fmt.Printf("%s", m.Timestamp)
+				receiveCnt++
+			}
+		}
+
+		jww.INFO.Printf("Received %d/%d Messages!", receiveCnt, expectedCnt)
+		fmt.Printf("Received %d\n", receiveCnt)
+		if roundsNotepad != nil {
+			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())
+		}
+		wg.Wait()
 		err = client.StopNetworkFollower()
 		if err != nil {
 			jww.WARN.Printf(
@@ -340,7 +373,8 @@ func printRoundResults(allRoundsSucceeded, timedOut bool,
 }
 
 func createClient() *api.Client {
-	initLog(viper.GetUint("logLevel"), viper.GetString("log"))
+	logLevel := viper.GetUint("logLevel")
+	initLog(logLevel, viper.GetString("log"))
 	jww.INFO.Printf(Version())
 
 	pass := viper.GetString("password")
@@ -383,6 +417,7 @@ func createClient() *api.Client {
 	netParams.ForceHistoricalRounds = viper.GetBool("forceHistoricalRounds")
 	netParams.FastPolling = !viper.GetBool("slowPolling")
 	netParams.ForceMessagePickupRetry = viper.GetBool("forceMessagePickupRetry")
+	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	client, err := api.OpenClient(storeDir, []byte(pass), netParams)
 	if err != nil {
@@ -410,6 +445,7 @@ func initClient() *api.Client {
 		jww.INFO.Printf("Setting Uncheck Round Period to %v", period)
 		netParams.UncheckRoundPeriod = period
 	}
+	netParams.VerboseRoundTracking = viper.GetBool("verboseRoundTracking")
 
 	//load the client
 	client, err := api.Login(storeDir, []byte(pass), netParams)
@@ -672,6 +708,10 @@ func initLog(threshold uint, logPath string) {
 		jww.SetStdoutThreshold(jww.LevelInfo)
 		jww.SetLogThreshold(jww.LevelInfo)
 	}
+
+	if viper.GetBool("verboseRoundTracking") {
+		initRoundLog(logPath)
+	}
 }
 
 func askToCreateChannel(recipientID *id.ID) bool {
@@ -690,6 +730,23 @@ func askToCreateChannel(recipientID *id.ID) bool {
 	}
 }
 
+// this the the nodepad used for round logging.
+var roundsNotepad *jww.Notepad
+
+// initRoundLog creates the log output for round tracking. In debug mode,
+// the client will keep track of all rounds it evaluates if it has
+// messages in, and then will dump them to this log on client exit
+func initRoundLog(logPath string) {
+	parts := strings.Split(logPath, ".")
+	path := parts[0] + "-rounds." + parts[1]
+	logOutput, err := os.OpenFile(path,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		jww.FATAL.Panicf(err.Error())
+	}
+	roundsNotepad = jww.NewNotepad(jww.LevelInfo, jww.LevelInfo, ioutil.Discard, logOutput, "", log.Ldate|log.Ltime)
+}
+
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {
@@ -705,6 +762,11 @@ func init() {
 	rootCmd.PersistentFlags().UintP("logLevel", "v", 0,
 		"Verbose mode for debugging")
 	viper.BindPFlag("logLevel", rootCmd.PersistentFlags().Lookup("logLevel"))
+
+	rootCmd.PersistentFlags().Bool("verboseRoundTracking", false,
+		"Verbose round tracking, keeps track and prints all rounds the "+
+			"client was aware of while running. Defaults to false if not set.")
+	viper.BindPFlag("verboseRoundTracking", rootCmd.PersistentFlags().Lookup("verboseRoundTracking"))
 
 	rootCmd.PersistentFlags().StringP("session", "s",
 		"", "Sets the initial storage directory for "+

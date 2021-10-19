@@ -75,7 +75,7 @@ type Client struct {
 func NewClient(ndfJSON, storageDir string, password []byte, registrationCode string) error {
 	jww.INFO.Printf("NewClient(dir: %s)", storageDir)
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
 	// Parse the NDF
 	def, err := parseNDF(ndfJSON)
@@ -106,7 +106,7 @@ func NewClient(ndfJSON, storageDir string, password []byte, registrationCode str
 func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password []byte) error {
 	jww.INFO.Printf("NewPrecannedClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
@@ -135,7 +135,7 @@ func NewPrecannedClient(precannedID uint, defJSON, storageDir string, password [
 func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCode string, userIdPrefix string) error {
 	jww.INFO.Printf("NewVanityClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 	rngStream := rngStreamGen.GetStream()
 
 	// Parse the NDF
@@ -161,7 +161,7 @@ func NewVanityClient(ndfJSON, storageDir string, password []byte, registrationCo
 func OpenClient(storageDir string, password []byte, parameters params.Network) (*Client, error) {
 	jww.INFO.Printf("OpenClient()")
 	// Use fastRNG for RNG ops (AES fortuna based RNG using system RNG)
-	rngStreamGen := fastRNG.NewStreamGenerator(12, 3, csprng.NewSystemRNG)
+	rngStreamGen := fastRNG.NewStreamGenerator(12, 1024, csprng.NewSystemRNG)
 
 	// Get current client version
 	currentVersion, err := version.ParseVersion(SEMVER)
@@ -611,10 +611,20 @@ func (c *Client) GetPreferredBins(countryCode string) ([]string, error) {
 
 	// Add additional bins in special cases
 	switch bin {
-	case region.Africa:
-		bins = append(bins, region.WesternEurope.String())
+	case region.SouthAndCentralAmerica:
+		bins = append(bins, region.NorthAmerica.String())
 	case region.MiddleEast:
-		bins = append(bins, region.EasternEurope.String())
+		bins = append(bins, region.EasternEurope.String(), region.CentralEurope.String(), region.WesternAsia.String())
+	case region.NorthernAfrica:
+		bins = append(bins, region.WesternEurope.String(), region.CentralEurope.String())
+	case region.SouthernAfrica:
+		bins = append(bins, region.WesternEurope.String(), region.CentralEurope.String())
+	case region.EasternAsia:
+		bins = append(bins, region.WesternAsia.String(), region.Oceania.String(), region.NorthAmerica.String())
+	case region.WesternAsia:
+		bins = append(bins, region.EasternAsia.String(), region.Russia.String(), region.MiddleEast.String())
+	case region.Oceania:
+		bins = append(bins, region.EasternAsia.String(), region.NorthAmerica.String())
 	}
 
 	return bins, nil

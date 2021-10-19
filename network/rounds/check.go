@@ -63,6 +63,12 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via historical lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
+		//store the round as an unretreived round
+		err = m.Session.UncheckedRounds().AddRound(roundID, nil,
+			identity.Source, identity.EphId)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", roundID)
+		}
 		// If we didn't find it, send to Historical Rounds Retrieval
 		m.historicalRounds <- historicalRoundRequest{
 			rid:         roundID,
@@ -73,6 +79,12 @@ func (m *Manager) GetMessagesFromRound(roundID id.Round, identity reception.Iden
 		jww.INFO.Printf("Messages found in round %d for %d (%s), looking "+
 			"up messages via in ram lookup", roundID, identity.EphId.Int64(),
 			identity.Source)
+		//store the round as an unretreived round
+		err = m.Session.UncheckedRounds().AddRound(roundID, ri,
+			identity.Source, identity.EphId)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to denote Unchecked Round for round %d", roundID)
+		}
 		// If found, send to Message Retrieval Workers
 		m.lookupRoundMessages <- roundLookup{
 			roundInfo: ri,

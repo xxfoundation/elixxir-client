@@ -21,11 +21,12 @@ import (
 	"gitlab.com/elixxir/comms/network"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/primitives/format"
+	"gitlab.com/elixxir/primitives/states"
 	"gitlab.com/xx_network/comms/connect"
 	"gitlab.com/xx_network/primitives/id"
 	"gitlab.com/xx_network/primitives/id/ephemeral"
 	"gitlab.com/xx_network/primitives/netTime"
-	"strings"
+	"time"
 )
 
 // WARNING: Potentially Unsafe
@@ -38,6 +39,23 @@ func (m *Manager) SendCMIX(sender *gateway.Sender, msg format.Message,
 	return sendCmixHelper(sender, msgCopy, recipient, cmixParams, m.blacklistedNodes, m.Instance,
 		m.Session, m.nodeRegistration, m.Rng, m.Internal.Events,
 		m.TransmissionID, m.Comms, stop)
+}
+
+func calculateSendTimeout(best *pb.RoundInfo, max time.Duration) time.Duration {
+	RoundStartTime := time.Unix(0,
+		int64(best.Timestamps[states.QUEUED]))
+	// 250ms AFTER the round starts to hear the response.
+	timeout := RoundStartTime.Sub(
+		netTime.Now().Add(250 * time.Millisecond))
+	if timeout > max {
+		timeout = max
+	}
+	// time.Duration is a signed int, so check for negative
+	if timeout < 0 {
+		// TODO: should this produce a warning?
+		timeout = 100 * time.Millisecond
+	}
+	return timeout
 }
 
 // Helper function for sendCmix
@@ -58,6 +76,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 	timeStart := netTime.Now()
 	attempted := set.New()
+	maxTimeout := sender.GetHostParams().SendTimeout
 
 	jww.INFO.Printf("Looking for round to send cMix message to %s "+
 		"(msgDigest: %s)", recipient, msg.Digest())
@@ -84,6 +103,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			jww.WARN.Printf("Failed to GetUpcomingRealtime (msgDigest: %s): %+v", msg.Digest(), err)
 		}
 		if bestRound == nil {
+			jww.WARN.Printf("Best round on send is nil")
 			continue
 		}
 
@@ -128,19 +148,19 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 			encMsg.Digest(), firstGateway.String())
 
 		// Send the payload
-		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, bool, error) {
+		sendFunc := func(host *connect.Host, target *id.ID) (interface{}, error) {
 			wrappedMsg.Target = target.Marshal()
-			result, err := comms.SendPutMessage(host, wrappedMsg)
+
+			timeout := calculateSendTimeout(bestRound, maxTimeout)
+			result, err := comms.SendPutMessage(host, wrappedMsg,
+				timeout)
 			if err != nil {
 				// fixme: should we provide as a slice the whole topology?
-				warn, err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)
-				if warn {
-					jww.WARN.Printf("SendCmix Failed: %+v", err)
-				} else {
-					return result, true, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
-				}
+				err := handlePutMessageError(firstGateway, instance, session, nodeRegistration, recipient.String(), bestRound, err)
+				return result, errors.WithMessagef(err, "SendCmix %s", unrecoverableError)
+
 			}
-			return result, false, err
+			return result, err
 		}
 		result, err := sender.SendToPreferred([]*id.ID{firstGateway}, sendFunc, stop)
 
@@ -151,14 +171,10 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 
 		//if the comm errors or the message fails to send, continue retrying.
 		if err != nil {
-			if !strings.Contains(err.Error(), unrecoverableError) {
-				jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
-					"round %d, trying a new round: %+v", ephID.Int64(), recipient,
-					bestRound.ID, err)
-				continue
-			}
-
-			return 0, ephemeral.Id{}, err
+			jww.ERROR.Printf("SendCmix failed to send to EphID %d (%s) on "+
+				"round %d, trying a new round: %+v", ephID.Int64(), recipient,
+				bestRound.ID, err)
+			continue
 		}
 
 		// Return if it sends properly

@@ -28,8 +28,14 @@ import (
 
 // Interface for SendCMIX comms; allows mocking this in testing.
 type sendCmixCommsInterface interface {
-	SendPutMessage(host *connect.Host, message *pb.GatewaySlot) (*pb.GatewaySlotResponse, error)
-	SendPutManyMessages(host *connect.Host, messages *pb.GatewaySlots) (*pb.GatewaySlotResponse, error)
+	// SendPutMessage places a cMix message on the gateway to be
+	// sent through cMix.
+	SendPutMessage(host *connect.Host, message *pb.GatewaySlot,
+		timeout time.Duration) (*pb.GatewaySlotResponse, error)
+	// SendPutManyMessages places a list of cMix messages on the gateway
+	// to be sent through cMix.
+	SendPutManyMessages(host *connect.Host, messages *pb.GatewaySlots,
+		timeout time.Duration) (*pb.GatewaySlotResponse, error)
 }
 
 // how much in the future a round needs to be to send to it
@@ -41,15 +47,16 @@ const unrecoverableError = "failed with an unrecoverable error"
 // context. If the error is not among recoverable errors, then the recoverable
 // boolean will be returned false. If the error is among recoverable errors,
 // then the boolean will return true.
+// recoverable means we should try resending to the round
 func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 	session *storage.Session, nodeRegistration chan network.NodeGateway,
 	recipientString string, bestRound *pb.RoundInfo,
-	err error) (recoverable bool, returnErr error) {
+	err error) (returnErr error) {
 
 	// If the comm errors or the message fails to send, then continue retrying;
 	// otherwise, return if it sends properly
 	if strings.Contains(err.Error(), "try a different round.") {
-		return false, errors.WithMessagef(err, "Failed to send to [%s] due to "+
+		return errors.WithMessagef(err, "Failed to send to [%s] due to "+
 			"round error with round %d, bailing...",
 			recipientString, bestRound.ID)
 	} else if strings.Contains(err.Error(), "Could not authenticate client. "+
@@ -65,12 +72,12 @@ func handlePutMessageError(firstGateway *id.ID, instance *network.Instance,
 		// Trigger
 		go handleMissingNodeKeys(instance, nodeRegistration, []*id.ID{nodeID})
 
-		return true, errors.WithMessagef(err, "Failed to send to [%s] via %s "+
+		return errors.WithMessagef(err, "Failed to send to [%s] via %s "+
 			"due to failed authentication, retrying...",
 			recipientString, firstGateway)
 	}
 
-	return false, errors.WithMessage(err, "Failed to put cmix message")
+	return errors.WithMessage(err, "Failed to put cmix message")
 
 }
 

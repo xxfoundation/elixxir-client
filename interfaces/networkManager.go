@@ -38,6 +38,9 @@ type NetworkManager interface {
 	// address size is known.
 	GetAddressSize() uint8
 
+	// GetVerboseRounds returns stringification of verbose round info
+	GetVerboseRounds() string
+
 	// RegisterAddressSizeNotification returns a channel that will trigger for
 	// every address space size update. The provided tag is the unique ID for
 	// the channel. Returns an error if the tag is already used.

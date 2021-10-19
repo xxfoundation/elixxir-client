@@ -31,6 +31,9 @@ type Network struct {
 	FastPolling bool
 	// Messages will not be sent to Rounds containing these Nodes
 	BlacklistedNodes []string
+	// Determines if the state of every round processed is tracked in ram.
+	// This is very memory intensive and is primarily used for debugging
+	VerboseRoundTracking bool
 
 	Rounds
 	Messages
@@ -46,10 +49,11 @@ func GetDefaultNetwork() Network {
 		RegNodesBufferLen:         500,
 		NetworkHealthTimeout:      30 * time.Second,
 		E2EParams:                 GetDefaultE2ESessionParams(),
-		ParallelNodeRegistrations: 8,
+		ParallelNodeRegistrations: 20,
 		KnownRoundsThreshold:      1500, //5 rounds/sec * 60 sec/min * 5 min
 		FastPolling:               true,
 		BlacklistedNodes:          make([]string, 0),
+		VerboseRoundTracking:      false,
 	}
 	n.Rounds = GetDefaultRounds()
 	n.Messages = GetDefaultMessage()

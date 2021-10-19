@@ -144,6 +144,7 @@ func (t *Tracker) setHealth(h bool) {
 func (t *Tracker) Start() (stoppable.Stoppable, error) {
 	t.mux.Lock()
 	if t.running {
+		t.mux.Unlock()
 		return nil, errors.New("cannot start Health tracker threads, " +
 			"they are already running")
 	}
@@ -162,8 +163,6 @@ func (t *Tracker) Start() (stoppable.Stoppable, error) {
 // start starts a long-running thread used to monitor and report on network
 // health.
 func (t *Tracker) start(stop *stoppable.Single) {
-	timer := time.NewTimer(t.timeout)
-
 	for {
 		var heartbeat network.Heartbeat
 		select {
@@ -178,19 +177,13 @@ func (t *Tracker) start(stop *stoppable.Single) {
 
 			return
 		case heartbeat = <-t.heartbeat:
+			// FIXME: There's no transition to unhealthy here
+			// and there needs to be after some number of bad
+			// polls
 			if healthy(heartbeat) {
-				// Stop and reset timer
-				if !timer.Stop() {
-					select {
-					// per docs explicitly drain
-					case <-timer.C:
-					default:
-					}
-				}
-				timer.Reset(t.timeout)
 				t.setHealth(true)
 			}
-		case <-timer.C:
+		case <-time.After(t.timeout):
 			if !t.isHealthy {
 				jww.WARN.Printf("Network health tracker timed out, network is no longer healthy...")
 			}

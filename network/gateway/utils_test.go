@@ -90,55 +90,67 @@ func getTestNdf(face interface{}) *ndf.NetworkDefinition {
 		Nodes: []ndf.Node{{
 			ID:      id.NewIdFromUInt(0, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(1, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(2, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(3, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(4, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(5, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(6, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(7, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(8, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(9, id.Node, face)[:],
 			Address: "0.0.0.1",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(10, id.Node, face)[:],
 			Address: "0.0.0.2",
+			Status:  ndf.Active,
 		}, {
 			ID:      id.NewIdFromUInt(11, id.Node, face)[:],
 			Address: "0.0.0.3",
+			Status:  ndf.Active,
 		}},
 	}
 }
 
 const happyPathReturn = "happyPathReturn"
 
-func SendToPreferred_HappyPath(host *connect.Host, target *id.ID) (interface{}, bool, error) {
-	return happyPathReturn, false, nil
+func SendToPreferred_HappyPath(host *connect.Host, target *id.ID) (interface{}, error) {
+	return happyPathReturn, nil
 }
 
-func SendToPreferred_KnownError(host *connect.Host, target *id.ID) (interface{}, bool, error) {
-	return nil, false, fmt.Errorf(errorsList[0])
+func SendToPreferred_KnownError(host *connect.Host, target *id.ID) (interface{}, error) {
+	return nil, fmt.Errorf(errorsList[0])
 }
 
-func SendToPreferred_UnknownError(host *connect.Host, target *id.ID) (interface{}, bool, error) {
-	return nil, false, fmt.Errorf("Unexpected error: Oopsie")
+func SendToPreferred_UnknownError(host *connect.Host, target *id.ID) (interface{}, error) {
+	return nil, fmt.Errorf("Unexpected error: Oopsie")
 }
 
 func SendToAny_HappyPath(host *connect.Host) (interface{}, error) {

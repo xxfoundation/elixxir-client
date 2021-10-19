@@ -190,6 +190,9 @@ Flags:
       --unsafe-channel-creation   Turns off the user identity authenticated
                                   channel check, automatically approving
                                   authenticated channels
+      --verboseRoundTracking      Verbose round tracking, keeps track and prints 
+                                  all rounds the client was aware of while running. 
+                                  Defaults to false if not set.
   -v, --logLevel uint             Level of debugging to print (0 = info, 
                                   1 = debug, >1 = trace). (Default info)
       --waitTimeout uint          The number of seconds to wait for messages to

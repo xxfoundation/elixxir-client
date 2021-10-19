@@ -218,7 +218,7 @@ func (gm *GroupMembership) Len() int {
 // Get returns the member at the index. The member at index 0 is always the
 // group leader. An error is returned if the index is out of range.
 func (gm *GroupMembership) Get(i int) (*GroupMember, error) {
-	if i < 0 || i > gm.Len() {
+	if i < 0 || i >= gm.Len() {
 		return nil, errors.Errorf("ID list index must be between %d "+
 			"and the last element %d.", 0, gm.Len())
 	}

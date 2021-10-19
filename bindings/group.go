@@ -9,7 +9,6 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
-	jww "github.com/spf13/jwalterweatherman"
 	gc "gitlab.com/elixxir/client/groupChat"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
@@ -191,6 +190,11 @@ func (g *Group) GetID() []byte {
 	return g.g.ID.Bytes()
 }
 
+// GetInitMessage returns initial message sent with the group request.
+func (g *Group) GetInitMessage() []byte {
+	return g.g.InitMessage
+}
+
 // GetMembership returns a list of contacts, one for each member in the group.
 // The list is in order; the first contact is the leader/creator of the group.
 // All subsequent members are ordered by their ID.
@@ -295,9 +299,7 @@ func (gmr *GroupMessageReceive) GetTimestampNano() int64 {
 // GetTimestampMS returns the message timestamp in milliseconds.
 func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
 	ts := uint64(gmr.Timestamp.UnixNano()) / uint64(time.Millisecond)
-	tsInt64 := int64(ts)
-	jww.INFO.Printf("TimestampMS: %d", tsInt64)
-	return tsInt64
+	return int64(ts)
 }
 
 // GetRoundID returns the ID of the round the message was sent on.
@@ -315,7 +317,5 @@ func (gmr *GroupMessageReceive) GetRoundTimestampNano() int64 {
 // message was sent on.
 func (gmr *GroupMessageReceive) GetRoundTimestampMS() int64 {
 	ts := uint64(gmr.RoundTimestamp.UnixNano()) / uint64(time.Millisecond)
-	tsInt64 := int64(ts)
-	jww.INFO.Printf("RoundTimestampMS: %d", tsInt64)
-	return tsInt64
+	return int64(ts)
 }

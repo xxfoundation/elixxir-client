@@ -69,7 +69,7 @@ func (m Manager) receive(rawMsgs chan message.Receive, stop *stoppable.Single) {
 }
 
 // readMessage returns the group, message ID, timestamp, sender ID, and message
-// of a group message. The encrypted group message data is unmarshaled from a
+// of a group message. The encrypted group message data is unmarshalled from a
 // cMix message in the message.Receive and then decrypted and the MAC is
 // verified. The group is found by finding the group with a matching key
 // fingerprint.

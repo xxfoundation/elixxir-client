@@ -75,7 +75,8 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	groupKey := group.NewKey(keyPreimage, mem)
 
 	// Create new group and add to manager
-	g := gs.NewGroup(name, groupID, groupKey, idPreimage, keyPreimage, msg, mem, dkl)
+	g := gs.NewGroup(
+		name, groupID, groupKey, idPreimage, keyPreimage, msg, mem, dkl)
 	if err := m.gs.Add(g); err != nil {
 		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
 	}
@@ -92,7 +93,8 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 // buildMembership retrieves the contact object for each member ID and creates a
 // new membership from them. The caller is set as the leader. For a member to be
 // added, the group leader must have an authenticated channel with the member.
-func (m Manager) buildMembership(members []*id.ID) (group.Membership, gs.DhKeyList, error) {
+func (m Manager) buildMembership(members []*id.ID) (group.Membership,
+	gs.DhKeyList, error) {
 	// Return an error if the membership list has too few or too many members
 	if len(members) < group.MinParticipants {
 		return nil, nil,

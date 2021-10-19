@@ -185,8 +185,8 @@ func TestManager_sendRequests_SendAllFail(t *testing.T) {
 	}
 }
 
-// Tests that Manager.sendRequests returns the correct status when some of the
-// sends fail.
+// Tests that Manager.sendRequests returns the correct status when some sends
+// fail.
 func TestManager_sendRequests_SendPartialSent(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 2, nil, nil, t)

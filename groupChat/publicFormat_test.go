@@ -149,7 +149,8 @@ func Test_publicMsg_String(t *testing.T) {
 	}
 }
 
-// Happy path: tests that String returns the expected string for a nil publicMsg.
+// Happy path: tests that String returns the expected string for a nil
+// publicMsg.
 func Test_publicMsg_String_NilInternalMessage(t *testing.T) {
 	pm := publicMsg{}
 

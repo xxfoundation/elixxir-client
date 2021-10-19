@@ -26,7 +26,8 @@ const (
 
 // receiveRequest starts the group request reception worker that waits for new
 // group requests to arrive.
-func (m Manager) receiveRequest(rawMsgs chan message.Receive, stop *stoppable.Single) {
+func (m Manager) receiveRequest(rawMsgs chan message.Receive,
+	stop *stoppable.Single) {
 	jww.DEBUG.Print("Starting group message request reception worker.")
 
 	for {

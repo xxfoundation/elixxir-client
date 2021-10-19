@@ -22,7 +22,8 @@ import (
 func TestNewGroup(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	membership := createMembership(prng, 10, t)
-	dkl := GenerateDhKeyList(membership[0].ID, randCycInt(prng), membership, getGroup())
+	dkl := GenerateDhKeyList(
+		membership[0].ID, randCycInt(prng), membership, getGroup())
 
 	expectedGroup := Group{
 		Name:        []byte(groupName),

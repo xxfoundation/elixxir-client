@@ -136,7 +136,8 @@ func TestManager_Send_SendManyCMIXError(t *testing.T) {
 	}
 }
 
-// Tests that Manager.createMessages generates the messages for the correct group.
+// Tests that Manager.createMessages generates the messages for the correct
+// group.
 func TestManager_createMessages(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, g := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
@@ -373,7 +374,8 @@ func TestGroup_newCmixMsg_SaltReaderError(t *testing.T) {
 	expectedErr := strings.SplitN(saltReadErr, "%", 2)[0]
 	m := &Manager{store: storage.InitTestingSession(t)}
 
-	_, err := m.newCmixMsg(gs.Group{}, []byte{}, time.Time{}, group.Member{}, strings.NewReader(""))
+	_, err := m.newCmixMsg(gs.Group{},
+		[]byte{}, time.Time{}, group.Member{}, strings.NewReader(""))
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
 		t.Errorf("newCmixMsg() failed to return the expected error"+
 			"\nexpected: %s\nreceived: %+v", expectedErr, err)

@@ -101,7 +101,8 @@ func newTestManagerWithStore(rng *rand.Rand, numGroups int, sendErr int,
 }
 
 // getMembership returns a Membership with random members for testing.
-func getMembership(size int, uid *id.ID, pubKey *cyclic.Int, grp *cyclic.Group, prng *rand.Rand, t *testing.T) group.Membership {
+func getMembership(size int, uid *id.ID, pubKey *cyclic.Int, grp *cyclic.Group,
+	prng *rand.Rand, t *testing.T) group.Membership {
 	contacts := make([]contact.Contact, size)
 	for i := range contacts {
 		randId, _ := id.NewRandomID(prng, id.User)
@@ -123,7 +124,8 @@ func getMembership(size int, uid *id.ID, pubKey *cyclic.Int, grp *cyclic.Group, 
 }
 
 // newTestGroup generates a new group with random values for testing.
-func newTestGroup(grp *cyclic.Group, privKey *cyclic.Int, rng *rand.Rand, t *testing.T) gs.Group {
+func newTestGroup(grp *cyclic.Group, privKey *cyclic.Int, rng *rand.Rand,
+	t *testing.T) gs.Group {
 	// Generate name from base 64 encoded random data
 	nameBytes := make([]byte, 16)
 	rng.Read(nameBytes)
@@ -137,7 +139,8 @@ func newTestGroup(grp *cyclic.Group, privKey *cyclic.Int, rng *rand.Rand, t *tes
 	membership := getMembership(10, id.NewIdFromString("userID", id.User, t),
 		randCycInt(rng), grp, rng, t)
 
-	dkl := gs.GenerateDhKeyList(id.NewIdFromString("userID", id.User, t), privKey, membership, grp)
+	dkl := gs.GenerateDhKeyList(
+		id.NewIdFromString("userID", id.User, t), privKey, membership, grp)
 
 	idPreimage, err := group.NewIdPreimage(rng)
 	if err != nil {
@@ -241,7 +244,8 @@ func (tnm *testNetworkManager) GetE2eMsg(i int) message.Send {
 	return tnm.e2eMessages[i]
 }
 
-func (tnm *testNetworkManager) SendE2E(msg message.Send, _ params.E2E, _ *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
+func (tnm *testNetworkManager) SendE2E(msg message.Send, _ params.E2E,
+	_ *stoppable.Single) ([]id.Round, e2e.MessageID, time.Time, error) {
 	tnm.Lock()
 	defer tnm.Unlock()
 
@@ -269,7 +273,8 @@ func (tnm *testNetworkManager) SendCMIX(format.Message, *id.ID, params.CMIX) (id
 	return 0, ephemeral.Id{}, nil
 }
 
-func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, _ params.CMIX) (id.Round, []ephemeral.Id, error) {
+func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message,
+	_ params.CMIX) (id.Round, []ephemeral.Id, error) {
 	if tnm.sendErr == 1 {
 		return 0, nil, errors.New("SendManyCMIX error")
 	}
@@ -284,8 +289,8 @@ func (tnm *testNetworkManager) SendManyCMIX(messages map[id.ID]format.Message, _
 
 type dummyEventMgr struct{}
 
-func (d *dummyEventMgr) Report(p int, a, b, c string) {}
-func (t *testNetworkManager) GetEventManager() interfaces.EventManager {
+func (d *dummyEventMgr) Report(int, string, string, string) {}
+func (tnm *testNetworkManager) GetEventManager() interfaces.EventManager {
 	return &dummyEventMgr{}
 }
 

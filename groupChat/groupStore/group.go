@@ -207,7 +207,8 @@ func DeserializeGroup(data []byte) (Group, error) {
 	return g, err
 }
 
-// groupStoreKey generates a unique key to save and load a Group to/from storage.
+// groupStoreKey generates a unique key to save and load a Group to/from
+// storage.
 func groupStoreKey(groupID *id.ID) string {
 	return groupStorageKey + groupID.String()
 }

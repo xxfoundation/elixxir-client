@@ -79,7 +79,8 @@ func newManager(client *api.Client, userID *id.ID, userDhKey *cyclic.Int,
 	receiveFunc ReceiveCallback) (*Manager, error) {
 
 	// Load the group chat storage or create one if one does not exist
-	gStore, err := gs.NewOrLoadStore(kv, group.Member{ID: userID, DhKey: userDhKey})
+	gStore, err := gs.NewOrLoadStore(
+		kv, group.Member{ID: userID, DhKey: userDhKey})
 	if err != nil {
 		return nil, errors.Errorf(newGroupStoreErr, err)
 	}

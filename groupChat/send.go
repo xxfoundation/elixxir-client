@@ -56,7 +56,8 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, error) {
 
 // createMessages generates a list of cMix messages and a list of corresponding
 // recipient IDs.
-func (m *Manager) createMessages(groupID *id.ID, msg []byte) (map[id.ID]format.Message, error) {
+func (m *Manager) createMessages(groupID *id.ID, msg []byte) (
+	map[id.ID]format.Message, error) {
 	timeNow := netTime.Now()
 
 	g, exists := m.gs.Get(groupID)

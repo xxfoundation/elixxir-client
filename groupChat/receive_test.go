@@ -131,7 +131,8 @@ func TestManager_receive_QuitChan(t *testing.T) {
 	}
 }
 
-// Tests that Manager.readMessage returns the message data for the correct group.
+// Tests that Manager.readMessage returns the message data for the correct
+// group.
 func TestManager_readMessage(t *testing.T) {
 	// Create new test Manager and Group
 	prng := rand.New(rand.NewSource(42))
@@ -206,7 +207,8 @@ func TestManager_readMessage_FindGroupKpError(t *testing.T) {
 	expectedTimestamp := netTime.Now()
 
 	// Create cMix message and get public message
-	cMixMsg, err := m.newCmixMsg(g, expectedContents, expectedTimestamp, g.Members[4], prng)
+	cMixMsg, err := m.newCmixMsg(
+		g, expectedContents, expectedTimestamp, g.Members[4], prng)
 	if err != nil {
 		t.Errorf("Failed to create new cMix message: %+v", err)
 	}
@@ -242,7 +244,8 @@ func TestManager_decryptMessage(t *testing.T) {
 	expectedTimestamp := netTime.Now()
 
 	// Create cMix message and get public message
-	msg, err := m.newCmixMsg(g, expectedContents, expectedTimestamp, g.Members[4], prng)
+	msg, err := m.newCmixMsg(
+		g, expectedContents, expectedTimestamp, g.Members[4], prng)
 	if err != nil {
 		t.Errorf("Failed to create new cMix message: %+v", err)
 	}
@@ -316,7 +319,7 @@ func TestManager_decryptMessage_GetCryptKeyError(t *testing.T) {
 }
 
 // Error path: an error is returned when the decrypted payload cannot be
-// unmarshaled.
+// unmarshalled.
 func TestManager_decryptMessage_UnmarshalInternalMsgError(t *testing.T) {
 	// Create new test Manager and Group
 	prng := rand.New(rand.NewSource(42))
@@ -338,11 +341,13 @@ func TestManager_decryptMessage_UnmarshalInternalMsgError(t *testing.T) {
 
 	// Modify publicMsg to have invalid payload
 	publicMsg = mapPublicMsg(publicMsg.Marshal()[:33])
-	key, err := group.NewKdfKey(g.Key, group.ComputeEpoch(timestamp), publicMsg.GetSalt())
+	key, err := group.NewKdfKey(
+		g.Key, group.ComputeEpoch(timestamp), publicMsg.GetSalt())
 	if err != nil {
 		t.Errorf("failed to create new key: %+v", err)
 	}
-	msg.SetMac(group.NewMAC(key, publicMsg.GetPayload(), g.DhKeys[*g.Members[4].ID]))
+	msg.SetMac(
+		group.NewMAC(key, publicMsg.GetPayload(), g.DhKeys[*g.Members[4].ID]))
 
 	// Check if error is correct
 	expectedErr := strings.SplitN(unmarshalInternalMsgErr, "%", 2)[0]
@@ -364,7 +369,8 @@ func Test_getCryptKey(t *testing.T) {
 	payload := []byte("payload")
 	ts := netTime.Now()
 
-	expectedKey, err := group.NewKdfKey(g.Key, group.ComputeEpoch(ts.Add(5*time.Minute)), salt)
+	expectedKey, err := group.NewKdfKey(
+		g.Key, group.ComputeEpoch(ts.Add(5*time.Minute)), salt)
 	if err != nil {
 		t.Errorf("failed to create new key: %+v", err)
 	}

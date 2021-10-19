@@ -198,7 +198,8 @@ func TestInternalMsg_String(t *testing.T) {
 	}
 }
 
-// Happy path: tests that String returns the expected string for a nil internalMsg.
+// Happy path: tests that String returns the expected string for a nil
+// internalMsg.
 func TestInternalMsg_String_NilInternalMessage(t *testing.T) {
 	im := internalMsg{}
 

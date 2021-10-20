@@ -115,7 +115,7 @@ func sendManyCmixHelper(sender *gateway.Sender, msgs map[id.ID]format.Message,
 		i := 0
 		for recipient, msg := range msgs {
 			slots[i], encMsgs[i], ephemeralIds[i], err = buildSlotMessage(
-				msg, &recipient, firstGateway, stream, senderId, bestRound, roundKeys)
+				msg, &recipient, firstGateway, stream, senderId, bestRound, roundKeys, param)
 			if err != nil {
 				return 0, []ephemeral.Id{}, errors.Errorf("failed to build "+
 					"slot message for %s: %+v", recipient, err)

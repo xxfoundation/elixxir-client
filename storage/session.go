@@ -10,6 +10,7 @@
 package storage
 
 import (
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/storage/hostList"
 	"gitlab.com/elixxir/client/storage/rounds"
 	"sync"
@@ -68,6 +69,7 @@ type Session struct {
 	clientVersion       *clientVersion.Store
 	uncheckedRounds     *rounds.UncheckedRoundStore
 	hostList            *hostList.Store
+	edgeCheck			*edge.Store
 }
 
 // Initialize a new Session object
@@ -154,6 +156,10 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 
 	s.hostList = hostList.NewStore(s.kv)
 
+	s.edgeCheck, err = edge.NewStore(s.kv,u.ReceptionID)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to edge check store")
+	}
 	return s, nil
 }
 
@@ -231,6 +237,11 @@ func Load(baseDir, password string, currentVersion version.Version,
 	}
 
 	s.hostList = hostList.NewStore(s.kv)
+
+	s.edgeCheck, err = edge.LoadStore(s.kv)
+	if err!=nil{
+		return nil, errors.WithMessage(err, "Failed to load edge check store")
+	}
 
 	return s, nil
 }
@@ -312,6 +323,13 @@ func (s *Session) HostList() *hostList.Store {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 	return s.hostList
+}
+
+// GetEdge returns the edge preimage store.
+func (s *Session) GetEdge() *edge.Store {
+	s.mux.RLock()
+	defer s.mux.RUnlock()
+	return s.edgeCheck
 }
 
 // Get an object from the session

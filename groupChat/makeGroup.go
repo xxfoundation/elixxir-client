@@ -11,6 +11,7 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
@@ -86,6 +87,15 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)
+
+	if err==nil{
+		edgeStore := m.store.GetEdge()
+		edgeStore.Add(edge.Preimage{
+			Data:   g.ID[:],
+			Type:   "group",
+			Source: g.ID[:],
+		},m.client.GetUser().ReceptionID)
+	}
 
 	return g, roundIDs, status, err
 }

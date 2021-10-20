@@ -12,6 +12,7 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/e2e"
 	fingerprint2 "gitlab.com/elixxir/crypto/fingerprint"
 	"gitlab.com/elixxir/primitives/format"
@@ -21,6 +22,7 @@ import (
 )
 
 func (m *Manager) handleMessages(stop *stoppable.Single) {
+	preimageList := m.Session.GetEdge()
 	for {
 		select {
 		case <-stop.Quit():
@@ -28,7 +30,7 @@ func (m *Manager) handleMessages(stop *stoppable.Single) {
 			return
 		case bundle := <-m.messageReception:
 			for _, msg := range bundle.Messages {
-				m.handleMessage(msg, bundle)
+				m.handleMessage(msg, bundle, preimageList)
 			}
 			bundle.Finish()
 		}
@@ -36,7 +38,7 @@ func (m *Manager) handleMessages(stop *stoppable.Single) {
 
 }
 
-func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
+func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge.Store) {
 	// We've done all the networking, now process the message
 	fingerprint := ecrMsg.GetKeyFP()
 	msgDigest := ecrMsg.Digest()
@@ -51,14 +53,27 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle) {
 	var relationshipFingerprint []byte
 
 	//check if the identity fingerprint matches
-	forMe := fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
-		ecrMsg.GetContents(), identity.Source)
+	//first check if a list is present in store for the receiving source
+	forMe := false
+	preimagelist, exist := edge.Get(identity.Source)
+	if exist{
+		//if it exists, check against all in the list
+		for i:=0;i<len(preimagelist)&&!forMe;i++{
+			forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+				ecrMsg.GetContents(), preimagelist[i].Data)
+		}
+	}else{
+		//if it doesnt exist, check against the default fingerprint for the identity
+		forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+			ecrMsg.GetContents(), identity.Source[:])
+	}
+
 	if !forMe {
 		if jww.GetLogThreshold() == jww.LevelTrace {
 			expectedFP := fingerprint2.IdentityFP(ecrMsg.GetContents(),
-				identity.Source)
+				identity.Source[:])
 			jww.TRACE.Printf("Message for %d (%s) failed identity "+
-				"check: %v (expected) vs %v (received)", identity.EphId,
+				"check: %v (expected-default) vs %v (received)", identity.EphId,
 				identity.Source, expectedFP, ecrMsg.GetIdentityFP())
 		}
 

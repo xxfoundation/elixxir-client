@@ -10,6 +10,7 @@ package message
 import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
+	"gitlab.com/elixxir/client/interfaces/params"
 	"gitlab.com/elixxir/client/storage"
 	"gitlab.com/elixxir/client/storage/cmix"
 	pb "gitlab.com/elixxir/comms/mixmessages"
@@ -119,7 +120,7 @@ func processRound(instance *network.Instance, session *storage.Session,
 // the recipient.
 func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	stream *fastRNG.Stream, senderId *id.ID, bestRound *pb.RoundInfo,
-	roundKeys *cmix.RoundKeys) (*pb.GatewaySlot, format.Message, ephemeral.Id,
+	roundKeys *cmix.RoundKeys, param params.CMIX) (*pb.GatewaySlot, format.Message, ephemeral.Id,
 	error) {
 
 	// Set the ephemeral ID
@@ -139,8 +140,14 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 
 	msg.SetEphemeralRID(ephIdFilled[:])
 
+	// use the alternate identity preimage if it is set
+	preimage := recipient[:]
+	if param.IdentityPreimage!=nil{
+		preimage = param.IdentityPreimage
+	}
+
 	// Set the identity fingerprint
-	ifp := fingerprint.IdentityFP(msg.GetContents(), recipient)
+	ifp := fingerprint.IdentityFP(msg.GetContents(), preimage)
 
 	msg.SetIdentityFP(ifp)
 

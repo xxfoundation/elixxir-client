@@ -46,7 +46,10 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
 		return 0, time.Time{}, errors.Errorf(newCmixMsgErr, err)
 	}
 
-	rid, _, err := m.net.SendManyCMIX(messages, params.GetDefaultCMIX())
+	param := params.GetDefaultCMIX()
+	param.IdentityPreimage = groupID[:]
+
+	rid, _, err := m.net.SendManyCMIX(messages, param)
 	if err != nil {
 		return 0, time.Time{},
 			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)

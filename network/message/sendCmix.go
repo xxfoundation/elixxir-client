@@ -135,7 +135,7 @@ func sendCmixHelper(sender *gateway.Sender, msg format.Message,
 		stream := rng.GetStream()
 
 		wrappedMsg, encMsg, ephID, err := buildSlotMessage(msg, recipient,
-			firstGateway, stream, senderId, bestRound, roundKeys)
+			firstGateway, stream, senderId, bestRound, roundKeys, cmixParams)
 		if err != nil {
 			stream.Close()
 			return 0, ephemeral.Id{}, err

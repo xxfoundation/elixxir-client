@@ -16,6 +16,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/fastRNG"
@@ -129,6 +130,13 @@ func (m Manager) JoinGroup(g gs.Group) error {
 		return errors.Errorf(joinGroupErr, g.ID, err)
 	}
 
+	edgeStore := m.store.GetEdge()
+	edgeStore.Add(edge.Preimage{
+		Data:   g.ID[:],
+		Type:   "group",
+		Source: g.ID[:],
+	},m.client.GetUser().ReceptionID)
+
 	jww.DEBUG.Printf("Joined group %s.", g.ID)
 
 	return nil
@@ -140,9 +148,16 @@ func (m Manager) LeaveGroup(groupID *id.ID) error {
 		return errors.Errorf(leaveGroupErr, groupID, err)
 	}
 
+	edgeStore := m.store.GetEdge()
+	err := edgeStore.Remove(edge.Preimage{
+		Data:   groupID[:],
+		Type:   "group",
+		Source: groupID[:],
+	},m.client.GetUser().ReceptionID)
+
 	jww.DEBUG.Printf("Left group %s.", groupID)
 
-	return nil
+	return err
 }
 
 // GetGroups returns a list of all registered groupChat IDs.

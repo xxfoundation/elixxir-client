@@ -53,8 +53,8 @@ func TestNewStore(t *testing.T) {
 }
 
 // Adds three Preimage to the store, two with the same identity. It checks that
-// all three exist and that the length of the list is correct. Also checks that
-// the appropriate callbacks are called.
+// Store.Add adds all three exist and that the length of the list is correct.
+// Also checks that the appropriate callbacks are called.
 func TestStore_Add(t *testing.T) {
 	s, _, _ := newTestStore(t)
 	identities := []*id.ID{
@@ -184,6 +184,10 @@ func TestStore_Add(t *testing.T) {
 	wg.Wait()
 }
 
+// Adds three Preimage to two identities and tests that Store.Remove removes all
+// three blue the default preimage for the second identity and checks that all
+// Preimage have been deleted, that the Preimages for the second identity has
+// been deleted and that the callbacks are called with the expected values.
 func TestStore_Remove(t *testing.T) {
 	s, _, _ := newTestStore(t)
 	identities := []*id.ID{
@@ -245,20 +249,26 @@ func TestStore_Remove(t *testing.T) {
 	}}
 
 	wg.Add(1)
+	wg.Add(1)
 	go func() {
-		select {
-		case <-time.NewTimer(10 * time.Millisecond).C:
-			t.Errorf("Timed out waiting for callback.")
-		case r := <-id1Chan:
-			if !identities[1].Cmp(r.identity) {
-				t.Errorf("Received wrong identity.\nexpected: %s\nreceived: %s",
-					identities[1], r.identity)
-			} else if r.deleted == true {
-				t.Errorf("Received wrong value for deleted."+
-					"\nexpected: %t\nreceived: %t", true, r.deleted)
+		for i := 0; i < 2; i++ {
+			select {
+			case <-time.NewTimer(50 * time.Millisecond).C:
+				t.Errorf("Timed out waiting for callback (%d).", i)
+			case r := <-id1Chan:
+				if !identities[1].Cmp(r.identity) {
+					t.Errorf("Received wrong identity (%d).\nexpected: %s"+
+						"\nreceived: %s", i, identities[1], r.identity)
+				} else if i == 0 && r.deleted == true {
+					t.Errorf("Received wrong value for deleted (%d)."+
+						"\nexpected: %t\nreceived: %t", i, false, r.deleted)
+				} else if i == 1 && r.deleted == false {
+					t.Errorf("Received wrong value for deleted (%d)."+
+						"\nexpected: %t\nreceived: %t", i, true, r.deleted)
+				}
 			}
+			wg.Done()
 		}
-		wg.Done()
 	}()
 
 	err := s.Remove(preimages[0], identities[0])
@@ -271,64 +281,97 @@ func TestStore_Remove(t *testing.T) {
 		t.Errorf("Remove returned an error: %+v", err)
 	}
 
+	err = s.Remove(Preimage{Data: identities[1].Bytes()}, identities[1])
+	if err != nil {
+		t.Errorf("Remove returned an error: %+v", err)
+	}
+
 	err = s.Remove(preimages[2], identities[0])
 	if err != nil {
 		t.Errorf("Remove returned an error: %+v", err)
 	}
 
-	if len(s.edge) != 3 {
+	if len(s.edge) != 2 {
 		t.Errorf("Length of edge incorrect.\nexpected: %d\nreceived: %d",
-			3, len(s.edge))
+			1, len(s.edge))
 	}
 
-	// pis := s.edge[*identities[0]]
-	//
-	// if len(pis) != 3 {
-	// 	t.Errorf("Length of preimages for identity %s inocrrect."+
-	// 		"\nexpected: %d\nreceived: %d", identities[0], 3, len(pis))
-	// }
-	//
-	// expected := Preimage{identities[0].Bytes(), "default", identities[0].Bytes()}
-	// if !reflect.DeepEqual(pis[expected.key()], expected) {
-	// 	t.Errorf("First Preimage of first Preimages does not match expected."+
-	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
-	// }
-	//
-	// expected = preimages[0]
-	// if !reflect.DeepEqual(pis[expected.key()], expected) {
-	// 	t.Errorf("Second Preimage of first Preimages does not match expected."+
-	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
-	// }
-	//
-	// expected = preimages[2]
-	// if !reflect.DeepEqual(pis[expected.key()], expected) {
-	// 	t.Errorf("Third Preimage of first Preimages does not match expected."+
-	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
-	// }
-	//
-	// pis = s.edge[*identities[1]]
-	//
-	// if len(pis) != 2 {
-	// 	t.Errorf("Length of preimages for identity %s inocrrect."+
-	// 		"\nexpected: %d\nreceived: %d", identities[1], 2, len(pis))
-	// }
-	//
-	// expected = Preimage{identities[1].Bytes(), "default", identities[1].Bytes()}
-	// if !reflect.DeepEqual(pis[expected.key()], expected) {
-	// 	t.Errorf("First Preimage of second Preimages does not match expected."+
-	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
-	// }
-	//
-	// expected = preimages[1]
-	// if !reflect.DeepEqual(pis[expected.key()], expected) {
-	// 	t.Errorf("Second Preimage of second Preimages does not match expected."+
-	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
-	// }
+	pis := s.edge[*identities[0]]
+
+	if len(pis) != 1 {
+		t.Errorf("Length of preimages for identity %s inocrrect."+
+			"\nexpected: %d\nreceived: %d", identities[0], 1, len(pis))
+	}
+
+	expected := preimages[0]
+	if _, exists := pis[expected.key()]; exists {
+		t.Errorf("Second Preimage of first Preimages exists when it should " +
+			"have been deleted.")
+	}
+
+	expected = preimages[2]
+	if _, exists := pis[expected.key()]; exists {
+		t.Errorf("Third Preimage of first Preimages exists when it should " +
+			"have been deleted.")
+	}
+
+	pis = s.edge[*identities[1]]
+
+	if len(pis) != 0 {
+		t.Errorf("Length of preimages for identity %s inocrrect."+
+			"\nexpected: %d\nreceived: %d", identities[1], 0, len(pis))
+	}
 
 	wg.Wait()
 }
 
+// Tests that Store.Get returns the expected Preimages.
 func TestStore_Get(t *testing.T) {
+	s, _, _ := newTestStore(t)
+	identities := []*id.ID{
+		id.NewIdFromString("identity0", id.User, t),
+		id.NewIdFromString("identity1", id.User, t),
+	}
+	preimages := []Preimage{
+		{[]byte("ID0"), "default0", []byte("ID0")},
+		{[]byte("ID1"), "default1", []byte("ID1")},
+		{[]byte("ID2"), "default2", []byte("ID2")},
+	}
+
+	s.Add(preimages[0], identities[0])
+	s.Add(preimages[1], identities[1])
+	s.Add(preimages[2], identities[0])
+
+	pis, exists := s.Get(identities[0])
+	if !exists {
+		t.Errorf("No Preimages found for identity %s.", identities[0])
+	}
+
+	expected := Preimages{
+		identities[0].String(): Preimage{identities[0].Bytes(), "default", identities[0].Bytes()},
+		preimages[0].key():     preimages[0],
+		preimages[2].key():     preimages[2],
+	}
+
+	if !reflect.DeepEqual(expected, pis) {
+		t.Errorf("First Preimages for identity %s does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", identities[0], expected, pis)
+	}
+
+	pis, exists = s.Get(identities[1])
+	if !exists {
+		t.Errorf("No Preimages found for identity %s.", identities[1])
+	}
+
+	expected = Preimages{
+		identities[1].String(): Preimage{identities[1].Bytes(), "default", identities[1].Bytes()},
+		preimages[1].key():     preimages[1],
+	}
+
+	if !reflect.DeepEqual(expected, pis) {
+		t.Errorf("First Preimages for identity %s does not match expected."+
+			"\nexpected: %+v\nreceived: %+v", identities[1], expected, pis)
+	}
 }
 
 func TestStore_AddUpdateCallback(t *testing.T) {

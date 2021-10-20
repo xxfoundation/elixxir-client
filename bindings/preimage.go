@@ -1,8 +1,8 @@
 package bindings
 
 import (
+	"encoding/json"
 	"github.com/pkg/errors"
-	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/xx_network/primitives/id"
 )
 
@@ -23,44 +23,17 @@ func (c *Client)RegisterPreimageCallback(identity []byte, pin PreimageNotificati
 	c.api.GetStorage().GetEdge().AddUpdateCallback(iid, cb)
 }
 
-func (c *Client)GetPreimages(identity []byte)(*PreimageList, error){
+func (c *Client)GetPreimages(identity []byte)(string, error){
 
 	iid := &id.ID{}
 	copy(iid[:], identity)
 
 	list, exist := c.api.GetStorage().GetEdge().Get(iid)
 	if !exist{
-		return nil, errors.Errorf("Could not find a preimage list for %s", iid)
+		return "", errors.Errorf("Could not find a preimage list for %s", iid)
 	}
 
-	return &PreimageList{list: list}, nil
-}
+	marshaled, err := json.Marshal(&list)
 
-type Preimage struct{
-	pi edge.Preimage
-}
-
-func (pi *Preimage)Get()[]byte{
-	return pi.pi.Data
-}
-
-func (pi *Preimage)Type()string{
-	return pi.pi.Type
-}
-
-func (pi *Preimage)Source()[]byte{
-	return pi.pi.Source
-}
-
-
-type PreimageList struct{
-	list edge.Preimages
-}
-
-func (pil *PreimageList)Len()int{
-	return len(pil.list)
-}
-
-func (pil *PreimageList)Get(index int)*Preimage{
-	return &Preimage{pi:pil.list[index]}
+	return string(marshaled), err
 }

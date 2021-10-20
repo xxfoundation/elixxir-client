@@ -91,6 +91,10 @@ func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	return
 }
 
+// Remove deletes the preimage for the given identity and triggers the
+// associated callback. If the given preimage is the last in the Preimages list,
+// then the entire list is removed and the associated callback will be triggered
+// with the boolean indicating the list was deleted.
 func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -141,6 +145,7 @@ func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 	return nil
 }
 
+// Get returns the Preimages list for the given identity.
 func (s *Store) Get(identity *id.ID) (Preimages, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()

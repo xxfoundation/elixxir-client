@@ -154,16 +154,18 @@ func (s *Store) Get(identity *id.ID) (Preimages, bool) {
 	return preimages, exists
 }
 
-func (s *Store) AddUpdateCallback(identity *id.ID, lucb ListUpdateCallBack) {
+// AddUpdateCallback adds the callback to be called for changes to the identity.
+func (s *Store) AddUpdateCallback(identity *id.ID, luCB ListUpdateCallBack) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	list, exists := s.callbacks[*identity]
-	if !exists {
-		list = make([]ListUpdateCallBack, 0, 1)
-	}
-
-	s.callbacks[*identity] = append(list, lucb)
+	// list, exists := s.callbacks[*identity]
+	// if !exists {
+	// 	list = make([]ListUpdateCallBack, 0, 1)
+	// }
+	//
+	// s.callbacks[*identity] = append(list, luCB)
+	s.callbacks[*identity] = append(s.callbacks[*identity], luCB)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -217,7 +219,7 @@ func (s *Store) save() error {
 	data, err := json.Marshal(&identities)
 	if err != nil {
 		return errors.WithMessagef(err, "Failed to marshal edge list for "+
-			"stroage")
+			"storage")
 	}
 
 	// Construct versioning object

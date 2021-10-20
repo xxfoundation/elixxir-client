@@ -20,6 +20,7 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 	"math/rand"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 )
@@ -66,6 +67,8 @@ func TestStore_Add(t *testing.T) {
 		{[]byte("ID2"), "default2", []byte("ID2")},
 	}
 
+	var wg sync.WaitGroup
+
 	id0Chan := make(chan struct {
 		identity *id.ID
 		deleted  bool
@@ -77,17 +80,23 @@ func TestStore_Add(t *testing.T) {
 		}{identity: identity, deleted: deleted}
 	}}
 
+	wg.Add(1)
+	wg.Add(1)
 	go func() {
 		for i := 0; i < 2; i++ {
 			select {
-			case <-time.NewTimer(10 * time.Millisecond).C:
+			case <-time.NewTimer(50 * time.Millisecond).C:
 				t.Errorf("Timed out waiting for callback (%d).", i)
 			case r := <-id0Chan:
 				if !identities[0].Cmp(r.identity) {
 					t.Errorf("Received wrong identity (%d).\nexpected: %s"+
 						"\nreceived: %s", i, identities[0], r.identity)
+				} else if r.deleted == true {
+					t.Errorf("Received wrong value for deleted (%d)."+
+						"\nexpected: %t\nreceived: %t", i, true, r.deleted)
 				}
 			}
+			wg.Done()
 		}
 	}()
 
@@ -102,16 +111,21 @@ func TestStore_Add(t *testing.T) {
 		}{identity: identity, deleted: deleted}
 	}}
 
+	wg.Add(1)
 	go func() {
 		select {
 		case <-time.NewTimer(10 * time.Millisecond).C:
 			t.Errorf("Timed out waiting for callback.")
-		case r := <-id0Chan:
-			if !identities[0].Cmp(r.identity) {
+		case r := <-id1Chan:
+			if !identities[1].Cmp(r.identity) {
 				t.Errorf("Received wrong identity.\nexpected: %s\nreceived: %s",
-					identities[0], r.identity)
+					identities[1], r.identity)
+			} else if r.deleted == true {
+				t.Errorf("Received wrong value for deleted."+
+					"\nexpected: %t\nreceived: %t", true, r.deleted)
 			}
 		}
+		wg.Done()
 	}()
 
 	s.Add(preimages[0], identities[0])
@@ -136,14 +150,16 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
 	}
 
-	if !reflect.DeepEqual(pis[preimages[0].key()], preimages[0]) {
+	expected = preimages[0]
+	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("Second Preimage of first Preimages does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", preimages[0], pis[preimages[0].key()])
+			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
 	}
 
-	if !reflect.DeepEqual(pis[preimages[2].key()], preimages[2]) {
+	expected = preimages[2]
+	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("Third Preimage of first Preimages does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", preimages[2], pis[preimages[2].key()])
+			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
 	}
 
 	pis = s.edge[*identities[1]]
@@ -159,13 +175,157 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
 	}
 
-	if !reflect.DeepEqual(pis[preimages[1].key()], preimages[1]) {
+	expected = preimages[1]
+	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("Second Preimage of second Preimages does not match expected."+
-			"\nexpected: %+v\nreceived: %+v", preimages[1], pis[preimages[1].key()])
+			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
 	}
+
+	wg.Wait()
 }
 
 func TestStore_Remove(t *testing.T) {
+	s, _, _ := newTestStore(t)
+	identities := []*id.ID{
+		id.NewIdFromString("identity0", id.User, t),
+		id.NewIdFromString("identity1", id.User, t),
+	}
+	preimages := []Preimage{
+		{[]byte("ID0"), "default0", []byte("ID0")},
+		{[]byte("ID1"), "default1", []byte("ID1")},
+		{[]byte("ID2"), "default2", []byte("ID2")},
+	}
+
+	s.Add(preimages[0], identities[0])
+	s.Add(preimages[1], identities[1])
+	s.Add(preimages[2], identities[0])
+
+	var wg sync.WaitGroup
+
+	id0Chan := make(chan struct {
+		identity *id.ID
+		deleted  bool
+	}, 2)
+	s.callbacks[*identities[0]] = []ListUpdateCallBack{func(identity *id.ID, deleted bool) {
+		id0Chan <- struct {
+			identity *id.ID
+			deleted  bool
+		}{identity: identity, deleted: deleted}
+	}}
+
+	wg.Add(1)
+	wg.Add(1)
+	go func() {
+		for i := 0; i < 2; i++ {
+			select {
+			case <-time.NewTimer(50 * time.Millisecond).C:
+				t.Errorf("Timed out waiting for callback (%d).", i)
+			case r := <-id0Chan:
+				if !identities[0].Cmp(r.identity) {
+					t.Errorf("Received wrong identity (%d).\nexpected: %s"+
+						"\nreceived: %s", i, identities[0], r.identity)
+				} else if r.deleted == true {
+					t.Errorf("Received wrong value for deleted (%d)."+
+						"\nexpected: %t\nreceived: %t", i, true, r.deleted)
+				}
+			}
+			wg.Done()
+		}
+	}()
+
+	id1Chan := make(chan struct {
+		identity *id.ID
+		deleted  bool
+	})
+	s.callbacks[*identities[1]] = []ListUpdateCallBack{func(identity *id.ID, deleted bool) {
+		id1Chan <- struct {
+			identity *id.ID
+			deleted  bool
+		}{identity: identity, deleted: deleted}
+	}}
+
+	wg.Add(1)
+	go func() {
+		select {
+		case <-time.NewTimer(10 * time.Millisecond).C:
+			t.Errorf("Timed out waiting for callback.")
+		case r := <-id1Chan:
+			if !identities[1].Cmp(r.identity) {
+				t.Errorf("Received wrong identity.\nexpected: %s\nreceived: %s",
+					identities[1], r.identity)
+			} else if r.deleted == true {
+				t.Errorf("Received wrong value for deleted."+
+					"\nexpected: %t\nreceived: %t", true, r.deleted)
+			}
+		}
+		wg.Done()
+	}()
+
+	err := s.Remove(preimages[0], identities[0])
+	if err != nil {
+		t.Errorf("Remove returned an error: %+v", err)
+	}
+
+	err = s.Remove(preimages[1], identities[1])
+	if err != nil {
+		t.Errorf("Remove returned an error: %+v", err)
+	}
+
+	err = s.Remove(preimages[2], identities[0])
+	if err != nil {
+		t.Errorf("Remove returned an error: %+v", err)
+	}
+
+	if len(s.edge) != 3 {
+		t.Errorf("Length of edge incorrect.\nexpected: %d\nreceived: %d",
+			3, len(s.edge))
+	}
+
+	// pis := s.edge[*identities[0]]
+	//
+	// if len(pis) != 3 {
+	// 	t.Errorf("Length of preimages for identity %s inocrrect."+
+	// 		"\nexpected: %d\nreceived: %d", identities[0], 3, len(pis))
+	// }
+	//
+	// expected := Preimage{identities[0].Bytes(), "default", identities[0].Bytes()}
+	// if !reflect.DeepEqual(pis[expected.key()], expected) {
+	// 	t.Errorf("First Preimage of first Preimages does not match expected."+
+	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
+	// }
+	//
+	// expected = preimages[0]
+	// if !reflect.DeepEqual(pis[expected.key()], expected) {
+	// 	t.Errorf("Second Preimage of first Preimages does not match expected."+
+	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
+	// }
+	//
+	// expected = preimages[2]
+	// if !reflect.DeepEqual(pis[expected.key()], expected) {
+	// 	t.Errorf("Third Preimage of first Preimages does not match expected."+
+	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
+	// }
+	//
+	// pis = s.edge[*identities[1]]
+	//
+	// if len(pis) != 2 {
+	// 	t.Errorf("Length of preimages for identity %s inocrrect."+
+	// 		"\nexpected: %d\nreceived: %d", identities[1], 2, len(pis))
+	// }
+	//
+	// expected = Preimage{identities[1].Bytes(), "default", identities[1].Bytes()}
+	// if !reflect.DeepEqual(pis[expected.key()], expected) {
+	// 	t.Errorf("First Preimage of second Preimages does not match expected."+
+	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
+	// }
+	//
+	// expected = preimages[1]
+	// if !reflect.DeepEqual(pis[expected.key()], expected) {
+	// 	t.Errorf("Second Preimage of second Preimages does not match expected."+
+	// 		"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
+	// }
+
+	wg.Wait()
 }
 
 func TestStore_Get(t *testing.T) {

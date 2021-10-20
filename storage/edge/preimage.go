@@ -25,6 +25,7 @@ func (pi Preimage) key() string {
 	return base64.StdEncoding.EncodeToString(pi.Data)
 }
 
+// Preimages is a map of unique Preimage keyed on their Data.
 type Preimages map[string]Preimage
 
 // newPreimages makes a Preimages object for the given identity and populates
@@ -42,12 +43,14 @@ func newPreimages(identity *id.ID) Preimages {
 }
 
 // add adds the preimage to the list.
-func (pis Preimages) add(preimage Preimage) {
+func (pis Preimages) add(preimage Preimage) bool {
 	if _, exists := pis[preimage.key()]; exists {
-		return
+		return false
 	}
 
 	pis[preimage.key()] = preimage
+
+	return true
 }
 
 // remove deletes the Preimage with the matching data from the list.

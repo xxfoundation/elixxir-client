@@ -48,8 +48,25 @@ func TestPreimages_add(t *testing.T) {
 	}
 
 	pis := newPreimages(identity0)
-	pis.add(Preimage{identity1.Bytes(), "group", identity1.Bytes()})
-	pis.add(Preimage{identity2.Bytes(), "default", identity2.Bytes()})
+	exists := pis.add(Preimage{identity1.Bytes(), "group", identity1.Bytes()})
+	if !exists {
+		t.Errorf("Failed to add idenetity.")
+	}
+	exists = pis.add(Preimage{identity2.Bytes(), "default", identity2.Bytes()})
+	if !exists {
+		t.Errorf("Failed to add idenetity.")
+	}
+
+	if !reflect.DeepEqual(expected, pis) {
+		t.Errorf("Failed to add expected Preimages."+
+			"\nexpected: %+v\nreceived: %+v", expected, pis)
+	}
+
+	// Test that nothing happens when a Preimage with the same data exists
+	exists = pis.add(Preimage{identity2.Bytes(), "test", identity2.Bytes()})
+	if exists {
+		t.Errorf("Add idenetity that shoudl already exist.")
+	}
 
 	if !reflect.DeepEqual(expected, pis) {
 		t.Errorf("Failed to add expected Preimages."+
@@ -70,7 +87,10 @@ func TestPreimages_remove(t *testing.T) {
 			pisType = "group"
 		}
 
-		pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})
+		exists := pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})
+		if !exists {
+			t.Errorf("Failed to add idenetity.")
+		}
 		identities = append(identities, identity.Bytes())
 	}
 

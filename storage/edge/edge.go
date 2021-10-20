@@ -63,7 +63,9 @@ func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	}
 
 	// Add to the list
-	preimages.add(preimage)
+	if !preimages.add(preimage) {
+		return
+	}
 
 	// Store the updated list
 	if err := preimages.save(s.kv, identity); err != nil {
@@ -82,8 +84,7 @@ func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	}
 
 	// Call any callbacks to notify
-	for i := range s.callbacks[*identity] {
-		cb := s.callbacks[*identity][i]
+	for _, cb := range s.callbacks[*identity] {
 		go cb(identity, false)
 	}
 

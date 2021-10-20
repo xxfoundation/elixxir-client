@@ -215,12 +215,12 @@ type lookupResponse struct{
 	id *id.ID
 }
 
-// MuliLookup Looks for the contact object associated with all given userIDs.
+// MultiLookup Looks for the contact object associated with all given userIDs.
 // The ids are the byte representation of an id stored in an IDList object.
 // This will reject if that id is malformed or if the indexing on the IDList
 // object is wrong. The MultiLookupCallback will return with all contacts
 // returned within the timeout.
-func (ud UserDiscovery) MuliLookup(ids *IdList, callback MultiLookupCallback,
+func (ud UserDiscovery) MultiLookup(ids *IdList, callback MultiLookupCallback,
 	timeoutMS int) error {
 
 	idList := make([]*id.ID,0,ids.Len())

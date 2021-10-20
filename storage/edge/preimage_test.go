@@ -34,6 +34,67 @@ func Test_newPreimages(t *testing.T) {
 	}
 }
 
+// Tests that Preimages.add adds the expected Preimage to the list.
+func TestPreimages_add(t *testing.T) {
+	identity0 := id.NewIdFromString("identity0", id.User, t)
+	identity1 := id.NewIdFromString("identity1", id.User, t)
+	expected := Preimages{
+		{identity0.Bytes(), "default", identity0.Bytes()},
+		{identity0.Bytes(), "group", identity0.Bytes()},
+		{identity1.Bytes(), "default", identity1.Bytes()},
+	}
+
+	pis := newPreimages(identity0)
+	pis = pis.add(Preimage{identity0.Bytes(), "group", identity0.Bytes()})
+	pis = pis.add(Preimage{identity1.Bytes(), "default", identity1.Bytes()})
+
+	if !reflect.DeepEqual(expected, pis) {
+		t.Errorf("Failed to add expected Preimages."+
+			"\nexpected: %+v\nreceived: %+v", expected, pis)
+	}
+}
+
+// Tests that Preimages.remove removes all the correct Preimage from the list.
+func TestPreimages_remove(t *testing.T) {
+	var pis Preimages
+	var identities [][]byte
+
+	// Add 10 Preimage to the list
+	for i := 0; i < 10; i++ {
+		identity := id.NewIdFromUInt(uint64(i), id.User, t)
+		pisType := "default"
+		if i%2 == 0 {
+			pisType = "group"
+		}
+
+		pis = pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})
+		identities = append(identities, identity.Bytes())
+	}
+
+	// Remove each Preimage, check if the length of the list has changed, and
+	// check that the correct Preimage was removed
+	for i, identity := range identities {
+		pis = pis.remove(identity)
+
+		if len(pis) != len(identities)-(i+1) {
+			t.Errorf("Length of Preimages incorrect after removing %d Premiages."+
+				"\nexpected: %d\nreceived: %d", i, len(identities)-(i+1),
+				len(pis))
+		}
+
+		// Check if the correct Preimage was deleted
+		for _, pimg := range pis {
+			if bytes.Equal(pimg.Data, identity) {
+				t.Errorf("Failed to delete Preimage #%d: %+v", i, pimg)
+			}
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
 // Tests that the Preimages loaded via loadPreimages matches the original saved
 // to storage.
 func Test_loadPreimages(t *testing.T) {
@@ -91,63 +152,6 @@ func TestPreimages_save(t *testing.T) {
 	if !reflect.DeepEqual(pis, loaded) {
 		t.Errorf("Loaded Preimages do not match original."+
 			"\nexpected: %+v\nreceived: %+v", pis, loaded)
-	}
-}
-
-// Tests that Preimages.add adds the expected Preimage to the list.
-func TestPreimages_add(t *testing.T) {
-	identity0 := id.NewIdFromString("identity0", id.User, t)
-	identity1 := id.NewIdFromString("identity1", id.User, t)
-	expected := Preimages{
-		{identity0.Bytes(), "default", identity0.Bytes()},
-		{identity0.Bytes(), "group", identity0.Bytes()},
-		{identity1.Bytes(), "default", identity1.Bytes()},
-	}
-
-	pis := newPreimages(identity0)
-	pis = pis.add(Preimage{identity0.Bytes(), "group", identity0.Bytes()})
-	pis = pis.add(Preimage{identity1.Bytes(), "default", identity1.Bytes()})
-
-	if !reflect.DeepEqual(expected, pis) {
-		t.Errorf("Failed to add expected Preimages."+
-			"\nexpected: %+v\nreceived: %+v", expected, pis)
-	}
-}
-
-// Tests that Preimages.remove removes all the correct Preimage from the list.
-func TestPreimages_remove(t *testing.T) {
-	var pis Preimages
-	var identities [][]byte
-
-	// Add 10 Preimage to the list
-	for i := 0; i < 10; i++ {
-		identity := id.NewIdFromUInt(uint64(i), id.User, t)
-		pisType := "default"
-		if i%2 == 0 {
-			pisType = "group"
-		}
-
-		pis = pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})
-		identities = append(identities, identity.Bytes())
-	}
-
-	// Remove each Preimage, check if the length of the list has changed, and
-	// check that the correct Preimage was removed
-	for i, identity := range identities {
-		pis = pis.remove(identity)
-
-		if len(pis) != len(identities)-(i+1) {
-			t.Errorf("Length of Preimages incorrect after removing %d Premiages."+
-				"\nexpected: %d\nreceived: %d", i, len(identities)-(i+1),
-				len(pis))
-		}
-
-		// Check if the correct Preimage was deleted
-		for _, pimg := range pis {
-			if bytes.Equal(pimg.Data, identity) {
-				t.Errorf("Failed to delete Preimage #%d: %+v", i, pimg)
-			}
-		}
 	}
 }
 

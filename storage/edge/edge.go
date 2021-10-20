@@ -24,7 +24,7 @@ type Store struct {
 	kv        *versioned.KV
 	edge      map[id.ID]Preimages
 	callbacks map[id.ID][]ListUpdateCallBack
-	mux       *sync.RWMutex
+	mux       sync.RWMutex
 }
 
 // NewStore creates a new edge store object and inserts the default Preimages
@@ -47,42 +47,6 @@ func NewStore(kv *versioned.KV, baseIdentity *id.ID) (*Store, error) {
 	s.edge[*baseIdentity] = defaultPreimages
 
 	return s, s.save()
-}
-
-func LoadStore(kv *versioned.KV) (*Store, error) {
-	kv = kv.Prefix(edgeStorePrefix)
-
-	// Load the list of identities with preimage lists
-	obj, err := kv.Get(edgeStoreKey, preimageStoreVersion)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to load edge store")
-	}
-
-	identities := make([]id.ID, 0)
-
-	err = json.Unmarshal(obj.Data, &identities)
-	if err != nil {
-		return nil, errors.WithMessagef(err, "failed to unmarshal edge store")
-	}
-
-	s := &Store{
-		kv:   kv,
-		edge: make(map[id.ID]Preimages),
-	}
-
-	// Load the preimage lists for all identities
-	for i := range identities {
-		eid := &identities[i]
-
-		preimages, err := loadPreimages(kv, eid)
-		if err != nil {
-			return nil, err
-		}
-
-		s.edge[*eid] = preimages
-	}
-
-	return s, nil
 }
 
 func (s *Store) Add(preimage Preimage, identity *id.ID) {
@@ -193,7 +157,47 @@ func (s *Store) AddUpdateCallback(identity *id.ID, lucb ListUpdateCallBack) {
 	s.callbacks[*identity] = append(list, lucb)
 }
 
-func (s Store) save() error {
+////////////////////////////////////////////////////////////////////////////////
+// Storage Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
+func LoadStore(kv *versioned.KV) (*Store, error) {
+	kv = kv.Prefix(edgeStorePrefix)
+
+	// Load the list of identities with preimage lists
+	obj, err := kv.Get(edgeStoreKey, preimageStoreVersion)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to load edge store")
+	}
+
+	identities := make([]id.ID, 0)
+
+	err = json.Unmarshal(obj.Data, &identities)
+	if err != nil {
+		return nil, errors.WithMessagef(err, "failed to unmarshal edge store")
+	}
+
+	s := &Store{
+		kv:   kv,
+		edge: make(map[id.ID]Preimages),
+	}
+
+	// Load the preimage lists for all identities
+	for i := range identities {
+		eid := &identities[i]
+
+		preimages, err := loadPreimages(kv, eid)
+		if err != nil {
+			return nil, err
+		}
+
+		s.edge[*eid] = preimages
+	}
+
+	return s, nil
+}
+
+func (s *Store) save() error {
 	identities := make([]id.ID, 0, len(s.edge))
 
 	for eid := range s.edge {

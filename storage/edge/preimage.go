@@ -36,6 +36,26 @@ func newPreimages(identity *id.ID) Preimages {
 	return pis
 }
 
+// add adds the preimage to the list.
+func (pis Preimages) add(pimg Preimage) Preimages {
+	return append(pis, pimg)
+}
+
+func (pis Preimages) remove(data []byte) Preimages {
+	for i, preimage := range pis {
+		if bytes.Equal(preimage.Data, data) {
+			pis[i] = pis[len(pis)-1]
+			return pis[:len(pis)-1]
+		}
+	}
+
+	return pis
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Storage Functions                                                          //
+////////////////////////////////////////////////////////////////////////////////
+
 // loadPreimages loads a Preimages object for the given identity.
 func loadPreimages(kv *versioned.KV, identity *id.ID) (Preimages, error) {
 
@@ -80,22 +100,6 @@ func (pis Preimages) save(kv *versioned.KV, identity *id.ID) error {
 	}
 
 	return nil
-}
-
-// add adds the preimage to the list.
-func (pis Preimages) add(pimg Preimage) Preimages {
-	return append(pis, pimg)
-}
-
-func (pis Preimages) remove(data []byte) Preimages {
-	for i, preimage := range pis {
-		if bytes.Equal(preimage.Data, data) {
-			pis[i] = pis[len(pis)-1]
-			return pis[:len(pis)-1]
-		}
-	}
-
-	return pis
 }
 
 // delete removes the Preimages from storage.

@@ -20,11 +20,13 @@ import (
 // Tests that newPreimages returns the expected new Preimages.
 func Test_newPreimages(t *testing.T) {
 	identity := id.NewIdFromString("identity", id.User, t)
-	expected := Preimages{{
-		Data:   identity.Bytes(),
-		Type:   "default",
-		Source: identity.Bytes(),
-	}}
+	expected := Preimages{
+		identity.String(): {
+			Data:   identity.Bytes(),
+			Type:   "default",
+			Source: identity.Bytes(),
+		},
+	}
 
 	received := newPreimages(identity)
 
@@ -38,15 +40,16 @@ func Test_newPreimages(t *testing.T) {
 func TestPreimages_add(t *testing.T) {
 	identity0 := id.NewIdFromString("identity0", id.User, t)
 	identity1 := id.NewIdFromString("identity1", id.User, t)
+	identity2 := id.NewIdFromString("identity3", id.User, t)
 	expected := Preimages{
-		{identity0.Bytes(), "default", identity0.Bytes()},
-		{identity0.Bytes(), "group", identity0.Bytes()},
-		{identity1.Bytes(), "default", identity1.Bytes()},
+		identity0.String(): {identity0.Bytes(), "default", identity0.Bytes()},
+		identity1.String(): {identity1.Bytes(), "group", identity1.Bytes()},
+		identity2.String(): {identity2.Bytes(), "default", identity2.Bytes()},
 	}
 
 	pis := newPreimages(identity0)
-	pis = pis.add(Preimage{identity0.Bytes(), "group", identity0.Bytes()})
-	pis = pis.add(Preimage{identity1.Bytes(), "default", identity1.Bytes()})
+	pis.add(Preimage{identity1.Bytes(), "group", identity1.Bytes()})
+	pis.add(Preimage{identity2.Bytes(), "default", identity2.Bytes()})
 
 	if !reflect.DeepEqual(expected, pis) {
 		t.Errorf("Failed to add expected Preimages."+
@@ -56,7 +59,7 @@ func TestPreimages_add(t *testing.T) {
 
 // Tests that Preimages.remove removes all the correct Preimage from the list.
 func TestPreimages_remove(t *testing.T) {
-	var pis Preimages
+	pis := make(Preimages)
 	var identities [][]byte
 
 	// Add 10 Preimage to the list
@@ -67,14 +70,14 @@ func TestPreimages_remove(t *testing.T) {
 			pisType = "group"
 		}
 
-		pis = pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})
+		pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})
 		identities = append(identities, identity.Bytes())
 	}
 
 	// Remove each Preimage, check if the length of the list has changed, and
 	// check that the correct Preimage was removed
 	for i, identity := range identities {
-		pis = pis.remove(identity)
+		pis.remove(identity)
 
 		if len(pis) != len(identities)-(i+1) {
 			t.Errorf("Length of Preimages incorrect after removing %d Premiages."+
@@ -101,9 +104,9 @@ func Test_loadPreimages(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	identity := id.NewIdFromString("identity", id.User, t)
 	pis := Preimages{
-		{[]byte("identity0"), "default", []byte("identity0")},
-		{[]byte("identity0"), "group", []byte("identity0")},
-		{[]byte("identity1"), "default", []byte("identity1")},
+		"a": {[]byte("identity0"), "default", []byte("identity0")},
+		"b": {[]byte("identity0"), "group", []byte("identity0")},
+		"c": {[]byte("identity1"), "default", []byte("identity1")},
 	}
 
 	err := pis.save(kv, identity)
@@ -128,9 +131,9 @@ func TestPreimages_save(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	identity := id.NewIdFromString("identity", id.User, t)
 	pis := Preimages{
-		{[]byte("identity0"), "default", []byte("identity0")},
-		{[]byte("identity0"), "group", []byte("identity0")},
-		{[]byte("identity1"), "default", []byte("identity1")},
+		"a": {[]byte("identity0"), "default", []byte("identity0")},
+		"b": {[]byte("identity0"), "group", []byte("identity0")},
+		"c": {[]byte("identity1"), "default", []byte("identity1")},
 	}
 
 	err := pis.save(kv, identity)
@@ -161,9 +164,9 @@ func TestPreimages_delete(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	identity := id.NewIdFromString("identity", id.User, t)
 	pis := Preimages{
-		{[]byte("identity0"), "default", []byte("identity0")},
-		{[]byte("identity0"), "group", []byte("identity0")},
-		{[]byte("identity1"), "default", []byte("identity1")},
+		"a": {[]byte("identity0"), "default", []byte("identity0")},
+		"b": {[]byte("identity0"), "group", []byte("identity0")},
+		"c": {[]byte("identity1"), "default", []byte("identity1")},
 	}
 
 	err := pis.save(kv, identity)

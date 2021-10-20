@@ -50,6 +50,8 @@ func NewStore(kv *versioned.KV, baseIdentity *id.ID) (*Store, error) {
 	return s, s.save()
 }
 
+// Add adds the Preimage to the list of the given identity and calls any
+// associated callbacks.
 func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
@@ -61,7 +63,7 @@ func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	}
 
 	// Add to the list
-	preimages = preimages.add(preimage)
+	preimages.add(preimage)
 
 	// Store the updated list
 	if err := preimages.save(s.kv, identity); err != nil {
@@ -98,16 +100,16 @@ func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 			"identity cannot be found", preimage.Data, identity)
 	}
 
-	preimagesNew := preimages.remove(preimage.Data)
+	preimages.remove(preimage.Data)
 
-	if len(preimagesNew) == 0 {
+	if len(preimages) == 0 {
 		delete(s.edge, *identity)
 		if err := s.save(); err != nil {
 			jww.FATAL.Panicf("Failed to store edge store after removing "+
 				"preimage %v to identity %s: %+v", preimage.Data, identity, err)
 		}
 
-		if err := preimagesNew.delete(s.kv, identity); err != nil {
+		if err := preimages.delete(s.kv, identity); err != nil {
 			jww.FATAL.Panicf("Failed to delete preimage list store after "+
 				"removing preimage %v to identity %s: %+v", preimage.Data,
 				identity, err)
@@ -122,12 +124,12 @@ func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 		return nil
 	}
 
-	if err := preimagesNew.save(s.kv, identity); err != nil {
+	if err := preimages.save(s.kv, identity); err != nil {
 		jww.FATAL.Panicf("Failed to store preimage list store after removing "+
 			"preimage %v to identity %s: %+v", preimage.Data, identity, err)
 	}
 
-	s.edge[*identity] = preimagesNew
+	s.edge[*identity] = preimages
 
 	// Call any callbacks to notify
 	for i := range s.callbacks[*identity] {
@@ -138,7 +140,7 @@ func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 	return nil
 }
 
-func (s *Store) Get(identity *id.ID) ([]Preimage, bool) {
+func (s *Store) Get(identity *id.ID) (Preimages, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
 

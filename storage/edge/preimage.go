@@ -1,7 +1,7 @@
 package edge
 
 import (
-	"bytes"
+	"encoding/base64"
 	"encoding/json"
 	"github.com/pkg/errors"
 	"gitlab.com/elixxir/client/storage/versioned"
@@ -20,13 +20,18 @@ type Preimage struct {
 	Source []byte
 }
 
-type Preimages []Preimage
+// key returns the key used to identify the Preimage in a map.
+func (pi Preimage) key() string {
+	return base64.StdEncoding.EncodeToString(pi.Data)
+}
+
+type Preimages map[string]Preimage
 
 // newPreimages makes a Preimages object for the given identity and populates
 // it with the default preimage for the identity. Does not store to disk.
 func newPreimages(identity *id.ID) Preimages {
 	pis := Preimages{
-		{
+		identity.String(): {
 			Data:   identity[:],
 			Type:   "default",
 			Source: identity[:],
@@ -37,19 +42,18 @@ func newPreimages(identity *id.ID) Preimages {
 }
 
 // add adds the preimage to the list.
-func (pis Preimages) add(pimg Preimage) Preimages {
-	return append(pis, pimg)
-}
-
-func (pis Preimages) remove(data []byte) Preimages {
-	for i, preimage := range pis {
-		if bytes.Equal(preimage.Data, data) {
-			pis[i] = pis[len(pis)-1]
-			return pis[:len(pis)-1]
-		}
+func (pis Preimages) add(preimage Preimage) {
+	if _, exists := pis[preimage.key()]; exists {
+		return
 	}
 
-	return pis
+	pis[preimage.key()] = preimage
+}
+
+// remove deletes the Preimage with the matching data from the list.
+func (pis Preimages) remove(data []byte) {
+	key := base64.StdEncoding.EncodeToString(data)
+	delete(pis, key)
 }
 
 ////////////////////////////////////////////////////////////////////////////////

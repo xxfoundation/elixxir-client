@@ -10,28 +10,26 @@ import (
 	"sync"
 )
 
-// This stores Preimages which can be used with the identity
-// fingerprint system
+// This stores Preimages which can be used with the identity fingerprint system.
 
-const(
+const (
 	edgeStorePrefix  = "edgeStore"
 	edgeStoreKey     = "edgeStoreKey"
 	edgeStoreVersion = 0
 )
 
-
 type ListUpdateCallBack func(identity *id.ID, deleted bool)
 
-type Store struct{
-	kv *versioned.KV
-	edge map[id.ID]Preimages
+type Store struct {
+	kv        *versioned.KV
+	edge      map[id.ID]Preimages
 	callbacks map[id.ID][]ListUpdateCallBack
-	mux *sync.RWMutex
+	mux       *sync.RWMutex
 }
 
-// NewStore creates a new edge store object and inserts the default
-// Preimages for the base identity
-func NewStore(kv *versioned.KV, baseIdentity *id.ID)(*Store, error){
+// NewStore creates a new edge store object and inserts the default Preimages
+// for the base identity.
+func NewStore(kv *versioned.KV, baseIdentity *id.ID) (*Store, error) {
 	kv = kv.Prefix(edgeStorePrefix)
 
 	s := &Store{
@@ -40,9 +38,9 @@ func NewStore(kv *versioned.KV, baseIdentity *id.ID)(*Store, error){
 	}
 
 	defaultPreimages := newPreimages(baseIdentity)
-	err := defaultPreimages.save(kv,baseIdentity)
-	if err!=nil{
-		return nil, errors.WithMessage(err,"Failed to create preimage store, " +
+	err := defaultPreimages.save(kv, baseIdentity)
+	if err != nil {
+		return nil, errors.WithMessage(err, "Failed to create preimage store, "+
 			"failed to create default Preimages")
 	}
 
@@ -51,22 +49,20 @@ func NewStore(kv *versioned.KV, baseIdentity *id.ID)(*Store, error){
 	return s, s.save()
 }
 
-func LoadStore(kv *versioned.KV)(*Store, error){
+func LoadStore(kv *versioned.KV) (*Store, error) {
 	kv = kv.Prefix(edgeStorePrefix)
 
-	//load the list of identities with preimage lists
+	// Load the list of identities with preimage lists
 	obj, err := kv.Get(edgeStoreKey, preimageStoreVersion)
 	if err != nil {
-		return nil, errors.WithMessagef(err,"failed to load edge " +
-			"store")
+		return nil, errors.WithMessagef(err, "failed to load edge store")
 	}
 
 	identities := make([]id.ID, 0)
 
 	err = json.Unmarshal(obj.Data, &identities)
 	if err != nil {
-		return nil, errors.WithMessagef(err,"failed to unmarshal edge " +
-			"store")
+		return nil, errors.WithMessagef(err, "failed to unmarshal edge store")
 	}
 
 	s := &Store{
@@ -74,128 +70,141 @@ func LoadStore(kv *versioned.KV)(*Store, error){
 		edge: make(map[id.ID]Preimages),
 	}
 
-	//load the preimage lists for all identities
-	for i := range identities{
+	// Load the preimage lists for all identities
+	for i := range identities {
 		eid := &identities[i]
-		pimgs, err := loadPreimages(kv,eid)
-		if err!=nil{
+
+		preimages, err := loadPreimages(kv, eid)
+		if err != nil {
 			return nil, err
 		}
-		s.edge[*eid] = pimgs
+
+		s.edge[*eid] = preimages
 	}
 
 	return s, nil
 }
 
-func (s *Store)Add(preimage Preimage, identity *id.ID){
+func (s *Store) Add(preimage Preimage, identity *id.ID) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	//get the list to update, create if needed
-	pimgs, exists := s.edge[*identity]
-	if !exists{
-		pimgs = newPreimages(identity)
+	// Get the list to update, create if needed
+	preimages, exists := s.edge[*identity]
+	if !exists {
+		preimages = newPreimages(identity)
 	}
 
-	//add to the list
-	pimgs = pimgs.add(preimage)
+	// Add to the list
+	preimages = preimages.add(preimage)
 
-	//store the updated list
-	if err := pimgs.save(s.kv,identity); err!=nil{
-		jww.FATAL.Panicf("Failed to store preimages list after " +
-			"adding preimage %v to identity %s: %+v", preimage.Data, identity, err)
+	// Store the updated list
+	if err := preimages.save(s.kv, identity); err != nil {
+		jww.FATAL.Panicf("Failed to store preimages list after adding "+
+			"preimage %v to identity %s: %+v", preimage.Data, identity, err)
 	}
 
-	//update the map
-	s.edge[*identity] = pimgs
-	if !exists{
+	// Update the map
+	s.edge[*identity] = preimages
+	if !exists {
 		err := s.save()
-		if err!=nil{
-			jww.FATAL.Panicf("Failed to store edge store after " +
-				"adding preimage %v to identity %s: %+v", preimage.Data, identity, err)
+		if err != nil {
+			jww.FATAL.Panicf("Failed to store edge store after adding "+
+				"preimage %v to identity %s: %+v", preimage.Data, identity, err)
 		}
 	}
 
-	//call any callbacks to notify
-	for i := range s.callbacks[*identity]{
+	// Call any callbacks to notify
+	for i := range s.callbacks[*identity] {
 		cb := s.callbacks[*identity][i]
 		go cb(identity, false)
 	}
+
 	return
 }
 
-func (s *Store)Remove(preimage Preimage, identity *id.ID)error{
+func (s *Store) Remove(preimage Preimage, identity *id.ID) error {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	pimgs, exists := s.edge[*identity]
-	if !exists{
-		return errors.Errorf("Cannot delete preimage %v from " +
-			"identity %s, identity cannot be found", preimage.Data, identity)
+	preimages, exists := s.edge[*identity]
+	if !exists {
+		return errors.Errorf("cannot delete preimage %v from identity %s; "+
+			"identity cannot be found", preimage.Data, identity)
 	}
-	pimgsNew := pimgs.remove(preimage.Data)
-	if len(pimgsNew)==0{
+
+	preimagesNew := preimages.remove(preimage.Data)
+
+	if len(preimagesNew) == 0 {
 		delete(s.edge, *identity)
-		if err := s.save(); err!=nil{
-			jww.FATAL.Panicf("Failed to store edge store after " +
-				"removing preimage %v to identity %s: %+v", preimage.Data, identity, err)
+		if err := s.save(); err != nil {
+			jww.FATAL.Panicf("Failed to store edge store after removing "+
+				"preimage %v to identity %s: %+v", preimage.Data, identity, err)
 		}
-		if err := pimgsNew.delete(s.kv,identity); err!=nil{
-			jww.FATAL.Panicf("Failed to delete preimage list store after " +
-				"removing preimage %v to identity %s: %+v", preimage.Data, identity, err)
+
+		if err := preimagesNew.delete(s.kv, identity); err != nil {
+			jww.FATAL.Panicf("Failed to delete preimage list store after "+
+				"removing preimage %v to identity %s: %+v", preimage.Data,
+				identity, err)
 		}
-		//call any callbacks to notify
-		for i := range s.callbacks[*identity]{
+
+		// Call any callbacks to notify
+		for i := range s.callbacks[*identity] {
 			cb := s.callbacks[*identity][i]
 			go cb(identity, true)
 		}
+
 		return nil
 	}
 
-	if err := pimgsNew.save(s.kv,identity); err!=nil{
-		jww.FATAL.Panicf("Failed to store preimage list store after " +
-			"removing preimage %v to identity %s: %+v", preimage.Data, identity, err)
+	if err := preimagesNew.save(s.kv, identity); err != nil {
+		jww.FATAL.Panicf("Failed to store preimage list store after removing "+
+			"preimage %v to identity %s: %+v", preimage.Data, identity, err)
 	}
-	s.edge[*identity] = pimgsNew
 
-	//call any callbacks to notify
-	for i := range s.callbacks[*identity]{
+	s.edge[*identity] = preimagesNew
+
+	// Call any callbacks to notify
+	for i := range s.callbacks[*identity] {
 		cb := s.callbacks[*identity][i]
 		go cb(identity, false)
 	}
+
 	return nil
 }
 
-
-func (s *Store)Get(identity *id.ID)([]Preimage, bool){
+func (s *Store) Get(identity *id.ID) ([]Preimage, bool) {
 	s.mux.RLock()
 	defer s.mux.RUnlock()
-	primgs, exists := s.edge[*identity]
-	return primgs, exists
+
+	preimages, exists := s.edge[*identity]
+	return preimages, exists
 }
 
-func (s *Store)AddUpdateCallback(identity *id.ID, lucb ListUpdateCallBack){
+func (s *Store) AddUpdateCallback(identity *id.ID, lucb ListUpdateCallBack) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
+
 	list, exists := s.callbacks[*identity]
-	if !exists{
+	if !exists {
 		list = make([]ListUpdateCallBack, 0, 1)
 	}
+
 	s.callbacks[*identity] = append(list, lucb)
 }
 
-func (s Store)save()error{
+func (s Store) save() error {
 	identities := make([]id.ID, 0, len(s.edge))
 
-	for eid, _ := range s.edge{
+	for eid := range s.edge {
 		identities = append(identities, eid)
 	}
 
-	//marshal
+	// JSON marshal
 	data, err := json.Marshal(&identities)
-	if err!=nil{
-		return errors.WithMessagef(err, "Failed to marshal edge list " +
-			"for stroage")
+	if err != nil {
+		return errors.WithMessagef(err, "Failed to marshal edge list for "+
+			"stroage")
 	}
 
 	// Construct versioning object

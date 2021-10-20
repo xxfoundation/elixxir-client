@@ -58,9 +58,11 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	preimagelist, exist := edge.Get(identity.Source)
 	if exist{
 		//if it exists, check against all in the list
-		for i:=0;i<len(preimagelist)&&!forMe;i++{
-			forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
-				ecrMsg.GetContents(), preimagelist[i].Data)
+		for key := range preimagelist{
+			if forMe = fingerprint2.CheckIdentityFP(ecrMsg.GetIdentityFP(),
+				ecrMsg.GetContents(), preimagelist[key].Data); forMe{
+				break
+			}
 		}
 	}else{
 		//if it doesnt exist, check against the default fingerprint for the identity

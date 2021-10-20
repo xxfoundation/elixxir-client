@@ -15,6 +15,7 @@
 package edge
 
 import (
+	"encoding/json"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -451,10 +452,107 @@ func TestStore_AddUpdateCallback(t *testing.T) {
 }
 
 func TestLoadStore(t *testing.T) {
+	// Initialize store
+	s, kv, _ := newTestStore(t)
+	identities := []*id.ID{
+		id.NewIdFromString("identity0", id.User, t),
+		id.NewIdFromString("identity1", id.User, t),
+	}
+	preimages := []Preimage{
+		{[]byte("ID0"), "default0", []byte("ID0")},
+		{[]byte("ID1"), "default1", []byte("ID1")},
+		{[]byte("ID2"), "default2", []byte("ID2")},
+	}
+
+	// Add preimages
+	s.Add(preimages[0], identities[0])
+	s.Add(preimages[1], identities[1])
+	s.Add(preimages[2], identities[0])
+
+	err := s.save()
+	if err != nil {
+		t.Fatalf("save error: %v", err)
+	}
+
+	receivedStore, err := LoadStore(kv)
+	if err != nil {
+		t.Fatalf("LoadStore error: %v", err)
+	}
+
+	expectedPis := []Preimages{
+		{
+			identities[0].String(): Preimage{identities[0].Bytes(), "default", identities[0].Bytes()},
+			preimages[0].key():     preimages[0],
+			preimages[2].key():     preimages[2]},
+		{
+			identities[1].String(): Preimage{identities[1].Bytes(), "default", identities[1].Bytes()},
+			preimages[1].key():     preimages[1]},
+
+	}
+
+	for i, identity := range identities {
+		pis, exists := receivedStore.Get(identity)
+		if !exists{
+			t.Errorf("Identity %s does not exist in loaded store", identity)
+		}
+
+
+		if !reflect.DeepEqual(pis, expectedPis[i]) {
+			t.Errorf("Identity %s does not have expected preimages in loaded store." +
+				"\nExpected: %v\nRecieved", expectedPis[i], pis)
+		}
+
+	}
+
 
 }
 
 func TestStore_save(t *testing.T) {
+	// Initialize store
+	s, _, _ := newTestStore(t)
+	identities := []*id.ID{
+		id.NewIdFromString("identity0", id.User, t),
+		id.NewIdFromString("identity1", id.User, t),
+	}
+	preimages := []Preimage{
+		{[]byte("ID0"), "default0", []byte("ID0")},
+		{[]byte("ID1"), "default1", []byte("ID1")},
+		{[]byte("ID2"), "default2", []byte("ID2")},
+	}
+
+	s.Add(preimages[0], identities[0])
+	s.Add(preimages[1], identities[1])
+
+	// Save data to KV
+	err := s.save()
+	if err != nil {
+		t.Fatalf("save error: %v", err)
+	}
+
+	// Manually pull from KV
+	vo, err := s.kv.Get(edgeStoreKey, preimageStoreVersion)
+	if err != nil {
+		t.Fatalf("Failed to retrieve from KV: %v", err)
+	}
+
+	receivedIdentities := make([]id.ID, 0)
+	err = json.Unmarshal(vo.Data, &receivedIdentities)
+	if err != nil {
+		t.Fatalf("JSON unmarshal error: %v", err)
+	}
+
+
+
+	for _, receivedId := range receivedIdentities {
+		_, exists := s.Get(&receivedId)
+		if !exists {
+			t.Fatalf("Identity retrieved from store does not match " +
+				"identity stored in")
+		}
+
+	}
+
+
 }
 
 // newTestStore creates a new Store with a random base identity. Returns the

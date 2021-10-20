@@ -373,97 +373,54 @@ func TestStore_Get(t *testing.T) {
 	}
 }
 
+// Tests that Store.AddUpdateCallback adds all the appropriate callbacks for
+// each identity by calling each callback and checking if the received identity
+// is correct.
 func TestStore_AddUpdateCallback(t *testing.T) {
 	s, _, _ := newTestStore(t)
 	// Create list of n identities, each with one more callback than the last
 	// with the first having one
 	n := 3
-	chans := make(map[id.ID]chan *id.ID, n)
+	chans := make(map[id.ID][]chan *id.ID, n)
 	for i := 0; i < n; i++ {
-		identity := *id.NewIdFromUInt(uint64(i), id.User, t)
-		chans[identity] = make(chan *id.ID, 2)
-		cb := func(cbIdentity *id.ID, _ bool) { chans[identity] <- cbIdentity }
-		s.AddUpdateCallback(&identity, cb)
+		identity := id.NewIdFromUInt(uint64(i), id.User, t)
+		chans[*identity] = make([]chan *id.ID, i+1)
+		for j := range chans[*identity] {
+			cbChan := make(chan *id.ID, 2)
+			cb := func(cbIdentity *id.ID, _ bool) { cbChan <- cbIdentity }
+			chans[*identity][j] = cbChan
+			s.AddUpdateCallback(identity, cb)
+		}
 	}
 
 	var wg sync.WaitGroup
-	for identity := range chans {
-		wg.Add(1)
-		go func(identity id.ID) {
-			select {
-			case <-time.NewTimer(150 * time.Millisecond).C:
-				t.Errorf("Timed out waiting on callback for "+
-					"identity %s.", &identity)
-			case r := <-chans[identity]:
-				if !identity.Cmp(r) {
-					t.Errorf("Identity received from callback does "+
-						"not match expected.\nexpected: %s\nreceived: %s",
-						&identity, r)
+	for identity, chanList := range chans {
+		for i := range chanList {
+			wg.Add(1)
+			go func(identity *id.ID, i int) {
+				select {
+				case <-time.NewTimer(150 * time.Millisecond).C:
+					t.Errorf("Timed out waiting on callback %d/%d for "+
+						"identity %s.", i+1, len(chans[*identity]), identity)
+				case r := <-chans[*identity][i]:
+					if !identity.Cmp(r) {
+						t.Errorf("Identity received from callback %d/%d does "+
+							"not match expected.\nexpected: %s\nreceived: %s",
+							i+1, len(chans[*identity]), identity, r)
+					}
 				}
-			}
-			wg.Done()
-		}(identity)
+				wg.Done()
+			}(identity.DeepCopy(), i)
+		}
 	}
 
-	for identity := range chans {
-		cb := s.callbacks[identity][0]
-		go cb(identity.DeepCopy(), false)
+	for identity, cbs := range chans {
+		for i := range cbs {
+			go s.callbacks[identity][i](identity.DeepCopy(), false)
+		}
 	}
 
 	wg.Wait()
-
-	// TODO: fix more robust version of the test that does not work.
-	// s, _, _ := newTestStore(t)
-	// // Create list of n identities, each with one more callback than the last
-	// // with the first having one
-	// n := 3
-	// chans := make(map[id.ID][]chan *id.ID, n)
-	// for i := 0; i < n; i++ {
-	// 	identity := *id.NewIdFromUInt(uint64(i), id.User, t)
-	// 	chans[identity] = make([]chan *id.ID, i+1)
-	// 	for j := range chans[identity] {
-	// 		chans[identity][j] = make(chan *id.ID, 2)
-	// 		cb := func(cbIdentity *id.ID, _ bool) {
-	// 			// t.Logf("callback called for identity %s", cbIdentity)
-	// 			chans[identity][j] <- cbIdentity
-	// 		}
-	// 		// t.Logf("adding callback %d/%d for identity %s", i+1, len(cbs), &identity)
-	// 		s.AddUpdateCallback(&identity, cb)
-	// 	}
-	// }
-	//
-	//
-	// var wg sync.WaitGroup
-	// for identity, chanList := range chans {
-	// 	for i := range chanList {
-	// 		wg.Add(1)
-	// 		go func(identity id.ID, i int) {
-	// 			select {
-	// 			case <-time.NewTimer(150 * time.Millisecond).C:
-	// 				t.Errorf("Timed out waiting on callback %d/%d for " +
-	// 					"identity %s.", i+1, len(chans[identity]), &identity)
-	// 			case r := <-chans[identity][i]:
-	// 				if !identity.Cmp(r) {
-	// 					t.Errorf("Identity received from callback %d/%d does " +
-	// 						"not match expected.\nexpected: %s\nreceived: %s",
-	// 						i+1, len(chans[identity]), &identity, r)
-	// 				}
-	// 			}
-	// 			wg.Done()
-	// 		}(identity, i)
-	// 	}
-	// }
-	//
-	// for identity, cbs := range chans {
-	// 	// t.Logf("calling %d callbacks for identity %s", len(cbs), &identity)
-	// 	for i := range cbs {
-	// 		// t.Logf("calling callback %d/%d for identity %s", i+1, len(cbs), &identity)
-	//
-	// 		go s.callbacks[identity][i](identity.DeepCopy(), false)
-	// 	}
-	// }
-	//
-	// wg.Wait()
 }
 
 func TestLoadStore(t *testing.T) {

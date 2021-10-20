@@ -30,8 +30,9 @@ func TestNewStore(t *testing.T) {
 	kv := versioned.NewKV(make(ekv.Memstore))
 	baseIdentity := id.NewIdFromString("baseIdentity", id.User, t)
 	expected := &Store{
-		kv:   kv.Prefix(edgeStorePrefix),
-		edge: map[id.ID]Preimages{*baseIdentity: newPreimages(baseIdentity)},
+		kv:        kv.Prefix(edgeStorePrefix),
+		edge:      map[id.ID]Preimages{*baseIdentity: newPreimages(baseIdentity)},
+		callbacks: make(map[id.ID][]ListUpdateCallBack),
 	}
 
 	received, err := NewStore(kv, baseIdentity)
@@ -62,10 +63,53 @@ func TestStore_Add(t *testing.T) {
 		{[]byte("ID2"), "default2", []byte("ID2")},
 	}
 
-	// id0Chan := make(chan bool, 2)
-	// s.callbacks[*identities[0]] = []ListUpdateCallBack{func(identity *id.ID, deleted bool) {
-	// 	id0Chan
-	// }}
+	id0Chan := make(chan struct {
+		identity *id.ID
+		deleted  bool
+	}, 2)
+	s.callbacks[*identities[0]] = []ListUpdateCallBack{func(identity *id.ID, deleted bool) {
+		id0Chan <- struct {
+			identity *id.ID
+			deleted  bool
+		}{identity: identity, deleted: deleted}
+	}}
+
+	go func() {
+		for i := 0; i < 2; i++ {
+			select {
+			case <-time.NewTimer(10 * time.Millisecond).C:
+				t.Errorf("Timed out waiting for callback (%d).", i)
+			case r := <-id0Chan:
+				if !identities[0].Cmp(r.identity) {
+					t.Errorf("Received wrong identity (%d).\nexpected: %s"+
+						"\nreceived: %s", i, identities[0], r.identity)
+				}
+			}
+		}
+	}()
+
+	id1Chan := make(chan struct {
+		identity *id.ID
+		deleted  bool
+	})
+	s.callbacks[*identities[1]] = []ListUpdateCallBack{func(identity *id.ID, deleted bool) {
+		id1Chan <- struct {
+			identity *id.ID
+			deleted  bool
+		}{identity: identity, deleted: deleted}
+	}}
+
+	go func() {
+		select {
+		case <-time.NewTimer(10 * time.Millisecond).C:
+			t.Errorf("Timed out waiting for callback.")
+		case r := <-id0Chan:
+			if !identities[0].Cmp(r.identity) {
+				t.Errorf("Received wrong identity.\nexpected: %s\nreceived: %s",
+					identities[0], r.identity)
+			}
+		}
+	}()
 
 	s.Add(preimages[0], identities[0])
 	s.Add(preimages[1], identities[1])

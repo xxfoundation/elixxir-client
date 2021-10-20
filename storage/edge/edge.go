@@ -33,8 +33,9 @@ func NewStore(kv *versioned.KV, baseIdentity *id.ID) (*Store, error) {
 	kv = kv.Prefix(edgeStorePrefix)
 
 	s := &Store{
-		kv:   kv,
-		edge: make(map[id.ID]Preimages),
+		kv:        kv,
+		edge:      make(map[id.ID]Preimages),
+		callbacks: make(map[id.ID][]ListUpdateCallBack),
 	}
 
 	defaultPreimages := newPreimages(baseIdentity)

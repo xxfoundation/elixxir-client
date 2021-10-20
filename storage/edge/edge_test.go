@@ -424,7 +424,7 @@ func TestStore_AddUpdateCallback(t *testing.T) {
 	// 	for j := range chans[identity] {
 	// 		chans[identity][j] = make(chan *id.ID, 2)
 	// 		cb := func(cbIdentity *id.ID, _ bool) {
-	// 			// t.Logf("callback called for idenetity %s", cbIdentity)
+	// 			// t.Logf("callback called for identity %s", cbIdentity)
 	// 			chans[identity][j] <- cbIdentity
 	// 		}
 	// 		// t.Logf("adding callback %d/%d for identity %s", i+1, len(cbs), &identity)

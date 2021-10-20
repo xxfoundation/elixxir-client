@@ -88,13 +88,13 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)
 
-	if err==nil{
+	if err == nil {
 		edgeStore := m.store.GetEdge()
 		edgeStore.Add(edge.Preimage{
 			Data:   g.ID[:],
 			Type:   "group",
 			Source: g.ID[:],
-		},m.client.GetUser().ReceptionID)
+		}, m.store.GetUser().ReceptionID)
 	}
 
 	return g, roundIDs, status, err

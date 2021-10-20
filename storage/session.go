@@ -69,7 +69,7 @@ type Session struct {
 	clientVersion       *clientVersion.Store
 	uncheckedRounds     *rounds.UncheckedRoundStore
 	hostList            *hostList.Store
-	edgeCheck			*edge.Store
+	edgeCheck           *edge.Store
 }
 
 // Initialize a new Session object
@@ -156,7 +156,7 @@ func New(baseDir, password string, u userInterface.User, currentVersion version.
 
 	s.hostList = hostList.NewStore(s.kv)
 
-	s.edgeCheck, err = edge.NewStore(s.kv,u.ReceptionID)
+	s.edgeCheck, err = edge.NewStore(s.kv, u.ReceptionID)
 	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to edge check store")
 	}
@@ -239,7 +239,7 @@ func Load(baseDir, password string, currentVersion version.Version,
 	s.hostList = hostList.NewStore(s.kv)
 
 	s.edgeCheck, err = edge.LoadStore(s.kv)
-	if err!=nil{
+	if err != nil {
 		return nil, errors.WithMessage(err, "Failed to load edge check store")
 	}
 
@@ -434,6 +434,11 @@ func InitTestingSession(i interface{}) *Session {
 	}
 
 	s.hostList = hostList.NewStore(s.kv)
+
+	s.edgeCheck, err = edge.NewStore(s.kv, uid)
+	if err != nil {
+		jww.FATAL.Panicf("Failed to create new edge Store: %+v", err)
+	}
 
 	return s
 }

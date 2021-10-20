@@ -55,12 +55,12 @@ func NotificationForMe(messageHash, idFP string, preimages string) (*Notificatio
 	}
 
 	//check if any preimages match with the passed in data
-	for i:=0;i<len(preimageList);i++{
-		if fingerprint.CheckIdentityFpFromMessageHash(idFpBytes, messageHashBytes, preimageList[i].Data){
+	for _, preimage := range preimageList {
+		if fingerprint.CheckIdentityFpFromMessageHash(idFpBytes, messageHashBytes, preimage.Data){
 			return &NotificationForMeReport{
 				forMe:  true,
-				tYpe:   preimageList[i].Type,
-				source: preimageList[i].Source,
+				tYpe:   preimage.Type,
+				source: preimage.Source,
 			}, nil
 		}
 	}

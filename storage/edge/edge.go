@@ -159,12 +159,6 @@ func (s *Store) AddUpdateCallback(identity *id.ID, luCB ListUpdateCallBack) {
 	s.mux.Lock()
 	defer s.mux.Unlock()
 
-	// list, exists := s.callbacks[*identity]
-	// if !exists {
-	// 	list = make([]ListUpdateCallBack, 0, 1)
-	// }
-	//
-	// s.callbacks[*identity] = append(list, luCB)
 	s.callbacks[*identity] = append(s.callbacks[*identity], luCB)
 }
 

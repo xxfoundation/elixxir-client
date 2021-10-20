@@ -328,13 +328,83 @@ func TestStore_Remove(t *testing.T) {
 	wg.Wait()
 }
 
-func TestStore_Get(t *testing.T) {
+func TestStore_Get_Josh(t *testing.T) {
+	s, _, _ := newTestStore(t)
+	identities := []*id.ID{
+		id.NewIdFromString("identity0", id.User, t),
+		id.NewIdFromString("identity1", id.User, t),
+	}
+	preimages := []Preimage{
+		{[]byte("ID0"), "default0", []byte("ID0")},
+		{[]byte("ID1"), "default1", []byte("ID1")},
+		{[]byte("ID2"), "default2", []byte("ID2")},
+	}
+
+	s.Add(preimages[0], identities[0])
+	s.Add(preimages[1], identities[1])
+	s.Add(preimages[2], identities[0])
+
+	// retrieve for first identity (has two preimages)
+	receivedPreimages, ok := s.Get(identities[0])
+	if !ok { // Check that identity exists in map
+		t.Errorf("Could not retrieve preimages for identity %s", identities[0])
+	}
+
+	// Check for first preimage for first identity
+	preimageKey := preimages[0].key()
+	preimage, ok := receivedPreimages[preimageKey]
+	if !ok {
+		t.Errorf("Could not retrieve preimage with key %s for identity %s",
+			preimageKey, identities[0])
+	}
+
+	// Check that retrieved value matches
+	if !reflect.DeepEqual(preimages[0], preimage) {
+		t.Errorf("Unexpected preimage received." +
+			"\n\tExpected %s\n\tReceived: %v", preimages[0], preimage)
+	}
+
+	// Check for second preimage for first identity
+	preimageKey = preimages[2].key()
+	preimage, ok = receivedPreimages[preimageKey]
+	if !ok {
+		t.Errorf("Could not retrieve preimage with key %s for identity %s",
+			preimageKey, identities[0])
+	}
+
+	// Check that retrieved value matches
+	if !reflect.DeepEqual(preimages[2], preimage) {
+		t.Errorf("Unexpected preimage received." +
+			"\n\tExpected %s\n\tReceived: %v", preimages[2], preimage)
+	}
+
+	// Check second identity (has one preimage)
+	receivedPreimages, ok = s.Get(identities[1])
+	if !ok { // Check that identity exists in map
+		t.Errorf("Could not retrieve preimages for identity %s", identities[1])
+	}
+
+	// Check for first preimage for first identity
+	preimageKey = preimages[1].key()
+	preimage, ok = receivedPreimages[preimageKey]
+	if !ok {
+		t.Errorf("Could not retrieve preimage with key %s for identity %s",
+			preimageKey, identities[1])
+	}
+
+	// Check that retrieved value matches
+	if !reflect.DeepEqual(preimages[1], preimage) {
+		t.Errorf("Unexpected preimage received." +
+			"\n\tExpected %s\n\tReceived: %v", preimages[0], preimage)
+	}
+
 }
 
 func TestStore_AddUpdateCallback(t *testing.T) {
 }
 
 func TestLoadStore(t *testing.T) {
+
 }
 
 func TestStore_save(t *testing.T) {

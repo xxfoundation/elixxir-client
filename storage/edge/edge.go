@@ -185,6 +185,7 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 	s := &Store{
 		kv:   kv,
 		edge: make(map[id.ID]Preimages),
+		callbacks: make(map[id.ID][]ListUpdateCallBack),
 	}
 
 	// Load the preimage lists for all identities

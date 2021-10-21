@@ -145,10 +145,10 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	var preimage []byte
 	if param.IdentityPreimage != nil {
 		preimage = param.IdentityPreimage
-		jww.INFO.Printf("Sending to %s with override preimage %v", preimage)
+		jww.INFO.Printf("Sending to %s with override preimage %v", recipient, preimage)
 	}else{
 		preimage = preimage2.MakeDefault(recipient)
-		jww.INFO.Printf("Sending to %s with default preimage %v", preimage)
+		jww.INFO.Printf("Sending to %s with default preimage %v", recipient, preimage)
 	}
 
 	// Set the identity fingerprint

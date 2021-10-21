@@ -48,7 +48,7 @@ func NotificationForMe(messageHash, idFP string, preimages string) (*Notificatio
 	}
 
 	//handle deserialization of preimages
-	var preimageList edge.Preimages
+	var preimageList []edge.Preimage
 	if err := json.Unmarshal([]byte(preimages),&preimageList); err!=nil{
 		return nil, errors.WithMessagef(err,"Failed to unmarshal the preimages list, " +
 			"cannot check if notification is for me")

@@ -37,7 +37,7 @@ func (m Manager) receiveRequest(rawMsgs chan message.Receive,
 			stop.ToStopped()
 			return
 		case sendMsg := <-rawMsgs:
-			jww.DEBUG.Print("Group message request received send message.")
+			jww.DEBUG.Print("Group message request received message.")
 
 			// Generate the group from the request message
 			g, err := m.readRequest(sendMsg)
@@ -50,6 +50,9 @@ func (m Manager) receiveRequest(rawMsgs chan message.Receive,
 			// Call request callback with the new group if it does not already
 			// exist
 			if _, exists := m.GetGroup(g.ID); !exists {
+				jww.DEBUG.Printf("Received group request from sender %s for "+
+					"group %s with ID %s.", sendMsg.Sender, g.Name, g.ID)
+
 				go m.requestFunc(g)
 			}
 		}

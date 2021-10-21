@@ -129,7 +129,7 @@ func (m Manager) JoinGroup(g gs.Group) error {
 		return errors.Errorf(joinGroupErr, g.ID, err)
 	}
 
-	jww.DEBUG.Printf("Joined group %s.", g.ID)
+	jww.DEBUG.Printf("Joined group %q with ID %s.", g.Name, g.ID)
 
 	return nil
 }
@@ -140,7 +140,7 @@ func (m Manager) LeaveGroup(groupID *id.ID) error {
 		return errors.Errorf(leaveGroupErr, groupID, err)
 	}
 
-	jww.DEBUG.Printf("Left group %s.", groupID)
+	jww.DEBUG.Printf("Left group with ID %s.", groupID)
 
 	return nil
 }

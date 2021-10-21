@@ -101,6 +101,9 @@ func (m Manager) sendRequests(g gs.Group) ([]id.Round, RequestStatus, error) {
 				strings.Join(errs, "\n"))
 	}
 
+	jww.DEBUG.Printf("Sent group request to %d members in group %q with ID %s.",
+		len(g.Members), g.Name, g.ID)
+
 	// If all sends succeeded, return a list of roundIDs
 	return roundIdMap2List(roundIDs), AllSent, nil
 }

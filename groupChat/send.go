@@ -52,7 +52,8 @@ func (m *Manager) Send(groupID *id.ID, message []byte) (id.Round, time.Time,
 			errors.Errorf(sendManyCmixErr, m.gs.GetUser().ID, groupID, err)
 	}
 
-	jww.DEBUG.Printf("Sent message to group %s.", groupID)
+	jww.DEBUG.Printf("Sent message to %d members in group %s at %s.",
+		len(messages), groupID, timeNow)
 
 	return rid, timeNow, nil
 }

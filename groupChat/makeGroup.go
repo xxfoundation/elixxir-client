@@ -81,8 +81,8 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
 	}
 
-	jww.DEBUG.Printf("Created new group %q with ID %s and members %s",
-		g.Name, g.ID, g.Members)
+	jww.DEBUG.Printf("Created new group %q with ID %s and %d members %s",
+		g.Name, g.ID, len(g.Members), g.Members)
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)

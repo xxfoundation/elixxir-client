@@ -54,7 +54,7 @@ func (m *Manager) handleMessage(ecrMsg format.Message, bundle Bundle, edge *edge
 	var relationshipFingerprint []byte
 
 	//if it exists, check against all in the list
-	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, fingerprint[:], ecrMsg.GetContents())
+	has, forMe, _ := m.Session.GetEdge().Check(identity.Source, ecrMsg.GetIdentityFP(), ecrMsg.GetContents())
 	if !has {
 		jww.INFO.Printf("checking backup %v", preimage.MakeDefault(identity.Source))
 		//if it doesnt exist, check against the default fingerprint for the identity

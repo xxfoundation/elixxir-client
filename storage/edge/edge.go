@@ -152,14 +152,14 @@ func (s *Store) Get(identity *id.ID) ([]Preimage, bool) {
 	defer s.mux.RUnlock()
 
 	preimages, exists := s.edge[*identity]
-	if !exists{
+	if !exists {
 		return nil, false
 	}
 
 	preiamgesSlice := make([]Preimage, 0, len(preimages))
 
-	for _, preimage := range preimages{
-		preiamgesSlice = append(preiamgesSlice,preimage)
+	for _, preimage := range preimages {
+		preiamgesSlice = append(preiamgesSlice, preimage)
 	}
 	return preiamgesSlice, exists
 }
@@ -172,12 +172,12 @@ func (s *Store) Check(identity *id.ID, identityFP []byte, messageContents []byte
 	defer s.mux.RUnlock()
 
 	preimages, exists := s.edge[*identity]
-	if !exists{
+	if !exists {
 		return false, false, Preimage{}
 	}
 
-	for _, preimage := range preimages{
-		if fingerprint2.CheckIdentityFP(identityFP, messageContents, preimage.Data){
+	for _, preimage := range preimages {
+		if fingerprint2.CheckIdentityFP(identityFP, messageContents, preimage.Data) {
 			return true, true, preimage
 		}
 	}
@@ -214,8 +214,8 @@ func LoadStore(kv *versioned.KV) (*Store, error) {
 	}
 
 	s := &Store{
-		kv:   kv,
-		edge: make(map[id.ID]Preimages),
+		kv:        kv,
+		edge:      make(map[id.ID]Preimages),
 		callbacks: make(map[id.ID][]ListUpdateCallBack),
 	}
 

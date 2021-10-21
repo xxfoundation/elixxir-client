@@ -15,7 +15,6 @@ func Generate(data []byte, t string) []byte {
 	return h.Sum(nil)
 }
 
-
 func GenerateRequest(recipient *id.ID) []byte {
 	// Hash fingerprints
 	h, _ := blake2b.New256(nil)
@@ -25,4 +24,3 @@ func GenerateRequest(recipient *id.ID) []byte {
 	// Base 64 encode hash and truncate
 	return h.Sum(nil)
 }
-

@@ -89,7 +89,7 @@ var singleCmd = &cobra.Command{
 			jww.FATAL.Panicf("Could not add single use process: %+v", err)
 		}
 
-		for numReg, total := 1, 100; numReg < total; {
+		for numReg, total := 1, 100; numReg < (total*3)/4; {
 			time.Sleep(1 * time.Second)
 			numReg, total, err = client.GetNodeRegistrationStatus()
 			if err != nil {

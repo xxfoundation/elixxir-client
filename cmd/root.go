@@ -236,7 +236,7 @@ var rootCmd = &cobra.Command{
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
-		waitTimeout := time.Duration(waitSecs)* time.Second
+		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
 
 		for !done && expectedCnt != 0 {
@@ -261,7 +261,7 @@ var rootCmd = &cobra.Command{
 
 		//wait an extra 5 seconds to make sure no messages were missed
 		done = false
-		timer := time.NewTimer(5*time.Second)
+		timer := time.NewTimer(5 * time.Second)
 		for !done {
 			select {
 			case <-timer.C:

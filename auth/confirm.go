@@ -89,7 +89,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
-	preimg := preimage.Generate(fp[:],preimage.Confirm)
+	preimg := preimage.Generate(fp[:], preimage.Confirm)
 
 	//final construction
 	baseFmt.SetEcrPayload(ecrPayload)
@@ -119,7 +119,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//add the preimages
 	sessionPartner, err := storage.E2e().GetPartner(partner.ID)
-	if err!=nil{
+	if err != nil {
 		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", partner.ID, err)
 	}
 	me := storage.GetUser().ReceptionID

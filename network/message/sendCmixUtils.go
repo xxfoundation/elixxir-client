@@ -142,7 +142,7 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 
 	// use the alternate identity preimage if it is set
 	preimage := recipient[:]
-	if param.IdentityPreimage!=nil{
+	if param.IdentityPreimage != nil {
 		preimage = param.IdentityPreimage
 	}
 

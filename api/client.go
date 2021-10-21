@@ -559,12 +559,12 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	jww.DEBUG.Printf("Deleting contact with ID %s", partnerId)
 	//get the partner so they can be removed from preiamge store
 	partner, err := c.storage.E2e().GetPartner(partnerId)
-	if err!=nil{
-		return errors.WithMessagef(err,"Could not delete %s because " +
+	if err != nil {
+		return errors.WithMessagef(err, "Could not delete %s because "+
 			"they could not be found", partnerId)
 	}
 	e2ePreimage := partner.GetE2EPreimage()
-	rekeyPreimage:= partner.GetRekeyPreimage()
+	rekeyPreimage := partner.GetRekeyPreimage()
 
 	//delete the partner
 	if err = c.storage.E2e().DeletePartner(partnerId); err != nil {
@@ -572,20 +572,20 @@ func (c *Client) DeleteContact(partnerId *id.ID) error {
 	}
 	//delete the preimages
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
-		Data:  e2ePreimage,
+		Data:   e2ePreimage,
 		Type:   preimage.E2e,
 		Source: partnerId[:],
-	}, c.storage.GetUser().ReceptionID); err!=nil{
-		jww.WARN.Printf("Failed delete the preimage for e2e " +
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for e2e "+
 			"from %s on contact deletion: %+v", partnerId, err)
 	}
 
 	if err = c.storage.GetEdge().Remove(edge.Preimage{
-		Data:  rekeyPreimage,
+		Data:   rekeyPreimage,
 		Type:   preimage.Rekey,
 		Source: partnerId[:],
-	}, c.storage.GetUser().ReceptionID); err!=nil{
-		jww.WARN.Printf("Failed delete the preimage for rekey " +
+	}, c.storage.GetUser().ReceptionID); err != nil {
+		jww.WARN.Printf("Failed delete the preimage for rekey "+
 			"from %s on contact deletion: %+v", partnerId, err)
 	}
 
@@ -733,7 +733,7 @@ func checkVersionAndSetupStorage(def *ndf.NetworkDefinition, storageDir string, 
 		Data:   preimage.GenerateRequest(protoUser.ReceptionID),
 		Type:   preimage.Request,
 		Source: protoUser.ReceptionID[:],
-	},protoUser.ReceptionID)
+	}, protoUser.ReceptionID)
 
 	if err != nil {
 		return errors.WithMessage(err, "Failed to denote state "+

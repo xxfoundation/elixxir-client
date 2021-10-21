@@ -144,10 +144,10 @@ func RequestAuth(partner, me contact.Contact, message string, rng io.Reader,
 	cmixMsg.SetContents(baseFmt.Marshal())
 
 	storage.GetEdge().Add(edge.Preimage{
-		Data:   preimage.Generate(confirmFp[:],preimage.Confirm),
+		Data:   preimage.Generate(confirmFp[:], preimage.Confirm),
 		Type:   preimage.Confirm,
 		Source: partner.ID[:],
-	},me.ID)
+	}, me.ID)
 
 	jww.TRACE.Printf("RequestAuth SALT: %v", salt)
 	jww.TRACE.Printf("RequestAuth ECRPAYLOAD: %v", baseFmt.GetEcrPayload())

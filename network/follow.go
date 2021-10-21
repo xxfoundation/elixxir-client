@@ -321,8 +321,8 @@ func (m *manager) follow(report interfaces.ClientErrorReport, rng csprng.Source,
 	//threshold is the earliest round that will not be excluded from earliest remaining
 	earliestRemaining, roundsWithMessages, roundsUnknown := gwRoundsState.RangeUnchecked(updated,
 		m.param.KnownRoundsThreshold, roundChecker)
-	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, firstUnchecked: %d, " +
-		"last Checked: %d, threshold: %d, NewEarliestRemaning: %d, NumWithMessages: %d, " +
+	jww.DEBUG.Printf("Processed RangeUnchecked, Oldest: %d, firstUnchecked: %d, "+
+		"last Checked: %d, threshold: %d, NewEarliestRemaning: %d, NumWithMessages: %d, "+
 		"NumUnknown: %d", updated, gwRoundsState.GetFirstUnchecked(), gwRoundsState.GetLastChecked(),
 		m.param.KnownRoundsThreshold, earliestRemaining, len(roundsWithMessages), len(roundsUnknown))
 

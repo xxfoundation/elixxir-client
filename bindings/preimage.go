@@ -6,30 +6,29 @@ import (
 	"gitlab.com/xx_network/primitives/id"
 )
 
-
-type PreimageNotification interface{
+type PreimageNotification interface {
 	Notify(identity []byte, deleted bool)
 }
 
-func (c *Client)RegisterPreimageCallback(identity []byte, pin PreimageNotification){
+func (c *Client) RegisterPreimageCallback(identity []byte, pin PreimageNotification) {
 
 	iid := &id.ID{}
 	copy(iid[:], identity)
 
-	cb := func(localIdentity *id.ID, deleted bool){
-		pin.Notify(localIdentity[:],deleted)
+	cb := func(localIdentity *id.ID, deleted bool) {
+		pin.Notify(localIdentity[:], deleted)
 	}
 
 	c.api.GetStorage().GetEdge().AddUpdateCallback(iid, cb)
 }
 
-func (c *Client)GetPreimages(identity []byte)(string, error){
+func (c *Client) GetPreimages(identity []byte) (string, error) {
 
 	iid := &id.ID{}
 	copy(iid[:], identity)
 
 	list, exist := c.api.GetStorage().GetEdge().Get(iid)
-	if !exist{
+	if !exist {
 		return "", errors.Errorf("Could not find a preimage list for %s", iid)
 	}
 

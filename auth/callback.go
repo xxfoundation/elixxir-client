@@ -315,14 +315,13 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			sr.GetPartner(), err)
 	}
 
-
 	//remove the confirm fingerprint
-	fp:= sr.GetFingerprint()
+	fp := sr.GetFingerprint()
 	if err := m.storage.GetEdge().Remove(edge.Preimage{
-		Data:   preimage.Generate(fp[:],preimage.Confirm),
+		Data:   preimage.Generate(fp[:], preimage.Confirm),
 		Type:   preimage.Confirm,
 		Source: sr.GetPartner()[:],
-	}, m.storage.GetUser().ReceptionID); err!=nil{
+	}, m.storage.GetUser().ReceptionID); err != nil {
 		jww.WARN.Printf("Failed delete the preimage for confirm from %s: %+v",
 			sr.GetPartner(), err)
 	}
@@ -330,7 +329,7 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 	//add the e2e and rekey firngeprints
 	//e2e
 	sessionPartner, err := m.storage.E2e().GetPartner(sr.GetPartner())
-	if err!=nil{
+	if err != nil {
 		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", sr.GetPartner(), err)
 	}
 	me := m.storage.GetUser().ReceptionID

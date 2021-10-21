@@ -94,7 +94,7 @@ func (m *Manager) SendE2E(msg message.Send, param params.E2E,
 			i+i, len(partitions), msg.Recipient, msgEnc.Digest(), key.Fingerprint())
 
 		//set the preimage to the default e2e one if it is not already set
-		if param.IdentityPreimage==nil{
+		if param.IdentityPreimage == nil {
 			param.IdentityPreimage = partner.GetE2EPreimage()
 		}
 

@@ -228,21 +228,6 @@ const relationshipFpLength = 15
 // relationship. The fingerprint is a base 64 encoded hash of of the two
 // relationship fingerprints truncated to 15 characters.
 func (m *Manager) GetRelationshipFingerprint() string {
-	// Sort fingerprints
-	var fps [][]byte
-
-
-	if bytes.Compare(m.receive.fingerprint, m.send.fingerprint)==1{
-		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
-	}else{
-		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
-	}
-
-	// Hash fingerprints
-	h, _ := blake2b.New256(nil)
-	for _, fp := range fps {
-		h.Write(fp)
-	}
 
 	// Base 64 encode hash and truncate
 	return base64.StdEncoding.EncodeToString(m.GetRelationshipFingerprintBytes())[:relationshipFpLength]
@@ -254,11 +239,10 @@ func (m *Manager) GetRelationshipFingerprintBytes() []byte {
 	// Sort fingerprints
 	var fps [][]byte
 
-
-	if bytes.Compare(m.receive.fingerprint, m.send.fingerprint)==1{
-		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
-	}else{
-		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
+	if bytes.Compare(m.receive.fingerprint, m.send.fingerprint) == 1 {
+		fps = [][]byte{m.send.fingerprint, m.receive.fingerprint}
+	} else {
+		fps = [][]byte{m.receive.fingerprint, m.send.fingerprint}
 	}
 
 	// Hash fingerprints
@@ -282,4 +266,3 @@ func (m *Manager) GetE2EPreimage() []byte {
 func (m *Manager) GetRekeyPreimage() []byte {
 	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.Rekey)
 }
-

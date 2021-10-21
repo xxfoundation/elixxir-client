@@ -5,7 +5,7 @@ import (
 	"golang.org/x/crypto/blake2b"
 )
 
-func MakeRequest(uid *id.ID)[]byte{
+func MakeRequest(uid *id.ID) []byte {
 	h, _ := blake2b.New256(nil)
 	h.Write(uid[:])
 	h.Write([]byte(Request))
@@ -14,7 +14,7 @@ func MakeRequest(uid *id.ID)[]byte{
 	return h.Sum(nil)
 }
 
-func MakeDefault(uid *id.ID)[]byte{
+func MakeDefault(uid *id.ID) []byte {
 	h, _ := blake2b.New256(nil)
 	h.Write(uid[:])
 	h.Write([]byte(Default))

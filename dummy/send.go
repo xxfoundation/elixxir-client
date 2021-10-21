@@ -74,8 +74,8 @@ func (m *Manager) sendMessages(msgs map[id.ID]format.Message) error {
 			p := params.GetDefaultCMIX()
 			p.IdentityPreimage = make([]byte, 32)
 			rng := m.rng.GetStream()
-			if _, err := rng.Read(p.IdentityPreimage); err!=nil{
-				jww.FATAL.Panicf("Failed to generate data for random " +
+			if _, err := rng.Read(p.IdentityPreimage); err != nil {
+				jww.FATAL.Panicf("Failed to generate data for random "+
 					"identity preimage in e2e send: %+v", err)
 			}
 			rng.Close()

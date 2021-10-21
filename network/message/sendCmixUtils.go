@@ -156,6 +156,8 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 
 	msg.SetIdentityFP(ifp)
 
+	jww.INFO.Printf(" Sending to %s with preimage %v, ifp: %v, contents: %v", recipient, preimage, ifp, msg.GetContents())
+
 	// Encrypt the message
 	salt := make([]byte, 32)
 	_, err = stream.Read(salt)

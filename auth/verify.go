@@ -18,3 +18,6 @@ func VerifyOwnership(received, verified contact.Contact, storage *storage.Sessio
 	return cAuth.VerifyOwnershipProof(myHistoricalPrivKey, verified.DhPubKey,
 		storage.E2e().GetGroup(), received.OwnershipProof)
 }
+
+
+

@@ -10,6 +10,7 @@ package edge
 import (
 	"bytes"
 	"encoding/json"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -22,7 +23,7 @@ func Test_newPreimages(t *testing.T) {
 	identity := id.NewIdFromString("identity", id.User, t)
 	expected := Preimages{
 		identity.String(): {
-			Data:   identity.Bytes(),
+			Data:   preimage.MakeDefault(identity),
 			Type:   "default",
 			Source: identity.Bytes(),
 		},
@@ -42,17 +43,17 @@ func TestPreimages_add(t *testing.T) {
 	identity1 := id.NewIdFromString("identity1", id.User, t)
 	identity2 := id.NewIdFromString("identity3", id.User, t)
 	expected := Preimages{
-		identity0.String(): {identity0.Bytes(), "default", identity0.Bytes()},
-		identity1.String(): {identity1.Bytes(), "group", identity1.Bytes()},
-		identity2.String(): {identity2.Bytes(), "default", identity2.Bytes()},
+		identity0.String(): {identity0.Bytes(), preimage.Default,  preimage.MakeDefault(identity0)},
+		identity1.String(): {identity1.Bytes(), preimage.Group, identity1.Bytes()},
+		identity2.String(): {identity2.Bytes(), preimage.Default, identity2.Bytes()},
 	}
 
 	pis := newPreimages(identity0)
-	exists := pis.add(Preimage{identity1.Bytes(), "group", identity1.Bytes()})
+	exists := pis.add(Preimage{identity1.Bytes(), preimage.Group, identity1.Bytes()})
 	if !exists {
 		t.Errorf("Failed to add idenetity.")
 	}
-	exists = pis.add(Preimage{identity2.Bytes(), "default", identity2.Bytes()})
+	exists = pis.add(Preimage{identity2.Bytes(), preimage.Default, identity2.Bytes()})
 	if !exists {
 		t.Errorf("Failed to add idenetity.")
 	}
@@ -82,9 +83,9 @@ func TestPreimages_remove(t *testing.T) {
 	// Add 10 Preimage to the list
 	for i := 0; i < 10; i++ {
 		identity := id.NewIdFromUInt(uint64(i), id.User, t)
-		pisType := "default"
+		pisType := preimage.Default
 		if i%2 == 0 {
-			pisType = "group"
+			pisType = preimage.Group
 		}
 
 		exists := pis.add(Preimage{identity.Bytes(), pisType, identity.Bytes()})

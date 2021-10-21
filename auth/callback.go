@@ -13,8 +13,10 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/message"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/client/storage/auth"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/cyclic"
 	"gitlab.com/elixxir/crypto/diffieHellman"
@@ -312,6 +314,39 @@ func (m *Manager) doConfirm(sr *auth.SentRequest, grp *cyclic.Group,
 			"after confirmation: %+v",
 			sr.GetPartner(), err)
 	}
+
+
+	//remove the confirm fingerprint
+	fp:= sr.GetFingerprint()
+	if err := m.storage.GetEdge().Remove(edge.Preimage{
+		Data:   preimage.Generate(fp[:],preimage.Confirm),
+		Type:   preimage.Confirm,
+		Source: sr.GetPartner()[:],
+	}, m.storage.GetUser().ReceptionID); err!=nil{
+		jww.WARN.Printf("Failed delete the preimage for confirm from %s: %+v",
+			sr.GetPartner(), err)
+	}
+
+	//add the e2e and rekey firngeprints
+	//e2e
+	sessionPartner, err := m.storage.E2e().GetPartner(sr.GetPartner())
+	if err!=nil{
+		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", sr.GetPartner(), err)
+	}
+	me := m.storage.GetUser().ReceptionID
+
+	m.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetE2EPreimage(),
+		Type:   preimage.E2e,
+		Source: sr.GetPartner()[:],
+	}, me)
+
+	//rekey
+	m.storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetRekeyPreimage(),
+		Type:   preimage.Rekey,
+		Source: sr.GetPartner()[:],
+	}, me)
 
 	// delete the in progress negotiation
 	// this undoes the request lock

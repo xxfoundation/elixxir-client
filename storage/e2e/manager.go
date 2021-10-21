@@ -14,13 +14,13 @@ import (
 	"github.com/pkg/errors"
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/utility"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/crypto/cyclic"
 	dh "gitlab.com/elixxir/crypto/diffieHellman"
 	"gitlab.com/xx_network/primitives/id"
 	"golang.org/x/crypto/blake2b"
-	"sort"
 )
 
 const managerPrefix = "Manager{partner:%s}"
@@ -229,9 +229,14 @@ const relationshipFpLength = 15
 // relationship fingerprints truncated to 15 characters.
 func (m *Manager) GetRelationshipFingerprint() string {
 	// Sort fingerprints
-	fps := [][]byte{m.receive.fingerprint, m.send.fingerprint}
-	less := func(i, j int) bool { return bytes.Compare(fps[i], fps[j]) == -1 }
-	sort.Slice(fps, less)
+	var fps [][]byte
+
+
+	if bytes.Compare(m.receive.fingerprint, m.send.fingerprint)==1{
+		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
+	}else{
+		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
+	}
 
 	// Hash fingerprints
 	h, _ := blake2b.New256(nil)
@@ -240,5 +245,41 @@ func (m *Manager) GetRelationshipFingerprint() string {
 	}
 
 	// Base 64 encode hash and truncate
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))[:relationshipFpLength]
+	return base64.StdEncoding.EncodeToString(m.GetRelationshipFingerprintBytes())[:relationshipFpLength]
 }
+
+// GetRelationshipFingerprintBytes returns a unique fingerprint for an E2E
+// relationship. used for the e2e preimage.
+func (m *Manager) GetRelationshipFingerprintBytes() []byte {
+	// Sort fingerprints
+	var fps [][]byte
+
+
+	if bytes.Compare(m.receive.fingerprint, m.send.fingerprint)==1{
+		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
+	}else{
+		fps = [][]byte{m.receive.fingerprint,m.send.fingerprint}
+	}
+
+	// Hash fingerprints
+	h, _ := blake2b.New256(nil)
+	for _, fp := range fps {
+		h.Write(fp)
+	}
+
+	// Base 64 encode hash and truncate
+	return h.Sum(nil)
+}
+
+// GetE2EPreimage returns a hash of the unique
+// fingerprint for an E2E relationship message.
+func (m *Manager) GetE2EPreimage() []byte {
+	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.E2e)
+}
+
+// GetRekeyPreimage returns a hash of the unique
+// fingerprint for an E2E rekey message.
+func (m *Manager) GetRekeyPreimage() []byte {
+	return preimage.Generate(m.GetRelationshipFingerprintBytes(), preimage.Rekey)
+}
+

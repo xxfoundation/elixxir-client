@@ -16,6 +16,7 @@ package edge
 
 import (
 	"encoding/json"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage/versioned"
 	"gitlab.com/elixxir/ekv"
 	"gitlab.com/xx_network/primitives/id"
@@ -147,7 +148,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[0], 3, len(pis))
 	}
 
-	expected := Preimage{identities[0].Bytes(), "default", identities[0].Bytes()}
+	expected := Preimage{identities[0].Bytes(), preimage.Default, identities[0].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of first Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -172,7 +173,7 @@ func TestStore_Add(t *testing.T) {
 			"\nexpected: %d\nreceived: %d", identities[1], 2, len(pis))
 	}
 
-	expected = Preimage{identities[1].Bytes(), "default", identities[1].Bytes()}
+	expected = Preimage{identities[1].Bytes(), preimage.Default, identities[1].Bytes()}
 	if !reflect.DeepEqual(pis[expected.key()], expected) {
 		t.Errorf("First Preimage of second Preimages does not match expected."+
 			"\nexpected: %+v\nreceived: %+v", expected, pis[expected.key()])
@@ -347,7 +348,7 @@ func TestStore_Get(t *testing.T) {
 	}
 
 	expected := Preimages{
-		identities[0].String(): Preimage{identities[0].Bytes(), "default", identities[0].Bytes()},
+		identities[0].String(): Preimage{identities[0].Bytes(), preimage.Default, identities[0].Bytes()},
 		preimages[0].key():     preimages[0],
 		preimages[2].key():     preimages[2],
 	}
@@ -363,7 +364,7 @@ func TestStore_Get(t *testing.T) {
 	}
 
 	expected = Preimages{
-		identities[1].String(): Preimage{identities[1].Bytes(), "default", identities[1].Bytes()},
+		identities[1].String(): Preimage{identities[1].Bytes(), preimage.Default, identities[1].Bytes()},
 		preimages[1].key():     preimages[1],
 	}
 
@@ -453,12 +454,12 @@ func TestLoadStore(t *testing.T) {
 
 	expectedPis := []Preimages{
 		{
-			identities[0].String(): Preimage{identities[0].Bytes(), "default", identities[0].Bytes()},
+			identities[0].String(): Preimage{identities[0].Bytes(), preimage.Default, identities[0].Bytes()},
 			preimages[0].key():     preimages[0],
 			preimages[2].key():     preimages[2],
 		},
 		{
-			identities[1].String(): Preimage{identities[1].Bytes(), "default", identities[1].Bytes()},
+			identities[1].String(): Preimage{identities[1].Bytes(), preimage.Default, identities[1].Bytes()},
 			preimages[1].key():     preimages[1],
 		},
 	}

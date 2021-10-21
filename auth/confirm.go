@@ -13,7 +13,9 @@ import (
 	jww "github.com/spf13/jwalterweatherman"
 	"gitlab.com/elixxir/client/interfaces"
 	"gitlab.com/elixxir/client/interfaces/params"
+	"gitlab.com/elixxir/client/interfaces/preimage"
 	"gitlab.com/elixxir/client/storage"
+	"gitlab.com/elixxir/client/storage/edge"
 	"gitlab.com/elixxir/crypto/contact"
 	"gitlab.com/elixxir/crypto/diffieHellman"
 	cAuth "gitlab.com/elixxir/crypto/e2e/auth"
@@ -87,6 +89,7 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 
 	//get the fingerprint from the old ownership proof
 	fp := cAuth.MakeOwnershipProofFP(storedContact.OwnershipProof)
+	preimg := preimage.Generate(fp[:],preimage.Confirm)
 
 	//final construction
 	baseFmt.SetEcrPayload(ecrPayload)
@@ -114,6 +117,27 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 		events.Report(10, "Auth", "SendConfirmError", em)
 	}
 
+	//add the preimages
+	sessionPartner, err := storage.E2e().GetPartner(partner.ID)
+	if err!=nil{
+		jww.FATAL.Panicf("Cannot find %s right after creating: %+v", partner.ID, err)
+	}
+	me := storage.GetUser().ReceptionID
+
+	//e2e
+	storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetE2EPreimage(),
+		Type:   preimage.E2e,
+		Source: partner.ID[:],
+	}, me)
+
+	//rekey
+	storage.GetEdge().Add(edge.Preimage{
+		Data:   sessionPartner.GetRekeyPreimage(),
+		Type:   preimage.Rekey,
+		Source: partner.ID[:],
+	}, me)
+
 	// delete the in progress negotiation
 	// this unlocks the request lock
 	//fixme - do these deletes at a later date
@@ -126,8 +150,10 @@ func ConfirmRequestAuth(partner contact.Contact, rng io.Reader,
 	jww.INFO.Printf("Confirming Auth with %s, msgDigest: %s",
 		partner.ID, cmixMsg.Digest())
 
+	param := params.GetDefaultCMIX()
+	param.IdentityPreimage = preimg
 	/*send message*/
-	round, _, err := net.SendCMIX(cmixMsg, partner.ID, params.GetDefaultCMIX())
+	round, _, err := net.SendCMIX(cmixMsg, partner.ID, param)
 	if err != nil {
 		// if the send fails just set it to failed, it will but automatically
 		// retried

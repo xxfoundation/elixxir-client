@@ -142,9 +142,11 @@ func buildSlotMessage(msg format.Message, recipient *id.ID, target *id.ID,
 	msg.SetEphemeralRID(ephIdFilled[:])
 
 	// use the alternate identity preimage if it is set
-	preimage := preimage2.MakeDefault(senderId)
+	var preimage []byte
 	if param.IdentityPreimage != nil {
 		preimage = param.IdentityPreimage
+	}else{
+		preimage = preimage2.MakeDefault(recipient)
 	}
 
 	// Set the identity fingerprint

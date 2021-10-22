@@ -29,9 +29,10 @@ var protoCmd = &cobra.Command{
 	Args:  cobra.NoArgs,
 	Run: func(cmd *cobra.Command, args []string) {
 		// If output path is specified, only write to file
+		var client *api.Client
 		protoOutputPath := viper.GetString("protoUserOut")
 		if protoOutputPath != "" {
-			client := initClient()
+			client = initClient()
 
 			jsonBytes, err := client.ConstructProtoUerFile()
 			if err != nil {
@@ -42,10 +43,10 @@ var protoCmd = &cobra.Command{
 			if err != nil {
 				jww.FATAL.Panicf("Failed to write proto user to file: %v", err)
 			}
-			return
-		}
+		} else {
 
-		client := loadProtoClient()
+			client = loadProtoClient()
+		}
 
 		// Write user to contact file
 		user := client.GetUser()
@@ -319,66 +320,60 @@ func loadProtoClient() *api.Client {
 // init is the initialization function for Cobra which defines commands
 // and flags.
 func init() {
-	// NOTE: The point of init() is to be declarative.
-	// There is one init in each sub command. Do not put variable declarations
-	// here, and ensure all the Flags are of the *P variety, unless there's a
-	// very good reason not to have them as local params to sub command."
-	cobra.OnInitialize(initConfig)
-
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
 	// Proto user flags
-	protoCmd.PersistentFlags().String("protoUserPath", "protoUser.json",
+	protoCmd.Flags().String("protoUserPath", "protoUser.json",
 		"Path to proto user JSON file containing cryptographic primitives "+
 			"the client will load")
 	viper.BindPFlag("protoUserPath", protoCmd.Flags().Lookup("protoUserPath"))
-	protoCmd.PersistentFlags().String("protoUserOut", "protoUser.json",
+	protoCmd.Flags().String("protoUserOut", "protoUser.json",
 		"Path to which a normally constructed client "+
 			"will write proto user JSON file")
 	viper.BindPFlag("protoUserOut", protoCmd.Flags().Lookup("protoUserOut"))
 
-	protoCmd.PersistentFlags().UintP("logLevel", "v", 0,
+	protoCmd.Flags().UintP("logLevel", "v", 0,
 		"Verbose mode for debugging")
-	viper.BindPFlag("logLevel", protoCmd.PersistentFlags().Lookup("logLevel"))
+	viper.BindPFlag("logLevel", protoCmd.Flags().Lookup("logLevel"))
 
-	protoCmd.PersistentFlags().Bool("verboseRoundTracking", false,
+	protoCmd.Flags().Bool("verboseRoundTracking", false,
 		"Verbose round tracking, keeps track and prints all rounds the "+
 			"client was aware of while running. Defaults to false if not set.")
-	viper.BindPFlag("verboseRoundTracking", protoCmd.PersistentFlags().Lookup("verboseRoundTracking"))
+	viper.BindPFlag("verboseRoundTracking", protoCmd.Flags().Lookup("verboseRoundTracking"))
 
-	protoCmd.PersistentFlags().StringP("session", "s",
+	protoCmd.Flags().StringP("session", "s",
 		"", "Sets the initial storage directory for "+
 			"client session data")
-	viper.BindPFlag("session", protoCmd.PersistentFlags().Lookup("session"))
+	viper.BindPFlag("session", protoCmd.Flags().Lookup("session"))
 
-	protoCmd.PersistentFlags().StringP("writeContact", "w",
+	protoCmd.Flags().StringP("writeContact", "w",
 		"-", "Write contact information, if any, to this file, "+
 			" defaults to stdout")
-	viper.BindPFlag("writeContact", protoCmd.PersistentFlags().Lookup(
+	viper.BindPFlag("writeContact", protoCmd.Flags().Lookup(
 		"writeContact"))
 
-	protoCmd.PersistentFlags().StringP("password", "p", "",
+	protoCmd.Flags().StringP("password", "p", "",
 		"Password to the session file")
-	viper.BindPFlag("password", protoCmd.PersistentFlags().Lookup(
+	viper.BindPFlag("password", protoCmd.Flags().Lookup(
 		"password"))
 
-	protoCmd.PersistentFlags().StringP("ndf", "n", "ndf.json",
+	protoCmd.Flags().StringP("ndf", "n", "ndf.json",
 		"Path to the network definition JSON file")
-	viper.BindPFlag("ndf", protoCmd.PersistentFlags().Lookup("ndf"))
+	viper.BindPFlag("ndf", protoCmd.Flags().Lookup("ndf"))
 
-	protoCmd.PersistentFlags().StringP("log", "l", "-",
+	protoCmd.Flags().StringP("log", "l", "-",
 		"Path to the log output path (- is stdout)")
-	viper.BindPFlag("log", protoCmd.PersistentFlags().Lookup("log"))
+	viper.BindPFlag("log", protoCmd.Flags().Lookup("log"))
 
 	protoCmd.Flags().StringP("regcode", "", "",
 		"Identity code (optional)")
 	viper.BindPFlag("regcode", protoCmd.Flags().Lookup("regcode"))
 
-	protoCmd.PersistentFlags().StringP("message", "m", "",
+	protoCmd.Flags().StringP("message", "m", "",
 		"Message to send")
-	viper.BindPFlag("message", protoCmd.PersistentFlags().Lookup("message"))
+	viper.BindPFlag("message", protoCmd.Flags().Lookup("message"))
 
 	protoCmd.Flags().UintP("sendid", "", 0,
 		"Use precanned user id (must be between 1 and 40, inclusive)")

@@ -431,7 +431,7 @@ func initClient() *api.Client {
 
 	pass := viper.GetString("password")
 	storeDir := viper.GetString("session")
-
+	jww.DEBUG.Printf("sessionDur: %v", storeDir)
 	netParams := params.GetDefaultNetwork()
 	netParams.E2EParams.MinKeys = uint16(viper.GetUint("e2eMinKeys"))
 	netParams.E2EParams.MaxKeys = uint16(viper.GetUint("e2eMaxKeys"))

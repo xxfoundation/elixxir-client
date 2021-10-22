@@ -9,6 +9,7 @@ package bindings
 
 import (
 	"github.com/pkg/errors"
+	jww "github.com/spf13/jwalterweatherman"
 	gc "gitlab.com/elixxir/client/groupChat"
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/elixxir/crypto/group"
@@ -198,6 +199,10 @@ func (gsr *GroupSendReport) GetTimestampNano() int64 {
 // GetTimestampMS returns the timestamp of the send in milliseconds.
 func (gsr *GroupSendReport) GetTimestampMS() int64 {
 	ts := uint64(gsr.timestamp.UnixNano()) / uint64(time.Millisecond)
+
+	// TODO: remove the print below once debugging is done.
+	jww.DEBUG.Printf("Sent group message timestamp:    %s", gsr.timestamp)
+	jww.DEBUG.Printf("Sent group message timestamp MS: %d", ts)
 	return int64(ts)
 }
 
@@ -224,6 +229,19 @@ func (g *Group) GetID() []byte {
 // GetInitMessage returns initial message sent with the group request.
 func (g *Group) GetInitMessage() []byte {
 	return g.g.InitMessage
+}
+
+// GetCreatedNano returns the time the group was created in nanoseconds. This is
+// also the time the group requests were sent.
+func (g *Group) GetCreatedNano() int64 {
+	return g.g.Created.UnixNano()
+}
+
+// GetCreatedMS returns the time the group was created in milliseconds. This is
+// also the time the group requests were sent.
+func (g *Group) GetCreatedMS() int64 {
+	ts := uint64(g.g.Created.UnixNano()) / uint64(time.Millisecond)
+	return int64(ts)
 }
 
 // GetMembership returns a list of contacts, one for each member in the group.
@@ -329,6 +347,7 @@ func (gmr *GroupMessageReceive) GetTimestampNano() int64 {
 
 // GetTimestampMS returns the message timestamp in milliseconds.
 func (gmr *GroupMessageReceive) GetTimestampMS() int64 {
+
 	ts := uint64(gmr.Timestamp.UnixNano()) / uint64(time.Millisecond)
 	return int64(ts)
 }

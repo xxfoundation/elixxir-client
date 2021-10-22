@@ -190,7 +190,9 @@ func TestInternalMsg_String(t *testing.T) {
 	payload = append(payload, 0, 1, 2)
 	im.SetPayload(payload)
 
-	expected := `{timestamp:` + im.GetTimestamp().String() + `, senderID:dGVzdCBzZW5kZXIgSUQAAAAAAAAAAAAAAAAAAAAAAAAD, size:26, payload:"Sample payload message.\x00\x01\x02"}`
+	expected := "{timestamp:" + im.GetTimestamp().String() +
+		", senderID:dGVzdCBzZW5kZXIgSUQAAAAAAAAAAAAAAAAAAAAAAAAD, " +
+		"size:26, payload:\"Sample payload message.\\x00\\x01\\x02\"}"
 
 	if im.String() != expected {
 		t.Errorf("String() failed to return the expected value."+

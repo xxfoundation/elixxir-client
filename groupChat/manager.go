@@ -138,7 +138,7 @@ func (m Manager) JoinGroup(g gs.Group) error {
 		Source: g.ID[:],
 	}, m.store.GetUser().ReceptionID)
 
-	jww.DEBUG.Printf("Joined group %s.", g.ID)
+	jww.DEBUG.Printf("Joined group %q with ID %s.", g.Name, g.ID)
 
 	return nil
 }
@@ -156,7 +156,7 @@ func (m Manager) LeaveGroup(groupID *id.ID) error {
 		Source: groupID[:],
 	}, m.store.GetUser().ReceptionID)
 
-	jww.DEBUG.Printf("Left group %s.", groupID)
+	jww.DEBUG.Printf("Left group with ID %s.", groupID)
 
 	return err
 }

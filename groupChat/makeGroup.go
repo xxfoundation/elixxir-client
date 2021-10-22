@@ -17,6 +17,7 @@ import (
 	"gitlab.com/elixxir/crypto/fastRNG"
 	"gitlab.com/elixxir/crypto/group"
 	"gitlab.com/xx_network/primitives/id"
+	"gitlab.com/xx_network/primitives/netTime"
 	"strconv"
 )
 
@@ -76,15 +77,18 @@ func (m Manager) MakeGroup(membership []*id.ID, name, msg []byte) (gs.Group,
 	groupID := group.NewID(idPreimage, mem)
 	groupKey := group.NewKey(keyPreimage, mem)
 
+	// Generate group creation timestamp stripped of the monotonic clock
+	created := netTime.Now().Round(0)
+
 	// Create new group and add to manager
 	g := gs.NewGroup(
-		name, groupID, groupKey, idPreimage, keyPreimage, msg, mem, dkl)
-	if err := m.gs.Add(g); err != nil {
+		name, groupID, groupKey, idPreimage, keyPreimage, msg, created, mem, dkl)
+	if err = m.gs.Add(g); err != nil {
 		return gs.Group{}, nil, NotSent, errors.Errorf(addGroupErr, err)
 	}
 
-	jww.DEBUG.Printf("Created new group %q with ID %s and members %s",
-		g.Name, g.ID, g.Members)
+	jww.DEBUG.Printf("Created new group %q with ID %s and %d members %s",
+		g.Name, g.ID, len(g.Members), g.Members)
 
 	// Send all group requests
 	roundIDs, status, err := m.sendRequests(g)

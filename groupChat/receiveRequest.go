@@ -15,6 +15,7 @@ import (
 	"gitlab.com/elixxir/client/interfaces/message"
 	"gitlab.com/elixxir/client/stoppable"
 	"gitlab.com/elixxir/crypto/group"
+	"time"
 )
 
 // Error message.
@@ -37,7 +38,7 @@ func (m Manager) receiveRequest(rawMsgs chan message.Receive,
 			stop.ToStopped()
 			return
 		case sendMsg := <-rawMsgs:
-			jww.DEBUG.Print("Group message request received send message.")
+			jww.DEBUG.Print("Group message request received message.")
 
 			// Generate the group from the request message
 			g, err := m.readRequest(sendMsg)
@@ -50,6 +51,9 @@ func (m Manager) receiveRequest(rawMsgs chan message.Receive,
 			// Call request callback with the new group if it does not already
 			// exist
 			if _, exists := m.GetGroup(g.ID); !exists {
+				jww.DEBUG.Printf("Received group request from sender %s for "+
+					"group %s with ID %s.", sendMsg.Sender, g.Name, g.ID)
+
 				go m.requestFunc(g)
 			}
 		}
@@ -72,7 +76,7 @@ func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
 	}
 
 	// Deserialize membership list
-	membership, err := group.DeserializeMembership(request.Members)
+	membership, err := group.DeserializeMembership(request.GetMembers())
 	if err != nil {
 		return gs.Group{}, errors.Errorf(deserializeMembershipErr, err)
 	}
@@ -98,15 +102,18 @@ func (m *Manager) readRequest(msg message.Receive) (gs.Group, error) {
 
 	// Copy preimages
 	var idPreimage group.IdPreimage
-	copy(idPreimage[:], request.IdPreimage)
+	copy(idPreimage[:], request.GetIdPreimage())
 	var keyPreimage group.KeyPreimage
-	copy(keyPreimage[:], request.KeyPreimage)
+	copy(keyPreimage[:], request.GetKeyPreimage())
 
 	// Create group ID and key
 	groupID := group.NewID(idPreimage, membership)
 	groupKey := group.NewKey(keyPreimage, membership)
 
+	// Convert created timestamp from nanoseconds to time.Time
+	created := time.Unix(0, request.GetCreated())
+
 	// Return the new group
-	return gs.NewGroup(request.Name, groupID, groupKey, idPreimage, keyPreimage,
-		request.Message, membership, dkl), nil
+	return gs.NewGroup(request.GetName(), groupID, groupKey, idPreimage,
+		keyPreimage, request.GetMessage(), created, membership, dkl), nil
 }

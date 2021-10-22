@@ -127,7 +127,10 @@ func Test_newManager_LoadError(t *testing.T) {
 	}
 }
 
-//
+// FIXME: the test storage.Session used for each manager currently uses the same
+//  user. To fix this test, they need to use different users, which requires
+//  modifying
+// storage.InitTestingSession.
 // func TestManager_StartProcesses(t *testing.T) {
 // 	jww.SetLogThreshold(jww.LevelTrace)
 // 	jww.SetStdoutThreshold(jww.LevelTrace)

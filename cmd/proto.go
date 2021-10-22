@@ -473,4 +473,6 @@ func init() {
 	protoCmd.Flags().String("profile-cpu", "",
 		"Enable cpu profiling to this file")
 	viper.BindPFlag("profile-cpu", protoCmd.Flags().Lookup("profile-cpu"))
+
+	rootCmd.AddCommand(protoCmd)
 }

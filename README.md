@@ -150,6 +150,7 @@ Available Commands:
   group       Group commands for cMix client
   help        Help about any command
   init        Initialize a user ID but do not connect to the network
+  proto       Load client with a proto client JSON file.
   single      Send and respond to single-use messages.
   ud          Register for and search users using the xx network user discovery service.
   version     Print the version and dependency information for the Elixxir binary

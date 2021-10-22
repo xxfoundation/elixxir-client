@@ -15,10 +15,6 @@ func MakeRequest(uid *id.ID) []byte {
 }
 
 func MakeDefault(uid *id.ID) []byte {
-	h, _ := blake2b.New256(nil)
-	h.Write(uid[:])
-	h.Write([]byte(Default))
-
 	// Base 64 encode hash and truncate
-	return h.Sum(nil)
+	return uid[:]
 }

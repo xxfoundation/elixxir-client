@@ -194,7 +194,7 @@ var rootCmd = &cobra.Command{
 		go func() {
 			//sendDelay := time.Duration(viper.GetUint("sendDelay"))
 			for i := 0; i < sendCnt; i++ {
-				go func() {
+				go func(i int) {
 					defer wg.Done()
 					fmt.Printf("Sending to %s: %s\n", recipientID, msgBody)
 					var roundIDs []id.Round
@@ -225,9 +225,9 @@ var rootCmd = &cobra.Command{
 					}
 
 					if err != nil {
-						jww.FATAL.Panicf("%+v", err)
+						jww.FATAL.Panicf("Message sending for send %d failed: %+v", i, err)
 					}
-				}()
+				}(i)
 			}
 		}()
 
@@ -236,14 +236,15 @@ var rootCmd = &cobra.Command{
 		expectedCnt := viper.GetUint("receiveCount")
 		receiveCnt := uint(0)
 		waitSecs := viper.GetUint("waitTimeout")
-		waitTimeout := time.Duration(waitSecs)
+		waitTimeout := time.Duration(waitSecs) * time.Second
 		done := false
 
 		for !done && expectedCnt != 0 {
-			timeoutTimer := time.NewTimer(waitTimeout * time.Second)
+			timeoutTimer := time.NewTimer(waitTimeout)
 			select {
 			case <-timeoutTimer.C:
 				fmt.Println("Timed out!")
+				jww.ERROR.Printf("Timed out on message reception after %s!", waitTimeout)
 				done = true
 				break
 			case m := <-recvCh:
@@ -253,10 +254,28 @@ var rootCmd = &cobra.Command{
 				receiveCnt++
 				if receiveCnt == expectedCnt {
 					done = true
+					break
 				}
-				break
 			}
 		}
+
+		//wait an extra 5 seconds to make sure no messages were missed
+		done = false
+		timer := time.NewTimer(5 * time.Second)
+		for !done {
+			select {
+			case <-timer.C:
+				done = true
+				break
+			case m := <-recvCh:
+				fmt.Printf("Message received: %s\n", string(
+					m.Payload))
+				//fmt.Printf("%s", m.Timestamp)
+				receiveCnt++
+			}
+		}
+
+		jww.INFO.Printf("Received %d/%d Messages!", receiveCnt, expectedCnt)
 		fmt.Printf("Received %d\n", receiveCnt)
 		if roundsNotepad != nil {
 			roundsNotepad.INFO.Printf("\n%s", client.GetNetworkInterface().GetVerboseRounds())

@@ -22,6 +22,7 @@ package groupChat
 import (
 	gs "gitlab.com/elixxir/client/groupChat/groupStore"
 	"gitlab.com/xx_network/primitives/id"
+	"time"
 )
 
 // GroupChat is used to send and receive cMix messages to/from multiple users.
@@ -49,8 +50,9 @@ type GroupChat interface {
 	LeaveGroup(groupID *id.ID) error
 
 	// Send sends a message to all GroupChat members using Client.SendManyCMIX.
-	// The send fails if the message is too long.
-	Send(groupID *id.ID, message []byte) (id.Round, error)
+	// The send fails if the message is too long. Returns the ID of the round
+	// sent on and the timestamp of the message send.
+	Send(groupID *id.ID, message []byte) (id.Round, time.Time, error)
 
 	// GetGroups returns a list of all registered GroupChat IDs.
 	GetGroups() []*id.ID

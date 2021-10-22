@@ -94,7 +94,7 @@ func (im internalMsg) SetTimestamp(t time.Time) {
 	binary.LittleEndian.PutUint64(im.timestamp, uint64(t.UnixNano()))
 }
 
-// GetSenderID returns the sender ID bytes as a id.ID.
+// GetSenderID returns the sender ID bytes as an id.ID.
 func (im internalMsg) GetSenderID() (*id.ID, error) {
 	return id.Unmarshal(im.senderID)
 }

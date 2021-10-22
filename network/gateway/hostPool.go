@@ -581,24 +581,27 @@ func (h *HostPool) updateConns() error {
 	// Filter out gateway IDs
 	newMap = h.getFilter()(newMap, h.ndf)
 
+	// Keep track of the old NDF set
+	oldMap := h.ndfMap
+	// Update the internal NDF set
+	h.ndfMap = newMap
+
 	// Handle adding Gateways
 	for gwId, ndfIdx := range newMap {
-		if _, ok := h.ndfMap[gwId]; !ok {
+		if _, ok := oldMap[gwId]; !ok {
 			// If GwId in newMap is not in ndfMap, add the Gateway
 			h.addGateway(gwId.DeepCopy(), ndfIdx)
 		}
 	}
 
 	// Handle removing Gateways
-	for gwId := range h.ndfMap {
+	for gwId := range oldMap {
 		if _, ok := newMap[gwId]; !ok {
 			// If GwId in ndfMap is not in newMap, remove the Gateway
 			h.removeGateway(gwId.DeepCopy())
 		}
 	}
 
-	// Update the internal NDF set
-	h.ndfMap = newMap
 	return nil
 }
 

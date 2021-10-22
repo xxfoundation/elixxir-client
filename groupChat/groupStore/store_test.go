@@ -58,7 +58,7 @@ func TestNewStore(t *testing.T) {
 		groupIds = append(groupIds, grpId)
 	}
 
-	// Check that stored group Id list is expected value
+	// Check that stored group ID list is expected value
 	expectedData := serializeGroupIdList(store.list)
 
 	obj, err := store.kv.Get(groupListStorageKey, groupListVersion)
@@ -211,7 +211,7 @@ func Test_serializeGroupIdList_deserializeGroupIdList(t *testing.T) {
 	data := serializeGroupIdList(testMap)
 	newList := deserializeGroupIdList(data)
 
-	// Sort expected and received lists so they are in the same order
+	// Sort expected and received lists so that they are in the same order
 	sort.Slice(expected, func(i, j int) bool {
 		return bytes.Compare(expected[i].Bytes(), expected[j].Bytes()) == -1
 	})
@@ -405,7 +405,7 @@ func TestStore_GroupIDs(t *testing.T) {
 
 	newList := store.GroupIDs()
 
-	// Sort expected and received lists so they are in the same order
+	// Sort expected and received lists so that they are in the same order
 	sort.Slice(expected, func(i, j int) bool {
 		return bytes.Compare(expected[i].Bytes(), expected[j].Bytes()) == -1
 	})

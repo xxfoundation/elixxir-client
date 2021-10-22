@@ -25,15 +25,17 @@ const (
 	dhKeyDecodeErr = "failed to decode member DH key: %+v"
 )
 
+// DhKeyList is a map of users to their DH key.
 type DhKeyList map[id.ID]*cyclic.Int
 
-// GenerateDhKeyList generates the symmetric/DH key between the user and all
-// group members.
+// GenerateDhKeyList generates the DH key between the user and all group
+// members.
 func GenerateDhKeyList(userID *id.ID, privKey *cyclic.Int,
 	members group.Membership, grp *cyclic.Group) DhKeyList {
 	dkl := make(DhKeyList, len(members)-1)
 
 	for _, m := range members {
+		// Skip the group.member for the current user
 		if !userID.Cmp(m.ID) {
 			dkl.Add(privKey, m, grp)
 		}
@@ -86,7 +88,8 @@ func DeserializeDhKeyList(data []byte) (DhKeyList, error) {
 	buff := bytes.NewBuffer(data)
 	dkl := make(DhKeyList)
 
-	for n := buff.Next(id.ArrIDLen); len(n) == id.ArrIDLen; n = buff.Next(id.ArrIDLen) {
+	const idLen = id.ArrIDLen
+	for n := buff.Next(idLen); len(n) == idLen; n = buff.Next(idLen) {
 		// Read and unmarshal ID
 		uid, err := id.Unmarshal(n)
 		if err != nil {

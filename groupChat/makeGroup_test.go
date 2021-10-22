@@ -77,7 +77,8 @@ func TestManager_MakeGroup(t *testing.T) {
 func TestManager_MakeGroup_MaxMessageSizeError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	expectedErr := fmt.Sprintf(maxInitMsgSizeErr, MaxInitMessageSize+1, MaxInitMessageSize)
+	expectedErr := fmt.Sprintf(
+		maxInitMsgSizeErr, MaxInitMessageSize+1, MaxInitMessageSize)
 
 	_, _, status, err := m.MakeGroup(nil, nil, make([]byte, MaxInitMessageSize+1))
 	if err == nil || err.Error() != expectedErr {
@@ -96,7 +97,8 @@ func TestManager_MakeGroup_MaxMessageSizeError(t *testing.T) {
 func TestManager_MakeGroup_MembershipSizeError(t *testing.T) {
 	prng := rand.New(rand.NewSource(42))
 	m, _ := newTestManagerWithStore(prng, 10, 0, nil, nil, t)
-	expectedErr := fmt.Sprintf(maxMembersErr, group.MaxParticipants+1, group.MaxParticipants)
+	expectedErr := fmt.Sprintf(
+		maxMembersErr, group.MaxParticipants+1, group.MaxParticipants)
 
 	_, _, status, err := m.MakeGroup(make([]*id.ID, group.MaxParticipants+1),
 		nil, []byte{})
@@ -153,7 +155,8 @@ func TestManager_buildMembership(t *testing.T) {
 func TestManager_buildMembership_MinParticipantsError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	memberIDs := make([]*id.ID, group.MinParticipants-1)
-	expectedErr := fmt.Sprintf(minMembersErr, len(memberIDs), group.MinParticipants)
+	expectedErr := fmt.Sprintf(
+		minMembersErr, len(memberIDs), group.MinParticipants)
 
 	_, _, err := m.buildMembership(memberIDs)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
@@ -167,7 +170,8 @@ func TestManager_buildMembership_MinParticipantsError(t *testing.T) {
 func TestManager_buildMembership_MaxParticipantsError(t *testing.T) {
 	m, _ := newTestManager(rand.New(rand.NewSource(42)), t)
 	memberIDs := make([]*id.ID, group.MaxParticipants+1)
-	expectedErr := fmt.Sprintf(maxMembersErr, len(memberIDs), group.MaxParticipants)
+	expectedErr := fmt.Sprintf(
+		maxMembersErr, len(memberIDs), group.MaxParticipants)
 
 	_, _, err := m.buildMembership(memberIDs)
 	if err == nil || !strings.Contains(err.Error(), expectedErr) {
@@ -275,7 +279,8 @@ func TestRequestStatus_Message(t *testing.T) {
 
 // addPartners returns a list of user IDs and their matching membership and adds
 // them as partners.
-func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership, gs.DhKeyList) {
+func addPartners(m *Manager, t *testing.T) ([]*id.ID, group.Membership,
+	gs.DhKeyList) {
 	memberIDs := make([]*id.ID, 10)
 	members := group.Membership{m.gs.GetUser()}
 	dkl := gs.DhKeyList{}
